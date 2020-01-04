@@ -1,6 +1,9 @@
 import logging
 import json
 
+from django.conf import settings
+settings.MAPPING_FEATURES_V2 = True
+
 from django.contrib.gis.geos import Point
 from faker import Faker
 
@@ -10,25 +13,27 @@ import mapping.views as views
 
 logger = logging.getLogger(__name__)
 
-
+# @patch("django.conf.settings.MAPPING_FEATURES_V2", True)
+# @patch("das_server.settings.MAPPING_FEATURES_V2", True)
+# @override_settings(MAPPING_FEATURES_V2=True)
 class TestFeatures(BaseAPITest):
     fake = Faker()
     expected_features_fields = ('name', 'type', 'description', 'geojson_url')
-    expected_fields = ('name', 'type', 'description', 'pk', 'created_at', 'updated_at', 'fields', 'external_id', 'featureset',
-                       'title')
+    expected_featureset_fields = ('name', 'types', 'id', 'description', 'geojson_url')
+    expected_fields = ('feature_type', 'description', 'pk', 'created_at', 'updated_at', 'external_id', 'title')
 
     def setUp(self):
         super().setUp()
         point = Point(-122.3286437817934, 47.58949410579475)
-        category = DisplayCategory.objects.create(name=self.fake.name())
+        self.category = DisplayCategory.objects.create(name=self.fake.name())
         self.feature_class = SpatialFeatureType.objects.create(name=self.fake.name(),
-                                                               display_category=category)
+                                                               display_category=self.category)
         self.feature = SpatialFeature.objects.create(name=self.fake.name(),
                                                      feature_type=self.feature_class, feature_geometry=point)
-        self.feature_noname = SpatialFeature.objects.create(feature_type=self.feature_class,
-                                                            feature_geometry=point)
 
     def test_get_features(self):
+        flag = settings.MAPPING_FEATURES_V2
+        print(f'flag: {flag}')
         request = self.factory.get(self.api_base + '/features/')
         self.force_authenticate(request, self.app_user)
         response = views.FeatureListJsonView.as_view()(request)
@@ -62,14 +67,13 @@ class TestFeatures(BaseAPITest):
         data = json.loads(response.content)
         self.assertGreater(len(data['features']), 0)
         feature = data['features'][0]
-        for field in self.expected_features_fields:
+        for field in self.expected_featureset_fields:
             self.assertIn(field, feature)
 
     def test_get_featureset_single(self):
         request = self.factory.get(self.api_base + '/featureset/')
         self.force_authenticate(request, self.app_user)
-        response = views.FeatureGeoJsonView.as_view()(request,
-                                                      id=str(self.feature_class))
+        response = views.FeatureSetGeoJsonView.as_view()(request, id=str(self.category.id))
         self.assertContains(response, 'features')
 
         data = json.loads(response.content)

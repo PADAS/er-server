@@ -53,7 +53,7 @@ class TestSpatialFile(TestCase):
         self.assertEqual(dummy_feature_set, point_feature.featureset)
         logger.info('Shape-file test complete.')
 
-    def test_shapefile_name_field_mismatch(self):
+    def test_shapefile_name_field_empty(self):
         logger.info('Shape-file name-field test started.')
         dummy_feature_type = FeatureType.objects.create(name='Cartography')
         dummy_feature_set = FeatureSet.objects.create(name='Boundaries')
@@ -65,7 +65,6 @@ class TestSpatialFile(TestCase):
                     'Grbnd_New.zip', shapefile.read()),
                 feature_type=dummy_feature_type, feature_set=dummy_feature_set
             )
-            with self.assertRaises(ValidationError):
-                spatial_file.clean()
-                spatial_file.save()
+            spatial_file.clean()
+            spatial_file.save()
         logger.info('Shape-file name-field  test complete.')

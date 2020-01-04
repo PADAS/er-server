@@ -1,0 +1,4 @@
+[ci skip] robo-bump manifest
+
+
+skip-checks: true

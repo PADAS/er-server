@@ -209,4 +209,18 @@ Pipfile.lock
 das/das_server/.env
 
 *tar.gz*
-GDAL* 
+GDAL*
+
+# Rendered terraform templates
+templated-deployment/rendered
+
+# Empty tfvars overrides file
+templated-deployment/tfvars-overrides/no_overrides.tfvars
+
+# Ephemeral, expiring vault tokens
+**.vault-token
+/.python-version
+
+# Abandoned workspaces artifacts
+infra-automation/.vulcan/branches
+infra-automation/.vulcan/workspaces

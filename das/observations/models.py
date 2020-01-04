@@ -134,7 +134,8 @@ class SourceManager(models.Manager):
     def ensure_source(self, *args, **kwargs):
 
         additional = kwargs.get('additional', {})
-        subject = kwargs.get('subject')
+        subject_info = kwargs.get('subject')
+
         with transaction.atomic():
 
             provider, created = SourceProvider.objects.get_or_create(
@@ -152,15 +153,36 @@ class SourceManager(models.Manager):
                 defaults=defaults, **searchkey)
 
             if source_created:
+
+                # Getting here means we've created a source.
+                # We should create a Subject for it too.
                 source.groups.set((SourceGroup.objects.get_default(),))
 
-            # If we've created a new Source, also create a subject with default
-            # values.
-            if source_created:
-                if not subject:
-                    subject = {'name': source.manufacturer_id}
-                subject = Subject.objects.create_subject(**subject)
-                SubjectSource.objects.create(source=source, subject=subject)
+                if subject_info:
+                    # Create a subject-subtype on demand if necessary.
+                    subject_subtype_id = subject_info.get('subject_subtype_id')
+                    if isinstance(subject_subtype_id, str):
+                        default_display = subject_subtype_id[:100].title()
+                        SubjectSubType.objects.get_or_create(value=subject_subtype_id,
+                                                             defaults={'display': default_display})
+
+                    if subject_info.get('id'):
+                        try:
+                            subject_model = Subject.objects.get(
+                                id=subject_info.get('id'))
+                        except Subject.DoesNotExist:
+                            subject_model = Subject.objects.create_subject(
+                                **subject_info)
+                    else:
+                        subject_model = Subject.objects.create_subject(
+                            **subject_info)
+                else:
+                    subject_model = Subject.objects.create_subject(
+                        **{'name': source.manufacturer_id})
+
+                if not SubjectSource.objects.filter(source=source, subject=subject_model):
+                    SubjectSource.objects.create(
+                        source=source, subject=subject_model)
 
             return source
 
@@ -491,6 +513,12 @@ class SubjectSource(models.Model):
     def safe_assigned_range(self, value):
         raise NotImplementedError(
             'Please use .assigned_range directly to set its value.')
+
+
+class SubjectSourceSummary(SubjectSource):
+    class Meta:
+        proxy = True
+        verbose_name = 'Subject Configuration'
 
 
 class SubjectTypeManager(models.Manager):
@@ -1394,3 +1422,8 @@ class SocketClient(TimestampedModel):
 
 
 import observations.signals
+from analyzers.models import ObservationAnnotator
+
+class SubjectMaximumSpeed(ObservationAnnotator):
+    class Meta:
+        proxy = True

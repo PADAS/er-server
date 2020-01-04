@@ -63,6 +63,7 @@ INSTALLED_APPS = (
     'usercontent',
     'django.contrib.postgres',
     'django.contrib.humanize',
+    'django_extensions',
 
 )
 
@@ -179,7 +180,8 @@ REST_FRAMEWORK = {
 
     # Django REST Framework 3.10 defaults to OpenAPI Schema Generation, but we still have minor dependencies on
     # CoreAPI. We set this value to pin ourselves to CoreAPI temporarily until we make updates for OpenAPI.
-    # For more info, see: https://www.django-rest-framework.org/community/3.10-announcement/#continuing-to-use-coreapi
+    # For more info, see:
+    # https://www.django-rest-framework.org/community/3.10-announcement/#continuing-to-use-coreapi
     'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema'
 }
 
@@ -212,6 +214,9 @@ DATABASE_ROUTERS = [
     'vectronics.db_routing.routers.PositionRouter',
     'vectronics.db_routing.routers.MigrationRouter'
 ]
+
+# To enable or disable subject regions view on admin dashboard
+SUBJECT_REGION_ENABLED = False
 
 # Do not use Django logging config
 LOGGING_CONFIG = None
@@ -347,6 +352,9 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {
     'visibility_timeout': 3600,
     'fanout_prefix': True
 }
+
+# task:
+CELERY_TASK_TRACK_STARTED = True
 
 # the address to send notification emails from
 FROM_EMAIL = 'notifications@pamdas.org'
@@ -509,7 +517,8 @@ def whitenoise_headers_func(headers, path, url):
 WHITENOISE_ADD_HEADERS_FUNCTION = whitenoise_headers_func
 
 DAILY_REPORT_ENABLED = False
-ALERTS_ENABLED = False
+ALERTS_ENABLED = True
+MAPPING_FEATURES_V2 = False
 
 GFW_API_ROOT = 'https://production-api.globalforestwatch.org/v1'
 GFW_CREDENTIALS = {

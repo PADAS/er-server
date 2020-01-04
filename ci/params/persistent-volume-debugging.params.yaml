@@ -1,0 +1,13 @@
+project-id: padas-app
+version-prefix: dev
+cluster-name: integration
+deployment-plan: integration
+server-branch-name: persistant_volume_debugging
+web-branch-name: develop
+namespace: persistent-volume-debugging
+web-react-admin-branch-name: master
+tag-as-latest: true
+#das-static-ip: 34.83.76.186
+deploy-params-environment: persistent-volume-debugging
+deploy-recipe: standard-integration.yaml
+iaas-workspace: "padas-app"

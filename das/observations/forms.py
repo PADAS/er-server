@@ -10,6 +10,7 @@ from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
 from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
 from choices.models import Choice
+from core.common import TIMEZONE_USED
 
 import logging
 logger = logging.getLogger(__name__)
@@ -52,7 +53,7 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
         fields = ('id', 'subject', 'source', 'assigned_range',
                   'additional') + json_fields
 
-    assigned_range = AssignedDateTimeRangeField()
+    assigned_range = AssignedDateTimeRangeField(label=f'Assigned Range in {TIMEZONE_USED}')
 
     # For JSONFieldFormMixin -- this identifies the Model attribute that is
     # the JSON Field.
@@ -247,6 +248,9 @@ lag_notification_threshold_help_text =  \
 silence_notification_threshold_help_text =  \
     _('Threshold in hours:minutes:seconds that indicates an abnormal period without new data for this Source Provider.')
 
+days_data_retain_help_text =  \
+    _('Observations records outside the configured number of days will be removed permanently and cannot be retrieved.')
+
 
 class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
 
@@ -256,11 +260,17 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
     silence_notification_threshold = forms.CharField(max_length=8, required=False, empty_value=None,
                                                      help_text=silence_notification_threshold_help_text)
 
+    days_data_retain = forms.IntegerField(required=False, min_value=1, max_value=365,
+                                          help_text=days_data_retain_help_text)
+
     class Meta:
         model = SourceProvider
         fields = ['provider_key', 'display_name', 'additional']
-        json_fields = ('lag_notification_threshold',
-                       'silence_notification_threshold',)
+        json_fields = (
+            'lag_notification_threshold',
+            'silence_notification_threshold',
+            'days_data_retain',
+        )
         json_date_fields = set()
 
     # def clean_lag_notification_threshold(self):

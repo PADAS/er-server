@@ -1,45 +1,45 @@
+import copy
+import json
+import logging
+import mimetypes
 import platform
 from collections import OrderedDict
 from datetime import timedelta, datetime
-import copy
-import mimetypes
-import logging
-import json
-from django.conf import settings
-
-from django.db.models import Prefetch
-import re
-
-from django.db.models import CharField, Value
-from django.db.models.functions import Concat, Cast
 
 import dateutil.parser as dateparser
 import pytz
-from rest_framework import generics, status, response
-from django.http.response import HttpResponse
-from django.db.models import Prefetch, Q, F, Func, Count
-from django.db.models.functions import FirstValue
-from django.contrib.postgres.aggregates import StringAgg, ArrayAgg
-from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
-
-from django.urls import reverse
-from django.template import Template, Context
-from django.utils import timezone
-from rest_framework.response import Response
 import rest_framework.exceptions
-from rest_framework_extensions.etag.decorators import etag
 import versatileimagefield.files
-from rest_framework.permissions import IsAuthenticated
-from rest_framework import serializers, views, permissions
+from django.conf import settings
+from django.contrib.postgres.aggregates import StringAgg, ArrayAgg
+from django.db import transaction
+from django.db.models import CharField, Value
+from django.db.models import Prefetch, F, Count
+from django.db.models.functions import Concat, Cast
+from django.http.response import HttpResponse
+from django.template import Template, Context
+from django.urls import reverse
+from django.utils import timezone
 from django.views.generic.base import TemplateResponseMixin, ContextMixin
+from rest_framework import generics, status, response
+from rest_framework import views
+from rest_framework.exceptions import APIException
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework_extensions.etag.decorators import etag
 
+import accounts.models
+import accounts.serializers
+import utils
+import utils.schema_utils as schema_utils
 from accounts.models import User
-
+from activity.filters import EventObjectPermissionsFilter
 from activity.models import Event, EventNote, EventClass, \
     EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, \
     EventFile, Community, \
     EventFilter, EventSource, EventProvider
-
+from activity.permissions import EventCategoryPermissions, \
+    EventNotesCategoryPermissions, IsOwner
 from activity.serializers import EventSerializer, EventNoteSerializer, \
     EventJSONSchema, EventStateSerializer, \
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer, \
@@ -47,22 +47,11 @@ from activity.serializers import EventSerializer, EventNoteSerializer, \
     EventFileSerializer, \
     EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, \
     EventGeoJsonSerializer
-
-from activity.filters import EventObjectPermissionsFilter
-
-from activity.permissions import EventCategoryPermissions, \
-    EventNotesCategoryPermissions, IsOwnerOrReadOnly, IsOwner
+from choices.models import Choice
+from observations.models import Subject
 from utils.drf import StandardResultsSetPagination, \
     StandardResultsSetGeoJsonPagination
 from utils.json import parse_bool, loads, ExtendedGEOJSONRenderer
-import utils
-import accounts.serializers
-import accounts.models
-from observations.models import Subject
-from observations.views import UnauthorizedView
-from rest_framework import views
-from django.views.generic.base import TemplateResponseMixin, ContextMixin
-import utils.schema_utils as schema_utils
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +84,7 @@ class EventTypesView(generics.ListAPIView):
     def get_queryset(self):
         query_params = self.request.query_params
         queryset = EventType.objects.all_sort()
+        queryset = queryset.filter(category__is_active=True)
 
         category = query_params.getlist('category', None)
         if category:
@@ -111,6 +101,7 @@ class EventCategoriesView(generics.ListAPIView):
 
     def get_queryset(self):
         queryset = EventCategory.objects.all_sort()
+        queryset = queryset.filter(is_active=True)
         return queryset
 
 
@@ -191,8 +182,12 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
             eventtype.schema)
 
         parameters = {}
+        enumImages_vals = {}
         for schema_field in schema_fields:
             if schema_field['lookup'] == 'enum':
+                icon_vals = schema_utils.get_enumImage_values(schema_field)
+                if icon_vals:
+                    enumImages_vals[schema_field['field']] = icon_vals
                 parameters[schema_field['tag']
                            ] = schema_utils.get_enum_choices(schema_field)
             elif schema_field['lookup'] == 'query':
@@ -218,6 +213,22 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
         schema['schema']['icon_id'] = eventtype.icon_id
         schema['schema']['image_url'] = utils.add_base_url(
             request, eventtype.image_url)
+
+        field_schema = schema_utils.map_schema(eventtype.schema, schema)
+        for key, value in field_schema.items():
+            inactive_choices = []
+            obj = Choice.objects.filter(
+                is_active=False, field=value['field_name'])
+            for o in obj:
+                inactive_choices.append(o.value)
+            if inactive_choices:
+                schema['schema']['properties'][key]["inactive" +
+                                                    "_" + value['lookup']] = inactive_choices
+
+        for key, value in field_schema.items():
+            for o, vals in enumImages_vals.items():
+                if value['field_name'] == o:
+                    schema['schema']['properties'][key]['enumImages'] = vals
 
         return generics.views.Response(schema)
 
@@ -285,7 +296,7 @@ class EventCountView(generics.ListAPIView):
         if len(allowed_event_categories) > 0:
             queryset = queryset.by_category(allowed_event_categories)
         else:
-            raise rest_framework.exceptions.PermissionDenied
+            queryset = queryset.none()
 
         data = {'count': queryset.count()}
         return generics.views.Response(data)
@@ -449,8 +460,10 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             }
 
             # Use cached reported_by map
-            reported_by_values = reported_by_map.get(str(event['reported_by_id']))
-            event_data['reported_by'] = reported_by_values.get('display', '') if reported_by_values else ''
+            reported_by_values = reported_by_map.get(
+                str(event['reported_by_id']))
+            event_data['reported_by'] = reported_by_values.get(
+                'display', '') if reported_by_values else ''
 
             current_event_type_data['events'].append(event_data)
 
@@ -550,8 +563,26 @@ class EventsView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
     metadata_class = EventJSONSchema
 
-    def get_serializer_context(self):
+    def post(self, request, *args, **kwargs):
+        new_record = request.data
+        if isinstance(new_record, dict):
+            new_record = [new_record]
+        with transaction.atomic():
+            errors = []
+            serializer = self.get_serializer(data=new_record, many=True)
+            if serializer.is_valid():
+                serializer.save()
+                data = serializer.data
+                data = data if len(new_record) > 1 else data[0]
+                return Response(data, status=status.HTTP_201_CREATED)
+            else:
+                errors.append(serializer.errors)
+                for error in errors:
+                    logger.exception(
+                        'Invalid Event type(s) provided {}'.format(error))
+                    return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def get_serializer_context(self):
         query_params = self.request.query_params \
             if self.request and hasattr(self.request, 'query_params') else {}
 
@@ -653,7 +684,7 @@ class EventsView(generics.ListCreateAPIView):
         if len(allowed_event_categories) > 0:
             queryset = queryset.by_category(allowed_event_categories)
         else:
-            raise UnauthorizedView
+            return queryset.none()
 
         queryset = queryset.prefetch_related(Prefetch('related_subjects'))
         queryset = queryset.prefetch_related(Prefetch('event_type'))

@@ -1,4 +1,5 @@
 import datetime
+import random
 
 import pytz
 from django.test import TestCase
@@ -10,10 +11,14 @@ from django.utils import timezone
 
 from core.tests import BaseAPITest
 from accounts.models import User, PermissionSet
-from observations.models import Subject, SubjectGroup, Source, SubjectSource, Observation
+from observations.models import Subject, SubjectGroup, Source, SubjectSource, Observation, SourceGroup
 import observations.views as views
 
 API_BASE = '/api/v1.0'
+
+
+def random_string(length=10):
+    return ''.join(random.choice('abcdefghijklmnopqrstuvwxyz01234567890$@') for _ in range(length))
 
 
 class BasePermissionTest(BaseAPITest):
@@ -103,6 +108,7 @@ class BasePermissionTest(BaseAPITest):
             datetime.datetime(2015, 11, 1, tzinfo=pytz.utc),
             datetime.datetime(3030, 1, 1, tzinfo=pytz.utc)
         )
+
         source = Source.objects.create(additional={})
         subject_source = SubjectSource.objects.create(assigned_range=DEFAULT_DATE_RANGE,
                                                       source=source,
@@ -215,6 +221,79 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(
             [s for s in response.data if s['id'] == str(self.ranger.id)])
+
+    def authenticate_user_and_get_subjects(self, url):
+        request = self.factory.get(API_BASE + url)
+        self.force_authenticate(request, self.superuser)
+        return views.SubjectsView.as_view()(request)
+
+    def test_subjects_api_call_only_returns_active_subjects(self):
+        response = self.authenticate_user_and_get_subjects('/subjects/')
+        self.assertEqual(response.status_code, 200)
+
+        # Returns all 2 subjects: Both are active
+        self.assertEqual(len(response.data), 2)
+
+        # Update one subject, set to inactive
+        self.ele.is_active = False
+        self.ele.save()
+        response = self.authenticate_user_and_get_subjects('/subjects/')
+
+        # Only one subject is returned, only one is active
+        self.assertEqual(len(response.data), 1)
+
+        # adding `include_inactive=True` param fetches both active and inactive
+        response = self.authenticate_user_and_get_subjects(
+            '/subjects/?include_inactive=True')
+        self.assertEqual(len(response.data), 2)
+
+    def test_subjectsview_having_perms_via_sourcegroup(self):
+
+        expected_subject_name = 'ele no. 2'
+        # Fixtures for testing subject access via source-group.
+        user_with_sourcegroup_access = User.objects.create_user(
+            username='ele2owner', email='ele2owner@test.com', password=random_string(10), last_name='Bar', first_name='Foo')
+        ele2 = Subject.objects.create(
+            name=expected_subject_name, additional={})
+        ele2_source = Source.objects.create(manufacturer_id='ele2-source')
+        ele2_subjectsource = SubjectSource.objects.create(source=ele2_source, subject=ele2,
+                                                          assigned_range=(datetime.datetime(1000, 1, 1, tzinfo=pytz.utc),
+                                                                          datetime.datetime(9999, 1, 1, tzinfo=pytz.utc)))
+        ele2_sourcegroup = SourceGroup.objects.create(name='ele2 source group')
+        ele2_sourcegroup.sources.add(ele2_source)
+
+        # Give permissions by source group permission set.
+        view_ele2_sourcegroup_ps = PermissionSet.objects.create(
+            name='View Ele2 Source Group')
+
+        perms = Permission.objects.get_by_natural_key(
+            'view_sourcegroup', 'observations', 'sourcegroup')
+        view_ele2_sourcegroup_ps.permissions.add(perms)
+        ele2_sourcegroup.permission_sets.add(view_ele2_sourcegroup_ps)
+
+        user_with_sourcegroup_access.permission_sets.add(
+            view_ele2_sourcegroup_ps)
+
+        p1 = PermissionSet.objects.create(
+            name='sourcegroup user subject view perms')
+        perms = Permission.objects.get_by_natural_key(
+            'view_subject', 'observations', 'subject')
+        p1.permissions.add(perms)
+        user_with_sourcegroup_access.permission_sets.add(p1)
+
+        # Two assertions on test fixtures.
+        self.assertEqual(ele2_sourcegroup.permission_sets.all().count(), 1)
+        self.assertEqual(SourceGroup.objects.filter(
+            permission_sets__in=user_with_sourcegroup_access.get_all_permission_sets()).count(), 1)
+
+        # Make the request
+        request = self.factory.get(API_BASE + '/subjects/')
+        self.force_authenticate(request, user_with_sourcegroup_access)
+
+        response = views.SubjectsView.as_view()(request,)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['name'], expected_subject_name)
 
 
 class SubjectGroupViewTest(BasePermissionTest):

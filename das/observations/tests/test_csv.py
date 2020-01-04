@@ -85,7 +85,7 @@ class TrackingMetaDataExportViewTest(BaseAPITest):
             subject.save()
             inactive_subject_name = subject.name
             break
-        self.request = self.factory.get(API_BASE + '/trackingmetadata/export/')
+        self.request = self.factory.get(API_BASE + '/trackingmetadata/export/?include_inactive=True')
         self.force_authenticate(self.request, self.user)
         response = TrackingMetaDataExportView.as_view()(self.request)
         self.assertEqual(response.status_code, 200)
@@ -212,16 +212,14 @@ class TrackingDataCsvViewTest(BaseAPITest):
             tz.gettz(timezone.get_current_timezone_name())).strftime('%m/%d/%Y %H:%M:%S')
         self.assertIn(recorded_time, recorded_at_timestamps)
 
-    def test_different_chronofile_values_for_same_subject(self):
-        # check if we are getting different chronofile values for single
-        # subject
+    def exportrecords(self, url):
         self.subject_group.permission_sets.add(PermissionSet.objects.get(
             name='View Tracks All Time')
         )
         self.user.permission_sets.add(PermissionSet.objects.get(
             name='View Tracks All Time')
         )
-        self.request = self.factory.get(API_BASE + '/trackingdata/export/')
+        self.request = self.factory.get(API_BASE + url)
         self.force_authenticate(self.request, self.user)
         response = TrackingDataCsvView.as_view()(self.request)
         self.assertEqual(response.status_code, 200)
@@ -234,6 +232,13 @@ class TrackingDataCsvViewTest(BaseAPITest):
         # Remove header and empty line from csv_data to get actual values
         csv_data = [row.split(',') for row in csv_file_data[1:-1]]
         observations = [dict(zip(header, data)) for data in csv_data]
+        return observations
+
+    def test_different_chronofile_values_for_same_subject(self):
+        # check if we are getting different chronofile values for single
+        # subject
+
+        observations = self.exportrecords('/trackingdata/export/')
 
         # Get list of chronofile
         chrono_files = [observation['chronofile']
@@ -241,6 +246,22 @@ class TrackingDataCsvViewTest(BaseAPITest):
         unique_chrono_files = list(set(chrono_files))
 
         self.assertTrue(len(unique_chrono_files) > 1)
+
+    def test_tracking_data_for_specific_subject(self):
+        observations = self.exportrecords('/trackingdata/export/?subject_id=0fa8ec9a-7e92-4575-9575-df202d5dde25')
+
+        # Get subject_idsreturned
+        unique_subject_ids = list(set([observation['subject_id']
+                                       for observation in observations]))
+
+        self.assertTrue(len(unique_subject_ids) == 1)
+
+    def test_tracking_data_for_specific_subject_with_invalid_uuid(self):
+        self.request = self.factory.get(API_BASE + '/trackingdata/export/?subject_id=1')
+        self.force_authenticate(self.request, self.user)
+        response = TrackingDataCsvView.as_view()(self.request)
+        self.assertIn('1 is not a valid UUID', response.data['Error'])
+        self.assertEquals(response.status_code, 400)
 
     def test_csv_observation_with_inactive_subject(self):
         inactive_subject_observation_fix_times = []
@@ -268,7 +289,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
             for obs in Observation.objects.get_subject_observations(subject):
                 inactive_subject_observation_fix_times.append(obs.recorded_at)
 
-        request = self.factory.get(API_BASE + '/trackingdata/export/')
+        request = self.factory.get(API_BASE + '/trackingdata/export/?include_inactive=True')
         self.force_authenticate(request, self.user)
         response = TrackingDataCsvView.as_view()(request)
         self.assertEqual(response.status_code, 200)

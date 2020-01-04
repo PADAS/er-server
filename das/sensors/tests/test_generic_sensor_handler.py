@@ -1,7 +1,9 @@
 import json
 import copy
 import datetime
+from uuid import uuid4
 from unittest import mock
+import pytz
 
 from django.utils import timezone
 from django.db import transaction
@@ -136,7 +138,8 @@ class GenericSensorHandlerTest(BaseAPITest):
     def test_post_multiple_batches(self):
         obs_list = [x for x in self._generate_observations(300, distinct=True)]
         response = self._post_data(json.dumps(obs_list))
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code,
+                         status.HTTP_201_CREATED, response.data)
         self.assertEqual(300, Observation.objects.count())
 
     def test_post_two_different_ids(self):
@@ -161,20 +164,137 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(2, Observation.objects.count())
 
+    def test_subject_source_donot_exist(self):
+        new_source_id = 'new_src_id'
+        local_obs = copy.deepcopy(self.one_observation)
+        local_obs['manufacturer_id'] = new_source_id
+        local_obs.pop('subject_name', None)
+        response = self._post_data(json.dumps(local_obs))
+        source = Source.objects.get(manufacturer_id=new_source_id)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIsNotNone(source)
+        self.assertEqual(1, Observation.objects.filter(source=source).count())
+        self.assertIsNotNone(Subject.objects.get(name=new_source_id))
+
+    def test_source_doesnot_exist(self):
+        obs_copy = copy.deepcopy(self.one_observation)
+        obs_copy['manufacturer_id'] = 'random_mfg_id'
+        response = self._post_data(json.dumps(obs_copy))
+        source = Source.objects.get(manufacturer_id='random_mfg_id')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(1, Observation.objects.filter(source=source).count())
+        self.assertIsNotNone(source)
+
+    def test_provider_doesnot_exist(self):
+        response = self._post_data(json.dumps(
+            self.one_observation), 'random_src_provider')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(1, Observation.objects.count())
+        self.assertIsNotNone(SourceProvider.objects.get(
+            provider_key='random_src_provider'))
+
+    def test_subject_src_provider_donot_exist(self):
+        mfg_id = 'brew_new_mfg_id'
+        provider_key = 'new_provider_key'
+        obs_copy = copy.deepcopy(self.one_observation)
+        obs_copy.pop('subject_name', None)
+        obs_copy['manufacturer_id'] = mfg_id
+        response = self._post_data(json.dumps(obs_copy), provider_key)
+        src = Source.objects.get(manufacturer_id=mfg_id)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(1, Observation.objects.filter(source=src).count())
+        self.assertIsNotNone(
+            SourceProvider.objects.get(provider_key=provider_key))
+        self.assertIsNotNone(src)
+        self.assertIsNotNone(Subject.objects.get(name=mfg_id))
+
+    def test_with_new_subject_id_and_source(self):
+        uuid = uuid4()
+        new_source_id = 'new_src_id'
+        obs_copy = copy.deepcopy(self.one_observation)
+        obs_copy['subject_id'] = uuid.hex
+        obs_copy['manufacturer_id'] = new_source_id
+        response = self._post_data(json.dumps(obs_copy))
+        new_source = Source.objects.get(manufacturer_id=new_source_id)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIsNotNone(new_source)
+        self.assertEqual(1, Observation.objects.filter(
+            source=new_source).count())
+        self.assertIsNotNone(Subject.objects.get(pk=uuid))
+
+    def test_multiple_obs_with_new_subject_id_and_source(self):
+        uuid = uuid4()
+        new_source_id = 'new_src_id'
+        obs_list = [x for x in self._generate_observations(distinct=True)]
+        for o in obs_list:
+            o['subject_id'] = uuid.hex
+            o['manufacturer_id'] = new_source_id
+        response = self._post_data(json.dumps(obs_list))
+        new_source = Source.objects.get(manufacturer_id=new_source_id)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIsNotNone(new_source)
+        self.assertEqual(len(obs_list), Observation.objects.filter(
+            source=new_source).count())
+        self.assertIsNotNone(Subject.objects.get(pk=uuid))
+
+    def test_with_multiple_subject_ids_new_source(self):
+        uuids = [uuid4() for i in range(5)]
+        new_source_id = 'new_src_id'
+        obs_list = [x for x in self._generate_observations(5, distinct=True)]
+        for i, obs in enumerate(obs_list):
+            obs['subject_id'] = uuids[i].hex
+            obs['manufacturer_id'] = new_source_id
+
+        response = self._post_data(json.dumps(obs_list))
+        new_source = Source.objects.get(manufacturer_id=new_source_id)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIsNotNone(new_source)
+        self.assertEqual(len(obs_list), Observation.objects.filter(
+            source=new_source).count())
+
+        # for uuid in uuids:
+        #     self.assertIsNotNone(Subject.objects.get(pk=uuid))
+
+    def test_with_subject_subtype(self):
+        subject_subtype = 'animal-awesome'
+        new_source_id = 'new_src_id'
+        obs_copy = copy.deepcopy(self.one_observation)
+        obs_copy['subject_subtype'] = subject_subtype
+        obs_copy['manufacturer_id'] = new_source_id
+
+        response = self._post_data(json.dumps(obs_copy))
+        new_source = Source.objects.get(manufacturer_id=new_source_id)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIsNotNone(new_source)
+        self.assertEqual(1, Observation.objects.filter(
+            source=new_source).count())
+        self.assertIsNotNone(SubjectSubType.objects.get(value=subject_subtype))
+
     def _generate_observations(self, n=10, distinct=False):
         for i in range(n):
             obs = dict(self.one_observation)
             if distinct:
-                timestamp = timezone.now() - datetime.timedelta(days=i)
-                obs.update(recorded_at=timestamp.strftime("%Y-%m-%d %H:%M:%S"))
+                timestamp = pytz.utc.localize(
+                    datetime.datetime.utcnow()) - datetime.timedelta(days=i)
+                obs.update(recorded_at=timestamp.isoformat())
 
             yield obs
 
     @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
-    def _post_data(self, payload):
+    def _post_data(self, payload, provider=None):
+        if not provider:
+            provider = self.provider
+
         request = self.factory.post(
             self.api_path, data=payload, content_type='application/json')
         self.force_authenticate(request, self.app_user)
         response = SensorObservation.as_view()(
-            request, sensor_type=self.sensor_type, provider_key=self.provider)
+            request, sensor_type=self.sensor_type, provider_key=provider)
         return response

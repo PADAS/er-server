@@ -1,0 +1,8 @@
+partner = "prod"
+site = "uc2019"
+dns_name = "preview"
+rds_name = "prod-01-das-db"
+timezone = "Africa/Blantyre"
+daily_report_enabled = "True"
+export_kml_enabled = "True"
+alerts_enabled = "True"

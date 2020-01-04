@@ -1,23 +1,25 @@
-import logging
-import http.client
-from typing import NamedTuple
-import time
 import copy
 import datetime
+import json
+import logging
+
 from datetime import timedelta
-
-from django.contrib.gis.db import models
-from django.contrib.contenttypes.fields import GenericRelation
-from django.utils.translation import ugettext_lazy as _
-from dateutil.parser import parse as parse_date
+from typing import NamedTuple
 import pytz
+from dateutil.parser import parse as parse_date
+from django.contrib.contenttypes.fields import GenericRelation
+from django.contrib.gis.db import models
+from django.utils.translation import ugettext_lazy as _
 
-from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError, SourcePlugin
 from observations.models import Observation
+from tracking.models.plugin_base import (DasPluginFetchError, Obs,
+                                         SourcePlugin, TrackingPlugin)
+import requests
 
 
 class STObservation(NamedTuple):
     collar_id: str
+    record_index: int
     longitude: float
     latitude: float
     recorded_at: datetime.datetime
@@ -31,6 +33,7 @@ class STObservation(NamedTuple):
 
 class STAlert(NamedTuple):
     collar_id: str
+    record_index: int
     longitude: float
     latitude: float
     recorded_at: datetime.datetime
@@ -46,15 +49,21 @@ class STAlert(NamedTuple):
 
 # Map Savannah alert keys to DAS Event Type.
 ALERT_EVENT_TYPE_MAP = {
-    'Immobility Alert': {
+    'immobility alert': {
         'event_type': 'immobility',
         'title_template': _('{} is immobile')
     },
-    'None': {
+    'none': {
         'event_type': 'immobility_all_clear',
         'title_template': _('{} is moving')
     }
 
+}
+
+REQUEST_TO_URL = {
+    "authenticate": "/savannah_data/data_auth",
+    "data_download": "/savannah_data/data_request",
+    "exceptions_download": "/savannah_data/data_request"
 }
 
 
@@ -73,94 +82,89 @@ class SavannaClient(object):
         '''Helper function to parse a naive date and assume it's in replace_tzinfo.'''
         return parse_date(d).replace(tzinfo=replace_tzinfo)
 
-    def fetch_observations(self, collar_id, start_time, end_time=None):
+    def make_request(self, collar_id, request, record_index=0):
+        """ Make request to savannah api with multiple request types """
+        payload = dict(uid=self.username, pwd=self.password,
+                       request=request, collar=collar_id, record_index=record_index)
+        return requests.post(self.host + REQUEST_TO_URL[request], data=payload)
+
+    def select_data(self, collar_id, record):
+        """ Select and order data received from savannah api """
+        return [collar_id, record["record_index"], record["longitude"], record["latitude"],
+                record["record_time"], record["speed"], record["heading"], record["temperature"],
+                record["h_accuracy"], record["hdop"], record["battery"]]
+
+    def fetch_observations(self, collar_id, last_record_index, last_exception_index):
         '''
         Fetch observations from Savannah data-source for a particular collar.
         :param collar_id: collar_id from trackingmaster record.
-        :param start_time: unix timestamp for earliest data to fetch.
-        :param end_time: <not used>
+        :param last_record_index: paging cursor for the dataset
+        :param last_exception_index: paging cursor for exceptions
         :return: generator, yielding individual records.
         '''
-
         self.logger.info(
-            'Fetching from SavannahTracking for collar_id: %s, start_time: %s', collar_id, start_time)
-        conn = http.client.HTTPConnection(self.host, timeout=15)
+            'Fetching from SavannahTracking for collar_id: %s', collar_id)
+        while True:
+            res = self.make_request(
+                collar_id, "data_download", last_record_index)
+            if res.status_code == 200:
+                self.logger.info(
+                    'Fetch OK from SavannahTracking for collar_id: %s', collar_id)
+                response_body = json.loads(res.text)
+                all_records = response_body["records"]
+                for line in all_records:
+                    record = self.parse_line(
+                        STObservation, self.select_data(collar_id, line))
+                    last_record_index = record.record_index
+                    yield record
+                if response_body['has_more_records']:
+                    continue
+            else:
+                msg = 'Failed to get data from Savannah Tracking API for collar_id: %s. Result status: %d' % (collar_id,
+                                                                                                              res.status)
+                self.logger.error(msg)
+                raise DasPluginFetchError(msg)
+            break
 
-        payload = dict(uid=self.username, pwd=self.password,
-                       unixtime=str(start_time), collar=collar_id)
+        yield from self.fetch_alerts(collar_id, last_exception_index)
 
-        payload = ['='.join((k, v)) for k, v in payload.items()]
-        payload = '&'.join(payload)
-
-        headers = {'accept': "*/*",
-                   'content-type': 'application/x-www-form-urlencoded'
-                   }
-
-        conn.request("POST", "/savannah/get_data.asp", payload, headers)
-
-        res = conn.getresponse()
-        saveline = None
-        if res.status == http.client.OK:
-            self.logger.info(
-                'Fetch OK from SavannahTracking for collar_id: %s, start_time: %s', collar_id, start_time)
-
-            for line in res:
-                try:
-                    if line != saveline:  # We occassionally see duplicate records in results.
-                        yield self.parse_line(STObservation, line.decode('utf-8').strip())
-                except Exception as e:
-                    self.logger.exception(
-                        'Failed to parse line for collar_id: %s, line: [%s]', collar_id, line)
-                saveline = line
-        else:
-            msg = 'Failed to get data from Savannah Tracking API for collar_id: %s. Result status: %d' % (collar_id,
-                                                                                                          res.status)
-            self.logger.error(msg)
-            raise DasPluginFetchError(msg)
-
-        yield from self.fetch_alerts(collar_id, start_time=start_time, end_time=end_time)
-
-    def fetch_alerts(self, collar_id, start_time, end_time=None):
+    def fetch_alerts(self, collar_id, last_exception_index):
 
         # Get Savannah collar alarms.
         self.logger.info('Getting Savannah collar alarms for collar_id: '
                          '{}'.format(collar_id))
-        connection = http.client.HTTPConnection(self.host, timeout=15)
-        connection.request(
-            "GET", "/savannah/get_alerts.asp?uid={}&pwd={}&start_time={}&"
-                   "end_time={}&collar={}".format(
-                       self.username, self.password, start_time, str(
-                           time.time()),
-                       collar_id)
-        )
+        while True:
+            alerts_response = self.make_request(
+                collar_id, "exceptions_download", last_exception_index)
+            if alerts_response.status_code == 200:
+                response_body = json.loads(alerts_response.text)
+                alerts = response_body["records"]
 
-        alerts_response = connection.getresponse()
-        if alerts_response.status == 200:
-            alerts = alerts_response.read()
-            alerts = alerts.decode('utf-8').strip()
-            # Split response and set device_alert type according to event_type
-            for alert in alerts.split('\r\n'):
-                alert = alert.split(',')
-                alert_data = alert[:-1]
-                alert_type = alert[-1]
-                event_type_info = ALERT_EVENT_TYPE_MAP.get(
-                    alert_type, None)
+                # Set device_alert type according to event_type
+                for alert in alerts:
+                    alert_type = alert["exception_type"]
+                    alert_type_lower = alert_type.lower()
+                    event_type_info = ALERT_EVENT_TYPE_MAP.get(
+                        alert_type_lower, None)
+                    alert = self.select_data(collar_id, alert)
 
-                if not event_type_info:
-                    self.logger.info(f'Unsupported ST alert type {alert_type}')
+                    if not event_type_info:
+                        self.logger.info(
+                            f'Unsupported ST alert type {alert_type}')
+                        alert.append(alert_type)
+                        alert.append(False)
+                    else:
+                        device_alert = event_type_info['event_type']
+                        # At last push device_alert and is_alert
+                        alert.append(device_alert)
+                        alert.append(True)
+
+                    record = self.parse_line(STAlert, alert)
+                    last_exception_index = record.record_index
+                    yield record
+                if response_body['has_more_records']:
                     continue
-
-                device_alert = event_type_info['event_type']
-
-                # Check if alert api is returning hdop, battery or not
-                # If not, assign value as zero
-                while len(STObservation._fields) - len(alert_data) > 0:
-                    alert_data.append('')
-
-                # Atlast push device_alert and is_alert
-                alert_data.append(device_alert)
-                alert_data.append('true')
-                yield self.parse_line(STAlert, ','.join(alert_data))
+            break
 
     @classmethod
     def parse_line(cls, observation_class, s):
@@ -170,8 +174,8 @@ class SavannaClient(object):
         :param s:
         :return:
         '''
-        dt = ((cls.str2date(i) if c == datetime.datetime else c(i)) if i != '' else None
-              for c, i in zip(observation_class._field_types.values(), s.split(',')))
+        dt = ((cls.str2date(i) if c == datetime.datetime else c(i))
+              for c, i in zip(observation_class._field_types.values(), s))
         dt = observation_class(*dt)
         return dt
 
@@ -195,7 +199,6 @@ class SavannahPlugin(TrackingPlugin):
         SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
         related_query_name=source_plugin_reverse_relation, related_name='+')
 
-
     def fetch(self, source, cursor_data=None, dry_run=False):
 
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -213,13 +216,20 @@ class SavannahPlugin(TrackingPlugin):
             st = datetime.datetime.now(tz=pytz.UTC) - self.DEFAULT_START_OFFSET
 
         lt = st
-        st = int(st.timestamp()) + 1
+        last_record_index = self.cursor_data.get("record_index", 0)
+        last_exception_index = self.cursor_data.get("exception_index", 0)
 
         self.logger.debug('Fetching data for collar_id %s',
                           source.manufacturer_id)
 
         now = pytz.utc.localize(datetime.datetime.utcnow())
-        for fix in client.fetch_observations(source.manufacturer_id, start_time=st):
+
+        for fix in client.fetch_observations(source.manufacturer_id, last_record_index, last_exception_index):
+            if isinstance(fix, STObservation):
+                last_record_index = fix.record_index
+            if isinstance(fix, STAlert):
+                last_exception_index = fix.record_index
+
             if fix.recorded_at > now:
                 self.logger.warning(
                     'Savannah plugin encountered a fix from the future: {0}'.format(fix))
@@ -227,7 +237,10 @@ class SavannahPlugin(TrackingPlugin):
 
             # If observation has been received from alert api than
             # is_alert=True
-            if isinstance(fix, STAlert) and fix.is_alert:
+            if isinstance(fix, STAlert):
+                if not fix.is_alert:
+                    # unknown alert type
+                    continue
                 # Filter observation based on timestamp, source.
                 # If observation exist, update observation's additional field
                 # else yield Obs
@@ -245,6 +258,8 @@ class SavannahPlugin(TrackingPlugin):
         # Update cursor data if dry_run = False
         if not dry_run:
             self.cursor_data['latest_timestamp'] = lt.isoformat()
+            self.cursor_data["record_index"] = last_record_index
+            self.cursor_data["exception_index"] = last_exception_index
 
     def _transform(self, item, dry_run):
         source, o = item

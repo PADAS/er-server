@@ -11,6 +11,11 @@ variable "site" {
   description = "Name of site, used for naming resources and dns"
 }
 
+variable "dns_name" {
+  description = "DNS hostname, default is the site"
+  default = ""
+}
+
 variable "partner" {
   description = "Partner name"
   default     = "prod"
@@ -51,8 +56,20 @@ variable "track_days" {
   default = 16
 }
 
+variable "export_kml_enabled" {
+  default = "False"
+}
+
 variable "show_stationary_subjects_on_map" {
   default = "False"
+}
+
+variable "daily_report_enabled" {
+  default = "False"
+}
+
+variable "alerts_enabled" {
+  default = "True"
 }
 
 data "aws_s3_bucket" "builds" {
@@ -104,11 +121,16 @@ data "aws_route53_zone" "public" {
   name = "pamdas.org."
 }
 
+data "aws_s3_bucket" "access-logs" {
+  bucket = "er-s3-access-logs-eu-central-1"
+}
+
 data "template_file" "site_json" {
   template = file("./er_chef_settings.tpl.json")
   vars = {
     build_version                   = var.build_version
     site                            = var.site
+    dns_name                        = coalesce(var.dns_name, var.site)
     s3_bucket                       = data.aws_s3_bucket.builds.bucket
     db_host                         = data.aws_db_instance.db.address
     db_name                         = postgresql_database.db.name
@@ -122,8 +144,13 @@ data "template_file" "site_json" {
     zendesk_name                    = var.zendesk_name
     zendesk_organization            = var.zendesk_organization
     track_days                      = var.track_days
-    kml_feed_title                  = "${var.site} Tracking Service"
+    kml_feed_title                  = "${coalesce(var.dns_name, var.site)} Tracking Service"
     show_stationary_subjects_on_map = var.show_stationary_subjects_on_map
+    export_kml_enabled              = var.export_kml_enabled
+    alerts_enabled                  = var.alerts_enabled
+    daily_report_enabled            = var.daily_report_enabled
+
+
   }
 }
 

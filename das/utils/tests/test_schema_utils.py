@@ -115,8 +115,12 @@ class TestReportUtils(TestCase):
         ]
     }
 
-    definition_order_dict_schema_2 = OrderedDict([('field_1', 0), ('fieldset_1_item_1', 1), ('fieldset_1_item_2', 2), ('fieldset_2_item_1', 3), ('fieldset_2_item_2', 4)])
-    # definition_order_dict_schema_2 = OrderedDict([('field_1', 0), ('fieldset_1_item_1', 1), ('fieldset_1_item_2', 2), ('fieldset_2_item_1', 1), ('fieldset_2_item_2', 2)])
+    definition_order_dict_schema_2 = OrderedDict([('field_1', 0),
+                                                  ('fieldset_1_item_1', 1),
+                                                  ('fieldset_1_item_2', 2),
+                                                  ('fieldset_2_item_1', 3),
+                                                  ('fieldset_2_item_2', 4)])
+
     def setUp(self):
         super().setUp()
 
@@ -144,7 +148,8 @@ class TestReportUtils(TestCase):
         self.assertTrue(result)
 
     def test_definition_key_order(self):
-        result = schema_utils.definition_keys(self.rendered_schema_1.get('definition', []))
+        result = schema_utils.definition_keys(
+            self.rendered_schema_1.get('definition', []))
         self.assertEquals(list(result), self.definition_order_schema_1)
 
     def test_definition_key_order_as_dict(self):
@@ -217,3 +222,30 @@ class TestReportUtils(TestCase):
             for sub in elephant_list
         ]
         self.assertListEqual(expected_map_result, json.loads(map_result))
+
+    def test_rendered_schema_requires_valid_properties(self):
+        rendered_schema_invalid_property_attributes = {
+            "schema": {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "title": "Animal sighting",
+                "type": "object",
+                "properties": {
+                    "reported_species": {
+                        # Expect this to have "title" property.
+                        "type": "string",
+                    },
+                    "bar": {
+                        # This is a valid, alternative construct.
+                        "key": "bar"
+                    }
+                }
+            },
+            "definition": [
+                "reported_species",
+                "bar"
+            ]
+        }
+        with self.assertRaisesRegex(schema_utils.SchemaValidationError,
+                                    'reported_species.*title') as sve:
+            schema_utils.validate_rendered_schema_is_wellformed(
+                rendered_schema_invalid_property_attributes)

@@ -63,7 +63,8 @@ class Community(TimestampedModel):
     name = models.CharField(max_length=80)
 
     class Meta:
-        verbose_name_plural = _('communities')
+        verbose_name = _('Event Reporters')
+        verbose_name_plural = _('Event Reporters')
 
     def __str__(self):
         return self.name
@@ -118,6 +119,7 @@ class EventCategory(TimestampedModel):
     value = models.CharField(max_length=40, unique=True)
     display = models.CharField(max_length=100, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
     objects = EventBaseManager()
 
     flag = models.CharField(max_length=40, default='user', choices=(
@@ -239,7 +241,7 @@ class EventType(TimestampedModel):
     icon = models.CharField(max_length=100, blank=True, null=True)
 
     schema = models.TextField(blank=True, default='''{
-                "schema": 
+                "schema":
                 {
                     "$schema": "http://json-schema.org/draft-04/schema#",
                     "title": "Empty Event Schema",
@@ -275,6 +277,42 @@ def parse_date_range(val):
     if upper is not None:
         upper = dateparse.parse_datetime(upper)
     return (lower, upper)
+
+
+class RefreshRecreateEventDetailViewQuery(models.QuerySet):
+
+    def recreate(self, activity, status):
+        return self.create(recreated_at=timezone.now(),
+                           performed_by=activity,
+                           maintenance_status=status)
+
+    def refresh(self, activity, status):
+        return self.create(refresh_at=timezone.now(),
+                           performed_by=activity,
+                           maintenance_status=status)
+
+
+class RefreshRecreateEventDetailView(models.Model):
+    SUCCESS = 'SUCCESS'
+    FAILURE = 'FAILURE'
+    REFRESH = 'REFRESH'
+    PENDING = 'PENDING'
+    RETRY = 'RETRY'
+
+    STATUS_MESSAGE = [
+        (SUCCESS, 'Recreate'),
+        (FAILURE, 'Error'),
+        (REFRESH, 'Refresh'),
+        (PENDING, 'Pending'),
+        (RETRY, 'Retry'),
+    ]
+
+    performed_by = models.CharField(blank=True, null=True, max_length=255)
+    refresh_at = models.DateTimeField(blank=True, null=True)
+    recreated_at = models.DateField(blank=True, null=True)
+    maintenance_status = models.CharField(max_length=255, choices=STATUS_MESSAGE, default=PENDING)
+
+    objects = RefreshRecreateEventDetailViewQuery.as_manager()
 
 
 class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
@@ -799,7 +837,7 @@ class Event(RevisionMixin, TimestampedModel):
         :param kwargs:
         :return:
         """
-        self.full_clean()
+        self.full_clean(exclude=["id"])
         update_fields = kwargs.get('update_fields', [])
         save_fields = set()
 
@@ -867,7 +905,7 @@ class Event(RevisionMixin, TimestampedModel):
         return value
 
     def __str__(self):
-        return '%d: %s' % (self.serial_number, self.message[:50])
+        return f'{self.serial_number}: ({self.title}, {self.event_type})'
 
 
 class EventRelatedSubjectManager(models.Manager):
@@ -1316,5 +1354,3 @@ class EventNotification(TimestampedModel):
         indexes = [
             models.Index(fields=['event'])
         ]
-
-

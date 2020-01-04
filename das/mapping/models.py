@@ -15,6 +15,7 @@ from django.core import management
 from django.core.exceptions import ValidationError
 from django.core.files.storage import FileSystemStorage
 from django.utils.deconstruct import deconstructible
+from django.conf import settings
 
 from core.models import TimestampedModel
 from utils.decorator import reify
@@ -25,6 +26,7 @@ from revision.manager import Revision, RevisionMixin
 
 
 logger = logging.getLogger(__name__)
+MAPPING_FEATURES_V2 = getattr(settings, 'MAPPING_FEATURES_V2', False)
 
 
 class Map(TimestampedModel):
@@ -50,8 +52,9 @@ class TileLayer(TimestampedModel):
     """
     External
     """
-    class Meta:
-        verbose_name = 'Map Layer'
+    if MAPPING_FEATURES_V2:
+        class Meta:
+            verbose_name = 'Map Layer'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
@@ -124,6 +127,125 @@ class FeatureSet(TimestampedModel):
         return self.name
 
 
+@deconstructible
+class TempStorage(FileSystemStorage):
+    def __init__(self, **kwargs):
+        import tempfile
+
+        temp_directory_name = tempfile.mkdtemp()
+        kwargs.update({'location': temp_directory_name, })
+        super(TempStorage, self).__init__(**kwargs)
+
+
+class SpatialFile(TimestampedModel):
+    """
+    Model for uploading Spatial files such as shapefile.
+    Script would later add selected layer from the file to DB a
+    specific geometry type [polygon, line, point]
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=255, unique=True, verbose_name="SpatialFile Name")
+    description = models.CharField(max_length=100, blank=True)
+    data = models.FileField(storage=TempStorage(), blank=True)
+    feature_set = models.ForeignKey(to=FeatureSet, on_delete=models.PROTECT)
+    feature_type = models.ForeignKey(to=FeatureType, on_delete=models.PROTECT)
+    layer_number = models.IntegerField(blank=True, null=True, default=0)
+    name_field = models.CharField(max_length=100, blank=True)
+    id_field = models.CharField(max_length=100, blank=True)
+
+    @staticmethod
+    def fetch_shape_file_path(directory_path):
+        """
+        Fetch shape file path from the given directory.
+        :param directory_path: Directory to iterate through.
+        :return: Path of the shape file.
+        """
+        import_file = None
+        for file_name in os.listdir(directory_path):
+            if file_name.lower()[-4:] in ['.shp', '.gdb']:
+                import_file = os.path.join(directory_path, file_name)
+                break
+        return import_file
+
+    def import_spatial_file(self, uploaded_file_path, uploaded_file_directory):
+        """
+        Import features by invoking importlayer management command.
+        :param uploaded_file_path: Path of uploaded file.
+        :param uploaded_file_directory: Directory of uploaded file.
+        """
+        try:
+            import_file = None
+            if uploaded_file_path.lower().endswith('.zip'):
+                # Extract user-uploaded zip file.
+                with zipfile.ZipFile(
+                        uploaded_file_path, 'r') as zip_file_object:
+                    zip_file_object.extractall(uploaded_file_directory)
+
+                import_file = self.fetch_shape_file_path(
+                    uploaded_file_directory)
+                # If zip contains a directory encapsulating all the shape files
+                if not import_file:
+                    import_file = self.fetch_shape_file_path(
+                        uploaded_file_path[:-4])
+            else:
+                import_file = uploaded_file_path
+
+            if import_file:
+                management.call_command(
+                    'importlayer', import_file, self.feature_set.name,
+                    self.feature_type.name, layer=self.layer_number,
+                    name_field=self.name_field, id_field=self.id_field,
+                    spatialfile_id=str(self.id)
+                )
+            else:
+                raise ValidationError(
+                    f'Unsupported file, or incomplete archive file uploaded {uploaded_file_path}')
+        except Exception as err:
+            logger.error(err)
+            raise ValidationError(err)
+
+    @staticmethod
+    def cleanup_files(uploaded_file_directory, uploaded_file_path):
+        """
+        Remove files/directories from the temporary folder.
+        """
+        import shutil
+        try:
+            if os.path.exists(uploaded_file_path):
+                os.remove(uploaded_file_path)
+            shutil.rmtree(uploaded_file_directory)
+        except PermissionError:
+            logger.exception(
+                f'Cleaning up spatial files after import: {uploaded_file_directory}')
+
+    # Clean method is used for better error handling within the admin form
+    # itself. To have the file data available, save method needs to be invoked.
+    #  Cleanup method will remove files in case of validation error.
+    # Can a better way be utilized which avoids saving the Spatial file model?
+    def clean(self):
+        """
+        Overwriting clean method to have error handling within the admin form.
+        """
+        self.save()
+        uploaded_file_path = self.data.path
+        uploaded_file_directory = os.path.dirname(uploaded_file_path)
+        try:
+            self.import_spatial_file(uploaded_file_path,
+                                     uploaded_file_directory)
+        except ValidationError as err:
+            SpatialFile.objects.filter(id=self.id).delete()
+            raise ValidationError(
+                'Error in retrieving features from spatial file:    {}\n '
+                'Please verify the spatial file.'.format(err)
+            )
+        finally:
+            self.cleanup_files(uploaded_file_directory, uploaded_file_path)
+            self.data.name = ''
+
+    def __str__(self):
+        return str(self.name)
+
+
 class Feature(TimestampedModel):
     """
     A vector feature, e.g. a boundary, a hut, a village, a river ...
@@ -146,6 +268,8 @@ class Feature(TimestampedModel):
     # probably should be spelled feature_set
     featureset = models.ForeignKey(
         to=FeatureSet, null=True, on_delete=models.PROTECT)
+
+    spatialfile = models.ForeignKey(to=SpatialFile, null=True,blank=True, on_delete=models.SET_NULL)
 
     @property
     def default_presentation(self):
@@ -409,8 +533,9 @@ class SpatialFeatureGroup(TimestampedModel):
       ... better than handling as a layer group in UI as it allows grouping
        to be controlled in db?
     """
-    class Meta:
-        verbose_name = 'Base Feature Group'
+    if MAPPING_FEATURES_V2:
+        class Meta:
+            verbose_name = 'Base Feature Group'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
@@ -433,8 +558,9 @@ class SpatialFeatureGroupQuery(SpatialFeatureGroup):
 class SpatialFeatureGroupStatic(SpatialFeatureGroup):
     """Static group of features
     """
-    class Meta:
-        verbose_name = 'Feature Group'
+    if MAPPING_FEATURES_V2:
+        class Meta:
+            verbose_name = 'Feature Group'
 
     features = models.ManyToManyField(to='SpatialFeature', related_name='groups', related_query_name='group',
                                       blank=True,)
@@ -478,9 +604,10 @@ class SpatialFeatureTypeManager(models.Manager):
 
 
 class SpatialFeatureType(TimestampedModel):
-    class Meta:
-        verbose_name = 'Feature Class'
-        verbose_name_plural = 'Feature Classes'
+    if MAPPING_FEATURES_V2:
+        class Meta:
+            verbose_name = 'Feature Class'
+            verbose_name_plural = 'Feature Classes'
 
     objects = SpatialFeatureTypeManager()
 
@@ -559,8 +686,9 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
             other_id # this will map from the other_id' column in STESpatial
 
     """
-    class Meta:
-        verbose_name = 'Feature'
+    if MAPPING_FEATURES_V2:
+        class Meta:
+            verbose_name = 'Feature'
 
     objects = SpatialFeatureManager()
     revision_ignore_fields = ('updated_at', )
@@ -568,7 +696,9 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
     feature_type = models.ForeignKey(
         SpatialFeatureType, on_delete=models.PROTECT)
     name = models.CharField(max_length=255, blank=True)
+    # A shorter name used for cartographic display
     short_name = models.CharField(max_length=25, blank=True)
+    # for ste, this is the ste_guid
     external_id = models.CharField(max_length=255, unique=True, blank=True,
                                    null=True)
     external_source = models.CharField(max_length=25, blank=True)
@@ -582,119 +712,3 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
         return '{0}-{1}-{2}'.format(self.name, self.feature_type.name, self.id)
 
 
-@deconstructible
-class TempStorage(FileSystemStorage):
-    def __init__(self, **kwargs):
-        import tempfile
-
-        temp_directory_name = tempfile.mkdtemp()
-        kwargs.update({'location': temp_directory_name, })
-        super(TempStorage, self).__init__(**kwargs)
-
-
-class SpatialFile(TimestampedModel):
-    """
-    Model for uploading Spatial files such as shapefile.
-    Script would later add selected layer from the file to DB a
-    specific geometry type [polygon, line, point]
-    """
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, blank=True)
-    description = models.CharField(max_length=100, blank=True)
-    data = models.FileField(storage=TempStorage(), blank=True)
-    feature_set = models.ForeignKey(to=FeatureSet, on_delete=models.PROTECT)
-    feature_type = models.ForeignKey(to=FeatureType, on_delete=models.PROTECT)
-    layer_number = models.IntegerField(blank=True, null=True, default=0)
-    name_field = models.CharField(max_length=100, blank=True)
-    id_field = models.CharField(max_length=100, blank=True)
-
-    @staticmethod
-    def fetch_shape_file_path(directory_path):
-        """
-        Fetch shape file path from the given directory.
-        :param directory_path: Directory to iterate through.
-        :return: Path of the shape file.
-        """
-        import_file = None
-        for file_name in os.listdir(directory_path):
-            if file_name.lower()[-4:] in ['.shp', '.gdb']:
-                import_file = os.path.join(directory_path, file_name)
-                break
-        return import_file
-
-    def import_spatial_file(self, uploaded_file_path, uploaded_file_directory):
-        """
-        Import features by invoking importlayer management command.
-        :param uploaded_file_path: Path of uploaded file.
-        :param uploaded_file_directory: Directory of uploaded file.
-        """
-        try:
-            import_file = None
-            if uploaded_file_path.lower().endswith('.zip'):
-                # Extract user-uploaded zip file.
-                with zipfile.ZipFile(
-                        uploaded_file_path, 'r') as zip_file_object:
-                    zip_file_object.extractall(uploaded_file_directory)
-
-                import_file = self.fetch_shape_file_path(
-                    uploaded_file_directory)
-                # If zip contains a directory encapsulating all the shape files
-                if not import_file:
-                    import_file = self.fetch_shape_file_path(
-                        uploaded_file_path[:-4])
-            else:
-                import_file = uploaded_file_path
-
-            if import_file:
-                management.call_command(
-                    'importlayer', import_file, self.feature_set.name,
-                    self.feature_type.name, layer=self.layer_number,
-                    name_field=self.name_field, id_field=self.id_field
-                )
-            else:
-                raise ValidationError(
-                    f'Unsupported file, or incomplete archive file uploaded {uploaded_file_path}')
-        except Exception as err:
-            logger.error(err)
-            raise ValidationError(err)
-
-    @staticmethod
-    def cleanup_files(uploaded_file_directory, uploaded_file_path):
-        """
-        Remove files/directories from the temporary folder.
-        """
-        import shutil
-        try:
-            if os.path.exists(uploaded_file_path):
-                os.remove(uploaded_file_path)
-            shutil.rmtree(uploaded_file_directory)
-        except PermissionError:
-            logger.exception(
-                f'Cleaning up spatial files after import: {uploaded_file_directory}')
-
-    # Clean method is used for better error handling within the admin form
-    # itself. To have the file data available, save method needs to be invoked.
-    #  Cleanup method will remove files in case of validation error.
-    # Can a better way be utilized which avoids saving the Spatial file model?
-    def clean(self):
-        """
-        Overwriting clean method to have error handling within the admin form.
-        """
-        self.save()
-        uploaded_file_path = self.data.path
-        uploaded_file_directory = os.path.dirname(uploaded_file_path)
-        try:
-            self.import_spatial_file(uploaded_file_path,
-                                     uploaded_file_directory)
-        except ValidationError as err:
-            SpatialFile.objects.filter(id=self.id).delete()
-            raise ValidationError(
-                'Error in retrieving features from spatial file:    {}\n '
-                'Please verify the spatial file.'.format(err)
-            )
-        finally:
-            self.cleanup_files(uploaded_file_directory, uploaded_file_path)
-            self.data.name = ''
-
-    def __str__(self):
-        return str(self.id)

@@ -31,6 +31,7 @@ class Command(BaseCommand):
 
     name_field = 'Name'
     id_field = 'globalid'
+    spatialfile_id = None
 
     # model for feature? could these be combined in to one dictionary attribute?
     # stroke = 'stroke'
@@ -58,6 +59,7 @@ class Command(BaseCommand):
         self.id_field = options['id_field'] if options[
             'id_field'] else self.id_field
         self.utm = options['utm'] if options['utm'] else self.utm
+        self.spatialfile_id = options['spatialfile_id'] if options['spatialfile_id'] else self.spatialfile_id
 
         logger.debug('Data Source: %s, layercount %s',
                      datasource.name, datasource.layer_count)
@@ -89,6 +91,8 @@ class Command(BaseCommand):
                             help='ID field for the row')
         parser.add_argument('--utm', type=str,
                             help='Change to this utm')
+        parser.add_argument('--spatialfile-id', type=str,
+                            help='Spatial file ID')
 
     def datasource_from_file(self, filename):
         if filename.endswith('kmz'):
@@ -110,11 +114,14 @@ class Command(BaseCommand):
         raise KeyError('DAS Feature class not found for {0}'.format(name))
 
     def make_external_id(self, layer, feature):
-        external_id = '-'.join((layer.name, feature[self.name_field].value))
+        name_value = ''
+        id_value = ''
         for name in feature.fields:
             if self.id_field and name == self.id_field:
-                external_id += '-' + str(feature[name].value)
-        return external_id
+                id_value = str(feature[name].value)
+            elif self.name_field and name == self.name_field:
+                name_value = str(feature[name].value)
+        return '-'.join((layer.name, name_value, id_value))
 
     def get_feature_type_for_feature(self, feature, default=None):
         for name in feature.fields:
@@ -142,17 +149,13 @@ class Command(BaseCommand):
         return unique_keys
 
     def import_layer(self, featureset, featuretype, layer):
-        logger.debug('Importing layer: %s, type: %s, fields: %s',
-                     layer.name, layer.geom_type, layer.fields)
+        logger.info('Importing layer: %s, type: %s, fields: %s',
+                    layer.name, layer.geom_type, layer.fields)
         has_unique_keys = self.contains_unique_keys_in_layer(layer)
         i = 0
         for feature in layer:
             i += 1
             external_id = self.make_external_id(layer, feature)
-            if not feature[self.name_field].value:
-                logger.warning('Missing name field %s for this feature: %s',
-                               self.name_field, feature)
-                continue
 
             if not has_unique_keys:
                 external_id = external_id + '-' + str(i)
@@ -187,9 +190,16 @@ class Command(BaseCommand):
 
             feature_record.feature_geometry = feature_geometry
             feature_record.fields = fields
-            feature_record.name = feature[self.name_field].value
+            try:
+                feature_record.name = feature[self.name_field].value
+            except (KeyError, IndexError):
+                pass
             try:
                 feature_record.description = feature['Description'].value
             except (KeyError, IndexError):
                 pass
+            if self.spatialfile_id:
+                feature_record.spatialfile_id = self.spatialfile_id
             feature_record.save()
+        logger.info(
+            f'Imported {i} features from {layer.name}, type: {layer.geom_type} fields: {layer.fields}')

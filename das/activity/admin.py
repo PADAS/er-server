@@ -1,15 +1,23 @@
+import logging
+import time
+
 from django.contrib.gis import admin
 from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.utils.translation import ugettext as _
 from django.utils.safestring import mark_safe
-from django.contrib import messages
-from django.template.defaultfilters import escape
 from django.urls import reverse
+from django.http import HttpResponseRedirect
+from django.contrib import messages
 
 import activity.models as models
-from activity.forms import EventTypeForm
+from activity.forms import EventTypeForm, EventForm
 from core.admin import InlineExtraDynamicMixin
 from activity.forms import EventProviderForm, AlertRuleForm
+from core.openlayers import OSMGeoExtendedAdmin
+from activity.tasks import refresh_event_details_view, recreate_event_details_view
+from core.common import TIMEZONE_USED
+
+logger = logging.getLogger(__name__)
 
 
 class EventRelationshipInline(admin.TabularInline):
@@ -22,12 +30,13 @@ class EventDetailsInline(admin.TabularInline):
 
 
 @admin.register(models.Event)
-class EventAdmin(admin.OSMGeoAdmin):
-    openlayers_url = static('js/openlayers_2.13/OpenLayers.js')
-    wms_layer = 'terrain,overlay'
-    wms_url = 'http://tiles.maps.eox.at/wms/'
+class EventAdmin(OSMGeoExtendedAdmin):
+    # openlayers_url = static('js/openlayers_2.13/OpenLayers.js')
+    # wms_layer = 'terrain,overlay'
+    # wms_url = 'http://tiles.maps.eox.at/wms/'
+    form = EventForm
 
-    list_display = ('serial_number', 'created_at', 'event_type',
+    list_display = ('serial_number', '_created_at', 'event_type',
                     'title', 'location', 'attributes',)
     readonly_fields = ('id', 'serial_number', 'created_at', 'updated_at')
     search_fields = ('title', 'serial_number')
@@ -51,17 +60,16 @@ class EventAdmin(admin.OSMGeoAdmin):
     def resolve_event(self, request, queryset):
         queryset.update(state=models.Event.SC_RESOLVED)
 
+    def _created_at(self, o):
+        return o.created_at
+    _created_at.short_description = 'created at %s' % TIMEZONE_USED
+
     resolve_event.short_description = "Resolve Selected Events(Reports)"
 
 
 @admin.register(models.Community)
 class CommunityAdmin(admin.ModelAdmin):
     pass
-
-
-@admin.register(models.EventRelatedSubject)
-class EventRelatedSubject(admin.ModelAdmin):
-    ordering = ('event__id', 'subject')
 
 
 @admin.register(models.EventType)
@@ -110,31 +118,33 @@ class EventTypeAdmin(admin.ModelAdmin):
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
+        form.request = request
         return form
 
     def get_event_source_link(self, object_id):
 
         try:
-            eventsource = models.EventSource.objects.get(event_type_id=object_id)
+            eventsource = models.EventSource.objects.get(
+                event_type_id=object_id)
         except models.EventSource.DoesNotExist:
             return None
         else:
             return {
                 'href': reverse(f'admin:{eventsource._meta.app_label}_{eventsource._meta.model_name}_change',
-                    args=(eventsource.id,)),
+                                args=(eventsource.id,)),
                 'display': eventsource.display
             }
 
     def change_view(self, request, object_id, form_url='', extra_context=None):
 
         extra_context = extra_context or {}
-        extra_context['eventsource_ref'] = self.get_event_source_link(object_id)
+        extra_context['eventsource_ref'] = self.get_event_source_link(
+            object_id)
 
         # if extra_context['eventsource_ref'] is not None:
         #     messages.add_message(request, messages.WARNING, "This Event Type is linked to an External Source. See the notice below for more details.")
 
         return super().change_view(request, object_id, form_url=form_url, extra_context=extra_context)
-
 
     def add_view(self, request, form_url='', extra_context=None):
         return super().add_view(request, form_url=form_url, extra_context=extra_context)
@@ -174,10 +184,6 @@ class EventSourceAdmin(admin.ModelAdmin):
 
         extra_context = extra_context or {}
         extra_context['eventtype_ref'] = self.get_event_type_ref(object_id)
-
-        # if extra_context['eventsource_ref'] is not None:
-        #     messages.add_message(request, messages.WARNING, "This Event Type is linked to an External Source. See the notice below for more details.")
-
         return super().change_view(request, object_id, form_url=form_url, extra_context=extra_context)
 
 
@@ -233,26 +239,8 @@ class EventProviderAdmin(admin.ModelAdmin):
 
 @admin.register(models.EventCategory)
 class EventCategoryAdmin(admin.ModelAdmin):
-    pass
-
-
-@admin.register(models.EventRelationshipType)
-class EventRelationshipTypeAdmin(admin.ModelAdmin):
-    list_display = ('value',)
-
-
-@admin.register(models.EventRelationship)
-class EventRelationshipAdmin(admin.ModelAdmin):
-
-    # def from_event_display(self, obj):
-    #     return obj.from_event.id
-    # from_event_display.short_description = 'From Event'
-    # def to_event_display(self, obj):
-    #     return obj.to_event_id
-    # to_event_display.short_description = 'To Event'
-
-    list_display = ('from_event', 'type', 'to_event', 'ordernum')
-    ordering = ('from_event', 'type', 'ordernum')
+    list_display = ('display', 'value', 'ordernum', 'flag', 'is_active')
+    ordering = ('display', 'value', 'ordernum', 'flag', 'is_active')
 
 
 @admin.register(models.AlertRule)
@@ -295,3 +283,70 @@ class NotificationMethodAdmin(admin.ModelAdmin):
     def owner_username(self, instance):
         return instance.owner.username
     owner_username.short_description = _('Owner')
+
+
+@admin.register(models.RefreshRecreateEventDetailView)
+class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
+    # NOTE: This class relies on celery.
+
+    change_list_template = 'admin/activity/eventtype/event_detail_change_list.html'
+    list_display = ('performed_by', 'refresh_at',
+                    'recreated_at', 'maintenance_status')
+
+    enable_change_view = False
+
+    def get_urls(self):
+        urls = super().get_urls()
+        from django.urls import path
+        urls_paths = [
+            path('re_create/', self.recreate_view),
+            path('refresh/', self.refresh_view),
+        ]
+        return urls_paths + urls
+
+    def has_add_permission(self, request):
+        return False
+
+    def manage_task_status(self, request, task, status, qs_method, name):
+        action = 'Admin'
+
+        while not task.ready():
+            logger.info(f'State={task.state}, info={task.info}')
+            time.sleep(0.5)
+
+        if task.state == 'SUCCESS':
+            qs_method(activity=action, status=status)
+            self.message_user(
+                request, f"Successfully {name} 'event_detail_view'")
+        if task.state == 'FAILURE':
+            qs_method(activity=action, status=task.state)
+            self.message_user(
+                request, f"Failed to {name} 'event_detail_view'", messages.ERROR)
+        if task.state == 'RETRY':
+            qs_method(activity=action, status=task.state)
+            self.message_user(
+                request, f"Retry again to {name} 'event_detail_view'",  messages.WARNING)
+
+        return HttpResponseRedirect("../")
+
+    def refresh_view(self, request):
+        task = refresh_event_details_view.apply_async(args=('Admin',))
+        status = self.model.REFRESH
+        qs_method = self.model.objects.refresh
+        name = 'refresh'
+        return self.manage_task_status(request=request,
+                                       task=task,
+                                       status=status,
+                                       qs_method=qs_method,
+                                       name=name)
+
+    def recreate_view(self, request):
+        task = recreate_event_details_view.delay()
+        status = self.model.SUCCESS
+        qs_method = self.model.objects.recreate
+        name = 'recreate'
+        return self.manage_task_status(request=request,
+                                       task=task,
+                                       status=status,
+                                       qs_method=qs_method,
+                                       name=name)

@@ -18,8 +18,7 @@ from rest_framework_extensions.etag.decorators import etag
 import mapping.serializers as serializers
 from mapping import app_settings
 from mapping.models import MBTiles, MBTilesNotFoundError, MissingTileError, Map, TileLayer
-from mapping.models import PolygonFeature, LineFeature, PointFeature, FeatureSet
-from mapping.models import SpatialFeature, DisplayCategory
+from mapping.models import PolygonFeature, LineFeature, PointFeature, FeatureSet, SpatialFeature, DisplayCategory
 
 logger = logging.getLogger(__name__)
 MAPPING_FEATURES_V2 = getattr(settings, 'MAPPING_FEATURES_V2', False)

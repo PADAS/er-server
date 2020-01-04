@@ -2,6 +2,7 @@ import logging
 import os
 
 from django import forms
+from django.contrib import messages
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.forms.widgets import Widget
 from django.utils.translation import ugettext_lazy as _
@@ -16,9 +17,11 @@ import json
 import jsonschema
 from core.utils import OneWeekSchedule
 from activity.alerting.conditions import Conditions
-from activity.models import EventProvider, NotificationMethod, EventType
+from activity.models import EventProvider, NotificationMethod, EventType, Event
 from utils.schema_utils import get_schema_renderer_method, \
     validate_rendered_schema_is_wellformed
+from core.widget import IconKeyInput, get_icon_select_list
+from core.common import TIMEZONE_USED
 
 logger = logging.getLogger(__name__)
 
@@ -55,76 +58,50 @@ class SchemaWidget(forms.Textarea):
         }
 
 
-class IconKeyInput(Widget):
-    input_type = 'text'
-    template_name = 'admin/activity/eventtype/icon_key_widget.html'
-
-    def __init__(self, attrs=None, image_list_fn=None):
-        if attrs is not None:
-            attrs = attrs.copy()
-            self.input_type = attrs.pop('type', self.input_type)
-        self.image_list_fn = image_list_fn
-        super().__init__(attrs)
-
-    def get_context(self, name, value, attrs):
-        context = super().get_context(name, value, attrs)
-        context['widget']['type'] = self.input_type
-        image_list = list(self.image_list_fn())
-        context['image_list'] = image_list
-
-        if context['widget']['value']:
-            try:
-                context['widget']['file_path'] = \
-                    next(o for o in image_list if o['key'] == context['widget']['value'])[
-                    'file_path']
-            except StopIteration:
-                pass
-
-        return context
-
-    class Media:
-        css = {
-            'all': ('css/icon_key_text.css',),
-        }
-
-
-def get_event_icon_select_list(dirname='sprite-src'):
-    icon_list = [
-        {
-            'key': item.split('.')[0],
-            'file_path': staticfiles_storage.url(os.sep.join((dirname, item)))
-        }
-        for item in staticfiles_storage.listdir(dirname)[1]
-    ]
-    return sorted(icon_list, key=lambda icon: icon['key'])
-
-
 def validate_schema_is_well_formed(schema):
 
     try:
-        _ = get_schema_renderer_method()(schema)
-    except NameError:
-        raise forms.ValidationError(SCHEMA_ERROR_INCORRECT_RENDER_TAG)
+        rendered_schema = get_schema_renderer_method()(schema)
+    except NameError as ne:
+        raise forms.ValidationError(
+            f'Schema includes an invalid token {str(ne)}')
     except Exception:
         raise forms.ValidationError(SCHEMA_ERROR_JSON_DECODE_ERROR)
     else:
         try:
-            validate_rendered_schema_is_wellformed(schema)
+            validate_rendered_schema_is_wellformed(rendered_schema)
         except SchemaValidationError as e:
             raise forms.ValidationError(str(e))
 
 
 class EventTypeForm(forms.ModelForm):
     schema = forms.CharField(widget=SchemaWidget(
-        attrs={'rows': 30, 'cols': 100}), validators=[validate_schema_is_well_formed])
+        attrs={'rows': 30, 'cols': 100}))
 
     icon = forms.CharField(required=False,
                            label='Icon Override',
-                           widget=IconKeyInput(image_list_fn=get_event_icon_select_list))
+                           widget=IconKeyInput(image_list_fn=get_icon_select_list))
 
     class Meta:
         model = EventType
         fields = ['icon', 'schema']
+
+    def clean_schema(self):
+        data = self.cleaned_data['schema']
+        name = self.cleaned_data['display']
+        schema_warning = f'Warning: The event type schema for {name} is not properly formatted JSON. The event type might not properly render in the EarthRanger client.'
+        try:
+            rendered_schema = get_schema_renderer_method()(data)
+        except NameError as ne:
+            messages.add_message(self.request, messages.WARNING, schema_warning)
+        except Exception:
+            messages.add_message(self.request, messages.WARNING, schema_warning)
+        else:
+            try:
+                validate_rendered_schema_is_wellformed(rendered_schema)
+            except SchemaValidationError as e:
+                messages.add_message(self.request, messages.WARNING, schema_warning)
+        return data
 
 
 class NotificationMethodSelectField(forms.ModelMultipleChoiceField):
@@ -217,3 +194,13 @@ class EventProviderForm(JSONFieldFormMixin, forms.ModelForm):
                        'provider_password', 'provider_token',
                        'icon_url', 'external_event_url',)
         fields = ('additional',) + json_fields
+
+
+class EventForm(forms.ModelForm):
+    class Meta:
+        labels = {
+            'created_at': f'Created at {TIMEZONE_USED}',
+            'updated_at': f'Updated at {TIMEZONE_USED}',
+            'event_time': f'Event time in {TIMEZONE_USED}',
+            'end_time': f'End Time in {TIMEZONE_USED}'
+        }

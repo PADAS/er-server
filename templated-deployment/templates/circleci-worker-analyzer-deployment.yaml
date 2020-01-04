@@ -1,0 +1,59 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  namespace: "${KUBERNETES_NAMESPACE}"
+  name: worker-analyzer
+spec:
+  template:
+    metadata:
+      labels:
+        das.component: worker-analyzer
+      annotations:
+        prometheus.io/port: "9102"
+    spec:
+      imagePullSecrets:
+        - name: gcr-secret
+      containers:
+      - image:  "${SERVER_VERSION}"
+        name: das-worker-analyzer
+        resources:
+          requests:
+            cpu: "100m"
+        env:
+        - name: SERVICE_NAME
+          value: "analyzer_worker"
+        - name: API_HOST
+          value: "${API_HOST}"
+        - name: API_PORT
+          value: "${API_PORT}"
+        - name: DB_HOST
+          value: "${DB_HOST}"
+        - name: DB_PORT
+          value: "${DB_PORT}"
+        - name: DB_NAME
+          value: "${DB_NAME}"
+        - name: DB_USER
+          value: "postgres"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-password
+              key: value
+        - name: EMAIL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: email-password
+              key: value
+        - name: EMAIL_HOST_USER
+          valueFrom:
+            secretKeyRef:
+              name: email-username
+              key: value
+        - name: EMAIL_HOST
+          value: "${EMAIL_HOST}"
+        - name: FROM_EMAIL
+          value: "${FROM_EMAIL}"
+        - name: DEFAULT_FROM_EMAIL
+          value: "${DEFAULT_FROM_EMAIL}"
+        - name: KML_EXPORT
+          value: "${KML_EXPORT}"

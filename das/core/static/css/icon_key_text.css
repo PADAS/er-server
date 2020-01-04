@@ -1,0 +1,74 @@
+#icon_key_text {
+  padding-left: 160px; /* this compensates for the funky label float in these auto-generated forms. */
+  width: 95vw;
+}
+
+#icon_key_text .current-selection {
+  display: flex;
+  /* width: 14rem; */
+}
+
+#icon_key_text, #icon_key_text * {
+  box-sizing: border-box;
+}
+
+#icon_key_text h4 {
+  padding: 0;
+}
+
+#icon_key_text img.input-icon {
+  height: 1.5rem;
+  min-height: unset;
+  min-width: unset;
+  width: 1.5rem;
+}
+
+#icon_key_text .icon-preview-image {
+  margin-right: 1rem;
+}
+
+#icon_key_text ul {
+  display: none;
+  /* display: flex; */
+  flex-wrap: wrap;
+  height: 20rem;
+  list-style-type: none;
+  margin: 0;
+  overflow-y: scroll;
+  padding: 2rem 0 0;
+}
+
+#icon_key_text ul.visible {
+  display: flex;
+}
+
+#icon_key_text li {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  flex-flow: column;
+  height: 5rem;
+  justify-content: center;
+  margin-bottom: 3rem;
+  width: 12rem;
+  word-wrap: break-word;
+}
+
+#icon_key_text li:hover {
+  border: 1px solid red;
+  background-color: #f0f0f0;
+}
+
+#icon_key_text img {
+  cursor: pointer;
+  min-height: 2rem;
+  min-width: 2rem;
+  max-height: 4rem;
+  max-width: 4rem;
+}
+
+
+#icon_key_text img[src=''] {
+  display: none;
+}
+
