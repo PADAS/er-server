@@ -1,47 +1,21 @@
 # import geojson file (geofences) to dev db
 import logging
-from zipfile import ZipFile
-import tempfile
 import datetime
 
 from django.core.management.base import BaseCommand
-from django.db.utils import IntegrityError
-from django.contrib.gis.gdal import DataSource
-from django.utils.encoding import force_text
 from mapping import models
 import utils.json
 from utils.spatial import GeometryMapper
 
+from mapping.utils import (DEFAULT_SOURCE_NAME, datasource_from_file,
+                           save_feature_to_table, fields_iter)
+
 logger = logging.getLogger(__name__)
 
-
-def shortname_validator(value):
-    if value:
-        value = value[:25]
-    return value
-
-
-PROVENANCE_FIELDS = ('collect_user', 'collect_method', 'collect_date',
-                     'ground_verified', 'spatial_feature_owners',
-                     'spatial_data_owners',
-                     'created_user', 'created_date', 'last_edited_user',
-                     'last_edited_date',
-                     'other_id')
 
 TYPE_PROVENANCE_FIELDS = ('last_edited_user',
                           'last_edited_date',
                           'other_id')
-
-ATTRIBUTES_TO_SPATIAL_MAPPING = {'short_name': {'field': 'short_name', 'validator': shortname_validator},
-                                 'name': {'field': 'name', 'validator': lambda v: v}
-                                 }
-
-DEFAULT_SOURCE_NAME = 'STE'
-
-
-def fields_iter(feature):
-    for field_name in feature.fields:
-        yield force_text(field_name)
 
 
 def reduce_json(document):
@@ -66,19 +40,18 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.source_name = options['source'] if options['source'] else DEFAULT_SOURCE_NAME
-        self.record_id = options['record_id']
         try:
             feature_types_file = options['feature_types']
             if feature_types_file:
                 logger.info('Importing feature types from file: %s',
                             feature_types_file)
-                data_source = self.datasource_from_file(feature_types_file)
+                data_source = datasource_from_file(feature_types_file, self.tmpdirs)
                 self.import_feature_types(data_source)
 
             for filename in options['filename']:
                 logger.info('Importing features from file: %s',
                             filename)
-                data_source = self.datasource_from_file(filename)
+                data_source = datasource_from_file(filename, self.tmpdirs)
                 self.import_layer(data_source)
 
         finally:
@@ -92,16 +65,6 @@ class Command(BaseCommand):
                             help='spatial feature types file')
         parser.add_argument(
             '--source', type=str, help=f'Source of data, default is {DEFAULT_SOURCE_NAME}')
-        parser.add_argument(
-            '--record-id', type=str, help=f'File record ID, passed automatically from the admin dashboard')
-
-    def datasource_from_file(self, filename):  # geojson file
-        if filename.endswith('kmz'):
-            tmpdir = tempfile.TemporaryDirectory()
-            self.tmpdirs.append(tmpdir)
-            zip = ZipFile(filename)
-            filename = zip.extract('doc.kml', tmpdir.name)  # use break
-        return DataSource(filename)
 
     def import_layer(self, datasource):
         for feature in datasource[0]:
@@ -109,84 +72,7 @@ class Command(BaseCommand):
             logger.debug('Feature geom type: %s', str(feature.geom_type))
             logger.debug('Feature length: %s', str(len(feature)))
             logger.debug('Feature num of fields: %s', str(feature.num_fields))
-            self._save_feature_to_table(feature)
-
-    def _save_feature_to_table(self, feature, model=models.SpatialFeature):
-        try:
-            global_id = feature['globalid'].value
-        except Exception:
-            global_id = feature['fid'].value
-
-        fields = list(fields_iter(feature))
-        feature_type_name = feature['type'].value
-
-        try:
-            feature_type = self.get_feature_type(feature_type_name)
-        except models.SpatialFeatureType.DoesNotExist:
-            logger.warning('SpatielFeatureType %s not found for %s',
-                           feature_type_name, global_id)
-            return
-
-        model_fieldname = 'feature_geometry'
-        model_field_type = model._meta.get_field(model_fieldname)
-        feature_geometry = self.geometry_mapper.get_db_geom(
-            feature.geom, model_field_type)
-
-        attribute_fields = feature_type.attribute_schema
-
-        attributes = {feature_name: feature[feature_name].value
-                      for feature_name in fields if
-                      feature_name in attribute_fields}
-        attributes = reduce_json(attributes)
-
-        provenance = {feature_name: feature[feature_name].value
-                      for feature_name in fields if
-                      feature_name in PROVENANCE_FIELDS}
-        provenance = reduce_json(provenance)
-
-        defaults = {'attributes': attributes, 'provenance': provenance,
-                    'external_source': self.source_name}
-        for attribute_field, spatial_field in ATTRIBUTES_TO_SPATIAL_MAPPING.items():
-            if attribute_field in fields:
-                defaults[spatial_field['field']] = spatial_field['validator'](
-                    feature[attribute_field].value)
-
-        try:
-
-            created = False
-            feature_record = model.objects.get(external_id=global_id)
-        except model.DoesNotExist:
-            feature_record = None
-
-        if not feature_record:
-            try:
-                feature_record = model.objects.create_spatialfeature(
-                    feature_geometry=feature_geometry,
-                    feature_type=feature_type,
-                    external_id=global_id)
-                created = True
-            except IntegrityError:
-                logger.warning('Feature has null geometry: global_id=%s, %s',
-                               global_id, defaults)
-                return
-
-        logger.debug('Import feature: %s, created:%s',
-                     global_id, created)
-
-        feature_record.feature_type = feature_type
-
-        if 'tags' in feature.fields:
-            feature_record.tags = [value.strip()
-                                   for value in feature['tags'].value.split(',')]
-        feature_record.feature_geometry = feature_geometry
-        for key, value in defaults.items():
-            setattr(feature_record, key, value)
-
-        feature_record.save()
-        self.save_file_feature_type(feature_type)
-
-    def get_feature_type(self, type_name, create_okay=True):
-        return models.SpatialFeatureType.objects.get_by_natural_key(type_name)
+            save_feature_to_table(feature, self.source_name)
 
     def get_display_category(self, display_category_name, create_okay=True):
         try:
@@ -244,6 +130,3 @@ class Command(BaseCommand):
                 setattr(type_record, key, value)
 
             type_record.save()
-
-    def save_file_feature_type(self, featuretype):
-        models.SpatialFeatureFile.objects.filter(id=self.record_id).update(feature_type=featuretype)

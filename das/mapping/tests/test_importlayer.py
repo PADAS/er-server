@@ -1,16 +1,17 @@
 import logging
 
-from django.test import TestCase
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from mapping.models import SpatialFile, FeatureSet, FeatureType, PointFeature, \
-    PolygonFeature
 
+from mapping.models import (FeatureSet, FeatureType, PointFeature,
+                            PolygonFeature, SpatialFeature, SpatialFeatureFile,
+                            SpatialLayerFile)
+from mapping.tests.base_test import BaseTest
 
 logger = logging.getLogger(__name__)
 
 
-class TestSpatialFile(TestCase):
+class TestSpatialLayerFile(BaseTest):
     def test_geojson_file_upload(self):
         logger.info('GeoJson file test started.')
         dummy_feature_type = FeatureType.objects.create(name='Water Points')
@@ -19,7 +20,7 @@ class TestSpatialFile(TestCase):
 
         with open('./mapping/tests/NRT_Water_Points-2.geojson',
                   'rb') as geojson_file:
-            spatial_file = SpatialFile(
+            spatial_file = SpatialLayerFile(
                 name='GeoJson test', data=SimpleUploadedFile(
                     'dummy.geojson', geojson_file.read()),
                 feature_type=dummy_feature_type, feature_set=dummy_feature_set
@@ -39,7 +40,7 @@ class TestSpatialFile(TestCase):
         dummy_feature_set.types.add(dummy_feature_type)
 
         with open('./mapping/tests/Grbnd_New.zip', 'rb') as shapefile:
-            spatial_file = SpatialFile(
+            spatial_file = SpatialLayerFile(
                 name='Shapefile test', data=SimpleUploadedFile(
                     'Grbnd_New.zip', shapefile.read()),
                 feature_type=dummy_feature_type, feature_set=dummy_feature_set,
@@ -60,7 +61,7 @@ class TestSpatialFile(TestCase):
         dummy_feature_set.types.add(dummy_feature_type)
 
         with open('./mapping/tests/Grbnd_New.zip', 'rb') as shapefile:
-            spatial_file = SpatialFile(
+            spatial_file = SpatialLayerFile(
                 name='Shapefile test', data=SimpleUploadedFile(
                     'Grbnd_New.zip', shapefile.read()),
                 feature_type=dummy_feature_type, feature_set=dummy_feature_set
@@ -69,3 +70,15 @@ class TestSpatialFile(TestCase):
                 spatial_file.clean()
                 spatial_file.save()
         logger.info('Shape-file name-field  test complete.')
+
+    def test_spatial_feature_file_upload(self):
+        logger.info('Shape-file test started.')
+        with open('./mapping/tests/Matlamamba.zip', 'rb') as shapefile:
+            spatial_file = SpatialFeatureFile(
+                name='Shapefile test', data=SimpleUploadedFile(
+                    'Matlamamba.zip', shapefile.read()))
+            spatial_file.clean()
+            spatial_file.save()
+        logger.info('Shape-file test complete.')
+
+        self.assertEquals(SpatialFeature.objects.count(), 2)
