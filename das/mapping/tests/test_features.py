@@ -32,8 +32,6 @@ class TestFeatures(BaseAPITest):
                                                      feature_type=self.feature_class, feature_geometry=point)
 
     def test_get_features(self):
-        flag = settings.MAPPING_FEATURES_V2
-        print(f'flag: {flag}')
         request = self.factory.get(self.api_base + '/features/')
         self.force_authenticate(request, self.app_user)
         response = views.FeatureListJsonView.as_view()(request)
