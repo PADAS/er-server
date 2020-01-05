@@ -480,6 +480,7 @@ var defaultIcon = "https://img.icons8.com/cotton/256/000000/globe.png";
 var tileFromStorageId = localStorage.getItem('baselayer');
 if (tileFromStorageId != null ){
     tileLayerSession(tileFromStorageId);
+    document.getElementById(tileFromStorageId).parentElement.className += ' active';
 }
 
 // Default option for OSM:
