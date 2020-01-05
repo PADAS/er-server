@@ -14,15 +14,13 @@ from django.utils.translation import ugettext_lazy as _
 from django.utils.safestring import mark_safe
 from django.utils.html import escape
 from django.db.models import Q
-from django.conf import settings
 from django.db.models.expressions import RawSQL
 
 import mapping.models as models
+from mapping.utils import MAPPING_FEATURES_V2
 from mapping.forms import MapCenterForm, TileLayerFormWithAttributes, \
     SpatialFeatureGroupStaticForm, FeatureTypeForm
 from core.openlayers import OSMGeoExtendedAdmin
-
-MAPPING_FEATURES_V2 = getattr(settings, 'MAPPING_FEATURES_V2', False)
 
 
 @admin.register(models.Map)
@@ -95,6 +93,28 @@ if MAPPING_FEATURES_V2:
     class DisplayCategoryAdmin(admin.ModelAdmin):
         ordering = ('name',)
         inlines = (SpatialFeatureTypeInline,)
+
+    @admin.register(models.SpatialFeatureFile)
+    class SpatialFeatureFileAdmin(admin.ModelAdmin):
+        change_form_template = "admin/spatial_file_upload.html"
+        list_display = ('id', 'name', 'description', 'feature_type')
+        list_filter = ('name',)
+        fieldsets = (
+            (None, {
+                'classes': ('wide',),
+                'fields': (('id', 'name', 'description', 'data', ))
+            }),
+            ('Shapefile Optional Attributes', {
+                'classes': ('wide',),
+                'fields': (('feature_type', 'layer_number', 'name_field', 'id_field'))
+            }
+            ),
+            ('STE Optional Attributes', {
+                'classes': ('wide',),
+                'fields': (('feature_types_file',))
+            }
+            ),)
+        readonly_fields = ('id',)
 else:
     @admin.register(models.FeatureSet)
     class FeatureSetAdmin(admin.ModelAdmin):
@@ -117,6 +137,13 @@ else:
         form = FeatureTypeForm
         ordering = ('name',)
         list_display = ('name',)
+
+    # TODO: revisit
+    @admin.register(models.SpatialLayerFile)
+    class SpatialLayersFileAdmin(admin.ModelAdmin):
+        list_display = ('id', 'name', 'description', 'feature_set', 'feature_type',
+                        'layer_number')
+        list_filter = ('feature_set', 'feature_type')
 
     @admin.register(models.SpatialFeatureGroup)
     class SpatialFeatureGroupAdmin(admin.ModelAdmin):

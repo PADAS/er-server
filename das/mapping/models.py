@@ -15,7 +15,6 @@ from django.core import management
 from django.core.exceptions import ValidationError
 from django.core.files.storage import FileSystemStorage
 from django.utils.deconstruct import deconstructible
-from django.conf import settings
 
 from core.models import TimestampedModel
 from utils.decorator import reify
@@ -23,10 +22,10 @@ from mapping.app_settings import MBTILES
 from mapping.mbtiles import ExtractionError, GoogleProjection, MBTilesReader
 from mapping.mbtiles import InvalidFormatError
 from revision.manager import Revision, RevisionMixin
+from mapping.utils import MAPPING_FEATURES_V2
 
 
 logger = logging.getLogger(__name__)
-MAPPING_FEATURES_V2 = getattr(settings, 'MAPPING_FEATURES_V2', False)
 
 
 class Map(TimestampedModel):
@@ -137,21 +136,20 @@ class TempStorage(FileSystemStorage):
         super(TempStorage, self).__init__(**kwargs)
 
 
-class SpatialFile(TimestampedModel):
+class SpatialFilesBase(TimestampedModel):
     """
-    Model for uploading Spatial files such as shapefile.
-    Script would later add selected layer from the file to DB a
-    specific geometry type [polygon, line, point]
+    Base model for uploading Spatial files such as shapefile
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, unique=True, verbose_name="SpatialFile Name")
+    name = models.CharField(max_length=255, blank=True)
     description = models.CharField(max_length=100, blank=True)
-    data = models.FileField(storage=TempStorage(), blank=True)
-    feature_set = models.ForeignKey(to=FeatureSet, on_delete=models.PROTECT)
-    feature_type = models.ForeignKey(to=FeatureType, on_delete=models.PROTECT)
+    data = models.FileField(storage=TempStorage(), blank=False)
     layer_number = models.IntegerField(blank=True, null=True, default=0)
-    name_field = models.CharField(max_length=100, blank=True)
-    id_field = models.CharField(max_length=100, blank=True)
+    name_field = models.CharField(max_length=100, blank=True, null=True)
+    id_field = models.CharField(max_length=100, blank=True, null=True)
+
+    class Meta:
+        abstract = True
 
     @staticmethod
     def fetch_shape_file_path(directory_path):
@@ -191,12 +189,7 @@ class SpatialFile(TimestampedModel):
                 import_file = uploaded_file_path
 
             if import_file:
-                management.call_command(
-                    'importlayer', import_file, self.feature_set.name,
-                    self.feature_type.name, layer=self.layer_number,
-                    name_field=self.name_field, id_field=self.id_field,
-                    spatialfile_id=str(self.id)
-                )
+                return import_file
             else:
                 raise ValidationError(
                     f'Unsupported file, or incomplete archive file uploaded {uploaded_file_path}')
@@ -222,28 +215,56 @@ class SpatialFile(TimestampedModel):
     # itself. To have the file data available, save method needs to be invoked.
     #  Cleanup method will remove files in case of validation error.
     # Can a better way be utilized which avoids saving the Spatial file model?
+
     def clean(self):
         """
         Overwriting clean method to have error handling within the admin form.
         """
         self.save()
-        uploaded_file_path = self.data.path
-        uploaded_file_directory = os.path.dirname(uploaded_file_path)
-        try:
-            self.import_spatial_file(uploaded_file_path,
-                                     uploaded_file_directory)
-        except ValidationError as err:
-            SpatialFile.objects.filter(id=self.id).delete()
-            raise ValidationError(
-                'Error in retrieving features from spatial file:    {}\n '
-                'Please verify the spatial file.'.format(err)
-            )
-        finally:
-            self.cleanup_files(uploaded_file_directory, uploaded_file_path)
-            self.data.name = ''
+        data_file = self.get_upload_file(self.data)
+        # TODO: self.feature_types_file not defined in SpatialLayerFile
+        spatial_types_file = self.get_upload_file(self.feature_types_file)
+        self.call_mgt_command(data_file, spatial_types_file)
+
+    def get_upload_file(self, upload_file):
+        if upload_file:
+            uploaded_file_directory = os.path.dirname(upload_file.path)
+            try:
+                return self.import_spatial_file(
+                    upload_file.path, uploaded_file_directory)
+            except ValidationError as err:
+                self.__class__.objects.filter(id=self.id).delete()
+                raise ValidationError(
+                    'Error in retrieving features from spatial file:    {}\n '
+                    'Please verify the spatial file.'.format(err)
+                )
+            # TODO: why is this commented out?
+            # finally:
+            #     self.cleanup_files(uploaded_file_directory, upload_file.path)
+            #     upload_file.name = ''
 
     def __str__(self):
-        return str(self.name)
+        return str(self.id)
+
+
+# TODO: i get confused with these child class names, perhaps rename them?
+class SpatialLayerFile(SpatialFilesBase):
+    """
+    Geometry type [polygon, line, point] loaded from uploaded shapefile
+    """
+    feature_set = models.ForeignKey(to=FeatureSet, on_delete=models.PROTECT)
+    feature_type = models.ForeignKey(to=FeatureType, on_delete=models.PROTECT)
+
+    class Meta:
+        verbose_name = 'Spatial Layer File'
+
+    def call_mgt_command(self, import_file):
+        management.call_command(
+            'importlayer', 'importlayerfile', import_file,
+            featureset=self.feature_set, featuretype=self.feature_type,
+            layer=self.layer_number, name_field=self.name_field,
+            id_field=self.id_field
+        )
 
 
 class Feature(TimestampedModel):
@@ -269,7 +290,7 @@ class Feature(TimestampedModel):
     featureset = models.ForeignKey(
         to=FeatureSet, null=True, on_delete=models.PROTECT)
 
-    spatialfile = models.ForeignKey(to=SpatialFile, null=True,blank=True, on_delete=models.SET_NULL)
+    spatialfile = models.ForeignKey(to=SpatialLayerFile, null=True, blank=True, on_delete=models.SET_NULL)
 
     @property
     def default_presentation(self):
@@ -712,3 +733,25 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
         return '{0}-{1}-{2}'.format(self.name, self.feature_type.name, self.id)
 
 
+class SpatialFeatureFile(SpatialFilesBase):
+    """
+    Special Feature loaded from uploaded shapefile
+    """
+    feature_type = models.ForeignKey(to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
+    feature_types_file = models.FileField(storage=TempStorage(), blank=True, null=True)
+
+    class Meta:
+        verbose_name = 'Spatial Feature File'
+
+    def call_mgt_command(self, data_file, spatial_types_file):
+        if spatial_types_file:
+            management.call_command(
+                'import_spatial', data_file,
+                feature_types=spatial_types_file
+            )
+        else:
+            management.call_command(
+                'importlayer', 'importspatialfile', data_file,
+                featuretype=self.feature_type, layer=self.layer_number,
+                name_field=self.name_field, id_field=self.id_field
+            )
