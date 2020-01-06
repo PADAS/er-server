@@ -261,9 +261,8 @@ class SpatialFile(SpatialFilesBase):
     def call_mgt_command(self, import_file):
         management.call_command(
             'importlayer', 'importlayerfile', import_file,
-            featureset=self.feature_set, featuretype=self.feature_type,
-            layer=self.layer_number, name_field=self.name_field,
-            id_field=self.id_field
+            spatialfile_id=self.id, featureset=self.feature_set,
+            name_field=self.name_field, id_field=self.id_field
         )
 
 
@@ -684,14 +683,15 @@ class SpatialFeatureFile(SpatialFilesBase):
     def call_mgt_command(self, data_file, spatial_types_file):
         if spatial_types_file:
             management.call_command(
-                'import_spatial', data_file,
+                'import_spatial', data_file, spatialfile_id=self.id,
                 feature_types=spatial_types_file
             )
         else:
             management.call_command(
                 'importlayer', 'importspatialfile', data_file,
-                featuretype=self.feature_type, layer=self.layer_number,
-                name_field=self.name_field, id_field=self.id_field
+                spatialfile_id=self.id, featuretype=self.feature_type,
+                layer=self.layer_number, name_field=self.name_field,
+                id_field=self.id_field
             )
 
 

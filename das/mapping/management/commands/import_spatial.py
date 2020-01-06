@@ -35,11 +35,13 @@ class Command(BaseCommand):
     help = 'Import a spatial data layer'
     tmpdirs = []
     source_name = DEFAULT_SOURCE_NAME
+    spatialfile_id = None
 
     geometry_mapper = GeometryMapper()
 
     def handle(self, *args, **options):
         self.source_name = options['source'] if options['source'] else DEFAULT_SOURCE_NAME
+        self.spatialfile_id = options['spatialfile_id'] if options['spatialfile_id'] else self.spatialfile_id
         try:
             feature_types_file = options['feature_types']
             if feature_types_file:
@@ -65,6 +67,8 @@ class Command(BaseCommand):
                             help='spatial feature types file')
         parser.add_argument(
             '--source', type=str, help=f'Source of data, default is {DEFAULT_SOURCE_NAME}')
+        parser.add_argument('--spatialfile-id', type=str,
+                            help='Spatial file ID')
 
     def import_layer(self, datasource):
         for feature in datasource[0]:
@@ -72,7 +76,7 @@ class Command(BaseCommand):
             logger.debug('Feature geom type: %s', str(feature.geom_type))
             logger.debug('Feature length: %s', str(len(feature)))
             logger.debug('Feature num of fields: %s', str(feature.num_fields))
-            save_feature_to_table(feature, self.source_name)
+            save_feature_to_table(feature, self.source_name, self.spatialfile_id)
 
     def get_display_category(self, display_category_name, create_okay=True):
         try:

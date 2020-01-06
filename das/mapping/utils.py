@@ -80,7 +80,7 @@ def get_feature_type(type_name, create_okay=True):
     return models.SpatialFeatureType.objects.get_by_natural_key(type_name)
 
 
-def save_feature_to_table(feature, source_name, featuretype=None, external_id=None):
+def save_feature_to_table(feature, source_name, spatialfile_id, featuretype=None, external_id=None):
     model = models.SpatialFeature
     if not external_id:
         external_id = feature['globalid'].value if 'globalid' in feature.fields \
@@ -150,4 +150,6 @@ def save_feature_to_table(feature, source_name, featuretype=None, external_id=No
     for key, value in defaults.items():
         setattr(feature_record, key, value)
 
+    if spatialfile_id:
+        feature_record.spatialfile_id = spatialfile_id
     feature_record.save()
