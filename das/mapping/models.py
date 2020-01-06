@@ -222,7 +222,7 @@ class SpatialFilesBase(TimestampedModel):
         """
         self.save()
         data_file = self.get_upload_file(self.data)
-        # TODO: self.feature_types_file not defined in SpatialLayerFile
+        # TODO: Kezzy. self.feature_types_file not defined in SpatialFile
         spatial_types_file = self.get_upload_file(self.feature_types_file)
         self.call_mgt_command(data_file, spatial_types_file)
 
@@ -238,7 +238,7 @@ class SpatialFilesBase(TimestampedModel):
                     'Error in retrieving features from spatial file:    {}\n '
                     'Please verify the spatial file.'.format(err)
                 )
-            # TODO: why is this commented out?
+            # TODO: Kezzy. Is the finally block not needed anymore?
             # finally:
             #     self.cleanup_files(uploaded_file_directory, upload_file.path)
             #     upload_file.name = ''
@@ -247,8 +247,8 @@ class SpatialFilesBase(TimestampedModel):
         return str(self.id)
 
 
-# TODO: i get confused with these child class names, perhaps rename them?
-class SpatialLayerFile(SpatialFilesBase):
+# renamed SpatialLayerFile to SpatialFile
+class SpatialFile(SpatialFilesBase):
     """
     Geometry type [polygon, line, point] loaded from uploaded shapefile
     """
@@ -256,7 +256,7 @@ class SpatialLayerFile(SpatialFilesBase):
     feature_type = models.ForeignKey(to=FeatureType, on_delete=models.PROTECT)
 
     class Meta:
-        verbose_name = 'Spatial Layer File'
+        verbose_name = 'Spatial File'
 
     def call_mgt_command(self, import_file):
         management.call_command(
@@ -290,7 +290,7 @@ class Feature(TimestampedModel):
     featureset = models.ForeignKey(
         to=FeatureSet, null=True, on_delete=models.PROTECT)
 
-    spatialfile = models.ForeignKey(to=SpatialLayerFile, null=True, blank=True, on_delete=models.SET_NULL)
+    spatialfile = models.ForeignKey(to=SpatialFile, null=True, blank=True, on_delete=models.SET_NULL)
 
     @property
     def default_presentation(self):
@@ -671,6 +671,30 @@ class SpatialFeatureType(TimestampedModel):
         return SpatialFeature.objects.filter(feature_type=self).count()
 
 
+class SpatialFeatureFile(SpatialFilesBase):
+    """
+    Special Feature loaded from uploaded shapefile
+    """
+    feature_type = models.ForeignKey(to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
+    feature_types_file = models.FileField(storage=TempStorage(), blank=True, null=True)
+
+    class Meta:
+        verbose_name = 'Spatial Feature File'
+
+    def call_mgt_command(self, data_file, spatial_types_file):
+        if spatial_types_file:
+            management.call_command(
+                'import_spatial', data_file,
+                feature_types=spatial_types_file
+            )
+        else:
+            management.call_command(
+                'importlayer', 'importspatialfile', data_file,
+                featuretype=self.feature_type, layer=self.layer_number,
+                name_field=self.name_field, id_field=self.id_field
+            )
+
+
 class SpatialFeatureManager(models.Manager):
     def create_spatialfeature(self, **values):
         return self.create(**values)
@@ -727,31 +751,9 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
     attributes = JSONField(default=dict, blank=True)
     provenance = JSONField(default=dict, blank=True)
     feature_geometry = models.GeometryField(geography=True, srid=4326)
+    spatialfile = models.ForeignKey(to=SpatialFeatureFile, null=True, blank=True, on_delete=models.SET_NULL)
     revision = Revision()
 
     def __str__(self):
         return '{0}-{1}-{2}'.format(self.name, self.feature_type.name, self.id)
 
-
-class SpatialFeatureFile(SpatialFilesBase):
-    """
-    Special Feature loaded from uploaded shapefile
-    """
-    feature_type = models.ForeignKey(to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
-    feature_types_file = models.FileField(storage=TempStorage(), blank=True, null=True)
-
-    class Meta:
-        verbose_name = 'Spatial Feature File'
-
-    def call_mgt_command(self, data_file, spatial_types_file):
-        if spatial_types_file:
-            management.call_command(
-                'import_spatial', data_file,
-                feature_types=spatial_types_file
-            )
-        else:
-            management.call_command(
-                'importlayer', 'importspatialfile', data_file,
-                featuretype=self.feature_type, layer=self.layer_number,
-                name_field=self.name_field, id_field=self.id_field
-            )

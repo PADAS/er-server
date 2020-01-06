@@ -47,7 +47,6 @@ class Command(BaseCommand):
         featuresets_by_types = defaultdict(set)
         featuresets = set()
 
-        # TODO: could this be too much to hold in memory?
         all_features = list(chain(models.PointFeature.objects.all(),
                                   models.LineFeature.objects.all(),
                                   models.PolygonFeature.objects.all()))

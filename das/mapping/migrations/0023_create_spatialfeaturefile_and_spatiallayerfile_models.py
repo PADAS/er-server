@@ -50,15 +50,16 @@ class Migration(migrations.Migration):
                 'verbose_name': 'Spatial Layer File',
             },
         ),
-        migrations.RemoveField(
-            model_name='spatialfile',
-            name='feature_set',
-        ),
-        migrations.RemoveField(
-            model_name='spatialfile',
-            name='feature_type',
-        ),
-        migrations.DeleteModel(
-            name='SpatialFile',
-        ),
+        # TODO: Kezzy. cannot delete or modify spatialfile model as ER sites would have data stored in this table.
+        # migrations.RemoveField(
+        #     model_name='spatialfile',
+        #     name='feature_set',
+        # ),
+        # migrations.RemoveField(
+        #     model_name='spatialfile',
+        #     name='feature_type',
+        # ),
+        # migrations.DeleteModel(
+        #     name='SpatialFile',
+        # ),
     ]

@@ -132,7 +132,7 @@ class Command(BaseCommand):
         raise KeyError('DAS Feature class not found for {0}'.format(name))
 
     def make_external_id(self, layer, feature):
-        # TODO: review with Kezzy
+        # TODO: Kezzy. Had to merge incoming changes here, please review.
         name_value = ''
         id_value = ''
         for name in feature.fields:
@@ -183,6 +183,7 @@ class Command(BaseCommand):
                 save_feature_to_table(feature, self.source_name, featuretype, external_id)
 
     def save_to_layer_model(self, feature, featureset, featuretype, external_id):
+        # TODO: Kezzy. Had to merge incoming changes here, please review
         fields = {}
         for name in feature.fields:
             if name.lower() in (self.name_field.lower(), 'description'):
