@@ -112,13 +112,13 @@ class DateRangeFilter(admin.filters.FieldListFilter):
             (self.lookup_kwarg_gte,
              forms.DateField(
                  label='',
-                 widget=AdminDateWidget(attrs={'placeholder': _(' StartDate')}),
+                 widget=AdminDateWidget(attrs={'placeholder': _(' Start Date')}),
                  localize=True,
                  required=False)),
             (self.lookup_kwarg_lte,
              forms.DateField(
                  label='',
-                 widget=AdminDateWidget(attrs={'placeholder': _(' EndDate')}),
+                 widget=AdminDateWidget(attrs={'placeholder': _(' End Date')}),
                  localize=True,
                  required=False)),
         ))
