@@ -388,6 +388,11 @@ if MAPPING_FEATURES_V2:
              ),)
         readonly_fields = ('id',)
 
+        def get_readonly_fields(self, request, obj=None):
+            if obj:
+                return ('id', 'file_type',)
+            return self.readonly_fields
+
         class Media:
             js = ('base.js',)
 else:
