@@ -136,6 +136,12 @@ class TempStorage(FileSystemStorage):
         super(TempStorage, self).__init__(**kwargs)
 
 
+FILE_TYPES = (
+    ('shapefile', 'Shapefile'),
+    ('ste', 'Ste'),
+)
+
+
 class SpatialFilesBase(TimestampedModel):
     """
     Base model for uploading Spatial files such as shapefile
@@ -147,6 +153,7 @@ class SpatialFilesBase(TimestampedModel):
     layer_number = models.IntegerField(blank=True, null=True, default=0)
     name_field = models.CharField(max_length=100, blank=True, null=True)
     id_field = models.CharField(max_length=100, blank=True, null=True)
+    file_type = models.CharField(max_length=100, default='shapefile', choices=FILE_TYPES)
 
     class Meta:
         abstract = True
