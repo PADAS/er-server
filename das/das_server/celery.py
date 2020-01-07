@@ -118,6 +118,11 @@ app.conf.beat_schedule = {
         'args': ('Celery',),
         'schedule': timedelta(hours=1)
     },
+    'publish-daily-site-metrics': {
+        'task': 'das_server.tasks.publish_daily_site_metrics',
+        # 1 AM daily
+        'schedule': crontab(hour=1, minute=0)
+    },
 
 }
 

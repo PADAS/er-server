@@ -9,6 +9,7 @@ from storages.backends.s3boto3 import S3Boto3Storage
 from django.conf import settings
 
 import utils.json as json
+from core.utils import get_site_name
 import utils.schema_utils as schema_utils
 from activity.models import Event
 from activity.views import generate_event_type_cache
@@ -44,7 +45,9 @@ class Command(BaseCommand):
         # calculate this in GMT, not the sites timezone
         now = datetime.datetime.now(pytz.UTC)
         start = datetime.datetime.now(pytz.UTC) - datetime.timedelta(days=1)
-        site_name = options['site']
+        site_name = get_site_name()
+        if options["site"]:
+            site_name = options["site"]
         if options['start']:
             start = dateutil.parser.parse(options['start'])
             if not start.tzinfo:
