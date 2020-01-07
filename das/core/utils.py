@@ -1,6 +1,7 @@
 from collections import namedtuple
 from datetime import datetime
 from typing import Dict
+import urllib.parse
 
 import json
 
@@ -79,7 +80,8 @@ class OneWeekSchedule(Schedule):
     '''
 
     # List of days compatible with ISO weekday index.
-    days_of_week = ['index-0', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+    days_of_week = ['index-0', 'monday', 'tuesday',
+                    'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
     def __init__(self, schedule_definition: Dict[str, dict] = dict):
 
@@ -91,7 +93,8 @@ class OneWeekSchedule(Schedule):
         self.schedule_periods = self.schedule_definition.get('periods', {})
 
         if 'timezone' in self.schedule_definition:
-            self.schedule_timezone = pytz.timezone(self.schedule_definition['timezone'])
+            self.schedule_timezone = pytz.timezone(
+                self.schedule_definition['timezone'])
         else:
             self.schedule_timezone = timezone.get_current_timezone()
 
@@ -105,7 +108,8 @@ class OneWeekSchedule(Schedule):
         # Truncate the timestamp to our finest granularity.
         value = value.replace(second=0, microsecond=0)
 
-        relevant_periods = self.schedule_periods.get(self.days_of_week[value.isoweekday()])
+        relevant_periods = self.schedule_periods.get(
+            self.days_of_week[value.isoweekday()])
         if relevant_periods:
             return self.test_timestamp(value, relevant_periods)
         return False
@@ -116,7 +120,8 @@ class OneWeekSchedule(Schedule):
             return ValueError(f'Type {type(sample_ts)} is not supported.')
 
         # Calculate sample's total seconds for the day.
-        ts_seconds = (sample_ts - sample_ts.replace(hour=0, minute=0, second=0, microsecond=0)).total_seconds()
+        ts_seconds = (sample_ts - sample_ts.replace(hour=0,
+                                                    minute=0, second=0, microsecond=0)).total_seconds()
 
         for x, y in self._generate_ranges(periods):
             if x <= ts_seconds and ts_seconds <= y:  # inclusive
@@ -204,8 +209,16 @@ class NonHttpRequest(HttpRequest):
     This is a simple convenient class with minimal support for satisfying serialization
     outside an actual request.
     '''
+
     def build_absolute_uri(self, url):
         if hasattr(settings, 'UI_SITE_URL'):
             return f'{settings.UI_SITE_URL}{url}'
         return url
 
+
+def get_site_name():
+    if hasattr(settings, 'UI_SITE_URL'):
+        parts = urllib.parse.urlsplit(settings.UI_SITE_URL)
+        sitename = parts.hostname.split('.')[0]
+        return sitename
+    return "unknown"
