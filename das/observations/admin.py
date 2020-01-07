@@ -270,6 +270,10 @@ class LargeTablePaginator(Paginator):
     count = property(_get_count)
 
 
+from bitfield import BitField
+from bitfield.forms import BitFieldCheckboxSelectMultiple
+
+
 @admin.register(models.Observation)
 class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin):
     list_display = ('subject_link', '_manufacturer_id', 'recorded_at', 'created_at',
@@ -279,6 +283,11 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
     list_display_links = None
 
     paginator = LargeTablePaginator
+    formfield_overrides = {
+        BitField: {
+            'widget': BitFieldCheckboxSelectMultiple
+        },
+    }
 
     gis_geometry_field_name = 'location'
 

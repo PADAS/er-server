@@ -361,19 +361,19 @@ class ObservationManager(models.Manager):
             pass
 
 
+from bitfield import BitField
+
+
 class Observation(models.Model):
 
     # Constants for filter bit-map.
     DEFAULT = 0
     EXCLUDED_MANUALLY = 1
     EXCLUDED_AUTOMATICALLY = 2
-    EXCLUDED_BOTH_AUTOMATICALLY_MANUALLY = 3
 
     BITMAP_FILTER_CHOICES = [
-        (DEFAULT, 'DEFAULT'),
-        (EXCLUDED_MANUALLY, _('EXCLUDED_MANUALLY')),
-        (EXCLUDED_AUTOMATICALLY, _('EXCLUDED_AUTOMATICALLY')),
-        (EXCLUDED_BOTH_AUTOMATICALLY_MANUALLY, _('EXCLUDED_BOTH_AUTOMATICALLY_MANUALLY')),
+        ('EXCLUDED_MANUALLY', _('EXCLUDED_MANUALLY')),
+        ('EXCLUDED_AUTOMATICALLY', _('EXCLUDED_AUTOMATICALLY')),
     ]
 
     """observation point
@@ -389,13 +389,13 @@ class Observation(models.Model):
         'row created at', auto_now_add=True)  # date/time this row created
     source = models.ForeignKey('Source', on_delete=models.CASCADE)
     additional = JSONField()
-    exclusion_flags = models.BigIntegerField(
-        'Exclusion flags as a bitmap', null=False, default=DEFAULT, choices=BITMAP_FILTER_CHOICES)
 
+    exclusion_flags = BitField(flags=BITMAP_FILTER_CHOICES,
+                               default=0)
     objects = ObservationManager()
 
     def __str__(self):
-        return '{}:{}:{:08b}'.format(self.recorded_at.isoformat(), self.location, self.exclusion_flags)
+        return '{}:{}'.format(self.recorded_at.isoformat(), self.location)
 
     class Meta:
         unique_together = (
