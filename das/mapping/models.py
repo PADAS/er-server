@@ -136,6 +136,12 @@ class TempStorage(FileSystemStorage):
         super(TempStorage, self).__init__(**kwargs)
 
 
+FILE_TYPES = (
+    ('shapefile', 'Shapefile'),
+    ('ste', 'Ste'),
+)
+
+
 class SpatialFilesBase(TimestampedModel):
     """
     Base model for uploading Spatial files such as shapefile
@@ -197,19 +203,30 @@ class SpatialFilesBase(TimestampedModel):
             logger.error(err)
             raise ValidationError(err)
 
-    @staticmethod
-    def cleanup_files(uploaded_file_directory, uploaded_file_path):
-        """
-        Remove files/directories from the temporary folder.
-        """
-        import shutil
+    def cleanup_files(self):
+        files = [self.data]
         try:
-            if os.path.exists(uploaded_file_path):
-                os.remove(uploaded_file_path)
-            shutil.rmtree(uploaded_file_directory)
-        except PermissionError:
-            logger.exception(
-                f'Cleaning up spatial files after import: {uploaded_file_directory}')
+            if self.feature_types_file.name:
+                files.append(self.feature_types_file)
+        except Exception:
+            pass
+
+        for upload_file in files:
+            uploaded_file_path = upload_file.path
+
+            uploaded_file_directory = os.path.dirname(upload_file.path)
+            """
+            Remove files/directories from the temporary folder.
+            """
+            import shutil
+            try:
+                if os.path.exists(uploaded_file_path):
+                    os.remove(uploaded_file_path)
+                shutil.rmtree(uploaded_file_directory)
+            except PermissionError:
+                logger.exception(
+                    f'Cleaning up spatial files after import: {uploaded_file_directory}')
+            upload_file.name = ''
 
     # Clean method is used for better error handling within the admin form
     # itself. To have the file data available, save method needs to be invoked.
@@ -222,9 +239,12 @@ class SpatialFilesBase(TimestampedModel):
         """
         self.save()
         data_file = self.get_upload_file(self.data)
-        # TODO: Kezzy. self.feature_types_file not defined in SpatialFile
-        spatial_types_file = self.get_upload_file(self.feature_types_file)
+        try:
+            spatial_types_file = self.get_upload_file(self.feature_types_file)
+        except Exception:
+            spatial_types_file = None
         self.call_mgt_command(data_file, spatial_types_file)
+        self.cleanup_files()
 
     def get_upload_file(self, upload_file):
         if upload_file:
@@ -238,16 +258,11 @@ class SpatialFilesBase(TimestampedModel):
                     'Error in retrieving features from spatial file:    {}\n '
                     'Please verify the spatial file.'.format(err)
                 )
-            # TODO: Kezzy. Is the finally block not needed anymore?
-            # finally:
-            #     self.cleanup_files(uploaded_file_directory, upload_file.path)
-            #     upload_file.name = ''
 
     def __str__(self):
         return str(self.id)
 
 
-# renamed SpatialLayerFile to SpatialFile
 class SpatialFile(SpatialFilesBase):
     """
     Geometry type [polygon, line, point] loaded from uploaded shapefile
@@ -258,12 +273,11 @@ class SpatialFile(SpatialFilesBase):
     class Meta:
         verbose_name = 'Spatial File'
 
-    def call_mgt_command(self, import_file):
+    def call_mgt_command(self, import_file, spatial_types_file=None):
         management.call_command(
             'importlayer', 'importlayerfile', import_file,
-            featureset=self.feature_set, featuretype=self.feature_type,
-            layer=self.layer_number, name_field=self.name_field,
-            id_field=self.id_field
+            spatialfile_id=self.id, featureset=self.feature_set, featuretype=self.feature_type,
+            name_field=self.name_field, id_field=self.id_field
         )
 
 
@@ -675,6 +689,7 @@ class SpatialFeatureFile(SpatialFilesBase):
     """
     Special Feature loaded from uploaded shapefile
     """
+    file_type = models.CharField(max_length=100, default='shapefile', choices=FILE_TYPES)
     feature_type = models.ForeignKey(to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
     feature_types_file = models.FileField(storage=TempStorage(), blank=True, null=True)
 
@@ -684,14 +699,15 @@ class SpatialFeatureFile(SpatialFilesBase):
     def call_mgt_command(self, data_file, spatial_types_file):
         if spatial_types_file:
             management.call_command(
-                'import_spatial', data_file,
+                'import_spatial', data_file, spatialfile_id=self.id,
                 feature_types=spatial_types_file
             )
         else:
             management.call_command(
                 'importlayer', 'importspatialfile', data_file,
-                featuretype=self.feature_type, layer=self.layer_number,
-                name_field=self.name_field, id_field=self.id_field
+                spatialfile_id=self.id, featuretype=self.feature_type,
+                layer=self.layer_number, name_field=self.name_field,
+                id_field=self.id_field
             )
 
 

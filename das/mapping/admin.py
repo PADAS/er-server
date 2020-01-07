@@ -369,25 +369,32 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
 if MAPPING_FEATURES_V2:
     @admin.register(models.SpatialFeatureFile)
     class SpatialFeatureFileAdmin(BaseSpatialFileAdmin):
-        change_form_template = "admin/spatial_file_upload.html"
         list_display = ('id', 'name', 'description', 'feature_type')
         list_filter = ('name',)
         fieldsets = (
             (None, {
                 'classes': ('wide',),
-                'fields': ('id', 'name', 'description', 'data', )
+                'fields': ('file_type', 'id', 'name', 'description', 'data',)
             }),
             ('Shapefile Optional Attributes', {
-                'classes': ('wide',),
+                'classes': ('wide', 'shapefile',),
                 'fields': ('feature_type', 'layer_number', 'name_field', 'id_field')
             }
              ),
             ('STE Optional Attributes', {
-                'classes': ('wide',),
+                'classes': ('wide', 'ste',),
                 'fields': ('feature_types_file',)
             }
              ),)
         readonly_fields = ('id',)
+
+        def get_readonly_fields(self, request, obj=None):
+            if obj:
+                return ('id', 'file_type',)
+            return self.readonly_fields
+
+        class Media:
+            js = ('base.js',)
 else:
     @admin.register(models.SpatialFile)
     class SpatialFileAdmin(BaseSpatialFileAdmin):

@@ -78,9 +78,9 @@ class Command(BaseCommand):
                             help='Spatial file ID')
 
     def importlayerfile(self):
-        if MAPPING_FEATURES_V2:
-            raise NotImplementedError(
-                f'importlayer management command deprecated, use import_spatial command or importspatialfile subcommand')
+        # if MAPPING_FEATURES_V2:
+        #     raise NotImplementedError(
+        #         f'importlayer management command deprecated, use import_spatial command or importspatialfile subcommand')
 
         if not self.featureset and not self.featuretype:
             logger.info('Featureset and featuretype not included in command, add flags --featureset and --featuretype')
@@ -180,7 +180,9 @@ class Command(BaseCommand):
             if featureset:
                 self.save_to_layer_model(feature, featureset, featuretype, external_id)
             else:
-                save_feature_to_table(feature, self.source_name, featuretype, external_id)
+                save_feature_to_table(feature, self.source_name,
+                                      self.spatialfile_id, featuretype,
+                                      external_id)
 
     def save_to_layer_model(self, feature, featureset, featuretype, external_id):
         # TODO: Kezzy. Had to merge incoming changes here, please review

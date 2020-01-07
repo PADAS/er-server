@@ -1,14 +1,15 @@
 # import geojson file (geofences) to dev db
-import logging
 import datetime
+import logging
 
 from django.core.management.base import BaseCommand
-from mapping import models
-import utils.json
-from utils.spatial import GeometryMapper
+from django.db.utils import IntegrityError
 
+import utils.json
+from mapping import models
 from mapping.utils import (DEFAULT_SOURCE_NAME, datasource_from_file,
-                           save_feature_to_table, fields_iter)
+                           fields_iter, save_feature_to_table)
+from utils.spatial import GeometryMapper
 
 logger = logging.getLogger(__name__)
 
@@ -35,11 +36,13 @@ class Command(BaseCommand):
     help = 'Import a spatial data layer'
     tmpdirs = []
     source_name = DEFAULT_SOURCE_NAME
+    spatialfile_id = None
 
     geometry_mapper = GeometryMapper()
 
     def handle(self, *args, **options):
         self.source_name = options['source'] if options['source'] else DEFAULT_SOURCE_NAME
+        self.spatialfile_id = options['spatialfile_id'] if options['spatialfile_id'] else self.spatialfile_id
         try:
             feature_types_file = options['feature_types']
             if feature_types_file:
@@ -65,6 +68,8 @@ class Command(BaseCommand):
                             help='spatial feature types file')
         parser.add_argument(
             '--source', type=str, help=f'Source of data, default is {DEFAULT_SOURCE_NAME}')
+        parser.add_argument('--spatialfile-id', type=str,
+                            help='Spatial file ID')
 
     def import_layer(self, datasource):
         for feature in datasource[0]:
@@ -72,7 +77,7 @@ class Command(BaseCommand):
             logger.debug('Feature geom type: %s', str(feature.geom_type))
             logger.debug('Feature length: %s', str(len(feature)))
             logger.debug('Feature num of fields: %s', str(feature.num_fields))
-            save_feature_to_table(feature, self.source_name)
+            save_feature_to_table(feature, self.source_name, self.spatialfile_id)
 
     def get_display_category(self, display_category_name, create_okay=True):
         try:
@@ -110,12 +115,16 @@ class Command(BaseCommand):
             defaults = {'provenance': provenance, 'attribute_schema': attribute_schema,
                         'external_source': self.source_name}
 
-            type_record, created = model.objects.get_or_create(
-                name=name,
-                defaults=defaults,
-                display_category=self.get_display_category(
-                    feature['display_category'].value),
-                external_id=global_id)
+            try:
+                type_record, created = model.objects.get_or_create(
+                    name=name,
+                    defaults=defaults,
+                    display_category=self.get_display_category(
+                        feature['display_category'].value),
+                    external_id=global_id)
+            except IntegrityError as err:
+                logger.warning(err)
+                return
 
             logger.debug('Import feature_type: %s, created:%s',
                          global_id, created)
