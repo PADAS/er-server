@@ -23,6 +23,8 @@ spec:
         ports:
           - containerPort: 8000
         env:
+        - name: SERVICE_NAME
+          value: "api_server"
         - name: DB_HOST
           value: "${DB_HOST}"
         - name: DB_PORT
@@ -36,8 +38,6 @@ spec:
             secretKeyRef:
               name: db-password
               key: value
-        - name: SERVICE_NAME
-          value: "api_server"
         - name: EMAIL_PASSWORD
           valueFrom:
             secretKeyRef:

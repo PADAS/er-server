@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
 
 import utils
-from activity.alerting.businessrules import render_event
+from activity.alerting.businessrules import render_event, resolve_event_revisions
 from activity.models import Event, NotificationMethod, AlertRule, EventNotification
 from reports.distribution import send_report
 
@@ -106,40 +106,6 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
     else:
         logger.error(f"Unsupported NotifcationMethod ({notification_method.method})"
                      f" when processing event:{event_id} for notification: {notification_method.id}")
-
-
-def resolve_event_revisions(event):
-    '''
-    We end up in this code path in a few ways. Some data associated with the
-    event has changed, but it could be the event itself or the event_details
-    which contains the schema data. Or it could be both. It all depends on
-    what fields were changed in the event update.
-
-    To figure out what change(s) brought us here, we need to look at the
-    timestamps on the latest revisions to both the event and eventdetails
-    objects and see which one is newer.
-
-    :param event_id:
-    :return:
-    '''
-    revision = event.revision.all_user().latest('revision_at')
-    try:
-        details_revision = event.event_details.latest('updated_at') \
-            .revision.all_user().latest('revision_at')
-    except AttributeError:
-        return revision, None
-
-    diff = (revision.revision_at - details_revision.revision_at).total_seconds()
-
-    # If the timestamps are < 1 second apart, they were very likely made
-    # together
-    if abs(diff) < 1:
-        return revision, details_revision
-    # If the changes are farther apart, take the later one only
-    elif diff < 0:
-        return None, details_revision
-    else:
-        return revision, None
 
 
 def get_revised_event_fields(event_revision):

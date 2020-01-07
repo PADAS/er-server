@@ -148,8 +148,7 @@ class SubjectGroupsView(generics.ListAPIView):
             raise UnauthorizedView
 
         queryset = models.SubjectGroup.objects.filter(
-            _parents=None, is_visible=parse_bool(
-                self.request.GET.get('isvisible', True)))
+            _parents=None)
         queryset = queryset.order_by('name')
         return queryset
 
@@ -1263,7 +1262,8 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                     csv_data.append(data)
         else:
             try:
-                subjects = self.get_queryset(request_subject_id, request_subject_chronofile)
+                subjects = self.get_queryset(
+                    request_subject_id, request_subject_chronofile)
                 for subject in subjects:
                     # all the relevant observations for the subject
                     items = self.get_subject_trackdata_queryset(
@@ -1293,7 +1293,8 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         response['x-das-download-filename'] = download_filename
 
         if request_subject_id:
-            fieldnames = [item.replace('chronofile', 'subject_id') for item in fieldnames]
+            fieldnames = [item.replace('chronofile', 'subject_id')
+                          for item in fieldnames]
         writer = csv.DictWriter(response, fieldnames=fieldnames)
         writer.writeheader()
         if csv_data:
@@ -1315,10 +1316,10 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         else:
             value = item['subjectsource_additional'].get('chronofile', '') \
                 if item['subjectsource_additional'] else ''
-        
+
         collar_id = item['collar_id']
-        data = {'lat': item['location'].x,
-                'lon': item['location'].y,
+        data = {'lat': item['location'].y,
+                'lon': item['location'].x,
                 'height': item['location'].z,
                 request_key: value,
                 'collar_id': collar_id,

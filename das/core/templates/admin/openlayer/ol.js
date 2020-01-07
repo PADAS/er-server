@@ -12,6 +12,8 @@ var {{ module }} = {};
 {{ module }}.is_linestring = {{ is_linestring|yesno:"true,false" }};
 {{ module }}.is_polygon = {{ is_polygon|yesno:"true,false" }};
 {{ module }}.is_point = {{ is_point|yesno:"true,false" }};
+{{ module }}.tile_layers = {{ tile_layers|safe }};
+
 {% endblock %}
 
 
@@ -110,16 +112,43 @@ var modify_wkt = function(event) {
     }
 };
 
-    // source.clear()
-    // document.getElementById('{{ id }}').value = '';
-    // {% localize off %}
-    // map.getView().setCenter(ol.proj.transform([{{ default_lon}}, {{ default_lat}}], 'EPSG:4326', 'EPSG:3857'));
-    // map.getView().setZoom({{ default_zoom }});
-    // {% endlocalize %}
+
+
+
+var CreateTileLayer = function(){
+    TileLayers = {{ module }}.tile_layers;
+    var array = [];
+    TileLayers.forEach(function(tile){
+
+        var tile_link = tile.attributes.url;
+        var TileLayer = new ol.layer.Tile({
+            source: new ol.source.XYZ({
+                url: tile_link
+            })
+
+        });
+        object = {};
+        var id = tile.attributes.title.replace(/\s/g, "").toLowerCase() + '_id';
+        object[id] = TileLayer;
+        array.push(object);
+    });
+    return array
+
+};
+
 
 var raster = new ol.layer.Tile({
     source: new ol.source.OSM()
 });
+
+// var google_hybrid_url = 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
+
+// var google_satellite_layer = new ol.layer.Tile({
+//     source: new ol.source.XYZ({
+//         url: google_hybrid_url + '&client=AIzaSyArYgAAi9immeQFbEO2_6dRgc7hCSLaOIo'
+//     })
+// });
+
 var source = new ol.source.Vector({
     format: new ol.format.GeoJSON()
 });
@@ -160,21 +189,17 @@ var map = new ol.Map({
     ])
 });
 
+// sometimes the map is not properly centered when creating the map view, try centering it again
+map.getView().setCenter(ol.proj.transform([{{default_lon}}, {{default_lat}}], 'EPSG:4326', 'EPSG:4326'));
+
+
+var mousewheel = new ol.interaction.MouseWheelZoom()
+map.addInteraction(mousewheel);
 
 map.on('moveend', (event) => {
     var newZoom = map.getView().getZoom();
     sessionStorage.setItem("zoomLevel", newZoom);
 });
-
-
-var zoom = sessionStorage.getItem("zoomLevel");
-// if zoom was saved in sessionstorage, then use it to zoom the map else default to numZoomLevels
-if (zoom !== null) {
-    map.getView().setZoom(zoom);
-} else {
-    zoom = options.numZoomLevels
-}
-
 
 // Geometric Object
 var createGeometricObject = function(innerHTML, geoType, className){
@@ -184,7 +209,12 @@ var createGeometricObject = function(innerHTML, geoType, className){
     var type = "{{ geom_type }}";
     var geometricObject = function(e){
         e.preventDefault()
-        map.getInteractions().pop()
+        map.getInteractions().pop();
+
+        var el = document.getElementById("card");
+        if (el.style.display === "grid") {
+            el.style.display = "none";
+        };
 
         draw = new ol.interaction.Draw({
             source: source,
@@ -213,25 +243,25 @@ var createGeometricObject = function(innerHTML, geoType, className){
 
 
 // Polygon
-if ("{{ geom_type }}" == "MultiPolygon") {
+if ("{{ geom_type }}" == "MultiPolygon" || {{ module }}.is_polygon == true) {
     var polygonUrl = '<img class="img_1" src="https://img.icons8.com/ios-glyphs/30/ffffff/polygon.png">';
     createGeometricObject(polygonUrl, 'Polygon', 'ol-point');
-} else if ("{{ geom_type }}" != "MultiLineString" && "{{ geom_type }}" != "MultiPoint") {
+} else if ("{{ geom_type }}" != "MultiLineString" && "{{ geom_type }}" != "MultiPoint" && {{ module }}.is_linestring != true) {
     var polygonUrl = '<img class="img_1" src="https://img.icons8.com/ios-glyphs/30/ffffff/polygon.png">';
     createGeometricObject(polygonUrl, 'Polygon', 'ol-polygon');
 };
 
 // Linestring
-if ("{{ geom_type }}" == "MultiLineString"){
+if ("{{ geom_type }}" == "MultiLineString" || {{ module }}.is_linestring == true){
     var linestringUrl = '<img class="img_1" src="https://img.icons8.com/ios-filled/50/ffffff/polyline.png">';
     createGeometricObject(linestringUrl, 'LineString', 'ol-point');
-} else if ("{{ geom_type }}" != "MultiPolygon" && "{{ geom_type }}" != "MultiPoint"){
+} else if ("{{ geom_type }}" != "MultiPolygon" && "{{ geom_type }}" != "MultiPoint" && {{ module }}.is_polygon != true && {{ module }}.is_point != true){
     var linestringUrl = '<img class="img_1" src="https://img.icons8.com/ios-filled/50/ffffff/polyline.png">';
     createGeometricObject(linestringUrl, 'LineString', 'ol-linestring');
 };
 
 // Point
-if ("{{ geom_type }}" == "MultiPoint" || "{{ geom_type }}" != "MultiPolygon" && "{{ geom_type }}" != "MultiLineString") {
+if ("{{ geom_type }}" == "MultiPoint" || "{{ geom_type }}" != "MultiPolygon" && "{{ geom_type }}" != "MultiLineString" && {{ module }}.is_polygon != true && {{ module }}.is_linestring != true ) {
     var pointUrl = '<img class="img_2" src="https://img.icons8.com/material-rounded/24/ffffff/filled-circle.png">';
     createGeometricObject(pointUrl, 'Point', 'ol-point');
 };
@@ -245,6 +275,11 @@ var modif = function(className) {
         e.preventDefault();
         modify = new ol.interaction.Modify({ source: source });
         map.getInteractions().pop()
+
+        var el = document.getElementById("card");
+        if (el.style.display === "grid") {
+            el.style.display = "none";
+        };
 
         map.addInteraction(modify);
     };
@@ -289,13 +324,13 @@ var delet = function (className){
 };
 
 
-if ("{{ geom_type }}" == "MultiPolygon" || "{{ geom_type }}" == "MultiPoint" || "{{ geom_type }}" == "MultiLineString"){
+if ("{{ geom_type }}" == "MultiPolygon" || "{{ geom_type }}" == "MultiPoint" || "{{ geom_type }}" == "MultiLineString" || {{ module }}.is_polygon == true || {{ module }}.is_linestring == true || {{ module }}.is_point == true ){
     delet('ol-linestring')
 } else if ("{{ geom_type }}" != "MultiPolygon" && "{{ geom_type }}" != "MultiPoint") {
     delet('ol-x')
 };
 
-if ("{{ geom_type }}" == "MultiPolygon" || "{{ geom_type }}" == "MultiPoint" || "{{ geom_type }}" == "MultiLineString") {
+if ("{{ geom_type }}" == "MultiPolygon" || "{{ geom_type }}" == "MultiPoint" || "{{ geom_type }}" == "MultiLineString" || {{ module }}.is_polygon == true || {{ module }}.is_linestring == true || {{ module }}.is_point == true) {
     modif('ol-polygon')
 } else if ("{{ geom_type }}" != "MultiPolygon" && "{{ geom_type }}" != "MultiPoint") {
     modif('ol-modify')
@@ -309,6 +344,116 @@ if ("{{ geom_type }}" == "MultiPolygon" || "{{ geom_type }}" == "MultiPoint" || 
 //     map.getTargetElement().style.cursor = hit ? 'pointer': '';
 // });
 
+
+var button_baselayer = document.createElement('button');
+button_baselayer.innerHTML = '<img class="img_1" id="bl" src="https://img.icons8.com/ios-glyphs/30/ffffff/layers.png">';
+
+var switchBaseLayer = function (e) {
+    e.preventDefault();
+    try{
+    map.getInteractions().pop();
+    map.addInteraction(mousewheel);
+
+    }catch(err){
+        location.reload();
+    }
+
+    var el = document.getElementById("card");
+    // console.log(el)
+    if (el.style.display === "grid"){
+        el.style.display = "none";
+    }else{
+        el.style.display = "grid";
+    }
+};
+
+button_baselayer.addEventListener('click', switchBaseLayer, false);
+
+var element_baselayer = document.createElement('div');
+element_baselayer.className = 'ol-bl ol-unselectable ol-control';
+element_baselayer.appendChild(button_baselayer);
+
+var BaseLayerControl = new ol.control.Control({
+    element: element_baselayer
+});
+map.addControl(BaseLayerControl);
+
+
+var cardHTML = `<div class="card ol-unselectable ol-control ol-bl" id="card"></div>`;
+
+var olLayersViewPort = document.getElementById('{{ id }}_map').getElementsByClassName("ol-viewport")[0];
+
+olLayersViewPort.insertAdjacentHTML('beforeend', cardHTML);
+
+
+var TileLayerHTML = function(id, icon_url, name, title){
+    var HTML;
+    var cardDiv;
+    var style = "width: 50%; outline: none;";
+    HTML = `<div class="item">
+                <input type="image" src="${icon_url}" name="${name}" class="input" id="${id}" style="${style}"/>
+                <span> <center id="${id}">${title}</center> </span>
+            </div>`;
+    cardDiv = document.getElementById('card');
+    cardDiv.insertAdjacentHTML('beforeend', HTML);
+};
+
+
+var switchBaseMapLayer = function(layer){
+    map.getLayers().removeAt(0)
+    map.getLayers().insertAt(0, layer);
+};
+
+var eventListener = function(id){
+    document.querySelectorAll(`[id^="${id}"]`).forEach(function(element){
+        element.addEventListener('click', function(event){
+            event.preventDefault();
+
+            var layers = CreateTileLayer();
+            layers.forEach(function (layer) {
+                if (Object.keys(layer)[0] == id) {
+                    layer = Object.values(layer)[0];
+                    switchBaseMapLayer(layer);
+                }
+            })
+        })
+    });
+
+};
+
+var defaultIcon = "https://img.icons8.com/cotton/256/000000/globe.png";
+
+{{ module }}.tile_layers.forEach( function(layer){
+    if (layer.attributes.type == "tile_server"){
+        var id = layer.attributes.title.replace(/\s/g, "").toLowerCase()+'_id';
+        var name = layer.attributes.title.toLowerCase();
+        var title = layer.attributes.title;
+        var icon_url = layer.attributes.icon_url;
+        if( icon_url != undefined){
+            icon_url = icon_url;
+        }else{
+            icon_url = defaultIcon;
+        }
+        TileLayerHTML(id, icon_url, name, title);
+        eventListener(id);
+    };
+
+});
+
+
+// Default option for OSM:
+var osmIConUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Openstreetmap_logo.svg/1200px-Openstreetmap_logo.svg.png';
+TileLayerHTML('osm_', osmIConUrl, 'osm', 'OSM');
+document.querySelectorAll('[id^="osm_"]').forEach(function(element){
+    element.addEventListener('click', function(event){
+        event.preventDefault();
+        switchBaseMapLayer(raster);
+    });
+
+});
+
+
+// console.log(document.querySelectorAll('[id^="osm_"]'));
 
 var zoomslider = new ol.control.ZoomSlider();
 map.addControl(zoomslider);
@@ -343,15 +488,19 @@ if(wkt) {
     // Zooming to the bounds
     // extent = map.getView().calculateExtent();
     var extent = source.getExtent();
-    var zoomBeforeFit = zoom;
 
     map.getView().fit(extent, map.getSize());
 
-    // if (source.getFeatures()[0].getGeometry().getType() == 'Point' || '{{ geom_type }}' == 'MultiPoint'){
-    //     map.getView().setZoom(map.getView().getZoom()-8);
-    // }
-    map.getView().setZoom(zoomBeforeFit);
+    if (source.getFeatures()[0].getGeometry().getType() == 'Point' || '{{ geom_type }}' == 'MultiPoint'){
+        map.getView().setZoom(map.getView().getZoom()-8);
+    }
+} else {
+    // if loading a new gis feature, use the saved zoomlevel
+    var zoom = sessionStorage.getItem("zoomLevel");
+    // if zoom was saved in sessionstorage, then use it to zoom the map else default to numZoomLevels
+    if (zoom !== null) {
+        map.getView().setZoom(zoom);
+    } else {
+        zoom = options.numZoomLevels
+    }
 }};
-
-
-

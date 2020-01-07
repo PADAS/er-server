@@ -57,7 +57,7 @@ class EventVariables(variables.BaseVariables):
 
     @variables.select_multiple_rule_variable(label=_('State'), options=state_options)
     def state(self):
-        return [self.event.get('state'), ]
+        return [self.event.get('inferred_state'),]
 
     # TODO: Implement state-change logic.
     # @variables.select_multiple_rule_variable(label=_('State Change'), options=state_change_options)
@@ -358,8 +358,57 @@ def render_event(event, user, method='GET'):
     request.user = user
 
     if EventCategoryPermissions().has_object_permission(request, None, event):
-        return EventSerializer(event, context={'request': request, }).data
+        event_data = EventSerializer(event, context={'request': request, }).data
+        event_data['inferred_state'] = infer_event_state(event)
+        return event_data
     else:
         logger.info(
             f'Permission denied when rendering event {event.serial_number} for user {user}.')
         return None
+
+
+def infer_event_state(event):
+    '''
+    When state is not 'resolved', it can be coerced to 'active' if its latest revision is 'updated'.
+    :return: an inferred state (one of 'new', 'active', 'resolved')
+    '''
+    if event.state in (Event.SC_RESOLVED, Event.SC_ACTIVE):
+        return [event.state, ]
+
+    event_revision, details_revision = resolve_event_revisions(event)
+    inferred_state = Event.SC_NEW if event_revision and event_revision.action == 'added' else Event.SC_ACTIVE
+    return inferred_state
+
+
+def resolve_event_revisions(event):
+    '''
+    We end up in this code path in a few ways. Some data associated with the
+    event has changed, but it could be the event itself or the event_details
+    which contains the schema data. Or it could be both. It all depends on
+    what fields were changed in the event update.
+
+    To figure out what change(s) brought us here, we need to look at the
+    timestamps on the latest revisions to both the event and eventdetails
+    objects and see which one is newer.
+
+    :param event_id:
+    :return:
+    '''
+    revision = event.revision.all_user().latest('revision_at')
+    try:
+        details_revision = event.event_details.latest('updated_at') \
+            .revision.all_user().latest('revision_at')
+    except AttributeError:
+        return revision, None
+
+    diff = (revision.revision_at - details_revision.revision_at).total_seconds()
+
+    # If the timestamps are < 1 second apart, they were very likely made
+    # together
+    if abs(diff) < 1:
+        return revision, details_revision
+    # If the changes are farther apart, take the later one only
+    elif diff < 0:
+        return None, details_revision
+    else:
+        return revision, None

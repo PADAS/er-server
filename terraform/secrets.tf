@@ -34,3 +34,19 @@ resource "kubernetes_secret" "db_password" {
   data = data.vault_generic_secret.db_password.data
 }
 
+resource "kubernetes_secret" "pamdas_org_ssl_cert_bundle" {
+  metadata {
+    name      = "pamdas-org-ssl-cert-bundle"
+    namespace = kubernetes_namespace.this.metadata.0.name
+  }
+  data = data.vault_generic_secret.pamdas_org_ssl_cert_bundle.data
+}
+
+resource "kubernetes_secret" "pamdas_org_private_key_pem" {
+  metadata {
+    name      = "pamdas-org-private-key-pem"
+    namespace = kubernetes_namespace.this.metadata.0.name
+  }
+  data = data.vault_generic_secret.pamdas_org_private_key_pem.data
+}
+
