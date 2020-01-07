@@ -1841,6 +1841,26 @@ class TestEventView(BaseAPITest):
         self.assertIsInstance(event_details["carcassrep_species"], list)
         self.assertNotIsInstance(event_details["carcassrep_species"][0], dict)
 
+    def test_property_multiselect(self):
+        event_data = copy.deepcopy(self.event_data)
+        event_data['event_type'] = ET_OTHER
+        event_data['event_details'] = {
+            "sectionArea": "unknown",
+            "conservancy": "unknown",
+            # multi-select
+            "arrestrep_reasonforarrest": ["snare", "logging"],
+            }
+
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        event_details = response.data.get('event_details')
+        for k, v in event_details.items():
+            self.assertNotIsInstance(v, dict)
+        self.assertIsInstance(event_details["arrestrep_reasonforarrest"], list)
+        self.assertNotIsInstance(event_details["arrestrep_reasonforarrest"][0], dict)
+
 
 class TestParsing(TestCase):
 

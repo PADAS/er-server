@@ -820,7 +820,13 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
             elif type(v) == list and k in parameters:
                 all_values = []
                 for value in v:
-                    matches = [d for d in parameters[k] if d['value'] == value]
+                    matches = []
+                    for d in parameters[k]:
+                        if isinstance(d, dict) and d['value'] == value:
+                            matches.append(value)
+                        elif value == d:
+                            matches.append(value)
+
                     if len(matches) > 0:
                         all_values.append(matches[0])
                 if len(all_values) > 0:
