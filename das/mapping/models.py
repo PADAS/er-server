@@ -153,7 +153,6 @@ class SpatialFilesBase(TimestampedModel):
     layer_number = models.IntegerField(blank=True, null=True, default=0)
     name_field = models.CharField(max_length=100, blank=True, null=True)
     id_field = models.CharField(max_length=100, blank=True, null=True)
-    file_type = models.CharField(max_length=100, default='shapefile', choices=FILE_TYPES)
 
     class Meta:
         abstract = True
@@ -229,8 +228,10 @@ class SpatialFilesBase(TimestampedModel):
         """
         self.save()
         data_file = self.get_upload_file(self.data)
-        # TODO: Kezzy. self.feature_types_file not defined in SpatialFile
-        spatial_types_file = self.get_upload_file(self.feature_types_file)
+        try:
+            spatial_types_file = self.get_upload_file(self.feature_types_file)
+        except Exception:
+            spatial_types_file = None
         self.call_mgt_command(data_file, spatial_types_file)
 
     def get_upload_file(self, upload_file):
@@ -265,10 +266,10 @@ class SpatialFile(SpatialFilesBase):
     class Meta:
         verbose_name = 'Spatial File'
 
-    def call_mgt_command(self, import_file):
+    def call_mgt_command(self, import_file, spatial_types_file=None):
         management.call_command(
             'importlayer', 'importlayerfile', import_file,
-            spatialfile_id=self.id, featureset=self.feature_set,
+            spatialfile_id=self.id, featureset=self.feature_set, featuretype=self.feature_type,
             name_field=self.name_field, id_field=self.id_field
         )
 
@@ -681,6 +682,7 @@ class SpatialFeatureFile(SpatialFilesBase):
     """
     Special Feature loaded from uploaded shapefile
     """
+    file_type = models.CharField(max_length=100, default='shapefile', choices=FILE_TYPES)
     feature_type = models.ForeignKey(to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
     feature_types_file = models.FileField(storage=TempStorage(), blank=True, null=True)
 

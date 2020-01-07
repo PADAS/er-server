@@ -1,14 +1,15 @@
 # import geojson file (geofences) to dev db
-import logging
 import datetime
+import logging
 
 from django.core.management.base import BaseCommand
-from mapping import models
-import utils.json
-from utils.spatial import GeometryMapper
+from django.db.utils import IntegrityError
 
+import utils.json
+from mapping import models
 from mapping.utils import (DEFAULT_SOURCE_NAME, datasource_from_file,
-                           save_feature_to_table, fields_iter)
+                           fields_iter, save_feature_to_table)
+from utils.spatial import GeometryMapper
 
 logger = logging.getLogger(__name__)
 
@@ -114,12 +115,16 @@ class Command(BaseCommand):
             defaults = {'provenance': provenance, 'attribute_schema': attribute_schema,
                         'external_source': self.source_name}
 
-            type_record, created = model.objects.get_or_create(
-                name=name,
-                defaults=defaults,
-                display_category=self.get_display_category(
-                    feature['display_category'].value),
-                external_id=global_id)
+            try:
+                type_record, created = model.objects.get_or_create(
+                    name=name,
+                    defaults=defaults,
+                    display_category=self.get_display_category(
+                        feature['display_category'].value),
+                    external_id=global_id)
+            except IntegrityError as err:
+                logger.warning(err)
+                return
 
             logger.debug('Import feature_type: %s, created:%s',
                          global_id, created)
