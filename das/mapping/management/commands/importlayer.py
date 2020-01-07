@@ -78,9 +78,9 @@ class Command(BaseCommand):
                             help='Spatial file ID')
 
     def importlayerfile(self):
-        if MAPPING_FEATURES_V2:
-            raise NotImplementedError(
-                f'importlayer management command deprecated, use import_spatial command or importspatialfile subcommand')
+        # if MAPPING_FEATURES_V2:
+        #     raise NotImplementedError(
+        #         f'importlayer management command deprecated, use import_spatial command or importspatialfile subcommand')
 
         if not self.featureset and not self.featuretype:
             logger.info('Featureset and featuretype not included in command, add flags --featureset and --featuretype')
