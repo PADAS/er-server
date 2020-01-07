@@ -838,12 +838,24 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
     def to_internal_value(self, data):
         return self._to_internal_value_inner(self.root.instance, data)
 
+    def handle_legacy_data(self, event_details):
+        for k, v in event_details.items():
+            if k == "updates":
+                continue
+            elif isinstance(v, dict) and 'value' in v.keys():
+                event_details[k] = v['value']
+            elif isinstance(v, list):
+                values = [x['value'] if isinstance(x, dict) and 'value' in x.keys() else x for x in v]
+                event_details[k] = values
+        return event_details
+
     def to_representation(self, event_details):
         if not event_details:
             return OrderedDict()
         rep = OrderedDict(event_details.data['event_details'])
         event_type = self.get_event_type(event_details.event)
         rep['updates'] = self.render_updates(event_details, event_type)
+        rep = self.handle_legacy_data(rep)
         return rep
 
     def render_updates(self, event_details, event_type):

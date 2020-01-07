@@ -28,12 +28,13 @@ from kombu import Connection
 from rest_framework.fields import DateTimeField
 from drf_extra_fields.geo_fields import PointField
 
+from activity.serializers import EventDetailsSerializer
 from core.tests import BaseAPITest
 from choices.models import Choice
 from accounts.models import PermissionSet
 from activity.models import Event, EventAttachment, EventType, EventCategory, \
     EventRelationship, EventRelationshipType, EventNote, EventsourceEvent, \
-    EventSource, EventProvider, parse_date_range
+    EventSource, EventProvider, parse_date_range, EventDetails
 from activity import views
 from observations.models import Subject
 from accounts.serializers import UserDisplaySerializer
@@ -1860,6 +1861,28 @@ class TestEventView(BaseAPITest):
             self.assertNotIsInstance(v, dict)
         self.assertIsInstance(event_details["arrestrep_reasonforarrest"], list)
         self.assertNotIsInstance(event_details["arrestrep_reasonforarrest"][0], dict)
+
+    def test_handling_legacy_data(self):
+        event = self.create_event(self.event_data)
+        event_detail = EventDetails.objects.create(
+            event=event,
+            data={'event_details': {
+                'conservancy': {"name": "Name", "value": "name"},
+                'test': "test",
+                "correct_output_checkbox": ["one", "two"],
+                'sectionArea': [{"name": "Area1", "value": "area1"},
+                                {"name": "Area2", "value": "area2"}],
+                'arrestrep_reasonforarrest': ['snare',
+                                              'logging']}}
+
+        )
+        serializer = EventDetailsSerializer(event_detail)
+        data = serializer.data
+        self.assertEqual(data['conservancy'], "name")
+        self.assertEqual(data['test'], "test")
+        self.assertEqual(data['correct_output_checkbox'], ["one", "two"])
+        self.assertEqual(data['sectionArea'], ['area1', 'area2'])
+        self.assertEqual(data['arrestrep_reasonforarrest'], ['snare', 'logging'])
 
 
 class TestParsing(TestCase):
