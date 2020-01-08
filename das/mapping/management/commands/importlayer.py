@@ -6,7 +6,7 @@ from django.core.management.base import BaseCommand
 from mapping import models
 from mapping.utils import (DEFAULT_SOURCE_NAME, MAPPING_FEATURES_V2,
                            datasource_from_file, save_feature_to_table,
-                           validate_feature_record)
+                           validate_feature_record, save_spatial_file)
 from utils.spatial import GeometryMapper
 
 logger = logging.getLogger(__name__)
@@ -223,6 +223,5 @@ class Command(BaseCommand):
             feature_record.description = feature['Description'].value
         except (KeyError, IndexError):
             pass
-        if self.spatialfile_id:
-            feature_record.spatialfile_id = self.spatialfile_id
+        feature_record = save_spatial_file(self.spatialfile_id, models.SpatialFile, feature_record)
         feature_record.save()

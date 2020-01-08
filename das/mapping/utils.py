@@ -149,7 +149,12 @@ def save_feature_to_table(feature, source_name, spatialfile_id, featuretype=None
     feature_record.feature_geometry = feature_geometry
     for key, value in defaults.items():
         setattr(feature_record, key, value)
-
-    if spatialfile_id:
-        feature_record.spatialfile_id = spatialfile_id
+    feature_record = save_spatial_file(spatialfile_id, models.SpatialFeatureFile, feature_record)
     feature_record.save()
+
+
+def save_spatial_file(spatialfile_id, model, record):
+    if spatialfile_id:
+        spatialfile = model.objects.get(id=spatialfile_id)
+        record.spatialfile = spatialfile
+        return record

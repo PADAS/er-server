@@ -214,7 +214,6 @@ def delete_selected_spatialfiles(modeladmin, request, queryset):
             for obj in queryset:
                 obj_display = str(obj)
                 modeladmin.log_deletion(request, obj, obj_display)
-            queryset.delete()
 
             if 'delete_associated_features' in request.POST:
                 if MAPPING_FEATURES_V2:
@@ -223,6 +222,7 @@ def delete_selected_spatialfiles(modeladmin, request, queryset):
                     line_features.delete()
                     point_features.delete()
                     polygon_features.delete()
+            queryset.delete()
 
             modeladmin.message_user(request, _(
                 "Successfully deleted %(count)d %(items)s.") % {
