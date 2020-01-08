@@ -222,6 +222,7 @@ def delete_selected_spatialfiles(modeladmin, request, queryset):
                     line_features.delete()
                     point_features.delete()
                     polygon_features.delete()
+
             queryset.delete()
 
             modeladmin.message_user(request, _(
@@ -318,7 +319,6 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
             attr = str(to_field) if to_field else opts.pk.attname
             obj_id = obj.serializable_value(attr)
             self.log_deletion(request, obj, obj_display)
-            self.delete_model(request, obj)
 
             if 'delete_associated_features' in request.POST:
                 if MAPPING_FEATURES_V2:
@@ -327,6 +327,8 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
                     line_features.delete()
                     point_features.delete()
                     polygon_features.delete()
+
+            self.delete_model(request, obj)
 
             return self.response_delete(request, obj_display, obj_id)
 
