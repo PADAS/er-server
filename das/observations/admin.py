@@ -40,6 +40,8 @@ from core.common import TIMEZONE_USED
 from utils.html import make_html_list
 from .models import SOURCE_TYPES
 from observations.daterange_filter import DateRangeFilter
+from bitfield import BitField
+from bitfield.forms import BitFieldCheckboxSelectMultiple
 
 site_title = _('DAS Administration (advanced view)')
 admin.site.site_title = site_title
@@ -268,10 +270,6 @@ class LargeTablePaginator(Paginator):
         return self._count if self._count is not None else super().count
 
     count = property(_get_count)
-
-
-from bitfield import BitField
-from bitfield.forms import BitFieldCheckboxSelectMultiple
 
 
 @admin.register(models.Observation)

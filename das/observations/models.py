@@ -47,6 +47,7 @@ from core.models import HierarchyManager, HierarchyModel, TimestampedModel
 from core.utils import static_image_finder
 from observations.mixins import FilterMixin
 from observations.utils import calculate_track_range, get_minimum_allowed_age
+from bitfield import BitField
 
 
 logger = logging.getLogger(__name__)
@@ -359,9 +360,6 @@ class ObservationManager(models.Manager):
 
         except Observation.DoesNotExist:
             pass
-
-
-from bitfield import BitField
 
 
 class Observation(models.Model):
