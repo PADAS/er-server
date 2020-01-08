@@ -390,12 +390,11 @@ class Observation(models.Model):
     source = models.ForeignKey('Source', on_delete=models.CASCADE)
     additional = JSONField()
 
-    exclusion_flags = BitField(flags=BITMAP_FILTER_CHOICES,
-                               default=0)
+    exclusion_flags = BitField(flags=BITMAP_FILTER_CHOICES, default=0)
     objects = ObservationManager()
 
     def __str__(self):
-        return '{}:{}'.format(self.recorded_at.isoformat(), self.location)
+        return '{}:{}:{:08b}'.format(self.recorded_at.isoformat(), self.location, self.exclusion_flags.mask)
 
     class Meta:
         unique_together = (
