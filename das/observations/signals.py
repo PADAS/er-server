@@ -62,9 +62,9 @@ def create_proxy_permissions(**kwargs):
     """
     Creates permissions for proxy models which are not created automatically
     by "django.contrib.auth.management.create_permissions"
-    see issue: https://code.djangoproject.com/ticket/11154, however, it has been fixed
+    see issue[bug]: https://code.djangoproject.com/ticket/11154, however, it has been fixed
     in Django release 2.2
-    What this method does is create new permissions will be created for all the proxy models,
+    What this method does is create new permissions for all proxy models,
     using their own content type instead of the content type of the concrete model.
     """
     for model in apps.get_models():
