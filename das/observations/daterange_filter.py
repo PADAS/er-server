@@ -98,12 +98,6 @@ class DateRangeFilter(admin.filters.FieldListFilter):
                           {'base_fields': fields})
         form_class.media = self._get_media()
         # lines below ensure that the js static files are loaded just once
-        # even if there is more than one DateRangeFilter in use
-        # request_key = 'DJANGO_RANGEFILTER_ADMIN_JS_SET'
-        # if (getattr(self.request, request_key, False)):
-        #     form_class.js = []
-        # else:
-        # setattr(self.request, request_key, True)
         form_class.js = self.get_js()
         return form_class
 
