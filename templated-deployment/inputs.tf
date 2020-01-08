@@ -12,7 +12,19 @@ variable "kubernetes_namespace" {
   type = string
 }
 
+variable "site_ip_address" {
+  type = string
+}
+
+variable "INGRESS_VERSION" {
+  type    = string
+}
+
 variable "SERVER_VERSION" {
+  type = string
+}
+
+variable "WEB_VERSION" {
   type = string
 }
 
@@ -37,7 +49,7 @@ variable "config_container" {
 }
 
 variable "db_name" {
-  type    = string
+  type = string
 }
 
 variable "db_port" {

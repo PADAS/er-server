@@ -1,4 +1,5 @@
 from math import isclose
+
 from django import forms
 from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
 from django.contrib.gis.geos import Point
@@ -8,6 +9,7 @@ from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDate
 from mapping.models import Map, TileLayer, SpatialFeatureGroupStatic, \
     FeatureType
 from choices.models import Choice
+from core.common import TIMEZONE_USED
 
 
 class MapCenterForm(forms.ModelForm):
@@ -69,6 +71,10 @@ class TileLayerForm(forms.ModelForm):
     class Meta:
         fields = '__all__'
         model = TileLayer
+        labels = {
+            'created_at': f'Created at {TIMEZONE_USED}',
+            'updated_at': f'Updated at {TIMEZONE_USED}',
+        }
 
 
 class TileLayerFormWithAttributes(JSONFieldFormMixin, TileLayerForm):
@@ -118,7 +124,8 @@ class TileLayerFormWithAttributes(JSONFieldFormMixin, TileLayerForm):
 
 
 class SpatialFeatureGroupStaticForm(forms.ModelForm):
-    spatialfeaturegroupstatic = forms.ModelChoiceField(queryset=SpatialFeatureGroupStatic.objects.all(), label='Spatial Feature Group Static')
+    spatialfeaturegroupstatic = forms.ModelChoiceField(
+        queryset=SpatialFeatureGroupStatic.objects.all(), label='Spatial Feature Group Static')
 
     class Meta:
         model = SpatialFeatureGroupStatic
@@ -142,9 +149,9 @@ class PresentationWidget(forms.Textarea):
 
 
 class FeatureTypeForm(forms.ModelForm):
-    presentation = forms.CharField(widget=PresentationWidget(
+    presentation = JSONField(widget=PresentationWidget(
         attrs={'rows': 20, 'cols': 80}))
 
     class Meta:
         model = FeatureType
-        fields = ['id', 'name', 'presentation',]
+        fields = ['id', 'name', 'presentation', ]

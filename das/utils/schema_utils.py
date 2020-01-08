@@ -542,6 +542,10 @@ def validate_rendered_schema_is_wellformed(rendered_schema: dict):
 
     properties = rendered_schema['schema'].get('properties')
 
+    if not properties:
+        raise SchemaValidationError(
+            f'Schema must include a "properties" attribute.')
+
     # Raise an error if any property exists without essential attributes.
     incomplete_properties_keyset = set()
     property_keyset_1 = {'type', 'title'}

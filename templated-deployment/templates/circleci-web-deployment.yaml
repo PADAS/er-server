@@ -1,0 +1,24 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  namespace: "${KUBERNETES_NAMESPACE}"
+  name: web
+spec:
+  template:
+    metadata:
+      labels:
+        das.component: web
+    spec:
+      imagePullSecrets:
+        - name: gcr-secret
+      containers:
+      - name: das-web
+        image: "${WEB_VERSION}"
+        resources:
+          requests:
+            cpu: "75m"
+        ports:
+        - containerPort: 9000
+        env:
+        - name: APIENDPOINT
+          value: "${API_ENDPOINT}"

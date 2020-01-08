@@ -223,9 +223,12 @@ workflows:
       - render_templates:
           requires:
             - 'terraform_apply_dev'
-      - commit_and_push_manifest:
+      - kubectl_apply:
           requires:
             - 'render_templates'
+      - commit_and_push_manifest:
+          requires:
+            - 'kubectl_apply'
 
   build_and_terraform_feature_branch:
   # Build for all branches except develop and release.
