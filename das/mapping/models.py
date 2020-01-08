@@ -237,6 +237,9 @@ class SpatialFilesBase(TimestampedModel):
         """
         Overwriting clean method to have error handling within the admin form.
         """
+        if not self.data:
+            raise ValidationError({'data': []})
+
         self.save()
         data_file = self.get_upload_file(self.data)
         try:
