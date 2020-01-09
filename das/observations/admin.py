@@ -368,7 +368,9 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
         if filter_params:
             d1 = filter_params.get('recorded_at__range__gte')
             d2 = filter_params.get('recorded_at__range__lte')
-            extra_context['history_limit_days'] = self.difference_in_date(d1, d2)
+            if d1 and d2:
+                extra_context['history_limit_days'] = self.difference_in_date(d1, d2)
+                return super().changelist_view(request, extra_context=extra_context)
             return super().changelist_view(request, extra_context=extra_context)
         extra_context['history_limit_days'] = OBSERVATIONS_HISTORY_LIMIT.days
         return super().changelist_view(request, extra_context=extra_context)
