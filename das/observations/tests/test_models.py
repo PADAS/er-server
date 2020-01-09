@@ -1,8 +1,9 @@
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.auth import get_permission_codename
 from django.test import TestCase
 from django.contrib.auth.models import Permission
 from accounts.models import PermissionSet, User
-from observations.models import SubjectGroup, Subject
+from observations.models import SubjectGroup, Subject, SubjectMaximumSpeed
 
 
 def make_perm(perm):
@@ -101,3 +102,18 @@ class SubjectAlertTestCase(TestCase):
 
         self.assertIn(user, ele.get_users_to_notify())
         self.assertNotIn(user2, ele.get_users_to_notify())
+
+
+    def test_permission_with_proxy_content_type_created(self):
+        """
+        A proxy model's permissions use its own content type rather than the
+        content type of the concrete model.
+        """
+        opts = SubjectMaximumSpeed._meta
+        codename = get_permission_codename('add', opts)
+        self.assertTrue(
+            Permission.objects.filter(
+                content_type__model=opts.model_name,
+                content_type__app_label=opts.app_label,
+                codename=codename,
+            ).exists())
