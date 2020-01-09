@@ -516,7 +516,7 @@ class ThreeLevelSubjectGroupHierarchyPermissionsTest(BaseAPITest):
         self.assertEqual(mid_level_ids, [])
         self.assertEqual(bottom_level_ids, [])
 
-        
+
 class TestSubjectGroupsVisibility(BaseAPITest):
     user_const = dict(last_name='last', first_name='first')
 
@@ -568,3 +568,11 @@ class TestSubjectGroupsVisibility(BaseAPITest):
 
         self.assertIn(str(self.child_grp.id), top_level_subject_groups_ids)
         self.assertNotIn(str(self.parent_group.id), top_level_subject_groups_ids)
+
+
+class TestSubjectGroupAutoCreatedViewPerm(BaseAPITest):
+    def test_auto_created_perm_view_subjectgroup(self):
+        group = SubjectGroup.objects.create(name='Elephant')
+        self.assertTrue(group.permission_sets.get(name='View SubjectGroup'))
+        with self.assertRaisesMessage(Exception, 'PermissionSet matching query does not exist.'):
+            group.permission_sets.get(name='view subjectgroup')
