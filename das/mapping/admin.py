@@ -160,7 +160,7 @@ class GeometryTypeFilter(django_admin.SimpleListFilter):
 class SpatialFeatureAdmin(BaseFeatureAdmin):
     ordering = ('name',)
     list_display = ('name', 'feature_type',
-                    'external_source', 'geometry_type',)
+                    'external_source', 'geometry_type', 'get_spatialfile')
     list_filter = (GeometryTypeFilter, 'feature_type',)
     search_fields = ('name', 'short_name', 'external_id', 'id')
     inlines = (

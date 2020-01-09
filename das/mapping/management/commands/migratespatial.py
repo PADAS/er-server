@@ -3,7 +3,7 @@ from enum import Enum
 from collections import defaultdict
 from itertools import chain
 
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand
 from django.db import transaction, IntegrityError
 
 from mapping import models
@@ -83,7 +83,7 @@ class Command(BaseCommand):
         for f in featuresets:
             values = dict(name=f.name)
             try:
-                # TODO: Why is this the only inner transaction.atomic needed, & not needed in the other migrate_* fns
+                # TODO: Why is this the only inner transaction.atomic needed, & not needed in migrate_features
                 with transaction.atomic():
                     func = getattr(models.DisplayCategory.objects, self.create_fn)
                     func(id=f.id, defaults=values) if self.create_fn == 'update_or_create' else func(id=f.id, **values)
@@ -95,17 +95,17 @@ class Command(BaseCommand):
     def migrate_featuretypes(self, featuresets_by_types, remapped_sfts):
         self.stdout.write('Migrating FeatureTypes')
         for ftype, fsets in featuresets_by_types.items():
-            # self.stdout.write(f'ft: {ftype.id} {ftype.name} fsets: {fsets}')
-            lastfeatureset = fsets.pop()
-            # TODO:
+            afeatureset = fsets.pop()
+
             if not models.SpatialFeatureType.objects.filter(id=ftype.id).exists():
-                self._create_spatial_feature_type(lastfeatureset, ftype.name, ftype.presentation, ftype.id)
+                self._create_spatial_feature_type(afeatureset, ftype.name, ftype.presentation, ftype.id)
 
                 # breaking m2m: create a new spatial feature type to associate with the remaining featuresets
-                for featureset in fsets:
-                    new_sft = self._create_spatial_feature_type(featureset, ftype.name, ftype.presentation)
-                    remapped_sfts[(featureset.id, ftype.id)] = new_sft.id
-                    self.stdout.write(f'{ftype.name} with fs_id {featureset.id} ft_id {ftype.id} remapped to {new_sft.id}')
+                for f in fsets:
+                    new_sft_name = f.name + '-' + ftype.name
+                    new_sft = self._create_spatial_feature_type(f, new_sft_name , ftype.presentation)
+                    remapped_sfts[(f.id, ftype.id)] = new_sft.id
+                    self.stdout.write(f'{ftype.name}:{ftype.id} remapped to {new_sft_name}:{new_sft.id}')
                 self.num_ft += 1
 
     def _create_spatial_feature_type(self, featureset, type_name, type_presentation, type_id=None):
@@ -115,7 +115,8 @@ class Command(BaseCommand):
                       display_category=dc,
                       )
         func = getattr(models.SpatialFeatureType.objects, self.create_fn)
-        result = func(id=type_id, defaults=values) if self.create_fn == 'update_or_create' else func(id=type_id, **values)
+        result = func(id=type_id, defaults=values) if self.create_fn == 'update_or_create' \
+            else func(id=type_id, **values)
         if isinstance(result, tuple):
             result = result[0]
         return result
