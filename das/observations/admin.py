@@ -274,7 +274,7 @@ class LargeTablePaginator(Paginator):
 
 @admin.register(models.Observation)
 class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin):
-    list_display = ('subject_link', '_manufacturer_id', 'recorded_at', 'created_at',
+    list_display = ('subject_link', '_manufacturer_id', '_recorded_at', 'created_at',
                     '_longitude', '_latitude', '_state', '_event_action', 'exclusion_flags')
     list_editable = ('exclusion_flags',)
     date_hierarchy = 'recorded_at'
@@ -321,16 +321,17 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
         return o.subject_name
 
     def _manufacturer_id(self, o):
-        return mark_safe('<a href="{}">{}</a>'.format(
-            reverse("admin:observations_observation_change", args=(o.id,)),
-            o.manufacturer_id))
+        return o.manufacturer_id
 
     def _created_at(self, o):
         return o.created_at
     _created_at.short_description = 'row created at %s' % TIMEZONE_USED
 
     def _recorded_at(self, o):
-        return o.recorded_at
+        recorded_at = o.recorded_at.strftime("%d %b, %Y, %H:%M")
+        return mark_safe('<a href="{}">{}</a>'.format(
+            reverse("admin:observations_observation_change", args=(o.id,)),
+           recorded_at))
     _recorded_at.short_description = 'recorded at %s' % TIMEZONE_USED
 
     def get_actions(self, request):
