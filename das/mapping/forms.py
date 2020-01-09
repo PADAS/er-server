@@ -12,10 +12,6 @@ from choices.models import Choice
 from core.common import TIMEZONE_USED
 
 
-class SpatialImportForm(forms.Form):
-    spatial_file = forms.FileField()
-
-
 class MapCenterForm(forms.ModelForm):
 
     latitude = forms.FloatField(
