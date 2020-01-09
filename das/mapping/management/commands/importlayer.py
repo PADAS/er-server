@@ -4,7 +4,7 @@ import logging
 from django.core.management.base import BaseCommand
 
 from mapping import models
-from mapping.utils import (DEFAULT_SOURCE_NAME, MAPPING_FEATURES_V2,
+from mapping.utils import (DEFAULT_SOURCE_NAME,
                            datasource_from_file, save_feature_to_table,
                            validate_feature_record, save_spatial_file)
 from utils.spatial import GeometryMapper
@@ -78,9 +78,6 @@ class Command(BaseCommand):
                             help='Spatial file ID')
 
     def importlayerfile(self):
-        # if MAPPING_FEATURES_V2:
-        #     raise NotImplementedError(
-        #         f'importlayer management command deprecated, use import_spatial command or importspatialfile subcommand')
 
         if not self.featureset and not self.featuretype:
             logger.info('Featureset and featuretype not included in command, add flags --featureset and --featuretype')
@@ -132,7 +129,6 @@ class Command(BaseCommand):
         raise KeyError('DAS Feature class not found for {0}'.format(name))
 
     def make_external_id(self, layer, feature):
-        # TODO: Kezzy. Had to merge incoming changes here, please review.
         name_value = ''
         id_value = ''
         for name in feature.fields:
@@ -185,7 +181,6 @@ class Command(BaseCommand):
                                       external_id)
 
     def save_to_layer_model(self, feature, featureset, featuretype, external_id):
-        # TODO: Kezzy. Had to merge incoming changes here, please review
         fields = {}
         for name in feature.fields:
             if name.lower() in (self.name_field.lower(), 'description'):
