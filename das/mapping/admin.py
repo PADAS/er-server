@@ -127,9 +127,18 @@ class SpatialFeatureTypeAdmin(admin.ModelAdmin):
     search_fields = ('name',)
 
 
-# @admin.register(models.DisplayCategory)
-# class DisplayCategegoryAdmin(admin.ModelAdmin):
-#     ordering = ('name',)
+@admin.register(models.DisplayCategory)
+class DisplayCategegoryAdmin(admin.ModelAdmin):
+    ordering = ('name',)
+
+    readonly_fields = ('id',)
+
+    fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('id', 'name')
+        }),
+    )
 
 
 from django.db.models.expressions import RawSQL

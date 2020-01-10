@@ -130,7 +130,7 @@ class GeofenceSubjectAnalyzerAdmin(admin.ModelAdmin):
         ),
         ('Advanced Analyzer Attributes', {
             'classes': ('wide', 'collapse'),
-            'fields': ('id', 'threshold_time', 'search_time_hours', 'notes',)
+            'fields': ('id', 'search_time_hours', 'notes',)
         })
     )
 
