@@ -30,6 +30,7 @@ class Command(BaseCommand):
 
     name_field = 'Name'
     id_field = 'globalid'
+    spatialfile_id = None
 
     # model for feature? could these be combined in to one dictionary attribute?
     # stroke = 'stroke'
@@ -50,6 +51,7 @@ class Command(BaseCommand):
         self.id_field = options['id_field'] if options[
             'id_field'] else self.id_field
         self.utm = options['utm'] if options['utm'] else self.utm
+        self.spatialfile_id = options['spatialfile_id'] if options['spatialfile_id'] else self.spatialfile_id
 
         logger.debug('Data Source: %s, layercount %s',
                      datasource.name, datasource.layer_count)
@@ -81,6 +83,8 @@ class Command(BaseCommand):
                             help='ID field for the row')
         parser.add_argument('--utm', type=str,
                             help='Change to this utm')
+        parser.add_argument('--spatialfile-id', type=str,
+                            help='Spatial file ID')
 
     def datasource_from_file(self, filename):
         if filename.endswith('kmz'):
@@ -185,6 +189,8 @@ class Command(BaseCommand):
                 feature_record.description = feature['Description'].value
             except (KeyError, IndexError):
                 pass
+            if self.spatialfile_id:
+                feature_record.spatialfile_id = self.spatialfile_id
             feature_record.save()
         logger.info(
             f'Imported {i} features from {layer.name}, type: {layer.geom_type} fields: {layer.fields}')

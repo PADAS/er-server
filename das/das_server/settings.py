@@ -215,6 +215,9 @@ DATABASE_ROUTERS = [
     'vectronics.db_routing.routers.MigrationRouter'
 ]
 
+# To enable or disable subject regions view on admin dashboard
+SUBJECT_REGION_ENABLED = False
+
 # Do not use Django logging config
 LOGGING_CONFIG = None
 
@@ -349,6 +352,9 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {
     'visibility_timeout': 3600,
     'fanout_prefix': True
 }
+
+# task:
+CELERY_TASK_TRACK_STARTED = True
 
 # the address to send notification emails from
 FROM_EMAIL = 'notifications@pamdas.org'
@@ -511,10 +517,12 @@ def whitenoise_headers_func(headers, path, url):
 WHITENOISE_ADD_HEADERS_FUNCTION = whitenoise_headers_func
 
 DAILY_REPORT_ENABLED = False
-ALERTS_ENABLED = False
+ALERTS_ENABLED = True
 
 GFW_API_ROOT = 'https://production-api.globalforestwatch.org/v1'
 GFW_CREDENTIALS = {
     'username': 'support@pamdas.org',
     'password': 'ns2S#@Bh3V&W2eR17Ru8'
 }
+
+METRICS_BUCKET = "er-site-metrics"

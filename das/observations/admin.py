@@ -25,11 +25,17 @@ from django.template.loader import render_to_string
 from django.utils.html import format_html
 from django.db.models.expressions import RawSQL
 import django.contrib.gis.admin as gis_admin
+from django.utils.safestring import mark_safe
 
 import observations.models as models
+from tracking.models import SourcePlugin
 import observations.forms
 from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm
-from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin
+from observations.utils import assigned_range_dates
+from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin, \
+    SaveCoordinatesToCookieMixin
+from core.openlayers import OSMGeoExtendedAdmin
+from core.common import TIMEZONE_USED
 from utils.html import make_html_list
 from .models import SOURCE_TYPES
 
@@ -244,16 +250,15 @@ class LargeTablePaginator(Paginator):
 
 
 @admin.register(models.Observation)
-class ObservationAdmin(ExportCsvMixin, gis_admin.OSMGeoAdmin):
-    wms_layer = 'terrain,overlay'
-    wms_url = 'http://tiles.maps.eox.at/wms/'
-
-    list_display = ('subject_link', '_manufacturer_id', 'recorded_at', 'created_at',
+class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
+    list_display = ('subject_link', '_manufacturer_id', '_recorded_at', '_created_at',
                     '_longitude', '_latitude', '_state', '_event_action')
     date_hierarchy = 'recorded_at'
     list_display_links = None
 
     paginator = LargeTablePaginator
+
+    gis_geometry_field_name = 'location'
 
     list_filter = (SubjectNameFilter, SubjectIdFilter)
 
@@ -287,6 +292,14 @@ class ObservationAdmin(ExportCsvMixin, gis_admin.OSMGeoAdmin):
 
     def _manufacturer_id(self, o):
         return o.manufacturer_id
+
+    def _created_at(self, o):
+        return o.created_at
+    _created_at.short_description = 'row created at %s' % TIMEZONE_USED
+
+    def _recorded_at(self, o):
+        return o.recorded_at
+    _recorded_at.short_description = 'recorded at %s' % TIMEZONE_USED
 
     def get_actions(self, request):
         actions = super().get_actions(request)
@@ -324,9 +337,10 @@ class ObservationAdmin(ExportCsvMixin, gis_admin.OSMGeoAdmin):
     actions = ['export_as_csv', ]
 
 
-class SourceProviderFilter(admin.SimpleListFilter):
+class SourceProviderFilter(admin.SimpleListFilter, SaveCoordinatesToCookieMixin):
     title = 'Source Provider'
     parameter_name = 'provider_key'
+    gis_geometry_field_name = 'location'
 
     def lookups(self, request, model_admin):
         return [(p.provider_key, p.display_name) for p in sorted(models.SourceProvider.objects.all(),
@@ -374,10 +388,13 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
         ),
         ('Subject Attributes', {
             'classes': ('wide',),
-            'fields': (('rgb', 'sex', 'tm_animal_id',
-                        'region', 'country',))
+            'fields': (('rgb', 'sex'))
         }
         ),
+        ('ER Mobile App', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('tm_animal_id', 'region', 'country',)
+        }),
         ('Advanced Subject Attributes', {
             'classes': ('wide', 'collapse'),
             'fields': ('additional', 'created_at', 'updated_at',)
@@ -392,6 +409,23 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
     readonly_fields = ('id', 'created_at', 'updated_at',)
     list_per_page = 25
     ordering = ('name',)
+
+    def get_fieldsets(self, request, obj=None):
+        """
+        Hook for specifying fieldsets.
+        """
+        subject_region_enabled = getattr(settings, 'SUBJECT_REGION_ENABLED', False)
+
+        if subject_region_enabled:
+            return super().get_fieldsets(request, obj=None)
+        else:
+            if self.fieldsets:
+                fieldsets = list(self.fieldsets)
+                for item in fieldsets:
+                    if 'ER Mobile App' in item:
+                        fieldsets.pop(fieldsets.index(item))
+                return tuple(fieldsets)
+            return [(None, {'fields': self.get_fields(request, obj)})]
 
     def _status(self, o):
 
@@ -509,7 +543,7 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
         subjectsources = list(set_current_flag(o)
                               for o in subjectsources.values())
         content = render_to_string(
-            'admin/subjectsource.html', {'subjectsources': list(subjectsources)})
+            'admin/subjectsource.html', {'subjectsources': list(subjectsources), 'timezone': TIMEZONE_USED})
 
         return format_html(content)
 
@@ -527,6 +561,7 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
             source__subjectsource__assigned_range__contains=F('recorded_at')).order_by('-recorded_at')\
             .values('source__manufacturer_id', 'recorded_at', 'location', 'additional')
         extra_context['observations'] = latest_observations[:25]
+        extra_context['timezone'] = TIMEZONE_USED
 
         extra_context['subject_id'] = str(object_id)
         return super().change_view(
@@ -547,6 +582,69 @@ class CommonNameAdmin(admin.ModelAdmin):
         raise NotImplementedError(
             'implement filtering SubjectAdmin to user permissions')
         return qs.filter(owner=request.user)
+
+
+@admin.register(models.SubjectSourceSummary)
+class SubjectSourceSummaryAdmin(admin.ModelAdmin):
+    list_display = ('source', '_subject', '_source_plugin', '_plugin', '_provider', '_start_date', '_end_date')
+    list_filter = ('source__provider__display_name',)
+    search_fields = ('source__manufacturer_id', 'subject__name', 'source__provider__display_name')
+    ordering = ('source', )
+
+    def record_link(self, url, key, view):
+        return mark_safe('<a href="{}">{}</a>'.format(
+            reverse(url, args=(key,)), view
+        ))
+
+    def _subject(self, o):
+        return self.record_link("admin:observations_subject_change", o.subject.id, o.subject)
+
+    def _provider(self, o):
+        provider = o.source.provider
+        return self.record_link("admin:observations_sourceprovider_change", provider.pk, provider.display_name)
+
+    def _source_plugin(self, o):
+        source_plugin = SourcePlugin.objects.get(source=o.source)
+        return self.record_link("admin:tracking_sourceplugin_change", source_plugin.id, source_plugin.plugin_type)
+
+    def _plugin(self, o):
+        source_plugin = SourcePlugin.objects.get(source=o.source)
+        return source_plugin.plugin.name
+
+    def _start_date(self, o):
+        start_date, _ = assigned_range_dates(o)
+        return start_date
+
+    def _end_date(self, o):
+        _, end_date = assigned_range_dates(o)
+        return end_date
+
+    def has_add_permission(self, request):
+        return False
+
+    form = SubjectSourceForm
+
+    fieldsets = (
+        (None, {
+            'fields': (('subject', 'source'),)
+        }
+        ),
+        ('Assigned Range', {
+            'classes': ('wide',),
+            'fields': ('assigned_range',)
+        }
+        ),
+        ('Attributes', {
+            'classes': ('wide',),
+            'fields': ('chronofile', 'data_status', 'data_starts_source', 'data_stops_source', 'data_stops_reason', 'comments')
+        }
+        ),
+        ('Advanced', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('additional',)
+        }
+        )
+    )
 
 
 @admin.register(models.Source)
@@ -647,14 +745,7 @@ class SubjectSourceAdmin(admin.ModelAdmin):
     current.boolean = True
 
     def _assigned_range(self, o):
-
-        d1, d2 = o.safe_assigned_range.lower, o.safe_assigned_range.upper
-        if d1.year <= 1000:
-            d1 = '-'
-        if d2.year >= 9999:
-            d2 = '-'
-
-        return d1, d2
+        return assigned_range_dates(o)
 
     fieldsets = (
         (None, {
@@ -852,17 +943,15 @@ class SourceTypeFilter(admin.SimpleListFilter):
 
 
 @admin.register(models.SubjectStatus)
-class SubjectStatusAdmin(gis_admin.OSMGeoAdmin):
-    wms_layer = 'terrain,overlay'
-    wms_url = 'http://tiles.maps.eox.at/wms/'
-
+class SubjectStatusAdmin(OSMGeoExtendedAdmin):
+    gis_geometry_field_name = 'location'
     search_fields = (
         'subject__name', 'subject__subjectsource__source__manufacturer_id')
     ordering = ('-recorded_at',)
     # change_list_template = 'admin/subject_status_change_list.html'
     # readonly_fields = ('recorded_at', 'subject','delay_hours', 'additional')
     list_display = ('_status', 'radio_state_at', '_age_of_state',
-                    'subject_link', 'recorded_at', '_location', '_age',
+                    'subject_link', '_recorded_at', '_location', '_age',
                     '_source_provider', '_source_type', )
     list_filter = (RadioStatusFilter, SourceTypeFilter,
                    'subject__subject_subtype__display',
@@ -920,6 +1009,12 @@ class SubjectStatusAdmin(gis_admin.OSMGeoAdmin):
     _location.short_description = 'Longitude / Latitude'
     _location.admin_order_field = 'location'
 
+    def _recorded_at(self, o):
+        return o.recorded_at
+    _recorded_at.short_description = 'recorded at %s' % TIMEZONE_USED
+    _recorded_at.admin_order_field = 'recorded_at'
+
+
     def _source_provider(self, o):
         return o.provider_name
 
@@ -930,6 +1025,7 @@ class SubjectStatusAdmin(gis_admin.OSMGeoAdmin):
         except Exception:
             pass
         return source
+
 
 
 @admin.register(models.SourceProvider)
@@ -1080,3 +1176,21 @@ def get_next_in_date_hierarchy(request, date_hierarchy):
     if date_hierarchy + '__year' in request.GET:
         return 'week'
     return 'month'
+
+
+@admin.register(models.SubjectMaximumSpeed)
+class ObservationAnnotatorAdmin(admin.ModelAdmin):
+
+    list_display = ('subject_name', 'max_speed', 'subject_subtype',)
+    list_editable = ('max_speed',)
+    search_fields = ('subject__name',)
+    list_filter = ('max_speed', 'subject__subject_subtype__display',
+                   'subject__subject_subtype__subject_type__display',)
+    ordering = ('subject__name', )
+    readonly_fields = ('id',)
+
+    def subject_name(self, o):
+        return o.subject.name
+
+    def subject_subtype(self, o):
+        return o.subject.subject_subtype.value

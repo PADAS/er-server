@@ -262,12 +262,13 @@ class TestEventView(BaseAPITest):
 
     def test_create_multiple_events_on_a_single_api_call(self):
         prev_count = Event.objects.count()
-        request = self.factory.post(self.api_base + '/events/', [self.event_data, self.event_data])
+        request = self.factory.post(
+            self.api_base + '/events/', [self.event_data, self.event_data])
         self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        
+
         self.assertEqual(2, len(response.data))
         self.assertEqual(Event.objects.count(), prev_count + 2)
 
@@ -276,7 +277,7 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.no_perms_user)
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data['data'], [])
+        self.assertEqual(response.data['results'], [])
 
     def test_fail_with_nan_location(self):
         event_data = copy.deepcopy(self.event_data)
@@ -439,7 +440,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        
+
         event_data['id'] = None
 
         response_data = {k: response.data[k] for k in event_data.keys()}
@@ -689,7 +690,8 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.no_perms_user)
 
         response = views.EventCountView.as_view()(request)
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['count'], 0)
 
     def test_event_count_by_category(self):
         all_request = self.factory.get(self.api_base + '/events/count')
@@ -971,7 +973,6 @@ class TestEventView(BaseAPITest):
             dict_list.append(d)
         return dict_list
 
-
     def test_collection_report_id_exported_as_parent_event_serial_number(self):
         collection_event_data = copy.deepcopy(self.event_data)
         collection_event_data['reported_by'] = self.user_rep
@@ -1004,7 +1005,7 @@ class TestEventView(BaseAPITest):
         report_id = response.data['id']
         response_data = {k: response.data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
-        
+
         rel_data = {'to_event_id': report_id, 'type': 'contains'}
         request = self.factory.post(
             self.api_base + '/event/' + collection_id + '/relationships',
@@ -1802,8 +1803,6 @@ class TestEventView(BaseAPITest):
         self.assertNotIn('security', category_values)
         self.assertIn('monitoring', category_values)
         self.assertIn('logistics', category_values)
-
-
 
 
 class TestParsing(TestCase):

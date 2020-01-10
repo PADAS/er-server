@@ -515,6 +515,12 @@ class SubjectSource(models.Model):
             'Please use .assigned_range directly to set its value.')
 
 
+class SubjectSourceSummary(SubjectSource):
+    class Meta:
+        proxy = True
+        verbose_name = 'Subject Configuration'
+
+
 class SubjectTypeManager(models.Manager):
 
     def get_by_natural_key(self, value):
@@ -1416,3 +1422,8 @@ class SocketClient(TimestampedModel):
 
 
 import observations.signals
+from analyzers.models import ObservationAnnotator
+
+class SubjectMaximumSpeed(ObservationAnnotator):
+    class Meta:
+        proxy = True

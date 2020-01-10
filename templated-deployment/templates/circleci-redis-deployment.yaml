@@ -1,0 +1,19 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  namespace: "${KUBERNETES_NAMESPACE}"
+  name: redis
+spec:
+  template:
+    metadata:
+      labels:
+        das.component: redis
+    spec:
+      containers:
+      - image: redis
+        name: das-redis
+        resources:
+          requests:
+            cpu: "25m"
+        ports:
+          - containerPort: 6379

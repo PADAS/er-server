@@ -10,6 +10,7 @@ from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
 from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
 from choices.models import Choice
+from core.common import TIMEZONE_USED
 
 import logging
 logger = logging.getLogger(__name__)
@@ -52,7 +53,7 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
         fields = ('id', 'subject', 'source', 'assigned_range',
                   'additional') + json_fields
 
-    assigned_range = AssignedDateTimeRangeField()
+    assigned_range = AssignedDateTimeRangeField(label=f'Assigned Range in {TIMEZONE_USED}')
 
     # For JSONFieldFormMixin -- this identifies the Model attribute that is
     # the JSON Field.

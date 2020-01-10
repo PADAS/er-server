@@ -79,7 +79,8 @@ class SubjectAnalyzerConfig(RevisionMixin, TimestampedModel):
     ))
 
     search_time_hours = models.FloatField(null=False, default=24.0,
-                                          verbose_name='The period of data to retrieve from the database')
+                                          verbose_name='Analysis time frame (hours)',
+                                          help_text=_('Analysis will be performed on recent data within this time frame.'))
 
     additional = JSONField(blank=True, default=dict)
 

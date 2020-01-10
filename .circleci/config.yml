@@ -1,5 +1,17 @@
 version: 2.1
 commands:
+  activate_google_service_account:
+    steps:
+      - run: 'gcloud auth activate-service-account --key-file=<(echo "$ENCODED_GOOGLE_CREDENTIALS" | base64 --decode)'
+  configure_git_for_commit_and_push:
+    steps:
+      - run: 'git config user.email "circleci@vulcan.com"'
+      - run: 'git config user.name "circleci"'
+      - run: 'git config push.default current'
+      - run: 'mkdir -p ~/.ssh && echo "github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ==" >> ~/.ssh/known_hosts'
+      - add_ssh_keys:
+          fingerprints:
+            - 'fc:dc:b0:e5:df:23:4f:fd:3a:8b:7e:d2:1e:b4:6d:bd'
   add_deploy_key_for_common_terraform_modules:
     steps:
       - add_ssh_keys:
@@ -8,50 +20,118 @@ commands:
   docker_login:
     steps:
       - run: echo "$GCR_PUSH_KEY" | docker login --username _json_key --password-stdin https://gcr.io
+  export_google_credentials:
+    steps:
+      - run: 'echo "export GOOGLE_CREDENTIALS=\"\$(echo \$ENCODED_GOOGLE_CREDENTIALS | base64 --decode)\"" >> $BASH_ENV'
   terraform_plan:
     parameters:
       terraform_workspace:
         type: string
-        default: "dev"
+        default: "develop"
       init_args:
         type: string
         default: "-input=false"
       plan_args:
         type: string
-        default: "-input=false -out=tfplan"
+        default: '-input=false -out=tfplan -var "is_running_in_automation=true"'
     steps:
-      - 'checkout'
+      - attach_workspace:
+          at: './'
       - 'add_deploy_key_for_common_terraform_modules'
-      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_init init_args="<< parameters.init_args >>"'
-      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_workspace_select terraform_workspace="<< parameters.terraform_workspace >>"'
-      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_plan plan_args="<< parameters.plan_args >>"'
+      - 'export_google_credentials'
+      - run: 'cd infra-automation && make tf_init init_options="<< parameters.init_args >>"'
+      - run: 'cd infra-automation && make tf_workspace_new workspace="<< parameters.terraform_workspace >>" || make tf_workspace_select workspace="<< parameters.terraform_workspace >>"'
+      - 'toggle_firewall_for_build_agent_k8s_closure':
+          inner_command: 'cd infra-automation && make tf_plan plan_options="<< parameters.plan_args >>"'
       - persist_to_workspace:
           root: './'
           paths:
-            - '*.*'
             - '*'
   terraform_apply:
     parameters:
       apply_args:
         type: string
         default: "-input=false tfplan"
+      network:
+        type: string
+        default: 'dev'
     steps:
       - 'add_deploy_key_for_common_terraform_modules'
       - attach_workspace:
           at: './'
-      - run: 'export GOOGLE_CREDENTIALS="$(echo $ENCODED_GOOGLE_CREDENTIALS | base64 --decode)" && cd terraform && make terraform_apply apply_args="<< parameters.apply_args >>"'
+      - 'export_google_credentials'
+      - 'toggle_firewall_for_build_agent_k8s_and_proxy_closure':
+          inner_command: 'cd infra-automation && make tf_apply apply_options="<< parameters.apply_args >>"'
+          network: '<< parameters.network >>'
+      - persist_to_workspace:
+          root: './'
+          paths:
+            - '*'
+  toggle_firewall_for_build_agent_k8s_and_proxy_closure:
+    parameters:
+      inner_command:
+        type: 'string'
+      network:
+        type: 'string'
+        default: 'dev'
+    steps:
+      - 'activate_google_service_account'
+      - run: "gcloud compute firewall-rules create \"bastion-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --allow=\"tcp:22\" --description=\"for CircleCi... delete by: $(date --date='tomorrow')\" --direction=INGRESS --network=\"<< parameters.network >>\" --priority=899 --source-ranges=\"$(curl --silent ifconfig.co)/32\" --target-tags=\"psql-bastion\" --project=\"earthranger-78ca55ca\" --quiet"
+      - run: "gcloud compute firewall-rules create \"k8s-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --allow=\"tcp:$K8S_PROXY_PORT\" --description=\"for CircleCi... delete by: $(date --date='tomorrow')\" --direction=INGRESS --network=\"$K8S_PROXY_NETWORK\" --priority=899 --source-ranges=\"$(curl --silent ifconfig.co)/32\" --target-tags=\"$K8S_PROXY_TARGET_TAG\" --project=\"$K8S_PROXY_PROJECT\" --quiet"
+      - run: '<<parameters.inner_command>>'
+      - run:
+          command: "gcloud compute firewall-rules delete \"bastion-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --project=\"earthranger-78ca55ca\" --quiet"
+          when: 'always'
+      - run:
+          command: "gcloud compute firewall-rules delete \"k8s-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --project=\"$K8S_PROXY_PROJECT\" --quiet"
+          when: 'always'
+  toggle_firewall_for_build_agent_k8s_closure:
+    parameters:
+      inner_command:
+        type: 'string'
+    steps:
+      - 'activate_google_service_account'
+      - run: "gcloud compute firewall-rules create \"k8s-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --allow=\"tcp:$K8S_PROXY_PORT\" --description=\"for CircleCi... delete by: $(date --date='tomorrow')\" --direction=INGRESS --network=\"$K8S_PROXY_NETWORK\" --priority=899 --source-ranges=\"$(curl --silent ifconfig.co)/32\" --target-tags=\"$K8S_PROXY_TARGET_TAG\" --project=\"$K8S_PROXY_PROJECT\" --quiet"
+      - run: '<<parameters.inner_command>>'
+      - run:
+          command: "gcloud compute firewall-rules delete \"k8s-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --project=\"$K8S_PROXY_PROJECT\" --quiet"
+          when: 'always'
 executors:
   default:
     docker:
+      - image: 'google/cloud-sdk:269.0.0'
+  circleci_executor:
+    docker:
       - image: 'circleci/buildpack-deps:stretch'
 jobs:
+  jobs:
+  check_for_abandoned_workspaces:
+    executor: circleci_executor
+    steps:
+      - checkout
+      - 'export_google_credentials'
+      - add_deploy_key_for_common_terraform_modules
+      - run: 'cd infra-automation && make check_for_abandoned_workspaces'
+  kubectl_apply:
+    executor: 'default'
+    steps:
+      - attach_workspace:
+          at: './'
+      - 'export_google_credentials'
+      - 'activate_google_service_account'
+      - 'toggle_firewall_for_build_agent_k8s_closure':
+          inner_command: 'cd infra-automation && make kubectl_apply_via_proxy'
+      - persist_to_workspace:
+          root: './'
+          paths:
+            - '*'
   terraform_plan_dev:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
     steps:
       - terraform_plan:
-          terraform_workspace: 'dev'
+          terraform_workspace: '$CIRCLE_BRANCH'
   terraform_plan_prod1:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
@@ -64,43 +144,97 @@ jobs:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
     steps:
-      - terraform_apply
+      - terraform_apply:
+          network: 'dev'
   terraform_apply_prod1:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
     steps:
-      - terraform_apply
-  docker_build:
+      - terraform_apply:
+          network: 'prod1'
+  render_templates:
+    environment:
+      TF_IN_AUTOMATION: 'not-empty'
+    executor: 'default'
+    steps:
+      - attach_workspace:
+          at: './'
+      - 'export_google_credentials'
+      - run: 'cd infra-automation && make render_templates tfvars_environment=$CIRCLE_BRANCH'
+      - persist_to_workspace:
+          root: './'
+          paths:
+            - '*'
+
+  generate_manifest:
     docker:
       - image: circleci/buildpack-deps:stretch
     steps:
       - setup_remote_docker
       - docker_login
       - checkout
-      - run: 'cd circleci-docker && make earthranger_api_build_and_push tag=$CIRCLE_BRANCH'
+      - run: 'cd circleci-docker && make generate_manifest semver_metadata_suffix=$CIRCLE_SHA1'
+      - persist_to_workspace:
+          root: './'
+          paths:
+            - '*'
+
+  docker_build_and_generate_manifest:
+    executor: 'default'
+    steps:
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - 'docker_login'
+      - 'checkout'
+      - run: 'cd infra-automation && make build_and_push current_branch="$CIRCLE_BRANCH" unique_gcr_tag="$CIRCLE_WORKFLOW_ID"'
+      - 'activate_google_service_account'
+      - run: 'cd infra-automation && make generate_manifest current_branch="$CIRCLE_BRANCH"'
+      - persist_to_workspace:
+          root: './'
+          paths:
+            - '*'
+  commit_and_push_manifest:
+    docker:
+      - image: circleci/buildpack-deps:stretch
+    steps:
+      - attach_workspace:
+          at: './'
+      - setup_remote_docker
+      - docker_login
+      - 'configure_git_for_commit_and_push'
+      - run: 'cd infra-automation && make commit_and_push_manifest descriptive_gcr_path_stem="$CIRCLE_BRANCH" unique_gcr_tag="$CIRCLE_WORKFLOW_ID"'
 workflows:
   version: 2
   build_and_terraform_dev:
   # This is our eager workflow for deploying from our main code branch.
   # So no review step.
     jobs:
-      - docker_build:
+      - docker_build_and_generate_manifest:
           filters:
             branches:
               only: 'develop'
       - terraform_plan_dev:
           requires:
-            - 'docker_build'
+            - 'docker_build_and_generate_manifest'
       - terraform_apply_dev:
           requires:
             - 'terraform_plan_dev'
+      - render_templates:
+          requires:
+            - 'terraform_apply_dev'
+      - kubectl_apply:
+          requires:
+            - 'render_templates'
+      - commit_and_push_manifest:
+          requires:
+            - 'kubectl_apply'
 
   build_and_terraform_feature_branch:
   # Build for all branches except develop and release.
   # Include a review step.
     jobs:
-      - docker_build:
+      - docker_build_and_generate_manifest:
           filters:
             branches:
               ignore:
@@ -108,7 +242,7 @@ workflows:
                 - /release*/
       - terraform_plan_dev:
           requires:
-            - 'docker_build'
+            - 'docker_build_and_generate_manifest'
       - review_plan_dev:
           requires:
             - 'terraform_plan_dev'
@@ -116,18 +250,27 @@ workflows:
       - terraform_apply_dev:
           requires:
             - 'review_plan_dev'
+      - render_templates:
+          requires:
+            - 'terraform_apply_dev'
+      - kubectl_apply:
+          requires:
+            - 'render_templates'
+      - commit_and_push_manifest:
+          requires:
+            - 'kubectl_apply'
 
   build_and_terraform_prod1:
   # Build for all release branches
   # Review step for apply
     jobs:
-      - docker_build:
+      - docker_build_and_generate_manifest:
           filters:
             branches:
               only: /release*/
       - terraform_plan_prod1:
           requires:
-            - 'docker_build'
+            - 'docker_build_and_generate_manifest'
       - review_plan_prod1:
           requires:
             - 'terraform_plan_prod1'
@@ -135,3 +278,19 @@ workflows:
       - terraform_apply_prod1:
           requires:
             - 'review_plan_prod1'
+      - render_templates:
+          requires:
+            - 'terraform_apply_prod1'
+      - commit_and_push_manifest:
+          requires:
+            - 'render_templates'
+  audit:
+    jobs:
+      - check_for_abandoned_workspaces
+    triggers:
+      - schedule:
+          cron: "0 0 * * 1"
+          filters:
+            branches:
+              only:
+                - "develop"

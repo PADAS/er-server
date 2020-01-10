@@ -19,20 +19,20 @@
             },
             "domain": {
                 "ip": "localhost",
-                "fqdn": "${site}.pamdas.org",
-                "fqdn_ssl": "https://${site}.pamdas.org",
-                "api_base_domain": "https://${site}.pamdas.org",
+                "fqdn": "${dns_name}.pamdas.org",
+                "fqdn_ssl": "https://${dns_name}.pamdas.org",
+                "api_base_domain": "https://${dns_name}.pamdas.org",
                 "ga": "UA-128569083-1"
             },
             "domains": {
-                "cors_origins": "localhost:9000','http://localhost:9000','${site}.pamdas.org','https://${site}.pamdas.org','http://${site}.pamdas.org",
-                "csrf_origins": "localhost:9000','${site}.pamdas.org",
-                "allowed_hosts": "localhost:9000','${site}.pamdas.org','localhost','*"
+                "cors_origins": "localhost:9000','http://localhost:9000','${dns_name}.pamdas.org','https://${dns_name}.pamdas.org','http://${dns_name}.pamdas.org",
+                "csrf_origins": "localhost:9000','${dns_name}.pamdas.org",
+                "allowed_hosts": "localhost:9000','${dns_name}.pamdas.org','localhost','*"
             },
             "email": {
-                "notification": "notifications.${site}@pamdas.org",
-                "info": "info.${site}@pamdas.org",
-                "host_user": "notifications.${site}@pamdas.org"
+                "notification": "notifications.${dns_name}@pamdas.org",
+                "info": "info.${dns_name}@pamdas.org",
+                "host_user": "notifications.${dns_name}@pamdas.org"
             },
             "users": { 
                 "login_user": "ubuntu"
