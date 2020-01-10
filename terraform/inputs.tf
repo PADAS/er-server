@@ -19,4 +19,23 @@ variable "need_bastion_server" {
   default     = false
 }
 
+variable "aws_region" {
+  type        = string
+  description = "AWS region to perform operations from."
+  default     = "us-east-1"
+}
+variable "secret_key" {
+  type        = string
+  description = "AWS secret key"
+  default     = ""
+}
 
+variable "access_key" {
+  type        = string
+  description = "AWS access key Id"
+  default     = ""
+}
+
+data "aws_route53_zone" "public" {
+  name = "pamdas.org."
+}
