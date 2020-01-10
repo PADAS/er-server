@@ -22,10 +22,20 @@ class ImmobilityAnalyzerConfig(SubjectAnalyzerConfig):
      """
 
     threshold_radius = models.FloatField(
-        null=False, default=13.0, verbose_name='Threshold Radius (meters)')
+        null=False, default=13.0, verbose_name='Threshold Radius (meters)',
+    help_text=_('This determines the circle within which a Subject\'s points will be considered stationary.'))
     threshold_time = models.IntegerField(
-        null=False, default=18000, verbose_name='Threshold Time (seconds)')  # 5 hours
-    threshold_probability = models.FloatField(null=False, default=0.8)
+        null=False, default=18000, verbose_name='Threshold Time (seconds)',  # 5 hours
+        help_text=_('This is the maximum time frame a Subject is expected to be stationary.')
+    )
+
+    threshold_probability_helptext = '''
+    This indicates a ratio threshold for (number of stationary points) / (total points). If the data indicates
+    a higher ratio, the analyzer will produce an event.
+    '''
+    threshold_probability = models.FloatField(null=False, default=0.8,
+                                              verbose_name='Threshold ratio',
+                                              help_text=_(threshold_probability_helptext))
 
     analyzer_category = 'immobility'
 
