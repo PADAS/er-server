@@ -90,16 +90,10 @@ DATABASES = {
 SENDSMS_AFRICAS_TALKING_USERNAME = env.str('SMS_ID', '')
 SENDSMS_AFRICAS_TALKING_API_KEY = env.str('SMS_TOKEN', '')
 
-USE_AZURE_STORAGE = env.str('USE_AZURE_STORAGE', 'false')
-
-if USE_AZURE_STORAGE == 'true':
-    # Azure storage - see https://django-storages.readthedocs.io/en/latest/backends/azure.html
-    DEFAULT_FILE_STORAGE = 'storages.backends.azure_storage.AzureStorage'
-    AZURE_ACCOUNT_NAME = env.str('STORAGE_ACCOUNT', '')
-    AZURE_ACCOUNT_KEY = env.str('STORAGE_ACCOUNT_KEY', '')
-    AZURE_CONTAINER = env.str('STORAGE_CONTAINER', '')
-    # enable SSL for Azure DBs
-    DATABASES['default']['OPTIONS'] = {'sslmode': 'require'}
+# TODO: Use variables for these values (first of all Bucket Name).
+DEFAULT_FILE_STORAGE = 'storages.backends.gcloud.GoogleCloudStorage'
+GS_BUCKET_NAME = 'earthranger-das-4765'
+GS_AUTO_CREATE_BUCKET = True
 
 EUS_SETTINGS = {
     # 'zendesk' or 'email'
