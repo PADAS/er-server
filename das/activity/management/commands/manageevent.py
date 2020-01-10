@@ -1,6 +1,7 @@
 import logging
 import copy
 import csv
+from uuid import UUID
 
 import pandas as pd
 from django.core.management.base import BaseCommand
@@ -14,13 +15,45 @@ from observations.models import SubjectType, SubjectSubType
 import utils.schema_utils as schema_utils
 import choices.models as choices
 from utils import json
-from uuid import UUID
+from utils.memoize import memoize
 
 logger = logging.getLogger(__name__)
 
 
 class ChoiceException(Exception):
     pass
+
+
+class ChoiceNotFoundException(ChoiceException):
+    pass
+
+
+"""
+there are some choice tables that map to existing Choices
+in this scenario, if the id's don't match we need to remember
+and match them manually
+"""
+CHOICE_MAPPING = {}
+
+
+def add_to_choice_mapping(from_id, from_name, to_choice_id):
+    if isinstance(from_id, str):
+        from_id = UUID(str)
+    CHOICE_MAPPING[str(from_id)] = dict(choice_id=to_choice_id, name=from_name)
+
+
+@memoize
+def lookup_choice_value_by_id(table_row_id):
+    # normalize uuid
+    if isinstance(table_row_id, str):
+        table_row_id = UUID(str)
+    table_row_id = str(table_row_id)
+
+    if table_row_id in CHOICE_MAPPING:
+        table_row_id = CHOICE_MAPPING[table_row_id]['choice_id']
+
+    choice_row = choices.Choice.objects.get(id=table_row_id)
+    return choice_row.value
 
 
 class Command(BaseCommand):
@@ -392,8 +425,9 @@ class Command(BaseCommand):
         try:
             uuid = UUID(str)
             return True
-        except:
-            return False
+        except ValueError:
+            pass
+        return False
 
     def should_lookup_value_for_field(self, record, previous_property_name, current_property_name, former_tables, old_data):
 
@@ -413,19 +447,74 @@ class Command(BaseCommand):
 
         return False
 
+    def lookup_choice_value(self, table_row_id, table_row_name=None):
+        # from the saved data we only have the UUID from the table and the Name
+        try:
+            return lookup_choice_value_by_id(table_row_id)
+        except choices.Choice.DoesNotExist:
+            pass
+        if not table_row_name:
+            raise ChoiceNotFoundException(
+                "did not find choice by id {table_row_id} and no table_row_name specified")
+        return self.make_value(table_row_name)
+
+    def is_choice_property(self, property_id, rendered_schema):
+        # simple check to see if the rendered schema has an enum for that
+        # property
+        properties = rendered_schema['schema']['properties']
+        try:
+            property_def = properties[property_id]
+        except KeyError:
+            logger.warning(
+                f"Property {property_id} not found in event type {rendered_schema['schema']['title']}")
+            return False
+        return 'enum' in property_def
+
     def _modify_event_details(self, data, migration_plan, event_type, former_tables):
         dirty = False
 
         # Update choice table event_detail values
-        for title, details in data.items():
-            if details and any(table['table_name'] == title for table in migration_plan['tables']):
-                if isinstance(details, dict):
-                    details = [details]
-                for item in details:
-                    item["value"] = self.make_value(item["name"])
-                    dirty = True
+        if migration_plan['tables']:
+            for property_id, details in data.items():
+                if not self.is_choice_property(property_id, migration_plan['rendered_schema']):
+                    continue
+                if not details:
+                    continue
+                # seen table fields look like
+                # "behavior": {"name": "Feeding", "value": "6ba1d7a5-c94a-482c-a746-25b0c4d0a877"}
+                # for a multiple checkboxes "behavior":[{"name": "Feeding",
+                # "value": "6ba1d7a5-c94a-482c-a746-25b0c4d0a877"}]
+                if isinstance(details, str):
+                    if self.is_uuid(details):
+                        try:
+                            data[property_id] = self.lookup_choice_value(
+                                UUID(details), None)
+                            dirty = True
+                        except ChoiceNotFoundException:
+                            # ignore that this might be a query lookup
+                            logger.warning(
+                                f'Choice not found for property {property_id} - {details}')
+                else:
+                    if isinstance(details, dict):
+                        details = [details]
+                    if not isinstance(details, list):
+                        raise ChoiceException(
+                            f"Unknown details type: {details}")
+                    for item in details:
+                        if self.is_uuid(item["value"]):
+                            try:
+                                item["value"] = self.lookup_choice_value(
+                                    UUID(item['value']), item["name"])
+                                dirty = True
+                            except ChoiceNotFoundException:
+                                # ignore this might be a dynamic query lookup
+                                logger.warning(
+                                    f'Choice not found for property {property_id} - {details}')
+
         # Update event_detail values or names
         if self.should_update_fields_with_event_type(migration_plan['fields']):
+            raise NotImplementedError("field renaming not tested")
+
             for field in migration_plan['fields']:
                 if self.PREVIOUS_PROPERTY_FIELD in field:
                     previous_property_name = field.get(
@@ -469,6 +558,8 @@ class Command(BaseCommand):
         for event in Event.objects.filter(event_type_id=event_type.id):
             for event_details_revision in event.revision.all():
                 data = copy.deepcopy(event_details_revision.data)
+                if not data.get("data") or not data.get("data", {}).get("event_details"):
+                    continue
                 details = data["data"]["event_details"]
                 details, dirty = self._modify_event_details(
                     details, migration_plan, event_type, former_tables)
@@ -498,8 +589,17 @@ class Command(BaseCommand):
             choice_row = choices.Choice.objects.filter(id=row.id).first()
 
             if choice_row:
-                message = f'For table {table_name}, row name:{row.name}, id:{row.id}, found existing Choice row {choice_row}'
-                raise ChoiceException(message)
+
+                value = self.make_value(row.name)
+                if choice_row.value != value:
+                    message = f'For table {table_name}, row name:{row.name}, id:{row.id}, found existing Choice row {choice_row}, Value ({value} != {choice_row.value} does not match'
+                    raise ChoiceException(message)
+                if choice_row.display != row.name:
+                    message = f'For table {table_name}, row name:{row.name}, id:{row.id}, found existing Choice row {choice_row}, Display ({row.name} != {choice_row.display} does not match'
+                    raise ChoiceException(message)
+
+                message = f'For table {table_name}, row name:{row.name}, id:{row.id}, found existing Choice row {choice_row} but Value and Display match'
+                logger.info(message)
             else:
                 existing_choice = choices.Choice.objects.filter(
                     model=model, field=field, value=self.make_value(
@@ -509,8 +609,16 @@ class Command(BaseCommand):
                     if existing_choice.display != row.name:
                         raise ChoiceException(f'Found matching Choice row by {model}:{field}:{self.make_value(row.name)},'
                                               f'but {existing_choice.display} != {row.name}')
+
                     logger.info(
                         f'Found matching Choice row by {model}:{field}:{self.make_value(row.name)}:{existing_choice.display}')
+
+                    if existing_choice.id != row.id:
+                        add_to_choice_mapping(
+                            row.id, row.name, existing_choice.id)
+                        logger.info(
+                            f'Found matching Choice row by {model}:{field}:{self.make_value(row.name)}:{existing_choice.display}, ids are different {row.id} != {existing_choice.id}')
+
                 else:
                     values = {
                         'id': row.id,
