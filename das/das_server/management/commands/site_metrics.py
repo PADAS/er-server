@@ -65,7 +65,7 @@ class Command(BaseCommand):
 
 def save_to_bucket(file_contents, start_date, site):
     bucket = S3Boto3Storage(
-        bucket_name=settings.METRICS_BUCKET, default_acl=None)
+        bucket_name=settings.METRICS_BUCKET, default_acl='bucket-owner-full-control')
     filename = f"{site}_{start_date.year}-{start_date.month}-{start_date.day}.json"
     path = f"{REPORT_VERSION}/{start_date.year}/{start_date.month}/{filename}"
     with tempfile.TemporaryFile('w+b') as fh:
