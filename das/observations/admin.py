@@ -886,6 +886,10 @@ class SubjectGroupChangeForm(forms.ModelForm):
         return instance
 
 
+from django.contrib.auth import get_permission_codename
+from accounts.models import PermissionSet
+
+
 @admin.register(models.SubjectGroup)
 class SubjectGroupAdmin(HierarchyModelAdmin):
     form = SubjectGroupChangeForm
@@ -910,6 +914,50 @@ class SubjectGroupAdmin(HierarchyModelAdmin):
     list_editable = ('is_visible',)
     list_filter = ('is_visible',)
     filter_horizontal = ('children', 'permission_sets', 'subjects')
+
+    # def has_change_permission(self, request, obj=None):
+    #     opts = self.opts
+    #     import pdb; pdb.set_trace()
+    #     if opts.auto_created:
+    #         # The model was auto-created as intermediary for a
+    #         # ManyToMany-relationship, find the target model
+    #         for field in opts.fields:
+    #             if field.remote_field and field.remote_field.model != self.parent_model:
+    #                 opts = field.remote_field.model._meta
+    #                 break
+    #     codename = get_permission_codename('change', opts)
+    #     return request.user.has_perm("%s.%s" % (opts.app_label, codename))
+
+
+    def subjectgroup_perm(self, perm_sets):
+        list_perm = []
+        for i in perm_sets:
+            perm = i.name
+            for key in ['View', 'SubjectGroup']:
+                perm = perm.replace(key, '').strip()
+            list_perm.append(perm)
+        return list_perm
+
+
+
+
+
+    def get_queryset(self, request):
+        """
+        Return a QuerySet of all model instances that can be edited by the
+        admin site. This is used by changelist_view.
+        """
+        if request.user.is_superuser:
+            return super().get_queryset(request)
+        perm_sets = request.user.get_all_permission_sets()
+        perms = self.subjectgroup_perm(perm_sets)
+        # TODO: this should be handled by some parameter to the ChangeList.
+        qs = self.model._default_manager.filter(name__in=perms)
+        ordering = self.get_ordering(request)
+        if ordering:
+            qs = qs.order_by(*ordering)
+
+        return qs
 
     def formfield_for_dbfield(self, db_field, **kwargs):
         if db_field.name == 'children':

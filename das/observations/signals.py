@@ -104,17 +104,28 @@ def create_view_permissionset():
         codename='view_subjectgroup',
         content_type=content_type,
         defaults={'name': 'Permission to view a subject group'})
+def create_view_permissionset(subject_name):
+    permissions = {
+        'view_subjectgroup': 'Permission to view a subject group',
+        'change_subjectgroup': 'can change subjectgroup'
+    }
 
-    permission_set, _ = PermissionSet.objects.get_or_create(
-        name='View SubjectGroup')
-    permission_set.permissions.add(permission)
+    content_type = ContentType.objects.get_for_model(SubjectGroup)
+    permission_set = PermissionSet.objects.create(name=f"View {subject_name} SubjectGroup")
 
+    for codename, name in permissions.items():
+        permission, _ = models.Permission.objects.get_or_create(
+            codename=codename,
+            content_type=content_type,
+            defaults={'name': name})
+        permission_set.permissions.add(permission)
 
 @receiver(post_save, sender=SubjectGroup)
 def auto_create_view_perm(sender, instance, created, **kwargs):
     if created:
-        create_view_permissionset()
-        permission_set = PermissionSet.objects.get(name='View SubjectGroup')
+        subject_name = instance.name
+        create_view_permissionset(subject_name)
+        permission_set = PermissionSet.objects.get(name=f'View {subject_name} SubjectGroup')
 
         queryset = SubjectGroup.objects.get(id=instance.id)
         queryset.permission_sets.add(permission_set)
