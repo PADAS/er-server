@@ -147,7 +147,7 @@ class SpatialFilesBase(TimestampedModel):
     Base model for uploading Spatial files such as shapefile
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, blank=True)
+    name = models.CharField(max_length=255, blank=True, verbose_name='SpatialFile Name')
     description = models.CharField(max_length=100, blank=True)
     data = models.FileField(storage=TempStorage(), blank=False)
     layer_number = models.IntegerField(blank=True, null=True, default=0)
@@ -654,18 +654,20 @@ class SpatialFeatureType(TimestampedModel):
     # JSON field for storing the json schema for each unique feature type
     attribute_schema = JSONField(default=dict, blank=True)
     # Tags will allow categorization according to different views (e.g., HF)
-    tags = TagField(to=SpatialFeatureTypeTag)
+    tags = TagField(to=SpatialFeatureTypeTag, blank=True)
 
     # presentation fields
     # Boundaries, Water, Security etc.
     display_category = models.ForeignKey(
-        to='DisplayCategory', on_delete=models.PROTECT)
+        to='DisplayCategory', on_delete=models.PROTECT, blank=True, null=True)
     # JSON Field for defining the basic presentation of the feature
     presentation = JSONField(default=dict, blank=True)
     provenance = JSONField(default=dict, blank=True)
     external_id = models.CharField(max_length=255, unique=True, blank=True,
                                    null=True)
     external_source = models.CharField(max_length=25, blank=True)
+    is_visible = models.BooleanField(_('visible'), default=True)
+
 
     # Points: https://www.mapbox.com/mapbox-gl-style-spec/#layers-symbol
     # Lines: https://www.mapbox.com/mapbox-gl-style-spec/#layers-line
@@ -697,7 +699,7 @@ class SpatialFeatureFile(SpatialFilesBase):
     feature_types_file = models.FileField(storage=TempStorage(), blank=True, null=True)
 
     class Meta:
-        verbose_name = 'Spatial Feature File'
+        verbose_name = 'Feature Import File'
 
     def call_mgt_command(self, data_file, spatial_types_file):
         if spatial_types_file:

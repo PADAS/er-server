@@ -19,7 +19,7 @@ from django.db.models.expressions import RawSQL
 import mapping.models as models
 from mapping.utils import MAPPING_FEATURES_V2
 from mapping.forms import MapCenterForm, TileLayerFormWithAttributes, \
-    SpatialFeatureGroupStaticForm, FeatureTypeForm
+    SpatialFeatureGroupStaticForm, FeatureTypeForm, DisplayCategoryForm, SpatialFeatureTypeForm
 from core.openlayers import OSMGeoExtendedAdmin
 
 
@@ -75,9 +75,9 @@ class BaseFeatureAdmin(OSMGeoExtendedAdmin):
     get_spatialfile.short_description = 'Spatial File'
 
 
-class SpatialFeatureTypeInline(admin.TabularInline):
-    model = models.SpatialFeatureType
-    ordering = ('name',)
+# class SpatialFeatureTypeInline(admin.TabularInline):
+#     model = models.SpatialFeatureType
+#     ordering = ('name',)
 
 
 class SpatialFeaturesInline(admin.TabularInline):
@@ -85,14 +85,14 @@ class SpatialFeaturesInline(admin.TabularInline):
     form = SpatialFeatureGroupStaticForm
     model._meta.verbose_name_plural = "Member of spatial feature groups"
     extra = 1
-    verbose_name = "Spatial Feature Group Static"
+    verbose_name = "Spatial Feature Group"
 
 
 if MAPPING_FEATURES_V2:
     @admin.register(models.DisplayCategory)
     class DisplayCategoryAdmin(admin.ModelAdmin):
         ordering = ('name',)
-        inlines = (SpatialFeatureTypeInline,)
+        form = DisplayCategoryForm
 else:
     @admin.register(models.FeatureSet)
     class FeatureSetAdmin(admin.ModelAdmin):
@@ -130,8 +130,10 @@ class SpatialFeatureGroupStaticAdmin(admin.ModelAdmin):
 
 @admin.register(models.SpatialFeatureType)
 class SpatialFeatureTypeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'is_visible', 'display_category')
     ordering = ('name', )
     search_fields = ('name',)
+    form = SpatialFeatureTypeForm
 
 
 class GeometryTypeFilter(django_admin.SimpleListFilter):

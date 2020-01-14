@@ -25,9 +25,6 @@ class Command(BaseCommand):
     help = 'Migrate point/line/polygon to spatialfeature'
     migrate_type = MigrateType.ErrorOnExisting
     create_fn = 'create'
-    num_fs = 0
-    num_ft = 0
-    num_f = 0
 
     def add_arguments(self, parser):
         group = parser.add_mutually_exclusive_group()
@@ -44,26 +41,30 @@ class Command(BaseCommand):
         if self.migrate_type == MigrateType.OverWrite:
             self.create_fn = 'update_or_create'
 
+        for fset in models.FeatureSet.objects.all():
+            self.stdout.write(f'{fset.name} types: {fset.types.all()}')
+
         featuresets_by_types = defaultdict(set)
         featuresets = set()
 
+        # start from point/line/poly features
         all_features = list(chain(models.PointFeature.objects.all(),
                                   models.LineFeature.objects.all(),
                                   models.PolygonFeature.objects.all()))
         for feature in all_features:
-            featuresets.add(feature.featureset)
+            if feature.featureset: featuresets.add(feature.featureset)
             featuresets_by_types[feature.type].add(feature.featureset)
 
-        # get any feature types not associated to features
-        ftype_ids = [k.id for k in featuresets_by_types.keys()]
-        remaining_ftypes = models.FeatureType.objects.exclude(id__in=ftype_ids)
+        # start from feature types: get featuretypes/sets not associated with features
+        for ft in models.FeatureType.objects.all():
+            qs = models.FeatureSet.objects.filter(types__id=ft.id)
+            if qs:
+                featuresets.update(qs)
+                featuresets_by_types[ft].update(qs)
+            else:
+                featuresets_by_types[ft].add(None)
 
-        for ft in remaining_ftypes:
-            for fset in models.FeatureSet.objects.filter(types__id=ft.id):
-                featuresets.add(fset)
-                featuresets_by_types[ft].add(fset)
-
-        # get any featuresets not associated to featuretypes
+        # finally get any featuresets not associated to featuretypes
         fset_ids = [k.id for k in featuresets]
         remaining_fsets = models.FeatureSet.objects.exclude(id__in=fset_ids)
         featuresets.update(remaining_fsets)
@@ -95,6 +96,8 @@ class Command(BaseCommand):
     def migrate_featuretypes(self, featuresets_by_types, remapped_sfts):
         self.stdout.write('Migrating FeatureTypes')
         for ftype, fsets in featuresets_by_types.items():
+            if len(fsets) > 1:
+                self.stdout.write(f'FeatureType {ftype} associated with multiple FeatureSets: {fsets}')
             afeatureset = fsets.pop()
 
             if not models.SpatialFeatureType.objects.filter(id=ftype.id).exists():
@@ -102,14 +105,16 @@ class Command(BaseCommand):
 
                 # breaking m2m: create a new spatial feature type to associate with the remaining featuresets
                 for f in fsets:
-                    new_sft_name = f.name + '-' + ftype.name
+                    remapped_sft_key = (f.id, ftype.id) if f else ftype.id
+                    fset_name = f.name if f else ''
+                    new_sft_name = fset_name + '-' + ftype.name
                     new_sft = self._create_spatial_feature_type(f, new_sft_name , ftype.presentation)
-                    remapped_sfts[(f.id, ftype.id)] = new_sft.id
+                    remapped_sfts[remapped_sft_key] = new_sft.id
                     self.stdout.write(f'{ftype.name}:{ftype.id} remapped to {new_sft_name}:{new_sft.id}')
                 self.num_ft += 1
 
     def _create_spatial_feature_type(self, featureset, type_name, type_presentation, type_id=None):
-        dc = models.DisplayCategory.objects.get(id=featureset.id)
+        dc = models.DisplayCategory.objects.get(id=featureset.id) if featureset else None
         values = dict(name=type_name,
                       presentation=type_presentation,
                       display_category=dc,
@@ -126,7 +131,8 @@ class Command(BaseCommand):
         # self.stdout.write(f'remapped_sfts: {remapped_sfts}')
 
         for f in all_features:
-            remapped_sft_id = remapped_sfts.get((f.featureset.id, f.type.id))
+            remapped_sft_key = (f.featureset.id, f.type.id) if f.featureset else f.type.id
+            remapped_sft_id = remapped_sfts.get(remapped_sft_key)
             # self.stdout.write(f'remapped sft_id {remapped_sft_id}')
             sft = models.SpatialFeatureType.objects.get(id=remapped_sft_id) \
                 if remapped_sft_id else models.SpatialFeatureType.objects.get(id=f.type.id)
