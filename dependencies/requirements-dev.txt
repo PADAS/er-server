@@ -142,7 +142,7 @@ django-versatileimagefield==1.10
 django==2.2
 django-bitfield==1.9.6
 djangorestframework-gis==0.14.0
-djangorestframework==3.10.1
+djangorestframework==3.10.3
 dnspython==1.16.0         # via eventlet
 docutils==0.15.2          # via botocore
 docxtpl==0.4.6
