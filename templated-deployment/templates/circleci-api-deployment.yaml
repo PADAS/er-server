@@ -13,6 +13,10 @@ spec:
     spec:
       imagePullSecrets:
         - name: gcr-secret
+      volumes:
+      - name: google-credentials
+        secret:
+          secretName: google-application-credentials
       containers:
       - image:  "${SERVER_VERSION}"
         name: das-api
@@ -22,7 +26,13 @@ spec:
             memory: "500Mi"
         ports:
           - containerPort: 8000
+        volumeMounts:
+        - name: gcs-credentials
+          mountPath: "/etc/gcs_credentials.json"
+          readOnly: true
         env:
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/etc/gcs_credentials.json"
         - name: SERVICE_NAME
           value: "api_server"
         - name: DB_HOST
