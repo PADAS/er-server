@@ -181,7 +181,7 @@ priority_label_color_default = '#3E4349'
 
 
 def coerce_state_value(val):
-    return _('Resolved') if val == 'resolved' else _('Active')
+    return _('Resolved') if val == 'resolved' else _('New') if val == 'new' else _('Active')
 
 
 def render_pretty_value(internal_value):
