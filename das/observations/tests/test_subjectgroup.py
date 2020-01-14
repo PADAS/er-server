@@ -2,6 +2,7 @@ import json
 from uuid import uuid4
 
 from django.contrib.auth.models import Permission
+from django.test import TestCase
 
 from accounts.models import User, PermissionSet
 from core.tests import BaseAPITest
@@ -570,9 +571,19 @@ class TestSubjectGroupsVisibility(BaseAPITest):
         self.assertNotIn(str(self.parent_group.id), top_level_subject_groups_ids)
 
 
-class TestSubjectGroupAutoCreatedViewPerm(BaseAPITest):
-    def test_auto_created_perm_view_subjectgroup(self):
-        group = SubjectGroup.objects.create(name='Elephant')
-        self.assertTrue(group.permission_sets.get(name='View SubjectGroup'))
+class TestSubjectGroupAutoCreatedViewPerm(TestCase):
+    def test_auto_created_unique_perm_view_subjectgroup(self):
+        subject_group = SubjectGroup.objects.create(name='Elephant')
+        all_perms = {
+            'view_subjectgroup',
+            'change_subjectgroup',
+            'view_real_time',
+            'view_subject',
+            'subscribe_alerts',
+        }
+        permission_set = subject_group.permission_sets.get(name='View Elephant SubjectGroup')
+        self.assertEqual(permission_set.name, 'View Elephant SubjectGroup')
         with self.assertRaisesMessage(Exception, 'PermissionSet matching query does not exist.'):
-            group.permission_sets.get(name='view subjectgroup')
+            subject_group.permission_sets.get(name='view elephant subjectgroup')
+        perms_in_permission_set = {perm.codename for perm in permission_set.permissions.all()}
+        self.assertTrue(all_perms == perms_in_permission_set)

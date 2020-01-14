@@ -107,7 +107,10 @@ def create_view_permissionset():
 def create_view_permissionset(subject_name):
     permissions = {
         'view_subjectgroup': 'Permission to view a subject group',
-        'change_subjectgroup': 'can change subjectgroup'
+        'change_subjectgroup': 'can change subjectgroup',
+        'view_real_time': 'Access to updated observations as they become available, includes view_last_position.',
+        'view_subject': 'Permission to view a subject, does not include permission to see location',
+        'subscribe_alerts': 'Permission to subscribe to an alert on this Subject.'
     }
 
     content_type = ContentType.objects.get_for_model(SubjectGroup)
@@ -127,5 +130,5 @@ def auto_create_view_perm(sender, instance, created, **kwargs):
         create_view_permissionset(subject_name)
         permission_set = PermissionSet.objects.get(name=f'View {subject_name} SubjectGroup')
 
-        queryset = SubjectGroup.objects.get(id=instance.id)
-        queryset.permission_sets.add(permission_set)
+        subject_group = SubjectGroup.objects.get(id=instance.id)
+        subject_group.permission_sets.add(permission_set)
