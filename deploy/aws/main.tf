@@ -17,7 +17,7 @@ provider "aws" {
 }
 
 provider "postgresql" {
-  host            = "${data.aws_db_instance.db.address}"
+  host            = data.aws_db_instance.db.address
   port            = 5432
   username        = var.db_admin_username
   password        = var.db_admin_password
@@ -33,8 +33,8 @@ resource "aws_s3_bucket" "media-uploads" {
     enabled = true
   }
   logging {
-      target_bucket = data.aws_s3_bucket.access-logs.id
-      target_prefix = "logs/${var.site}-das-media-uploads/"
+    target_bucket = data.aws_s3_bucket.access-logs.id
+    target_prefix = "logs/${var.site}-das-media-uploads/"
   }
 
   server_side_encryption_configuration {
@@ -132,8 +132,8 @@ resource "aws_alb_listener" "alb-https" {
 }
 
 resource "aws_route53_record" "www" {
-  zone_id = data.aws_route53_zone.public.zone_id # Replace with your zone ID
-  name    = "${coalesce(var.dns_name, var.site)}.pamdas.org"             # Replace with your name/domain/subdomain
+  zone_id = data.aws_route53_zone.public.zone_id             # Replace with your zone ID
+  name    = "${coalesce(var.dns_name, var.site)}.pamdas.org" # Replace with your name/domain/subdomain
   type    = "A"
 
   alias {
@@ -176,35 +176,35 @@ resource "postgresql_database" "db" {
 }
 
 resource "postgresql_extension" "btree_extension" {
-  name = "btree_gist"
-  database = "${postgresql_database.db.name}"
+  name     = "btree_gist"
+  database = postgresql_database.db.name
 }
 
 resource "postgresql_extension" "unaccent_extension" {
-  name = "unaccent"
-  database = "${postgresql_database.db.name}"
+  name     = "unaccent"
+  database = postgresql_database.db.name
 }
 
 resource "postgresql_extension" "uuid_extension" {
-  name = "uuid-ossp"
-  database = "${postgresql_database.db.name}"
+  name     = "uuid-ossp"
+  database = postgresql_database.db.name
 }
 
 resource "postgresql_extension" "postgis_extension" {
-  name = "postgis"
-  database = "${postgresql_database.db.name}"
+  name     = "postgis"
+  database = postgresql_database.db.name
 }
 
 resource "postgresql_extension" "postgis_top_extension" {
-  name = "postgis_topology"
-  database = "${postgresql_database.db.name}"
+  name     = "postgis_topology"
+  database = postgresql_database.db.name
   depends_on = [
     postgresql_extension.postgis_extension,
   ]
 }
 
 resource "aws_s3_bucket_object" "object" {
-  bucket = "${data.aws_s3_bucket.builds.bucket}"
-  key = "chef/environments/${var.site}.json"
-  content = "${data.template_file.site_json.rendered}"
+  bucket  = data.aws_s3_bucket.builds.bucket
+  key     = "chef/environments/${var.site}.json"
+  content = data.template_file.site_json.rendered
 }
