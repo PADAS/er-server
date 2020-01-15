@@ -13,13 +13,27 @@ spec:
     spec:
       imagePullSecrets:
         - name: gcr-secret
+      # Mount secrets 
+      volumes:
+      - name: google-credentials
+        secret:
+          secretName: google-application-credentials
+          items:
+          - key: credentials_json
+            path: "google_credentials.json"
       containers:
       - image:  "${SERVER_VERSION}"
         name: das-worker
         resources:
           requests:
             cpu: "200m"
+        volumeMounts:
+        - name: google-credentials
+          mountPath: "/etc/earthranger"
+          readOnly: true
         env:
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/etc/earthranger/google_credentials.json"
         - name: SERVICE_NAME
           value: "default_worker"
         - name: API_HOST
