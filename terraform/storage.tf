@@ -22,6 +22,7 @@ resource "google_service_account_key" "er_app_account_key" {
 resource "kubernetes_secret" "google-application-credentials" {
   metadata {
     name = "google-application-credentials"
+    namespace = kubernetes_namespace.this.metadata.0.name
   }
   data = {
     credentials_json = base64decode(google_service_account_key.er_app_account_key.private_key)
