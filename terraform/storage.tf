@@ -1,6 +1,10 @@
+locals {
+  storage_location = (local.is_production ? "EU" : "US")
+}
+
 resource "google_storage_bucket" "user_uploads" {
   name     = "user-uploads-${kubernetes_namespace.this.metadata.0.name}"
-  location = "US"
+  location = "${local.storage_location}"
   project  = data.google_project.earthranger.project_id
 }
 
