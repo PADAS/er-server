@@ -1,0 +1,14 @@
+resource "aws_route53_record" "www" {
+  zone_id = data.aws_route53_zone.public.zone_id
+  name    = kubernetes_namespace.this.metadata.0.name
+  type    = "A"
+  ttl     = 300
+  records = [
+    google_compute_address.site_ip_address.address
+  ]
+
+  depends_on = [
+    google_compute_address.site_ip_address,
+    kubernetes_namespace.this
+  ]
+}
