@@ -37,6 +37,8 @@ spec:
         env:
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: "/etc/earthranger/google_credentials.json"
+        - name: GS_BUCKET_NAME
+          value: "${GS_BUCKET_NAME}"
         - name: SERVICE_NAME
           value: "api_server"
         - name: DB_HOST

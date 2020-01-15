@@ -57,6 +57,11 @@ variable "db_port" {
   default = "5432"
 }
 
+variable "gs_bucket_name" {
+  type    = string
+  default = "earthranger-uploads-default"
+}
+
 variable "email_host" {
   type    = string
   default = "email-smtp.us-west-2.amazonaws.com"
