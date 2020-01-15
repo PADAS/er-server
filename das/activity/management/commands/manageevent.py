@@ -2,6 +2,7 @@ import logging
 import copy
 import csv
 from uuid import UUID
+import os
 
 import pandas as pd
 from django.core.management.base import BaseCommand
@@ -40,6 +41,11 @@ def add_to_choice_mapping(from_id, from_name, to_choice_id):
     if isinstance(from_id, str):
         from_id = UUID(str)
     CHOICE_MAPPING[str(from_id)] = dict(choice_id=to_choice_id, name=from_name)
+
+
+def dump_choice_mapping(filepath):
+    with open(filepath, mode="w") as fh:
+        fh.write(json.dumps(CHOICE_MAPPING))
 
 
 @memoize
@@ -131,7 +137,7 @@ class Command(BaseCommand):
                     logger.info(f"New event type {event_type} loadded")
 
     def dumptypes(self):
-        self.load_standard_eventtypes()
+        # self.load_standard_eventtypes()
         if not self.output:
             raise NameError('-o output option required')
 
@@ -198,6 +204,31 @@ class Command(BaseCommand):
     def loadlocalize(self):
         pass
 
+    def replace_table_references_in_schema(self, schema):
+        """
+        take the raw schema and replace table___<ChoiceTableName>___ with
+        enum___<lowercase<ChoiceTableName>>___
+        :param schema:
+        :return: replaced schema
+        """
+        table_marker = "table___"
+        table_marker_len = len(table_marker)
+        enum_marker = "enum___"
+        end_marker = "___"
+
+        while True:
+            find_index = schema.find(table_marker)
+            if len(schema) <= find_index or find_index == -1:
+                break
+            start = find_index + table_marker_len
+            end = schema.find(end_marker, start)
+            old_string = schema[start:end]
+            new_string = f"{enum_marker}{old_string.lower()}{end_marker}"
+            old_string = f"{table_marker}{old_string}{end_marker}"
+            schema = schema.replace(old_string, new_string)
+
+        return schema
+
     def get_all_event_type_records(self):
         event_types = EventType.objects.all()
         records = []
@@ -210,7 +241,8 @@ class Command(BaseCommand):
                       'category_value': getattr(event_type.category, 'value', None),
                       'category_id': getattr(event_type.category, 'id', 0),
                       'ordernum': event_type.ordernum,
-                      'schema': event_type.schema,
+                      'schema': self.replace_table_references_in_schema(event_type.schema),
+                      'table_schema': event_type.schema,
                       'is_collection': event_type.is_collection,
                       'count': self.get_event_type_count(event_type),
                       }
@@ -270,6 +302,9 @@ class Command(BaseCommand):
             records = json.loads(fh.read())
 
         self.perform_migration_on_records(records)
+        choice_mapping_filename, ext = os.path.splitext(self.migration_file)
+        choice_mapping_filename = f"{choice_mapping_filename}-choice_mapping.json"
+        dump_choice_mapping(choice_mapping_filename)
 
         if self.dry_run:
             raise Exception(
@@ -468,7 +503,14 @@ class Command(BaseCommand):
             logger.warning(
                 f"Property {property_id} not found in event type {rendered_schema['schema']['title']}")
             return False
-        return 'enum' in property_def
+        if 'enum' in property_def:
+            return True
+        if "definition" not in rendered_schema:
+            return False
+        for details in rendered_schema['definition']:
+            if isinstance(details, dict) and details.get('key') == property_id and 'titleMap' in details:
+                return True
+        return False
 
     def _modify_event_details(self, data, migration_plan, event_type, former_tables):
         dirty = False
