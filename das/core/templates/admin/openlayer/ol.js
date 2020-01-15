@@ -1,5 +1,6 @@
 
 {% load l10n %}
+{% load i18n static %}
 
 {% block vars %}
 var {{ module }} = {};
@@ -240,6 +241,7 @@ var createGeometricObject = function(innerHTML, geoType, className){
 
     var element = document.createElement('div');
     element.className = `${className} ol-unselectable ol-control`;
+    element.title = geoType;
     element.appendChild(button);
 
     var geoControl = new ol.control.Control({
@@ -296,6 +298,7 @@ var modif = function(className) {
 
     var element_modify = document.createElement('div');
     element_modify.className =  `${className} ol-unselectable ol-control`;
+    element_modify.title = 'Modify'
     element_modify.appendChild(button_modify);
 
     var modifyControl = new ol.control.Control({
@@ -323,6 +326,7 @@ var delet = function (className){
 
     var element_delete = document.createElement('div');
     element_delete.className = `${className} ol-unselectable ol-control`;
+    element_delete.title = 'Clear the features';
     element_delete.appendChild(button_delete);
 
     var deleteControl = new ol.control.Control({
@@ -379,6 +383,7 @@ button_baselayer.addEventListener('click', switchBaseLayer, false);
 
 var element_baselayer = document.createElement('div');
 element_baselayer.className = 'ol-bl ol-unselectable ol-control';
+element_baselayer.title = 'Select baselayer';
 element_baselayer.appendChild(button_baselayer);
 
 var BaseLayerControl = new ol.control.Control({
@@ -477,14 +482,8 @@ var defaultIcon = "https://img.icons8.com/cotton/256/000000/globe.png";
 });
 
 
-var tileFromStorageId = localStorage.getItem('baselayer');
-if (tileFromStorageId != null ){
-    tileLayerSession(tileFromStorageId);
-    document.getElementById(tileFromStorageId).parentElement.className += ' active';
-}
-
 // Default option for OSM:
-var osmIConUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Openstreetmap_logo.svg/1200px-Openstreetmap_logo.svg.png';
+var osmIConUrl ="{% static 'img/Openstreetmap_logo.png' %}"
 TileLayerHTML('osm_', osmIConUrl, 'osm', 'OSM');
 document.querySelectorAll('[id^="osm_"]').forEach(function(element){
     element.addEventListener('click', function(event){
@@ -495,6 +494,12 @@ document.querySelectorAll('[id^="osm_"]').forEach(function(element){
 
 });
 
+// Note: This code should be below the code that creates OSM tilelayer
+var tileFromStorageId = localStorage.getItem('baselayer');
+if (tileFromStorageId != null) {
+    tileLayerSession(tileFromStorageId);
+    document.getElementById(tileFromStorageId).parentElement.className += ' active';
+}
 
 
 // console.log(document.querySelectorAll('[id^="osm_"]'));
