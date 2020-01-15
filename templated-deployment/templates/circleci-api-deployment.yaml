@@ -27,7 +27,7 @@ spec:
         ports:
           - containerPort: 8000
         volumeMounts:
-        - name: gcs-credentials
+        - name: google-credentials
           mountPath: "/etc/gcs_credentials.json"
           readOnly: true
         env:
