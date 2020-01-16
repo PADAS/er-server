@@ -17,7 +17,7 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AlterModelOptions(
             name='event',
-            options={'permissions': (('view_event', 'Permission to view an event'), ('admin_event', 'An admin permission to change which users can view a Subject and their view permission.'), ('security_create', 'Create security reports'), ('security_read', 'View security reports'), ('security_update', 'Modify security reports'), ('security_delete', 'Delete security reports'), ('standard_create', 'Create monitoring reports'), ('standard_read', 'View monitoring reports'), ('standard_update', 'Modify monitoring reports'), ('standard_delete', 'Delete monitoring reports'), ('logistics_create', 'Create logistics reports'), ('logistics_read', 'View logistics reports'), ('logistics_update', 'Modify logistics reports'), ('logistics_delete', 'Delete logistics reports'))},
+            options={'permissions': (('admin_event', 'An admin permission to change which users can view a Subject and their view permission.'), ('security_create', 'Create security reports'), ('security_read', 'View security reports'), ('security_update', 'Modify security reports'), ('security_delete', 'Delete security reports'), ('standard_create', 'Create monitoring reports'), ('standard_read', 'View monitoring reports'), ('standard_update', 'Modify monitoring reports'), ('standard_delete', 'Delete monitoring reports'), ('logistics_create', 'Create logistics reports'), ('logistics_read', 'View logistics reports'), ('logistics_update', 'Modify logistics reports'), ('logistics_delete', 'Delete logistics reports'))},
         ),
         migrations.AlterModelOptions(
             name='eventcategory',
