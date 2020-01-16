@@ -1,6 +1,7 @@
 import datetime
 import logging
 import tempfile
+from django.core.exceptions import ValidationError
 from zipfile import ZipFile
 
 from django.conf import settings
@@ -158,3 +159,20 @@ def save_spatial_file(spatialfile_id, model, record):
         spatialfile = model.objects.get(id=spatialfile_id)
         record.spatialfile = spatialfile
         return record
+
+
+def check_file_extension(f_type, data_file, feature_types_file):
+    validate_file_type(f_type, data_file, 'data')
+    if feature_types_file:
+        validate_file_type(f_type, feature_types_file, 'feature_types_file')
+
+
+def validate_file_type(f_type, data_file, field):
+
+    # import pdb; pdb.set_trace()
+    file_type_formats = {'shapefile': '.zip', 'geodatabase': '.gdb', 'geojson': ('.json', '.geojson')}
+    for file_type, extension in file_type_formats.items():
+        if f_type == file_type and not data_file.name.lower().endswith(extension):
+            extension = ' or '.join(extension) if isinstance(extension, tuple) else extension
+            raise ValidationError({field: [f'Kindly chose a {extension} file']})
+
