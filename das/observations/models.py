@@ -684,6 +684,10 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
     def __str__(self):
         return self.name
 
+    @property
+    def auto_permissionset_name(self):
+        return _('View {} Subject Group').format(self.name)
+
 
 class SubjectQuerySet(models.QuerySet, FilterMixin):
 
