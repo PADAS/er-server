@@ -482,16 +482,15 @@ class Command(BaseCommand):
 
         return False
 
-    def lookup_choice_value(self, table_row_id, table_row_name=None):
+    def lookup_choice_value(self, table_row_id):
         # from the saved data we only have the UUID from the table and the Name
         try:
             return lookup_choice_value_by_id(table_row_id)
         except choices.Choice.DoesNotExist:
             pass
-        if not table_row_name:
-            raise ChoiceNotFoundException(
-                "did not find choice by id {table_row_id} and no table_row_name specified")
-        return self.make_value(table_row_name)
+
+        raise ChoiceNotFoundException(
+            "did not find choice by id {table_row_id}")
 
     def is_choice_property(self, property_id, rendered_schema):
         # simple check to see if the rendered schema has an enum for that
@@ -530,7 +529,7 @@ class Command(BaseCommand):
                     if self.is_uuid(details):
                         try:
                             data[property_id] = self.lookup_choice_value(
-                                UUID(details), None)
+                                UUID(details))
                             dirty = True
                         except ChoiceNotFoundException:
                             # ignore that this might be a query lookup
@@ -546,7 +545,7 @@ class Command(BaseCommand):
                         if self.is_uuid(item["value"]):
                             try:
                                 item["value"] = self.lookup_choice_value(
-                                    UUID(item['value']), item["name"])
+                                    UUID(item['value']))
                                 dirty = True
                             except ChoiceNotFoundException:
                                 # ignore this might be a dynamic query lookup
