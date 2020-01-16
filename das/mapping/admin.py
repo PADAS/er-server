@@ -373,7 +373,7 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
 if MAPPING_FEATURES_V2:
     @admin.register(models.SpatialFeatureFile)
     class SpatialFeatureFileAdmin(BaseSpatialFileAdmin):
-        list_display = ('id', 'name', 'description', 'feature_type')
+        list_display = ('id', 'name', 'file_type', 'description', 'feature_type')
         list_filter = ('name',)
         fieldsets = (
             (None, {
@@ -385,8 +385,8 @@ if MAPPING_FEATURES_V2:
                 'fields': ('feature_type', 'layer_number', 'name_field', 'id_field')
             }
              ),
-            ('STE Optional Attributes', {
-                'classes': ('wide', 'ste',),
+            ('GeoJSON Optional Attributes', {
+                'classes': ('wide', 'geojson',),
                 'fields': ('feature_types_file',)
             }
              ),)
