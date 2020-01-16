@@ -138,7 +138,8 @@ class TempStorage(FileSystemStorage):
 
 FILE_TYPES = (
     ('shapefile', 'Shapefile'),
-    ('ste', 'Ste'),
+    ('geodatabase', 'Geodatabase'),
+    ('geojson', 'GeoJSON'),
 )
 
 
