@@ -97,24 +97,15 @@ def create_proxy_permissions(**kwargs):
 
 post_migrate.connect(create_proxy_permissions)
 
-def create_view_permissionset():
-    user = auth.get_user_model()
-    content_type = ContentType.objects.get_for_model(SubjectGroup)
-    permission, _ = models.Permission.objects.get_or_create(
-        codename='view_subjectgroup',
-        content_type=content_type,
-        defaults={'name': 'Permission to view a subject group'})
-def create_view_permissionset(subject_name):
+
+def create_view_permissionset(subject_group_name):
     permissions = {
         'view_subjectgroup': 'Permission to view a subject group',
-        'change_subjectgroup': 'can change subjectgroup',
-        'view_real_time': 'Access to updated observations as they become available, includes view_last_position.',
-        'view_subject': 'Permission to view a subject, does not include permission to see location',
-        'subscribe_alerts': 'Permission to subscribe to an alert on this Subject.'
+        'change_subjectgroup': 'can change subjectgroup'
     }
 
     content_type = ContentType.objects.get_for_model(SubjectGroup)
-    permission_set = PermissionSet.objects.create(name=f"View {subject_name} SubjectGroup")
+    permission_set = PermissionSet.objects.create(name=f"View {subject_group_name} SubjectGroup")
 
     for codename, name in permissions.items():
         permission, _ = models.Permission.objects.get_or_create(
@@ -123,12 +114,18 @@ def create_view_permissionset(subject_name):
             defaults={'name': name})
         permission_set.permissions.add(permission)
 
+    for codename in ['view_real_time', 'view_subject', 'subscribe_alerts']:
+        perms = models.Permission.objects.filter(codename=codename)
+        for perm in perms:
+            permission_set.permissions.add(perm)
+
+
 @receiver(post_save, sender=SubjectGroup)
 def auto_create_view_perm(sender, instance, created, **kwargs):
     if created:
-        subject_name = instance.name
-        create_view_permissionset(subject_name)
-        permission_set = PermissionSet.objects.get(name=f'View {subject_name} SubjectGroup')
+        subject_group_name = instance.name
+        create_view_permissionset(subject_group_name)
+        permission_set = PermissionSet.objects.get(name=f'View {subject_group_name} SubjectGroup')
 
         subject_group = SubjectGroup.objects.get(id=instance.id)
         subject_group.permission_sets.add(permission_set)
