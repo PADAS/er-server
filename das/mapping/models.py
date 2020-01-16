@@ -769,8 +769,7 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
     # A shorter name used for cartographic display
     short_name = models.CharField(max_length=25, blank=True)
     # for ste, this is the ste_guid
-    external_id = models.CharField(max_length=255, unique=True, blank=True,
-                                   null=True)
+    external_id = models.CharField(max_length=255, blank=True, null=True)
     external_source = models.CharField(max_length=25, blank=True)
     description = models.TextField(null=True, blank=True)
     attributes = JSONField(default=dict, blank=True)
