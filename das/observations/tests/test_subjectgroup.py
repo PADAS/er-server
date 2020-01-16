@@ -576,13 +576,12 @@ class TestSubjectGroupAutoCreatedViewPerm(TestCase):
         subject_group = SubjectGroup.objects.create(name='Elephant')
         all_perms = {
             'view_subjectgroup',
-            'change_subjectgroup',
             'view_real_time',
             'view_subject',
             'subscribe_alerts',
         }
-        permission_set = subject_group.permission_sets.get(name='View Elephant SubjectGroup')
-        self.assertEqual(permission_set.name, 'View Elephant SubjectGroup')
+        permission_set = subject_group.permission_sets.get(name=subject_group.auto_permissionset_name)
+        self.assertEqual(permission_set.name, subject_group.auto_permissionset_name)
         with self.assertRaisesMessage(Exception, 'PermissionSet matching query does not exist.'):
             subject_group.permission_sets.get(name='view elephant subjectgroup')
         perms_in_permission_set = {perm.codename for perm in permission_set.permissions.all()}

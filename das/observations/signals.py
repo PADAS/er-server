@@ -98,9 +98,9 @@ def create_proxy_permissions(**kwargs):
 post_migrate.connect(create_proxy_permissions)
 
 
-def create_view_permissionset(subject_group_name):
+def create_view_permissionset(permission_name):
 
-    permission_set, created = PermissionSet.objects.get_or_create(name=f"View {subject_group_name} Subject Group")
+    permission_set, created = PermissionSet.objects.get_or_create(name=permission_name)
 
     for codename in ['view_real_time', 'view_subject', 'subscribe_alerts', 'view_subjectgroup']:
         perms = models.Permission.objects.filter(codename=codename)
@@ -112,8 +112,8 @@ def create_view_permissionset(subject_group_name):
 @receiver(post_save, sender=SubjectGroup)
 def auto_create_view_perm(sender, instance, created, **kwargs):
     if created:
-        subject_group_name = instance.name
-        perm_set = create_view_permissionset(subject_group_name)
+        permission_name = instance.auto_permissionset_name
+        perm_set = create_view_permissionset(permission_name)
         permission_set = PermissionSet.objects.get(id=perm_set.id)
 
         subject_group = SubjectGroup.objects.get(id=instance.id)
