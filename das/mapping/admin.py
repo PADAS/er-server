@@ -133,6 +133,7 @@ class SpatialFeatureTypeAdmin(admin.ModelAdmin):
     list_display = ('name', 'is_visible', 'display_category')
     ordering = ('name', )
     search_fields = ('name',)
+    list_filter = ('is_visible',)
     form = SpatialFeatureTypeForm
 
 
