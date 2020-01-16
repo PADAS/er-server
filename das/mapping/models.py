@@ -32,6 +32,10 @@ class Map(TimestampedModel):
     """
     A Map defines the center location, zoom level
     """
+    if MAPPING_FEATURES_V2:
+        class Meta:
+            verbose_name = 'Map Quicklink'
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
     attributes = JSONField(default=dict, blank=True)
@@ -53,7 +57,7 @@ class TileLayer(TimestampedModel):
     """
     if MAPPING_FEATURES_V2:
         class Meta:
-            verbose_name = 'Map Layer'
+            verbose_name = 'Basemap'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)

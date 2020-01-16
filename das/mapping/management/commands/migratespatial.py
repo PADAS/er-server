@@ -41,9 +41,6 @@ class Command(BaseCommand):
         if self.migrate_type == MigrateType.OverWrite:
             self.create_fn = 'update_or_create'
 
-        for fset in models.FeatureSet.objects.all():
-            self.stdout.write(f'{fset.name} types: {fset.types.all()}')
-
         featuresets_by_types = defaultdict(set)
         featuresets = set()
 

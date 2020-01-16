@@ -1,26 +1,26 @@
 from functools import reduce
 
+from django.contrib import admin as django_admin, messages
 from django.contrib.admin import helpers
 from django.contrib.admin.exceptions import DisallowedModelAdminToField
 from django.contrib.admin.options import IS_POPUP_VAR, TO_FIELD_VAR
 from django.contrib.admin.utils import get_deleted_objects, unquote, \
     model_ngettext
+from django.contrib.gis import admin
 from django.core.exceptions import PermissionDenied
 from django.db import router
-from django.template.response import TemplateResponse
-from django.contrib.gis import admin
-from django.contrib import admin as django_admin, messages
-from django.utils.translation import ugettext_lazy as _
-from django.utils.safestring import mark_safe
-from django.utils.html import escape
 from django.db.models import Q
 from django.db.models.expressions import RawSQL
+from django.template.response import TemplateResponse
+from django.utils.html import escape
+from django.utils.safestring import mark_safe
+from django.utils.translation import ugettext_lazy as _
 
 import mapping.models as models
-from mapping.utils import MAPPING_FEATURES_V2
+from core.openlayers import OSMGeoExtendedAdmin
 from mapping.forms import MapCenterForm, TileLayerFormWithAttributes, \
     SpatialFeatureGroupStaticForm, FeatureTypeForm, DisplayCategoryForm, SpatialFeatureTypeForm
-from core.openlayers import OSMGeoExtendedAdmin
+from mapping.utils import MAPPING_FEATURES_V2
 
 
 @admin.register(models.Map)
@@ -83,9 +83,9 @@ class BaseFeatureAdmin(OSMGeoExtendedAdmin):
 class SpatialFeaturesInline(admin.TabularInline):
     model = models.SpatialFeatureGroupStatic.features.through
     form = SpatialFeatureGroupStaticForm
-    model._meta.verbose_name_plural = "Member of spatial feature groups"
+    model._meta.verbose_name_plural = "Member of feature groups"
     extra = 1
-    verbose_name = "Spatial Feature Group"
+    verbose_name = "Feature Group"
 
 
 if MAPPING_FEATURES_V2:
@@ -134,6 +134,15 @@ class SpatialFeatureTypeAdmin(admin.ModelAdmin):
     ordering = ('name', )
     search_fields = ('name',)
     form = SpatialFeatureTypeForm
+    fieldsets = (
+        (None, {
+            'fields': ('id', 'name', 'display_category', 'is_visible', 'presentation',)
+        }),
+        ('Advanced Attributes', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('tags', 'attribute_schema', 'provenance', 'external_id', 'external_source')
+        })
+    )
 
 
 class GeometryTypeFilter(django_admin.SimpleListFilter):
@@ -167,6 +176,15 @@ class SpatialFeatureAdmin(BaseFeatureAdmin):
     search_fields = ('name', 'short_name', 'external_id', 'id')
     inlines = (
         SpatialFeaturesInline,
+    )
+    fieldsets = (
+        (None, {
+            'fields': ('id', 'name', 'feature_type', 'spatialfile', 'feature_geometry')
+        }),
+        ('Advanced Attributes', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('short_name', 'description', 'attributes', 'provenance', 'external_id', 'external_source')
+        })
     )
 
     def get_queryset(self, request):
