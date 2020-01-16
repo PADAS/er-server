@@ -1,6 +1,3 @@
-from datetime import datetime
-import pytz
-
 import logging
 
 from django.apps import apps
@@ -11,9 +8,9 @@ from django.contrib.auth.models import Permission
 from django.contrib import auth
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth import models
+from django.db import transaction
 
-from observations.models import Observation, SubjectStatus, Subject, EMPTY_POINT, SubjectSource, SubjectStatus, SubjectGroup
-from observations.utils import VIEW_END_WINDOWS, VIEW_SUBJECTGROUP_PERMS
+from observations.models import Observation, Subject, SubjectSource, SubjectStatus, SubjectGroup
 from accounts.models import PermissionSet
 
 logger = logging.getLogger(__name__)
@@ -116,5 +113,6 @@ def auto_create_view_perm(sender, instance, created, **kwargs):
         perm_set = create_view_permissionset(permission_name)
         permission_set = PermissionSet.objects.get(id=perm_set.id)
 
-        subject_group = SubjectGroup.objects.get(id=instance.id)
-        subject_group.permission_sets.add(permission_set)
+        # Add PermissionSet after commit
+        transaction.on_commit(
+            lambda: instance.permission_sets.add(permission_set))
