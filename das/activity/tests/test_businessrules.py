@@ -296,7 +296,7 @@ class BusinessRulesTestCase(BaseAPITest):
         }
 
         schedule = OneWeekSchedule(schedule)
-        d1 = datetime.now(tz=pytz.timezone('America/Los_Angeles'))
+        d1 = datetime.now(tz=pytz.timezone(timezone.get_current_timezone_name()))
 
         # Find the most recent Monday.
         d1 = d1 - timedelta(days=d1.isoweekday())
