@@ -1,3 +1,5 @@
+from unittest import skipIf
+
 from django.test import TestCase
 
 from activity.exceptions import SCHEMA_ERROR_EMPTY_PROPERTY, \
@@ -64,6 +66,7 @@ EVENT_SCHEMA_WITH_MISSING_PROPERTY_IN_DEFINITION = """{
 }"""
 
 
+@skipIf(True, 'Skipping tests because we turned off validation in EventTypeForm')
 class TestEventTypeForm(TestCase):
     def test_schema_with_missing_comma_returns_error(self):
         form = EventTypeForm(

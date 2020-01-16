@@ -28,12 +28,13 @@ from kombu import Connection
 from rest_framework.fields import DateTimeField
 from drf_extra_fields.geo_fields import PointField
 
+from activity.serializers import EventDetailsSerializer
 from core.tests import BaseAPITest
 from choices.models import Choice
 from accounts.models import PermissionSet
 from activity.models import Event, EventAttachment, EventType, EventCategory, \
     EventRelationship, EventRelationshipType, EventNote, EventsourceEvent, \
-    EventSource, EventProvider, parse_date_range
+    EventSource, EventProvider, parse_date_range, EventDetails
 from activity import views
 from observations.models import Subject
 from accounts.serializers import UserDisplaySerializer
@@ -1803,6 +1804,85 @@ class TestEventView(BaseAPITest):
         self.assertNotIn('security', category_values)
         self.assertIn('monitoring', category_values)
         self.assertIn('logistics', category_values)
+
+    def test_property_name_same_as_enum_name(self):
+        event_data = copy.deepcopy(self.event_data)
+        event_data['event_type'] = ET_CARCASS
+        event_data['event_details'] = {"carcassrep_species": "elephant",
+                                       "carcassrep_sex": "male",
+                                       "carcassrep_ageofanimal": "adult",
+                                       "carcassrep_ageofcarcass": "fresh",
+                                       "carcassrep_trophystatus": "intact",
+                                       "carcassrep_causeofdeath": "naturaldisease"}
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        event_details = response.data.get('event_details')
+        for k, v in event_details.items():
+            self.assertNotIsInstance(v, dict)
+
+    def test_property_checkboxes(self):
+        event_data = copy.deepcopy(self.event_data)
+        event_data['event_type'] = ET_OTHER
+        event_data['event_details'] = {"carcassrep_species": ["elephant", "eland"],  # checkboxes
+                                       "sectionArea": "unknown",
+                                       "conservancy": "unknown",
+                                       # multi-select
+                                       "arrestrep_reasonforarrest": ["snare", "logging"],
+                                       }
+
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        event_details = response.data.get('event_details')
+        for k, v in event_details.items():
+            self.assertNotIsInstance(v, dict)
+        self.assertIsInstance(event_details["carcassrep_species"], list)
+        self.assertNotIsInstance(event_details["carcassrep_species"][0], dict)
+
+    def test_property_multiselect(self):
+        event_data = copy.deepcopy(self.event_data)
+        event_data['event_type'] = ET_OTHER
+        event_data['event_details'] = {
+            "sectionArea": "unknown",
+            "conservancy": "unknown",
+            # multi-select
+            "arrestrep_reasonforarrest": ["snare", "logging"],
+            }
+
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        event_details = response.data.get('event_details')
+        for k, v in event_details.items():
+            self.assertNotIsInstance(v, dict)
+        self.assertIsInstance(event_details["arrestrep_reasonforarrest"], list)
+        self.assertNotIsInstance(event_details["arrestrep_reasonforarrest"][0], dict)
+
+    def test_handling_legacy_data(self):
+        event = self.create_event(self.event_data)
+        event_detail = EventDetails.objects.create(
+            event=event,
+            data={'event_details': {
+                'conservancy': {"name": "Name", "value": "name"},
+                'test': "test",
+                "correct_output_checkbox": ["one", "two"],
+                'sectionArea': [{"name": "Area1", "value": "area1"},
+                                {"name": "Area2", "value": "area2"}],
+                'arrestrep_reasonforarrest': ['snare',
+                                              'logging']}}
+
+        )
+        serializer = EventDetailsSerializer(event_detail)
+        data = serializer.data
+        self.assertEqual(data['conservancy'], "name")
+        self.assertEqual(data['test'], "test")
+        self.assertEqual(data['correct_output_checkbox'], ["one", "two"])
+        self.assertEqual(data['sectionArea'], ['area1', 'area2'])
+        self.assertEqual(data['arrestrep_reasonforarrest'], ['snare', 'logging'])
 
 
 class TestParsing(TestCase):

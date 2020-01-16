@@ -84,14 +84,14 @@ class EventTypeForm(forms.ModelForm):
 
     class Meta:
         model = EventType
-        fields = ['icon', 'schema']
+        fields = ['icon', 'display', 'schema',]
 
     def clean_schema(self):
-        data = self.cleaned_data['schema']
+        schema = self.cleaned_data.get('schema')
         name = self.cleaned_data['display']
         schema_warning = f'Warning: The event type schema for {name} is not properly formatted JSON. The event type might not properly render in the EarthRanger client.'
         try:
-            rendered_schema = get_schema_renderer_method()(data)
+            rendered_schema = get_schema_renderer_method()(schema)
         except NameError as ne:
             messages.add_message(self.request, messages.WARNING, schema_warning)
         except Exception:
@@ -101,7 +101,7 @@ class EventTypeForm(forms.ModelForm):
                 validate_rendered_schema_is_wellformed(rendered_schema)
             except SchemaValidationError as e:
                 messages.add_message(self.request, messages.WARNING, schema_warning)
-        return data
+        return self.cleaned_data
 
 
 class NotificationMethodSelectField(forms.ModelMultipleChoiceField):
