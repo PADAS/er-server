@@ -377,7 +377,7 @@ class Observation(models.Model):
     # via a migration script
     recorded_at = models.DateTimeField('recorded at', db_index=False)
     created_at = models.DateTimeField(
-        'row created at', auto_now_add=True)  # date/time this row created
+        'row created at', auto_now_add=True, db_index=True)  # date/time this row created
     source = models.ForeignKey('Source', on_delete=models.CASCADE)
     additional = JSONField()
     exclusion_flags = models.BigIntegerField(
