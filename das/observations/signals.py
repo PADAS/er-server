@@ -118,14 +118,15 @@ def create_view_permissionset(subject_group_name):
         perms = models.Permission.objects.filter(codename=codename)
         for perm in perms:
             permission_set.permissions.add(perm)
+    return permission_set
 
 
 @receiver(post_save, sender=SubjectGroup)
 def auto_create_view_perm(sender, instance, created, **kwargs):
     if created:
         subject_group_name = instance.name
-        create_view_permissionset(subject_group_name)
-        permission_set = PermissionSet.objects.get(name=f'View {subject_group_name} SubjectGroup')
+        perm_set = create_view_permissionset(subject_group_name)
+        permission_set = PermissionSet.objects.get(id=perm_set.id)
 
         subject_group = SubjectGroup.objects.get(id=instance.id)
         subject_group.permission_sets.add(permission_set)
