@@ -22,7 +22,7 @@ from mapping.app_settings import MBTILES
 from mapping.mbtiles import ExtractionError, GoogleProjection, MBTilesReader
 from mapping.mbtiles import InvalidFormatError
 from revision.manager import Revision, RevisionMixin
-from mapping.utils import MAPPING_FEATURES_V2
+from mapping.utils import MAPPING_FEATURES_V2, check_file_extension
 
 
 logger = logging.getLogger(__name__)
@@ -142,7 +142,8 @@ class TempStorage(FileSystemStorage):
 
 FILE_TYPES = (
     ('shapefile', 'Shapefile'),
-    ('ste', 'Ste'),
+    ('geodatabase', 'Geodatabase'),
+    ('geojson', 'GeoJSON'),
 )
 
 
@@ -243,7 +244,13 @@ class SpatialFilesBase(TimestampedModel):
         """
         if not self.data:
             raise ValidationError({'data': []})
+        try:
+            file_type = self.file_type
+        except Exception:
+            file_type = None
 
+        if file_type:
+            check_file_extension(self.file_type, self.data, self.feature_types_file or None)
         self.save()
         data_file = self.get_upload_file(self.data)
         try:

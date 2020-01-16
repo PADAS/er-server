@@ -1,7 +1,7 @@
 (function($) {
     $(function() {
         var selectFileType = $('#id_file_type'), readonlyFields = document.getElementsByClassName("readonly"),
-            ste = $('.ste'), shapefile= $('.shapefile');
+        geojson = $('.geojson'), shapefile= $('.shapefile');
 
         if(readonlyFields.length > 1){
             toggleVerified(readonlyFields[0].innerHTML.toLowerCase());
@@ -17,12 +17,12 @@
         }
 
         function toggleVerified(value) {
-            if (value === 'shapefile') {
+            if (value === 'shapefile' || value === 'geodatabase') {
                 shapefile.show();
-                ste.hide();
-            } else if(value === 'ste') {
+                geojson.hide();
+            } else if(value === 'geojson') {
                 shapefile.hide();
-                ste.show();
+                geojson.show();
             }
         }
     });
