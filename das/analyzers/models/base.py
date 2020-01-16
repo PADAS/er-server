@@ -63,7 +63,7 @@ class SubjectAnalyzerConfig(RevisionMixin, TimestampedModel):
                             verbose_name=_('Analyzer Name'),
                             help_text=_('A friendly, <b>unique</b> name for the analyzer.'))
     notes = models.TextField(blank=True, default='')
-    schedule = ArrayField(models.CharField(max_length=50), default=[], null=True, blank=True,
+    schedule = ArrayField(models.CharField(max_length=50), default=list, null=True, blank=True,
                           verbose_name='Array of crontab schedule patterns that '
                                        'an analyzer can use to determine whether to run.')
 

@@ -1413,7 +1413,7 @@ class SocketClient(TimestampedModel):
         'Das username associated with session', max_length=30)
     bbox = models.MultiPolygonField(
         'Viewport bounding box.', null=True, blank=True)
-    event_filter = JSONField('Event filter', default={})
+    event_filter = JSONField('Event filter', default=dict)
 
 
 import observations.signals
