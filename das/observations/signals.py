@@ -99,22 +99,10 @@ post_migrate.connect(create_proxy_permissions)
 
 
 def create_view_permissionset(subject_group_name):
-    permissions = {
-        'view_subjectgroup': 'Permission to view a subject group',
-        'change_subjectgroup': 'can change subjectgroup'
-    }
 
-    content_type = ContentType.objects.get_for_model(SubjectGroup)
-    permission_set = PermissionSet.objects.create(name=f"View {subject_group_name} SubjectGroup")
+    permission_set, created = PermissionSet.objects.get_or_create(name=f"View {subject_group_name} Subject Group")
 
-    for codename, name in permissions.items():
-        permission, _ = models.Permission.objects.get_or_create(
-            codename=codename,
-            content_type=content_type,
-            defaults={'name': name})
-        permission_set.permissions.add(permission)
-
-    for codename in ['view_real_time', 'view_subject', 'subscribe_alerts']:
+    for codename in ['view_real_time', 'view_subject', 'subscribe_alerts', 'view_subjectgroup']:
         perms = models.Permission.objects.filter(codename=codename)
         for perm in perms:
             permission_set.permissions.add(perm)
