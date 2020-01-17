@@ -1,6 +1,7 @@
 import random
 import csv
 from datetime import datetime, timedelta
+from uuid import UUID
 
 import pytz
 import humanize
@@ -38,6 +39,9 @@ from core.openlayers import OSMGeoExtendedAdmin
 from core.common import TIMEZONE_USED
 from utils.html import make_html_list
 from .models import SOURCE_TYPES
+from observations.daterange_filter import DateRangeFilter
+from bitfield import BitField
+from bitfield.forms import BitFieldCheckboxSelectMultiple
 
 site_title = _('DAS Administration (advanced view)')
 admin.site.site_title = site_title
@@ -68,6 +72,24 @@ class ExportCsvMixin:
         return response
 
     export_as_csv.short_description = "Export Selected Items"
+
+
+class ValidateFilterMixin:
+    def difference_in_date(self, first_date, second_date):
+        try:
+            d1_obj = datetime.strptime(first_date, '%d/%m/%Y')
+            d2_obj = datetime.strptime(second_date, '%d/%m/%Y')
+        except ValueError:
+            return 90
+        diff_date = d2_obj - d1_obj
+        return diff_date.days
+
+    def check_uuid(self, uuid):
+        try:
+            uuid = UUID(uuid).version
+        except ValueError:
+            return
+        return uuid
 
 
 class SubjectSubTypeInline(InlineExtraDynamicMixin, admin.TabularInline):
@@ -211,14 +233,15 @@ class SubjectNameFilter(InputFilter):
             )
 
 
-class SubjectIdFilter(InputFilter):
+class SubjectIdFilter(InputFilter, ValidateFilterMixin):
     parameter_name = 'subject_id'
     title = _('Subject ID')
 
     def queryset(self, request, queryset):
         if self.value() is not None:
+            uuid = self.check_uuid(self.value())
             return queryset.filter(
-                Q(source__subjectsource__subject_id=self.value(), )
+                Q(source__subjectsource__subject_id=uuid, )
             )
 
 
@@ -250,17 +273,24 @@ class LargeTablePaginator(Paginator):
 
 
 @admin.register(models.Observation)
-class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
+class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin):
     list_display = ('subject_link', '_manufacturer_id', '_recorded_at', '_created_at',
-                    '_longitude', '_latitude', '_state', '_event_action')
+                    '_longitude', '_latitude', '_state', '_event_action', 'exclusion_flags')
+    list_editable = ('exclusion_flags',)
     date_hierarchy = 'recorded_at'
     list_display_links = None
 
     paginator = LargeTablePaginator
+    formfield_overrides = {
+        BitField: {
+            'widget': BitFieldCheckboxSelectMultiple
+        },
+    }
 
     gis_geometry_field_name = 'location'
 
-    list_filter = (SubjectNameFilter, SubjectIdFilter)
+    list_filter = (SubjectNameFilter, SubjectIdFilter, ('recorded_at', DateRangeFilter))
+
 
     def subject_link(self, obj):
         return mark_safe('<a href="{}">{}</a>'.format(
@@ -296,10 +326,15 @@ class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
     def _created_at(self, o):
         return o.created_at
     _created_at.short_description = 'row created at %s' % TIMEZONE_USED
+    _created_at.admin_order_field = 'created_at'
 
     def _recorded_at(self, o):
-        return o.recorded_at
+        recorded_at = o.recorded_at.strftime("%d %b, %Y, %H:%M")
+        return mark_safe('<a href="{}">{}</a>'.format(
+            reverse("admin:observations_observation_change", args=(o.id,)),
+           recorded_at))
     _recorded_at.short_description = 'recorded at %s' % TIMEZONE_USED
+    _recorded_at.admin_order_field = 'recorded_at'
 
     def get_actions(self, request):
         actions = super().get_actions(request)
@@ -331,6 +366,15 @@ class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
 
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}
+        changelist = super().get_changelist_instance(request)
+        filter_params = changelist.get_filters_params()
+        if filter_params:
+            d1 = filter_params.get('recorded_at__range__gte')
+            d2 = filter_params.get('recorded_at__range__lte')
+            if d1 and d2:
+                extra_context['history_limit_days'] = self.difference_in_date(d1, d2)
+                return super().changelist_view(request, extra_context=extra_context)
+            return super().changelist_view(request, extra_context=extra_context)
         extra_context['history_limit_days'] = OBSERVATIONS_HISTORY_LIMIT.days
         return super().changelist_view(request, extra_context=extra_context)
 
@@ -654,7 +698,7 @@ class SourceAdmin(admin.ModelAdmin):
     search_fields = ('id', 'manufacturer_id', 'model_name', 'additional',)
     list_filter = ('source_type', 'model_name', SourceSourceProviderFilter)
     readonly_fields = ('id', 'created_at', 'updated_at',)
-#    filter_horizontal = ('groups',)
+    #    filter_horizontal = ('groups',)
 
     form = observations.forms.SourceForm
     fieldsets = (
@@ -844,6 +888,10 @@ class SubjectGroupChangeForm(forms.ModelForm):
         return instance
 
 
+from django.contrib.auth import get_permission_codename
+from accounts.models import PermissionSet
+
+
 @admin.register(models.SubjectGroup)
 class SubjectGroupAdmin(HierarchyModelAdmin):
     form = SubjectGroupChangeForm
@@ -868,6 +916,7 @@ class SubjectGroupAdmin(HierarchyModelAdmin):
     list_editable = ('is_visible',)
     list_filter = ('is_visible',)
     filter_horizontal = ('children', 'permission_sets', 'subjects')
+
 
     def formfield_for_dbfield(self, db_field, **kwargs):
         if db_field.name == 'children':

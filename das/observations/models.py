@@ -47,6 +47,7 @@ from core.models import HierarchyManager, HierarchyModel, TimestampedModel
 from core.utils import static_image_finder
 from observations.mixins import FilterMixin
 from observations.utils import calculate_track_range, get_minimum_allowed_age
+from bitfield import BitField
 
 
 logger = logging.getLogger(__name__)
@@ -364,8 +365,14 @@ class ObservationManager(models.Manager):
 class Observation(models.Model):
 
     # Constants for filter bit-map.
+    DEFAULT = 0
     EXCLUDED_MANUALLY = 1
     EXCLUDED_AUTOMATICALLY = 2
+
+    BITMAP_FILTER_CHOICES = [
+        ('EXCLUDED_MANUALLY', _('EXCLUDED_MANUALLY')),
+        ('EXCLUDED_AUTOMATICALLY', _('EXCLUDED_AUTOMATICALLY')),
+    ]
 
     """observation point
     similar to archive_loc
@@ -377,16 +384,15 @@ class Observation(models.Model):
     # via a migration script
     recorded_at = models.DateTimeField('recorded at', db_index=False)
     created_at = models.DateTimeField(
-        'row created at', auto_now_add=True)  # date/time this row created
+        'row created at', auto_now_add=True, db_index=True)  # date/time this row created
     source = models.ForeignKey('Source', on_delete=models.CASCADE)
     additional = JSONField()
-    exclusion_flags = models.BigIntegerField(
-        'Exclusion flags as a bitmap', null=False, default=0)
 
+    exclusion_flags = BitField(flags=BITMAP_FILTER_CHOICES, default=0)
     objects = ObservationManager()
 
     def __str__(self):
-        return '{}:{}:{:08b}'.format(self.recorded_at.isoformat(), self.location, self.exclusion_flags)
+        return '{}:{}:{:08b}'.format(self.recorded_at.isoformat(), self.location, self.exclusion_flags.mask)
 
     class Meta:
         unique_together = (
@@ -677,6 +683,10 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
 
     def __str__(self):
         return self.name
+
+    @property
+    def auto_permissionset_name(self):
+        return _('View {} Subject Group').format(self.name)
 
 
 class SubjectQuerySet(models.QuerySet, FilterMixin):

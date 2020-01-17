@@ -820,13 +820,17 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
             elif type(v) == list and k in parameters:
                 all_values = []
                 for value in v:
-                    matches = [d for d in parameters[k] if d['value'] == value]
+                    matches = []
+                    for d in parameters[k]:
+                        if isinstance(d, dict) and d['value'] == value:
+                            matches.append(value)
+                        elif value == d:
+                            matches.append(value)
+
                     if len(matches) > 0:
                         all_values.append(matches[0])
                 if len(all_values) > 0:
                     ret[k] = all_values
-            elif type(v) == str and k in parameters and v in parameters[k]:
-                ret[k] = {'name': parameters[k][v], 'value': v}
             else:
                 ret[k] = v
         return ret
@@ -834,12 +838,24 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
     def to_internal_value(self, data):
         return self._to_internal_value_inner(self.root.instance, data)
 
+    def handle_legacy_data(self, event_details):
+        for k, v in event_details.items():
+            if k == "updates":
+                continue
+            elif isinstance(v, dict) and 'value' in v.keys():
+                event_details[k] = v['value']
+            elif isinstance(v, list):
+                values = [x['value'] if isinstance(x, dict) and 'value' in x.keys() else x for x in v]
+                event_details[k] = values
+        return event_details
+
     def to_representation(self, event_details):
         if not event_details:
             return OrderedDict()
         rep = OrderedDict(event_details.data['event_details'])
         event_type = self.get_event_type(event_details.event)
         rep['updates'] = self.render_updates(event_details, event_type)
+        rep = self.handle_legacy_data(rep)
         return rep
 
     def render_updates(self, event_details, event_type):
