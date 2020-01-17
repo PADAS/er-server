@@ -101,7 +101,7 @@ class EventTypeForm(forms.ModelForm):
                 validate_rendered_schema_is_wellformed(rendered_schema)
             except SchemaValidationError as e:
                 messages.add_message(self.request, messages.WARNING, schema_warning)
-        return self.cleaned_data
+        return schema
 
 
 class NotificationMethodSelectField(forms.ModelMultipleChoiceField):
