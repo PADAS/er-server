@@ -3,8 +3,12 @@ import pytz
 
 import logging
 
-from django.db.models.signals import post_save
+from django.apps import apps
+from django.db.models.signals import post_save, post_migrate
 from django.dispatch import receiver
+from django.contrib.auth.management import _get_all_permissions
+from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
 
 from observations.models import Observation, SubjectStatus, Subject, EMPTY_POINT, SubjectSource, SubjectStatus
 from observations.utils import VIEW_END_WINDOWS
@@ -53,3 +57,39 @@ def maintain_subjectstatus(sender, instance, created, **kwargs):
     # This function is triggered when source is updated for subject.
     SubjectStatus.objects.maintain_subject_status(instance.subject_id)
 
+
+def create_proxy_permissions(**kwargs):
+    """
+    Creates permissions for proxy models which are not created automatically
+    by "django.contrib.auth.management.create_permissions"
+    see issue[bug]: https://code.djangoproject.com/ticket/11154, however, it has been fixed
+    in Django release 2.2
+    What this method does is create new permissions for all proxy models,
+    using their own content type instead of the content type of the concrete model.
+    """
+    for model in apps.get_models():
+        opts = model._meta
+
+        if not opts.proxy:
+            continue
+        # The content_type creation is needed for the tests
+        proxy_content_type, __ = ContentType.objects.get_or_create(
+            app_label=opts.app_label, model=opts.model_name)
+        concrete_content_type = ContentType.objects.get_for_model(
+            model, for_concrete_model=True)
+
+        for code_tuple in _get_all_permissions(opts):
+            codename = code_tuple[0]
+            name = code_tuple[1]
+            # Delete the automatically generated permission from Django
+            Permission.objects.filter(
+                codename=codename,
+                content_type=concrete_content_type).delete()
+            # Create the correct permission for the proxy model
+            Permission.objects.get_or_create(codename=codename,
+                                             content_type=proxy_content_type,
+                                             defaults={
+                                                 'name': name,
+                                             })
+
+post_migrate.connect(create_proxy_permissions)
