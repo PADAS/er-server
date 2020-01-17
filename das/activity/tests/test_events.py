@@ -261,6 +261,20 @@ class TestEventView(BaseAPITest):
         response_data = {k: response.data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
 
+    def test_created_event_status(self):
+        event_data = copy.deepcopy(self.event_data)
+        event_data['reported_by'] = self.user_rep
+        event_data['provenance'] = Event.PC_STAFF
+        event_data['event_type'] = ET_OTHER
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        id = response.data.get('id')
+        event = Event.objects.get(id=id)
+        self.assertEqual(event.state, "new")
+
     def test_create_multiple_events_on_a_single_api_call(self):
         prev_count = Event.objects.count()
         request = self.factory.post(
