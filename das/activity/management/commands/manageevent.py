@@ -1,7 +1,10 @@
 import logging
 import copy
 import csv
+from uuid import UUID
+import os
 
+import pandas as pd
 from django.core.management.base import BaseCommand
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction, connection
@@ -13,19 +16,62 @@ from observations.models import SubjectType, SubjectSubType
 import utils.schema_utils as schema_utils
 import choices.models as choices
 from utils import json
-from uuid import UUID
+from utils.memoize import memoize
 
 logger = logging.getLogger(__name__)
+
+
+class ChoiceException(Exception):
+    pass
+
+
+class ChoiceNotFoundException(ChoiceException):
+    pass
+
+
+"""
+there are some choice tables that map to existing Choices
+in this scenario, if the id's don't match we need to remember
+and match them manually
+"""
+CHOICE_MAPPING = {}
+
+
+def add_to_choice_mapping(from_id, from_name, to_choice_id):
+    if isinstance(from_id, str):
+        from_id = UUID(str)
+    CHOICE_MAPPING[str(from_id)] = dict(choice_id=to_choice_id, name=from_name)
+
+
+def dump_choice_mapping(filepath):
+    with open(filepath, mode="w") as fh:
+        fh.write(json.dumps(CHOICE_MAPPING))
+
+
+@memoize
+def lookup_choice_value_by_id(table_row_id):
+    # normalize uuid
+    if isinstance(table_row_id, str):
+        table_row_id = UUID(str)
+    table_row_id = str(table_row_id)
+
+    if table_row_id in CHOICE_MAPPING:
+        table_row_id = CHOICE_MAPPING[table_row_id]['choice_id']
+
+    choice_row = choices.Choice.objects.get(id=table_row_id)
+    return choice_row.value
 
 
 class Command(BaseCommand):
     help = 'Event Type managment commands'
     dry_run = False
 
-    SUB_COMMANDS = ('dumptypes', 'deleteunusedtypes', 'migratetypes', 'dumplocalize', 'loadlocalize')
+    SUB_COMMANDS = ('dumptypes', 'deleteunusedtypes',
+                    'migratetypes', 'dumplocalize', 'loadlocalize')
     PREVIOUS_EVENT_FIELD = 'previous_value'
     PREVIOUS_PROPERTY_FIELD = 'previous_property_name'
     CURRENT_PROPERTY_NAME = 'property_name'
+    CURRENT_PROPERTY_VALUE = 'property_value'
     TABLE_FIELD_VALUE = 'field'
     TABLE_MODEL_VALUE = 'model'
 
@@ -40,6 +86,7 @@ class Command(BaseCommand):
         sub_command = options['sub-command']
         self.dry_run = options['dry_run']
         self.migration_file = options['migration_file']
+        self.event_types = options['event_types']
         self.output = options['o']
         self.summary_only = options['summary']
 
@@ -53,6 +100,8 @@ class Command(BaseCommand):
                             help='supported commands are {0}'.format(Command.SUB_COMMANDS))
         parser.add_argument('--migration-file', type=str,
                             help='input filename for migration plan')
+        parser.add_argument('--event-types', nargs='+',
+                            help='input list of unused eventtypes to delete')
         parser.add_argument(
             '-o', type=str, help='output filename for dumptypes')
         parser.add_argument('--summary', action='store_true',
@@ -66,7 +115,29 @@ class Command(BaseCommand):
         schema = schema_utils.get_rendered_schema(schema_raw)[
             'properties']
 
+    def load_standard_eventtypes(self):
+        event_types = pd.read_json('./activity/fixtures/event_data_model.json')
+        for index, row in event_types.iterrows():
+            if row.model == 'activity.eventtype':
+                fields = row.fields
+                try:
+                    event_type = EventType.objects.get(value=fields["value"])
+                    logger.info(f"Event type {event_type} already existing")
+                except Exception:
+                    new_category, created = EventCategory.objects.get_or_create(
+                        value=fields["category"][0])
+                    event_type = EventType.objects.create(
+                        id=row.pk,
+                        value=fields["value"],
+                        display=fields["display"],
+                        ordernum=fields["ordernum"],
+                        category=new_category,
+                        schema=fields["schema"],
+                        is_collection=fields["is_collection"])
+                    logger.info(f"New event type {event_type} loadded")
+
     def dumptypes(self):
+        # self.load_standard_eventtypes()
         if not self.output:
             raise NameError('-o output option required')
 
@@ -105,7 +176,6 @@ class Command(BaseCommand):
                 csv_writer.writerow(dict(ReportCategory=category.value,
                                          Display=category.display))
 
-
             for event_type in self.get_all_event_type_records():
                 event_type_value = event_type['value']
                 csv_writer.writerow(dict(ReportType=event_type_value,
@@ -134,6 +204,31 @@ class Command(BaseCommand):
     def loadlocalize(self):
         pass
 
+    def replace_table_references_in_schema(self, schema):
+        """
+        take the raw schema and replace table___<ChoiceTableName>___ with
+        enum___<lowercase<ChoiceTableName>>___
+        :param schema:
+        :return: replaced schema
+        """
+        table_marker = "table___"
+        table_marker_len = len(table_marker)
+        enum_marker = "enum___"
+        end_marker = "___"
+
+        while True:
+            find_index = schema.find(table_marker)
+            if len(schema) <= find_index or find_index == -1:
+                break
+            start = find_index + table_marker_len
+            end = schema.find(end_marker, start)
+            old_string = schema[start:end]
+            new_string = f"{enum_marker}{old_string.lower()}{end_marker}"
+            old_string = f"{table_marker}{old_string}{end_marker}"
+            schema = schema.replace(old_string, new_string)
+
+        return schema
+
     def get_all_event_type_records(self):
         event_types = EventType.objects.all()
         records = []
@@ -146,7 +241,8 @@ class Command(BaseCommand):
                       'category_value': getattr(event_type.category, 'value', None),
                       'category_id': getattr(event_type.category, 'id', 0),
                       'ordernum': event_type.ordernum,
-                      'schema': event_type.schema,
+                      'schema': self.replace_table_references_in_schema(event_type.schema),
+                      'table_schema': event_type.schema,
                       'is_collection': event_type.is_collection,
                       'count': self.get_event_type_count(event_type),
                       }
@@ -170,16 +266,29 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def deleteunusedtypes(self):
-        types_to_delete = self.get_unused_event_types()
+        types_to_delete = self.get_unused_event_types(self.event_types)
 
         if not self.dry_run:
-            logger.info('Deleting unused Event Types')
-            for event_type in types_to_delete:
-                event_type.delete()
+            if types_to_delete:
+                logger.info('Deleting unused Event Types')
+                for event_type in types_to_delete:
+                    try:
+                        event_type.delete()
+                    except Exception as error:
+                        logger.error(
+                            f"Error deleting {event_type} eventtype: ", error)
 
-    def get_unused_event_types(self):
+    def get_unused_event_types(self, event_types=None):
         unused_event_types = []
-        for event_type in EventType.objects.all():
+        all_event_types = EventType.objects.all()
+        if event_types:
+            for event_type in self.event_types:
+                try:
+                    EventType.objects.get(value__iexact=event_type)
+                except Exception:
+                    logger.error(f"Eventtype {event_type} does not exist")
+            all_event_types = EventType.objects.filter(value__in=event_types)
+        for event_type in all_event_types:
             count = self.get_event_type_count(event_type)
             if not count:
                 logger.info('EventType %s has 0 records associated with it',
@@ -193,6 +302,9 @@ class Command(BaseCommand):
             records = json.loads(fh.read())
 
         self.perform_migration_on_records(records)
+        choice_mapping_filename, ext = os.path.splitext(self.migration_file)
+        choice_mapping_filename = f"{choice_mapping_filename}-choice_mapping.json"
+        dump_choice_mapping(choice_mapping_filename)
 
         if self.dry_run:
             raise Exception(
@@ -207,13 +319,14 @@ class Command(BaseCommand):
                     continue
 
                 self.update_event_event_type(record)
+                for table in record['tables']:
+                    table_name = table['table_name'].lower()
+                    model, field = 'activity.event', table_name
+                    if self.should_update_choice_tables(record['tables']):
+                        model, field = table['model'], table['field']
 
-                if self.should_update_choice_tables(record['tables']):
-                    for table in record['tables']:
-                        mapped_table = self.migrate_choices_table(
-                            table['table_name'].lower(), table['model'], table['field'])
-                    migrated_tables += [self.make_value(table['table_name'])
-                                        for table in record['tables']]
+                    self.migrate_choices_table(table_name, model, field)
+                    migrated_tables.append(self.make_value(table_name))
 
             except Exception as ex:
                 logger.exception(
@@ -226,12 +339,9 @@ class Command(BaseCommand):
             try:
                 if 'fields' not in record:
                     continue
-
-                if self.should_update_fields_with_event_type(record['fields']):
-                    event_type = EventType.objects.get(value=record['value'])
-
-                    self.update_fields_with_event_type(
-                        record, event_type, migrated_tables)
+                event_type = EventType.objects.get(value=record['value'])
+                self.update_fields_with_event_type(
+                    record, event_type, migrated_tables)
             except Exception as ex:
                 logger.exception('Exception while migrating event details')
                 raise
@@ -308,6 +418,9 @@ class Command(BaseCommand):
                         'UPDATE activity_eventtype SET display = %s WHERE id = %s',
                         [record['display'], new_event_type.id])
                 if 'schema' in record and record['schema']:
+                    if 'table_' in record['schema']:
+                        record['schema'] = record['schema'].replace(
+                            'table_', 'enum_')
                     conn.execute(
                         'UPDATE activity_eventtype SET schema = %s WHERE id = %s',
                         [record['schema'], new_event_type.id])
@@ -347,8 +460,9 @@ class Command(BaseCommand):
         try:
             uuid = UUID(str)
             return True
-        except:
-            return False
+        except ValueError:
+            pass
+        return False
 
     def should_lookup_value_for_field(self, record, previous_property_name, current_property_name, former_tables, old_data):
 
@@ -368,51 +482,142 @@ class Command(BaseCommand):
 
         return False
 
-    def update_fields_with_event_type(self, record, event_type, former_tables):
-        for event in Event.objects.filter(event_type_id=event_type.id):
-            for event_details in event.event_details.all():
-                new_data = {}
-                old_data = copy.copy(event_details.data['event_details'])
-                dirty = False
-                for field in record['fields']:
+    def lookup_choice_value(self, table_row_id):
+        # from the saved data we only have the UUID from the table and the Name
+        try:
+            return lookup_choice_value_by_id(table_row_id)
+        except choices.Choice.DoesNotExist:
+            pass
+
+        raise ChoiceNotFoundException(
+            "did not find choice by id {table_row_id}")
+
+    def is_choice_property(self, property_id, rendered_schema):
+        # simple check to see if the rendered schema has an enum for that
+        # property
+        properties = rendered_schema['schema']['properties']
+        try:
+            property_def = properties[property_id]
+        except KeyError:
+            logger.warning(
+                f"Property {property_id} not found in event type {rendered_schema['schema']['title']}")
+            return False
+        if 'enum' in property_def:
+            return True
+        if "definition" not in rendered_schema:
+            return False
+        for details in rendered_schema['definition']:
+            if isinstance(details, dict) and details.get('key') == property_id and 'titleMap' in details:
+                return True
+        return False
+
+    def _modify_event_details(self, data, migration_plan, event_type, former_tables):
+        dirty = False
+
+        # Update choice table event_detail values
+        if migration_plan['tables']:
+            for property_id, details in data.items():
+                if not self.is_choice_property(property_id, migration_plan['rendered_schema']):
+                    continue
+                if not details:
+                    continue
+                # seen table fields look like
+                # "behavior": {"name": "Feeding", "value": "6ba1d7a5-c94a-482c-a746-25b0c4d0a877"}
+                # for a multiple checkboxes "behavior":[{"name": "Feeding",
+                # "value": "6ba1d7a5-c94a-482c-a746-25b0c4d0a877"}]
+                if isinstance(details, str):
+                    if self.is_uuid(details):
+                        try:
+                            data[property_id] = self.lookup_choice_value(
+                                UUID(details))
+                            dirty = True
+                        except ChoiceNotFoundException:
+                            # ignore that this might be a query lookup
+                            logger.warning(
+                                f'Choice not found for property {property_id} - {details}')
+                else:
+                    if isinstance(details, dict):
+                        details = [details]
+                    if not isinstance(details, list):
+                        raise ChoiceException(
+                            f"Unknown details type: {details}")
+                    for item in details:
+                        if self.is_uuid(item["value"]):
+                            try:
+                                item["value"] = self.lookup_choice_value(
+                                    UUID(item['value']))
+                                dirty = True
+                            except ChoiceNotFoundException:
+                                # ignore this might be a dynamic query lookup
+                                logger.warning(
+                                    f'Choice not found for property {property_id} - {details}')
+
+        # Update event_detail values or names
+        if self.should_update_fields_with_event_type(migration_plan['fields']):
+            raise NotImplementedError("field renaming not tested")
+
+            for field in migration_plan['fields']:
+                if self.PREVIOUS_PROPERTY_FIELD in field:
                     previous_property_name = field.get(
                         self.PREVIOUS_PROPERTY_FIELD, self.COMMAND_IGNORE)
                     property_name = field.get(self.CURRENT_PROPERTY_NAME)
+                    property_value = field.get(
+                        self.CURRENT_PROPERTY_VALUE) \
+                        or data[previous_property_name]
 
                     # Mapping specifies to skip this field
                     if previous_property_name == self.COMMAND_IGNORE or property_name == self.COMMAND_DELETE:
                         continue
-
                     try:
                         # New value is hardcoded to a specific value regardless
                         # of existing data
                         if self.COMMAND_HARDCODE in previous_property_name:
-                            new_data[property_name] = previous_property_name.split(':')[
+                            previous_property_name = previous_property_name.split(':')[
                                 1]
 
-                        # Previous value exists in data, so migrate it
-                        elif previous_property_name in old_data:
-                            if self.should_lookup_value_for_field(record, previous_property_name, property_name, former_tables, old_data):
+                        if previous_property_name in data:
+                            if self.should_lookup_value_for_field(migration_plan, previous_property_name, property_name,
+                                                                  former_tables, data):
                                 try:
                                     choice_object = choices.Choice.objects.get(
-                                        id=old_data[previous_property_name])
-                                    new_data[property_name] = str(
+                                        id=data[previous_property_name])
+                                    data[property_name] = str(
                                         choice_object.value)
                                 except TypeError:
-                                    new_data[property_name] = old_data[
-                                        previous_property_name]
+                                    data[property_name] = property_value
                             else:
-                                new_data[property_name] = old_data[previous_property_name]
-                        dirty = True
+                                data[property_name] = property_value
 
-                    # There is no previous value, so skip it
+                            del data[previous_property_name]
+                            dirty = True
+
                     except KeyError:
                         pass
+        return data, dirty
 
+    def update_fields_with_event_type(self, migration_plan, event_type, former_tables):
+        for event in Event.objects.filter(event_type_id=event_type.id):
+            for event_details_revision in event.revision.all():
+                data = copy.deepcopy(event_details_revision.data)
+                if not data.get("data") or not data.get("data", {}).get("event_details"):
+                    continue
+                details = data["data"]["event_details"]
+                details, dirty = self._modify_event_details(
+                    details, migration_plan, event_type, former_tables)
+                if dirty:
+                    data["data"]["event_details"] = details
+                    with connection.cursor() as cursor:
+                        cursor.execute('UPDATE activity_eventdetailsrevision SET data = %s WHERE id = %s', [
+                                       json.dumps(data), event_details_revision.id])
+
+            for event_details in event.event_details.all():
+                data = copy.deepcopy(event_details.data['event_details'])
+                data, dirty = self._modify_event_details(
+                    data, migration_plan, event_type, former_tables)
                 if dirty:
                     with connection.cursor() as cursor:
                         cursor.execute('UPDATE activity_eventdetails SET data = %s WHERE id = %s', [
-                                       json.dumps({'event_details': new_data}), event_details.id])
+                                       json.dumps({'event_details': data}), event_details.id])
 
     def migrate_choices_table(self, table_name, model, field):
         table_ct = ContentType.objects.get(
@@ -420,36 +625,51 @@ class Command(BaseCommand):
         table = table_ct.model_class()
 
         for row in table.objects.all():
-            try:
-                # choices tables do not support value field, blindly look
-                # for matching pks
-                choice_row = choices.Choice.objects.get(id=row.id)
-                logger.info('For choice table %s, row name %s, found existing Choice row %s',
-                            table_name, row.name, choice_row)
-                if choice_row.display == row.name and choice_row.id == row.id:
-                    # We have a choice that's _almost_ correct, but it's for the
-                    # wrong event type. Since event types are encoded in the
-                    # choice field's value, we need to create a new one. As long
-                    # as we reference the old one by value and not ID, everything
-                    # will still work as expected
-                    logger.info('Making new choice for alternate event type')
-                    values = {'model': model,
-                              'field': field,
-                              'value': self.make_value(row.name),
-                              'display': row.name,
-                              'ordernum': row.ordernum}
-                    choices.Choice.objects.create(**values)
-                    continue
+            # for matching pks on choices and choice tables,
+            # do not create a new choice with duplicate ID
+            choice_row = choices.Choice.objects.filter(id=row.id).first()
+
+            if choice_row:
+
+                value = self.make_value(row.name)
+                if choice_row.value != value:
+                    message = f'For table {table_name}, row name:{row.name}, id:{row.id}, found existing Choice row {choice_row}, Value ({value} != {choice_row.value} does not match'
+                    raise ChoiceException(message)
+                if choice_row.display != row.name:
+                    message = f'For table {table_name}, row name:{row.name}, id:{row.id}, found existing Choice row {choice_row}, Display ({row.name} != {choice_row.display} does not match'
+                    raise ChoiceException(message)
+
+                message = f'For table {table_name}, row name:{row.name}, id:{row.id}, found existing Choice row {choice_row} but Value and Display match'
+                logger.info(message)
+            else:
+                existing_choice = choices.Choice.objects.filter(
+                    model=model, field=field, value=self.make_value(
+                        row.name)).first()
+
+                if existing_choice:
+                    if existing_choice.display != row.name:
+                        raise ChoiceException(f'Found matching Choice row by {model}:{field}:{self.make_value(row.name)},'
+                                              f'but {existing_choice.display} != {row.name}')
+
+                    logger.info(
+                        f'Found matching Choice row by {model}:{field}:{self.make_value(row.name)}:{existing_choice.display}')
+
+                    if existing_choice.id != row.id:
+                        add_to_choice_mapping(
+                            row.id, row.name, existing_choice.id)
+                        logger.info(
+                            f'Found matching Choice row by {model}:{field}:{self.make_value(row.name)}:{existing_choice.display}, ids are different {row.id} != {existing_choice.id}')
+
                 else:
-                    raise Exception
-            except choices.Choice.DoesNotExist:
-                pass
+                    values = {
+                        'id': row.id,
+                        'model': model,
+                        'field': field,
+                        'value': self.make_value(row.name),
+                        'display': row.name,
+                        'ordernum': row.ordernum}
 
-            values = {'id': row.id,
-                      'model': model,
-                      'field': field,
-                      'value': self.make_value(row.name),
-                      'display': row.name,
-                      'ordernum': row.ordernum}
-
-            choices.Choice.objects.create(**values)
+                    new_choice = choices.Choice.objects.create(**values)
+                    logger.debug(
+                        'New choice %s, migrated from %s table to choices',
+                        new_choice.value, table_name)
