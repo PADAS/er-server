@@ -886,6 +886,10 @@ class SubjectGroupChangeForm(forms.ModelForm):
         return instance
 
 
+from django.contrib.auth import get_permission_codename
+from accounts.models import PermissionSet
+
+
 @admin.register(models.SubjectGroup)
 class SubjectGroupAdmin(HierarchyModelAdmin):
     form = SubjectGroupChangeForm
@@ -910,6 +914,7 @@ class SubjectGroupAdmin(HierarchyModelAdmin):
     list_editable = ('is_visible',)
     list_filter = ('is_visible',)
     filter_horizontal = ('children', 'permission_sets', 'subjects')
+
 
     def formfield_for_dbfield(self, db_field, **kwargs):
         if db_field.name == 'children':

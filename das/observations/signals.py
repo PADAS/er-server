@@ -1,6 +1,3 @@
-from datetime import datetime
-import pytz
-
 import logging
 
 from django.apps import apps
@@ -8,10 +5,13 @@ from django.db.models.signals import post_save, post_migrate
 from django.dispatch import receiver
 from django.contrib.auth.management import _get_all_permissions
 from django.contrib.auth.models import Permission
+from django.contrib import auth
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.auth import models
+from django.db import transaction
 
-from observations.models import Observation, SubjectStatus, Subject, EMPTY_POINT, SubjectSource, SubjectStatus
-from observations.utils import VIEW_END_WINDOWS
+from observations.models import Observation, Subject, SubjectSource, SubjectStatus, SubjectGroup
+from accounts.models import PermissionSet
 
 logger = logging.getLogger(__name__)
 
@@ -93,3 +93,26 @@ def create_proxy_permissions(**kwargs):
                                              })
 
 post_migrate.connect(create_proxy_permissions)
+
+
+def create_view_permissionset(permission_name):
+
+    permission_set, created = PermissionSet.objects.get_or_create(name=permission_name)
+
+    for codename in ['view_real_time', 'view_subject', 'subscribe_alerts', 'view_subjectgroup']:
+        perms = models.Permission.objects.filter(codename=codename)
+        for perm in perms:
+            permission_set.permissions.add(perm)
+    return permission_set
+
+
+@receiver(post_save, sender=SubjectGroup)
+def auto_create_view_perm(sender, instance, created, **kwargs):
+    if created:
+        permission_name = instance.auto_permissionset_name
+        perm_set = create_view_permissionset(permission_name)
+        permission_set = PermissionSet.objects.get(id=perm_set.id)
+
+        # Add PermissionSet after commit
+        transaction.on_commit(
+            lambda: instance.permission_sets.add(permission_set))
