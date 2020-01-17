@@ -326,6 +326,7 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
     def _created_at(self, o):
         return o.created_at
     _created_at.short_description = 'row created at %s' % TIMEZONE_USED
+    _created_at.admin_order_field = 'created_at'
 
     def _recorded_at(self, o):
         recorded_at = o.recorded_at.strftime("%d %b, %Y, %H:%M")
@@ -333,6 +334,7 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
             reverse("admin:observations_observation_change", args=(o.id,)),
            recorded_at))
     _recorded_at.short_description = 'recorded at %s' % TIMEZONE_USED
+    _recorded_at.admin_order_field = 'recorded_at'
 
     def get_actions(self, request):
         actions = super().get_actions(request)
