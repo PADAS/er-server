@@ -473,6 +473,7 @@ class GrantAdmin(admin.ModelAdmin):
     def _expires(self, o):
         return o.expires
     _expires.short_description = 'expires in %s' % TIMEZONE_USED
+    _expires.admin_order_field = 'expires'
 
 
 class AccessTokenAdmin(admin.ModelAdmin):
@@ -483,6 +484,7 @@ class AccessTokenAdmin(admin.ModelAdmin):
     def _expires(self, o):
         return o.expires
     _expires.short_description = 'expires in %s' % TIMEZONE_USED
+    _expires.admin_order_field = 'expires'
 
 
 class RefreshTokenAdmin(admin.ModelAdmin):
@@ -493,6 +495,7 @@ class RefreshTokenAdmin(admin.ModelAdmin):
     def _revoked(self, o):
         return o.revoked
     _revoked.short_description = 'Revoked in %s' % TIMEZONE_USED
+    _revoked.admin_order_field = 'revoked'
 
 
 Application = get_application_model()

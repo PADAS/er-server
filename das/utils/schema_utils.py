@@ -231,18 +231,16 @@ def extract_from_list(items: list = list):
 
 def extract_from_dict_or_string(schema_item, value):
     # value might be a dict, in which case it includes a 'value' attribute.
+    name = value
     if isinstance(value, dict):
+        name = value.get('name')
         value = value.get('value') or str(value)
-
-    key = value
 
     # Get the value and display value for the current value
     if schema_item.get('type', None) == 'string':
         if value in schema_item.get('enumNames', {}):
             value = schema_item['enumNames'][value]
-
-    return key, value
-
+    return value, name
 
 def extractor(schema_item, definition, value):
 
@@ -416,25 +414,6 @@ def render_schema_template(schema, parameters):
         rendered_template = template.render(
             Context(parameters, autoescape=False))
     return json.loads(rendered_template, object_pairs_hook=OrderedDict)
-
-
-def get_replacement_fields_in_schema(schema):
-    template = Template(schema)
-
-    fields = []
-    for node in template.nodelist:
-        if type(node) is VariableNode:
-            field_tag = node.token.contents
-            field_details = field_tag.split('___')
-            if len(field_details) != 3:
-                raise NameError(field_tag)
-
-            fields.append({'lookup': field_details[0],
-                           'field': field_details[1],
-                           'type': field_details[2],
-                           'tag': node.token.contents})
-
-    return fields
 
 
 def format_key_for_title(key):

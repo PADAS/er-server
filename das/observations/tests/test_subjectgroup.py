@@ -1,10 +1,12 @@
-import json
 from uuid import uuid4
+from unittest import mock
+from django.db import transaction
 
 from django.contrib.auth.models import Permission
+from django.test import TestCase
 
 from accounts.models import User, PermissionSet
-from core.tests import BaseAPITest
+from core.tests import BaseAPITest, fake_get_pool
 from observations.admin import SubjectGroupChangeForm
 from observations.models import Subject, SubjectGroup
 from observations.views import SubjectGroupsView, SubjectsView
@@ -516,7 +518,7 @@ class ThreeLevelSubjectGroupHierarchyPermissionsTest(BaseAPITest):
         self.assertEqual(mid_level_ids, [])
         self.assertEqual(bottom_level_ids, [])
 
-        
+
 class TestSubjectGroupsVisibility(BaseAPITest):
     user_const = dict(last_name='last', first_name='first')
 
@@ -568,3 +570,28 @@ class TestSubjectGroupsVisibility(BaseAPITest):
 
         self.assertIn(str(self.child_grp.id), top_level_subject_groups_ids)
         self.assertNotIn(str(self.parent_group.id), top_level_subject_groups_ids)
+
+
+class TestSubjectGroupAutoCreatedViewPerm(TestCase):
+    def test_auto_created_unique_perm_view_subjectgroup(self):
+        with mock.patch('django.db.backends.base.base.BaseDatabaseWrapper.validate_no_atomic_block',
+                        lambda a: False):
+            subject_group = SubjectGroup.objects.create(name='Elephant')
+            all_perms = {
+                'view_subjectgroup',
+                'view_real_time',
+                'view_subject',
+                'subscribe_alerts',
+            }
+            transaction.get_connection().run_and_clear_commit_hooks()
+            permission_set = subject_group.permission_sets.get(name=subject_group.auto_permissionset_name)
+            self.assertEqual(permission_set.name, subject_group.auto_permissionset_name)
+            with self.assertRaisesMessage(Exception, 'PermissionSet matching query does not exist.'):
+                subject_group.permission_sets.get(name='view elephant subjectgroup')
+            perms_in_permission_set = {perm.codename for perm in permission_set.permissions.all()}
+
+            subject_group_has_permission_set = \
+                subject_group.permission_sets.filter(name=subject_group.auto_permissionset_name).exists()
+            self.assertTrue(subject_group_has_permission_set)
+            self.assertTrue(all_perms == perms_in_permission_set)
+
