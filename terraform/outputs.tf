@@ -21,3 +21,7 @@ output "database_name" {
 output "site_ip_address" {
   value = google_compute_address.site_ip_address.address
 }
+
+output "user_uploads_bucket_name" {
+  value = google_storage_bucket.user_uploads.name
+}

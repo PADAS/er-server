@@ -99,7 +99,8 @@ render_templates: ## render templates (using Terraform) | [tfvars_environment="B
 	@ K8S_NAMESPACE=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="kubernetes_namespace") && \
 	DATABASE_NAME=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="database_name") && \
 	SITE_IP_ADDRESS=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="site_ip_address") && \
-	cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply apply_options="-auto-approve -var-file='$(tfvars_overrides)/$(tfvars_environment).tfvars' -var kubernetes_namespace=$$K8S_NAMESPACE -var db_name=$$DATABASE_NAME -var site_ip_address=$$SITE_IP_ADDRESS"
+	GS_BUCKET_NAME=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="user_uploads_bucket_name") && \
+	cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply apply_options="-auto-approve -var-file='$(tfvars_overrides)/$(tfvars_environment).tfvars' -var kubernetes_namespace=$$K8S_NAMESPACE -var db_name=$$DATABASE_NAME -var site_ip_address=$$SITE_IP_ADDRESS -var gs_bucket_name=$$GS_BUCKET_NAME"
 	@ cat $(template_path)/rendered/circleci-api-deployment.yaml
 
 .PHONY: kubectl_apply

@@ -1,0 +1,34 @@
+locals {
+  storage_location = (local.is_production ? "EU" : "US")
+}
+
+resource "google_storage_bucket" "user_uploads" {
+  name     = "user-uploads-${kubernetes_namespace.this.metadata.0.name}"
+  location = "${local.storage_location}"
+  project  = data.google_project.earthranger.project_id
+}
+
+resource "google_service_account" "earthranger_app_sa" {
+  provider   = google
+  account_id = "er-gcs-${kubernetes_namespace.this.metadata.0.name}"
+  project    = data.google_project.earthranger.project_id
+}
+
+resource "google_storage_bucket_iam_member" "earthranger_app_writer" {
+   bucket  = "${google_storage_bucket.user_uploads.name}"
+   role    = "roles/storage.admin"
+   member  = "serviceAccount:${google_service_account.earthranger_app_sa.email}"
+}
+resource "google_service_account_key" "er_app_account_key" {
+  service_account_id = google_service_account.earthranger_app_sa.name
+}
+
+resource "kubernetes_secret" "google-application-credentials" {
+  metadata {
+    name = "google-application-credentials"
+    namespace = kubernetes_namespace.this.metadata.0.name
+  }
+  data = {
+    credentials_json = base64decode(google_service_account_key.er_app_account_key.private_key)
+  }
+}

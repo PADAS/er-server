@@ -224,3 +224,4 @@ templated-deployment/tfvars-overrides/no_overrides.tfvars
 # Abandoned workspaces artifacts
 infra-automation/.vulcan/branches
 infra-automation/.vulcan/workspaces
+terraform/tokens.auto.tfvars

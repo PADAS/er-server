@@ -14,7 +14,9 @@ class GeofenceAnalyzerConfig(SubjectAnalyzerConfig):
     """
 
     threshold_time = models.IntegerField(
-        null=False, default=43200, verbose_name='Threshold time (seconds)')  # 12 hours
+        null=False, default=43200, verbose_name='Threshold time (seconds)',  # 12 hours
+        help_text=_('This does not apply to geofence analysis.')
+    )
 
     critical_geofence_group = models.ForeignKey(
         to=SpatialFeatureGroupStatic,
