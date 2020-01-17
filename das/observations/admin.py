@@ -274,7 +274,7 @@ class LargeTablePaginator(Paginator):
 
 @admin.register(models.Observation)
 class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin):
-    list_display = ('subject_link', '_manufacturer_id', '_recorded_at', 'created_at',
+    list_display = ('subject_link', '_manufacturer_id', '_recorded_at', '_created_at',
                     '_longitude', '_latitude', '_state', '_event_action', 'exclusion_flags')
     list_editable = ('exclusion_flags',)
     date_hierarchy = 'recorded_at'
