@@ -13,6 +13,7 @@ import mapping.views as views
 
 logger = logging.getLogger(__name__)
 
+
 # @patch("django.conf.settings.MAPPING_FEATURES_V2", True)
 # @patch("das_server.settings.MAPPING_FEATURES_V2", True)
 # @override_settings(MAPPING_FEATURES_V2=True)
@@ -79,6 +80,81 @@ class TestFeatures(BaseAPITest):
         feature = data['features'][0]['properties']
         for field in self.expected_fields:
             self.assertIn(field, feature)
+
+    def test_with_feature_class_is_visible_false(self):
+        self.feature_class.is_visible = False
+        self.feature_class.save()
+
+        request = self.factory.get(self.api_base + '/features/')
+        self.force_authenticate(request, self.app_user)
+        response = views.FeatureListJsonView.as_view()(request)
+        self.assertIsNotNone(response)
+        self.assertContains(response, 'features')
+        data = json.loads(response.content)
+        self.assertEqual(len(data['features']), 0)
+
+        request = self.factory.get(self.api_base + '/feature/')
+        self.force_authenticate(request, self.app_user)
+        response = views.FeatureGeoJsonView.as_view()(request, id=str(self.feature.id))
+        self.assertIsNotNone(response)
+        self.assertContains(response, 'features')
+        data = json.loads(response.content)
+        self.assertEqual(len(data['features']), 0)
+
+        request = self.factory.get(self.api_base + '/featuresets/')
+        self.force_authenticate(request, self.app_user)
+        response = views.FeatureSetListJsonView.as_view()(request)
+        # print(response.content)
+        self.assertIsNotNone(response)
+        self.assertContains(response, 'features')
+        data = json.loads(response.content)
+        self.assertEqual(len(data['features'][0]['types']), 0)
+
+        request = self.factory.get(self.api_base + '/featureset/')
+        self.force_authenticate(request, self.app_user)
+        response = views.FeatureSetGeoJsonView.as_view()(request, id=str(self.category.id))
+        self.assertIsNotNone(response)
+        self.assertContains(response, 'features')
+        data = json.loads(response.content)
+        self.assertEqual(len(data['features']), 0)
+
+
+    def test_with_feature_class_is_visible_false_include_hidden_true(self):
+        self.feature_class.is_visible = False
+        self.feature_class.save()
+
+        request = self.factory.get(self.api_base + '/features/', {'include_hidden': True})
+        self.force_authenticate(request, self.app_user)
+        response = views.FeatureListJsonView.as_view()(request)
+        self.assertIsNotNone(response)
+        self.assertContains(response, 'features')
+        data = json.loads(response.content)
+        self.assertEqual(len(data['features']), 1)
+
+        request = self.factory.get(self.api_base + '/feature/', {'include_hidden': True})
+        self.force_authenticate(request, self.app_user)
+        response = views.FeatureGeoJsonView.as_view()(request, id=str(self.feature.id))
+        self.assertIsNotNone(response)
+        self.assertContains(response, 'features')
+        data = json.loads(response.content)
+        self.assertEqual(len(data['features']), 1)
+
+        request = self.factory.get(self.api_base + '/featuresets/', {'include_hidden': True})
+        self.force_authenticate(request, self.app_user)
+        response = views.FeatureSetListJsonView.as_view()(request)
+        # print(response.content)
+        self.assertIsNotNone(response)
+        self.assertContains(response, 'features')
+        data = json.loads(response.content)
+        self.assertEqual(len(data['features'][0]['types']), 1)
+
+        request = self.factory.get(self.api_base + '/featureset/', {'include_hidden': True})
+        self.force_authenticate(request, self.app_user)
+        response = views.FeatureSetGeoJsonView.as_view()(request, id=str(self.category.id))
+        self.assertIsNotNone(response)
+        self.assertContains(response, 'features')
+        data = json.loads(response.content)
+        self.assertEqual(len(data['features']), 1)
 
     def test_get_spatialfeaturegroup(self):
         pass
