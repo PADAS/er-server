@@ -86,7 +86,7 @@ class ValidateFilterMixin:
 
     def check_uuid(self, uuid):
         try:
-            uuid = UUID(uuid).version
+            uuid_ = UUID(uuid).version
         except ValueError:
             return
         return uuid
@@ -360,7 +360,7 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
                              'source__subjectsource__subject__name'),
                          subject_id=F('source__subjectsource__subject__id')
                          )
-        qs = qs.select_related('source',)
+        qs = qs.prefetch_related('source',)
 
         return qs
 
