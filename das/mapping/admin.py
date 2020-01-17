@@ -1,25 +1,26 @@
 from functools import reduce
 
+from django.contrib import admin as django_admin, messages
 from django.contrib.admin import helpers
 from django.contrib.admin.exceptions import DisallowedModelAdminToField
 from django.contrib.admin.options import IS_POPUP_VAR, TO_FIELD_VAR
 from django.contrib.admin.utils import get_deleted_objects, unquote, \
     model_ngettext
+from django.contrib.gis import admin
 from django.core.exceptions import PermissionDenied
 from django.db import router
-from django.template.response import TemplateResponse
-from django.contrib.gis import admin
-from django.contrib import admin as django_admin, messages
-from django.utils.translation import ugettext_lazy as _
-from django.utils.safestring import mark_safe
-from django.utils.html import escape
-from django.contrib.gis.geos import Point
 from django.db.models import Q
+from django.db.models.expressions import RawSQL
+from django.template.response import TemplateResponse
+from django.utils.html import escape
+from django.utils.safestring import mark_safe
+from django.utils.translation import ugettext_lazy as _
 
 import mapping.models as models
-from mapping.forms import MapCenterForm, TileLayerFormWithAttributes, \
-    SpatialFeatureGroupStaticForm, FeatureTypeForm
 from core.openlayers import OSMGeoExtendedAdmin
+from mapping.forms import MapCenterForm, TileLayerFormWithAttributes, \
+    SpatialFeatureGroupStaticForm, FeatureTypeForm, DisplayCategoryForm, SpatialFeatureTypeForm
+from mapping.utils import MAPPING_FEATURES_V2
 
 
 @admin.register(models.Map)
@@ -63,11 +64,6 @@ class TileLayerAdmin(admin.ModelAdmin):
     get_attributes.short_description = _('Tile Layer Attributes (TileJSON)')
 
 
-@admin.register(models.FeatureSet)
-class FeatureSetAdmin(admin.ModelAdmin):
-    filter_horizontal = ('types',)
-
-
 class BaseFeatureAdmin(OSMGeoExtendedAdmin):
     list_filter = ('type', 'featureset', 'spatialfile__name')
     list_display = ('name', 'type', 'featureset', 'get_spatialfile')
@@ -79,39 +75,50 @@ class BaseFeatureAdmin(OSMGeoExtendedAdmin):
     get_spatialfile.short_description = 'Spatial File'
 
 
-@admin.register(models.PolygonFeature)
-class PolygonFeatureAdmin(BaseFeatureAdmin):
-    pass
+# class SpatialFeatureTypeInline(admin.TabularInline):
+#     model = models.SpatialFeatureType
+#     ordering = ('name',)
 
 
-@admin.register(models.LineFeature)
-class LineFeatureAdmin(BaseFeatureAdmin):
-    pass
-
-
-@admin.register(models.PointFeature)
-class PointFeatureAdmin(BaseFeatureAdmin):
-    pass
-
-
-@admin.register(models.FeatureType)
-class FeatureTypeAdmin(admin.ModelAdmin):
-    form = FeatureTypeForm
-    ordering = ('name', )
-    list_display = ('name', )
-
-
-@admin.register(models.SpatialFeatureGroup)
-class SpatialFeatureGroupAdmin(admin.ModelAdmin):
-    search_fields = ('name',)
-
-
-class FeaturesInline(admin.TabularInline):
+class SpatialFeaturesInline(admin.TabularInline):
     model = models.SpatialFeatureGroupStatic.features.through
     form = SpatialFeatureGroupStaticForm
-    model._meta.verbose_name_plural = "Member of spatial feature groups"
+    model._meta.verbose_name_plural = "Member of feature groups"
     extra = 1
-    verbose_name = "Spatial Feature Group Static"
+    verbose_name = "Feature Group"
+
+
+if MAPPING_FEATURES_V2:
+    @admin.register(models.DisplayCategory)
+    class DisplayCategoryAdmin(admin.ModelAdmin):
+        ordering = ('name',)
+        form = DisplayCategoryForm
+else:
+    @admin.register(models.FeatureSet)
+    class FeatureSetAdmin(admin.ModelAdmin):
+        filter_horizontal = ('types',)
+
+    @admin.register(models.PolygonFeature)
+    class PolygonFeatureAdmin(BaseFeatureAdmin):
+        pass
+
+    @admin.register(models.LineFeature)
+    class LineFeatureAdmin(BaseFeatureAdmin):
+        pass
+
+    @admin.register(models.PointFeature)
+    class PointFeatureAdmin(BaseFeatureAdmin):
+        pass
+
+    @admin.register(models.FeatureType)
+    class FeatureTypeAdmin(admin.ModelAdmin):
+        form = FeatureTypeForm
+        ordering = ('name',)
+        list_display = ('name',)
+
+    @admin.register(models.SpatialFeatureGroup)
+    class SpatialFeatureGroupAdmin(admin.ModelAdmin):
+        search_fields = ('name',)
 
 
 @admin.register(models.SpatialFeatureGroupStatic)
@@ -123,25 +130,20 @@ class SpatialFeatureGroupStaticAdmin(admin.ModelAdmin):
 
 @admin.register(models.SpatialFeatureType)
 class SpatialFeatureTypeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'is_visible', 'display_category')
     ordering = ('name', )
     search_fields = ('name',)
-
-
-@admin.register(models.DisplayCategory)
-class DisplayCategegoryAdmin(admin.ModelAdmin):
-    ordering = ('name',)
-
-    readonly_fields = ('id',)
-
+    list_filter = ('is_visible',)
+    form = SpatialFeatureTypeForm
     fieldsets = (
         (None, {
-            'classes': ('wide',),
-            'fields': ('id', 'name')
+            'fields': ('id', 'name', 'display_category', 'is_visible', 'presentation',)
         }),
+        ('Advanced Attributes', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('tags', 'attribute_schema', 'provenance', 'external_id', 'external_source')
+        })
     )
-
-
-from django.db.models.expressions import RawSQL
 
 
 class GeometryTypeFilter(django_admin.SimpleListFilter):
@@ -170,11 +172,20 @@ class GeometryTypeFilter(django_admin.SimpleListFilter):
 class SpatialFeatureAdmin(BaseFeatureAdmin):
     ordering = ('name',)
     list_display = ('name', 'feature_type',
-                    'external_source', 'geometry_type',)
+                    'external_source', 'geometry_type', 'get_spatialfile')
     list_filter = (GeometryTypeFilter, 'feature_type',)
     search_fields = ('name', 'short_name', 'external_id', 'id')
     inlines = (
-        FeaturesInline,
+        SpatialFeaturesInline,
+    )
+    fieldsets = (
+        (None, {
+            'fields': ('id', 'name', 'feature_type', 'spatialfile', 'feature_geometry')
+        }),
+        ('Advanced Attributes', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('short_name', 'description', 'attributes', 'provenance', 'external_id', 'external_source')
+        })
     )
 
     def get_queryset(self, request):
@@ -197,14 +208,22 @@ def delete_selected_spatialfiles(modeladmin, request, queryset):
         raise PermissionDenied
 
     using = router.db_for_write(modeladmin.model)
-
-    line_features = models.LineFeature.objects.filter(reduce(lambda x, y: x | y, [Q(spatialfile=spatialfile) for spatialfile in queryset]))
-    point_features = models.PointFeature.objects.filter(reduce(lambda x, y: x | y, [Q(spatialfile=spatialfile) for spatialfile in queryset]))
-    polygon_features = models.PolygonFeature.objects.filter(reduce(lambda x, y: x | y, [Q(spatialfile=spatialfile) for spatialfile in queryset]))
-
-
     deletable_objects, model_count, perms_needed, protected = get_deleted_objects(
         queryset, opts, request.user, modeladmin.admin_site, using)
+
+    if MAPPING_FEATURES_V2:
+        spatial_features = models.SpatialFeature.objects.filter(
+            reduce(lambda x, y: x | y, [Q(spatialfile=spatialfile) for spatialfile in queryset]))
+        model_count['spatial features'] = spatial_features.count()
+    else:
+        line_features = models.LineFeature.objects.filter(reduce(lambda x, y: x | y, [Q(spatialfile=spatialfile) for spatialfile in queryset]))
+        point_features = models.PointFeature.objects.filter(reduce(lambda x, y: x | y, [Q(spatialfile=spatialfile) for spatialfile in queryset]))
+        polygon_features = models.PolygonFeature.objects.filter(reduce(lambda x, y: x | y, [Q(spatialfile=spatialfile) for spatialfile in queryset]))
+
+        model_count['line features'] = line_features.count()
+        model_count['point features'] = point_features.count()
+        model_count['polygon features'] = polygon_features.count()
+
     # The user has already confirmed the deletion.
     # Do the deletion and return None to display the change list view again.
     if request.POST.get('post') and not protected:
@@ -216,12 +235,16 @@ def delete_selected_spatialfiles(modeladmin, request, queryset):
             for obj in queryset:
                 obj_display = str(obj)
                 modeladmin.log_deletion(request, obj, obj_display)
-            queryset.delete()
 
             if 'delete_associated_features' in request.POST:
-                line_features.delete()
-                point_features.delete()
-                polygon_features.delete()
+                if MAPPING_FEATURES_V2:
+                    spatial_features.delete()
+                else:
+                    line_features.delete()
+                    point_features.delete()
+                    polygon_features.delete()
+
+            queryset.delete()
 
             modeladmin.message_user(request, _(
                 "Successfully deleted %(count)d %(items)s.") % {
@@ -238,10 +261,6 @@ def delete_selected_spatialfiles(modeladmin, request, queryset):
         title = _("Cannot delete %(name)s") % {"name": objects_name}
     else:
         title = _("Are you sure?")
-
-    model_count['line features'] = line_features.count()
-    model_count['point features'] = point_features.count()
-    model_count['polygon features'] = polygon_features.count()
 
     context = dict(
         modeladmin.admin_site.each_context(request),
@@ -269,14 +288,12 @@ def delete_selected_spatialfiles(modeladmin, request, queryset):
                             ], context)
 
 
-@admin.register(models.SpatialFile)
-class SpatialFileAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'description', 'feature_set', 'feature_type',
-                    'layer_number')
-    list_filter = ('feature_set', 'feature_type')
-
+class BaseSpatialFileAdmin(admin.ModelAdmin):
     delete_confirmation_template = "admin/delete_confirmation_template.html"
     delete_selected_confirmation_template = "admin/delete_selected_confirmation_template.html"
+
+    class Meta:
+        abstract = True
 
     def _delete_view(self, request, object_id, extra_context):
         """The 'delete' admin view for this model."""
@@ -303,13 +320,17 @@ class SpatialFileAdmin(admin.ModelAdmin):
             [obj], opts, request.user, self.admin_site, using)
 
         # get related features
-        line_features = models.LineFeature.objects.filter(spatialfile=obj)
-        point_features = models.PointFeature.objects.filter(spatialfile=obj)
-        polygon_features = models.PolygonFeature.objects.filter(spatialfile=obj)
+        if MAPPING_FEATURES_V2:
+            spatial_features = models.SpatialFeature.objects.filter(spatialfile=obj)
+            model_count['spatial features'] = spatial_features.count()
+        else:
+            line_features = models.LineFeature.objects.filter(spatialfile=obj)
+            point_features = models.PointFeature.objects.filter(spatialfile=obj)
+            polygon_features = models.PolygonFeature.objects.filter(spatialfile=obj)
 
-        model_count['line features'] = line_features.count()
-        model_count['point features'] = point_features.count()
-        model_count['polygon features'] = polygon_features.count()
+            model_count['line features'] = line_features.count()
+            model_count['point features'] = point_features.count()
+            model_count['polygon features'] = polygon_features.count()
 
         if request.POST and not protected:  # The user has confirmed the deletion.
             if perms_needed:
@@ -319,12 +340,16 @@ class SpatialFileAdmin(admin.ModelAdmin):
             attr = str(to_field) if to_field else opts.pk.attname
             obj_id = obj.serializable_value(attr)
             self.log_deletion(request, obj, obj_display)
-            self.delete_model(request, obj)
 
             if 'delete_associated_features' in request.POST:
-                line_features.delete()
-                point_features.delete()
-                polygon_features.delete()
+                if MAPPING_FEATURES_V2:
+                    spatial_features.delete()
+                else:
+                    line_features.delete()
+                    point_features.delete()
+                    polygon_features.delete()
+
+            self.delete_model(request, obj)
 
             return self.response_delete(request, obj_display, obj_id)
 
@@ -362,3 +387,42 @@ class SpatialFileAdmin(admin.ModelAdmin):
                                       'delete_selected',
                                       "Delete selected spatial files")
         return actions
+
+
+if MAPPING_FEATURES_V2:
+    @admin.register(models.SpatialFeatureFile)
+    class SpatialFeatureFileAdmin(BaseSpatialFileAdmin):
+        list_display = ('id', 'name', 'file_type', 'description', 'feature_type')
+        list_filter = ('name',)
+        fieldsets = (
+            (None, {
+                'classes': ('wide',),
+                'fields': ('file_type', 'id', 'name', 'description', 'data',)
+            }),
+            ('Shapefile Optional Attributes', {
+                'classes': ('wide', 'shapefile',),
+                'fields': ('feature_type', 'layer_number', 'name_field', 'id_field')
+            }
+             ),
+            ('GeoJSON Optional Attributes', {
+                'classes': ('wide', 'geojson',),
+                'fields': ('feature_types_file',)
+            }
+             ),)
+        readonly_fields = ('id',)
+
+        def get_readonly_fields(self, request, obj=None):
+            if obj:
+                return ('id', 'file_type',)
+            return self.readonly_fields
+
+        class Media:
+            js = ('base.js',)
+else:
+    @admin.register(models.SpatialFile)
+    class SpatialFileAdmin(BaseSpatialFileAdmin):
+        list_display = ('id', 'name', 'description', 'feature_set', 'feature_type',
+                        'layer_number')
+        list_filter = ('feature_set', 'feature_type')
+
+

@@ -518,6 +518,7 @@ WHITENOISE_ADD_HEADERS_FUNCTION = whitenoise_headers_func
 
 DAILY_REPORT_ENABLED = False
 ALERTS_ENABLED = True
+MAPPING_FEATURES_V2 = False
 
 GFW_API_ROOT = 'https://production-api.globalforestwatch.org/v1'
 GFW_CREDENTIALS = {

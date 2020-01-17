@@ -150,6 +150,7 @@ drf-extensions==0.5.0
 earthengine-api==0.1.204  # via pymet
 et-xmlfile==1.0.1         # via openpyxl
 eventlet==0.25.0
+faker==2.0.2
 fiona==1.7.11
 future==0.18.2            # via django-ses, earthengine-api
 gdal==2.2.3

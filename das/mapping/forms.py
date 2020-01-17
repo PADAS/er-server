@@ -4,10 +4,11 @@ from django import forms
 from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
 from django.contrib.gis.geos import Point
 from django.contrib.postgres.forms import JSONField
+from django.utils.translation import ugettext_lazy as _
 
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
 from mapping.models import Map, TileLayer, SpatialFeatureGroupStatic, \
-    FeatureType
+    FeatureType, DisplayCategory, SpatialFeatureType
 from choices.models import Choice
 from core.common import TIMEZONE_USED
 
@@ -125,7 +126,7 @@ class TileLayerFormWithAttributes(JSONFieldFormMixin, TileLayerForm):
 
 class SpatialFeatureGroupStaticForm(forms.ModelForm):
     spatialfeaturegroupstatic = forms.ModelChoiceField(
-        queryset=SpatialFeatureGroupStatic.objects.all(), label='Spatial Feature Group Static')
+        queryset=SpatialFeatureGroupStatic.objects.all(), label='Feature Groups')
 
     class Meta:
         model = SpatialFeatureGroupStatic
@@ -148,10 +149,45 @@ class PresentationWidget(forms.Textarea):
         }
 
 
-class FeatureTypeForm(forms.ModelForm):
+class BaseFeatureTypeForm(forms.ModelForm):
     presentation = JSONField(widget=PresentationWidget(
         attrs={'rows': 20, 'cols': 80}))
 
     class Meta:
+        abstract = True
+
+
+class FeatureTypeForm(BaseFeatureTypeForm):
+    class Meta:
         model = FeatureType
         fields = ['id', 'name', 'presentation', ]
+
+
+class SpatialFeatureTypeForm(BaseFeatureTypeForm):
+    class Meta:
+        model = SpatialFeatureType
+        fields = '__all__'
+
+
+class DisplayCategoryForm(forms.ModelForm):
+    class Meta:
+        model = DisplayCategory
+        fields = ['id', 'name', 'feature_classes', 'description', ]
+
+    feature_classes = forms.ModelMultipleChoiceField(
+        queryset=SpatialFeatureType.objects.all().order_by('name'),
+        required=False,
+        widget=FilteredSelectMultiple(
+            verbose_name=_('Feature Classes'),
+            is_stacked=False))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if self.instance and self.instance.pk:
+            self.fields['feature_classes'].initial = self.instance.spatialfeaturetype_set.all()
+
+    def save(self, commit=True):
+        instance = super().save(commit)
+        instance.spatialfeaturetype_set.set(self.cleaned_data['feature_classes'])
+        return instance
