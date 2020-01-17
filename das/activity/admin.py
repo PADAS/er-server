@@ -63,6 +63,7 @@ class EventAdmin(OSMGeoExtendedAdmin):
     def _created_at(self, o):
         return o.created_at
     _created_at.short_description = 'created at %s' % TIMEZONE_USED
+    _created_at.admin_order_field = 'created_at'
 
     resolve_event.short_description = "Resolve Selected Events(Reports)"
 

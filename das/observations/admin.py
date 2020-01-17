@@ -296,10 +296,12 @@ class ObservationAdmin(ExportCsvMixin, OSMGeoExtendedAdmin):
     def _created_at(self, o):
         return o.created_at
     _created_at.short_description = 'row created at %s' % TIMEZONE_USED
+    _created_at.admin_order_field = 'created_at'
 
     def _recorded_at(self, o):
         return o.recorded_at
     _recorded_at.short_description = 'recorded at %s' % TIMEZONE_USED
+    _recorded_at.admin_order_field = 'recorded_at'
 
     def get_actions(self, request):
         actions = super().get_actions(request)
@@ -654,7 +656,7 @@ class SourceAdmin(admin.ModelAdmin):
     search_fields = ('id', 'manufacturer_id', 'model_name', 'additional',)
     list_filter = ('source_type', 'model_name', SourceSourceProviderFilter)
     readonly_fields = ('id', 'created_at', 'updated_at',)
-#    filter_horizontal = ('groups',)
+    #    filter_horizontal = ('groups',)
 
     form = observations.forms.SourceForm
     fieldsets = (
