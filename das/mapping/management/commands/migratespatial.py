@@ -1,6 +1,6 @@
 import logging
-from enum import Enum
 from collections import defaultdict
+from enum import Enum
 from itertools import chain
 
 from django.core.management.base import BaseCommand
@@ -34,7 +34,7 @@ class Command(BaseCommand):
                            help='Append new features, do not update existing', )
 
     def handle(self, *args, **options):
-        self.num_fs, self.num_ft, self.num_f = 0, 0, 0
+        self.num_fs, self.num_ft, self.num_f, self.num_files = 0, 0, 0, 0
         self.migrate_type = MigrateType.OverWrite if options[
             'overwrite'] else MigrateType.AppendNew if options['append'] else MigrateType.ErrorOnExisting
 
@@ -71,9 +71,11 @@ class Command(BaseCommand):
             self.migrate_featuresets(featuresets)
             self.migrate_featuretypes(featuresets_by_types, remapped_sfts)
             self.migrate_features(all_features, remapped_sfts)
+            self.migrate_spatialfiles()
 
-        self.stdout.write('FeatureSets migrated: %d, FeatureTypes migrated: %d, Features migrated: %d' %
-                          (self.num_fs, self.num_ft, self.num_f))
+        self.stdout.write(
+            'FeatureSets migrated: %d, FeatureTypes migrated: %d, Features migrated: %d, file migrated: %d' %
+            (self.num_fs, self.num_ft, self.num_f, self.num_files))
 
     def migrate_featuresets(self, featuresets):
         self.stdout.write('Migrating FeatureSets')
@@ -148,3 +150,26 @@ class Command(BaseCommand):
             except IntegrityError:
                 if MigrateType.ErrorOnExisting == self.migrate_type:
                     raise ExistingFeatures(f'{f.id} {f.name} already exists')
+
+    def migrate_spatialfiles(self):
+        self.stdout.write('Migrating spatial files')
+
+        for f in models.SpatialFile.objects.all():
+            values = dict(
+                name=f.name,
+                description=f.description,
+                layer_number=f.layer_number,
+                name_field=f.name_field,
+                id_field=f.id_field,
+                file_type='shapefile',
+            )
+
+            try:
+                func = getattr(models.SpatialFeatureFile.objects, self.create_fn)
+                func(id=f.id, defaults=values) if self.create_fn == 'update_or_create' else func(id=f.id, **values)
+                self.num_files += 1
+
+            except IntegrityError:
+                if MigrateType.ErrorOnExisting == self.migrate_type:
+                    raise ExistingFeatures(f'{f.id} {f.name} already exists')
+
