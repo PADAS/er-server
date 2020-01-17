@@ -142,7 +142,8 @@ class TempStorage(FileSystemStorage):
 
 FILE_TYPES = (
     ('shapefile', 'Shapefile'),
-    ('geodatabase', 'Geodatabase'),
+    # Commenting out geodatabase for now, until we can verify functionality with a .gdb file.
+    # ('geodatabase', 'Geodatabase'),
     ('geojson', 'GeoJSON'),
 )
 
