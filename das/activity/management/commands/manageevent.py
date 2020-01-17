@@ -554,8 +554,6 @@ class Command(BaseCommand):
 
         # Update event_detail values or names
         if self.should_update_fields_with_event_type(migration_plan['fields']):
-            raise NotImplementedError("field renaming not tested")
-
             for field in migration_plan['fields']:
                 if self.PREVIOUS_PROPERTY_FIELD in field:
                     previous_property_name = field.get(
