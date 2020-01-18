@@ -366,7 +366,7 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
                              'source__subjectsource__subject__name'),
                          subject_id=F('source__subjectsource__subject__id')
                          )
-        qs = qs.prefetch_related('source',)
+        qs = qs.select_related('source',)
 
         return qs
 
