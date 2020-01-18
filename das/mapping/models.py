@@ -4,7 +4,6 @@ import logging
 import glob
 import zipfile
 
-from django.conf import settings
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ImproperlyConfigured
@@ -23,6 +22,7 @@ from mapping.app_settings import MBTILES
 from mapping.mbtiles import ExtractionError, GoogleProjection, MBTilesReader
 from mapping.mbtiles import InvalidFormatError
 from revision.manager import Revision, RevisionMixin
+from mapping.utils import MAPPING_FEATURES_V2, check_file_extension
 
 
 logger = logging.getLogger(__name__)
@@ -32,6 +32,10 @@ class Map(TimestampedModel):
     """
     A Map defines the center location, zoom level
     """
+    if MAPPING_FEATURES_V2:
+        class Meta:
+            verbose_name = 'Map Quicklink'
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
     attributes = JSONField(default=dict, blank=True)
@@ -51,6 +55,10 @@ class TileLayer(TimestampedModel):
     """
     External
     """
+    if MAPPING_FEATURES_V2:
+        class Meta:
+            verbose_name = 'Basemap'
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
     attributes = JSONField(default=dict, blank=True)
@@ -121,6 +129,7 @@ class FeatureSet(TimestampedModel):
     def natural_key(self):
         return self.name
 
+
 @deconstructible
 class TempStorage(FileSystemStorage):
     def __init__(self, **kwargs):
@@ -131,21 +140,28 @@ class TempStorage(FileSystemStorage):
         super(TempStorage, self).__init__(**kwargs)
 
 
-class SpatialFile(TimestampedModel):
+FILE_TYPES = (
+    ('shapefile', 'Shapefile'),
+    # Commenting out geodatabase for now, until we can verify functionality with a .gdb file.
+    # ('geodatabase', 'Geodatabase'),
+    ('geojson', 'GeoJSON'),
+)
+
+
+class SpatialFilesBase(TimestampedModel):
     """
-    Model for uploading Spatial files such as shapefile.
-    Script would later add selected layer from the file to DB a
-    specific geometry type [polygon, line, point]
+    Base model for uploading Spatial files such as shapefile
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, unique=True, verbose_name="SpatialFile Name")
+    name = models.CharField(max_length=255, blank=True, verbose_name='SpatialFile Name')
     description = models.CharField(max_length=100, blank=True)
-    data = models.FileField(storage=TempStorage(), blank=True)
-    feature_set = models.ForeignKey(to=FeatureSet, on_delete=models.PROTECT)
-    feature_type = models.ForeignKey(to=FeatureType, on_delete=models.PROTECT)
+    data = models.FileField(storage=TempStorage(), blank=False)
     layer_number = models.IntegerField(blank=True, null=True, default=0)
-    name_field = models.CharField(max_length=100, blank=True)
-    id_field = models.CharField(max_length=100, blank=True)
+    name_field = models.CharField(max_length=100, blank=True, null=True)
+    id_field = models.CharField(max_length=100, blank=True, null=True)
+
+    class Meta:
+        abstract = True
 
     @staticmethod
     def fetch_shape_file_path(directory_path):
@@ -185,12 +201,7 @@ class SpatialFile(TimestampedModel):
                 import_file = uploaded_file_path
 
             if import_file:
-                management.call_command(
-                    'importlayer', import_file, self.feature_set.name,
-                    self.feature_type.name, layer=self.layer_number,
-                    name_field=self.name_field, id_field=self.id_field,
-                    spatialfile_id=str(self.id)
-                )
+                return import_file
             else:
                 raise ValidationError(
                     f'Unsupported file, or incomplete archive file uploaded {uploaded_file_path}')
@@ -198,46 +209,91 @@ class SpatialFile(TimestampedModel):
             logger.error(err)
             raise ValidationError(err)
 
-    @staticmethod
-    def cleanup_files(uploaded_file_directory, uploaded_file_path):
-        """
-        Remove files/directories from the temporary folder.
-        """
-        import shutil
+    def cleanup_files(self):
+        files = [self.data]
         try:
-            if os.path.exists(uploaded_file_path):
-                os.remove(uploaded_file_path)
-            shutil.rmtree(uploaded_file_directory)
-        except PermissionError:
-            logger.exception(
-                f'Cleaning up spatial files after import: {uploaded_file_directory}')
+            if self.feature_types_file.name:
+                files.append(self.feature_types_file)
+        except Exception:
+            pass
+
+        for upload_file in files:
+            uploaded_file_path = upload_file.path
+
+            uploaded_file_directory = os.path.dirname(upload_file.path)
+            """
+            Remove files/directories from the temporary folder.
+            """
+            import shutil
+            try:
+                if os.path.exists(uploaded_file_path):
+                    os.remove(uploaded_file_path)
+                shutil.rmtree(uploaded_file_directory)
+            except PermissionError:
+                logger.exception(
+                    f'Cleaning up spatial files after import: {uploaded_file_directory}')
+            upload_file.name = ''
 
     # Clean method is used for better error handling within the admin form
     # itself. To have the file data available, save method needs to be invoked.
     #  Cleanup method will remove files in case of validation error.
     # Can a better way be utilized which avoids saving the Spatial file model?
+
     def clean(self):
         """
         Overwriting clean method to have error handling within the admin form.
         """
-        self.save()
-        uploaded_file_path = self.data.path
-        uploaded_file_directory = os.path.dirname(uploaded_file_path)
+        if not self.data:
+            raise ValidationError({'data': []})
         try:
-            self.import_spatial_file(uploaded_file_path,
-                                     uploaded_file_directory)
-        except ValidationError as err:
-            SpatialFile.objects.filter(id=self.id).delete()
-            raise ValidationError(
-                'Error in retrieving features from spatial file:    {}\n '
-                'Please verify the spatial file.'.format(err)
-            )
-        finally:
-            self.cleanup_files(uploaded_file_directory, uploaded_file_path)
-            self.data.name = ''
+            file_type = self.file_type
+        except Exception:
+            file_type = None
+
+        if file_type:
+            check_file_extension(self.file_type, self.data, self.feature_types_file or None)
+        self.save()
+        data_file = self.get_upload_file(self.data)
+        try:
+            spatial_types_file = self.get_upload_file(self.feature_types_file)
+        except Exception:
+            spatial_types_file = None
+        self.call_mgt_command(data_file, spatial_types_file)
+        self.cleanup_files()
+
+    def get_upload_file(self, upload_file):
+        if upload_file:
+            uploaded_file_directory = os.path.dirname(upload_file.path)
+            try:
+                return self.import_spatial_file(
+                    upload_file.path, uploaded_file_directory)
+            except ValidationError as err:
+                self.__class__.objects.filter(id=self.id).delete()
+                raise ValidationError(
+                    'Error in retrieving features from spatial file:    {}\n '
+                    'Please verify the spatial file.'.format(err)
+                )
 
     def __str__(self):
-        return str(self.name)
+        return str(self.id)
+
+
+class SpatialFile(SpatialFilesBase):
+    """
+    Geometry type [polygon, line, point] loaded from uploaded shapefile
+    """
+    feature_set = models.ForeignKey(to=FeatureSet, on_delete=models.PROTECT)
+    feature_type = models.ForeignKey(to=FeatureType, on_delete=models.PROTECT)
+
+    class Meta:
+        verbose_name = 'Spatial File'
+
+    def call_mgt_command(self, import_file, spatial_types_file=None):
+        management.call_command(
+            'importlayer', 'importlayerfile', import_file,
+            spatialfile_id=self.id, featureset=self.feature_set, featuretype=self.feature_type,
+            name_field=self.name_field, id_field=self.id_field
+        )
 
 
 class Feature(TimestampedModel):
@@ -263,7 +319,7 @@ class Feature(TimestampedModel):
     featureset = models.ForeignKey(
         to=FeatureSet, null=True, on_delete=models.PROTECT)
 
-    spatialfile = models.ForeignKey(to=SpatialFile, null=True,blank=True, on_delete=models.SET_NULL)
+    spatialfile = models.ForeignKey(to=SpatialFile, null=True, blank=True, on_delete=models.SET_NULL)
 
     @property
     def default_presentation(self):
@@ -515,45 +571,21 @@ class MBTiles(object):
 """Below are new classes proposed by Jake for structuring spatial data in DAS"""
 
 
-class DisplayCategoryManager(models.Manager):
-    def get_by_natural_key(self, name):
-        return self.get(name=name)
-
-
-class DisplayCategory(models.Model):
-    """
-    If the clients wish to group layers in a control or for ease of administration
-    Boundaries, Water, Security etc.
-    """
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, unique=True)
-
-    objects = DisplayCategoryManager()
-
-    def __str__(self):
-        return self.name
-
-    def natural_key(self):
-        return (self.name,)
-
-    class Meta:
-        verbose_name = _('Display Category')
-        verbose_name_plural = _('Display Categories')
-
-
 class SpatialFeatureGroupManager(InheritanceManager):
     def get_by_natural_key(self, name):
         return self.get(name=name)
 
 
-class SpatialFeatureGroup(models.Model):
+class SpatialFeatureGroup(TimestampedModel):
     """
     A grouping of features that should be toggled together on the map,
       e.g. a set of camps or a system of rivers
       ... better than handling as a layer group in UI as it allows grouping
        to be controlled in db?
     """
+    if MAPPING_FEATURES_V2:
+        class Meta:
+            verbose_name = 'Base Feature Group'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
@@ -569,14 +601,46 @@ class SpatialFeatureGroup(models.Model):
 
 
 class SpatialFeatureGroupQuery(SpatialFeatureGroup):
-    pass
+    class Meta:
+        verbose_name = 'Calculated Feature Group'
 
 
 class SpatialFeatureGroupStatic(SpatialFeatureGroup):
     """Static group of features
     """
+    if MAPPING_FEATURES_V2:
+        class Meta:
+            verbose_name = 'Feature Group'
+
     features = models.ManyToManyField(to='SpatialFeature', related_name='groups', related_query_name='group',
                                       blank=True,)
+
+
+class DisplayCategoryManager(models.Manager):
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
+
+
+class DisplayCategory(TimestampedModel):
+    """
+    If the clients wish to group layers in a control or for ease of administration
+    Boundaries, Water, Security etc.
+    """
+    class Meta:
+        verbose_name = 'Display Category'
+        verbose_name_plural = 'Display Categories'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    name = models.CharField(max_length=255, unique=True)
+    description = models.TextField(null=True, blank=True)
+
+    objects = DisplayCategoryManager()
+
+    def __str__(self):
+        return self.name
+
+    def natural_key(self):
+        return (self.name,)
 
 
 class SpatialFeatureTypeTag(TagModel):
@@ -589,7 +653,12 @@ class SpatialFeatureTypeManager(models.Manager):
         return self.get(name=name)
 
 
-class SpatialFeatureType(models.Model):
+class SpatialFeatureType(TimestampedModel):
+    if MAPPING_FEATURES_V2:
+        class Meta:
+            verbose_name = 'Feature Class'
+            verbose_name_plural = 'Feature Classes'
+
     objects = SpatialFeatureTypeManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -602,13 +671,15 @@ class SpatialFeatureType(models.Model):
     # presentation fields
     # Boundaries, Water, Security etc.
     display_category = models.ForeignKey(
-        to='DisplayCategory', on_delete=models.PROTECT)
+        to='DisplayCategory', on_delete=models.PROTECT, blank=True, null=True)
     # JSON Field for defining the basic presentation of the feature
     presentation = JSONField(default=dict, blank=True)
     provenance = JSONField(default=dict, blank=True)
     external_id = models.CharField(max_length=255, unique=True, blank=True,
                                    null=True)
     external_source = models.CharField(max_length=25, blank=True)
+    is_visible = models.BooleanField(_('visible'), default=True)
+
 
     # Points: https://www.mapbox.com/mapbox-gl-style-spec/#layers-symbol
     # Lines: https://www.mapbox.com/mapbox-gl-style-spec/#layers-line
@@ -626,6 +697,36 @@ class SpatialFeatureType(models.Model):
     def natural_key(self):
         return self.name
 
+    @property
+    def feature_count(self):
+        return SpatialFeature.objects.filter(feature_type=self).count()
+
+
+class SpatialFeatureFile(SpatialFilesBase):
+    """
+    Special Feature loaded from uploaded shapefile
+    """
+    file_type = models.CharField(max_length=100, default='shapefile', choices=FILE_TYPES)
+    feature_type = models.ForeignKey(to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
+    feature_types_file = models.FileField(storage=TempStorage(), blank=True, null=True)
+
+    class Meta:
+        verbose_name = 'Feature Import File'
+
+    def call_mgt_command(self, data_file, spatial_types_file):
+        if spatial_types_file:
+            management.call_command(
+                'import_spatial', data_file, spatialfile_id=self.id,
+                feature_types=spatial_types_file
+            )
+        else:
+            management.call_command(
+                'importlayer', 'importspatialfile', data_file,
+                spatialfile_id=self.id, featuretype=self.feature_type,
+                layer=self.layer_number, name_field=self.name_field,
+                id_field=self.id_field
+            )
+
 
 class SpatialFeatureManager(models.Manager):
     def create_spatialfeature(self, **values):
@@ -638,56 +739,53 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
 
     GeoFeature is a PostGIS type that can accept the gamut of spatial types and provides
         better distance calculations when data spans large distances as opposed to a cartesian representation.
+    Attributes:
+        short_name: A shorter name used for cartographic display
+        external_id: for ste, this is the ste_guid
+        attributes: Status: Open/Closed/Seasonal/Unknown) <Roads Only>
+            SpeedLimit <Roads Only>
+            FenceHeight <Fenclines only>
+            Status: Permanent/Temporary & Abandoned/Occupied <Human Settlement - Boma>
+            Status: Active/Inactive <Airstrips>
+            Seasonal Status: Permanent/Seasonal <Water & Rivers>
+            Accessibility: Human/Livestock/Wildlife <Water>
+            Notes
+        provenance: where did the data come from? method?
+            collect_user # who collected the data?
+            collect_method # the method used to collect the data (e.g., GPS, Satellite, etc.)
+            collect_date # when was the data collected?
+            ground_verified # has the spatial feature been checked on the ground?
+            spatial_feature_owners # The person/entity who owns the given spatial feature. E.g., 'Government of Kenya'
+            spatial_data_owners = # The person/entity/organization who owns the GIS data
+            created_user # who created the feature in the STESpatial database
+            created_date # when was the feature created in the STESpatial database
+            last_edited_user # who last edited the feature in the STESpatial database
+            last_edited_date # when was the feature last edited in the STESpatial database
+            other_id # this will map from the other_id' column in STESpatial
 
     """
+    if MAPPING_FEATURES_V2:
+        class Meta:
+            verbose_name = 'Feature'
+
     objects = SpatialFeatureManager()
-
     revision_ignore_fields = ('updated_at', )
-
-    # data fields
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-
     feature_type = models.ForeignKey(
         SpatialFeatureType, on_delete=models.PROTECT)
-
     name = models.CharField(max_length=255, blank=True)
     # A shorter name used for cartographic display
     short_name = models.CharField(max_length=25, blank=True)
     # for ste, this is the ste_guid
-    external_id = models.CharField(max_length=255, unique=True, blank=True,
-                                   null=True)
+    external_id = models.CharField(max_length=255, blank=True, null=True)
     external_source = models.CharField(max_length=25, blank=True)
-
+    description = models.TextField(null=True, blank=True)
     attributes = JSONField(default=dict, blank=True)
-
-    # Status: Open/Closed/Seasonal/Unknown) <Roads Only>
-    # SpeedLimit <Roads Only>
-    # FenceHeight <Fenclines only>
-    # Status: Permanent/Temporary & Abandoned/Occupied <Human Settlement - Boma>
-    # Status: Active/Inactive <Airstrips>
-    # Seasonal Status: Permanent/Seasonal <Water & Rivers>
-    # Accessibility: Human/Livestock/Wildlife <Water>
-    # Notes
-
-    # where did the data come from? method?
     provenance = JSONField(default=dict, blank=True)
-    # collect_user # who collected the data?
-    # collect_method # the method used to collect the data (e.g., GPS, Satellite, etc.)
-    # collect_date # when was the data collected?
-    # ground_verified # has the spatial feature been checked on the ground?
-    # spatial_feature_owners # The person/entity who owns the given spatial feature. E.g., 'Government of Kenya'
-    # spatial_data_owners = # The person/entity/organization who owns the GIS data
-    # created_user # who created the feature in the STESpatial database
-    # created_date # when was the feature created in the STESpatial database
-    # last_edited_user # who last edited the feature in the STESpatial database
-    # last_edited_date # when was the feature last edited in the STESpatial database
-    # other_id # this will map from the other_id' column in STESpatial
-
     feature_geometry = models.GeometryField(geography=True, srid=4326)
-
+    spatialfile = models.ForeignKey(to=SpatialFeatureFile, null=True, blank=True, on_delete=models.SET_NULL)
     revision = Revision()
 
     def __str__(self):
         return '{0}-{1}-{2}'.format(self.name, self.feature_type.name, self.id)
-
 

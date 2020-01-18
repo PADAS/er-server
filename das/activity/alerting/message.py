@@ -10,7 +10,8 @@ from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
 
 import utils
-from activity.alerting.businessrules import render_event, resolve_event_revisions
+from activity.alerting.businessrules import render_event, \
+    resolve_event_revisions, infer_event_state
 from activity.models import Event, NotificationMethod, AlertRule, EventNotification
 from reports.distribution import send_report
 
@@ -180,8 +181,10 @@ priority_label_colors = {
 priority_label_color_default = '#3E4349'
 
 
-def coerce_state_value(val):
-    return _('Resolved') if val == 'resolved' else _('Active')
+def coerce_state_value(event=None, val=None):
+    if event:
+        val = infer_event_state(event)
+    return _('Resolved') if val == 'resolved' else _('New') if val == 'new' else _('Active')
 
 
 def render_pretty_value(internal_value):
@@ -273,9 +276,9 @@ def render_event_alert_context(alert_rule, event, notification_method,
         reported_by = 'n/a'
 
     # State
-    state = {'title': 'State', 'value': coerce_state_value(event.state)}
+    state = {'title': 'State', 'value': coerce_state_value(event=event)}
     if 'state' in event_updated_fields and 'old' in event_updated_fields['state']:
-        state['old_value'] = coerce_state_value(event_updated_fields['state'].get('old', ''))
+        state['old_value'] = coerce_state_value(val=event_updated_fields['state'].get('old', ''))
 
     # Priority
     priority = {'title': 'Priority', 'value': event.priority_label, 'style': f'background-color:{priority_color}'}
