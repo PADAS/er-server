@@ -2,6 +2,7 @@ import random
 import csv
 from datetime import datetime, timedelta
 from uuid import UUID
+import urllib
 
 import pytz
 import humanize
@@ -27,6 +28,7 @@ from django.utils.html import format_html
 from django.db.models.expressions import RawSQL
 import django.contrib.gis.admin as gis_admin
 from django.utils.safestring import mark_safe
+from django.utils.functional import cached_property
 
 import observations.models as models
 from tracking.models import SourcePlugin
@@ -86,10 +88,14 @@ class ValidateFilterMixin:
 
     def check_uuid(self, uuid):
         try:
-            uuid_ = UUID(uuid).version
+            uuid_version = UUID(uuid).version
         except ValueError:
             return
         return uuid
+
+    def parse_encoded_url(self, query_string):
+        parsed_qs = urllib.parse.parse_qs(query_string)
+        return parsed_qs
 
 
 class SubjectSubTypeInline(InlineExtraDynamicMixin, admin.TabularInline):
@@ -269,7 +275,7 @@ class LargeTablePaginator(Paginator):
 
         return self._count if self._count is not None else super().count
 
-    count = property(_get_count)
+    count = cached_property(_get_count)
 
 
 @admin.register(models.Observation)
@@ -366,14 +372,15 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
 
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}
-        changelist = super().get_changelist_instance(request)
-        filter_params = changelist.get_filters_params()
+        query_string = request.META['QUERY_STRING']
+        filter_params = self.parse_encoded_url(query_string)
         if filter_params:
             d1 = filter_params.get('recorded_at__range__gte')
             d2 = filter_params.get('recorded_at__range__lte')
             if d1 and d2:
-                extra_context['history_limit_days'] = self.difference_in_date(d1, d2)
+                extra_context['history_limit_days'] = self.difference_in_date(d1[0], d2[0])
                 return super().changelist_view(request, extra_context=extra_context)
+            extra_context['history_limit_days'] = OBSERVATIONS_HISTORY_LIMIT.days
             return super().changelist_view(request, extra_context=extra_context)
         extra_context['history_limit_days'] = OBSERVATIONS_HISTORY_LIMIT.days
         return super().changelist_view(request, extra_context=extra_context)
