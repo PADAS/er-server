@@ -144,7 +144,7 @@ resource "aws_route53_record" "www" {
 }
 
 resource "aws_elasticache_replication_group" "redis" {
-  replication_group_id          = substr("${var.site}-das-redis", 0, 20)
+  replication_group_id          = substr("${var.site}-das-redis", 0, 24)
   replication_group_description = "das redis server"
   automatic_failover_enabled    = true
   node_type                     = "cache.t2.micro"
