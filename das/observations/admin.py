@@ -280,11 +280,14 @@ class LargeTablePaginator(Paginator):
 
 @admin.register(models.Observation)
 class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin):
+    readonly_fields = ("created_at", "id")
+    fields = ("id", "recorded_at", "created_at",
+              "location", "exclusion_flags", "source", "additional")
     list_display = ('subject_link', '_manufacturer_id', '_recorded_at', '_created_at',
                     '_longitude', '_latitude', '_state', '_event_action', 'exclusion_flags')
     list_editable = ('exclusion_flags',)
-    date_hierarchy = 'recorded_at'
     list_display_links = None
+    show_full_result_count = False
 
     paginator = LargeTablePaginator
     formfield_overrides = {
@@ -295,8 +298,8 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
 
     gis_geometry_field_name = 'location'
 
-    list_filter = (SubjectNameFilter, SubjectIdFilter, ('recorded_at', DateRangeFilter))
-
+    list_filter = (SubjectNameFilter, SubjectIdFilter,
+                   ('recorded_at', DateRangeFilter))
 
     def subject_link(self, obj):
         return mark_safe('<a href="{}">{}</a>'.format(
@@ -336,11 +339,12 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
 
     def _recorded_at(self, o):
         recorded_at = o.recorded_at.strftime("%d %b, %Y, %H:%M")
-        return mark_safe('<a href="{}">{}</a>'.format(
-            reverse("admin:observations_observation_change", args=(o.id,)),
-           recorded_at))
+        return mark_safe(
+            f'<a href="{reverse("admin:observations_observation_change", args=(o.id,))}">{recorded_at}</a>'
+        )
     _recorded_at.short_description = 'recorded at %s' % TIMEZONE_USED
     _recorded_at.admin_order_field = 'recorded_at'
+    _recorded_at.admin_order_first_type = "desc"
 
     def get_actions(self, request):
         actions = super().get_actions(request)
@@ -351,9 +355,8 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
     def get_queryset(self, request):
         qs = super(ObservationAdmin, self).get_queryset(request)
 
-        # Hard-limit at 180 days.
-        dt = datetime.now(tz=pytz.utc) - OBSERVATIONS_HISTORY_LIMIT
-        qs = qs.filter(recorded_at__gte=dt)
+        if self.is_change_view(request):
+            return qs
 
         # Reference Subject to get Name.
         # TODO: Consider a raw query.
@@ -368,7 +371,24 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
                          )
         qs = qs.select_related('source',)
 
+        # Hard-limit at 180 days.
+        dt = datetime.now(tz=pytz.utc) - OBSERVATIONS_HISTORY_LIMIT
+        if not self.is_date_range_set(request):
+            qs = qs.filter(recorded_at__gte=dt)
+
         return qs
+
+    def is_change_view(self, request):
+        return "change" in request.path
+
+    def is_date_range_set(self, request):
+        query_string = request.META['QUERY_STRING']
+        filter_params = self.parse_encoded_url(query_string)
+        if filter_params:
+            d1 = filter_params.get('recorded_at__range__gte')
+            d2 = filter_params.get('recorded_at__range__lte')
+            return d1 and d2
+        return False
 
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}
@@ -378,10 +398,9 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
             d1 = filter_params.get('recorded_at__range__gte')
             d2 = filter_params.get('recorded_at__range__lte')
             if d1 and d2:
-                extra_context['history_limit_days'] = self.difference_in_date(d1[0], d2[0])
+                extra_context['history_limit_days'] = self.difference_in_date(
+                    d1[0], d2[0])
                 return super().changelist_view(request, extra_context=extra_context)
-            extra_context['history_limit_days'] = OBSERVATIONS_HISTORY_LIMIT.days
-            return super().changelist_view(request, extra_context=extra_context)
         extra_context['history_limit_days'] = OBSERVATIONS_HISTORY_LIMIT.days
         return super().changelist_view(request, extra_context=extra_context)
 
@@ -465,7 +484,8 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
         """
         Hook for specifying fieldsets.
         """
-        subject_region_enabled = getattr(settings, 'SUBJECT_REGION_ENABLED', False)
+        subject_region_enabled = getattr(
+            settings, 'SUBJECT_REGION_ENABLED', False)
 
         if subject_region_enabled:
             return super().get_fieldsets(request, obj=None)
@@ -637,9 +657,11 @@ class CommonNameAdmin(admin.ModelAdmin):
 
 @admin.register(models.SubjectSourceSummary)
 class SubjectSourceSummaryAdmin(admin.ModelAdmin):
-    list_display = ('source', '_subject', '_source_plugin', '_plugin', '_provider', '_start_date', '_end_date')
+    list_display = ('source', '_subject', '_source_plugin',
+                    '_plugin', '_provider', '_start_date', '_end_date')
     list_filter = ('source__provider__display_name',)
-    search_fields = ('source__manufacturer_id', 'subject__name', 'source__provider__display_name')
+    search_fields = ('source__manufacturer_id', 'subject__name',
+                     'source__provider__display_name')
     ordering = ('source', )
 
     def record_link(self, url, key, view):
@@ -1070,7 +1092,6 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
     _recorded_at.short_description = 'recorded at %s' % TIMEZONE_USED
     _recorded_at.admin_order_field = 'recorded_at'
 
-
     def _source_provider(self, o):
         return o.provider_name
 
@@ -1081,7 +1102,6 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
         except Exception:
             pass
         return source
-
 
 
 @admin.register(models.SourceProvider)
