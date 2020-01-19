@@ -158,7 +158,7 @@ def save_spatial_file(spatialfile_id, model, record):
     if spatialfile_id:
         spatialfile = model.objects.get(id=spatialfile_id)
         record.spatialfile = spatialfile
-        return record
+    return record
 
 
 def check_file_extension(f_type, data_file, feature_types_file):

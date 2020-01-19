@@ -64,7 +64,7 @@ class TestProximityAnalyzer(TestCase):
     def setUp(self):
 
         # Load the geojson files into the database
-        management.call_command('import_ste_spatial',
+        management.call_command('import_spatial',
                                 './analyzers/fixtures/lines.geojson',
                                 './analyzers/fixtures/polygons.geojson',
                                 '--feature-types=./analyzers/fixtures/spatial_feature_types.geojson')
