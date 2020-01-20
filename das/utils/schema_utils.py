@@ -243,16 +243,15 @@ def extract_from_dict_or_string(schema_item, value):
     return value, name
 
 def extractor(schema_item, definition, value):
-
     # Determine how the value should appear.
     if isinstance(value, list):
-        key, val = extract_from_list(value)
+        value, display = extract_from_list(value)
     else:
-        key, val = extract_from_dict_or_string(schema_item, value)
+        value, display = extract_from_dict_or_string(schema_item, value)
 
     # The simplest case is when the json schema specifies the title.
     if 'title' in schema_item:
-        return schema_item['title'], val, key
+        return schema_item['title'], display, value
 
     if 'key' not in schema_item:
         logger.warning(f'key not found in schema_item {schema_item}')
@@ -260,10 +259,9 @@ def extractor(schema_item, definition, value):
 
     for definition_item in flatten_definition_items(definition):
         if isinstance(definition_item, dict) and definition_item.get('key') == schema_item['key']:
-            return definition_item.get('title'), val, key
+            return definition_item.get('title'), display, value
     else:
         logger.info('Unable to resolve title for schema_item %s', repr(schema_item))
-
 
 
 def generate_index(start_at=0, incr=1):
@@ -316,7 +314,6 @@ def definition_key_order_as_dict(schema):
 
 
 def detail_resolver(schema, key, value):
-
     if key in schema['schema']['properties']:
         schema_item = schema['schema']['properties'][key]
         return extractor(schema_item, schema.get('definition', []), value)
@@ -356,8 +353,8 @@ def get_display_values_for_event_details(event_details, schema):
         if resolved_details:
             title, display, value = resolved_details
             ret.update({
-                k: resolved_details[2],
-                resolved_details[0]: resolved_details[1]
+                k: value,
+                title: display
             })
     return ret
 
@@ -443,16 +440,14 @@ def get_display_value_header_for_key(schema, key):
     :return: A title
     '''
     definition_header = find_display_value_for_key_in_definition(schema, key)
-
-    if definition_header:
-        return definition_header
+    properties_title = ""
+    properties = schema['schema']['properties']
+    if key in properties and 'title' in properties[key]:
+        properties_title = properties[key]['title']
+    if properties_title and definition_header != properties_title:
+        return properties_title
     else:
-        properties = schema['schema']['properties']
-        if key in properties and 'title' in properties[key]:
-            return properties[key]['title']
-
-    return format_key_for_title(key)
-
+        return definition_header
 
 def generate_schema_from_document(doc):
     '''
