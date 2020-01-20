@@ -417,6 +417,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                     current_schema_order = {}
 
                 event_export_data.append(current_event_type_data)
+                import pdb; pdb.set_trace()
 
             # First, get the event details (schema data) in the correct order
             # for the headers above
@@ -426,6 +427,8 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                     current_schema)
             else:
                 details = {}
+
+            import pdb; pdb.set_trace()
 
             schema_data = OrderedDict()
             for key, order in current_schema_order.items():
