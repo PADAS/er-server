@@ -243,15 +243,16 @@ def extract_from_dict_or_string(schema_item, value):
     return value, name
 
 def extractor(schema_item, definition, value):
+
     # Determine how the value should appear.
     if isinstance(value, list):
-        value, display = extract_from_list(value)
+        key, val = extract_from_list(value)
     else:
-        value, display = extract_from_dict_or_string(schema_item, value)
+        key, val = extract_from_dict_or_string(schema_item, value)
 
     # The simplest case is when the json schema specifies the title.
     if 'title' in schema_item:
-        return schema_item['title'], display, value
+        return schema_item['title'], val, key
 
     if 'key' not in schema_item:
         logger.warning(f'key not found in schema_item {schema_item}')
@@ -259,9 +260,10 @@ def extractor(schema_item, definition, value):
 
     for definition_item in flatten_definition_items(definition):
         if isinstance(definition_item, dict) and definition_item.get('key') == schema_item['key']:
-            return definition_item.get('title'), display, value
+            return definition_item.get('title'), val, key
     else:
         logger.info('Unable to resolve title for schema_item %s', repr(schema_item))
+
 
 
 def generate_index(start_at=0, incr=1):
@@ -314,6 +316,7 @@ def definition_key_order_as_dict(schema):
 
 
 def detail_resolver(schema, key, value):
+
     if key in schema['schema']['properties']:
         schema_item = schema['schema']['properties'][key]
         return extractor(schema_item, schema.get('definition', []), value)
@@ -353,8 +356,8 @@ def get_display_values_for_event_details(event_details, schema):
         if resolved_details:
             title, display, value = resolved_details
             ret.update({
-                k: value,
-                title: display
+                k: resolved_details[2],
+                resolved_details[0]: resolved_details[1]
             })
     return ret
 
@@ -433,7 +436,6 @@ def get_display_value_header_for_key(schema, key):
     If the title from the form definition is not the same as the
     title from the schema properties, use the schema properties
     title.
-
     :param schema: An EventType.schema  as a dict
     :param key: The document property key
     :return: A title
@@ -447,6 +449,7 @@ def get_display_value_header_for_key(schema, key):
         return properties_title
     else:
         return definition_header
+
 
 def generate_schema_from_document(doc):
     '''
