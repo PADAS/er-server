@@ -1,7 +1,7 @@
 import logging
 
 from django.apps import apps
-from django.db.models.signals import post_save, post_migrate
+from django.db.models.signals import post_save, post_migrate, post_delete
 from django.dispatch import receiver
 from django.contrib.auth.management import _get_all_permissions
 from django.contrib.auth.models import Permission
@@ -116,3 +116,9 @@ def auto_create_view_perm(sender, instance, created, **kwargs):
         # Add PermissionSet after commit
         transaction.on_commit(
             lambda: instance.permission_sets.add(permission_set))
+
+
+@receiver(post_delete, sender=SubjectGroup)
+def delete_auto_created_view_permission_set(sender, instance, **kwargs):
+    permission_set = PermissionSet.objects.get(name=instance.auto_permissionset_name)
+    permission_set.delete()
