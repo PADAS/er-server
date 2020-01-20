@@ -430,10 +430,9 @@ def find_display_value_for_key_in_definition(schema, key):
 
 def get_display_value_header_for_key(schema, key):
     '''
-    Prefer the title from:
-    1. the form definition
-    2. The schema properties extra title attribute
-    3. A sanitized derivative of the key itself
+    If the title from the form definition is not the same as the
+    title from the schema properties, use the schema properties
+    title.
 
     :param schema: An EventType.schema  as a dict
     :param key: The document property key
