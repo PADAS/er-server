@@ -288,6 +288,7 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
     list_editable = ('exclusion_flags',)
     list_display_links = None
     show_full_result_count = False
+    autocomplete_fields = ('source',)
 
     paginator = LargeTablePaginator
     formfield_overrides = {
@@ -298,8 +299,7 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
 
     gis_geometry_field_name = 'location'
 
-    list_filter = (SubjectNameFilter, SubjectIdFilter,
-                   ('recorded_at', DateRangeFilter))
+    list_filter = (SubjectNameFilter, SubjectIdFilter, ('recorded_at', DateRangeFilter))
 
     def subject_link(self, obj):
         return mark_safe('<a href="{}">{}</a>'.format(
@@ -387,20 +387,16 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
         if filter_params:
             d1 = filter_params.get('recorded_at__range__gte')
             d2 = filter_params.get('recorded_at__range__lte')
-            return d1 and d2
+            return (d1, d2) if d1 and d2 else False
         return False
 
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}
-        query_string = request.META['QUERY_STRING']
-        filter_params = self.parse_encoded_url(query_string)
-        if filter_params:
-            d1 = filter_params.get('recorded_at__range__gte')
-            d2 = filter_params.get('recorded_at__range__lte')
-            if d1 and d2:
-                extra_context['history_limit_days'] = self.difference_in_date(
-                    d1[0], d2[0])
-                return super().changelist_view(request, extra_context=extra_context)
+        daterange_set = self.is_date_range_set(request)
+        if daterange_set:
+            d1, d2 = daterange_set
+            extra_context['history_limit_days'] = self.difference_in_date( d1[0], d2[0])
+            return super().changelist_view(request, extra_context=extra_context)
         extra_context['history_limit_days'] = OBSERVATIONS_HISTORY_LIMIT.days
         return super().changelist_view(request, extra_context=extra_context)
 
