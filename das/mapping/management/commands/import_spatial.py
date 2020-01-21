@@ -3,6 +3,7 @@ import datetime
 import logging
 
 from django.core.management.base import BaseCommand
+from django.core.exceptions import ValidationError
 from django.db.utils import IntegrityError
 
 import utils.json
@@ -125,6 +126,8 @@ class Command(BaseCommand):
             except IntegrityError as err:
                 logger.warning(err)
                 return
+            except Exception as error:
+                raise ValidationError({'feature_types_file': ["Unable to process file: ", error]})
 
             logger.debug('Import feature_type: %s, created:%s',
                          global_id, created)
