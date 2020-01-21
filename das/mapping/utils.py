@@ -99,8 +99,11 @@ def save_feature_to_table(feature, source_name, spatialfile_id, featuretype=None
 
     model_fieldname = 'feature_geometry'
     model_field_type = model._meta.get_field(model_fieldname)
-    feature_geometry = geometry_mapper.get_db_geom(
+    try:
+        feature_geometry = geometry_mapper.get_db_geom(
         feature.geom, model_field_type)
+    except Exception as error:
+        raise ValidationError({'data': ["Unable to process file: ", error]})
 
     attribute_fields = feature_type.attribute_schema
 
