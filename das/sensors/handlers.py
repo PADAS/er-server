@@ -75,15 +75,15 @@ class GenericSensorHandler:
                 cls.process_one_observation(
                     an_observation, provider_key, sensor_type, obs_to_persist, obs_cache, errors)
 
-        # TODO: Can we not construct serializers in 2 different places? this
-        # one does the bulk insert
-        bulk_serializer = ObservationSerializer(data=obs_to_persist, many=True)
-        if bulk_serializer.is_valid():
-            bulk_serializer.save()
-        else:
-            errors.append(bulk_serializer.errors)
+        # save and notify only if there are new, non-dup observations
+        if obs_to_persist:
+            bulk_serializer = ObservationSerializer(data=obs_to_persist, many=True)
+            if bulk_serializer.is_valid():
+                bulk_serializer.save()
+            else:
+                errors.append(bulk_serializer.errors)
 
-        transaction.on_commit(notify_tracks_listeners)
+            transaction.on_commit(notify_tracks_listeners)
 
         for error in errors:
             if error:
@@ -128,7 +128,7 @@ class GenericSensorHandler:
         obs_key = (str(src.id), recorded_at)
         # Short-circuit if we already have this observation.
         if obs_key in obs_cache or Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
-            logger.info("Processed duplicate observation %s",
+            logger.debug("Processed duplicate observation %s",
                         subject_subtype, extra={'obs.dup': provider_key})
             errors.append({})
             return
