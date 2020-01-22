@@ -87,12 +87,13 @@ class SpatialFeaturesInline(admin.TabularInline):
     extra = 1
     verbose_name = "Feature Group"
 
-
+@admin.register(models.DisplayCategory)
+class DisplayCategoryAdmin(admin.ModelAdmin):
+    ordering = ('name',)
+    form = DisplayCategoryForm
+    
 if MAPPING_FEATURES_V2:
-    @admin.register(models.DisplayCategory)
-    class DisplayCategoryAdmin(admin.ModelAdmin):
-        ordering = ('name',)
-        form = DisplayCategoryForm
+    pass
 else:
     @admin.register(models.FeatureSet)
     class FeatureSetAdmin(admin.ModelAdmin):
