@@ -41,15 +41,6 @@ resource "random_password" "sql_user_pass" {
   override_special = "_%@"
 }
 
-resource "random_password" "migrations_user_pass" {
-  length           = 12
-  min_lower        = 2
-  min_special      = 2
-  min_upper        = 2
-  special          = true
-  override_special = "_%@"
-}
-
 resource "google_sql_user" "users" {
   project  = data.google_project.earthranger.project_id
   name     = google_sql_database.database.name
@@ -61,6 +52,16 @@ resource "google_sql_user" "users" {
   ]
 }
 
+resource "random_password" "migrations_user_pass" {
+  length           = 12
+  min_lower        = 2
+  min_special      = 2
+  min_upper        = 2
+  special          = true
+  override_special = "_%@"
+}
+
+
 resource "google_sql_user" "migrations" {
   project  = data.google_project.earthranger.project_id
   name     = "${google_sql_database.database.name}_migrator"
@@ -69,5 +70,48 @@ resource "google_sql_user" "migrations" {
 
   depends_on = [
     random_password.migrations_user_pass
+
+  ]
+}
+
+
+
+resource "random_password" "analytics_user_pass" {
+  length           = 12
+  min_lower        = 2
+  min_special      = 2
+  min_upper        = 2
+  special          = true
+  override_special = "_%@"
+}
+
+resource "google_sql_user" "analytics" {
+  project  = data.google_project.earthranger.project_id
+  name     = "${google_sql_database.database.name}_analytics"
+  instance = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
+  password = random_password.analytics_user_pass.result
+
+  depends_on = [
+    random_password.analytics_user_pass
+  ]
+}
+
+resource "random_password" "apps_user_pass" {
+  length           = 12
+  min_lower        = 2
+  min_special      = 2
+  min_upper        = 2
+  special          = true
+  override_special = "_%@"
+}
+
+resource "google_sql_user" "apps" {
+  project  = data.google_project.earthranger.project_id
+  name     = "${google_sql_database.database.name}_app"
+  instance = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
+  password = random_password.apps_user_pass.result
+
+  depends_on = [
+    random_password.apps_user_pass
   ]
 }

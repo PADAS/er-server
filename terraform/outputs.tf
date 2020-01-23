@@ -35,7 +35,23 @@ output "postgres_user_pass" {
 output "migrations_user_pass" {
   value = random_password.migrations_user_pass.result
 }
+# Temporary, Testing
+output "analytics_user_pass" {
+  value = google_sql_user.analytics.password
+}
+
+# Temporary, testing
+output "apps_user_pass" {
+  value = google_sql_user.apps.password
+}
 
 output "migrations_user_name" {
   value = google_sql_user.migrations.name
+}
+output "analytics_user_name" {
+  value = google_sql_user.analytics.name
+}
+
+output "apps_user_name" {
+  value = google_sql_user.apps.name
 }
