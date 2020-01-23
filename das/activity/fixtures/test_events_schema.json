@@ -40,5 +40,21 @@
     "schema": "{\r\n   \"schema\":{\r\n      \"$schema\":\"http://json-schema.org/draft-04/schema#\",\r\n      \"title\":\"EventType Test Data\",\r\n      \"type\":\"object\",\r\n      \"properties\":{\r\n         \"carcassrep_species\":{\r\n             \"key\": \"carcassrep_species\"\r\n\r\n         }\r\n      }\r\n   },\r\n   \"definition\":[\r\n      {\r\n         \"key\":\"carcassrep_species\",\r\n         \"type\":\"checkboxes\",\r\n         \"title\":\"Species\",\r\n         \"titleMap\":{{enum___carcassrep_species___map}}\r\n      }\r\n   ]\r\n}",
     "is_collection": false
   }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "491981c8-ed68-41a0-a1f4-728cfe53e9d4",
+  "fields": {
+    "created_at": "2020-01-23T12:56:41.276Z",
+    "updated_at": "2020-01-23T12:57:33.261Z",
+    "value": "4787_arry",
+    "display": "4787-Array",
+    "category": [
+      "security"
+    ],
+    "ordernum": 300,
+    "schema": "{\r\n   \"schema\":{\r\n      \"$schema\":\"http://json-schema.org/draft-04/schema#\",\r\n      \"title\":\"EventType Test Data\",\r\n      \"type\":\"object\",\r\n      \"properties\":{\r\n         \"carcassrep_species\":{\r\n             \"key\": \"carcassrep_species\",\r\n             \"type\": \"array\",\r\n             \"title\": \"Species\",\r\n             \"items\": {\r\n                        \"type\": \"string\",\r\n                        \"enum\": {{enum___carcassrep_species___values}},\r\n                        \"enumNames\": {{enum___carcassrep_species___names}}\r\n             }\r\n\r\n\r\n         }\r\n      }\r\n   },\r\n   \"definition\":[\r\n      {\r\n         \"key\":\"carcassrep_species\"\r\n      }\r\n   ]\r\n}",
+    "is_collection": false
+  }
 }
 ]

@@ -825,7 +825,7 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
                         if isinstance(d, dict) and d['value'] == value:
                             matches.append(d)
                         elif value == d:
-                            matches.append(value)
+                            matches.append({"name": parameters[k][value], "value": value})
 
                     if len(matches) > 0:
                         all_values.append(matches[0])
