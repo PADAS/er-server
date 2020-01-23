@@ -2,11 +2,10 @@
 
 from django.db import migrations
 
-
 primary_keys = {
     "DAS_Terrain": "5b480df1-dea2-4536-9a3f-03ce5b825abe",
     "Google_Satellite": "d57ea783-dbf6-4e2f-aa35-89d24b9ed30a",
-    "Mapbox_Satellite":  "8b297282-164d-4604-a144-ceedefef605a"
+    "Mapbox_Satellite": "8b297282-164d-4604-a144-ceedefef605a"
 }
 
 Mapbox_satellite_conf = {
@@ -15,19 +14,18 @@ Mapbox_satellite_conf = {
     "title": "Mapbox Satellite Map",
     "configuration": {
         "accessToken":
-        "pk.eyJ1IjoidmpvZWxtIiwiYSI6ImNpZ3RzNXdmeDA4cm90N2tuZzhsd3duZm0ifQ.YcHUz9BmCk2oVOsL48VgVQ"
+            "pk.eyJ1IjoidmpvZWxtIiwiYSI6ImNpZ3RzNXdmeDA4cm90N2tuZzhsd3duZm0ifQ.YcHUz9BmCk2oVOsL48VgVQ"
     }
 }
 
 google_satellit_url = "https://mt.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
 
 
-
 def update_existing_tilelayer_conf(app_registry, schema_editor):
     # We get the model from the versioned app registry
-    TileLayer = app_registry.get_model('mapping', 'TileLayer')
+    tile_layer = app_registry.get_model('mapping', 'TileLayer')
     db_alias = schema_editor.connection.alias
-    required_args = (TileLayer, db_alias)
+    required_args = (tile_layer, db_alias)
 
     # Remove DAS-Terrain map
     das_terrain_pk = primary_keys.get('DAS_Terrain')
@@ -37,11 +35,11 @@ def update_existing_tilelayer_conf(app_registry, schema_editor):
 
     # Update Google Satellite url
     google_sat_pk = primary_keys.get('Google_Satellite')
-    status, qs= check_object_exist(google_sat_pk, *required_args)
+    status, qs = check_object_exist(google_sat_pk, *required_args)
     if status:
         try:
-            google_sat_qs = TileLayer.objects.using(db_alias).get(pk=google_sat_pk, attributes__url__isnull=True)
-        except TileLayer.DoesNotExist:
+            google_sat_qs = tile_layer.objects.using(db_alias).get(pk=google_sat_pk, attributes__url__isnull=True)
+        except tile_layer.DoesNotExist:
             qs.attributes['url'] = google_satellit_url
             qs.save()
         else:
@@ -65,7 +63,6 @@ def check_object_exist(pk, model, db_alias):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('mapping', '0022_mapping_features_v2'),
     ]
