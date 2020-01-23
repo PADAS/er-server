@@ -2,6 +2,85 @@
 
 from django.db import migrations
 
+# RunPython
+# class RunPython(code, reverse_code=None, atomic=None, hints=None, elidable=False)
+# Runs custom Python code in a historical context. code (and reverse_code if supplied)
+# should be callable objects that accept two arguments; the first is an instance of django.apps.registry.Apps
+# containing historical models that match the operation’s place in the project history,
+# and the second is an instance of SchemaEditor.
+
+# The reverse_code argument is called when unapplying migrations.
+# This callable should undo what is done in the code callable so that the migration is reversible
+# You are advised to write the code as a separate function above the Migration class in the migration file, and pass it to RunPython.
+
+# RunPython- expects two arguments app_registry and schema_editor
+# Params:
+#     app_registry: has historical versions of all our models loaded into it to match
+#                 where in our history the migration sits
+#     schema_editor: Can used to manually effect database schema changes.
+
+
+primary_keys = {
+    "DAS_Terrain": "5b480df1-dea2-4536-9a3f-03ce5b825abe",
+    "Google_Satellite": "d57ea783-dbf6-4e2f-aa35-89d24b9ed30a",
+    "Mapbox_Satellite":  "8b297282-164d-4604-a144-ceedefef605a"
+}
+
+Mapbox_satellite_conf = {
+    "url": "https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.png?",
+    "type": "mapbox_tiles",
+    "title": "Mapbox Satellite Map",
+    "configuration": {
+        "accessToken":
+        "pk.eyJ1IjoidmpvZWxtIiwiYSI6ImNpZ3RzNXdmeDA4cm90N2tuZzhsd3duZm0ifQ.YcHUz9BmCk2oVOsL48VgVQ"
+    }
+}
+
+google_satellit_url = "https://mt.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+
+
+
+def f(app_registry, schema_editor):
+    # We get the model from the versioned app registry
+    TileLayer = app_registry.get_model('mapping', 'TileLayer')
+    db_alias = schema_editor.connection.alias
+    required_args = (TileLayer, db_alias)
+
+    # Remove DAS-Terrain map
+    das_terrain_pk = primary_keys.get('DAS_Terrain')
+    status, das_terrain_qs = check_object_exist(das_terrain_pk, *required_args)
+    if status:
+        das_terrain_qs.delete()
+
+    # Update Google Satellite url
+    google_sat_pk = primary_keys.get('Google_Satellite')
+    status, qs= check_object_exist(google_sat_pk, *required_args)
+    if status:
+        try:
+            qs.attributes['url']
+        except KeyError:
+            google_sat_qs = TileLayer.objects.using(db_alias).get(pk=google_sat_pk, attributes__url__isnull=True)
+            google_sat_qs.attributes['url'] = google_satellit_url
+            google_sat_qs.save()
+        else:
+            qs.attributes['url'] = google_satellit_url
+            qs.save()
+
+    # Update Mapbox Satellite Map to use conf
+    mapbox_sat_pk = primary_keys.get('Mapbox_Satellite')
+    status, mapbox_sat_qs = check_object_exist(mapbox_sat_pk, *required_args)
+    if status:
+        mapbox_sat_qs.attributes = Mapbox_satellite_conf
+        mapbox_sat_qs.save()
+
+
+def check_object_exist(pk, model, db_alias):
+    try:
+        queryset = model.objects.using(db_alias).get(pk=pk)
+    except model.DoesNotExist:
+        return False, 0
+    return True, queryset
+
 
 class Migration(migrations.Migration):
 
@@ -10,4 +89,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(f, reverse_code=migrations.RunPython.noop)
     ]
