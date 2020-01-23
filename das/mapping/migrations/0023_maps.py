@@ -23,7 +23,7 @@ google_satellit_url = "https://mt.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
 
 
 
-def f(app_registry, schema_editor):
+def update_existing_tilelayer_conf(app_registry, schema_editor):
     # We get the model from the versioned app registry
     TileLayer = app_registry.get_model('mapping', 'TileLayer')
     db_alias = schema_editor.connection.alias
@@ -71,5 +71,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(f, reverse_code=migrations.RunPython.noop)
+        migrations.RunPython(update_existing_tilelayer_conf,
+                             reverse_code=migrations.RunPython.noop)
     ]
