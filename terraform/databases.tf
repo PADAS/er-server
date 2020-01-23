@@ -32,3 +32,14 @@ resource "google_sql_database" "database" {
   }
 }
 
+resource "random_password" "sql_user_pass" {
+  length           = 8
+  special          = true
+  override_special = "_%@"
+}
+
+resource "google_sql_user" "users" {
+  name     = google_sql_database.database.name
+  instance = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
+  password = random_password.sql_user_pass.result
+}

@@ -25,3 +25,8 @@ output "site_ip_address" {
 output "user_uploads_bucket_name" {
   value = google_storage_bucket.user_uploads.name
 }
+
+# Temporary, Testing
+output "postgres_user_pass" {
+  value = google_sql_user.users.password
+}
