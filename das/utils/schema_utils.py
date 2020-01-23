@@ -14,7 +14,9 @@ from activity.exceptions import SchemaValidationError, \
 from choices.models import Choice, DynamicChoice
 from utils.memoize import memoize
 
+
 logger = logging.getLogger(__name__)
+
 
 LOOKUP_ATTR = 'lookup'
 FIELD_ATTR = 'field'
@@ -42,11 +44,13 @@ def get_replacement_fields_in_schema(schema):
 
 
 def get_dynamic_choices(field_details, as_string=True):
+
     return_val = _get_dynamic_choices(field_details)
     return json.dumps(return_val) if as_string else return_val
 
 
 def _get_dynamic_choices(field_details):
+
     dynamic_choice = DynamicChoice.objects.filter(
         id=field_details['field']).first()
 
@@ -57,17 +61,14 @@ def _get_dynamic_choices(field_details):
     try:
         choice_criteria = json.loads(dynamic_choice.criteria)
     except json.decoder.JSONDecodeError as jde:
-        logger.exception(
-            'Error decoding criteria for dynamic choice %s. Criteria is: %s',
-            str(dynamic_choice.id),
+        logger.exception('Error decoding criteria for dynamic choice %s. Criteria is: %s', str(dynamic_choice.id),
             dynamic_choice.criteria)
         return []
 
     model_to_filter = apps.get_model(dynamic_choice.model_name)
 
     options = OrderedDict()
-    for row in model_to_filter.objects.filter(*choice_criteria).order_by(
-        dynamic_choice.display_col):
+    for row in model_to_filter.objects.filter(*choice_criteria).order_by(dynamic_choice.display_col):
         value = getattr(row, dynamic_choice.value_col, None)
         display = getattr(row, dynamic_choice.display_col, None)
         options[str(value)] = str(display)
@@ -110,23 +111,20 @@ def get_enum_choices(field_details, as_string=True):
 
 
 def get_enumImage_values(field_details):
+
     options = OrderedDict()
-    for choice in Choice.objects.filter(model='activity.event',
-                                        field=field_details['field']).extra(
-        select={'lower_name': 'lower(display)'}).order_by('ordernum',
-                                                          'lower_name'):
+    for choice in Choice.objects.filter(model='activity.event', field=field_details['field']).extra(select={'lower_name': 'lower(display)'}).order_by('ordernum', 'lower_name'):
         options[choice.value] = choice.icon
 
     return {k: v for k, v in options.items() if v}
 
 
 def get_table_choices(field_details, as_string=True):
+
     options = OrderedDict()
     model = apps.get_model('choices.{0}'.format(field_details['field']))
 
-    for row in model.objects.all().extra(
-        select={'lower_name': 'lower(name)'}).order_by('ordernum',
-                                                       'lower_name'):
+    for row in model.objects.all().extra(select={'lower_name': 'lower(name)'}).order_by('ordernum', 'lower_name'):
         options[str(row.id)] = str(row.name)
 
     if field_details['type'] == 'names':
@@ -148,6 +146,7 @@ def get_table_choices(field_details, as_string=True):
 
 
 def get_schema_renderer_method():
+
     @memoize
     def memo_enum_choices(enum_choices_identifier):
         field_name, field_type = enum_choices_identifier.split(':')
@@ -175,8 +174,7 @@ def get_schema_renderer_method():
                 ] = memo_enum_choices('{field}:{type}'.format(**schema_field))
             elif schema_field['lookup'] == 'query':
                 parameters[schema_field['tag']
-                ] = memo_dynamic_choices(
-                    '{field}:{type}'.format(**schema_field))
+                           ] = memo_dynamic_choices('{field}:{type}'.format(**schema_field))
             elif schema_field['lookup'] == 'table':
                 parameters[schema_field['tag']
                 ] = memo_table_choices('{field}:{type}'.format(**schema_field))
@@ -188,7 +186,6 @@ def get_schema_renderer_method():
             rendered_template = schema
 
         return json.loads(rendered_template, object_pairs_hook=OrderedDict)
-
     return render_f
 
 
@@ -221,18 +218,15 @@ def extract_from_list(items: list = list):
     ids = []
     for item in items:
         if item and isinstance(item, (str, bool, int, float)):
-            logger.warning(
-                f'extract_from_list value is not a dict: {item} from {items}')
+            logger.warning(f'extract_from_list value is not a dict: {item} from {items}')
             names.append(str(item))
             ids.append(item)
-
         elif isinstance(item, dict) and 'name' in item and 'value' in item:
             logger.info(f'extracting name/value from {item}')
             names.append(item['name'])
             ids.append(item['value'])
         else:
-            logger.warning(
-                f'extract_from_list cannot parse in value: {item} from {items}')
+            logger.warning(f'extract_from_list cannot parse in value: {item} from {items}')
 
     return ';'.join(ids), ';'.join(names)
 
@@ -250,8 +244,8 @@ def extract_from_dict_or_string(schema_item, value):
             value = schema_item['enumNames'][value]
     return value, name
 
-
 def extractor(schema_item, definition, value):
+
     # Determine how the value should appear.
     if isinstance(value, list):
         key, val = extract_from_list(value)
@@ -267,12 +261,11 @@ def extractor(schema_item, definition, value):
         return
 
     for definition_item in flatten_definition_items(definition):
-        if isinstance(definition_item, dict) and definition_item.get('key') == \
-            schema_item['key']:
+        if isinstance(definition_item, dict) and definition_item.get('key') == schema_item['key']:
             return definition_item.get('title'), val, key
     else:
-        logger.info('Unable to resolve title for schema_item %s',
-                    repr(schema_item))
+        logger.info('Unable to resolve title for schema_item %s', repr(schema_item))
+
 
 
 def generate_index(start_at=0, incr=1):
@@ -299,8 +292,7 @@ def definition_keys(form_definition: list, index_values=None):
                 yield (k['key'], next(index_values))
 
             elif 'items' in k and isinstance(k['items'], list):
-                yield from definition_keys(k['items'],
-                                           index_values=index_values)
+                yield from definition_keys(k['items'], index_values=index_values)
 
 
 def flatten_definition_items(definition: list = list):
@@ -326,12 +318,14 @@ def definition_key_order_as_dict(schema):
 
 
 def detail_resolver(schema, key, value):
+
     if key in schema['schema']['properties']:
         schema_item = schema['schema']['properties'][key]
         return extractor(schema_item, schema.get('definition', []), value)
 
 
 def generate_details(event, schema):
+
     event_details = event.event_details.first()
     if not event_details:
         logger.warning(f'Event No. {event.serial_number} has no event_details')
@@ -351,8 +345,7 @@ def generate_details(event, schema):
         if resolved_details:
             value = resolved_details[1]
             yield {'name': resolved_details[0],
-                   'value': html.escape(value) if isinstance(value,
-                                                             str) else value,
+                   'value': html.escape(value) if isinstance(value, str) else value,
                    'order': definition_order.get(k, 99)}
 
 
@@ -373,8 +366,7 @@ def get_display_values_for_event_details(event_details, schema):
 
 def get_details_and_display_values(event, schema):
     try:
-        event_details = event.event_details.first().data.get('event_details',
-                                                             {})
+        event_details = event.event_details.first().data.get('event_details', {})
         return get_display_values_for_event_details(event_details, schema)
     except AttributeError:
         return {}
@@ -467,7 +459,6 @@ def generate_schema_from_document(doc):
     :param doc:
     :return: A valid json schema
     '''
-
     def new_schema_property(k, v):
         title = ' '.join(k.split('_')).title()
         propertytype = 'number' if isinstance(v, (int, float)) else 'string'
@@ -506,6 +497,7 @@ def generate_event_type_schema_from_doc(doc):
 
 
 def should_auto_generate(schema_string):
+
     try:
         schema_doc = json.loads(schema_string)
     except json.JSONDecodeError:
@@ -522,6 +514,7 @@ def validate_eventtype_schema_is_wellformed(schema):
 
 
 def validate_rendered_schema_is_wellformed(rendered_schema: dict):
+
     if "$schema" not in rendered_schema.get('schema', {}):
         raise SchemaValidationError(SCHEMA_ERROR_MISSING_DOLLAR_SIGN_SCHEMA)
 
@@ -537,8 +530,7 @@ def validate_rendered_schema_is_wellformed(rendered_schema: dict):
     property_keyset_2 = {'key'}
 
     for property_key, val in properties.items():
-        if all([k in val for k in property_keyset_1]) or all(
-            [k in val for k in property_keyset_2]):
+        if all([k in val for k in property_keyset_1]) or all([k in val for k in property_keyset_2]):
             continue
         incomplete_properties_keyset.add(property_key)
 
@@ -564,9 +556,7 @@ def map_schema(schema, load_schema):
     lookups = []
     keys = load_schema['schema']['properties'].keys()
     for key in keys:
-        if bool(
-            {'enum', 'query', 'table'} & load_schema['schema']['properties'][
-                key].keys()):
+        if bool({'enum', 'query', 'table'} & load_schema['schema']['properties'][key].keys()):
             lookups.append(key)
 
     fields = []
