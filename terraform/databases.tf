@@ -39,6 +39,7 @@ resource "random_password" "sql_user_pass" {
 }
 
 resource "google_sql_user" "users" {
+  project  = data.google_project.earthranger.project_id
   name     = google_sql_database.database.name
   instance = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
   password = random_password.sql_user_pass.result
