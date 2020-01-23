@@ -33,7 +33,19 @@ resource "google_sql_database" "database" {
 }
 
 resource "random_password" "sql_user_pass" {
-  length           = 8
+  length           = 12
+  min_lower        = 2
+  min_special      = 2
+  min_upper        = 2
+  special          = true
+  override_special = "_%@"
+}
+
+resource "random_password" "migrations_user_pass" {
+  length           = 12
+  min_lower        = 2
+  min_special      = 2
+  min_upper        = 2
   special          = true
   override_special = "_%@"
 }
@@ -43,4 +55,19 @@ resource "google_sql_user" "users" {
   name     = google_sql_database.database.name
   instance = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
   password = random_password.sql_user_pass.result
+
+  depends_on = [
+    random_password.sql_user_pass
+  ]
+}
+
+resource "google_sql_user" "migrations" {
+  project  = data.google_project.earthranger.project_id
+  name     = "${google_sql_database.database.name}_migrator"
+  instance = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
+  password = random_password.migrations_user_pass.result
+
+  depends_on = [
+    random_password.migrations_user_pass
+  ]
 }

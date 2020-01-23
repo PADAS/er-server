@@ -30,3 +30,12 @@ output "user_uploads_bucket_name" {
 output "postgres_user_pass" {
   value = google_sql_user.users.password
 }
+
+# Temporary, Testing
+output "migrations_user_pass" {
+  value = random_password.migrations_user_pass.result
+}
+
+output "migrations_user_name" {
+  value = google_sql_user.migrations.name
+}
