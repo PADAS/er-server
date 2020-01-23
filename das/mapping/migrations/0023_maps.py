@@ -2,23 +2,6 @@
 
 from django.db import migrations
 
-# RunPython
-# class RunPython(code, reverse_code=None, atomic=None, hints=None, elidable=False)
-# Runs custom Python code in a historical context. code (and reverse_code if supplied)
-# should be callable objects that accept two arguments; the first is an instance of django.apps.registry.Apps
-# containing historical models that match the operation’s place in the project history,
-# and the second is an instance of SchemaEditor.
-
-# The reverse_code argument is called when unapplying migrations.
-# This callable should undo what is done in the code callable so that the migration is reversible
-# You are advised to write the code as a separate function above the Migration class in the migration file, and pass it to RunPython.
-
-# RunPython- expects two arguments app_registry and schema_editor
-# Params:
-#     app_registry: has historical versions of all our models loaded into it to match
-#                 where in our history the migration sits
-#     schema_editor: Can used to manually effect database schema changes.
-
 
 primary_keys = {
     "DAS_Terrain": "5b480df1-dea2-4536-9a3f-03ce5b825abe",
@@ -57,14 +40,13 @@ def f(app_registry, schema_editor):
     status, qs= check_object_exist(google_sat_pk, *required_args)
     if status:
         try:
-            qs.attributes['url']
-        except KeyError:
             google_sat_qs = TileLayer.objects.using(db_alias).get(pk=google_sat_pk, attributes__url__isnull=True)
-            google_sat_qs.attributes['url'] = google_satellit_url
-            google_sat_qs.save()
-        else:
+        except TileLayer.DoesNotExist:
             qs.attributes['url'] = google_satellit_url
             qs.save()
+        else:
+            google_sat_qs.attributes['url'] = google_satellit_url
+            google_sat_qs.save()
 
     # Update Mapbox Satellite Map to use conf
     mapbox_sat_pk = primary_keys.get('Mapbox_Satellite')
