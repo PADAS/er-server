@@ -204,21 +204,30 @@ def validate(event, schema=None, raise_exception=False):
 
     return False
 
+def get_name_value_dict_for_checkboxes(definition):
+    name_value_dict = {}
+    if len(definition) == 1 and definition[0].get("type") == "checkboxes":
+        for item in definition[0].get('titleMap', []):
+            name_value_dict.update({item.get("value", ""): item.get("name")})
+    return name_value_dict
 
-def extract_from_list(items: list = list):
+
+def extract_from_list(items, definition):
     '''
     return a 2-tuple of strings where the first holds IDs and the second holds
     corresponding human-friendly names.
     :param items: a list (of dicts of the format {'name': '', 'value': ''}
     :return: 2-tuple (str, str)
     '''
+    name_value_dict = get_name_value_dict_for_checkboxes(definition)
     names = []
     ids = []
     for item in items:
         if item and isinstance(item, (str, bool, int, float)):
             logger.warning(f'extract_from_list value is not a dict: {item} from {items}')
-            names.append(str(item))
+            names.append(name_value_dict.get(str(item), str(item)))
             ids.append(item)
+
         elif isinstance(item, dict) and 'name' in item and 'value' in item:
             logger.info(f'extracting name/value from {item}')
             names.append(item['name'])
@@ -242,11 +251,12 @@ def extract_from_dict_or_string(schema_item, value):
             value = schema_item['enumNames'][value]
     return value, name
 
+
 def extractor(schema_item, definition, value):
 
     # Determine how the value should appear.
     if isinstance(value, list):
-        key, val = extract_from_list(value)
+        key, val = extract_from_list(value, definition)
     else:
         key, val = extract_from_dict_or_string(schema_item, value)
 

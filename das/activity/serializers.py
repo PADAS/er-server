@@ -823,7 +823,7 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
                     matches = []
                     for d in parameters[k]:
                         if isinstance(d, dict) and d['value'] == value:
-                            matches.append(value)
+                            matches.append(d)
                         elif value == d:
                             matches.append(value)
 
@@ -838,7 +838,16 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
     def to_internal_value(self, data):
         return self._to_internal_value_inner(self.root.instance, data)
 
-    def handle_legacy_data(self, event_details):
+    def sanitize_event_details_for_api(self, event_details):
+        """
+        The select properties are still stored as a dictionary but returned to
+        the API caller as a single value.
+        Properties are stored as dictionaries for the report csv export to work
+        properly
+
+        :param event_details:
+        :return:
+        """
         for k, v in event_details.items():
             if k == "updates":
                 continue
@@ -855,7 +864,7 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
         rep = OrderedDict(event_details.data['event_details'])
         event_type = self.get_event_type(event_details.event)
         rep['updates'] = self.render_updates(event_details, event_type)
-        rep = self.handle_legacy_data(rep)
+        rep = self.sanitize_event_details_for_api(rep)
         return rep
 
     def render_updates(self, event_details, event_type):
