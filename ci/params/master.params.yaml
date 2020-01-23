@@ -1,6 +1,0 @@
-project-id: padas-app
-cluster-name: master
-server-branch-name: master
-web-branch-name: master
-tag-as-latest: true
-das-static-ip: 35.197.37.1

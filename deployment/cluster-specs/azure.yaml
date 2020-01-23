@@ -1,4 +1,0 @@
-name: ""
-machine_type: Standard_DS2_v2
-node_count: 3
-kubernetes_version: "1.12.6"

@@ -1,9 +1,0 @@
-project-id: padas-app
-cluster-name: prod-gcp-frankfurt
-version-prefix: dev
-server-branch-name: develop
-web-branch-name: develop
-namespace: garambagcp
-iaas: gcp
-iaas-zone: "europe-west3-a"
-deployment-plan: integration
