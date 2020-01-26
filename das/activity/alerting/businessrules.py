@@ -57,6 +57,9 @@ class EventVariables(variables.BaseVariables):
 
     @variables.select_multiple_rule_variable(label=_('State'), options=state_options)
     def state(self):
+        state = self.event.get('inferred_state')
+        if isinstance(state, list):
+            return self.event.get('inferred_state')
         return [self.event.get('inferred_state'),]
 
     # TODO: Implement state-change logic.
@@ -372,6 +375,8 @@ def infer_event_state(event):
     When state is not 'resolved', it can be coerced to 'active' if its latest revision is 'updated'.
     :return: an inferred state (one of 'new', 'active', 'resolved')
     '''
+    # TODO ask @ChrisDo why infer event state returns a list or str, why not one of them
+
     if event.state in (Event.SC_RESOLVED, Event.SC_ACTIVE):
         return [event.state, ]
 
