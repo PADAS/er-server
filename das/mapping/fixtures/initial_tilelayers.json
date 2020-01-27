@@ -1,34 +1,15 @@
 [
 	{
 		"model": "mapping.tilelayer",
-		"pk": "5b480df1-dea2-4536-9a3f-03ce5b825abe",
-		"fields": {
-			"created_at": "2018-11-13T00:11:04.022Z",
-			"updated_at": "2018-11-19T20:04:11.924Z",
-			"name": "DAS Terrain Map",
-			"attributes": {
-				"url": "mapbox://styles/vjoelm/ciobuir0n0061bdnj1c54oakh",
-				"type": "mapbox_style",
-				"title": "DAS Terrain Map",
-				"configuration": {
-					"minZoom": 3,
-					"accessToken": "pk.eyJ1IjoidmpvZWxtIiwiYSI6ImNpZ3RzNXdmeDA4cm90N2tuZzhsd3duZm0ifQ.YcHUz9BmCk2oVOsL48VgVQ"
-				}
-			},
-			"ordernum": null
-		}
-	},
-	{
-		"model": "mapping.tilelayer",
 		"pk": "8b297282-164d-4604-a144-ceedefef605a",
 		"fields": {
 			"created_at": "2015-11-04T13:54:08.929Z",
 			"updated_at": "2018-11-19T20:38:33.217Z",
 			"name": "Mapbox Satellite Map",
 			"attributes": {
-				"url": "mapbox.satellite",
+				"url": "https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.png?",
 				"type": "mapbox_tiles",
-				"title": "Mapbox Satellite",
+				"title": "Mapbox Satellite Map",
 				"configuration": {
 					"accessToken": "pk.eyJ1IjoidmpvZWxtIiwiYSI6ImNpZ3RzNXdmeDA4cm90N2tuZzhsd3duZm0ifQ.YcHUz9BmCk2oVOsL48VgVQ"
 				}
@@ -44,6 +25,7 @@
 			"updated_at": "2018-11-19T21:04:11.113Z",
 			"name": "Google Satellite",
 			"attributes": {
+				"url": "https://mt.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
 				"type": "google_map",
 				"title": "Google Satellite",
 				"configuration": {
