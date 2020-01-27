@@ -57,7 +57,6 @@ class EventVariables(variables.BaseVariables):
 
     @variables.select_multiple_rule_variable(label=_('State'), options=state_options)
     def state(self):
-        state = self.event.get('inferred_state')
         return [self.event.get('inferred_state'),]
 
     # TODO: Implement state-change logic.
