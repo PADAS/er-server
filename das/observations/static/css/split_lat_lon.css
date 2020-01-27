@@ -1,0 +1,16 @@
+p.latlon{
+    font-weight: bold;
+    padding: 6px 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    margin-left: 170px;
+    line-height: 20px;
+    color: #666;
+}
+#id_Coordinate_0{
+    margin-bottom: 6px;
+    min-width: 0;
+    margin-left: 10px;
+    /*margin-bottom: 4px;*/
+    color: #333;
+}
