@@ -58,8 +58,6 @@ class EventVariables(variables.BaseVariables):
     @variables.select_multiple_rule_variable(label=_('State'), options=state_options)
     def state(self):
         state = self.event.get('inferred_state')
-        if isinstance(state, list):
-            return self.event.get('inferred_state')
         return [self.event.get('inferred_state'),]
 
     # TODO: Implement state-change logic.
@@ -378,7 +376,7 @@ def infer_event_state(event):
     # TODO ask @ChrisDo why infer event state returns a list or str, why not one of them
 
     if event.state in (Event.SC_RESOLVED, Event.SC_ACTIVE):
-        return [event.state, ]
+        return event.state
 
     event_revision, details_revision = resolve_event_revisions(event)
     inferred_state = Event.SC_NEW if event_revision and event_revision.action == 'added' else Event.SC_ACTIVE
