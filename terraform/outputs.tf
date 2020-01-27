@@ -26,23 +26,23 @@ output "user_uploads_bucket_name" {
   value = google_storage_bucket.user_uploads.name
 }
 
-# Temporary, Testing
 output "postgres_user_pass" {
-  value = google_sql_user.users.password
+  value     = google_sql_user.users.password
+  sensitive = true
 }
 
-# Temporary, Testing
 output "migrations_user_pass" {
-  value = random_password.migrations_user_pass.result
+  value     = random_password.migrations_user_pass.result
+  sensitive = true
 }
-# Temporary, Testing
 output "analytics_user_pass" {
-  value = google_sql_user.analytics.password
+  value     = google_sql_user.analytics.password
+  sensitive = true
 }
 
-# Temporary, testing
 output "apps_user_pass" {
-  value = google_sql_user.apps.password
+  value     = google_sql_user.apps.password
+  sensitive = true
 }
 
 output "migrations_user_name" {
