@@ -482,7 +482,7 @@ class TestEventView(BaseAPITest):
         # Make request for the new event and assert that it includes a new
         # document.
         path = '/'.join((self.api_base, 'activity', 'event', my_event_id))
-        request = self.factory.get(path, event_data)
+        request = self.factory.get(path, response_data)
         self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventView.as_view()(request, id=my_event_id)
@@ -600,7 +600,7 @@ class TestEventView(BaseAPITest):
         # Make request for the new event and assert that it includes a new
         # document.
         path = '/'.join((self.api_base, 'activity', 'event', my_event_id))
-        request = self.factory.get(path, event_data)
+        request = self.factory.get(path, response_data)
         self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventView.as_view()(request, id=my_event_id)
