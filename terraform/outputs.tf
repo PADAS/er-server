@@ -10,6 +10,10 @@ output "cluster_proxy_endpoint" {
   value = data.terraform_remote_state.earthranger_app_infra.outputs.proxy_endpoint
 }
 
+output "app_infra_workspace" {
+  value = data.terraform_remote_state.earthranger_app_infra.workspace
+}
+
 output "kubernetes_namespace" {
   value = kubernetes_namespace.this.metadata.0.name
 }

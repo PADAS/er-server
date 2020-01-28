@@ -1,13 +1,15 @@
 resource "template_dir" "deployments" {
+
   source_dir = "${path.root}/templates"
-  # Point this at the deployments path for vcloud
+
   destination_dir = "${path.root}/rendered"
+
   vars = {
     API_ENDPOINT         = var.api_endpoint
     API_HOST             = var.api_host
     API_PORT             = var.api_port
     CONFIG_CONTAINER     = var.config_container
-    DB_HOST              = local.db_host
+    DB_HOST              = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_private_ip
     DB_NAME              = var.db_name
     DB_PORT              = var.db_port
     DEFAULT_FROM_EMAIL   = var.from_email
