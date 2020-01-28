@@ -1,25 +1,31 @@
 from functools import reduce
 
-from django.contrib import admin as django_admin, messages
+from arcgis.gis import GIS
+from django.contrib import admin as django_admin
+from django.contrib import messages
 from django.contrib.admin import helpers
 from django.contrib.admin.exceptions import DisallowedModelAdminToField
 from django.contrib.admin.options import IS_POPUP_VAR, TO_FIELD_VAR
-from django.contrib.admin.utils import get_deleted_objects, unquote, \
-    model_ngettext
+from django.contrib.admin.utils import (get_deleted_objects, model_ngettext,
+                                        unquote)
 from django.contrib.gis import admin
 from django.core.exceptions import PermissionDenied
 from django.db import router
 from django.db.models import Q
 from django.db.models.expressions import RawSQL
+from django.http import HttpResponseRedirect
 from django.template.response import TemplateResponse
+from django.urls import reverse
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 
 import mapping.models as models
 from core.openlayers import OSMGeoExtendedAdmin
-from mapping.forms import MapCenterForm, TileLayerFormWithAttributes, \
-    SpatialFeatureGroupStaticForm, FeatureTypeForm, DisplayCategoryForm, SpatialFeatureTypeForm
+from mapping.forms import (ArcgisConfigurationForm, DisplayCategoryForm,
+                           FeatureTypeForm, MapCenterForm,
+                           SpatialFeatureGroupStaticForm,
+                           SpatialFeatureTypeForm, TileLayerFormWithAttributes)
 from mapping.utils import MAPPING_FEATURES_V2
 
 
@@ -426,3 +432,13 @@ else:
         list_filter = ('feature_set', 'feature_type')
 
 
+@admin.register(models.ArcgisConfiguration)
+class ArcgisConfigurationAdmin(admin.ModelAdmin):
+    list_display = ('service_url', 'owner')
+    actions = ('test_connection', )
+    fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('service_url', 'owner', 'password',)
+        }),)
+    form = ArcgisConfigurationForm
