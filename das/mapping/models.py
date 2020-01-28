@@ -153,7 +153,8 @@ class SpatialFilesBase(TimestampedModel):
     Base model for uploading Spatial files such as shapefile
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, blank=True, verbose_name='SpatialFile Name')
+    name = models.CharField(max_length=255, blank=True,
+                            verbose_name='SpatialFile Name')
     description = models.CharField(max_length=100, blank=True)
     data = models.FileField(storage=TempStorage(), blank=False)
     layer_number = models.IntegerField(blank=True, null=True, default=0)
@@ -251,7 +252,8 @@ class SpatialFilesBase(TimestampedModel):
             file_type = None
 
         if file_type:
-            check_file_extension(self.file_type, self.data, self.feature_types_file or None)
+            check_file_extension(self.file_type, self.data,
+                                 self.feature_types_file or None)
         self.save()
         data_file = self.get_upload_file(self.data)
         try:
@@ -319,7 +321,8 @@ class Feature(TimestampedModel):
     featureset = models.ForeignKey(
         to=FeatureSet, null=True, on_delete=models.PROTECT)
 
-    spatialfile = models.ForeignKey(to=SpatialFile, null=True, blank=True, on_delete=models.SET_NULL)
+    spatialfile = models.ForeignKey(
+        to=SpatialFile, null=True, blank=True, on_delete=models.SET_NULL)
 
     @property
     def default_presentation(self):
@@ -680,7 +683,6 @@ class SpatialFeatureType(TimestampedModel):
     external_source = models.CharField(max_length=25, blank=True)
     is_visible = models.BooleanField(_('visible'), default=True)
 
-
     # Points: https://www.mapbox.com/mapbox-gl-style-spec/#layers-symbol
     # Lines: https://www.mapbox.com/mapbox-gl-style-spec/#layers-line
     # Polygons: https://www.mapbox.com/mapbox-gl-style-spec/#layers-fill
@@ -706,9 +708,12 @@ class SpatialFeatureFile(SpatialFilesBase):
     """
     Special Feature loaded from uploaded shapefile
     """
-    file_type = models.CharField(max_length=100, default='shapefile', choices=FILE_TYPES)
-    feature_type = models.ForeignKey(to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
-    feature_types_file = models.FileField(storage=TempStorage(), blank=True, null=True)
+    file_type = models.CharField(
+        max_length=100, default='shapefile', choices=FILE_TYPES)
+    feature_type = models.ForeignKey(
+        to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
+    feature_types_file = models.FileField(
+        storage=TempStorage(), blank=True, null=True)
 
     class Meta:
         verbose_name = 'Feature Import File'
@@ -783,9 +788,16 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
     attributes = JSONField(default=dict, blank=True)
     provenance = JSONField(default=dict, blank=True)
     feature_geometry = models.GeometryField(geography=True, srid=4326)
-    spatialfile = models.ForeignKey(to=SpatialFeatureFile, null=True, blank=True, on_delete=models.SET_NULL)
+    spatialfile = models.ForeignKey(
+        to=SpatialFeatureFile, null=True, blank=True, on_delete=models.SET_NULL)
     revision = Revision()
 
     def __str__(self):
         return '{0}-{1}-{2}'.format(self.name, self.feature_type.name, self.id)
 
+
+class ArcgisConfiguration(TimestampedModel):
+    group_name = models.CharField(max_length=100, blank=False, unique=True)
+    group_id = models.CharField(max_length=100, blank=False, unique=True)
+    owner = models.CharField(max_length=100, blank=False, unique=True)
+    password = models.CharField(max_length=100, blank=False)
