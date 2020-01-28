@@ -5,6 +5,8 @@
     updated_at: "2016-07-07T1:00:00.000000+00:00"
     name: All Users
     children: []
+    permissions:
+    - [view_user, accounts, user]
 - model: accounts.permissionset
   pk: 7f292e0e-3c4b-4dc4-a865-7be41bd5ea7e
   fields:

@@ -1123,7 +1123,7 @@ class EventFilter(TimestampedModel):
         verbose_name='Hide this filter', default=True)
     filter_name = models.CharField(verbose_name='Display name that is meaningful to a user',
                                    null=False, max_length=100)
-    filter_spec = JSONField(verbose_name='Filter specification', default=dict)
+    filter_spec = JSONField(verbose_name='Filter specification', default='{}')
 
 
 class EventProviderManager(models.Manager):

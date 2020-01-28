@@ -14,7 +14,7 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AlterModelOptions(
             name='event',
-            options={'permissions': (('admin_event', 'An admin permission to change which users can view a Subject and their view permission.'),)},
+            options={'permissions': (('view_event', 'Permission to view an event'), ('admin_event', 'An admin permission to change which users can view a Subject and their view permission.'))},
         ),
         migrations.AddField(
             model_name='event',

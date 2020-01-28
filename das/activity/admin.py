@@ -2,7 +2,7 @@ import logging
 import time
 
 from django.contrib.gis import admin
-from django.templatetags.static import static
+from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.utils.translation import ugettext as _
 from django.utils.safestring import mark_safe
 from django.urls import reverse

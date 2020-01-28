@@ -82,7 +82,7 @@ def get_event_search_schema():
 
     properties = schema['schema']['properties']
 
-    event_types = EventType.objects.filter(category__is_active=True).annotate(cat_id=F('category__id'), ).values(
+    event_types = EventType.objects.filter(category__is_active=True).annotate(category_id=F('category__id'), ).values(
         'id', 'category_id', 'display', 'value'
     )
     properties['event_type']['items']['enum'] = [
