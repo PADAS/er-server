@@ -433,6 +433,29 @@ def find_display_value_for_key_in_definition(schema, key):
     return None
 
 
+def get_column_header_name(schema, key):
+    '''
+    Prefer the title from:
+    1. the form definition
+    2. The schema properties extra title attribute
+    3. A sanitized derivative of the key itself
+
+    :param schema: An EventType.schema  as a dict
+    :param key: The document property key
+    :return: A title
+    '''
+    definition_header = find_display_value_for_key_in_definition(schema, key)
+
+    if definition_header:
+        return definition_header
+    else:
+        properties = schema['schema']['properties']
+        if key in properties and 'title' in properties[key]:
+            return properties[key]['title']
+
+    return format_key_for_title(key)
+
+
 def get_display_value_header_for_key(schema, key):
     '''
     If the title from the form definition is not the same as the
