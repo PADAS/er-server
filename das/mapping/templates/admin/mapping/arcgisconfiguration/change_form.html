@@ -1,0 +1,9 @@
+{% extends 'admin/change_form.html' %}
+
+{% block submit_buttons_bottom %}
+    
+    <div class="submit-row" style="background-color:transparent; border: none">
+            <input type="submit" value="Test Connection" name="_testconnection", style="background-color:#ba2121; border: none">
+    </div>
+    {{ block.super }}
+{% endblock %}
