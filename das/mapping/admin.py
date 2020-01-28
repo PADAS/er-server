@@ -1,3 +1,4 @@
+import logging
 from functools import reduce
 
 from arcgis.gis import GIS
@@ -22,12 +23,13 @@ from django.utils.translation import ugettext_lazy as _
 
 import mapping.models as models
 from core.openlayers import OSMGeoExtendedAdmin
-from mapping.forms import (ArcgisConfigurationForm, DisplayCategoryForm,
-                           FeatureTypeForm, MapCenterForm,
+from mapping.forms import (ArcgisConfigurationForm,
+                           DisplayCategoryForm, FeatureTypeForm, MapCenterForm,
                            SpatialFeatureGroupStaticForm,
                            SpatialFeatureTypeForm, TileLayerFormWithAttributes)
 from mapping.utils import MAPPING_FEATURES_V2
 
+logger = logging.getLogger(__name__)
 
 @admin.register(models.Map)
 class MapAdmin(OSMGeoExtendedAdmin):
@@ -434,11 +436,46 @@ else:
 
 @admin.register(models.ArcgisConfiguration)
 class ArcgisConfigurationAdmin(admin.ModelAdmin):
-    list_display = ('service_url', 'owner')
-    actions = ('test_connection', )
+    list_display = ('group_name', 'group_id', 'owner', )
     fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('service_url', 'owner', 'password',)
+            'fields': ('group_name', 'group_id', 'owner', 'password',)
         }),)
     form = ArcgisConfigurationForm
+
+    def test_connection(self, request, obj):
+        try:
+            gis = GIS(None, username=obj.owner, password=obj.password)
+        except Exception as error:
+            messages.add_message(request, messages.ERROR, 'Invalid Arcgis Connection Credentials')
+        else:
+            group = gis.groups.get(obj.group_id)
+            if group:
+                messages.add_message(request, messages.INFO, f'Stable Arcgis Connection. {group.title} group well configured')
+            else:
+                messages.add_message(request, messages.WARNING, f'Stable Arcgis Connection. However, unknown group id: {obj.group_id} ')
+        return HttpResponseRedirect(request.path_info)
+
+
+    def response_add(self, request, obj, post_url_continue=None):
+
+        # Todo:  Test_connection calling save(), thus saving even data that has raised authentication error
+
+        if "_testconnection" in request.POST:
+            self.test_connection(request, obj)
+            return HttpResponseRedirect(request.path_info)
+        else:
+            self.test_connection(request, obj)
+            return super().response_add(request, obj, post_url_continue)
+        
+
+    def response_change(self, request, obj):
+        
+        # Todo:  Test_connection calling save(), thus saving even data that has raised authentication error
+        if "_testconnection" in request.POST:
+            self.test_connection(request, obj)
+            return HttpResponseRedirect(request.path_info)
+        else:
+            self.test_connection(request, obj)
+            return super().response_change(request, obj)
