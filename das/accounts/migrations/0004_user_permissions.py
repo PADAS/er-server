@@ -14,6 +14,6 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AlterModelOptions(
             name='user',
-            options={'verbose_name': 'user', 'verbose_name_plural': 'users'},
+            options={'permissions': ('view_user', "View a user's information."), 'verbose_name': 'user', 'verbose_name_plural': 'users'},
         ),
     ]

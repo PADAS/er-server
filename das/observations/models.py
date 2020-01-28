@@ -120,6 +120,10 @@ class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin)
     class Meta:
         verbose_name = _('source group')
         verbose_name_plural = _('source groups')
+        permissions = (
+            ('view_sourcegroup',
+             'Permission to view a source group'),
+        )
 
     def __str__(self):
         return self.name
@@ -237,6 +241,10 @@ class Source(TimestampedModel):
         null=True, blank=True, related_name='sources', related_query_name='source')
 
     class Meta:
+        permissions = (
+            ('view_source',
+             'Permission to view a source'),
+        )
         unique_together = ('provider', 'manufacturer_id')
 
     def __str__(self):
@@ -387,7 +395,9 @@ class Observation(models.Model):
         return '{}:{}:{:08b}'.format(self.recorded_at.isoformat(), self.location, self.exclusion_flags.mask)
 
     class Meta:
-        unique_together = [('source', 'recorded_at')]
+        unique_together = (
+            ['source', 'recorded_at']
+        )
         ordering = ['-recorded_at']
 
 
@@ -666,6 +676,10 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
     class Meta:
         verbose_name = _('subject group')
         verbose_name_plural = _('subject groups')
+        permissions = (
+            ('view_subjectgroup',
+             'Permission to view a subject group'),
+        )
 
     def __str__(self):
         return self.name
@@ -853,6 +867,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
              'Permission to view the last reported position of a Subject only.'),
             ('view_real_time', 'Access to real-time observations.'),
             ('view_delayed', 'Access to a 24 hour delayed observation feed. No real-time or last reported position.'),
+            ('view_subject', 'Permission to view subject information excluding location'),
             ('subscribe_alerts', 'Permission to subscribe to an alert on this Subject.'),
             ('change_alerts', 'Permission to configure alerts for subject, includes setting geofences, proximity and immobility settings.'),
             ('change_view', 'An admin permission to change which users can view a Subject and their view permission.'),
@@ -1413,7 +1428,7 @@ class SocketClient(TimestampedModel):
         'Das username associated with session', max_length=30)
     bbox = models.MultiPolygonField(
         'Viewport bounding box.', null=True, blank=True)
-    event_filter = JSONField('Event filter', default=dict)
+    event_filter = JSONField('Event filter', default={})
 
 
 import observations.signals

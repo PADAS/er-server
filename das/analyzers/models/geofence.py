@@ -53,5 +53,7 @@ class GeofenceAnalyzerConfig(SubjectAnalyzerConfig):
 
     class Meta(SubjectAnalyzerConfig.Meta):
         abstract = False
+        permissions = (('view_geofenceanalyzerconfig',
+                        'Can view Geofence Analyzer configurations'),)
         verbose_name = _('Geofence Analyzer')
         verbose_name_plural = _('Geofence Analyzers')

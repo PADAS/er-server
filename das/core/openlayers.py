@@ -1,7 +1,7 @@
 import logging
 from django.utils import translation
 from django.contrib.gis import admin
-from django.templatetags.static import static
+from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.contrib.gis.admin.widgets import OpenLayersWidget
 from django.db.models import F
 import json
