@@ -44,6 +44,7 @@ from .models import SOURCE_TYPES
 from observations.daterange_filter import DateRangeFilter
 from bitfield import BitField
 from bitfield.forms import BitFieldCheckboxSelectMultiple
+from observations.forms import ObservationForm
 
 site_title = _('DAS Administration (advanced view)')
 admin.site.site_title = site_title
@@ -277,12 +278,11 @@ class LargeTablePaginator(Paginator):
 
     count = cached_property(_get_count)
 
-from observations.custom_widget import OForm
 @admin.register(models.Observation)
 class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin):
-    form = OForm
+    form = ObservationForm
     readonly_fields = ("created_at", "id")
-    fields = ("id", "recorded_at", "created_at", "Coordinate",
+    fields = ("id", "recorded_at", "created_at", "Point_Coordinate",
               "location", "exclusion_flags", "source", "additional")
     list_display = ('subject_link', '_manufacturer_id', '_recorded_at', '_created_at',
                     '_longitude', '_latitude', '_state', '_event_action', 'exclusion_flags')

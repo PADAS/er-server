@@ -7,10 +7,15 @@ p.latlon{
     line-height: 20px;
     color: #666;
 }
-#id_Coordinate_0{
+#id_Point_Coordinate_0{
     margin-bottom: 6px;
     min-width: 0;
-    margin-left: 10px;
-    /*margin-bottom: 4px;*/
+    margin-left: 4px;
+    color: #333;
+}
+
+#id_Point_Coordinate_1{
+    min-width: 0;
+    margin-left: 16px;
     color: #333;
 }
