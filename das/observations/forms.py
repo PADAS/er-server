@@ -309,10 +309,13 @@ class SetRandomColorForm(ActionForm):
 #
 
 class ObservationForm(forms.ModelForm):
+    empty_string = ''
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['Point_Coordinate'].initial = self.instance.location
+        self.fields['location'].default_error_messages['null'] = "This field cannot be null. Either prepopulate 'Point " \
+                                                                 "coordinate' or this field. "
 
     Point_Coordinate = CoordinateField(required=False)
 
@@ -326,7 +329,7 @@ class ObservationForm(forms.ModelForm):
         name_field = 'Point_Coordinate'
         field = fields.get(name_field)
         value = field.widget.value_from_datadict(self.data, self.files, self.add_prefix(name_field))
-        if data.get('location') == '' and value:
+        if data.get('location') == self.empty_string and self.empty_string not in value:
             return field.clean(value)
 
     def _clean_fields(self):
@@ -343,7 +346,7 @@ class ObservationForm(forms.ModelForm):
                     initial = self.get_initial_for_field(field, name)
                     value = field.clean(value, initial)
                 else:
-                    if name == 'location' and value == '':
+                    if name == 'location' and value == self.empty_string:
                         value = self._correlate_field(self.data, self.fields)
                     else:
                         value = field.clean(value)

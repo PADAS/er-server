@@ -2,10 +2,24 @@ from datetime import datetime, timedelta
 
 from pytz import UTC
 from django.test import TestCase
+
+from observations.forms import ObservationForm
 from observations.models import Observation, SubjectSource, SubjectStatus
 from django.contrib.gis.geos import Point
 from observations.serializers import ObservationSerializer
 import random
+
+
+def data_observation_form():
+    observation_form = ObservationForm
+
+    source_id = '56b1cf14-ef97-4054-8fbd-1342f265b2a9'
+    observation_time = UTC.localize(datetime.now())
+    fixed_latitude = float(random.randint(3000, 3000)) / 100
+    fixed_longitude = float(random.randint(2800, 4000)) / 100
+    return observation_form, source_id, observation_time, fixed_latitude, fixed_longitude
+
+
 class ObservationTestCase(TestCase):
 
     fixtures = [
@@ -97,5 +111,36 @@ class ObservationTestCase(TestCase):
         self.assertEqual((subject_status.location.x, subject_status.location.y), (fixed_longitude, \
                                                                                     fixed_latitude))
 
+    def test_convert_point_coordinates_wkt_format(self):
+        observation_form, source_id, observation_time, fixed_latitude, fixed_longitude = data_observation_form()
+        form_data = {
+            'Point_Coordinate_0': str(fixed_longitude),
+            'Point_Coordinate_1': str(fixed_latitude),
+            'recorded_at': observation_time,
+            'source': source_id,
+            'additional': {}
+        }
+        form_ = observation_form(data=form_data)
+        form_.full_clean()
+        expected = 'SRID={0};POINT({1} {2})'.format('4326', fixed_longitude, fixed_latitude)
+        self.assertTrue(form_.cleaned_data['Point_Coordinate'], expected)
 
+    def test_give_more_location_than_point_coordinate(self):
+        """When both field is populated, give priority to location(save)"""
 
+        observation_form, source_id, observation_time, fixed_latitude, fixed_longitude = data_observation_form()
+        long, lat = (34.56, -1.88)
+
+        form_data = {
+            'Point_Coordinate_0': str(fixed_longitude),
+            'Point_Coordinate_1': str(fixed_latitude),
+            'location': 'SRID={0};POINT({1} {2})'.format('4326', long, lat),
+            'recorded_at': observation_time,
+            'source': source_id,
+            'additional': {}
+        }
+        form_ = observation_form(data=form_data)
+        form_.full_clean()
+        obj = form_.instance.location
+        self.assertTrue(obj.x, long)
+        self.assertTrue(obj.y, lat)
