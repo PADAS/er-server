@@ -8,7 +8,7 @@
 			"name": "Mapbox Satellite Map",
 			"attributes": {
 				"url": "https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.png?",
-				"type": "mapbox_tiles",
+				"type": "tile_server",
 				"title": "Mapbox Satellite Map",
 				"configuration": {
 					"accessToken": "pk.eyJ1IjoidmpvZWxtIiwiYSI6ImNpZ3RzNXdmeDA4cm90N2tuZzhsd3duZm0ifQ.YcHUz9BmCk2oVOsL48VgVQ"
@@ -23,14 +23,11 @@
 		"fields": {
 			"created_at": "2018-11-19T21:04:11.113Z",
 			"updated_at": "2018-11-19T21:04:11.113Z",
-			"name": "Google Satellite",
+			"name": "Google Satellite Map",
 			"attributes": {
 				"url": "https://mt.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
-				"type": "google_map",
-				"title": "Google Satellite",
-				"configuration": {
-					"accessToken": "AIzaSyArYgAAi9immeQFbEO2_6dRgc7hCSLaOIo"
-				}
+				"type": "tile_server",
+				"title": "Google Satellite"
 			},
 			"ordernum": null
 		}
