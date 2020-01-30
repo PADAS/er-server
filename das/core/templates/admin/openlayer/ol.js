@@ -29,10 +29,6 @@ var {{ module }} = {};
 {% endblock %}
 
 
-if('{{ geom_type }}' != "Point"){
-    var el = document.getElementById('latlon_cls');
-    el.style.display = 'none';
-};
 
 
 {{ module }}.get_ewkt = function(feat){
@@ -331,6 +327,8 @@ var delet = function (className){
         if (result){
             source.clear();
             document.getElementById('{{ id }}').value = '';
+            document.getElementById('id_coordinate_0').value = '';
+            document.getElementById('id_coordinate_1').value = '';
         }
     };
 
@@ -368,6 +366,10 @@ if ("{{ geom_type }}" == "MultiPolygon" || "{{ geom_type }}" == "MultiPoint" || 
 //     map.getTargetElement().style.cursor = hit ? 'pointer': '';
 // });
 
+if ('{{ geom_type }}' != "Point") {
+    var el = document.getElementById('latlon_cls');
+    el.style.display = 'none';
+};
 
 var button_baselayer = document.createElement('button');
 button_baselayer.innerHTML = '<img class="img_1" id="bl" src="https://img.icons8.com/ios-glyphs/30/ffffff/layers.png">';
