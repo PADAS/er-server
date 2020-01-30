@@ -7,7 +7,6 @@ from django import forms
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
 
-
 from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
 from choices.models import Choice

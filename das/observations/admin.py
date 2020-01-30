@@ -276,6 +276,7 @@ class LargeTablePaginator(Paginator):
         return self._count if self._count is not None else super().count
 
     count = cached_property(_get_count)
+
     
 @admin.register(models.Observation)
 class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin):

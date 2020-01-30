@@ -2,8 +2,6 @@ from datetime import datetime, timedelta
 
 from pytz import UTC
 from django.test import TestCase
-
-from observations.forms import ObservationForm
 from observations.models import Observation, SubjectSource, SubjectStatus
 from django.contrib.gis.geos import Point
 from observations.serializers import ObservationSerializer
