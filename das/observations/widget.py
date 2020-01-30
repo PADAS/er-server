@@ -55,7 +55,19 @@ class CoordinateField(forms.MultiValueField):
         fields = (forms.CharField(), forms.CharField())
         super().__init__(fields, *args, **kwargs)
 
+    @staticmethod
+    def _validate(data_list):
+        empty_string = ''
+        for i in data_list:
+            if i != empty_string:
+                try:
+                    float(i)
+                except ValueError:
+                    raise forms.ValidationError("Invalid Coordinate.")
+        return data_list
+
     def compress(self, data_list):
+        data_list = self._validate(data_list)
         if data_list:
             fmt = 'SRID={0};POINT({1} {2})'
             long, lat = data_list[0], data_list[1]
