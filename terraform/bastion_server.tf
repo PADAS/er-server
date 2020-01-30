@@ -91,7 +91,9 @@ resource "google_compute_instance" "bastion_server" {
       user        = local.bastion_server_user
     }
 
-    script = "${path.root}/bastion_server_scripts/docker_install.sh"
+    scripts = ["${path.root}/bastion_server_scripts/docker_install.sh",
+      "${path.root}/bastion_server_scripts/store_database_credentials.sh '${google_sql_database.database.name}_migrator' '${data.vault_generic_secret.secret_manager_key.data["value"]}' '${random_password.migrations_user_pass.result}' "
+    ]
 
   }
 
