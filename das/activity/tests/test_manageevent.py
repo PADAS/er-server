@@ -89,8 +89,6 @@ class TestManageEvent(TestCase):
         call_command('loaddata', 'event_data_model')
         call_command('loaddata', 'test_events_schema')
 
-        self.event_type_count = EventType.objects.count()
-
         self.sample_event = self.create_event(self.event_data)
         Color.objects.bulk_create(
             [Color(id=item_id, name=item) for (item_id, item) in [
@@ -98,8 +96,7 @@ class TestManageEvent(TestCase):
                 ("b97b6d03-f669-4a1a-9024-479fa973c711", "White")]])
         self.schema = "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"EventType Data\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n           \"post\": {\r\n               \"type\":\"string\",\r\n               \"title\": \"Line 1: Post\",\r\n               \"enum\": {{table___color___values}},\r\n               \"enumNames\": {{table___color___names}}\r\n           }\r\n       }\r\n   },\r\n \"definition\": [\r\n  \"post\"\r\n ]\r\n}"
 
-        self.event_type = EventType.objects.get(
-            id="74941f0d-4b89-48be-a62a-a74c78db8383")
+        self.event_type = EventType.objects.get(id="74941f0d-4b89-48be-a62a-a74c78db8383")
         self.event_type.schema = self.schema
         self.event_type.save()
 
@@ -171,18 +168,14 @@ class TestManageEvent(TestCase):
         command_under_test.perform_migration_on_records(migration_doc)
 
     def test_rendered_schema_display_values_after_migration(self):
-        pre_schema_properties = schema_utils.get_rendered_schema(self.schema)[
-            "properties"]
+        pre_schema_properties = schema_utils.get_rendered_schema(self.schema)["properties"]
         # perform migration
         self.perform_migration()
         ev_type = EventType.objects.get(id=self.event_type.id)
-        post_schema_properties = \
-            schema_utils.get_rendered_schema(ev_type.schema)["properties"]
+        post_schema_properties = schema_utils.get_rendered_schema(ev_type.schema)["properties"]
 
         # Check display values on rendered schema
-        self.assertEqual(
-            list(pre_schema_properties["post"]["enumNames"].values()),
-            list(post_schema_properties["post"]["enumNames"].values()))
+        self.assertEqual(list(pre_schema_properties["post"]["enumNames"].values()), list(post_schema_properties["post"]["enumNames"].values()))
 
     def test_event_details_after_migration(self):
         # Add event details update to migration doc
@@ -199,7 +192,6 @@ class TestManageEvent(TestCase):
         self.perform_migration()
 
         # Event details after migration
-        event_details = self.sample_event.event_details.first().data[
-            "event_details"]
+        event_details = self.sample_event.event_details.first().data["event_details"]
 
         self.assertEqual(event_details["species"], "fatu")
