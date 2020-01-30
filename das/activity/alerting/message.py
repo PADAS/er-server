@@ -184,11 +184,6 @@ priority_label_color_default = '#3E4349'
 def coerce_state_value(event=None, val=None):
     if event:
         val = infer_event_state(event)
-
-    # infer_event_state returns a one element list if event state is
-    # active or resolved
-    if isinstance(val, list):
-        val = val[0]
     return _('Resolved') if val == 'resolved' else _('New') if val == 'new' else _('Active')
 
 

@@ -2,6 +2,28 @@
 
 from django.db import migrations
 
+TILE_TYPE_CHOICES = [
+    {
+        "value": "google_map",
+        "display": "Google Map",
+    },
+    {
+        "value": "tile_server",
+        "display": "Tile Server",
+    },
+    {
+
+        "value": "mapbox_style",
+        "display": "Mapbox Style",
+
+    },
+    {
+        "value": "mapbox_tiles",
+        "display": "Mapbox Tiles",
+
+    },
+]
+
 primary_keys = {
     "DAS_Terrain": "5b480df1-dea2-4536-9a3f-03ce5b825abe",
     "Google_Satellite": "d57ea783-dbf6-4e2f-aa35-89d24b9ed30a",
@@ -18,7 +40,23 @@ Mapbox_satellite_conf = {
     }
 }
 
-google_satellit_url = "https://mt.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+Google_satellite_conf = {
+    "url": "https://mt.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+    "type": "tile_server",
+    "title": "Google Satellite"
+}
+
+
+def create_tile_type_choice(app_registry, db_alias, value, display):
+    Choice = app_registry.get_model('choices', 'Choice')
+    model = "mapping.TileLayer"
+    field = "service_type"
+    choice, created = Choice.objects.using(db_alias).get_or_create(
+        model=model,
+        field=field,
+        value=value,
+        defaults=dict(display=display)
+    )
 
 
 def update_existing_tilelayer_conf(app_registry, schema_editor):
@@ -26,6 +64,11 @@ def update_existing_tilelayer_conf(app_registry, schema_editor):
     tile_layer = app_registry.get_model('mapping', 'TileLayer')
     db_alias = schema_editor.connection.alias
     required_args = (tile_layer, db_alias)
+
+    # Add tile service choices
+    for service in TILE_TYPE_CHOICES:
+        create_tile_type_choice(app_registry, db_alias,
+                                service['value'], service['display'])
 
     # Remove DAS-Terrain map
     das_terrain_pk = primary_keys.get('DAS_Terrain')
@@ -38,12 +81,13 @@ def update_existing_tilelayer_conf(app_registry, schema_editor):
     status, qs = check_object_exist(google_sat_pk, *required_args)
     if status:
         try:
-            google_sat_qs = tile_layer.objects.using(db_alias).get(pk=google_sat_pk, attributes__url__isnull=True)
+            google_sat_qs = tile_layer.objects.using(db_alias).get(
+                pk=google_sat_pk, attributes__url__isnull=True)
         except tile_layer.DoesNotExist:
-            qs.attributes['url'] = google_satellit_url
+            qs.attributes = Google_satellite_conf
             qs.save()
         else:
-            google_sat_qs.attributes['url'] = google_satellit_url
+            google_sat_qs.attributes = Google_satellite_conf
             google_sat_qs.save()
 
     # Update Mapbox Satellite Map to use conf
@@ -58,7 +102,7 @@ def check_object_exist(pk, model, db_alias):
     try:
         queryset = model.objects.using(db_alias).get(pk=pk)
     except model.DoesNotExist:
-        return False, 0
+        return False, None
     return True, queryset
 
 

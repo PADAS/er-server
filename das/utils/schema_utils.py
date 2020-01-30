@@ -62,7 +62,7 @@ def _get_dynamic_choices(field_details):
         choice_criteria = json.loads(dynamic_choice.criteria)
     except json.decoder.JSONDecodeError as jde:
         logger.exception('Error decoding criteria for dynamic choice %s. Criteria is: %s', str(dynamic_choice.id),
-                         dynamic_choice.criteria)
+            dynamic_choice.criteria)
         return []
 
     model_to_filter = apps.get_model(dynamic_choice.model_name)
@@ -85,9 +85,11 @@ def _get_dynamic_choices(field_details):
 
 
 def get_enum_choices(field_details, as_string=True):
-
     options = OrderedDict()
-    for choice in Choice.objects.filter(model='activity.event', field=field_details['field']).extra(select={'lower_name': 'lower(display)'}).order_by('ordernum', 'lower_name'):
+    for choice in Choice.objects.filter(model='activity.event',
+                                        field=field_details['field']).extra(
+        select={'lower_name': 'lower(display)'}).order_by('ordernum',
+                                                          'lower_name'):
         options[choice.value] = choice.display
 
     if field_details['type'] == 'names':
@@ -169,13 +171,13 @@ def get_schema_renderer_method():
         for schema_field in schema_fields:
             if schema_field['lookup'] == 'enum':
                 parameters[schema_field['tag']
-                           ] = memo_enum_choices('{field}:{type}'.format(**schema_field))
+                ] = memo_enum_choices('{field}:{type}'.format(**schema_field))
             elif schema_field['lookup'] == 'query':
                 parameters[schema_field['tag']
                            ] = memo_dynamic_choices('{field}:{type}'.format(**schema_field))
             elif schema_field['lookup'] == 'table':
                 parameters[schema_field['tag']
-                           ] = memo_table_choices('{field}:{type}'.format(**schema_field))
+                ] = memo_table_choices('{field}:{type}'.format(**schema_field))
         if parameters:
             template = Template(schema)
             rendered_template = template.render(
@@ -305,7 +307,7 @@ def flatten_definition_items(definition: list = list):
 
         if isinstance(elem, dict):
             if elem.get('type', None) == 'fieldset' \
-                    and 'items' in elem:
+                and 'items' in elem:
                 yield from flatten_definition_items(elem['items'])
             else:
                 yield elem
@@ -431,7 +433,7 @@ def find_display_value_for_key_in_definition(schema, key):
     return None
 
 
-def get_display_value_header_for_key(schema, key):
+def get_column_header_name(schema, key):
     '''
     Prefer the title from:
     1. the form definition
@@ -452,6 +454,26 @@ def get_display_value_header_for_key(schema, key):
             return properties[key]['title']
 
     return format_key_for_title(key)
+
+
+def get_display_value_header_for_key(schema, key):
+    '''
+    If the title from the form definition is not the same as the
+    title from the schema properties, use the schema properties
+    title.
+    :param schema: An EventType.schema  as a dict
+    :param key: The document property key
+    :return: A title
+    '''
+    definition_header = find_display_value_for_key_in_definition(schema, key)
+    properties_title = ""
+    properties = schema['schema']['properties']
+    if key in properties and 'title' in properties[key]:
+        properties_title = properties[key]['title']
+    if properties_title and definition_header != properties_title:
+        return properties_title
+    else:
+        return definition_header
 
 
 def generate_schema_from_document(doc):
@@ -554,7 +576,6 @@ def validate_rendered_schema_is_wellformed(rendered_schema: dict):
 
 
 def map_schema(schema, load_schema):
-
     lookups = []
     keys = load_schema['schema']['properties'].keys()
     for key in keys:
