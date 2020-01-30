@@ -6,6 +6,11 @@ YELLOW='\e[33m'
 GREEN='\e[92m'
 NC='\e[0m'
 
+
+MIGRATOR=$1
+GCLOUD_SERVICE_KEY=$2
+MIGRATOR_PASS=$3
+
 info() {
     printf "\n${BOLD}${BLUE}====> $(echo $@) ${NC}\n"
 }
