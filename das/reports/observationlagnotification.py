@@ -59,13 +59,13 @@ def get_provider_lag_alert_config(provider_key):
 def check_source_provider_lag_exceeded(provider_lag_check_data, provider_lag_config):
     threshold = provider_lag_config.get('lag_notification_threshold', None)
 
-    if any( [threshold is None, len(threshold) == 0]):
-        return False  # TODO we don't have a configuration for this source and no default specified
+    if not isinstance(threshold, str):
+        return False
 
     # configured value is a string, lets parse to timedelta
     threshold = parse_duration(threshold)
     if provider_lag_check_data.get('avg_lag') > threshold:
-        logger.warn('Provider {0} has exceeded lag threshold of {1}, its avg lag in the last interval {2}'
+        logger.warning('Provider {0} has exceeded lag threshold of {1}, its avg lag in the last interval {2}'
                     .format(provider_lag_check_data.get('provider_name'),
                             threshold, provider_lag_check_data.get('avg_lag')))
         return True
