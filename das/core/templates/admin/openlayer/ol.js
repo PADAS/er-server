@@ -28,25 +28,24 @@ var {{ module }} = {};
     };
 {% endblock %}
 
-document.getElementById('id_coordinate_0').addEventListener('keyup', function(event){
-    x = document.getElementById('id_coordinate_0').value
-    y =document.getElementById('id_coordinate_1').value
-    console.log(x, y)
-    document.getElementById('{{ id }}').value = `SRID=4326;POINT(${x} ${y})`
+// document.getElementById('id_coordinate_0').addEventListener('keyup', function(event){
+//     x = document.getElementById('id_coordinate_0').value
+//     y =document.getElementById('id_coordinate_1').value
+//     document.getElementById('{{ id }}').value = `SRID=4326;POINT(${x} ${y})`
 
-}, false)
+// }, false)
 
-document.getElementById('id_coordinate_1').addEventListener('keyup', function (event) {
-    x = document.getElementById('id_coordinate_0').value
-    y = document.getElementById('id_coordinate_1').value
-    document.getElementById('{{ id }}').value = `SRID=4326;POINT(${x} ${y})`
+// document.getElementById('id_coordinate_1').addEventListener('keyup', function (event) {
+//     x = document.getElementById('id_coordinate_0').value
+//     y = document.getElementById('id_coordinate_1').value
+//     document.getElementById('{{ id }}').value = `SRID=4326;POINT(${x} ${y})`
 
-}, false)
+// }, false)
 
-if('{{ geom_type }}' != "Point"){
-    var el = document.getElementById('latlon_cls');
-    el.style.display = 'none';
-};
+// if('{{ geom_type }}' != "Point"){
+//     var el = document.getElementById('latlon_cls');
+//     el.style.display = 'none';
+// };
 
 
 {{ module }}.get_ewkt = function(feat){
@@ -54,15 +53,13 @@ if('{{ geom_type }}' != "Point"){
 };
 
 var write_wkt = function(feat) {
-    // console.log(feat.getGeometry().getCoordinates()[0])
     if ("{{ geom_type }}" == "Point"){
-    var x = document.getElementById('id_coordinate_0').value =feat.getGeometry().getCoordinates()[0]
-    var y = document.getElementById('id_coordinate_1').value =feat.getGeometry().getCoordinates()[1]
-    document.getElementById('{{ id }}').value = `SRID=4326;POINT(${x} ${y})`
+    var x = document.getElementById('id_coordinate_0').value =feat.getGeometry().getCoordinates()[0];
+    var y = document.getElementById('id_coordinate_1').value =feat.getGeometry().getCoordinates()[1];
+    document.getElementById('{{ id }}').value = `SRID={{ srid|unlocalize }};POINT(${x} ${y})`;
     }else{
     document.getElementById('{{ id }}').value = {{ module }}.get_ewkt(feat);
-    }
-
+    };
 };
 
 var add_wkt = function (event){
@@ -141,7 +138,15 @@ var modify_wkt = function(event) {
     }
 };
 
+var ChangeCoordinate = function(event){
+    event.preventDefault()
+    var x = document.getElementById('id_coordinate_0').value;
+    var y = document.getElementById('id_coordinate_1').value;
+    document.getElementById('{{ id }}').value = `SRID={{ srid|unlocalize }};POINT(${x} ${y})`;
+};
 
+document.getElementById('id_coordinate_0').addEventListener('keyup',  ChangeCoordinate, false)
+document.getElementById('id_coordinate_1').addEventListener('keyup', ChangeCoordinate, false)
 
 
 var CreateTileLayer = function(){

@@ -24,7 +24,6 @@
     {% if display_wkt %}<p style="color: #777;">{% trans "WKT debugging window:" %} (<span><a class="click-toggle" href="javascript:{{ module }}.showHideWKT()">Show</a></span>) </p>{% endif %}
     <textarea id="{{ id }}" class="vWKTField required" cols="150" rows="10" name="{{ name }}" style="display: none;">{{ wkt }}</textarea>
     <div id="latlon_cls">
-        <!-- <label for="id_Point_Coordinate_0">Point coordinate:</label> -->
         <p class="lat_lon">
             Longitude:
             <input type="text" name="coordinate_0" size="25" id="id_coordinate_0">
