@@ -28,13 +28,41 @@ var {{ module }} = {};
     };
 {% endblock %}
 
+document.getElementById('id_coordinate_0').addEventListener('keyup', function(event){
+    x = document.getElementById('id_coordinate_0').value
+    y =document.getElementById('id_coordinate_1').value
+    console.log(x, y)
+    document.getElementById('{{ id }}').value = `SRID=4326;POINT(${x} ${y})`
+
+}, false)
+
+document.getElementById('id_coordinate_1').addEventListener('keyup', function (event) {
+    x = document.getElementById('id_coordinate_0').value
+    y = document.getElementById('id_coordinate_1').value
+    document.getElementById('{{ id }}').value = `SRID=4326;POINT(${x} ${y})`
+
+}, false)
+
+if('{{ geom_type }}' != "Point"){
+    var el = document.getElementById('latlon_cls');
+    el.style.display = 'none';
+};
+
 
 {{ module }}.get_ewkt = function(feat){
     return 'SRID={{ srid|unlocalize }};' + {{ module }}.wkt_f.writeFeature(feat);
 };
 
 var write_wkt = function(feat) {
+    // console.log(feat.getGeometry().getCoordinates()[0])
+    if ("{{ geom_type }}" == "Point"){
+    var x = document.getElementById('id_coordinate_0').value =feat.getGeometry().getCoordinates()[0]
+    var y = document.getElementById('id_coordinate_1').value =feat.getGeometry().getCoordinates()[1]
+    document.getElementById('{{ id }}').value = `SRID=4326;POINT(${x} ${y})`
+    }else{
     document.getElementById('{{ id }}').value = {{ module }}.get_ewkt(feat);
+    }
+
 };
 
 var add_wkt = function (event){

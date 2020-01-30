@@ -280,9 +280,9 @@ class LargeTablePaginator(Paginator):
 
 @admin.register(models.Observation)
 class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin):
-    form = ObservationForm
+    # form = ObservationForm
     readonly_fields = ("created_at", "id")
-    fields = ("id", "recorded_at", "created_at", "Point_Coordinate",
+    fields = ("id", "recorded_at", "created_at",
               "location", "exclusion_flags", "source", "additional")
     list_display = ('subject_link', '_manufacturer_id', '_recorded_at', '_created_at',
                     '_longitude', '_latitude', '_state', '_event_action', 'exclusion_flags')
