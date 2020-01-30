@@ -12,7 +12,6 @@ from observations.models import Subject, Source, SubjectGroup, SubjectSource, Su
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
 from choices.models import Choice
 from core.common import TIMEZONE_USED
-# from observations.widget import CoordinateField
 
 import logging
 logger = logging.getLogger(__name__)
@@ -297,4 +296,11 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
 class SetRandomColorForm(ActionForm):
     pass
 
-
+# from django.contrib.gis import forms as gisforms
+# class SubjectStatusForm(forms.ModelForm):
+#     w = gisforms.OSMWidget(attrs={'default_zoom': 10})
+#     location = gisforms.PointField(srid=4326, widget=w,)
+#
+#     def save(self, commit=True):
+#         return super().save(commit=commit)
+#

@@ -8,9 +8,6 @@ from observations.models import Observation, SubjectSource, SubjectStatus
 from django.contrib.gis.geos import Point
 from observations.serializers import ObservationSerializer
 import random
-
-
-
 class ObservationTestCase(TestCase):
 
     fixtures = [
