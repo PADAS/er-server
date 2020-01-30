@@ -34,7 +34,9 @@ resource "google_sql_database" "database" {
       "((sudo docker run --rm --interactive --env=PGSSLMODE=require --env=PGPASSWORD=${data.vault_generic_secret.db_password.data["value"]} --mount=type=bind,source=$PWD/postgres_bootstrapping.sql,destination=/tmp/postgres_bootstrapping.sql,readonly postgres:9.6 psql --host=${data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_private_ip} --username=postgres --dbname=${google_sql_database.database.name} --file=/tmp/postgres_bootstrapping.sql --variable=db_owner=${google_sql_database.database.name} --variable=db_passwd=${data.vault_generic_secret.db_password.data["value"]} --variable=db_name=${google_sql_database.database.name} --variable=migrator='${google_sql_database.database.name}_migrator' --variable=migrator_pass=${random_password.migrations_user_pass.result} --variable=app_user='${google_sql_database.database.name}_app' --variable=app_user_pass=${random_password.apps_user_pass.result}  --variable=analytics_user='${google_sql_database.database.name}_analytics' --variable=analytics_user_pass=${random_password.analytics_user_pass.result}  --single-transaction --variable=ON_ERROR_STOP=1) && sudo rm -rf /tmp/terraform* && exit 0) || (sudo rm -rf /tmp/terraform* && exit 1)",
       "export MIGRATOR='${google_sql_database.database.name}_migrator'",
       "export GCLOUD_SERVICE_KEY=${data.vault_generic_secret.secret_manager_key.data["value"]}",
-      "export MIGRATOR_PASS=${random_password.migrations_user_pass.result}"
+      "export MIGRATOR_PASS=${random_password.migrations_user_pass.result}",
+      "chmod +x $PWD/store_database_credentials.sh",
+      "/bin/bash $PWD/store_database_credentials.sh"
     ]
   }
 }
