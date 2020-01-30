@@ -32,53 +32,59 @@ is_success() {
     if [ "$?" == "0" ]; then success $@; fi
 }
 
-# require "variable name" "value"
-require() {
-    if [ -z ${2+x} ]; then error "Required variable ${1} has not been set"; fi
+installGoogleCloudSdk() {
+    info "Installing google cloud sdk"
+    echo "deb http://packages.cloud.google.com/apt cloud-sdk-jessie main" | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
+    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+    sudo apt-get update && sudo apt-get install google-cloud-sdk
+    is_success "Gcloud has been installed successfully"
 }
 
-activate_google_sdk() {
-    info "Activating Google Cloud  sdk"
-    gcloud auth activate-service-account secret-manager-key@earthranger-78ca55ca.iam.gserviceaccount.com --key-file=/tmp/secret_manager_key.json --project=earthranger-78ca55ca
-    is_success "The Gcloud SDK has successfully been activated"
+authWithServiceAccount() {
+    require 'GCLOUD_SERVICE_KEY' $GCLOUD_SERVICE_KEY
+    echo $GCLOUD_SERVICE_KEY | base64 --decode > secrets_service_key.json
+    gcloud auth activate-service-account --key-file secrets_service_key.json
+    is_success "Service account activated successfuly"
 }
 
 store_migrator_secret() {
-    if [[ $(gcloud beta secrets list --format text | grep "$migrator") = *migrator* ]]; then
+    if [[ $(gcloud --quiet beta secrets list --format text | grep "$MIGRATOR") = *migrator* ]]; then
         # Next: Compare stored pass and new pass if != make new version of password
         info "Compare migrator role stored passoword and new password"
-        (echo -n "$migrator_pass" | gcloud beta secrets versions add "$migrator" --data-file=-)
+        (echo -n "$MIGRATOR_PASS" | gcloudm--quiet beta secrets versions add "$MIGRATOR" --data-file=-)
     else
         info "Create database migrator role password"
-        (echo -n "$migrator_pass" | gcloud beta secrets create $migrator --data-file=- --replication-policy=automatic)
+        (echo -n "$MIGRATOR_PASS" | gcloud --quiet beta secrets create $MIGRATOR --data-file=- --replication-policy=automatic)
     fi
 }
-store_app_secret() {
-    if [[ $(gcloud beta secrets list --format text | grep "$app_user") = *app* ]]; then
-        # Next: Compare stored pass and new pass if != make new version of password
-        info "Update database app role password"
-        (echo -n "$app_user_pass" | gcloud beta secrets versions add "$app_user" --data-file=-)
-    else
-        info "Add database app role password"
-        (echo -n "$app_user_pass" | gcloud beta secrets create "$app_user" --data-file=- --replication-policy=automatic)
-    fi
-}
-store_analytics_secret() {
-    if [[ $(gcloud beta secrets list --format text | grep "$analytics_user") = *analytics* ]]; then
-        # Next: Compare stored pass and new pass if != make new version of password
-        info "Update database analytics role password"
-        (echo -n "$analytics_user_pass" | gcloud beta secrets versions add "$analytics_user" --data-file=-)
-    else
-        info "Create database analytics role password"
-        (echo -n "$analytics_user_pass" | gcloud beta secrets create "$analytics_user" --data-file=- --replication-policy=automatic)
-    fi
-}
+# store_app_secret() {
+#     if [[ $(gcloud beta secrets list --format text | grep "$app_user") = *app* ]]; then
+#         # Next: Compare stored pass and new pass if != make new version of password
+#         info "Update database app role password"
+#         (echo -n "$app_user_pass" | gcloud beta secrets versions add "$app_user" --data-file=-)
+#     else
+#         info "Add database app role password"
+#         (echo -n "$app_user_pass" | gcloud beta secrets create "$app_user" --data-file=- --replication-policy=automatic)
+#     fi
+# }
+# store_analytics_secret() {
+#     if [[ $(gcloud beta secrets list --format text | grep "$analytics_user") = *analytics* ]]; then
+#         # Next: Compare stored pass and new pass if != make new version of password
+#         info "Update database analytics role password"
+#         (echo -n "$analytics_user_pass" | gcloud beta secrets versions add "$analytics_user" --data-file=-)
+#     else
+#         info "Create database analytics role password"
+#         (echo -n "$analytics_user_pass" | gcloud beta secrets create "$analytics_user" --data-file=- --replication-policy=automatic)
+#     fi
+# }
 
 main() {
-    activate_google_sdk
+    installGoogleCloudSdk
+    authWithServiceAccount
+    # activate_google_sdk
     store_migrator_secret
-    store_app_secret
-    store_analytics_secret
+    # store_app_secret
+    # store_analytics_secret
 }
 
 main
