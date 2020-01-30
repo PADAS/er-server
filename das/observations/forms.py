@@ -6,11 +6,9 @@ from django.utils.dateparse import parse_duration
 from django import forms
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
-from django.core.exceptions import ValidationError
 
 
-from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider, \
-    Observation
+from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
 from choices.models import Choice
 from core.common import TIMEZONE_USED
@@ -299,60 +297,4 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
 class SetRandomColorForm(ActionForm):
     pass
 
-# from django.contrib.gis import forms as gisforms
-# class SubjectStatusForm(forms.ModelForm):
-#     w = gisforms.OSMWidget(attrs={'default_zoom': 10})
-#     location = gisforms.PointField(srid=4326, widget=w,)
-#
-#     def save(self, commit=True):
-#         return super().save(commit=commit)
-#
 
-# class ObservationForm(forms.ModelForm):
-#     empty_string = ''
-
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         self.fields['Point_Coordinate'].initial = self.instance.location
-#         self.fields['location'].default_error_messages['null'] = "This field cannot be null. Either prepopulate 'Point " \
-#                                                                  "coordinate' or this field. "
-
-#     Point_Coordinate = CoordinateField(required=False)
-
-#     class Meta:
-#         model = Observation
-#         fields = "__all__"
-
-#     def _correlate_field(self, data, fields):
-#         # Forms a correlation between two fields: location and point_coordinate.
-#         # Gets to update location point when not defined (Uses point_coordinate if present).
-#         name_field = 'Point_Coordinate'
-#         field = fields.get(name_field)
-#         value = field.widget.value_from_datadict(self.data, self.files, self.add_prefix(name_field))
-#         if data.get('location') == self.empty_string and self.empty_string not in value:
-#             return field.clean(value)
-
-#     def _clean_fields(self):
-#         for name, field in self.fields.items():
-#             # value_from_datadict() gets the data from the data dictionaries.
-#             # Each widget type knows how to retrieve its own data, because some
-#             # widgets split data over several HTML fields.
-#             if field.disabled:
-#                 value = self.get_initial_for_field(field, name)
-#             else:
-#                 value = field.widget.value_from_datadict(self.data, self.files, self.add_prefix(name))
-#             try:
-#                 if isinstance(field, forms.FileField):
-#                     initial = self.get_initial_for_field(field, name)
-#                     value = field.clean(value, initial)
-#                 else:
-#                     if name == 'location' and value == self.empty_string:
-#                         value = self._correlate_field(self.data, self.fields)
-#                     else:
-#                         value = field.clean(value)
-#                 self.cleaned_data[name] = value
-#                 if hasattr(self, 'clean_%s' % name):
-#                     value = getattr(self, 'clean_%s' % name)()
-#                     self.cleaned_data[name] = value
-#             except ValidationError as e:
-#                 self.add_error(name, e)
