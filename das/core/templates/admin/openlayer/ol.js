@@ -28,19 +28,6 @@ var {{ module }} = {};
     };
 {% endblock %}
 
-// document.getElementById('id_coordinate_0').addEventListener('keyup', function(event){
-//     x = document.getElementById('id_coordinate_0').value
-//     y =document.getElementById('id_coordinate_1').value
-//     document.getElementById('{{ id }}').value = `SRID=4326;POINT(${x} ${y})`
-
-// }, false)
-
-// document.getElementById('id_coordinate_1').addEventListener('keyup', function (event) {
-//     x = document.getElementById('id_coordinate_0').value
-//     y = document.getElementById('id_coordinate_1').value
-//     document.getElementById('{{ id }}').value = `SRID=4326;POINT(${x} ${y})`
-
-// }, false)
 
 if('{{ geom_type }}' != "Point"){
     var el = document.getElementById('latlon_cls');
