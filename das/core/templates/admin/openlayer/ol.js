@@ -42,10 +42,10 @@ var {{ module }} = {};
 
 // }, false)
 
-// if('{{ geom_type }}' != "Point"){
-//     var el = document.getElementById('latlon_cls');
-//     el.style.display = 'none';
-// };
+if('{{ geom_type }}' != "Point"){
+    var el = document.getElementById('latlon_cls');
+    el.style.display = 'none';
+};
 
 
 {{ module }}.get_ewkt = function(feat){
