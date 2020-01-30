@@ -11,6 +11,7 @@ class MockSuperUser:
     def has_perm(self, perm):
         return True
 
+
 class TestSoftDelete(BaseAPITest):
 
     def setUp(self):
@@ -19,8 +20,10 @@ class TestSoftDelete(BaseAPITest):
         self.request_factory = RequestFactory()
         self.admin = ChoiceAdmin(model=Choice, admin_site=self.site)
 
-
     def create_choices(self):
+        for choice in Choice.objects.all():
+            choice.delete()
+
         choice = Choice.objects.create(
             model='activity.eventtype',
             field='wildlifesighting_species',
@@ -37,7 +40,6 @@ class TestSoftDelete(BaseAPITest):
             display='Rhino',
         )
         choice.save()
-
 
     def test_admin_get_queryset(self):
         """Test get_querysets returns active choices"""
