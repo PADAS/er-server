@@ -1,0 +1,12 @@
+{% extends "admin/base.html" %}
+{% load i18n admin_urls admin_static admin_modify %}
+{% block content %}
+  <h1>SOme content here to show that this works</h1>
+  {{ eula.content }}
+  <form action="." method="post">
+    {% csrf_token %}
+    {{ form }}
+    <br>
+    <input type="submit" value="I agree">
+  </form>
+{% endblock content %}
