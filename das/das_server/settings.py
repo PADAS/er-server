@@ -83,7 +83,8 @@ MIDDLEWARE = (
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'oauth2_provider.middleware.OAuth2TokenMiddleware',
     'revision.middleware.RevisionMiddleware',
-    'utils.middleware.RequestLoggingMiddleware'
+    'utils.middleware.RequestLoggingMiddleware',
+    'utils.middleware.EULARedirectMiddleware'
     #'django.contrib.sites.middleware.CurrentSiteMiddleware',
 )
 

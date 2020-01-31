@@ -96,3 +96,26 @@ class RequestDataMiddleware(object):
     def process_view(self, request, view_func, view_args, view_kwargs):
         module = inspect.getmodule(view_func).__name__
         request_data.view_name = f'{module}.{view_func.__name__}'
+
+
+class EULARedirectMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+        # One-time configuration and initialization.
+
+    def __call__(self, request):
+        # Code to be executed for each request before
+        # the view (and later middleware) are called.
+
+        response = self.get_response(request)
+
+        user = request.user
+
+        if is_check_eula_path(request.path) and user.is_authenticated and not user.accepted_eula:
+            print(f"going to redirect here for path: {request.path}")
+
+        return response
+
+
+def is_check_eula_path(path):
+    return path == "/admin/"
