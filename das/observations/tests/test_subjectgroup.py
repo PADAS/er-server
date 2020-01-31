@@ -573,19 +573,23 @@ class TestSubjectGroupsVisibility(BaseAPITest):
 
 
 class TestSubjectGroupAutoCreatedViewPerm(TestCase):
+    def create_subject_group(self):
+        subject_group = SubjectGroup.objects.create(name='Elephant')
+        transaction.get_connection().run_and_clear_commit_hooks()
+        permission_set = subject_group.permission_sets.get(name=subject_group.auto_permissionset_name)
+        self.assertEqual(permission_set.name, subject_group.auto_permissionset_name)
+        return subject_group, permission_set
+
     def test_auto_created_unique_perm_view_subjectgroup(self):
         with mock.patch('django.db.backends.base.base.BaseDatabaseWrapper.validate_no_atomic_block',
                         lambda a: False):
-            subject_group = SubjectGroup.objects.create(name='Elephant')
             all_perms = {
                 'view_subjectgroup',
                 'view_real_time',
                 'view_subject',
                 'subscribe_alerts',
             }
-            transaction.get_connection().run_and_clear_commit_hooks()
-            permission_set = subject_group.permission_sets.get(name=subject_group.auto_permissionset_name)
-            self.assertEqual(permission_set.name, subject_group.auto_permissionset_name)
+            subject_group, permission_set = self.create_subject_group()
             with self.assertRaisesMessage(Exception, 'PermissionSet matching query does not exist.'):
                 subject_group.permission_sets.get(name='view elephant subjectgroup')
             perms_in_permission_set = {perm.codename for perm in permission_set.permissions.all()}
@@ -595,3 +599,10 @@ class TestSubjectGroupAutoCreatedViewPerm(TestCase):
             self.assertTrue(subject_group_has_permission_set)
             self.assertTrue(all_perms == perms_in_permission_set)
 
+    def test_view_perm_deleted_when_subject_group_is_deleted(self):
+        with mock.patch('django.db.backends.base.base.BaseDatabaseWrapper.validate_no_atomic_block',
+                            lambda a: False):
+            subject_group, permission_set = self.create_subject_group()
+            subject_group.delete()
+            permission_set = PermissionSet.objects.filter(name=subject_group.auto_permissionset_name)
+            self.assertEqual(len(permission_set), 0)

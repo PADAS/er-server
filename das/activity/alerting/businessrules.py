@@ -372,8 +372,9 @@ def infer_event_state(event):
     When state is not 'resolved', it can be coerced to 'active' if its latest revision is 'updated'.
     :return: an inferred state (one of 'new', 'active', 'resolved')
     '''
+
     if event.state in (Event.SC_RESOLVED, Event.SC_ACTIVE):
-        return [event.state, ]
+        return event.state
 
     event_revision, details_revision = resolve_event_revisions(event)
     inferred_state = Event.SC_NEW if event_revision and event_revision.action == 'added' else Event.SC_ACTIVE
