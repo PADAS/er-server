@@ -457,6 +457,36 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
                 messages.add_message(request, messages.WARNING, f'Stable Arcgis Connection. However, unknown group id: {obj.group_id} ')
         return HttpResponseRedirect(request.path_info)
 
+    def download_features_from_wfs(self, request, obj):
+        gis = GIS(None, username=obj.group.owner, password=obj.group.password)
+        group = gis.groups.get(obj.group.group_id)
+        group_members = group.content()
+        for member in group_members:
+            if member.type == "Feature Service":
+                title = member.title.replace(' ', '-')
+                file_name = None
+                try:
+                    member_geojson = member.layers[0].query().to_geojson 
+                    file_name =f'{title}.geojson'
+                    with open(file_name, 'w') as f:
+                        f.write(member_geojson)
+                        
+                except Exception:
+                    member_json = member.layers[0].query().to_json 
+                    file_name =f'{title}.json'
+                    with open(file_name, 'w') as f:
+                        f.write(member_json)
+
+        # Todo:  Call a bulk save on spatialfeaturefiles, assigning self.data to the uploaded files. This will automatically trigger creation and saving of features
+
+
+        # Todo: Delete each file downloaded above or alternatively use the file without downloading
+
+
+        # Todo: Set a celery task that will update/download features periodically
+        
+        messages.add_message(request, messages.INFO, f'Files downloaded, yet to be extracted')
+        return HttpResponseRedirect(request.path_info)
 
     def response_add(self, request, obj, post_url_continue=None):
 
@@ -465,6 +495,8 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
         if "_testconnection" in request.POST:
             self.test_connection(request, obj)
             return HttpResponseRedirect(request.path_info)
+        if "_downloadfeatures" in request.POST:
+            return self.download_features_from_wfs(request, obj)
         else:
             self.test_connection(request, obj)
             return super().response_add(request, obj, post_url_continue)
@@ -476,6 +508,8 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
         if "_testconnection" in request.POST:
             self.test_connection(request, obj)
             return HttpResponseRedirect(request.path_info)
+        elif "_downloadfeatures" in request.POST:
+            return self.download_features_from_wfs(request, obj)
         else:
             self.test_connection(request, obj)
             return super().response_change(request, obj)
