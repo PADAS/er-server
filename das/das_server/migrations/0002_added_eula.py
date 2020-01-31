@@ -21,7 +21,7 @@ class Migration(migrations.Migration):
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('version_number', models.DecimalField(decimal_places=2, default=1.0, max_digits=6, unique=True)),
+                ('version_number', models.DecimalField(decimal_places=1, default=1.0, max_digits=2, unique=True)),
                 ('content', models.TextField(blank=True, help_text="Provide users with some info about what's changed and why", null=True)),
                 ('active', models.BooleanField(default=False)),
             ],
