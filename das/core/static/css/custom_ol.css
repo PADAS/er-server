@@ -107,6 +107,7 @@ center:hover{
     min-width: 0;
     margin-left: 16px;
     color: #333;
+    margin-bottom: 3px;
 }
 
 p.lat_lon{

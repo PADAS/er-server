@@ -121,15 +121,25 @@ var modify_wkt = function(event) {
     }
 };
 
+var Validate_ = function(){
+    x = document.getElementById('id_coordinate_0').value ? true : false;
+    y = document.getElementById('id_coordinate_1').value ? true : false;
+    if (x && y){
+        return true;
+    }
+};
+
 var ChangeCoordinate = function(event){
     event.preventDefault()
     var x = document.getElementById('id_coordinate_0').value;
     var y = document.getElementById('id_coordinate_1').value;
-    document.getElementById('{{ id }}').value = `SRID={{ srid|unlocalize }};POINT(${x} ${y})`;
+    if(Validate_()){
+        document.getElementById('{{ id }}').value = `SRID={{ srid|unlocalize }};POINT(${x} ${y})`;
+    };
 };
 
-document.getElementById('id_coordinate_0').addEventListener('keyup',  ChangeCoordinate, false)
-document.getElementById('id_coordinate_1').addEventListener('keyup', ChangeCoordinate, false)
+document.getElementById('id_coordinate_0').addEventListener('change',  ChangeCoordinate, false)
+document.getElementById('id_coordinate_1').addEventListener('change', ChangeCoordinate, false)
 
 
 var CreateTileLayer = function(){
@@ -306,7 +316,7 @@ var modif = function(className) {
 
     var element_modify = document.createElement('div');
     element_modify.className =  `${className} ol-unselectable ol-control`;
-    element_modify.title = 'Modify'
+    element_modify.title = 'Modify feature'
     element_modify.appendChild(button_modify);
 
     var modifyControl = new ol.control.Control({
