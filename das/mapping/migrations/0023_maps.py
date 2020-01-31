@@ -5,7 +5,7 @@ from django.db import migrations
 TILE_TYPE_CHOICES = [
     {
         "value": "google_map",
-        "display": "Google Map",
+        "display": "Google Map (Legacy)",
     },
     {
         "value": "tile_server",
@@ -19,7 +19,7 @@ TILE_TYPE_CHOICES = [
     },
     {
         "value": "mapbox_tiles",
-        "display": "Mapbox Tiles",
+        "display": "Mapbox Tiles (Legacy)",
 
     },
 ]
@@ -32,7 +32,8 @@ primary_keys = {
 
 Mapbox_satellite_conf = {
     "url": "https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.png?",
-    "type": "mapbox_tiles",
+    "type": "tile_server",
+    "icon": "https://assets.website-files.com/5d3eef0f73102cd721c8333b/5d4172f9b8b3b4c808fb73d8_logo-dark.svg",
     "title": "Mapbox Satellite Map",
     "configuration": {
         "accessToken":
@@ -43,7 +44,8 @@ Mapbox_satellite_conf = {
 Google_satellite_conf = {
     "url": "https://mt.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
     "type": "tile_server",
-    "title": "Google Satellite"
+    "title": "Google Satellite",
+    "icon": "https://maps.google.com/mapfiles/ms/icons/red-dot.png",
 }
 
 

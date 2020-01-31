@@ -10,6 +10,7 @@
 				"url": "https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.png?",
 				"type": "tile_server",
 				"title": "Mapbox Satellite Map",
+				"icon": "https://assets.website-files.com/5d3eef0f73102cd721c8333b/5d4172f9b8b3b4c808fb73d8_logo-dark.svg",
 				"configuration": {
 					"accessToken": "pk.eyJ1IjoidmpvZWxtIiwiYSI6ImNpZ3RzNXdmeDA4cm90N2tuZzhsd3duZm0ifQ.YcHUz9BmCk2oVOsL48VgVQ"
 				}
@@ -27,7 +28,8 @@
 			"attributes": {
 				"url": "https://mt.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
 				"type": "tile_server",
-				"title": "Google Satellite"
+				"title": "Google Satellite",
+				"icon": "https://maps.google.com/mapfiles/ms/icons/red-dot.png"
 			},
 			"ordernum": null
 		}
