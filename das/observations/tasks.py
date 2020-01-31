@@ -33,31 +33,26 @@ def maintain_subjectstatus_for_subject(subject_id):
     SubjectStatus.objects.maintain_subject_status(subject_id)
 
 
-def query_source_provider():
-    for ssprovider in SourceProvider.objects.annotate(unique_id=F('id')):
-        config = ssprovider.additional.get('days_data_retain')
-        instance_type = isinstance(config, int)
-
-        if bool(config and instance_type):
-            yield ssprovider
-        else:
-            logger.info(
-                'Unconfigured field {0} in integer for source_provider: {1}'.format(
-                    "days_data_retain", ssprovider.display_name))
-
-
-
 @celery.app.task
 def maintain_observation_data():
-    source_provider = query_source_provider()
+    for ssprovider in SourceProvider.objects.annotate(unique_id=F('id')):
+        days_data_retain = ssprovider.additional.get('days_data_retain')
+        if not days_data_retain:
+            continue
+        try:
+            days_data_retain = int(days_data_retain)
+        except ValueError:
+            logger.warning(
+                f'Mis-configured field days_data_retain {days_data_retain} not an integer for source_provider: {ssprovider.display_name}'
+            )
+            continue
 
-    for o in source_provider:
-        minimum_date = pytz.utc.localize(datetime.utcnow()) - timedelta(days=o.additional['days_data_retain'])
+        minimum_date = pytz.utc.localize(
+            datetime.utcnow()) - timedelta(days=days_data_retain)
 
         # Observation records older than minimum date
         observation_queryset = Observation.objects.filter(
-            source__provider__id=o.unique_id, recorded_at__lte=minimum_date)
+            source__provider__id=ssprovider.unique_id, recorded_at__lte=minimum_date)
 
-        if bool(observation_queryset):
+        if observation_queryset.exists():
             observation_queryset.delete()
-            logger.info(f"Deleted observation record: {observation_queryset}")
