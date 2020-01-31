@@ -19,13 +19,15 @@ class UserAgreement(TimestampedModel):
         auto_now_add=True, verbose_name=_("Date Accepted")
     )
 
+    accepted = models.BooleanField(default=False)
+
     class Meta:
         unique_together = ("user", "eula")
 
 
 class EULAManager(models.Manager):
     def get_active_eula(self):
-        return self.get_queryset().filter(active=True)
+        return self.get_queryset().get(active=True)
 
     def has_user_accepted_active_eula(self, user):
         # TODO 30/01/2020 complete this logic

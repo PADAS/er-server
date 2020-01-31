@@ -5,6 +5,9 @@ import inspect
 
 from threading import local
 
+from django.shortcuts import redirect
+from django.urls import reverse
+
 request_data = local()
 
 
@@ -112,7 +115,7 @@ class EULARedirectMiddleware:
         user = request.user
 
         if is_check_eula_path(request.path) and user.is_authenticated and not user.accepted_eula:
-            print(f"going to redirect here for path: {request.path}")
+            return redirect(reverse('eula_view'))
 
         return response
 
