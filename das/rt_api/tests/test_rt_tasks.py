@@ -3,12 +3,24 @@ import datetime
 from unittest import mock
 
 from django.test import TestCase
+from django.contrib.auth import authenticate
 from pytz import UTC
 
+from rt_api.rest_api_interface.dummy_request import DummyRequest
 from observations.serializers import ObservationSerializer
 from observations.views import SubjectStatusView
 from rt_api.tasks import get_subjectstatus_view
-from core.tests import fake_get_pool, User
+from core.tests import fake_get_pool, User, BaseAPITest
+
+
+class RTUtils(BaseAPITest):
+    def test_dummy_request_authorization(self):
+        user = self.app_user
+        tok = self.create_access_token(user)
+        request = DummyRequest(
+            headers={'Authorization': f'Bearer {tok}'})
+        auth_user = authenticate(**{'request': request})
+        self.assertEqual(auth_user, user)
 
 
 class RTTasksTestCase(TestCase):
