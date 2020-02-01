@@ -21,7 +21,8 @@ from activity.alerting.service import evaluate_event_on_alertrules, \
 from activity.alerts_views import AlertRuleListView, NotificationMethodListView, \
     NotificationMethodView, EventAlertConditionsListView
 from activity.alerts import create_alerts_permissionset
-from activity.models import EventType, Event, AlertRule, NotificationMethod
+from activity.models import EventType, Event, AlertRule, NotificationMethod, \
+    EventCategory, EventDetails
 
 from activity.serializers import EventSerializer, AlertRuleSerializer
 from activity.tasks import send_alert_to_notificationmethod, \
@@ -656,7 +657,6 @@ class BusinessRulesTestCase(BaseAPITest):
         self.assertEqual(len(action_list), 0)
 
         # print(action_list)
-
 
     def test_a_arrest_report_against_a_defined_alert_rule(self):
         schema = """{
@@ -1347,3 +1347,71 @@ class BusinessRulesTestCase(BaseAPITest):
         response = EventAlertConditionsListView.as_view()(request)
 
         self.assertIn(str(test_subj.id), str(response.data))
+
+    def test_evaluating_alert_rule_for_event_state_change_to_resolved(self):
+        category = EventCategory.objects.get(value="security")
+
+        notification_method = NotificationMethod. \
+            objects.create(owner=self.power_user,
+                           title="Email",
+                           method='email',
+                           value="test@test.com")
+
+        event_type = EventType.objects.create(
+            display="AlertTest",
+            value="alert_test",
+            schema=json.dumps({
+                "schema": {
+                    "$schema": "http://json-schema.org/draft-04/schema#",
+                    "title": "EventType Test Data",
+                    "type": "object",
+                    "required": [
+                        "details"
+                    ],
+                    "properties": {
+                        "sex": {
+                            "type": "string",
+                            "title": "Sex of animal",
+                            "enum": [
+                                "Male",
+                                "Female",
+                                "Unknown"
+                            ]
+                        }
+                    }
+                },
+                "definition": [
+                    "sex"
+                ]
+            }),
+            category=category
+        )
+        alert_rule = AlertRule.objects.create(
+            owner=self.power_user,
+            title="State is one of resolved",
+            conditions={
+                "all": [
+                    {
+                        "name": "state",
+                        "value": [
+                            "resolved"
+                        ],
+                        "operator": "shares_at_least_one_element_with"
+                    }
+                ]
+            }
+        )
+
+        alert_rule.notification_methods.add(notification_method)
+        alert_rule.event_types.add(event_type)
+
+        event = Event.objects.create(title="test event",
+                                     event_type=event_type,
+                                     created_by_user=self.power_user)
+        # event updated here
+        event.state = 'resolved'
+        event.save()
+
+        action_list = evaluate_event(event)
+        self.assertEqual(len(action_list), 1)
+

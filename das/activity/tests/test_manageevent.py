@@ -3,6 +3,7 @@ import copy
 
 from datetime import datetime
 from django.core.management import call_command
+from django.db.models import Count
 from django.test import TestCase
 from drf_extra_fields.geo_fields import PointField
 from rest_framework.fields import DateTimeField
@@ -13,7 +14,6 @@ from choices.models import Color, Choice
 from utils import schema_utils
 
 logger = logging.getLogger(__name__)
-
 
 migration_doc = [
     {
@@ -123,14 +123,27 @@ class TestManageEvent(TestCase):
         command_under_test = Command()
         records = command_under_test.get_all_event_type_records()
 
-        self.assertEqual(len(records), 38)
+        self.assertEqual(len(records), EventType.objects.count())
 
     def test_delete_unused_types(self):
         self.delete_ran = True
         command_under_test = Command()
         records = command_under_test.get_unused_event_types()
 
-        self.assertEqual(len(records), 37)
+        def get_event_type_count(event_type):
+            for row in Event.objects.filter(event_type_id=event_type.id).values(
+                'event_type_id').annotate(ecount=Count('event_type_id')):
+                return row['ecount']
+            return 0
+
+        unused_event_types = []
+
+        for event_type in EventType.objects.all():
+            count = get_event_type_count(event_type)
+            if not count:
+                unused_event_types.append(event_type)
+
+        self.assertEqual(len(records), len(unused_event_types))
 
     def test_migrate_event_types_and_choices(self):
         self.migrate_ran = True
@@ -144,7 +157,7 @@ class TestManageEvent(TestCase):
         records_post = command_under_test.get_all_event_type_records()
 
         # Note one more record saved from event_data_model
-        self.assertEqual(len(records_pre), len(records_post)+1)
+        self.assertEqual(len(records_pre), len(records_post) + 1)
 
         # species table choices migrated to choice model
         self.assertEqual(Choice.objects.all().count(), choices_count + 2)
