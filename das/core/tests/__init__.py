@@ -34,13 +34,16 @@ class BaseAPITest(TestCase):
 
         self.factory = APIRequestFactory(enforce_csrf_checks=True)
 
-    def force_authenticate(self, request, user):
-        request.user = user
-
+    def create_access_token(self, user):
         tok = AccessToken.objects.create(
-            user=request.user, token=str(uuid.uuid4()),
+            user=user, token=str(uuid.uuid4()),
             application=self.application, scope='read write',
             expires=timezone.now() + datetime.timedelta(days=1)
         )
+        return tok
 
-        force_authenticate(request, user=request.user, token=tok)
+    def force_authenticate(self, request, user):
+        request.user = user
+        tok = self.create_access_token(user)
+
+        force_authenticate(request, user=user, token=tok)
