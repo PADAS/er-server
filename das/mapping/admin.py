@@ -1,7 +1,7 @@
 import logging
 from functools import reduce
 import tempfile
-
+import os
 from arcgis.gis import GIS
 from django.contrib import admin as django_admin
 from django.contrib import messages
@@ -10,10 +10,12 @@ from django.contrib.admin.exceptions import DisallowedModelAdminToField
 from django.contrib.admin.options import IS_POPUP_VAR, TO_FIELD_VAR
 from django.contrib.admin.utils import (get_deleted_objects, model_ngettext,
                                         unquote)
+
+from django.core.exceptions import ValidationError
 from django.contrib.gis import admin
 from django.core.exceptions import PermissionDenied
 from django.core import management
-from django.db import router
+from django.db import router, transaction
 from django.db.models import Q
 from django.db.models.expressions import RawSQL
 from django.http import HttpResponseRedirect
@@ -21,6 +23,8 @@ from django.template.response import TemplateResponse
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
+from arcgis2geojson import arcgis2geojson
+
 
 import mapping.models as models
 from core.openlayers import OSMGeoExtendedAdmin
@@ -451,74 +455,66 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
             gis = GIS(None, username=obj.owner, password=obj.password)
         except Exception as error:
             messages.add_message(request, messages.ERROR, 'Invalid Credentials')
+            return error
         else:
             group = gis.groups.get(obj.group_id)
-            if group:
-                messages.add_message(request, messages.INFO, f'Valid credentials. {group.title} group well configured')
-            else:
-                messages.add_message(request, messages.WARNING, f'Valid credentials. However, unknown group id: {obj.group_id} ')
-        return HttpResponseRedirect(request.path_info)
+            if not group:
+                messages.add_message(request, messages.WARNING, f'Invalid group id: {obj.group_id} ')
+                return obj
 
-    def download_features_from_wfs(self, request, obj):
-        gis = GIS(None, username=obj.owner, password=obj.password)
-        group = gis.groups.get(obj.group_id)
-        items_for_demo = ['Akagera_Land_Cover', 'Hydrology_polygon', 'ParkBoundaries']
-        # todo: search and retrieve only feature service members, rev sorted by time.
+            elif "_testconnection" in request.POST:
+                messages.add_message(request, messages.INFO, f'Valid credentials. {group.title} group well configured')
+
+            elif "_downloadfeatures" in request.POST:
+                self.download_features_from_wfs(request, group)
+
+    def download_features_from_wfs(self, request, group):
+        items_for_demo = ['Built_old']
+
         group_members = group.content()
         for member in group_members:
             if member.type == "Feature Service" and member.title in items_for_demo:
                 title = member.title.replace(' ', '-')
                 logger.info(f'processing {title}')
                 try:
-                    # todo: refactor into a func
-                    member_geojson = member.layers[0].query().to_geojson
-                    with tempfile.NamedTemporaryFile() as f:
-                        f.write(member_geojson.encode())
-                        f.seek(0)
+                    data = member.layers[0].query().to_geojson
+                    file_ext = 'geojson'
+                except KeyError:
+                    data = member.layers[0].query().to_json
+                    file_ext = 'json'
+                except Exception as error:
+                    logger.info(f'Error reading from {member.title}', error)
+                    messages.add_message(request, messages.ERROR, f'Could not read data from {member.title}')
+                finally:
+                    with open(f'./{title}.{file_ext}', 'w') as data_file:
+                        data_file.write(data)
                         management.call_command(
-                            'importlayer', 'importspatialfile',
-                            f.name, id_field='GlobalID', source='ArcGIS'
+                            'importlayer', 'importspatialfile', data_file.name, id_field='GlobalID', source='ArcGIS'
                         )
-
-                except Exception as ex:
-                    logger.exception(ex)
-                    # todo: need additional exception handling for json here
-                    # todo: handle json here
-                    # member_json = member.layers[0].query().to_json
-                    # with tempfile.NamedTemporaryFile() as f:
-                    #     f.write(member_json.encode())
-                    #     f.seek(0)
-                    #     management.call_command(
-                    #         'importlayer', 'importspatialfile', f.name, id_field='GlobalID'
-                    #     )
+                        os.remove(data_file.name)
+        messages.add_message(request, messages.INFO, f'Features successfully loaded into ER')
         logger.info('Returning from download_features')
 
         # Todo: Set a celery task that will update/download features periodically
-        
-        messages.add_message(request, messages.INFO, f'Files downloaded and features imported to ER')
-        return HttpResponseRedirect(request.path_info)
 
     def response_add(self, request, obj, post_url_continue=None):
-
-        # Todo:  Test_connection calling save(), thus saving even data that has raised authentication error
-
-        if "_testconnection" in request.POST:
-            self.test_connection(request, obj)
+        conn = self.test_connection(request, obj)
+        if conn or self.arcgis_config(request):
             return HttpResponseRedirect(request.path_info)
-        if "_downloadfeatures" in request.POST:
-            return self.download_features_from_wfs(request, obj)
         else:
-            self.test_connection(request, obj)
-            return super().response_add(request, obj, post_url_continue)
+            obj.save()
+            return super().response_add(request, obj, post_url_continue=None)
 
     def response_change(self, request, obj):
-        
-        # Todo:  Test_connection calling save(), thus saving even data that has raised authentication error
-        if "_testconnection" in request.POST:
-            self.test_connection(request, obj)
+        conn = self.test_connection(request, obj)
+        if conn or self.arcgis_config(request):
             return HttpResponseRedirect(request.path_info)
-        elif "_downloadfeatures" in request.POST:
-            return self.download_features_from_wfs(request, obj)
         else:
-            self.test_connection(request, obj)
+            obj.save()
             return super().response_change(request, obj)
+
+    def save_model(self, request, obj, form, change):
+        pass
+
+    def arcgis_config(self, request):
+        return any(x in request.POST for x in ["_testconnection", "_downloadfeatures"])
