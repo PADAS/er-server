@@ -801,3 +801,7 @@ class ArcgisConfiguration(TimestampedModel):
     group_id = models.CharField(max_length=100, blank=False, unique=True)
     owner = models.CharField(max_length=100, blank=False, unique=True)
     password = models.CharField(max_length=100, blank=False)
+
+    class Meta:
+        verbose_name = 'Feature Service Configuration'
+

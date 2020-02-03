@@ -84,18 +84,18 @@ def get_feature_type(type_name, create_okay=True):
 def save_feature_to_table(feature, source_name, spatialfile_id, featuretype=None, external_id=None):
     model = models.SpatialFeature
     if not external_id:
-        external_id = feature['globalid'].value if 'globalid' in feature.fields \
+        external_id = feature['globalid'].value if 'globalid' in [x.lower() for x in feature.fields] \
             else feature['fid'].value
 
     fields = list(fields_iter(feature))
-    featuretype = featuretype or feature['type'].value
 
     try:
-        feature_type = get_feature_type(featuretype)
-    except models.SpatialFeatureType.DoesNotExist:
-        logger.warning('SpatielFeatureType %s not found for %s',
-                       featuretype, external_id)
+        featuretype = featuretype or feature['Types'].value if 'Types' in feature.fields else feature['type'].value
+    except Exception:
+        logger.warning('Feature %s Missing featuretype', feature['name'].value)
         return
+
+    feature_type, created = models.SpatialFeatureType.objects.get_or_create(name=featuretype)
 
     model_fieldname = 'feature_geometry'
     model_field_type = model._meta.get_field(model_fieldname)
