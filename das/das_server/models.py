@@ -41,7 +41,7 @@ class EULAManager(models.Manager):
         return get_user_model.objects.exclude(accepted_users)
 
     def accept_eula(self, user):
-        UserAgreement.objects.create
+        pass
 
 
 class EULA(TimestampedModel):
@@ -50,8 +50,7 @@ class EULA(TimestampedModel):
     )
     version_number = models.DecimalField(default=1.0, decimal_places=1,
                                          max_digits=2, unique=True)
-    content = models.TextField(null=True, blank=True, help_text=_(
-        "Provide users with some info about what's changed and why"), )
+    url = models.URLField(null=False, blank=False)
     active = models.BooleanField(default=False)
 
     objects = EULAManager()

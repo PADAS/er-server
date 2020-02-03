@@ -1,0 +1,44 @@
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from django.core.management import BaseCommand, CommandError
+from django.db import IntegrityError
+
+from das_server.models import EULA
+
+
+class Command(BaseCommand):
+    help = 'Generate the site metrics, default is by day'
+
+    def add_arguments(self, parser):
+        parser.add_argument('--version_number', type=float,
+                            help='EULA version')
+        parser.add_argument('--url', type=str,
+                            help='EULA version url')
+
+    def handle(self, *args, **options):
+        version = options.get('version_number')
+        url = options.get('url')
+
+        if version and url:
+            active_eula = EULA.objects.get_active_eula()
+
+            if active_eula.version_number >= float(version):
+                raise CommandError(
+                    f"new version '{version}' can not be less than or equal the active version '{active_eula.version_number}'")
+            try:
+                eula = EULA.objects.create(version_number=version, url=url)
+                self.reset_users_eula_acceptance()
+                self.stdout.write(self.style.SUCCESS(f"Successfully updated the EULA to {str(eula)}"))
+            except ValidationError as ve:
+                self.stderr.write(self.style.ERROR(f"Failed to create EULA {str(ve)}"))
+            except IntegrityError as ie:
+                self.stderr.write(self.style.ERROR(f"Failed to create EULA {str(ie)}"))
+
+        else:
+            self.stderr.write(self.style.ERROR(
+                "'--url' and '--version' arguments must be provided"))
+
+    def reset_users_eula_acceptance(self):
+        User = get_user_model()
+        User.objects.all().update(accepted_eula=False)
+
