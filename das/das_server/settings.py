@@ -528,3 +528,5 @@ GFW_CREDENTIALS = {
 }
 
 METRICS_BUCKET = "er-site-metrics"
+
+ACCEPT_EULA = True
