@@ -1,5 +1,6 @@
 import logging
 from functools import reduce
+import tempfile
 
 from arcgis.gis import GIS
 from django.contrib import admin as django_admin
@@ -11,12 +12,12 @@ from django.contrib.admin.utils import (get_deleted_objects, model_ngettext,
                                         unquote)
 from django.contrib.gis import admin
 from django.core.exceptions import PermissionDenied
+from django.core import management
 from django.db import router
 from django.db.models import Q
 from django.db.models.expressions import RawSQL
 from django.http import HttpResponseRedirect
 from django.template.response import TemplateResponse
-from django.urls import reverse
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
@@ -30,6 +31,7 @@ from mapping.forms import (ArcgisConfigurationForm,
 from mapping.utils import MAPPING_FEATURES_V2
 
 logger = logging.getLogger(__name__)
+
 
 @admin.register(models.Map)
 class MapAdmin(OSMGeoExtendedAdmin):
@@ -448,44 +450,52 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
         try:
             gis = GIS(None, username=obj.owner, password=obj.password)
         except Exception as error:
-            messages.add_message(request, messages.ERROR, 'Invalid Arcgis Connection Credentials')
+            messages.add_message(request, messages.ERROR, 'Invalid Credentials')
         else:
             group = gis.groups.get(obj.group_id)
             if group:
-                messages.add_message(request, messages.INFO, f'Stable Arcgis Connection. {group.title} group well configured')
+                messages.add_message(request, messages.INFO, f'Valid credentials. {group.title} group well configured')
             else:
-                messages.add_message(request, messages.WARNING, f'Stable Arcgis Connection. However, unknown group id: {obj.group_id} ')
+                messages.add_message(request, messages.WARNING, f'Valid credentials. However, unknown group id: {obj.group_id} ')
         return HttpResponseRedirect(request.path_info)
 
     def download_features_from_wfs(self, request, obj):
-        gis = GIS(None, username=obj.group.owner, password=obj.group.password)
-        group = gis.groups.get(obj.group.group_id)
+        gis = GIS(None, username=obj.owner, password=obj.password)
+        group = gis.groups.get(obj.group_id)
+        items_for_demo = ['Akagera_Land_Cover', 'Hydrology_polygon', 'ParkBoundaries']
+        # todo: search and retrieve only feature service members, rev sorted by time.
         group_members = group.content()
         for member in group_members:
-            if member.type == "Feature Service":
+            if member.type == "Feature Service" and member.title in items_for_demo:
                 title = member.title.replace(' ', '-')
-                file_name = None
+                logger.info(f'processing {title}')
                 try:
-                    member_geojson = member.layers[0].query().to_geojson 
-                    file_name =f'{title}.geojson'
-                    with open(file_name, 'w') as f:
-                        f.write(member_geojson)
-                        
-                except Exception:
-                    member_json = member.layers[0].query().to_json 
-                    file_name =f'{title}.json'
-                    with open(file_name, 'w') as f:
-                        f.write(member_json)
+                    # todo: refactor into a func
+                    member_geojson = member.layers[0].query().to_geojson
+                    with tempfile.NamedTemporaryFile() as f:
+                        f.write(member_geojson.encode())
+                        f.seek(0)
+                        management.call_command(
+                            'importlayer', 'importspatialfile',
+                            f.name, id_field='GlobalID', source='ArcGIS'
+                        )
 
-        # Todo:  Call a bulk save on spatialfeaturefiles, assigning self.data to the uploaded files. This will automatically trigger creation and saving of features
-
-
-        # Todo: Delete each file downloaded above or alternatively use the file without downloading
-
+                except Exception as ex:
+                    logger.exception(ex)
+                    # todo: need additional exception handling for json here
+                    # todo: handle json here
+                    # member_json = member.layers[0].query().to_json
+                    # with tempfile.NamedTemporaryFile() as f:
+                    #     f.write(member_json.encode())
+                    #     f.seek(0)
+                    #     management.call_command(
+                    #         'importlayer', 'importspatialfile', f.name, id_field='GlobalID'
+                    #     )
+        logger.info('Returning from download_features')
 
         # Todo: Set a celery task that will update/download features periodically
         
-        messages.add_message(request, messages.INFO, f'Files downloaded, yet to be extracted')
+        messages.add_message(request, messages.INFO, f'Files downloaded and features imported to ER')
         return HttpResponseRedirect(request.path_info)
 
     def response_add(self, request, obj, post_url_continue=None):
@@ -500,7 +510,6 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
         else:
             self.test_connection(request, obj)
             return super().response_add(request, obj, post_url_continue)
-        
 
     def response_change(self, request, obj):
         
