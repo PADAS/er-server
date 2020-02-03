@@ -151,6 +151,14 @@ def save_feature_to_table(feature, source_name, spatialfile_id, featuretype=None
     for key, value in defaults.items():
         setattr(feature_record, key, value)
     feature_record = save_spatial_file(spatialfile_id, models.SpatialFeatureFile, feature_record)
+
+    if not feature_record.name:
+        try:
+            feature_name = 'Names' if 'Names' in feature.fields else 'Name'
+        except Exception:
+            pass
+        else:
+            feature_record.name = feature[feature_name].value
     feature_record.save()
 
 
