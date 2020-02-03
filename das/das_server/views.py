@@ -9,11 +9,14 @@ from django.views.generic import FormView
 from rest_framework import generics
 from rest_framework.permissions import AllowAny, DjangoObjectPermissions
 import rest_framework.serializers
+
+from accounts.permissions import UserObjectPermissions
 from activity.alerts import has_alerts_permissionset
 
 from das_server import __version__
 from das_server.forms import UserEulaModelForm
-from das_server.models import EULA
+from das_server.models import EULA, UserAgreement
+from das_server.serializers import EulaSerializer, AcceptEulaSerializer
 
 from observations import servicesutils
 from utils.json import parse_bool
@@ -124,3 +127,18 @@ class EulaView(FormView):
         user.accepted_eula = True
         user.save()
         return super().form_valid(form)
+
+
+class AcceptEulaAPIView(generics.CreateAPIView):
+    permission_classes = (UserObjectPermissions,)
+    serializer_class = AcceptEulaSerializer
+    queryset = UserAgreement.objects.all()
+
+
+class GetActiveEulaAPIView(generics.RetrieveAPIView):
+    permission_classes = (UserObjectPermissions,)
+    serializer_class = EulaSerializer
+    queryset = EULA.objects.all()
+
+    def get_object(self):
+        return EULA.objects.get(active=True)

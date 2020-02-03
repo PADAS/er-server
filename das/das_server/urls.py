@@ -26,6 +26,8 @@ from das_server.admin import dasadmin_site
 
 urlpatterns = [
     url(r'^api/v1.0/status/?$', views.StatusView.as_view()),
+    url(r'^api/v1.0/eula/?$', views.GetActiveEulaAPIView.as_view()),
+    url(r'^api/v1.0/eula/accept/?$', views.AcceptEulaAPIView.as_view()),
     url(r'^api/v1.0/', include('accounts.urls')),
     url(r'^api/v1.0/', include('observations.urls')),
     url(r'^api/v1.0/', include('mapping.urls')),

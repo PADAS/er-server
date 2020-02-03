@@ -4,7 +4,6 @@ from django.utils.translation import gettext_lazy as _
 
 from django.contrib.auth import get_user_model
 
-from accounts.models import User
 from core.models import TimestampedModel
 
 
@@ -23,25 +22,30 @@ class UserAgreement(TimestampedModel):
     class Meta:
         unique_together = ("user", "eula")
 
+    def save(self, *args, **kwargs):
+        self.accepted = True
+        user_agreement = super(UserAgreement, self).save(*args, **kwargs)
+        user = self.user
+        user.accepted_eula = True
+        user.save()
+        return user_agreement
+
 
 class EULAManager(models.Manager):
     def get_active_eula(self):
         return self.get_queryset().get(active=True)
 
-    def has_user_accepted_active_eula(self, user):
-        # TODO 30/01/2020 complete this logic
-        return False
-
     def get_users_that_have_accepted_the_latest_eula(self):
-        latest = self.get_queryset().get(active=True)
-        return latest.users.all()
+        active_eula = self.get_queryset().get(active=True)
+        return active_eula.users.all()
 
     def get_users_that_have_not_accepted_latest_eula(self):
         accepted_users = self.get_users_that_have_accepted_the_latest_eula()
-        return get_user_model.objects.exclude(accepted_users)
+        return get_user_model().objects.exclude(id__in=[user.id for user in accepted_users])
 
     def accept_eula(self, user):
-        pass
+        active_eula = self.get_queryset().get(active=True)
+        UserAgreement.objects.create(user=user, eula=active_eula, accepted=True)
 
 
 class EULA(TimestampedModel):
