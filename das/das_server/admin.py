@@ -33,7 +33,7 @@ for x in (Subject, SubjectAdmin), (SubjectSource, SubjectSourceAdmin), (Source, 
          (SubjectGroup, SubjectGroupAdmin), (SubjectSourceSummary, SubjectSourceSummaryAdmin):
     dasadmin_site.register(*x)
 
-
+# TODO remove before merging
 @register(models.EULA)
 class EULAAdmin(ModelAdmin):
     pass
