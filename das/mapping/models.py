@@ -798,7 +798,7 @@ class ArcgisConfiguration(TimestampedModel):
     service_url = models.CharField(max_length=100, blank=True, null=True )
     group_name = models.CharField(max_length=100, blank=False, unique=True)
     group_id = models.CharField(max_length=100, blank=False, unique=True)
-    owner = models.CharField(max_length=100, blank=False, unique=True)
+    username = models.CharField(max_length=100, blank=False, unique=True)
     password = models.CharField(max_length=100, blank=False)
     polling_interval = models.PositiveIntegerField(default=0)
     name_field = models.CharField(max_length=100, blank=True, null=True)

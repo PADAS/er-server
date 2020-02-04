@@ -442,11 +442,11 @@ else:
 
 @admin.register(models.ArcgisConfiguration)
 class ArcgisConfigurationAdmin(admin.ModelAdmin):
-    list_display = ('group_name', 'group_id', 'owner', )
+    list_display = ('group_name', 'group_id', 'username', )
     fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('group_name', 'group_id', 'polling_interval','owner', 'password',)
+            'fields': ('group_name', 'group_id', 'polling_interval', 'username', 'password',)
         }),
         ('Optional Attributes', {
             'classes': ('collapse',),
@@ -457,7 +457,7 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
 
     def arcgis_connection(self, request, obj):
         try:
-            gis = GIS(obj.service_url, username=obj.owner, password=obj.password)
+            gis = GIS(obj.service_url, username=obj.username, password=obj.password)
         except Exception as error:
             messages.add_message(request, messages.ERROR, error)
             return error
@@ -474,9 +474,8 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
                 self.download_features_from_wfs(request, group, obj)
 
     def download_features_from_wfs(self, request, group, obj):
-        items_for_demo = ['Built_old']
-
-        group_members = group.content()
+        items_for_demo = ['Built_point']
+        group_members, errored_files, success_files, data = group.content(), [], [], None
         for member in group_members:
             if member.type == "Feature Service" and member.title in items_for_demo:
                 title = member.title.replace(' ', '-')
@@ -489,16 +488,21 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
                     file_ext = 'json'
                 except Exception as error:
                     logger.info(f'Error reading from {member.title}', error)
-                    messages.add_message(request, messages.ERROR, f'Could not read data from {member.title}')
-                finally:
+                    errored_files.append(member.title)
+                if data:
                     with open(f'./{title}.{file_ext}', 'w') as data_file:
                         data_file.write(data)
                         management.call_command(
                             'importlayer', 'importspatialfile', data_file.name,
-                            source=obj.source, name_field=obj.name_field, id_field=obj.d_field
+                            source=obj.source, name_field=obj.name_field, id_field=obj.id_field
                         )
                         os.remove(data_file.name)
-        messages.add_message(request, messages.INFO, f'Features successfully loaded into ER')
+                        success_files.append(member.title)
+        if len(errored_files) > 0:
+            messages.add_message(request, messages.ERROR, f"Could not read data from {len(errored_files)} file(s): {', '.join(errored_files)}")
+
+        if len(success_files) > 0:
+            messages.add_message(request, messages.SUCCESS, f'Features Successfully loaded into ER from {len(success_files)} file(s)')
         logger.info('Returning from download_features')
 
         # Todo: Set a celery task that will update/download features periodically

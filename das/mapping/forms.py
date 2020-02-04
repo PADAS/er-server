@@ -199,3 +199,6 @@ class ArcgisConfigurationForm(forms.ModelForm):
     class Meta:
         model = ArcgisConfiguration
         fields = '__all__'
+        labels = {
+            'polling_interval': 'Polling Interval (Hours)'
+        }
