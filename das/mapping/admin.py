@@ -446,15 +446,20 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('group_name', 'group_id', 'owner', 'password',)
-        }),)
+            'fields': ('group_name', 'group_id', 'polling_interval','owner', 'password',)
+        }),
+        ('Optional Attributes', {
+            'classes': ('collapse',),
+            'fields': ('service_url', 'source','id_field','name_field',)
+        }
+        ),)
     form = ArcgisConfigurationForm
 
-    def test_connection(self, request, obj):
+    def arcgis_connection(self, request, obj):
         try:
-            gis = GIS(None, username=obj.owner, password=obj.password)
+            gis = GIS(obj.service_url, username=obj.owner, password=obj.password)
         except Exception as error:
-            messages.add_message(request, messages.ERROR, 'Invalid Credentials')
+            messages.add_message(request, messages.ERROR, error)
             return error
         else:
             group = gis.groups.get(obj.group_id)
@@ -466,9 +471,9 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
                 messages.add_message(request, messages.INFO, f'Valid credentials. {group.title} group well configured')
 
             elif "_downloadfeatures" in request.POST:
-                self.download_features_from_wfs(request, group)
+                self.download_features_from_wfs(request, group, obj)
 
-    def download_features_from_wfs(self, request, group):
+    def download_features_from_wfs(self, request, group, obj):
         items_for_demo = ['Built_old']
 
         group_members = group.content()
@@ -489,7 +494,8 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
                     with open(f'./{title}.{file_ext}', 'w') as data_file:
                         data_file.write(data)
                         management.call_command(
-                            'importlayer', 'importspatialfile', data_file.name, id_field='GlobalID', source='ArcGIS'
+                            'importlayer', 'importspatialfile', data_file.name,
+                            source=obj.source, name_field=obj.name_field, id_field=obj.d_field
                         )
                         os.remove(data_file.name)
         messages.add_message(request, messages.INFO, f'Features successfully loaded into ER')
@@ -498,7 +504,7 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
         # Todo: Set a celery task that will update/download features periodically
 
     def response_add(self, request, obj, post_url_continue=None):
-        conn = self.test_connection(request, obj)
+        conn = self.arcgis_connection(request, obj)
         if conn or self.arcgis_config(request):
             return HttpResponseRedirect(request.path_info)
         else:
@@ -506,7 +512,7 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
             return super().response_add(request, obj, post_url_continue=None)
 
     def response_change(self, request, obj):
-        conn = self.test_connection(request, obj)
+        conn = self.arcgis_connection(request, obj)
         if conn or self.arcgis_config(request):
             return HttpResponseRedirect(request.path_info)
         else:
