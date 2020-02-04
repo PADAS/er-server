@@ -13,7 +13,7 @@ from django.contrib.admin.utils import (get_deleted_objects, model_ngettext,
 from django.contrib.gis import admin
 from django.core.exceptions import PermissionDenied
 from django.core import management
-from django.db import router
+from django.db import router, transaction
 from django.db.models import Q
 from django.db.models.expressions import RawSQL
 from django.http import HttpResponseRedirect
@@ -21,6 +21,8 @@ from django.template.response import TemplateResponse
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
+from arcgis2geojson import arcgis2geojson
+
 
 import mapping.models as models
 from core.openlayers import OSMGeoExtendedAdmin
@@ -453,15 +455,16 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
             messages.add_message(request, messages.ERROR, 'Invalid Credentials')
         else:
             group = gis.groups.get(obj.group_id)
-            if group:
-                messages.add_message(request, messages.INFO, f'Valid credentials. {group.title} group well configured')
-            else:
+            if not group:
                 messages.add_message(request, messages.WARNING, f'Invalid group id: {obj.group_id} ')
-        return HttpResponseRedirect(request.path_info)
+                self.config_error = True
+            elif group and "_testconnection" in request.POST:
+                messages.add_message(request, messages.INFO, f'Valid credentials. {group.title} group well configured')
+            elif group and "_downloadfeatures" in request.POST:
+                self.download_features_from_wfs(request, group)
+        # return HttpResponseRedirect(request.path_info)
 
-    def download_features_from_wfs(self, request, obj):
-        gis = GIS(None, username=obj.owner, password=obj.password)
-        group = gis.groups.get(obj.group_id)
+    def download_features_from_wfs(self, request, group):
         items_for_demo = ['Akagera_Land_Cover', 'Hydrology_polygon', 'ParkBoundaries']
 
         group_members = group.content()
@@ -469,7 +472,6 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
             if member.type == "Feature Service" and member.title in items_for_demo:
                 title = member.title.replace(' ', '-')
                 logger.info(f'processing {title}')
-                file_ext = None
                 try:
                     data = member.layers[0].query().to_geojson
                     file_ext = 'geojson'
@@ -480,43 +482,29 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
                     logger.info(f'Error reading from {member.title}', error)
                     messages.add_message(request, messages.ERROR, f'Could not read data from {member.title}')
                 finally:
-                    if file_ext:
-                        with open(f'./{title}.{file_ext}', 'w') as data_file:
-                            data_file.write(data)
-                            # todo: Admin UI should have optional fields so user can specify the id_field name,
-                            #  source name and also name_field. These get passed as options to mgmt command
-                            management.call_command(
-                                'importlayer', 'importspatialfile', data_file.name, id_field='GlobalID', source='ArcGIS'
-                            )
+                    with open(f'./{title}.{file_ext}', 'w') as data_file:
+                        data_file.write(data)
+                        management.call_command(
+                            'importlayer', 'importspatialfile', data_file.name, id_field='GlobalID', source='ArcGIS'
+                        )
                         os.remove(data_file.name)
-                        # todo: this adds a success message for each group member processed.
-                        messages.add_message(request, messages.INFO, f'Features from {group.title} successfully loaded into ER')
+        messages.add_message(request, messages.INFO, f'Features from {group.title} successfully loaded into ER')
         logger.info('Returning from download_features')
 
         # Todo: Set a celery task that will update/download features periodically
-        return HttpResponseRedirect(request.path_info)
 
     def response_add(self, request, obj, post_url_continue=None):
-
-        # Todo:  Test_connection calling save(), thus saving even data that has raised authentication error
-
-        if "_testconnection" in request.POST:
-            self.test_connection(request, obj)
-            return HttpResponseRedirect(request.path_info)
-        if "_downloadfeatures" in request.POST:
-            return self.download_features_from_wfs(request, obj)
-        else:
-            self.test_connection(request, obj)
-            return super().response_add(request, obj, post_url_continue)
+        self.test_connection(request, obj)
+        return HttpResponseRedirect(request.path_info) if self.arcgis_config(request) else super().response_add(request, obj, post_url_continue=None)
 
     def response_change(self, request, obj):
-        
-        # Todo:  Test_connection calling save(), thus saving even data that has raised authentication error
-        if "_testconnection" in request.POST:
-            self.test_connection(request, obj)
-            return HttpResponseRedirect(request.path_info)
-        elif "_downloadfeatures" in request.POST:
-            return self.download_features_from_wfs(request, obj)
-        else:
-            self.test_connection(request, obj)
-            return super().response_change(request, obj)
+        self.test_connection(request, obj)
+        return HttpResponseRedirect(request.path_info) if self.arcgis_config(request) else super().response_change(request, obj)
+
+    @transaction.atomic
+    def save_model(self, request, obj, form, change):
+        if not self.arcgis_config(request):
+            super().save_model(request, obj, form, change)
+
+    def arcgis_config(self, request):
+        return any(x in request.POST for x in ["_testconnection", "_downloadfeatures"])
