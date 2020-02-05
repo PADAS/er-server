@@ -33,6 +33,7 @@ app.conf.task_queues = (
     Queue('realtime_p2', default_exchange, routing_key='realtime.tasks.p2'),
     Queue('realtime_p3', default_exchange, routing_key='realtime.tasks.p3'),
     Queue('analyzers', default_exchange, routing_key='analyzers.tasks'),
+    Queue('mapping', default_exchange, routing_key='mapping.tasks'),
     Queue('maintenance', default_exchange, routing_key='maintenance.tasks'),
 )
 
@@ -48,6 +49,7 @@ app.conf.task_routes = {
     'observations.tasks.handle_source_with_new_observations': {'queue': 'realtime_p2'},
     'observations.tasks.maintain_subjectstatus_for_subject': {'queue': 'maintenance'},
     'observations.tasks.maintain_observation_data': {'queue': 'maintenance'},
+    'mapping.tasks.download_features_from_wfs': {'queue': 'mapping'},
     # Queue analyzer tasks separately.
     'analyzers.tasks.*': {'queue': 'analyzers', },
 
@@ -122,6 +124,10 @@ app.conf.beat_schedule = {
         'task': 'das_server.tasks.publish_daily_site_metrics',
         # 1 AM daily
         'schedule': crontab(hour=1, minute=0)
+    },
+    'download-features-from-wfs': {
+        'task': 'mapping.tasks.download_features_from_wfs',
+        'schedule': timedelta(hours=1)
     },
 
 }

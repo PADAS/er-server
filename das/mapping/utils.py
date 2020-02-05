@@ -153,12 +153,11 @@ def save_feature_to_table(feature, source_name, spatialfile_id, featuretype=None
     feature_record = save_spatial_file(spatialfile_id, models.SpatialFeatureFile, feature_record)
 
     if not feature_record.name:
+        feature_name = 'Names' if 'Names' in feature.fields else 'Name'
         try:
-            feature_name = 'Names' if 'Names' in feature.fields else 'Name'
+            feature_record.name = feature[feature_name].value
         except Exception:
             pass
-        else:
-            feature_record.name = feature[feature_name].value
     feature_record.save()
 
 
