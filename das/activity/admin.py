@@ -36,7 +36,7 @@ class EventAdmin(OSMGeoExtendedAdmin):
     # wms_url = 'http://tiles.maps.eox.at/wms/'
     form = EventForm
 
-    list_display = ('serial_number', '_created_at', 'event_type',
+    list_display = ('serial_number', '_created_at', '_updated_at', '_event_time', 'event_type',
                     'title', 'location', 'attributes',)
     readonly_fields = ('id', 'serial_number', 'created_at', 'updated_at')
     search_fields = ('title', 'serial_number')
@@ -64,6 +64,16 @@ class EventAdmin(OSMGeoExtendedAdmin):
         return o.created_at
     _created_at.short_description = 'created at %s' % TIMEZONE_USED
     _created_at.admin_order_field = 'created_at'
+
+    def _event_time(self, o):
+        return o.event_time
+    _event_time.short_description = 'event time %s' % TIMEZONE_USED
+    _event_time.admin_order_field = 'event_time'
+
+    def _updated_at(self, o):
+        return o.updated_at
+    _updated_at.short_description = 'updated at %s' % TIMEZONE_USED
+    _updated_at.admin_order_field = 'updated_at'
 
     resolve_event.short_description = "Resolve Selected Events(Reports)"
 
