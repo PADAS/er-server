@@ -27,6 +27,12 @@ from mapping.utils import MAPPING_FEATURES_V2, check_file_extension
 
 logger = logging.getLogger(__name__)
 
+FILE_TYPES = (
+    ('shapefile', 'Shapefile'),
+    # Commenting out geodatabase for now, until we can verify functionality with a .gdb file.
+    # ('geodatabase', 'Geodatabase'),
+    ('geojson', 'GeoJSON'),
+)
 
 class Map(TimestampedModel):
     """
@@ -138,14 +144,6 @@ class TempStorage(FileSystemStorage):
         temp_directory_name = tempfile.mkdtemp()
         kwargs.update({'location': temp_directory_name, })
         super(TempStorage, self).__init__(**kwargs)
-
-
-FILE_TYPES = (
-    ('shapefile', 'Shapefile'),
-    # Commenting out geodatabase for now, until we can verify functionality with a .gdb file.
-    # ('geodatabase', 'Geodatabase'),
-    ('geojson', 'GeoJSON'),
-)
 
 
 class SpatialFilesBase(TimestampedModel):
@@ -797,10 +795,15 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
 
 
 class ArcgisConfiguration(TimestampedModel):
+    service_url = models.CharField(max_length=100, blank=True, null=True )
     group_name = models.CharField(max_length=100, blank=False, unique=True)
     group_id = models.CharField(max_length=100, blank=False, unique=True)
-    owner = models.CharField(max_length=100, blank=False, unique=True)
+    username = models.CharField(max_length=100, blank=False, unique=True)
     password = models.CharField(max_length=100, blank=False)
+    polling_interval = models.PositiveIntegerField(default=0)
+    name_field = models.CharField(max_length=100, blank=True, null=True)
+    id_field = models.CharField(max_length=100, blank=True, null=True)
+    source = models.CharField(max_length=100, blank=True, null=True, default='ArcGis')
 
     class Meta:
         verbose_name = 'Feature Service Configuration'

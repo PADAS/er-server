@@ -10,6 +10,8 @@ from django.contrib.admin.exceptions import DisallowedModelAdminToField
 from django.contrib.admin.options import IS_POPUP_VAR, TO_FIELD_VAR
 from django.contrib.admin.utils import (get_deleted_objects, model_ngettext,
                                         unquote)
+
+from django.core.exceptions import ValidationError
 from django.contrib.gis import admin
 from django.core.exceptions import PermissionDenied
 from django.core import management
@@ -440,34 +442,40 @@ else:
 
 @admin.register(models.ArcgisConfiguration)
 class ArcgisConfigurationAdmin(admin.ModelAdmin):
-    list_display = ('group_name', 'group_id', 'owner', )
+    list_display = ('group_name', 'group_id', 'username', )
     fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('group_name', 'group_id', 'owner', 'password',)
-        }),)
+            'fields': ('group_name', 'group_id', 'polling_interval', 'username', 'password',)
+        }),
+        ('Optional Attributes', {
+            'classes': ('collapse',),
+            'fields': ('service_url', 'source','id_field','name_field',)
+        }
+        ),)
     form = ArcgisConfigurationForm
 
-    def test_connection(self, request, obj):
+    def arcgis_connection(self, request, obj):
         try:
-            gis = GIS(None, username=obj.owner, password=obj.password)
+            gis = GIS(obj.service_url, username=obj.username, password=obj.password)
         except Exception as error:
-            messages.add_message(request, messages.ERROR, 'Invalid Credentials')
+            messages.add_message(request, messages.ERROR, error)
+            return error
         else:
             group = gis.groups.get(obj.group_id)
             if not group:
                 messages.add_message(request, messages.WARNING, f'Invalid group id: {obj.group_id} ')
-                self.config_error = True
-            elif group and "_testconnection" in request.POST:
+                return obj
+
+            elif "_testconnection" in request.POST:
                 messages.add_message(request, messages.INFO, f'Valid credentials. {group.title} group well configured')
-            elif group and "_downloadfeatures" in request.POST:
-                self.download_features_from_wfs(request, group)
-        # return HttpResponseRedirect(request.path_info)
 
-    def download_features_from_wfs(self, request, group):
-        items_for_demo = ['Akagera_Land_Cover', 'Hydrology_polygon', 'ParkBoundaries']
+            elif "_downloadfeatures" in request.POST:
+                self.download_features_from_wfs(request, group, obj)
 
-        group_members = group.content()
+    def download_features_from_wfs(self, request, group, obj):
+        items_for_demo = ['Built_point']
+        group_members, errored_files, success_files, data = group.content(), [], [], None
         for member in group_members:
             if member.type == "Feature Service" and member.title in items_for_demo:
                 title = member.title.replace(' ', '-')
@@ -480,31 +488,43 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
                     file_ext = 'json'
                 except Exception as error:
                     logger.info(f'Error reading from {member.title}', error)
-                    messages.add_message(request, messages.ERROR, f'Could not read data from {member.title}')
-                finally:
+                    errored_files.append(member.title)
+                if data:
                     with open(f'./{title}.{file_ext}', 'w') as data_file:
                         data_file.write(data)
                         management.call_command(
-                            'importlayer', 'importspatialfile', data_file.name, id_field='GlobalID', source='ArcGIS'
+                            'importlayer', 'importspatialfile', data_file.name,
+                            source=obj.source, name_field=obj.name_field, id_field=obj.id_field
                         )
                         os.remove(data_file.name)
-        messages.add_message(request, messages.INFO, f'Features from {group.title} successfully loaded into ER')
+                        success_files.append(member.title)
+        if len(errored_files) > 0:
+            messages.add_message(request, messages.ERROR, f"Could not read data from {len(errored_files)} file(s): {', '.join(errored_files)}")
+
+        if len(success_files) > 0:
+            messages.add_message(request, messages.SUCCESS, f'Features Successfully loaded into ER from {len(success_files)} file(s)')
         logger.info('Returning from download_features')
 
         # Todo: Set a celery task that will update/download features periodically
 
     def response_add(self, request, obj, post_url_continue=None):
-        self.test_connection(request, obj)
-        return HttpResponseRedirect(request.path_info) if self.arcgis_config(request) else super().response_add(request, obj, post_url_continue=None)
+        conn = self.arcgis_connection(request, obj)
+        if conn or self.arcgis_config(request):
+            return HttpResponseRedirect(request.path_info)
+        else:
+            obj.save()
+            return super().response_add(request, obj, post_url_continue=None)
 
     def response_change(self, request, obj):
-        self.test_connection(request, obj)
-        return HttpResponseRedirect(request.path_info) if self.arcgis_config(request) else super().response_change(request, obj)
+        conn = self.arcgis_connection(request, obj)
+        if conn or self.arcgis_config(request):
+            return HttpResponseRedirect(request.path_info)
+        else:
+            obj.save()
+            return super().response_change(request, obj)
 
-    @transaction.atomic
     def save_model(self, request, obj, form, change):
-        if not self.arcgis_config(request):
-            super().save_model(request, obj, form, change)
+        pass
 
     def arcgis_config(self, request):
         return any(x in request.POST for x in ["_testconnection", "_downloadfeatures"])
