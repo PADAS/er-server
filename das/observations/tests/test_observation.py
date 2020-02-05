@@ -98,4 +98,3 @@ class ObservationTestCase(TestCase):
                                                                                     fixed_latitude))
 
 
-
