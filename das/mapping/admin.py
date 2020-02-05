@@ -1,6 +1,5 @@
 import logging
 from functools import reduce
-import tempfile
 import os
 from arcgis.gis import GIS
 from django.contrib import admin as django_admin
@@ -11,11 +10,10 @@ from django.contrib.admin.options import IS_POPUP_VAR, TO_FIELD_VAR
 from django.contrib.admin.utils import (get_deleted_objects, model_ngettext,
                                         unquote)
 
-from django.core.exceptions import ValidationError
 from django.contrib.gis import admin
 from django.core.exceptions import PermissionDenied
 from django.core import management
-from django.db import router, transaction
+from django.db import router
 from django.db.models import Q
 from django.db.models.expressions import RawSQL
 from django.http import HttpResponseRedirect
@@ -23,7 +21,6 @@ from django.template.response import TemplateResponse
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
-from arcgis2geojson import arcgis2geojson
 
 
 import mapping.models as models
@@ -474,10 +471,9 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
                 self.download_features_from_wfs(request, group, obj)
 
     def download_features_from_wfs(self, request, group, obj):
-        items_for_demo = ['Built_point']
         group_members, errored_files, success_files, data = group.content(), [], [], None
         for member in group_members:
-            if member.type == "Feature Service" and member.title in items_for_demo:
+            if member.type == "Feature Service":
                 title = member.title.replace(' ', '-')
                 logger.info(f'processing {title}')
                 try:
