@@ -62,4 +62,11 @@ resource "google_compute_forwarding_rule" "vpn_1_rule_udp4500" {
   ip_address  = google_compute_address.vpn_static_ip.address
   target      = google_compute_vpn_gateway.dev_gateway.self_link
 }
+# VPN gateway
+
+resource "google_compute_vpn_gateway" "dev_gateway" {
+  provider = google
+  name     = "vpn-1"
+  network  = google_compute_network.dev_vpc_network.name
+}
 
