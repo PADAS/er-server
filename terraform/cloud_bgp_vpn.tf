@@ -131,3 +131,24 @@ resource "google_compute_vpn_tunnel" "dev_tunnel2" {
 
 }
 
+
+
+# BGP one router interface
+resource "google_compute_router_interface" "tunnel1" {
+  name       = "interface-1"
+  router     = google_compute_router.dev.name
+  region     = "us-west1" #Add dynamically
+  project    = data.google_project.earthranger.project_id
+  ip_range   = "169.254.95.132/30"
+  vpn_tunnel = google_compute_vpn_tunnel.dev_tunnel1.name
+}
+
+# BGP two router interface
+resource "google_compute_router_interface" "tunnel2" {
+  name       = "interface-2"
+  router     = google_compute_router.dev.name
+  region     = "us-west1" #Add dynamically
+  project    = data.google_project.earthranger.project_id
+  ip_range   = "169.254.115.204/30"
+  vpn_tunnel = google_compute_vpn_tunnel.dev_tunnel2.name
+}
