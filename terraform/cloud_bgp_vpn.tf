@@ -39,6 +39,12 @@ resource "google_compute_router" "dev" {
 
 }
 
+# Get static address to be used in forwarding rules
+resource "google_compute_address" "vpn_static_ip" {
+  name    = "vpn-1"
+  address = "34.83.25.105" #set this dynamically
+}
+
 # Forwarding rules
 resource "google_compute_forwarding_rule" "vpn_1_rule_esp" {
   name        = "vpn-1-rule-esp"
