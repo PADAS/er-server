@@ -8,7 +8,6 @@ from django.contrib.admin.utils import get_deleted_objects, unquote, \
     model_ngettext
 from django.contrib.gis import admin
 from django.core.exceptions import PermissionDenied
-from django.db import router
 from django.db.models import Q
 from django.db.models.expressions import RawSQL
 from django.template.response import TemplateResponse
@@ -208,9 +207,8 @@ def delete_selected_spatialfiles(modeladmin, request, queryset):
     if not modeladmin.has_delete_permission(request):
         raise PermissionDenied
 
-    using = router.db_for_write(modeladmin.model)
     deletable_objects, model_count, perms_needed, protected = get_deleted_objects(
-        queryset, opts, request.user, modeladmin.admin_site, using)
+        queryset, request, modeladmin.admin_site)
 
     if MAPPING_FEATURES_V2:
         spatial_features = models.SpatialFeature.objects.filter(
@@ -313,12 +311,10 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
         if obj is None:
             return self._get_obj_does_not_exist_redirect(request, opts, object_id)
 
-        using = router.db_for_write(self.model)
-
         # Populate deleted_objects, a data structure of all related objects that
         # will also be deleted.
         (deleted_objects, model_count, perms_needed, protected) = get_deleted_objects(
-            [obj], opts, request.user, self.admin_site, using)
+            [obj], request, self.admin_site)
 
         # get related features
         if MAPPING_FEATURES_V2:
