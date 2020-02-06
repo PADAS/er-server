@@ -39,4 +39,27 @@ resource "google_compute_router" "dev" {
 
 }
 
+# Forwarding rules
+resource "google_compute_forwarding_rule" "vpn_1_rule_esp" {
+  name        = "vpn-1-rule-esp"
+  ip_protocol = "ESP"
+  ip_address  = google_compute_address.vpn_static_ip.address
+  target      = google_compute_vpn_gateway.dev_gateway.self_link
+}
+
+resource "google_compute_forwarding_rule" "vpn_1_rule_udp500" {
+  name        = "vpn-1-rule-udp500"
+  ip_protocol = "UDP"
+  port_range  = "500"
+  ip_address  = google_compute_address.vpn_static_ip.address
+  target      = google_compute_vpn_gateway.dev_gateway.self_link
+}
+
+resource "google_compute_forwarding_rule" "vpn_1_rule_udp4500" {
+  name        = "vpn-1-rule-udp4500"
+  ip_protocol = "UDP"
+  port_range  = "4500"
+  ip_address  = google_compute_address.vpn_static_ip.address
+  target      = google_compute_vpn_gateway.dev_gateway.self_link
+}
 
