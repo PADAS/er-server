@@ -10,7 +10,9 @@
         <th style="border:1px solid gray;padding:3px;">Source Provider</th>
         <th style="border:1px solid gray;padding:3px;">Assigned Subject</th>
         <th style="border:1px solid gray;padding:3px;">Threshold (hh:mm:ss)</th>
-        <th style="border:1px solid gray;padding:3px;">Latest Observation</th>
+        <th style="border:1px solid gray;padding:3px;">Latitude</th>
+        <th style="border:1px solid gray;padding:3px;">Longitude</th>
+        <th style="border:1px solid gray;padding:3px;">Latest Recorded At</th>
     </tr>
     {% for source in sources %}
         <tr>
@@ -19,12 +21,13 @@
             <td style="border:1px solid gray;padding:3px;">{{ source.assigned_subject_name }}</td>
             <td style="border:1px solid gray;padding:3px;">{{ source.threshold_duration }}</td>
             {%- if source.last_recorded_at -%}
-            <td style="border:1px solid gray;padding:3px;">Lon: {{ (source.last_location_x)|round(3)}}
-                Lat: {{ (source.last_location_y)|round(3)}}
-                <br/>{{ (source.last_recorded_at.strftime('%b %d, %Y %H:%M (UTC)'))|safe}}
-            </td>
+            <td style="border:1px solid gray;padding:3px;">{{ (source.last_location_x)|round(3)}}</td>
+            <td style="border:1px solid gray;padding:3px;">{{ (source.last_location_y)|round(3)}}</td>
+            <td style="border:1px solid gray;padding:3px;">{{ (source.last_recorded_at.strftime('%b %d, %Y %H:%M (UTC)'))|safe}}</td>
             {%  else  %}
             <td style="border:1px solid gray; padding:3px;">No location found</td>
+            <td style="border:1px solid gray; padding:3px;">No location found</td>
+            <td style="border:1px solid gray; padding:3px;">No latest recorded time</td>
             {%- endif -%}
         </tr>
     {% endfor %}
