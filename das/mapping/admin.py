@@ -414,7 +414,7 @@ if MAPPING_FEATURES_V2:
             return self.readonly_fields
 
         class Media:
-            js = ('base.js',)
+            js = ["admin/js/jquery.init.js", "base.js"]
 else:
     @admin.register(models.SpatialFile)
     class SpatialFileAdmin(BaseSpatialFileAdmin):
