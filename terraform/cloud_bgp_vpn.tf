@@ -139,7 +139,7 @@ resource "google_compute_router_interface" "tunnel1" {
   router     = google_compute_router.dev.name
   region     = "us-west1" #Add dynamically
   project    = data.google_project.earthranger.project_id
-  ip_range   = "169.254.95.132/30"
+  ip_range   = "169.254.95.134/30"
   vpn_tunnel = google_compute_vpn_tunnel.dev_tunnel1.name
 }
 
@@ -149,7 +149,7 @@ resource "google_compute_router_interface" "tunnel2" {
   router     = google_compute_router.dev.name
   region     = "us-west1" #Add dynamically
   project    = data.google_project.earthranger.project_id
-  ip_range   = "169.254.115.204/30"
+  ip_range   = "169.254.115.206/30"
   vpn_tunnel = google_compute_vpn_tunnel.dev_tunnel2.name
 }
 
@@ -161,7 +161,7 @@ resource "google_compute_router_peer" "bgp-peer-one" {
   region                    = "us-west1" #dynamically add
   peer_ip_address           = "169.254.95.133"
   peer_asn                  = 65002
-  advertised_route_priority = 100
+  advertised_route_priority = 200
   interface                 = google_compute_router_interface.tunnel1.name
 
   depends_on = [
@@ -177,7 +177,7 @@ resource "google_compute_router_peer" "bgp-peer-two" {
   region                    = "us-west1" #dynamically add
   peer_ip_address           = "169.254.115.205"
   peer_asn                  = 65002
-  advertised_route_priority = 100
+  advertised_route_priority = 200
   interface                 = google_compute_router_interface.tunnel2.name
 
   depends_on = [
