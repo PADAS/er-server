@@ -152,3 +152,35 @@ resource "google_compute_router_interface" "tunnel2" {
   ip_range   = "169.254.115.204/30"
   vpn_tunnel = google_compute_vpn_tunnel.dev_tunnel2.name
 }
+
+# BGP Peer One
+resource "google_compute_router_peer" "bgp-peer-one" {
+  name                      = "bgpone" #better naming convention?
+  router                    = google_compute_router.dev.name
+  project                   = data.google_project.earthranger.project_id
+  region                    = "us-west1" #dynamically add
+  peer_ip_address           = "169.254.95.133"
+  peer_asn                  = 65002
+  advertised_route_priority = 100
+  interface                 = google_compute_router_interface.tunnel1.name
+
+  depends_on = [
+    google_compute_router_interface.tunnel1
+  ]
+}
+
+# BGP Peer two
+resource "google_compute_router_peer" "bgp-peer-two" {
+  name                      = "bgptwo" #better naming convention?
+  router                    = google_compute_router.dev.name
+  project                   = data.google_project.earthranger.project_id
+  region                    = "us-west1" #dynamically add
+  peer_ip_address           = "169.254.115.205"
+  peer_asn                  = 65002
+  advertised_route_priority = 100
+  interface                 = google_compute_router_interface.tunnel2.name
+
+  depends_on = [
+    google_compute_router_interface.tunnel2
+  ]
+}
