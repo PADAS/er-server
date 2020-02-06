@@ -86,7 +86,7 @@ resource "google_compute_vpn_tunnel" "dev_tunnel1" {
   name          = "vpn-1-tunnel-1"
   ike_version   = 1
   peer_ip       = "52.36.71.252"
-  shared_secret = "" #store in vault
+  shared_secret = data.vault_generic_secret.tunnel1_ikev1_pre_shared_key.data["value"]
   project       = data.google_project.earthranger.project_id
   region        = "us-west1" #dynamically add
 
@@ -111,7 +111,7 @@ resource "google_compute_vpn_tunnel" "dev_tunnel2" {
   name          = "vpn-1-tunnel-2"
   ike_version   = 1
   peer_ip       = "54.68.48.172"
-  shared_secret = "" #store in vault
+  shared_secret = data.vault_generic_secret.tunnel2_ikev1_pre_shared_key.data["value"]
   project       = data.google_project.earthranger.project_id
   region        = "us-west1" #dynamically add
 
