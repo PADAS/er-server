@@ -10,6 +10,13 @@ from django.contrib.gis.gdal import GDALException
 from django.db.utils import IntegrityError
 from django.utils.encoding import force_text
 
+import os
+from arcgis.gis import GIS
+from arcgis2geojson import arcgis2geojson
+from django.contrib import messages
+from django.core import management
+
+
 import utils.json
 from mapping import models
 # from mapping.models import (SpatialFeature, SpatialFeatureType)
@@ -183,11 +190,85 @@ def check_file_extension(f_type, data_file, feature_types_file):
 
 
 def validate_file_type(f_type, data_file, field):
-
-    # import pdb; pdb.set_trace()
     file_type_formats = {'shapefile': '.zip', 'geodatabase': '.gdb', 'geojson': ('.json', '.geojson')}
     for file_type, extension in file_type_formats.items():
         if f_type == file_type and not data_file.name.lower().endswith(extension):
             extension = ' or '.join(extension) if isinstance(extension, tuple) else extension
             raise ValidationError({field: [f'Kindly chose a {extension} file']})
 
+
+message = messages.add_message
+
+
+def arcgis_integration(request, obj):
+    group = arcgis_group_authentication(request, obj)
+    req = request.POST
+    conn_err = None
+    if not group:
+        message(request, messages.WARNING, f'Invalid group id: {obj.group_id}')
+        conn_err = True
+
+    elif "_testconnection" in req:
+        message(request, messages.INFO, f'Valid credentials. {group.title} group well configured')
+
+    elif "_downloadfeatures" in req:
+        download_features_from_wfs(request, group, obj)
+    return conn_err
+
+
+def arcgis_group_authentication(request, obj):
+    try:
+        gis = GIS(obj.service_url, username=obj.username, password=obj.password)
+        return gis.groups.get(obj.group_id)
+    except Exception as error:
+        message(request, messages.ERROR, error)
+
+
+def download_features_from_wfs(request, group, obj):
+    group_members, errored_files, success_files = group.content(), [], []
+    for member in group_members:
+        if member.type == "Feature Service":
+            title = member.title.replace(' ', '-')
+            logger.info(f'processing {title}')
+            success_files, errored_files = extract_gis_data(
+                obj, member, title, errored_files, success_files)
+    wfs_download_return_messages(request, errored_files, success_files)
+
+
+def extract_features(obj, member, title, data, success_files):
+    with open(f'./{title}.geojson', 'w') as data_file:
+        data_file.write(data)
+        management.call_command(
+            'importlayer', 'importspatialfile', data_file.name,
+            source=obj.source, name_field=obj.name_field, id_field=obj.id_field
+        )
+        os.remove(data_file.name)
+        success_files.append(member.title)
+        return success_files
+
+
+def extract_gis_data(obj, member, title, errored_files, success_files):
+    data = None
+    try:
+        # Not handling multiple layers just yet.
+        data = member.layers[0].query().to_geojson
+    except KeyError:
+        logger.debug('to_geojson failed, trying to_json')
+        data = arcgis2geojson(member.layers[0].query().to_json)
+    except Exception as error:
+        logger.info(f'Error reading from {member.title}', error)
+        errored_files.append(member.title)
+    if data:
+        success_files = extract_features(title, data, obj, success_files, member)
+        return success_files, errored_files
+
+
+def wfs_download_return_messages(request, errored_files, success_files):
+    if len(errored_files) > 0:
+        error_msg = f"Could not read data from {len(errored_files)} file(s): {', '.join(errored_files)}"
+        message(request, messages.ERROR, error_msg) if request else logger.debug(error_msg)
+
+    if len(success_files) > 0:
+        success_msg = f'Features Successfully loaded into ER from {len(success_files)} file(s)'
+        message(request, messages.SUCCESS, success_msg) if request else logger.info(success_msg)
+    logger.info('Returning from download_features')

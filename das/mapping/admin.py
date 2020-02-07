@@ -29,7 +29,7 @@ from mapping.forms import (ArcgisConfigurationForm,
                            DisplayCategoryForm, FeatureTypeForm, MapCenterForm,
                            SpatialFeatureGroupStaticForm,
                            SpatialFeatureTypeForm, TileLayerFormWithAttributes)
-from mapping.utils import MAPPING_FEATURES_V2
+from mapping.utils import MAPPING_FEATURES_V2, arcgis_integration
 
 logger = logging.getLogger(__name__)
 
@@ -452,61 +452,8 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
         ),)
     form = ArcgisConfigurationForm
 
-    def arcgis_connection(self, request, obj):
-        try:
-            gis = GIS(obj.service_url, username=obj.username, password=obj.password)
-        except Exception as error:
-            messages.add_message(request, messages.ERROR, error)
-            return error
-        else:
-            group = gis.groups.get(obj.group_id)
-            if not group:
-                messages.add_message(request, messages.WARNING, f'Invalid group id: {obj.group_id} ')
-                return obj
-
-            elif "_testconnection" in request.POST:
-                messages.add_message(request, messages.INFO, f'Valid credentials. {group.title} group well configured')
-
-            elif "_downloadfeatures" in request.POST:
-                self.download_features_from_wfs(request, group, obj)
-
-    # Todo: Should extract out common code from here and tasks.py into a function
-    def download_features_from_wfs(self, request, group, obj):
-        group_members, errored_files, success_files, data = group.content(), [], [], None
-        for member in group_members:
-            if member.type == "Feature Service":
-                title = member.title.replace(' ', '-')
-                logger.info(f'processing {title}')
-                try:
-                    # Not handling multiple layers just yet.
-                    data = member.layers[0].query().to_geojson
-                    file_ext = 'geojson'
-                except KeyError:
-                    logger.debug('to_geojson failed, trying to_json')
-                    data = arcgis2geojson(member.layers[0].query().to_json)
-                except Exception as error:
-                    logger.info(f'Error reading from {member.title}', error)
-                    errored_files.append(member.title)
-                if data:
-                    with open(f'./{title}.{file_ext}', 'w') as data_file:
-                        data_file.write(data)
-                        management.call_command(
-                            'importlayer', 'importspatialfile', data_file.name,
-                            source=obj.source, name_field=obj.name_field, id_field=obj.id_field
-                        )
-                        os.remove(data_file.name)
-                        success_files.append(member.title)
-        if len(errored_files) > 0:
-            messages.add_message(request, messages.ERROR, f"Could not read data from {len(errored_files)} file(s): {', '.join(errored_files)}")
-
-        if len(success_files) > 0:
-            messages.add_message(request, messages.SUCCESS, f'Features Successfully loaded into ER from {len(success_files)} file(s)')
-        logger.info('Returning from download_features')
-
-        # Todo: Set a celery task that will update/download features periodically
-
     def response_add(self, request, obj, post_url_continue=None):
-        conn = self.arcgis_connection(request, obj)
+        conn = arcgis_integration(request, obj)
         if conn or self.arcgis_config(request):
             return HttpResponseRedirect(request.path_info)
         else:
@@ -514,7 +461,7 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
             return super().response_add(request, obj, post_url_continue=None)
 
     def response_change(self, request, obj):
-        conn = self.arcgis_connection(request, obj)
+        conn = arcgis_integration(request, obj)
         if conn or self.arcgis_config(request):
             return HttpResponseRedirect(request.path_info)
         else:
