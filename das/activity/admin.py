@@ -36,8 +36,8 @@ class EventAdmin(OSMGeoExtendedAdmin):
     # wms_url = 'http://tiles.maps.eox.at/wms/'
     form = EventForm
 
-    list_display = ('serial_number', '_created_at', '_updated_at', '_event_time', 'event_type',
-                    'title', 'location', 'attributes',)
+    list_display = ('serial_number', '_created_at', '_event_time', '_updated_at', 'event_type',
+                    'title', '_longitude', '_latitude')
     readonly_fields = ('id', 'serial_number', 'created_at', 'updated_at')
     search_fields = ('title', 'serial_number')
     list_filter = ('state', 'event_type', )
@@ -59,6 +59,7 @@ class EventAdmin(OSMGeoExtendedAdmin):
 
     def resolve_event(self, request, queryset):
         queryset.update(state=models.Event.SC_RESOLVED)
+    resolve_event.short_description = "Resolve Selected Events(Reports)"
 
     def _created_at(self, o):
         return o.created_at
@@ -75,7 +76,14 @@ class EventAdmin(OSMGeoExtendedAdmin):
     _updated_at.short_description = 'updated at %s' % TIMEZONE_USED
     _updated_at.admin_order_field = 'updated_at'
 
-    resolve_event.short_description = "Resolve Selected Events(Reports)"
+    def _longitude(self, o):
+        return round(o.location.x, 5) if o.location else None
+    _longitude.short_description = _('Longitude')
+
+    def _latitude(self, o):
+        return round(o.location.y, 5) if o.location else None
+    _latitude.short_description = _('Latitude')
+
 
 
 @admin.register(models.Community)
