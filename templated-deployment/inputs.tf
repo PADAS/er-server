@@ -42,6 +42,11 @@ variable "config_container" {
   default = "dev-az"
 }
 
+variable "db_user" {
+  type = "string"
+  default = "postgres"
+}
+
 variable "db_name" {
   type = string
 }

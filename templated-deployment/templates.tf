@@ -12,6 +12,7 @@ resource "template_dir" "deployments" {
     DB_HOST              = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_private_ip
     DB_NAME              = var.db_name
     DB_PORT              = var.db_port
+    DB_USER              = var.db_user
     DEFAULT_FROM_EMAIL   = var.from_email
     EMAIL_HOST           = var.email_host
     FROM_EMAIL           = var.from_email
