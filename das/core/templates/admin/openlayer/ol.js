@@ -121,13 +121,35 @@ var modify_wkt = function(event) {
     }
 };
 
+
+var notNaN = function(){
+    x = document.getElementById('id_coordinate_0').value
+    y = document.getElementById('id_coordinate_1').value
+
+    console.log(x)
+    if (!isNaN(x) && !isNaN(y)){
+        return true
+    }
+};
+
 var Validate_ = function(){
     x = document.getElementById('id_coordinate_0').value ? true : false;
     y = document.getElementById('id_coordinate_1').value ? true : false;
-    if (x && y){
+    if ((x && y) && notNaN()){
         return true;
     }
 };
+
+// var notNaN = function(){
+//     x = document.getElementById('id_coordinate_0').value
+//     y = document.getElementById('id_coordinate_1').value
+
+//     if parseFloat(x) != NaN | parseFloat(y) != NaN){
+//         return true
+//     }
+// }
+var timeout = null;
+
 
 var ChangeCoordinate = function(event){
     event.preventDefault()
@@ -135,11 +157,27 @@ var ChangeCoordinate = function(event){
     var y = document.getElementById('id_coordinate_1').value;
     if(Validate_()){
         document.getElementById('{{ id }}').value = `SRID={{ srid|unlocalize }};POINT(${x} ${y})`;
+
+        clearTimeout(timeout);
+
+        // Make a new timeout set to go off in 1000ms (1 second)
+        timeout = setTimeout(function () {
+        wkt = `POINT(${x} ${y})`
+        admin_geom = {{ module }}.wkt_f.readFeature(wkt);
+
+        write_wkt(admin_geom);
+        source.addFeatures([admin_geom]);
+
+        var extent = source.getExtent();
+        map.getView().fit(extent, map.getSize());
+        map.getView().setZoom(map.getView().getZoom()-8)
+
+        }, 1000);
     };
 };
 
-document.getElementById('id_coordinate_0').addEventListener('change',  ChangeCoordinate, false)
-document.getElementById('id_coordinate_1').addEventListener('change', ChangeCoordinate, false)
+document.getElementById('id_coordinate_0').addEventListener('keyup',  ChangeCoordinate, false)
+document.getElementById('id_coordinate_1').addEventListener('keyup', ChangeCoordinate, false)
 
 
 var CreateTileLayer = function(){
