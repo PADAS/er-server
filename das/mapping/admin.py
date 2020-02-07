@@ -1,7 +1,9 @@
 import logging
-from functools import reduce
 import os
+from functools import reduce
+
 from arcgis.gis import GIS
+from arcgis2geojson import arcgis2geojson
 from django.contrib import admin as django_admin
 from django.contrib import messages
 from django.contrib.admin import helpers
@@ -9,10 +11,9 @@ from django.contrib.admin.exceptions import DisallowedModelAdminToField
 from django.contrib.admin.options import IS_POPUP_VAR, TO_FIELD_VAR
 from django.contrib.admin.utils import (get_deleted_objects, model_ngettext,
                                         unquote)
-
 from django.contrib.gis import admin
-from django.core.exceptions import PermissionDenied
 from django.core import management
+from django.core.exceptions import PermissionDenied
 from django.db import router
 from django.db.models import Q
 from django.db.models.expressions import RawSQL
@@ -21,7 +22,6 @@ from django.template.response import TemplateResponse
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
-
 
 import mapping.models as models
 from core.openlayers import OSMGeoExtendedAdmin
@@ -470,6 +470,7 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
             elif "_downloadfeatures" in request.POST:
                 self.download_features_from_wfs(request, group, obj)
 
+    # Todo: Should extract out common code from here and tasks.py into a function
     def download_features_from_wfs(self, request, group, obj):
         group_members, errored_files, success_files, data = group.content(), [], [], None
         for member in group_members:
@@ -477,11 +478,12 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
                 title = member.title.replace(' ', '-')
                 logger.info(f'processing {title}')
                 try:
+                    # Not handling multiple layers just yet.
                     data = member.layers[0].query().to_geojson
                     file_ext = 'geojson'
                 except KeyError:
-                    data = member.layers[0].query().to_json
-                    file_ext = 'json'
+                    logger.debug('to_geojson failed, trying to_json')
+                    data = arcgis2geojson(member.layers[0].query().to_json)
                 except Exception as error:
                     logger.info(f'Error reading from {member.title}', error)
                     errored_files.append(member.title)

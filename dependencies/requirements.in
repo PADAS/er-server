@@ -103,3 +103,4 @@ whitenoise==4.1.3
 django-debug-toolbar==1.11
 
 arcgis==1.7.1
+arcgis2geojson==2.0.0

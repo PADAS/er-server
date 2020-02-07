@@ -6,6 +6,7 @@ from zipfile import ZipFile
 
 from django.conf import settings
 from django.contrib.gis.gdal import DataSource
+from django.contrib.gis.gdal import GDALException
 from django.db.utils import IntegrityError
 from django.utils.encoding import force_text
 
@@ -99,8 +100,15 @@ def save_feature_to_table(feature, source_name, spatialfile_id, featuretype=None
 
     model_fieldname = 'feature_geometry'
     model_field_type = model._meta.get_field(model_fieldname)
-    feature_geometry = geometry_mapper.get_db_geom(
-        feature.geom, model_field_type)
+
+    # With Esri integration we've seen some feature services give us json that has features with "geometry" missing
+    # this handles and ignores that issue
+    try:
+        feature_geometry = geometry_mapper.get_db_geom(
+            feature.geom, model_field_type)
+    except GDALException as gex:
+        logger.warning(f'Saving feature {external_id} raised GDALException: {gex}')
+        return
 
     attribute_fields = feature_type.attribute_schema
 
