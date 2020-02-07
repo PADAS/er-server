@@ -145,6 +145,7 @@ var timeout = null;
 
 var ChangeCoordinate = function(event){
     event.preventDefault()
+    // x: Longitude y: Latitude
     var x = document.getElementById('id_coordinate_0').value;
     var y = document.getElementById('id_coordinate_1').value;
     if(Validate_()){
