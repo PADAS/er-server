@@ -140,16 +140,8 @@ var Validate_ = function(){
     }
 };
 
-// var notNaN = function(){
-//     x = document.getElementById('id_coordinate_0').value
-//     y = document.getElementById('id_coordinate_1').value
 
-//     if parseFloat(x) != NaN | parseFloat(y) != NaN){
-//         return true
-//     }
-// }
 var timeout = null;
-
 
 var ChangeCoordinate = function(event){
     event.preventDefault()
