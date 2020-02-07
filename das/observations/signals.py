@@ -1,7 +1,7 @@
 import logging
 
 from django.apps import apps
-from django.db.models.signals import post_save, post_migrate
+from django.db.models.signals import post_save, post_migrate, pre_delete
 from django.dispatch import receiver
 from django.contrib.auth.management import _get_all_permissions
 from django.contrib.auth.models import Permission
@@ -92,12 +92,14 @@ def create_proxy_permissions(**kwargs):
                                                  'name': name,
                                              })
 
+
 post_migrate.connect(create_proxy_permissions)
 
 
 def create_view_permissionset(permission_name):
 
-    permission_set, created = PermissionSet.objects.get_or_create(name=permission_name)
+    permission_set, created = PermissionSet.objects.get_or_create(
+        name=permission_name)
 
     for codename in ['view_real_time', 'view_subject', 'subscribe_alerts', 'view_subjectgroup']:
         perms = models.Permission.objects.filter(codename=codename)
@@ -116,3 +118,11 @@ def auto_create_view_perm(sender, instance, created, **kwargs):
         # Add PermissionSet after commit
         transaction.on_commit(
             lambda: instance.permission_sets.add(permission_set))
+
+
+@receiver(pre_delete, sender=SubjectGroup)
+def delete_auto_created_view_permission_set(sender, instance, **kwargs):
+    for permission_set in instance.permission_sets.all():
+        search_list = {'View', 'Subject',  'Group'}
+        if len(permission_set.subjectgroup_set.all()) == 1 and search_list.issubset(set(permission_set.name.split())):
+            permission_set.delete()

@@ -30,8 +30,9 @@ class ColorPickerWidget(TextInput):
         self.language = language or settings.LANGUAGE_CODE[:2]
         super(ColorPickerWidget, self).__init__(attrs=attrs)
 
-    def render(self, name, value, attrs=None):
-        rendered = super(ColorPickerWidget, self).render(name, value, attrs)
+    def render(self, name, value, attrs=None, renderer=None):
+        rendered = super(ColorPickerWidget, self).render(
+            name, value, attrs, renderer)
         return rendered + mark_safe(
             '''<script type="text/javascript">
             $('#id_%s').colorpicker({format: 'rawrgb'});
@@ -61,7 +62,8 @@ class JSONFieldFormMixin(object):
                     if json_data.get(field):
                         try:
                             if field in getattr(self.Meta, 'json_date_fields', set()):
-                                initial_value = self.fields[field].initial = parse(json_data.get(field))
+                                initial_value = self.fields[field].initial = parse(
+                                    json_data.get(field))
                             else:
                                 initial_value = json_data.get(field)
                         except Exception:
@@ -148,4 +150,3 @@ class FixedWidthFontTextArea(forms.Textarea):
         css = {
             'all': ('css/fixed_width_textarea.css',),
         }
-

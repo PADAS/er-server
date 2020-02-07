@@ -277,7 +277,7 @@ class LargeTablePaginator(Paginator):
 
     count = cached_property(_get_count)
 
-
+    
 @admin.register(models.Observation)
 class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin):
     readonly_fields = ("created_at", "id")

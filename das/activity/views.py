@@ -401,14 +401,14 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                                 current_schema, key)
                             current_event_type_data['headers'].append(
                                 self.escape_string(key))
-                            current_event_type_data['headers'].append(
-                                self.escape_string(display_value))
+                            current_event_type_data['headers'].append("test")
 
                             if key not in custom_headers:
                                 custom_headers.append(key)
 
                             if display_value not in custom_headers:
-                                custom_headers.append(display_value)
+                                column_name = schema_utils.get_column_header_name(current_schema, key)
+                                custom_headers.append(column_name)
 
                 except json.JSONDecodeError:
                     # Event type does not have schema, which is weird but not
@@ -432,7 +432,9 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 item_display_name = schema_utils.get_display_value_header_for_key(
                     current_schema, key)
                 schema_data[key] = self.escape_string(details.get(key, ''))
-                schema_data[item_display_name] = self.escape_string(
+                column_name = schema_utils.get_column_header_name(
+                    current_schema, key)
+                schema_data[column_name] = self.escape_string(
                     details.get(item_display_name, ''))
 
             # Now assemble the data we want to write to the csv

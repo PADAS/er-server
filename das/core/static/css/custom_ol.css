@@ -95,3 +95,26 @@ center:hover{
     background:#e0ebf3;
     border-radius: 8px;
 }
+
+#id_coordinate_0{
+    margin-bottom: 6px;
+    min-width: 0;
+    margin-left: 4px;
+    color: #333;
+}
+
+#id_coordinate_1{
+    min-width: 0;
+    margin-left: 16px;
+    color: #333;
+    margin-bottom: 3px;
+}
+
+p.lat_lon{
+    font-weight: bold;
+    padding: 6px 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    line-height: 20px;
+    color: #666;
+}
