@@ -72,6 +72,10 @@ variable "alerts_enabled" {
   default = "True"
 }
 
+variable "mapping_features_v2" {
+  default = "False"
+}
+
 data "aws_s3_bucket" "builds" {
   bucket = "${var.partner}-das-builds"
 }
@@ -149,6 +153,7 @@ data "template_file" "site_json" {
     export_kml_enabled              = var.export_kml_enabled
     alerts_enabled                  = var.alerts_enabled
     daily_report_enabled            = var.daily_report_enabled
+    mapping_features_v2             = var.mapping_features_v2
 
 
   }
