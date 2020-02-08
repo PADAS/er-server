@@ -201,27 +201,29 @@ message = messages.add_message
 
 
 def arcgis_integration(request, obj):
-    group = arcgis_group_authentication(request, obj)
-    req = request.POST
-    conn_err = None
-    if not group:
-        message(request, messages.WARNING, f'Invalid group id: {obj.group_id}')
-        conn_err = True
+    authenticated, group = arcgis_authentication(request, obj)
+    group_conn = True
+    while authenticated:
+        if not group:
+            message(request, messages.WARNING, f'Invalid group id: {obj.group_id}')
+            group_conn = False
 
-    elif "_testconnection" in req:
-        message(request, messages.INFO, f'Valid credentials. {group.title} group well configured')
+        elif "_testconnection" in request.POST:
+            message(request, messages.INFO, f'Valid credentials. {group.title} group well configured')
 
-    elif "_downloadfeatures" in req:
-        download_features_from_wfs(request, group, obj)
-    return conn_err
+        elif "_downloadfeatures" in request.POST:
+            download_features_from_wfs(request, group, obj)
+
+        return group_conn
 
 
-def arcgis_group_authentication(request, obj):
+def arcgis_authentication(request, obj):
     try:
         gis = GIS(obj.service_url, username=obj.username, password=obj.password)
-        return gis.groups.get(obj.group_id)
+        return True, gis.groups.get(obj.group_id)
     except Exception as error:
         message(request, messages.ERROR, error)
+        return False, None
 
 
 def download_features_from_wfs(request, group, obj):
@@ -259,7 +261,7 @@ def extract_gis_data(obj, member, title, errored_files, success_files):
         logger.info(f'Error reading from {member.title}', error)
         errored_files.append(member.title)
     if data:
-        success_files = extract_features(title, data, obj, success_files, member)
+        success_files = extract_features(obj, member, title, data, success_files)
         return success_files, errored_files
 
 
