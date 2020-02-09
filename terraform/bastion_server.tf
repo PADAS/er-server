@@ -1,5 +1,5 @@
 locals {
-  is_production        = (terraform.workspace == "prod1")
+  is_production        = (data.terraform_remote_state.earthranger_app_infra.workspace == "prod1")
   dev_subnetwork_name  = data.terraform_remote_state.terraform_gcp.outputs.dev_us_west_1_subnetwork_name
   prod_subnetwork_name = data.terraform_remote_state.terraform_gcp.outputs.prod_europe_west_3_subnetwork_name
 
@@ -36,6 +36,13 @@ resource "random_string" "bastion_name_uniqueness" {
 }
 
 resource "google_compute_instance" "bastion_server" {
+
+  timeouts {
+    create = "15m" 
+    update = "15m" 
+    delete = "15m" 
+  }
+
   # Toggle this variable to ensure bastion server spins down after bootstrapping
   count = local.bastion_server_count
 
@@ -77,7 +84,7 @@ resource "google_compute_instance" "bastion_server" {
     connection {
       host        = google_compute_instance.bastion_server[0].network_interface.0.access_config.0.nat_ip
       type        = "ssh"
-      private_key = "${tls_private_key.bastion_server.private_key_pem}"
+      private_key = tls_private_key.bastion_server.private_key_pem
       user        = local.bastion_server_user
     }
   }
@@ -86,7 +93,7 @@ resource "google_compute_instance" "bastion_server" {
     connection {
       host        = google_compute_instance.bastion_server[0].network_interface.0.access_config.0.nat_ip
       port        = "22"
-      private_key = "${tls_private_key.bastion_server.private_key_pem}"
+      private_key = tls_private_key.bastion_server.private_key_pem
       type        = "ssh"
       user        = local.bastion_server_user
     }

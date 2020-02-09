@@ -90,7 +90,6 @@ DATABASES = {
 SENDSMS_AFRICAS_TALKING_USERNAME = env.str('SMS_ID', '')
 SENDSMS_AFRICAS_TALKING_API_KEY = env.str('SMS_TOKEN', '')
 
-# TODO: Use variables for these values (first of all Bucket Name).
 DEFAULT_FILE_STORAGE = 'storages.backends.gcloud.GoogleCloudStorage'
 GS_BUCKET_NAME = env.str('GS_BUCKET_NAME', 'earthranger-uploads-default')
 

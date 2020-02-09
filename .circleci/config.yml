@@ -187,7 +187,7 @@ jobs:
           docker_layer_caching: true
       - 'docker_login'
       - 'checkout'
-      - run: 'cd infra-automation && make build_and_push current_branch="$CIRCLE_BRANCH" unique_gcr_tag="$CIRCLE_WORKFLOW_ID"'
+      - run: 'cd infra-automation && make build_and_push current_branch="$CIRCLE_BRANCH" unique_gcr_tag="$CIRCLE_WORKFLOW_ID" build_number="$CIRCLE_BUILD_NUM"'
       - 'activate_google_service_account'
       - run: 'cd infra-automation && make generate_manifest current_branch="$CIRCLE_BRANCH"'
       - persist_to_workspace:

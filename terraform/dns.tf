@@ -1,6 +1,6 @@
 resource "aws_route53_record" "www" {
   zone_id = data.aws_route53_zone.public.zone_id
-  name    = kubernetes_namespace.this.metadata.0.name
+  name    = "${kubernetes_namespace.this.metadata.0.name}.pamdas.org"
   type    = "A"
   ttl     = 300
   records = [

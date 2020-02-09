@@ -8,6 +8,7 @@ spec:
     metadata:
       labels:
         das.component: rt-api
+        das.configuration: server 
       annotations:
         prometheus.io/port: "9102"
     spec:
@@ -39,18 +40,6 @@ spec:
           value: "/etc/earthranger/google_credentials.json"
         - name: SERVICE_NAME
           value: "realtime_server"
-        - name: API_HOST
-          value: "${API_HOST}"
-        - name: API_PORT
-          value: "${API_PORT}"
-        - name: DB_HOST
-          value: "${DB_HOST}"
-        - name: DB_PORT
-          value: "${DB_PORT}"
-        - name: DB_NAME
-          value: "${DB_NAME}"
-        - name: DB_USER
-          value: "postgres"
         - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -66,11 +55,6 @@ spec:
             secretKeyRef:
               name: email-username
               key: value
-        - name: EMAIL_HOST
-          value: "${EMAIL_HOST}"
-        - name: FROM_EMAIL
-          value: "${FROM_EMAIL}"
-        - name: DEFAULT_FROM_EMAIL
-          value: "${DEFAULT_FROM_EMAIL}"
-        - name: KML_EXPORT
-          value: "${KML_EXPORT}"
+        envFrom:
+          - configMapRef:
+              name: server-configmap

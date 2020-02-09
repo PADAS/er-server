@@ -1,9 +1,0 @@
-project-id: padas-app
-cluster-name: orcas
-server-branch-name: develop
-web-branch-name: develop
-tag-as-latest: false
-das-static-ip: 35.230.89.10
-deploy-params-environment: production
-deployment-plan: integration
-

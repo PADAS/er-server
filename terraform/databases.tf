@@ -25,7 +25,7 @@ resource "google_sql_database" "database" {
     connection {
       host        = google_compute_instance.bastion_server[0].network_interface.0.access_config.0.nat_ip
       port        = "22"
-      private_key = "${tls_private_key.bastion_server.private_key_pem}"
+      private_key = tls_private_key.bastion_server.private_key_pem
       type        = "ssh"
       user        = "bastion_server"
     }
