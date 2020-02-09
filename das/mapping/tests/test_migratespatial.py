@@ -198,3 +198,39 @@ class TestMigrateSpatial(BaseAPITest):
 
         features = SpatialFeature.objects.all()
         self.assertNotEqual(features[0].feature_type.id, features[1].feature_type.id)
+
+    def test_is_visible_after_migration(self):
+        ft_names = [self.faker.name(), self.faker.name()]
+        sft_names = [self.faker.name(), self.faker.name(), self.faker.name()]
+        ft_names.sort()
+        sft_names.sort()
+
+        FeatureType.objects.create(name=ft_names[0])
+        FeatureType.objects.create(name=ft_names[1])
+        SpatialFeatureType.objects.create(name=sft_names[0])
+        SpatialFeatureType.objects.create(name=sft_names[1])
+        SpatialFeatureType.objects.create(name=sft_names[2])
+
+        visible_qs = SpatialFeatureType.objects.filter(is_visible=True)
+        invisible_qs = SpatialFeatureType.objects.filter(is_visible=False)
+        visible_qs_names = [f.name for f in visible_qs]
+        visible_qs_names.sort()
+
+        self.assertEqual(3, visible_qs.count())
+        self.assertEqual(0, invisible_qs.count())
+        self.assertEqual(sft_names, visible_qs_names) # SFTs are visible by default
+
+        call_command('migratespatial')
+
+        visible_qs = SpatialFeatureType.objects.filter(is_visible=True)
+        invisible_qs = SpatialFeatureType.objects.filter(is_visible=False)
+        visible_qs_names = [f.name for f in visible_qs]
+        invisible_qs_names = [f.name for f in invisible_qs]
+        visible_qs_names.sort()
+        invisible_qs_names.sort()
+
+        self.assertEqual(2, visible_qs.count())
+        self.assertEqual(3, invisible_qs.count())
+        self.assertEqual(ft_names, visible_qs_names)  # migrated FTs are visible
+        self.assertEqual(sft_names, invisible_qs_names)  # SFTs that existed before migration are now invisible
+
