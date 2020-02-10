@@ -37,7 +37,7 @@ class EventAdmin(OSMGeoExtendedAdmin):
     form = EventForm
 
     list_display = ('serial_number', '_created_at', '_event_time', '_updated_at', 'event_type',
-                    'title', '_longitude', '_latitude')
+                    'title', '_latitude', '_longitude')
     readonly_fields = ('id', 'serial_number', 'created_at', 'updated_at')
     search_fields = ('title', 'serial_number')
     list_filter = ('state', 'event_type', )
