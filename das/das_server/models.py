@@ -54,7 +54,8 @@ class EULA(TimestampedModel):
     )
     version_number = models.DecimalField(default=1.0, decimal_places=1,
                                          max_digits=2, unique=True)
-    url = models.URLField(null=False, blank=False)
+    eula_url = models.URLField(null=False, blank=False)
+    support_policy_url = models.URLField(null=True, blank=True)
     active = models.BooleanField(default=False)
 
     objects = EULAManager()

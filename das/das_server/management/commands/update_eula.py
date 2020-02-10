@@ -12,12 +12,16 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('--version_number', type=float,
                             help='EULA version')
-        parser.add_argument('--url', type=str,
+        parser.add_argument('--eula', type=str,
                             help='EULA version url')
+        parser.add_argument('--support-url', type=str,
+                            help='Support Policy url')
 
     def handle(self, *args, **options):
         version = options.get('version_number')
-        url = options.get('url')
+        url = options.get('eula')
+
+        support_policy_url = options.get("support-url")
 
         if version and url:
             active_eula = EULA.objects.get_active_eula()
@@ -26,7 +30,11 @@ class Command(BaseCommand):
                 raise CommandError(
                     f"new version '{version}' can not be less than or equal the active version '{active_eula.version_number}'")
             try:
-                eula = EULA.objects.create(version_number=version, url=url)
+                if not support_policy_url:
+                    support_policy_url = active_eula.support_policy_url
+
+                eula = EULA.objects.create(version_number=version, url=url,
+                                           support_policy_url=support_policy_url)
                 self.reset_users_eula_acceptance()
                 self.stdout.write(self.style.SUCCESS(f"Successfully updated the EULA to {str(eula)}"))
             except ValidationError as ve:
