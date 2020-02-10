@@ -119,6 +119,47 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertIn(Subject.objects.get(
             name=observation['subject_name']), SubjectGroup.objects.get(name="sg_1").subjects.all())
 
+    def test_post_with_new_source_but_empty_subject_groups(self):
+        observation = copy.deepcopy(self.one_observation)
+        observation.update({"subject_groups": [""]})
+        observation['manufacturer_id'] = lorem_ipsum.words(2)
+        observation['subject_name'] = lorem_ipsum.words(2)
+        response = self._post_data(json.dumps(observation))
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIn(Subject.objects.get(
+            name=observation['subject_name']), SubjectGroup.objects.get_default().subjects.all())
+
+    def test_post_with_new_source_but_empty_subject_groups_two(self):
+        payload = """
+        {
+          "location": {
+            "lat": -24.33982,
+            "lon": 32.29395
+          },
+          "recorded_at": "2019-11-25T14:59:25.0000000Z",
+          "manufacturer_id": "1025",
+          "subject_name": "administrator1025",
+          "subject_type": "person",
+          "subject_subtype": "ranger",
+          "subject_groups": [
+            "", ""
+          ],
+          "model_name": "dasradioagent:hytera",
+          "source_type": "gps-radio",
+          "message_key": "observation",
+          "additional": {
+            "event_action": "device_state_changed",
+            "radio_state": "na",
+            "radio_state_at": "2020-02-05T21:30:26.0946916Z",
+            "last_voice_call_start_at": "2020-01-21T05:27:26.0000000Z"
+          }
+        }
+        """
+        response = self._post_data(payload)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIn(Subject.objects.get(
+            name="administrator1025"), SubjectGroup.objects.get_default().subjects.all())
+
     def test_post_ten_has_dups(self):
         obs_list = [x for x in self._generate_observations()]
 
