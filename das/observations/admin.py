@@ -284,7 +284,7 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
     fields = ("id", "recorded_at", "created_at",
               "location", "exclusion_flags", "source", "additional")
     list_display = ('subject_link', '_manufacturer_id', '_recorded_at', '_created_at',
-                    '_longitude', '_latitude', '_state', '_event_action', 'exclusion_flags')
+                    '_latitude', '_longitude', '_state', '_event_action', 'exclusion_flags')
     list_editable = ('exclusion_flags',)
     list_display_links = None
     show_full_result_count = False
