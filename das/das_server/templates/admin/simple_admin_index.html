@@ -1,5 +1,10 @@
 {% extends "admin/index.html" %}
 
+{% block userlinks %}
+  <a href="/admin/eula/">{% trans 'View EULA' %}</a> /
+  {{ block.super }}
+{% endblock %}
+
 {% block content %}
 <p>
 <a href="/admin/"><strong>Switch to Advance Administration</strong></a>

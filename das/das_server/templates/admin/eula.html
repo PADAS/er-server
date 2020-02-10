@@ -1,14 +1,16 @@
-{% extends "admin/base.html" %}
-{% load i18n admin_urls admin_static admin_modify %}
-{% block title %}EULA Acceptance {% endblock title%}
-{% block content %}
-  <h1>Some content here to show that this works</h1>
+{% extends "admin/base_site.html" %}
 
-  <iframe src="{{eula.url}}" width="100%" height="700px"></iframe>
-  <form action="." method="post">
-    {% csrf_token %}
-    {{ form }}
-    <br>
-    <input type="submit" value="I agree">
-  </form>
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+
+{% block content %}
+    <iframe src="{{ eula.eula_url }}" width="100%" height="700px"></iframe>
+  {% if not user.accepted_eula %}
+    <form action="." method="post">
+      {% csrf_token %}
+      {{ form }}
+      <br>
+      <input type="submit" value="I agree">
+    </form>
+  {% endif %}
 {% endblock content %}

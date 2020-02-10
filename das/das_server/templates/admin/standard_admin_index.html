@@ -1,8 +1,14 @@
 {% extends "admin/index.html" %}
+{% load i18n static %}
+
+{% block userlinks %}
+  <a href="/admin/eula/">{% trans 'View EULA' %}</a> /
+  {{ block.super }}
+{% endblock %}
 
 {% block content %}
-<p>
-<a href="/dasadmin/"><strong>Switch to Simple Administration</strong></a>
-</p>
-{{ block.super }}
+  <p>
+    <a href="/dasadmin/"><strong>Switch to Simple Administration</strong></a>
+  </p>
+  {{ block.super }}
 {% endblock %}
