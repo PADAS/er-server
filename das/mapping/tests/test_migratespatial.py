@@ -205,11 +205,11 @@ class TestMigrateSpatial(BaseAPITest):
         ft_names.sort()
         sft_names.sort()
 
-        FeatureType.objects.create(name=ft_names[0])
-        FeatureType.objects.create(name=ft_names[1])
-        SpatialFeatureType.objects.create(name=sft_names[0])
-        SpatialFeatureType.objects.create(name=sft_names[1])
-        SpatialFeatureType.objects.create(name=sft_names[2])
+        FeatureType.objects.bulk_create([FeatureType(name=ft_names[0]),
+                                        FeatureType(name=ft_names[1])])
+        SpatialFeatureType.objects.bulk_create([SpatialFeatureType(name=sft_names[0]),
+                                               SpatialFeatureType(name=sft_names[1]),
+                                               SpatialFeatureType(name=sft_names[2])])
 
         visible_qs = SpatialFeatureType.objects.filter(is_visible=True)
         invisible_qs = SpatialFeatureType.objects.filter(is_visible=False)
