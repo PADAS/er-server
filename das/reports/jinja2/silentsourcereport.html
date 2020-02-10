@@ -21,8 +21,8 @@
             <td style="border:1px solid gray;padding:3px;">{{ source.assigned_subject_name }}</td>
             <td style="border:1px solid gray;padding:3px;">{{ source.threshold_duration }}</td>
             {%- if source.last_recorded_at -%}
-            <td style="border:1px solid gray;padding:3px;">{{ (source.last_location_x)|round(3)}}</td>
             <td style="border:1px solid gray;padding:3px;">{{ (source.last_location_y)|round(3)}}</td>
+            <td style="border:1px solid gray;padding:3px;">{{ (source.last_location_x)|round(3)}}</td>
             <td style="border:1px solid gray;padding:3px;">{{ (source.last_recorded_at.strftime('%b %d, %Y %H:%M (UTC)'))|safe}}</td>
             {%  else  %}
             <td style="border:1px solid gray; padding:3px;">No location found</td>
