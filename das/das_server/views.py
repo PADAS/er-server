@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.template import RequestContext
 from django.views.generic import FormView
 from rest_framework import generics
-from rest_framework.permissions import AllowAny, DjangoObjectPermissions
+from rest_framework.permissions import AllowAny, DjangoObjectPermissions, IsAuthenticated
 import rest_framework.serializers
 
 from accounts.permissions import UserObjectPermissions
@@ -104,13 +104,13 @@ class StatusView(generics.RetrieveAPIView):
 
 
 class AcceptEulaAPIView(generics.CreateAPIView):
-    permission_classes = (UserObjectPermissions,)
+    permission_classes = (IsAuthenticated,)
     serializer_class = AcceptEulaSerializer
     queryset = UserAgreement.objects.all()
 
 
 class GetActiveEulaAPIView(generics.RetrieveAPIView):
-    permission_classes = (UserObjectPermissions,)
+    permission_classes = (IsAuthenticated,)
     serializer_class = EulaSerializer
     queryset = EULA.objects.all()
 

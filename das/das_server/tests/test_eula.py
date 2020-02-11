@@ -79,7 +79,7 @@ class EulaViewsTestCase(BaseAPITest):
     def setUp(self):
         super().setUp()
         self.api_base = '/api/v1.0'
-        self.user = User.objects.create_superuser(
+        self.user = User.objects.create_user(
             'user', 'das_user@vulcan.com', 'user',
             **self.user_const)
 
