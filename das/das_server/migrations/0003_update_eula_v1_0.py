@@ -6,8 +6,8 @@ from django.core import management
 
 def update_eula(apps, schema_editor):
     management.call_command("update_eula", version_number=1.0,
-                            eula="http://videbutler.s3-eu-west-1.amazonaws.com/eula-template.pdf",
-                            sla="http://videbutler.s3-eu-west-1.amazonaws.com/eula-template.pdf"
+                            eula="https://earthranger.com/EULA",
+                            sla="https://earthranger.com/SLA"
                             )
 
 
