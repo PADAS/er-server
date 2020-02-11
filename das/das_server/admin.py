@@ -1,14 +1,12 @@
 import logging
 
-from django.contrib.admin import AdminSite, register, ModelAdmin
+from django.contrib.admin import AdminSite
 from django.utils.translation import ugettext_lazy as _
 
 from observations.models import Subject, SubjectSource, Source, SubjectStatus, \
     SubjectType, SubjectSubType, SubjectGroup, SubjectSourceSummary
 from observations.admin import SubjectAdmin, SubjectSourceAdmin, SubjectStatusAdmin, SourceAdmin, \
     SubjectTypeAdmin, SubjectSubTypeAdmin, SubjectGroupAdmin, SubjectSourceSummaryAdmin
-
-from das_server import models
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +30,3 @@ for x in (Subject, SubjectAdmin), (SubjectSource, SubjectSourceAdmin), (Source, 
          (SubjectStatus, SubjectStatusAdmin), (SubjectType, SubjectTypeAdmin), (SubjectSubType, SubjectSubTypeAdmin), \
          (SubjectGroup, SubjectGroupAdmin), (SubjectSourceSummary, SubjectSourceSummaryAdmin):
     dasadmin_site.register(*x)
-
-# TODO remove before merging
-@register(models.EULA)
-class EULAAdmin(ModelAdmin):
-    pass

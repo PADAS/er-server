@@ -24,26 +24,21 @@ class EulaModelTestCase(TestCase):
 
     def test_only_unique_eula_version_numbers_accepted(self):
         EULA.objects.create(eula_url="http://some.com/eula.pdf",
-                            version_number=1.0,
-                            support_policy_url="http://some.com/sp.pdf")
+                            version_number=2.0)
 
         with self.assertRaises(IntegrityError):
             EULA.objects.create(eula_url="http://some.com/eula.pdf",
-                                version_number=1.0,
-                                support_policy_url="http://some.com/sp.pdf")
+                                version_number=2.0,)
 
     def test_only_one_active_eula_can_exist_at_any_time(self):
         EULA.objects.create(eula_url="http://some.com/eula1.0.pdf",
-                            version_number=1.0,
-                            active=True,
-                            support_policy_url="http://some.com/sp.pdf")
+                            version_number=2.0,
+                            active=True)
         EULA.objects.create(eula_url="http://some.com/eula1.1.pdf",
-                            version_number=1.1,
-                            active=True,
-                            support_policy_url="http://some.com/sp.pdf")
+                            version_number=2.1,
+                            active=True)
         latest_eula = EULA.objects.create(
-            eula_url="http://some.com/eula1.3.pdf", version_number=1.2,
-            support_policy_url="http://some.com/sp.pdf",
+            eula_url="http://some.com/eula1.3.pdf", version_number=2.2,
             active=True)
 
         self.assertEqual(len(EULA.objects.filter(active=True)), 1)
@@ -52,20 +47,17 @@ class EulaModelTestCase(TestCase):
 
     def test_get_current_eula_version(self):
         EULA.objects.create(eula_url="http://some.com/eula1.0.pdf",
-                            version_number=1.0,
-                            active=True,
-                            support_policy_url="http://some.com/sp.pdf")
+                            version_number=2.0,
+                            active=True)
         eula = EULA.objects.create(eula_url="http://some.com/eula1.4.pdf",
-                                   version_number=1.4,
-                                   support_policy_url="http://some.com/sp.pdf")
+                                   version_number=2.4)
         active_eula = EULA.objects.get_active_eula()
         self.assertEqual(active_eula, eula)
 
     def test_get_users_that_agreed_to_current_eula_version(self):
         EULA.objects.create(eula_url="http://some.com/eula.pdf",
-                            version_number=1.0,
-                            active=True,
-                            support_policy_url="http://some.com/sp.pdf")
+                            version_number=2.0,
+                            active=True)
         EULA.objects.accept_eula(user=self.user1)
         self.assertEqual(
             EULA.objects.get_users_that_have_accepted_the_latest_eula().count(),
@@ -73,9 +65,8 @@ class EulaModelTestCase(TestCase):
 
     def test_get_users_that_have_acknowledged_eula(self):
         EULA.objects.create(eula_url="http://some.com/eula.pdf",
-                            version_number=1.0,
-                            active=True,
-                            support_policy_url="http://some.com/sp.pdf")
+                            version_number=2.0,
+                            active=True)
         EULA.objects.accept_eula(user=self.user1)
         self.assertEqual(
             EULA.objects.get_users_that_have_not_accepted_latest_eula().count(),
@@ -94,12 +85,10 @@ class EulaViewsTestCase(BaseAPITest):
 
     def test_getting_active_eula(self):
         EULA.objects.create(eula_url="http://some.com/eula.pdf",
-                            version_number=1.0,
-                            active=True,
-                            support_policy_url="http://some.com/sp.pdf")
+                            version_number=2.0,
+                            active=True)
         eula = EULA.objects.create(eula_url="http://some.com/eulav1.1.pdf",
-                                   support_policy_url="http://some.com/sp.pdf",
-                                   version_number=1.1)
+                                   version_number=2.1)
 
         request = self.factory.get(self.api_base + '/eula/')
         self.force_authenticate(request, self.user)
@@ -113,8 +102,7 @@ class EulaViewsTestCase(BaseAPITest):
 
     def test_accept_eula_view(self):
         eula = EULA.objects.create(eula_url="http://some.com/eulav1.1.pdf",
-                                   version_number=1.1,
-                                   support_policy_url="http://some.com/sp.pdf")
+                                   version_number=2.1)
         data = {"eula": eula.id, "user": self.user.id}
         request = self.factory.post(self.api_base + '/eula/accept/', data)
         self.force_authenticate(request, self.user)

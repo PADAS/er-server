@@ -21,7 +21,7 @@ class Command(BaseCommand):
                             help='EULA version url')
 
     def handle(self, *args, **options):
-        if not settings.USE_EULA:
+        if not settings.ACCEPT_EULA:
             raise EulaException("This site doesn't support using the EULA")
 
         version = options.get('version_number')
