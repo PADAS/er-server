@@ -378,7 +378,7 @@ class Observation(models.Model):
     created_at = models.DateTimeField(
         'row created at', auto_now_add=True, db_index=True)  # date/time this row created
     source = models.ForeignKey('Source', on_delete=models.CASCADE)
-    additional = JSONField()
+    additional = JSONField(null=True, blank=True)
 
     exclusion_flags = BitField(flags=BITMAP_FILTER_CHOICES, default=0)
     objects = ObservationManager()
@@ -1238,22 +1238,28 @@ def update_subject_status_from_observation(observation, delay_hours=0):
     recorded_at = observation.recorded_at
     source = observation.source
     location = observation.location
-    reported_subject_name = additional.get('subject_name')
+    if additional:
 
-    radio_state = observation.additional.get('radio_state')
-    try:
-        radio_state_at = parse_date(
-            observation.additional.get('radio_state_at'))
-    except:
-        radio_state_at = None
+        reported_subject_name = additional.get('subject_name')
+
+        radio_state = observation.additional.get('radio_state')
+        try:
+            radio_state_at = parse_date(
+                observation.additional.get('radio_state_at'))
+        except:
+            radio_state_at = None
+    else:
+        reported_subject_name, radio_state, radio_state_at = None, None, None
 
     update_subject_status(source=source, location=location, recorded_at=recorded_at,
-                          last_voice_call_start_at=last_voice_call_start_at,
-                          location_requested_at=location_requested_at,
-                          radio_state=radio_state,
-                          radio_state_at=radio_state_at,
-                          reported_subject_name=reported_subject_name,
-                          delay_hours=delay_hours)
+                        last_voice_call_start_at=last_voice_call_start_at,
+                        location_requested_at=location_requested_at,
+                        radio_state=radio_state,
+                        radio_state_at=radio_state_at,
+                        reported_subject_name=reported_subject_name,
+                        delay_hours=delay_hours)
+
+
 
 
 def update_subject_status_from_post(source, recorded_at, location, additional):
