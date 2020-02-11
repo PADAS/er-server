@@ -1,9 +1,14 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.core.management import BaseCommand, CommandError
 from django.db import IntegrityError
 
 from das_server.models import EULA
+
+
+class EulaException(Exception):
+    pass
 
 
 class Command(BaseCommand):
@@ -18,6 +23,9 @@ class Command(BaseCommand):
                             help='Support Policy url')
 
     def handle(self, *args, **options):
+        if not settings.USE_EULA:
+            raise EulaException("This site doesn't support using the EULA")
+
         version = options.get('version_number')
         url = options.get('eula')
 
