@@ -38,7 +38,6 @@ urlpatterns = [
     url(r'^api/v1.0/api-auth/',
         include('rest_framework.urls', namespace='rest_framework')),
     url(r'^api/v1.0/docs/', include_docs_urls(title='DAS API Documentation')),
-    url(r'^admin/eula/', views.EulaView.as_view(), name="eula_view"),
     url(r'^admin/', admin.site.urls),
     url(r'^dasadmin/', dasadmin_site.urls),
     url(r'^accounts/', include('accounts.urls_user')),

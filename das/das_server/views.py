@@ -14,7 +14,6 @@ from accounts.permissions import UserObjectPermissions
 from activity.alerts import has_alerts_permissionset
 
 from das_server import __version__
-from das_server.forms import UserEulaModelForm
 from das_server.models import EULA, UserAgreement
 from das_server.serializers import EulaSerializer, AcceptEulaSerializer
 
@@ -102,31 +101,6 @@ class StatusView(generics.RetrieveAPIView):
                 return copy.copy(settings.EUS_SETTINGS)
         except (KeyError, AttributeError):
             pass
-
-
-class EulaView(FormView):
-    template_name = 'admin/eula.html'
-    form_class = UserEulaModelForm
-    success_url = "/admin/"
-
-    def get_initial(self):
-        initial = super(EulaView, self).get_initial()
-        initial['eula'] = EULA.objects.get_active_eula()
-        initial['user'] = self.request.user
-        return initial
-
-    def get_context_data(self, **kwargs):
-        context = super(EulaView, self).get_context_data(**kwargs)
-        context['eula'] = EULA.objects.get_active_eula()
-        return context
-
-    def form_valid(self, form):
-        """If the form is valid, save the associated model."""
-        self.object = form.save()
-        user = self.object.user
-        user.accepted_eula = True
-        user.save()
-        return super().form_valid(form)
 
 
 class AcceptEulaAPIView(generics.CreateAPIView):

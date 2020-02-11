@@ -1,0 +1,8 @@
+{% extends "admin/index.html" %}
+
+{% block userlinks %}
+  {% if ACCEPT_EULA %}
+  <a href={{ EULA_REDIRECT }}>View EULA</a> /
+  {% endif %}
+  {{ block.super }}
+{% endblock %}

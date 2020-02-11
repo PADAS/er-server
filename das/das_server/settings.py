@@ -101,6 +101,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'das_server.context_processors.eula_context_processor',
             ],
         },
     },
@@ -530,3 +531,5 @@ GFW_CREDENTIALS = {
 METRICS_BUCKET = "er-site-metrics"
 
 ACCEPT_EULA = True
+
+EULA_REDIRECT = "http://dev.pamdas.org/beta/eula/"

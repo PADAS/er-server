@@ -1,10 +1,4 @@
-{% extends "admin/index.html" %}
-{% load i18n static %}
-
-{% block userlinks %}
-  <a href="/admin/eula/">{% trans 'View EULA' %}</a> /
-  {{ block.super }}
-{% endblock %}
+{% extends "admin/base_admin_index.html" %}
 
 {% block content %}
   <p>

@@ -2,12 +2,17 @@ import logging
 import time
 
 import inspect
+import uuid
+from datetime import timedelta
 
 from threading import local
 
 from django.conf import settings
 from django.shortcuts import redirect
+from django.utils import timezone
+from oauth2_provider.models import get_access_token_model
 from django.urls import reverse
+from rest_framework.authtoken.models import Token
 
 request_data = local()
 
@@ -113,12 +118,24 @@ class EULARedirectMiddleware:
 
         response = self.get_response(request)
 
+        # Code to be executed for each request/response after
+        # the view is called.
+        return self.process_response(request, response)
+
+    def process_response(self, request, response):
         user = request.user
 
         if settings.ACCEPT_EULA and is_check_eula_path(
             request.path) and user.is_authenticated and not user.accepted_eula:
+            response = redirect(settings.EULA_REDIRECT)
+            response.set_cookie("routeAfterEulaAccepted", "/admin/")
+            AccessToken = get_access_token_model()
+            expires = timezone.now() + timedelta(minutes=20)
+            access_token = AccessToken.objects.create(user=user, token=str(uuid.uuid4()), expires=expires)
 
-            return redirect(reverse('eula_view'))
+            response.set_cookie("temporaryAccessToken", access_token.token)
+
+            return response
 
         return response
 
