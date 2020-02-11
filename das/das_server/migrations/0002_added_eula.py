@@ -24,7 +24,6 @@ class Migration(migrations.Migration):
                 ('id', models.UUIDField(default=uuid.uuid1, primary_key=True, serialize=False)),
                 ('version_number', models.DecimalField(decimal_places=1, default=1.0, max_digits=2, unique=True)),
                 ('eula_url', models.URLField()),
-                ('support_policy_url', models.URLField(blank=True, null=True)),
                 ('active', models.BooleanField(default=False)),
             ],
             options={

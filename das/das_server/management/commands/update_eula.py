@@ -19,8 +19,6 @@ class Command(BaseCommand):
                             help='EULA version')
         parser.add_argument('--eula', type=str,
                             help='EULA version url')
-        parser.add_argument('--sla', type=str,
-                            help='Support Policy url')
 
     def handle(self, *args, **options):
         if not settings.USE_EULA:
@@ -28,10 +26,6 @@ class Command(BaseCommand):
 
         version = options.get('version_number')
         url = options.get('eula')
-
-        support_policy_url = options.get("support-url")
-
-        active_eula = None
 
         if version and url:
             try:
@@ -44,11 +38,8 @@ class Command(BaseCommand):
                 pass
 
             try:
-                if active_eula and not support_policy_url:
-                    support_policy_url = active_eula.support_policy_url
 
-                eula = EULA.objects.create(version_number=version, eula_url=url,
-                                           support_policy_url=support_policy_url)
+                eula = EULA.objects.create(version_number=version, eula_url=url)
                 self.reset_users_eula_acceptance()
                 self.stdout.write(self.style.SUCCESS(f"Successfully updated the EULA to {str(eula)}"))
             except ValidationError as ve:
