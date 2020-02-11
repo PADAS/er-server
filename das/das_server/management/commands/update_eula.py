@@ -1,5 +1,5 @@
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.core.management import BaseCommand, CommandError
 from django.db import IntegrityError
 
@@ -14,7 +14,7 @@ class Command(BaseCommand):
                             help='EULA version')
         parser.add_argument('--eula', type=str,
                             help='EULA version url')
-        parser.add_argument('--support-url', type=str,
+        parser.add_argument('--sla', type=str,
                             help='Support Policy url')
 
     def handle(self, *args, **options):
@@ -23,17 +23,23 @@ class Command(BaseCommand):
 
         support_policy_url = options.get("support-url")
 
-        if version and url:
-            active_eula = EULA.objects.get_active_eula()
+        active_eula = None
 
-            if active_eula.version_number >= float(version):
-                raise CommandError(
-                    f"new version '{version}' can not be less than or equal the active version '{active_eula.version_number}'")
+        if version and url:
             try:
-                if not support_policy_url:
+                active_eula = EULA.objects.get_active_eula()
+
+                if active_eula.version_number >= float(version):
+                    raise CommandError(
+                        f"new version '{version}' can not be less than or equal the active version '{active_eula.version_number}'")
+            except ObjectDoesNotExist:
+                pass
+
+            try:
+                if active_eula and not support_policy_url:
                     support_policy_url = active_eula.support_policy_url
 
-                eula = EULA.objects.create(version_number=version, url=url,
+                eula = EULA.objects.create(version_number=version, eula_url=url,
                                            support_policy_url=support_policy_url)
                 self.reset_users_eula_acceptance()
                 self.stdout.write(self.style.SUCCESS(f"Successfully updated the EULA to {str(eula)}"))

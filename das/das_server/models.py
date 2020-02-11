@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.db import models, transaction
 from django.utils.translation import gettext_lazy as _
@@ -49,6 +51,7 @@ class EULAManager(models.Manager):
 
 
 class EULA(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid1)
     users = models.ManyToManyField(
         settings.AUTH_USER_MODEL, through=UserAgreement, blank=True
     )

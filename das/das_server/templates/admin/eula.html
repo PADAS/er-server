@@ -4,13 +4,27 @@
 
 
 {% block content %}
-    <iframe src="{{ eula.eula_url }}" width="100%" height="700px"></iframe>
+  <div id="eula" class="doc">
+      <h2>EULA</h2>
+      <iframe src="{{ eula.eula_url }}" width="100%" height="900px"></iframe>
   {% if not user.accepted_eula %}
     <form action="." method="post">
       {% csrf_token %}
       {{ form }}
-      <br>
+      <br><br>
       <input type="submit" value="I agree">
     </form>
   {% endif %}
+  </div>
+{#  <div id="support-policy" class="doc">#}
+{#  <h2>Support Policy</h2>#}
+{#  <iframe src="{{ eula.support_policy_url }}" width="100%" height="900px"></iframe>#}
+{#  </div>#}
+
 {% endblock content %}
+
+<style>
+  .doc {
+    padding: 10% 20px;
+  }
+</style>
