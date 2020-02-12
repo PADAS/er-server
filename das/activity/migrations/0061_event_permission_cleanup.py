@@ -20,7 +20,7 @@ new_monitoring_group_name = 'Radio Room Operator Event Permissions'
 
 def populate_new_permission_sets(apps, ):
     utils.models.migrate_permissions(apps)
-    call_command('loaddata', 'new_permission_sets')
+    call_command('loaddata', 'new_permission_sets', verbosity=2)
 
 
 def forward_pre(apps, schema_editor):

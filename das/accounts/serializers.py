@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
 import rest_framework.serializers
 from rest_framework.exceptions import ValidationError
@@ -16,6 +17,12 @@ class UserSerializer(rest_framework.serializers.ModelSerializer):
                             'accepted_eula')
         fields = ('username', 'email', 'first_name',
                   'last_name', 'role') + read_only_fields
+        
+    def to_representation(self, instance):
+        ret = super(UserSerializer, self).to_representation(instance)
+        if not settings.ACCEPT_EULA:
+            del ret['accepted_eula']
+        return ret
 
 
 class UserDisplaySerializer(rest_framework.serializers.ModelSerializer):
