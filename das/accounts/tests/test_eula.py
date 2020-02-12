@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import IntegrityError
 from django.test import TestCase
 from django.test.utils import override_settings
@@ -114,15 +115,4 @@ class EulaViewsTestCase(BaseAPITest):
         self.assertTrue(user.accepted_eula)
         self.assertTrue(response_data.get('accepted'))
         self.assertEqual(response_data.get('eula'), eula.id)
-
-    @override_settings(ACCEPTED_EULA=False)
-    def test_accepted_eula_not_returned_for_sites_not_using_eula(self):
-        request = self.factory.get(self.api_base + '/user/me')
-        self.force_authenticate(request, self.user)
-
-        response = views.UserView.as_view()(request,
-                                            id=self.user.id)
-        response_data = response.data
-        self.assertEqual(response.status_code, 200)
-        self.assertNotIn('accepted_eula', response_data)
 
