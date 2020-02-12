@@ -1,10 +1,10 @@
 from django.db import IntegrityError
 from django.test import TestCase
 
+from accounts import views
 from accounts.models import User
+from accounts.models.eula import EULA
 from core.tests import BaseAPITest
-from das_server import views
-from das_server.models import EULA
 
 
 class EulaModelTestCase(TestCase):

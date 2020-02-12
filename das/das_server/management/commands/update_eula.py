@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.core.management import BaseCommand, CommandError
 from django.db import IntegrityError
 
-from das_server.models import EULA
+from accounts.models.eula import EULA
 
 
 class EulaException(Exception):

@@ -7,9 +7,11 @@ from django.contrib.auth import get_user_model
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
 
 import accounts.serializers as serializers
 from accounts.filters import UserObjectPermissionsFilter
+from accounts.models.eula import UserAgreement, EULA
 from accounts.permissions import UserObjectPermissions
 
 logger = logging.getLogger(__name__)
@@ -89,3 +91,18 @@ class UsersCsvView(generics.RetrieveAPIView):
         if csv_data:
             writer.writerows(csv_data)
         return response
+
+
+class AcceptEulaAPIView(generics.CreateAPIView):
+    permission_classes = (IsAuthenticated,)
+    serializer_class = serializers.AcceptEulaSerializer
+    queryset = UserAgreement.objects.all()
+
+
+class GetActiveEulaAPIView(generics.RetrieveAPIView):
+    permission_classes = (IsAuthenticated,)
+    serializer_class = serializers.EulaSerializer
+    queryset = EULA.objects.all()
+
+    def get_object(self):
+        return EULA.objects.get(active=True)

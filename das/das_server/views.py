@@ -5,17 +5,12 @@ from django.conf import settings
 from django.db import connection
 from django.utils import timezone
 from django.template import RequestContext
-from django.views.generic import FormView
 from rest_framework import generics
-from rest_framework.permissions import AllowAny, DjangoObjectPermissions, IsAuthenticated
+from rest_framework.permissions import AllowAny, DjangoObjectPermissions
 import rest_framework.serializers
-
-from accounts.permissions import UserObjectPermissions
 from activity.alerts import has_alerts_permissionset
 
 from das_server import __version__
-from das_server.models import EULA, UserAgreement
-from das_server.serializers import EulaSerializer, AcceptEulaSerializer
 
 from observations import servicesutils
 from utils.json import parse_bool
@@ -101,18 +96,3 @@ class StatusView(generics.RetrieveAPIView):
                 return copy.copy(settings.EUS_SETTINGS)
         except (KeyError, AttributeError):
             pass
-
-
-class AcceptEulaAPIView(generics.CreateAPIView):
-    permission_classes = (IsAuthenticated,)
-    serializer_class = AcceptEulaSerializer
-    queryset = UserAgreement.objects.all()
-
-
-class GetActiveEulaAPIView(generics.RetrieveAPIView):
-    permission_classes = (IsAuthenticated,)
-    serializer_class = EulaSerializer
-    queryset = EULA.objects.all()
-
-    def get_object(self):
-        return EULA.objects.get(active=True)

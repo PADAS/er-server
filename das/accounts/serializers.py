@@ -1,6 +1,8 @@
 from django.contrib.auth import get_user_model
 import rest_framework.serializers
 from rest_framework.exceptions import ValidationError
+
+from accounts.models.eula import EULA, UserAgreement
 from core.serializers import ContentTypeField
 
 
@@ -40,3 +42,15 @@ def get_user_display(user):
     except NotImplementedError:
         pass
     return user.get_username()
+
+
+class AcceptEulaSerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = UserAgreement
+        fields = ["user", "eula", "accepted",]
+
+
+class EulaSerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = EULA
+        fields = ["version_number", "eula_url"]
