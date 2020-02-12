@@ -6,7 +6,7 @@ from django.core.management.base import BaseCommand
 from mapping import models
 from mapping.utils import (DEFAULT_SOURCE_NAME,
                            datasource_from_file, save_feature_to_table,
-                           validate_feature_record, save_spatial_file)
+                           validate_feature_record, save_spatial_file, get_feature_type_name)
 from utils.spatial import GeometryMapper
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,7 @@ class Command(BaseCommand):
         self.featuretype = options['featuretype']
         self.featureset = options['featureset']
         self.spatialfile_id = options['spatialfile_id'] if options['spatialfile_id'] else self.spatialfile_id
+        self.presentation = options['presentation']
 
         sub_command = options['sub_command']
         if sub_command not in self.SUB_COMMANDS:
@@ -76,6 +77,8 @@ class Command(BaseCommand):
                             help='Change to this utm')
         parser.add_argument('--spatialfile-id', type=str,
                             help='Spatial file ID')
+        parser.add_argument('--presentation', type=dict,
+                            help='Presentation from an ArcGIS Simple Renderer')
 
     def importlayerfile(self):
 
@@ -167,9 +170,16 @@ class Command(BaseCommand):
         logger.info('Importing layer: %s, type: %s, fields: %s',
                     layer.name, layer.geom_type, layer.fields)
         has_unique_keys = self.contains_unique_keys_in_layer(layer)
-        i = 0
-        for feature in layer:
-            i += 1
+        for i, feature in enumerate(layer):
+            feature_type_name = get_feature_type_name(feature, featuretype)
+            if not feature_type_name:
+                continue
+            if self.presentation:
+                # TODO: get sft regardless of presentation and pass on further
+                spatial_feature_type, _ = models.SpatialFeatureType.objects.get_or_create(name=feature_type_name)
+                spatial_feature_type.presentation = self.presentation
+                spatial_feature_type.save()
+
             external_id = self.make_external_id(layer, feature)
             if not has_unique_keys:
                 external_id = external_id + '-' + str(i)

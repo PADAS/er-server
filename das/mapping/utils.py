@@ -1,25 +1,22 @@
 import datetime
 import logging
+import os
 import tempfile
-from django.core.exceptions import ValidationError
 from zipfile import ZipFile
 
+from arcgis.gis import GIS
+from arcgis2geojson import arcgis2geojson
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.gis.gdal import DataSource
 from django.contrib.gis.gdal import GDALException
+from django.core import management
+from django.core.exceptions import ValidationError
 from django.db.utils import IntegrityError
 from django.utils.encoding import force_text
 
-import os
-from arcgis.gis import GIS
-from arcgis2geojson import arcgis2geojson
-from django.contrib import messages
-from django.core import management
-
-
 import utils.json
 from mapping import models
-# from mapping.models import (SpatialFeature, SpatialFeatureType)
 from utils.spatial import GeometryMapper
 
 geometry_mapper = GeometryMapper()
@@ -46,6 +43,30 @@ PROVENANCE_FIELDS = ('collect_user', 'collect_method', 'collect_date',
 ATTRIBUTES_TO_SPATIAL_MAPPING = {'short_name': {'field': 'short_name', 'validator': shortname_validator},
                                  'name': {'field': 'name', 'validator': lambda v: v}
                                  }
+
+ESRI_LINE = 'esriSLS'
+ESRI_POLYGON = 'esriSFS'
+ESRI_PMS = 'esriPMS'
+ESRI_SMS = 'esriSMS'
+ESRI_PFS = 'esriPFS'
+RENDERER_TYPE_SIMPLE = 'simple'
+RENDERER_TYPE_UNIQUE_VALUE = 'uniqueValue'
+DEFAULT_IMAGE_WIDTH = 20
+DEFAULT_IMAGE_HEIGHT = 20
+
+DEFAULT_IMAGE = {
+    "image": "/static/ranger_post-black.svg",
+    "width": 20,
+    "height": 20
+}
+
+DEFAULT_POLYGON = {
+    "fill": "#f4d442",
+    "stroke": "#000000",
+    "fill-opacity": 0.2,
+    "stroke-width": 1,
+    "stroke-opacity": 0.7
+}
 
 
 def validate_feature_record(record, record_name, model):
@@ -85,11 +106,22 @@ def reduce_json(document):
     return reduced
 
 
+def get_feature_type_name(feature, type_name=None):
+    try:
+        feature_type_name = type_name or feature['Types'].value if 'Types' in feature.fields else feature['type'].value
+    except Exception:
+        logger.warning('Feature %s Missing featuretype', feature['name'].value)
+        return None
+
+    return feature_type_name
+
+
 def get_feature_type(type_name, create_okay=True):
     return models.SpatialFeatureType.objects.get_by_natural_key(type_name)
 
 
-def save_feature_to_table(feature, source_name, spatialfile_id, featuretype=None, external_id=None):
+# TODO: might move away from ft_name/get_feature_type_name & just pass in a SpatialFeatureType instance here
+def save_feature_to_table(feature, source_name, spatialfile_id, ft_name=None, external_id=None):
     model = models.SpatialFeature
     if not external_id:
         external_id = feature['globalid'].value if 'globalid' in [x.lower() for x in feature.fields] \
@@ -97,13 +129,12 @@ def save_feature_to_table(feature, source_name, spatialfile_id, featuretype=None
 
     fields = list(fields_iter(feature))
 
-    try:
-        featuretype = featuretype or feature['Types'].value if 'Types' in feature.fields else feature['type'].value
-    except Exception:
-        logger.warning('Feature %s Missing featuretype', feature['name'].value)
+    # TODO
+    feature_type_name = get_feature_type_name(feature, ft_name)
+    if not feature_type_name:
         return
 
-    feature_type, created = models.SpatialFeatureType.objects.get_or_create(name=featuretype)
+    feature_type, created = models.SpatialFeatureType.objects.get_or_create(name=feature_type_name)
 
     model_fieldname = 'feature_geometry'
     model_field_type = model._meta.get_field(model_fieldname)
@@ -226,23 +257,35 @@ def arcgis_authentication(request, obj):
         return False, None
 
 
+import time
+
+
 def download_features_from_wfs(request, group, obj):
     group_members, errored_files, success_files = group.content(), [], []
+    items_to_import = [
+        'Akagera_Land_Cover',
+        'Hydrology_polygon',
+        'Built_point'
+    ]
+    ts = time.time()
     for member in group_members:
-        if member.type == "Feature Service":
+        if member.type == "Feature Service" and member.title in items_to_import:
             title = member.title.replace(' ', '-')
             logger.info(f'processing {title}')
             success_files, errored_files = extract_gis_data(
                 obj, member, title, errored_files, success_files)
+    logger.info(f'returning. feature sync took {int(time.time() - ts)} seconds')
     wfs_download_return_messages(request, errored_files, success_files)
 
 
-def extract_features(obj, member, title, data, success_files):
+def extract_features(obj, member, title, data, success_files, simple_presentation):
+    # todo: what if current dir is readonly?
     with open(f'./{title}.geojson', 'w') as data_file:
         data_file.write(data)
         management.call_command(
             'importlayer', 'importspatialfile', data_file.name,
-            source=obj.source, name_field=obj.name_field, id_field=obj.id_field
+            source=obj.source, name_field=obj.name_field, id_field=obj.id_field,
+            presentation=simple_presentation
         )
         os.remove(data_file.name)
         success_files.append(member.title)
@@ -251,8 +294,10 @@ def extract_features(obj, member, title, data, success_files):
 
 def extract_gis_data(obj, member, title, errored_files, success_files):
     data = None
+    simple_presentation = None
     try:
         # Not handling multiple layers just yet.
+        simple_presentation = import_featuretype_presentation(member.layers[0].properties.drawingInfo.renderer)
         data = member.layers[0].query().to_geojson
     except KeyError:
         logger.debug('to_geojson failed, trying to_json')
@@ -261,7 +306,7 @@ def extract_gis_data(obj, member, title, errored_files, success_files):
         logger.info(f'Error reading from {member.title}', error)
         errored_files.append(member.title)
     if data:
-        success_files = extract_features(obj, member, title, data, success_files)
+        success_files = extract_features(obj, member, title, data, success_files, simple_presentation)
         return success_files, errored_files
 
 
@@ -274,3 +319,67 @@ def wfs_download_return_messages(request, errored_files, success_files):
         success_msg = f'Features Successfully loaded into ER from {len(success_files)} file(s)'
         message(request, messages.SUCCESS, success_msg) if request else logger.info(success_msg)
     logger.info('Returning from download_features')
+
+
+def import_featuretype_presentation(renderer):
+    if renderer.type == RENDERER_TYPE_UNIQUE_VALUE:
+        for unique_val in renderer.uniqueValueInfos:
+            feature_type_name = unique_val.value
+            presentation = get_mb_style(unique_val.symbol)
+            logger.info(f'{feature_type_name}: {presentation}')
+            if presentation:
+                # Todo: revisit if we cache SFTs when importing features
+                feature_type, created = models.SpatialFeatureType.objects.get_or_create(name=feature_type_name)
+                feature_type.presentation = presentation
+                feature_type.save()
+    elif renderer.type == 'simple':
+        simple_presentation = get_mb_style(renderer.symbol)
+        logger.info(simple_presentation)
+        return simple_presentation
+    else:
+        logger.info(f'Ignoring {renderer.type} renderer')
+
+
+def get_mb_style(symbol):
+    presentation = None
+    type = symbol.type
+
+    if type == ESRI_LINE:
+        logger.debug('processing line')
+        r, g, b, a = symbol.color
+        width = symbol.width
+        colors_as_hex = "#{:02x}{:02x}{:02x}".format(r, g, b)
+        opacity = "{:.2f}".format(a / 255)
+        presentation = {
+            "stroke": colors_as_hex,
+            "stroke-opacity": opacity,
+            "stroke-width": width
+        }
+    elif type == ESRI_POLYGON:
+        logger.debug('processing polygon')
+        r, g, b, a = symbol.color
+        fill_color = "#{:02x}{:02x}{:02x}".format(r, g, b)
+        fill_opacity = "{:.2f}".format(a / 255)
+        presentation = {
+            "fill": fill_color,
+            "fill-opacity": fill_opacity
+        }
+        if hasattr(symbol, 'outline') and symbol.outline:
+            r, g, b, a = symbol.outline.color
+            presentation["stroke"] = "#{:02x}{:02x}{:02x}".format(r, g, b)
+            presentation["stroke-opacity"] = "{:.2f}".format(a / 255)
+            presentation["stroke-width"] = symbol.outline.width
+    elif type == ESRI_PMS or type == ESRI_PFS:
+        logger.debug(f'processing picture symbol {type}')
+        presentation = {
+            "image": symbol.imageData,
+            "width": symbol.width if hasattr(symbol, "width") else DEFAULT_IMAGE_WIDTH,
+            "height": symbol.height if hasattr(symbol, "height") else DEFAULT_IMAGE_HEIGHT
+        }
+    elif type == ESRI_SMS:
+        logger.debug('processing simple marker symbol')
+        presentation = DEFAULT_IMAGE
+    else:
+        logger.info(f'Got type: {type}. Not handled yet.')
+
+    return presentation
