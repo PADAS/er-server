@@ -443,18 +443,18 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('group_name', 'group_id', 'polling_interval', 'username', 'password',)
+            'fields': ('group_name', 'group_id', 'username', 'password',)
         }),
         ('Optional Attributes', {
             'classes': ('collapse',),
-            'fields': ('service_url', 'source','id_field','name_field',)
+            'fields': ('service_url', 'source', 'id_field','name_field',)
         }
         ),)
     form = ArcgisConfigurationForm
 
     def response_add(self, request, obj, post_url_continue=None):
         conn = arcgis_integration(request, obj)
-        if conn or self.arcgis_config(request):
+        if self.arcgis_config(request) or not conn:
             return HttpResponseRedirect(request.path_info)
         else:
             obj.save()
@@ -462,11 +462,12 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
 
     def response_change(self, request, obj):
         conn = arcgis_integration(request, obj)
-        if conn or self.arcgis_config(request):
+        if self.arcgis_config(request) or not conn:
             return HttpResponseRedirect(request.path_info)
         else:
             obj.save()
             return super().response_change(request, obj)
+
 
     def save_model(self, request, obj, form, change):
         pass

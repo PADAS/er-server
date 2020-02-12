@@ -1,12 +1,13 @@
 import datetime
 import logging
 
+from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from mapping import models
-from mapping.utils import (DEFAULT_SOURCE_NAME,
-                           datasource_from_file, save_feature_to_table,
-                           validate_feature_record, save_spatial_file)
+from mapping.utils import (DEFAULT_SOURCE_NAME, datasource_from_file,
+                           save_feature_to_table, save_spatial_file,
+                           validate_feature_record)
 from utils.spatial import GeometryMapper
 
 logger = logging.getLogger(__name__)
@@ -151,34 +152,42 @@ class Command(BaseCommand):
             raise KeyError('no default featuretype specified')
         return default
 
-    def contains_unique_keys_in_layer(self, layer):
+    def contains_unique_keys_in_layer(self, layer, external_id):
         seen = set()
         unique_keys = True
-        for feature in layer:
-            external_id = self.make_external_id(layer, feature)
-            if external_id in seen:
-                logger.info('External_id=%s not unique to layer', external_id)
-                unique_keys = False
-            else:
-                seen.add(external_id)
+        if external_id in seen:
+            logger.info('External_id=%s not unique to layer', external_id)
+            unique_keys = False
+        else:
+            seen.add(external_id)
         return unique_keys
 
     def import_layer(self, layer, featuretype=None, featureset=None):
         logger.info('Importing layer: %s, type: %s, fields: %s',
                     layer.name, layer.geom_type, layer.fields)
-        has_unique_keys = self.contains_unique_keys_in_layer(layer)
         i = 0
         for feature in layer:
-            i += 1
-            external_id = self.make_external_id(layer, feature)
-            if not has_unique_keys:
-                external_id = external_id + '-' + str(i)
-            if featureset:
-                self.save_to_layer_model(feature, featureset, featuretype, external_id)
+            if hasattr(settings, 'UI_SITE_URL') and 'Park' in feature.fields:
+                if feature['Park'].value.lower() in settings.UI_SITE_URL:
+                    self.load_layer(layer, featuretype, featureset, feature, i)       
             else:
-                save_feature_to_table(feature, self.source_name,
-                                      self.spatialfile_id, featuretype,
-                                      external_id)
+                self.load_layer(layer, featuretype, featureset, feature, i)
+            i += 1
+
+
+
+    def load_layer(self, layer, featuretype, featureset, feature, i):
+        external_id = self.make_external_id(layer, feature)
+        has_unique_keys = self.contains_unique_keys_in_layer(layer, external_id)
+        if not has_unique_keys:
+            external_id = external_id + '-' + str(i)
+        if featureset:
+            self.save_to_layer_model(feature, featureset, featuretype, external_id)
+        else:
+            save_feature_to_table(feature, self.source_name,
+                                self.spatialfile_id, featuretype,
+                                external_id)
+
 
     def save_to_layer_model(self, feature, featureset, featuretype, external_id):
         fields = {}

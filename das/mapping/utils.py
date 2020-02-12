@@ -203,7 +203,7 @@ message = messages.add_message
 def arcgis_integration(request, obj):
     authenticated, group = arcgis_authentication(request, obj)
     group_conn = True
-    while authenticated:
+    if authenticated:
         if not group:
             message(request, messages.WARNING, f'Invalid group id: {obj.group_id}')
             group_conn = False
@@ -213,8 +213,10 @@ def arcgis_integration(request, obj):
 
         elif "_downloadfeatures" in request.POST:
             download_features_from_wfs(request, group, obj)
+    else: 
+        group_conn = False
 
-        return group_conn
+    return group_conn
 
 
 def arcgis_authentication(request, obj):
@@ -227,7 +229,8 @@ def arcgis_authentication(request, obj):
 
 
 def download_features_from_wfs(request, group, obj):
-    group_members, errored_files, success_files = group.content(), [], []
+    errored_files, success_files = [], []
+    group_members = group.content() 
     for member in group_members:
         if member.type == "Feature Service":
             title = member.title.replace(' ', '-')
