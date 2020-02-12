@@ -21,9 +21,3 @@ data "vault_generic_secret" "pamdas_org_private_key_pem" {
 data "vault_generic_secret" "pamdas_org_ssl_cert_bundle" {
   path = "${local.legacy_vault_path}/pamdas_org_certificate_chain"
 }
-data "vault_generic_secret" "tunnel1_ikev1_pre_shared_key" {
-  path = "${local.legacy_vault_path}/earthranger/vpn_tunnel_preshared_keys/tunnel1_ikev1_pre_shared_key"
-}
-data "vault_generic_secret" "tunnel2_ikev1_pre_shared_key" {
-  path = "${local.legacy_vault_path}/earthranger/vpn_tunnel_preshared_keys/tunnel2_ikev1_pre_shared_key"
-}
