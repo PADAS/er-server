@@ -711,14 +711,40 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             .annotate(status_radio_state_at=F('s1__radio_state_at')) \
             .annotate(status_location=F('s1__location'))
 
+    def _query_string_for_filter(self, updated_since=None, updated_until=None):
+        updated_since_filter = Q(updated_at__gte=updated_since) \
+                               | Q(status_recorded_at__gte=updated_since) \
+                               | Q(status_last_voice_call_start_at__gte=updated_since) \
+                               | Q(status_radio_state_at__gte=updated_since)
+
+        updated_until_filter = Q(updated_at__lte=updated_until) \
+                               | Q(status_recorded_at__lte=updated_until) \
+                               | Q(status_last_voice_call_start_at__lte=updated_until) \
+                               | Q(status_radio_state_at__lte=updated_until)
+
+        if updated_since and updated_until:
+            return updated_since_filter, updated_until_filter
+        elif updated_since:
+            return updated_since_filter
+        elif updated_until:
+            return updated_until_filter
+
     def by_updated_since(self, updated_since):
 
-        updated_since_filter = Q(updated_at__gte=updated_since) \
-            | Q(status_recorded_at__gte=updated_since) \
-            | Q(status_last_voice_call_start_at__gte=updated_since)\
-            | Q(status_radio_state_at__gte=updated_since)
+        updated_since_filter = self._query_string_for_filter(updated_since=updated_since)
 
         return self.filter(updated_since_filter)
+
+    def by_updated_until(self, updated_until):
+
+        updated_until_filter = self._query_string_for_filter(updated_until=updated_until)
+        return self.filter(updated_until_filter)
+
+    def by_updated_since_until(self, updated_since, updated_until):
+
+        updated_since_filter, updated_until_filter = self._query_string_for_filter(updated_since=updated_since, \
+                                                                                   updated_until=updated_until)
+        return self.filter(updated_since_filter, updated_until_filter)
 
     def by_bbox(self, bbox, last_days=None, include_stationary_subjects=False):
         '''
