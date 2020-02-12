@@ -39,14 +39,14 @@ RUN rm -rf /usr/lib/python3/dist-packages/GDAL-2.2.2.*
 RUN pip3 install -r /workspace/dependencies/requirements.txt -r /workspace/dependencies/requirements-pinned.txt --no-cache-dir -f /workspace/dependencies/wheelhouse
 #RUN pip3 install django-debug-toolbar
 
-ARG version=""
+ARG built_version=""
 
 ADD ./das /var/www/app
 
 EXPOSE 8000
 EXPOSE 5400
 
-ENV VERSION=${version}
+ENV BUILT_VERSION=${built_version}
 
 # TODO: Validate this is necessary.
 VOLUME /tmp

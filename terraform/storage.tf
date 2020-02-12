@@ -4,7 +4,7 @@ locals {
 
 resource "google_storage_bucket" "user_uploads" {
   name     = "user-uploads-${kubernetes_namespace.this.metadata.0.name}"
-  location = "${local.storage_location}"
+  location = local.storage_location
   project  = data.google_project.earthranger.project_id
 }
 
@@ -15,7 +15,7 @@ resource "google_service_account" "earthranger_app_sa" {
 }
 
 resource "google_storage_bucket_iam_member" "earthranger_app_writer" {
-   bucket  = "${google_storage_bucket.user_uploads.name}"
+   bucket  = google_storage_bucket.user_uploads.name
    role    = "roles/storage.admin"
    member  = "serviceAccount:${google_service_account.earthranger_app_sa.email}"
 }

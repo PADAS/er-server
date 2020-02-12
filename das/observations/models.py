@@ -120,10 +120,6 @@ class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin)
     class Meta:
         verbose_name = _('source group')
         verbose_name_plural = _('source groups')
-        permissions = (
-            ('view_sourcegroup',
-             'Permission to view a source group'),
-        )
 
     def __str__(self):
         return self.name
@@ -241,10 +237,6 @@ class Source(TimestampedModel):
         null=True, blank=True, related_name='sources', related_query_name='source')
 
     class Meta:
-        permissions = (
-            ('view_source',
-             'Permission to view a source'),
-        )
         unique_together = ('provider', 'manufacturer_id')
 
     def __str__(self):
@@ -386,7 +378,7 @@ class Observation(models.Model):
     created_at = models.DateTimeField(
         'row created at', auto_now_add=True, db_index=True)  # date/time this row created
     source = models.ForeignKey('Source', on_delete=models.CASCADE)
-    additional = JSONField()
+    additional = JSONField(null=True, blank=True)
 
     exclusion_flags = BitField(flags=BITMAP_FILTER_CHOICES, default=0)
     objects = ObservationManager()
@@ -395,9 +387,7 @@ class Observation(models.Model):
         return '{}:{}:{:08b}'.format(self.recorded_at.isoformat(), self.location, self.exclusion_flags.mask)
 
     class Meta:
-        unique_together = (
-            ['source', 'recorded_at']
-        )
+        unique_together = [('source', 'recorded_at')]
         ordering = ['-recorded_at']
 
 
@@ -676,10 +666,6 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
     class Meta:
         verbose_name = _('subject group')
         verbose_name_plural = _('subject groups')
-        permissions = (
-            ('view_subjectgroup',
-             'Permission to view a subject group'),
-        )
 
     def __str__(self):
         return self.name
@@ -867,7 +853,6 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
              'Permission to view the last reported position of a Subject only.'),
             ('view_real_time', 'Access to real-time observations.'),
             ('view_delayed', 'Access to a 24 hour delayed observation feed. No real-time or last reported position.'),
-            ('view_subject', 'Permission to view subject information excluding location'),
             ('subscribe_alerts', 'Permission to subscribe to an alert on this Subject.'),
             ('change_alerts', 'Permission to configure alerts for subject, includes setting geofences, proximity and immobility settings.'),
             ('change_view', 'An admin permission to change which users can view a Subject and their view permission.'),
@@ -1253,22 +1238,28 @@ def update_subject_status_from_observation(observation, delay_hours=0):
     recorded_at = observation.recorded_at
     source = observation.source
     location = observation.location
-    reported_subject_name = additional.get('subject_name')
+    if additional:
 
-    radio_state = observation.additional.get('radio_state')
-    try:
-        radio_state_at = parse_date(
-            observation.additional.get('radio_state_at'))
-    except:
-        radio_state_at = None
+        reported_subject_name = additional.get('subject_name')
+
+        radio_state = observation.additional.get('radio_state')
+        try:
+            radio_state_at = parse_date(
+                observation.additional.get('radio_state_at'))
+        except:
+            radio_state_at = None
+    else:
+        reported_subject_name, radio_state, radio_state_at = None, None, None
 
     update_subject_status(source=source, location=location, recorded_at=recorded_at,
-                          last_voice_call_start_at=last_voice_call_start_at,
-                          location_requested_at=location_requested_at,
-                          radio_state=radio_state,
-                          radio_state_at=radio_state_at,
-                          reported_subject_name=reported_subject_name,
-                          delay_hours=delay_hours)
+                        last_voice_call_start_at=last_voice_call_start_at,
+                        location_requested_at=location_requested_at,
+                        radio_state=radio_state,
+                        radio_state_at=radio_state_at,
+                        reported_subject_name=reported_subject_name,
+                        delay_hours=delay_hours)
+
+
 
 
 def update_subject_status_from_post(source, recorded_at, location, additional):
@@ -1428,7 +1419,7 @@ class SocketClient(TimestampedModel):
         'Das username associated with session', max_length=30)
     bbox = models.MultiPolygonField(
         'Viewport bounding box.', null=True, blank=True)
-    event_filter = JSONField('Event filter', default={})
+    event_filter = JSONField('Event filter', default=dict)
 
 
 import observations.signals

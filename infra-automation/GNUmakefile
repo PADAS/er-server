@@ -46,7 +46,7 @@ tf_init: ## terraform init
 
 .PHONY: tf_workspace_delete
 tf_workspace_delete: workspace ?=
-tf_workspace_delete: ## terraform workspace new | workspace="WORKSPACE"
+tf_workspace_delete: ## terraform workspace delete | workspace="WORKSPACE"
 	@ cd $(terraform_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_workspace workspace_subcommand=delete workspace_name=$(workspace)
 
 .PHONY: tf_workspace_list
@@ -100,7 +100,14 @@ render_templates: ## render templates (using Terraform) | [tfvars_environment="B
 	DATABASE_NAME=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="database_name") && \
 	SITE_IP_ADDRESS=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="site_ip_address") && \
 	GS_BUCKET_NAME=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="user_uploads_bucket_name") && \
-	cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply apply_options="-auto-approve -var-file='$(tfvars_overrides)/$(tfvars_environment).tfvars' -var kubernetes_namespace=$$K8S_NAMESPACE -var db_name=$$DATABASE_NAME -var site_ip_address=$$SITE_IP_ADDRESS -var gs_bucket_name=$$GS_BUCKET_NAME"
+	APP_INFRA_WORKSPACE=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="app_infra_workspace") && \
+	cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply \
+	 apply_options="-auto-approve -var-file='$(tfvars_overrides)/$(tfvars_environment).tfvars' \
+	 -var app_infra_workspace=$$APP_INFRA_WORKSPACE \
+	 -var kubernetes_namespace=$$K8S_NAMESPACE \
+       	 -var db_name=$$DATABASE_NAME \
+	 -var site_ip_address=$$SITE_IP_ADDRESS \
+	 -var gs_bucket_name=$$GS_BUCKET_NAME"
 	@ cat $(template_path)/rendered/circleci-api-deployment.yaml
 
 .PHONY: kubectl_apply
@@ -145,12 +152,15 @@ build_and_push: latest_gcr_tag := latest
 build_and_push: semver_gcr_tag := $(shell cat "$(server_semver_file)" || exit 1)
 build_and_push: sha_gcr_tag := $(shell git rev-parse --quiet --verify HEAD || exit 1)
 build_and_push: unique_gcr_tag := $(shell date +%s || exit 1)
+build_and_push: build_number   := 0
 build_and_push: ## build and push
 	@ if [ -z "$(semver_gcr_tag)" ]; then (printf "\e[31m\tCould not resolve semver_gcr_tag by cat'ing '$(server_semver_file)'.\e[0m\n" >&2; exit 1); fi
 	@ if [ -z "$(sha_gcr_tag)" ]; then (printf "\e[31m\tCould not resolve sha_gcr_tag with git rev-parse.\e[0m\n" >&2; exit 1); fi
 	@ if [ -z "$(unique_gcr_tag)" ]; then (printf "\e[31m\tCould not resolve unique_gcr_tag with 'date'.\e[0m\n" >&2; exit 1); fi
 	@ if [ "$$(dirname $(descriptive_server_gcr_path))" = "$$(dirname $(gcr_root))" ]; then (printf "\e[31m\tCould not construct a unique, sanitized GCR path.\e[0m\n" >&2; exit 1); fi
-	cd $(CURDIR)/.. && docker build  -f circleci-docker/Dockerfile --tag $(legacy_concourse_shim_gcr):$(current_branch) --tag $(descriptive_server_gcr_path):$(latest_gcr_tag) --tag $(descriptive_server_gcr_path):$(semver_gcr_tag) --tag $(descriptive_server_gcr_path):$(sha_gcr_tag) --tag $(descriptive_server_gcr_path):$(unique_gcr_tag) .
+	cd $(CURDIR)/.. \
+	&& echo BUILD_NUMBER = $(build_number) > das/das_server/version.py \
+	&& docker build  -f circleci-docker/Dockerfile --tag $(legacy_concourse_shim_gcr):$(current_branch) --tag $(descriptive_server_gcr_path):$(latest_gcr_tag) --tag $(descriptive_server_gcr_path):$(semver_gcr_tag) --tag $(descriptive_server_gcr_path):$(sha_gcr_tag) --tag $(descriptive_server_gcr_path):$(unique_gcr_tag) .
 	docker push $(descriptive_server_gcr_path):$(latest_gcr_tag)
 	docker push $(descriptive_server_gcr_path):$(semver_gcr_tag)
 	docker push $(descriptive_server_gcr_path):$(sha_gcr_tag)

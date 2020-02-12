@@ -248,9 +248,6 @@ class User(AccountsAbstractUser):
         swappable = 'AUTH_USER_MODEL'
         verbose_name = _('user')
         verbose_name_plural = _('users')
-        permissions = (
-            ('view_user', "View a user's information."),
-        )
 
     def get_user_permissions(self, obj=None):
         """

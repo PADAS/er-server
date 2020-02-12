@@ -2,7 +2,7 @@ import logging
 import time
 
 from django.contrib.gis import admin
-from django.contrib.staticfiles.templatetags.staticfiles import static
+from django.templatetags.static import static
 from django.utils.translation import ugettext as _
 from django.utils.safestring import mark_safe
 from django.urls import reverse
@@ -36,8 +36,8 @@ class EventAdmin(OSMGeoExtendedAdmin):
     # wms_url = 'http://tiles.maps.eox.at/wms/'
     form = EventForm
 
-    list_display = ('serial_number', '_created_at', 'event_type',
-                    'title', 'location', 'attributes',)
+    list_display = ('serial_number', '_created_at', '_event_time', '_updated_at', 'event_type',
+                    'title', '_latitude', '_longitude')
     readonly_fields = ('id', 'serial_number', 'created_at', 'updated_at')
     search_fields = ('title', 'serial_number')
     list_filter = ('state', 'event_type', )
@@ -59,13 +59,31 @@ class EventAdmin(OSMGeoExtendedAdmin):
 
     def resolve_event(self, request, queryset):
         queryset.update(state=models.Event.SC_RESOLVED)
+    resolve_event.short_description = "Resolve Selected Events(Reports)"
 
     def _created_at(self, o):
         return o.created_at
     _created_at.short_description = 'created at %s' % TIMEZONE_USED
     _created_at.admin_order_field = 'created_at'
 
-    resolve_event.short_description = "Resolve Selected Events(Reports)"
+    def _event_time(self, o):
+        return o.event_time
+    _event_time.short_description = 'event time %s' % TIMEZONE_USED
+    _event_time.admin_order_field = 'event_time'
+
+    def _updated_at(self, o):
+        return o.updated_at
+    _updated_at.short_description = 'updated at %s' % TIMEZONE_USED
+    _updated_at.admin_order_field = 'updated_at'
+
+    def _longitude(self, o):
+        return round(o.location.x, 5) if o.location else None
+    _longitude.short_description = _('Longitude')
+
+    def _latitude(self, o):
+        return round(o.location.y, 5) if o.location else None
+    _latitude.short_description = _('Latitude')
+
 
 
 @admin.register(models.Community)

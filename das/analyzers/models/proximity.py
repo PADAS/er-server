@@ -30,7 +30,5 @@ class ProximityAnalyzerConfig(SubjectAnalyzerConfig):
 
     class Meta(SubjectAnalyzerConfig.Meta):
         abstract = False
-        permissions = (('view_proximityanalyzerconfig',
-                        'Can view Proximity Analyzer Configurations'), )
         verbose_name = _('Proximity Analyzer')
         verbose_name_plural = _('Proximity Analyzers')

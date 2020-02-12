@@ -2,9 +2,11 @@ import logging
 from collections import defaultdict
 from enum import Enum
 from itertools import chain
+from datetime import datetime
 
 from django.core.management.base import BaseCommand
 from django.db import transaction, IntegrityError
+from django.conf import settings
 
 from mapping import models
 
@@ -66,16 +68,20 @@ class Command(BaseCommand):
         remaining_fsets = models.FeatureSet.objects.exclude(id__in=fset_ids)
         featuresets.update(remaining_fsets)
 
+        self.stdout.write('%s (UTC) migrating %s' % (datetime.utcnow().strftime("%m/%d/%Y %H:%M:%S"), settings.UI_SITE_URL))
+
         with transaction.atomic():
             remapped_sfts = {}
             self.migrate_featuresets(featuresets)
             self.migrate_featuretypes(featuresets_by_types, remapped_sfts)
             self.migrate_features(all_features, remapped_sfts)
             self.migrate_spatialfiles()
+            self.update_is_visible(featuresets_by_types.keys(), list(remapped_sfts.values()))
 
         self.stdout.write(
-            'FeatureSets migrated: %d, FeatureTypes migrated: %d, Features migrated: %d, file migrated: %d' %
+            'FeatureSets migrated: %d, FeatureTypes migrated: %d, Features migrated: %d, files migrated: %d' %
             (self.num_fs, self.num_ft, self.num_f, self.num_files))
+        self.stdout.write('%s SPATIAL DATA MIGRATION COMPLETE' % datetime.utcnow().strftime("%m/%d/%Y %H:%M:%S"))
 
     def migrate_featuresets(self, featuresets):
         self.stdout.write('Migrating FeatureSets')
@@ -83,7 +89,6 @@ class Command(BaseCommand):
         for f in featuresets:
             values = dict(name=f.name)
             try:
-                # TODO: Why is this the only inner transaction.atomic needed, & not needed in migrate_features
                 with transaction.atomic():
                     func = getattr(models.DisplayCategory.objects, self.create_fn)
                     func(id=f.id, defaults=values) if self.create_fn == 'update_or_create' else func(id=f.id, **values)
@@ -143,10 +148,10 @@ class Command(BaseCommand):
                           )
             # self.stdout.write(f'processing {f.name} {f.id} {remapped_sft_id} {(f.featureset.id, f.type.id)}')
             try:
-                func = getattr(models.SpatialFeature.objects, self.create_fn)
-                func(id=f.id, defaults=values) if self.create_fn == 'update_or_create' else func(id=f.id, **values)
-                self.num_f += 1
-
+                with transaction.atomic():
+                    func = getattr(models.SpatialFeature.objects, self.create_fn)
+                    func(id=f.id, defaults=values) if self.create_fn == 'update_or_create' else func(id=f.id, **values)
+                    self.num_f += 1
             except IntegrityError:
                 if MigrateType.ErrorOnExisting == self.migrate_type:
                     raise ExistingFeatures(f'{f.id} {f.name} already exists')
@@ -163,13 +168,18 @@ class Command(BaseCommand):
                 id_field=f.id_field,
                 file_type='shapefile',
             )
-
             try:
-                func = getattr(models.SpatialFeatureFile.objects, self.create_fn)
-                func(id=f.id, defaults=values) if self.create_fn == 'update_or_create' else func(id=f.id, **values)
-                self.num_files += 1
-
+                with transaction.atomic():
+                    func = getattr(models.SpatialFeatureFile.objects, self.create_fn)
+                    func(id=f.id, defaults=values) if self.create_fn == 'update_or_create' else func(id=f.id, **values)
+                    self.num_files += 1
             except IntegrityError:
                 if MigrateType.ErrorOnExisting == self.migrate_type:
                     raise ExistingFeatures(f'{f.id} {f.name} already exists')
 
+    def update_is_visible(self, feature_types, remapped_sft_ids):
+        # only the newly migrated feature types should be visible in client UI, make others invisible
+        to_exclude = [f.id for f in feature_types] + remapped_sft_ids
+        self.stdout.write('Hiding %d spatial feature types associated with analyzers' %
+                          (models.SpatialFeatureType.objects.count() - len(to_exclude)))
+        models.SpatialFeatureType.objects.exclude(id__in=to_exclude).update(is_visible=False)

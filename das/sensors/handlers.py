@@ -29,7 +29,7 @@ class SensorPostParameters(serializers.Serializer):
     subject_id = serializers.CharField(default=None)
     subject_name = serializers.CharField(default=None)
     subject_groups = serializers.ListField(
-        child=serializers.CharField(), allow_empty=True, default=list)
+        child=serializers.CharField(allow_blank=True), allow_empty=True, default=list)
     subject_type = serializers.CharField(default=None)  # Legacy key
     subject_subtype = serializers.CharField(default=None)
     model_name = serializers.CharField(default=None)
@@ -77,7 +77,8 @@ class GenericSensorHandler:
 
         # save and notify only if there are new, non-dup observations
         if obs_to_persist:
-            bulk_serializer = ObservationSerializer(data=obs_to_persist, many=True)
+            bulk_serializer = ObservationSerializer(
+                data=obs_to_persist, many=True)
             if bulk_serializer.is_valid():
                 bulk_serializer.save()
             else:
@@ -105,6 +106,7 @@ class GenericSensorHandler:
         model_name = an_observation.get('model_name', None) or '{}:{}'.format(
             sensor_type, provider_key)
         subject_name = an_observation.get('subject_name') or manufacturer_id
+
         src = Source.objects.ensure_source(source_type,
                                            provider=provider_key,
                                            manufacturer_id=manufacturer_id,
@@ -112,7 +114,7 @@ class GenericSensorHandler:
                                            subject={
                                                'subject_subtype_id': subject_subtype,
                                                'name': subject_name,
-                                               'subject_groups': an_observation.get('subject_groups'),
+                                               'subject_groups': clean_subjectgroups(an_observation.get('subject_groups')),
                                                'id': an_observation.get('subject_id')
                                            }
                                            )
@@ -129,7 +131,7 @@ class GenericSensorHandler:
         # Short-circuit if we already have this observation.
         if obs_key in obs_cache or Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
             logger.debug("Processed duplicate observation %s",
-                        subject_subtype, extra={'obs.dup': provider_key})
+                         subject_subtype, extra={'obs.dup': provider_key})
             errors.append({})
             return
 
@@ -140,7 +142,7 @@ class GenericSensorHandler:
         if validator.is_valid():
             obs_to_persist.append(observation)
             logger.debug("Added new observation %s", observation,
-                        extra={'obs.new': provider_key})
+                         extra={'obs.new': provider_key})
             errors.append({})
         else:
             errors.append(validator.errors)
@@ -237,13 +239,19 @@ class RadioAdditionalSerializer(serializers.Serializer):
     location_requested_at = serializers.DateTimeField(required=False)
 
 
+def clean_subjectgroups(subjectgroups):
+    if subjectgroups:
+        subjectgroups = [sg for sg in subjectgroups if sg]
+    return subjectgroups
+
+
 class DraObservationSerializer(serializers.Serializer):
 
     manufacturer_id = serializers.CharField()
     source_type = serializers.CharField(default=None)
     subject_name = serializers.CharField(default=None)
     subject_groups = serializers.ListField(
-        child=serializers.CharField(), allow_empty=True, default=[])
+        child=serializers.CharField(allow_blank=True), allow_empty=True, default=list)
     recorded_at = serializers.DateTimeField()
     location = LocationDictSerializer()
 
@@ -319,7 +327,7 @@ class DasRadioAgentHandler:
                                            subject={
                                                'subject_subtype_id': subject_subtype,
                                                'name': manufacturer_id,
-                                               'subject_groups': postdata.get('subject_groups')
+                                               'subject_groups': clean_subjectgroups(postdata.get('subject_groups'))
                                            }
                                            )
 

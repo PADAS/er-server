@@ -29,12 +29,20 @@ var {{ module }} = {};
 {% endblock %}
 
 
+
+
 {{ module }}.get_ewkt = function(feat){
     return 'SRID={{ srid|unlocalize }};' + {{ module }}.wkt_f.writeFeature(feat);
 };
 
 var write_wkt = function(feat) {
+    if ("{{ geom_type }}" == "Point"){
+    var x = document.getElementById('id_coordinate_0').value =feat.getGeometry().getCoordinates()[0];
+    var y = document.getElementById('id_coordinate_1').value =feat.getGeometry().getCoordinates()[1];
+    document.getElementById('{{ id }}').value = `SRID={{ srid|unlocalize }};POINT(${x} ${y})`;
+    }else{
     document.getElementById('{{ id }}').value = {{ module }}.get_ewkt(feat);
+    };
 };
 
 var add_wkt = function (event){
@@ -114,6 +122,55 @@ var modify_wkt = function(event) {
 };
 
 
+var notNaN = function(){
+    x = document.getElementById('id_coordinate_0').value
+    y = document.getElementById('id_coordinate_1').value
+
+    console.log(x)
+    if (!isNaN(x) && !isNaN(y)){
+        return true
+    }
+};
+
+var Validate_ = function(){
+    x = document.getElementById('id_coordinate_0').value ? true : false;
+    y = document.getElementById('id_coordinate_1').value ? true : false;
+    if ((x && y) && notNaN()){
+        return true;
+    }
+};
+
+
+var timeout = null;
+
+var ChangeCoordinate = function(event){
+    event.preventDefault()
+    // x: Longitude y: Latitude
+    var x = document.getElementById('id_coordinate_0').value;
+    var y = document.getElementById('id_coordinate_1').value;
+    if(Validate_()){
+        document.getElementById('{{ id }}').value = `SRID={{ srid|unlocalize }};POINT(${x} ${y})`;
+
+        clearTimeout(timeout);
+
+        // Make a new timeout set to go off in 1000ms (1 second)
+        timeout = setTimeout(function () {
+        wkt = `POINT(${x} ${y})`
+        admin_geom = {{ module }}.wkt_f.readFeature(wkt);
+
+        write_wkt(admin_geom);
+        source.addFeatures([admin_geom]);
+
+        var extent = source.getExtent();
+        map.getView().fit(extent, map.getSize());
+        map.getView().setZoom(map.getView().getZoom()-8)
+
+        }, 1000);
+    };
+};
+
+document.getElementById('id_coordinate_0').addEventListener('keyup',  ChangeCoordinate, false)
+document.getElementById('id_coordinate_1').addEventListener('keyup', ChangeCoordinate, false)
 
 
 var CreateTileLayer = function(){
@@ -290,7 +347,7 @@ var modif = function(className) {
 
     var element_modify = document.createElement('div');
     element_modify.className =  `${className} ol-unselectable ol-control`;
-    element_modify.title = 'Modify'
+    element_modify.title = 'Modify feature'
     element_modify.appendChild(button_modify);
 
     var modifyControl = new ol.control.Control({
@@ -311,6 +368,8 @@ var delet = function (className){
         if (result){
             source.clear();
             document.getElementById('{{ id }}').value = '';
+            document.getElementById('id_coordinate_0').value = '';
+            document.getElementById('id_coordinate_1').value = '';
         }
     };
 
@@ -348,6 +407,10 @@ if ("{{ geom_type }}" == "MultiPolygon" || "{{ geom_type }}" == "MultiPoint" || 
 //     map.getTargetElement().style.cursor = hit ? 'pointer': '';
 // });
 
+if ('{{ geom_type }}' != "Point") {
+    var el = document.getElementById('latlon_cls');
+    el.style.display = 'none';
+};
 
 var button_baselayer = document.createElement('button');
 button_baselayer.innerHTML = '<img class="img_1" id="bl" src="https://img.icons8.com/ios-glyphs/30/ffffff/layers.png">';
