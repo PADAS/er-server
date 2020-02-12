@@ -804,6 +804,7 @@ class ArcgisConfiguration(TimestampedModel):
     name_field = models.CharField(max_length=100, blank=True, null=True)
     id_field = models.CharField(max_length=100, blank=True, null=True)
     source = models.CharField(max_length=100, blank=True, null=True, default='ArcGis')
+    type_label = models.CharField(max_length=100, blank=True, null=True)
 
     class Meta:
         verbose_name = 'Feature Service Configuration'

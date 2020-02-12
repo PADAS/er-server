@@ -447,7 +447,7 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
         }),
         ('Optional Attributes', {
             'classes': ('collapse',),
-            'fields': ('service_url', 'source', 'id_field','name_field',)
+            'fields': ('service_url', 'source', 'type_label', 'id_field','name_field',)
         }
         ),)
     form = ArcgisConfigurationForm

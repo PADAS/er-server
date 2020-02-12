@@ -88,14 +88,20 @@ def reduce_json(document):
 def get_feature_type(type_name, create_okay=True):
     return models.SpatialFeatureType.objects.get_by_natural_key(type_name)
 
-
-def save_feature_to_table(feature, source_name, spatialfile_id, featuretype=None, external_id=None):
+def save_feature_to_table(feature, source_name, spatialfile_id, featuretype=None, external_id=None, type_label=None):
     model = models.SpatialFeature
     if not external_id:
         external_id = feature['globalid'].value if 'globalid' in [x.lower() for x in feature.fields] \
             else feature['fid'].value
 
     fields = list(fields_iter(feature))
+
+    # get wsf type from given type label
+    if type_label:
+        try:
+            featuretype = feature[type_label].value
+        except Exception:
+            logger.warning(f'Type label given - {type_label} not a valid field for this feature')
 
     try:
         featuretype = featuretype or feature['Types'].value if 'Types' in feature.fields else feature['type'].value
@@ -244,7 +250,7 @@ def extract_features(obj, member, title, data, success_files):
     with open(f'./{title}.geojson', 'w') as data_file:
         data_file.write(data)
         management.call_command(
-            'importlayer', 'importspatialfile', data_file.name,
+            'importlayer', 'importspatialfile', data_file.name, typelabel=obj.type_label,
             source=obj.source, name_field=obj.name_field, id_field=obj.id_field
         )
         os.remove(data_file.name)

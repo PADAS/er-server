@@ -46,6 +46,7 @@ class Command(BaseCommand):
         self.layer = options['layer']
         self.utm = options['utm'] if options['utm'] else self.utm
         self.featuretype = options['featuretype']
+        self.featuretype_label = options['typelabel']
         self.featureset = options['featureset']
         self.spatialfile_id = options['spatialfile_id'] if options['spatialfile_id'] else self.spatialfile_id
 
@@ -62,7 +63,8 @@ class Command(BaseCommand):
 
         parser.add_argument('--featuretype', type=str,
                             help='Feature type')
-
+        parser.add_argument('--typelabel', type=str,
+                            help='Feature type label on wfs')
         parser.add_argument('--featureset', type=str,
                             help='FeatureSet')
         parser.add_argument(
@@ -168,6 +170,8 @@ class Command(BaseCommand):
         i = 0
         for feature in layer:
             if hasattr(settings, 'UI_SITE_URL') and 'Park' in feature.fields:
+
+                
                 if feature['Park'].value.lower() in settings.UI_SITE_URL:
                     self.load_layer(layer, featuretype, featureset, feature, i)       
             else:
@@ -182,11 +186,12 @@ class Command(BaseCommand):
         if not has_unique_keys:
             external_id = external_id + '-' + str(i)
         if featureset:
-            self.save_to_layer_model(feature, featureset, featuretype, external_id)
+            self.save_to_layer_model(
+                feature, featureset, featuretype, external_id)
         else:
             save_feature_to_table(feature, self.source_name,
-                                self.spatialfile_id, featuretype,
-                                external_id)
+                                  self.spatialfile_id, featuretype,
+                                  external_id, self.featuretype_label)
 
 
     def save_to_layer_model(self, feature, featureset, featuretype, external_id):
