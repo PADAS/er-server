@@ -169,16 +169,15 @@ class Command(BaseCommand):
                     layer.name, layer.geom_type, layer.fields)
         i = 0
         for feature in layer:
+            # can optionally filter features based on Park attribute.
+            # e.g., AP has features for multiple parks in the same feature layer
             if hasattr(settings, 'UI_SITE_URL') and 'Park' in feature.fields:
-
                 
-                if feature['Park'].value.lower() in settings.UI_SITE_URL:
+                if feature['Park'].value.lower() in settings.UI_SITE_URL.lower():
                     self.load_layer(layer, featuretype, featureset, feature, i)       
             else:
                 self.load_layer(layer, featuretype, featureset, feature, i)
             i += 1
-
-
 
     def load_layer(self, layer, featuretype, featureset, feature, i):
         external_id = self.make_external_id(layer, feature)
@@ -192,7 +191,6 @@ class Command(BaseCommand):
             save_feature_to_table(feature, self.source_name,
                                   self.spatialfile_id, featuretype,
                                   external_id, self.featuretype_label)
-
 
     def save_to_layer_model(self, feature, featureset, featuretype, external_id):
         fields = {}
