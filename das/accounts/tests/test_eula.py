@@ -24,21 +24,22 @@ class EulaModelTestCase(TestCase):
 
     def test_only_unique_eula_version_numbers_accepted(self):
         EULA.objects.create(eula_url="http://some.com/eula.pdf",
-                            version_number=2.0)
+                            version="EarthRanger_EULA_ver2025-02-12")
 
         with self.assertRaises(IntegrityError):
             EULA.objects.create(eula_url="http://some.com/eula.pdf",
-                                version_number=2.0,)
+                                version="EarthRanger_EULA_ver2025-02-12",)
 
     def test_only_one_active_eula_can_exist_at_any_time(self):
         EULA.objects.create(eula_url="http://some.com/eula1.0.pdf",
-                            version_number=2.0,
+                            version="EarthRanger_EULA_ver2025-02-12",
                             active=True)
         EULA.objects.create(eula_url="http://some.com/eula1.1.pdf",
-                            version_number=2.1,
+                            version="EarthRanger_EULA_ver2025-03-12",
                             active=True)
         latest_eula = EULA.objects.create(
-            eula_url="http://some.com/eula1.3.pdf", version_number=2.2,
+            eula_url="http://some.com/eula1.3.pdf",
+            version="EarthRanger_EULA_ver2025-04-12",
             active=True)
 
         self.assertEqual(len(EULA.objects.filter(active=True)), 1)
@@ -47,16 +48,16 @@ class EulaModelTestCase(TestCase):
 
     def test_get_current_eula_version(self):
         EULA.objects.create(eula_url="http://some.com/eula1.0.pdf",
-                            version_number=2.0,
+                            version="EarthRanger_EULA_ver2025-02-12",
                             active=True)
         eula = EULA.objects.create(eula_url="http://some.com/eula1.4.pdf",
-                                   version_number=2.4)
+                                   version="EarthRanger_EULA_ver2025-06-12")
         active_eula = EULA.objects.get_active_eula()
         self.assertEqual(active_eula, eula)
 
     def test_get_users_that_agreed_to_current_eula_version(self):
         EULA.objects.create(eula_url="http://some.com/eula.pdf",
-                            version_number=2.0,
+                            version="EarthRanger_EULA_ver2025-02-12",
                             active=True)
         EULA.objects.accept_eula(user=self.user1)
         self.assertEqual(
@@ -65,7 +66,7 @@ class EulaModelTestCase(TestCase):
 
     def test_get_users_that_have_acknowledged_eula(self):
         EULA.objects.create(eula_url="http://some.com/eula.pdf",
-                            version_number=2.0,
+                            version="EarthRanger_EULA_ver2025-02-12",
                             active=True)
         EULA.objects.accept_eula(user=self.user1)
         self.assertEqual(
@@ -85,10 +86,10 @@ class EulaViewsTestCase(BaseAPITest):
 
     def test_getting_active_eula(self):
         EULA.objects.create(eula_url="http://some.com/eula.pdf",
-                            version_number=2.0,
+                            version="EarthRanger_EULA_ver2025-02-12",
                             active=True)
         eula = EULA.objects.create(eula_url="http://some.com/eulav1.1.pdf",
-                                   version_number=2.1)
+                                   version="EarthRanger_EULA_ver2025-03-12")
 
         request = self.factory.get(self.api_base + '/eula/')
         self.force_authenticate(request, self.user)
@@ -97,12 +98,12 @@ class EulaViewsTestCase(BaseAPITest):
         data = response.data
         self.assertEqual(response.status_code, 200)
         self.assertEqual(eula.eula_url, data.get("eula_url"))
-        self.assertEqual(eula.version_number,
-                         float(data.get("version_number", 0.0)))
+        self.assertEqual(eula.version,
+                         data.get("version", "0.0"))
 
     def test_accept_eula_view(self):
         eula = EULA.objects.create(eula_url="http://some.com/eulav1.1.pdf",
-                                   version_number=2.1)
+                                   version="EarthRanger_EULA_ver2025-03-12")
         data = {"eula": eula.id, "user": self.user.id}
         request = self.factory.post(self.api_base + '/eula/accept/', data)
         self.force_authenticate(request, self.user)

@@ -5,7 +5,8 @@ from django.core import management
 
 
 def update_eula(apps, schema_editor):
-    management.call_command("update_eula", version_number=1.0,
+    management.call_command("update_eula",
+                            version_string="EarthRanger_EULA_ver2020-02-12",
                             eula="https://earthranger.com/EULA")
 
 

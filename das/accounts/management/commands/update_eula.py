@@ -15,21 +15,21 @@ class Command(BaseCommand):
     help = 'Generate the site metrics, default is by day'
 
     def add_arguments(self, parser):
-        parser.add_argument('--version_number', type=float,
+        parser.add_argument('--version_string', type=float,
                             help='EULA version')
         parser.add_argument('--eula', type=str,
                             help='EULA version url')
 
     def handle(self, *args, **options):
 
-        version = options.get('version_number')
+        version = options.get('version_string')
         url = options.get('eula')
 
         if version and url:
             try:
                 active_eula = EULA.objects.get_active_eula()
 
-                if active_eula.version_number >= float(version):
+                if active_eula.version > version:
                     raise CommandError(
                         f"new version '{version}' can not be less than or equal the active version '{active_eula.version_number}'")
             except ObjectDoesNotExist:
@@ -37,7 +37,7 @@ class Command(BaseCommand):
 
             try:
 
-                eula = EULA.objects.create(version_number=version, eula_url=url)
+                eula = EULA.objects.create(version=version, eula_url=url)
                 self.reset_users_eula_acceptance()
                 self.stdout.write(self.style.SUCCESS(f"Successfully updated the EULA to {str(eula)}"))
             except ValidationError as ve:

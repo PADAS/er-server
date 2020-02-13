@@ -55,15 +55,14 @@ class EULA(TimestampedModel):
     users = models.ManyToManyField(
         settings.AUTH_USER_MODEL, through=UserAgreement, blank=True
     )
-    version_number = models.DecimalField(default=1.0, decimal_places=1,
-                                         max_digits=2, unique=True)
+    version = models.CharField(max_length=30, unique=True)
     eula_url = models.URLField(null=False, blank=False)
     active = models.BooleanField(default=False)
 
     objects = EULAManager()
 
     def __str__(self):
-        return "EULA v" + str(self.version_number)
+        return self.version
 
     def save(self, *args, **kwargs):
         """
