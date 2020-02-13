@@ -10,6 +10,11 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.AlterField(
+            model_name='spatialfeaturetype',
+            name='name',
+            field=models.CharField(max_length=255, unique=True),
+        ),
         migrations.CreateModel(
             name='ArcgisConfiguration',
             fields=[
@@ -21,11 +26,10 @@ class Migration(migrations.Migration):
                 ('group_id', models.CharField(max_length=100, unique=True)),
                 ('username', models.CharField(max_length=100, unique=True)),
                 ('password', models.CharField(max_length=100)),
-                ('polling_interval', models.PositiveIntegerField(default=0)),
                 ('name_field', models.CharField(blank=True, max_length=100, null=True)),
                 ('id_field', models.CharField(blank=True, max_length=100, null=True)),
                 ('source', models.CharField(blank=True, default='ArcGis', max_length=100, null=True)),
-                ('type_label', models.CharField(blank=True, max_length=100, null=True)),
+                ('type_label', models.CharField(blank=True, max_length=100, null=True, verbose_name='Type field')),
             ],
             options={
                 'verbose_name': 'Feature Service Configuration',
