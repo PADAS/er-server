@@ -1,12 +1,13 @@
 import datetime
 import logging
 
+from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from mapping import models
-from mapping.utils import (DEFAULT_SOURCE_NAME,
-                           datasource_from_file, save_feature_to_table,
-                           validate_feature_record, save_spatial_file, get_feature_type_name)
+from mapping.utils import (DEFAULT_SOURCE_NAME, datasource_from_file,
+                           save_feature_to_table, save_spatial_file,
+                           validate_feature_record)
 from utils.spatial import GeometryMapper
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,7 @@ class Command(BaseCommand):
         self.layer = options['layer']
         self.utm = options['utm'] if options['utm'] else self.utm
         self.featuretype = options['featuretype']
+        self.featuretype_label = options['typelabel']
         self.featureset = options['featureset']
         self.spatialfile_id = options['spatialfile_id'] if options['spatialfile_id'] else self.spatialfile_id
         self.presentation = options['presentation']
@@ -62,7 +64,8 @@ class Command(BaseCommand):
 
         parser.add_argument('--featuretype', type=str,
                             help='Feature type')
-
+        parser.add_argument('--typelabel', type=str,
+                            help='Feature type label on wfs')
         parser.add_argument('--featureset', type=str,
                             help='FeatureSet')
         parser.add_argument(
@@ -154,41 +157,40 @@ class Command(BaseCommand):
             raise KeyError('no default featuretype specified')
         return default
 
-    def contains_unique_keys_in_layer(self, layer):
+    def contains_unique_keys_in_layer(self, layer, external_id):
         seen = set()
         unique_keys = True
-        for feature in layer:
-            external_id = self.make_external_id(layer, feature)
-            if external_id in seen:
-                logger.info('External_id=%s not unique to layer', external_id)
-                unique_keys = False
-            else:
-                seen.add(external_id)
+        if external_id in seen:
+            logger.info('External_id=%s not unique to layer', external_id)
+            unique_keys = False
+        else:
+            seen.add(external_id)
         return unique_keys
 
     def import_layer(self, layer, featuretype=None, featureset=None):
         logger.info('Importing layer: %s, type: %s, fields: %s',
                     layer.name, layer.geom_type, layer.fields)
-        has_unique_keys = self.contains_unique_keys_in_layer(layer)
-        for i, feature in enumerate(layer):
-            feature_type_name = get_feature_type_name(feature, featuretype)
-            if not feature_type_name:
-                continue
-            if self.presentation:
-                # TODO: get sft regardless of presentation and pass on further
-                spatial_feature_type, _ = models.SpatialFeatureType.objects.get_or_create(name=feature_type_name)
-                spatial_feature_type.presentation = self.presentation
-                spatial_feature_type.save()
-
-            external_id = self.make_external_id(layer, feature)
-            if not has_unique_keys:
-                external_id = external_id + '-' + str(i)
-            if featureset:
-                self.save_to_layer_model(feature, featureset, featuretype, external_id)
+        i = 0
+        for feature in layer:
+            if hasattr(settings, 'UI_SITE_URL') and 'Park' in feature.fields:
+                if feature['Park'].value.lower() in settings.UI_SITE_URL:
+                    self.load_layer(layer, featuretype, featureset, feature, i)       
             else:
-                save_feature_to_table(feature, self.source_name,
-                                      self.spatialfile_id, featuretype,
-                                      external_id)
+                self.load_layer(layer, featuretype, featureset, feature, i)
+
+    def load_layer(self, layer, featuretype, featureset, feature, i):
+        external_id = self.make_external_id(layer, feature)
+        has_unique_keys = self.contains_unique_keys_in_layer(layer, external_id)
+        if not has_unique_keys:
+            external_id = external_id + '-' + str(i)
+        if featureset:
+            self.save_to_layer_model(
+                feature, featureset, featuretype, external_id)
+        else:
+            save_feature_to_table(feature, self.source_name,
+                                  self.spatialfile_id, featuretype,
+                                  external_id, self.featuretype_label)
+
 
     def save_to_layer_model(self, feature, featureset, featuretype, external_id):
         fields = {}

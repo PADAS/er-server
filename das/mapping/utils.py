@@ -119,9 +119,7 @@ def get_feature_type_name(feature, type_name=None):
 def get_feature_type(type_name, create_okay=True):
     return models.SpatialFeatureType.objects.get_by_natural_key(type_name)
 
-
-# TODO: might move away from ft_name/get_feature_type_name & just pass in a SpatialFeatureType instance here
-def save_feature_to_table(feature, source_name, spatialfile_id, ft_name=None, external_id=None):
+def save_feature_to_table(feature, source_name, spatialfile_id, featuretype=None, external_id=None, type_label=None):
     model = models.SpatialFeature
     if not external_id:
         external_id = feature['globalid'].value if 'globalid' in [x.lower() for x in feature.fields] \
@@ -129,9 +127,17 @@ def save_feature_to_table(feature, source_name, spatialfile_id, ft_name=None, ex
 
     fields = list(fields_iter(feature))
 
-    # TODO
-    feature_type_name = get_feature_type_name(feature, ft_name)
-    if not feature_type_name:
+    # get wsf type from given type label
+    if type_label:
+        try:
+            featuretype = feature[type_label].value
+        except Exception:
+            logger.warning(f'Type label given - {type_label} not a valid field for this feature')
+
+    try:
+        featuretype = featuretype or feature['Types'].value if 'Types' in feature.fields else feature['type'].value
+    except Exception:
+        logger.warning('Feature %s Missing featuretype', feature['name'].value)
         return
 
     feature_type, created = models.SpatialFeatureType.objects.get_or_create(name=feature_type_name)
@@ -234,7 +240,7 @@ message = messages.add_message
 def arcgis_integration(request, obj):
     authenticated, group = arcgis_authentication(request, obj)
     group_conn = True
-    while authenticated:
+    if authenticated:
         if not group:
             message(request, messages.WARNING, f'Invalid group id: {obj.group_id}')
             group_conn = False
@@ -244,8 +250,10 @@ def arcgis_integration(request, obj):
 
         elif "_downloadfeatures" in request.POST:
             download_features_from_wfs(request, group, obj)
+    else: 
+        group_conn = False
 
-        return group_conn
+    return group_conn
 
 
 def arcgis_authentication(request, obj):
@@ -261,13 +269,8 @@ import time
 
 
 def download_features_from_wfs(request, group, obj):
-    group_members, errored_files, success_files = group.content(), [], []
-    items_to_import = [
-        'Akagera_Land_Cover',
-        'Hydrology_polygon',
-        'Built_point'
-    ]
-    ts = time.time()
+    errored_files, success_files = [], []
+    group_members = group.content() 
     for member in group_members:
         if member.type == "Feature Service" and member.title in items_to_import:
             title = member.title.replace(' ', '-')
@@ -283,7 +286,7 @@ def extract_features(obj, member, title, data, success_files, simple_presentatio
     with open(f'./{title}.geojson', 'w') as data_file:
         data_file.write(data)
         management.call_command(
-            'importlayer', 'importspatialfile', data_file.name,
+            'importlayer', 'importspatialfile', data_file.name, typelabel=obj.type_label,
             source=obj.source, name_field=obj.name_field, id_field=obj.id_field,
             presentation=simple_presentation
         )
