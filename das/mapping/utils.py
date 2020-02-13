@@ -208,38 +208,51 @@ message = messages.add_message
 
 
 def arcgis_integration(request, obj):
-    authenticated, group = arcgis_authentication(request, obj)
-    group_conn = True
-    if authenticated:
-        if not group:
-            message(request, messages.WARNING, f'Invalid group id: {obj.group_id}')
-            group_conn = False
-
-        elif "_testconnection" in request.POST:
-            message(request, messages.INFO, f'Valid credentials. {group.title} group well configured')
-
+    gis = arcgis_authentication(request, obj)
+    groups = gis.groups.search(query='africa parks', outside_org=True)
+    if gis:
+        if "_testconnection" in request.POST:
+            message(request, messages.INFO, f'Successful Configuration')
         elif "_downloadfeatures" in request.POST:
-            download_features_from_wfs(request, group, obj)
-    else: 
-        group_conn = False
+            try:
+                wfs_group = gis.groups.get(obj.groups.group_id)
+                download_features_from_wfs(request, obj, wfs_group)
+            except Exception:
+                error_msg = f"Select a group to enable features download"
+                message(request, messages.ERROR, error_msg) if request else logger.debug(error_msg)
+        else:
+            load_groups(groups, obj)
+        return True
 
-    return group_conn
+def load_groups(groups, obj):
+    my_groups = models.ArcgisGroup.objects.filter(user=obj.username)
+    wfs_groups = [g.title for g in groups]
 
+    for _group in my_groups:
+        # clear groups deleted on arcgis account
+        if _group.name not in wfs_groups:
+            _group.delete()
+
+    for group in groups:
+        models.ArcgisGroup.objects.get_or_create(
+            name=group.title,
+            group_id=group.id,
+            user=obj.username
+        )
 
 def arcgis_authentication(request, obj):
     try:
         gis = GIS(obj.service_url, username=obj.username, password=obj.password)
-        return True, gis.groups.get(obj.group_id)
+        return gis
     except Exception as error:
         message(request, messages.ERROR, error)
-        return False, None
 
 
-def download_features_from_wfs(request, group, obj):
+def download_features_from_wfs(request, obj, wfs_group):
     errored_files, success_files = [], []
-    group_members = group.content() 
+    group_members = wfs_group.content() 
     for member in group_members:
-        if member.type == "Feature Service":
+        if member.type == "Feature Service" and 'Built_point' in member.title:
             title = member.title.replace(' ', '-')
             logger.info(f'processing {title}')
             success_files, errored_files = extract_gis_data(

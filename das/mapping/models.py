@@ -794,10 +794,20 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
         return '{0}-{1}-{2}'.format(self.name, self.feature_type.name, self.id)
 
 
+
+class ArcgisGroup(models.Model):
+    name = models.CharField(max_length=100, blank=True, null=True )
+    group_id = models.CharField(max_length=100, blank=False)
+    user = models.CharField(max_length=100, blank=False)
+
+    def __str__(self):
+        return self.name
+
+
 class ArcgisConfiguration(TimestampedModel):
     service_url = models.CharField(max_length=100, blank=True, null=True )
-    group_name = models.CharField(max_length=100, blank=False, unique=True)
-    group_id = models.CharField(max_length=100, blank=False, unique=True)
+    config_name = models.CharField(max_length=100, blank=False, unique=True)
+    groups = models.ForeignKey(ArcgisGroup, blank=True, on_delete=models.CASCADE, null=True)
     username = models.CharField(max_length=100, blank=False, unique=True)
     password = models.CharField(max_length=100, blank=False)
     name_field = models.CharField(max_length=100, blank=True, null=True)
