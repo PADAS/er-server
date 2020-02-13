@@ -663,7 +663,7 @@ class SpatialFeatureType(TimestampedModel):
     objects = SpatialFeatureTypeManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, unique=True)
     # JSON field for storing the json schema for each unique feature type
     attribute_schema = JSONField(default=dict, blank=True)
     # Tags will allow categorization according to different views (e.g., HF)
@@ -800,11 +800,10 @@ class ArcgisConfiguration(TimestampedModel):
     group_id = models.CharField(max_length=100, blank=False, unique=True)
     username = models.CharField(max_length=100, blank=False, unique=True)
     password = models.CharField(max_length=100, blank=False)
-    polling_interval = models.PositiveIntegerField(default=0)
     name_field = models.CharField(max_length=100, blank=True, null=True)
     id_field = models.CharField(max_length=100, blank=True, null=True)
     source = models.CharField(max_length=100, blank=True, null=True, default='ArcGis')
-    type_label = models.CharField(max_length=100, blank=True, null=True)
+    type_label = models.CharField(max_length=100, blank=True, null=True, verbose_name='Type field')
 
     class Meta:
         verbose_name = 'Feature Service Configuration'
