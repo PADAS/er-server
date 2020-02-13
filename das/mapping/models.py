@@ -797,7 +797,7 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
 
 class ArcgisGroup(models.Model):
     name = models.CharField(max_length=100, blank=True, null=True )
-    group_id = models.CharField(max_length=100, blank=False, unique=True)
+    group_id = models.CharField(max_length=100, blank=False)
     user = models.CharField(max_length=100, blank=False)
 
     def __str__(self):
@@ -807,7 +807,6 @@ class ArcgisGroup(models.Model):
 class ArcgisConfiguration(TimestampedModel):
     service_url = models.CharField(max_length=100, blank=True, null=True )
     config_name = models.CharField(max_length=100, blank=False, unique=True)
-    # group_id = models.CharField(max_length=100, blank=False, unique=True)
     groups = models.ForeignKey(ArcgisGroup, blank=True, on_delete=models.CASCADE, null=True)
     username = models.CharField(max_length=100, blank=False, unique=True)
     password = models.CharField(max_length=100, blank=False)

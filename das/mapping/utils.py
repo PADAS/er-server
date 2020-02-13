@@ -209,29 +209,28 @@ message = messages.add_message
 
 def arcgis_integration(request, obj):
     gis = arcgis_authentication(request, obj)
+    groups = gis.groups.search(query='africa parks', outside_org=True)
     if gis:
         if "_testconnection" in request.POST:
             message(request, messages.INFO, f'Successful Configuration')
-            groups = gis.groups.search(query='africa parks',outside_org=True)
-            load_groups(groups, obj)
-            
-
         elif "_downloadfeatures" in request.POST:
             try:
-                group = gis.groups.get(obj.groups.group_id)
-                download_features_from_wfs(request, obj, group)
+                wfs_group = gis.groups.get(obj.groups.group_id)
+                download_features_from_wfs(request, obj, wfs_group)
             except Exception:
                 error_msg = f"Select a group to enable features download"
                 message(request, messages.ERROR, error_msg) if request else logger.debug(error_msg)
+        else:
+            load_groups(groups, obj)
         return True
 
 def load_groups(groups, obj):
     my_groups = models.ArcgisGroup.objects.filter(user=obj.username)
-    arcgis_groups = [g.title for g in groups]
+    wfs_groups = [g.title for g in groups]
 
     for _group in my_groups:
         # clear groups deleted on arcgis account
-        if _group.name not in arcgis_groups:
+        if _group.name not in wfs_groups:
             _group.delete()
 
     for group in groups:
@@ -249,9 +248,9 @@ def arcgis_authentication(request, obj):
         message(request, messages.ERROR, error)
 
 
-def download_features_from_wfs(request, obj, group):
+def download_features_from_wfs(request, obj, wfs_group):
     errored_files, success_files = [], []
-    group_members = group.content() 
+    group_members = wfs_group.content() 
     for member in group_members:
         if member.type == "Feature Service" and 'Built_point' in member.title:
             title = member.title.replace(' ', '-')
