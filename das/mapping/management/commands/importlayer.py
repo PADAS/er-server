@@ -191,7 +191,6 @@ class Command(BaseCommand):
                                   self.spatialfile_id, featuretype,
                                   external_id, self.featuretype_label)
 
-
     def save_to_layer_model(self, feature, featureset, featuretype, external_id):
         fields = {}
         for name in feature.fields:

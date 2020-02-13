@@ -140,7 +140,7 @@ def save_feature_to_table(feature, source_name, spatialfile_id, featuretype=None
         logger.warning('Feature %s Missing featuretype', feature['name'].value)
         return
 
-    feature_type, created = models.SpatialFeatureType.objects.get_or_create(name=feature_type_name)
+    feature_type, created = models.SpatialFeatureType.objects.get_or_create(name=featuretype)
 
     model_fieldname = 'feature_geometry'
     model_field_type = model._meta.get_field(model_fieldname)
