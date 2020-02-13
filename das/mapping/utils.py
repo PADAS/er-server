@@ -265,19 +265,15 @@ def arcgis_authentication(request, obj):
         return False, None
 
 
-import time
-
-
 def download_features_from_wfs(request, group, obj):
     errored_files, success_files = [], []
     group_members = group.content() 
     for member in group_members:
-        if member.type == "Feature Service" and member.title in items_to_import:
+        if member.type == "Feature Service":
             title = member.title.replace(' ', '-')
             logger.info(f'processing {title}')
             success_files, errored_files = extract_gis_data(
                 obj, member, title, errored_files, success_files)
-    logger.info(f'returning. feature sync took {int(time.time() - ts)} seconds')
     wfs_download_return_messages(request, errored_files, success_files)
 
 
@@ -329,9 +325,8 @@ def import_featuretype_presentation(renderer):
         for unique_val in renderer.uniqueValueInfos:
             feature_type_name = unique_val.value
             presentation = get_mb_style(unique_val.symbol)
-            logger.info(f'{feature_type_name}: {presentation}')
+            logger.debug(f'{feature_type_name}: {presentation}')
             if presentation:
-                # Todo: revisit if we cache SFTs when importing features
                 feature_type, created = models.SpatialFeatureType.objects.get_or_create(name=feature_type_name)
                 feature_type.presentation = presentation
                 feature_type.save()
