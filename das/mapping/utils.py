@@ -103,11 +103,12 @@ def save_feature_to_table(feature, source_name, spatialfile_id, featuretype=None
         except Exception:
             logger.warning(f'Type label given - {type_label} not a valid field for this feature')
 
-    try:
-        featuretype = featuretype or feature['Types'].value if 'Types' in feature.fields else feature['type'].value
-    except Exception:
-        logger.warning('Feature %s Missing featuretype', feature['name'].value)
-        return
+    if not featuretype:
+        try:
+            featuretype = feature['Types'].value if 'Types' in feature.fields else feature['type'].value
+        except Exception:
+            logger.warning('Feature %s Missing featuretype', feature['name'].value)
+            return
 
     feature_type, created = models.SpatialFeatureType.objects.get_or_create(name=featuretype)
 
