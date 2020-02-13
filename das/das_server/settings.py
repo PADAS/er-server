@@ -101,7 +101,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'das_server.context_processors.eula_context_processor',
+                'accounts.context_processors.eula_context_processor',
             ],
         },
     },
