@@ -121,9 +121,9 @@ class SubjectTestCase(BaseAPITest):
             location=point,
             recorded_at=t2,
             additional={}
-            )
+        )
 
-        fmt = "%Y-%m-%d" # Year-Month-day
+        fmt = "%Y-%m-%d"  # Year-Month-day
         updated_since = t1.strftime(fmt)
         updated_until = t2.strftime(fmt)
         url += f'?updated_since={updated_since}&updated_until={updated_until}'
@@ -137,7 +137,6 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(actual, expected)
 
         fmt += "T%H:%M:%S%z"
-        # z[:-3] + z[-2:]
         last_positon_date_subject = json.loads(response.render().content.decode())['data'][0]['last_position_date']
         last_positon_date_subject2 = json.loads(response.render().content.decode())['data'][1]['last_position_date']
 
@@ -153,3 +152,19 @@ class SubjectTestCase(BaseAPITest):
         t2 = t2.strftime(fmt)
 
         self.assertEqual({t1, t2}, {last_positon_date_subject, last_positon_date_subject2})
+
+        # Use url above together with bbox param
+        # the 'point' lies within this bbox.
+        bbox_extent = '(-122.49866134971379, 47.40051600277377, -122.225591570732, 47.67666096382156)'
+        bbox = str(bbox_extent).strip('()')
+        url += '&bbox={}'.format(bbox)
+        request = self.factory.get(url)
+
+        self.force_authenticate(request, self.user)
+        response = SubjectsView.as_view()(request)
+        actual_size = len(response.data)
+        expected_size = 2
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(actual_size, expected_size)
+
+
