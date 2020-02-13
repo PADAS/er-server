@@ -3,11 +3,14 @@ import datetime
 import logging
 
 import pytz
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
 
 import accounts.serializers as serializers
 from accounts.filters import UserObjectPermissionsFilter
@@ -103,6 +106,13 @@ class GetActiveEulaAPIView(generics.RetrieveAPIView):
     permission_classes = (IsAuthenticated,)
     serializer_class = serializers.EulaSerializer
     queryset = EULA.objects.all()
+
+    def dispatch(self, request, *args, **kwargs):
+        if not settings.ACCEPT_EULA:
+            return Response(data={
+                "error": "Site doesn't require users to accept a EULA"},
+                status=status.HTTP_404_NOT_FOUND)
+        return super(GetActiveEulaAPIView, self).dispatch(request, *args, **kwargs)
 
     def get_object(self):
         return EULA.objects.get(active=True)
