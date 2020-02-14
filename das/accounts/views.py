@@ -101,6 +101,13 @@ class AcceptEulaAPIView(generics.CreateAPIView):
     serializer_class = serializers.AcceptEulaSerializer
     queryset = UserAgreement.objects.all()
 
+    def post(self, request, *args, **kwargs):
+        user_id = request.data.get("user")
+        if str(request.user.id) != user_id:
+            return Response(data={"error": "Can not accept eula for another user"}, status=status.HTTP_403_FORBIDDEN)
+
+        return super(AcceptEulaAPIView, self).post(request, *args, **kwargs)
+
 
 class GetActiveEulaAPIView(generics.RetrieveAPIView):
     permission_classes = (IsAuthenticated,)

@@ -532,4 +532,3 @@ METRICS_BUCKET = "er-site-metrics"
 
 ACCEPT_EULA = True
 
-EULA_REDIRECT = "http://dev.pamdas.org/beta/eula/"

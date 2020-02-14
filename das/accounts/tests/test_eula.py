@@ -83,6 +83,10 @@ class EulaViewsTestCase(BaseAPITest):
         self.user = User.objects.create_user(
             'user', 'das_user@vulcan.com', 'user',
             **self.user_const)
+        self.user2 = User.objects.create_user(
+            username='user2',
+            password='asdfo9823sfiu23$',
+            email='user2user@user.org')
 
     def test_getting_active_eula(self):
         EULA.objects.create(eula_url="http://some.com/eula.pdf",
@@ -133,5 +137,15 @@ class EulaViewsTestCase(BaseAPITest):
         response_data = response.data
         self.assertEqual(response.status_code, 200)
         self.assertNotIn('accepted_eula', response_data)
+
+    def test_user_cannot_accept_eula_for_another_user(self):
+        eula = EULA.objects.create(eula_url="http://some.com/eulav1.1.pdf",
+                                   version="EarthRanger_EULA_ver2025-03-12")
+        data = {"eula": eula.id, "user": self.user.id}
+        request = self.factory.post(self.api_base + '/eula/accept/', data)
+        self.force_authenticate(request, self.user2)
+        response = views.AcceptEulaAPIView.as_view()(request)
+        self.assertEqual(response.status_code, 403)
+
 
 
