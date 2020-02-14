@@ -83,7 +83,8 @@ MIDDLEWARE = (
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'oauth2_provider.middleware.OAuth2TokenMiddleware',
     'revision.middleware.RevisionMiddleware',
-    'utils.middleware.RequestLoggingMiddleware'
+    'utils.middleware.RequestLoggingMiddleware',
+    'utils.middleware.EULARedirectMiddleware'
     #'django.contrib.sites.middleware.CurrentSiteMiddleware',
 )
 
@@ -100,6 +101,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'accounts.context_processors.eula_context_processor',
             ],
         },
     },
@@ -527,3 +529,6 @@ GFW_CREDENTIALS = {
 }
 
 METRICS_BUCKET = "er-site-metrics"
+
+ACCEPT_EULA = True
+

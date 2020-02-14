@@ -25,6 +25,8 @@ urlpatterns = [
     url(r'^users/csv/?$', views.UsersCsvView.as_view()),
     url(r'^user/(?P<id>me|[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.UserView.as_view()),
     url(r'^user/(?P<id>me|[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/profiles/?$', views.UserProfilesView.as_view()),
+    url(r'^user/eula/?$', views.GetActiveEulaAPIView.as_view()),
+    url(r'^user/eula/accept/?$', views.AcceptEulaAPIView.as_view()),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)
