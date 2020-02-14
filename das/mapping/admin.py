@@ -1,7 +1,7 @@
 import logging
 import os
 from functools import reduce
-
+import datetime
 from arcgis.gis import GIS
 from arcgis2geojson import arcgis2geojson
 from django.contrib import admin as django_admin
@@ -439,11 +439,15 @@ else:
 
 @admin.register(models.ArcgisConfiguration)
 class ArcgisConfigurationAdmin(admin.ModelAdmin):
-    list_display = ('group_name', 'group_id', 'username', )
+    list_display = ('config_name', 'username', )
     fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('group_name', 'group_id', 'username', 'password',)
+            'fields': ('config_name', 'username', 'password', 'search_text')
+        }),
+        ('ArcGIS Group', {
+            'classes': ('wide', 'groups'),
+            'fields': ('groups',)
         }),
         ('Optional Attributes', {
             'classes': ('collapse',),
@@ -451,6 +455,15 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
         }
         ),)
     form = ArcgisConfigurationForm
+
+    def get_fieldsets(self, request, obj=None):
+        if self.fieldsets:
+            fieldsets = list(self.fieldsets)
+            for item in fieldsets:
+                if not obj and 'Wsf Groups' in item:
+                    fieldsets.pop(fieldsets.index(item))
+            return tuple(fieldsets)
+        return [(None, {'fields': self.get_fields(request, obj)})]
 
     def response_add(self, request, obj, post_url_continue=None):
         conn = arcgis_integration(request, obj)
@@ -468,9 +481,14 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
             obj.save()
             return super().response_change(request, obj)
 
-
     def save_model(self, request, obj, form, change):
         pass
 
     def arcgis_config(self, request):
         return any(x in request.POST for x in ["_testconnection", "_downloadfeatures"])
+    
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        obj = self.model.objects.get(id=int(request.resolver_match.kwargs['object_id']))
+        if db_field.name == 'groups':
+            kwargs['queryset'] = models.ArcgisGroup.objects.filter(user=obj.username)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)

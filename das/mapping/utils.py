@@ -106,42 +106,43 @@ def reduce_json(document):
     return reduced
 
 
-def get_feature_type_name(feature, type_name=None):
+def get_spatial_feature_type(feature, type_label):
+    type_name = None
+    # get wfs type from given type label
+    if type_label:
+        try:
+            type_name = feature[type_label].value
+        except Exception:
+            logger.warning(f'Type label given - {type_label} not a valid field for this feature')
+
+    if not type_name:
+        try:
+            # todo: eventually remove?
+            type_name = feature['Types'].value if 'Types' in feature.fields else feature['type'].value
+        except Exception:
+            logger.warning('Feature %s Missing featuretype', feature['name'].value)
+            return
+
     try:
-        feature_type_name = type_name or feature['Types'].value if 'Types' in feature.fields else feature['type'].value
-    except Exception:
-        logger.warning('Feature %s Missing featuretype', feature['name'].value)
-        return None
-
-    return feature_type_name
+        return models.SpatialFeatureType.objects.get_or_create(name=type_name)
+    except IntegrityError as ie:
+        logger.warning(ie)
+        return
 
 
-def get_feature_type(type_name, create_okay=True):
-    return models.SpatialFeatureType.objects.get_by_natural_key(type_name)
-
-def save_feature_to_table(feature, source_name, spatialfile_id, featuretype=None, external_id=None, type_label=None):
+def mappingv2_save_spatial_data(feature, source_name, spatialfile_id, external_id=None, type_label=None):
     model = models.SpatialFeature
+
+    # this only happens when called from import_spatial
     if not external_id:
         external_id = feature['globalid'].value if 'globalid' in [x.lower() for x in feature.fields] \
             else feature['fid'].value
 
-    fields = list(fields_iter(feature))
-
-    # get wsf type from given type label
-    if type_label:
-        try:
-            featuretype = feature[type_label].value
-        except Exception:
-            logger.warning(f'Type label given - {type_label} not a valid field for this feature')
-
-    try:
-        featuretype = featuretype or feature['Types'].value if 'Types' in feature.fields else feature['type'].value
-    except Exception:
-        logger.warning('Feature %s Missing featuretype', feature['name'].value)
+    feature_type, created = get_spatial_feature_type(feature, type_label)
+    if not feature_type:
         return
 
-    feature_type, created = models.SpatialFeatureType.objects.get_or_create(name=featuretype)
-
+    fields = list(fields_iter(feature))
     model_fieldname = 'feature_geometry'
     model_field_type = model._meta.get_field(model_fieldname)
 
@@ -238,38 +239,63 @@ message = messages.add_message
 
 
 def arcgis_integration(request, obj):
-    authenticated, group = arcgis_authentication(request, obj)
-    group_conn = True
-    if authenticated:
-        if not group:
-            message(request, messages.WARNING, f'Invalid group id: {obj.group_id}')
-            group_conn = False
+    gis = arcgis_authentication(request, obj)
+    if not obj.search_text:
+        # search for groups only within the user's org
+        groups = gis.groups.search()
+    else:
+        # search for groups outside the user's org as well. Note: this could return 1000 grps def max_groups=1000
+        groups = gis.groups.search(query=obj.search_text, outside_org=True)
 
-        elif "_testconnection" in request.POST:
-            message(request, messages.INFO, f'Valid credentials. {group.title} group well configured')
-
+    if gis:
+        if "_testconnection" in request.POST:
+            message(request, messages.INFO, f'Successful Configuration')
         elif "_downloadfeatures" in request.POST:
-            download_features_from_wfs(request, group, obj)
-    else: 
-        group_conn = False
+            try:
+                wfs_group = gis.groups.get(obj.groups.group_id)
+                download_features_from_wfs(request, obj, wfs_group)
+            except Exception:
+                error_msg = f"Select a group to enable features download"
+                message(request, messages.ERROR, error_msg) if request else logger.debug(error_msg)
+        else:
+            load_groups(groups, obj)
+        return True
 
-    return group_conn
 
+def load_groups(groups, obj):
+    my_groups = models.ArcgisGroup.objects.filter(user=obj.username)
+    wfs_groups = [g.title for g in groups]
+
+    for _group in my_groups:
+        # clear groups deleted on arcgis account
+        if _group.name not in wfs_groups:
+            _group.delete()
+
+    for group in groups:
+        models.ArcgisGroup.objects.get_or_create(
+            name=group.title,
+            group_id=group.id,
+            user=obj.username
+        )
 
 def arcgis_authentication(request, obj):
     try:
         gis = GIS(obj.service_url, username=obj.username, password=obj.password)
-        return True, gis.groups.get(obj.group_id)
+        return gis
     except Exception as error:
         message(request, messages.ERROR, error)
-        return False, None
 
 
-def download_features_from_wfs(request, group, obj):
+def download_features_from_wfs(request, obj, wfs_group):
     errored_files, success_files = [], []
-    group_members = group.content() 
+    group_members = wfs_group.content()
+    # todo: remove when done with dev work
+    items_to_download = [
+        'Akagera_Land_Cover',
+        'Built_point'
+    ]
     for member in group_members:
-        if member.type == "Feature Service":
+        if member.type == "Feature Service" and member.title in items_to_download:
             title = member.title.replace(' ', '-')
             logger.info(f'processing {title}')
             success_files, errored_files = extract_gis_data(
