@@ -2,6 +2,7 @@ import json
 import django.contrib.auth
 from django.urls import reverse
 from datetime import datetime, timedelta
+import dateutil.parser as dateparser
 
 from pytz import UTC
 from django.contrib.gis.geos import Point
@@ -123,9 +124,8 @@ class SubjectTestCase(BaseAPITest):
             additional={}
         )
 
-        fmt = "%Y-%m-%d"  # Year-Month-day
-        updated_since = t1.strftime(fmt)
-        updated_until = t2.strftime(fmt)
+        updated_since = t1.date().isoformat()
+        updated_until = t2.date().isoformat()
         url += f'?updated_since={updated_since}&updated_until={updated_until}'
         request = self.factory.get(url)
 
@@ -136,20 +136,14 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(actual, expected)
 
-        fmt += "T%H:%M:%S%z"
         last_positon_date_subject = json.loads(response.render().content.decode())['data'][0]['last_position_date']
         last_positon_date_subject2 = json.loads(response.render().content.decode())['data'][1]['last_position_date']
 
-        # Changed in version 3.7: When the %z directive is provided to the strptime() method,
-        # the UTC offsets can have a colon as a separator between hours, minutes and seconds.
-        # Example: 2020-02-16T10:37:31+00:00
+        last_positon_date_subject = dateparser.parse(last_positon_date_subject).date().isoformat()
+        last_positon_date_subject2 = dateparser.parse(last_positon_date_subject2).date().isoformat()
 
-        # Remove the colon for Python <= 3.6
-        last_positon_date_subject = last_positon_date_subject[:-3] + last_positon_date_subject[-2:]
-        last_positon_date_subject2 = last_positon_date_subject2[:-3] + last_positon_date_subject2[-2:]
-
-        t1 = t1.strftime(fmt)
-        t2 = t2.strftime(fmt)
+        t1 = updated_since
+        t2 = updated_until
 
         self.assertEqual({t1, t2}, {last_positon_date_subject, last_positon_date_subject2})
 
