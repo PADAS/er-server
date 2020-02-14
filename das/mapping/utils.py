@@ -225,11 +225,12 @@ def arcgis_integration(request, obj):
             message(request, messages.INFO, f'Successful Configuration')
         elif "_downloadfeatures" in request.POST:
             try:
-                wfs_group = groups.get(groups.group_id)
+                wfs_group = gis.groups.get(obj.groups.group_id)
                 download_features_from_wfs(request, obj, wfs_group)
-            except Exception:
+            except Exception as ex:
                 error_msg = f"Select a group to enable features download"
                 message(request, messages.ERROR, error_msg) if request else logger.debug(error_msg)
+                logger.exception(ex)
         else:
             load_groups(groups, obj)
         return True
