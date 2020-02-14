@@ -6,7 +6,7 @@ from django.core.management.base import BaseCommand
 
 from mapping import models
 from mapping.utils import (DEFAULT_SOURCE_NAME, datasource_from_file,
-                           save_feature_to_table, save_spatial_file,
+                           mappingv2_save_spatial_data, save_spatial_file,
                            validate_feature_record)
 from utils.spatial import GeometryMapper
 
@@ -187,14 +187,13 @@ class Command(BaseCommand):
         if not has_unique_keys:
             external_id = external_id + '-' + str(i)
         if featureset:
-            self.save_to_layer_model(
+            self.mappingv1_save_spatial_data(
                 feature, featureset, featuretype, external_id)
         else:
-            save_feature_to_table(feature, self.source_name,
-                                  self.spatialfile_id, featuretype,
-                                  external_id, self.featuretype_label)
+            mappingv2_save_spatial_data(feature, self.source_name,
+                                        self.spatialfile_id, external_id, self.featuretype_label)
 
-    def save_to_layer_model(self, feature, featureset, featuretype, external_id):
+    def mappingv1_save_spatial_data(self, feature, featureset, featuretype, external_id):
         fields = {}
         for name in feature.fields:
             if name.lower() in (self.name_field.lower(), 'description'):

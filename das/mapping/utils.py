@@ -17,7 +17,6 @@ from django.utils.encoding import force_text
 
 import utils.json
 from mapping import models
-# from mapping.models import (SpatialFeature, SpatialFeatureType)
 from utils.spatial import GeometryMapper
 
 geometry_mapper = GeometryMapper()
@@ -83,34 +82,43 @@ def reduce_json(document):
     return reduced
 
 
-def get_feature_type(type_name, create_okay=True):
-    return models.SpatialFeatureType.objects.get_by_natural_key(type_name)
-
-
-def save_feature_to_table(feature, source_name, spatialfile_id, featuretype=None, external_id=None, type_label=None):
-    model = models.SpatialFeature
-    if not external_id:
-        external_id = feature['globalid'].value if 'globalid' in [x.lower() for x in feature.fields] \
-            else feature['fid'].value
-
-    fields = list(fields_iter(feature))
-
+def get_spatial_feature_type(feature, type_label):
+    type_name = None
     # get wfs type from given type label
     if type_label:
         try:
-            featuretype = feature[type_label].value
+            type_name = feature[type_label].value
         except Exception:
             logger.warning(f'Type label given - {type_label} not a valid field for this feature')
 
-    if not featuretype:
+    if not type_name:
         try:
-            featuretype = feature['Types'].value if 'Types' in feature.fields else feature['type'].value
+            # todo: eventually remove?
+            type_name = feature['Types'].value if 'Types' in feature.fields else feature['type'].value
         except Exception:
             logger.warning('Feature %s Missing featuretype', feature['name'].value)
             return
 
-    feature_type, created = models.SpatialFeatureType.objects.get_or_create(name=featuretype)
+    try:
+        return models.SpatialFeatureType.objects.get_or_create(name=type_name)
+    except IntegrityError as ie:
+        logger.warning(ie)
+        return
 
+
+def mappingv2_save_spatial_data(feature, source_name, spatialfile_id, external_id=None, type_label=None):
+    model = models.SpatialFeature
+
+    # this only happens when called from import_spatial
+    if not external_id:
+        external_id = feature['globalid'].value if 'globalid' in [x.lower() for x in feature.fields] \
+            else feature['fid'].value
+
+    feature_type, created = get_spatial_feature_type(feature, type_label)
+    if not feature_type:
+        return
+
+    fields = list(fields_iter(feature))
     model_fieldname = 'feature_geometry'
     model_field_type = model._meta.get_field(model_fieldname)
 

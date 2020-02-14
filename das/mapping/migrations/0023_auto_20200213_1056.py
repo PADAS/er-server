@@ -40,11 +40,6 @@ class Migration(migrations.Migration):
                 ('user', models.CharField(max_length=100)),
             ],
         ),
-        migrations.AlterField(
-            model_name='spatialfeaturetype',
-            name='name',
-            field=models.CharField(max_length=255, unique=True),
-        ),
         migrations.AddField(
             model_name='arcgisconfiguration',
             name='groups',
