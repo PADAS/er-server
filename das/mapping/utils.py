@@ -216,19 +216,16 @@ message = messages.add_message
 
 def arcgis_integration(request, obj):
     gis = arcgis_authentication(request, obj)
-    if not obj.search_text:
-        # search for groups only within the user's org
-        groups = gis.groups.search()
-    else:
-        # search for groups outside the user's org as well. Note: this could return 1000 grps def max_groups=1000
-        groups = gis.groups.search(query=obj.search_text, outside_org=True)
 
     if gis:
+        # search for groups only within the user's org if a serchtext is given else search for groups outside the user's org as well. Note: this could return 1000 grps def max_groups=1000
+        groups = gis.groups.search() if not obj.search_text else gis.groups.search(query=obj.search_text, outside_org=True)
+
         if "_testconnection" in request.POST:
             message(request, messages.INFO, f'Successful Configuration')
         elif "_downloadfeatures" in request.POST:
             try:
-                wfs_group = gis.groups.get(obj.groups.group_id)
+                wfs_group = groups.get(groups.group_id)
                 download_features_from_wfs(request, obj, wfs_group)
             except Exception:
                 error_msg = f"Select a group to enable features download"
@@ -266,10 +263,7 @@ def download_features_from_wfs(request, obj, wfs_group):
     errored_files, success_files = [], []
     group_members = wfs_group.content()
     # todo: remove when done with dev work
-    items_to_download = [
-        'Akagera_Land_Cover',
-        'Built_point'
-    ]
+    items_to_download = ['Built_point']
     for member in group_members:
         if member.type == "Feature Service" and member.title in items_to_download:
             title = member.title.replace(' ', '-')
