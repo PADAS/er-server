@@ -33,6 +33,7 @@ app.conf.task_queues = (
     Queue('realtime_p2', default_exchange, routing_key='realtime.tasks.p2'),
     Queue('realtime_p3', default_exchange, routing_key='realtime.tasks.p3'),
     Queue('analyzers', default_exchange, routing_key='analyzers.tasks'),
+    # TODO: get CD's review on these new mods from Esri integration work
     Queue('mapping', default_exchange, routing_key='mapping.tasks'),
     Queue('maintenance', default_exchange, routing_key='maintenance.tasks'),
 )
@@ -127,7 +128,8 @@ app.conf.beat_schedule = {
     },
     'download-features-from-wfs': {
         'task': 'mapping.tasks.download_features_from_wfs',
-        'schedule': timedelta(hours=1)
+        # 2 AM per settings.TIME_ZONE
+        'schedule': crontab(hour=2, minute=0)
     },
 
 }

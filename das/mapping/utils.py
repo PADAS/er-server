@@ -1,21 +1,19 @@
 import datetime
 import logging
+import os
 import tempfile
-from django.core.exceptions import ValidationError
 from zipfile import ZipFile
 
-from django.conf import settings
-from django.contrib.gis.gdal import DataSource
-from django.contrib.gis.gdal import GDALException
-from django.db.utils import IntegrityError
-from django.utils.encoding import force_text
-
-import os
 from arcgis.gis import GIS
 from arcgis2geojson import arcgis2geojson
+from django.conf import settings
 from django.contrib import messages
+from django.contrib.gis.gdal import DataSource
+from django.contrib.gis.gdal import GDALException
 from django.core import management
-
+from django.core.exceptions import ValidationError
+from django.db.utils import IntegrityError
+from django.utils.encoding import force_text
 
 import utils.json
 from mapping import models
@@ -88,6 +86,7 @@ def reduce_json(document):
 def get_feature_type(type_name, create_okay=True):
     return models.SpatialFeatureType.objects.get_by_natural_key(type_name)
 
+
 def save_feature_to_table(feature, source_name, spatialfile_id, featuretype=None, external_id=None, type_label=None):
     model = models.SpatialFeature
     if not external_id:
@@ -96,7 +95,7 @@ def save_feature_to_table(feature, source_name, spatialfile_id, featuretype=None
 
     fields = list(fields_iter(feature))
 
-    # get wsf type from given type label
+    # get wfs type from given type label
     if type_label:
         try:
             featuretype = feature[type_label].value
@@ -209,7 +208,13 @@ message = messages.add_message
 
 def arcgis_integration(request, obj):
     gis = arcgis_authentication(request, obj)
-    groups = gis.groups.search(query='africa parks', outside_org=True)
+    if not obj.search_text:
+        # search for groups only within the user's org
+        groups = gis.groups.search()
+    else:
+        # search for groups outside the user's org as well. Note: this could return 1000 grps def max_groups=1000
+        groups = gis.groups.search(query=obj.search_text, outside_org=True)
+
     if gis:
         if "_testconnection" in request.POST:
             message(request, messages.INFO, f'Successful Configuration')
@@ -223,6 +228,7 @@ def arcgis_integration(request, obj):
         else:
             load_groups(groups, obj)
         return True
+
 
 def load_groups(groups, obj):
     my_groups = models.ArcgisGroup.objects.filter(user=obj.username)
@@ -250,9 +256,14 @@ def arcgis_authentication(request, obj):
 
 def download_features_from_wfs(request, obj, wfs_group):
     errored_files, success_files = [], []
-    group_members = wfs_group.content() 
+    group_members = wfs_group.content()
+    # todo: remove when done with dev work
+    items_to_download = [
+        'Akagera_Land_Cover',
+        'Built_point'
+    ]
     for member in group_members:
-        if member.type == "Feature Service" and 'Built_point' in member.title:
+        if member.type == "Feature Service" and member.title in items_to_download:
             title = member.title.replace(' ', '-')
             logger.info(f'processing {title}')
             success_files, errored_files = extract_gis_data(

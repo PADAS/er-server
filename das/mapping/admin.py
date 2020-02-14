@@ -443,9 +443,9 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('config_name', 'username', 'password',)
+            'fields': ('config_name', 'username', 'password', 'search_text')
         }),
-        ('Wsf Groups', {
+        ('ArcGIS Group', {
             'classes': ('wide', 'groups'),
             'fields': ('groups',)
         }),
@@ -465,7 +465,6 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
             return tuple(fieldsets)
         return [(None, {'fields': self.get_fields(request, obj)})]
 
-
     def response_add(self, request, obj, post_url_continue=None):
         conn = arcgis_integration(request, obj)
         if self.arcgis_config(request) or not conn:
@@ -481,7 +480,6 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
         else:
             obj.save()
             return super().response_change(request, obj)
-
 
     def save_model(self, request, obj, form, change):
         pass

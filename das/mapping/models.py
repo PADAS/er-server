@@ -805,15 +805,23 @@ class ArcgisGroup(models.Model):
 
 
 class ArcgisConfiguration(TimestampedModel):
-    service_url = models.CharField(max_length=100, blank=True, null=True )
-    config_name = models.CharField(max_length=100, blank=False, unique=True)
+    service_url = models.CharField(max_length=100, blank=True, null=True,
+                                   help_text='Leave blank to connect to ArcGIS Online, '
+                                             'or enter your ArcGIS Enterprise service URL')
+    config_name = models.CharField(max_length=100, blank=False, unique=True, verbose_name='Configuration name')
+    search_text = models.CharField(max_length=100, blank=True, verbose_name='Search text',
+                                   help_text='Leave blank to get groups within your ArcGIS org\n'
+                                             'or enter text for groups to search for outside your ArdGIS org')
     groups = models.ForeignKey(ArcgisGroup, blank=True, on_delete=models.CASCADE, null=True)
-    username = models.CharField(max_length=100, blank=False, unique=True)
+    username = models.CharField(max_length=100, blank=False, help_text='ArcGIS account username')
     password = models.CharField(max_length=100, blank=False)
-    name_field = models.CharField(max_length=100, blank=True, null=True)
-    id_field = models.CharField(max_length=100, blank=True, null=True)
     source = models.CharField(max_length=100, blank=True, null=True, default='ArcGis')
-    type_label = models.CharField(max_length=100, blank=True, null=True, verbose_name='Type field')
+    name_field = models.CharField(max_length=100, blank=True, null=True,
+                                  help_text='Name of field in your GIS data that has the feature name. Default is Name')
+    id_field = models.CharField(max_length=100, blank=True, null=True,
+                                help_text='Name of field in your GIS data that has the feature ID. Default is GlobalID')
+    type_label = models.CharField(max_length=100, blank=True, null=True, verbose_name='Type field',
+                                  help_text='Name of field in your GIS data that has the feature type. Default is Type')
 
     class Meta:
         verbose_name = 'Feature Service Configuration'
