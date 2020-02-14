@@ -813,7 +813,7 @@ class ArcgisConfiguration(TimestampedModel):
                                    help_text='Leave blank to get groups within your ArcGIS org\n'
                                              'or enter text for groups to search for outside your ArdGIS org')
     groups = models.ForeignKey(ArcgisGroup, blank=True, on_delete=models.CASCADE, null=True)
-    username = models.CharField(max_length=100, blank=False, unique=True, help_text='ArcGIS account username')
+    username = models.CharField(max_length=100, blank=False, help_text='ArcGIS account username')
     password = models.CharField(max_length=100, blank=False)
     source = models.CharField(max_length=100, blank=True, null=True, default='ArcGis')
     name_field = models.CharField(max_length=100, blank=True, null=True,
