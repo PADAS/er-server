@@ -149,8 +149,7 @@ class SubjectTestCase(BaseAPITest):
 
         # Use url above together with bbox param
         # the 'point' lies within this bbox.
-        bbox_extent = '(-122.49866134971379, 47.40051600277377, -122.225591570732, 47.67666096382156)'
-        bbox = str(bbox_extent).strip('()')
+        bbox = '-122.49866134971379, 47.40051600277377, -122.225591570732, 47.67666096382156'
         url += '&bbox={}'.format(bbox)
         request = self.factory.get(url)
 
