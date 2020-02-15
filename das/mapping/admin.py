@@ -488,7 +488,9 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
         return any(x in request.POST for x in ["_testconnection", "_downloadfeatures"])
     
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        obj = self.model.objects.get(id=int(request.resolver_match.kwargs['object_id']))
         if db_field.name == 'groups':
-            kwargs['queryset'] = models.ArcgisGroup.objects.filter(user=obj.username)
+            object_id = request.resolver_match.kwargs.get('object_id')
+            if object_id:
+                obj = self.model.objects.get(id=int(object_id))
+                kwargs['queryset'] = models.ArcgisGroup.objects.filter(user=obj.username)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)

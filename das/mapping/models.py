@@ -794,7 +794,6 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
         return '{0}-{1}-{2}'.format(self.name, self.feature_type.name, self.id)
 
 
-
 class ArcgisGroup(models.Model):
     name = models.CharField(max_length=100, blank=True, null=True )
     group_id = models.CharField(max_length=100, blank=False)
