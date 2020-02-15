@@ -129,7 +129,7 @@ class EULARedirectMiddleware:
 
         if settings.ACCEPT_EULA and is_check_eula_path(
             request.path) and user.is_authenticated and not user.accepted_eula:
-            response = redirect(add_base_url("/beta/eula/"))
+            response = redirect(add_base_url(request, '/beta/eula/'))
             response.set_cookie("routeAfterEulaAccepted", "/admin/")
             AccessToken = get_access_token_model()
             expires = timezone.now() + timedelta(minutes=20)
