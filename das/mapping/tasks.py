@@ -8,14 +8,11 @@ from mapping.utils import download_features_from_wfs
 
 @celery.app.task(base=QueueOnce, once={'graceful': True})
 def automate_download_features_from_wfs():
-	feature_services = models.ArcgisConfiguration.objects.all()
+	feature_services = ArcgisConfiguration.objects.filter(groups__isnull=False)
 	for obj in feature_services:
 		# wsf connection
 		gis = GIS(obj.service_url, username=obj.username, password=obj.password)
-		saved_groups = models.ArcgisGroup.objects.filter(user=obj.username)
-		
-		for group in saved_groups:
-			wfs_group = gis.groups.get(group.group_id)
+		wfs_group = gis.groups.get(obj.groups.group_id)
 
-			# download features
-			download_features_from_wfs(None, obj, wfs_group)
+		# download features
+		download_features_from_wfs(None, obj, wfs_group)
