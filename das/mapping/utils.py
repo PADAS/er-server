@@ -242,8 +242,10 @@ def arcgis_integration(request, obj):
     gis = arcgis_authentication(request, obj)
 
     if gis:
-        # search for groups only within the user's org if a serchtext is given else search for groups outside the user's org as well. Note: this could return 1000 grps def max_groups=1000
-        groups = gis.groups.search() if not obj.search_text else gis.groups.search(query=obj.search_text, outside_org=True)
+        # search for groups only within the user's org if a serchtext is given else search for groups outside
+        # the user's org as well.
+        groups = gis.groups.search() if not obj.search_text else gis.groups.search(query=obj.search_text,
+                                                                                   outside_org=True, max_groups=100)
 
         if "_testconnection" in request.POST:
             message(request, messages.INFO, f'Successful Configuration')

@@ -138,9 +138,9 @@ class Command(BaseCommand):
         name_value = ''
         id_value = ''
         for name in feature.fields:
-            if self.id_field and name == self.id_field:
+            if self.id_field and name.lower() == self.id_field.lower():
                 id_value = str(feature[name].value)
-            elif self.name_field and name == self.name_field:
+            elif self.name_field and name.lower() == self.name_field.lower():
                 name_value = str(feature[name].value)
         return '-'.join((layer.name, name_value, id_value))
 
@@ -185,10 +185,12 @@ class Command(BaseCommand):
                     logger.warning('Did not get spatialfeaturetype for %. Skipping', str(feature))
                     continue
                 spatial_feature_type.presentation = self.presentation
+                # TODO: does a write in each iteration. Optimize.
                 spatial_feature_type.save()
 
             # can optionally filter features based on Park attribute.
             # e.g., AP has features for multiple parks in the same feature layer
+            # TODO: make configurable, move out filter key (e.g., Park below) & filter value (ui_site_url) to the admin UI.
             if hasattr(settings, 'UI_SITE_URL') and 'Park' in feature.fields:
                 if feature['Park'].value.lower() in settings.UI_SITE_URL.lower():
                     self.load_layer(layer, featuretype, featureset, feature, has_unique_keys, i)

@@ -59,15 +59,15 @@ class FeatureGeoJsonView(APIView):
     def get(self, request, id):
         if MAPPING_FEATURES_V2:
             include_hidden = parse_bool(request.GET.get('include_hidden', False))
-            selected_features = SpatialFeature.objects.filter(id=id) if include_hidden \
+            selected_feature = SpatialFeature.objects.filter(id=id) if include_hidden \
                 else SpatialFeature.objects.filter(id=id).filter(feature_type__is_visible=True)
         else:
-            selected_features = list(chain(PolygonFeature.objects.filter(id=id),
-                                           LineFeature.objects.filter(id=id),
-                                           PointFeature.objects.filter(id=id)))
+            selected_feature = list(chain(PolygonFeature.objects.filter(id=id),
+                                          LineFeature.objects.filter(id=id),
+                                          PointFeature.objects.filter(id=id)))
 
         feature = serialize('geojson',
-                            selected_features,
+                            selected_feature,
                             properties={'name': 'title',
                                         'default_presentation': 'presentation'},
                             geometry_field='feature_geometry'
