@@ -7,7 +7,7 @@ from django.core.management.base import BaseCommand
 from mapping import models
 from mapping.utils import (DEFAULT_SOURCE_NAME, datasource_from_file,
                            mappingv2_save_spatial_data, save_spatial_file,
-                           validate_feature_record)
+                           validate_feature_record, get_spatial_feature_type)
 from utils.spatial import GeometryMapper
 
 logger = logging.getLogger(__name__)
@@ -49,6 +49,7 @@ class Command(BaseCommand):
         self.featuretype_label = options['typelabel']
         self.featureset = options['featureset']
         self.spatialfile_id = options['spatialfile_id'] if options['spatialfile_id'] else self.spatialfile_id
+        self.presentation = options['presentation']
 
         sub_command = options['sub_command']
         if sub_command not in self.SUB_COMMANDS:
@@ -79,6 +80,8 @@ class Command(BaseCommand):
                             help='Change to this utm')
         parser.add_argument('--spatialfile-id', type=str,
                             help='Spatial file ID')
+        parser.add_argument('--presentation', type=dict,
+                            help='Presentation from an ArcGIS Simple Renderer')
 
     def importlayerfile(self):
 
@@ -170,13 +173,23 @@ class Command(BaseCommand):
     def import_layer(self, layer, featuretype=None, featureset=None):
         logger.info('Importing layer: %s, type: %s, fields: %s',
                     layer.name, layer.geom_type, layer.fields)
+
         has_unique_keys = self.contains_unique_keys_in_layer(layer)
 
         for i, feature in enumerate(layer):
+
+            if self.presentation:
+                # TODO: get sft regardless of presentation and pass on further
+                spatial_feature_type, _ = get_spatial_feature_type(feature, self.featuretype_label)
+                if not spatial_feature_type:
+                    logger.warning('Did not get spatialfeaturetype for %. Skipping', str(feature))
+                    continue
+                spatial_feature_type.presentation = self.presentation
+                spatial_feature_type.save()
+
             # can optionally filter features based on Park attribute.
             # e.g., AP has features for multiple parks in the same feature layer
             if hasattr(settings, 'UI_SITE_URL') and 'Park' in feature.fields:
-                
                 if feature['Park'].value.lower() in settings.UI_SITE_URL.lower():
                     self.load_layer(layer, featuretype, featureset, feature, has_unique_keys, i)
             else:

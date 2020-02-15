@@ -44,6 +44,30 @@ ATTRIBUTES_TO_SPATIAL_MAPPING = {'short_name': {'field': 'short_name', 'validato
                                  'name': {'field': 'name', 'validator': lambda v: v}
                                  }
 
+ESRI_LINE = 'esriSLS'
+ESRI_POLYGON = 'esriSFS'
+ESRI_PMS = 'esriPMS'
+ESRI_SMS = 'esriSMS'
+ESRI_PFS = 'esriPFS'
+RENDERER_TYPE_SIMPLE = 'simple'
+RENDERER_TYPE_UNIQUE_VALUE = 'uniqueValue'
+DEFAULT_IMAGE_WIDTH = 20
+DEFAULT_IMAGE_HEIGHT = 20
+
+DEFAULT_IMAGE = {
+    "image": "/static/ranger_post-black.svg",
+    "width": 20,
+    "height": 20
+}
+
+DEFAULT_POLYGON = {
+    "fill": "#f4d442",
+    "stroke": "#000000",
+    "fill-opacity": 0.2,
+    "stroke-width": 1,
+    "stroke-opacity": 0.7
+}
+
 
 def validate_feature_record(record, record_name, model):
     if isinstance(record, str):
@@ -274,12 +298,14 @@ def download_features_from_wfs(request, obj, wfs_group):
     wfs_download_return_messages(request, errored_files, success_files)
 
 
-def extract_features(obj, member, title, data, success_files):
+def extract_features(obj, member, title, data, success_files, simple_presentation):
+    # todo: what if current dir is readonly?
     with open(f'./{title}.geojson', 'w') as data_file:
         data_file.write(data)
         management.call_command(
             'importlayer', 'importspatialfile', data_file.name, typelabel=obj.type_label,
-            source=obj.source, name_field=obj.name_field, id_field=obj.id_field
+            source=obj.source, name_field=obj.name_field, id_field=obj.id_field,
+            presentation=simple_presentation
         )
         os.remove(data_file.name)
         success_files.append(member.title)
@@ -288,8 +314,10 @@ def extract_features(obj, member, title, data, success_files):
 
 def extract_gis_data(obj, member, title, errored_files, success_files):
     data = None
+    simple_presentation = None
     try:
         # Not handling multiple layers just yet.
+        simple_presentation = import_featuretype_presentation(member.layers[0].properties.drawingInfo.renderer)
         data = member.layers[0].query().to_geojson
     except KeyError:
         logger.debug('to_geojson failed, trying to_json')
@@ -298,7 +326,7 @@ def extract_gis_data(obj, member, title, errored_files, success_files):
         logger.info(f'Error reading from {member.title}', error)
         errored_files.append(member.title)
     if data:
-        success_files = extract_features(obj, member, title, data, success_files)
+        success_files = extract_features(obj, member, title, data, success_files, simple_presentation)
         return success_files, errored_files
 
 
@@ -311,3 +339,66 @@ def wfs_download_return_messages(request, errored_files, success_files):
         success_msg = f'Features Successfully loaded into ER from {len(success_files)} file(s)'
         message(request, messages.SUCCESS, success_msg) if request else logger.info(success_msg)
     logger.info('Returning from download_features')
+
+
+def import_featuretype_presentation(renderer):
+    if renderer.type == RENDERER_TYPE_UNIQUE_VALUE:
+        for unique_val in renderer.uniqueValueInfos:
+            feature_type_name = unique_val.value
+            presentation = get_mb_style(unique_val.symbol)
+            logger.debug(f'{feature_type_name}: {presentation}')
+            if presentation:
+                feature_type, created = models.SpatialFeatureType.objects.get_or_create(name=feature_type_name)
+                feature_type.presentation = presentation
+                feature_type.save()
+    elif renderer.type == 'simple':
+        simple_presentation = get_mb_style(renderer.symbol)
+        logger.info(simple_presentation)
+        return simple_presentation
+    else:
+        logger.info(f'Ignoring {renderer.type} renderer')
+
+
+def get_mb_style(symbol):
+    presentation = None
+    type = symbol.type
+
+    if type == ESRI_LINE:
+        logger.debug('processing line')
+        r, g, b, a = symbol.color
+        width = symbol.width
+        colors_as_hex = "#{:02x}{:02x}{:02x}".format(r, g, b)
+        opacity = "{:.2f}".format(a / 255)
+        presentation = {
+            "stroke": colors_as_hex,
+            "stroke-opacity": opacity,
+            "stroke-width": width
+        }
+    elif type == ESRI_POLYGON:
+        logger.debug('processing polygon')
+        r, g, b, a = symbol.color
+        fill_color = "#{:02x}{:02x}{:02x}".format(r, g, b)
+        fill_opacity = "{:.2f}".format(a / 255)
+        presentation = {
+            "fill": fill_color,
+            "fill-opacity": fill_opacity
+        }
+        if hasattr(symbol, 'outline') and symbol.outline:
+            r, g, b, a = symbol.outline.color
+            presentation["stroke"] = "#{:02x}{:02x}{:02x}".format(r, g, b)
+            presentation["stroke-opacity"] = "{:.2f}".format(a / 255)
+            presentation["stroke-width"] = symbol.outline.width
+    elif type == ESRI_PMS or type == ESRI_PFS:
+        logger.debug(f'processing picture symbol {type}')
+        presentation = {
+            "image": symbol.imageData,
+            "width": symbol.width if hasattr(symbol, "width") else DEFAULT_IMAGE_WIDTH,
+            "height": symbol.height if hasattr(symbol, "height") else DEFAULT_IMAGE_HEIGHT
+        }
+    elif type == ESRI_SMS:
+        logger.debug('processing simple marker symbol')
+        presentation = DEFAULT_IMAGE
+    else:
+        logger.info(f'Got type: {type}. Not handled yet.')
+
+    return presentation
