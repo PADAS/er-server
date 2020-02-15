@@ -1,4 +1,5 @@
 import json
+from unittest.mock import patch
 import django.contrib.auth
 from django.urls import reverse
 from datetime import datetime, timedelta
@@ -8,7 +9,7 @@ from pytz import UTC
 from django.contrib.gis.geos import Point
 from core.tests import BaseAPITest
 from observations.models import Subject, Observation
-from observations.views import SubjectsView
+from observations.views import SubjectsView, INCLUDE_STATIONARY_SUBJECTS_ON_MAP
 
 User = django.contrib.auth.get_user_model()
 
@@ -100,6 +101,7 @@ class SubjectTestCase(BaseAPITest):
         response = SubjectsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
 
+    @patch('observations.views.INCLUDE_STATIONARY_SUBJECTS_ON_MAP', True)
     def test_date_range_filter_works(self):
         url = reverse('subjects-list-view')
 
@@ -155,7 +157,9 @@ class SubjectTestCase(BaseAPITest):
 
         self.force_authenticate(request, self.user)
         response = SubjectsView.as_view()(request)
+        actual_size = len(response.data)
+        expected_size = 2
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.data)
+        self.assertEqual(actual_size, expected_size)
 
 
