@@ -460,7 +460,7 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
         if self.fieldsets:
             fieldsets = list(self.fieldsets)
             for item in fieldsets:
-                if not obj and 'Wsf Groups' in item:
+                if not obj and 'ArcGIS Group' in item:
                     fieldsets.pop(fieldsets.index(item))
             return tuple(fieldsets)
         return [(None, {'fields': self.get_fields(request, obj)})]
