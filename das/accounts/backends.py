@@ -46,8 +46,8 @@ class NoLoginOAuth2Backend(OAuth2Backend):
     """
     logger = logging.getLogger('django.request')
 
-    def authenticate(self, **credentials):
-        user = super().authenticate(**credentials)
+    def authenticate(self, request=None, **credentials):
+        user = super().authenticate(request, **credentials)
         if not user:
             return user
 
@@ -56,7 +56,6 @@ class NoLoginOAuth2Backend(OAuth2Backend):
                              user.pk)
             raise exceptions.PermissionDenied()
 
-        request = credentials.get('request', None)
         if not request:
             return user
 

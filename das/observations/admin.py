@@ -2,6 +2,7 @@ import random
 import csv
 from datetime import datetime, timedelta
 from uuid import UUID
+import urllib
 
 import pytz
 import humanize
@@ -27,6 +28,7 @@ from django.utils.html import format_html
 from django.db.models.expressions import RawSQL
 import django.contrib.gis.admin as gis_admin
 from django.utils.safestring import mark_safe
+from django.utils.functional import cached_property
 
 import observations.models as models
 from tracking.models import SourcePlugin
@@ -86,10 +88,14 @@ class ValidateFilterMixin:
 
     def check_uuid(self, uuid):
         try:
-            uuid = UUID(uuid).version
+            uuid_version = UUID(uuid).version
         except ValueError:
             return
         return uuid
+
+    def parse_encoded_url(self, query_string):
+        parsed_qs = urllib.parse.parse_qs(query_string)
+        return parsed_qs
 
 
 class SubjectSubTypeInline(InlineExtraDynamicMixin, admin.TabularInline):
@@ -269,16 +275,20 @@ class LargeTablePaginator(Paginator):
 
         return self._count if self._count is not None else super().count
 
-    count = property(_get_count)
+    count = cached_property(_get_count)
 
 
 @admin.register(models.Observation)
 class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin):
+    readonly_fields = ("created_at", "id")
+    fields = ("id", "recorded_at", "created_at",
+              "location", "exclusion_flags", "source", "additional")
     list_display = ('subject_link', '_manufacturer_id', '_recorded_at', '_created_at',
-                    '_longitude', '_latitude', '_state', '_event_action', 'exclusion_flags')
+                    '_latitude', '_longitude', '_state', '_event_action', 'exclusion_flags')
     list_editable = ('exclusion_flags',)
-    date_hierarchy = 'recorded_at'
     list_display_links = None
+    show_full_result_count = False
+    autocomplete_fields = ('source',)
 
     paginator = LargeTablePaginator
     formfield_overrides = {
@@ -290,7 +300,6 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
     gis_geometry_field_name = 'location'
 
     list_filter = (SubjectNameFilter, SubjectIdFilter, ('recorded_at', DateRangeFilter))
-
 
     def subject_link(self, obj):
         return mark_safe('<a href="{}">{}</a>'.format(
@@ -310,11 +319,11 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
     _latitude.short_description = _('Latitude')
 
     def _state(self, o):
-        return o.additional.get('radio_state')
+        return o.additional.get('radio_state') if o.additional else None
     _state.short_description = 'Radio Status'
 
     def _event_action(self, o):
-        return o.additional.get('event_action')
+        return o.additional.get('event_action') if o.additional else None
     _event_action.short_description = 'Event Action'
 
     def _subject_name(self, o):
@@ -330,11 +339,12 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
 
     def _recorded_at(self, o):
         recorded_at = o.recorded_at.strftime("%d %b, %Y, %H:%M")
-        return mark_safe('<a href="{}">{}</a>'.format(
-            reverse("admin:observations_observation_change", args=(o.id,)),
-           recorded_at))
+        return mark_safe(
+            f'<a href="{reverse("admin:observations_observation_change", args=(o.id,))}">{recorded_at}</a>'
+        )
     _recorded_at.short_description = 'recorded at %s' % TIMEZONE_USED
     _recorded_at.admin_order_field = 'recorded_at'
+    _recorded_at.admin_order_first_type = "desc"
 
     def get_actions(self, request):
         actions = super().get_actions(request)
@@ -345,9 +355,8 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
     def get_queryset(self, request):
         qs = super(ObservationAdmin, self).get_queryset(request)
 
-        # Hard-limit at 180 days.
-        dt = datetime.now(tz=pytz.utc) - OBSERVATIONS_HISTORY_LIMIT
-        qs = qs.filter(recorded_at__gte=dt)
+        if self.is_change_view(request):
+            return qs
 
         # Reference Subject to get Name.
         # TODO: Consider a raw query.
@@ -362,18 +371,31 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
                          )
         qs = qs.select_related('source',)
 
+        # Hard-limit at 180 days.
+        dt = datetime.now(tz=pytz.utc) - OBSERVATIONS_HISTORY_LIMIT
+        if not self.is_date_range_set(request):
+            qs = qs.filter(recorded_at__gte=dt)
+
         return qs
 
-    def changelist_view(self, request, extra_context=None):
-        extra_context = extra_context or {}
-        changelist = super().get_changelist_instance(request)
-        filter_params = changelist.get_filters_params()
+    def is_change_view(self, request):
+        return "change" in request.path
+
+    def is_date_range_set(self, request):
+        query_string = request.META['QUERY_STRING']
+        filter_params = self.parse_encoded_url(query_string)
         if filter_params:
             d1 = filter_params.get('recorded_at__range__gte')
             d2 = filter_params.get('recorded_at__range__lte')
-            if d1 and d2:
-                extra_context['history_limit_days'] = self.difference_in_date(d1, d2)
-                return super().changelist_view(request, extra_context=extra_context)
+            return (d1, d2) if d1 and d2 else False
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        daterange_set = self.is_date_range_set(request)
+        if daterange_set:
+            d1, d2 = daterange_set
+            extra_context['history_limit_days'] = self.difference_in_date( d1[0], d2[0])
             return super().changelist_view(request, extra_context=extra_context)
         extra_context['history_limit_days'] = OBSERVATIONS_HISTORY_LIMIT.days
         return super().changelist_view(request, extra_context=extra_context)
@@ -458,7 +480,8 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
         """
         Hook for specifying fieldsets.
         """
-        subject_region_enabled = getattr(settings, 'SUBJECT_REGION_ENABLED', False)
+        subject_region_enabled = getattr(
+            settings, 'SUBJECT_REGION_ENABLED', False)
 
         if subject_region_enabled:
             return super().get_fieldsets(request, obj=None)
@@ -630,9 +653,11 @@ class CommonNameAdmin(admin.ModelAdmin):
 
 @admin.register(models.SubjectSourceSummary)
 class SubjectSourceSummaryAdmin(admin.ModelAdmin):
-    list_display = ('source', '_subject', '_source_plugin', '_plugin', '_provider', '_start_date', '_end_date')
+    list_display = ('source', '_subject', '_source_plugin',
+                    '_plugin', '_provider', '_start_date', '_end_date')
     list_filter = ('source__provider__display_name',)
-    search_fields = ('source__manufacturer_id', 'subject__name', 'source__provider__display_name')
+    search_fields = ('source__manufacturer_id', 'subject__name',
+                     'source__provider__display_name')
     ordering = ('source', )
 
     def record_link(self, url, key, view):
@@ -1063,7 +1088,6 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
     _recorded_at.short_description = 'recorded at %s' % TIMEZONE_USED
     _recorded_at.admin_order_field = 'recorded_at'
 
-
     def _source_provider(self, o):
         return o.provider_name
 
@@ -1074,7 +1098,6 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
         except Exception:
             pass
         return source
-
 
 
 @admin.register(models.SourceProvider)

@@ -1,0 +1,7 @@
+partner = "prod"
+site = "fao"
+rds_name = "prod-02-das-db"
+timezone = "Africa/Nairobi"
+daily_report_enabled = "False"
+export_kml_enabled = "True"
+alerts_enabled = "True"

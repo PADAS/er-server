@@ -75,8 +75,7 @@ EXPORT_KML_ENABLED = env.bool('KML_EXPORT', True)
 
 DATABASES = {
     'default': {
-        # 'ENGINE': 'django.contrib.gis.db.backends.postgis',
-        'ENGINE': 'core.databases.postgis',
+        'ENGINE': 'django.contrib.gis.db.backends.postgis',
         'NAME': env.str('DB_NAME', 'das'),
         'USER': env.str('DB_USER','das'),
         'HOST': env.str('DB_HOST', 'postgis'),
@@ -90,7 +89,6 @@ DATABASES = {
 SENDSMS_AFRICAS_TALKING_USERNAME = env.str('SMS_ID', '')
 SENDSMS_AFRICAS_TALKING_API_KEY = env.str('SMS_TOKEN', '')
 
-# TODO: Use variables for these values (first of all Bucket Name).
 DEFAULT_FILE_STORAGE = 'storages.backends.gcloud.GoogleCloudStorage'
 GS_BUCKET_NAME = env.str('GS_BUCKET_NAME', 'earthranger-uploads-default')
 

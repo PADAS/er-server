@@ -1,0 +1,18 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  namespace: "${KUBERNETES_NAMESPACE}"
+  name: server-configmap
+data:
+  API_HOST: "${API_HOST}"
+  API_PORT: "${API_PORT}"
+  DB_HOST: "${DB_HOST}"
+  DB_NAME: "${DB_NAME}"
+  DB_PORT: "${DB_PORT}"
+  DB_USER: "${DB_USER}"
+  DEFAULT_FROM_EMAIL: "${DEFAULT_FROM_EMAIL}"
+  EMAIL_HOST: "${EMAIL_HOST}"
+  FROM_EMAIL: "${FROM_EMAIL}"
+  GS_BUCKET_NAME: "${GS_BUCKET_NAME}"
+  KML_EXPORT: "${KML_EXPORT}"
+

@@ -10,6 +10,10 @@ output "cluster_proxy_endpoint" {
   value = data.terraform_remote_state.earthranger_app_infra.outputs.proxy_endpoint
 }
 
+output "app_infra_workspace" {
+  value = data.terraform_remote_state.earthranger_app_infra.workspace
+}
+
 output "kubernetes_namespace" {
   value = kubernetes_namespace.this.metadata.0.name
 }
@@ -24,4 +28,34 @@ output "site_ip_address" {
 
 output "user_uploads_bucket_name" {
   value = google_storage_bucket.user_uploads.name
+}
+
+output "postgres_user_pass" {
+  value     = google_sql_user.users.password
+  sensitive = true
+}
+
+output "migrations_user_pass" {
+  value     = random_password.migrations_user_pass.result
+  sensitive = true
+}
+output "analytics_user_pass" {
+  value     = google_sql_user.analytics.password
+  sensitive = true
+}
+
+output "apps_user_pass" {
+  value     = google_sql_user.apps.password
+  sensitive = true
+}
+
+output "migrations_user_name" {
+  value = google_sql_user.migrations.name
+}
+output "analytics_user_name" {
+  value = google_sql_user.analytics.name
+}
+
+output "apps_user_name" {
+  value = google_sql_user.apps.name
 }

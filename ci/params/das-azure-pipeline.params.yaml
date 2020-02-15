@@ -1,5 +1,0 @@
-cluster-name: das-azure
-version-suffix: das-azure-pipeline
-server-branch-name: das-azure-disk-poc
-das-static-ip: 40.76.200.95
-deploy-params-environment: develop

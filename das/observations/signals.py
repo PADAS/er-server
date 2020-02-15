@@ -122,7 +122,7 @@ def auto_create_view_perm(sender, instance, created, **kwargs):
 
 @receiver(pre_delete, sender=SubjectGroup)
 def delete_auto_created_view_permission_set(sender, instance, **kwargs):
-    for permission in instance.permission_sets.all():
+    for permission_set in instance.permission_sets.all():
         search_list = {'View', 'Subject',  'Group'}
-        if len(permission.subjectgroup_set.all()) == 1 and search_list.issubset(set(permission.name.split())):
-            permission.delete()
+        if len(permission_set.subjectgroup_set.all()) == 1 and search_list.issubset(set(permission_set.name.split())):
+            permission_set.delete()

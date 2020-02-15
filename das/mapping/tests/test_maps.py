@@ -11,7 +11,8 @@ User = get_user_model()
 
 
 class TestMaps(BaseAPITest):
-    fixtures = ('initial_dev_map.yaml', './test/mapping_layer.yaml')
+    fixtures = ('initial_dev_map.yaml', './test/mapping_layer.yaml',
+                'initial_tilelayers.json')
 
     def test_return_two_maps(self):
         request = self.factory.get(
