@@ -780,11 +780,20 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
     external_id = models.CharField(max_length=255, blank=True, null=True)
     external_source = models.CharField(max_length=25, blank=True)
     description = models.TextField(null=True, blank=True)
+    presentation = JSONField(default=dict, blank=True)
     attributes = JSONField(default=dict, blank=True)
     provenance = JSONField(default=dict, blank=True)
     feature_geometry = models.GeometryField(geography=True, srid=4326)
     spatialfile = models.ForeignKey(to=SpatialFeatureFile, null=True, blank=True, on_delete=models.SET_NULL)
     revision = Revision()
+
+    @property
+    def default_presentation(self):
+        if self.presentation:
+            return self.presentation
+        if self.feature_type.presentation:
+            return self.feature_type.presentation
+        return {}
 
     def __str__(self):
         return '{0}-{1}-{2}'.format(self.name, self.feature_type.name, self.id)
