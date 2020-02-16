@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 
 from arcgis.gis import GIS
 from celery import shared_task
@@ -33,6 +34,11 @@ def background_download_features_from_wfs(obj_id):
             logger.info(f'processing {title}')
             success_files, errored_files = utils.extract_gis_data(
                 obj, member, title, errored_files, success_files)
+    
+    # update last download time
+    obj.last_download = datetime.now()
+    obj.save()
+
     utils.wfs_download_return_messages(None, errored_files, success_files)
 
 

@@ -440,10 +440,10 @@ else:
 @admin.register(models.ArcgisConfiguration)
 class ArcgisConfigurationAdmin(admin.ModelAdmin):
     list_display = ('config_name', 'username', )
-    fieldsets = (
+    fieldsets = (   
         (None, {
             'classes': ('wide',),
-            'fields': ('config_name', 'username', 'password', 'search_text')
+            'fields': ('last_download','config_name', 'username', 'password', 'search_text')
         }),
         ('ArcGIS Group', {
             'classes': ('wide', 'groups'),
@@ -454,6 +454,7 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
             'fields': ('service_url', 'source', 'type_label', 'id_field','name_field',)
         }
         ),)
+    readonly_fields = ('last_download',)
     form = ArcgisConfigurationForm
 
     def get_fieldsets(self, request, obj=None):
