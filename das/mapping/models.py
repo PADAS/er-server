@@ -831,6 +831,7 @@ class ArcgisConfiguration(TimestampedModel):
                                 help_text='Name of field in your GIS data that has the feature ID. Default is GlobalID')
     type_label = models.CharField(max_length=100, blank=True, null=True, verbose_name='Type field',
                                   help_text='Name of field in your GIS data that has the feature type. Default is Type')
+    last_download = models.DateTimeField(blank=True, null=True, verbose_name='Last Download Time')
 
     class Meta:
         verbose_name = 'Feature Service Configuration'
