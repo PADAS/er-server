@@ -93,18 +93,22 @@ class Command(BaseCommand):
         featuretype = validate_feature_record(self.featuretype, 'Featuretype', models.FeatureType)
         logger.debug('Featureset: %s, FeatureType: %s', featureset.name, featuretype.name)
 
-        datasource, layer_num = self.get_datasource_and_layer_num()
         try:
+            datasource, layer_num = self.get_datasource_and_layer_num()
             self.import_layer(datasource[layer_num], featuretype, featureset)
+        except Exception as ex:
+            logger.exception(ex)
         finally:
             datasource = None
 
     def importspatialfile(self):
         logger.info('Importing features from shapefile: %s',
                     self.filename)
-        datasource, layer_num = self.get_datasource_and_layer_num()
         try:
+            datasource, layer_num = self.get_datasource_and_layer_num()
             self.import_layer(datasource[layer_num], self.featuretype)
+        except Exception as ex:
+            logger.exception(ex)
         finally:
             datasource = None
 

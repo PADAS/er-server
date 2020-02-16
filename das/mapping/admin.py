@@ -1,9 +1,6 @@
 import logging
-import os
 from functools import reduce
-import datetime
-from arcgis.gis import GIS
-from arcgis2geojson import arcgis2geojson
+
 from django.contrib import admin as django_admin
 from django.contrib import messages
 from django.contrib.admin import helpers
@@ -12,7 +9,6 @@ from django.contrib.admin.options import IS_POPUP_VAR, TO_FIELD_VAR
 from django.contrib.admin.utils import (get_deleted_objects, model_ngettext,
                                         unquote)
 from django.contrib.gis import admin
-from django.core import management
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.db.models.expressions import RawSQL
@@ -28,7 +24,7 @@ from mapping.forms import (ArcgisConfigurationForm,
                            DisplayCategoryForm, FeatureTypeForm, MapCenterForm,
                            SpatialFeatureGroupStaticForm,
                            SpatialFeatureTypeForm, TileLayerFormWithAttributes)
-from mapping.utils import MAPPING_FEATURES_V2, arcgis_integration
+from mapping.utils import MAPPING_FEATURES_V2, arcgis_integration, update_db_groups
 
 logger = logging.getLogger(__name__)
 
@@ -463,16 +459,17 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
         return [(None, {'fields': self.get_fields(request, obj)})]
 
     def response_add(self, request, obj, post_url_continue=None):
-        conn = arcgis_integration(request, obj)
-        if self.arcgis_config(request) or not conn:
+        groups_found = arcgis_integration(request, obj)
+        if self.arcgis_config(request) or not groups_found:
             return HttpResponseRedirect(request.path_info)
         else:
             obj.save()
+            update_db_groups(groups_found, obj)
             return super().response_add(request, obj, post_url_continue=None)
 
     def response_change(self, request, obj):
-        conn = arcgis_integration(request, obj)
-        if self.arcgis_config(request) or not conn:
+        groups_found = arcgis_integration(request, obj)
+        if self.arcgis_config(request) or not groups_found:
             return HttpResponseRedirect(request.path_info)
         else:
             obj.save()
@@ -489,5 +486,5 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
             object_id = request.resolver_match.kwargs.get('object_id')
             if object_id:
                 obj = self.model.objects.get(id=int(object_id))
-                kwargs['queryset'] = models.ArcgisGroup.objects.filter(user=obj.username)
+                kwargs['queryset'] = models.ArcgisGroup.objects.filter(config_id=obj.id)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)

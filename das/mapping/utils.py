@@ -235,17 +235,21 @@ def validate_file_type(f_type, data_file, field):
             raise ValidationError({field: [f'Kindly chose a {extension} file']})
 
 
+# TODO: at some point should move out arcgis-specific code into its own module/class
+
 message = messages.add_message
 
 
 def arcgis_integration(request, obj):
+    # could optimize by authenticating conditionally
     gis = arcgis_authentication(request, obj)
 
     if gis:
         # search for groups only within the user's org if a serchtext is given else search for groups outside
         # the user's org as well.
-        groups = gis.groups.search() if not obj.search_text else gis.groups.search(query=obj.search_text,
-                                                                                   outside_org=True, max_groups=100)
+        agis_groups_found = gis.groups.search() if not obj.search_text else gis.groups.search(query=obj.search_text,
+                                                                                              outside_org=True,
+                                                                                              max_groups=100)
 
         if "_testconnection" in request.POST:
             message(request, messages.INFO, f'Successful Configuration')
@@ -257,25 +261,26 @@ def arcgis_integration(request, obj):
                 error_msg = f"Select a group to enable features download"
                 message(request, messages.ERROR, error_msg) if request else logger.debug(error_msg)
                 logger.exception(ex)
-        else:
-            load_groups(groups, obj)
-        return True
+        # else:
+        #     update_db_groups(groups, obj)
+        return agis_groups_found
 
 
-def load_groups(groups, obj):
-    my_groups = models.ArcgisGroup.objects.filter(user=obj.username)
-    wfs_groups = [g.title for g in groups]
+def update_db_groups(wfs_groups, obj):
+    # this will cleanup if FK is at the other end of the relationship
+    my_groups = models.ArcgisGroup.objects.filter(config_id=obj.id)
+    wfs_group_ids = [g.id for g in wfs_groups]
 
     for _group in my_groups:
         # clear groups deleted on arcgis account
-        if _group.name not in wfs_groups:
+        if _group.group_id not in wfs_group_ids:
             _group.delete()
 
-    for group in groups:
+    for group in wfs_groups:
         models.ArcgisGroup.objects.get_or_create(
             name=group.title,
             group_id=group.id,
-            user=obj.username
+            config_id=obj.id
         )
 
 def arcgis_authentication(request, obj):
@@ -290,28 +295,17 @@ def download_features_from_wfs(request, obj, wfs_group):
     errored_files, success_files = [], []
     group_members = wfs_group.content()
     # todo: remove when done with dev work
-    items_to_download = ['Built_point']
+    # items_to_download = ['Akagera_Land_Cover',
+    #                      'Hydrology_polygon',
+    #                      'Built_point',
+    #                      ]
     for member in group_members:
-        if member.type == "Feature Service" and member.title in items_to_download:
+        if member.type == "Feature Service":
             title = member.title.replace(' ', '-')
             logger.info(f'processing {title}')
             success_files, errored_files = extract_gis_data(
                 obj, member, title, errored_files, success_files)
     wfs_download_return_messages(request, errored_files, success_files)
-
-
-def extract_features(obj, member, title, data, success_files, simple_presentation):
-    # todo: what if current dir is readonly?
-    with open(f'./{title}.geojson', 'w') as data_file:
-        data_file.write(data)
-        management.call_command(
-            'importlayer', 'importspatialfile', data_file.name, typelabel=obj.type_label,
-            source=obj.source, name_field=obj.name_field, id_field=obj.id_field,
-            presentation=simple_presentation
-        )
-        os.remove(data_file.name)
-        success_files.append(member.title)
-        return success_files
 
 
 def extract_gis_data(obj, member, title, errored_files, success_files):
@@ -330,6 +324,20 @@ def extract_gis_data(obj, member, title, errored_files, success_files):
     if data:
         success_files = extract_features(obj, member, title, data, success_files, simple_presentation)
         return success_files, errored_files
+
+
+def extract_features(obj, member, title, data, success_files, simple_presentation):
+    # todo: what if current dir is readonly?
+    with open(f'./{title}.geojson', 'w') as data_file:
+        data_file.write(data)
+        management.call_command(
+            'importlayer', 'importspatialfile', data_file.name, typelabel=obj.type_label,
+            source=obj.source, name_field=obj.name_field, id_field=obj.id_field,
+            presentation=simple_presentation
+        )
+        os.remove(data_file.name)
+        success_files.append(member.title)
+        return success_files
 
 
 def wfs_download_return_messages(request, errored_files, success_files):

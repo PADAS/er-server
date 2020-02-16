@@ -803,10 +803,10 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
         return '{0}-{1}-{2}'.format(self.name, self.feature_type.name, self.id)
 
 
-class ArcgisGroup(models.Model):
+class ArcgisGroup(TimestampedModel):
     name = models.CharField(max_length=100, blank=True, null=True )
     group_id = models.CharField(max_length=100, blank=False)
-    user = models.CharField(max_length=100, blank=False)
+    config_id = models.CharField(max_length=100, blank=False)
 
     def __str__(self):
         return self.name
@@ -820,6 +820,7 @@ class ArcgisConfiguration(TimestampedModel):
     search_text = models.CharField(max_length=100, blank=True, verbose_name='Search text',
                                    help_text='Leave blank to get groups within your ArcGIS org\n'
                                              'or enter text for groups to search for outside your ArdGIS org')
+    # todo: the FK should be on the other end of the relationship, i.e., in ArcgisConfiguration
     groups = models.ForeignKey(ArcgisGroup, blank=True, on_delete=models.CASCADE, null=True)
     username = models.CharField(max_length=100, blank=False, help_text='ArcGIS account username')
     password = models.CharField(max_length=100, blank=False)
