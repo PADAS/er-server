@@ -4,19 +4,20 @@ import os
 import tempfile
 from zipfile import ZipFile
 
-from arcgis.gis import GIS
 from arcgis2geojson import arcgis2geojson
+from arcgis.gis import GIS
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.gis.gdal import DataSource
-from django.contrib.gis.gdal import GDALException
+from django.contrib.gis.gdal import DataSource, GDALException
 from django.core import management
 from django.core.exceptions import ValidationError
 from django.db.utils import IntegrityError
 from django.utils.encoding import force_text
+from django.utils.safestring import mark_safe
 
 import utils.json
 from mapping import models
+from mapping.tasks import background_download_features_from_wfs
 from utils.spatial import GeometryMapper
 
 geometry_mapper = GeometryMapper()
@@ -240,22 +241,23 @@ message = messages.add_message
 
 def arcgis_integration(request, obj):
     gis = arcgis_authentication(request, obj)
-
     if gis:
         # search for groups only within the user's org if a serchtext is given else search for groups outside
         # the user's org as well.
-        groups = gis.groups.search() if not obj.search_text else gis.groups.search(query=obj.search_text,
-                                                                                   outside_org=True, max_groups=100)
+        groups = gis.groups.search() if not obj.search_text else gis.groups.search(
+            query=obj.search_text, outside_org=True, max_groups=100)
 
         if "_testconnection" in request.POST:
             message(request, messages.INFO, f'Successful Configuration')
         elif "_downloadfeatures" in request.POST:
+            # set to a background task
             try:
-                wfs_group = gis.groups.get(obj.groups.group_id)
-                download_features_from_wfs(request, obj, wfs_group)
+                task_started_msg = "Features download in progress, checkout loaded <a href='/admin/mapping/spatialfeature/'>spatialfeatures</a> after a few minutes"
+                message(request, messages.INFO, mark_safe(task_started_msg))
+                background_download_features_from_wfs.apply_async(args=(obj.id,))
             except Exception as ex:
                 error_msg = f"Select a group to enable features download"
-                message(request, messages.ERROR, error_msg) if request else logger.debug(error_msg)
+                message(request, messages.ERROR,ex) if request else logger.debug(error_msg)
                 logger.exception(ex)
         else:
             load_groups(groups, obj)
@@ -283,7 +285,7 @@ def arcgis_authentication(request, obj):
         gis = GIS(obj.service_url, username=obj.username, password=obj.password)
         return gis
     except Exception as error:
-        message(request, messages.ERROR, error)
+        message(request, messages.ERROR, error) if request else logger.exception(error)
 
 
 def download_features_from_wfs(request, obj, wfs_group):

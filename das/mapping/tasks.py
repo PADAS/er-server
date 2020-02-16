@@ -1,18 +1,44 @@
-from arcgis.gis import GIS
+import logging
 
+from arcgis.gis import GIS
+from celery import shared_task
+from celery.contrib import rdb
 from celery_once import QueueOnce
+
 from das_server import celery
-from mapping.models import ArcgisConfiguration
-from mapping.utils import download_features_from_wfs
+from mapping import models, utils
+
+logger = logging.getLogger(__name__)
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True})
 def automate_download_features_from_wfs():
-	feature_services = ArcgisConfiguration.objects.filter(groups__isnull=False)
-	for obj in feature_services:
-		# wsf connection
-		gis = GIS(obj.service_url, username=obj.username, password=obj.password)
-		wfs_group = gis.groups.get(obj.groups.group_id)
+    feature_services = models.ArcgisConfiguration.objects.filter(
+        groups__isnull=False)
+    for obj in feature_services:
+        background_download_features_from_wfs.apply_async(args=(obj.id,))
 
-		# download features
-		download_features_from_wfs(None, obj, wfs_group)
+
+@celery.app.task(base=QueueOnce, once={'graceful': True})
+def background_download_features_from_wfs(obj_id):
+    # Task only accepts primitive data, acess config objects using obj_id
+    obj, wfs_group = get_wfs_config_objects(obj_id)
+    errored_files, success_files, group_members = [], [], wfs_group.content()
+
+    # todo: remove when done with dev work
+    items_to_download = ['Built_point']
+    for member in group_members:
+        if member.type == "Feature Service" and member.title in items_to_download:
+            title = member.title.replace(' ', '-')
+            logger.info(f'processing {title}')
+            success_files, errored_files = utils.extract_gis_data(
+                obj, member, title, errored_files, success_files)
+    utils.wfs_download_return_messages(None, errored_files, success_files)
+
+
+def get_wfs_config_objects(obj_id):
+    obj = models.ArcgisConfiguration.objects.get(id=obj_id)
+    gis = utils.arcgis_authentication(None, obj)
+    wfs_group = gis.groups.get(obj.groups.group_id)
+
+    return obj, wfs_group
