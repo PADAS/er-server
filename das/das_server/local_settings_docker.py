@@ -101,7 +101,7 @@ EUS_SETTINGS = {
 }
 
 ALERTS_ENABLED = env.bool('ALERTS_ENABLED', True)
-
+MAPPING_FEATURES_V2 = env.bool('MAPPING_FEATURES_V2', True)
 # Django Debug Toolbar Settings enabled if DEV=True
 if DEV:
     INSTALLED_APPS += ('debug_toolbar',)
