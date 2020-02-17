@@ -27,9 +27,9 @@ def background_download_features_from_wfs(obj_id):
     errored_files, success_files, group_members = [], [], wfs_group.content()
 
     # todo: remove when done with dev work
-    items_to_download = ['Built_point']
+    # items_to_download = ['Built_point']
     for member in group_members:
-        if member.type == "Feature Service" and member.title in items_to_download:
+        if member.type == "Feature Service":
             title = member.title.replace(' ', '-')
             logger.info(f'processing {title}')
             success_files, errored_files = utils.extract_gis_data(
