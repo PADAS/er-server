@@ -263,8 +263,6 @@ def arcgis_integration(request, obj):
                 error_msg = f"Select a group to enable features download"
                 message(request, messages.ERROR,ex) if request else logger.debug(error_msg)
                 logger.exception(ex)
-        # else:
-        #     update_db_groups(groups, obj)
         return agis_groups_found
 
 
@@ -285,29 +283,13 @@ def update_db_groups(wfs_groups, obj):
             config_id=obj.id
         )
 
+
 def arcgis_authentication(request, obj):
     try:
         gis = GIS(obj.service_url, username=obj.username, password=obj.password)
         return gis
     except Exception as error:
         message(request, messages.ERROR, error) if request else logger.exception(error)
-
-
-def download_features_from_wfs(request, obj, wfs_group):
-    errored_files, success_files = [], []
-    group_members = wfs_group.content()
-    # todo: remove when done with dev work
-    # items_to_download = ['Akagera_Land_Cover',
-    #                      'Hydrology_polygon',
-    #                      'Built_point',
-    #                      ]
-    for member in group_members:
-        if member.type == "Feature Service":
-            title = member.title.replace(' ', '-')
-            logger.info(f'processing {title}')
-            success_files, errored_files = extract_gis_data(
-                obj, member, title, errored_files, success_files)
-    wfs_download_return_messages(request, errored_files, success_files)
 
 
 def extract_gis_data(obj, member, title, errored_files, success_files):

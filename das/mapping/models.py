@@ -806,6 +806,7 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
 class ArcgisGroup(TimestampedModel):
     name = models.CharField(max_length=100, blank=True, null=True )
     group_id = models.CharField(max_length=100, blank=False)
+    # todo: this should be the FK
     config_id = models.CharField(max_length=100, blank=False)
 
     def __str__(self):

@@ -1,9 +1,6 @@
 import logging
 from datetime import datetime
 
-from arcgis.gis import GIS
-from celery import shared_task
-from celery.contrib import rdb
 from celery_once import QueueOnce
 
 from das_server import celery
@@ -27,7 +24,10 @@ def background_download_features_from_wfs(obj_id):
     errored_files, success_files, group_members = [], [], wfs_group.content()
 
     # todo: remove when done with dev work
-    # items_to_download = ['Built_point']
+    items_to_download = ['Akagera_Land_Cover',
+                         'Hydrology_polygon',
+                         'Built_point',
+                         ]
     for member in group_members:
         if member.type == "Feature Service":
             title = member.title.replace(' ', '-')
@@ -36,7 +36,7 @@ def background_download_features_from_wfs(obj_id):
                 obj, member, title, errored_files, success_files)
     
     # update last download time
-    obj.last_download = datetime.now()
+    obj.last_download = datetime.utcnow()
     obj.save()
 
     utils.wfs_download_return_messages(None, errored_files, success_files)
