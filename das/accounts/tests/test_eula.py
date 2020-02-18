@@ -147,6 +147,14 @@ class EulaViewsTestCase(BaseAPITest):
         with self.assertRaises(ObjectDoesNotExist):
             UserAgreement.objects.get(id=agreement_id)
 
+        data = {"eula": eula.id, "user": self.user.id, "accept": True}
+        request = self.factory.post(self.api_base + '/eula/accept/', data)
+        self.force_authenticate(request, self.user)
+        response = views.AcceptEulaAPIView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        user = User.objects.get(id=self.user.id)
+        self.assertTrue(user.accepted_eula)
+
     @override_settings(ACCEPT_EULA=False)
     def test_get_eula_returns_404_for_sites_that_dont_accept_eula(self):
         request = self.factory.get(self.api_base + '/eula/')
