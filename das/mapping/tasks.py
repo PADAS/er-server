@@ -36,7 +36,7 @@ def background_download_features_from_wfs(obj_id):
                 obj, member, title, errored_files, success_files)
     
     # update last download time
-    obj.last_download = datetime.utcnow()
+    obj.last_download = datetime.now()
     obj.save()
 
     utils.wfs_download_return_messages(None, errored_files, success_files)

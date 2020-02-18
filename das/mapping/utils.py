@@ -5,7 +5,7 @@ import tempfile
 from zipfile import ZipFile
 
 from arcgis2geojson import arcgis2geojson
-from arcgis.gis import GIS
+import arcgis
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.gis.gdal import DataSource, GDALException
@@ -247,10 +247,7 @@ def arcgis_integration(request, obj):
     if gis:
         # search for groups only within the user's org if a serchtext is given else search for groups outside
         # the user's org as well.
-        agis_groups_found = gis.groups.search() if not obj.search_text else gis.groups.search(query=obj.search_text,
-                                                                                              outside_org=True,
-                                                                                              max_groups=100)
-
+        acrgis_groups_found = search_groups(gis, obj)
         if "_testconnection" in request.POST:
             message(request, messages.INFO, f'Successful Configuration')
         elif "_downloadfeatures" in request.POST:
@@ -263,7 +260,14 @@ def arcgis_integration(request, obj):
                 error_msg = f"Select a group to enable features download"
                 message(request, messages.ERROR,ex) if request else logger.debug(error_msg)
                 logger.exception(ex)
-        return agis_groups_found
+        return acrgis_groups_found
+
+
+def search_groups(gis, obj):
+    groups = gis.groups.search() if not obj.search_text \
+        else gis.groups.search(
+        query=obj.search_text, outside_org=True, max_groups=100)
+    return groups
 
 
 def update_db_groups(wfs_groups, obj):
@@ -286,7 +290,7 @@ def update_db_groups(wfs_groups, obj):
 
 def arcgis_authentication(request, obj):
     try:
-        gis = GIS(obj.service_url, username=obj.username, password=obj.password)
+        gis = arcgis.gis.GIS(obj.service_url, username=obj.username, password=obj.password)
         return gis
     except Exception as error:
         message(request, messages.ERROR, error) if request else logger.exception(error)
