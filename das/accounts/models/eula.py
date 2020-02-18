@@ -59,7 +59,7 @@ class EULA(TimestampedModel):
     )
     version = models.CharField(max_length=30, unique=True)
     eula_url = models.URLField(null=False, blank=False)
-    active = models.BooleanField(null=False, blank=False, default=False)
+    active = models.BooleanField(default=False)
 
     objects = EULAManager()
 
