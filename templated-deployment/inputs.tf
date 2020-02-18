@@ -11,7 +11,7 @@ variable "site_ip_address" {
 }
 
 variable "INGRESS_VERSION" {
-  type    = string
+  type = string
 }
 
 variable "SERVER_VERSION" {
@@ -43,7 +43,7 @@ variable "config_container" {
 }
 
 variable "db_user" {
-  type = "string"
+  type    = string
   default = "postgres"
 }
 
@@ -64,6 +64,11 @@ variable "gs_bucket_name" {
 variable "email_host" {
   type    = string
   default = "email-smtp.us-west-2.amazonaws.com"
+}
+
+variable "fqdn" {
+  type    = "string"
+  default = "localhost"
 }
 
 variable "from_email" {

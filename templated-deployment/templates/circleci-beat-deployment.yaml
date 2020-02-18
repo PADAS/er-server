@@ -41,11 +41,16 @@ spec:
           value: "${GS_BUCKET_NAME}"
         - name: SERVICE_NAME
           value: "beat_service"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: app-db-credentials
+              key: username
         - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: db-password
-              key: value
+              name: app-db-credentials
+              key: password
         - name: EMAIL_PASSWORD
           valueFrom:
             secretKeyRef:

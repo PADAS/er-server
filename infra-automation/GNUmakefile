@@ -101,12 +101,14 @@ render_templates: ## render templates (using Terraform) | [tfvars_environment="B
 	SITE_IP_ADDRESS=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="site_ip_address") && \
 	GS_BUCKET_NAME=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="user_uploads_bucket_name") && \
 	APP_INFRA_WORKSPACE=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="app_infra_workspace") && \
+	FQDN=$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="fqdn") && \
 	cd $(template_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply \
 	 apply_options="-auto-approve -var-file='$(tfvars_overrides)/$(tfvars_environment).tfvars' \
 	 -var app_infra_workspace=$$APP_INFRA_WORKSPACE \
 	 -var kubernetes_namespace=$$K8S_NAMESPACE \
        	 -var db_name=$$DATABASE_NAME \
 	 -var site_ip_address=$$SITE_IP_ADDRESS \
+	 -var fqdn=$$FQDN \
 	 -var gs_bucket_name=$$GS_BUCKET_NAME"
 	@ cat $(template_path)/rendered/circleci-api-deployment.yaml
 
@@ -124,15 +126,18 @@ kubectl_apply_via_proxy: # this should only be run by the build server
 	# kubectl apply --filename "$(rendered_template_path)/circleci-api-deployment.yaml"
 
 commit_message_path := $(CURDIR)/.robo-commit-message
-# TO DEPRICATE: this can be removed once out of concourse
-legacy_concourse_shim_gcr := gcr.io/padas-app/circleci/earthranger-api
 
-gcr_root := gcr.io/padas-app/circleci/das-server
-gcr_web_root := gcr.io/padas-app/circleci/das-web
 manifest_file := $(CURDIR)/../GENERATED_MANIFEST
+
+# Server
 server_manifest_key := SERVER_VERSION
-web_manifest_key := WEB_VERSION
+gcr_root := gcr.io/padas-app/circleci/das-server
+server_default_branch := develop
+server_gcr_path_default_branch := $(gcr_root)/$(server_default_branch)
 server_semver_file := $(CURDIR)/../SERVER_VERSION
+
+web_manifest_key := WEB_VERSION
+gcr_web_root := gcr.io/padas-app/circleci/das-web
 web_default_branch := develop
 web_gcr_path_default_branch := $(gcr_web_root)/$(web_default_branch)
 
@@ -178,18 +183,29 @@ commit_and_push_manifest: $(manifest_file) # this should only be run by the buil
 
 $(manifest_file):
 	@ printf "\e[31m\tGenerating new manifest.\e[0m\n" >&2
-	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_server_gcr_path)" manifest_key="$(server_manifest_key)" > /dev/null 2>&1 || (printf "\e[31m\tFailed to find latest tagged image at '$(descriptive_server_gcr_path)'.\e[0m\n" >&2; exit 1)
-	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_web_gcr_path)" manifest_key="$(web_manifest_key)" > /dev/null 2>&1 || \
-	  $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(web_gcr_path_default_branch)" manifest_key="$(web_manifest_key)" > /dev/null 2>&1 || \
+	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_server_gcr_path)" \
+	       	manifest_key="$(server_manifest_key)" > /dev/null 2>&1 \
+	       	|| $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(server_gcr_path_default_branch)" \
+	       	manifest_key="$(server_manifest_key)" > /dev/null 2>&1 || \
+		(printf "\e[31m\tFailed to find latest tagged image at '$(descriptive_server_gcr_path)'.\e[0m\n" >&2; exit 1)
+
+	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_web_gcr_path)" \
+	       	manifest_key="$(web_manifest_key)" > /dev/null 2>&1 \
+	       	|| $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(web_gcr_path_default_branch)" \
+	       	manifest_key="$(web_manifest_key)" > /dev/null 2>&1 || \
 		(printf "\e[31m\tFailed to find latest tagged image at '$(descriptive_web_gcr_path)'.\e[0m\n" >&2; exit 1)
-	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_ingress_gcr_path)" manifest_key="$(ingress_manifest_key)" > /dev/null 2>&1 || \
-	  $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(ingress_gcr_path_default_branch)" manifest_key="$(ingress_manifest_key)" > /dev/null 2>&1 || \
+
+	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_ingress_gcr_path)" \
+	       	manifest_key="$(ingress_manifest_key)" > /dev/null 2>&1 || \
+	  $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(ingress_gcr_path_default_branch)" \
+	  manifest_key="$(ingress_manifest_key)" > /dev/null 2>&1 || \
 		(printf "\e[31m\tFailed to find latest tagged image at '$(descriptive_ingress_gcr_path)'.\e[0m\n" >&2; exit 1)
 
 .PHONY: append_to_manifest
 append_to_manifest: gcr_path :=
 append_to_manifest: manifest_key :=
 append_to_manifest: # this should only be run by the build server
+	@ printf "Looking up '$(gcr_path)'" >&2
 	@ export DIGEST="$$(gcloud container images list-tags $(gcr_path) --filter="tags:latest" --format="value(Digest)" || exit 1)" && \
 		if [ -n "$$DIGEST" ]; then printf "%s = \"%s@%s\"\n" "$(manifest_key)" "$(gcr_path)" "$$DIGEST" >> $(manifest_file); else exit 1; fi
 
