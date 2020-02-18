@@ -1,4 +1,4 @@
-from rest_framework.permissions import DjangoObjectPermissions
+from rest_framework.permissions import DjangoObjectPermissions, BasePermission
 
 
 class UserObjectPermissions(DjangoObjectPermissions):
@@ -20,3 +20,11 @@ class UserObjectPermissions(DjangoObjectPermissions):
         if obj == request.user:
             return True
         return super(DjangoObjectPermissions, self).has_object_permission(request, view, obj)
+
+
+class EulaPermission(BasePermission):
+    def has_permission(self, request, view):
+        user_id = request.data.get("user")
+        if str(request.user.id) != user_id:
+            return False
+        return True

@@ -71,6 +71,19 @@ def dateparse(date_str, default_tz=pytz.utc):
     return dt
 
 
+def check_valid_date_string(date_str, parameter_name):
+    if date_str:
+        try:
+            dateparse(date_str)
+        except ValueError:
+            raise ValueError(
+                f'Invalid value for {parameter_name}: "{date_str}"')
+        else:
+            return True
+    else:
+        return False
+
+
 def get_subjects_with_observations_in_daterange(start_date=None, end_date=None):
     observations_qs = models.Observation.objects.all()
 
@@ -407,14 +420,17 @@ class SubjectsView(generics.ListCreateAPIView):
         # Apply request query filters that have are compatible with any of the
         # criteria above.
         updated_since = self.request.query_params.get('updated_since')
-        if updated_since:
-            try:
-                updated_since = dateparse(updated_since)
-            except ValueError:
-                raise ValueError(
-                    f'Invalid value for updated_since: "{updated_since}"')
-            else:
-                queryset = queryset.by_updated_since(updated_since)
+        updated_until = self.request.query_params.get('updated_until')
+
+        is_updated_since_valid = check_valid_date_string(updated_since, 'updated_since')
+        is_updated_until_valid = check_valid_date_string(updated_until, 'updated_until')
+
+        if is_updated_since_valid and is_updated_until_valid:
+            queryset = queryset.by_updated_since_until(updated_since, updated_until)
+        elif is_updated_since_valid:
+            queryset = queryset.by_updated_since(dateparse(updated_since))
+        elif is_updated_until_valid:
+            queryset = queryset.by_updated_until(dateparse(updated_until))
 
         bbox = self.request.query_params.get('bbox')
         if bbox:

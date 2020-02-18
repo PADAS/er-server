@@ -15,7 +15,7 @@ from rest_framework import status
 import accounts.serializers as serializers
 from accounts.filters import UserObjectPermissionsFilter
 from accounts.models.eula import UserAgreement, EULA
-from accounts.permissions import UserObjectPermissions
+from accounts.permissions import UserObjectPermissions, EulaPermission
 
 logger = logging.getLogger(__name__)
 
@@ -97,16 +97,9 @@ class UsersCsvView(generics.RetrieveAPIView):
 
 
 class AcceptEulaAPIView(generics.CreateAPIView):
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated, EulaPermission)
     serializer_class = serializers.AcceptEulaSerializer
     queryset = UserAgreement.objects.all()
-
-    def post(self, request, *args, **kwargs):
-        user_id = request.data.get("user")
-        if str(request.user.id) != user_id:
-            return Response(data={"error": "Can not accept eula for another user"}, status=status.HTTP_403_FORBIDDEN)
-
-        return super(AcceptEulaAPIView, self).post(request, *args, **kwargs)
 
 
 class GetActiveEulaAPIView(generics.RetrieveAPIView):

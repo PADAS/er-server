@@ -104,6 +104,7 @@ class EulaViewsTestCase(BaseAPITest):
         self.assertEqual(eula.eula_url, data.get("eula_url"))
         self.assertEqual(eula.version,
                          data.get("version", "0.0"))
+        self.assertEqual(str(eula.id), data.get("id"))
 
     def test_accept_eula_view(self):
         eula = EULA.objects.create(eula_url="http://some.com/eulav1.1.pdf",

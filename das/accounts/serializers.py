@@ -60,4 +60,4 @@ class AcceptEulaSerializer(rest_framework.serializers.ModelSerializer):
 class EulaSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = EULA
-        fields = ["version", "eula_url"]
+        fields = ["id", "version", "eula_url"]
