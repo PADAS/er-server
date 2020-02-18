@@ -35,7 +35,7 @@ class Migration(migrations.Migration):
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
                 ('date_accepted', models.DateTimeField(auto_now_add=True, verbose_name='Date Accepted')),
-                ('accepted', models.BooleanField(default=False)),
+                ('accept', models.BooleanField(default=False)),
                 ('eula', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='userterms', to='accounts.EULA')),
             ],
         ),

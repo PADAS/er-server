@@ -19,7 +19,7 @@ class UserAgreement(TimestampedModel):
         auto_now_add=True, verbose_name=_("Date Accepted")
     )
 
-    accepted = models.BooleanField(default=False)
+    accept = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ("user", "eula")
@@ -48,6 +48,8 @@ class EULAManager(models.Manager):
     def accept_eula(self, user):
         active_eula = self.get_queryset().get(active=True)
         UserAgreement.objects.create(user=user, eula=active_eula, accepted=True)
+        user.accepted_eula = True
+        user.save()
 
 
 class EULA(TimestampedModel):
@@ -57,7 +59,7 @@ class EULA(TimestampedModel):
     )
     version = models.CharField(max_length=30, unique=True)
     eula_url = models.URLField(null=False, blank=False)
-    active = models.BooleanField(default=False)
+    active = models.BooleanField(null=False, blank=False, default=False)
 
     objects = EULAManager()
 

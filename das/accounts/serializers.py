@@ -54,7 +54,8 @@ def get_user_display(user):
 class AcceptEulaSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = UserAgreement
-        fields = ["user", "eula", "accepted",]
+        read_only_fields = ["id"]
+        fields = ["user", "eula", "accept", "id",]
 
 
 class EulaSerializer(rest_framework.serializers.ModelSerializer):
