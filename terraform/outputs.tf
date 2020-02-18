@@ -18,6 +18,10 @@ output "kubernetes_namespace" {
   value = kubernetes_namespace.this.metadata.0.name
 }
 
+output "fqdn" {
+  value = aws_route53_record.www.name
+}
+
 output "database_name" {
   value = google_sql_database.database.name
 }
@@ -30,32 +34,30 @@ output "user_uploads_bucket_name" {
   value = google_storage_bucket.user_uploads.name
 }
 
-output "postgres_user_pass" {
-  value     = google_sql_user.users.password
+output "migration_user_name" {
+  value = google_sql_user.migration_user.name
+}
+
+output "migration_user_pass" {
+  value     = google_sql_user.migration_user.password
   sensitive = true
 }
 
-output "migrations_user_pass" {
-  value     = random_password.migrations_user_pass.result
-  sensitive = true
-}
-output "analytics_user_pass" {
-  value     = google_sql_user.analytics.password
-  sensitive = true
+output "app_user_name" {
+  value = google_sql_user.app_user.name
 }
 
-output "apps_user_pass" {
-  value     = google_sql_user.apps.password
-  sensitive = true
+output "app_user_pass" {
+  value     = google_sql_user.app_user.password
+  #sensitive = true
 }
 
-output "migrations_user_name" {
-  value = google_sql_user.migrations.name
-}
 output "analytics_user_name" {
-  value = google_sql_user.analytics.name
+  value = google_sql_user.analytics_user.name
 }
 
-output "apps_user_name" {
-  value = google_sql_user.apps.name
+output "analytics_user_pass" {
+  value     = google_sql_user.analytics_user.password
+  sensitive = true
 }
+

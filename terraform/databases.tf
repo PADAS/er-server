@@ -1,11 +1,21 @@
 locals {
   db_secret_path    = (local.is_production ? "prod1" : "dev")
-  sanitized_db_name = substr(replace(terraform.workspace, "/[^A-Za-z0-9_]/", "_"), 0, 24)
+  sanitized_db_name = lower(substr(replace(terraform.workspace, "/[^A-Za-z0-9_]/", "_"), 0, 24))
+  unique_db_name    = "${local.sanitized_db_name}_${random_string.db_name_uniqueness.result}"
+  app_role_name     = "${local.unique_db_name}_approle"
+  app_user_name     = "${local.unique_db_name}_appuser"
+
+  migration_role_name = "${local.unique_db_name}_migrationrole"
+  migration_user_name = "${local.unique_db_name}_migrationuser"
+
+  analytics_role_name = "${local.unique_db_name}_analyticsrole"
+  analytics_user_name = "${local.unique_db_name}_analyticsuser"
 }
 
 resource "random_string" "db_name_uniqueness" {
   length  = 4
   special = false
+  upper   = false
 }
 
 data "vault_generic_secret" "db_password" {
@@ -30,13 +40,21 @@ resource "google_sql_database" "database" {
       user        = "bastion_server"
     }
 
-    inline = [
-      "((sudo docker run --rm --interactive --env=PGSSLMODE=require --env=PGPASSWORD=${data.vault_generic_secret.db_password.data["value"]} --mount=type=bind,source=$PWD/postgres_bootstrapping.sql,destination=/tmp/postgres_bootstrapping.sql,readonly postgres:9.6 psql --host=${data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_private_ip} --username=postgres --dbname=${google_sql_database.database.name} --file=/tmp/postgres_bootstrapping.sql --variable=db_owner=${google_sql_database.database.name} --variable=db_passwd=${data.vault_generic_secret.db_password.data["value"]} --variable=db_name=${google_sql_database.database.name} --variable=migrator='${google_sql_database.database.name}_migrator' --variable=migrator_pass=${random_password.migrations_user_pass.result} --variable=app_user='${google_sql_database.database.name}_app' --variable=app_user_pass=${random_password.apps_user_pass.result}  --variable=analytics_user='${google_sql_database.database.name}_analytics' --variable=analytics_user_pass=${random_password.analytics_user_pass.result}  --single-transaction --variable=ON_ERROR_STOP=1) && sudo rm -rf /tmp/terraform* && exit 0) || (sudo rm -rf /tmp/terraform* && exit 1)",
-    ]
+    inline = ["((sudo docker run --rm --interactive --env=PGSSLMODE=require --env=PGPASSWORD=${data.vault_generic_secret.db_password.data["value"]} --mount=type=bind,source=$PWD/postgres_bootstrapping.sql,destination=/tmp/postgres_bootstrapping.sql,readonly postgres:9.6 psql --host=${data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_private_ip} --username=postgres --dbname=${google_sql_database.database.name} --file=/tmp/postgres_bootstrapping.sql --variable=db_name=${google_sql_database.database.name} --variable=migration_role_name=${local.migration_role_name} --variable=migration_user_name=${local.migration_user_name} --variable=app_role_name=${local.app_role_name} --variable=app_user_name=${local.app_user_name} --variable=analytics_role_name=${local.analytics_role_name} --variable=analytics_user_name=${local.analytics_user_name} --single-transaction --variable=ON_ERROR_STOP=1) && sudo rm -rf /tmp/terraform* && exit 0) || (sudo rm -rf /tmp/terraform* && exit 1)", ]
   }
+  depends_on = [
+    google_sql_user.migration_role,
+    google_sql_user.migration_user,
+    google_sql_user.app_role,
+    google_sql_user.app_user,
+    google_sql_user.analytics_role,
+    google_sql_user.analytics_user
+  ]
+
 }
 
-resource "random_password" "sql_user_pass" {
+# Migration Role and User
+resource "random_password" "migration_role_pass" {
   length           = 12
   min_lower        = 2
   min_special      = 2
@@ -45,18 +63,14 @@ resource "random_password" "sql_user_pass" {
   override_special = "_%@"
 }
 
-resource "google_sql_user" "users" {
+resource "google_sql_user" "migration_role" {
   project  = data.google_project.earthranger.project_id
-  name     = google_sql_database.database.name
+  name     = local.migration_role_name
   instance = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
-  password = random_password.sql_user_pass.result
-
-  depends_on = [
-    random_password.sql_user_pass
-  ]
+  password = random_password.migration_role_pass.result
 }
 
-resource "random_password" "migrations_user_pass" {
+resource "random_password" "migration_user_pass" {
   length           = 12
   min_lower        = 2
   min_special      = 2
@@ -65,20 +79,30 @@ resource "random_password" "migrations_user_pass" {
   override_special = "_%@"
 }
 
-
-resource "google_sql_user" "migrations" {
+resource "google_sql_user" "migration_user" {
   project  = data.google_project.earthranger.project_id
-  name     = "${google_sql_database.database.name}_migrator"
+  name     = local.migration_user_name
   instance = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
-  password = random_password.migrations_user_pass.result
-
-  depends_on = [
-    random_password.migrations_user_pass
-
-  ]
+  password = random_password.migration_user_pass.result
 }
 
 
+# Analytics Role and User
+resource "random_password" "analytics_role_pass" {
+  length           = 12
+  min_lower        = 2
+  min_special      = 2
+  min_upper        = 2
+  special          = true
+  override_special = "_%@"
+}
+
+resource "google_sql_user" "analytics_role" {
+  project  = data.google_project.earthranger.project_id
+  name     = local.analytics_role_name
+  instance = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
+  password = random_password.analytics_role_pass.result
+}
 
 resource "random_password" "analytics_user_pass" {
   length           = 12
@@ -89,18 +113,15 @@ resource "random_password" "analytics_user_pass" {
   override_special = "_%@"
 }
 
-resource "google_sql_user" "analytics" {
+resource "google_sql_user" "analytics_user" {
   project  = data.google_project.earthranger.project_id
-  name     = "${google_sql_database.database.name}_analytics"
+  name     = local.analytics_user_name
   instance = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
   password = random_password.analytics_user_pass.result
-
-  depends_on = [
-    random_password.analytics_user_pass
-  ]
 }
 
-resource "random_password" "apps_user_pass" {
+# App Role and User
+resource "random_password" "app_role_pass" {
   length           = 12
   min_lower        = 2
   min_special      = 2
@@ -109,13 +130,29 @@ resource "random_password" "apps_user_pass" {
   override_special = "_%@"
 }
 
-resource "google_sql_user" "apps" {
+resource "google_sql_user" "app_role" {
   project  = data.google_project.earthranger.project_id
-  name     = "${google_sql_database.database.name}_app"
+  name     = local.app_role_name
   instance = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
-  password = random_password.apps_user_pass.result
+  password = random_password.app_role_pass.result
+}
+
+resource "random_password" "app_user_pass" {
+  length           = 12
+  min_lower        = 2
+  min_special      = 2
+  min_upper        = 2
+  special          = true
+  override_special = "_%@"
+}
+
+resource "google_sql_user" "app_user" {
+  project  = data.google_project.earthranger.project_id
+  name     = local.app_user_name
+  instance = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
+  password = random_password.app_user_pass.result
 
   depends_on = [
-    random_password.apps_user_pass
+    random_password.app_user_pass
   ]
 }

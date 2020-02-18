@@ -39,3 +39,9 @@ variable "access_key" {
 data "aws_route53_zone" "public" {
   name = "pamdas.org."
 }
+
+variable "subdomain_name" {
+  type = string
+  description = "Subdomain to create in Route53"
+  default = null
+}
