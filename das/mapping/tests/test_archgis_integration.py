@@ -1,14 +1,44 @@
 import json
 import logging
+from unittest.mock import patch
 
 from core.tests import BaseAPITest
-from mapping.utils import import_featuretype_presentation
-from mapping.models import SpatialFeatureType
+from mapping.models import ArcgisConfiguration, ArcgisGroup, SpatialFeatureType, SpatialFeature
+from mapping.utils import (arcgis_authentication, extract_features,
+                           import_featuretype_presentation, update_db_groups)
 
 logger = logging.getLogger(__name__)
 
 
+class MockGIS(object):
+    def __init__(self, url=None, username=None, password=None):
+        self.url = url
+        self.username = username
+        self.password = password
+
+
+class Group(object):
+    def __init__(self, title, id):
+        self.title = title
+        self.id = id
+
+
 class TestArcGisIntegration(BaseAPITest):
+    def setUp(self):
+        super().setUp()
+        self.test_config = ArcgisConfiguration.objects.create(
+            config_name='test_config',
+            username='test_username',
+            password='test_pass'
+        )
+
+        # Create a GIS account
+        self.gis_account = MockGIS(
+            None, username=self.test_config.username, password=self.test_config.password)
+
+        self.gis_group = Group(title='Group1', id='1')
+        self.gis_group2 = Group(title='Group2', id='2')
+
 
     def test_unique_value_renderer_line(self):
         json_dict = self._read_test_data('./mapping/tests/testdata/line-renderer.json')
@@ -59,6 +89,52 @@ class TestArcGisIntegration(BaseAPITest):
 
         return renderer
 
+
+    def load_file(self):
+        with open('./mapping/tests/testdata/Built_point.geojson',
+                  'rb') as geojson_file:
+            extract_features(self.test_config, self.gis_group,
+                             self.gis_group.title, geojson_file.read().decode("utf-8"), [], [])
+
+    @patch('arcgis.gis.GIS', MockGIS)
+    def xtest_authentication(self, GIS):
+        # To fix, class patch not picking on utils
+        gis = arcgis_authentication(None, self.test_config)
+        self.assertTrue(gis)
+
+    def test_load_wfs_groups(self):
+        groups = [self.gis_group, self.gis_group2]
+        # No groups before configuration
+        groups_before_config = ArcgisGroup.objects.all().count()
+        self.assertEqual(groups_before_config, 0)
+
+        update_db_groups(groups, self.test_config)
+        groups_after_config = ArcgisGroup.objects.all().count()
+        self.assertEqual(groups_after_config, 2)
+
+    def xtest_extract_features_with_features_park_name_not_set(self):
+        # To fix, class patch not picking on utils
+        with open('./mapping/tests/testdata/Built_point.geojson',
+                  'rb') as geojson_file:
+            extract_features(self.test_config, self.gis_group,
+                             self.gis_group.title, geojson_file.read().decode("utf-8"), [], [])
+
+        groups_after_config = SpatialFeature.objects.all().count()
+        # fewer or no features because park definition doesnt match with the site ui
+        self.assertTrue(groups_after_config == 0)
+
+    @patch('django.conf.settings', UI_SITE_URL='http://www.liwonde.com')
+    def test_extract_features_into_er_from_loaded_file_with_valid_park_content(self, mock_site_url):
+        groups_before_config = SpatialFeature.objects.all().count()
+        self.assertEqual(groups_before_config, 0)
+
+        with open('./mapping/tests/testdata/Built_point.geojson',
+                  'rb') as geojson_file:
+            extract_features(self.test_config, self.gis_group,
+                             self.gis_group.title, geojson_file.read().decode("utf-8"), [], [])
+
+        groups_after_config = SpatialFeature.objects.all().count()
+        self.assertTrue(groups_after_config > groups_before_config)
 
 class Renderer:
     def __init__(self, json_dict):
