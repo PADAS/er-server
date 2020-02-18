@@ -118,7 +118,7 @@ class EulaViewsTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         user = User.objects.get(id=self.user.id)
         self.assertTrue(user.accepted_eula)
-        self.assertTrue(response_data.get('accepted'))
+        self.assertTrue(response_data.get('accept'))
         self.assertEqual(response_data.get('eula'), eula.id)
 
     def test_revoke_eula_acceptance_view(self):

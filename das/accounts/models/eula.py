@@ -25,7 +25,7 @@ class UserAgreement(TimestampedModel):
         unique_together = ("user", "eula")
 
     def save(self, *args, **kwargs):
-        self.accepted = True
+        self.accept = True
         user_agreement = super(UserAgreement, self).save(*args, **kwargs)
         user = self.user
         user.accepted_eula = True
@@ -47,7 +47,7 @@ class EULAManager(models.Manager):
 
     def accept_eula(self, user):
         active_eula = self.get_queryset().get(active=True)
-        UserAgreement.objects.create(user=user, eula=active_eula, accepted=True)
+        UserAgreement.objects.create(user=user, eula=active_eula, accept=True)
         user.accepted_eula = True
         user.save()
 
