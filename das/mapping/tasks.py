@@ -24,11 +24,6 @@ def background_download_features_from_wfs(obj_id):
     obj, wfs_group = get_wfs_config_objects(obj_id)
     errored_files, success_files, group_members = [], [], wfs_group.content()
 
-    # todo: remove when done with dev work
-    items_to_download = ['Akagera_Land_Cover',
-                         'Hydrology_polygon',
-                         'Built_point',
-                         ]
     for member in group_members:
         if member.type == "Feature Service":
             title = member.title.replace(' ', '-')

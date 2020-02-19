@@ -49,7 +49,8 @@ app.conf.task_routes = {
     'observations.tasks.handle_source_with_new_observations': {'queue': 'realtime_p2'},
     'observations.tasks.maintain_subjectstatus_for_subject': {'queue': 'maintenance'},
     'observations.tasks.maintain_observation_data': {'queue': 'maintenance'},
-    'mapping.tasks.automate_download_features_from_wfs': {'queue': 'mapping'},
+    'mapping.tasks.automate_download_features_from_wfs': {'queue': 'maintenance'},
+    'mapping.tasks.background_download_features_from_wfs': {'queue': 'maintenance'},
     # Queue analyzer tasks separately.
     'analyzers.tasks.*': {'queue': 'analyzers', },
 
