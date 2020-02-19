@@ -1,6 +1,7 @@
 import functools
 import json
 import logging
+
 from unittest.mock import patch
 
 from core.tests import BaseAPITest
@@ -9,7 +10,7 @@ from mapping.models import (ArcgisConfiguration, ArcgisGroup, SpatialFeature,
 from mapping.utils import (arcgis_authentication, extract_features,
                            import_featuretype_presentation, search_groups,
                            update_db_groups)
-
+from observations.utils import convert_date_string
 logger = logging.getLogger(__name__)
 
 
@@ -76,11 +77,10 @@ class TestArcGisIntegration(BaseAPITest):
 
     def create_groups(self):
         groups = {'lewa':self.test_config.username, 'Africa Parks':None, 'Africa Semi arid areas':None}
-        wfs_group_titles, i = [g.title for g in Group.instances], 1
+        wfs_group_titles = [g.title for g in Group.instances]
         for title, owner in groups.items():
             if title not in wfs_group_titles:
-                Group(title=title, id=i, owner=owner)
-                i+1
+                Group(title=title, id=len(Group.instances)+1, owner=owner)
 
 
     def test_unique_value_renderer_line(self):
@@ -161,34 +161,31 @@ class TestArcGisIntegration(BaseAPITest):
         # Two groups returned which contain africa in the name or content
         self.assertEqual(len(groups), 2)
 
-
-    def xtest_extract_features_with_features_park_name_not_set(self):
-        with open('./mapping/tests/testdata/Built_point.geojson',
-                  'rb') as geojson_file:
-            extract_features(self.test_config, self.gis_group,
-                             self.gis_group.title, geojson_file.read().decode("utf-8"), [], [])
-
-        groups_after_config = SpatialFeature.objects.all().count()
-        # fewer or no features because park definition doesnt match with the site ui
-        self.assertTrue(groups_after_config == 0)
-
-    @patch('django.conf.settings', UI_SITE_URL='http://www.liwonde.com')
-    def test_extract_features_into_er_from_loaded_file_with_valid_park_content(self, mock_site_url):
+    def test_extract_features_with_features_park_name_not_set(self):
         groups_before_config = SpatialFeature.objects.all().count()
         self.assertEqual(groups_before_config, 0)
         self.load_features()
 
         groups_after_config = SpatialFeature.objects.all().count()
-        self.assertTrue(groups_after_config > groups_before_config)
+        self.assertEqual(groups_after_config, 0)
 
-    @patch('django.conf.settings', UI_SITE_URL='http://www.liwonde.com')
-    def test_new_spatial_feature_types_created_from_new_features(self, mock_site_url):
-        feature_types_before_config = SpatialFeatureType.objects.all().count()
-        self.assertEqual(feature_types_before_config, 0)
-        self.load_features()
+    def test_extract_features_into_er_from_loaded_file_with_valid_park_content(self):
+        with self.settings(UI_SITE_URL='http://www.liwonde.com'):
+            groups_before_config = SpatialFeature.objects.all().count()
+            self.assertEqual(groups_before_config, 0)
+            self.load_features()
 
-        feature_types_after_config = SpatialFeatureType.objects.all().count()
-        self.assertEqual(feature_types_after_config, 7)
+            groups_after_config = SpatialFeature.objects.all().count()
+            self.assertEqual(groups_after_config, 41)
+
+    def test_new_spatial_feature_types_created_from_new_features(self):
+        with self.settings(UI_SITE_URL='http://www.liwonde.com'):
+            feature_types_before_config = SpatialFeatureType.objects.all().count()
+            self.assertEqual(feature_types_before_config, 0)
+            self.load_features()
+
+            feature_types_after_config = SpatialFeatureType.objects.all().count()
+            self.assertEqual(feature_types_after_config, 7)
 
 
 class Renderer:
