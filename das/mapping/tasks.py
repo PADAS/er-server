@@ -5,6 +5,7 @@ from celery_once import QueueOnce
 
 from das_server import celery
 from mapping import models, utils
+from observations.utils import convert_date_string
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ def background_download_features_from_wfs(obj_id):
                 obj, member, title, errored_files, success_files)
     
     # update last download time
-    obj.last_download = datetime.now()
+    obj.last_download = convert_date_string(str(datetime.now()))
     obj.save()
 
     utils.wfs_download_return_messages(None, errored_files, success_files)

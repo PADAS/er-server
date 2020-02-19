@@ -6,6 +6,9 @@ import dateutil.parser
 import pytz
 from django.core.exceptions import PermissionDenied
 from django.conf import settings
+from pytz import timezone
+from dateutil.parser import parse
+
 
 logger = logging.getLogger(__name__)
 
@@ -189,3 +192,15 @@ def assigned_range_dates(o):
     if end_date.year >= 9999:
         end_date = '-'
     return start_date, end_date
+
+
+def convert_date_string(date_str):
+    # Get timezone from settings and convert date_string into datetime object
+    # with settings's timezone
+    time_zone = timezone(settings.TIME_ZONE)
+    datetime_object = parse(date_str)
+    localize_date = time_zone.localize(datetime_object)
+
+    # Convert datetime's timezone with UTC
+    utc_date = localize_date.astimezone(timezone('UTC'))
+    return utc_date.isoformat()
