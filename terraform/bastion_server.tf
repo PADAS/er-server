@@ -1,14 +1,4 @@
 locals {
-  is_production        = (data.terraform_remote_state.earthranger_app_infra.workspace == "prod1")
-  dev_subnetwork_name  = data.terraform_remote_state.terraform_gcp.outputs.dev_us_west_1_subnetwork_name
-  prod_subnetwork_name = data.terraform_remote_state.terraform_gcp.outputs.prod_europe_west_3_subnetwork_name
-
-
-  dev_network_name  = data.terraform_remote_state.terraform_gcp.outputs.dev_network_name
-  prod_network_name = data.terraform_remote_state.terraform_gcp.outputs.prod_network_name
-
-  subnetwork_name = local.is_production ? local.prod_subnetwork_name : local.dev_subnetwork_name
-  network_name    = local.is_production ? local.prod_network_name : local.dev_network_name
 
   bastion_server_count = var.need_bastion_server ? 1 : 0
   bastion_server_user  = "bastion_server"

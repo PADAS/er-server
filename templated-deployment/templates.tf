@@ -15,6 +15,7 @@ resource "template_dir" "deployments" {
     DB_USER              = var.db_user
     DEFAULT_FROM_EMAIL   = var.from_email
     EMAIL_HOST           = var.email_host
+    FQDN                 = var.fqdn
     FROM_EMAIL           = var.from_email
     GS_BUCKET_NAME       = var.gs_bucket_name
     INGRESS_VERSION      = var.INGRESS_VERSION
