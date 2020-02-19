@@ -822,7 +822,7 @@ class ArcgisConfiguration(TimestampedModel):
                                    help_text='Leave blank to get groups within your ArcGIS org\n'
                                              'or enter text for groups to search for outside your ArdGIS org')
     # todo: the FK should be on the other end of the relationship, i.e., in ArcgisConfiguration
-    groups = models.ForeignKey(ArcgisGroup, blank=True, on_delete=models.CASCADE, null=True)
+    groups = models.ForeignKey(ArcgisGroup, blank=True, on_delete=models.SET_NULL, null=True)
     username = models.CharField(max_length=100, blank=False, help_text='ArcGIS account username')
     password = models.CharField(max_length=100, blank=False)
     source = models.CharField(max_length=100, blank=True, null=True, default='ArcGis')

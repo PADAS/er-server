@@ -474,6 +474,7 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
             return HttpResponseRedirect(request.path_info)
         else:
             obj.save()
+            update_db_groups(groups_found, obj)
             return super().response_change(request, obj)
 
     def save_model(self, request, obj, form, change):
