@@ -9,6 +9,8 @@
 adal==1.2.1               # via azure-datalake-store, msrestazure
 affine==2.2.2             # via rasterio
 amqp==2.4.2               # via kombu
+arcgis==1.7.1
+arcgis2geojson==2.0.0
 asn1crypto==0.24.0        # via cryptography
 attrs==19.1.0             # via rasterio
 azure-applicationinsights==0.1.0  # via azure

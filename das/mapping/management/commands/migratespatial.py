@@ -43,6 +43,10 @@ class Command(BaseCommand):
         if self.migrate_type == MigrateType.OverWrite:
             self.create_fn = 'update_or_create'
 
+        self.update_visible_flag = True
+        if self.migrate_type == MigrateType.OverWrite or self.migrate_type == MigrateType.AppendNew:
+            self.update_visible_flag = False
+
         featuresets_by_types = defaultdict(set)
         featuresets = set()
 
@@ -179,7 +183,10 @@ class Command(BaseCommand):
 
     def update_is_visible(self, feature_types, remapped_sft_ids):
         # only the newly migrated feature types should be visible in client UI, make others invisible
-        to_exclude = [f.id for f in feature_types] + remapped_sft_ids
-        self.stdout.write('Hiding %d spatial feature types associated with analyzers' %
-                          (models.SpatialFeatureType.objects.count() - len(to_exclude)))
-        models.SpatialFeatureType.objects.exclude(id__in=to_exclude).update(is_visible=False)
+        if self.update_visible_flag:
+            to_exclude = [f.id for f in feature_types] + remapped_sft_ids
+            self.stdout.write('Hiding %d spatial feature types associated with analyzers' %
+                              (models.SpatialFeatureType.objects.count() - len(to_exclude)))
+            models.SpatialFeatureType.objects.exclude(id__in=to_exclude).update(is_visible=False)
+        else:
+            self.stdout.write("Append or Overwrite mode. Pre-existing SpatialFeatureType objects' is_visible flag not updated")

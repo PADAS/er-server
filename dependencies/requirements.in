@@ -98,6 +98,8 @@ business-rules==1.0.1
 # Using datadog library for its statsd module
 datadog==0.29.3
 
-whitenoise==4.1.4
 
 django-debug-toolbar==2.1
+
+arcgis==1.7.1
+arcgis2geojson==2.0.0

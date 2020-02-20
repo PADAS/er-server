@@ -1,12 +1,13 @@
 import datetime
 import logging
 
+from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from mapping import models
-from mapping.utils import (DEFAULT_SOURCE_NAME,
-                           datasource_from_file, save_feature_to_table,
-                           validate_feature_record, save_spatial_file)
+from mapping.utils import (DEFAULT_SOURCE_NAME, datasource_from_file,
+                           mappingv2_save_spatial_data, save_spatial_file,
+                           validate_feature_record, get_spatial_feature_type)
 from utils.spatial import GeometryMapper
 
 logger = logging.getLogger(__name__)
@@ -45,8 +46,10 @@ class Command(BaseCommand):
         self.layer = options['layer']
         self.utm = options['utm'] if options['utm'] else self.utm
         self.featuretype = options['featuretype']
+        self.featuretype_label = options['typelabel']
         self.featureset = options['featureset']
         self.spatialfile_id = options['spatialfile_id'] if options['spatialfile_id'] else self.spatialfile_id
+        self.presentation = options['presentation']
 
         sub_command = options['sub_command']
         if sub_command not in self.SUB_COMMANDS:
@@ -61,7 +64,8 @@ class Command(BaseCommand):
 
         parser.add_argument('--featuretype', type=str,
                             help='Feature type')
-
+        parser.add_argument('--typelabel', type=str,
+                            help='Feature type label on wfs')
         parser.add_argument('--featureset', type=str,
                             help='FeatureSet')
         parser.add_argument(
@@ -76,6 +80,8 @@ class Command(BaseCommand):
                             help='Change to this utm')
         parser.add_argument('--spatialfile-id', type=str,
                             help='Spatial file ID')
+        parser.add_argument('--presentation', type=dict,
+                            help='Presentation from an ArcGIS Simple Renderer')
 
     def importlayerfile(self):
 
@@ -87,18 +93,22 @@ class Command(BaseCommand):
         featuretype = validate_feature_record(self.featuretype, 'Featuretype', models.FeatureType)
         logger.debug('Featureset: %s, FeatureType: %s', featureset.name, featuretype.name)
 
-        datasource, layer_num = self.get_datasource_and_layer_num()
         try:
+            datasource, layer_num = self.get_datasource_and_layer_num()
             self.import_layer(datasource[layer_num], featuretype, featureset)
+        except Exception as ex:
+            logger.exception(ex)
         finally:
             datasource = None
 
     def importspatialfile(self):
         logger.info('Importing features from shapefile: %s',
                     self.filename)
-        datasource, layer_num = self.get_datasource_and_layer_num()
         try:
+            datasource, layer_num = self.get_datasource_and_layer_num()
             self.import_layer(datasource[layer_num], self.featuretype)
+        except Exception as ex:
+            logger.exception(ex)
         finally:
             datasource = None
 
@@ -132,9 +142,9 @@ class Command(BaseCommand):
         name_value = ''
         id_value = ''
         for name in feature.fields:
-            if self.id_field and name == self.id_field:
+            if self.id_field and name.lower() == self.id_field.lower():
                 id_value = str(feature[name].value)
-            elif self.name_field and name == self.name_field:
+            elif self.name_field and name.lower() == self.name_field.lower():
                 name_value = str(feature[name].value)
         return '-'.join((layer.name, name_value, id_value))
 
@@ -159,6 +169,7 @@ class Command(BaseCommand):
             if external_id in seen:
                 logger.info('External_id=%s not unique to layer', external_id)
                 unique_keys = False
+                break
             else:
                 seen.add(external_id)
         return unique_keys
@@ -166,21 +177,42 @@ class Command(BaseCommand):
     def import_layer(self, layer, featuretype=None, featureset=None):
         logger.info('Importing layer: %s, type: %s, fields: %s',
                     layer.name, layer.geom_type, layer.fields)
-        has_unique_keys = self.contains_unique_keys_in_layer(layer)
-        i = 0
-        for feature in layer:
-            i += 1
-            external_id = self.make_external_id(layer, feature)
-            if not has_unique_keys:
-                external_id = external_id + '-' + str(i)
-            if featureset:
-                self.save_to_layer_model(feature, featureset, featuretype, external_id)
-            else:
-                save_feature_to_table(feature, self.source_name,
-                                      self.spatialfile_id, featuretype,
-                                      external_id)
 
-    def save_to_layer_model(self, feature, featureset, featuretype, external_id):
+        has_unique_keys = self.contains_unique_keys_in_layer(layer)
+
+        for i, feature in enumerate(layer):
+
+            if self.presentation:
+                # TODO: get sft regardless of presentation and pass on further
+                spatial_feature_type, _ = get_spatial_feature_type(feature, self.featuretype_label)
+                if not spatial_feature_type:
+                    logger.warning('Did not get spatialfeaturetype for %. Skipping', str(feature))
+                    continue
+                spatial_feature_type.presentation = self.presentation
+                # TODO: does a write in each iteration. Optimize.
+                spatial_feature_type.save()
+
+            # can optionally filter features based on Park attribute.
+            # e.g., AP has features for multiple parks in the same feature layer
+            # TODO: make configurable, move out filter key (e.g., Park below) & filter value (ui_site_url) to the admin UI.
+            if hasattr(settings, 'UI_SITE_URL') and 'Park' in feature.fields:
+                if feature['Park'].value.lower() in settings.UI_SITE_URL.lower():
+                    self.load_layer(layer, featuretype, featureset, feature, has_unique_keys, i)
+            else:
+                self.load_layer(layer, featuretype, featureset, feature, has_unique_keys, i)
+
+    def load_layer(self, layer, featuretype, featureset, feature, has_unique_keys, i):
+        external_id = self.make_external_id(layer, feature)
+        if not has_unique_keys:
+            external_id = external_id + '-' + str(i)
+        if featureset:
+            self.mappingv1_save_spatial_data(
+                feature, featureset, featuretype, external_id)
+        else:
+            mappingv2_save_spatial_data(feature, self.source_name,
+                                        self.spatialfile_id, external_id, self.featuretype_label)
+
+    def mappingv1_save_spatial_data(self, feature, featureset, featuretype, external_id):
         fields = {}
         for name in feature.fields:
             if name.lower() in (self.name_field.lower(), 'description'):

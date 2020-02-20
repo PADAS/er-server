@@ -8,7 +8,7 @@ from django.utils.translation import ugettext_lazy as _
 
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
 from mapping.models import Map, TileLayer, SpatialFeatureGroupStatic, \
-    FeatureType, DisplayCategory, SpatialFeatureType
+    FeatureType, DisplayCategory, SpatialFeatureType, ArcgisConfiguration
 from choices.models import Choice
 from core.common import TIMEZONE_USED
 
@@ -191,3 +191,11 @@ class DisplayCategoryForm(forms.ModelForm):
         instance = super().save(commit)
         instance.spatialfeaturetype_set.set(self.cleaned_data['feature_classes'])
         return instance
+
+
+class ArcgisConfigurationForm(forms.ModelForm):
+    password = forms.CharField(widget=forms.PasswordInput(render_value=True))
+
+    class Meta:
+        model = ArcgisConfiguration
+        fields = '__all__'

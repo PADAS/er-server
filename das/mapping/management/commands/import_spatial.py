@@ -9,7 +9,7 @@ from django.db.utils import IntegrityError
 import utils.json
 from mapping import models
 from mapping.utils import (DEFAULT_SOURCE_NAME, datasource_from_file,
-                           fields_iter, save_feature_to_table)
+                           fields_iter, mappingv2_save_spatial_data)
 from utils.spatial import GeometryMapper
 
 logger = logging.getLogger(__name__)
@@ -78,7 +78,7 @@ class Command(BaseCommand):
             logger.debug('Feature geom type: %s', str(feature.geom_type))
             logger.debug('Feature length: %s', str(len(feature)))
             logger.debug('Feature num of fields: %s', str(feature.num_fields))
-            save_feature_to_table(feature, self.source_name, self.spatialfile_id)
+            mappingv2_save_spatial_data(feature, self.source_name, self.spatialfile_id)
 
     def get_display_category(self, display_category_name, create_okay=True):
         try:
