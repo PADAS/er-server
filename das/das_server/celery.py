@@ -33,7 +33,6 @@ app.conf.task_queues = (
     Queue('realtime_p2', default_exchange, routing_key='realtime.tasks.p2'),
     Queue('realtime_p3', default_exchange, routing_key='realtime.tasks.p3'),
     Queue('analyzers', default_exchange, routing_key='analyzers.tasks'),
-    Queue('mapping', default_exchange, routing_key='mapping.tasks'),
     Queue('maintenance', default_exchange, routing_key='maintenance.tasks'),
 )
 
