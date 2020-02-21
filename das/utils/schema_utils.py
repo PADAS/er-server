@@ -425,11 +425,23 @@ def format_key_for_title(key):
 
 
 def find_display_value_for_key_in_definition(schema, key):
-    for item in schema.get('definition', []):
-        if not isinstance(item, dict):
+    for schema_item in schema.get('definition', []):
+        if not isinstance(schema_item, dict):
             continue
-        if 'key' in item and item['key'] == key and 'title' in item:
-            return item['title']
+        if 'key' in schema_item and schema_item['key'] == key and 'title' in schema_item:
+            return schema_item['title']
+        # fieldsets
+        """
+        OrderedDict([('type', 'fieldset'), ('htmlClass', 'col-lg-6'), 
+        ('items', [OrderedDict([('key', 'reportinternal'), 
+        ('type', 'checkboxes'), ('title', 'FieldSet Checkbox Enum'), 
+        ('titleMap', [OrderedDict([('value', 'team01'), ('name', 'Team 1')]), 
+        OrderedDict([('value', 'team02'), ('name', 'Teams 2')])])])])])
+        """
+        if 'items' in schema_item and len(schema_item['items']) > 0:
+            for item in schema_item["items"]:
+                if 'key' in item and item['key'] == key and 'title' in item:
+                    return item['title']
     return None
 
 
