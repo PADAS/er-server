@@ -318,7 +318,7 @@ def definition_key_order_as_dict(schema):
 
 
 def detail_resolver(schema, key, value):
-
+    import pdb; pdb.set_trace()
     if key in schema['schema']['properties']:
         schema_item = schema['schema']['properties'][key]
         return extractor(schema_item, schema.get('definition', []), value)
