@@ -15,9 +15,11 @@ from django.utils.encoding import force_text
 from django.utils.safestring import mark_safe
 
 import utils.json
-from mapping import models
+from mapping import models, utils
 from mapping.tasks import background_download_features_from_wfs
 from utils.spatial import GeometryMapper
+
+logger = logging.getLogger(__name__)
 
 geometry_mapper = GeometryMapper()
 
@@ -30,6 +32,12 @@ def shortname_validator(value):
         value = value[:25]
     return value
 
+FEATURE_TYPES = {
+    'Primary': 'Primary Roads',
+    'Secondary': 'Secondary Roads',
+    'Old': 'Old Roads',
+    'Tertiary': 'Tertiary Roads',
+}
 
 DEFAULT_SOURCE_NAME = 'STE'
 
@@ -411,3 +419,147 @@ def get_mb_style(symbol):
         logger.info(f'Got type: {type}. Not handled yet.')
 
     return presentation
+
+
+def get_datasource_and_layer_num(filename, tmpdirs, layer):
+    datasource = utils.datasource_from_file(filename, tmpdirs)
+    logger.debug('Data Source: %s, layercount %s',
+                    datasource.name, datasource.layer_count)
+    if datasource.layer_count > 1 and layer is None:
+        logger.warning('multiple layers not supported...')
+        for i in range(0, datasource.layer_count):
+            logger.info('layer: %s, name: %s', i, datasource[i].name)
+        return
+
+    layer_num = 0 if layer is None else layer
+    if layer_num >= datasource.layer_count:
+        logger.warning(f'Given layer {layer} should be less than existing layers: {datasource.layer_count}')
+        layer_num = 0
+    return datasource, layer_num
+
+def get_feature_class(name):
+    name_lower = name.lower()
+    if 'polygon' in name_lower:
+        return models.PolygonFeature
+    if 'linestring' in name_lower:
+        return models.LineFeature
+    if 'point' in name_lower:
+        return models.PointFeature
+    raise KeyError('DAS Feature class not found for {0}'.format(name))
+
+def make_external_id(layer, feature, id_field, name_field):
+    name_value = ''
+    id_value = ''
+    for name in feature.fields:
+        if id_field and name.lower() == id_field.lower():
+            id_value = str(feature[name].value)
+        elif name_field and name.lower() == name_field.lower():
+            name_value = str(feature[name].value)
+    return '-'.join((layer.name, name_value, id_value))
+
+def get_featuretype_for_feature(feature, default=None):
+    for name in feature.fields:
+        if name in ('roadclass',):
+            value = feature[name].value
+            type_name = FEATURE_TYPES[value]
+            featuretype = models.FeatureType.objects.get_by_natural_key(
+                type_name)
+            return featuretype
+
+    if not default:
+        raise KeyError('no default featuretype specified')
+    return default
+
+def contains_unique_keys_in_layer(layer, id_field, name_field):
+    seen = set()
+    unique_keys = True
+    for feature in layer:
+        external_id = make_external_id(layer, feature, id_field, name_field)
+        if external_id in seen:
+            logger.info('External_id=%s not unique to layer', external_id)
+            unique_keys = False
+            break
+        else:
+            seen.add(external_id)
+    return unique_keys
+
+def import_layer(layer, featuretype, featureset, presentation, featuretype_label, source_name, id_field, name_field, spatialfile_id):
+    logger.info('Importing layer: %s, type: %s, fields: %s',
+                layer.name, layer.geom_type, layer.fields)
+
+    has_unique_keys = contains_unique_keys_in_layer(layer, id_field, name_field)
+
+    for i, feature in enumerate(layer):
+
+        if presentation:
+            # TODO: get sft regardless of presentation and pass on further
+            spatial_feature_type, _ = utils.get_spatial_feature_type(feature, featuretype_label)
+            if not spatial_feature_type:
+                logger.warning('Did not get spatialfeaturetype for %s. Skipping', str(feature))
+                continue
+            spatial_feature_type.presentation = presentation
+            # TODO: does a write in each iteration. Optimize.
+            spatial_feature_type.save()
+
+        # can optionally filter features based on Park attribute.
+        # e.g., AP has features for multiple parks in the same feature layer
+        # TODO: make configurable, move out filter key (e.g., Park below) & filter value (ui_site_url) to the admin UI.
+        if hasattr(settings, 'UI_SITE_URL') and 'Park' in feature.fields:
+            if feature['Park'].value.lower() in settings.UI_SITE_URL.lower():
+                load_layer(layer, featuretype, featureset, feature, has_unique_keys, i, id_field, name_field, spatialfile_id, featuretype_label, source_name)
+        else:
+            load_layer(layer, featuretype, featureset, feature, has_unique_keys, i, id_field, name_field, spatialfile_id, featuretype_label, source_name)
+
+def load_layer(layer, featuretype, featureset, feature, has_unique_keys, i, id_field, name_field, spatialfile_id, featuretype_label, source_name):
+    external_id = make_external_id(layer, feature, id_field, name_field)
+    if not has_unique_keys:
+        external_id = external_id + '-' + str(i)
+    if featureset:
+        mappingv1_save_spatial_data(
+            feature, featureset, featuretype, external_id, name_field, spatialfile_id)
+    else:
+        utils.mappingv2_save_spatial_data(feature, source_name,
+                                    spatialfile_id, external_id, featuretype_label)
+
+def mappingv1_save_spatial_data(feature, featureset, featuretype, external_id, name_field, spatialfile_id):
+    geometry_mapper = GeometryMapper()
+    
+    fields = {}
+    for name in feature.fields:
+        if name.lower() in (name_field.lower(), 'description'):
+            continue
+        value = feature[name].value
+        if isinstance(value, datetime.date):
+            value = value.isoformat()
+        fields[name] = value
+    try:
+        feature_model = get_feature_class(feature.geom_type.name)
+    except KeyError as ke:
+        feature_model = get_feature_class(str(feature.geom))
+    model_fieldname = 'feature_geometry'
+    model_field_type = feature_model._meta.get_field(model_fieldname)
+    feature_geometry = geometry_mapper.get_db_geom(
+        feature.geom, model_field_type)
+    defaults = {'feature_geometry': feature_geometry, 'fields': fields}
+    feature_record, created = feature_model.objects.get_or_create(
+        defaults=defaults,
+        featureset=featureset,
+        type=get_featuretype_for_feature(
+            feature, default=featuretype),
+        external_id=external_id)
+
+    logger.debug('Import feature: %s, created:%s',
+                    external_id, created)
+
+    feature_record.feature_geometry = feature_geometry
+    feature_record.fields = fields
+    try:
+        feature_record.name = feature[name_field].value
+    except (KeyError, IndexError):
+        pass
+    try:
+        feature_record.description = feature['Description'].value
+    except (KeyError, IndexError):
+        pass
+    feature_record = utils.save_spatial_file(spatialfile_id, models.SpatialFile, feature_record)
+    feature_record.save()

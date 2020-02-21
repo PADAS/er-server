@@ -56,7 +56,7 @@ def background_download_features_from_wfs(obj_id):
             logger.info(f'processing {title}')
             success_files, errored_files = utils.extract_gis_data(
                 obj, member, title, errored_files, success_files)
-    
+
     # update last download time
     obj.last_download = convert_date_string(str(datetime.now()))
     obj.save()
@@ -70,3 +70,15 @@ def get_wfs_config_objects(obj_id):
     wfs_group = gis.groups.get(obj.groups.group_id)
 
     return obj, wfs_group
+
+
+@celery.app.task(base=QueueOnce, once={'graceful': True})
+def load_spatial_features_from_files(filename, tmpdirs, layer, presentation, featuretype_label, source_name,
+                                     spatialfile_id, id_field, name_field, featuretype, featureset=None):
+    try:
+        datasource, layer_num = utils.get_datasource_and_layer_num(filename, tmpdirs, layer)
+        utils.import_layer(datasource[layer_num], featuretype, featureset, presentation, featuretype_label, source_name, id_field, name_field, spatialfile_id)
+    except Exception as ex:
+        logger.exception(ex)
+    finally:
+        datasource = None

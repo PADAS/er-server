@@ -50,6 +50,8 @@ app.conf.task_routes = {
     'observations.tasks.maintain_observation_data': {'queue': 'maintenance'},
     'mapping.tasks.automate_download_features_from_wfs': {'queue': 'maintenance'},
     'mapping.tasks.background_download_features_from_wfs': {'queue': 'maintenance'},
+    'mapping.tasks.load_spatial_features_from_files': {'queue': 'maintenance'},
+    
     # Queue analyzer tasks separately.
     'analyzers.tasks.*': {'queue': 'analyzers', },
 
