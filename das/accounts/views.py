@@ -104,7 +104,7 @@ class AcceptEulaAPIView(generics.CreateAPIView):
     queryset = UserAgreement.objects.all()
 
     def create(self, request, *args, **kwargs):
-        if request.data.get("accept")  == False:
+        if request.data.get("accepted") == False:
             user_id = request.data.get("user")
             eula_id = request.data.get("eula")
 
