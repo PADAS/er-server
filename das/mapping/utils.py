@@ -15,11 +15,9 @@ from django.utils.encoding import force_text
 from django.utils.safestring import mark_safe
 
 import utils.json
-from mapping import models, utils
+from mapping import models
 from mapping.tasks import background_download_features_from_wfs
 from utils.spatial import GeometryMapper
-
-logger = logging.getLogger(__name__)
 
 geometry_mapper = GeometryMapper()
 
@@ -422,7 +420,7 @@ def get_mb_style(symbol):
 
 
 def get_datasource_and_layer_num(filename, tmpdirs, layer):
-    datasource = utils.datasource_from_file(filename, tmpdirs)
+    datasource = datasource_from_file(filename, tmpdirs)
     logger.debug('Data Source: %s, layercount %s',
                     datasource.name, datasource.layer_count)
     if datasource.layer_count > 1 and layer is None:
@@ -493,7 +491,7 @@ def import_layer(layer, featuretype, featureset, presentation, featuretype_label
 
         if presentation:
             # TODO: get sft regardless of presentation and pass on further
-            spatial_feature_type, _ = utils.get_spatial_feature_type(feature, featuretype_label)
+            spatial_feature_type, _ = get_spatial_feature_type(feature, featuretype_label)
             if not spatial_feature_type:
                 logger.warning('Did not get spatialfeaturetype for %s. Skipping', str(feature))
                 continue
@@ -518,7 +516,7 @@ def load_layer(layer, featuretype, featureset, feature, has_unique_keys, i, id_f
         mappingv1_save_spatial_data(
             feature, featureset, featuretype, external_id, name_field, spatialfile_id)
     else:
-        utils.mappingv2_save_spatial_data(feature, source_name,
+        mappingv2_save_spatial_data(feature, source_name,
                                     spatialfile_id, external_id, featuretype_label)
 
 def mappingv1_save_spatial_data(feature, featureset, featuretype, external_id, name_field, spatialfile_id):
@@ -561,5 +559,5 @@ def mappingv1_save_spatial_data(feature, featureset, featuretype, external_id, n
         feature_record.description = feature['Description'].value
     except (KeyError, IndexError):
         pass
-    feature_record = utils.save_spatial_file(spatialfile_id, models.SpatialFile, feature_record)
+    feature_record = save_spatial_file(spatialfile_id, models.SpatialFile, feature_record)
     feature_record.save()
