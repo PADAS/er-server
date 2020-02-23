@@ -47,7 +47,10 @@ class EULAManager(models.Manager):
 
     def accept_eula(self, user):
         active_eula = self.get_queryset().get(active=True)
-        UserAgreement.objects.create(user=user, eula=active_eula, accepted=True)
+        UserAgreement.objects.create(
+            user=user, eula=active_eula, accepted=True)
+        user.accepted_eula = True
+        user.save()
 
 
 class EULA(TimestampedModel):
