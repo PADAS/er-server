@@ -114,6 +114,23 @@ variable "show_track_days" {
   default = "16"
 }
 
+variable "eus_email" {
+  type    = string
+  default = "eus_test@pamdas.org"
+}
+variable "eus_name" {
+  type    = string
+  default = "EUS Test User"
+}
+variable "eus_org" {
+  type    = string
+  default = "pamdas.org"
+}
+
+variable "eus_type" {
+  type    = string
+  default = "email"
+}
 variable "sms_id" {
   type    = string
   default = ""
@@ -121,4 +138,23 @@ variable "sms_id" {
 variable "sms_token" {
   type    = string
   default = ""
+}
+
+variable "alerts_enabled" {
+  type    = string
+  default = "True"
+}
+
+variable "email_host_user" {
+  type    = string
+  default = ""
+}
+variable "mapping_features_v2" {
+  type    = string
+  default = "True"
+}
+
+variable "show_stationary_subjects_on_map" {
+  type    = string
+  default = "False"
 }

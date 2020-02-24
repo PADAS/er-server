@@ -41,7 +41,7 @@ spec:
         - name: google-credentials
           mountPath: "/etc/earthranger/"
           readOnly: true
-        - name: .env
+        - name: server-config-volume 
           mountPath: "/etc/das/"
           readOnly: true
         env:
