@@ -16,7 +16,7 @@ env = environ.Env(
 
 # this reads the .env file in the local dir. You can
 # specify specific envs if needed.
-environ.Env.read_env()
+environ.Env.read_env(env_file='/etc/earthranger/.env')
 
 MEDIA_ROOT = '/user-uploads'
 MEDIA_URL = 'http://localhost:8000/media/user-uploads/'

@@ -22,6 +22,10 @@ spec:
           items:
           - key: credentials_json
             path: "google_credentials.json"
+      - name: server-config-volume
+        configMap:
+          defaultMode: 420
+          name: server-configmap
       containers:
       - image:  "${SERVER_VERSION}"
         name: das-mql
@@ -32,6 +36,10 @@ spec:
         - name: google-credentials
           mountPath: "/etc/earthranger"
           readOnly: true
+        - name: server-config-volume
+          mountPath: /etc/earthranger/.env
+          readOnly: true
+          subPath: dotenv
         env:
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: "/etc/earthranger/google_credentials.json"
