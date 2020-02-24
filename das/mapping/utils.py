@@ -1,11 +1,13 @@
+import base64
 import datetime
 import logging
 import os
 import tempfile
 from zipfile import ZipFile
 
-from arcgis2geojson import arcgis2geojson
 import arcgis
+from arcgis2geojson import arcgis2geojson
+from Crypto import Cipher, Hash
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.gis.gdal import DataSource, GDALException
@@ -16,9 +18,11 @@ from django.utils.encoding import force_text
 from django.utils.safestring import mark_safe
 
 import utils.json
-from mapping import models
+from mapping import models, utils
 from mapping.tasks import background_download_features_from_wfs
 from utils.spatial import GeometryMapper
+
+logger = logging.getLogger(__name__)
 
 geometry_mapper = GeometryMapper()
 
@@ -252,14 +256,14 @@ def arcgis_integration(request, obj):
             message(request, messages.INFO, f'Successful Configuration')
         elif "_downloadfeatures" in request.POST:
             # set to a background task
-            try:
+            if obj.groups:
                 task_started_msg = "Features download in progress, checkout loaded <a href='/admin/mapping/spatialfeature/'>spatialfeatures</a> after a few minutes"
                 message(request, messages.INFO, mark_safe(task_started_msg))
-                background_download_features_from_wfs.apply_async(args=(obj.id,))
-            except Exception as ex:
+                background_download_features_from_wfs.apply_async(args=(obj.id, obj.groups.group_id,))
+            else:
                 error_msg = f"Select a group to enable features download"
-                message(request, messages.ERROR,ex) if request else logger.debug(error_msg)
-                logger.exception(ex)
+                message(request, messages.ERROR, error_msg) if request else logger.debug(error_msg)
+                logger.exception(error_msg)
         return acrgis_groups_found
 
 
@@ -288,9 +292,10 @@ def update_db_groups(wfs_groups, obj):
         )
 
 
-def arcgis_authentication(request, obj):
+def arcgis_authentication(request, obj, to_decode=False):
     try:
-        gis = arcgis.gis.GIS(obj.service_url, username=obj.username, password=obj.password)
+        password = decrypt(obj.password) if to_decode else obj.password
+        gis = arcgis.gis.GIS(obj.service_url, username=obj.username, password=password)
         return gis
     except Exception as error:
         message(request, messages.ERROR, error) if request else logger.exception(error)
@@ -400,3 +405,18 @@ def get_mb_style(symbol):
         logger.info(f'Got type: {type}. Not handled yet.')
 
     return presentation
+
+# encryption data
+padding, secret = '{', Hash.MD5.new()
+secret.update(settings.SECRET_KEY.encode('utf-8'))
+cipher = Cipher.AES.new(secret.hexdigest())
+
+def encrypt(value):
+    value += (32 - len(value) % 32) * padding 
+    result = cipher.encrypt(value)
+    result = base64.standard_b64encode(result)
+    return result
+
+def decrypt(value):
+    value = base64.b64decode(bytes(value.strip("b'"), 'utf-8'))
+    return cipher.decrypt(value).decode('utf-8').rstrip(padding)
