@@ -24,8 +24,14 @@ resource "template_dir" "deployments" {
     SERVER_VERSION       = var.SERVER_VERSION
     SITE_IP_ADDRESS      = var.site_ip_address
     STORAGE_CONTAINER    = var.storage_container
+    TIME_ZONE            = var.time_zone
     USE_AZURE_STORAGE    = var.use_azure_storage
     WEB_SERVICE_NAME     = var.web_service_name
     WEB_VERSION          = var.WEB_VERSION
+    ACCEPT_EULA          = var.accept_eula
+    ENABLE_DEBUG         = var.enable_debug
+    SHOW_TRACK_DAYS      = var.show_track_days
+    SMS_ID               = var.sms_id
+    SMS_TOKEN            = var.sms_token
   }
 }

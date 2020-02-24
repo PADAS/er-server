@@ -10,6 +10,11 @@ variable "site_ip_address" {
   type = string
 }
 
+variable "time_zone" {
+  type = string
+  default = "US/Pacific"
+}
+
 variable "INGRESS_VERSION" {
   type = string
 }
@@ -96,4 +101,24 @@ variable "web_service_name" {
   type    = string
   default = "web"
 }
+variable "accept_eula" {
+  type    = string
+  default = "false"
+}
+variable "enable_debug" {
+  type    = string
+  default = "false"
+}
+variable "show_track_days" {
+  type    = string
+  default = "16"
+}
 
+variable "sms_id" {
+  type    = string
+  default = ""
+}
+variable "sms_token" {
+  type    = string
+  default = ""
+}

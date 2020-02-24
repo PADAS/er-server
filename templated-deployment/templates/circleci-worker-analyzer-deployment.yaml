@@ -24,8 +24,10 @@ spec:
             path: "google_credentials.json"
       - name: server-config-volume
         configMap:
-          defaultMode: 420
           name: server-configmap
+          items:
+            - key: dotenv
+              path: .env
       containers:
       - image:  "${SERVER_VERSION}"
         name: das-worker-analyzer
@@ -34,12 +36,11 @@ spec:
             cpu: "100m"
         volumeMounts:
         - name: google-credentials
-          mountPath: "/etc/earthranger"
+          mountPath: "/etc/earthranger/"
           readOnly: true
-        - name: server-config-volume
-          mountPath: /etc/earthranger/.env
+        - name: .env
+          mountPath: "/etc/das/"
           readOnly: true
-          subPath: dotenv
         env:
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: "/etc/earthranger/google_credentials.json"
