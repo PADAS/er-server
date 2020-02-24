@@ -17,7 +17,7 @@ class UserSerializer(rest_framework.serializers.ModelSerializer):
                             'accepted_eula')
         fields = ('username', 'email', 'first_name',
                   'last_name', 'role') + read_only_fields
-
+        
     def to_representation(self, instance):
         ret = super(UserSerializer, self).to_representation(instance)
         if not settings.ACCEPT_EULA:
@@ -55,7 +55,7 @@ class AcceptEulaSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = UserAgreement
         read_only_fields = ["id"]
-        fields = ["user", "eula", "accepted", "id", ]
+        fields = ["user", "eula", "accept", "id",]
 
 
 class EulaSerializer(rest_framework.serializers.ModelSerializer):
