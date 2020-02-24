@@ -30,37 +30,37 @@ DEFAULT_LOGGING = {
         },
     },
     'loggers': {
-        # 'django': {
-        #     'handlers': ['console'],
-        #     'propagate': False,
-        #     'level': 'INFO',
-        # },
-        # 'django.request': {
-        #     'handlers': ['console'],
-        #     'propagate': False,
-        #     'level': 'INFO',
-        # },
-        # 'django.server': {
-        #     'handlers': ['console'],
-        #     'propagate': False,
-        #     'level': 'INFO',
-        # },
-        # 'rt_api': {
-        #     'level': 'INFO',
-        # },
-        # 'rt_api.socketio': {
-        #     'level': 'WARN',
-        # },
-        # 'rt_api.pubsub_listener': {
-        #     'level': 'INFO',
-        # },
-        # '': {
-        #     'handlers': ['console'],
-        #     'level': 'INFO',
-        # },
-        # 'PIL.Image': {
-        #     'level': 'INFO',
-        # },
+        'django': {
+            'handlers': ['console'],
+            'propagate': False,
+            'level': 'INFO',
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'propagate': False,
+            'level': 'INFO',
+        },
+        'django.server': {
+            'handlers': ['console'],
+            'propagate': False,
+            'level': 'INFO',
+        },
+        'rt_api': {
+            'level': 'INFO',
+        },
+        'rt_api.socketio': {
+            'level': 'WARN',
+        },
+        'rt_api.pubsub_listener': {
+            'level': 'INFO',
+        },
+        '': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
+        'PIL.Image': {
+            'level': 'INFO',
+        },
     }
 }
 
