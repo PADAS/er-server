@@ -5,7 +5,6 @@
 #    pip-compile --find-links=./wheelhouse --output-file=requirements-dev.txt ./requirements.txt requirements-dev.in
 #
 --find-links ./wheelhouse
---find-links /c/projects/das/das/dependencies/./wheelhouse
 
 adal==1.2.1
 affine==2.2.2
@@ -96,7 +95,7 @@ azure-storage-common==1.4.0
 azure-storage-file==1.4.0
 azure-storage-queue==1.4.0
 azure==4.0.0
-backcall==0.1.0           # via ipython
+backcall==0.1.0
 billiard==3.5.0.5
 bleach==2.1.4
 boto3==1.11.9
@@ -117,11 +116,11 @@ coreapi==2.3.3
 coreschema==0.0.4
 coverage==4.5.4
 cryptography==2.6.1
-cycler==0.10.0            # via matplotlib
+cycler==0.10.0
 cython==0.29.10
 datadog==0.29.3
 decorator==4.4.0
-defusedxml==0.6.0         # via nbconvert
+defusedxml==0.6.0
 django-bitfield==1.9.6
 django-cors-headers==2.5.3
 django-debug-toolbar==2.1
@@ -152,7 +151,7 @@ docutils==0.14
 docxtpl==0.4.6
 drf-extensions==0.5.0
 earthengine-api==0.1.175
-entrypoints==0.3          # via nbconvert
+entrypoints==0.3
 et-xmlfile==1.0.1
 eventlet==0.25.1
 faker==4.0.1
@@ -179,43 +178,43 @@ httplib2==0.12.3
 humanize==0.5.1
 identify==1.4.7           # via pre-commit
 idna==2.8
-importlib-metadata==0.23  # via jsonschema, keyring, pluggy, pre-commit, pytest
+importlib-metadata==1.5.0
 importlib-resources==1.0.2  # via pre-commit
-ipykernel==5.1.4          # via ipywidgets, notebook
-ipython-genutils==0.2.0   # via nbformat, notebook, traitlets
-ipython==7.12.0           # via ipykernel, ipywidgets
-ipywidgets==7.5.1         # via arcgis
+ipykernel==5.1.4
+ipython-genutils==0.2.0
+ipython==7.12.0
+ipywidgets==7.5.1
 isodate==0.6.0
 itypes==1.1.0
 jdcal==1.4.1
-jedi==0.16.0              # via ipython
-jeepney==0.4.2            # via keyring, secretstorage
+jedi==0.16.0
+jeepney==0.4.2
 jinja2==2.10.1
 jmespath==0.9.4
 joblib==0.13.0
-json5==0.9.1              # via jupyterlab-server
-jsonschema==3.2.0         # via jupyterlab-server, nbformat
-jupyter-client==6.0.0     # via ipykernel, notebook
-jupyter-core==4.6.3       # via jupyter-client, nbconvert, nbformat, notebook
-jupyterlab-server==1.0.6  # via jupyterlab
-jupyterlab==1.2.6         # via arcgis
-keyring==21.1.0           # via arcgis
-kiwisolver==1.1.0         # via matplotlib
+json5==0.9.1
+jsonschema==3.0.2
+jupyter-client==6.0.0
+jupyter-core==4.6.3
+jupyterlab-server==1.0.6
+jupyterlab==1.2.6
+keyring==21.1.0
+kiwisolver==1.1.0
 kombu==4.2.2.post1
 lxml==4.3.4
 markupsafe==1.1.1
-matplotlib==3.1.3         # via arcgis
-mistune==0.8.4            # via nbconvert
+matplotlib==3.1.3
+mistune==0.8.4
 mockredispy==2.9.3
 monotonic==1.5
-more-itertools==7.2.0     # via pytest, zipp
+more-itertools==7.2.0     # via pytest
 msrest==0.6.6
 msrestazure==0.6.0
 munch==2.3.2
-nbconvert==5.6.1          # via notebook
-nbformat==5.0.4           # via ipywidgets, nbconvert, notebook
+nbconvert==5.6.1
+nbformat==5.0.4
 nodeenv==1.3.3            # via pre-commit
-notebook==6.0.3           # via jupyterlab, jupyterlab-server, widgetsnbextension
+notebook==6.0.3
 numpy==1.16.4
 oauth2client==4.1.3
 oauthlib==3.0.2
@@ -224,35 +223,35 @@ openapi-codec==1.3.2
 openpyxl==2.5.4
 packaging==19.2           # via pytest
 pandas==0.24.2
-pandocfilters==1.4.2      # via nbconvert
-parso==0.6.1              # via jedi
+pandocfilters==1.4.2
+parso==0.6.1
 pep8==1.7.1
-pexpect==4.8.0            # via ipython
-pickleshare==0.7.5        # via ipython
+pexpect==4.8.0
+pickleshare==0.7.5
 piexif==1.0.13
 pillow==4.3.0
 pip-tools==4.5.0
 pluggy==0.13.0            # via pytest
 pre-commit==2.1.0
-prometheus-client==0.7.1  # via notebook
-prompt-toolkit==3.0.3     # via ipython
+prometheus-client==0.7.1
+prompt-toolkit==3.0.3
 protobuf==3.11.2
 psycopg2-binary==2.8.3
 ptvsd==4.3.2
-ptyprocess==0.6.0         # via pexpect, terminado
+ptyprocess==0.6.0
 py==1.8.0                 # via pytest
 pyasn1-modules==0.2.5
 pyasn1==0.4.5
 pycparser==2.19
 pycryptodome==3.7.0
-pygments==2.5.2           # via ipython, nbconvert
+pygments==2.5.2
 pyjwt==1.7.1
 pymet==0.1.24
 pyopenssl==19.0.0
 pyparsing==2.4.0
 pyproj==1.9.5.1
-pyrsistent==0.15.7        # via jsonschema
-pyshp==1.2.12             # via arcgis
+pyrsistent==0.15.7
+pyshp==1.2.12
 pytest-django==3.8.0
 pytest-pythonpath==0.7.3
 pytest==5.3.5
@@ -262,7 +261,7 @@ python-engineio==3.8.2
 python-json-logger==0.1.11
 pytz==2019.3
 pyyaml==5.1.1
-pyzmq==18.1.1             # via jupyter-client, notebook
+pyzmq==18.1.1
 rasterio==1.0.23
 rasterstats==0.13.1
 redis==2.10.6
@@ -273,32 +272,31 @@ rsa==4.0
 s3transfer==0.3.2
 scikit-learn==0.20.3
 scipy==1.2.1
-secretstorage==3.1.2      # via keyring
-send2trash==1.5.0         # via notebook
+secretstorage==3.1.2
+send2trash==1.5.0
 shapely==1.6.3
 simplejson==3.16.0
 simplekml==1.3.1
 six==1.11.0
 snuggs==1.4.3
 sqlparse==0.3.0
-terminado==0.8.3          # via notebook
-testpath==0.4.4           # via nbconvert
+terminado==0.8.3
+testpath==0.4.4
 text-unidecode==1.3       # via faker
 toml==0.10.0              # via pre-commit
-tornado==6.0.3            # via ipykernel, jupyter-client, jupyterlab, notebook, terminado
-traitlets==4.3.3          # via ipykernel, ipython, ipywidgets, jupyter-client, jupyter-core, nbconvert, nbformat, notebook
+tornado==6.0.3
+traitlets==4.3.3
 twilio==6.35.3
 uritemplate==3.0.0
 urllib3==1.24.2
 vine==1.3.0
 virtualenv==16.7.7        # via pre-commit
-wcwidth==0.1.7            # via prompt-toolkit, pytest
+wcwidth==0.1.8
 webencodings==0.5.1
 websocket-client==0.57.0
-whitenoise==4.1.4
-widgetsnbextension==3.5.1  # via arcgis, ipywidgets
+widgetsnbextension==3.5.1
 xmlunittest==0.5.0
-zipp==0.6.0               # via importlib-metadata
+zipp==3.0.0
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools

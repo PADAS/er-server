@@ -1,7 +1,5 @@
 # error code 2 right now with this one.
 
-git+https://github.com/Julian/jsonschema.git@e4fa34f6517895a81e5ba7e648dc0796f25f9b21#egg=jsonschema
-
 git+https://github.com/PADAS/python-socketio.git@c3c2d46fc9ca343baea86103d1a09be2754c91e4#egg=python-socketio
 
 git+https://github.com/PADAS/fastkml.git@7922b3f38c4cef4a513a599e899bfb10576d8bd3#egg=fastkml
