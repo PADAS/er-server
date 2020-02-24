@@ -1,11 +1,10 @@
 import datetime
 import logging
-import os
 import tempfile
 from zipfile import ZipFile
 
-from arcgis2geojson import arcgis2geojson
 import arcgis
+from arcgis2geojson import arcgis2geojson
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.gis.gdal import DataSource, GDALException
@@ -112,34 +111,50 @@ def get_spatial_feature_type(feature, type_label):
     # get wfs type from given type label
     if type_label:
         try:
-            type_name = feature[type_label].value
+            type_name = feature.get(type_label)
         except Exception:
             logger.warning(f'Type label given - {type_label} not a valid field for this feature')
 
     if not type_name:
         try:
-            # todo: eventually remove?
-            type_name = feature['Types'].value if 'Types' in feature.fields else feature['type'].value
+            # todo: eventually remove Types
+            type_name = feature.get('FeatureType') if 'FeatureType' in feature.fields else feature.get(
+                'Types') if 'Types' in feature.fields else feature.get('type')
         except Exception:
-            logger.warning('Feature %s Missing featuretype', feature['name'].value)
+            logger.warning('Feature %s Missing featuretype', str(feature))
             return
 
-    try:
-        return models.SpatialFeatureType.objects.get_or_create(name=type_name)
-    except IntegrityError as ie:
-        logger.warning(ie)
-        return
+    if type_name:
+        try:
+            return models.SpatialFeatureType.objects.get_or_create(name=type_name)[0]
+        except IntegrityError as ie:
+            logger.warning(ie)
+            return
 
 
-def mappingv2_save_spatial_data(feature, source_name, spatialfile_id, external_id=None, type_label=None):
+# set feature name to some reasonable default if we can't find a name
+def set_feature_name(feature_record, feature, feature_type, counter):
+    if not feature_record.name.strip():
+        feature_name = 'Names' if 'Names' in feature.fields else 'Name'
+        try:
+            feature_record.name = feature.get(feature_name)
+        except Exception:
+            pass
+
+    # if still not set, use type & counter
+    if not feature_record.name.strip():
+        feature_record.name = feature_type.name + str(counter)
+
+
+def mappingv2_save_spatial_data(feature, source_name, spatialfile_id, external_id=None, type_label=None, counter=0):
     model = models.SpatialFeature
 
     # this only happens when called from import_spatial
     if not external_id:
-        external_id = feature['globalid'].value if 'globalid' in [x.lower() for x in feature.fields] \
-            else feature['fid'].value
+        external_id = feature.get('globalid') if 'globalid' in [x.lower() for x in feature.fields] else feature.get(
+            'fid')
 
-    feature_type, created = get_spatial_feature_type(feature, type_label)
+    feature_type = get_spatial_feature_type(feature, type_label)
     if not feature_type:
         return
 
@@ -174,9 +189,9 @@ def mappingv2_save_spatial_data(feature, source_name, spatialfile_id, external_i
         if attribute_field in fields:
             defaults[spatial_field['field']] = spatial_field['validator'](
                 feature[attribute_field].value)
-    try:
 
-        created = False
+    created = False
+    try:
         feature_record = model.objects.get(external_id=external_id)
     except model.DoesNotExist:
         feature_record = None
@@ -204,14 +219,9 @@ def mappingv2_save_spatial_data(feature, source_name, spatialfile_id, external_i
     feature_record.feature_geometry = feature_geometry
     for key, value in defaults.items():
         setattr(feature_record, key, value)
-    feature_record = save_spatial_file(spatialfile_id, models.SpatialFeatureFile, feature_record)
 
-    if not feature_record.name:
-        feature_name = 'Names' if 'Names' in feature.fields else 'Name'
-        try:
-            feature_record.name = feature[feature_name].value
-        except Exception:
-            pass
+    feature_record = save_spatial_file(spatialfile_id, models.SpatialFeatureFile, feature_record)
+    set_feature_name(feature_record, feature, feature_type, counter)
     feature_record.save()
 
 
@@ -245,8 +255,6 @@ def arcgis_integration(request, obj):
     # could optimize by authenticating conditionally
     gis = arcgis_authentication(request, obj)
     if gis:
-        # search for groups only within the user's org if a serchtext is given else search for groups outside
-        # the user's org as well.
         acrgis_groups_found = search_groups(gis, obj)
         if "_testconnection" in request.POST:
             message(request, messages.INFO, f'Successful Configuration')
@@ -264,6 +272,8 @@ def arcgis_integration(request, obj):
 
 
 def search_groups(gis, obj):
+    # search for groups only within the user's org if serchtext blank/empty else search for groups outside
+    # the user's org as well.
     groups = gis.groups.search() if not obj.search_text \
         else gis.groups.search(
         query=obj.search_text, outside_org=True, max_groups=100)
@@ -315,15 +325,15 @@ def extract_gis_data(obj, member, title, errored_files, success_files):
 
 
 def extract_features(obj, member, title, data, success_files, simple_presentation):
-    # todo: what if current dir is readonly?
-    with open(f'./{title}.geojson', 'w') as data_file:
-        data_file.write(data)
+    with tempfile.NamedTemporaryFile() as data_file:
+        data_file.write(data.encode())
+        data_file.flush()
+        data_file.seek(0)
         management.call_command(
             'importlayer', 'importspatialfile', data_file.name, typelabel=obj.type_label,
             source=obj.source, name_field=obj.name_field, id_field=obj.id_field,
             presentation=simple_presentation
         )
-        os.remove(data_file.name)
         success_files.append(member.title)
         return success_files
 
@@ -351,7 +361,7 @@ def import_featuretype_presentation(renderer):
                 feature_type.save()
     elif renderer.type == 'simple':
         simple_presentation = get_mb_style(renderer.symbol)
-        logger.info(simple_presentation)
+        # logger.info(simple_presentation)
         return simple_presentation
     else:
         logger.info(f'Ignoring {renderer.type} renderer')
@@ -389,7 +399,7 @@ def get_mb_style(symbol):
     elif type == ESRI_PMS or type == ESRI_PFS:
         logger.debug(f'processing picture symbol {type}')
         presentation = {
-            "image": symbol.imageData,
+            "image": f"data:image/png;base64,{symbol.imageData}",
             "width": symbol.width if hasattr(symbol, "width") else DEFAULT_IMAGE_WIDTH,
             "height": symbol.height if hasattr(symbol, "height") else DEFAULT_IMAGE_HEIGHT
         }
