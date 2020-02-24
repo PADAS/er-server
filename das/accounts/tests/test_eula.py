@@ -118,13 +118,13 @@ class EulaViewsTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         user = User.objects.get(id=self.user.id)
         self.assertTrue(user.accepted_eula)
-        self.assertTrue(response_data.get('accepted'))
+        self.assertTrue(response_data.get('accept'))
         self.assertEqual(response_data.get('eula'), eula.id)
 
     def test_revoke_eula_acceptance_view(self):
         eula = EULA.objects.create(eula_url="http://some.com/eulav1.1.pdf",
                                    version="EarthRanger_EULA_ver2025-03-12")
-        data = {"eula": eula.id, "user": self.user.id, "accepted": True}
+        data = {"eula": eula.id, "user": self.user.id, "accept": True}
         request = self.factory.post(self.api_base + '/eula/accept/', data)
         self.force_authenticate(request, self.user)
         response = views.AcceptEulaAPIView.as_view()(request)
@@ -132,12 +132,12 @@ class EulaViewsTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         user = User.objects.get(id=self.user.id)
         self.assertTrue(user.accepted_eula)
-        self.assertTrue(response_data.get('accepted'))
+        self.assertTrue(response_data.get('accept'))
         self.assertEqual(response_data.get('eula'), eula.id)
 
         agreement_id = response_data.get('id')
 
-        data = {"eula": eula.id, "user": self.user.id, "accepted": False}
+        data = {"eula": eula.id, "user": self.user.id, "accept": False}
         request = self.factory.post(self.api_base + '/eula/accept/', data)
         self.force_authenticate(request, self.user)
         response = views.AcceptEulaAPIView.as_view()(request)
@@ -147,7 +147,7 @@ class EulaViewsTestCase(BaseAPITest):
         with self.assertRaises(ObjectDoesNotExist):
             UserAgreement.objects.get(id=agreement_id)
 
-        data = {"eula": eula.id, "user": self.user.id, "accepted": True}
+        data = {"eula": eula.id, "user": self.user.id, "accept": True}
         request = self.factory.post(self.api_base + '/eula/accept/', data)
         self.force_authenticate(request, self.user)
         response = views.AcceptEulaAPIView.as_view()(request)
@@ -182,3 +182,6 @@ class EulaViewsTestCase(BaseAPITest):
         self.force_authenticate(request, self.user2)
         response = views.AcceptEulaAPIView.as_view()(request)
         self.assertEqual(response.status_code, 403)
+
+
+
