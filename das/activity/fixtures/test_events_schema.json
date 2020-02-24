@@ -56,5 +56,21 @@
     "schema": "{\r\n   \"schema\":{\r\n      \"$schema\":\"http://json-schema.org/draft-04/schema#\",\r\n      \"title\":\"EventType Test Data\",\r\n      \"type\":\"object\",\r\n      \"properties\":{\r\n         \"carcassrep_species\":{\r\n             \"key\": \"carcassrep_species\",\r\n             \"type\": \"array\",\r\n             \"title\": \"Species\",\r\n             \"items\": {\r\n                        \"type\": \"string\",\r\n                        \"enum\": {{enum___carcassrep_species___values}},\r\n                        \"enumNames\": {{enum___carcassrep_species___names}}\r\n             }\r\n\r\n\r\n         }\r\n      }\r\n   },\r\n   \"definition\":[\r\n      {\r\n         \"key\":\"carcassrep_species\"\r\n      }\r\n   ]\r\n}",
     "is_collection": false
   }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "9dd63bd8-ee19-4cf9-9f8c-0c246c4d4c75",
+  "fields": {
+    "created_at": "2020-02-24T18:56:40.423Z",
+    "updated_at": "2020-02-24T19:23:40.554Z",
+    "value": "sprint_88_behavior",
+    "display": "Sprint 88 Behavior",
+    "category": [
+      "security"
+    ],
+    "ordernum": null,
+    "schema": "{\r\n    \"schema\":\r\n    {\r\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"Species\",\r\n        \"type\": \"object\",\r\n        \"properties\":\r\n        {\r\n            \"carcassrep_species\": {\r\n                \"key\": \"carcassrep_species\"\r\n            }\r\n    }\r\n  },\r\n  \"definition\": [\r\n    {\r\n      \"type\": \"fieldset\",\r\n      \"htmlClass\": \"col-lg-6\",\r\n      \"items\": [\r\n      {\"key\": \"carcassrep_species\", \"type\": \"checkboxes\", \"title\": \"Species\", \"titleMap\": {{enum___carcassrep_species___map}}}\r\n      ]\r\n    }\r\n  ]\r\n}",
+    "is_collection": false
+  }
 }
 ]

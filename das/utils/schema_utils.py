@@ -264,21 +264,26 @@ def extractor(schema_item, definition, value):
     for definition_item in flatten_definition_items(definition):
         if isinstance(definition_item, dict) and definition_item.get('key') == schema_item['key']:
             if definition_item.get("type") == "checkboxes":
-                key, val = handle_checkboxes_in_fieldsets(definition_item)
+                key, val = handle_checkboxes_in_fieldsets(definition_item, value)
                 return definition_item.get('title'), val, key
             return definition_item.get('title'), val, key
     else:
         logger.info('Unable to resolve title for schema_item %s', repr(schema_item))
 
 
-def handle_checkboxes_in_fieldsets(definition_item):
+def handle_checkboxes_in_fieldsets(definition_item, values):
     names = []
-    values = []
+    ids = []
     for map_item in definition_item.get("titleMap", []):
-        values.append(map_item["value"])
-        names.append(map_item["name"])
+        val = map_item["value"]
+        is_list_of_dicts = all([isinstance(i, dict) for i in values])
+        if is_list_of_dicts:
+            return extract_from_list(values)
 
-    return ";".join(values), ";".join(names)
+        if isinstance(values, list) and val in values:
+            ids.append(map_item["value"])
+            names.append(map_item["name"])
+    return ";".join(ids), ";".join(names)
 
 
 def generate_index(start_at=0, incr=1):
