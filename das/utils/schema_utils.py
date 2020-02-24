@@ -244,6 +244,7 @@ def extract_from_dict_or_string(schema_item, value):
             value = schema_item['enumNames'][value]
     return value, name
 
+
 def extractor(schema_item, definition, value):
 
     # Determine how the value should appear.
@@ -262,10 +263,22 @@ def extractor(schema_item, definition, value):
 
     for definition_item in flatten_definition_items(definition):
         if isinstance(definition_item, dict) and definition_item.get('key') == schema_item['key']:
+            if definition_item.get("type") == "checkboxes":
+                key, val = handle_checkboxes_in_fieldsets(definition_item)
+                return definition_item.get('title'), val, key
             return definition_item.get('title'), val, key
     else:
         logger.info('Unable to resolve title for schema_item %s', repr(schema_item))
 
+
+def handle_checkboxes_in_fieldsets(definition_item):
+    names = []
+    values = []
+    for map_item in definition_item.get("titleMap", []):
+        values.append(map_item["value"])
+        names.append(map_item["name"])
+
+    return ";".join(values), ";".join(names)
 
 
 def generate_index(start_at=0, incr=1):
@@ -315,7 +328,6 @@ def flatten_definition_items(definition: list = list):
 
 def definition_key_order_as_dict(schema):
     return OrderedDict(definition_keys(schema.get('definition', [])))
-
 
 def detail_resolver(schema, key, value):
     if key in schema['schema']['properties']:
