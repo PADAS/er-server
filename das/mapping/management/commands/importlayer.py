@@ -184,9 +184,9 @@ class Command(BaseCommand):
 
             if self.presentation:
                 # TODO: get sft regardless of presentation and pass on further
-                spatial_feature_type, _ = get_spatial_feature_type(feature, self.featuretype_label)
+                spatial_feature_type = get_spatial_feature_type(feature, self.featuretype_label)
                 if not spatial_feature_type:
-                    logger.warning('Did not get spatialfeaturetype for %. Skipping', str(feature))
+                    logger.warning('Did not get spatialfeaturetype for %s. Skipping', str(feature))
                     continue
                 spatial_feature_type.presentation = self.presentation
                 # TODO: does a write in each iteration. Optimize.

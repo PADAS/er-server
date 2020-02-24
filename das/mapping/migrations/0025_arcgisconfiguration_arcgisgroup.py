@@ -39,7 +39,7 @@ class Migration(migrations.Migration):
                 ('source', models.CharField(blank=True, default='ArcGis', max_length=100, null=True)),
                 ('name_field', models.CharField(blank=True, help_text='Name of field in your GIS data that has the feature name. Default is Name', max_length=100, null=True)),
                 ('id_field', models.CharField(blank=True, help_text='Name of field in your GIS data that has the feature ID. Default is GlobalID', max_length=100, null=True)),
-                ('type_label', models.CharField(blank=True, help_text='Name of field in your GIS data that has the feature type. Default is Type', max_length=100, null=True, verbose_name='Type field')),
+                ('type_label', models.CharField(blank=True, help_text='Name of field in your GIS data that has the feature type. Defaults are Type and FeatureType', max_length=100, null=True, verbose_name='Type field')),
                 ('last_download', models.DateTimeField(blank=True, null=True, verbose_name='Last Download Time')),
                 ('groups', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='mapping.ArcgisGroup')),
             ],
