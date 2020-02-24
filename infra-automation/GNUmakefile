@@ -175,6 +175,7 @@ build_and_push: ## build and push
 generate_manifest: ## remove and regenerate the manifest
 	@ rm -f "$(manifest_file)"
 	@ $(MAKE) --no-print-directory -f $(this_file) $(manifest_file)
+	@ echo "" && cat $(manifest_file) && echo ""
 
 .PHONY: commit_and_push_manifest
 commit_and_push_manifest: $(manifest_file) # this should only be run by the build server
