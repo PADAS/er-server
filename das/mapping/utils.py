@@ -121,7 +121,7 @@ def get_spatial_feature_type(feature, type_label):
             type_name = feature.get('FeatureType') if 'FeatureType' in feature.fields else feature.get(
                 'Types') if 'Types' in feature.fields else feature.get('type')
         except Exception:
-            logger.warning('Feature %s Missing featuretype', str(feature))
+            logger.warning('%s missing featuretype', str(feature))
             return
 
     if type_name:

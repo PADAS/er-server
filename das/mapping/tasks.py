@@ -24,35 +24,34 @@ def background_download_features_from_wfs(obj_id):
     obj, wfs_group = get_wfs_config_objects(obj_id)
     errored_files, success_files, group_members = [], [], wfs_group.content()
 
-    # TODO:
-    items_to_download = None
-    AP_GROUP_ID = 'a47fb09a85fb41ec9d70ef608761f7fa'
-    ER_GROUP_ID = 'dc27285af43546a080407241d7eeab47'
-
-    # restricting APN group members for demo
-    if wfs_group.id == AP_GROUP_ID:
-        items_to_download = [
-            'Akagera_Land_Cover',
-            'Built_point',
-            'Hydrology_polygon',
-            'Transport_line',
-            # 'Hydrology_line'
-        ]
-    elif wfs_group.id == ER_GROUP_ID:
-        items_to_download = [
-            'Point features near Vulcan',
-            'STE Points Wells Closed',
-            'polygon features',
-            'Lines near Vulcan',
-            'Villages'
-        ]
+    # items_to_download = None
+    # AP_GROUP_ID = 'a47fb09a85fb41ec9d70ef608761f7fa'
+    # ER_GROUP_ID = 'dc27285af43546a080407241d7eeab47'
+    #
+    # # restricting APN group members for demo
+    # if wfs_group.id == AP_GROUP_ID:
+    #     items_to_download = [
+    #         'Akagera_Land_Cover',
+    #         'Built_point',
+    #         'Hydrology_polygon',
+    #         'Transport_line',
+    #         # 'Hydrology_line'
+    #     ]
+    # elif wfs_group.id == ER_GROUP_ID:
+    #     items_to_download = [
+    #         'Point features near Vulcan',
+    #         'STE Points Wells Closed',
+    #         'polygon features',
+    #         'Lines near Vulcan',
+    #         'Villages'
+    #     ]
 
     for member in group_members:
         if member.type == "Feature Service":
             # TODO: before merge to develop remove all the items_to_download related stuff
-            if items_to_download and member.title not in items_to_download:
-                logger.info(f'Skipping {member.title}')
-                continue
+            # if items_to_download and member.title not in items_to_download:
+            #     logger.info(f'Skipping {member.title}')
+            #     continue
             title = member.title.replace(' ', '-')
             logger.info(f'processing {title}')
             success_files, errored_files = utils.extract_gis_data(
