@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: jumper
+  namespace: 4410
+spec:
+  volumes:
+  - name: google-credentials
+    secret:
+      secretName: google-application-credentials
+      items:
+      - key: credentials_json
+        path: "google_credentials.json"
+  - name: server-config-volume
+    configMap:
+      name: server-configmap
+      items:
+        - key: dotenv
+          path: .env
+        
+  containers:
+  - name: jumper
+    image: ubuntu:18.04
+    command:
+      - sleep
+      - "3600"
+    imagePullPolicy: IfNotPresent
+    volumeMounts:
+    - name: google-credentials
+      mountPath: "/etc/earthranger/"
+      readOnly: true
+    - name: server-config-volume
+      mountPath: "/etc/das/"
+      readOnly: true
+  restartPolicy: Always
