@@ -11,7 +11,7 @@ variable "site_ip_address" {
 }
 
 variable "time_zone" {
-  type = string
+  type    = string
   default = "US/Pacific"
 }
 
