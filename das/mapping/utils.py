@@ -329,6 +329,7 @@ def extract_features(obj, member, title, data, success_files, simple_presentatio
         data_file.write(data.encode())
         data_file.flush()
         data_file.seek(0)
+        logger.info(f'Importing {title} features from tempfile {data_file.name}')
         management.call_command(
             'importlayer', 'importspatialfile', data_file.name, typelabel=obj.type_label,
             source=obj.source, name_field=obj.name_field, id_field=obj.id_field,
