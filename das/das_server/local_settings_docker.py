@@ -16,7 +16,7 @@ env = environ.Env(
 
 # this reads the .env file in the local dir. You can
 # specify specific envs if needed.
-environ.Env.read_env(env_file='/etc/das/.env')
+environ.Env.read_env()
 
 MEDIA_ROOT = '/user-uploads'
 MEDIA_URL = 'http://localhost:8000/media/user-uploads/'
