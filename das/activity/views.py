@@ -1,4 +1,5 @@
 import copy
+import csv
 import json
 import logging
 import mimetypes
@@ -408,8 +409,6 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
                             if display_value not in custom_headers:
                                 column_name = schema_utils.get_column_header_name(current_schema, key)
-                                # replace commas in columns names to avoid breaking the csv
-                                column_name = column_name.replace(",", "")
                                 custom_headers.append(column_name)
 
                 except json.JSONDecodeError:
@@ -441,39 +440,43 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
             # Now assemble the data we want to write to the csv
             event_data = {
-                'serial': event['serial_number'],
-                'event_type': event_type['display'],
-                'event_type_internal': event_type['value'],
-                'title': self.escape_string(event['title']),
-                'priority': Event.PRIORITY_LABELS_MAP.get(event['priority'],
+                "Report_Type": event_type.get('display', ''),
+                "Report_Type_Internal_Value": event_type.get('value', ''),
+                "Report_Id": event.get('serial_number', ''),
+                "Title": self.escape_string(event['title']),
+                "Priority": Event.PRIORITY_LABELS_MAP.get(event['priority'],
                                                           ''),
-                'priority_internal': event['priority'],
-                'reported_at': event['event_time'].astimezone(
+                "Priority_Internal_Value": event['priority'],
+                "Status": "Resolved" if event['state'] == Event.SC_RESOLVED else 'Active',
+                reported_at.replace(" ", "_"): event['event_time'].astimezone(
                     current_tz).strftime('%Y-%m-%d %H:%M'),
-                'lat': event['location'].y if event[
-                    'location'] is not None else '',
-                'lon': event['location'].x if event[
-                    'location'] is not None else '',
-                'num_notes': event['notes_count'],
-                'notes': self.escape_string(event['full_notes']),
-                'num_attach': event['related_subjects_count'],
-                'parent_event_serial_numbers': ';'.join((str(x) for x in event['parent_event_serial_numbers'] if x is not None)),
-                'status': 'Resolved' if event[
-                    'state'] == Event.SC_RESOLVED else 'Active',
-                'details': schema_data
+                "Latitude": event['location'].y if event[
+                                                       'location'] is not None else '',
+                "Longitude": event['location'].x if event[
+                                                        'location'] is not None else '',
+                "Number_of_Notes": event['notes_count'],
+                "Notes": self.escape_string(event['full_notes']),
+                "Number_of_Related_Subjects": event.get('', ''),
+                "Collection_Report_IDs": event.get('', ''),
+                "CUSTOM_FIELDS_BEGIN_HERE": "",
             }
 
             # Use cached reported_by map
             reported_by_values = reported_by_map.get(
                 str(event['reported_by_id']))
-            event_data['reported_by'] = reported_by_values.get(
+            event_data['Reported_By'] = reported_by_values.get(
                 'display', '') if reported_by_values else ''
+
+            for header in custom_headers:
+                header_key = header.replace(' ', '_')
+                event_data[header_key] = schema_data.get(header, "")
 
             current_event_type_data['events'].append(event_data)
 
         if not combined_headers:
             combined_headers.extend(default_headers)
             combined_headers.extend(custom_headers)
+
         return {
             'event_export_data': event_export_data,
             'combined_headers': [header.replace(' ', '_') for header in
@@ -496,10 +499,18 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
     def render_to_response(self, context, **response_kwargs):
 
-        response = super().render_to_response(context, **response_kwargs)
+        # response = super().render_to_response(context, **response_kwargs)
+        response = HttpResponse(content_type='text/csv')
         response[
             'Content-Disposition'] = f'attachment; filename={context["report_filename"]}'
         response['x-das-download-filename'] = context['report_filename']
+
+        writer = csv.DictWriter(response, fieldnames=context['event_types'].get('combined_headers'))
+        writer.writeheader()
+        event_types = context['event_types']
+        for event_type in event_types.get('event_export_data', []):
+            for event in event_type.get('events', {}):
+                writer.writerow(event)
         return response
 
     def get_context_data(self, **kwargs):
