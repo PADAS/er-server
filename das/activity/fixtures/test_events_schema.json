@@ -53,7 +53,7 @@
       "security"
     ],
     "ordernum": 300,
-    "schema": "{\r\n   \"schema\":{\r\n      \"$schema\":\"http://json-schema.org/draft-04/schema#\",\r\n      \"title\":\"EventType Test Data\",\r\n      \"type\":\"object\",\r\n      \"properties\":{\r\n         \"carcassrep_species\":{\r\n             \"key\": \"carcassrep_species\",\r\n             \"type\": \"array\",\r\n             \"title\": \"Species\",\r\n             \"items\": {\r\n                        \"type\": \"string\",\r\n                        \"enum\": {{enum___carcassrep_species___values}},\r\n                        \"enumNames\": {{enum___carcassrep_species___names}}\r\n             }\r\n\r\n\r\n         }\r\n      }\r\n   },\r\n   \"definition\":[\r\n      {\r\n         \"key\":\"carcassrep_species\"\r\n      }\r\n   ]\r\n}",
+    "schema": "{\r\n   \"schema\":{\r\n      \"$schema\":\"http://json-schema.org/draft-04/schema#\",\r\n      \"title\":\"EventType Test Data\",\r\n      \"type\":\"object\",\r\n      \"properties\":{\r\n         \"carcassrep_species\":{\r\n             \"key\": \"carcassrep_species\",\r\n             \"type\": \"array\",\r\n             \"title\": \"Species\",\r\n             \"items\": {\r\n                        \"type\": \"string\",\r\n                        \"enumValues\": {{enum___carcassrep_species___values}},\r\n                        \"enumNames\": {{enum___carcassrep_species___names}}\r\n             }\r\n\r\n\r\n         }\r\n      }\r\n   },\r\n   \"definition\":[\r\n      {\r\n         \"key\":\"carcassrep_species\"\r\n      }\r\n   ]\r\n}",
     "is_collection": false
   }
 },

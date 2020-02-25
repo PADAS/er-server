@@ -1954,7 +1954,6 @@ class TestEventView(BaseAPITest):
             if row.get('Report_Type') == '4787-Array':
                 target_row = row
                 break
-
         self.assertIn('Species', target_row.keys())
         self.assertIn('carcassrep_species', target_row.keys())
         self.assertEqual(target_row.get('Species'), '"Bongo;Buffalo"')

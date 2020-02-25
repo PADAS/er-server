@@ -233,29 +233,29 @@ def extract_from_list(items: list = list):
 
 def extract_from_dict_or_string(schema_item, value):
     # value might be a dict, in which case it includes a 'value' attribute.
-    name = value
+    display = value
     if isinstance(value, dict):
-        name = value.get('name')
+        display = value.get('name')
         value = value.get('value') or str(value)
 
     # Get the value and display value for the current value
     if schema_item.get('type', None) == 'string':
         if value in schema_item.get('enumNames', {}):
-            value = schema_item['enumNames'][value]
-    return value, name
+            display = schema_item['enumNames'][value]
+    return value, display
 
 
 def extractor(schema_item, definition, value):
 
     # Determine how the value should appear.
     if isinstance(value, list):
-        key, val = extract_from_list(value)
+        val, display = extract_from_list(value)
     else:
-        key, val = extract_from_dict_or_string(schema_item, value)
+        val, display = extract_from_dict_or_string(schema_item, value)
 
     # The simplest case is when the json schema specifies the title.
     if 'title' in schema_item:
-        return schema_item['title'], val, key
+        return schema_item['title'], val, display
 
     if 'key' not in schema_item:
         logger.warning(f'key not found in schema_item {schema_item}')
@@ -264,9 +264,9 @@ def extractor(schema_item, definition, value):
     for definition_item in flatten_definition_items(definition):
         if isinstance(definition_item, dict) and definition_item.get('key') == schema_item['key']:
             if definition_item.get("type") == "checkboxes":
-                key, val = handle_checkboxes_in_fieldsets(definition_item, value)
-                return definition_item.get('title'), val, key
-            return definition_item.get('title'), val, key
+                val, display = handle_checkboxes_in_fieldsets(definition_item, value)
+                return definition_item.get('title'), val, display
+            return definition_item.get('title'), val, display
     else:
         logger.info('Unable to resolve title for schema_item %s', repr(schema_item))
 
@@ -372,10 +372,10 @@ def get_display_values_for_event_details(event_details, schema):
 
         logger.debug(f'Resolved details for {k} {v} = {resolved_details}')
         if resolved_details:
-            title, display, value = resolved_details
+            title, value, display = resolved_details
             ret.update({
-                k: resolved_details[2],
-                resolved_details[0]: resolved_details[1]
+                k: value,
+                title: display
             })
     return ret
 
