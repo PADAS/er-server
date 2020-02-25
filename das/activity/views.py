@@ -408,6 +408,8 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
                             if display_value not in custom_headers:
                                 column_name = schema_utils.get_column_header_name(current_schema, key)
+                                # replace commas in columns names to avoid breaking the csv
+                                column_name = column_name.replace(",", "")
                                 custom_headers.append(column_name)
 
                 except json.JSONDecodeError:
