@@ -77,15 +77,24 @@ def load_spatial_features_from_files(data_files, tmpdirs, source_name, spatialfi
                                      layer=None, presentation=None, featuretype_label=None,
                                      id_field=None, name_field=None, featuretype=None, featureset=None):
     try:
-        datasource, layer_num = utils.get_datasource_and_layer_num(
-            data_files, tmpdirs, 0)
+        data_files = [data_files] if isinstance(
+            data_files, str) else data_files
+        if feature_types_file:
+            datasource, layer_num = utils.get_datasource_and_layer_num(
+                feature_types_file, tmpdirs, 0)
+            utils.import_feature_types(
+                datasource[layer_num], source_name, spatialfile_id)
 
-        utils.import_layer(
-            datasource[layer_num], source_name, spatialfile_id,
-            featuretype, featureset, presentation, featuretype_label,
-            id_field, name_field)
+        for filename in data_files:
+            datasource, layer_num = utils.get_datasource_and_layer_num(
+                filename, tmpdirs, 0)
+
+            utils.import_layer(
+                datasource[layer_num], source_name, spatialfile_id,
+                featuretype, featureset, presentation, featuretype_label,
+                id_field, name_field)
+            utils.cleanup_files(filename)
     except Exception as ex:
         logger.exception(ex)
     finally:
         datasource = None
-        utils.cleanup_files(filename)

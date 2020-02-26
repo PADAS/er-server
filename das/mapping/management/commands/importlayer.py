@@ -84,12 +84,14 @@ class Command(BaseCommand):
                      featureset.name, featuretype.name)
 
         load_spatial_features_from_files.apply_async(args=(
-            self.filename, self.tmpdirs, self.layer, self.presentation, self.featuretype_label, self.source_name,
-            self.spatialfile_id, self.id_field, self.name_field, featuretype, featureset,))
+            self.filename, self.tmpdirs, self.source_name, self.spatialfile_id,
+            None, self.layer, self.presentation, self.featuretype_label,
+            self.id_field, self.name_field, featuretype, featureset,))
 
     def importspatialfile(self):
         logger.info('Importing features from shapefile: %s',
                     self.filename)
         load_spatial_features_from_files.apply_async(args=(
-            self.filename, self.tmpdirs, self.layer, self.presentation, self.featuretype_label, self.source_name,
-            self.spatialfile_id, self.id_field, self.name_field, self.featuretype,))
+            self.filename, self.tmpdirs, self.source_name, self.spatialfile_id,
+            None, self.layer, self.presentation, self.featuretype_label,
+            self.id_field, self.name_field, self.featuretype,))

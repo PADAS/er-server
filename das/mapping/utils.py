@@ -1,10 +1,11 @@
 import datetime
 import logging
+import os
+import shutil
 import tempfile
 from zipfile import ZipFile
 
 import arcgis
-from arcgis2geojson import arcgis2geojson
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.gis.gdal import DataSource, GDALException
@@ -15,6 +16,7 @@ from django.utils.encoding import force_text
 from django.utils.safestring import mark_safe
 
 import utils.json
+from arcgis2geojson import arcgis2geojson
 from mapping import models
 from mapping.tasks import background_download_features_from_wfs
 from utils.spatial import GeometryMapper
@@ -25,17 +27,16 @@ logger = logging.getLogger(__name__)
 MAPPING_FEATURES_V2 = getattr(settings, 'MAPPING_FEATURES_V2', False)
 
 
-def shortname_validator(value):
-    if value:
-        value = value[:25]
-    return value
-
 FEATURE_TYPES = {
     'Primary': 'Primary Roads',
     'Secondary': 'Secondary Roads',
     'Old': 'Old Roads',
     'Tertiary': 'Tertiary Roads',
 }
+
+TYPE_PROVENANCE_FIELDS = ('last_edited_user',
+                          'last_edited_date',
+                          'other_id')
 
 DEFAULT_SOURCE_NAME = 'STE'
 
@@ -45,10 +46,6 @@ PROVENANCE_FIELDS = ('collect_user', 'collect_method', 'collect_date',
                      'created_user', 'created_date', 'last_edited_user',
                      'last_edited_date',
                      'other_id')
-
-ATTRIBUTES_TO_SPATIAL_MAPPING = {'short_name': {'field': 'short_name', 'validator': shortname_validator},
-                                 'name': {'field': 'name', 'validator': lambda v: v}
-                                 }
 
 ESRI_LINE = 'esriSLS'
 ESRI_POLYGON = 'esriSFS'
@@ -73,6 +70,17 @@ DEFAULT_POLYGON = {
     "stroke-width": 1,
     "stroke-opacity": 0.7
 }
+
+
+def shortname_validator(value):
+    if value:
+        value = value[:25]
+    return value
+
+
+ATTRIBUTES_TO_SPATIAL_MAPPING = {'short_name': {'field': 'short_name', 'validator': shortname_validator},
+                                 'name': {'field': 'name', 'validator': lambda v: v}
+                                 }
 
 
 def validate_feature_record(record, record_name, model):
@@ -543,11 +551,8 @@ def cleanup_files(filename):
         uploaded_file_path = path + "/" + name
         uploaded_file_directory = path
 
-        import shutil
-        import os
         try:
             if os.path.exists(uploaded_file_path):
-                logger.info(f"**** Yessss.... deleting {name}")
                 os.remove(uploaded_file_path)
             shutil.rmtree(uploaded_file_directory)
         except PermissionError:
@@ -598,3 +603,67 @@ def mappingv1_save_spatial_data(feature, featureset, featuretype, external_id, n
         pass
     feature_record = save_spatial_file(spatialfile_id, models.SpatialFile, feature_record)
     feature_record.save()
+
+
+def get_display_category(display_category_name, create_okay=True):
+    try:
+        display_category = models.DisplayCategory.objects.get_by_natural_key(
+            display_category_name)
+    except models.DisplayCategory.DoesNotExist:
+        if create_okay:
+            display_category = models.DisplayCategory.objects.create(
+                name=display_category_name)
+        else:
+            raise
+    return display_category
+
+
+def import_feature_types(datasource, source_name, spatialfile_id):
+    model = models.SpatialFeatureType
+    for feature in datasource:
+        fields = list(fields_iter(feature))
+        global_id = feature['globalid'].value
+        name = feature['type'].value
+
+        provenance = {feature_name: feature[feature_name].value for feature_name in fields if feature_name in TYPE_PROVENANCE_FIELDS}
+        provenance = reduce_json(provenance)
+
+        attribute_schema = feature['attribute_schema'].value if 'attribute_schema' in fields else None
+        if attribute_schema:
+            try:
+                attribute_schema = utils.json.loads(attribute_schema)
+            except utils.json.JSONDecodeError as ex:
+                logger.warning('FeatureType attribute_schema not JSON for globalid=%s: %s',
+                                global_id, ex)
+                attribute_schema = {}
+
+        defaults = {'provenance': provenance, 'attribute_schema': attribute_schema,
+                    'external_source': source_name}
+
+        try:
+            type_record, created = model.objects.get_or_create(
+                name=name,
+                defaults=defaults,
+                display_category=get_display_category(
+                    feature['display_category'].value),
+                external_id=global_id)
+        except IntegrityError as err:
+            logger.warning(err)
+            return
+        except Exception as error:
+            raise ValidationError({'feature_types_file': ["Unable to process file: ", error]})
+
+        logger.debug('Import feature_type: %s, created:%s',
+                        global_id, created)
+
+        if 'tags' in fields:
+            type_record.tags = [value.strip()
+                                for value in feature['tags'].value.split(',')]
+        type_record.display_category = get_display_category(
+            feature['display_category'].value)
+        type_record.name = name
+        for key, value in defaults.items():
+            setattr(type_record, key, value)
+        print("----")
+
+        type_record.save()
