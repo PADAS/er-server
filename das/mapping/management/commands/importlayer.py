@@ -50,6 +50,7 @@ class Command(BaseCommand):
         self.featureset = options['featureset']
         self.spatialfile_id = options['spatialfile_id'] if options['spatialfile_id'] else self.spatialfile_id
         self.presentation = options['presentation']
+        self.arcgis_item_id = options['arcgisitemid']
 
         sub_command = options['sub_command']
         if sub_command not in self.SUB_COMMANDS:
@@ -82,6 +83,8 @@ class Command(BaseCommand):
                             help='Spatial file ID')
         parser.add_argument('--presentation', type=dict,
                             help='Presentation from an ArcGIS Simple Renderer')
+        parser.add_argument('--arcgisitemid', type=str,
+                            help='Id of the models.ArcgisItem object')
 
     def importlayerfile(self):
 
@@ -107,8 +110,9 @@ class Command(BaseCommand):
         try:
             datasource, layer_num = self.get_datasource_and_layer_num()
             self.import_layer(datasource[layer_num], self.featuretype)
-        except Exception as ex:
-            logger.exception(ex)
+        # not the right place to do a catch all exception
+        # except Exception as ex:
+        #     logger.exception(ex)
         finally:
             datasource = None
 
@@ -138,7 +142,7 @@ class Command(BaseCommand):
             return models.PointFeature
         raise KeyError('DAS Feature class not found for {0}'.format(name))
 
-    def make_external_id(self, layer, feature):
+    def make_external_id(self, layer, feature, arc_item_id=None):
         name_value = ''
         id_value = ''
         for name in feature.fields:
@@ -146,6 +150,8 @@ class Command(BaseCommand):
                 id_value = str(feature[name].value)
             elif self.name_field and name.lower() == self.name_field.lower():
                 name_value = str(feature[name].value)
+        if arc_item_id:
+            return '-'.join((str(arc_item_id), name_value, id_value))
         return '-'.join((layer.name, name_value, id_value))
 
     def get_featuretype_for_feature(self, feature, default=None):
@@ -180,6 +186,16 @@ class Command(BaseCommand):
 
         has_unique_keys = self.contains_unique_keys_in_layer(layer)
 
+        # TODO: should probably split out arcgis data processing into a subcommand at the Command.handle() level
+        # rough first cut
+        arc_item = models.ArcgisItem.objects.get(id=self.arcgis_item_id)
+        # bail if processing arcgis data and arc_item is null
+        # TODO: revisit and handle case where layer/features donot have a GlobalID
+        received_global_ids = [self.make_external_id(layer, f, arc_item.id) for f in layer]
+        delete_res = models.SpatialFeature.objects.filter(arcgis_item=arc_item).exclude(
+            external_id__in=received_global_ids).delete()
+        logger.info(f'deleted featutes {delete_res}')
+
         for i, feature in enumerate(layer):
 
             if self.presentation:
@@ -197,12 +213,12 @@ class Command(BaseCommand):
             # TODO: make configurable, move out filter key (e.g., Park below) & filter value (ui_site_url) to the admin UI.
             if hasattr(settings, 'UI_SITE_URL') and 'Park' in feature.fields:
                 if feature['Park'].value.lower() in settings.UI_SITE_URL.lower():
-                    self.load_layer(layer, featuretype, featureset, feature, has_unique_keys, i)
+                    self.save_layer_feature(layer, featuretype, featureset, feature, has_unique_keys, i, arc_item)
             else:
-                self.load_layer(layer, featuretype, featureset, feature, has_unique_keys, i)
+                self.save_layer_feature(layer, featuretype, featureset, feature, has_unique_keys, i, arc_item)
 
-    def load_layer(self, layer, featuretype, featureset, feature, has_unique_keys, i):
-        external_id = self.make_external_id(layer, feature)
+    def save_layer_feature(self, layer, featuretype, featureset, feature, has_unique_keys, i, arc_item=None):
+        external_id = self.make_external_id(layer, feature, arc_item.id)
         if not has_unique_keys:
             external_id = external_id + '-' + str(i)
         if featureset:
@@ -210,7 +226,7 @@ class Command(BaseCommand):
                 feature, featureset, featuretype, external_id)
         else:
             mappingv2_save_spatial_data(feature, self.source_name,
-                                        self.spatialfile_id, external_id, self.featuretype_label)
+                                        self.spatialfile_id, external_id, self.featuretype_label, arc_item)
 
     def mappingv1_save_spatial_data(self, feature, featureset, featuretype, external_id):
         fields = {}

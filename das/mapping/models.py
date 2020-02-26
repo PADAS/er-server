@@ -789,6 +789,7 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
     feature_geometry = models.GeometryField(geography=True, srid=4326)
     spatialfile = models.ForeignKey(
         to=SpatialFeatureFile, null=True, blank=True, on_delete=models.SET_NULL)
+    arcgis_item = models.ForeignKey(to='ArcgisItem', null=True, blank=True, on_delete=models.CASCADE)
     revision = Revision()
 
     @property
@@ -837,3 +838,8 @@ class ArcgisConfiguration(TimestampedModel):
     class Meta:
         verbose_name = 'Feature Service Configuration'
 
+
+# Minimal model for an arcgis.gis.Item
+class ArcgisItem(TimestampedModel):
+    id = models.UUIDField(primary_key=True)
+    name = models.CharField(max_length=50)

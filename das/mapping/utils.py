@@ -44,6 +44,7 @@ ATTRIBUTES_TO_SPATIAL_MAPPING = {'short_name': {'field': 'short_name', 'validato
                                  'name': {'field': 'name', 'validator': lambda v: v}
                                  }
 
+ESRI_FEATURE_EDITDATE = 'EditDate'
 ESRI_LINE = 'esriSLS'
 ESRI_POLYGON = 'esriSFS'
 ESRI_PMS = 'esriPMS'
@@ -146,11 +147,23 @@ def set_feature_name(feature_record, feature, feature_type, counter):
         feature_record.name = feature_type.name + str(counter)
 
 
-def mappingv2_save_spatial_data(feature, source_name, spatialfile_id, external_id=None, type_label=None, counter=0):
+def db_feature_needs_update(feature_record, feature):
+    needs_update = True
+    if feature_record and ESRI_FEATURE_EDITDATE in feature.fields:
+        last_edit_ts = int(feature.get(ESRI_FEATURE_EDITDATE))
+        last_edit_at = datetime.datetime.fromtimestamp(int(last_edit_ts/1000), datetime.timezone.utc)
+        needs_update = last_edit_at > feature_record.updated_at
+
+    return needs_update
+
+
+def mappingv2_save_spatial_data(feature, source_name, spatialfile_id, external_id=None, type_label=None, counter=0,
+                                arc_item=None):
     model = models.SpatialFeature
 
     # this only happens when called from import_spatial
     if not external_id:
+        # why the x.lower??
         external_id = feature.get('globalid') if 'globalid' in [x.lower() for x in feature.fields] else feature.get(
             'fid')
 
@@ -190,33 +203,38 @@ def mappingv2_save_spatial_data(feature, source_name, spatialfile_id, external_i
             defaults[spatial_field['field']] = spatial_field['validator'](
                 feature[attribute_field].value)
 
+    # redo all of this with update_or_create
     created = False
     try:
         feature_record = model.objects.get(external_id=external_id)
     except model.DoesNotExist:
         feature_record = None
 
-    if not feature_record:
+    if db_feature_needs_update(feature_record, feature):
+        logger.info(f'feature {external_id} needs updating')
         try:
+            # update_or_create
             feature_record = model.objects.create_spatialfeature(
                 feature_geometry=feature_geometry,
                 feature_type=feature_type,
-                external_id=external_id)
+                external_id=external_id,
+                arcgis_item=arc_item)
             created = True
         except IntegrityError:
             logger.warning('Feature has null geometry: global_id=%s, %s',
                            external_id, defaults)
             return
+    else:
+        logger.info(f'skipping feature {external_id}. update not needed')
 
-    logger.debug('Import feature: %s, created:%s',
-                 external_id, created)
+    logger.debug('Import feature: %s, created:%s', external_id, created)
 
-    feature_record.feature_type = feature_type
+    feature_record.feature_type = feature_type  # why are we doing this again??
 
     if 'tags' in feature.fields:
         feature_record.tags = [value.strip()
                                for value in feature['tags'].value.split(',')]
-    feature_record.feature_geometry = feature_geometry
+    feature_record.feature_geometry = feature_geometry # why are we doing this again??
     for key, value in defaults.items():
         setattr(feature_record, key, value)
 
@@ -229,7 +247,7 @@ def save_spatial_file(spatialfile_id, model, record):
     if spatialfile_id:
         spatialfile = model.objects.get(id=spatialfile_id)
         record.spatialfile = spatialfile
-    return record
+    return record #don't need to return the
 
 
 def check_file_extension(f_type, data_file, feature_types_file):
@@ -261,9 +279,11 @@ def arcgis_integration(request, obj):
         elif "_downloadfeatures" in request.POST:
             # set to a background task
             try:
-                task_started_msg = "Features download in progress, checkout loaded <a href='/admin/mapping/spatialfeature/'>spatialfeatures</a> after a few minutes"
-                message(request, messages.INFO, mark_safe(task_started_msg))
-                background_download_features_from_wfs.apply_async(args=(obj.id,))
+                # TODO: undo this
+                # task_started_msg = "Features download in progress, checkout loaded <a href='/admin/mapping/spatialfeature/'>spatialfeatures</a> after a few minutes"
+                # message(request, messages.INFO, mark_safe(task_started_msg))
+                # background_download_features_from_wfs.apply_async(args=(obj.id,))
+                background_download_features_from_wfs(obj.id)
             except Exception as ex:
                 error_msg = f"Select a group to enable features download"
                 message(request, messages.ERROR,ex) if request else logger.debug(error_msg)
@@ -306,7 +326,7 @@ def arcgis_authentication(request, obj):
         message(request, messages.ERROR, error) if request else logger.exception(error)
 
 
-def extract_gis_data(obj, member, title, errored_files, success_files):
+def extract_gis_data(obj, member, title, errored_files, success_files, arcgis_item_id):
     data = None
     simple_presentation = None
     try:
@@ -320,11 +340,12 @@ def extract_gis_data(obj, member, title, errored_files, success_files):
         logger.info(f'Error reading from {member.title}', error)
         errored_files.append(member.title)
     if data:
-        success_files = extract_features(obj, member, title, data, success_files, simple_presentation)
+        # TODO: validate that we have valid, non-empty content in data, else gdal barfs later
+        success_files = extract_features(obj, member, title, data, success_files, simple_presentation, arcgis_item_id)
         return success_files, errored_files
 
 
-def extract_features(obj, member, title, data, success_files, simple_presentation):
+def extract_features(obj, member, title, data, success_files, simple_presentation, arcgis_item_id):
     with tempfile.NamedTemporaryFile() as data_file:
         data_file.write(data.encode())
         data_file.flush()
@@ -333,7 +354,7 @@ def extract_features(obj, member, title, data, success_files, simple_presentatio
         management.call_command(
             'importlayer', 'importspatialfile', data_file.name, typelabel=obj.type_label,
             source=obj.source, name_field=obj.name_field, id_field=obj.id_field,
-            presentation=simple_presentation
+            presentation=simple_presentation, arcgisitemid=arcgis_item_id
         )
         success_files.append(member.title)
         return success_files

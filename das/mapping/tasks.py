@@ -1,6 +1,7 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
+from django.db import transaction
 from celery_once import QueueOnce
 
 from das_server import celery
@@ -25,19 +26,19 @@ def background_download_features_from_wfs(obj_id):
     errored_files, success_files, group_members = [], [], wfs_group.content()
 
     # items_to_download = None
-    # AP_GROUP_ID = 'a47fb09a85fb41ec9d70ef608761f7fa'
-    # ER_GROUP_ID = 'dc27285af43546a080407241d7eeab47'
-    #
-    # # restricting APN group members for demo
-    # if wfs_group.id == AP_GROUP_ID:
-    #     items_to_download = [
-    #         'Akagera_Land_Cover',
-    #         'Built_point',
-    #         'Hydrology_polygon',
-    #         'Transport_line',
-    #         # 'Hydrology_line'
-    #     ]
-    # elif wfs_group.id == ER_GROUP_ID:
+    #         # AP_GROUP_ID = 'a47fb09a85fb41ec9d70ef608761f7fa'
+    #         # ER_GROUP_ID = 'dc27285af43546a080407241d7eeab47'
+    #         #
+    #         # # restricting APN group members for demo
+    #         # if wfs_group.id == AP_GROUP_ID:
+    #         #     items_to_download = [
+    #         #         'Akagera_Land_Cover',
+    #         #         'Built_point',
+    #         #         'Hydrology_polygon',
+    #         #         'Transport_line',
+    #         #         # 'Hydrology_line'
+    #         #     ]
+    #         # elif wfs_group.id == ER_GROUP_ID:
     #     items_to_download = [
     #         'Point features near Vulcan',
     #         'STE Points Wells Closed',
@@ -45,18 +46,33 @@ def background_download_features_from_wfs(obj_id):
     #         'Lines near Vulcan',
     #         'Villages'
     #     ]
-
+    received_item_ids = [m.itemid for m in group_members]
+    delete_res = models.ArcgisItem.objects.exclude(id__in=received_item_ids).delete()
+    logger.info(f'deleted items {delete_res}')
     for member in group_members:
-        if member.type == "Feature Service":
-            # TODO: before merge to develop remove all the items_to_download related stuff
-            # if items_to_download and member.title not in items_to_download:
-            #     logger.info(f'Skipping {member.title}')
-            #     continue
-            title = member.title.replace(' ', '-')
-            logger.info(f'processing {title}')
-            success_files, errored_files = utils.extract_gis_data(
-                obj, member, title, errored_files, success_files)
-    
+        try:
+            with transaction.atomic():
+                if member.type == "Feature Service":
+                    # TODO: before merge to develop remove all the items_to_download related stuff
+                    # if items_to_download and member.title not in items_to_download:
+                    #     logger.info(f'Skipping {member.title}')
+                    #     continue
+                    title = member.title.replace(' ', '-')
+                    last_modified = datetime.fromtimestamp(int(member.modified/1000), timezone.utc)
+                    logger.info(f'processing {title}')
+                    arcgis_item, created = models.ArcgisItem.objects.get_or_create(
+                        id=member.id,
+                        name=title
+                    )
+                    if created or last_modified > arcgis_item.updated_at:
+                        utils.extract_gis_data(obj, member, title, errored_files, success_files, arcgis_item.id)
+                    else:
+                        logger.info(f'{title} not modified since last sync. Skipping update')
+
+        except Exception as ex:
+            logger.warning(f'Exception raised for object id {obj_id}')
+            logger.exception(ex)
+
     # update last download time
     obj.last_download = convert_date_string(str(datetime.now()))
     obj.save()
