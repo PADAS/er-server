@@ -1017,6 +1017,7 @@ class TestEventView(BaseAPITest):
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
         report_id = response.data['id']
+        event_serial_number = response.data['serial_number']
         response_data = {k: response.data[k] for k in event_data.keys()}
         self.assertDictEqual(response_data, event_data)
 
@@ -1043,9 +1044,11 @@ class TestEventView(BaseAPITest):
         events_report = self.convert_rendered_csv_to_dict(
             response.content.decode("utf-8"))
         # get the last event
-        event = events_report[-1]
-        import pdb; pdb.set_trace()
-        parent_ids = event['Collection_Report_IDs'].split(';')
+        event = {}
+        for ev in events_report:
+            if ev.get('Report_Id', "") == str(event_serial_number):
+                event = ev
+        parent_ids = event.get('Collection_Report_IDs', "").split(';')
         the_parent_id = int(parent_ids[0]) if parent_ids else None
         self.assertEqual(the_parent_id, collection_serial_number)
 

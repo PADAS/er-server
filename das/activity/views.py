@@ -447,7 +447,8 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 "Priority": Event.PRIORITY_LABELS_MAP.get(event['priority'],
                                                           ''),
                 "Priority_Internal_Value": event['priority'],
-                "Status": "Resolved" if event['state'] == Event.SC_RESOLVED else 'Active',
+                "Status": "Resolved" if event[
+                                            'state'] == Event.SC_RESOLVED else 'Active',
                 reported_at.replace(" ", "_"): event['event_time'].astimezone(
                     current_tz).strftime('%Y-%m-%d %H:%M'),
                 "Latitude": event['location'].y if event[
@@ -457,7 +458,9 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                 "Number_of_Notes": event['notes_count'],
                 "Notes": self.escape_string(event['full_notes']),
                 "Number_of_Related_Subjects": event.get('', ''),
-                "Collection_Report_IDs": event.get('', ''),
+                "Collection_Report_IDs": ';'.join(
+                    (str(x) for x in event['parent_event_serial_numbers'] if
+                     x is not None)),
                 "CUSTOM_FIELDS_BEGIN_HERE": "",
             }
 
