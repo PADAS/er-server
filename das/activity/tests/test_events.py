@@ -970,11 +970,10 @@ class TestEventView(BaseAPITest):
         response = self._export_template_response(request)
 
         self.assertEqual(response.status_code, 200)
-        self.assertTrue('Priority' in response.rendered_content)
-        self.assertTrue('Notes' in response.rendered_content)
-        self.assertTrue('carcassrep_species' in response.rendered_content)
-        self.assertTrue(self.notes_line2_prefix in response.rendered_content)
-        self.assertFalse('""' in response.rendered_content)
+        self.assertTrue('Priority' in response.content.decode("utf-8"))
+        self.assertTrue('Notes' in response.content.decode("utf-8"))
+        self.assertTrue('carcassrep_species' in response.content.decode("utf-8"))
+        self.assertTrue(self.notes_line2_prefix in response.content.decode("utf-8"))
 
     def convert_rendered_csv_to_dict(self, content):
         lines = content.split("\n")
@@ -1042,9 +1041,10 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
         events_report = self.convert_rendered_csv_to_dict(
-            response.rendered_content)
+            response.content.decode("utf-8"))
         # get the last event
         event = events_report[-1]
+        import pdb; pdb.set_trace()
         parent_ids = event['Collection_Report_IDs'].split(';')
         the_parent_id = int(parent_ids[0]) if parent_ids else None
         self.assertEqual(the_parent_id, collection_serial_number)
@@ -1088,8 +1088,7 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
         response = self._export_template_response(request)
         self.assertEqual(response.status_code, 200)
-        print(response.rendered_content)
-        self.assertEqual(len(response.rendered_content.splitlines()), 3)
+        self.assertEqual(len(response.content.decode("utf-8").splitlines()), 3)
 
     def test_reported_by_filtering(self):
         reported_by_users = list(Event.objects.get_reported_by_for_provenance(
@@ -1914,7 +1913,7 @@ class TestEventView(BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
         response = self._export_template_response(request)
-        rendered_dict = self.convert_rendered_csv_to_dict(response.rendered_content)
+        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
 
         self.assertIn('DWS Test', [i.get('Report_Type') for i in rendered_dict])
         target_row = {}
@@ -1926,8 +1925,8 @@ class TestEventView(BaseAPITest):
 
         self.assertIn('Species', target_row.keys())
         self.assertIn('carcassrep_species', target_row.keys())
-        self.assertEqual(target_row.get('Species'), '"Elephant;Eland"')
-        self.assertEqual(target_row.get('carcassrep_species'), '"elephant;eland"')
+        self.assertEqual(target_row.get('Species'), '"""Elephant;Eland"""')
+        self.assertEqual(target_row.get('carcassrep_species'), '"""elephant;eland"""')
 
     def test_exporting_array_events_to_csv(self):
         array_data = json.loads(
@@ -1945,7 +1944,7 @@ class TestEventView(BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
         response = self._export_template_response(request)
-        rendered_dict = self.convert_rendered_csv_to_dict(response.rendered_content)
+        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
 
         self.assertIn('4787-Array', [i.get('Report_Type') for i in rendered_dict])
         target_row = {}
@@ -1956,8 +1955,8 @@ class TestEventView(BaseAPITest):
                 break
         self.assertIn('Species', target_row.keys())
         self.assertIn('carcassrep_species', target_row.keys())
-        self.assertEqual(target_row.get('Species'), '"Bongo;Buffalo"')
-        self.assertEqual(target_row.get('carcassrep_species'), '"bongo;buffalo"')
+        self.assertEqual(target_row.get('Species'), '"""Bongo;Buffalo"""')
+        self.assertEqual(target_row.get('carcassrep_species'), '"""bongo;buffalo"""')
 
     def test_exporting_checkbox_in_fieldset_to_csv(self):
         array_data = json.loads(
@@ -1975,8 +1974,7 @@ class TestEventView(BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
         response = self._export_template_response(request)
-        rendered_dict = self.convert_rendered_csv_to_dict(response.rendered_content)
-
+        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
         self.assertIn('Sprint 88 Behavior',
                       [i.get('Report_Type') for i in rendered_dict])
         target_row = {}
@@ -1988,9 +1986,9 @@ class TestEventView(BaseAPITest):
 
         self.assertIn('Species', target_row.keys())
         self.assertIn('carcassrep_species', target_row.keys())
-        self.assertEqual(target_row.get('Species'), '"Bongo;Buffalo"')
+        self.assertEqual(target_row.get('Species'), '"""Bongo;Buffalo"""')
         self.assertEqual(target_row.get('carcassrep_species'),
-                         '"bongo;buffalo"')
+                         '"""bongo;buffalo"""')
 
 
 class TestParsing(TestCase):
