@@ -73,12 +73,19 @@ def get_wfs_config_objects(obj_id):
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True})
-def load_spatial_features_from_files(filename, tmpdirs, layer, presentation, featuretype_label, source_name,
-                                     spatialfile_id, id_field, name_field, featuretype, featureset=None):
+def load_spatial_features_from_files(data_files, tmpdirs, source_name, spatialfile_id, feature_types_file=None,
+                                     layer=None, presentation=None, featuretype_label=None,
+                                     id_field=None, name_field=None, featuretype=None, featureset=None):
     try:
-        datasource, layer_num = utils.get_datasource_and_layer_num(filename, tmpdirs, layer)
-        utils.import_layer(datasource[layer_num], featuretype, featureset, presentation, featuretype_label, source_name, id_field, name_field, spatialfile_id)
+        datasource, layer_num = utils.get_datasource_and_layer_num(
+            data_files, tmpdirs, 0)
+
+        utils.import_layer(
+            datasource[layer_num], source_name, spatialfile_id,
+            featuretype, featureset, presentation, featuretype_label,
+            id_field, name_field)
     except Exception as ex:
         logger.exception(ex)
     finally:
         datasource = None
+        utils.cleanup_files(filename)

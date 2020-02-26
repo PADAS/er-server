@@ -208,31 +208,6 @@ class SpatialFilesBase(TimestampedModel):
             logger.error(err)
             raise ValidationError(err)
 
-    def cleanup_files(self):
-        files = [self.data]
-        try:
-            if self.feature_types_file.name:
-                files.append(self.feature_types_file)
-        except Exception:
-            pass
-
-        for upload_file in files:
-            uploaded_file_path = upload_file.path
-
-            uploaded_file_directory = os.path.dirname(upload_file.path)
-            """
-            Remove files/directories from the temporary folder.
-            """
-            import shutil
-            try:
-                if os.path.exists(uploaded_file_path):
-                    os.remove(uploaded_file_path)
-                shutil.rmtree(uploaded_file_directory)
-            except PermissionError:
-                logger.exception(
-                    f'Cleaning up spatial files after import: {uploaded_file_directory}')
-            upload_file.name = ''
-
     # Clean method is used for better error handling within the admin form
     # itself. To have the file data available, save method needs to be invoked.
     #  Cleanup method will remove files in case of validation error.
@@ -259,7 +234,6 @@ class SpatialFilesBase(TimestampedModel):
         except Exception:
             spatial_types_file = None
         self.call_mgt_command(data_file, spatial_types_file)
-        self.cleanup_files()
 
     def get_upload_file(self, upload_file):
         if upload_file:
@@ -836,4 +810,3 @@ class ArcgisConfiguration(TimestampedModel):
 
     class Meta:
         verbose_name = 'Feature Service Configuration'
-

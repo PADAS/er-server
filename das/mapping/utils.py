@@ -435,6 +435,7 @@ def get_datasource_and_layer_num(filename, tmpdirs, layer):
         layer_num = 0
     return datasource, layer_num
 
+
 def get_feature_class(name):
     name_lower = name.lower()
     if 'polygon' in name_lower:
@@ -445,6 +446,7 @@ def get_feature_class(name):
         return models.PointFeature
     raise KeyError('DAS Feature class not found for {0}'.format(name))
 
+
 def make_external_id(layer, feature, id_field, name_field):
     name_value = ''
     id_value = ''
@@ -454,6 +456,7 @@ def make_external_id(layer, feature, id_field, name_field):
         elif name_field and name.lower() == name_field.lower():
             name_value = str(feature[name].value)
     return '-'.join((layer.name, name_value, id_value))
+
 
 def get_featuretype_for_feature(feature, default=None):
     for name in feature.fields:
@@ -468,6 +471,7 @@ def get_featuretype_for_feature(feature, default=None):
         raise KeyError('no default featuretype specified')
     return default
 
+
 def contains_unique_keys_in_layer(layer, id_field, name_field):
     seen = set()
     unique_keys = True
@@ -481,7 +485,9 @@ def contains_unique_keys_in_layer(layer, id_field, name_field):
             seen.add(external_id)
     return unique_keys
 
-def import_layer(layer, featuretype, featureset, presentation, featuretype_label, source_name, id_field, name_field, spatialfile_id):
+
+def import_layer(layer, source_name, spatialfile_id, featuretype, featureset, presentation, featuretype_label, id_field, name_field):
+
     logger.info('Importing layer: %s, type: %s, fields: %s',
                 layer.name, layer.geom_type, layer.fields)
 
@@ -508,6 +514,7 @@ def import_layer(layer, featuretype, featureset, presentation, featuretype_label
         else:
             load_layer(layer, featuretype, featureset, feature, has_unique_keys, i, id_field, name_field, spatialfile_id, featuretype_label, source_name)
 
+
 def load_layer(layer, featuretype, featureset, feature, has_unique_keys, i, id_field, name_field, spatialfile_id, featuretype_label, source_name):
     external_id = make_external_id(layer, feature, id_field, name_field)
     if not has_unique_keys:
@@ -518,6 +525,36 @@ def load_layer(layer, featuretype, featureset, feature, has_unique_keys, i, id_f
     else:
         mappingv2_save_spatial_data(feature, source_name,
                                     spatialfile_id, external_id, featuretype_label)
+
+
+def cleanup_files(filename):
+    """
+    Remove files/directories from the temporary folder.
+    """
+    files = [filename]
+    for upload_file in files:
+        pathlist = filename.split("/")
+        path = '/'.join(pathlist[:7])
+        name = pathlist[-1]
+
+        if 'json' not in name and len(pathlist) > 8:
+            name = pathlist[-2] + '.zip'
+
+        uploaded_file_path = path + "/" + name
+        uploaded_file_directory = path
+
+        import shutil
+        import os
+        try:
+            if os.path.exists(uploaded_file_path):
+                logger.info(f"**** Yessss.... deleting {name}")
+                os.remove(uploaded_file_path)
+            shutil.rmtree(uploaded_file_directory)
+        except PermissionError:
+            logger.exception(
+                f'Cleaning up spatial files after import: {uploaded_file_directory}')
+        upload_file = ''
+
 
 def mappingv1_save_spatial_data(feature, featureset, featuretype, external_id, name_field, spatialfile_id):
     geometry_mapper = GeometryMapper()
