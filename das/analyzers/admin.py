@@ -20,7 +20,7 @@ class ImmobilityAnalyzerAdmin(admin.ModelAdmin):
             'classes': ('wide',),
             'fields': (('name', 'subject_group', 'is_active'))
         }
-         ),
+        ),
         ('Speed Threshold Parameters', {
             'classes': ('wide',),
             'fields': ('threshold_radius', 'threshold_time', 'threshold_probability',)
@@ -59,7 +59,7 @@ class EnvironmentalSubjectAnalyzerAdmin(admin.ModelAdmin):
             'classes': ('wide',),
             'fields': ('name', 'subject_group', 'is_active'),
         }
-         ),
+        ),
         ('Environmental Analysis Parameters', {
             'classes': ('wide',),
             'fields': ('threshold_value', 'scale_meters', 'GEE_img_name', 'GEE_img_band_name', 'short_description',
@@ -95,7 +95,7 @@ class ProximitySubjectAnalyzerAdmin(admin.ModelAdmin):
             'fields': (('name', 'subject_group', 'threshold_dist_meters',
                         'is_active',))
         }
-         ),
+        ),
         ('Spatial Features', {
             'classes': ('wide',),
             'fields': (('proximal_features',))
@@ -122,7 +122,7 @@ class GeofenceSubjectAnalyzerAdmin(admin.ModelAdmin):
             'classes': ('wide',),
             'fields': (('name', 'subject_group', 'is_active',))
         }
-         ),
+        ),
         ('Spatial Features', {
             'classes': ('wide',),
             'fields': (('critical_geofence_group', 'warning_geofence_group', 'containment_regions',))
@@ -149,7 +149,7 @@ class LowSpeedWilcoxSubjectAnalyzerAdmin(admin.ModelAdmin):
             'classes': ('wide',),
             'fields': (('name', 'subject_group', 'is_active', 'low_speed_probability_cutoff',))
         }
-         ),
+        ),
         ('Advanced Analyzer Attributes', {
             'classes': ('wide', 'collapse'),
             'fields': ('id', 'search_time_hours', 'notes',)
@@ -172,7 +172,7 @@ class LowSpeedPercentileSubjectAnalyzerAdmin(admin.ModelAdmin):
             'classes': ('wide',),
             'fields': (('name', 'subject_group', 'is_active', 'low_threshold_percentile', 'default_low_speed_value',))
         }
-         ),
+        ),
         ('Advanced Analyzer Attributes', {
             'classes': ('wide', 'collapse'),
             'fields': ('id', 'search_time_hours', 'notes',)
@@ -202,7 +202,7 @@ class GlobalForestWatchAdmin(OSMGeoExtendedAdmin):
     fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('name',)
+            'fields': ('name', )
         }),
         ('Global Forest Watch API Properties', {
             'classes': ('wide',),
