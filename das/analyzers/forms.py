@@ -29,7 +29,11 @@ class GlobalForestWatchSubscriptionForm(JSONFieldFormMixin, forms.ModelForm):
 
     class Meta:
         model = GlobalForestWatchSubscription
-
+        widgets = {'Fire_confidence': forms.RadioSelect, 'Deforestation_confidence': forms.RadioSelect}
+        labels = {
+            'Fire_confidence': 'Fire Alerts (VIIRS) Confidence Level',
+            'Deforestation_confidence': 'Deforestation Alerts (GLAD) Confidence Level'
+        }
         fields = '__all__'
         json_fields = ('alert_types',)
 
@@ -72,3 +76,4 @@ class GlobalForestWatchSubscriptionForm(JSONFieldFormMixin, forms.ModelForm):
             'alert_types': cleaned_data['alert_types'],
             'subscription_geometry': cleaned_data['subscription_geometry'],
         }
+

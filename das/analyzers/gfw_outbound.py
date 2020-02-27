@@ -2,6 +2,7 @@ import functools
 import json
 import logging
 from datetime import datetime, timedelta
+import urllib.parse as urlparse
 
 import geojson
 import pytz
@@ -66,7 +67,7 @@ def get_gfw_oauth2_application():
     return app
 
 
-def get_gfw_access_token(user, ttl_days=5*365):
+def get_gfw_access_token(user, ttl_days=5 * 365):
     '''
     Get a long-lived token to be used for global forest watch callbacks.
     '''
@@ -82,7 +83,8 @@ def get_gfw_access_token(user, ttl_days=5*365):
             access_token = AccessToken.objects.filter(user=user,
                                                       application=app,
                                                       scope='write',
-                                                      expires__gt=datetime.now(tz=pytz.utc)+timedelta(days=365)).latest('expires')
+                                                      expires__gt=datetime.now(tz=pytz.utc) + timedelta(
+                                                          days=365)).latest('expires')
         except AccessToken.DoesNotExist:
             logger.info('Valid access token not found, will create new token')
             access_token = AccessToken.objects.create(
@@ -265,7 +267,6 @@ def _get_geostore_id(gfw_info):
 
 
 def _make_subscribe_msg(name, alert_types, geostore_id):
-
     subscription = {
         'name': name,
         'application': 'gfw',
@@ -288,7 +289,6 @@ def _make_service_response(status_code, status_text, data=None):
 
 
 def exception_wrapper(func):
-
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
@@ -300,3 +300,53 @@ def exception_wrapper(func):
         return response
 
     return wrapper
+
+
+def f_main(validated_data):
+    api_root = settings.GFW_API_ROOT
+    url_fmt = '{}/viirs-active-fires?geostore={}&period={},{}'
+
+    data = validated_data.get
+    alert_date_begin, alert_date_end = data('alert_date_begin'), data('alert_date_end')
+    alert_link_url = data('alert_link')
+    geostore_id = parse_url(alert_link_url)['geostore'][0]
+
+    url = url_fmt.format(api_root, geostore_id, alert_date_begin, alert_date_end)
+
+    # CALL API
+    x = call_api(url)
+    d_url = x['data']['attributes']['downloadUrls']['csv']
+    update_url = change_format_to_json(d_url)
+    return update_url
+
+
+def call_api(url):
+    try:
+
+        rsp = requests.get(url=url, timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
+    except Exception as ex:
+        logger.exception('Exception %s raised in delete_subscription', ex)
+        return _make_service_response(SERVICE_ERROR_CODE,
+                                      f'Error communicating with Global Forest Watch service. '
+                                      f'{getattr(ex, "message", "")}')
+    else:
+        if rsp and rsp.status_code == status.HTTP_200_OK:
+            logger.debug('MADE request successful. %s', rsp.text)
+            return rsp.text
+        else:
+            logger.error('FAIL %s', rsp)
+            return _make_service_response(rsp.status_code, rsp.text)
+
+
+def parse_url(url):
+    parsed_dict = urlparse.parse_qs(urlparse.urlparse(url).query)
+    return parsed_dict
+
+
+# parse_qs, urlencode,  urlsplit
+def change_format_to_json(url):
+    url_parts = list(urlparse.urlparse(url))
+    query_dict = parse_url(url)
+    query_dict['format'][0] = 'json'
+    url_parts[4] = urlparse.urlencode(query_dict)
+    return urlparse.urlunparse(url_parts)

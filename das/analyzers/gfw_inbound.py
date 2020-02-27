@@ -8,6 +8,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.db.models import signals
 from rest_framework import status, serializers
 from rest_framework.response import Response
+from django.utils.dateparse import parse_datetime
 
 from accounts.models import User
 from activity.models import Event
@@ -16,6 +17,8 @@ from analyzers.gfw_alert_schema import ensure_gfw_event_types, GFW_EVENT_TYPES_M
 from das_server import celery
 from utils import stats
 from revision.manager import RevisionMixin
+from analyzers.models import GlobalForestWatchSubscription
+from analyzers.gfw_utils import parse_url, callback_api_for_fire_alerts
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +34,25 @@ class AlertSampleDownloaded(serializers.Serializer):
     julian_day = serializers.IntegerField()
     year = serializers.IntegerField()
     confidence = serializers.IntegerField()
+
+
+class FireAlertSampleDownloaded(serializers.Serializer):
+    cartodb_id = serializers.IntegerField()
+    the_geom = serializers.CharField()
+    the_geom_webmercator = serializers.CharField()
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
+    bright_ti4 = serializers.FloatField()
+    scan = serializers.FloatField()
+    track = serializers.FloatField()
+    acq_date = serializers.DateTimeField()
+    acq_time = serializers.CharField()
+    satellite = serializers.CharField()
+    confidence = serializers.CharField()
+    version = serializers.CharField()
+    bright_ti5 = serializers.FloatField()
+    frp = serializers.FloatField()
+    daynight = serializers.CharField()
 
 
 class AlertSample(serializers.Serializer):
@@ -72,7 +94,7 @@ def process_handler_post(request):
         return Response(status=status.HTTP_400_BAD_REQUEST, data=deserialized.errors)
 
     logger.info(f'process_handler_alerts posted {deserialized.validated_data}', extra={
-                'data': request.data})
+        'data': request.data})
 
     layer_slug = deserialized.validated_data.get('layerSlug')
 
@@ -103,7 +125,6 @@ def process_handler_post(request):
 
 
 def create_events(request, common_fields, validated_data):
-
     def create_alert_event(alert_sample):
         deserialized_sample = AlertSample(data=alert_sample)
         if not deserialized_sample.is_valid():
@@ -124,6 +145,9 @@ def create_events(request, common_fields, validated_data):
         }
 
         return persist_event(event_fields, request, counts)
+
+    if common_fields.get('event_type') == 'gfw_activefire_alert':
+        validated_data['downloadUrls'] = callback_api_for_fire_alerts(validated_data)
 
     download_urls = validated_data.get('downloadUrls')
     if download_urls:
@@ -162,32 +186,58 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
     request = HttpRequest()
     request.user = User.objects.get(id=user_id)
 
-    deserialized_sample = AlertSampleDownloaded(data=downloaded_sample)
+    if common_event_fields.get('event_type') == 'gfw_activefire_alert':
+        downloaded_sample['acq_date'] = parse_datetime(downloaded_sample['acq_date'])
+        deserialized_sample = FireAlertSampleDownloaded(data=downloaded_sample)
+        # logger.info("Processed deserialized sample %s", deserialized_sample)
+    else:
+        deserialized_sample = AlertSampleDownloaded(data=downloaded_sample)
+
     if not deserialized_sample.is_valid():
         counts[ERROR_COUNTER] = counts[ERROR_COUNTER] + 1
         return deserialized_sample.errors()
 
-    julian_day = deserialized_sample.validated_data.get('julian_day')
-    year = deserialized_sample.validated_data.get('year')
-    confidence = deserialized_sample.validated_data.get('confidence', -1)
+    if common_event_fields.get('event_type') == 'gfw_activefire_alert':
+        latitude = deserialized_sample.validated_data.get('latitude')
+        longitude = deserialized_sample.validated_data.get('longitude')
+        confidence = deserialized_sample.validated_data.get('confidence')
+        time = deserialized_sample.validated_data.get('acq_date')
+    else:
+        julian_day = deserialized_sample.validated_data.get('julian_day')
+        year = deserialized_sample.validated_data.get('year')
+        confidence = deserialized_sample.validated_data.get('confidence', -1)
+        latitude = deserialized_sample.validated_data.get('lat')
+        longitude = deserialized_sample.validated_data.get('long')
+        time = pytz.utc.localize(datetime.strptime(f'{julian_day}{year}', '%j%Y'))
 
     event_fields = {
         **common_event_fields,
         **{
             'location': {
-                'latitude': deserialized_sample.validated_data.get('lat'),
-                'longitude': deserialized_sample.validated_data.get('long')},
-            'time': pytz.utc.localize(datetime.strptime(f'{julian_day}{year}', '%j%Y'))
+                'latitude': latitude,
+                'longitude': longitude},
+            'time': time,
         }
     }
+    url = common_event_fields['event_details']['alert_link']
+    geostore_id = parse_url(url)['geostore'][0]
 
-    event_fields.setdefault('event_details', {})['confidence'] = confidence
+    gfw_query = GlobalForestWatchSubscription.objects.get(geostore_id=geostore_id)
+    if common_event_fields.get('event_type') == 'gfw_activefire_alert':
+        conf_confidence = gfw_query.Fire_confidence
+        superset_cofidence = {i.strip() for i in conf_confidence.split(',')}
+    else:
+        conf_confidence = gfw_query.Deforestation_confidence
+        superset_cofidence = {int(i) for i in conf_confidence.split(',')}
 
-    return persist_event(event_fields, request, counts)
+    # Checks if confidence level from glad alerts is a subset of confidence level specified in ER.
+    if {confidence} <= superset_cofidence:
+        event_fields.setdefault('event_details', {})['confidence'] = confidence
+        return persist_event(event_fields, request, counts)
+    logger.info("GLAD Alert %s not within the confidence level" % downloaded_sample)
 
 
 def persist_event(event_fields, request, counts):
-
     def pre_save_info(sender, instance, **kwargs):
         if issubclass(sender, RevisionMixin):
             setattr(instance, 'revision_user', request.user)
