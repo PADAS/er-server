@@ -407,7 +407,9 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                                 custom_headers.append(key)
 
                             if display_value not in custom_headers:
-                                column_name = schema_utils.get_column_header_name(current_schema, key)
+                                column_name = schema_utils.get_column_header_name(
+                                    current_schema, key)
+                                column_name = self.escape_string(column_name)
                                 custom_headers.append(column_name)
 
                 except json.JSONDecodeError:
@@ -483,9 +485,12 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         if not isinstance(string, str) or not string:
             return string
         string = string.replace('"', '""')
+        # carriage returns are not handled in csv, join with space instead
         strings = string.splitlines()
         string = " ".join(strings)
-        return '"' + string + '"'
+        if ',' in string or '"' in string:
+            string = '"' + string + '"'
+        return string
 
     def get(self, request, *args, **kwargs):
         context = self.get_context_data(**kwargs)
