@@ -521,3 +521,278 @@ GLAD_ALERT_DOWNLOADED_DATA = {
         "year": 2019
     }]
 }
+
+VIIRS_FIRE_ALERT_DOWNLOADED_DATA = {
+    "rows": [
+        {
+            "cartodb_id": 372492,
+            "the_geom": "0101000020E610000085251E5036153340E370E65773202A40",
+            "the_geom_webmercator": "0101000020110F000050BE082103354041AD1BD8365E623641",
+            "latitude": 13.06338,
+            "longitude": 19.08286,
+            "bright_ti4": 310.1,
+            "scan": 0.39,
+            "track": 0.36,
+            "acq_date": "2020-02-25T00:00:00Z",
+            "acq_time": "0018",
+            "satellite": "N",
+            "confidence": "nominal",
+            "version": "1.0NRT",
+            "bright_ti5": 289.8,
+            "frp": 1,
+            "daynight": "N"
+        },
+        {
+            "cartodb_id": 372493,
+            "the_geom": "0101000020E6100000B4E55C8AAB1A334002D4D4B2B51E2A40",
+            "the_geom_webmercator": "0101000020110F00008EC478CBA53940412224E9ACD9603641",
+            "latitude": 13.05998,
+            "longitude": 19.10418,
+            "bright_ti4": 313,
+            "scan": 0.39,
+            "track": 0.36,
+            "acq_date": "2020-02-25T00:00:00Z",
+            "acq_time": "0018",
+            "satellite": "N",
+            "confidence": "nominal",
+            "version": "1.0NRT",
+            "bright_ti5": 290.1,
+            "frp": 1,
+            "daynight": "N"
+        },
+        {
+            "cartodb_id": 372494,
+            "the_geom": "0101000020E6100000C1A8A44E401333403AAFB14B541F2A40",
+            "the_geom_webmercator": "0101000020110F000042F47FC6583340413498ECF263613641",
+            "latitude": 13.06119,
+            "longitude": 19.0752,
+            "bright_ti4": 340.3,
+            "scan": 0.39,
+            "track": 0.36,
+            "acq_date": "2020-02-25T00:00:00Z",
+            "acq_time": "0018",
+            "satellite": "N",
+            "confidence": "nominal",
+            "version": "1.0NRT",
+            "bright_ti5": 298.4,
+            "frp": 11.6,
+            "daynight": "N"
+        },
+        {
+            "cartodb_id": 372495,
+            "the_geom": "0101000020E6100000A33B889D2914334090F7AA95091F2A40",
+            "the_geom_webmercator": "0101000020110F00001DBD90EC1E344041082ACECF22613641",
+            "latitude": 13.06062,
+            "longitude": 19.07876,
+            "bright_ti4": 322.7,
+            "scan": 0.39,
+            "track": 0.36,
+            "acq_date": "2020-02-25T00:00:00Z",
+            "acq_time": "0018",
+            "satellite": "N",
+            "confidence": "nominal",
+            "version": "1.0NRT",
+            "bright_ti5": 291.6,
+            "frp": 11.6,
+            "daynight": "N"
+        },
+        {
+            "cartodb_id": 372496,
+            "the_geom": "0101000020E61000003E22A6441215334074982F2FC01E2A40",
+            "the_geom_webmercator": "0101000020110F0000435A2484E4344041FC1645D1E2603641",
+            "latitude": 13.06006,
+            "longitude": 19.08231,
+            "bright_ti4": 306.4,
+            "scan": 0.39,
+            "track": 0.36,
+            "acq_date": "2020-02-25T00:00:00Z",
+            "acq_time": "0018",
+            "satellite": "N",
+            "confidence": "nominal",
+            "version": "1.0NRT",
+            "bright_ti5": 289.6,
+            "frp": 1,
+            "daynight": "N"
+        },
+        {
+            "cartodb_id": 372497,
+            "the_geom": "0101000020E61000006DE2E47E871A334094FB1D8A021D2A40",
+            "the_geom_webmercator": "0101000020110F00008160942E873940413763AC485E5F3641",
+            "latitude": 13.05666,
+            "longitude": 19.10363,
+            "bright_ti4": 310.4,
+            "scan": 0.39,
+            "track": 0.36,
+            "acq_date": "2020-02-25T00:00:00Z",
+            "acq_time": "0018",
+            "satellite": "N",
+            "confidence": "nominal",
+            "version": "1.0NRT",
+            "bright_ti5": 289.6,
+            "frp": 1,
+            "daynight": "N"
+        },
+        {
+            "cartodb_id": 372498,
+            "the_geom": "0101000020E61000007AA52C431C1333405A2F8672A21D2A40",
+            "the_geom_webmercator": "0101000020110F000035909B293A334041ABE3C0B2E95F3641",
+            "latitude": 13.05788,
+            "longitude": 19.07465,
+            "bright_ti4": 329.8,
+            "scan": 0.39,
+            "track": 0.36,
+            "acq_date": "2020-02-25T00:00:00Z",
+            "acq_time": "0018",
+            "satellite": "N",
+            "confidence": "nominal",
+            "version": "1.0NRT",
+            "bright_ti5": 302.4,
+            "frp": 14,
+            "daynight": "N"
+        },
+        {
+            "cartodb_id": 372499,
+            "the_geom": "0101000020E6100000DF32A7CB621A3340252367614F1B2A40",
+            "the_geom_webmercator": "0101000020110F0000BBD032036839404176C0BDE5E25D3641",
+            "latitude": 13.05334,
+            "longitude": 19.10307,
+            "bright_ti4": 320.1,
+            "scan": 0.39,
+            "track": 0.36,
+            "acq_date": "2020-02-25T00:00:00Z",
+            "acq_time": "0018",
+            "satellite": "N",
+            "confidence": "nominal",
+            "version": "1.0NRT",
+            "bright_ti5": 290.3,
+            "frp": 1.7,
+            "daynight": "N"
+        },
+        {
+            "cartodb_id": 372500,
+            "the_geom": "0101000020E6100000158C4AEA04143340AF777FBC571D2A40",
+            "the_geom_webmercator": "0101000020110F0000562D2FC1FF33404180A9DB8FA85F3641",
+            "latitude": 13.05731,
+            "longitude": 19.0782,
+            "bright_ti4": 317.9,
+            "scan": 0.39,
+            "track": 0.36,
+            "acq_date": "2020-02-25T00:00:00Z",
+            "acq_time": "0018",
+            "satellite": "N",
+            "confidence": "nominal",
+            "version": "1.0NRT",
+            "bright_ti5": 290.9,
+            "frp": 14,
+            "daynight": "N"
+        },
+        {
+            "cartodb_id": 372501,
+            "the_geom": "0101000020E6100000B0726891ED14334005C078060D1D2A40",
+            "the_geom_webmercator": "0101000020110F00007DCAC258C5344041B448006D675F3641",
+            "latitude": 13.05674,
+            "longitude": 19.08175,
+            "bright_ti4": 305.2,
+            "scan": 0.39,
+            "track": 0.36,
+            "acq_date": "2020-02-25T00:00:00Z",
+            "acq_time": "0018",
+            "satellite": "N",
+            "confidence": "nominal",
+            "version": "1.0NRT",
+            "bright_ti5": 289.7,
+            "frp": 0.7,
+            "daynight": "N"
+        },
+        {
+            "cartodb_id": 372502,
+            "the_geom": "0101000020E610000092054CE0D6153340E960FD9FC31C2A40",
+            "the_geom_webmercator": "0101000020110F00005793D37E8B3540411E15B96E275F3641",
+            "latitude": 13.05618,
+            "longitude": 19.08531,
+            "bright_ti4": 302.3,
+            "scan": 0.39,
+            "track": 0.36,
+            "acq_date": "2020-02-25T00:00:00Z",
+            "acq_time": "0018",
+            "satellite": "N",
+            "confidence": "nominal",
+            "version": "1.0NRT",
+            "bright_ti5": 289.2,
+            "frp": 0.7,
+            "daynight": "N"
+        }
+    ],
+    "time": 0.466,
+    "fields": {
+        "cartodb_id": {
+            "type": "number",
+            "pgtype": "int4"
+        },
+        "the_geom": {
+            "type": "geometry",
+            "wkbtype": "Unknown",
+            "dims": 2,
+            "srid": 4326
+        },
+        "the_geom_webmercator": {
+            "type": "geometry",
+            "wkbtype": "Unknown",
+            "dims": 2,
+            "srid": 3857
+        },
+        "latitude": {
+            "type": "number",
+            "pgtype": "float8"
+        },
+        "longitude": {
+            "type": "number",
+            "pgtype": "float8"
+        },
+        "bright_ti4": {
+            "type": "number",
+            "pgtype": "float8"
+        },
+        "scan": {
+            "type": "number",
+            "pgtype": "float8"
+        },
+        "track": {
+            "type": "number",
+            "pgtype": "float8"
+        },
+        "acq_date": {
+            "type": "date",
+            "pgtype": "date"
+        },
+        "acq_time": {
+            "type": "string",
+            "pgtype": "text"
+        },
+        "satellite": {
+            "type": "string",
+            "pgtype": "text"
+        },
+        "confidence": {
+            "type": "string",
+            "pgtype": "text"
+        },
+        "version": {
+            "type": "string",
+            "pgtype": "text"
+        },
+        "bright_ti5": {
+            "type": "number",
+            "pgtype": "float8"
+        },
+        "frp": {
+            "type": "number",
+            "pgtype": "float8"
+        },
+        "daynight": {
+            "type": "string",
+            "pgtype": "text"
+        }
+    },
+    "total_rows": 24425
+}
