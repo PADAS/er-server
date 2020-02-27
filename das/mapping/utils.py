@@ -297,10 +297,10 @@ def arcgis_integration(request, obj):
             # set to a background task
             try:
                 # TODO: undo this
-                # task_started_msg = "Features download in progress, checkout loaded <a href='/admin/mapping/spatialfeature/'>spatialfeatures</a> after a few minutes"
-                # message(request, messages.INFO, mark_safe(task_started_msg))
-                # background_download_features_from_wfs.apply_async(args=(obj.id,))
-                background_download_features_from_wfs(obj.id)
+                task_started_msg = "Features download in progress, checkout loaded <a href='/admin/mapping/spatialfeature/'>spatialfeatures</a> after a few minutes"
+                message(request, messages.INFO, mark_safe(task_started_msg))
+                background_download_features_from_wfs.apply_async(args=(obj.id,))
+                # background_download_features_from_wfs(obj.id)
             except Exception as ex:
                 error_msg = f"Select a group to enable features download"
                 message(request, messages.ERROR,ex) if request else logger.debug(error_msg)
@@ -349,7 +349,8 @@ def extract_gis_data(obj, member, title, errored_files, success_files, arcgis_it
     try:
         # Not handling multiple layers just yet.
         simple_presentation = import_featuretype_presentation(member.layers[0].properties.drawingInfo.renderer)
-        data = member.layers[0].query().to_geojson
+        # set the spatial reference to 4326 in the query
+        data = member.layers[0].query(out_sr=4326).to_geojson
     except KeyError:
         logger.debug('to_geojson failed, trying to_json')
         data = arcgis2geojson(member.layers[0].query().to_json)
@@ -367,7 +368,6 @@ def extract_features(obj, member, title, data, success_files, simple_presentatio
         data_file.write(data.encode())
         data_file.flush()
         data_file.seek(0)
-        logger.info(f'Importing {title} features from tempfile {data_file.name}')
         management.call_command(
             'importlayer', 'importfromesri', data_file.name, typelabel=obj.type_label,
             source=obj.source, name_field=obj.name_field, id_field=obj.id_field,
