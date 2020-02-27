@@ -140,7 +140,7 @@ def download_gfw_alerts(self, download_url, common_event_fields, user_id):
                          extra={'Exception': ex})
     else:
         if resp and resp.status_code == status.HTTP_200_OK:
-            logger.info('Good response from GFw firealerts download url: %s', download_url)
+            logger.info('Good response from GFW download url: %s', download_url)
 
             gfw_alerts_payload = json.loads(resp.text)
             logger.debug('GFW Alerts downloaded data: %s', gfw_alerts_payload)

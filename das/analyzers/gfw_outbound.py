@@ -66,7 +66,7 @@ def get_gfw_oauth2_application():
     return app
 
 
-def get_gfw_access_token(user, ttl_days=5 * 365):
+def get_gfw_access_token(user, ttl_days=5*365):
     '''
     Get a long-lived token to be used for global forest watch callbacks.
     '''
@@ -82,8 +82,7 @@ def get_gfw_access_token(user, ttl_days=5 * 365):
             access_token = AccessToken.objects.filter(user=user,
                                                       application=app,
                                                       scope='write',
-                                                      expires__gt=datetime.now(tz=pytz.utc) + timedelta(
-                                                          days=365)).latest('expires')
+                                                      expires__gt=datetime.now(tz=pytz.utc)+timedelta(days=365)).latest('expires')
         except AccessToken.DoesNotExist:
             logger.info('Valid access token not found, will create new token')
             access_token = AccessToken.objects.create(
@@ -266,6 +265,7 @@ def _get_geostore_id(gfw_info):
 
 
 def _make_subscribe_msg(name, alert_types, geostore_id):
+
     subscription = {
         'name': name,
         'application': 'gfw',
@@ -288,6 +288,7 @@ def _make_service_response(status_code, status_text, data=None):
 
 
 def exception_wrapper(func):
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
