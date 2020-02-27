@@ -7,7 +7,7 @@ from django.core.management.base import BaseCommand
 from mapping import models
 from mapping.utils import (DEFAULT_SOURCE_NAME, datasource_from_file,
                            mappingv2_save_spatial_data, save_spatial_file,
-                           validate_feature_record, get_spatial_feature_type)
+                           validate_feature_record, get_spatial_feature_type, save_esri_feature)
 from utils.spatial import GeometryMapper
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ FEATURE_TYPES = {
 class Command(BaseCommand):
     help = 'Import a spatial data layer'
     tmpdirs = []
-    SUB_COMMANDS = ('importspatialfile', 'importlayerfile')
+    SUB_COMMANDS = ('importspatialfile', 'importlayerfile', 'importfromesri')
 
     default_name_field = 'Name'
     id_field = 'globalid'
@@ -46,9 +46,11 @@ class Command(BaseCommand):
         self.layer = options['layer']
         self.utm = options['utm'] if options['utm'] else self.utm
         self.featuretype = options['featuretype']
-        self.featuretype_label = options['typelabel']
         self.featureset = options['featureset']
         self.spatialfile_id = options['spatialfile_id'] if options['spatialfile_id'] else self.spatialfile_id
+
+        # options for importfromesri
+        self.featuretype_label = options['typelabel']
         self.presentation = options['presentation']
         self.arcgis_item_id = options['arcgisitemid']
 
@@ -65,8 +67,6 @@ class Command(BaseCommand):
 
         parser.add_argument('--featuretype', type=str,
                             help='Feature type')
-        parser.add_argument('--typelabel', type=str,
-                            help='Feature type label on wfs')
         parser.add_argument('--featureset', type=str,
                             help='FeatureSet')
         parser.add_argument(
@@ -81,6 +81,8 @@ class Command(BaseCommand):
                             help='Change to this utm')
         parser.add_argument('--spatialfile-id', type=str,
                             help='Spatial file ID')
+        parser.add_argument('--typelabel', type=str,
+                            help='Feature type label on wfs')
         parser.add_argument('--presentation', type=dict,
                             help='Presentation from an ArcGIS Simple Renderer')
         parser.add_argument('--arcgisitemid', type=str,
@@ -99,8 +101,6 @@ class Command(BaseCommand):
         try:
             datasource, layer_num = self.get_datasource_and_layer_num()
             self.import_layer(datasource[layer_num], featuretype, featureset)
-        except Exception as ex:
-            logger.exception(ex)
         finally:
             datasource = None
 
@@ -110,9 +110,52 @@ class Command(BaseCommand):
         try:
             datasource, layer_num = self.get_datasource_and_layer_num()
             self.import_layer(datasource[layer_num], self.featuretype)
-        # not the right place to do a catch all exception
-        # except Exception as ex:
-        #     logger.exception(ex)
+        finally:
+            datasource = None
+
+    # TODO: move this out, doesn't need to be a management command.
+    def importfromesri(self):
+        logger.info('Importing esri features for itemid %s from temp file: %s', self.arcgis_item_id,
+                    self.filename)
+        # comeback cleanup
+        try:
+            datasource, layer_num = self.get_datasource_and_layer_num()
+            layer = datasource[layer_num]
+
+            # edit/delete features rough first cut
+            arc_item = models.ArcgisItem.objects.get(id=self.arcgis_item_id)
+            # TODO: bail if arc_item is null
+
+            # TODO: revisit and handle case where layer/features do not have a GlobalID
+            received_global_ids = [self.make_external_id(layer, f, arc_item.id) for f in layer]
+            delete_result = models.SpatialFeature.objects.filter(arcgis_item=arc_item).exclude(
+                external_id__in=received_global_ids).delete()
+            logger.info(f'deleted featutes {delete_result}')
+
+            has_unique_keys = self.contains_unique_keys_in_layer(layer)
+            for i, feature in enumerate(layer):
+
+                if self.presentation:
+                    # TODO: get sft regardless of presentation and pass on further
+                    spatial_feature_type = get_spatial_feature_type(feature, self.featuretype_label)
+                    if not spatial_feature_type:
+                        logger.warning('Did not get or create spatialfeaturetype for %s. Skipping', str(feature))
+                        continue
+                    spatial_feature_type.presentation = self.presentation
+                    # TODO: does a write in each iteration. Optimize.
+                    spatial_feature_type.save()
+
+                # linked to above to revisit if don't have a GlobalID
+                external_id = self.make_external_id(layer, feature, arc_item.id)
+                if not has_unique_keys:
+                    external_id = external_id + '-' + str(i)
+
+                # can optionally filter features based on Park attribute.
+                # e.g., AP has features for multiple parks in the same feature layer
+                # TODO: make configurable, move out filter key (e.g., Park below) & filter value (ui_site_url)
+                #  to the admin UI.
+                if 'Park' not in feature.fields or feature.get('Park').lower() in settings.UI_SITE_URL.lower():
+                    save_esri_feature(feature, self.source_name, external_id, self.featuretype_label, arc_item, i)
         finally:
             datasource = None
 
@@ -186,47 +229,14 @@ class Command(BaseCommand):
 
         has_unique_keys = self.contains_unique_keys_in_layer(layer)
 
-        # TODO: should probably split out arcgis data processing into a subcommand at the Command.handle() level
-        # rough first cut
-        arc_item = models.ArcgisItem.objects.get(id=self.arcgis_item_id)
-        # bail if processing arcgis data and arc_item is null
-        # TODO: revisit and handle case where layer/features donot have a GlobalID
-        received_global_ids = [self.make_external_id(layer, f, arc_item.id) for f in layer]
-        delete_res = models.SpatialFeature.objects.filter(arcgis_item=arc_item).exclude(
-            external_id__in=received_global_ids).delete()
-        logger.info(f'deleted featutes {delete_res}')
-
         for i, feature in enumerate(layer):
-
-            if self.presentation:
-                # TODO: get sft regardless of presentation and pass on further
-                spatial_feature_type = get_spatial_feature_type(feature, self.featuretype_label)
-                if not spatial_feature_type:
-                    logger.warning('Did not get spatialfeaturetype for %s. Skipping', str(feature))
-                    continue
-                spatial_feature_type.presentation = self.presentation
-                # TODO: does a write in each iteration. Optimize.
-                spatial_feature_type.save()
-
-            # can optionally filter features based on Park attribute.
-            # e.g., AP has features for multiple parks in the same feature layer
-            # TODO: make configurable, move out filter key (e.g., Park below) & filter value (ui_site_url) to the admin UI.
-            if hasattr(settings, 'UI_SITE_URL') and 'Park' in feature.fields:
-                if feature['Park'].value.lower() in settings.UI_SITE_URL.lower():
-                    self.save_layer_feature(layer, featuretype, featureset, feature, has_unique_keys, i, arc_item)
+            external_id = self.make_external_id(layer, feature)
+            if not has_unique_keys:
+                external_id = external_id + '-' + str(i)
+            if featureset:
+                self.mappingv1_save_spatial_data(feature, featureset, featuretype, external_id)
             else:
-                self.save_layer_feature(layer, featuretype, featureset, feature, has_unique_keys, i, arc_item)
-
-    def save_layer_feature(self, layer, featuretype, featureset, feature, has_unique_keys, i, arc_item=None):
-        external_id = self.make_external_id(layer, feature, arc_item.id)
-        if not has_unique_keys:
-            external_id = external_id + '-' + str(i)
-        if featureset:
-            self.mappingv1_save_spatial_data(
-                feature, featureset, featuretype, external_id)
-        else:
-            mappingv2_save_spatial_data(feature, self.source_name,
-                                        self.spatialfile_id, external_id, self.featuretype_label, arc_item)
+                mappingv2_save_spatial_data(feature, self.source_name, self.spatialfile_id, external_id)
 
     def mappingv1_save_spatial_data(self, feature, featureset, featuretype, external_id):
         fields = {}
@@ -266,5 +276,5 @@ class Command(BaseCommand):
             feature_record.description = feature['Description'].value
         except (KeyError, IndexError):
             pass
-        feature_record = save_spatial_file(self.spatialfile_id, models.SpatialFile, feature_record)
+        save_spatial_file(self.spatialfile_id, models.SpatialFile, feature_record)
         feature_record.save()

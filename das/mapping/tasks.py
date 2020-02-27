@@ -47,8 +47,8 @@ def background_download_features_from_wfs(obj_id):
     #         'Villages'
     #     ]
     received_item_ids = [m.itemid for m in group_members]
-    delete_res = models.ArcgisItem.objects.exclude(id__in=received_item_ids).delete()
-    logger.info(f'deleted items {delete_res}')
+    delete_result = models.ArcgisItem.objects.exclude(id__in=received_item_ids).delete()
+    logger.info(f'deleted items {delete_result}')
     for member in group_members:
         try:
             with transaction.atomic():
@@ -66,6 +66,7 @@ def background_download_features_from_wfs(obj_id):
                     )
                     if created or last_modified > arcgis_item.updated_at:
                         utils.extract_gis_data(obj, member, title, errored_files, success_files, arcgis_item.id)
+                        arcgis_item.save()  # update model's updated_at field
                     else:
                         logger.info(f'{title} not modified since last sync. Skipping update')
 

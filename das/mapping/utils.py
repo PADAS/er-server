@@ -107,9 +107,9 @@ def reduce_json(document):
     return reduced
 
 
-def get_spatial_feature_type(feature, type_label):
+def get_spatial_feature_type(feature, type_label=None):
     type_name = None
-    # get wfs type from given type label
+    # for esri-integration get wfs type from given type label
     if type_label:
         try:
             type_name = feature.get(type_label)
@@ -157,32 +157,70 @@ def db_feature_needs_update(feature_record, feature):
     return needs_update
 
 
-def mappingv2_save_spatial_data(feature, source_name, spatialfile_id, external_id=None, type_label=None, counter=0,
-                                arc_item=None):
-    model = models.SpatialFeature
+def get_or_create_feature(external_id, attributes):
+    created = False
+    try:
+        feature_record = models.SpatialFeature.objects.get(external_id=external_id)
+    except models.SpatialFeature.DoesNotExist:
+        feature_record = None
 
-    # this only happens when called from import_spatial
-    if not external_id:
-        # why the x.lower??
-        external_id = feature.get('globalid') if 'globalid' in [x.lower() for x in feature.fields] else feature.get(
-            'fid')
+    if not feature_record:
+        try:
+            attributes.update(external_id=external_id)
+            feature_record = models.SpatialFeature.objects.create_spatialfeature(**attributes)
+            created = True
+        except IntegrityError as ie:
+            logger.exception(ie)
+
+    return feature_record, created
+
+
+def save_esri_feature(feature, source_name, external_id, type_label, arcgis_item, counter):
+
+    # With Esri integration we've seen some feature services give us json that has features with "geometry" missing
+    # this handles and ignores that issue
+    try:
+        model_field_type = models.SpatialFeature._meta.get_field('feature_geometry')
+        feature_geometry = geometry_mapper.get_db_geom(feature.geom, model_field_type)
+    except GDALException as gex:
+        logger.warning(f'Saving feature {external_id} raised GDALException: {gex}')
+        return
 
     feature_type = get_spatial_feature_type(feature, type_label)
     if not feature_type:
         return
 
+    feature_record, created = get_or_create_feature(external_id, dict(feature_geometry=feature_geometry,
+                                                                      feature_type=feature_type))
+
+    if not feature_record:
+        return
+
+    if created or db_feature_needs_update(feature_record, feature):
+        logger.info(f'updating feature {external_id}')
+        feature_record.arcgis_item = arcgis_item
+        feature_record.external_source = source_name
+        set_feature_name(feature_record, feature, feature_type, counter)
+        feature_record.save()
+    else:
+        logger.info(f'Skipping update for feature {external_id}')
+
+
+def mappingv2_save_spatial_data(feature, source_name, spatialfile_id, external_id=None):
+    model = models.SpatialFeature
+    if not external_id:
+        external_id = feature['globalid'].value if 'globalid' in feature.fields \
+            else feature['fid'].value
+
     fields = list(fields_iter(feature))
+    feature_type = get_spatial_feature_type(feature)
+    if not feature_type:
+        return
+
     model_fieldname = 'feature_geometry'
     model_field_type = model._meta.get_field(model_fieldname)
-
-    # With Esri integration we've seen some feature services give us json that has features with "geometry" missing
-    # this handles and ignores that issue
-    try:
-        feature_geometry = geometry_mapper.get_db_geom(
-            feature.geom, model_field_type)
-    except GDALException as gex:
-        logger.warning(f'Saving feature {external_id} raised GDALException: {gex}')
-        return
+    feature_geometry = geometry_mapper.get_db_geom(
+        feature.geom, model_field_type)
 
     attribute_fields = feature_type.attribute_schema
 
@@ -203,43 +241,23 @@ def mappingv2_save_spatial_data(feature, source_name, spatialfile_id, external_i
             defaults[spatial_field['field']] = spatial_field['validator'](
                 feature[attribute_field].value)
 
-    # redo all of this with update_or_create
-    created = False
-    try:
-        feature_record = model.objects.get(external_id=external_id)
-    except model.DoesNotExist:
-        feature_record = None
+    feature_record, created = get_or_create_feature(external_id, dict(feature_geometry=feature_geometry,
+                                                                      feature_type=feature_type))
 
-    if db_feature_needs_update(feature_record, feature):
-        logger.info(f'feature {external_id} needs updating')
-        try:
-            # update_or_create
-            feature_record = model.objects.create_spatialfeature(
-                feature_geometry=feature_geometry,
-                feature_type=feature_type,
-                external_id=external_id,
-                arcgis_item=arc_item)
-            created = True
-        except IntegrityError:
-            logger.warning('Feature has null geometry: global_id=%s, %s',
-                           external_id, defaults)
-            return
-    else:
-        logger.info(f'skipping feature {external_id}. update not needed')
+    if not feature_record:
+        return
 
     logger.debug('Import feature: %s, created:%s', external_id, created)
 
-    feature_record.feature_type = feature_type  # why are we doing this again??
+    feature_record.feature_type = feature_type
 
     if 'tags' in feature.fields:
         feature_record.tags = [value.strip()
                                for value in feature['tags'].value.split(',')]
-    feature_record.feature_geometry = feature_geometry # why are we doing this again??
+    feature_record.feature_geometry = feature_geometry
     for key, value in defaults.items():
         setattr(feature_record, key, value)
-
-    feature_record = save_spatial_file(spatialfile_id, models.SpatialFeatureFile, feature_record)
-    set_feature_name(feature_record, feature, feature_type, counter)
+    save_spatial_file(spatialfile_id, models.SpatialFeatureFile, feature_record)
     feature_record.save()
 
 
@@ -247,7 +265,6 @@ def save_spatial_file(spatialfile_id, model, record):
     if spatialfile_id:
         spatialfile = model.objects.get(id=spatialfile_id)
         record.spatialfile = spatialfile
-    return record #don't need to return the
 
 
 def check_file_extension(f_type, data_file, feature_types_file):
@@ -352,7 +369,7 @@ def extract_features(obj, member, title, data, success_files, simple_presentatio
         data_file.seek(0)
         logger.info(f'Importing {title} features from tempfile {data_file.name}')
         management.call_command(
-            'importlayer', 'importspatialfile', data_file.name, typelabel=obj.type_label,
+            'importlayer', 'importfromesri', data_file.name, typelabel=obj.type_label,
             source=obj.source, name_field=obj.name_field, id_field=obj.id_field,
             presentation=simple_presentation, arcgisitemid=arcgis_item_id
         )
