@@ -154,8 +154,8 @@ class Command(BaseCommand):
                 # e.g., AP has features for multiple parks in the same feature layer
                 # TODO: make configurable, move out filter key (e.g., Park below) & filter value (ui_site_url)
                 #  to the admin UI.
-                if 'Park' not in feature.fields or feature.get('Park').lower() in settings.UI_SITE_URL.lower():
-                    save_esri_feature(feature, self.source_name, external_id, self.featuretype_label, arc_item, i)
+                # if 'Park' not in feature.fields or feature.get('Park').lower() in settings.UI_SITE_URL.lower():
+                save_esri_feature(feature, self.source_name, external_id, self.featuretype_label, arc_item, i)
         finally:
             datasource = None
 
