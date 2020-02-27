@@ -40,7 +40,7 @@ def background_download_features_from_wfs(obj_id, group_id=None):
 
 def get_wfs_config_objects(obj_id, group_id):
     obj = models.ArcgisConfiguration.objects.get(id=obj_id)
-    gis = utils.arcgis_authentication(None, obj, True)
+    gis = utils.arcgis_authentication(None, obj)
     _id = group_id if group_id else obj.groups.group_id
     wfs_group = gis.groups.get(_id)
 

@@ -1,20 +1,16 @@
 from math import isclose
 
 from django import forms
-from django.contrib.admin.widgets import (AdminDateWidget,
-                                          FilteredSelectMultiple)
+from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
 from django.contrib.gis.geos import Point
 from django.contrib.postgres.forms import JSONField
 from django.utils.translation import ugettext_lazy as _
 
+from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
+from mapping.models import Map, TileLayer, SpatialFeatureGroupStatic, \
+    FeatureType, DisplayCategory, SpatialFeatureType, ArcgisConfiguration
 from choices.models import Choice
 from core.common import TIMEZONE_USED
-from core.forms_utils import (AssignedDateTimeRangeField, ColorPickerWidget,
-                              JSONFieldFormMixin)
-from mapping.models import (ArcgisConfiguration, DisplayCategory, FeatureType,
-                            Map, SpatialFeatureGroupStatic, SpatialFeatureType,
-                            TileLayer)
-from mapping.utils import decrypt
 
 
 class MapCenterForm(forms.ModelForm):
@@ -197,16 +193,8 @@ class DisplayCategoryForm(forms.ModelForm):
         return instance
 
 
-class PasswordInput(forms.PasswordInput):
-    def get_context(self, name, value, attrs):
-        if not self.render_value:
-            value = None
-        if value:
-            value = decrypt(value)
-        return super().get_context(name, value, attrs)
-
 class ArcgisConfigurationForm(forms.ModelForm):
-    password = forms.CharField(widget=PasswordInput(render_value=True))
+    password = forms.CharField(widget=forms.PasswordInput(render_value=True))
 
     class Meta:
         model = ArcgisConfiguration

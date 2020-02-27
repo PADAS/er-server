@@ -20,11 +20,11 @@ from django.utils.translation import ugettext_lazy as _
 
 import mapping.models as models
 from core.openlayers import OSMGeoExtendedAdmin
-from mapping.forms import (ArcgisConfigurationForm, DisplayCategoryForm,
-                           FeatureTypeForm, MapCenterForm,
+from mapping.forms import (ArcgisConfigurationForm,
+                           DisplayCategoryForm, FeatureTypeForm, MapCenterForm,
                            SpatialFeatureGroupStaticForm,
                            SpatialFeatureTypeForm, TileLayerFormWithAttributes)
-from mapping.utils import (MAPPING_FEATURES_V2, arcgis_integration, update_db_groups, encrypt)
+from mapping.utils import MAPPING_FEATURES_V2, arcgis_integration, update_db_groups
 
 logger = logging.getLogger(__name__)
 
@@ -457,7 +457,8 @@ if MAPPING_FEATURES_V2:
             if self.arcgis_config(request) or not groups_found:
                 return HttpResponseRedirect(request.path_info)
             else:
-                self.save_obj(obj, groups_found)
+                obj.save()
+                update_db_groups(groups_found, obj)
                 return super().response_add(request, obj, post_url_continue=None)
 
         def response_change(self, request, obj):
@@ -465,16 +466,12 @@ if MAPPING_FEATURES_V2:
             if self.arcgis_config(request) or not groups_found:
                 return HttpResponseRedirect(request.path_info)
             else:
-                self.save_obj(obj, groups_found)
+                obj.save()
+                update_db_groups(groups_found, obj)
                 return super().response_change(request, obj)
 
         def save_model(self, request, obj, form, change):
             pass
-
-        def save_obj(self, obj, groups_found):
-            obj.password = encrypt(obj.password)
-            obj.save()
-            update_db_groups(groups_found, obj)
 
         def arcgis_config(self, request):
             return any(x in request.POST for x in ["_testconnection", "_downloadfeatures"])

@@ -1,4 +1,3 @@
-import base64
 import datetime
 import logging
 import os
@@ -7,7 +6,6 @@ from zipfile import ZipFile
 
 import arcgis
 from arcgis2geojson import arcgis2geojson
-from Crypto import Cipher, Hash
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.gis.gdal import DataSource, GDALException
@@ -18,11 +16,9 @@ from django.utils.encoding import force_text
 from django.utils.safestring import mark_safe
 
 import utils.json
-from mapping import models, utils
+from mapping import models
 from mapping.tasks import background_download_features_from_wfs
 from utils.spatial import GeometryMapper
-
-logger = logging.getLogger(__name__)
 
 geometry_mapper = GeometryMapper()
 
@@ -292,10 +288,9 @@ def update_db_groups(wfs_groups, obj):
         )
 
 
-def arcgis_authentication(request, obj, to_decode=False):
+def arcgis_authentication(request, obj):
     try:
-        password = decrypt(obj.password) if to_decode else obj.password
-        gis = arcgis.gis.GIS(obj.service_url, username=obj.username, password=password)
+        gis = arcgis.gis.GIS(obj.service_url, username=obj.username, password=obj.password)
         return gis
     except Exception as error:
         message(request, messages.ERROR, error) if request else logger.exception(error)
@@ -405,22 +400,3 @@ def get_mb_style(symbol):
         logger.info(f'Got type: {type}. Not handled yet.')
 
     return presentation
-
-
-def encryption_data():
-    padding, secret = '{', Hash.MD5.new()
-    secret.update(settings.SECRET_KEY.encode('utf-8'))
-    cipher = Cipher.AES.new(secret.hexdigest())
-    return  padding, cipher
-
-def encrypt(value):
-    padding, cipher = encryption_data()
-    value += (32 - len(value) % 32) * padding 
-    result = cipher.encrypt(value)
-    result = base64.standard_b64encode(result)
-    return result
-
-def decrypt(value):
-    padding, cipher = encryption_data()
-    value = base64.b64decode(bytes(value.strip("b'"), 'utf-8'))
-    return cipher.decrypt(value).decode('utf-8').rstrip(padding)
