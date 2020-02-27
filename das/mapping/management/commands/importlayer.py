@@ -86,12 +86,16 @@ class Command(BaseCommand):
         load_spatial_features_from_files.apply_async(args=(
             self.filename, self.tmpdirs, self.source_name, self.spatialfile_id,
             None, self.layer, self.presentation, self.featuretype_label,
-            self.id_field, self.name_field, featuretype, featureset,))
+            self.id_field, self.name_field, featuretype.name, featureset.name,))
 
     def importspatialfile(self):
         logger.info('Importing features from shapefile: %s',
                     self.filename)
+        featuretype = self.featuretype
+        if featuretype:
+            featuretype = featuretype if isinstance(featuretype, str) else models.SpatialFeatureType.objects.get(name=featuretype).name
+
         load_spatial_features_from_files.apply_async(args=(
             self.filename, self.tmpdirs, self.source_name, self.spatialfile_id,
             None, self.layer, self.presentation, self.featuretype_label,
-            self.id_field, self.name_field, self.featuretype,))
+            self.id_field, self.name_field, featuretype,))

@@ -467,17 +467,17 @@ def make_external_id(layer, feature, id_field, name_field):
 
 
 def get_featuretype_for_feature(feature, default=None):
+    type_name = default
     for name in feature.fields:
         if name in ('roadclass',):
             value = feature[name].value
             type_name = FEATURE_TYPES[value]
-            featuretype = models.FeatureType.objects.get_by_natural_key(
-                type_name)
-            return featuretype
-
-    if not default:
+    if type_name:
+        featuretype = models.FeatureType.objects.get_by_natural_key(
+            type_name)
+        return featuretype
+    else:
         raise KeyError('no default featuretype specified')
-    return default
 
 
 def contains_unique_keys_in_layer(layer, id_field, name_field):
@@ -583,9 +583,8 @@ def mappingv1_save_spatial_data(feature, featureset, featuretype, external_id, n
     defaults = {'feature_geometry': feature_geometry, 'fields': fields}
     feature_record, created = feature_model.objects.get_or_create(
         defaults=defaults,
-        featureset=featureset,
-        type=get_featuretype_for_feature(
-            feature, default=featuretype),
+        featureset=models.FeatureSet.objects.get(name=featureset),
+        type=get_featuretype_for_feature(feature, default=featuretype),
         external_id=external_id)
 
     logger.debug('Import feature: %s, created:%s',
