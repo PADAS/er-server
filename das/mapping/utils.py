@@ -539,26 +539,23 @@ def cleanup_files(filename):
     """
     Remove files/directories from the temporary folder.
     """
-    files = [filename]
-    for upload_file in files:
-        pathlist = filename.split("/")
-        path = '/'.join(pathlist[:7])
-        name = pathlist[-1]
+    pathlist = filename.split("/")
+    name = pathlist[-1]
 
-        if 'json' not in name and len(pathlist) > 8:
-            name = pathlist[-2] + '.zip'
+    if 'json' not in name and len(pathlist) > 8:
+        name = pathlist[-2] + '.zip'
 
-        uploaded_file_path = path + "/" + name
-        uploaded_file_directory = path
+    uploaded_file_directory = '/'.join(pathlist[:7])
+    uploaded_file_path = uploaded_file_directory + "/" + name
 
-        try:
-            if os.path.exists(uploaded_file_path):
-                os.remove(uploaded_file_path)
-            shutil.rmtree(uploaded_file_directory)
-        except PermissionError:
-            logger.exception(
-                f'Cleaning up spatial files after import: {uploaded_file_directory}')
-        upload_file = ''
+    try:
+        if os.path.exists(uploaded_file_path):
+            os.remove(uploaded_file_path)
+        shutil.rmtree(uploaded_file_directory)
+    except PermissionError:
+        logger.exception(
+            f'Cleaning up spatial files after import: {uploaded_file_directory}')
+    filename = ''
 
 
 def mappingv1_save_spatial_data(feature, featureset, featuretype, external_id, name_field, spatialfile_id):
@@ -663,6 +660,5 @@ def import_feature_types(datasource, source_name, spatialfile_id):
         type_record.name = name
         for key, value in defaults.items():
             setattr(type_record, key, value)
-        print("----")
 
         type_record.save()
