@@ -1,8 +1,8 @@
 import logging
 from datetime import datetime, timezone
 
-from django.db import transaction
 from celery_once import QueueOnce
+from django.db import transaction
 
 from das_server import celery
 from mapping import models, utils
@@ -22,50 +22,51 @@ def automate_download_features_from_wfs():
 @celery.app.task(base=QueueOnce, once={'graceful': True})
 def background_download_features_from_wfs(obj_id):
     # Task only accepts primitive data, acess config objects using obj_id
-    obj, wfs_group = get_wfs_config_objects(obj_id)
+    arc_config, wfs_group = get_wfs_config_objects(obj_id)
     errored_files, success_files, group_members = [], [], wfs_group.content()
+    items_to_download = None
+    AP_GROUP_ID = 'a47fb09a85fb41ec9d70ef608761f7fa'
+    ER_GROUP_ID = 'dc27285af43546a080407241d7eeab47'
 
-    # items_to_download = None
-    #         # AP_GROUP_ID = 'a47fb09a85fb41ec9d70ef608761f7fa'
-    #         # ER_GROUP_ID = 'dc27285af43546a080407241d7eeab47'
-    #         #
-    #         # # restricting APN group members for demo
-    #         # if wfs_group.id == AP_GROUP_ID:
-    #         #     items_to_download = [
-    #         #         'Akagera_Land_Cover',
-    #         #         'Built_point',
-    #         #         'Hydrology_polygon',
-    #         #         'Transport_line',
-    #         #         # 'Hydrology_line'
-    #         #     ]
-    #         # elif wfs_group.id == ER_GROUP_ID:
-    #     items_to_download = [
-    #         'Point features near Vulcan',
-    #         'STE Points Wells Closed',
-    #         'polygon features',
-    #         'Lines near Vulcan',
-    #         'Villages'
-    #     ]
+    # restricting APN group members for demo
+    if wfs_group.id == AP_GROUP_ID:
+        items_to_download = [
+            'Akagera_Land_Cover',
+            'Built_point',
+            'Hydrology_polygon',
+            # 'Transport_line',
+            # 'Hydrology_line'
+        ]
+    elif wfs_group.id == ER_GROUP_ID:
+        items_to_download = [
+            'Point features near Vulcan',
+            'STE Points Wells Closed',
+            'polygon features',
+            'Lines near Vulcan',
+            'Villages'
+        ]
     received_item_ids = [m.itemid for m in group_members]
-    delete_result = models.ArcgisItem.objects.exclude(id__in=received_item_ids).delete()
+    delete_result = models.ArcgisItem.objects.filter(arcgis_config=arc_config).exclude(
+        id__in=received_item_ids).delete()
     logger.info(f'deleted items {delete_result}')
     for member in group_members:
         try:
             with transaction.atomic():
                 if member.type == "Feature Service":
                     # TODO: before merge to develop remove all the items_to_download related stuff
-                    # if items_to_download and member.title not in items_to_download:
-                    #     logger.info(f'Skipping {member.title}')
-                    #     continue
+                    if items_to_download and member.title not in items_to_download:
+                        logger.info(f'Skipping {member.title}')
+                        continue
                     title = member.title.replace(' ', '-')
                     last_modified = datetime.fromtimestamp(int(member.modified/1000), timezone.utc)
                     logger.info(f'processing {title}')
                     arcgis_item, created = models.ArcgisItem.objects.get_or_create(
                         id=member.id,
-                        name=title
+                        name=title,
+                        arcgis_config=arc_config
                     )
                     if created or last_modified > arcgis_item.updated_at:
-                        utils.extract_gis_data(obj, member, title, errored_files, success_files, arcgis_item.id)
+                        utils.extract_gis_data(arc_config, member, title, errored_files, success_files, arcgis_item.id)
                         arcgis_item.save()  # update model's updated_at field
                     else:
                         logger.info(f'{title} not modified since last sync. Skipping update')
@@ -75,8 +76,8 @@ def background_download_features_from_wfs(obj_id):
             logger.exception(ex)
 
     # update last download time
-    obj.last_download = convert_date_string(str(datetime.now()))
-    obj.save()
+    arc_config.last_download = convert_date_string(str(datetime.now()))
+    arc_config.save()
 
     utils.wfs_download_return_messages(None, errored_files, success_files)
 

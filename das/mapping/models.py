@@ -843,3 +843,4 @@ class ArcgisConfiguration(TimestampedModel):
 class ArcgisItem(TimestampedModel):
     id = models.UUIDField(primary_key=True)
     name = models.CharField(max_length=50)
+    arcgis_config = models.ForeignKey(to=ArcgisConfiguration, on_delete=models.SET_NULL, null=True)
