@@ -100,7 +100,7 @@ class ProximitySubjectAnalyzerAdmin(admin.ModelAdmin):
             'classes': ('wide',),
             'fields': (('proximal_features',))
         }
-         ),
+        ),
         ('Advanced Analyzer Attributes', {
             'classes': ('wide', 'collapse'),
             'fields': ('id', 'search_time_hours', 'notes',)
@@ -127,7 +127,7 @@ class GeofenceSubjectAnalyzerAdmin(admin.ModelAdmin):
             'classes': ('wide',),
             'fields': (('critical_geofence_group', 'warning_geofence_group', 'containment_regions',))
         }
-         ),
+        ),
         ('Advanced Analyzer Attributes', {
             'classes': ('wide', 'collapse'),
             'fields': ('id', 'search_time_hours', 'notes',)
