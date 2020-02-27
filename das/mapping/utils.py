@@ -406,17 +406,21 @@ def get_mb_style(symbol):
 
     return presentation
 
-# encryption data
-padding, secret = '{', Hash.MD5.new()
-secret.update(settings.SECRET_KEY.encode('utf-8'))
-cipher = Cipher.AES.new(secret.hexdigest())
+
+def encryption_data():
+    padding, secret = '{', Hash.MD5.new()
+    secret.update(settings.SECRET_KEY.encode('utf-8'))
+    cipher = Cipher.AES.new(secret.hexdigest())
+    return  padding, cipher
 
 def encrypt(value):
+    padding, cipher = encryption_data()
     value += (32 - len(value) % 32) * padding 
     result = cipher.encrypt(value)
     result = base64.standard_b64encode(result)
     return result
 
 def decrypt(value):
+    padding, cipher = encryption_data()
     value = base64.b64decode(bytes(value.strip("b'"), 'utf-8'))
     return cipher.decrypt(value).decode('utf-8').rstrip(padding)
