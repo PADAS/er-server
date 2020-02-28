@@ -728,15 +728,17 @@ class SourcesView(generics.ListCreateAPIView, ):
     filter_backends = (SubjectObjectPermissionsFilter,)
     pagination_class = StandardResultsSetPagination
 
-    lookup_fields = ('manufacturer_id', 'provider_key')
+    lookup_fields = {'manufacturer_id': 'manufacturer_id',
+                     'provider_key': 'provider__provider_key',
+                     'provider': 'provider__provider_key'}
 
     def get_queryset(self):
         queryset = models.Source.objects.all()
 
         filter = {}
-        for fn in self.lookup_fields:
+        for fn, fld in self.lookup_fields.items():
             if fn in self.request.query_params:
-                filter[fn] = self.request.query_params.get(fn)
+                filter[fld] = self.request.query_params.get(fn)
         if filter:
             queryset = queryset.filter(**filter)
 
