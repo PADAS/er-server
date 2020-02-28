@@ -734,6 +734,8 @@ class SpatialFeatureFile(SpatialFilesBase):
                     layer=self.layer_number, name_field=self.name_field,
                     id_field=self.id_field
                 )
+        elif self.feature_type and self.data_changed(['feature_type_id']):
+            SpatialFeature.objects.filter(spatialfile__id=self.id).update(feature_type=self.feature_type)
         else:
             logger.info("No changes made, no new features loaded")
 

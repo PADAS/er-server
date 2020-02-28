@@ -120,30 +120,33 @@ def reduce_json(document):
     return reduced
 
 
-def get_spatial_feature_type(feature, type_label):
-    type_name = None
-    # get wfs type from given type label
-    if type_label:
-        try:
-            type_name = feature.get(type_label)
-        except Exception:
-            logger.warning(f'Type label given - {type_label} not a valid field for this feature')
+def get_spatial_feature_type(feature, type_label, featuretype):
+    try:
+        return models.SpatialFeatureType.objects.get(name=featuretype)
+    except Exception:
+        type_name = None
+        # get wfs type from given type label
+        if type_label:
+            try:
+                type_name = feature.get(type_label)
+            except Exception:
+                logger.warning(f'Type label given - {type_label} not a valid field for this feature')
 
-    if not type_name:
-        try:
-            # todo: eventually remove Types
-            type_name = feature.get('FeatureType') if 'FeatureType' in feature.fields else feature.get(
-                'Types') if 'Types' in feature.fields else feature.get('type')
-        except Exception:
-            logger.warning('%s missing featuretype', str(feature))
-            return
+        if not type_name:
+            try:
+                # todo: eventually remove Types
+                type_name = feature.get('FeatureType') if 'FeatureType' in feature.fields else feature.get(
+                    'Types') if 'Types' in feature.fields else feature.get('type')
+            except Exception:
+                logger.warning('%s missing featuretype', str(feature))
+                return
 
-    if type_name:
-        try:
-            return models.SpatialFeatureType.objects.get_or_create(name=type_name)[0]
-        except IntegrityError as ie:
-            logger.warning(ie)
-            return
+        if type_name:
+            try:
+                return models.SpatialFeatureType.objects.get_or_create(name=type_name)[0]
+            except IntegrityError as ie:
+                logger.warning(ie)
+                return
 
 
 # set feature name to some reasonable default if we can't find a name
@@ -160,15 +163,14 @@ def set_feature_name(feature_record, feature, feature_type, counter):
         feature_record.name = feature_type.name + str(counter)
 
 
-def mappingv2_save_spatial_data(feature, source_name, spatialfile_id, external_id=None, type_label=None, counter=0):
+def mappingv2_save_spatial_data(feature, featuretype, source_name, spatialfile_id, external_id=None, type_label=None, counter=0):
     model = models.SpatialFeature
 
     # this only happens when called from import_spatial
     if not external_id:
         external_id = feature.get('globalid') if 'globalid' in [x.lower() for x in feature.fields] else feature.get(
             'fid')
-
-    feature_type = get_spatial_feature_type(feature, type_label)
+    feature_type = get_spatial_feature_type(feature, type_label, featuretype)
     if not feature_type:
         return
 
@@ -505,7 +507,7 @@ def import_layer(layer, source_name, spatialfile_id, featuretype, featureset, pr
 
         if presentation:
             # TODO: get sft regardless of presentation and pass on further
-            spatial_feature_type, _ = get_spatial_feature_type(feature, featuretype_label)
+            spatial_feature_type = get_spatial_feature_type(feature, featuretype_label, featuretype)
             if not spatial_feature_type:
                 logger.warning('Did not get spatialfeaturetype for %s. Skipping', str(feature))
                 continue
@@ -531,7 +533,7 @@ def load_layer(layer, featuretype, featureset, feature, has_unique_keys, i, id_f
         mappingv1_save_spatial_data(
             feature, featureset, featuretype, external_id, name_field, spatialfile_id)
     else:
-        mappingv2_save_spatial_data(feature, source_name,
+        mappingv2_save_spatial_data(feature, featuretype, source_name,
                                     spatialfile_id, external_id, featuretype_label)
 
 

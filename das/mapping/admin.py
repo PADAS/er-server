@@ -415,7 +415,7 @@ if MAPPING_FEATURES_V2:
                 'fields': ('feature_types_file',)
             }
              ),)
-        readonly_fields = ('id',)
+        readonly_fields = ('id', 'status',)
 
         def get_readonly_fields(self, request, obj=None):
             if obj:
