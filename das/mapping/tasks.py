@@ -76,6 +76,10 @@ def get_wfs_config_objects(obj_id):
 def load_spatial_features_from_files(data_files, tmpdirs, source_name, spatialfile_id, feature_types_file=None,
                                      layer=None, presentation=None, featuretype_label=None,
                                      id_field=None, name_field=None, featuretype=None, featureset=None):
+
+    model = models.SpatialFile if featureset else models.SpatialFeatureFile
+    spatial_file = model.objects.filter(id=spatialfile_id)
+
     try:
         data_files = [data_files] if isinstance(
             data_files, str) else data_files
@@ -94,7 +98,9 @@ def load_spatial_features_from_files(data_files, tmpdirs, source_name, spatialfi
                 featuretype, featureset, presentation, featuretype_label,
                 id_field, name_field)
             utils.cleanup_files(filename)
+        spatial_file.update(status='Success')
     except Exception as ex:
         logger.exception(ex)
+        spatial_file.update(status=f'Error: {ex}')
     finally:
         datasource = None

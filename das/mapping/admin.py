@@ -403,7 +403,7 @@ if MAPPING_FEATURES_V2:
         fieldsets = (
             (None, {
                 'classes': ('wide',),
-                'fields': ('file_type', 'id', 'name', 'description', 'data',)
+                'fields': ('file_type', 'id', 'name', 'description', 'data', 'status')
             }),
             ('Shapefile Optional Attributes', {
                 'classes': ('wide', 'shapefile',),
@@ -419,7 +419,7 @@ if MAPPING_FEATURES_V2:
 
         def get_readonly_fields(self, request, obj=None):
             if obj:
-                return ('id', 'file_type',)
+                return ('id', 'file_type', 'status')
             return self.readonly_fields
 
         class Media:

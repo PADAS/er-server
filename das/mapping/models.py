@@ -1,29 +1,28 @@
-import uuid
-import os
-import logging
 import glob
+import logging
+import os
+import uuid
 import zipfile
 
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import JSONField
-from django.core.exceptions import ImproperlyConfigured
-from django.urls import reverse, NoReverseMatch
-from django.utils.translation import ugettext_lazy as _
-from tagulous.models import TagField, TagModel
-from model_utils.managers import InheritanceManager
 from django.core import management
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.core.files.storage import FileSystemStorage
+from django.db import transaction
+from django.urls import NoReverseMatch, reverse
 from django.utils.deconstruct import deconstructible
+from django.utils.translation import ugettext_lazy as _
+from model_utils.managers import InheritanceManager
+from tagulous.models import TagField, TagModel
 
 from core.models import TimestampedModel
-from utils.decorator import reify
 from mapping.app_settings import MBTILES
-from mapping.mbtiles import ExtractionError, GoogleProjection, MBTilesReader
-from mapping.mbtiles import InvalidFormatError
-from revision.manager import Revision, RevisionMixin
+from mapping.mbtiles import (ExtractionError, GoogleProjection,
+                             InvalidFormatError, MBTilesReader)
 from mapping.utils import MAPPING_FEATURES_V2, check_file_extension
-
+from revision.manager import Revision, RevisionMixin
+from utils.decorator import reify
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +157,7 @@ class SpatialFilesBase(TimestampedModel):
     layer_number = models.IntegerField(blank=True, null=True, default=0)
     name_field = models.CharField(max_length=100, blank=True, null=True)
     id_field = models.CharField(max_length=100, blank=True, null=True)
+    status = models.CharField(max_length=100, blank=True, null=True, verbose_name='Feature Load Status')
 
     class Meta:
         abstract = True
@@ -252,7 +252,7 @@ class SpatialFilesBase(TimestampedModel):
             check_file_extension(self.file_type, self.data,
                                  self.feature_types_file or None)
         self.save()
-        self.load_features()
+        transaction.on_commit(lambda: self.load_features())
 
     def get_upload_file(self, upload_file):
         if upload_file:
