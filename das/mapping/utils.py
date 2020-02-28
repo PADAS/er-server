@@ -18,7 +18,7 @@ from django.utils.safestring import mark_safe
 import utils.json
 from arcgis2geojson import arcgis2geojson
 from mapping import models
-from mapping.tasks import background_download_features_from_wfs
+from mapping.tasks import load_features_from_wfs
 from utils.spatial import GeometryMapper
 
 geometry_mapper = GeometryMapper()
@@ -276,14 +276,14 @@ def arcgis_integration(request, obj):
             message(request, messages.INFO, f'Successful Configuration')
         elif "_downloadfeatures" in request.POST:
             # set to a background task
-            try:
+            if obj.groups:
                 task_started_msg = "Features download in progress, checkout loaded <a href='/admin/mapping/spatialfeature/'>spatialfeatures</a> after a few minutes"
                 message(request, messages.INFO, mark_safe(task_started_msg))
-                background_download_features_from_wfs.apply_async(args=(obj.id,))
-            except Exception as ex:
+                load_features_from_wfs.apply_async(args=(obj.id, obj.groups.group_id,))
+            else:
                 error_msg = f"Select a group to enable features download"
-                message(request, messages.ERROR,ex) if request else logger.debug(error_msg)
-                logger.exception(ex)
+                message(request, messages.ERROR, error_msg) if request else logger.debug(error_msg)
+                logger.exception(error_msg)
         return acrgis_groups_found
 
 

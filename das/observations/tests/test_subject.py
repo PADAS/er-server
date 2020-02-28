@@ -162,4 +162,45 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(actual_size, expected_size)
 
+    def test_date_range_filter_works_with_bbox(self):
+        url = reverse('subjects-list-view')
+
+        subject = Subject.objects.get(name='Topsy')
+        subject2 = Subject.objects.get(name='Turvey')
+
+        point = Point((-122.334, 47.598))
+        t1 = datetime.now(tz=UTC)
+        t2 = datetime.now(tz=UTC) + timedelta(days=3)
+
+        Observation.objects.create(
+            source=subject.source,
+            location=point,
+            recorded_at=t1,
+            additional={}
+            )
+
+        Observation.objects.create(
+            source=subject2.source,
+            location=point,
+            recorded_at=t2,
+            additional={}
+        )
+
+        day = timedelta(days=1)
+        updated_since = (t1.date() - day).isoformat()
+        updated_until = (t2.date() + day).isoformat()
+        url += f'?updated_since={updated_since}&updated_until={updated_until}'
+
+        bbox = '-122.49866134971379, 47.40051600277377, -122.225591570732, 47.67666096382156'
+        url += '&bbox={}'.format(bbox)
+        request = self.factory.get(url)
+
+        self.force_authenticate(request, self.user)
+        response = SubjectsView.as_view()(request)
+        actual_size = len(response.data)
+        expected_size = 2
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(actual_size, expected_size)
+
+
 

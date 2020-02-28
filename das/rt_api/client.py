@@ -25,6 +25,7 @@ def get_ip_address():
 
 SERVICE_ID = '1'  # str(get_ip_address())
 CLIENT_LIST_KEY = 'rt_api.{}'.format(SERVICE_ID)
+EXPIRED_CLIENT_TRACES_LIST = 'rt_api.expired_traces'
 REALTIME_SERVICES_KEY = 'rt_api.services'
 
 
@@ -89,14 +90,17 @@ def get_client_list():
             yield client_data
 
 
+def get_expired_traces_client_list():
+    for sid in redis_client.hgetall(EXPIRED_CLIENT_TRACES_LIST).keys():
+        yield sid
+
+
 def add_client(sid, data):
     sid = str(sid)
-    logger.info('Adding socket client. sid=%s, data=%s', sid, data)
-    logger.info('Adding client to session list. key=%s, sid=%s, data=%s',
-                CLIENT_LIST_KEY, sid, json.dumps(data))
+    logger.info(f'Adding socket client. {sid}')
+    logger.info(f'Adding client to session list. {CLIENT_LIST_KEY} {sid}')
     hset_result = redis_client.hset(
         CLIENT_LIST_KEY, sid, json.dumps(data))
-    logger.info('hset_result = %s', hset_result)
 
 
 def _restore_client_data(data):
@@ -153,7 +157,11 @@ def remove_clients(*sids):
     sids = set((str(sid) for sid in sids))
     logger.info('Removing clients for sids: %s', sids)
     count = redis_client.hdel(CLIENT_LIST_KEY, *sids)
-    logger.info(f'Removed {count} clients (of {len(sids)} listed) from {CLIENT_LIST_KEY}')
+    logger.info(
+        f'Removed {count} clients (of {len(sids)} listed) from {CLIENT_LIST_KEY}')
+    count = redis_client.hdel(EXPIRED_CLIENT_TRACES_LIST, *sids)
+    logger.info(
+        f'Removed {count} clients (of {len(sids)} listed) from {EXPIRED_CLIENT_TRACES_LIST}')
 
     logger.info('Deleteing mid keys for sids %s.', sids)
     redis_client.delete(*[f'mid-{sid}' for sid in sids])
@@ -194,6 +202,13 @@ def remove_all_rt_services():
 
 def trace_expiration_handler(msg):
     logger.info('TRACE Expiration', extra=msg)
+    ch = str(msg['channel'])
+    # ch = __keyspace@2__:trace-sid-timestamp
+    trace_id = ch.split(":")[-1]
+    if trace_id.startswith("trace"):
+        sid = trace_id.split("-")[-2]
+        hset_result = redis_client.hset(EXPIRED_CLIENT_TRACES_LIST, sid, msg)
+        logger.info('hset_result = %s', hset_result)
 
 
 def stop_trace_consumer():
@@ -209,7 +224,8 @@ def start_trace_consumer():
     trace_consumer = trace_pubsub.run_in_thread(sleep_time=0.001)
 
     global stop_trace_consumer
-    stop_trace_consumer = lambda: (logger.info('Stopping trace consumer.'), trace_consumer.stop())
+    def stop_trace_consumer(): return (logger.info(
+        'Stopping trace consumer.'), trace_consumer.stop())
 
 
 def shutdown_cleanup():
