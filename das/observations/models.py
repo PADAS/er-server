@@ -713,14 +713,14 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
 
     def _query_string_for_filter(self, updated_since=None, updated_until=None):
         updated_since_filter = Q(updated_at__gte=updated_since) \
-                               | Q(status_recorded_at__gte=updated_since) \
-                               | Q(status_last_voice_call_start_at__gte=updated_since) \
-                               | Q(status_radio_state_at__gte=updated_since)
+            | Q(status_recorded_at__gte=updated_since) \
+            | Q(status_last_voice_call_start_at__gte=updated_since) \
+            | Q(status_radio_state_at__gte=updated_since)
 
         updated_until_filter = Q(updated_at__lte=updated_until) \
-                               | Q(status_recorded_at__lte=updated_until) \
-                               | Q(status_last_voice_call_start_at__lte=updated_until) \
-                               | Q(status_radio_state_at__lte=updated_until)
+            | Q(status_recorded_at__lte=updated_until) \
+            | Q(status_last_voice_call_start_at__lte=updated_until) \
+            | Q(status_radio_state_at__lte=updated_until)
 
         if updated_since and updated_until:
             return updated_since_filter, updated_until_filter
@@ -731,27 +731,31 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
 
     def by_updated_since(self, updated_since):
 
-        updated_since_filter = self._query_string_for_filter(updated_since=updated_since)
+        updated_since_filter = self._query_string_for_filter(
+            updated_since=updated_since)
 
         return self.filter(updated_since_filter)
 
     def by_updated_until(self, updated_until):
 
-        updated_until_filter = self._query_string_for_filter(updated_until=updated_until)
+        updated_until_filter = self._query_string_for_filter(
+            updated_until=updated_until)
         return self.filter(updated_until_filter)
 
     def by_updated_since_until(self, updated_since, updated_until):
 
-        updated_since_filter, updated_until_filter = self._query_string_for_filter(updated_since=updated_since, \
+        updated_since_filter, updated_until_filter = self._query_string_for_filter(updated_since=updated_since,
                                                                                    updated_until=updated_until)
         return self.filter(updated_since_filter, updated_until_filter)
 
-    def by_bbox(self, bbox, last_days=None, include_stationary_subjects=False):
+    def by_bbox(self, bbox, last_days=None, include_stationary_subjects=False, updated_since=None, updated_until=None):
         '''
         Filter by bbox, last_days.
         Conditionally include subjects that have latest positions within the bbox but outside the time frame
         indicated by last_days.
 
+        :param updated_until:
+        :param updated_since:
         :param bbox:
         :param last_days:
         :param include_stationary_subjects:
@@ -759,9 +763,22 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         '''
         geom = Polygon.from_bbox(bbox)
         sources = Observation.objects.filter(location__within=geom)
-        if last_days:
+
+        if updated_since and updated_until:
+            gt = parse_date(updated_since)
+            lt = parse_date(updated_until)
+            sources = sources.filter(recorded_at__range=(gt, lt))
+        elif updated_since:
+            gt = parse_date(updated_since)
+            sources = sources.filter(recorded_at__gte=gt)
+        elif updated_until:
+            lt = parse_date(updated_until)
+            sources = sources.filter(recorded_at__lte=lt)
+        elif last_days:
             lt = datetime.now(tz=pytz.UTC)
             gt = lt - last_days
+            # clock skew, server could be behind
+            lt = lt + timedelta(minutes=10)
             sources = sources.filter(recorded_at__range=(gt, lt))
 
         sources = sources.values('source').annotate(
@@ -1278,14 +1295,12 @@ def update_subject_status_from_observation(observation, delay_hours=0):
         reported_subject_name, radio_state, radio_state_at = None, None, None
 
     update_subject_status(source=source, location=location, recorded_at=recorded_at,
-                        last_voice_call_start_at=last_voice_call_start_at,
-                        location_requested_at=location_requested_at,
-                        radio_state=radio_state,
-                        radio_state_at=radio_state_at,
-                        reported_subject_name=reported_subject_name,
-                        delay_hours=delay_hours)
-
-
+                          last_voice_call_start_at=last_voice_call_start_at,
+                          location_requested_at=location_requested_at,
+                          radio_state=radio_state,
+                          radio_state_at=radio_state_at,
+                          reported_subject_name=reported_subject_name,
+                          delay_hours=delay_hours)
 
 
 def update_subject_status_from_post(source, recorded_at, location, additional):
@@ -1450,6 +1465,7 @@ class SocketClient(TimestampedModel):
 
 import observations.signals
 from analyzers.models import ObservationAnnotator
+
 
 class SubjectMaximumSpeed(ObservationAnnotator):
     class Meta:
