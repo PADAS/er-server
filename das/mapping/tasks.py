@@ -71,7 +71,7 @@ def get_wfs_config_objects(obj_id, group_id):
 
     return obj, wfs_group
 
-
+# todo: cleanup when merging with esri work
 @celery.app.task(base=QueueOnce, once={'graceful': True})
 def load_spatial_features_from_files(data_files, tmpdirs, source_name, spatialfile_id, feature_types_file=None,
                                      layer=None, presentation=None, featuretype_label=None,
@@ -87,7 +87,7 @@ def load_spatial_features_from_files(data_files, tmpdirs, source_name, spatialfi
             datasource, layer_num = utils.get_datasource_and_layer_num(
                 feature_types_file, tmpdirs, 0)
             utils.import_feature_types(
-                datasource[layer_num], source_name, spatialfile_id)
+                datasource[layer_num], source_name)
 
         for filename in data_files:
             datasource, layer_num = utils.get_datasource_and_layer_num(

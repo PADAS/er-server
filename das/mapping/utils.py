@@ -6,6 +6,7 @@ import tempfile
 from zipfile import ZipFile
 
 import arcgis
+from arcgis2geojson import arcgis2geojson
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.gis.gdal import DataSource, GDALException
@@ -16,7 +17,6 @@ from django.utils.encoding import force_text
 from django.utils.safestring import mark_safe
 
 import utils.json
-from arcgis2geojson import arcgis2geojson
 from mapping import models
 from mapping.tasks import load_features_from_wfs
 from utils.spatial import GeometryMapper
@@ -616,12 +616,24 @@ def get_display_category(display_category_name, create_okay=True):
     return display_category
 
 
-def import_feature_types(datasource, source_name, spatialfile_id):
+def import_feature_types(datasource, source_name):
     model = models.SpatialFeatureType
     for feature in datasource:
         fields = list(fields_iter(feature))
         global_id = feature['globalid'].value
         name = feature['type'].value
+
+        try:
+            type_record, created = model.objects.get_or_create(name=name)
+            display_category = get_display_category(feature['display_category'].value)
+        except IntegrityError as err:
+            logger.warning(err)
+            return
+        except Exception as error:
+            raise ValidationError({'feature_types_file': ["Unable to process file: ", error]})
+
+        type_record.display_category = display_category
+        type_record.external_id = global_id
 
         provenance = {feature_name: feature[feature_name].value for feature_name in fields if feature_name in TYPE_PROVENANCE_FIELDS}
         provenance = reduce_json(provenance)
@@ -638,29 +650,12 @@ def import_feature_types(datasource, source_name, spatialfile_id):
         defaults = {'provenance': provenance, 'attribute_schema': attribute_schema,
                     'external_source': source_name}
 
-        try:
-            type_record, created = model.objects.get_or_create(
-                name=name,
-                defaults=defaults,
-                display_category=get_display_category(
-                    feature['display_category'].value),
-                external_id=global_id)
-        except IntegrityError as err:
-            logger.warning(err)
-            return
-        except Exception as error:
-            raise ValidationError({'feature_types_file': ["Unable to process file: ", error]})
-
-        logger.debug('Import feature_type: %s, created:%s',
-                        global_id, created)
-
         if 'tags' in fields:
             type_record.tags = [value.strip()
                                 for value in feature['tags'].value.split(',')]
-        type_record.display_category = get_display_category(
-            feature['display_category'].value)
-        type_record.name = name
         for key, value in defaults.items():
             setattr(type_record, key, value)
 
         type_record.save()
+        logger.debug('Import feature_type: %s, created:%s',
+                     global_id, created)

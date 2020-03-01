@@ -30,6 +30,7 @@ def reduce_json(document):
     return reduced
 
 
+# TODO: merge this with importlayer.py.
 class Command(BaseCommand):
     help = 'Import a spatial data layer'
     tmpdirs = []
@@ -43,8 +44,12 @@ class Command(BaseCommand):
         self.spatialfile_id = options['spatialfile_id'] if options['spatialfile_id'] else self.spatialfile_id
         self.filename = options['filename']
         self.feature_types_file = options['feature_types']
+        self.name_field = options['name_field'] if options.get('name_field') else 'Name'
+        self.id_field = options['id_field'] if options.get('id_field') else 'globalid'
 
-        load_spatial_features_from_files.apply_async(args=(self.filename, self.tmpdirs, self.source_name, self.spatialfile_id, self.feature_types_file,))
+        load_spatial_features_from_files.apply_async(args=(
+            self.filename, self.tmpdirs, self.source_name, self.spatialfile_id, self.feature_types_file, None, None, None,
+            self.id_field, self.name_field))
 
     def add_arguments(self, parser):
         parser.add_argument('filename', type=str, nargs='*',

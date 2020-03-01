@@ -13,11 +13,16 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='spatialfeaturefile',
             name='status',
-            field=models.CharField(blank=True, max_length=100, null=True),
+            field=models.CharField(blank=True, max_length=100, null=True, verbose_name='Feature Load Status'),
         ),
         migrations.AddField(
             model_name='spatialfile',
             name='status',
-            field=models.CharField(blank=True, max_length=100, null=True),
+            field=models.CharField(blank=True, max_length=100, null=True, verbose_name='Feature Load Status'),
+        ),
+        migrations.AlterField(
+            model_name='spatialfeaturetype',
+            name='name',
+            field=models.CharField(max_length=255, unique=True),
         ),
     ]
