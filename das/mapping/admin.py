@@ -449,66 +449,66 @@ if MAPPING_FEATURES_V2:
             self.message_user(request, msg, messages.SUCCESS)
 
 
-    @admin.register(models.ArcgisConfiguration)
-    class ArcgisConfigurationAdmin(admin.ModelAdmin):
-        list_display = ('config_name', 'username', )
-        fieldsets = (
-            (None, {
-                'classes': ('wide',),
-                'fields': ('last_download','config_name', 'username', 'password', 'search_text')
-            }),
-            ('ArcGIS Group', {
-                'classes': ('wide', 'groups'),
-                'fields': ('groups',)
-            }),
-            ('Optional Attributes', {
-                'classes': ('collapse',),
-                'fields': ('service_url', 'source', 'type_label', 'id_field','name_field',)
-            }
-            ),)
-        readonly_fields = ('last_download',)
-        form = ArcgisConfigurationForm
-
-        def get_fieldsets(self, request, obj=None):
-            if self.fieldsets:
-                fieldsets = list(self.fieldsets)
-                for item in fieldsets:
-                    if not obj and 'ArcGIS Group' in item:
-                        fieldsets.pop(fieldsets.index(item))
-                return tuple(fieldsets)
-            return [(None, {'fields': self.get_fields(request, obj)})]
-
-        def response_add(self, request, obj, post_url_continue=None):
-            groups_found = arcgis_integration(request, obj)
-            if self.arcgis_config(request) or not groups_found:
-                return HttpResponseRedirect(request.path_info)
-            else:
-                obj.save()
-                update_db_groups(groups_found, obj)
-                return super().response_add(request, obj, post_url_continue=None)
-
-        def response_change(self, request, obj):
-            groups_found = arcgis_integration(request, obj)
-            if self.arcgis_config(request) or not groups_found:
-                return HttpResponseRedirect(request.path_info)
-            else:
-                obj.save()
-                update_db_groups(groups_found, obj)
-                return super().response_change(request, obj)
-
-        def save_model(self, request, obj, form, change):
-            pass
-
-        def arcgis_config(self, request):
-            return any(x in request.POST for x in ["_testconnection", "_downloadfeatures"])
-
-        def formfield_for_foreignkey(self, db_field, request, **kwargs):
-            if db_field.name == 'groups':
-                object_id = request.resolver_match.kwargs.get('object_id')
-                if object_id:
-                    obj = self.model.objects.get(id=int(object_id))
-                    kwargs['queryset'] = models.ArcgisGroup.objects.filter(config_id=obj.id)
-            return super().formfield_for_foreignkey(db_field, request, **kwargs)
+    # @admin.register(models.ArcgisConfiguration)
+    # class ArcgisConfigurationAdmin(admin.ModelAdmin):
+    #     list_display = ('config_name', 'username', )
+    #     fieldsets = (
+    #         (None, {
+    #             'classes': ('wide',),
+    #             'fields': ('last_download','config_name', 'username', 'password', 'search_text')
+    #         }),
+    #         ('ArcGIS Group', {
+    #             'classes': ('wide', 'groups'),
+    #             'fields': ('groups',)
+    #         }),
+    #         ('Optional Attributes', {
+    #             'classes': ('collapse',),
+    #             'fields': ('service_url', 'source', 'type_label', 'id_field','name_field',)
+    #         }
+    #         ),)
+    #     readonly_fields = ('last_download',)
+    #     form = ArcgisConfigurationForm
+    #
+    #     def get_fieldsets(self, request, obj=None):
+    #         if self.fieldsets:
+    #             fieldsets = list(self.fieldsets)
+    #             for item in fieldsets:
+    #                 if not obj and 'ArcGIS Group' in item:
+    #                     fieldsets.pop(fieldsets.index(item))
+    #             return tuple(fieldsets)
+    #         return [(None, {'fields': self.get_fields(request, obj)})]
+    #
+    #     def response_add(self, request, obj, post_url_continue=None):
+    #         groups_found = arcgis_integration(request, obj)
+    #         if self.arcgis_config(request) or not groups_found:
+    #             return HttpResponseRedirect(request.path_info)
+    #         else:
+    #             obj.save()
+    #             update_db_groups(groups_found, obj)
+    #             return super().response_add(request, obj, post_url_continue=None)
+    #
+    #     def response_change(self, request, obj):
+    #         groups_found = arcgis_integration(request, obj)
+    #         if self.arcgis_config(request) or not groups_found:
+    #             return HttpResponseRedirect(request.path_info)
+    #         else:
+    #             obj.save()
+    #             update_db_groups(groups_found, obj)
+    #             return super().response_change(request, obj)
+    #
+    #     def save_model(self, request, obj, form, change):
+    #         pass
+    #
+    #     def arcgis_config(self, request):
+    #         return any(x in request.POST for x in ["_testconnection", "_downloadfeatures"])
+    #
+    #     def formfield_for_foreignkey(self, db_field, request, **kwargs):
+    #         if db_field.name == 'groups':
+    #             object_id = request.resolver_match.kwargs.get('object_id')
+    #             if object_id:
+    #                 obj = self.model.objects.get(id=int(object_id))
+    #                 kwargs['queryset'] = models.ArcgisGroup.objects.filter(config_id=obj.id)
+    #         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 else:
     @admin.register(models.SpatialFile)
