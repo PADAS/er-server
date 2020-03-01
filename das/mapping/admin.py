@@ -419,7 +419,7 @@ if MAPPING_FEATURES_V2:
 
         def get_readonly_fields(self, request, obj=None):
             if obj:
-                return ('id', 'file_type', 'status')
+                return [f.name for f in self.model._meta.fields]
             return self.readonly_fields
 
         class Media:

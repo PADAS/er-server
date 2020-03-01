@@ -162,30 +162,6 @@ class SpatialFilesBase(TimestampedModel):
     class Meta:
         abstract = True
 
-    @classmethod
-    def from_db(cls, db, field_names, values):
-        instance = super().from_db(db, field_names, values)
-        instance._state.adding = False
-        instance._state.db = db
-        instance._old_values = dict(zip(field_names, values))
-        return instance
-        
-        
-    def data_changed(self, fields):
-        """
-        checks if field value passed has changed
-        """
-        if hasattr(self, '_old_values'):
-            if not self.id or not self._old_values:
-                return True
-
-            for field in fields:
-                if getattr(self, field) != self._old_values[field]:
-                    return True
-                return False
-
-        return True
-
     @staticmethod
     def fetch_shape_file_path(directory_path):
         """
@@ -283,16 +259,12 @@ class SpatialFile(SpatialFilesBase):
 
     def load_features(self):
 
-        if self.data_changed(['data']):
-            import_file = self.get_upload_file(self.data)
-            management.call_command(
+        import_file = self.get_upload_file(self.data)
+        management.call_command(
             'importlayer', 'importlayerfile', import_file,
             spatialfile_id=self.id, featureset=self.feature_set, featuretype=self.feature_type,
             name_field=self.name_field, id_field=self.id_field
         )
-        else:
-            logger.info("No changes made, no new features loaded")
-
 
 class Feature(TimestampedModel):
     """
@@ -716,28 +688,23 @@ class SpatialFeatureFile(SpatialFilesBase):
 
     def load_features(self):
 
-        if self.data_changed(['data', 'feature_types_file']):
-            data_file = self.get_upload_file(self.data)
-            try:
-                spatial_types_file = self.get_upload_file(self.feature_types_file)
-            except Exception:
-                spatial_types_file = None
-            if spatial_types_file:
-                management.call_command(
-                    'import_spatial', data_file, spatialfile_id=self.id,
-                    feature_types=spatial_types_file
-                )
-            else:
-                management.call_command(
-                    'importlayer', 'importspatialfile', data_file,
-                    spatialfile_id=self.id, featuretype=self.feature_type,
-                    layer=self.layer_number, name_field=self.name_field,
-                    id_field=self.id_field
-                )
-        elif self.feature_type and self.data_changed(['feature_type_id']):
-            SpatialFeature.objects.filter(spatialfile__id=self.id).update(feature_type=self.feature_type)
+        data_file = self.get_upload_file(self.data)
+        try:
+            spatial_types_file = self.get_upload_file(self.feature_types_file)
+        except Exception:
+            spatial_types_file = None
+        if spatial_types_file:
+            management.call_command(
+                'import_spatial', data_file, spatialfile_id=self.id,
+                feature_types=spatial_types_file
+            )
         else:
-            logger.info("No changes made, no new features loaded")
+            management.call_command(
+                'importlayer', 'importspatialfile', data_file,
+                spatialfile_id=self.id, featuretype=self.feature_type,
+                layer=self.layer_number, name_field=self.name_field,
+                id_field=self.id_field
+            )
 
 
 class SpatialFeatureManager(models.Manager):

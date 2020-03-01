@@ -3,7 +3,7 @@
         var selectFileType = $('#id_file_type'), readonlyFields = document.getElementsByClassName("readonly"),
         geojson = $('.geojson'), shapefile= $('.shapefile');
 
-        if(readonlyFields.length > 1){
+        if(readonlyFields.length > 2){
             toggleVerified(readonlyFields[0].innerHTML.toLowerCase());
         }
         else{
