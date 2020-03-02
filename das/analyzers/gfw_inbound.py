@@ -107,7 +107,8 @@ def process_handler_post(request):
         event_details_dict = {
             'gfw_alert_type': layer_slug,
             'alert_link': deserialized.validated_data.get('alert_link'),
-            'subscription_name': deserialized.validated_data.get('alert_name')
+            'subscription_name': deserialized.validated_data.get('alert_name'),
+            'unsubscribe_url': deserialized.validated_data.get('unsubscribe_url')
         }
 
         event_dict = {
@@ -116,58 +117,24 @@ def process_handler_post(request):
             'event_details': event_details_dict
         }
 
-        return create_events(request, event_dict, deserialized.validated_data)
+        validated_data = deserialized.validated_data
+
+        if event_dict.get('event_type') == 'gfw_activefire_alert':
+            validated_data['downloadUrls'] = callback_api_for_fire_alerts(validated_data)
+
+        download_urls = validated_data.get('downloadUrls')
+        if download_urls:
+            result = celery.app.send_task('analyzers.tasks.download_gfw_alerts', args=(download_urls.get('json'),
+                                                                                       event_dict,
+                                                                                       str(request.user.id)))
+            logger.info('Submitted task for downloading GFW Alerts. Celery Async result: %s', result)
+
+            return Response(status=status.HTTP_201_CREATED, data=dict(message='Alert processed'))
 
     logger.info('Ignoring %s alert', layer_slug,
                 extra={'alert_type': layer_slug})
     return Response(status=status.HTTP_400_BAD_REQUEST,
                     data=dict(message=f'Unknown layerSlug: {layer_slug}'))
-
-
-def create_events(request, common_fields, validated_data):
-    def create_alert_event(alert_sample):
-        deserialized_sample = AlertSample(data=alert_sample)
-        if not deserialized_sample.is_valid():
-            counts[ERROR_COUNTER] = counts[ERROR_COUNTER] + 1
-            return deserialized_sample.errors()
-
-        event_fields = {
-            **common_fields,
-            **{
-                'location': {
-                    'latitude': deserialized_sample.validated_data.get('latitude'),
-                    'longitude': deserialized_sample.validated_data.get('longitude')},
-                'time': datetime.combine(date=deserialized_sample.validated_data.get('acq_date'),
-                                         time=deserialized_sample.validated_data.get(
-                                             'acq_time'),
-                                         tzinfo=pytz.UTC)
-            }
-        }
-
-        return persist_event(event_fields, request, counts)
-
-    if common_fields.get('event_type') == 'gfw_activefire_alert':
-        validated_data['downloadUrls'] = callback_api_for_fire_alerts(validated_data)
-
-    download_urls = validated_data.get('downloadUrls')
-    if download_urls:
-        result = celery.app.send_task('analyzers.tasks.download_gfw_alerts', args=(download_urls.get('json'),
-                                                                                   common_fields,
-                                                                                   str(request.user.id)))
-        logger.info('Submitted task for downloading GFW Alerts. Celery Async result: %s', result)
-
-    counts = {PROCESSED_COUNTER: 0, ERROR_COUNTER: 0}
-    errors = [create_alert_event(alert)
-              for alert in validated_data.get('alerts')]
-    errors = filter(lambda x: len(list(x)) > 0, errors)
-
-    log_metrics(counts)
-
-    if len(list(errors)) > 0:
-        logger.error('Bad request received %s', errors)
-        return Response(status=status.HTTP_400_BAD_REQUEST, data=errors)
-    else:
-        return Response(status=status.HTTP_201_CREATED, data=dict(message='Alert processed'))
 
 
 def process_downloaded_alerts(payload, common_event_fields, user_id):
@@ -219,10 +186,11 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
             'time': time,
         }
     }
-    url = common_event_fields['event_details']['alert_link']
-    geostore_id = parse_url(url)['geostore'][0]
+    url = common_event_fields['event_details']['unsubscribe_url']
+    subscription_url = url.split('/')
+    subscription_id =  subscription_url[4]
 
-    gfw_query = GlobalForestWatchSubscription.objects.get(geostore_id=geostore_id)
+    gfw_query = GlobalForestWatchSubscription.objects.get(subscription_id=subscription_id)
     if common_event_fields.get('event_type') == 'gfw_activefire_alert':
         conf_confidence = gfw_query.Fire_confidence
         superset_cofidence = {i.strip() for i in conf_confidence.split(',')}
@@ -235,6 +203,7 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
         event_fields.setdefault('event_details', {})['confidence'] = confidence
         return persist_event(event_fields, request, counts)
     logger.info("GLAD Alert %s not within the confidence level" % downloaded_sample)
+    return {}
 
 
 def persist_event(event_fields, request, counts):

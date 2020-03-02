@@ -29,10 +29,12 @@ def callback_api_for_fire_alerts(validated_data):
 
     # Make api-call to fetch viir fire alerts
     response = get_viirs_fire_alerts(endpoint)
-    link_to_download_in_csv = response['data']['attributes']['downloadUrls']['csv']
-    update_url = change_format_to_json(link_to_download_in_csv)
-    url_dict['json'] = update_url
-    return url_dict
+    if response:
+        link_to_download_in_csv = response['data']['attributes']['downloadUrls']['csv']
+        update_url = change_format_to_json(link_to_download_in_csv)
+        url_dict['json'] = update_url
+        return url_dict
+    logger.debug("Error occured occured while fetching fire alerts.")
 
 
 def get_viirs_fire_alerts(endpoint):
