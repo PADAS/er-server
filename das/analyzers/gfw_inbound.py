@@ -188,7 +188,7 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
     }
     url = common_event_fields['event_details']['unsubscribe_url']
     subscription_url = url.split('/')
-    subscription_id =  subscription_url[4]
+    subscription_id = subscription_url[4]
 
     gfw_query = GlobalForestWatchSubscription.objects.get(subscription_id=subscription_id)
     if common_event_fields.get('event_type') == 'gfw_activefire_alert':
