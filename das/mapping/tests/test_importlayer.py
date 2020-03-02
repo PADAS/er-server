@@ -24,13 +24,12 @@ class TestSpatialFile(BaseTest):
             spatial_file = SpatialFile(
                 name='GeoJson test', data=SimpleUploadedFile(
                     'dummy.geojson', geojson_file.read()),
-                feature_type=dummy_feature_type, feature_set=dummy_feature_set, 
-                name_field='NRT'
+                feature_type=dummy_feature_type, feature_set=dummy_feature_set
             )
             spatial_file.clean()
             spatial_file.save()
         # load files
-        extract_features(spatial_file.data.path, 'ste', spatial_file, featureset=dummy_feature_set.name)
+        extract_features(spatial_file.data.path, 'ste', spatial_file.id, featuretype=dummy_feature_type.name, featureset=dummy_feature_set.name, name_field='NRT')
 
         point_feature = PointFeature.objects.all()[0]
         self.assertEqual(dummy_feature_type, point_feature.type)
@@ -47,15 +46,14 @@ class TestSpatialFile(BaseTest):
             spatial_file = SpatialFile(
                 name='Shapefile test', data=SimpleUploadedFile(
                     'Grbnd_New.zip', shapefile.read()),
-                feature_type=dummy_feature_type, feature_set=dummy_feature_set,
-                name_field='Grb'
+                feature_type=dummy_feature_type, feature_set=dummy_feature_set
             )
             spatial_file.clean()
             spatial_file.save()
         
         # load features
         path = spatial_file.data.path.split('.')[0]+ '/Grbnd_New.SHP'
-        extract_features(path, 'ste', spatial_file, featureset=dummy_feature_set.name)
+        extract_features(path, 'ste', spatial_file.id, featuretype=dummy_feature_type.name, featureset=dummy_feature_set.name, name_field='GRB')
 
         point_feature = PolygonFeature.objects.all()[0]
         self.assertEqual(dummy_feature_type, point_feature.type)
@@ -79,7 +77,7 @@ class TestSpatialFile(BaseTest):
                 spatial_file.save()
                 logger.info('Shape-file name-field  test complete.')
         # load features
-        extract_features(spatial_file.data.path, 'ste', spatial_file)
+        extract_features(spatial_file.data.path, 'ste', spatial_file.id, name_field='STE')
 
         # featuretypes added
         self.assertTrue(SpatialFeatureType.objects.count() > 5)
@@ -96,7 +94,7 @@ class TestSpatialFile(BaseTest):
         
         # Load features
         path = spatial_file.data.path.split('.')[0]+ '/MatlaMamba_Airstrip.shp'
-        extract_features(path, 'ste', spatial_file)
+        extract_features(path, 'ste', spatial_file.id, name_field='Matlamamba')
         logger.info('Shape-file test complete.')
 
         self.assertEquals(SpatialFeature.objects.count(), 2)
