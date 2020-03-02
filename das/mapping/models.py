@@ -228,7 +228,12 @@ class SpatialFilesBase(TimestampedModel):
             check_file_extension(self.file_type, self.data,
                                  self.feature_types_file or None)
         self.save()
-        transaction.on_commit(lambda: self.load_features())
+        data_file = self.get_upload_file(self.data)
+        try:
+            spatial_types_file = self.get_upload_file(self.feature_types_file)
+        except Exception:
+            spatial_types_file = None
+        transaction.on_commit(lambda: self.call_mgt_command(data_file, spatial_types_file))
 
     def get_upload_file(self, upload_file):
         if upload_file:
@@ -257,9 +262,7 @@ class SpatialFile(SpatialFilesBase):
     class Meta:
         verbose_name = 'Spatial File'
 
-    def load_features(self):
-
-        import_file = self.get_upload_file(self.data)
+    def call_mgt_command(self, import_file, spatial_types_file=None):
         management.call_command(
             'importlayer', 'importlayerfile', import_file,
             spatialfile_id=self.id, featureset=self.feature_set, featuretype=self.feature_type,
@@ -686,13 +689,7 @@ class SpatialFeatureFile(SpatialFilesBase):
     class Meta:
         verbose_name = 'Feature Import File'
 
-    def load_features(self):
-
-        data_file = self.get_upload_file(self.data)
-        try:
-            spatial_types_file = self.get_upload_file(self.feature_types_file)
-        except Exception:
-            spatial_types_file = None
+    def call_mgt_command(self, data_file, spatial_types_file):
         if spatial_types_file:
             management.call_command(
                 'import_spatial', data_file, spatialfile_id=self.id,

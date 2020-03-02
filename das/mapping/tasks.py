@@ -81,26 +81,30 @@ def load_spatial_features_from_files(data_files, tmpdirs, source_name, spatialfi
     spatial_file = model.objects.filter(id=spatialfile_id)
 
     try:
-        data_files = [data_files] if isinstance(
-            data_files, str) else data_files
-        if feature_types_file:
-            datasource, layer_num = utils.get_datasource_and_layer_num(
-                feature_types_file, tmpdirs, 0)
-            utils.import_feature_types(
-                datasource[layer_num], source_name)
-
-        for filename in data_files:
-            datasource, layer_num = utils.get_datasource_and_layer_num(
-                filename, tmpdirs, 0)
-
-            utils.import_layer(
-                datasource[layer_num], source_name, spatialfile_id,
-                featuretype, featureset, presentation, featuretype_label,
-                id_field, name_field)
-            utils.cleanup_files(filename)
+        extract_features(data_files, source_name, spatial_file, tmpdirs, feature_types_file, presentation, featuretype_label, featureset)
         spatial_file.update(status='Success')
     except Exception as ex:
         logger.exception(ex)
         spatial_file.update(status=f'Error: {ex}')
     finally:
         datasource = None
+
+
+def extract_features(data_files, source_name, spatialfile, tmpdirs=[], feature_types_file=None, presentation=None, featuretype_label=None, featureset=None):
+    data_files = [data_files] if isinstance(
+        data_files, str) else data_files
+    if feature_types_file:
+        datasource, layer_num = utils.get_datasource_and_layer_num(
+            feature_types_file, tmpdirs, 0)
+        utils.import_feature_types(
+            datasource[layer_num], source_name)
+
+    for filename in data_files:
+        datasource, layer_num = utils.get_datasource_and_layer_num(
+            filename, tmpdirs, spatialfile.layer_number)
+        featuretype = spatialfile.feature_type.name if spatialfile.feature_type else None
+        utils.import_layer(
+            datasource[layer_num], source_name, spatialfile.id,
+            featuretype, featureset, presentation, featuretype_label,
+            spatialfile.id_field, spatialfile.name_field)
+        utils.cleanup_files(filename)
