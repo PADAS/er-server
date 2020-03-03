@@ -443,10 +443,10 @@ class EventsExportView(views.APIView):
                 "Report_Type": event_type.get('display', ''),
                 "Report_Type_Internal_Value": event_type.get('value', ''),
                 "Report_Id": event.get('serial_number', ''),
-                "Title": self.escape_string(event['title']),
-                "Priority": Event.PRIORITY_LABELS_MAP.get(event['priority'],
-                                                          ''),
-                "Priority_Internal_Value": event['priority'],
+                "Title": self.escape_string(event.get('title', "")),
+                "Priority": Event.PRIORITY_LABELS_MAP.get(
+                    event.get('priority', ""), ''),
+                "Priority_Internal_Value": event.get('priority', ''),
                 "Status": "Resolved" if event[
                                             'state'] == Event.SC_RESOLVED else 'Active',
                 reported_at.replace(" ", "_"): event['event_time'].astimezone(
@@ -455,8 +455,8 @@ class EventsExportView(views.APIView):
                                                        'location'] is not None else '',
                 "Longitude": event['location'].x if event[
                                                         'location'] is not None else '',
-                "Number_of_Notes": event['notes_count'],
-                "Notes": self.escape_string(event['full_notes']),
+                "Number_of_Notes": event.get('notes_count', ''),
+                "Notes": self.escape_string(event.get('full_notes', '')),
                 "Number_of_Related_Subjects": event.get('', ''),
                 "Collection_Report_IDs": ';'.join(
                     (str(x) for x in event['parent_event_serial_numbers'] if
@@ -466,13 +466,14 @@ class EventsExportView(views.APIView):
 
             # Use cached reported_by map
             reported_by_values = reported_by_map.get(
-                str(event['reported_by_id']))
+                str(event.get('reported_by_id', '')), '')
             event_data['Reported_By'] = reported_by_values.get(
                 'display', '') if reported_by_values else ''
 
             for header in custom_headers:
                 header_key = header.replace(' ', '_')
-                event_data[header_key] = schema_data.get(header, "")
+                column_data = schema_data.get(header, "")
+                event_data[header_key] = column_data if column_data else ""
 
             current_event_type_data['events'].append(event_data)
 
