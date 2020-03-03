@@ -31,6 +31,7 @@ class ImmobilityAnalyzerAdmin(admin.ModelAdmin):
         })
     )
 
+
 google_earthengine_service_account_link = 'https://developers.google.com/earth-engine/service_account'
 EARTH_ENGINE_KEY_DESCRIPTION = f'''
 <p>
@@ -109,7 +110,6 @@ class ProximitySubjectAnalyzerAdmin(admin.ModelAdmin):
 
 @admin.register(models.GeofenceAnalyzerConfig)
 class GeofenceSubjectAnalyzerAdmin(admin.ModelAdmin):
-
     list_display = ('name', 'subject_group_name',)
     search_fields = ('subject_group__name',)
     readonly_fields = ('id',)
@@ -211,6 +211,9 @@ class GlobalForestWatchAdmin(OSMGeoExtendedAdmin):
         ('Advanced Attributes', {
             'classes': ('wide', 'collapse'),
             'fields': ('id', 'additional')
+        }),
+        ('Global Forest Watch Alerts Confidence Level', {
+            'fields': ('Deforestation_confidence', 'Fire_confidence')
         }),
         ('Geographical Area', {
             'fields': ('subscription_geometry',)

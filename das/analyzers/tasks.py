@@ -144,8 +144,10 @@ def download_gfw_alerts(self, download_url, common_event_fields, user_id):
 
             gfw_alerts_payload = json.loads(resp.text)
             logger.debug('GFW Alerts downloaded data: %s', gfw_alerts_payload)
-            gfw_inbound.process_downloaded_alerts(gfw_alerts_payload.get('data', []),
-                                                  common_event_fields, user_id)
+            if common_event_fields.get('event_type') == 'gfw_activefire_alert':
+                gfw_inbound.process_downloaded_alerts(gfw_alerts_payload.get('rows', []), common_event_fields, user_id)
+            else:
+                gfw_inbound.process_downloaded_alerts(gfw_alerts_payload.get('data', []), common_event_fields, user_id)
         else:
             logger.error('GFW Alerts cannot be downloaded. Result is %s, \ndownload url is: %s\n Response is: %s',
                          resp.status_code, download_url, resp.text)
