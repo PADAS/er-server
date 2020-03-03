@@ -337,13 +337,8 @@ def generate_event_type_cache():
     return event_types_map
 
 
-class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
+class EventsExportView(views.APIView):
     permission_classes = (EventCategoryPermissions,)
-
-    def dispatch(self, request, *args, **kwargs):
-        self.value_cols = kwargs.get('value_cols', False)
-        self.display_cols = kwargs.get('display_cols', True)
-        return super(EventsExportView, self).dispatch(request, *args, **kwargs)
 
     def get_event_export_list(self):
         event_export_data = []
@@ -415,8 +410,6 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                             if self.display_cols and display_value not in custom_headers:
                                 column_name = schema_utils.get_column_header_name(current_schema, key)
                                 custom_headers.append(column_name)
-
-                    import pdb; pdb.set_trace()
 
                 except json.JSONDecodeError:
                     # Event type does not have schema, which is weird but not
@@ -503,37 +496,36 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         return '"' + string + '"'
 
     def get(self, request, *args, **kwargs):
-        context = self.get_context_data(**kwargs)
+        self.value_cols = request.GET.get('value_cols', True)
+        self.display_cols = request.GET.get('display_cols', True)
 
-        return self.render_to_response(context)
+        csv_data = self.prepare_csv_data()
 
-    def render_to_response(self, context, **response_kwargs):
-
-        # response = super().render_to_response(context, **response_kwargs)
         response = HttpResponse(content_type='text/csv')
         response[
-            'Content-Disposition'] = f'attachment; filename={context["report_filename"]}'
-        response['x-das-download-filename'] = context['report_filename']
+            'Content-Disposition'] = f'attachment; filename={csv_data["report_filename"]}'
+        response['x-das-download-filename'] = csv_data['report_filename']
 
-        writer = csv.DictWriter(response, fieldnames=context['event_types'].get('combined_headers'))
+        writer = csv.DictWriter(response, fieldnames=csv_data['event_types'].get(
+            'combined_headers'))
         writer.writeheader()
-        event_types = context['event_types']
+        event_types = csv_data['event_types']
         for event_type in event_types.get('event_export_data', []):
             for event in event_type.get('events', {}):
                 writer.writerow(event)
         return response
 
-    def get_context_data(self, **kwargs):
+    def prepare_csv_data(self, **kwargs):
         REPORT_TIME_FORMAT = '%-d %B %Y %Z' if platform.system().lower() != 'windows' else '%#d %B %Y %Z'
         current_tz = pytz.timezone(timezone.get_current_timezone_name())
         timestamp = current_tz.localize(datetime.utcnow())
-        context = {
+        csv_data = {
             'report_filename': f'Event Export {timestamp.strftime("%Y-%m-%d")}.csv',
             'report_time': timestamp.strftime(REPORT_TIME_FORMAT),
             'event_types': self.get_event_export_list()
         }
 
-        return context
+        return csv_data
 
     def get_queryset(self):
 

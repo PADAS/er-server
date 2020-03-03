@@ -967,7 +967,7 @@ class TestEventView(BaseAPITest):
             self.api_base + url)
 
         self.force_authenticate(request, self.all_perms_user)
-        response = self._export_template_response(request)
+        response = views.EventsExportView.as_view()(request)
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue('Priority' in response.content.decode("utf-8"))
@@ -1037,7 +1037,7 @@ class TestEventView(BaseAPITest):
             self.api_base + url)
 
         self.force_authenticate(request, self.all_perms_user)
-        response = self._export_template_response(request)
+        response = views.EventsExportView.as_view()(request)
 
         self.assertEqual(response.status_code, 200)
 
@@ -1066,7 +1066,7 @@ class TestEventView(BaseAPITest):
             self.api_base + url)
 
         self.force_authenticate(request, self.all_perms_user)
-        response = self._export_template_response(request)
+        response = views.EventsExportView.as_view()(request)
 
         self.assertEqual(response.status_code, 200)
 
@@ -1089,7 +1089,7 @@ class TestEventView(BaseAPITest):
             self.api_base + url)
 
         self.force_authenticate(request, self.all_perms_user)
-        response = self._export_template_response(request)
+        response = views.EventsExportView.as_view()(request)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.content.decode("utf-8").splitlines()), 3)
 
@@ -1915,7 +1915,7 @@ class TestEventView(BaseAPITest):
             self.api_base + url)
 
         self.force_authenticate(request, self.all_perms_user)
-        response = self._export_template_response(request)
+        response = views.EventsExportView.as_view()(request)
         rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
 
         self.assertIn('DWS Test', [i.get('Report_Type') for i in rendered_dict])
@@ -1946,7 +1946,7 @@ class TestEventView(BaseAPITest):
             self.api_base + url)
 
         self.force_authenticate(request, self.all_perms_user)
-        response = self._export_template_response(request)
+        response = views.EventsExportView.as_view()(request)
         rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
 
         self.assertIn('4787-Array', [i.get('Report_Type') for i in rendered_dict])
@@ -1976,7 +1976,7 @@ class TestEventView(BaseAPITest):
             self.api_base + url)
 
         self.force_authenticate(request, self.all_perms_user)
-        response = self._export_template_response(request)
+        response = views.EventsExportView.as_view()(request)
         rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
         self.assertIn('Sprint 88 Behavior',
                       [i.get('Report_Type') for i in rendered_dict])
