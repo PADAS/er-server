@@ -1951,7 +1951,7 @@ class TestEventView(BaseAPITest):
                 break
 
         self.assertIn('Species', target_row.keys())
-        self.assertEqual(target_row.get('Species'), '"""Elephant;Eland"""')
+        self.assertEqual(target_row.get('Species'), 'Elephant;Eland')
 
     def test_exporting_checkbox_events_to_csv_with_qparam_value_cols_true(self):
         checkbox_data = json.loads(
@@ -1982,8 +1982,8 @@ class TestEventView(BaseAPITest):
 
         self.assertIn('Species', target_row.keys())
         self.assertIn('carcassrep_species', target_row.keys())
-        self.assertEqual(target_row.get('Species'), '"""Elephant;Eland"""')
-        self.assertEqual(target_row.get('carcassrep_species'), '"""elephant;eland"""')
+        self.assertEqual(target_row.get('Species'), 'Elephant;Eland')
+        self.assertEqual(target_row.get('carcassrep_species'), 'elephant;eland')
 
     def test_exporting_array_events_to_csv(self):
         array_data = json.loads(
@@ -2012,7 +2012,7 @@ class TestEventView(BaseAPITest):
                 target_row = row
                 break
         self.assertIn('Species', target_row.keys())
-        self.assertEqual(target_row.get('Species'), '"""Bongo;Buffalo"""')
+        self.assertEqual(target_row.get('Species'), 'Bongo;Buffalo')
 
     def test_exporting_checkbox_in_fieldset_to_csv(self):
         array_data = json.loads(
@@ -2071,9 +2071,9 @@ class TestEventView(BaseAPITest):
 
         self.assertIn('Species', target_row.keys())
         self.assertIn('carcassrep_species', target_row.keys())
-        self.assertEqual(target_row.get('Species'), '"""Bongo;Buffalo"""')
+        self.assertEqual(target_row.get('Species'), 'Bongo;Buffalo')
         self.assertEqual(target_row.get('carcassrep_species'),
-                         '"""bongo;buffalo"""')
+                         'bongo;buffalo')
 
 
 class TestParsing(TestCase):
