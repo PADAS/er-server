@@ -169,6 +169,7 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
             'The list of user profiles that this user can act as.'
         ),
     )
+    accepted_eula = models.BooleanField(default=False)
 
     objects = UserManager()
 

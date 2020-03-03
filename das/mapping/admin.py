@@ -1,25 +1,34 @@
+import logging
 from functools import reduce
+from urllib.parse import quote as urlquote
 
-from django.contrib import admin as django_admin, messages
+from django.contrib import admin as django_admin
+from django.contrib import messages
 from django.contrib.admin import helpers
 from django.contrib.admin.exceptions import DisallowedModelAdminToField
 from django.contrib.admin.options import IS_POPUP_VAR, TO_FIELD_VAR
-from django.contrib.admin.utils import get_deleted_objects, unquote, \
-    model_ngettext
+from django.contrib.admin.utils import (get_deleted_objects, model_ngettext,
+                                        unquote)
 from django.contrib.gis import admin
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.db.models.expressions import RawSQL
+from django.http import HttpResponseRedirect
 from django.template.response import TemplateResponse
-from django.utils.html import escape
+from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 
 import mapping.models as models
 from core.openlayers import OSMGeoExtendedAdmin
-from mapping.forms import MapCenterForm, TileLayerFormWithAttributes, \
-    SpatialFeatureGroupStaticForm, FeatureTypeForm, DisplayCategoryForm, SpatialFeatureTypeForm
-from mapping.utils import MAPPING_FEATURES_V2
+from mapping.forms import (ArcgisConfigurationForm, DisplayCategoryForm,
+                           FeatureTypeForm, MapCenterForm,
+                           SpatialFeatureGroupStaticForm,
+                           SpatialFeatureTypeForm, TileLayerFormWithAttributes)
+from mapping.utils import (MAPPING_FEATURES_V2, arcgis_integration,
+                           update_db_groups)
+
+logger = logging.getLogger(__name__)
 
 
 @admin.register(models.Map)
@@ -385,6 +394,11 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
                                       "Delete selected spatial files")
         return actions
 
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            return [f.name for f in self.model._meta.fields]
+        return self.readonly_fields
+
 
 if MAPPING_FEATURES_V2:
     @admin.register(models.SpatialFeatureFile)
@@ -394,7 +408,7 @@ if MAPPING_FEATURES_V2:
         fieldsets = (
             (None, {
                 'classes': ('wide',),
-                'fields': ('file_type', 'id', 'name', 'description', 'data',)
+                'fields': ('file_type', 'id', 'name', 'description', 'data', 'status')
             }),
             ('Shapefile Optional Attributes', {
                 'classes': ('wide', 'shapefile',),
@@ -406,20 +420,99 @@ if MAPPING_FEATURES_V2:
                 'fields': ('feature_types_file',)
             }
              ),)
-        readonly_fields = ('id',)
-
-        def get_readonly_fields(self, request, obj=None):
-            if obj:
-                return ('id', 'file_type',)
-            return self.readonly_fields
+        readonly_fields = ('id', 'status',)
 
         class Media:
             js = ["admin/js/jquery.init.js", "base.js"]
+
+        def response_add(self, request, obj, post_url_continue=None):
+            if '_save' in request.POST:
+                self.add_background_download_message(obj, request, 'added')
+                return self.response_post_save_add(request, obj)
+            else:
+                return super().response_add(request, obj, post_url_continue)
+
+        def response_change(self, request, obj):
+            if '_save' in request.POST:
+                self.add_background_download_message(obj, request, 'changed')
+                return self.response_post_save_change(request, obj)
+            else:
+                return super().response_change(request, obj)
+
+        def add_background_download_message(self, obj, request, action):
+            msg_dict = {
+                    'obj': format_html('<a href="{}">{}</a>', urlquote(request.path), obj),
+                    'features': format_html('<a href="/admin/mapping/spatialfeature/">features</a>'),
+                    'action': action
+                }
+            msg = format_html(_('The Feature Import File "{obj}" {action} successfully. Feature download in progress, check loaded {features} after a few minutes'),**msg_dict)
+            self.message_user(request, msg, messages.SUCCESS)
+
+
+    @admin.register(models.ArcgisConfiguration)
+    class ArcgisConfigurationAdmin(admin.ModelAdmin):
+        list_display = ('config_name', 'username', )
+        fieldsets = (
+            (None, {
+                'classes': ('wide',),
+                'fields': ('last_download','config_name', 'username', 'password', 'search_text')
+            }),
+            ('ArcGIS Group', {
+                'classes': ('wide', 'groups'),
+                'fields': ('groups',)
+            }),
+            ('Optional Attributes', {
+                'classes': ('collapse',),
+                'fields': ('service_url', 'source', 'type_label', 'id_field','name_field',)
+            }
+            ),)
+        readonly_fields = ('last_download',)
+        form = ArcgisConfigurationForm
+
+        def get_fieldsets(self, request, obj=None):
+            if self.fieldsets:
+                fieldsets = list(self.fieldsets)
+                for item in fieldsets:
+                    if not obj and 'ArcGIS Group' in item:
+                        fieldsets.pop(fieldsets.index(item))
+                return tuple(fieldsets)
+            return [(None, {'fields': self.get_fields(request, obj)})]
+
+        def response_add(self, request, obj, post_url_continue=None):
+            groups_found = arcgis_integration(request, obj)
+            if self.arcgis_config(request) or not groups_found:
+                return HttpResponseRedirect(request.path_info)
+            else:
+                obj.save()
+                update_db_groups(groups_found, obj)
+                return super().response_add(request, obj, post_url_continue=None)
+
+        def response_change(self, request, obj):
+            groups_found = arcgis_integration(request, obj)
+            if self.arcgis_config(request) or not groups_found:
+                return HttpResponseRedirect(request.path_info)
+            else:
+                obj.save()
+                update_db_groups(groups_found, obj)
+                return super().response_change(request, obj)
+
+        def save_model(self, request, obj, form, change):
+            pass
+
+        def arcgis_config(self, request):
+            return any(x in request.POST for x in ["_testconnection", "_downloadfeatures"])
+
+        def formfield_for_foreignkey(self, db_field, request, **kwargs):
+            if db_field.name == 'groups':
+                object_id = request.resolver_match.kwargs.get('object_id')
+                if object_id:
+                    obj = self.model.objects.get(id=int(object_id))
+                    kwargs['queryset'] = models.ArcgisGroup.objects.filter(config_id=obj.id)
+            return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
 else:
     @admin.register(models.SpatialFile)
     class SpatialFileAdmin(BaseSpatialFileAdmin):
         list_display = ('id', 'name', 'description', 'feature_set', 'feature_type',
                         'layer_number')
         list_filter = ('feature_set', 'feature_type')
-
-

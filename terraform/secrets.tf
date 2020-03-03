@@ -34,6 +34,18 @@ resource "kubernetes_secret" "db_password" {
   data = data.vault_generic_secret.db_password.data
 }
 
+resource "kubernetes_secret" "app_db_credentials" {
+  metadata {
+    name      = "app-db-credentials"
+    namespace = kubernetes_namespace.this.metadata.0.name
+  }
+
+  data = {
+      username = google_sql_user.app_user.name
+      password = google_sql_user.app_user.password
+  }
+}
+
 resource "kubernetes_secret" "pamdas_org_ssl_cert_bundle" {
   metadata {
     name      = "pamdas-org-ssl-cert-bundle"

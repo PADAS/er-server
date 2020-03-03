@@ -1,0 +1,327 @@
+{
+	"renderer": {
+		"type": "uniqueValue",
+		"field1": "Types",
+		"defaultSymbol": {
+			"type": "esriSFS",
+			"style": "esriSFSSolid",
+			"color": [
+				130,
+				130,
+				130,
+				255
+			],
+			"outline": {
+				"type": "esriSLS",
+				"style": "esriSLSSolid",
+				"color": [
+					110,
+					110,
+					110,
+					255
+				],
+				"width": 0.7
+			}
+		},
+		"defaultLabel": "<all other values>",
+		"uniqueValueInfos": [{
+				"symbol": {
+					"type": "esriSFS",
+					"style": "esriSFSSolid",
+					"color": [
+						243,
+						237,
+						211,
+						255
+					],
+					"outline": {
+						"type": "esriSLS",
+						"style": "esriSLSSolid",
+						"color": [
+							224,
+							210,
+							184,
+							255
+						],
+						"width": 0.6
+					}
+				},
+				"value": "Islands",
+				"label": "Islands"
+			},
+			{
+				"symbol": {
+					"type": "esriSFS",
+					"style": "esriSFSSolid",
+					"color": [
+						191,
+						217,
+						242,
+						255
+					],
+					"outline": null
+				},
+				"value": "Lakes",
+				"label": "Lakes"
+			},
+			{
+				"symbol": {
+					"type": "esriSFS",
+					"style": "esriSFSSolid",
+					"color": [
+						243,
+						237,
+						211,
+						255
+					],
+					"outline": {
+						"type": "esriSLS",
+						"style": "esriSLSSolid",
+						"color": [
+							224,
+							210,
+							184,
+							255
+						],
+						"width": 0.6
+					}
+				},
+				"value": "Savannah",
+				"label": "Savannah"
+			},
+			{
+				"symbol": {
+					"type": "esriSFS",
+					"style": "esriSFSSolid",
+					"color": [
+						198,
+						226,
+						178,
+						255
+					],
+					"outline": null
+				},
+				"value": "Swamps",
+				"label": "Swamps"
+			}
+		],
+		"fieldDelimiter": ",",
+		"authoringInfo": {
+			"colorRamp": {
+				"type": "multipart",
+				"colorRamps": [{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							226,
+							184,
+							252,
+							255
+						],
+						"toColor": [
+							226,
+							184,
+							252,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							184,
+							252,
+							184,
+							255
+						],
+						"toColor": [
+							184,
+							252,
+							184,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							252,
+							211,
+							189,
+							255
+						],
+						"toColor": [
+							252,
+							211,
+							189,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							189,
+							242,
+							252,
+							255
+						],
+						"toColor": [
+							189,
+							242,
+							252,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							252,
+							252,
+							187,
+							255
+						],
+						"toColor": [
+							252,
+							252,
+							187,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							252,
+							212,
+							234,
+							255
+						],
+						"toColor": [
+							252,
+							212,
+							234,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							202,
+							208,
+							252,
+							255
+						],
+						"toColor": [
+							202,
+							208,
+							252,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							215,
+							252,
+							229,
+							255
+						],
+						"toColor": [
+							215,
+							252,
+							229,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							252,
+							179,
+							188,
+							255
+						],
+						"toColor": [
+							252,
+							179,
+							188,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							179,
+							179,
+							252,
+							255
+						],
+						"toColor": [
+							179,
+							179,
+							252,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							252,
+							240,
+							204,
+							255
+						],
+						"toColor": [
+							252,
+							240,
+							204,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							252,
+							182,
+							218,
+							255
+						],
+						"toColor": [
+							252,
+							182,
+							218,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							227,
+							252,
+							197,
+							255
+						],
+						"toColor": [
+							227,
+							252,
+							197,
+							255
+						]
+					}
+				]
+			}
+		}
+	},
+	"scaleSymbols": true,
+	"transparency": 0,
+	"labelingInfo": null
+}

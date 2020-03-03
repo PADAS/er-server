@@ -1,59 +1,55 @@
+
+-- Role assignments --
+ALTER ROLE :app_role_name WITH LOGIN;
+ALTER ROLE :migration_role_name WITH LOGIN;
+ALTER ROLE :analytics_role_name WITH LOGIN;
+
+-- Give Current User proper roles, particularly to change database ownership.
+GRANT :app_role_name, :migration_role_name, :analytics_role_name to current_user;
+
+ALTER DATABASE :db_name OWNER to :app_role_name;
+
+GRANT :app_role_name to :app_user_name WITH ADMIN OPTION;
+GRANT :app_role_name, :migration_role_name to :migration_user_name WITH ADMIN OPTION;
+GRANT :analytics_role_name to :analytics_user_name;
+
+-- Temporarily give superpowers to :app_role_name
+GRANT cloudsqlsuperuser to :app_role_name;
+
+GRANT CREATE on DATABASE :db_name to :app_role_name, :migration_role_name;
+GRANT CONNECT ON DATABASE :db_name TO :analytics_role_name, :app_role_name, :migration_role_name;
+
+-- Create objects using App Role.
+-- * The application will run as a User that is granted the App Role.
+SET ROLE :app_role_name;
+
 CREATE EXTENSION IF NOT EXISTS "btree_gist";
 CREATE EXTENSION IF NOT EXISTS "unaccent";
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "postgis";
 CREATE EXTENSION IF NOT EXISTS "postgis_topology";
 
--- Revoke all user access and table creation in public schema in new database
-REVOKE ALL ON DATABASE :db_name FROM PUBLIC;
-REVOKE ALL ON SCHEMA public FROM PUBLIC;
+-- Grants for various user roles.
+GRANT SELECT ON ALL TABLES IN SCHEMA PUBLIC, TOPOLOGY TO :analytics_role_name;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA PUBLIC, TOPOLOGY TO :analytics_role_name;
 
--- Create Groups - Easier to rotate credentials this way
+ALTER DEFAULT PRIVILEGES IN SCHEMA public, topology GRANT ALL PRIVILEGES ON TABLES TO :app_role_name, :migration_role_name WITH GRANT OPTION;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public, topology GRANT ALL PRIVILEGES ON SEQUENCES TO :app_role_name, :migration_role_name WITH GRANT OPTION;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public, topology GRANT SELECT ON TABLES TO :analytics_role_name;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public, topology GRANT USAGE, SELECT ON SEQUENCES TO :analytics_role_name;
 
--- Setup Migrations Group --
--- Group to manage the schema
-CREATE ROLE migrations;
-GRANT CONNECT ON DATABASE :db_name TO migrations;
-GRANT ALL ON SCHEMA public TO migrations;
-ALTER ROLE migrations SET lock_timeout TO '10s';
+-- Role statement timeouts
+ALTER ROLE :app_role_name SET statement_timeout TO '30s';
+ALTER ROLE :migration_role_name SET lock_timeout TO '10s';
+ALTER ROLE :analytics_role_name SET statement_timeout TO '3min';
 
--- Setup user in app group
-CREATE ROLE :migrator WITH LOGIN ENCRYPTED PASSWORD :migrator_pass IN ROLE migrations;
-ALTER ROLE :migrator SET role TO 'migrations';
+-- Take away superpowers (these were granted by default when terraforming these roles).
+REVOKE cloudsqlsuperuser FROM :app_role_name;
+REVOKE cloudsqlsuperuser FROM :app_user_name;
 
--- Apps Group For App using the database
--- Read and write data but shouldn’t need to modify the schema or truncate tables
--- Statement timeout to prevent long running queries from degrading database performance ( Increase if needed)
-CREATE ROLE app;
-GRANT CONNECT ON DATABASE :db_name TO app;
-GRANT USAGE ON SCHEMA public TO app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app;
-GRANT SELECT, USAGE ON ALL SEQUENCES IN SCHEMA public TO app;
-ALTER DEFAULT PRIVILEGES FOR ROLE migrations IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app;
-ALTER DEFAULT PRIVILEGES FOR ROLE migrations IN SCHEMA public GRANT SELECT, USAGE ON SEQUENCES TO app;
-ALTER ROLE app SET statement_timeout TO '30s';
+REVOKE cloudsqlsuperuser FROM :migration_role_name;
+REVOKE cloudsqlsuperuser FROM :migration_user_name;
 
--- Setup user in app group
-CREATE ROLE :app_user WITH LOGIN ENCRYPTED PASSWORD :app_user_pass IN ROLE app;
+REVOKE cloudsqlsuperuser FROM :analytics_role_name;
+REVOKE cloudsqlsuperuser FROM :analytics_user_name;
 
--- Setup Migrations Group --
-CREATE ROLE migrations;
-GRANT CONNECT ON DATABASE :db_name TO migrations;
-GRANT ALL ON SCHEMA public TO migrations;
-ALTER ROLE migrations SET lock_timeout TO '10s';
-
--- Setup Migrations User
-CREATE ROLE :migrator WITH LOGIN ENCRYPTED PASSWORD :migrator_pass IN ROLE migrations;
-ALTER ROLE :migrator SET role TO 'migrations';
-
--- Setup Analytics Group
-
-CREATE ROLE analytics;
-GRANT CONNECT ON DATABASE :db_name TO analytics;
-GRANT USAGE ON SCHEMA public TO analytics;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO analytics;
-ALTER DEFAULT PRIVILEGES FOR ROLE migrations IN SCHEMA public GRANT SELECT ON TABLES TO analytics;
-ALTER ROLE analytics SET statement_timeout TO '3min';
-
--- Setup Analytics User
-CREATE ROLE :analytics_user WITH LOGIN ENCRYPTED PASSWORD :analytics_user_pass IN ROLE analytics;

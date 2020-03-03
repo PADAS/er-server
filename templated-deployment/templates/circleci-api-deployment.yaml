@@ -33,18 +33,23 @@ spec:
           - containerPort: 8000
         volumeMounts:
         - name: google-credentials
-          mountPath: "/etc/earthranger"
+          mountPath: "/etc/earthranger/"
           readOnly: true
         env:
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: "/etc/earthranger/google_credentials.json"
         - name: SERVICE_NAME
           value: "api_server"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: app-db-credentials
+              key: username
         - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: db-password
-              key: value
+              name: app-db-credentials
+              key: password
         - name: EMAIL_PASSWORD
           valueFrom:
             secretKeyRef:

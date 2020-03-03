@@ -1,32 +1,37 @@
-import uuid
-import os
-import logging
 import glob
+import logging
+import os
+import uuid
 import zipfile
 
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import JSONField
-from django.core.exceptions import ImproperlyConfigured
-from django.urls import reverse, NoReverseMatch
-from django.utils.translation import ugettext_lazy as _
-from tagulous.models import TagField, TagModel
-from model_utils.managers import InheritanceManager
 from django.core import management
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.core.files.storage import FileSystemStorage
+from django.db import transaction
+from django.urls import NoReverseMatch, reverse
 from django.utils.deconstruct import deconstructible
+from django.utils.translation import ugettext_lazy as _
+from model_utils.managers import InheritanceManager
+from tagulous.models import TagField, TagModel
 
 from core.models import TimestampedModel
-from utils.decorator import reify
 from mapping.app_settings import MBTILES
-from mapping.mbtiles import ExtractionError, GoogleProjection, MBTilesReader
-from mapping.mbtiles import InvalidFormatError
-from revision.manager import Revision, RevisionMixin
+from mapping.mbtiles import (ExtractionError, GoogleProjection,
+                             InvalidFormatError, MBTilesReader)
 from mapping.utils import MAPPING_FEATURES_V2, check_file_extension
-
+from revision.manager import Revision, RevisionMixin
+from utils.decorator import reify
 
 logger = logging.getLogger(__name__)
 
+FILE_TYPES = (
+    ('shapefile', 'Shapefile'),
+    # Commenting out geodatabase for now, until we can verify functionality with a .gdb file.
+    # ('geodatabase', 'Geodatabase'),
+    ('geojson', 'GeoJSON'),
+)
 
 class Map(TimestampedModel):
     """
@@ -140,25 +145,19 @@ class TempStorage(FileSystemStorage):
         super(TempStorage, self).__init__(**kwargs)
 
 
-FILE_TYPES = (
-    ('shapefile', 'Shapefile'),
-    # Commenting out geodatabase for now, until we can verify functionality with a .gdb file.
-    # ('geodatabase', 'Geodatabase'),
-    ('geojson', 'GeoJSON'),
-)
-
-
 class SpatialFilesBase(TimestampedModel):
     """
     Base model for uploading Spatial files such as shapefile
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, blank=True, verbose_name='SpatialFile Name')
+    name = models.CharField(max_length=255, blank=True,
+                            verbose_name='SpatialFile Name')
     description = models.CharField(max_length=100, blank=True)
     data = models.FileField(storage=TempStorage(), blank=False)
     layer_number = models.IntegerField(blank=True, null=True, default=0)
     name_field = models.CharField(max_length=100, blank=True, null=True)
     id_field = models.CharField(max_length=100, blank=True, null=True)
+    status = models.CharField(max_length=100, blank=True, null=True, verbose_name='Feature Load Status')
 
     class Meta:
         abstract = True
@@ -209,31 +208,6 @@ class SpatialFilesBase(TimestampedModel):
             logger.error(err)
             raise ValidationError(err)
 
-    def cleanup_files(self):
-        files = [self.data]
-        try:
-            if self.feature_types_file.name:
-                files.append(self.feature_types_file)
-        except Exception:
-            pass
-
-        for upload_file in files:
-            uploaded_file_path = upload_file.path
-
-            uploaded_file_directory = os.path.dirname(upload_file.path)
-            """
-            Remove files/directories from the temporary folder.
-            """
-            import shutil
-            try:
-                if os.path.exists(uploaded_file_path):
-                    os.remove(uploaded_file_path)
-                shutil.rmtree(uploaded_file_directory)
-            except PermissionError:
-                logger.exception(
-                    f'Cleaning up spatial files after import: {uploaded_file_directory}')
-            upload_file.name = ''
-
     # Clean method is used for better error handling within the admin form
     # itself. To have the file data available, save method needs to be invoked.
     #  Cleanup method will remove files in case of validation error.
@@ -251,15 +225,15 @@ class SpatialFilesBase(TimestampedModel):
             file_type = None
 
         if file_type:
-            check_file_extension(self.file_type, self.data, self.feature_types_file or None)
+            check_file_extension(self.file_type, self.data,
+                                 self.feature_types_file or None)
         self.save()
         data_file = self.get_upload_file(self.data)
         try:
             spatial_types_file = self.get_upload_file(self.feature_types_file)
         except Exception:
             spatial_types_file = None
-        self.call_mgt_command(data_file, spatial_types_file)
-        self.cleanup_files()
+        transaction.on_commit(lambda: self.call_mgt_command(data_file, spatial_types_file))
 
     def get_upload_file(self, upload_file):
         if upload_file:
@@ -295,7 +269,6 @@ class SpatialFile(SpatialFilesBase):
             name_field=self.name_field, id_field=self.id_field
         )
 
-
 class Feature(TimestampedModel):
     """
     A vector feature, e.g. a boundary, a hut, a village, a river ...
@@ -319,7 +292,8 @@ class Feature(TimestampedModel):
     featureset = models.ForeignKey(
         to=FeatureSet, null=True, on_delete=models.PROTECT)
 
-    spatialfile = models.ForeignKey(to=SpatialFile, null=True, blank=True, on_delete=models.SET_NULL)
+    spatialfile = models.ForeignKey(
+        to=SpatialFile, null=True, blank=True, on_delete=models.SET_NULL)
 
     @property
     def default_presentation(self):
@@ -662,7 +636,7 @@ class SpatialFeatureType(TimestampedModel):
     objects = SpatialFeatureTypeManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, unique=True)
     # JSON field for storing the json schema for each unique feature type
     attribute_schema = JSONField(default=dict, blank=True)
     # Tags will allow categorization according to different views (e.g., HF)
@@ -679,7 +653,6 @@ class SpatialFeatureType(TimestampedModel):
                                    null=True)
     external_source = models.CharField(max_length=25, blank=True)
     is_visible = models.BooleanField(_('visible'), default=True)
-
 
     # Points: https://www.mapbox.com/mapbox-gl-style-spec/#layers-symbol
     # Lines: https://www.mapbox.com/mapbox-gl-style-spec/#layers-line
@@ -706,9 +679,12 @@ class SpatialFeatureFile(SpatialFilesBase):
     """
     Special Feature loaded from uploaded shapefile
     """
-    file_type = models.CharField(max_length=100, default='shapefile', choices=FILE_TYPES)
-    feature_type = models.ForeignKey(to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
-    feature_types_file = models.FileField(storage=TempStorage(), blank=True, null=True)
+    file_type = models.CharField(
+        max_length=100, default='shapefile', choices=FILE_TYPES)
+    feature_type = models.ForeignKey(
+        to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
+    feature_types_file = models.FileField(
+        storage=TempStorage(), blank=True, null=True)
 
     class Meta:
         verbose_name = 'Feature Import File'
@@ -780,12 +756,56 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
     external_id = models.CharField(max_length=255, blank=True, null=True)
     external_source = models.CharField(max_length=25, blank=True)
     description = models.TextField(null=True, blank=True)
+    presentation = JSONField(default=dict, blank=True)
     attributes = JSONField(default=dict, blank=True)
     provenance = JSONField(default=dict, blank=True)
     feature_geometry = models.GeometryField(geography=True, srid=4326)
-    spatialfile = models.ForeignKey(to=SpatialFeatureFile, null=True, blank=True, on_delete=models.SET_NULL)
+    spatialfile = models.ForeignKey(
+        to=SpatialFeatureFile, null=True, blank=True, on_delete=models.SET_NULL)
     revision = Revision()
+
+    @property
+    def default_presentation(self):
+        if self.presentation:
+            return self.presentation
+        if self.feature_type.presentation:
+            return self.feature_type.presentation
+        return {}
 
     def __str__(self):
         return '{0}-{1}-{2}'.format(self.name, self.feature_type.name, self.id)
 
+
+class ArcgisGroup(TimestampedModel):
+    name = models.CharField(max_length=100, blank=True, null=True )
+    group_id = models.CharField(max_length=100, blank=False)
+    # todo: this should be the FK
+    config_id = models.CharField(max_length=100, blank=False)
+
+    def __str__(self):
+        return self.name
+
+
+class ArcgisConfiguration(TimestampedModel):
+    service_url = models.CharField(max_length=100, blank=True, null=True,
+                                   help_text='Leave blank to connect to ArcGIS Online, '
+                                             'or enter your ArcGIS Enterprise service URL')
+    config_name = models.CharField(max_length=100, blank=False, unique=True, verbose_name='Configuration name')
+    search_text = models.CharField(max_length=100, blank=True, verbose_name='Search text',
+                                   help_text='Leave blank to get groups within your ArcGIS org\n'
+                                             'or enter text for groups to search for outside your ArdGIS org')
+    # todo: the FK should be on the other end of the relationship, i.e., in ArcgisConfiguration
+    groups = models.ForeignKey(ArcgisGroup, blank=True, on_delete=models.SET_NULL, null=True)
+    username = models.CharField(max_length=100, blank=False, help_text='ArcGIS account username')
+    password = models.CharField(max_length=100, blank=False)
+    source = models.CharField(max_length=100, blank=True, null=True, default='ArcGis')
+    name_field = models.CharField(max_length=100, blank=True, null=True,
+                                  help_text='Name of field in your GIS data that has the feature name. Default is Name')
+    id_field = models.CharField(max_length=100, blank=True, null=True,
+                                help_text='Name of field in your GIS data that has the feature ID. Default is GlobalID')
+    type_label = models.CharField(max_length=100, blank=True, null=True, verbose_name='Type field',
+                                  help_text='Name of field in your GIS data that has the feature type. Defaults are Type and FeatureType')
+    last_download = models.DateTimeField(blank=True, null=True, verbose_name='Last Download Time')
+
+    class Meta:
+        verbose_name = 'Feature Service Configuration'

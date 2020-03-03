@@ -233,28 +233,29 @@ def extract_from_list(items: list = list):
 
 def extract_from_dict_or_string(schema_item, value):
     # value might be a dict, in which case it includes a 'value' attribute.
-    name = value
+    display = value
     if isinstance(value, dict):
-        name = value.get('name')
+        display = value.get('name')
         value = value.get('value') or str(value)
 
     # Get the value and display value for the current value
     if schema_item.get('type', None) == 'string':
         if value in schema_item.get('enumNames', {}):
-            value = schema_item['enumNames'][value]
-    return value, name
+            display = schema_item['enumNames'][value]
+    return value, display
+
 
 def extractor(schema_item, definition, value):
 
     # Determine how the value should appear.
     if isinstance(value, list):
-        key, val = extract_from_list(value)
+        val, display = extract_from_list(value)
     else:
-        key, val = extract_from_dict_or_string(schema_item, value)
+        val, display = extract_from_dict_or_string(schema_item, value)
 
     # The simplest case is when the json schema specifies the title.
     if 'title' in schema_item:
-        return schema_item['title'], val, key
+        return schema_item['title'], val, display
 
     if 'key' not in schema_item:
         logger.warning(f'key not found in schema_item {schema_item}')
@@ -262,10 +263,27 @@ def extractor(schema_item, definition, value):
 
     for definition_item in flatten_definition_items(definition):
         if isinstance(definition_item, dict) and definition_item.get('key') == schema_item['key']:
-            return definition_item.get('title'), val, key
+            if definition_item.get("type") == "checkboxes":
+                val, display = handle_checkboxes_in_fieldsets(definition_item, value)
+                return definition_item.get('title'), val, display
+            return definition_item.get('title'), val, display
     else:
         logger.info('Unable to resolve title for schema_item %s', repr(schema_item))
 
+
+def handle_checkboxes_in_fieldsets(definition_item, values):
+    names = []
+    ids = []
+    for map_item in definition_item.get("titleMap", []):
+        val = map_item["value"]
+        is_list_of_dicts = all([isinstance(i, dict) for i in values])
+        if is_list_of_dicts:
+            return extract_from_list(values)
+
+        if isinstance(values, list) and val in values:
+            ids.append(map_item["value"])
+            names.append(map_item["name"])
+    return ";".join(ids), ";".join(names)
 
 
 def generate_index(start_at=0, incr=1):
@@ -316,9 +334,7 @@ def flatten_definition_items(definition: list = list):
 def definition_key_order_as_dict(schema):
     return OrderedDict(definition_keys(schema.get('definition', [])))
 
-
 def detail_resolver(schema, key, value):
-
     if key in schema['schema']['properties']:
         schema_item = schema['schema']['properties'][key]
         return extractor(schema_item, schema.get('definition', []), value)
@@ -356,10 +372,10 @@ def get_display_values_for_event_details(event_details, schema):
 
         logger.debug(f'Resolved details for {k} {v} = {resolved_details}')
         if resolved_details:
-            title, display, value = resolved_details
+            title, value, display = resolved_details
             ret.update({
-                k: resolved_details[2],
-                resolved_details[0]: resolved_details[1]
+                k: value,
+                title: display
             })
     return ret
 
@@ -425,11 +441,23 @@ def format_key_for_title(key):
 
 
 def find_display_value_for_key_in_definition(schema, key):
-    for item in schema.get('definition', []):
-        if not isinstance(item, dict):
+    for schema_item in schema.get('definition', []):
+        if not isinstance(schema_item, dict):
             continue
-        if 'key' in item and item['key'] == key and 'title' in item:
-            return item['title']
+        if 'key' in schema_item and schema_item['key'] == key and 'title' in schema_item:
+            return schema_item['title']
+        # fieldsets
+        """
+        OrderedDict([('type', 'fieldset'), ('htmlClass', 'col-lg-6'), 
+        ('items', [OrderedDict([('key', 'reportinternal'), 
+        ('type', 'checkboxes'), ('title', 'FieldSet Checkbox Enum'), 
+        ('titleMap', [OrderedDict([('value', 'team01'), ('name', 'Team 1')]), 
+        OrderedDict([('value', 'team02'), ('name', 'Teams 2')])])])])])
+        """
+        if 'items' in schema_item and len(schema_item['items']) > 0:
+            for item in schema_item.get("items", []):
+                if isinstance(item, dict) and 'key' in item and item['key'] == key and 'title' in item:
+                    return item['title']
     return None
 
 
