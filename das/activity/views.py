@@ -340,6 +340,11 @@ def generate_event_type_cache():
 class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
     permission_classes = (EventCategoryPermissions,)
 
+    def dispatch(self, request, *args, **kwargs):
+        self.value_cols = kwargs.get('value_cols', False)
+        self.display_cols = kwargs.get('display_cols', True)
+        return super(EventsExportView, self).dispatch(request, *args, **kwargs)
+
     def get_event_export_list(self):
         event_export_data = []
 
@@ -404,12 +409,14 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                                 self.escape_string(key))
                             current_event_type_data['headers'].append("test")
 
-                            if key not in custom_headers:
+                            if self.value_cols and key not in custom_headers:
                                 custom_headers.append(key)
 
-                            if display_value not in custom_headers:
+                            if self.display_cols and display_value not in custom_headers:
                                 column_name = schema_utils.get_column_header_name(current_schema, key)
                                 custom_headers.append(column_name)
+
+                    import pdb; pdb.set_trace()
 
                 except json.JSONDecodeError:
                     # Event type does not have schema, which is weird but not
