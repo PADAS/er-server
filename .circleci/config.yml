@@ -194,6 +194,7 @@ jobs:
           root: './'
           paths:
             - '*'
+
   commit_and_push_manifest:
     docker:
       - image: circleci/buildpack-deps:stretch
@@ -240,9 +241,13 @@ workflows:
               ignore:
                 - 'develop'
                 - /release*/
-      - terraform_plan_dev:
+      - allow_terraform_planning:
           requires:
             - 'docker_build_and_generate_manifest'
+          type: 'approval'
+      - terraform_plan_dev:
+          requires:
+            - 'allow_terraform_planning'
       - review_plan_dev:
           requires:
             - 'terraform_plan_dev'
