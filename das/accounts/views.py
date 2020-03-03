@@ -5,15 +5,17 @@ import logging
 import pytz
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import generics
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 
 import accounts.serializers as serializers
 from accounts.filters import UserObjectPermissionsFilter
+from accounts.models import User
 from accounts.models.eula import UserAgreement, EULA
 from accounts.permissions import UserObjectPermissions, EulaPermission
 
@@ -101,9 +103,28 @@ class AcceptEulaAPIView(generics.CreateAPIView):
     serializer_class = serializers.AcceptEulaSerializer
     queryset = UserAgreement.objects.all()
 
+    def create(self, request, *args, **kwargs):
+        if request.data.get("accept") == False:
+            user_id = request.data.get("user")
+            eula_id = request.data.get("eula")
+
+            try:
+                user = User.objects.get(id=user_id)
+                UserAgreement.objects.filter(user=user).filter(
+                    eula_id=eula_id).delete()
+                user.accepted_eula = False
+                user.save()
+                return Response(request.data, status=status.HTTP_200_OK)
+            except ObjectDoesNotExist as e:
+                return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            except MultipleObjectsReturned as me:
+                return Response({"error": str(me)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return super(AcceptEulaAPIView, self).create(request, *args, **kwargs)
+
 
 class GetActiveEulaAPIView(generics.RetrieveAPIView):
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny,)
     serializer_class = serializers.EulaSerializer
     queryset = EULA.objects.all()
 

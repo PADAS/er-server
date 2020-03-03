@@ -9,10 +9,10 @@
 adal==1.2.1               # via azure-datalake-store, msrestazure
 affine==2.2.2             # via rasterio
 amqp==2.4.2               # via kombu
-arcgis==1.7.1
-arcgis2geojson==2.0.0
+arcgis2geojson==2.0.0     # via -r requirements.in (line 106)
+arcgis==1.7.1             # via -r requirements.in (line 105)
 asn1crypto==0.24.0        # via cryptography
-attrs==19.1.0             # via rasterio
+attrs==19.1.0             # via jsonschema, rasterio
 azure-applicationinsights==0.1.0  # via azure
 azure-batch==4.1.3        # via azure
 azure-common==1.1.19      # via azure-applicationinsights, azure-batch, azure-cosmosdb-table, azure-eventgrid, azure-graphrbac, azure-keyvault, azure-loganalytics, azure-mgmt-advisor, azure-mgmt-applicationinsights, azure-mgmt-authorization, azure-mgmt-batch, azure-mgmt-batchai, azure-mgmt-billing, azure-mgmt-cdn, azure-mgmt-cognitiveservices, azure-mgmt-commerce, azure-mgmt-compute, azure-mgmt-consumption, azure-mgmt-containerinstance, azure-mgmt-containerregistry, azure-mgmt-containerservice, azure-mgmt-cosmosdb, azure-mgmt-datafactory, azure-mgmt-datalake-analytics, azure-mgmt-datalake-store, azure-mgmt-datamigration, azure-mgmt-devspaces, azure-mgmt-devtestlabs, azure-mgmt-dns, azure-mgmt-eventgrid, azure-mgmt-eventhub, azure-mgmt-hanaonazure, azure-mgmt-iotcentral, azure-mgmt-iothub, azure-mgmt-iothubprovisioningservices, azure-mgmt-keyvault, azure-mgmt-loganalytics, azure-mgmt-logic, azure-mgmt-machinelearningcompute, azure-mgmt-managementgroups, azure-mgmt-managementpartner, azure-mgmt-maps, azure-mgmt-marketplaceordering, azure-mgmt-media, azure-mgmt-monitor, azure-mgmt-msi, azure-mgmt-network, azure-mgmt-notificationhubs, azure-mgmt-policyinsights, azure-mgmt-powerbiembedded, azure-mgmt-rdbms, azure-mgmt-recoveryservices, azure-mgmt-recoveryservicesbackup, azure-mgmt-redis, azure-mgmt-relay, azure-mgmt-reservations, azure-mgmt-resource, azure-mgmt-scheduler, azure-mgmt-search, azure-mgmt-servicebus, azure-mgmt-servicefabric, azure-mgmt-signalr, azure-mgmt-sql, azure-mgmt-storage, azure-mgmt-subscription, azure-mgmt-trafficmanager, azure-mgmt-web, azure-servicebus, azure-servicefabric, azure-servicemanagement-legacy, azure-storage-blob, azure-storage-common, azure-storage-file, azure-storage-queue
@@ -94,16 +94,17 @@ azure-storage-blob==1.5.0  # via azure
 azure-storage-common==1.4.0  # via azure-cosmosdb-table, azure-storage-blob, azure-storage-file, azure-storage-queue
 azure-storage-file==1.4.0  # via azure
 azure-storage-queue==1.4.0  # via azure
-azure==4.0.0
+azure==4.0.0              # via -r requirements.in (line 96)
+backcall==0.1.0           # via ipython
 billiard==3.5.0.5         # via celery
-bleach==2.1.4
-boto3==1.11.9
+bleach==2.1.4             # via -r requirements.in (line 23), nbconvert
+boto3==1.11.9             # via -r requirements.in (line 78)
 boto==2.49.0              # via django-ses
 botocore==1.14.9          # via boto3, s3transfer
-business-rules==1.0.1
+business-rules==1.0.1     # via -r requirements.in (line 97)
 cachetools==3.1.0         # via google-auth
-celery==4.2.2
-celery_once==1.2.0
+celery==4.2.2             # via -r requirements.in (line 18), celery-once
+celery_once==1.2.0        # via -r requirements.in (line 19)
 certifi==2019.3.9         # via msrest, requests
 cffi==1.12.3              # via azure-datalake-store, cryptography
 chardet==3.0.4            # via requests
@@ -112,49 +113,52 @@ click==7.0                # via click-plugins, cligj, rasterio
 cligj==0.5.0              # via fiona, rasterio, rasterstats
 coreapi==2.3.3            # via django-rest-swagger, openapi-codec
 coreschema==0.0.4         # via coreapi
-cryptography==2.6.1       # via adal, azure-cosmosdb-table, azure-keyvault, azure-storage-common, pyopenssl
-cython==0.29.10
-datadog==0.29.3
-decorator==4.4.0          # via datadog
-django-bitfield==1.9.6
-django-cors-headers==2.5.3
-django-debug-toolbar==2.1
-django-environ==0.4.5
-django-extensions==2.2.6
-django-extra-fields==0.9
+cryptography==2.6.1       # via adal, azure-cosmosdb-table, azure-keyvault, azure-storage-common, pyopenssl, secretstorage
+cycler==0.10.0            # via matplotlib
+cython==0.29.10           # via -r requirements.in (line 72)
+datadog==0.29.3           # via -r requirements.in (line 100)
+decorator==4.4.0          # via datadog, ipython, traitlets
+defusedxml==0.6.0         # via nbconvert
+django-bitfield==1.9.6    # via -r requirements.in (line 36)
+django-cors-headers==2.5.3  # via -r requirements.in (line 45)
+django-debug-toolbar==2.1  # via -r requirements.in (line 103)
+django-environ==0.4.5     # via -r requirements.in (line 46)
+django-extensions==2.2.6  # via -r requirements.in (line 61)
+django-extra-fields==0.9  # via -r requirements.in (line 53)
 django-js-asset==1.2.2    # via django-mptt
-django-leaflet==0.24.0
-django-model-utils==3.2.0
-django-mptt==0.10.0
-django-oauth-toolkit==1.2.0
-django-pgviews==0.5.5
-django-readonly-field==1.0.5
-django-redis==4.10.0
-django-rest-swagger==2.2.0
-django-sendsms==0.3.1
-django-ses==0.8.10
-django-storages[google]==1.8
-django-tagulous==0.14.0
-django-treebeard==4.3
-django-versatileimagefield==1.10
-django==2.2.9
-djangorestframework-gis==0.14.0
-djangorestframework==3.10.3
+django-leaflet==0.24.0    # via -r requirements.in (line 49)
+django-model-utils==3.2.0  # via -r requirements.in (line 43)
+django-mptt==0.10.0       # via -r requirements.in (line 51)
+django-oauth-toolkit==1.2.0  # via -r requirements.in (line 47)
+django-pgviews==0.5.5     # via -r requirements.in (line 42)
+django-readonly-field==1.0.5  # via -r requirements.in (line 54)
+django-redis==4.10.0      # via -r requirements.in (line 58)
+django-rest-swagger==2.2.0  # via -r requirements.in (line 48)
+django-sendsms==0.3.1     # via -r requirements.in (line 50)
+django-ses==0.8.10        # via -r requirements.in (line 38)
+django-storages[google]==1.8  # via -r requirements.in (line 55)
+django-tagulous==0.14.0   # via -r requirements.in (line 56)
+django-treebeard==4.3     # via -r requirements.in (line 52)
+django-versatileimagefield==1.10  # via -r requirements.in (line 57)
+django==2.2.9             # via -r requirements.in (line 37), django-bitfield, django-cors-headers, django-debug-toolbar, django-leaflet, django-model-utils, django-mptt, django-oauth-toolkit, django-readonly-field, django-redis, django-storages, django-treebeard
+djangorestframework-gis==0.14.0  # via -r requirements.in (line 59)
+djangorestframework==3.10.3  # via -r requirements.in (line 39), django-rest-swagger, djangorestframework-gis, drf-extensions
 dnspython==1.16.0         # via eventlet
 docutils==0.14            # via botocore
-docxtpl==0.4.6
-drf-extensions==0.5.0
+docxtpl==0.4.6            # via -r requirements.in (line 83)
+drf-extensions==0.5.0     # via -r requirements.in (line 40)
 earthengine-api==0.1.175  # via pymet
+entrypoints==0.3          # via nbconvert
 et-xmlfile==1.0.1         # via openpyxl
-eventlet==0.25.1
-fiona==1.7.11
+eventlet==0.25.1          # via -r requirements.in (line 33)
+fiona==1.7.11             # via -r requirements.in (line 71), geopandas, pymet, rasterstats
 future==0.17.1            # via django-ses
-gdal==2.2.3
+gdal==2.2.3               # via -r requirements.in (line 68), pymet
 geographiclib==1.49       # via pymet
-geojson==2.4.1
-geopandas==0.4.1
-geopy==1.11.0
-gevent==1.4.0
+geojson==2.4.1            # via -r requirements.in (line 90), pymet
+geopandas==0.4.1          # via -r requirements.in (line 73), pymet
+geopy==1.11.0             # via -r requirements.in (line 70)
+gevent==1.4.0             # via -r requirements.in (line 34)
 google-api-core==1.15.0   # via google-cloud-core
 google-api-python-client==1.7.8  # via earthengine-api
 google-auth-httplib2==0.0.3  # via google-api-python-client
@@ -163,72 +167,112 @@ google-cloud-core==1.1.0  # via google-cloud-storage
 google-cloud-storage==1.24.1  # via django-storages
 google-resumable-media==0.5.0  # via google-cloud-storage
 googleapis-common-protos==1.6.0  # via google-api-core
-greenlet==0.4.15
-gunicorn==19.9.0
+greenlet==0.4.15          # via -r requirements.in (line 31), eventlet, gevent
+gunicorn==19.9.0          # via -r requirements.in (line 32)
 html5lib==1.0.1           # via bleach
 httplib2==0.12.3          # via google-api-python-client, google-auth-httplib2, oauth2client
-humanize==0.5.1
+humanize==0.5.1           # via -r requirements.in (line 94)
 idna==2.8                 # via requests
+importlib-metadata==1.5.0  # via keyring
+ipykernel==5.1.4          # via ipywidgets, notebook
+ipython-genutils==0.2.0   # via nbformat, notebook, traitlets
+ipython==7.12.0           # via ipykernel, ipywidgets
+ipywidgets==7.5.1         # via arcgis
 isodate==0.6.0            # via msrest
 itypes==1.1.0             # via coreapi
 jdcal==1.4.1              # via openpyxl
-jinja2==2.10.1
+jedi==0.16.0              # via ipython
+jeepney==0.4.2            # via keyring, secretstorage
+jinja2==2.10.1            # via -r requirements.in (line 82), coreschema, docxtpl, jupyterlab, jupyterlab-server, nbconvert, notebook
 jmespath==0.9.4           # via boto3, botocore
 joblib==0.13.0            # via pymet
-kombu==4.2.2.post1
-lxml==4.3.4
+json5==0.9.1              # via jupyterlab-server
+jsonschema==3.0.2         # via -r requirements.in (line 29), jupyterlab-server, nbformat
+jupyter-client==6.0.0     # via ipykernel, notebook
+jupyter-core==4.6.3       # via jupyter-client, nbconvert, nbformat, notebook
+jupyterlab-server==1.0.6  # via jupyterlab
+jupyterlab==1.2.6         # via arcgis
+keyring==21.1.0           # via arcgis
+kiwisolver==1.1.0         # via matplotlib
+kombu==4.2.2.post1        # via -r requirements.in (line 20), celery
+lxml==4.3.4               # via -r requirements.in (line 85), docxtpl, python-docx
 markupsafe==1.1.1         # via jinja2
+matplotlib==3.1.3         # via arcgis
+mistune==0.8.4            # via nbconvert
 monotonic==1.5            # via eventlet
 msrest==0.6.6             # via azure-applicationinsights, azure-eventgrid, azure-keyvault, azure-loganalytics, azure-mgmt-cdn, azure-mgmt-compute, azure-mgmt-containerinstance, azure-mgmt-containerregistry, azure-mgmt-containerservice, azure-mgmt-dns, azure-mgmt-eventhub, azure-mgmt-keyvault, azure-mgmt-media, azure-mgmt-network, azure-mgmt-rdbms, azure-mgmt-resource, azure-mgmt-servicebus, azure-mgmt-servicefabric, azure-mgmt-signalr, azure-servicefabric, msrestazure
 msrestazure==0.6.0        # via azure-batch, azure-eventgrid, azure-graphrbac, azure-keyvault, azure-mgmt-advisor, azure-mgmt-applicationinsights, azure-mgmt-authorization, azure-mgmt-batch, azure-mgmt-batchai, azure-mgmt-billing, azure-mgmt-cdn, azure-mgmt-cognitiveservices, azure-mgmt-commerce, azure-mgmt-compute, azure-mgmt-consumption, azure-mgmt-containerinstance, azure-mgmt-containerregistry, azure-mgmt-containerservice, azure-mgmt-cosmosdb, azure-mgmt-datafactory, azure-mgmt-datalake-analytics, azure-mgmt-datalake-store, azure-mgmt-datamigration, azure-mgmt-devspaces, azure-mgmt-devtestlabs, azure-mgmt-dns, azure-mgmt-eventgrid, azure-mgmt-eventhub, azure-mgmt-hanaonazure, azure-mgmt-iotcentral, azure-mgmt-iothub, azure-mgmt-iothubprovisioningservices, azure-mgmt-keyvault, azure-mgmt-loganalytics, azure-mgmt-logic, azure-mgmt-machinelearningcompute, azure-mgmt-managementgroups, azure-mgmt-managementpartner, azure-mgmt-maps, azure-mgmt-marketplaceordering, azure-mgmt-media, azure-mgmt-monitor, azure-mgmt-msi, azure-mgmt-network, azure-mgmt-notificationhubs, azure-mgmt-policyinsights, azure-mgmt-powerbiembedded, azure-mgmt-rdbms, azure-mgmt-recoveryservices, azure-mgmt-recoveryservicesbackup, azure-mgmt-redis, azure-mgmt-relay, azure-mgmt-reservations, azure-mgmt-resource, azure-mgmt-scheduler, azure-mgmt-search, azure-mgmt-servicebus, azure-mgmt-servicefabric, azure-mgmt-signalr, azure-mgmt-sql, azure-mgmt-storage, azure-mgmt-subscription, azure-mgmt-trafficmanager, azure-mgmt-web
 munch==2.3.2              # via fiona
-numpy==1.16.4
-oauth2client==4.1.3
-oauthlib==3.0.2
+nbconvert==5.6.1          # via notebook
+nbformat==5.0.4           # via ipywidgets, nbconvert, notebook
+notebook==6.0.3           # via jupyterlab, jupyterlab-server, widgetsnbextension
+numpy==1.16.4             # via -r requirements.in (line 66), arcgis, matplotlib, pandas, pymet, rasterio, rasterstats, scikit-learn, scipy, snuggs
+oauth2client==4.1.3       # via -r requirements.in (line 92)
+oauthlib==3.0.2           # via -r requirements.in (line 64), django-oauth-toolkit, requests-oauthlib
 olefile==0.46             # via pillow
 openapi-codec==1.3.2      # via django-rest-swagger
-openpyxl==2.5.4
-pandas==0.24.2            # via geopandas, pymet
-piexif==1.0.13
+openpyxl==2.5.4           # via -r requirements.in (line 86)
+pandas==0.24.2            # via arcgis, geopandas, pymet
+pandocfilters==1.4.2      # via nbconvert
+parso==0.6.1              # via jedi
+pexpect==4.8.0            # via ipython
+pickleshare==0.7.5        # via ipython
+piexif==1.0.13            # via -r requirements.in (line 26)
 pillow==4.3.0             # via django-versatileimagefield
+prometheus-client==0.7.1  # via notebook
+prompt-toolkit==3.0.3     # via ipython
 protobuf==3.11.2          # via google-api-core, googleapis-common-protos
-psycopg2-binary==2.8.3
+psycopg2-binary==2.8.3    # via -r requirements.in (line 12)
+ptyprocess==0.6.0         # via pexpect, terminado
 pyasn1-modules==0.2.5     # via google-auth, oauth2client
 pyasn1==0.4.5             # via oauth2client, pyasn1-modules, rsa
 pycparser==2.19           # via cffi
-pycryptodome==3.7.0
+pycryptodome==3.7.0       # via -r requirements.in (line 28)
+pygments==2.5.2           # via ipython, nbconvert
 pyjwt==1.7.1              # via adal, twilio
-pymet==0.1.24
+pymet==0.1.24             # via -r requirements.in (line 91)
 pyopenssl==19.0.0         # via earthengine-api
-pyparsing==2.4.0          # via snuggs
-pyproj==1.9.5.1
-python-dateutil==2.8.1
-python-docx==0.8.6
-python-engineio==3.8.2
-python-json-logger==0.1.11
-pytz==2019.3
-pyyaml==5.1.1
-rasterio==1.0.23
+pyparsing==2.4.0          # via matplotlib, snuggs
+pyproj==1.9.5.1           # via -r requirements.in (line 69), geopandas
+pyrsistent==0.15.7        # via jsonschema
+pyshp==1.2.12             # via arcgis
+python-dateutil==2.8.1    # via -r requirements.in (line 15), adal, azure-cosmosdb-table, azure-storage-common, botocore, jupyter-client, matplotlib, pandas
+python-docx==0.8.6        # via -r requirements.in (line 84), docxtpl
+python-engineio==3.8.2    # via -r requirements.in (line 17)
+python-json-logger==0.1.11  # via -r requirements.in (line 24)
+pytz==2019.3              # via -r requirements.in (line 14), celery, django, django-ses, google-api-core, pandas, twilio
+pyyaml==5.1.1             # via -r requirements.in (line 79)
+pyzmq==18.1.1             # via jupyter-client, notebook
+rasterio==1.0.23          # via -r requirements.in (line 89), pymet, rasterstats
 rasterstats==0.13.1       # via pymet
-redis==2.10.6
+redis==2.10.6             # via -r requirements.in (line 21), celery-once, django-redis
 requests-oauthlib==1.2.0  # via msrest
-requests==2.22.0
+requests==2.22.0          # via -r requirements.in (line 16), adal, azure-cosmosdb-table, azure-datalake-store, azure-keyvault, azure-servicebus, azure-servicemanagement-legacy, azure-storage-common, coreapi, datadog, django-oauth-toolkit, google-api-core, msrest, requests-oauthlib, twilio
 rsa==4.0                  # via google-auth, oauth2client
 s3transfer==0.3.2         # via boto3
 scikit-learn==0.20.3      # via pymet
 scipy==1.2.1              # via pymet, scikit-learn
-shapely==1.6.3
-simplejson==3.16.0
-simplekml==1.3.1
-six==1.11.0
+secretstorage==3.1.2      # via keyring
+send2trash==1.5.0         # via notebook
+shapely==1.6.3            # via -r requirements.in (line 74), geopandas, rasterstats
+simplejson==3.16.0        # via -r requirements.in (line 13), django-rest-swagger, rasterstats
+simplekml==1.3.1          # via -r requirements.in (line 27)
+six==1.11.0               # via -r requirements.in (line 22), arcgis, bleach, cryptography, cycler, django-bitfield, django-extensions, docxtpl, earthengine-api, eventlet, fiona, google-api-core, google-api-python-client, google-auth, google-resumable-media, html5lib, isodate, jsonschema, munch, oauth2client, protobuf, pyopenssl, pyrsistent, python-dateutil, python-engineio, traitlets, twilio
 snuggs==1.4.3             # via rasterio
 sqlparse==0.3.0           # via django, django-debug-toolbar
-twilio==6.35.3
+terminado==0.8.3          # via notebook
+testpath==0.4.4           # via nbconvert
+tornado==6.0.3            # via ipykernel, jupyter-client, jupyterlab, notebook, terminado
+traitlets==4.3.3          # via ipykernel, ipython, ipywidgets, jupyter-client, jupyter-core, nbconvert, nbformat, notebook
+twilio==6.35.3            # via -r requirements.in (line 25)
 uritemplate==3.0.0        # via coreapi, google-api-python-client
 urllib3==1.24.2           # via botocore, requests
 vine==1.3.0               # via amqp
+wcwidth==0.1.8            # via prompt-toolkit
 webencodings==0.5.1       # via html5lib
-whitenoise==4.1.4
+whitenoise==4.1.4         # via -r requirements.in (line 102)
+widgetsnbextension==3.5.1  # via arcgis, ipywidgets
+zipp==3.0.0               # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools

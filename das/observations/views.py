@@ -422,15 +422,23 @@ class SubjectsView(generics.ListCreateAPIView):
         updated_since = self.request.query_params.get('updated_since')
         updated_until = self.request.query_params.get('updated_until')
 
-        is_updated_since_valid = check_valid_date_string(updated_since, 'updated_since')
-        is_updated_until_valid = check_valid_date_string(updated_until, 'updated_until')
+        is_updated_since_valid = check_valid_date_string(
+            updated_since, 'updated_since')
+        is_updated_until_valid = check_valid_date_string(
+            updated_until, 'updated_until')
 
         if is_updated_since_valid and is_updated_until_valid:
-            queryset = queryset.by_updated_since_until(updated_since, updated_until)
+            queryset = queryset.by_updated_since_until(
+                updated_since, updated_until)
         elif is_updated_since_valid:
             queryset = queryset.by_updated_since(dateparse(updated_since))
+            updated_until = None
         elif is_updated_until_valid:
             queryset = queryset.by_updated_until(dateparse(updated_until))
+            updated_since = None
+        else:
+            updated_since = None
+            updated_until = None
 
         bbox = self.request.query_params.get('bbox')
         if bbox:
@@ -439,7 +447,8 @@ class SubjectsView(generics.ListCreateAPIView):
             if len(bbox) != 4:
                 raise ValueError("invalid bbox param")
             queryset = queryset.by_bbox(bbox, last_days=LAST_DAYS,
-                                        include_stationary_subjects=INCLUDE_STATIONARY_SUBJECTS_ON_MAP)
+                                        include_stationary_subjects=INCLUDE_STATIONARY_SUBJECTS_ON_MAP,
+                                        updated_since=updated_since, updated_until=updated_until)
 
         if self.request.query_params.get('name', None):
             queryset = queryset.by_name_search(
@@ -719,15 +728,17 @@ class SourcesView(generics.ListCreateAPIView, ):
     filter_backends = (SubjectObjectPermissionsFilter,)
     pagination_class = StandardResultsSetPagination
 
-    lookup_fields = ('manufacturer_id', 'provider_key')
+    lookup_fields = {'manufacturer_id': 'manufacturer_id',
+                     'provider_key': 'provider__provider_key',
+                     'provider': 'provider__provider_key'}
 
     def get_queryset(self):
         queryset = models.Source.objects.all()
 
         filter = {}
-        for fn in self.lookup_fields:
+        for fn, fld in self.lookup_fields.items():
             if fn in self.request.query_params:
-                filter[fn] = self.request.query_params.get(fn)
+                filter[fld] = self.request.query_params.get(fn)
         if filter:
             queryset = queryset.filter(**filter)
 

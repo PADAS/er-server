@@ -455,8 +455,8 @@ def find_display_value_for_key_in_definition(schema, key):
         OrderedDict([('value', 'team02'), ('name', 'Teams 2')])])])])])
         """
         if 'items' in schema_item and len(schema_item['items']) > 0:
-            for item in schema_item["items"]:
-                if 'key' in item and item['key'] == key and 'title' in item:
+            for item in schema_item.get("items", []):
+                if isinstance(item, dict) and 'key' in item and item['key'] == key and 'title' in item:
                     return item['title']
     return None
 

@@ -1888,7 +1888,7 @@ class TestEventView(BaseAPITest):
             "conservancy": "unknown",
             # multi-select
             "arrestrep_reasonforarrest": ["snare", "logging"],
-            }
+        }
 
         request = self.factory.post(self.api_base + '/events/', event_data)
         self.force_authenticate(request, self.all_perms_user)
@@ -1898,7 +1898,8 @@ class TestEventView(BaseAPITest):
         for k, v in event_details.items():
             self.assertNotIsInstance(v, dict)
         self.assertIsInstance(event_details["arrestrep_reasonforarrest"], list)
-        self.assertNotIsInstance(event_details["arrestrep_reasonforarrest"][0], dict)
+        self.assertNotIsInstance(
+            event_details["arrestrep_reasonforarrest"][0], dict)
 
     def test_handling_legacy_data(self):
         event = self.create_event(self.event_data)
@@ -1920,7 +1921,8 @@ class TestEventView(BaseAPITest):
         self.assertEqual(data['test'], "test")
         self.assertEqual(data['correct_output_checkbox'], ["one", "two"])
         self.assertEqual(data['sectionArea'], ['area1', 'area2'])
-        self.assertEqual(data['arrestrep_reasonforarrest'], ['snare', 'logging'])
+        self.assertEqual(data['arrestrep_reasonforarrest'], [
+                         'snare', 'logging'])
 
     def test_exporting_checkbox_events_to_csv(self):
         checkbox_data = json.loads(
@@ -1969,7 +1971,8 @@ class TestEventView(BaseAPITest):
         response = views.EventsExportView.as_view()(request)
         rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
 
-        self.assertIn('DWS Test', [i.get('Report_Type') for i in rendered_dict])
+        self.assertIn('DWS Test', [i.get('Report_Type')
+                                   for i in rendered_dict])
         target_row = {}
 
         for row in rendered_dict:
@@ -2000,7 +2003,8 @@ class TestEventView(BaseAPITest):
         response = views.EventsExportView.as_view()(request)
         rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
 
-        self.assertIn('4787-Array', [i.get('Report_Type') for i in rendered_dict])
+        self.assertIn('4787-Array', [i.get('Report_Type')
+                                     for i in rendered_dict])
         target_row = {}
 
         for row in rendered_dict:
