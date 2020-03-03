@@ -1,24 +1,12 @@
-import datetime
 import logging
 
-from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from mapping import models
-from mapping.utils import (DEFAULT_SOURCE_NAME, datasource_from_file,
-                           mappingv2_save_spatial_data, save_spatial_file,
-                           validate_feature_record, get_spatial_feature_type)
-from utils.spatial import GeometryMapper
+from mapping.tasks import load_spatial_features_from_files
+from mapping.utils import DEFAULT_SOURCE_NAME, validate_feature_record
 
 logger = logging.getLogger(__name__)
-
-
-FEATURE_TYPES = {
-    'Primary': 'Primary Roads',
-    'Secondary': 'Secondary Roads',
-    'Old': 'Old Roads',
-    'Tertiary': 'Tertiary Roads',
-}
 
 
 class Command(BaseCommand):
@@ -35,7 +23,6 @@ class Command(BaseCommand):
     # stroke_width = 'stroke-width'
     # stroke_opacity = 'stroke-opacity'
     utm = None
-    geometry_mapper = GeometryMapper()
 
     def handle(self, *args, **options):
         self.source_name = options['source'] if options['source'] else DEFAULT_SOURCE_NAME
@@ -89,166 +76,25 @@ class Command(BaseCommand):
             logger.info('Featureset and featuretype not included in command, add flags --featureset and --featuretype')
             return
 
-        featureset = validate_feature_record(self.featureset, 'Featureset', models.FeatureSet)
-        featuretype = validate_feature_record(self.featuretype, 'Featuretype', models.FeatureType)
-        logger.debug('Featureset: %s, FeatureType: %s', featureset.name, featuretype.name)
+        featureset = validate_feature_record(
+            self.featureset, 'Featureset', models.FeatureSet)
+        featuretype = validate_feature_record(
+            self.featuretype, 'Featuretype', models.FeatureType)
+        logger.debug('Featureset: %s, FeatureType: %s',
+                     featureset.name, featuretype.name)
 
-        try:
-            datasource, layer_num = self.get_datasource_and_layer_num()
-            self.import_layer(datasource[layer_num], featuretype, featureset)
-        except Exception as ex:
-            logger.exception(ex)
-        finally:
-            datasource = None
+        load_spatial_features_from_files.apply_async(args=(
+            self.filename, self.tmpdirs, self.source_name, self.spatialfile_id,
+            None, self.layer, self.presentation, self.featuretype_label,
+            self.id_field, self.name_field, featuretype.name, featureset.name,))
 
     def importspatialfile(self):
         logger.info('Importing features from shapefile: %s',
                     self.filename)
-        try:
-            datasource, layer_num = self.get_datasource_and_layer_num()
-            self.import_layer(datasource[layer_num], self.featuretype)
-        except Exception as ex:
-            logger.exception(ex)
-        finally:
-            datasource = None
-
-    def get_datasource_and_layer_num(self):
-        datasource = datasource_from_file(self.filename, self.tmpdirs)
-        logger.debug('Data Source: %s, layercount %s',
-                     datasource.name, datasource.layer_count)
-        if datasource.layer_count > 1 and self.layer is None:
-            logger.warning('multiple layers not supported...')
-            for i in range(0, datasource.layer_count):
-                logger.info('layer: %s, name: %s', i, datasource[i].name)
-            return
-
-        layer_num = 0 if self.layer is None else self.layer
-        if layer_num >= datasource.layer_count:
-            logger.warning(f'Given layer {self.layer} should be less than existing layers: {datasource.layer_count}')
-            layer_num = 0
-        return datasource, layer_num
-
-    def get_feature_class(self, name):
-        name_lower = name.lower()
-        if 'polygon' in name_lower:
-            return models.PolygonFeature
-        if 'linestring' in name_lower:
-            return models.LineFeature
-        if 'point' in name_lower:
-            return models.PointFeature
-        raise KeyError('DAS Feature class not found for {0}'.format(name))
-
-    def make_external_id(self, layer, feature):
-        name_value = ''
-        id_value = ''
-        for name in feature.fields:
-            if self.id_field and name.lower() == self.id_field.lower():
-                id_value = str(feature[name].value)
-            elif self.name_field and name.lower() == self.name_field.lower():
-                name_value = str(feature[name].value)
-        return '-'.join((layer.name, name_value, id_value))
-
-    def get_featuretype_for_feature(self, feature, default=None):
-        for name in feature.fields:
-            if name in ('roadclass',):
-                value = feature[name].value
-                type_name = FEATURE_TYPES[value]
-                featuretype = models.FeatureType.objects.get_by_natural_key(
-                    type_name)
-                return featuretype
-
-        if not default:
-            raise KeyError('no default featuretype specified')
-        return default
-
-    def contains_unique_keys_in_layer(self, layer):
-        seen = set()
-        unique_keys = True
-        for feature in layer:
-            external_id = self.make_external_id(layer, feature)
-            if external_id in seen:
-                logger.info('External_id=%s not unique to layer', external_id)
-                unique_keys = False
-                break
-            else:
-                seen.add(external_id)
-        return unique_keys
-
-    def import_layer(self, layer, featuretype=None, featureset=None):
-        logger.info('Importing layer: %s, type: %s, fields: %s',
-                    layer.name, layer.geom_type, layer.fields)
-
-        has_unique_keys = self.contains_unique_keys_in_layer(layer)
-
-        for i, feature in enumerate(layer):
-
-            if self.presentation:
-                # TODO: get sft regardless of presentation and pass on further
-                spatial_feature_type = get_spatial_feature_type(feature, self.featuretype_label)
-                if not spatial_feature_type:
-                    logger.warning('Did not get spatialfeaturetype for %s. Skipping', str(feature))
-                    continue
-                spatial_feature_type.presentation = self.presentation
-                # TODO: does a write in each iteration. Optimize.
-                spatial_feature_type.save()
-
-            # can optionally filter features based on Park attribute.
-            # e.g., AP has features for multiple parks in the same feature layer
-            # TODO: make configurable, move out filter key (e.g., Park below) & filter value (ui_site_url) to the admin UI.
-            if hasattr(settings, 'UI_SITE_URL') and 'Park' in feature.fields:
-                if feature['Park'].value.lower() in settings.UI_SITE_URL.lower():
-                    self.load_layer(layer, featuretype, featureset, feature, has_unique_keys, i)
-            else:
-                self.load_layer(layer, featuretype, featureset, feature, has_unique_keys, i)
-
-    def load_layer(self, layer, featuretype, featureset, feature, has_unique_keys, i):
-        external_id = self.make_external_id(layer, feature)
-        if not has_unique_keys:
-            external_id = external_id + '-' + str(i)
-        if featureset:
-            self.mappingv1_save_spatial_data(
-                feature, featureset, featuretype, external_id)
-        else:
-            mappingv2_save_spatial_data(feature, self.source_name,
-                                        self.spatialfile_id, external_id, self.featuretype_label)
-
-    def mappingv1_save_spatial_data(self, feature, featureset, featuretype, external_id):
-        fields = {}
-        for name in feature.fields:
-            if name.lower() in (self.name_field.lower(), 'description'):
-                continue
-            value = feature[name].value
-            if isinstance(value, datetime.date):
-                value = value.isoformat()
-            fields[name] = value
-        try:
-            feature_model = self.get_feature_class(feature.geom_type.name)
-        except KeyError as ke:
-            feature_model = self.get_feature_class(str(feature.geom))
-        model_fieldname = 'feature_geometry'
-        model_field_type = feature_model._meta.get_field(model_fieldname)
-        feature_geometry = self.geometry_mapper.get_db_geom(
-            feature.geom, model_field_type)
-        defaults = {'feature_geometry': feature_geometry, 'fields': fields}
-        feature_record, created = feature_model.objects.get_or_create(
-            defaults=defaults,
-            featureset=featureset,
-            type=self.get_featuretype_for_feature(
-                feature, default=featuretype),
-            external_id=external_id)
-
-        logger.debug('Import feature: %s, created:%s',
-                     external_id, created)
-
-        feature_record.feature_geometry = feature_geometry
-        feature_record.fields = fields
-        try:
-            feature_record.name = feature[self.name_field].value
-        except (KeyError, IndexError):
-            pass
-        try:
-            feature_record.description = feature['Description'].value
-        except (KeyError, IndexError):
-            pass
-        feature_record = save_spatial_file(self.spatialfile_id, models.SpatialFile, feature_record)
-        feature_record.save()
+        featuretype = self.featuretype 
+        if featuretype:
+            featuretype = featuretype if isinstance(featuretype, str) else featuretype.name
+        load_spatial_features_from_files.apply_async(args=(
+            self.filename, self.tmpdirs, self.source_name, self.spatialfile_id,
+            None, self.layer, self.presentation, self.featuretype_label,
+            self.id_field, self.name_field, featuretype,))
