@@ -1,12 +1,9 @@
 import logging
-
-from django.core.exceptions import ValidationError
-from django.core.files.uploadedfile import SimpleUploadedFile
+from unittest.mock import patch
 
 from mapping.models import (FeatureSet, FeatureType, PointFeature,
-                            PolygonFeature, SpatialFeature, SpatialFeatureFile,
-                            SpatialFile, SpatialFeatureType)
-from mapping.tasks import extract_features
+                            PolygonFeature, SpatialFeature, SpatialFeatureType)
+from mapping.tasks import extract_features_from_files
 from mapping.tests.base_test import BaseTest
 
 logger = logging.getLogger(__name__)
@@ -19,22 +16,16 @@ class TestSpatialFile(BaseTest):
         dummy_feature_set = FeatureSet.objects.create(name='Water')
         dummy_feature_set.types.add(dummy_feature_type)
 
-        with open('./mapping/tests/NRT_Water_Points-2.geojson',
-                  'rb') as geojson_file:
-            spatial_file = SpatialFile(
-                name='GeoJson test', data=SimpleUploadedFile(
-                    'dummy.geojson', geojson_file.read()),
-                feature_type=dummy_feature_type, feature_set=dummy_feature_set
-            )
-            spatial_file.clean()
-            spatial_file.save()
-        # load files
-        extract_features(spatial_file.data.path, 'ste', spatial_file.id, featuretype=dummy_feature_type.name, featureset=dummy_feature_set.name, name_field='NRT')
+        with patch('mapping.utils.cleanup_files') as mock_cleanup:
+            mock_cleanup.return_value = None
+            extract_features_from_files('./mapping/tests/NRT_Water_Points-2.geojson', 'ste', None,
+                                        featuretype=dummy_feature_type.name,
+                                        featureset=dummy_feature_set.name, name_field='')
 
-        point_feature = PointFeature.objects.all()[0]
-        self.assertEqual(dummy_feature_type, point_feature.type)
-        self.assertEqual(dummy_feature_set, point_feature.featureset)
-        logger.info('GeoJson file test complete.')
+            point_feature = PointFeature.objects.all()[0]
+            self.assertEqual(dummy_feature_type, point_feature.type)
+            self.assertEqual(dummy_feature_set, point_feature.featureset)
+            logger.info('GeoJson file test complete.')
 
     def test_shapefile_upload(self):
         logger.info('Shape-file test started.')
@@ -42,59 +33,40 @@ class TestSpatialFile(BaseTest):
         dummy_feature_set = FeatureSet.objects.create(name='Boundaries')
         dummy_feature_set.types.add(dummy_feature_type)
 
-        with open('./mapping/tests/Grbnd_New.zip', 'rb') as shapefile:
-            spatial_file = SpatialFile(
-                name='Shapefile test', data=SimpleUploadedFile(
-                    'Grbnd_New.zip', shapefile.read()),
-                feature_type=dummy_feature_type, feature_set=dummy_feature_set
-            )
-            spatial_file.clean()
-            spatial_file.save()
-        
-        # load features
-        path = spatial_file.data.path.split('.')[0]+ '/Grbnd_New.SHP'
-        extract_features(path, 'ste', spatial_file.id, featuretype=dummy_feature_type.name, featureset=dummy_feature_set.name, name_field='GRB')
+        path = './mapping/tests/testdata/Grbnd_New/Grbnd_New.SHP'
+        with patch('mapping.utils.cleanup_files') as mock_cleanup:
+            mock_cleanup.return_value = None
+            extract_features_from_files(path, 'ste', None, featuretype=dummy_feature_type.name,
+                                        featureset=dummy_feature_set.name, name_field='')
 
-        point_feature = PolygonFeature.objects.all()[0]
-        self.assertEqual(dummy_feature_type, point_feature.type)
-        self.assertEqual(dummy_feature_set, point_feature.featureset)
-        logger.info('Shape-file test complete.')
+            point_feature = PolygonFeature.objects.all()[0]
+            self.assertEqual(dummy_feature_type, point_feature.type)
+            self.assertEqual(dummy_feature_set, point_feature.featureset)
+            logger.info('Shape-file test complete.')
 
     def test_loading_a_geojson_file_and_featuretypes(self):
         logger.info('Shape-file name-field test started.')
 
-        with open('./mapping/tests/testdata/Built_point.geojson',
-                  'rb') as geojson_file:
-
-            with open('./mapping/tests/NRT_Water_Points-2.geojson',
-                      'rb') as feature_types_file:
-                spatial_file = SpatialFeatureFile(file_type='geojson',
-                    name='GeoJson test', data=SimpleUploadedFile(
-                        'dummy.geojson', geojson_file.read()),
-                    feature_types_file=SimpleUploadedFile(
-                        'dummy_types.geojson', feature_types_file.read()))
-                spatial_file.clean()
-                spatial_file.save()
-                logger.info('Shape-file name-field  test complete.')
         # load features
-        extract_features(spatial_file.data.path, 'ste', spatial_file.id, name_field='STE')
+        with self.settings(UI_SITE_URL='http://www.majete.com'):
+            with patch('mapping.utils.cleanup_files') as mock_cleanup:
+                mock_cleanup.return_value = None
+                data_file_path = ['./mapping/tests/testdata/wells_closed_points.geojson']
+                feature_types_file = './mapping/tests/testdata/spatial_feature_types.geojson'
+                extract_features_from_files(data_file_path, 'ste', None, feature_types_file, name_field='', )
 
-        # featuretypes added
-        self.assertTrue(SpatialFeatureType.objects.count() > 5)
-        self.assertEqual(SpatialFeature.objects.count(), 41)
+                # featuretypes added
+                self.assertEqual(SpatialFeatureType.objects.count(), 37)
+                self.assertEqual(SpatialFeature.objects.count(), 6)
 
     def test_spatial_feature_file_upload(self):
         logger.info('Shape-file test started.')
-        with open('./mapping/tests/Matlamamba.zip', 'rb') as shapefile:
-            spatial_file = SpatialFeatureFile(
-                name='Shapefile test', data=SimpleUploadedFile(
-                    'Matlamamba.zip', shapefile.read()), name_field='Matlamamba')
-            spatial_file.clean()
-            spatial_file.save()
-        
+
         # Load features
-        path = spatial_file.data.path.split('.')[0]+ '/MatlaMamba_Airstrip.shp'
-        extract_features(path, 'ste', spatial_file.id, name_field='Matlamamba')
+        path = './mapping/tests/testdata/Matlamamba/MatlaMamba_Airstrip.shp'
+        with patch('mapping.utils.cleanup_files') as mock_cleanup:
+            mock_cleanup.return_value = None
+            extract_features_from_files(path, 'ste', None, name_field='')
         logger.info('Shape-file test complete.')
 
         self.assertEquals(SpatialFeature.objects.count(), 2)
