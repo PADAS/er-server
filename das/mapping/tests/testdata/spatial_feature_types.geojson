@@ -1,0 +1,552 @@
+{
+	"type": "FeatureCollection",
+	"id": "spatial_feature_types",
+	"features": 
+	[
+		{
+		"type": "Feature",
+		"properties": {
+			"globalid": "{81003D5F-3523-4DB5-BF89-786BE10561A4}",
+			"OBJECTID": "99",
+			"tags": "geography",
+			"type": "Gorge",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"notes\": \"\"}",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Gorge\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{24E6608A-89C9-4543-92C8-CB56516F1051}",
+			"OBJECTID": "3",
+			"tags": "fencing, hf, infrastructure",
+			"type": "Fencing_Electric Porcupine",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"owner\": \"\",\"subtype\": \"\", \"status\": \"\",\"strands\": \"\", \"fenceheight\": \"\"}",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Fencing_Electric Porcupine\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{886FA968-C136-4272-B1CC-333A988717E0}",
+			"OBJECTID": "138",
+			"tags": "fencing, hf, infrastructure, transportation",
+			"type": "Gate_Locked",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"notes\":\"\", \"entry_exit\": [\"Entrance\", \"Exit\", \"Both\"}",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Gate_Locked\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{F17A3C9E-4C49-4AFC-A51E-E4B5E6299417}",
+			"OBJECTID": "8",
+			"tags": "infrastructure, hf, agriculture",
+			"type": "Greenhouse",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"status\": [\"Permanent\", \"Temporary\"], \"temporalcount\":\"\"}",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Greenhouse\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{6F898FC9-6DEA-4358-9ECC-A34A94CCE719}",
+			"OBJECTID": "171",
+			"tags": "water",
+			"type": "Lake_Seasonal",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"seasonalstatus\": [\"Permanent\", \"Seasonal\", \"Ephemeral\", \"Unknown\"] ,\"humanuse\":[ \"Yes\",\"No\", \"Unknown\"],\"wildlifeaccessible\": [ \"Yes\",\"No\", \"Unknown\"],\"notes\": \"#\"}",
+			"last_edited_date": "2017-08-07 20:06:16",
+			"presentation": "{\"title\":\"Lake_Seasonal\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{D27F26F5-5433-45E7-B014-3CEBE396BF4F}",
+			"OBJECTID": "129",
+			"tags": "transportation, hf, infrastructure",
+			"type": "Border Post",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"notes\": \"\"}",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Border Post\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{E3D9F739-093B-47FA-A95A-E4B93B7624DB}",
+			"OBJECTID": "37",
+			"tags": "infrastructure,hf",
+			"type": "Settlement_Unknown",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"status\": \"\", \"temporalcount\":\"\"}",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Settlement_Unknown\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{06DB7BB9-3FA6-4B01-A143-B61890D6EB83}",
+			"OBJECTID": "5",
+			"tags": "fencing, hf, infrastructure",
+			"type": "Fencing_Wire",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"owner\": \"\",\"subtype\": \"\", \"status\": \"\",\"strands\": \"\", \"fenceheight\": \"\"}",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Fencing_Wire\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{58CFDE0A-06C5-4134-A189-3939FA900178}",
+			"OBJECTID": "41",
+			"tags": "landuse, hf",
+			"type": "Cattle Crache",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"status\": [\"Permanent\", \"Temporary\"], \"temporalcount\":\"\"}\n{\"status\": [\"Permanent\", \"Temporary\"], \"temporalcount\":\"\"}",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Cattle Crache\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{339AE01D-7F4E-4339-BDD5-04B0254CA4F4}",
+			"OBJECTID": "216",
+			"tags": "water",
+			"type": "River_Primary_Ephemeral",
+			"display_category": "",
+			"created_user": "JAKEW",
+			"created_date": "2017-08-02 00:44:37.000001",
+			"attribute_schema": "{\"humanuse\":[ \"Yes\",\"No\", \"Unknown\"],\"wildlifeaccessible\": [ \"Yes\",\"No\", \"Unknown\"],\"notes\": \"\"}",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"River_Primary_Ephemeral\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{DFAFA5DA-F1B8-469B-A0F1-195E8B982ACA}",
+			"OBJECTID": "31",
+			"tags": "infrastructure,hf",
+			"type": "Building",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"status\":\"\", \"temporalcount\": \"\", \"notes\": \"\"}",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Building\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{8B751FFA-EE23-4E7E-9300-59F4C5CCF5D8}",
+			"OBJECTID": "65",
+			"tags": "infrastructure,hf, services",
+			"type": "Cemetery",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"status\": \"\", \"temporalcount\":\"\"}",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Cemetery\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{15E0FA49-E149-4061-858C-9719B17DD89B}",
+			"OBJECTID": "214",
+			"tags": "water",
+			"type": "River_Tertiary_Unknown",
+			"display_category": "",
+			"created_user": "JAKEW",
+			"created_date": "2017-08-02 02:08:38",
+			"attribute_schema": "{\"humanuse\":[ \"Yes\",\"No\", \"Unknown\"],\"wildlifeaccessible\": [ \"Yes\",\"No\", \"Unknown\"],\"notes\": \"\"}",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"River_Tertiary_Unknown\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{AD979C30-0510-4392-A635-7AB2D2B8CB55}",
+			"OBJECTID": "2",
+			"tags": "fencing, hf, infrastructure",
+			"type": "Fencing_Electric/WireMesh",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"owner\": \"\",\"subtype\": \"\", \"status\": \"\",\"strands\": \"\", \"fenceheight\": \"\"}",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Fencing_Electric/WireMesh\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{53A76A82-D01C-4774-A84A-4CEC2F2D6821}",
+			"OBJECTID": "215",
+			"tags": "water",
+			"type": "River_Tertiary_Seasonal",
+			"display_category": "",
+			"created_user": "JAKEW",
+			"created_date": "2017-08-02 00:45:54",
+			"attribute_schema": "{\"humanuse\":[ \"Yes\",\"No\", \"Unknown\"],\"wildlifeaccessible\": [ \"Yes\",\"No\", \"Unknown\"],\"notes\": \"\"}",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"River_Tertiary_Seasonal\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{D3993C87-6A49-425A-8809-F541F6B6D182}",
+			"OBJECTID": "72",
+			"tags": "infrastructure,hf, services",
+			"type": "Offices",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"status\": \"\", \"temporalcount\":\"\"}\n",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Offices\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{1ACA78B7-0867-48E9-83F3-23885FF5E3E0}",
+			"OBJECTID": "29",
+			"tags": "infrastructure,hf",
+			"type": "Settlement_Boma",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"status\": [\"Permanent\",\"Temporary\", \"Unknown\"], \"temporalcount\": \"\", \"notes\": \"\"}\n",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Settlement_Boma\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{25964520-4D28-4DB3-9CE7-7511C5B218F3}",
+			"OBJECTID": "212",
+			"tags": "water",
+			"type": "River_Secondary_Unknown",
+			"display_category": "",
+			"created_user": "JAKEW",
+			"created_date": "2017-08-02 02:09:33.000001",
+			"attribute_schema": "{\"humanuse\":[ \"Yes\",\"No\", \"Unknown\"],\"wildlifeaccessible\": [ \"Yes\",\"No\", \"Unknown\"],\"notes\": \"\"}",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"River_Secondary_Unknown\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{1E82A90F-9336-439B-B104-2AE0A575E459}",
+			"OBJECTID": "71",
+			"tags": "infrastructure,hf, services",
+			"type": "Mosque",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"status\": \"\", \"temporalcount\":\"\"}\n",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Mosque\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{CF045445-ECFF-40EE-BE89-D367F8DBDE00}",
+			"OBJECTID": "210",
+			"tags": "infrastructure,hf, services\n",
+			"type": "Tourist Center",
+			"display_category": "",
+			"created_user": "JOELM",
+			"created_date": "2017-07-25 22:14:26",
+			"attribute_schema": "{\"status\": [\"Permanent\", \"Temporary\"], \"notes\": \"\"}",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Tourist Center\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{B687975F-CFE3-4908-B6A5-828FA2EFBE2C}",
+			"OBJECTID": "74",
+			"tags": "infrastructure,hf, services",
+			"type": "Restaurant",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"notes\": \"\"} ",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Restaurant\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{E455ADC2-8500-4201-AD8C-93B3C122D76B}",
+			"OBJECTID": "73",
+			"tags": "infrastructure,hf, services",
+			"type": "Prison",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"notes\": \"\"}\n",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Prison\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{9982EF21-F342-4AE8-952C-B060A10D3E67}",
+			"OBJECTID": "4",
+			"tags": "fencing, hf, infrastructure",
+			"type": "Fencing_Unknown",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"owner\": \"\",\"subtype\": \"\", \"status\": \"\",\"strands\": \"\", \"fenceheight\": \"\"}",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Fencing_Unknown\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{E4BE91A8-BBB4-4E2A-980C-68C7E6E0D7F0}",
+			"OBJECTID": "217",
+			"tags": "water",
+			"type": "River_Tertiary_Ephemeral",
+			"display_category": "",
+			"created_user": "JAKEW",
+			"created_date": "2017-08-02 00:46:06",
+			"attribute_schema": "{\"humanuse\":[ \"Yes\",\"No\", \"Unknown\"],\"wildlifeaccessible\": [ \"Yes\",\"No\", \"Unknown\"],\"notes\": \"\"}",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"River_Tertiary_Ephemeral\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{F226A17B-E4B5-40F2-AF30-E5D783B48267}",
+			"OBJECTID": "153",
+			"tags": "infrastructure,hf, transportation, operational",
+			"type": "Road_Highway_Unknown",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"status\":[\"Open\",\"Closed\",\"Seasonal\",\"Unknown\"],\"speedlimit_kmhr\":\"\",\"notes\":\"\"}",
+			"last_edited_date": "2017-08-07 20:06:26",
+			"presentation": "{\"title\":\"Road_Highway_Unknown\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{8CC0146B-3639-4F45-8BA4-3B58A2FFF9DC}",
+			"OBJECTID": "30",
+			"tags": "infrastructure,hf",
+			"type": "Settlement_Mabati Boma",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"status\": [\"Permanent\",\"Temporary\", \"Unknown\"], \"temporalcount\": \"\", \"notes\": \"\"}\n",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Settlement_Mabati Boma\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{D6525406-9651-418A-8B2E-AD03412D25C1}",
+			"OBJECTID": "77",
+			"tags": "infrastructure,hf, services",
+			"type": "Shop",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"status\": \"\", \"temporalcount\":\"\", \"notes\": \"\"}",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Shop\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{B6125670-2007-4B26-B27C-A9EDFBE6ACC8}",
+			"OBJECTID": "118",
+			"tags": "scientific",
+			"type": "Elephant Resting Spot",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"notes\": \"\"}",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Elephant Resting Spot\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{F6D252CE-9755-4C7A-92BD-C6A97A5AAA65}",
+			"OBJECTID": "64",
+			"tags": "infrastructure,hf, services",
+			"type": "Bank",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"notes\": \"\"}",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Bank\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{8443CD51-252D-46B7-978A-70AD5E63C8F6}",
+			"OBJECTID": "39",
+			"tags": "landuse, hf",
+			"type": "Quarry/Mine",
+			"display_category": "",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"status\": \"\", \"temporalcount\":\"\"}\n",
+			"last_edited_date": "2017-08-07 20:03:27",
+			"presentation": "{\"title\":\"Quarry/Mine\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{6AF07522-5612-4DF7-A49F-EAFDCDAF40FF}",
+			"OBJECTID": "220",
+			"tags": "Protected Area",
+			"type": "Trust Land Forest",
+			"display_category": "200_Boundaries_Protected Area",
+			"created_user": "JAKEW",
+			"created_date": "2018-05-03 20:31:37",
+			"attribute_schema": "{\"notes\": \"\"}",
+			"last_edited_date": "2018-05-03 20:33:43",
+			"presentation": "{\"title\":\"Trust Land Forest\"}",
+			"last_edited_user": "JAKEW",
+			"description": "A type of protected forest area in Kenya setup as a Trust? Ask Christian Lambrecht..."
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{1A303507-DCCB-4D51-9D38-F544189574D0}",
+			"OBJECTID": "70",
+			"tags": "infrastructure,hf, services",
+			"type": "Market",
+			"display_category": "100_POI_Services",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"status\": [\"Permanent\",\"Temporary\", \"Disused\", \"Abandoned\"], \"temporalcount: \"\"}",
+			"last_edited_date": "2017-08-14 22:13:52",
+			"presentation": "{\"title\":\"Market\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{0D4EF7E6-0167-4111-96FF-78902D268687}",
+			"OBJECTID": "163",
+			"tags": "infrastructure,hf, transportation, operational",
+			"type": "Road_Tertiary_Murram",
+			"display_category": "300_Transport_Tertiary Road",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"status\":[\"Open\",\"Closed\",\"Seasonal\",\"Unknown\"],\"speedlimit_kmhr\":\"\",\"notes\":\"\"}",
+			"last_edited_date": "2017-08-14 22:46:54",
+			"presentation": "{\"title\":\"Road_Tertiary_Murram\",\"stroke\":\"#6E6E6E\",\"stroke-width\":0.5,\"stroke-opacity\": 1.0}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}, {
+		"type": "Feature",
+		"properties": {
+			"globalid": "{ED441CC6-E576-45B9-A392-BFB7DF0C639B}",
+			"OBJECTID": "38",
+			"tags": "landuse",
+			"type": "Hunting Block",
+			"display_category": "200_Boundaries_Hunting",
+			"created_user": "JWALL",
+			"created_date": "2017-06-08 15:29:08",
+			"attribute_schema": "{\"status\": [\"Designated\", \"\"]}\n{\"status\": [\"Designated\", \"\"]}",
+			"last_edited_date": "2017-08-14 22:25:04",
+			"presentation": "{\"title\":\"Hunting Block\"}",
+			"last_edited_user": "JAKEW",
+			"description": "None"
+		}
+	}
+	]
+}
