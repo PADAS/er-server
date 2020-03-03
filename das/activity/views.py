@@ -496,7 +496,7 @@ class EventsExportView(views.APIView):
         return '"' + string + '"'
 
     def get(self, request, *args, **kwargs):
-        self.value_cols = request.GET.get('value_cols', True)
+        self.value_cols = request.GET.get('value_cols', False)
         self.display_cols = request.GET.get('display_cols', True)
 
         csv_data = self.prepare_csv_data()

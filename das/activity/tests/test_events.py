@@ -972,6 +972,28 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertTrue('Priority' in response.content.decode("utf-8"))
         self.assertTrue('Notes' in response.content.decode("utf-8"))
+        self.assertTrue(self.notes_line2_prefix in response.content.decode("utf-8"))
+
+    def test_export_csv_with_qparam_value_cols_true(self):
+        carcass_data = json.loads(
+            """{"event_type":"carcass_rep","priority":200,"event_details":{"carcassrep_species":"elephant","carcassrep_sex":"male","carcassrep_ageofanimal":"adult","carcassrep_ageofcarcass":"fresh","carcassrep_trophystatus":"intact","carcassrep_causeofdeath":"naturaldisease"},"location":{"latitude":"0.28118","longitude":"37.38544"}}""")
+
+        request = self.factory.post(self.api_base + '/events/', carcass_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        url = """/activity/events/export?value_cols=true"""
+
+        request = self.factory.get(
+            self.api_base + url)
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue('Priority' in response.content.decode("utf-8"))
+        self.assertTrue('Notes' in response.content.decode("utf-8"))
         self.assertTrue('carcassrep_species' in response.content.decode("utf-8"))
         self.assertTrue(self.notes_line2_prefix in response.content.decode("utf-8"))
 
@@ -1927,6 +1949,35 @@ class TestEventView(BaseAPITest):
                 break
 
         self.assertIn('Species', target_row.keys())
+        self.assertEqual(target_row.get('Species'), '"""Elephant;Eland"""')
+
+    def test_exporting_checkbox_events_to_csv_with_qparam_value_cols_true(self):
+        checkbox_data = json.loads(
+            """{"event_type": "dws_test","priority":200,"event_details": {"carcassrep_species": ["elephant", "eland"]}}""")
+
+        request = self.factory.post(self.api_base + '/events/', checkbox_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        url = """/activity/events/export?value_cols=True"""
+
+        request = self.factory.get(
+            self.api_base + url)
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+
+        self.assertIn('DWS Test', [i.get('Report_Type') for i in rendered_dict])
+        target_row = {}
+
+        for row in rendered_dict:
+            if row.get('Report_Type') == 'DWS Test':
+                target_row = row
+                break
+
+        self.assertIn('Species', target_row.keys())
         self.assertIn('carcassrep_species', target_row.keys())
         self.assertEqual(target_row.get('Species'), '"""Elephant;Eland"""')
         self.assertEqual(target_row.get('carcassrep_species'), '"""elephant;eland"""')
@@ -1957,9 +2008,7 @@ class TestEventView(BaseAPITest):
                 target_row = row
                 break
         self.assertIn('Species', target_row.keys())
-        self.assertIn('carcassrep_species', target_row.keys())
         self.assertEqual(target_row.get('Species'), '"""Bongo;Buffalo"""')
-        self.assertEqual(target_row.get('carcassrep_species'), '"""bongo;buffalo"""')
 
     def test_exporting_checkbox_in_fieldset_to_csv(self):
         array_data = json.loads(
@@ -1971,6 +2020,35 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 201)
 
         url = """/activity/events/export"""
+
+        request = self.factory.get(
+            self.api_base + url)
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        self.assertIn('Sprint 88 Behavior',
+                      [i.get('Report_Type') for i in rendered_dict])
+        target_row = {}
+
+        for row in rendered_dict:
+            if row.get('Report_Type') == 'Sprint 88 Behavior':
+                target_row = row
+                break
+
+        self.assertIn('Species', target_row.keys())
+        self.assertEqual(target_row.get('Species'), '"""Bongo;Buffalo"""')
+
+    def test_exporting_checkbox_in_fieldset_to_csv_with_qparam_value_cols_true(self):
+        array_data = json.loads(
+            """{"event_type": "sprint_88_behavior","priority":200,"event_details": {"carcassrep_species": ["bongo", "buffalo"]}}""")
+
+        request = self.factory.post(self.api_base + '/events/', array_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        url = """/activity/events/export?value_cols=true"""
 
         request = self.factory.get(
             self.api_base + url)
