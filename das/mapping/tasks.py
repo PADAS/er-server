@@ -65,11 +65,10 @@ def background_download_features_from_wfs(obj_id):
                         name=title,
                         arcgis_config=arc_config
                     )
-                    if created or last_modified > arcgis_item.updated_at:
-                        utils.extract_gis_data(arc_config, member, title, errored_files, success_files, arcgis_item.id)
-                        arcgis_item.save()  # update model's updated_at field
-                    else:
-                        logger.info(f'{title} not modified since last sync. Skipping update')
+                    # timestamps seem broken in arcgis
+                    # if created or last_modified > arcgis_item.updated_at:
+                    utils.extract_gis_data(arc_config, member, title, errored_files, success_files, arcgis_item.id)
+                    # arcgis_item.save()  # update model's updated_at field
 
         except Exception as ex:
             logger.warning(f'Exception raised for object id {obj_id}')

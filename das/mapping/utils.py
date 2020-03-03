@@ -197,9 +197,10 @@ def save_esri_feature(feature, source_name, external_id, type_label, arcgis_item
         return
 
     if created or db_feature_needs_update(feature_record, feature):
-        logger.info(f'updating feature {external_id}')
+        logger.info(f'creating or updating feature {external_id}')
         feature_record.arcgis_item = arcgis_item
         feature_record.external_source = source_name
+        feature_record.feature_geometry = feature_geometry
         set_feature_name(feature_record, feature, feature_type, counter)
         feature_record.save()
     else:
@@ -297,10 +298,10 @@ def arcgis_integration(request, obj):
             # set to a background task
             try:
                 # TODO: undo this
-                task_started_msg = "Features download in progress, checkout loaded <a href='/admin/mapping/spatialfeature/'>spatialfeatures</a> after a few minutes"
-                message(request, messages.INFO, mark_safe(task_started_msg))
-                background_download_features_from_wfs.apply_async(args=(obj.id,))
-                # background_download_features_from_wfs(obj.id)
+                # task_started_msg = "Features download in progress, checkout loaded <a href='/admin/mapping/spatialfeature/'>spatialfeatures</a> after a few minutes"
+                # message(request, messages.INFO, mark_safe(task_started_msg))
+                # background_download_features_from_wfs.apply_async(args=(obj.id,))
+                background_download_features_from_wfs(obj.id)
             except Exception as ex:
                 error_msg = f"Select a group to enable features download"
                 message(request, messages.ERROR,ex) if request else logger.debug(error_msg)
