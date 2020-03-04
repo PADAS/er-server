@@ -2041,7 +2041,7 @@ class TestEventView(BaseAPITest):
                 break
 
         self.assertIn('Species', target_row.keys())
-        self.assertEqual(target_row.get('Species'), '"""Bongo;Buffalo"""')
+        self.assertEqual(target_row.get('Species'), 'Bongo;Buffalo')
 
     def test_exporting_checkbox_in_fieldset_to_csv_with_qparam_value_cols_true(self):
         array_data = json.loads(

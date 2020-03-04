@@ -402,7 +402,8 @@ class EventsExportView(views.APIView):
                                 current_schema, key)
                             current_event_type_data['headers'].append(
                                 self.escape_string(key))
-                            current_event_type_data['headers'].append("test")
+                            current_event_type_data['headers'].append(
+                                self.escape_string(display_value))
 
                             if self.value_cols and key not in custom_headers:
                                 custom_headers.append(key)
@@ -429,6 +430,7 @@ class EventsExportView(views.APIView):
                     current_schema)
             else:
                 details = {}
+
 
             schema_data = OrderedDict()
             for key, order in current_schema_order.items():
@@ -474,6 +476,9 @@ class EventsExportView(views.APIView):
 
             for header in custom_headers:
                 header_key = header.replace(' ', '_')
+                # if header has been escaped
+                if header.startswith('"') and header.endswith('"'):
+                    header = header[1:-1]
                 column_data = schema_data.get(header, "")
                 event_data[header_key] = column_data if column_data else ""
 
