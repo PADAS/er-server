@@ -12,6 +12,9 @@ from activity.serializers import EventSerializer
 
 logger = logging.getLogger(__name__)
 
+GEOSTORE_FIELD = 'geostore'
+GLAD_CONFIRM_FIELD = 'gladConfirmOnly'
+
 def latest_event_for(analyzer):
     """ Returns the most recent event or None for a given subject and analyzer """
 
@@ -96,11 +99,11 @@ def get_geostore_id(download_url):
     return qs.get('geostore', [''])[0]
 
 
-def build_confirmed_url_with_geostore_id(download_url, geostore_id):
+def build_glad_download_url_with_confirmed_flag_and_geostore_id(download_url, geostore_id, confirmed_only):
     query_params = parser.parse_qs(parser.urlparse(download_url).query)
     # update the geostore & gladConfirmOnly in the query string
     query_params['geostore'][0] = geostore_id
-    query_params['gladConfirmOnly'][0] = True
+    query_params['gladConfirmOnly'][0] = str(confirmed_only)
     parsed_result = parser.urlparse(download_url)
     # create and return a new url
     new_parsed_result = parser.ParseResult(scheme=parsed_result.scheme, netloc=parsed_result.netloc,

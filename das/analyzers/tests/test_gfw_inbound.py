@@ -1,13 +1,16 @@
 import json
+import urllib.parse as parser
 from unittest.mock import patch, Mock
 
-from rest_framework import status
 from django.contrib.gis.geos import Polygon
+from rest_framework import status
 
 from activity.models import Event
+from analyzers.models import GlobalForestWatchSubscription as gfw_model
 from analyzers.tasks import download_gfw_alerts
-from analyzers.models import GlobalForestWatchSubscription
 from analyzers.tests.gfw_test_data import VIIRS_FIRE_ALERT, GLAD_ALERT, GLAD_ALERT_DOWNLOADED_DATA
+from analyzers.utils import (get_geostore_id, GEOSTORE_FIELD, GLAD_CONFIRM_FIELD,
+                             build_glad_download_url_with_confirmed_flag_and_geostore_id)
 from core.tests import BaseAPITest
 from das_server.celery import app
 from sensors.views import SensorObservation
@@ -21,6 +24,8 @@ def send_task(name, args=(), kwargs={}, **opts):
 class GFWAlertHandlerTest(BaseAPITest):
     sensor_type = 'gfw-alert'
     provider = 'gfw'
+    download_url_unknown_geostore = 'http://production-api.globalforestwatch.org/glad-alerts/download/?period=2020-02-23,2020-02-27&gladConfirmOnly=False&aggregate_values=False&aggregate_by=False&geostore=8cfb4e52a779d2aeaa3b3877d5874e7a&format=json'
+    unknown_geostore = '8cfb4e52a779d2aeaa3b3877d5874e7a'
 
     def setUp(self):
         super().setUp()
@@ -81,33 +86,75 @@ class GFWAlertHandlerTest(BaseAPITest):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_utils_get_geostore_id(self):
-        pass
+        geostore_id = get_geostore_id(self.download_url_unknown_geostore)
+        self.assertEqual(geostore_id, self.unknown_geostore)
 
     def test_utils_build_confirmed_url_with_geostore_id(self):
-        pass
+        new_geostore_id = 'a hardcoded string for test'
+        query_params = parser.parse_qs(parser.urlparse(self.download_url_unknown_geostore).query)
+        self.assertEqual(query_params[GEOSTORE_FIELD][0], self.unknown_geostore)
+        self.assertEqual(query_params[GLAD_CONFIRM_FIELD][0], 'False')
+        updated_url = build_glad_download_url_with_confirmed_flag_and_geostore_id(
+            self.download_url_unknown_geostore, new_geostore_id, True)
+        updated_qp = parser.parse_qs(parser.urlparse(updated_url).query)
+        self.assertEqual(updated_qp[GEOSTORE_FIELD][0], new_geostore_id)
+        self.assertEqual(updated_qp[GLAD_CONFIRM_FIELD][0], 'True')
 
     @patch('analyzers.gfw_inbound.process_downloaded_alerts')
     @patch('requests.get')
     def test_download_glad_one_subscription_unknown_geostore(self, mock_request, mock_download_process_alerts):
-        download_url = 'http://production-api.globalforestwatch.org/glad-alerts/download/?period=2020-02-23,2020-02-27&gladConfirmOnly=False&aggregate_values=False&aggregate_by=False&geostore=8cfb4e52a779d2aeaa3b3877d5874e7a&format=json'
         mock_request.return_value = Mock(status_code=200, text=json.dumps(GLAD_ALERT_DOWNLOADED_DATA))
 
         # todo: revisit. why doesn't this work.
         # app.send_task = send_task
 
-        poly1 = Polygon(((0, 0), (1, 0), (1, 1), (0, 1), (0, 0)))
-        GlobalForestWatchSubscription.objects.create(name='Test alert', subscription_id='blah', geostore_id='blah',
+        poly = Polygon(((0, 0), (1, 0), (1, 1), (0, 1), (0, 0)))
+        gfw_model.objects.create(name='Test alert', subscription_id='blah', geostore_id='blah',
                                                      additional={"alert_types": ["glad-alerts"]},
-                                                     subscription_geometry=poly1)
+                                                     subscription_geometry=poly)
 
-        download_gfw_alerts(download_url, None, None)
-        self.assertTrue(mock_download_process_alerts.called)
+        download_gfw_alerts(self.download_url_unknown_geostore, None, None)
+        self.assertEqual(mock_download_process_alerts.call_count, 1)
 
+    @patch('analyzers.gfw_inbound.process_downloaded_alerts')
+    @patch('requests.get')
     def test_download_glad_two_subscriptions_unknown_geostore(self, mock_request, mock_download_process_alerts):
-        pass
+        mock_request.return_value = Mock(status_code=200, text=json.dumps(GLAD_ALERT_DOWNLOADED_DATA))
 
+        # todo: revisit. why doesn't this work.
+        # app.send_task = send_task
+
+        poly = Polygon(((0, 0), (1, 0), (1, 1), (0, 1), (0, 0)))
+        gfw_model.objects.create(name='Test alert', subscription_id='blah', geostore_id='blah',
+                                 additional={"alert_types": ["glad-alerts"]},
+                                 subscription_geometry=poly)
+
+        gfw_model.objects.create(name='Test alert', subscription_id='blah', geostore_id='blah',
+                                 additional={"alert_types": ["glad-alerts"]},
+                                 subscription_geometry=poly)
+
+        download_gfw_alerts(self.download_url_unknown_geostore, None, None)
+        self.assertEqual(mock_download_process_alerts.call_count, 2)
+
+    @patch('analyzers.gfw_inbound.process_downloaded_alerts')
+    @patch('requests.get')
     def test_download_glad_two_subscriptions_known_geostore(self, mock_request, mock_download_process_alerts):
-        pass
+        mock_request.return_value = Mock(status_code=200, text=json.dumps(GLAD_ALERT_DOWNLOADED_DATA))
+
+        # todo: revisit. why doesn't this work.
+        # app.send_task = send_task
+
+        poly = Polygon(((0, 0), (1, 0), (1, 1), (0, 1), (0, 0)))
+        gfw_model.objects.create(name='Test alert', subscription_id='blah', geostore_id=self.unknown_geostore,
+                                 additional={"alert_types": ["glad-alerts"]},
+                                 subscription_geometry=poly)
+
+        gfw_model.objects.create(name='Test alert', subscription_id='blah', geostore_id='blah',
+                                 additional={"alert_types": ["glad-alerts"]},
+                                 subscription_geometry=poly)
+
+        download_gfw_alerts(self.download_url_unknown_geostore, None, None)
+        self.assertEqual(mock_download_process_alerts.call_count, 1)
 
     def _post_data(self, payload):
         request = self.factory.post(
