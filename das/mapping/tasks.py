@@ -73,8 +73,8 @@ def load_spatial_features_from_files(data_files, tmpdirs, source_name, spatialfi
     spatial_file = model.objects.filter(id=spatialfile_id)
 
     try:
-        extract_features_from_files(data_files, source_name, spatialfile_id, feature_types_file, layer,
-                                    id_field, name_field, featuretype, featureset, tmpdirs)
+        extract_features_from_files(data_files, source_name, spatial_file[0], feature_types_file, layer, presentation,
+                                    featuretype_label, id_field, name_field, featuretype, featureset, tmpdirs)
         spatial_file.update(status='Success')
     except Exception as ex:
         logger.exception(ex)
@@ -83,8 +83,9 @@ def load_spatial_features_from_files(data_files, tmpdirs, source_name, spatialfi
         datasource = None
 
 
-def extract_features_from_files(data_files, source_name, spatialfile_id, feature_types_file=None, layer=None,
-                                id_field=None, name_field=None, featuretype=None, featureset=None, tmpdirs=None):
+def extract_features_from_files(data_files, source_name, spatial_file, feature_types_file=None, layer=None,
+                                presentation=None, featuretype_label=None, id_field=None, name_field=None,
+                                featuretype=None, featureset=None, tmpdirs=None):
     data_files = [data_files] if isinstance(
         data_files, str) else data_files
     if feature_types_file:
@@ -96,7 +97,9 @@ def extract_features_from_files(data_files, source_name, spatialfile_id, feature
     for filename in data_files:
         datasource, layer_num = utils.get_datasource_and_layer_num(
             filename, tmpdirs, layer)
+        file_id = spatial_file.id if spatial_file else None
         utils.import_layer(
-            datasource[layer_num], source_name, spatialfile_id,
-            featuretype, featureset, id_field, name_field)
-        utils.cleanup_files(filename)
+            datasource[layer_num], source_name, file_id,
+            featuretype, featureset, presentation, featuretype_label,
+            id_field, name_field)
+        utils.cleanup_files(spatial_file)

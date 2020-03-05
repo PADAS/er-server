@@ -290,19 +290,12 @@ def import_layer(layer, source_name, spatialfile_id, featuretype, featureset, id
             mappingv2_save_spatial_data(feature, featuretype, source_name, spatialfile_id, i, external_id)
 
 
-def cleanup_files(filename):
+def cleanup_files(spatial_file):
     """
     Remove files/directories from the temporary folder.
     """
-    pathlist = filename.split("/")
-    name = pathlist[-1]
-
-    if 'json' not in name and len(pathlist) > 8:
-        name = pathlist[-2] + '.zip'
-
-    uploaded_file_directory = '/'.join(pathlist[:7])
-    uploaded_file_path = uploaded_file_directory + "/" + name
-
+    uploaded_file_directory = spatial_file.data.storage.location
+    uploaded_file_path = spatial_file.data.path
     try:
         if os.path.exists(uploaded_file_path):
             os.remove(uploaded_file_path)
@@ -310,7 +303,7 @@ def cleanup_files(filename):
     except PermissionError:
         logger.exception(
             f'Cleaning up spatial files after import: {uploaded_file_directory}')
-    filename = ''
+    spatial_file.data.path = ''
 
 
 def mappingv1_save_spatial_data(feature, featureset, featuretype, external_id, name_field, spatialfile_id):
