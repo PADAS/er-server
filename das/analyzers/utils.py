@@ -1,13 +1,15 @@
 import copy
+import logging
+import urllib.parse as parser
 
+from django.contrib.auth import get_user_model
+from django.http.request import HttpRequest
 from geopy.distance import distance
 from shapely.geometry.multipoint import MultiPoint
-from django.http.request import HttpRequest
+
 from activity.models import Event
 from activity.serializers import EventSerializer
-from django.contrib.auth import get_user_model
 
-import logging
 logger = logging.getLogger(__name__)
 
 def latest_event_for(analyzer):
@@ -88,3 +90,21 @@ def typify(fmap, item):
         r[k] = f(r[k])
     return r
 
+
+def get_geostore_id(download_url):
+    qs = parser.parse_qs(parser.urlparse(download_url).query)
+    print(f'query string {qs}')
+    return qs.get('geostore', [''])[0]
+
+
+def build_url_with_geostore_id(download_url, geostore_id):
+    query_params = parser.parse_qs(parser.urlparse(download_url).query)
+    # update the geostore in the query string
+    query_params['geostore'][0] = geostore_id
+    parsed_result = parser.urlparse(download_url)
+    # create and return a new url
+    new_parsed_result = parser.ParseResult(scheme=parsed_result.scheme, netloc=parsed_result.netloc,
+                                           path=parsed_result.path, params=parsed_result.params,
+                                           fragment=parsed_result.fragment,
+                                           query=parser.urlencode(query_params, doseq=True))
+    return parser.urlunparse(new_parsed_result)

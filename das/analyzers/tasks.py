@@ -2,14 +2,16 @@ import json
 import logging
 
 import requests
-from requests.exceptions import Timeout
 from celery_once import QueueOnce
+from requests.exceptions import Timeout
 from rest_framework import status
 
 from analyzers import gfw_inbound
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.finder import get_subject_analyzers
+from analyzers.models import GlobalForestWatchSubscription as gfw_model
 from analyzers.models import ObservationAnnotator
+from analyzers.utils import get_geostore_id, build_url_with_geostore_id
 from das_server import celery
 from observations.models import Subject
 
@@ -124,8 +126,20 @@ def handle_observation(observation_id):
             handle_subject.apply_async(args=(subject_id,), countdown=60)
 
 
-@celery.app.task(bind=True, max_retries=5)
-def download_gfw_alerts(self, download_url, common_event_fields, user_id):
+# @celery.app.task(bind=True, max_retries=5)
+def download_gfw_alerts(self, received_download_url, common_event_fields, user_id):
+    received_geostore_id = get_geostore_id(received_download_url)
+    if gfw_model.objects.filter(geostore_id=received_geostore_id).exists():
+        download_urls = [received_download_url]
+    else:
+        logger.warning('Alert received for unknown geostore_id: %s', received_geostore_id)
+        download_urls = [build_url_with_geostore_id(received_download_url, o.geostore_id) for o in
+                         gfw_model.objects.all()]
+
+    [download_from_url(self, url, common_event_fields, user_id) for url in download_urls]
+
+
+def download_from_url(self, download_url, common_event_fields, user_id):
     try:
         connect_timeout, read_timeout = 3, 30
         logger.info('Processing GFW payload. Downloading from: %s', download_url)
@@ -140,12 +154,14 @@ def download_gfw_alerts(self, download_url, common_event_fields, user_id):
                          extra={'Exception': ex})
     else:
         if resp and resp.status_code == status.HTTP_200_OK:
-            logger.info('Good response from GFW download url: %s', download_url)
-
             gfw_alerts_payload = json.loads(resp.text)
-            logger.debug('GFW Alerts downloaded data: %s', gfw_alerts_payload)
-            gfw_inbound.process_downloaded_alerts(gfw_alerts_payload.get('data', []),
-                                                  common_event_fields, user_id)
+            if gfw_alerts_payload.get('data') is not None:
+                alert_data = gfw_alerts_payload.get('data')
+                logger.info('Valid response from GFW. %d alerts received.', len(alert_data))
+                logger.info('First alert payload %s', alert_data[0]) if len(alert_data) else None
+                gfw_inbound.process_downloaded_alerts(alert_data, common_event_fields, user_id)
+            else:
+                logger.error('GFW API returned error: %s', gfw_alerts_payload)
         else:
             logger.error('GFW Alerts cannot be downloaded. Result is %s, \ndownload url is: %s\n Response is: %s',
                          resp.status_code, download_url, resp.text)
