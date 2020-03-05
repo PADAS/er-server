@@ -19,3 +19,5 @@ except ImportError:
 
 if os_available:
     __version__ = os.getenv('VERSION', __version__)
+
+import das_server.metrics

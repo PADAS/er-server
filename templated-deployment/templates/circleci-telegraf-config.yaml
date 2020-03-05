@@ -6,7 +6,7 @@ metadata:
 data:
   telegraf_conf: |
          [global_tags]
-           site: "${KUBERNETES_NAMESPACE}"
+           site = "${KUBERNETES_NAMESPACE}"
          [agent]
            interval = "10s"
            round_interval = true
@@ -35,5 +35,5 @@ data:
            percentile_limit = 1000
          [[outputs.stackdriver]]
            project = "earthranger-78ca55ca"
-           namespace: "${KUBERNETES_NAMESPACE}"
+           namespace = "${KUBERNETES_NAMESPACE}"
 
