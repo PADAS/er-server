@@ -1,9 +1,0 @@
-project-id: padas-app
-cluster-name: cc
-server-branch-name: develop
-web-branch-name: develop
-tag-as-latest: false
-das-static-ip: 35.233.210.105
-deploy-params-environment: production
-deployment-plan: integration
-

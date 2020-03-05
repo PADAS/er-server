@@ -1,8 +1,8 @@
-{% extends "admin/index.html" %}
+{% extends "admin/base_admin_index.html" %}
 
 {% block content %}
-<p>
-<a href="/dasadmin/"><strong>Switch to Simple Administration</strong></a>
-</p>
-{{ block.super }}
+  <p>
+    <a href="/dasadmin/"><strong>Switch to Simple Administration</strong></a>
+  </p>
+  {{ block.super }}
 {% endblock %}

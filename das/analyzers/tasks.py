@@ -160,12 +160,16 @@ def download_from_url(self, download_url, common_event_fields, user_id):
     else:
         if resp and resp.status_code == status.HTTP_200_OK:
             gfw_alerts_payload = json.loads(resp.text)
+            logger.debug('GFW Alerts downloaded data: %s', gfw_alerts_payload)
+            if common_event_fields.get('event_type') == 'gfw_activefire_alert':
+                gfw_inbound.process_downloaded_alerts(gfw_alerts_payload.get('rows', []), common_event_fields, user_id)
             if gfw_alerts_payload.get('data') is not None:
                 alert_data = gfw_alerts_payload.get('data')
                 logger.info('Valid response from GFW. %d alerts received.', len(alert_data))
                 logger.info('First alert payload %s', alert_data[0]) if len(alert_data) else None
                 gfw_inbound.process_downloaded_alerts(alert_data, common_event_fields, user_id)
             else:
+                gfw_inbound.process_downloaded_alerts(gfw_alerts_payload.get('data', []), common_event_fields, user_id)
                 logger.error('GFW API returned error: %s', gfw_alerts_payload)
         else:
             logger.error('GFW Alerts cannot be downloaded. Result is %s, \ndownload url is: %s\n Response is: %s',

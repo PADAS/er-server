@@ -1,11 +1,5 @@
-locals {
-  db_host = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_private_ip
-
-  this_workspaces_to_infra_workspaces = {
-    # if not here, the lookup has a default
-  }
-
-  default_infra_workspace_when_not_mapped_here = "dev"
+variable "app_infra_workspace" {
+  type = string
 }
 
 variable "kubernetes_namespace" {
@@ -16,8 +10,13 @@ variable "site_ip_address" {
   type = string
 }
 
-variable "INGRESS_VERSION" {
+variable "time_zone" {
   type    = string
+  default = "US/Pacific"
+}
+
+variable "INGRESS_VERSION" {
+  type = string
 }
 
 variable "SERVER_VERSION" {
@@ -48,6 +47,11 @@ variable "config_container" {
   default = "dev-az"
 }
 
+variable "db_user" {
+  type    = string
+  default = "postgres"
+}
+
 variable "db_name" {
   type = string
 }
@@ -65,6 +69,11 @@ variable "gs_bucket_name" {
 variable "email_host" {
   type    = string
   default = "email-smtp.us-west-2.amazonaws.com"
+}
+
+variable "fqdn" {
+  type    = "string"
+  default = "localhost"
 }
 
 variable "from_email" {
@@ -92,6 +101,60 @@ variable "web_service_name" {
   type    = string
   default = "web"
 }
+variable "accept_eula" {
+  type    = string
+  default = "false"
+}
+variable "enable_debug" {
+  type    = string
+  default = "false"
+}
+variable "show_track_days" {
+  type    = string
+  default = "16"
+}
 
+variable "eus_email" {
+  type    = string
+  default = "eus_test@pamdas.org"
+}
+variable "eus_name" {
+  type    = string
+  default = "EUS Test User"
+}
+variable "eus_org" {
+  type    = string
+  default = "pamdas.org"
+}
 
+variable "eus_type" {
+  type    = string
+  default = "email"
+}
+variable "sms_id" {
+  type    = string
+  default = ""
+}
+variable "sms_token" {
+  type    = string
+  default = ""
+}
 
+variable "alerts_enabled" {
+  type    = string
+  default = "True"
+}
+
+variable "email_host_user" {
+  type    = string
+  default = ""
+}
+variable "mapping_features_v2" {
+  type    = string
+  default = "True"
+}
+
+variable "show_stationary_subjects_on_map" {
+  type    = string
+  default = "False"
+}

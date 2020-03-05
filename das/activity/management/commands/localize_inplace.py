@@ -26,16 +26,23 @@ models = [
 class Command(BaseCommand):
 
     help = 'Inplace localize'
+    outfile = None
 
     def add_arguments(self, parser):
         parser.add_argument('file', type=str,
-                            help="csv file with english,french pairs to translate")
+                            help="csv file with english,non-english pairs to translate")
+        parser.add_argument('--out', type=str,
+                            help="exception file for unmatched entries")
         parser.add_argument(
             '--dry-run',
             action='store_true',
             default=False,
             help='No updates.',
         )
+
+    def log_out(self, display):
+        if self.outfile:
+            print(display, file=self.outfile)
 
     def handle(self, *args, **options):
         self.dry_run = options["dry_run"]
@@ -47,6 +54,8 @@ class Command(BaseCommand):
                 en, display = line
                 logger.info(f" en={en}, display={display}")
                 translations[en.strip()] = display.strip()
+        if options['out']:
+            self.outfile = open(options['out'], "w")
 
         with transaction.atomic():
             self.update_simple_models(translations)
@@ -57,12 +66,16 @@ class Command(BaseCommand):
             for row in model.model_class.objects.all():
                 display = getattr(row, model.field)
                 logger.info(f"looking up {display}")
-                if display and display in translations:
-                    translated_display = translations[display]
-                    logger.info(f"Translate {display} to {translated_display}")
-                    setattr(row, model.field, translated_display)
-                    if not self.dry_run:
-                        row.save()
+                if display:
+                    if display in translations:
+                        translated_display = translations[display]
+                        logger.info(
+                            f"Translate {display} to {translated_display}")
+                        setattr(row, model.field, translated_display)
+                        if not self.dry_run:
+                            row.save()
+                    else:
+                        self.log_out(display)
 
     def update_event_types(self, translations):
         title_re = re.compile(r"\"title\":\s\"([^\"]+)\"")
@@ -76,12 +89,16 @@ class Command(BaseCommand):
                     break
                 start_pos = match.start(match_group)
                 display = match.group(match_group)
-                if display and display in translations:
-                    translated_display = translations[display]
-                    logger.info(
-                        f"Translate event title {display} to {translated_display}")
-                    schema = schema[:match.start(
-                        match_group)] + translated_display + schema[match.end(match_group):]
+                if display:
+                    if display in translations:
+                        translated_display = translations[display]
+                        logger.info(
+                            f"Translate event title {display} to {translated_display}")
+                        schema = schema[:match.start(
+                            match_group)] + translated_display + schema[match.end(match_group):]
+                    else:
+                        self.log_out(display)
+
             if schema != et.schema:
                 logger.info(f"Updated: {et.schema}")
                 if not self.dry_run:

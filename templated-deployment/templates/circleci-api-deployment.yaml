@@ -8,6 +8,7 @@ spec:
     metadata:
       labels:
         das.component: api
+        das.configuration: server
       annotations:
         prometheus.io/port: "9102"
     spec:
@@ -32,28 +33,23 @@ spec:
           - containerPort: 8000
         volumeMounts:
         - name: google-credentials
-          mountPath: "/etc/earthranger"
+          mountPath: "/etc/earthranger/"
           readOnly: true
         env:
         - name: GOOGLE_APPLICATION_CREDENTIALS
           value: "/etc/earthranger/google_credentials.json"
-        - name: GS_BUCKET_NAME
-          value: "${GS_BUCKET_NAME}"
         - name: SERVICE_NAME
           value: "api_server"
-        - name: DB_HOST
-          value: "${DB_HOST}"
-        - name: DB_PORT
-          value: "${DB_PORT}"
-        - name: DB_NAME
-          value: "${DB_NAME}"
         - name: DB_USER
-          value: "postgres"
+          valueFrom:
+            secretKeyRef:
+              name: app-db-credentials
+              key: username
         - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: db-password
-              key: value
+              name: app-db-credentials
+              key: password
         - name: EMAIL_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -64,11 +60,6 @@ spec:
             secretKeyRef:
               name: email-username
               key: value
-        - name: EMAIL_HOST
-          value: "${EMAIL_HOST}"
-        - name: FROM_EMAIL
-          value: "${FROM_EMAIL}"
-        - name: DEFAULT_FROM_EMAIL
-          value: "${DEFAULT_FROM_EMAIL}"
-        - name: KML_EXPORT
-          value: "${KML_EXPORT}"
+        envFrom:
+          - configMapRef:
+              name: server-configmap

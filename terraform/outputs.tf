@@ -10,8 +10,16 @@ output "cluster_proxy_endpoint" {
   value = data.terraform_remote_state.earthranger_app_infra.outputs.proxy_endpoint
 }
 
+output "app_infra_workspace" {
+  value = data.terraform_remote_state.earthranger_app_infra.workspace
+}
+
 output "kubernetes_namespace" {
   value = kubernetes_namespace.this.metadata.0.name
+}
+
+output "fqdn" {
+  value = aws_route53_record.www.name
 }
 
 output "database_name" {
@@ -25,3 +33,31 @@ output "site_ip_address" {
 output "user_uploads_bucket_name" {
   value = google_storage_bucket.user_uploads.name
 }
+
+output "migration_user_name" {
+  value = google_sql_user.migration_user.name
+}
+
+output "migration_user_pass" {
+  value     = google_sql_user.migration_user.password
+  sensitive = true
+}
+
+output "app_user_name" {
+  value = google_sql_user.app_user.name
+}
+
+output "app_user_pass" {
+  value     = google_sql_user.app_user.password
+  #sensitive = true
+}
+
+output "analytics_user_name" {
+  value = google_sql_user.analytics_user.name
+}
+
+output "analytics_user_pass" {
+  value     = google_sql_user.analytics_user.password
+  sensitive = true
+}
+

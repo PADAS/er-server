@@ -1,6 +1,9 @@
+locals {
+  subdomain_name = var.subdomain_name != null ? var.subdomain_name : kubernetes_namespace.this.metadata.0.name
+}
 resource "aws_route53_record" "www" {
   zone_id = data.aws_route53_zone.public.zone_id
-  name    = kubernetes_namespace.this.metadata.0.name
+  name    = "${local.subdomain_name}.pamdas.org"
   type    = "A"
   ttl     = 300
   records = [

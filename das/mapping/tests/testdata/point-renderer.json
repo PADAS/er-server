@@ -1,0 +1,988 @@
+{
+	"renderer": {
+		"type": "uniqueValue",
+		"field1": "Type",
+		"defaultSymbol": {
+			"type": "esriSMS",
+			"style": "esriSMSCircle",
+			"color": [
+				130,
+				130,
+				130,
+				255
+			],
+			"size": 4,
+			"angle": 0,
+			"xoffset": 0,
+			"yoffset": 0,
+			"outline": {
+				"color": [
+					0,
+					0,
+					0,
+					255
+				],
+				"width": 0.7
+			}
+		},
+		"defaultLabel": "<all other values>",
+		"uniqueValueInfos": [{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "c3bae0cbc61dcb3c78225aa79c7144e9",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAA4AAAAPCAYAAADUFP50AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAA/0lEQVQokZ2S0XXCMAxFn6IsQbawZW9BOgaMUdYgY5QxXDtTNEwRqx/EOSEETqm/5GNd6z1JNf556mcP3vt2HMchpRTfAgF8MjMAuLdAVZUXn26DxphmGfd9P/wJJKLdq2qboLVWmPmsqreEuv4yxnysq96B3vuDqs4QcPPKzD/e+2MIobsDrbVCRCdV3U9SY2lOiVX1LCJtjLGdQSI6EZEA6HLOXUopOucUwDWE4MrHRLQXkUuMsa0BoKqqSwihXdm9lmBagrbYmSsutS+kD6rarMdRch+6aoxpJr8CAMz8DaBZ5z2b45BzdszcANhZa2W9sw/gJOs4XTcXHAB+Ae4WelctnzJdAAAAAElFTkSuQmCC",
+					"contentType": "image/png",
+					"width": 10,
+					"height": 11,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Airfield",
+				"label": "Airfield"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "62e3619189bee83497f0717bfcd96b91",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAOCAYAAAAmL5yKAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAA7ElEQVQokbWSwU3DQBBF39hpImljy9gxZawLWMQV+4pwAbgMsMtwGSRVrIfDhkQW2AQh/mmlmXn6M393/FG71crdw4GUlALHW1f/DuBjIKUGYY8BGgNIy/DcbAN8DAgBcF+p9ohGxegZu34J8NFRELDL4LS6mhCookPKlten49WByQAMq4MLM4AsV3BgL+f3ACgwIWcnMxXCHqHHCBgn5rkHmgwYuz4fCkdR1szpHThdrq/xAChStlgKCMfPg67HeKP+GeBjuA2g9xVYjjDvD6AIuui+1hw+OsZuygAxxTay/04FAagzYOOv/6QPgdVO2cyFQQcAAAAASUVORK5CYII=",
+					"contentType": "image/png",
+					"width": 12,
+					"height": 10,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Art and Crafts Centre",
+				"label": "Art and Crafts Centre"
+			},
+			{
+				"symbol": {
+					"type": "esriSMS",
+					"style": "esriSMSCircle",
+					"color": [
+						78,
+						78,
+						78,
+						255
+					],
+					"size": 5,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0,
+					"outline": {
+						"color": [
+							0,
+							0,
+							0,
+							255
+						],
+						"width": 0
+					}
+				},
+				"value": "Boma",
+				"label": "Boma"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "4810b7a01d4a09e9c56777d2c84a30b9",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAAoAAAAQCAYAAAAvf+5AAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAE0lEQVQokWNhIBKwjCocVUh7hQBZsABB+Qf05wAAAABJRU5ErkJggg==",
+					"contentType": "image/png",
+					"width": 7,
+					"height": 12,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Borehole",
+				"label": "Borehole"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "e578e6c9af2a98a7633c70241a70a31f",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAA8AAAAMCAYAAAC9QufkAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAA10lEQVQokY2R0RGCMBBEX5AmpIBYAJaBbUABMP4S/7UAbUPaoAH+1SqS84PgJEyYcWcyk7nc7t7mchI4nCnEUYe16YpZ9+UpslgqoEdxmQv0uuU93Xgkybqblb3DKaFZQ4KsOwxC7+8gVItj0FsuBotJ/msKRgwID6D0Z/1mkpmBMYPGQZn5UR3cfyLrzJGqYnCCASo3VwYUA7JFDjBdMbpFwrwqoxEbjZ0m65YaGMB/HDz9+iJsZTZqx1EsFYoiE54+81/kvVhewIjwccTjxuRlTdsYU8UvvcpJQDqBApAAAAAASUVORK5CYII=",
+					"contentType": "image/png",
+					"width": 11,
+					"height": 9,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Bushwalk",
+				"label": "Bushwalk"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "62e3619189bee83497f0717bfcd96b91",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAABAAAAAOCAYAAAAmL5yKAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAA7ElEQVQokbWSwU3DQBBF39hpImljy9gxZawLWMQV+4pwAbgMsMtwGSRVrIfDhkQW2AQh/mmlmXn6M393/FG71crdw4GUlALHW1f/DuBjIKUGYY8BGgNIy/DcbAN8DAgBcF+p9ohGxegZu34J8NFRELDL4LS6mhCookPKlten49WByQAMq4MLM4AsV3BgL+f3ACgwIWcnMxXCHqHHCBgn5rkHmgwYuz4fCkdR1szpHThdrq/xAChStlgKCMfPg67HeKP+GeBjuA2g9xVYjjDvD6AIuui+1hw+OsZuygAxxTay/04FAagzYOOv/6QPgdVO2cyFQQcAAAAASUVORK5CYII=",
+					"contentType": "image/png",
+					"width": 12,
+					"height": 10,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Business centre",
+				"label": "Business centre"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "fc515cb92fa129e27c10e0cb2a4b3ec9",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAA8AAAAMCAYAAAC9QufkAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAA2UlEQVQokZWSPRKCMBBGHxkuIbWD6fEYeA08QBxbpHXkAHANPIb06FjLKSQWJhhU/NlmZ/ebt5v9Jj4fYrYmOG65jOn+mCAVUXflIBXzJqf+C+5g4+TFz/B0xQJNbMpYKqJ329/CQpM+vaICgq9wqEiACACPjPugSahITjnlKCwVkb3VbKzFQy5ma/au+wPYgBNTtucdVahobU9fSYHlC2y2xs6s2sm2n0hFac3r4Q6KwfFeDw8+iWueD08mmRCaCkBA2UHiSL15j5s9MhfWghagyanD1VCzm2/Js0gzaw1QmAAAAABJRU5ErkJggg==",
+					"contentType": "image/png",
+					"width": 11,
+					"height": 9,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Camp site",
+				"label": "Camp site"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "aae64f356ece8b781d14ec3fe5e2c55f",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAgklEQVQokb2QwQ3DIBAE5ySqoA1SBq7DBdj/VOBuki7iNmhj8wCDBVIi+eF93WluT6t19IrrVGcp8d72M3aDAT2BAICxA48/ht+6YIjrVGKURHisboG4fE5sdhUcaseMzPyFSFIqbYwfsxqTkis9t+py5lCPX9vttfYSM2Y+z0o9/gJlFSJvYK5fmAAAAABJRU5ErkJggg==",
+					"contentType": "image/png",
+					"width": 9,
+					"height": 9,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Clinic",
+				"label": "Clinic"
+			},
+			{
+				"symbol": {
+					"type": "esriSMS",
+					"style": "esriSMSCircle",
+					"color": [
+						246,
+						252,
+						199,
+						255
+					],
+					"size": 4,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0,
+					"outline": {
+						"color": [
+							0,
+							0,
+							0,
+							255
+						],
+						"width": 0.7
+					}
+				},
+				"value": "Fence camp",
+				"label": "Fence camp"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "bf7dc0e378d8b191e780adbedf089a35",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAqklEQVQokZ2Q2w2DQBADR4gqaIOUESyqgDpSBlSBDGWEMkK6QPnhECS8FH/t3mnk0cb8mXjvQ1IBYLu+BEpKgAq4T3tmOzsE8zxPx3GsgHTxfJf0BGR7+AElFRO0lRR4SSqDejxBbVA7SSWpsH3bPc5B3kvVq40A/RLsrtZFUdTOoO1BUs/6mlvpmqZZNQaFM7APwxJ8AMUVzRU46dZAsgcGze9GbJcnqnM+RZA+AXrplJIAAAAASUVORK5CYII=",
+					"contentType": "image/png",
+					"width": 10,
+					"height": 10,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Gate",
+				"label": "Gate"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "c55a81babc273b4178bcc1f60d914a15",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAo0lEQVQokZVQwQ3CMBBzcrdE2SLpjQGMEcYgXSMzndQpgCUSlU/6SGgpWLqPZVv2Mf4E94T3fjTGRGvtkHO+zvP83DSsQmPMGQCWZQERPUQklVKm1cjOuRMRBQD3nRaBiIKIJFW9cXXGescbRCR+Se8xsapGEWlYVY0AUMMa/uNLh5W2yD65MXjvRwABwHAQ/nLOJbbWXn4QA8BARIHrwN0KPd7oOjXMLh7LmQAAAABJRU5ErkJggg==",
+					"contentType": "image/png",
+					"width": 9,
+					"height": 9,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Head office",
+				"label": "Head office"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "e578e6c9af2a98a7633c70241a70a31f",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAA8AAAAMCAYAAAC9QufkAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAA10lEQVQokY2R0RGCMBBEX5AmpIBYAJaBbUABMP4S/7UAbUPaoAH+1SqS84PgJEyYcWcyk7nc7t7mchI4nCnEUYe16YpZ9+UpslgqoEdxmQv0uuU93Xgkybqblb3DKaFZQ4KsOwxC7+8gVItj0FsuBotJ/msKRgwID6D0Z/1mkpmBMYPGQZn5UR3cfyLrzJGqYnCCASo3VwYUA7JFDjBdMbpFwrwqoxEbjZ0m65YaGMB/HDz9+iJsZTZqx1EsFYoiE54+81/kvVhewIjwccTjxuRlTdsYU8UvvcpJQDqBApAAAAAASUVORK5CYII=",
+					"contentType": "image/png",
+					"width": 11,
+					"height": 9,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Hide",
+				"label": "Hide"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "402fedafb0bb0640bf8eedb50ddd7e3d",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAA8AAAAQCAYAAADJViUEAAAACXBIWXMAAA7EAAAOxAGVKw4bAAABA0lEQVQokaWS23GDMBBFj4ibCCkDdWFBGXEBYvhN/OuJCsBl8OjClGFcBWw+eBgmBMhkfzR7NXfvWY0O/KMOi+rRBni8k7vT38xR4tM2KaLO+5KNFYQHioq2AeFK+ZXvMxdOYeIQkVc8AiAlSgqyS42JQ5AMVEQxH/jEnl5EyZnsUneNZP35AfxinlbbBhh7RzjhvbyNgwYKQVO6atk8pCn1GAcVTj11boBaNs/SrIypntfpUeLvwdYIGshRE71pNFBvYPNJ4UKiRHcv31OsYo9p6oqJQ9om42j1uM4qdukqwJ/tPF1nHXuBonQVxt567BTQ2+YphaA7Y/fvt80/B+mh/QbubIJsIuNGRwAAAABJRU5ErkJggg==",
+					"contentType": "image/png",
+					"width": 11,
+					"height": 12,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Honey processing",
+				"label": "Honey processing"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "c55a81babc273b4178bcc1f60d914a15",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAo0lEQVQokZVQwQ3CMBBzcrdE2SLpjQGMEcYgXSMzndQpgCUSlU/6SGgpWLqPZVv2Mf4E94T3fjTGRGvtkHO+zvP83DSsQmPMGQCWZQERPUQklVKm1cjOuRMRBQD3nRaBiIKIJFW9cXXGescbRCR+Se8xsapGEWlYVY0AUMMa/uNLh5W2yD65MXjvRwABwHAQ/nLOJbbWXn4QA8BARIHrwN0KPd7oOjXMLh7LmQAAAABJRU5ErkJggg==",
+					"contentType": "image/png",
+					"width": 9,
+					"height": 9,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Office",
+				"label": "Office"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "e578e6c9af2a98a7633c70241a70a31f",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAA8AAAAMCAYAAAC9QufkAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAA10lEQVQokY2R0RGCMBBEX5AmpIBYAJaBbUABMP4S/7UAbUPaoAH+1SqS84PgJEyYcWcyk7nc7t7mchI4nCnEUYe16YpZ9+UpslgqoEdxmQv0uuU93Xgkybqblb3DKaFZQ4KsOwxC7+8gVItj0FsuBotJ/msKRgwID6D0Z/1mkpmBMYPGQZn5UR3cfyLrzJGqYnCCASo3VwYUA7JFDjBdMbpFwrwqoxEbjZ0m65YaGMB/HDz9+iJsZTZqx1EsFYoiE54+81/kvVhewIjwccTjxuRlTdsYU8UvvcpJQDqBApAAAAAASUVORK5CYII=",
+					"contentType": "image/png",
+					"width": 11,
+					"height": 9,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Picnic spot",
+				"label": "Picnic spot"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "03d968b13226405439acedc981aba245",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAA8AAAAMCAYAAAC9QufkAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAFElEQVQokWNhoACwjGoe1Tx4NQMATTQAMY12o34AAAAASUVORK5CYII=",
+					"contentType": "image/png",
+					"width": 11,
+					"height": 9,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Ranger camp",
+				"label": "Ranger camp"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "c55a81babc273b4178bcc1f60d914a15",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAo0lEQVQokZVQwQ3CMBBzcrdE2SLpjQGMEcYgXSMzndQpgCUSlU/6SGgpWLqPZVv2Mf4E94T3fjTGRGvtkHO+zvP83DSsQmPMGQCWZQERPUQklVKm1cjOuRMRBQD3nRaBiIKIJFW9cXXGescbRCR+Se8xsapGEWlYVY0AUMMa/uNLh5W2yD65MXjvRwABwHAQ/nLOJbbWXn4QA8BARIHrwN0KPd7oOjXMLh7LmQAAAABJRU5ErkJggg==",
+					"contentType": "image/png",
+					"width": 9,
+					"height": 9,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Reception",
+				"label": "Reception"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "3bb28026e87bb53a16a105add251ed72",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAAoAAAAICAYAAADA+m62AAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAjElEQVQYlXXNwRGCMBSE4T9IE9RBGUTLiAWEO54dUwApQ0gXpg2tAp6H6CSi7unNm292a7bprAEgOF++6wK0KE6ABkBbQ7U7cD3fM9T9HpERaIqSlmW5ofsj82VKUGREfaAURQMyAC9YMSGYL5hwzNMrHvUHrvgMg4t09vFjPhJc0QiglAfRm935fT0BIEAnClmY/7QAAAAASUVORK5CYII=",
+					"contentType": "image/png",
+					"width": 7,
+					"height": 6,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Resource use gate",
+				"label": "Resource use gate"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "e7e4483edcd76260b14cd29760698078",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAAsAAAAPCAYAAAAyPTUwAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAyklEQVQokZWQwRGCMBBFX4QmwHvwbhvShhQQx6vx6pgCoA0sQwow41WrMMYDMCIwonv5Ozt/3/4k5I8KpwwLxfIJ2hrSEEBu0PaIlgpvDUIqcmvIki3x03H+JHt2gO4A10DmHavfYwhi/IhZqnrcanNxOUbOgLxD3DddCe8oIYA1FMmWk3fcRMD8cuDezqUibRcmvw5Bhe+ZhSPyjUJNbnJHgwd+qXhgfgjima8VqMa2fiEPY1yPlFJRBLMBtaC+9km2hqyPtYai7V/mJj2wExTIBgAAAABJRU5ErkJggg==",
+					"contentType": "image/png",
+					"width": 8,
+					"height": 11,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Restaurant",
+				"label": "Restaurant"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "ab8e54922c4bec2eed29040fee64dd94",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAAwAAAAOCAYAAAAbvf3sAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAjUlEQVQokc2Qyw2DMBAFZ4m7C7RBCoC77WtkGqCMmJSRNpIyNgcLycF8xC1zsp483rc2nMSspnXvQC3CSBxux8KM0nLtGqDhObz2BeVDRaS6eB739/EEkZEY3PoOc+fs+ZR3WSaeKTizDJIMP+diwgkyQW2qkNfR7Kr4hfA/lYov3UItdY9hCg4oum7xBdt7OhRghEc4AAAAAElFTkSuQmCC",
+					"contentType": "image/png",
+					"width": 9,
+					"height": 10,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "School",
+				"label": "School"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "baa217f4d0129fc472338097c771df5e",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAqUlEQVQokZ2Q3RGCMBCEv0CqsI2UkUAZWMAxvhJfHSkAy3CwC9vQLiQ+JIwOKP7s093O7t3taX6EnjHlZsVw6wDo22LZYMUksQHAyZksLznurnODlQpFNxloGG4XrKw5tYdosGJQeMC9PVzR4aQiy0uNUgWEJFZb+r3H1T5mGOvQxG1DpRNJIhcQh02+FBqcNBCi4AXmb/2APwyPUBM8nzf2NTE0+G833AFYcjouDbzx7gAAAABJRU5ErkJggg==",
+					"contentType": "image/png",
+					"width": 9,
+					"height": 9,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Teachers house",
+				"label": "Teachers house"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "e578e6c9af2a98a7633c70241a70a31f",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAA8AAAAMCAYAAAC9QufkAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAA10lEQVQokY2R0RGCMBBEX5AmpIBYAJaBbUABMP4S/7UAbUPaoAH+1SqS84PgJEyYcWcyk7nc7t7mchI4nCnEUYe16YpZ9+UpslgqoEdxmQv0uuU93Xgkybqblb3DKaFZQ4KsOwxC7+8gVItj0FsuBotJ/msKRgwID6D0Z/1mkpmBMYPGQZn5UR3cfyLrzJGqYnCCASo3VwYUA7JFDjBdMbpFwrwqoxEbjZ0m65YaGMB/HDz9+iJsZTZqx1EsFYoiE54+81/kvVhewIjwccTjxuRlTdsYU8UvvcpJQDqBApAAAAAASUVORK5CYII=",
+					"contentType": "image/png",
+					"width": 11,
+					"height": 9,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Tourism centre",
+				"label": "Tourism centre"
+			},
+			{
+				"symbol": {
+					"type": "esriSMS",
+					"style": "esriSMSCircle",
+					"color": [
+						0,
+						76,
+						115,
+						255
+					],
+					"size": 6,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0,
+					"outline": {
+						"color": [
+							0,
+							0,
+							0,
+							255
+						],
+						"width": 0
+					}
+				},
+				"value": "Town",
+				"label": "Town"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "e578e6c9af2a98a7633c70241a70a31f",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAA8AAAAMCAYAAAC9QufkAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAA10lEQVQokY2R0RGCMBBEX5AmpIBYAJaBbUABMP4S/7UAbUPaoAH+1SqS84PgJEyYcWcyk7nc7t7mchI4nCnEUYe16YpZ9+UpslgqoEdxmQv0uuU93Xgkybqblb3DKaFZQ4KsOwxC7+8gVItj0FsuBotJ/msKRgwID6D0Z/1mkpmBMYPGQZn5UR3cfyLrzJGqYnCCASo3VwYUA7JFDjBdMbpFwrwqoxEbjZ0m65YaGMB/HDz9+iJsZTZqx1EsFYoiE54+81/kvVhewIjwccTjxuRlTdsYU8UvvcpJQDqBApAAAAAASUVORK5CYII=",
+					"contentType": "image/png",
+					"width": 11,
+					"height": 9,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "View",
+				"label": "View"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "e578e6c9af2a98a7633c70241a70a31f",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAA8AAAAMCAYAAAC9QufkAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAA10lEQVQokY2R0RGCMBBEX5AmpIBYAJaBbUABMP4S/7UAbUPaoAH+1SqS84PgJEyYcWcyk7nc7t7mchI4nCnEUYe16YpZ9+UpslgqoEdxmQv0uuU93Xgkybqblb3DKaFZQ4KsOwxC7+8gVItj0FsuBotJ/msKRgwID6D0Z/1mkpmBMYPGQZn5UR3cfyLrzJGqYnCCASo3VwYUA7JFDjBdMbpFwrwqoxEbjZ0m65YaGMB/HDz9+iJsZTZqx1EsFYoiE54+81/kvVhewIjwccTjxuRlTdsYU8UvvcpJQDqBApAAAAAASUVORK5CYII=",
+					"contentType": "image/png",
+					"width": 11,
+					"height": 9,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Viewpoint",
+				"label": "Viewpoint"
+			},
+			{
+				"symbol": {
+					"type": "esriSMS",
+					"style": "esriSMSCircle",
+					"color": [
+						0,
+						76,
+						115,
+						255
+					],
+					"size": 3,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0,
+					"outline": {
+						"color": [
+							0,
+							0,
+							0,
+							255
+						],
+						"width": 0
+					}
+				},
+				"value": "Village",
+				"label": "Village"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "e578e6c9af2a98a7633c70241a70a31f",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAA8AAAAMCAYAAAC9QufkAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAA10lEQVQokY2R0RGCMBBEX5AmpIBYAJaBbUABMP4S/7UAbUPaoAH+1SqS84PgJEyYcWcyk7nc7t7mchI4nCnEUYe16YpZ9+UpslgqoEdxmQv0uuU93Xgkybqblb3DKaFZQ4KsOwxC7+8gVItj0FsuBotJ/msKRgwID6D0Z/1mkpmBMYPGQZn5UR3cfyLrzJGqYnCCASo3VwYUA7JFDjBdMbpFwrwqoxEbjZ0m65YaGMB/HDz9+iJsZTZqx1EsFYoiE54+81/kvVhewIjwccTjxuRlTdsYU8UvvcpJQDqBApAAAAAASUVORK5CYII=",
+					"contentType": "image/png",
+					"width": 11,
+					"height": 9,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Waterfall",
+				"label": "Waterfall"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "e578e6c9af2a98a7633c70241a70a31f",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAA8AAAAMCAYAAAC9QufkAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAA10lEQVQokY2R0RGCMBBEX5AmpIBYAJaBbUABMP4S/7UAbUPaoAH+1SqS84PgJEyYcWcyk7nc7t7mchI4nCnEUYe16YpZ9+UpslgqoEdxmQv0uuU93Xgkybqblb3DKaFZQ4KsOwxC7+8gVItj0FsuBotJ/msKRgwID6D0Z/1mkpmBMYPGQZn5UR3cfyLrzJGqYnCCASo3VwYUA7JFDjBdMbpFwrwqoxEbjZ0m65YaGMB/HDz9+iJsZTZqx1EsFYoiE54+81/kvVhewIjwccTjxuRlTdsYU8UvvcpJQDqBApAAAAAASUVORK5CYII=",
+					"contentType": "image/png",
+					"width": 11,
+					"height": 9,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Waterhole",
+				"label": "Waterhole"
+			},
+			{
+				"symbol": {
+					"type": "esriPMS",
+					"url": "664727b1adaeb079a982a47b07212e13",
+					"imageData": "iVBORw0KGgoAAAANSUhEUgAAAA4AAAAKCAYAAACE2W/HAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAA5UlEQVQokW2RwXGDMBBF32KasNsgXSAoQy5AjK/B10xUgFVGgC5CG6YKa3OQYuyBf9JIen//7pbsqb2c+Pm6775llc9T7SpEGlBDfFQYBzCDXFFNJpOft6DQg5qNteod4Tebn5l8WMHaVcAWEmYEiwLIFdEb8AKmiNtGFIvykWC1CGC6hvF7KHOcAeFzdwpCD0DBgMqC6nGtOPmZ2i0IR2B8qVghGITA4M+YrqFILa3DKRhQLKNvnneNu6FYIoH2ciI+LDElWMFIQLA7UQNjXkPt+v+VrODkZ0zXvkGRwOGwvP3J+gPD1FWdXdXk6AAAAABJRU5ErkJggg==",
+					"contentType": "image/png",
+					"width": 10,
+					"height": 7,
+					"angle": 0,
+					"xoffset": 0,
+					"yoffset": 0
+				},
+				"value": "Wildlife club",
+				"label": "Wildlife club"
+			}
+		],
+		"fieldDelimiter": ",",
+		"authoringInfo": {
+			"colorRamp": {
+				"type": "multipart",
+				"colorRamps": [{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							252,
+							179,
+							199,
+							255
+						],
+						"toColor": [
+							252,
+							179,
+							199,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							180,
+							252,
+							179,
+							255
+						],
+						"toColor": [
+							180,
+							252,
+							179,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							197,
+							240,
+							252,
+							255
+						],
+						"toColor": [
+							197,
+							240,
+							252,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							194,
+							179,
+							252,
+							255
+						],
+						"toColor": [
+							194,
+							179,
+							252,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							252,
+							237,
+							202,
+							255
+						],
+						"toColor": [
+							252,
+							237,
+							202,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							224,
+							215,
+							252,
+							255
+						],
+						"toColor": [
+							224,
+							215,
+							252,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							189,
+							252,
+							225,
+							255
+						],
+						"toColor": [
+							189,
+							252,
+							225,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							252,
+							182,
+							249,
+							255
+						],
+						"toColor": [
+							252,
+							182,
+							249,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							234,
+							252,
+							184,
+							255
+						],
+						"toColor": [
+							234,
+							252,
+							184,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							252,
+							201,
+							182,
+							255
+						],
+						"toColor": [
+							252,
+							201,
+							182,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							252,
+							215,
+							224,
+							255
+						],
+						"toColor": [
+							252,
+							215,
+							224,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							182,
+							198,
+							252,
+							255
+						],
+						"toColor": [
+							182,
+							198,
+							252,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							252,
+							199,
+							237,
+							255
+						],
+						"toColor": [
+							252,
+							199,
+							237,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							231,
+							197,
+							252,
+							255
+						],
+						"toColor": [
+							231,
+							197,
+							252,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							209,
+							252,
+							199,
+							255
+						],
+						"toColor": [
+							209,
+							252,
+							199,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							237,
+							252,
+							215,
+							255
+						],
+						"toColor": [
+							237,
+							252,
+							215,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							252,
+							216,
+							179,
+							255
+						],
+						"toColor": [
+							252,
+							216,
+							179,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							252,
+							225,
+							207,
+							255
+						],
+						"toColor": [
+							252,
+							225,
+							207,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							194,
+							223,
+							252,
+							255
+						],
+						"toColor": [
+							194,
+							223,
+							252,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							215,
+							252,
+							246,
+							255
+						],
+						"toColor": [
+							215,
+							252,
+							246,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							252,
+							182,
+							179,
+							255
+						],
+						"toColor": [
+							252,
+							182,
+							179,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							215,
+							252,
+							226,
+							255
+						],
+						"toColor": [
+							215,
+							252,
+							226,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							252,
+							179,
+							230,
+							255
+						],
+						"toColor": [
+							252,
+							179,
+							230,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							248,
+							212,
+							252,
+							255
+						],
+						"toColor": [
+							248,
+							212,
+							252,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							182,
+							252,
+							208,
+							255
+						],
+						"toColor": [
+							182,
+							252,
+							208,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							252,
+							235,
+							182,
+							255
+						],
+						"toColor": [
+							252,
+							235,
+							182,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							205,
+							197,
+							252,
+							255
+						],
+						"toColor": [
+							205,
+							197,
+							252,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							252,
+							199,
+							215,
+							255
+						],
+						"toColor": [
+							252,
+							199,
+							215,
+							255
+						]
+					},
+					{
+						"type": "algorithmic",
+						"algorithm": "esriCIELabAlgorithm",
+						"fromColor": [
+							235,
+							187,
+							252,
+							255
+						],
+						"toColor": [
+							235,
+							187,
+							252,
+							255
+						]
+					}
+				]
+			}
+		}
+	},
+	"scaleSymbols": true,
+	"transparency": 0,
+	"labelingInfo": null
+}

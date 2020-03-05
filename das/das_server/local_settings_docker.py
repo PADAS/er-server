@@ -50,9 +50,6 @@ CSRF_TRUSTED_ORIGINS = ('localhost:9000', SERVER_FQDN)
 
 STATIC_ROOT = '/var/www/static/'
 
-# add the path to your local copy of the das-web static root dir that contains index.html
-#STATICFILES_DIRS = STATICFILES_DIRS + (os.path.join(BASE_DIR, 'www'),)
-
 # TODO can use aws mail short term, until we source a commercial mailer
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 AWS_SES_REGION_NAME = 'us-west-2'
@@ -67,16 +64,11 @@ EMAIL_HOST_PASSWORD = env.str('EMAIL_PASSWORD', '')
 EMAIL_USE_TLS = True
 EMAIL_PORT = env.int('EMAIL_PORT', 2587)
 
-NOTIFY_HIGH_PRIORITY_EVENT = 'high_priority_alerts'
-NOTIFY_MEDIUM_PRIORITY_EVENT = 'medium_priority_alerts'
-NOTIFY_LOW_PRIORITY_EVENT = 'low_priority_alerts'
-
 EXPORT_KML_ENABLED = env.bool('KML_EXPORT', True)
 
 DATABASES = {
     'default': {
-        # 'ENGINE': 'django.contrib.gis.db.backends.postgis',
-        'ENGINE': 'core.databases.postgis',
+        'ENGINE': 'django.contrib.gis.db.backends.postgis',
         'NAME': env.str('DB_NAME', 'das'),
         'USER': env.str('DB_USER','das'),
         'HOST': env.str('DB_HOST', 'postgis'),
@@ -90,7 +82,6 @@ DATABASES = {
 SENDSMS_AFRICAS_TALKING_USERNAME = env.str('SMS_ID', '')
 SENDSMS_AFRICAS_TALKING_API_KEY = env.str('SMS_TOKEN', '')
 
-# TODO: Use variables for these values (first of all Bucket Name).
 DEFAULT_FILE_STORAGE = 'storages.backends.gcloud.GoogleCloudStorage'
 GS_BUCKET_NAME = env.str('GS_BUCKET_NAME', 'earthranger-uploads-default')
 
@@ -103,6 +94,11 @@ EUS_SETTINGS = {
 }
 
 ALERTS_ENABLED = env.bool('ALERTS_ENABLED', True)
+MAPPING_FEATURES_V2 = env.bool('MAPPING_FEATURES_V2', True)
+ACCEPT_EULA = env.bool('ACCEPT_EULA', False)
+
+UI_SITE_NAME = f'EarthRanger {SERVER_FQDN}'
+UI_SITE_URL = f'https://{SERVER_FQDN}'
 
 # Django Debug Toolbar Settings enabled if DEV=True
 if DEV:
@@ -119,3 +115,4 @@ if DEV:
     DEBUG_TOOLBAR_CONFIG = {
         "SHOW_TOOLBAR_CALLBACK": lambda x: True,
     }
+

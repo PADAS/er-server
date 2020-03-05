@@ -9,18 +9,7 @@ from pytz import timezone
 from choices.models import Choice
 from observations.forms import SourceForm, SubjectSourceForm
 from observations.models import SourceProvider, Source, Subject, SubjectSource
-
-
-def convert_date_string(date_str):
-    # Get timezone from settings and convert date_string into datetime object
-    # with settings's timezone
-    time_zone = timezone(settings.TIME_ZONE)
-    datetime_object = parse(date_str)
-    localize_date = time_zone.localize(datetime_object)
-
-    # Convert datetime's timezone with UTC
-    utc_date = localize_date.astimezone(timezone('UTC'))
-    return utc_date.isoformat()
+from observations.utils import convert_date_string
 
 
 class SourceAdditionalTest(TestCase):

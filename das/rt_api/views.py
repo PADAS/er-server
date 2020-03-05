@@ -116,24 +116,26 @@ def cleanup_disconnected_clients(sios):
 
     try:
         if sios.environ:
-            logger.info('Clean up disconnected sockets.')
-
             environ = [sid for sid in sios.environ]
             client_list = set(client.get_client_list())
 
             remove_these_clients = set(
                 [c for c in client_list if c.sid not in environ])
 
-            if len(remove_these_clients) > 0:
+            expired_clients = [
+                c for c in client.get_expired_traces_client_list()]
 
-                for c in remove_these_clients:
-                    logger.info('Cleaning up disconnected socket.', extra={
-                                'sid': c.sid, 'username': c.username})
+            remove_these_clients = remove_these_clients.union(expired_clients)
+
+            if len(remove_these_clients) > 0:
+                logger.info(
+                    f'Clients to cleanup and disconnect {len(remove_these_clients)}')
 
                 client.remove_clients(
                     *[x.sid for x in remove_these_clients])
             else:
-                logger.debug('No sockets to clean up.')
+                logger.info(
+                    f'No sockets to clean up. {len(environ)} Existing sockets connected')
 
     finally:
 
@@ -326,7 +328,10 @@ def create_realtime_handler(sios):
             except Exception as ex:
                 if socketid:
                     client.remove_client(socketid)
-                logger.exception("Error emitting event over socket")
+                    logger.exception(
+                        f"Error emitting event over socket {socketid}")
+                else:
+                    logger.exception(f"Error emitting event over socket")
 
         @staticmethod
         def send_realtime_message(message_data):

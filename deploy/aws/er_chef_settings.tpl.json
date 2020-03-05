@@ -79,8 +79,9 @@
             "features": {
                 "export_kml_enabled": "${export_kml_enabled}",
                 "alerts_enabled": "${alerts_enabled}",
-                "daily_report_enabled": "${daily_report_enabled}"
-            }
+                "daily_report_enabled": "${daily_report_enabled}",
+                "mapping_features_v2": "${mapping_features_v2}"
+}
         }
     }
 }
