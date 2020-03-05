@@ -1,22 +1,19 @@
 import json
+import urllib.parse as parser
+from unittest.mock import patch, Mock
 
 from django.contrib.gis.geos import Polygon
 from rest_framework import status
 
 from activity.models import Event
 from analyzers.models import GlobalForestWatchSubscription as gfw_model
-from analyzers.tasks import download_gfw_alerts
-from analyzers.tests.gfw_test_data import VIIRS_FIRE_ALERT, GLAD_ALERT, GLAD_ALERT_DOWNLOADED_DATA
-from analyzers.utils import (get_geostore_id, GEOSTORE_FIELD, GLAD_CONFIRM_FIELD,
-                             build_glad_download_url_with_confirmed_flag_and_geostore_id)
+from analyzers.tests.gfw_test_data import VIIRS_FIRE_ALERT, GLAD_ALERT, GLAD_ALERT_DOWNLOADED_DATA, \
+    VIIRS_FIRE_ALERT_DOWNLOADED_DATA, VIIRS_CALLBACK_DATA
+from analyzers.gfw_utils import (get_geostore_id, GEOSTORE_FIELD, GLAD_CONFIRM_FIELD,
+                                 rebuild_glad_download_url)
 from core.tests import BaseAPITest
 from das_server.celery import app
 from sensors.views import SensorObservation
-from analyzers.models import GlobalForestWatchSubscription
-from django.contrib.gis.geos import Polygon
-
-from analyzers.tasks import download_gfw_alerts, requests
-from analyzers.gfw_utils import get_viirs_fire_alerts
 
 
 def send_task(name, args=(), kwargs={}, **opts):
@@ -82,11 +79,17 @@ class GFWAlertHandlerTest(BaseAPITest):
 
     def test_utils_build_confirmed_url_with_geostore_id(self):
         new_geostore_id = 'a hardcoded string for test'
+
+        poly = Polygon(((0, 0), (1, 0), (1, 1), (0, 1), (0, 0)))
+        gfw_obj = gfw_model.objects.create(name='Test alert', subscription_id='blah', geostore_id=new_geostore_id,
+                                           additional={"alert_types": ["glad-alerts"]}, Deforestation_confidence=gfw_model.CONFIRMED,
+                                           subscription_geometry=poly)
+
         query_params = parser.parse_qs(parser.urlparse(self.download_url_unknown_geostore).query)
         self.assertEqual(query_params[GEOSTORE_FIELD][0], self.unknown_geostore)
         self.assertEqual(query_params[GLAD_CONFIRM_FIELD][0], 'False')
-        updated_url = build_glad_download_url_with_confirmed_flag_and_geostore_id(
-            self.download_url_unknown_geostore, new_geostore_id, True)
+        updated_url = rebuild_glad_download_url(
+            self.download_url_unknown_geostore, gfw_obj)
         updated_qp = parser.parse_qs(parser.urlparse(updated_url).query)
         self.assertEqual(updated_qp[GEOSTORE_FIELD][0], new_geostore_id)
         self.assertEqual(updated_qp[GLAD_CONFIRM_FIELD][0], 'True')
@@ -97,14 +100,16 @@ class GFWAlertHandlerTest(BaseAPITest):
         mock_request.return_value = Mock(status_code=200, text=json.dumps(GLAD_ALERT_DOWNLOADED_DATA))
 
         # todo: revisit. why doesn't this work.
-        # app.send_task = send_task
+        app.send_task = send_task
 
         poly = Polygon(((0, 0), (1, 0), (1, 1), (0, 1), (0, 0)))
         gfw_model.objects.create(name='Test alert', subscription_id='blah', geostore_id='blah',
-                                                     additional={"alert_types": ["glad-alerts"]},
-                                                     subscription_geometry=poly)
+                                 additional={"alert_types": ["glad-alerts"]},
+                                 subscription_geometry=poly)
 
-        download_gfw_alerts(self.download_url_unknown_geostore, None, None)
+        response = self._post_data(json.dumps(GLAD_ALERT))
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        # download_gfw_alerts(self.download_url_unknown_geostore, None, None)
         self.assertEqual(mock_download_process_alerts.call_count, 1)
 
     @patch('analyzers.gfw_inbound.process_downloaded_alerts')
@@ -112,8 +117,7 @@ class GFWAlertHandlerTest(BaseAPITest):
     def test_download_glad_two_subscriptions_unknown_geostore(self, mock_request, mock_download_process_alerts):
         mock_request.return_value = Mock(status_code=200, text=json.dumps(GLAD_ALERT_DOWNLOADED_DATA))
 
-        # todo: revisit. why doesn't this work.
-        # app.send_task = send_task
+        app.send_task = send_task
 
         poly = Polygon(((0, 0), (1, 0), (1, 1), (0, 1), (0, 0)))
         gfw_model.objects.create(name='Test alert', subscription_id='blah', geostore_id='blah',
@@ -124,19 +128,19 @@ class GFWAlertHandlerTest(BaseAPITest):
                                  additional={"alert_types": ["glad-alerts"]},
                                  subscription_geometry=poly)
 
-        download_gfw_alerts(self.download_url_unknown_geostore, None, None)
+        response = self._post_data(json.dumps(GLAD_ALERT))
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(mock_download_process_alerts.call_count, 2)
 
     @patch('analyzers.gfw_inbound.process_downloaded_alerts')
     @patch('requests.get')
     def test_download_glad_two_subscriptions_known_geostore(self, mock_request, mock_download_process_alerts):
         mock_request.return_value = Mock(status_code=200, text=json.dumps(GLAD_ALERT_DOWNLOADED_DATA))
-
-        # todo: revisit. why doesn't this work.
-        # app.send_task = send_task
+        app.send_task = send_task
+        test_data_geostore = 'a8c46db68bc4b6f7f881f38ce61a8bcb'
 
         poly = Polygon(((0, 0), (1, 0), (1, 1), (0, 1), (0, 0)))
-        gfw_model.objects.create(name='Test alert', subscription_id='blah', geostore_id=self.unknown_geostore,
+        gfw_model.objects.create(name='Test alert', subscription_id='blah', geostore_id=test_data_geostore,
                                  additional={"alert_types": ["glad-alerts"]},
                                  subscription_geometry=poly)
 
@@ -144,7 +148,8 @@ class GFWAlertHandlerTest(BaseAPITest):
                                  additional={"alert_types": ["glad-alerts"]},
                                  subscription_geometry=poly)
 
-        download_gfw_alerts(self.download_url_unknown_geostore, None, None)
+        response = self._post_data(json.dumps(GLAD_ALERT))
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(mock_download_process_alerts.call_count, 1)
 
     def _post_data(self, payload):
@@ -172,7 +177,7 @@ class GFWAlertHandlerTest(BaseAPITest):
         }
 
         # By default the confidence level for deforestation is 3 (confirmed)
-        GFWSubscription = GlobalForestWatchSubscription.objects.create(**gfw_data)
+        gfw_model.objects.create(**gfw_data)
 
         # Monkey-patch send_task to execute task by blocking
         # (simulate task_always_eager=True) since send_task does not respect  task_always_eager when true.
@@ -186,8 +191,8 @@ class GFWAlertHandlerTest(BaseAPITest):
 
         # Update the confidence level for GFWSubscription object
         # to Confirmed and Unconfirmed.
-        qs = GlobalForestWatchSubscription.objects.filter(subscription_id='5d1f9014836a9b13000e7d1d')
-        qs.update(Deforestation_confidence=GlobalForestWatchSubscription.BOTH_CONFIRMED_UNCONFIRMED)
+        qs = gfw_model.objects.filter(subscription_id='5d1f9014836a9b13000e7d1d')
+        qs.update(Deforestation_confidence=gfw_model.BOTH_CONFIRMED_UNCONFIRMED)
 
         response = self._post_data(json.dumps(GLAD_ALERT))
         expected_event = len(GLAD_ALERT_DOWNLOADED_DATA['data'])
@@ -213,7 +218,7 @@ class GFWAlertHandlerTest(BaseAPITest):
         }
 
         # By default the confidence level for fire alerts is High and Nominal.
-        GFWSubscription = GlobalForestWatchSubscription.objects.create(**gfw_data)
+        gfw_model.objects.create(**gfw_data)
 
         # Monkey-patch send_task to execute task by blocking
         # (simulate task_always_eager=True) since send_task does not respect  task_always_eager when true.

@@ -11,7 +11,8 @@ from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.finder import get_subject_analyzers
 from analyzers.models import GlobalForestWatchSubscription as gfw_model
 from analyzers.models import ObservationAnnotator
-from analyzers.utils import get_geostore_id, build_glad_download_url_with_confirmed_flag_and_geostore_id
+from analyzers.gfw_alert_schema import GFWGladEventTypeSpec
+from analyzers.gfw_utils import get_geostore_id, rebuild_glad_download_url
 from das_server import celery
 from observations.models import Subject
 
@@ -128,18 +129,13 @@ def handle_observation(observation_id):
 
 @celery.app.task(bind=True, max_retries=5)
 def download_gfw_alerts(self, received_download_url, common_event_fields, user_id):
-    received_geostore_id = get_geostore_id(received_download_url)
-    if gfw_model.objects.filter(geostore_id=received_geostore_id).exists():
-        download_urls = [build_glad_download_url_with_confirmed_flag_and_geostore_id(
-            received_download_url, received_geostore_id, confirmed_only=True)]
+    if common_event_fields.get('event_type') == GFWGladEventTypeSpec.value:
+        received_geostore_id = get_geostore_id(received_download_url)
+        geostore_qs = gfw_model.objects.filter(geostore_id=received_geostore_id)
+        queryset = geostore_qs if geostore_qs.exists() else gfw_model.objects.all()
+        download_urls = [rebuild_glad_download_url(received_download_url, o) for o in queryset]
     else:
-        logger.warning('Alert received for unknown geostore_id: %s', received_geostore_id)
-        # forcing confirmedOnly to True for now. Post DAS-4815, we should set this based on user preference
-        download_urls = [
-            build_glad_download_url_with_confirmed_flag_and_geostore_id(
-                received_download_url, o.geostore_id, confirmed_only=True)
-            for o in gfw_model.objects.all()
-        ]
+        download_urls = [received_download_url]
 
     [download_from_url(self, url, common_event_fields, user_id) for url in download_urls]
 
@@ -160,16 +156,17 @@ def download_from_url(self, download_url, common_event_fields, user_id):
     else:
         if resp and resp.status_code == status.HTTP_200_OK:
             gfw_alerts_payload = json.loads(resp.text)
-            logger.debug('GFW Alerts downloaded data: %s', gfw_alerts_payload)
-            if common_event_fields.get('event_type') == 'gfw_activefire_alert':
-                gfw_inbound.process_downloaded_alerts(gfw_alerts_payload.get('rows', []), common_event_fields, user_id)
-            if gfw_alerts_payload.get('data') is not None:
-                alert_data = gfw_alerts_payload.get('data')
+            # logger.debug('GFW Alerts downloaded data: %s', gfw_alerts_payload)
+            data_field = 'data' if common_event_fields.get('event_type') == GFWGladEventTypeSpec.value else 'rows'
+                # data_field = 'rows'
+                # gfw_inbound.process_downloaded_alerts(gfw_alerts_payload.get('rows', []), common_event_fields, user_id)
+            if gfw_alerts_payload.get(data_field) is not None:
+                alert_data = gfw_alerts_payload.get(data_field)
                 logger.info('Valid response from GFW. %d alerts received.', len(alert_data))
                 logger.info('First alert payload %s', alert_data[0]) if len(alert_data) else None
                 gfw_inbound.process_downloaded_alerts(alert_data, common_event_fields, user_id)
             else:
-                gfw_inbound.process_downloaded_alerts(gfw_alerts_payload.get('data', []), common_event_fields, user_id)
+                # gfw_inbound.process_downloaded_alerts(gfw_alerts_payload.get('data', []), common_event_fields, user_id)
                 logger.error('GFW API returned error: %s', gfw_alerts_payload)
         else:
             logger.error('GFW Alerts cannot be downloaded. Result is %s, \ndownload url is: %s\n Response is: %s',

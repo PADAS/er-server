@@ -1,13 +1,17 @@
 import json
-import requests
 import logging
 import urllib.parse as urlparse
 
+import requests
 from django.conf import settings
 from rest_framework import status
 
+from analyzers.models import GlobalForestWatchSubscription as gfw_model
 
 logger = logging.getLogger(__name__)
+
+GEOSTORE_FIELD = 'geostore'
+GLAD_CONFIRM_FIELD = 'gladConfirmOnly'
 
 
 def parse_url(url):
@@ -57,3 +61,23 @@ def change_format_to_json(link_to_download):
     query_dict['format'][0] = 'json'
     url_parts[4] = urlparse.urlencode(query_dict, doseq=True)
     return urlparse.urlunparse(url_parts)
+
+
+def get_geostore_id(download_url):
+    qs = urlparse.parse_qs(urlparse.urlparse(download_url).query)
+    return qs.get('geostore', [''])[0]
+
+
+def rebuild_glad_download_url(download_url, gfw_object):
+    confirmed_only = True if gfw_object.Deforestation_confidence == gfw_model.CONFIRMED else False
+    query_params = urlparse.parse_qs(urlparse.urlparse(download_url).query)
+    # update the geostore & gladConfirmOnly in the query string
+    query_params[GEOSTORE_FIELD][0] = gfw_object.geostore_id
+    query_params[GLAD_CONFIRM_FIELD][0] = str(confirmed_only)
+    parsed_result = urlparse.urlparse(download_url)
+    # create and return a new url
+    new_parsed_result = urlparse.ParseResult(scheme=parsed_result.scheme, netloc=parsed_result.netloc,
+                                             path=parsed_result.path, params=parsed_result.params,
+                                             fragment=parsed_result.fragment,
+                                             query=urlparse.urlencode(query_params, doseq=True))
+    return urlparse.urlunparse(new_parsed_result)

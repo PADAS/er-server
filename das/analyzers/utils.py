@@ -1,6 +1,5 @@
 import copy
 import logging
-import urllib.parse as parser
 
 from django.contrib.auth import get_user_model
 from django.http.request import HttpRequest
@@ -12,8 +11,6 @@ from activity.serializers import EventSerializer
 
 logger = logging.getLogger(__name__)
 
-GEOSTORE_FIELD = 'geostore'
-GLAD_CONFIRM_FIELD = 'gladConfirmOnly'
 
 def latest_event_for(analyzer):
     """ Returns the most recent event or None for a given subject and analyzer """
@@ -94,20 +91,4 @@ def typify(fmap, item):
     return r
 
 
-def get_geostore_id(download_url):
-    qs = parser.parse_qs(parser.urlparse(download_url).query)
-    return qs.get('geostore', [''])[0]
 
-
-def build_glad_download_url_with_confirmed_flag_and_geostore_id(download_url, geostore_id, confirmed_only):
-    query_params = parser.parse_qs(parser.urlparse(download_url).query)
-    # update the geostore & gladConfirmOnly in the query string
-    query_params['geostore'][0] = geostore_id
-    query_params['gladConfirmOnly'][0] = str(confirmed_only)
-    parsed_result = parser.urlparse(download_url)
-    # create and return a new url
-    new_parsed_result = parser.ParseResult(scheme=parsed_result.scheme, netloc=parsed_result.netloc,
-                                           path=parsed_result.path, params=parsed_result.params,
-                                           fragment=parsed_result.fragment,
-                                           query=parser.urlencode(query_params, doseq=True))
-    return parser.urlunparse(new_parsed_result)
