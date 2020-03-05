@@ -93,14 +93,14 @@ def typify(fmap, item):
 
 def get_geostore_id(download_url):
     qs = parser.parse_qs(parser.urlparse(download_url).query)
-    print(f'query string {qs}')
     return qs.get('geostore', [''])[0]
 
 
-def build_url_with_geostore_id(download_url, geostore_id):
+def build_confirmed_url_with_geostore_id(download_url, geostore_id):
     query_params = parser.parse_qs(parser.urlparse(download_url).query)
-    # update the geostore in the query string
+    # update the geostore & gladConfirmOnly in the query string
     query_params['geostore'][0] = geostore_id
+    query_params['gladConfirmOnly'][0] = True
     parsed_result = parser.urlparse(download_url)
     # create and return a new url
     new_parsed_result = parser.ParseResult(scheme=parsed_result.scheme, netloc=parsed_result.netloc,

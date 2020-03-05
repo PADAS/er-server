@@ -108,7 +108,7 @@ def create_events(request, common_fields, validated_data):
         deserialized_sample = AlertSample(data=alert_sample)
         if not deserialized_sample.is_valid():
             counts[ERROR_COUNTER] = counts[ERROR_COUNTER] + 1
-            return deserialized_sample.errors()
+            return deserialized_sample.errors
 
         event_fields = {
             **common_fields,
@@ -165,7 +165,7 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
     deserialized_sample = AlertSampleDownloaded(data=downloaded_sample)
     if not deserialized_sample.is_valid():
         counts[ERROR_COUNTER] = counts[ERROR_COUNTER] + 1
-        return deserialized_sample.errors()
+        return deserialized_sample.errors
 
     julian_day = deserialized_sample.validated_data.get('julian_day')
     year = deserialized_sample.validated_data.get('year')
@@ -205,7 +205,7 @@ def persist_event(event_fields, request, counts):
             data=event_fields, context={'request': request})
         if not evt_serializer.is_valid():
             counts[ERROR_COUNTER] = counts[ERROR_COUNTER] + 1
-            return evt_serializer.errors()
+            return evt_serializer.errors
 
         signals.pre_save.connect(pre_save_info,
                                  dispatch_uid=(
