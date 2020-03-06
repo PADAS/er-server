@@ -65,7 +65,7 @@ def change_format_to_json(link_to_download):
 
 def get_geostore_id(download_url):
     qs = urlparse.parse_qs(urlparse.urlparse(download_url).query)
-    return qs.get('geostore', [''])[0]
+    return qs.get(GEOSTORE_FIELD, [''])[0]
 
 
 def rebuild_glad_download_url(download_url, gfw_object):

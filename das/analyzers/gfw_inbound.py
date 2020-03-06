@@ -96,6 +96,15 @@ def process_handler_post(request):
     logger.info(f'process_handler_alerts posted {deserialized.validated_data}', extra={
         'data': request.data})
 
+    url = deserialized.validated_data.get('unsubscribe_url')
+    url_parts = url.split('/')
+    subscription_id = url_parts[4]
+
+    if not GlobalForestWatchSubscription.objects.filter(subscription_id=subscription_id).exists():
+        err_msg = f'Not processing unknown subscription_id {subscription_id}'
+        logger.warning(err_msg)
+        return Response(status=status.HTTP_400_BAD_REQUEST, data=dict(message=err_msg))
+
     layer_slug = deserialized.validated_data.get('layerSlug')
 
     event_type_value = GFW_EVENT_TYPES_MAP.get(layer_slug)
@@ -108,7 +117,7 @@ def process_handler_post(request):
             'gfw_alert_type': layer_slug,
             'alert_link': deserialized.validated_data.get('alert_link'),
             'subscription_name': deserialized.validated_data.get('alert_name'),
-            'unsubscribe_url': deserialized.validated_data.get('unsubscribe_url')
+            'subscription_id': subscription_id
         }
 
         event_dict = {
@@ -186,11 +195,9 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
             'time': time,
         }
     }
-    url = common_event_fields['event_details']['unsubscribe_url']
-    subscription_url = url.split('/')
-    subscription_id = subscription_url[4]
-
+    subscription_id = common_event_fields['event_details']['subscription_id']
     gfw_query = GlobalForestWatchSubscription.objects.get(subscription_id=subscription_id)
+
     if common_event_fields.get('event_type') == 'gfw_activefire_alert':
         conf_confidence = gfw_query.Fire_confidence
         superset_cofidence = {i.strip() for i in conf_confidence.split(',')}
