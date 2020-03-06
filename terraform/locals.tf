@@ -17,6 +17,12 @@ locals {
     "connected-conservation" = "prod1"
     "chipinge" = "prod1"
     "bubyevalley" = "prod1"
+    "mtkenya" = "prod1"
+    "ewt" = "prod1"
+    "gotcha" = "prod1"
+    "marataba" = "prod1"
+    "thabatholo" = "prod1"
+    "welgevonden" = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
