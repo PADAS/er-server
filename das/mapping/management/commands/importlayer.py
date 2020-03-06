@@ -5,9 +5,9 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from mapping import models
-from mapping.utils import (DEFAULT_SOURCE_NAME, datasource_from_file,
+from mapping.utils import (DEFAULT_SOURCE_NAME, get_datasource_and_layer_num,
                            mappingv2_save_spatial_data, save_spatial_file,
-                           validate_feature_record, get_spatial_feature_type, save_esri_feature)
+                           validate_feature_record, make_external_id, contains_unique_keys_in_layer)
 from utils.spatial import GeometryMapper
 
 logger = logging.getLogger(__name__)
@@ -99,7 +99,7 @@ class Command(BaseCommand):
         logger.debug('Featureset: %s, FeatureType: %s', featureset.name, featuretype.name)
 
         try:
-            datasource, layer_num = self.get_datasource_and_layer_num()
+            datasource, layer_num = get_datasource_and_layer_num(self.filename, self.layer, self.tmpdirs)
             self.import_layer(datasource[layer_num], featuretype, featureset)
         finally:
             datasource = None
@@ -108,72 +108,10 @@ class Command(BaseCommand):
         logger.info('Importing features from shapefile: %s',
                     self.filename)
         try:
-            datasource, layer_num = self.get_datasource_and_layer_num()
+            datasource, layer_num = get_datasource_and_layer_num(self.filename, self.layer, self.tmpdirs)
             self.import_layer(datasource[layer_num], self.featuretype)
         finally:
             datasource = None
-
-    # TODO: move this out, doesn't need to be a management command.
-    def importfromesri(self):
-        logger.info('Importing esri features for itemid %s from temp file: %s', self.arcgis_item_id,
-                    self.filename)
-        # comeback cleanup
-        try:
-            datasource, layer_num = self.get_datasource_and_layer_num()
-            layer = datasource[layer_num]
-
-            # edit/delete features rough first cut
-            arc_item = models.ArcgisItem.objects.get(id=self.arcgis_item_id)
-            # TODO: bail if arc_item is null
-
-            # TODO: revisit and handle case where layer/features do not have a GlobalID
-            received_global_ids = [self.make_external_id(layer, f, arc_item.id) for f in layer]
-            delete_result = models.SpatialFeature.objects.filter(arcgis_item=arc_item).exclude(
-                external_id__in=received_global_ids).delete()
-            logger.info(f'deleted featutes {delete_result}')
-
-            has_unique_keys = self.contains_unique_keys_in_layer(layer)
-            for i, feature in enumerate(layer):
-
-                if self.presentation:
-                    # TODO: get sft regardless of presentation and pass on further
-                    spatial_feature_type = get_spatial_feature_type(feature, self.featuretype_label)
-                    if not spatial_feature_type:
-                        logger.warning('Did not get or create spatialfeaturetype for %s. Skipping', str(feature))
-                        continue
-                    spatial_feature_type.presentation = self.presentation
-                    # TODO: does a write in each iteration. Optimize.
-                    spatial_feature_type.save()
-
-                # linked to above to revisit if don't have a GlobalID
-                external_id = self.make_external_id(layer, feature, arc_item.id)
-                if not has_unique_keys:
-                    external_id = external_id + '-' + str(i)
-
-                # can optionally filter features based on Park attribute.
-                # e.g., AP has features for multiple parks in the same feature layer
-                # TODO: make configurable, move out filter key (e.g., Park below) & filter value (ui_site_url)
-                #  to the admin UI.
-                # if 'Park' not in feature.fields or feature.get('Park').lower() in settings.UI_SITE_URL.lower():
-                save_esri_feature(feature, self.source_name, external_id, self.featuretype_label, arc_item, i)
-        finally:
-            datasource = None
-
-    def get_datasource_and_layer_num(self):
-        datasource = datasource_from_file(self.filename, self.tmpdirs)
-        logger.debug('Data Source: %s, layercount %s',
-                     datasource.name, datasource.layer_count)
-        if datasource.layer_count > 1 and self.layer is None:
-            logger.warning('multiple layers not supported...')
-            for i in range(0, datasource.layer_count):
-                logger.info('layer: %s, name: %s', i, datasource[i].name)
-            return
-
-        layer_num = 0 if self.layer is None else self.layer
-        if layer_num >= datasource.layer_count:
-            logger.warning(f'Given layer {self.layer} should be less than existing layers: {datasource.layer_count}')
-            layer_num = 0
-        return datasource, layer_num
 
     def get_feature_class(self, name):
         name_lower = name.lower()
@@ -184,18 +122,6 @@ class Command(BaseCommand):
         if 'point' in name_lower:
             return models.PointFeature
         raise KeyError('DAS Feature class not found for {0}'.format(name))
-
-    def make_external_id(self, layer, feature, arc_item_id=None):
-        name_value = ''
-        id_value = ''
-        for name in feature.fields:
-            if self.id_field and name.lower() == self.id_field.lower():
-                id_value = str(feature[name].value)
-            elif self.name_field and name.lower() == self.name_field.lower():
-                name_value = str(feature[name].value)
-        if arc_item_id:
-            return '-'.join((str(arc_item_id), name_value, id_value))
-        return '-'.join((layer.name, name_value, id_value))
 
     def get_featuretype_for_feature(self, feature, default=None):
         for name in feature.fields:
@@ -210,27 +136,14 @@ class Command(BaseCommand):
             raise KeyError('no default featuretype specified')
         return default
 
-    def contains_unique_keys_in_layer(self, layer):
-        seen = set()
-        unique_keys = True
-        for feature in layer:
-            external_id = self.make_external_id(layer, feature)
-            if external_id in seen:
-                logger.info('External_id=%s not unique to layer', external_id)
-                unique_keys = False
-                break
-            else:
-                seen.add(external_id)
-        return unique_keys
-
     def import_layer(self, layer, featuretype=None, featureset=None):
         logger.info('Importing layer: %s, type: %s, fields: %s',
                     layer.name, layer.geom_type, layer.fields)
 
-        has_unique_keys = self.contains_unique_keys_in_layer(layer)
+        has_unique_keys = contains_unique_keys_in_layer(self.id_field, self.name_field, layer)
 
         for i, feature in enumerate(layer):
-            external_id = self.make_external_id(layer, feature)
+            external_id = make_external_id(self.id_field, self.name_field, layer, feature)
             if not has_unique_keys:
                 external_id = external_id + '-' + str(i)
             if featureset:

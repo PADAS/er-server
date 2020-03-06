@@ -827,11 +827,11 @@ class ArcgisConfiguration(TimestampedModel):
     username = models.CharField(max_length=100, blank=False, help_text='ArcGIS account username')
     password = models.CharField(max_length=100, blank=False)
     source = models.CharField(max_length=100, blank=True, null=True, default='ArcGis')
-    name_field = models.CharField(max_length=100, blank=True, null=True,
+    name_field = models.CharField(max_length=100, blank=True, null=True, default='Name',
                                   help_text='Name of field in your GIS data that has the feature name. Default is Name')
-    id_field = models.CharField(max_length=100, blank=True, null=True,
+    id_field = models.CharField(max_length=100, blank=True, null=True, default='GlobalID',
                                 help_text='Name of field in your GIS data that has the feature ID. Default is GlobalID')
-    type_label = models.CharField(max_length=100, blank=True, null=True, verbose_name='Type field',
+    type_label = models.CharField(max_length=100, blank=True, null=True, verbose_name='Type field', default='FeatureType',
                                   help_text='Name of field in your GIS data that has the feature type. Defaults are Type and FeatureType')
     last_download = models.DateTimeField(blank=True, null=True, verbose_name='Last Download Time')
 

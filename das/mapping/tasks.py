@@ -5,7 +5,7 @@ from celery_once import QueueOnce
 from django.db import transaction
 
 from das_server import celery
-from mapping import models, utils
+from mapping import models, esri_integration
 from observations.utils import convert_date_string
 
 logger = logging.getLogger(__name__)
@@ -67,7 +67,7 @@ def background_download_features_from_wfs(obj_id):
                     )
                     # timestamps seem broken in arcgis
                     # if created or last_modified > arcgis_item.updated_at:
-                    utils.extract_gis_data(arc_config, member, title, errored_files, success_files, arcgis_item.id)
+                    esri_integration.extract_gis_data(arc_config, member, title, errored_files, success_files, arcgis_item.id)
                     # arcgis_item.save()  # update model's updated_at field
 
         except Exception as ex:
@@ -78,12 +78,12 @@ def background_download_features_from_wfs(obj_id):
     arc_config.last_download = convert_date_string(str(datetime.now()))
     arc_config.save()
 
-    utils.wfs_download_return_messages(None, errored_files, success_files)
+    esri_integration.wfs_download_return_messages(None, errored_files, success_files)
 
 
 def get_wfs_config_objects(obj_id):
     obj = models.ArcgisConfiguration.objects.get(id=obj_id)
-    gis = utils.arcgis_authentication(None, obj)
+    gis = esri_integration.arcgis_authentication(None, obj)
     wfs_group = gis.groups.get(obj.groups.group_id)
 
     return obj, wfs_group

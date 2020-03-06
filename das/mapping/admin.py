@@ -24,7 +24,8 @@ from mapping.forms import (ArcgisConfigurationForm,
                            DisplayCategoryForm, FeatureTypeForm, MapCenterForm,
                            SpatialFeatureGroupStaticForm,
                            SpatialFeatureTypeForm, TileLayerFormWithAttributes)
-from mapping.utils import MAPPING_FEATURES_V2, arcgis_integration, update_db_groups
+from mapping.utils import MAPPING_FEATURES_V2
+from mapping.esri_integration import arcgis_integration, update_db_groups
 
 logger = logging.getLogger(__name__)
 
@@ -429,7 +430,7 @@ if MAPPING_FEATURES_V2:
         fieldsets = (
             (None, {
                 'classes': ('wide',),
-                'fields': ('last_download','config_name', 'username', 'password', 'search_text')
+                'fields': ('last_download', 'config_name', 'username', 'password', 'search_text')
             }),
             ('ArcGIS Group', {
                 'classes': ('wide', 'groups'),
