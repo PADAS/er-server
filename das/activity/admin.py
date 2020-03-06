@@ -38,6 +38,7 @@ class EventAdmin(OSMGeoExtendedAdmin):
 
     list_display = ('serial_number', '_created_at', '_event_time', '_updated_at', 'event_type',
                     'title', '_latitude', '_longitude')
+    ordering = ('serial_number', 'created_at', 'event_time', 'updated_at', 'event_type', 'title')
     readonly_fields = ('id', 'serial_number', 'created_at', 'updated_at')
     search_fields = ('title', 'serial_number')
     list_filter = ('state', 'event_type', )
@@ -95,7 +96,7 @@ class CommunityAdmin(admin.ModelAdmin):
 class EventTypeAdmin(admin.ModelAdmin):
 
     form = EventTypeForm
-    ordering = ('category', 'ordernum', 'display',)
+    ordering = ('display', 'value', 'ordernum', 'category', 'default_priority', 'default_state')
     list_filter = ('category',)
     list_display = ('display', 'value', 'ordernum',
                     'category', 'is_collection', '_default_priority_display', '_icon_display', 'default_state')
@@ -266,6 +267,7 @@ class EventCategoryAdmin(admin.ModelAdmin):
 class AlertRuleAdmin(admin.ModelAdmin):
     readonly_fields = ('id', )  # 'conditions', 'schedule',)
     list_display = ('owner_username', 'title', 'is_active', 'ordernum',)
+    ordering = ('owner', 'title', 'is_active', 'ordernum',)
     form = AlertRuleForm
     list_filter = ('owner', 'is_active',)
     search_fields = ('title',)
@@ -298,6 +300,7 @@ class AlertRuleAdmin(admin.ModelAdmin):
 class NotificationMethodAdmin(admin.ModelAdmin):
     readonly_fields = ('id',)
     list_display = ('owner_username', 'method', 'value', 'is_active',)
+    ordering = ('owner', 'method', 'value', 'is_active')
 
     def owner_username(self, instance):
         return instance.owner.username
@@ -311,6 +314,7 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
     change_list_template = 'admin/activity/eventtype/event_detail_change_list.html'
     list_display = ('performed_by', 'refresh_at',
                     'recreated_at', 'maintenance_status')
+    ordering = list_display
 
     enable_change_view = False
 

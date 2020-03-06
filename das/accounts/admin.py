@@ -468,6 +468,7 @@ class RefreshForm(forms.ModelForm):
 class GrantAdmin(admin.ModelAdmin):
     form = AccessGrantForm
     list_display = ("code", "application", "user", "expires")
+    ordering = list_display
     raw_id_fields = ("user", )
 
     def _expires(self, o):
@@ -479,6 +480,7 @@ class GrantAdmin(admin.ModelAdmin):
 class AccessTokenAdmin(admin.ModelAdmin):
     form = AccessGrantForm
     list_display = ("token", "user", "application", "_expires")
+    ordering = ("token", "user", "application", "expires")
     raw_id_fields = ("user", )
 
     def _expires(self, o):
@@ -490,6 +492,7 @@ class AccessTokenAdmin(admin.ModelAdmin):
 class RefreshTokenAdmin(admin.ModelAdmin):
     form = RefreshForm
     list_display = ("token", "user", "application", '_revoked')
+    ordering =  ("token", "user", "application", "revoked")
     raw_id_fields = ("user", "access_token")
 
     def _revoked(self, o):

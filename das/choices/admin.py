@@ -35,7 +35,7 @@ class ChoiceAdmin(admin.ModelAdmin):
 
     form = ChoiceForm
     actions = ('disable_choices', )
-    ordering = ('model', 'field', 'ordernum', 'display')
+    ordering = ('model', 'field', 'value', 'display', 'ordernum', 'is_active')
     list_display = ('model', 'field', 'value', 'display', 'ordernum',
                     '_icon_display', 'is_active')
     list_display_links = ('model', 'field')
