@@ -9,6 +9,8 @@ from activity.models import Event
 from analyzers.gfw_utils import (get_geostore_id, GEOSTORE_FIELD, GLAD_CONFIRM_FIELD,
                                  rebuild_glad_download_url)
 from analyzers.models import GlobalForestWatchSubscription as gfw_model
+# noinspection PyUnresolvedReferences
+from analyzers.tasks import download_gfw_alerts  # prevent pycharm optimize import from removing this
 from analyzers.tests.gfw_test_data import VIIRS_FIRE_ALERT, GLAD_ALERT, GLAD_ALERT_DOWNLOADED_DATA, \
     VIIRS_FIRE_ALERT_DOWNLOADED_DATA, VIIRS_CALLBACK_DATA
 from core.tests import BaseAPITest
@@ -108,9 +110,8 @@ class GFWAlertHandlerTest(BaseAPITest):
         self.assertEqual(updated_qp[GEOSTORE_FIELD][0], new_geostore_id)
         self.assertEqual(updated_qp[GLAD_CONFIRM_FIELD][0], 'True')
 
-    @patch('analyzers.gfw_inbound.process_downloaded_alerts')
     @patch('requests.get')
-    def test_download_glad_one_subscription_unknown_geostore(self, mock_request, mock_download_process_alerts):
+    def test_download_glad_one_subscription_unknown_geostore(self, mock_request):
         mock_request.return_value = Mock(status_code=200, text=json.dumps(GLAD_ALERT_DOWNLOADED_DATA))
         app.send_task = send_task
 
@@ -118,32 +119,47 @@ class GFWAlertHandlerTest(BaseAPITest):
 
         response = self._post_data(json.dumps(GLAD_ALERT))
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(mock_download_process_alerts.call_count, 1)
+        self.assertEqual(1, Event.objects.all().count())
 
-    @patch('analyzers.gfw_inbound.process_downloaded_alerts')
+        with patch('analyzers.gfw_inbound.process_downloaded_alerts') as mock_download_process_alerts:
+            self._post_data(json.dumps(GLAD_ALERT))
+            self.assertEqual(mock_download_process_alerts.call_count, 1)
+
     @patch('requests.get')
-    def test_download_glad_two_subscriptions_unknown_geostore(self, mock_request, mock_download_process_alerts):
+    def test_download_glad_two_subscriptions_unknown_geostore(self, mock_request):
         mock_request.return_value = Mock(status_code=200, text=json.dumps(GLAD_ALERT_DOWNLOADED_DATA))
         app.send_task = send_task
 
         self._create_and_get_test_model()
-        self._create_and_get_test_model()
+        model = self._create_and_get_test_model()
+        model.subscription_id = 'another subscription id'
+        model.save()
 
         response = self._post_data(json.dumps(GLAD_ALERT))
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(mock_download_process_alerts.call_count, 2)
+        self.assertEqual(1, Event.objects.all().count())
 
-    @patch('analyzers.gfw_inbound.process_downloaded_alerts')
+        with patch('analyzers.gfw_inbound.process_downloaded_alerts') as mock_download_process_alerts:
+            self._post_data(json.dumps(GLAD_ALERT))
+            self.assertEqual(mock_download_process_alerts.call_count, 2)
+
     @patch('requests.get')
-    def test_download_glad_two_subscriptions_known_geostore(self, mock_request, mock_download_process_alerts):
+    def test_download_glad_two_subscriptions_known_geostore(self, mock_request):
         mock_request.return_value = Mock(status_code=200, text=json.dumps(GLAD_ALERT_DOWNLOADED_DATA))
         app.send_task = send_task
 
         self._create_and_get_test_model()
+        model = self._create_and_get_test_model()
+        model.subscription_id = 'another subscription id'
+        model.save()
 
         response = self._post_data(json.dumps(GLAD_ALERT))
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(mock_download_process_alerts.call_count, 1)
+        self.assertEqual(1, Event.objects.all().count())
+
+        with patch('analyzers.gfw_inbound.process_downloaded_alerts') as mock_download_process_alerts:
+            self._post_data(json.dumps(GLAD_ALERT))
+            self.assertEqual(mock_download_process_alerts.call_count, 2)
 
     def test_with_bad_subscription_id(self):
         # save glad test data's subscription_id in the db
