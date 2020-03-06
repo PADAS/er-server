@@ -54,6 +54,7 @@ class EnvironmentalSubjectAnalyzerAdmin(admin.ModelAdmin):
 
     def subject_group_name(self, o):
         return o.subject_group.name
+    subject_group_name.admin_order_field = 'subject_group'
 
     fieldsets = (
         (None, {
@@ -90,6 +91,7 @@ class ProximitySubjectAnalyzerAdmin(admin.ModelAdmin):
 
     def subject_group_name(self, o):
         return o.subject_group.name
+    subject_group_name.admin_order_field = 'subject_group'
 
     fieldsets = (
         (None, {
@@ -120,6 +122,7 @@ class GeofenceSubjectAnalyzerAdmin(admin.ModelAdmin):
 
     def subject_group_name(self, o):
         return o.subject_group.name
+    subject_group_name.admin_order_field = 'subject_group'
 
     fieldsets = (
         (None, {
@@ -148,6 +151,7 @@ class LowSpeedWilcoxSubjectAnalyzerAdmin(admin.ModelAdmin):
 
     def subject_group_name(self, o):
         return o.subject_group.name
+    subject_group_name.admin_order_field = 'subject_group'
 
     fieldsets = (
         (None, {
@@ -172,6 +176,7 @@ class LowSpeedPercentileSubjectAnalyzerAdmin(admin.ModelAdmin):
 
     def subject_group_name(self, o):
         return o.subject_group.name
+    subject_group_name.admin_order_field = 'subject_group'
 
     fieldsets = (
         (None, {

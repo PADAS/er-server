@@ -89,7 +89,7 @@ class EventAdmin(OSMGeoExtendedAdmin):
 
 @admin.register(models.Community)
 class CommunityAdmin(admin.ModelAdmin):
-    pass
+    ordering = ('name',)
 
 
 @admin.register(models.EventType)
@@ -173,6 +173,7 @@ class EventTypeAdmin(admin.ModelAdmin):
 @admin.register(models.EventSource)
 class EventSourceAdmin(admin.ModelAdmin):
     list_display = ('display', 'eventprovider', 'event_type', 'is_active',)
+    ordering = list_display
     readonly_fields = ('external_event_type', 'id',)
     list_filter = ('eventprovider', 'is_active',)
     fieldsets = (
@@ -216,6 +217,7 @@ class EventSourceInline(InlineExtraDynamicMixin, admin.TabularInline):
 @admin.register(models.EventProvider)
 class EventProviderAdmin(admin.ModelAdmin):
     list_display = ('display', 'owner', 'is_active',)
+    ordering = list_display
     readonly_fields = ('id',)
 
     # inlines = [EventSourceInline, ]
@@ -294,6 +296,7 @@ class AlertRuleAdmin(admin.ModelAdmin):
     def owner_username(self, instance):
         return instance.owner.username
     owner_username.short_description = _('Owner')
+    owner_username.admin_order_field = 'username'
 
 
 @admin.register(models.NotificationMethod)

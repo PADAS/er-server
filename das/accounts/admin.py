@@ -352,6 +352,7 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
         if not full_name:
             full_name = instance.username
         return full_name
+    display_name.admin_order_field = 'username'
 
     def all_permission_sets(self, instance):
         pss = instance.get_all_permission_sets()

@@ -172,7 +172,7 @@ class GeometryTypeFilter(django_admin.SimpleListFilter):
 
 @admin.register(models.SpatialFeature)
 class SpatialFeatureAdmin(BaseFeatureAdmin):
-    ordering = ('name', 'feature_type')
+    ordering = ('name', 'feature_type', 'external_source')
     list_display = ('name', 'feature_type',
                     'external_source', 'geometry_type', 'get_spatialfile')
     list_filter = (GeometryTypeFilter, 'feature_type',)
@@ -198,7 +198,6 @@ class SpatialFeatureAdmin(BaseFeatureAdmin):
 
     def geometry_type(self, obj):
         return obj.geometry_type
-
     geometry_type.short_description = 'Geometry Type'
 
 
