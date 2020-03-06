@@ -290,20 +290,25 @@ def import_layer(layer, source_name, spatialfile_id, featuretype, featureset, id
             mappingv2_save_spatial_data(feature, featuretype, source_name, spatialfile_id, i, external_id)
 
 
-def cleanup_files(spatial_file):
+def cleanup_files(filename, spatial_file):
     """
     Remove files/directories from the temporary folder.
     """
     uploaded_file_directory = spatial_file.data.storage.location
     uploaded_file_path = spatial_file.data.path
-    try:
-        if os.path.exists(uploaded_file_path):
+
+    if os.path.exists(uploaded_file_path):
             os.remove(uploaded_file_path)
+
+    # clear directory
+    try:
         shutil.rmtree(uploaded_file_directory)
-    except PermissionError:
+    except Exception:
+        shutil.rmtree('/'.join(filename.split("/")[:-1]))
+    except:
         logger.exception(
-            f'Cleaning up spatial files after import: {uploaded_file_directory}')
-    spatial_file.data.path = ''
+            f'Cleaned up spatial files after import: {uploaded_file_directory}')
+    filename = ''
 
 
 def mappingv1_save_spatial_data(feature, featureset, featuretype, external_id, name_field, spatialfile_id):

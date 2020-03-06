@@ -443,7 +443,7 @@ if MAPPING_FEATURES_V2:
 
         def add_background_download_message(self, obj, request, action):
             msg_dict = {
-                    'obj': format_html('<a href="{}">{}</a>', urlquote(request.path), obj),
+                    'obj': format_html(f'<a href="/admin/mapping/spatialfeaturefile/{obj.id}/change/">{obj}</a>'),
                     'features': format_html('<a href="/admin/mapping/spatialfeature/">features</a>'),
                     'action': action
                 }

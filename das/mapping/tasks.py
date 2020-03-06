@@ -102,4 +102,4 @@ def extract_features_from_files(data_files, source_name, spatial_file, feature_t
             datasource[layer_num], source_name, file_id,
             featuretype, featureset, presentation, featuretype_label,
             id_field, name_field)
-        utils.cleanup_files(spatial_file)
+        utils.cleanup_files(filename, spatial_file)
