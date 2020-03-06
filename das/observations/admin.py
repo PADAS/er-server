@@ -285,6 +285,7 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
               "location", "exclusion_flags", "source", "additional")
     list_display = ('subject_link', '_manufacturer_id', '_recorded_at', '_created_at',
                     '_latitude', '_longitude', '_state', '_event_action', 'exclusion_flags')
+    ordering = ('location', 'recorded_at', 'created_at', 'source')
     list_editable = ('exclusion_flags',)
     list_display_links = None
     show_full_result_count = False
@@ -639,6 +640,7 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
 @admin.register(models.CommonName)
 class CommonNameAdmin(admin.ModelAdmin):
     list_display = ('value', 'display', 'subject_subtype')
+    ordering = list_display
 
     def queryset(self, request):
         """Limit Subjects to those this person can administer"""
@@ -720,6 +722,7 @@ class SubjectSourceSummaryAdmin(admin.ModelAdmin):
 class SourceAdmin(admin.ModelAdmin):
     list_display = ['manufacturer_id', 'source_type',
                     'model_name', 'get_attributes', '_source_provider', ]
+    ordering = ('manufacturer_id', 'source_type', 'model_name')
     search_fields = ('id', 'manufacturer_id', 'model_name', 'additional',)
     list_filter = ('source_type', 'model_name', SourceSourceProviderFilter)
     readonly_fields = ('id', 'created_at', 'updated_at',)
@@ -797,6 +800,7 @@ class CurrentAssignmentFilter(admin.SimpleListFilter):
 class SubjectSourceAdmin(admin.ModelAdmin):
     list_display = ('subject_name', 'manufacturer_id',
                     'current', '_assigned_range')
+    ordering = ('source', 'assigned_range', 'source',)
     list_filter = ('source__source_type', CurrentAssignmentFilter,
                    'subject__subject_subtype__subject_type__value', 'subject__subject_subtype__value')
     search_fields = ('source__manufacturer_id', 'subject__name')
@@ -853,6 +857,7 @@ class SubjectSourceAdmin(admin.ModelAdmin):
 @admin.register(models.Region)
 class RegionAdmin(admin.ModelAdmin):
     list_display = ['id', 'region', 'country', 'slug']
+    ordering = list_display
     fields = ['id', 'region', 'country', 'slug']
     search_fields = ('region', 'country')
 
@@ -1103,7 +1108,7 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
 @admin.register(models.SourceProvider)
 class SourceProviderAdmin(admin.ModelAdmin):
     search_fields = ('provider_key', 'display_name',)
-    ordering = ('provider_key',)
+    ordering = ('provider_key', 'display_name')
     list_display = ('provider_key', 'display_name',)
     readonly_fields = ('id',)
     form = SourceProviderForm

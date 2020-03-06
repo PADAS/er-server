@@ -76,6 +76,7 @@ class PermissionSetAdminForm(forms.ModelForm):
 class PermissionSetAdmin(DjangoGroupAdmin):
     form = PermissionSetAdminForm
     list_display = ('name', 'all_permissions', 'all_users')
+    ordering = ('name',)
     filter_horizontal = ('permissions', 'children')
     fieldsets = (
         (None, {
@@ -287,7 +288,7 @@ class KmkMasterLinkForm(forms.Form):
 
 class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
     readonly_fields = ('_last_login',)
-    ordering = ('last_name', 'first_name', 'username')
+    ordering = ('username', 'last_name', 'first_name',)
     fieldsets = (
         (None, {
             'fields': ('first_name', 'last_name', 'role',
