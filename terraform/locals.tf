@@ -25,6 +25,7 @@ locals {
     "welgevonden" = "prod1"
     "training" = "prod1"
     "biocarbonpartners" = "prod1"
+    "bomani" = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
