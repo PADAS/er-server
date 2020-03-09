@@ -18,7 +18,7 @@ from das_server import celery
 from utils import stats
 from revision.manager import RevisionMixin
 from analyzers.models import GlobalForestWatchSubscription
-from analyzers.gfw_utils import parse_url, prepare_downloadable_url
+from analyzers.gfw_utils import parse_url, prepare_downloadable_url, sub_id_from_unsubscribe_url
 
 logger = logging.getLogger(__name__)
 
@@ -96,54 +96,56 @@ def process_handler_post(request):
     logger.info(f'process_handler_alerts posted {deserialized.validated_data}', extra={
         'data': request.data})
 
-    url = deserialized.validated_data.get('unsubscribe_url')
-    url_parts = url.split('/')
-    subscription_id = url_parts[4]
-
-    if not GlobalForestWatchSubscription.objects.filter(subscription_id=subscription_id).exists():
-        err_msg = f'Not processing unknown subscription_id {subscription_id}'
-        logger.warning(err_msg)
-        return Response(status=status.HTTP_400_BAD_REQUEST, data=dict(message=err_msg))
-
     layer_slug = deserialized.validated_data.get('layerSlug')
-
-    event_type_value = GFW_EVENT_TYPES_MAP.get(layer_slug)
-    if event_type_value:
-        logger.info('Got %s alert', layer_slug,
+    if not GFW_EVENT_TYPES_MAP.get(layer_slug):
+        logger.info('Ignoring %s alert', layer_slug,
                     extra={'alert_type': layer_slug})
-        ensure_gfw_event_types()
+        return Response(status=status.HTTP_400_BAD_REQUEST,
+                        data=dict(message=f'Unknown layerSlug: {layer_slug}'))
 
-        event_details_dict = {
-            'gfw_alert_type': layer_slug,
-            'alert_link': deserialized.validated_data.get('alert_link'),
-            'subscription_name': deserialized.validated_data.get('alert_name'),
-            'subscription_id': subscription_id
-        }
+    ensure_gfw_event_types()
 
-        event_dict = {
-            'event_type': event_type_value,
-            'event_title': _('Global Forest Watch Alert'),
-            'event_details': event_details_dict
-        }
+    subscription_id = sub_id_from_unsubscribe_url(deserialized.validated_data.get('unsubscribe_url'))
 
-        validated_data = deserialized.validated_data
+    subscriptions_qs = GlobalForestWatchSubscription.objects.filter(subscription_id=subscription_id)
+    if subscriptions_qs.exists():
+        process_alert_for_subscription(layer_slug, subscription_id, deserialized.validated_data)
+    else:
+        logger.warning('Unknown subscription %s received. Processing alerts for all subscriptions in db.')
+        subscription_ids = [o.subscription_id for o in GlobalForestWatchSubscription.objects.all()]
 
-        if event_dict.get('event_type') == 'gfw_activefire_alert':
-            validated_data['downloadUrls'] = prepare_downloadable_url(validated_data)
+        [process_alert_for_subscription(layer_slug, sub_id, deserialized.validated_data) for sub_id in subscription_ids]
 
-        download_urls = validated_data.get('downloadUrls')
-        if download_urls:
-            result = celery.app.send_task('analyzers.tasks.download_gfw_alerts', args=(download_urls.get('json'),
-                                                                                       event_dict,
-                                                                                       str(request.user.id)))
-            logger.info('Submitted task for downloading GFW Alerts. Celery Async result: %s', result)
+    return Response(status=status.HTTP_201_CREATED, data=dict(message='Alerts are being'))
 
-            return Response(status=status.HTTP_201_CREATED, data=dict(message='Alert processed'))
 
-    logger.info('Ignoring %s alert', layer_slug,
+def process_alert_for_subscription(layer_slug, subscription_id, validated_data):
+    logger.info('Got %s alert', layer_slug,
                 extra={'alert_type': layer_slug})
-    return Response(status=status.HTTP_400_BAD_REQUEST,
-                    data=dict(message=f'Unknown layerSlug: {layer_slug}'))
+    event_type_value = GFW_EVENT_TYPES_MAP.get(layer_slug)
+
+    event_details_dict = {
+        'gfw_alert_type': layer_slug,
+        'alert_link': validated_data.get('alert_link'),
+        'subscription_name': validated_data.get('alert_name'),
+        'subscription_id': subscription_id
+    }
+
+    event_dict = {
+        'event_type': event_type_value,
+        'event_title': _('Global Forest Watch Alert'),
+        'event_details': event_details_dict
+    }
+
+    if event_dict.get('event_type') == 'gfw_activefire_alert':
+        validated_data['downloadUrls'] = prepare_downloadable_url(validated_data)
+
+    download_urls = validated_data.get('downloadUrls')
+    if download_urls:
+        result = celery.app.send_task('analyzers.tasks.download_gfw_alerts', args=(download_urls.get('json'),
+                                                                                   event_dict,
+                                                                                   str(request.user.id)))
+        logger.info('Submitted task for downloading GFW Alerts. Celery Async result: %s', result)
 
 
 def process_downloaded_alerts(payload, common_event_fields, user_id):

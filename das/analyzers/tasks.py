@@ -132,7 +132,13 @@ def download_gfw_alerts(self, received_download_url, common_event_fields, user_i
     if common_event_fields.get('event_type') == GFWGladEventTypeSpec.value:
         received_geostore_id = get_geostore_id(received_download_url)
         geostore_qs = gfw_model.objects.filter(geostore_id=received_geostore_id)
-        queryset = geostore_qs if geostore_qs.exists() else gfw_model.objects.all()
+
+        if geostore_qs.exists():
+            queryset = geostore_qs
+        else:
+            queryset = gfw_model.objects.all()
+            logger.warning('Unknown geostore %s received. Will download for all geostores in db')
+
         download_urls = [rebuild_glad_download_url(received_download_url, o) for o in queryset]
     else:
         download_urls = [received_download_url]

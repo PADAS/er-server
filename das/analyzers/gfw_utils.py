@@ -29,6 +29,12 @@ def parse_url(url):
     return parsed_dict
 
 
+def sub_id_from_unsubscribe_url(unsubscribe_url):
+    subscription_url = unsubscribe_url.split('/')
+    subscription_id = subscription_url[4]
+    return subscription_id
+
+
 def create_viirs_downloadable_url(alert_date_begin, alert_date_end, geojson, confidence_level):
     sql_str = SQL_FORMAT.format(alert_date_begin=alert_date_begin,
                                 alert_date_end=alert_date_end,
@@ -52,10 +58,8 @@ def confidence_level_fmt(confidence_level):
 def prepare_downloadable_url(validated_data):
     data = validated_data.get
     alert_date_begin, alert_date_end = data('alert_date_begin'), data('alert_date_end')
-    unsubscription_url = data('unsubscribe_url')
+    subscription_id = sub_id_from_unsubscribe_url(data('unsubscribe_url'))
 
-    subscription_url = unsubscription_url.split('/')
-    subscription_id = subscription_url[4]
     gfw_query = gfw_model.objects.get(subscription_id=subscription_id)
 
     geoJSON = gfw_query.subscription_geometry.geojson
