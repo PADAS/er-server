@@ -18,7 +18,7 @@ from das_server import celery
 from utils import stats
 from revision.manager import RevisionMixin
 from analyzers.models import GlobalForestWatchSubscription
-from analyzers.gfw_utils import parse_url, callback_api_for_fire_alerts
+from analyzers.gfw_utils import parse_url, prepare_downloadable_url
 
 logger = logging.getLogger(__name__)
 
@@ -129,7 +129,7 @@ def process_handler_post(request):
         validated_data = deserialized.validated_data
 
         if event_dict.get('event_type') == 'gfw_activefire_alert':
-            validated_data['downloadUrls'] = callback_api_for_fire_alerts(validated_data)
+            validated_data['downloadUrls'] = prepare_downloadable_url(validated_data)
 
         download_urls = validated_data.get('downloadUrls')
         if download_urls:

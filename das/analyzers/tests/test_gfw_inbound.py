@@ -214,11 +214,11 @@ class GFWAlertHandlerTest(BaseAPITest):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(expected_event, Event.objects.all().count())
 
-    @patch('analyzers.gfw_utils.get_viirs_fire_alerts')
+    # @patch('analyzers.gfw_utils.get_viirs_fire_alerts')
     @patch('analyzers.tasks.requests.get')
-    def test_filter_confidence_level_for_fire(self, mock_request, mock_callback):
+    def test_filter_confidence_level_for_fire(self, mock_request):
         mock_request.return_value = Mock(status_code=200, text=json.dumps(VIIRS_FIRE_ALERT_DOWNLOADED_DATA))
-        mock_callback.return_value = VIIRS_CALLBACK_DATA
+        # mock_callback.return_value = VIIRS_CALLBACK_DATA
 
         geom_coord = ((21.55517578125, -1.36217634666416),
                       (22.78564453125, -3.57921278586063),
