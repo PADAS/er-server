@@ -1,0 +1,208 @@
+from math import radians, cos, sin, asin, sqrt
+
+data = [
+    {
+        "acq_date": "2019-06-24",
+        "acq_time": "11:30",
+        "latitude": -2.55704,
+        "longitude": 23.26341
+    },
+    {
+        "acq_date": "2019-06-24",
+        "acq_time": "11:30",
+        "latitude": -2.52684,
+        "longitude": 23.30476
+    },
+    {
+        "acq_date": "2019-06-24",
+        "acq_time": "11:30",
+        "latitude": -2.51183,
+        "longitude": 23.29754
+    },
+    {
+        "acq_date": "2019-06-24",
+        "acq_time": "11:30",
+        "latitude": -2.52429,
+        "longitude": 23.3015
+    },
+    {
+        "acq_date": "2019-06-24",
+        "acq_time": "11:30",
+        "latitude": -2.50933,
+        "longitude": 23.29426
+    }
+]
+
+
+def haversine(lon1, lat1, lon2, lat2):
+    """
+    Calculate the great circle distance between two points
+    on the earth (specified in decimal degrees)
+    """
+    # convert decimal degrees to radians
+    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+    c = 2 * asin(sqrt(a))
+    r = 6371  # Radius of earth in km
+    return c * r
+
+
+def dbscan(dataset, eps, min_cluster_size):
+    """
+    https://en.wikipedia.org/wiki/DBSCAN
+
+    :param dataset: input data/alerts to cluster
+    :param eps: distance beyond which 2 features can not belong to the same cluster
+    :param min_cluster_size: minimum number of features to generate a cluster
+    :return: a list of cluster labels
+    """
+
+    # Initially all labels are 0.
+    # 0 - Means the point hasn't been considered yet.
+    labels = [0] * len(dataset)
+
+    current_cluster = 0
+
+    # This outer loop is just responsible for picking new seed points--a point
+    # from which to grow a new cluster.
+    # Once a valid seed point is found, a new cluster is created, and the
+    # cluster growth is all handled by the 'expandCluster' routine.
+
+    # For each point p in the dataset ...
+    # ('p' is the index of the datapoint, rather than the data point itself.)
+    for p in range(0, len(dataset)):
+
+        # Only points that have not already been claimed can be picked as new
+        # seed points.
+        # If the point's label is not 0, continue to the next point.
+        if not (labels[p] == 0):
+            continue
+
+        # Find all of P's neighboring points.
+        neighbor_pts = radius_query(dataset, p, eps)
+
+        # If the number is below min_cluster_size, this point is noise.
+        # This is the only condition under which a point is labeled
+        if len(neighbor_pts) < min_cluster_size:
+            labels[p] = -1
+        # Otherwise, if there are at least MinPts nearby, use this point as the
+        # seed for a new cluster.
+        else:
+            current_cluster += 1
+            grow_cluster(dataset, labels, p, neighbor_pts, current_cluster, eps, min_cluster_size)
+
+    # All data has been clustered!
+    return labels
+
+
+def grow_cluster(dataset, labels, p, neighbor_pts, current_cluster, eps, min_cluster_size):
+    """
+    Grow a new cluster from the seed point `p`.
+
+    This function searches through the dataset to find all points that belong to
+    this new cluster. When this function returns, current_cluster is complete.
+
+    :param dataset:
+    :param labels: list storing the cluster labels for all dataset points
+    :param p: Index of the seed point for this new cluster
+    :param neighbor_pts: All of the neighbors of `p`
+    :param current_cluster:
+    :param eps: distance beyond which 2 features can not belong to the same cluster
+    :param min_cluster_size:
+    :return:
+    """
+
+    # Assign the cluster label to the seed point.
+    labels[p] = current_cluster
+
+    # Look at each neighbor of p (neighbors are referred to as pn).
+    # neighbor_pts will be used as a FIFO queue of points to search--that is, it
+    # will grow as we discover new branch points for the cluster. The FIFO
+    # behavior is accomplished by using a while-loop rather than a for-loop.
+    # In NeighborPts, the points are represented by their index in the original
+    # dataset.
+    i = 0
+    while i < len(neighbor_pts):
+
+        # Get the next point from the queue.
+        pn = neighbor_pts[i]
+
+        # If pn was labelled NOISE during the seed search, then we
+        # know it's not a branch point (it doesn't have enough neighbors), so
+        # make it a leaf point of cluster C and move on.
+        if labels[pn] == -1:
+            labels[pn] = current_cluster
+
+        # Otherwise, if pn isn't already claimed,
+        # claim it as part of current_cluster.
+        elif labels[pn] == 0:
+            # Add pn to the current cluster.
+            labels[pn] = current_cluster
+
+            # Find all the neighbors of pn
+            pn_neighbor_pts = radius_query(dataset, pn, eps)
+
+            # If pn has atleast min_cluster_size neighbors, it's a branch point!
+            # Add all of its neighbors to the FIFO queue to be searched.
+            if len(pn_neighbor_pts) >= min_cluster_size:
+                neighbor_pts = neighbor_pts + pn_neighbor_pts
+            # If pn *doesn't* have enough neighbors, then it's a leaf point.
+            # Don't queue up it's neighbors as expansion points.
+            # else:
+            # Do nothing
+            # neighbor_pts = neighbor_pts
+
+        # Advance to the next point in the FIFO queue.
+        i += 1
+
+
+def radius_query(dataset, p, eps):
+    """
+    Find all points in the dataset  within distance `eps` of point `p`.
+    :param dataset:
+    :param p: index of data point in the dataset
+    :param eps: distance beyond which 2 features can not belong to the same cluster
+    :return:
+    """
+    neighbors = []
+
+    # For each point in the dataset...
+    current_point = dataset[p]
+    for pn in range(0, len(dataset)):
+        point = dataset[pn]
+        # If the distance is below the threshold, add it to the neighbors list.
+        distance_apart = haversine(current_point['longitude'], current_point['latitude'], point['longitude'], point['latitude'])
+        # print(f"Distance between current point `{current_point['longitude']}, {current_point['latitude']}` and point `{point['longitude']}, {point['latitude']}` ===> {distance_apart}")
+        if distance_apart < eps:
+            neighbors.append(pn)
+
+    return neighbors
+
+
+def group_alerts(dataset, labels):
+    unique_labels_dict = {label: [] for label in labels}
+    for lbl, alert in zip(labels, dataset):
+        unique_labels_dict[lbl].append(alert)
+
+    return [v for v in unique_labels_dict.values()]
+
+
+def cluster_alerts(alerts, radius, min_cluster_size):
+    labels = dbscan(alerts, radius, min_cluster_size)
+    clustered_alerts = group_alerts(alerts, labels)
+    # pick a random(the first alert) in a cluster
+    # could also get the center of the points in the cluster?
+    return [i[0] for i in clustered_alerts]
+
+
+if __name__ == '__main__':
+    alerts = cluster_alerts(data, 0.1, 1)
+    print(alerts)
+
+
+
+
+
