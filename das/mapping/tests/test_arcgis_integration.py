@@ -5,9 +5,9 @@ import logging
 from unittest.mock import patch
 
 from core.tests import BaseAPITest
-from mapping.models import (ArcgisConfiguration, ArcgisGroup, SpatialFeature,
+from mapping.models import (ArcgisConfiguration, ArcgisGroup, SpatialFeature, ArcgisItem,
                             SpatialFeatureType)
-from mapping.utils import (arcgis_authentication, extract_features,
+from mapping.esri_integration import (arcgis_authentication, extract_features,
                            import_featuretype_presentation, search_groups,
                            update_db_groups)
 from observations.utils import convert_date_string
@@ -75,6 +75,12 @@ class TestArcGisIntegration(BaseAPITest):
         self.create_groups()
         self.gis_group = Group.instances[0]
 
+        self.arcgis_item = ArcgisItem.objects.create(
+            id=self.gis_group.id,
+            name=self.gis_group.title,
+            arcgis_config=self.test_config
+        )
+
     def create_groups(self):
         groups = {'lewa':self.test_config.username, 'Africa Parks':None, 'Africa Semi arid areas':None}
         wfs_group_titles = [g.title for g in Group.instances]
@@ -138,10 +144,9 @@ class TestArcGisIntegration(BaseAPITest):
         self.assertTrue(gis)
 
     def load_features(self):
-        with open('./mapping/tests/testdata/Built_point.geojson',
-                  'rb') as geojson_file:
+        with open('./mapping/tests/testdata/Built_point.geojson', 'rb') as geojson_file:
             extract_features(self.test_config, self.gis_group,
-                             self.gis_group.title, geojson_file.read().decode("utf-8"), [], [])
+                             self.gis_group.title, geojson_file.read().decode("utf-8"), [], [], self.arcgis_item.id)
 
     @patch('arcgis.gis.GIS', MockGIS)
     def test_groups_loaded_without_search_text(self):
@@ -186,6 +191,47 @@ class TestArcGisIntegration(BaseAPITest):
 
             feature_types_after_config = SpatialFeatureType.objects.all().count()
             self.assertEqual(feature_types_after_config, 7)
+
+    def test_deleted_feature_from_esri(self):
+        self.load_features()
+
+        features_originally = SpatialFeature.objects.all().count()
+        self.assertEqual(features_originally, 214)
+
+        with open('./mapping/tests/testdata/Built_point.geojson', 'r') as f:
+            data = json.load(f)
+
+            # 2 features deleted from the online groups feature
+            data['features'] = data['features'][:-2]
+            extract_features(self.test_config, self.gis_group,
+                                self.gis_group.title, json.dumps(data), [], [], self.arcgis_item.id)
+
+        after_features_deletion = SpatialFeature.objects.all().count()
+        self.assertEqual(after_features_deletion, 219)
+
+
+    def test_updated_feature_update_from_esri(self):
+        self.load_features()
+
+        initial_mponda = SpatialFeature.objects.get(name='Mponda')
+        prev_mponda_coordinates = [coord for coord in initial_mponda.feature_geometry]
+
+        self.assertEqual(prev_mponda_coordinates, [35.2432244949146, -14.457755073238])
+        with open('./mapping/tests/testdata/Built_point.geojson', 'r') as f:
+            data = json.load(f)
+            for feature in data['features']:
+                if feature["properties"]["Name"] == initial_mponda.name:
+
+                    # Update feature geometry
+                    feature["geometry"]["coordinates"] = [34.54, -15.77]
+            extract_features(self.test_config, self.gis_group,
+                                self.gis_group.title, json.dumps(data), [], [], self.arcgis_item.id)
+
+        updated_mponda = SpatialFeature.objects.get(name='Mponda')
+        new_mponda_coordinates = [coord for coord in updated_mponda.feature_geometry]
+        
+        self.assertEqual(new_mponda_coordinates, [34.54, -15.77])
+        self.assertTrue(prev_mponda_coordinates != new_mponda_coordinates)
 
 
 class Renderer:
