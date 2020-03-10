@@ -356,7 +356,7 @@ class EventsExportView(views.APIView):
         reported_at = 'Reported At ({})'.format(tz_offset)
         default_headers = [
             'Report Type', 'Report Type Internal Value', 'Report Id', 'Title',
-            'Priority', 'Priority Internal Value', 'Status', 'Reported By',
+            'Priority', 'Priority Internal Value', 'Report Status', 'Reported By',
             reported_at, 'Latitude', 'Longitude',
             'Number of Notes', 'Notes', 'Number of Related Subjects',
             'Collection Report IDs', 'CUSTOM FIELDS BEGIN HERE'
@@ -451,7 +451,7 @@ class EventsExportView(views.APIView):
                 "Priority": Event.PRIORITY_LABELS_MAP.get(
                     event.get('priority', ""), ''),
                 "Priority_Internal_Value": event.get('priority', ''),
-                "Status": "Resolved" if event[
+                "Report_Status": "Resolved" if event[
                                             'state'] == Event.SC_RESOLVED else 'Active',
                 reported_at.replace(" ", "_"): event['event_time'].astimezone(
                     current_tz).strftime('%Y-%m-%d %H:%M'),
