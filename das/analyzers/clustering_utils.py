@@ -174,7 +174,12 @@ def radius_query(dataset, p, eps):
     for pn in range(0, len(dataset)):
         point = dataset[pn]
         # If the distance is below the threshold, add it to the neighbors list.
-        distance_apart = haversine(current_point['longitude'], current_point['latitude'], point['longitude'], point['latitude'])
+        if 'latitude' in current_point.keys() or 'longitude' in current_point.keys():
+            distance_apart = haversine(current_point['longitude'], current_point['latitude'], point['longitude'], point['latitude'])
+        else:
+            distance_apart = haversine(current_point['long'],
+                                       current_point['lat'],
+                                       point['long'], point['lat'])
         # print(f"Distance between current point `{current_point['longitude']}, {current_point['latitude']}` and point `{point['longitude']}, {point['latitude']}` ===> {distance_apart}")
         if distance_apart < eps:
             neighbors.append(pn)
@@ -195,12 +200,17 @@ def cluster_alerts(alerts, radius, min_cluster_size):
     clustered_alerts = group_alerts(alerts, labels)
     # pick a random(the first alert) in a cluster
     # could also get the center of the points in the cluster?
-    return [i[0] for i in clustered_alerts]
+    result = []
+    for i in clustered_alerts:
+        random_alert = i[0]
+        random_alert['num_clustered_alerts'] = len(i)
+        result.append(random_alert)
+    return result
 
 
-if __name__ == '__main__':
-    alerts = cluster_alerts(data, 0.1, 1)
-    print(alerts)
+# if __name__ == '__main__':
+#     alerts = cluster_alerts(data, 1, 1)
+#     print(alerts)
 
 
 

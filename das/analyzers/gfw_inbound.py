@@ -13,6 +13,7 @@ from django.utils.dateparse import parse_datetime
 from accounts.models import User
 from activity.models import Event
 from activity.serializers import EventSerializer
+from analyzers.clustering_utils import cluster_alerts
 from analyzers.gfw_alert_schema import ensure_gfw_event_types, GFW_EVENT_TYPES_MAP
 from das_server import celery
 from utils import stats
@@ -139,8 +140,9 @@ def process_handler_post(request):
 
 def process_downloaded_alerts(payload, common_event_fields, user_id):
     counts = {PROCESSED_COUNTER: 0, ERROR_COUNTER: 0}
+    alerts = cluster_alerts(payload, 5, 1)
     errors = [create_event_from_downloadedalert(alert, common_event_fields, user_id, counts)
-              for alert in payload]
+              for alert in alerts]
     errors = filter(lambda x: len(list(x)) > 0, errors)
 
     log_metrics(counts)
