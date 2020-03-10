@@ -3,22 +3,23 @@ from datetime import datetime
 
 import pytz
 from django.contrib.gis.geos import Point
-from django.http.request import HttpRequest
-from django.utils.translation import ugettext_lazy as _
 from django.db.models import signals
+from django.http.request import HttpRequest
+from django.utils.dateparse import parse_datetime
+from django.utils.translation import ugettext_lazy as _
 from rest_framework import status, serializers
 from rest_framework.response import Response
-from django.utils.dateparse import parse_datetime
 
 from accounts.models import User
 from activity.models import Event
 from activity.serializers import EventSerializer
 from analyzers.gfw_alert_schema import ensure_gfw_event_types, GFW_EVENT_TYPES_MAP
-from das_server import celery
-from utils import stats
-from revision.manager import RevisionMixin
+from analyzers.gfw_utils import (prepare_downloadable_url, sub_id_from_unsubscribe_url,
+                                 rebuild_glad_download_url)
 from analyzers.models import GlobalForestWatchSubscription
-from analyzers.gfw_utils import parse_url, prepare_downloadable_url, sub_id_from_unsubscribe_url
+from das_server import celery
+from revision.manager import RevisionMixin
+from utils import stats
 
 logger = logging.getLogger(__name__)
 
@@ -109,17 +110,19 @@ def process_handler_post(request):
 
     subscriptions_qs = GlobalForestWatchSubscription.objects.filter(subscription_id=subscription_id)
     if subscriptions_qs.exists():
-        process_alert_for_subscription(layer_slug, subscription_id, deserialized.validated_data)
+        subscription_ids = [subscription_id]
     else:
-        logger.warning('Unknown subscription %s received. Processing alerts for all subscriptions in db.')
-        subscription_ids = [o.subscription_id for o in GlobalForestWatchSubscription.objects.all()]
+        logger.warning('Unknown subscription %s received. Processing alerts for all subscriptions in db.',
+                       subscription_id)
+        subscription_ids = [o.subscription_id for o in GlobalForestWatchSubscription.objects.all()
+                            if layer_slug in o.additional['alert_types']]
 
-        [process_alert_for_subscription(layer_slug, sub_id, deserialized.validated_data) for sub_id in subscription_ids]
+    [process_alert_for_subscription(layer_slug, sub_id, deserialized.validated_data, request) for sub_id in subscription_ids]
 
-    return Response(status=status.HTTP_201_CREATED, data=dict(message='Alerts are being'))
+    return Response(status=status.HTTP_200_OK, data=dict(message='Alerts are being processed'))
 
 
-def process_alert_for_subscription(layer_slug, subscription_id, validated_data):
+def process_alert_for_subscription(layer_slug, subscription_id, validated_data, request):
     logger.info('Got %s alert', layer_slug,
                 extra={'alert_type': layer_slug})
     event_type_value = GFW_EVENT_TYPES_MAP.get(layer_slug)
@@ -138,11 +141,17 @@ def process_alert_for_subscription(layer_slug, subscription_id, validated_data):
     }
 
     if event_dict.get('event_type') == 'gfw_activefire_alert':
-        validated_data['downloadUrls'] = prepare_downloadable_url(validated_data)
+        validated_data['downloadUrls'] = prepare_downloadable_url(validated_data, subscription_id)
 
     download_urls = validated_data.get('downloadUrls')
     if download_urls:
-        result = celery.app.send_task('analyzers.tasks.download_gfw_alerts', args=(download_urls.get('json'),
+        download_url = download_urls.get('json')
+        if event_dict.get('event_type') == 'gfw_glad_alert':
+            # make sure geostore is correct in download_url
+            download_url = rebuild_glad_download_url(download_url, GlobalForestWatchSubscription.objects.get(
+                subscription_id=subscription_id))
+
+        result = celery.app.send_task('analyzers.tasks.download_gfw_alerts', args=(download_url,
                                                                                    event_dict,
                                                                                    str(request.user.id)))
         logger.info('Submitted task for downloading GFW Alerts. Celery Async result: %s', result)

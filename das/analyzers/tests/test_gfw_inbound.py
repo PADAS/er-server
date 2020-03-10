@@ -4,6 +4,7 @@ from unittest.mock import patch, Mock
 
 from django.contrib.gis.geos import Polygon
 from rest_framework import status
+from faker import Faker
 
 from activity.models import Event
 from analyzers.gfw_utils import (get_geostore_id, GEOSTORE_FIELD, GLAD_CONFIRM_FIELD,
@@ -33,6 +34,7 @@ class GFWAlertHandlerTest(BaseAPITest):
     test_data_viirs_subscription_id = '5d11c24e062bed110071db94'
     test_data_geostore_id = 'a8c46db68bc4b6f7f881f38ce61a8bcb'
     subscription_poly = Polygon(((0, 0), (1, 0), (1, 1), (0, 1), (0, 0)))
+    faker = Faker()
 
     def setUp(self):
         super().setUp()
@@ -42,44 +44,53 @@ class GFWAlertHandlerTest(BaseAPITest):
     def tearDown(self) -> None:
         app.send_task = app.send_task
 
-    @patch('das_server.celery.app.send_task')
-    def test_glad(self, mock_send_task):
-        self._create_and_get_test_model()
-        response = self._post_data(json.dumps(GLAD_ALERT))
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+    @patch('requests.get')
+    def test_glad(self, mock_request):
+        mock_request.return_value = Mock(status_code=200, text=json.dumps(GLAD_ALERT_DOWNLOADED_DATA))
+        app.send_task = send_task
+        self._create_and_get_test_model(subscription_id=self.test_data_glad_subscription_id,
+                                        geostore_id=self.test_data_geostore_id)
 
-    def test_virrs(self):
-        model = self._create_and_get_test_model()
-        model.subscription_id = self.test_data_viirs_subscription_id
-        model.save()
+        response = self._post_data(json.dumps(GLAD_ALERT))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(1, Event.objects.all().count())  # GLAD_ALERT_DOWNLOADED_DATA has 1 confirmed sub
+
+    @patch('requests.get')
+    def test_virrs(self, mock_request):
+        mock_request.return_value = Mock(status_code=200, text=json.dumps(VIIRS_FIRE_ALERT_DOWNLOADED_DATA))
+        app.send_task = send_task
+        self._create_and_get_test_model(subscription_id=self.test_data_viirs_subscription_id)
         response = self._post_data(json.dumps(VIIRS_FIRE_ALERT))
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(VIIRS_FIRE_ALERT_DOWNLOADED_DATA['rows']), Event.objects.all().count())
 
-    @patch('das_server.celery.app.send_task')
-    def test_glad_with_duplicates(self, mock_send_task):
-        # note: see note in test_glad
-        num_events_expected = len(GLAD_ALERT['alerts'])
-
+    @patch('requests.get')
+    def test_glad_with_duplicates(self, mock_request):
+        mock_request.return_value = Mock(status_code=200, text=json.dumps(GLAD_ALERT_DOWNLOADED_DATA))
+        app.send_task = send_task
         self._create_and_get_test_model()
         response = self._post_data(json.dumps(GLAD_ALERT))
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # create again, total events in db shouldn't change
         response = self._post_data(json.dumps(GLAD_ALERT))
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(1, Event.objects.all().count())
 
-    def test_viirs_with_duplicates(self):
-        num_events_expected = len(VIIRS_FIRE_ALERT['alerts'])
+    @patch('requests.get')
+    def test_viirs_with_duplicates(self, mock_request):
+        mock_request.return_value = Mock(status_code=200, text=json.dumps(VIIRS_FIRE_ALERT_DOWNLOADED_DATA))
+        app.send_task = send_task
 
-        model = self._create_and_get_test_model()
-        model.subscription_id = self.test_data_viirs_subscription_id
-        model.save()
+        self._create_and_get_test_model()
+
         response = self._post_data(json.dumps(VIIRS_FIRE_ALERT))
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # create again, total events in db shouldn't change
         response = self._post_data(json.dumps(VIIRS_FIRE_ALERT))
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(VIIRS_FIRE_ALERT_DOWNLOADED_DATA['rows']), Event.objects.all().count())
 
     def test_with_alerts_missing(self):
         data = VIIRS_FIRE_ALERT
@@ -100,9 +111,7 @@ class GFWAlertHandlerTest(BaseAPITest):
         self.assertEqual(query_params[GLAD_CONFIRM_FIELD][0], 'False')
 
         new_geostore_id = 'a hardcoded string for test'
-        gfw_obj = self._create_and_get_test_model()
-        gfw_obj.geostore_id = new_geostore_id
-        gfw_obj.save()
+        gfw_obj = self._create_and_get_test_model(geostore_id=new_geostore_id)
         updated_url = rebuild_glad_download_url(
             self.download_url_unknown_geostore, gfw_obj)
         updated_qp = parser.parse_qs(parser.urlparse(updated_url).query)
@@ -118,8 +127,8 @@ class GFWAlertHandlerTest(BaseAPITest):
         self._create_and_get_test_model()
 
         response = self._post_data(json.dumps(GLAD_ALERT))
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(1, Event.objects.all().count())
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(1, Event.objects.all().count())  # GLAD_ALERT_DOWNLOADED_DATA has 1 confirmed sub
 
         with patch('analyzers.gfw_inbound.process_downloaded_alerts') as mock_download_process_alerts:
             self._post_data(json.dumps(GLAD_ALERT))
@@ -131,35 +140,48 @@ class GFWAlertHandlerTest(BaseAPITest):
         app.send_task = send_task
 
         self._create_and_get_test_model()
-        model = self._create_and_get_test_model()
-        model.subscription_id = 'another subscription id'
-        model.save()
+        self._create_and_get_test_model()
 
         response = self._post_data(json.dumps(GLAD_ALERT))
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(1, Event.objects.all().count())
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(1, Event.objects.all().count())  # GLAD_ALERT_DOWNLOADED_DATA has 1 confirmed sub
 
         with patch('analyzers.gfw_inbound.process_downloaded_alerts') as mock_download_process_alerts:
             self._post_data(json.dumps(GLAD_ALERT))
             self.assertEqual(mock_download_process_alerts.call_count, 2)
 
     @patch('requests.get')
-    def test_download_glad_two_subscriptions_known_geostore(self, mock_request):
+    def test_download_glad_two_subscriptions_known_geostore_and_subscription(self, mock_request):
         mock_request.return_value = Mock(status_code=200, text=json.dumps(GLAD_ALERT_DOWNLOADED_DATA))
         app.send_task = send_task
 
         self._create_and_get_test_model()
-        model = self._create_and_get_test_model()
-        model.subscription_id = 'another subscription id'
-        model.save()
+        self._create_and_get_test_model(subscription_id=self.test_data_glad_subscription_id,
+                                        geostore_id=self.test_data_geostore_id)
 
         response = self._post_data(json.dumps(GLAD_ALERT))
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(1, Event.objects.all().count())
 
         with patch('analyzers.gfw_inbound.process_downloaded_alerts') as mock_download_process_alerts:
             self._post_data(json.dumps(GLAD_ALERT))
-            self.assertEqual(mock_download_process_alerts.call_count, 2)
+            self.assertEqual(mock_download_process_alerts.call_count, 1)
+
+    @patch('requests.get')
+    def test_download_glad_two_subscriptions_unknown_geostore_known_subscription(self, mock_request):
+        mock_request.return_value = Mock(status_code=200, text=json.dumps(GLAD_ALERT_DOWNLOADED_DATA))
+        app.send_task = send_task
+
+        self._create_and_get_test_model()
+        self._create_and_get_test_model(subscription_id=self.test_data_glad_subscription_id)
+
+        response = self._post_data(json.dumps(GLAD_ALERT))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(1, Event.objects.all().count())
+
+        with patch('analyzers.gfw_inbound.process_downloaded_alerts') as mock_download_process_alerts:
+            self._post_data(json.dumps(GLAD_ALERT))
+            self.assertEqual(mock_download_process_alerts.call_count, 1)
 
     def test_with_bad_subscription_id(self):
         # save glad test data's subscription_id in the db
@@ -201,7 +223,7 @@ class GFWAlertHandlerTest(BaseAPITest):
         response = self._post_data(json.dumps(GLAD_ALERT))
         # There is only one alert with confidence level 3 in 'GLAD_ALERT_DOWNLOADED_DATA' (example data)
         expected_event = 1
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(expected_event, Event.objects.all().count())
 
         # Update the confidence level for GFWSubscription object
@@ -211,7 +233,7 @@ class GFWAlertHandlerTest(BaseAPITest):
 
         response = self._post_data(json.dumps(GLAD_ALERT))
         expected_event = len(GLAD_ALERT_DOWNLOADED_DATA['data'])
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(expected_event, Event.objects.all().count())
 
     # @patch('analyzers.gfw_utils.get_viirs_fire_alerts')
@@ -241,11 +263,25 @@ class GFWAlertHandlerTest(BaseAPITest):
 
         response = self._post_data(json.dumps(VIIRS_FIRE_ALERT))
         expected_event = len(VIIRS_FIRE_ALERT_DOWNLOADED_DATA['rows'])  # ALL have confidence level: Nominal
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(expected_event, Event.objects.all().count())
 
-    def _create_and_get_test_model(self):
-        return gfw_model.objects.create(name='Test alert', subscription_id=self.test_data_glad_subscription_id,
-                                        geostore_id=self.test_data_geostore_id,
+    def _create_and_get_test_model(self, subscription_id=None, geostore_id=None,
+                                   glad_conf=None, viirs_conf=None, additional=None):
+        if not subscription_id:
+            subscription_id = self.faker.name()
+        if not geostore_id:
+            geostore_id = self.faker.name()
+        if not glad_conf:
+            glad_conf = gfw_model.CONFIRMED
+        if not viirs_conf:
+            viirs_conf = gfw_model.HIGH_NOMINAL
+        if not additional or not additional['alert_types']:
+            additional = {'alert_types': ['viirs-active-fires', 'glad-alerts']}
+
+        return gfw_model.objects.create(name='Test alert', subscription_id=subscription_id,
+                                        geostore_id=geostore_id,
                                         subscription_geometry=self.subscription_poly,
-                                        Deforestation_confidence=gfw_model.CONFIRMED)
+                                        Deforestation_confidence=glad_conf,
+                                        Fire_confidence=viirs_conf,
+                                        additional=additional)

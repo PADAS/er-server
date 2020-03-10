@@ -55,10 +55,9 @@ def confidence_level_fmt(confidence_level):
     return fmt
 
 
-def prepare_downloadable_url(validated_data):
+def prepare_downloadable_url(validated_data, subscription_id):
     data = validated_data.get
     alert_date_begin, alert_date_end = data('alert_date_begin'), data('alert_date_end')
-    subscription_id = sub_id_from_unsubscribe_url(data('unsubscribe_url'))
 
     gfw_query = gfw_model.objects.get(subscription_id=subscription_id)
 

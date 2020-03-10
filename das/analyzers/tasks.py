@@ -128,25 +128,7 @@ def handle_observation(observation_id):
 
 
 @celery.app.task(bind=True, max_retries=5)
-def download_gfw_alerts(self, received_download_url, common_event_fields, user_id):
-    if common_event_fields.get('event_type') == GFWGladEventTypeSpec.value:
-        received_geostore_id = get_geostore_id(received_download_url)
-        geostore_qs = gfw_model.objects.filter(geostore_id=received_geostore_id)
-
-        if geostore_qs.exists():
-            queryset = geostore_qs
-        else:
-            queryset = gfw_model.objects.all()
-            logger.warning('Unknown geostore %s received. Will download for all geostores in db')
-
-        download_urls = [rebuild_glad_download_url(received_download_url, o) for o in queryset]
-    else:
-        download_urls = [received_download_url]
-
-    [download_from_url(self, url, common_event_fields, user_id) for url in download_urls]
-
-
-def download_from_url(self, download_url, common_event_fields, user_id):
+def download_gfw_alerts(self, download_url, common_event_fields, user_id):
     try:
         connect_timeout, read_timeout = 3, 30
         logger.info('Processing GFW payload for %s. Downloading from: %s', common_event_fields.get('event_type'),
