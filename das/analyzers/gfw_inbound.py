@@ -2,6 +2,7 @@ import logging
 from datetime import datetime
 
 import pytz
+from django.conf import settings
 from django.contrib.gis.geos import Point
 from django.http.request import HttpRequest
 from django.utils.translation import ugettext_lazy as _
@@ -140,7 +141,7 @@ def process_handler_post(request):
 
 def process_downloaded_alerts(payload, common_event_fields, user_id):
     counts = {PROCESSED_COUNTER: 0, ERROR_COUNTER: 0}
-    alerts = cluster_alerts(payload, 5, 1)
+    alerts = cluster_alerts(payload, settings.GFW_CLUSTER_RADIUS, 1)
     errors = [create_event_from_downloadedalert(alert, common_event_fields, user_id, counts)
               for alert in alerts]
     errors = filter(lambda x: len(list(x)) > 0, errors)
