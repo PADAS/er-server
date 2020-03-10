@@ -189,6 +189,8 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
             'time': time,
         }
     }
+    common_event_fields['event_details']['num_of_clustered_events'] = downloaded_sample.get('num_clustered_alerts', 1)
+
     url = common_event_fields['event_details']['unsubscribe_url']
     subscription_url = url.split('/')
     subscription_id = subscription_url[4]
