@@ -78,7 +78,7 @@ variable "fqdn" {
 
 variable "from_email" {
   type    = string
-  default = "notifications.demo@pamdas.org"
+  default = null
 }
 
 
@@ -116,15 +116,15 @@ variable "show_track_days" {
 
 variable "eus_email" {
   type    = string
-  default = "eus_test@pamdas.org"
+  default = ""
 }
 variable "eus_name" {
   type    = string
-  default = "EUS Test User"
+  default = ""
 }
 variable "eus_org" {
   type    = string
-  default = "pamdas.org"
+  default = null
 }
 
 variable "eus_type" {

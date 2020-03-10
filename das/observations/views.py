@@ -407,6 +407,7 @@ class SubjectsView(generics.ListCreateAPIView):
 
                     subjects_via_source = all_subjects.filter(
                         subjectsource__source=source)
+                    subjects_via_source = check_to_include_inactive_subjects(self.request, subjects_via_source)
 
                     queryset = queryset.distinct() | subjects_via_source.distinct()
 

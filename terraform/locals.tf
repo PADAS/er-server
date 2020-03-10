@@ -15,6 +15,8 @@ locals {
     "demo-two" = "prod1"
     "garamba" = "prod1"
     "connected-conservation" = "prod1"
+    "chipinge" = "prod1"
+    "bubyevalley" = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
