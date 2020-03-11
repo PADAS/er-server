@@ -34,7 +34,7 @@ def warm_eventphotos(self, event_photo_id):
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True, })
-def evaluate_alert_rules(event_id):
+def evaluate_alert_rules(event_id, created, updated_fields):
 
     try:
         logger.info('Evaluating Event %s for alerting.', event_id)
@@ -51,22 +51,47 @@ def evaluate_alert_rules(event_id):
 
         already_queued_nids = set()  # accumulator for Notification Methods.
         for alert_rule in AlertRule.objects.filter(id__in=alert_rule_ids).order_by('ordernum', 'title'):
-            for notification_method in alert_rule.notification_methods.filter(is_active=True):
 
-                if notification_method.id not in already_queued_nids:
-                    kwargs = {
-                        'alert_rule_id': str(alert_rule.id),
-                        'event_id': str(event_id),
-                        'notification_method_id': str(notification_method.id)
-                    }
-
-                    send_alert_to_notificationmethod.apply_async(
-                        args=(), kwargs=kwargs)
-                already_queued_nids.add(notification_method.id)
+            # Verify conditions to only send alerts when the set conditions are met
+            evaluate_conditions_for_sending_alerts(event, alert_rule, already_queued_nids, created, eval(updated_fields))
 
     except Exception as e:
         logger.exception(
             'Failed when evaluating alert rules for event {}'.format(event_id))
+
+
+def evaluate_conditions_for_sending_alerts(event, alert_rule, queued_nids, created, updated_fields):
+
+    if created or not alert_rule.conditions:
+        # Sending all alerts, if new report created or report has no conditions set
+        evaluate_notifications(alert_rule, queued_nids, event.id)
+    elif not created and not updated_fields:
+        # Dont send an alert is nothing is updated
+        pass
+    else:
+        for alert_condition in alert_rule.conditions['all']:
+            condition_name = alert_condition['name']
+            event_value = getattr(event, condition_name)
+            condition_values = alert_condition['value']
+            condition_operator = alert_condition['operator']
+
+            # Check if allowed condition values are updated
+            if condition_name in updated_fields and event_value in condition_values and condition_operator == 'shares_at_least_one_element_with':
+                evaluate_notifications(alert_rule, queued_nids, event.id)
+
+
+def evaluate_notifications(alert_rule, already_queued_nids, event_id):
+    for notification_method in alert_rule.notification_methods.filter(is_active=True):
+        if notification_method.id not in already_queued_nids:
+            kwargs = {
+                'alert_rule_id': str(alert_rule.id),
+                'event_id': str(event_id),
+                'notification_method_id': str(notification_method.id)
+            }
+
+            send_alert_to_notificationmethod.apply_async(
+                args=(), kwargs=kwargs)
+        already_queued_nids.add(notification_method.id)
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True, })
