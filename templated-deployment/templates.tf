@@ -1,3 +1,12 @@
+locals {
+   domain_parts = regex("(?P<subdomain>[^.]+).(?P<primary_domain>.*)", var.fqdn)
+   standard_from_email = join("", ["notifications.", local.domain_parts["subdomain"],
+                                   "@", local.domain_parts["primary_domain"]])
+
+   from_email = coalesce(var.from_email, local.standard_from_email)
+   resolved_eus_organization = coalesce(var.eus_org, var.fqdn)
+}
+
 resource "template_dir" "deployments" {
 
   source_dir = "${path.root}/templates"
@@ -15,16 +24,16 @@ resource "template_dir" "deployments" {
     DB_NAME                         = var.db_name
     DB_PORT                         = var.db_port
     DB_USER                         = var.db_user
-    DEFAULT_FROM_EMAIL              = var.from_email
+    DEFAULT_FROM_EMAIL              = local.from_email
     EMAIL_HOST                      = var.email_host
     EMAIL_HOST_USER                 = var.email_host_user
     ENABLE_DEBUG                    = var.enable_debug
     EUS_EMAIL                       = var.eus_email
     EUS_NAME                        = var.eus_name
-    EUS_ORG                         = var.eus_org
+    EUS_ORG                         = local.resolved_eus_organization
     EUS_TYPE                        = var.eus_type
     FQDN                            = var.fqdn
-    FROM_EMAIL                      = var.from_email
+    FROM_EMAIL                      = local.from_email
     GS_BUCKET_NAME                  = var.gs_bucket_name
     INGRESS_VERSION                 = var.INGRESS_VERSION
     KML_EXPORT                      = var.kml_export

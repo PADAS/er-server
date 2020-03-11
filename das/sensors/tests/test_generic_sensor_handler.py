@@ -5,6 +5,7 @@ from uuid import uuid4
 from unittest import mock
 import pytz
 
+from dateutil import parser as dateparser
 from django.utils import timezone
 from django.db import transaction
 from rest_framework import status
@@ -24,7 +25,16 @@ class GenericSensorHandlerTest(BaseAPITest):
     one_observation = {
         "subject_name": "test_subject",
         "manufacturer_id": manufacturer_id,
-        "recorded_at": "2019-04-09 12:01:00",
+        "recorded_at": "2019-04-09T12:01:00",
+        "location": {
+            "lon": "31.19239",
+            "lat": "-24.43071"},
+    }
+
+    second_observation = {
+        "subject_name": "test_subject",
+        "manufacturer_id": manufacturer_id,
+        "recorded_at": "2020-03-07T16:28:38+00:00",
         "location": {
             "lon": "31.19239",
             "lat": "-24.43071"},
@@ -82,10 +92,26 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_post_one(self):
+        recorded_at_iso = self.one_observation['recorded_at']
+        recorded_at = dateparser.parse(recorded_at_iso)
+        self.assertEqual(recorded_at_iso, recorded_at.isoformat())
+
         response = self._post_data(json.dumps(self.one_observation))
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(1, Observation.objects.filter(
             source=self.test_source).count())
+        obs = next(iter(Observation.objects.filter(
+            source=self.test_source)))
+        
+    def test_request_recorded_at_timezone(self):
+        recorded_at_iso = self.second_observation['recorded_at']
+        recorded_at = dateparser.parse(recorded_at_iso)
+        self.assertEqual(recorded_at_iso, recorded_at.isoformat())
+        response = self._post_data(json.dumps(self.second_observation))
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        obs = next(iter(Observation.objects.filter(
+            source=self.test_source)))
+        self.assertEqual(recorded_at, obs.recorded_at)
 
     def test_post_with_additional(self):
         observation = copy.deepcopy(self.one_observation)
