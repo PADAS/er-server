@@ -236,7 +236,7 @@ def persist_event(event_fields, request, counts):
     if Event.objects.filter(location=location,
                             event_time=event_fields['time'],
                             event_type__value__exact=event_fields['event_type']).exists():
-        logger.warning('Event already exists - ignoring duplicate event')
+        logger.debug('Event already exists - ignoring duplicate event')
     else:
         evt_serializer = EventSerializer(
             data=event_fields, context={'request': request})
