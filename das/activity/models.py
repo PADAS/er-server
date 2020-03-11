@@ -1312,8 +1312,8 @@ class AlertRule(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
     owner = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='alert_rules', related_query_name='alert_rule')
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        null=True, blank=False, related_name='alert_rules', related_query_name='alert_rule')
 
     title = models.CharField(max_length=100, blank=True, help_text=_('A user friendly name for this alert.'))
     ordernum = models.SmallIntegerField(blank=True, null=True, default=0)
