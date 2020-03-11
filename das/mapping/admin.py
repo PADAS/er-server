@@ -430,7 +430,7 @@ if MAPPING_FEATURES_V2:
         fieldsets = (
             (None, {
                 'classes': ('wide',),
-                'fields': ('last_download', 'config_name', 'username', 'password', 'search_text')
+                'fields': ('last_download_time', 'config_name', 'username', 'password', 'search_text')
             }),
             ('ArcGIS Group', {
                 'classes': ('wide', 'groups'),
@@ -441,7 +441,7 @@ if MAPPING_FEATURES_V2:
                 'fields': ('service_url', 'source', 'type_label', 'id_field','name_field',)
             }
             ),)
-        readonly_fields = ('last_download',)
+        readonly_fields = ('last_download_time',)
         form = ArcgisConfigurationForm
 
         def get_fieldsets(self, request, obj=None):

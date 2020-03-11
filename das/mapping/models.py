@@ -4,6 +4,7 @@ import logging
 import glob
 import zipfile
 
+from django.conf import settings
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ImproperlyConfigured
@@ -15,6 +16,7 @@ from django.core import management
 from django.core.exceptions import ValidationError
 from django.core.files.storage import FileSystemStorage
 from django.utils.deconstruct import deconstructible
+from pytz import timezone
 
 from core.models import TimestampedModel
 from utils.decorator import reify
@@ -837,6 +839,12 @@ class ArcgisConfiguration(TimestampedModel):
 
     class Meta:
         verbose_name = 'Feature Service Configuration'
+
+    @property
+    def last_download_time(self):
+        t_zone = timezone(settings.TIME_ZONE)
+        fmt = '%d %b %Y, %H:%M %p (%Z)'
+        return self.last_download.astimezone(t_zone).strftime(fmt)
 
 
 # Minimal model for an arcgis.gis.Item
