@@ -8,8 +8,6 @@ from activity.models import Event, EventPhoto
 from das_server import celery
 from das_server import pubsub
 
-from activity.tasks import evaluate_alert_rules
-
 logger = logging.getLogger(__name__)
 
 
