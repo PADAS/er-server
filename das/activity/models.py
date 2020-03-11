@@ -841,6 +841,18 @@ class Event(RevisionMixin, TimestampedModel):
         update_fields = kwargs.get('update_fields', [])
         save_fields = set()
 
+        if self.pk:
+            cls = self.__class__
+            original_values = cls.objects.get(pk=self.pk)
+            # self represent the new field values
+            for field in cls._meta.get_fields():
+                field_name = field.name
+                try:
+                    if getattr(original_values, field_name) != getattr(self, field_name):
+                        update_fields.append(field_name)
+                except Exception:
+                    pass
+
         try:
             prev_state = self.revision_original.get('state', None)
         except AttributeError:

@@ -8,11 +8,16 @@ from activity.models import Event, EventPhoto
 from das_server import celery
 from das_server import pubsub
 
+from activity.tasks import evaluate_alert_rules
+
 logger = logging.getLogger(__name__)
 
 
 @receiver(post_save, sender=Event)
 def event_post_save(sender, instance, created, **kwargs):
+
+    updated_fields = kwargs.get('update_fields')
+    updated_fields = {f for f in updated_fields} if updated_fields else {}
 
     logger.info("saved event {}, created={}".format(instance.pk, str(created)))
     transaction.on_commit(lambda: pubsub.publish(
@@ -21,7 +26,8 @@ def event_post_save(sender, instance, created, **kwargs):
 
     transaction.on_commit(lambda:
                           celery.app.send_task(
-                              'activity.tasks.evaluate_alert_rules', args=(str(instance.id),))
+                              'activity.tasks.evaluate_alert_rules',
+                              args=(str(instance.id), created, repr(updated_fields),))
                           )
 
 
