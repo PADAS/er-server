@@ -15,9 +15,10 @@ data "vault_generic_secret" "email_password" {
 }
 
 data "vault_generic_secret" "ssl_privatekey_pem" {
-  path = var.ssl_privatekey_vault_path
+  path = "${local.legacy_vault_path}/${var.ssl_privatekey_vault_path}"
+
 }
 
 data "vault_generic_secret" "ssl_certificate_chain" {
-  path = var.ssl_cert_bundle_vault_path
+  path = "${local.legacy_vault_path}/${var.ssl_certificate_vault_path}"
 }
