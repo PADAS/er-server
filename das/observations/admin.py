@@ -20,7 +20,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.db.models import Q, F, Count, ExpressionWrapper, Window, Max, Min
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models.functions import FirstValue, Trunc
-from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField, F
+from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
 from django.db.models.functions import Now
 from django.http import HttpResponse
 from django.template.loader import render_to_string
