@@ -20,7 +20,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.db.models import Q, F, Count, ExpressionWrapper, Window, Max, Min
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models.functions import FirstValue, Trunc
-from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
+from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField, F
 from django.db.models.functions import Now
 from django.http import HttpResponse
 from django.template.loader import render_to_string
@@ -1074,8 +1074,6 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
             '''jsonb_extract_path_text(observations_subjectstatus.additional, 'state')
              || jsonb_extract_path_text(observations_subjectstatus.additional, 'gps_fix')''', ()))
         qs = qs.prefetch_related('subject')
-        qs = qs.annotate(
-            provider_name=F('subject__subjectsource__source__provider__display_name'))
         return qs
 
     def _location(self, o):
@@ -1089,7 +1087,8 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
     _recorded_at.admin_order_field = 'recorded_at'
 
     def _source_provider(self, o):
-        return o.provider_name
+        o = o.subject.subjectsources.annotate(provider_name=F('source__provider__display_name'))
+        return o[0].provider_name
 
     def _source_type(self, o):
         source = None
