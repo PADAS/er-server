@@ -295,19 +295,16 @@ def cleanup_files(filename, spatial_file):
     Remove files/directories from the temporary folder.
     """
     uploaded_file_directory = spatial_file.data.storage.location
-    uploaded_file_path = spatial_file.data.path
-
-    if os.path.exists(uploaded_file_path):
-            os.remove(uploaded_file_path)
 
     # clear directory
-    try:
-        shutil.rmtree(uploaded_file_directory)
-    except Exception:
-        shutil.rmtree('/'.join(filename.split("/")[:-1]))
-    except:
-        logger.exception(
-            f'Cleaned up spatial files after import: {uploaded_file_directory}')
+    if os.path.exists(uploaded_file_directory):
+        try:
+            shutil.rmtree(uploaded_file_directory)
+        except Exception:
+            shutil.rmtree('/'.join(filename.split("/")[:-1]))
+
+    logger.exception(
+        f'Cleaned up spatial files after import: {uploaded_file_directory}')
     filename = ''
 
 
