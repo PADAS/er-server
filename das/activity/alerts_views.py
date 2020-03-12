@@ -29,24 +29,26 @@ class EventAlertConditionsListView(generics.ListAPIView):
         event_types = self.request.query_params.get('event_type', '')
         if event_types:
             qs = qs.by_event_type(event_types)
-        return qs
 
-    def get(self, *args, **kwargs):
-        only_common_factors = parse_bool(
-            self.request.query_params.get('only_common_factors', False))
-        
         # Exclude conditions with eventtypes of invalid schema
-        queryset, errored_types = self.get_queryset(), []
-        for eventype in queryset:
+        errored_types = []
+        for eventype in qs:
             try:
                 get_schema_renderer_method()(eventype.schema)
             except Exception:
                 logger.exception(f"{eventype} event type skipped, invalid schema")
                 errored_types.append(eventype.display)
 
-        queryset = queryset.exclude(display__in=errored_types)
+        qs = qs.exclude(display__in=errored_types)
+
+        return qs
+
+    def get(self, *args, **kwargs):
+        only_common_factors = parse_bool(
+            self.request.query_params.get('only_common_factors', False))
+
         rules = render_aggregate_event_variables(
-            queryset, only_common_factors=only_common_factors, user=self.request.user)
+            self.get_queryset(), only_common_factors=only_common_factors, user=self.request.user)
 
         return response.Response(rules, status=status.HTTP_200_OK)
 
