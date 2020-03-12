@@ -172,7 +172,7 @@ class TestArcGisIntegration(BaseAPITest):
         self.load_features()
 
         groups_after_config = SpatialFeature.objects.all().count()
-        self.assertEqual(groups_after_config, 0)
+        self.assertEqual(groups_after_config, 41)
 
     def test_extract_features_into_er_from_loaded_file_with_valid_park_content(self):
         with self.settings(UI_SITE_URL='http://www.liwonde.com'):
@@ -196,7 +196,7 @@ class TestArcGisIntegration(BaseAPITest):
         self.load_features()
 
         features_originally = SpatialFeature.objects.all().count()
-        self.assertEqual(features_originally, 214)
+        self.assertEqual(features_originally, 41)
 
         with open('./mapping/tests/testdata/Built_point.geojson', 'r') as f:
             data = json.load(f)
@@ -207,7 +207,7 @@ class TestArcGisIntegration(BaseAPITest):
                                 self.gis_group.title, json.dumps(data), [], [], self.arcgis_item.id)
 
         after_features_deletion = SpatialFeature.objects.all().count()
-        self.assertEqual(after_features_deletion, 219)
+        self.assertEqual(after_features_deletion, 39)
 
 
     def test_updated_feature_update_from_esri(self):

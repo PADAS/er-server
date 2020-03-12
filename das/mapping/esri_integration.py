@@ -1,17 +1,21 @@
+import datetime
 import logging
 import tempfile
-import datetime
 
 import arcgis
-from arcgis2geojson import arcgis2geojson
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.gis.gdal import GDALException
 from django.core import management
 from django.utils.safestring import mark_safe
 
+from arcgis2geojson import arcgis2geojson
 from mapping import models
 from mapping.tasks import background_download_features_from_wfs
-from mapping.utils import get_spatial_feature_type, geometry_mapper, get_or_create_feature, set_feature_name, get_datasource_and_layer_num, make_external_id, contains_unique_keys_in_layer
+from mapping.utils import (contains_unique_keys_in_layer, geometry_mapper,
+                           get_datasource_and_layer_num, get_or_create_feature,
+                           get_spatial_feature_type, make_external_id,
+                           set_feature_name)
 
 logger = logging.getLogger(__name__)
 
@@ -172,8 +176,11 @@ def import_features_from_esri(tmp_filename, arcgis_item_id, external_sourcename,
             # e.g., AP has features for multiple parks in the same feature layer
             # TODO: make configurable, move out filter key (e.g., Park below) & filter value (ui_site_url)
             #  to the admin UI.
-            # if 'Park' not in feature.fields orfeature.get('Park').lower() in settings.UI_SITE_URL.lower():
-            save_esri_feature(feature, external_sourcename, external_id, type_field, arc_item, i)
+            if hasattr(settings, 'UI_SITE_URL') and 'Park' in feature.fields:
+                if feature['Park'].value.lower() in settings.UI_SITE_URL.lower():
+                    save_esri_feature(feature, external_sourcename, external_id, type_field, arc_item, i)
+            else:
+                save_esri_feature(feature, external_sourcename, external_id, type_field, arc_item, i)
     finally:
         datasource = None
 
