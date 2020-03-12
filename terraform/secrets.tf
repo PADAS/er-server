@@ -46,19 +46,19 @@ resource "kubernetes_secret" "app_db_credentials" {
   }
 }
 
-resource "kubernetes_secret" "pamdas_org_ssl_cert_bundle" {
+resource "kubernetes_secret" "ssl_certificate_chain" {
   metadata {
     name      = "pamdas-org-ssl-cert-bundle"
     namespace = kubernetes_namespace.this.metadata.0.name
   }
-  data = data.vault_generic_secret.pamdas_org_ssl_cert_bundle.data
+  data = data.vault_generic_secret.ssl_certificate_chain.data
 }
 
-resource "kubernetes_secret" "pamdas_org_private_key_pem" {
+resource "kubernetes_secret" "ssl_privatekey_pem" {
   metadata {
     name      = "pamdas-org-private-key-pem"
     namespace = kubernetes_namespace.this.metadata.0.name
   }
-  data = data.vault_generic_secret.pamdas_org_private_key_pem.data
+  data = data.vault_generic_secret.ssl_privatekey_pem.data
 }
 

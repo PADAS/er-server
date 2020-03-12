@@ -1,4 +1,5 @@
 import copy
+import csv
 import json
 import logging
 import mimetypes
@@ -336,7 +337,7 @@ def generate_event_type_cache():
     return event_types_map
 
 
-class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
+class EventsExportView(views.APIView):
     permission_classes = (EventCategoryPermissions,)
 
     def get_event_export_list(self):
@@ -355,7 +356,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         reported_at = 'Reported At ({})'.format(tz_offset)
         default_headers = [
             'Report Type', 'Report Type Internal Value', 'Report Id', 'Title',
-            'Priority', 'Priority Internal Value', 'Status', 'Reported By',
+            'Priority', 'Priority Internal Value', 'Report Status', 'Reported By',
             reported_at, 'Latitude', 'Longitude',
             'Number of Notes', 'Notes', 'Number of Related Subjects',
             'Collection Report IDs', 'CUSTOM FIELDS BEGIN HERE'
@@ -401,12 +402,13 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
                                 current_schema, key)
                             current_event_type_data['headers'].append(
                                 self.escape_string(key))
-                            current_event_type_data['headers'].append("test")
+                            current_event_type_data['headers'].append(
+                                self.escape_string(display_value))
 
-                            if key not in custom_headers:
+                            if self.value_cols and key not in custom_headers:
                                 custom_headers.append(key)
 
-                            if display_value not in custom_headers:
+                            if self.display_cols and display_value not in custom_headers:
                                 column_name = schema_utils.get_column_header_name(
                                     current_schema, key)
                                 column_name = self.escape_string(column_name)
@@ -429,6 +431,7 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             else:
                 details = {}
 
+
             schema_data = OrderedDict()
             for key, order in current_schema_order.items():
                 item_display_name = schema_utils.get_display_value_header_for_key(
@@ -441,39 +444,50 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
             # Now assemble the data we want to write to the csv
             event_data = {
-                'serial': event['serial_number'],
-                'event_type': event_type['display'],
-                'event_type_internal': event_type['value'],
-                'title': self.escape_string(event['title']),
-                'priority': Event.PRIORITY_LABELS_MAP.get(event['priority'],
-                                                          ''),
-                'priority_internal': event['priority'],
-                'reported_at': event['event_time'].astimezone(
+                "Report_Type": event_type.get('display', ''),
+                "Report_Type_Internal_Value": event_type.get('value', ''),
+                "Report_Id": event.get('serial_number', ''),
+                "Title": self.escape_string(event.get('title', "")),
+                "Priority": Event.PRIORITY_LABELS_MAP.get(
+                    event.get('priority', ""), ''),
+                "Priority_Internal_Value": event.get('priority', ''),
+                "Report_Status": "Resolved" if event[
+                                            'state'] == Event.SC_RESOLVED else 'Active',
+                reported_at.replace(" ", "_"): event['event_time'].astimezone(
                     current_tz).strftime('%Y-%m-%d %H:%M'),
-                'lat': event['location'].y if event[
-                    'location'] is not None else '',
-                'lon': event['location'].x if event[
-                    'location'] is not None else '',
-                'num_notes': event['notes_count'],
-                'notes': self.escape_string(event['full_notes']),
-                'num_attach': event['related_subjects_count'],
-                'parent_event_serial_numbers': ';'.join((str(x) for x in event['parent_event_serial_numbers'] if x is not None)),
-                'status': 'Resolved' if event[
-                    'state'] == Event.SC_RESOLVED else 'Active',
-                'details': schema_data
+                "Latitude": event['location'].y if event[
+                                                       'location'] is not None else '',
+                "Longitude": event['location'].x if event[
+                                                        'location'] is not None else '',
+                "Number_of_Notes": event.get('notes_count', ''),
+                "Notes": self.escape_string(event.get('full_notes', '')),
+                "Number_of_Related_Subjects": event.get('', ''),
+                "Collection_Report_IDs": ';'.join(
+                    (str(x) for x in event['parent_event_serial_numbers'] if
+                     x is not None)),
+                "CUSTOM_FIELDS_BEGIN_HERE": "",
             }
 
             # Use cached reported_by map
             reported_by_values = reported_by_map.get(
-                str(event['reported_by_id']))
-            event_data['reported_by'] = reported_by_values.get(
+                str(event.get('reported_by_id', '')), '')
+            event_data['Reported_By'] = reported_by_values.get(
                 'display', '') if reported_by_values else ''
+
+            for header in custom_headers:
+                header_key = header.replace(' ', '_')
+                # if header has been escaped
+                if header.startswith('"') and header.endswith('"'):
+                    header = header[1:-1]
+                column_data = schema_data.get(header, "")
+                event_data[header_key] = column_data if column_data else ""
 
             current_event_type_data['events'].append(event_data)
 
         if not combined_headers:
             combined_headers.extend(default_headers)
             combined_headers.extend(custom_headers)
+
         return {
             'event_export_data': event_export_data,
             'combined_headers': [header.replace(' ', '_') for header in
@@ -493,29 +507,36 @@ class EventsExportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         return string
 
     def get(self, request, *args, **kwargs):
-        context = self.get_context_data(**kwargs)
+        self.value_cols = request.GET.get('value_cols', False)
+        self.display_cols = request.GET.get('display_cols', True)
 
-        return self.render_to_response(context)
+        csv_data = self.prepare_csv_data()
 
-    def render_to_response(self, context, **response_kwargs):
-
-        response = super().render_to_response(context, **response_kwargs)
+        response = HttpResponse(content_type='text/csv')
         response[
-            'Content-Disposition'] = f'attachment; filename={context["report_filename"]}'
-        response['x-das-download-filename'] = context['report_filename']
+            'Content-Disposition'] = f'attachment; filename={csv_data["report_filename"]}'
+        response['x-das-download-filename'] = csv_data['report_filename']
+
+        writer = csv.DictWriter(response, fieldnames=csv_data['event_types'].get(
+            'combined_headers'))
+        writer.writeheader()
+        event_types = csv_data['event_types']
+        for event_type in event_types.get('event_export_data', []):
+            for event in event_type.get('events', {}):
+                writer.writerow(event)
         return response
 
-    def get_context_data(self, **kwargs):
+    def prepare_csv_data(self, **kwargs):
         REPORT_TIME_FORMAT = '%-d %B %Y %Z' if platform.system().lower() != 'windows' else '%#d %B %Y %Z'
         current_tz = pytz.timezone(timezone.get_current_timezone_name())
         timestamp = current_tz.localize(datetime.utcnow())
-        context = {
+        csv_data = {
             'report_filename': f'Event Export {timestamp.strftime("%Y-%m-%d")}.csv',
             'report_time': timestamp.strftime(REPORT_TIME_FORMAT),
             'event_types': self.get_event_export_list()
         }
 
-        return context
+        return csv_data
 
     def get_queryset(self):
 
