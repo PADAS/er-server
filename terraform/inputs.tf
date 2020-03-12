@@ -45,3 +45,15 @@ variable "subdomain_name" {
   description = "Subdomain to create in Route53"
   default = null
 }
+
+variable "ssl_privatekey_vault_path" {
+  type = string
+  description = "Vault path for SSL private key"
+  default = "padas-app/main/pamdas-org-private-key-pem"
+}
+
+variable "ssl_cert_bundle_vault_path" {
+  type = string
+  description = "Vault path for SSL certificate chain."
+  default = "padas-app/main/pamdas_org_certificate_chain"
+}
