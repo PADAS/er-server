@@ -163,7 +163,7 @@ class SpatialFilesBase(TimestampedModel):
                             verbose_name='SpatialFile Name')
     description = models.CharField(max_length=100, blank=True)
     data = models.FileField(upload_to='spatialfiles', blank=False)
-    data_filename = models.TextField(verbose_name='Data file', default='data_file')
+    data_filename = models.TextField(verbose_name='Data file')
     layer_number = models.IntegerField(blank=True, null=True, default=0)
     name_field = models.CharField(max_length=100, blank=True, null=True)
     id_field = models.CharField(max_length=100, blank=True, null=True)

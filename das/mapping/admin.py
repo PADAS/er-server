@@ -520,3 +520,9 @@ else:
                         'layer_number')
         ordering = ('name', 'description', 'feature_set', 'feature_type', 'layer_number', 'id')
         list_filter = ('feature_set', 'feature_type')
+        fieldsets = (
+            (None, {
+                'classes': ('wide',),
+                'fields': ('id', 'name', 'description', 'data', 'layer_number', 'name_field', 'id_field', 'status', 'feature_set', 'feature_type'),
+            }),)
+        readonly_fields = ('id', 'status',)
