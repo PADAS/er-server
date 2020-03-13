@@ -667,11 +667,24 @@ class GateHandler:
     SENSOR_TYPE = 'gate'
     @classmethod
     def post(cls, request, sensor_type, provider_key):
-        logger.info("Gate observation %s",
-                    request.data, extra={'gate.new': request.data})
+        logger.info(f"{cls.SENSOR_TYPE} observation {request.data} for provider {provider_key}",
+                    extra={'data': request.data, 'provider_key': provider_key, 'sensor_type': sensor_type})
 
         status_ok = {'status': 200, 'message': 'success',
-                     'handler': 'gate'}
+                     'handler': f'{cls.SENSOR_TYPE}'}
+
+        return Response(data=status_ok, status=status.HTTP_200_OK)
+
+
+class TestHandler:
+    SENSOR_TYPE = 'test'
+    @classmethod
+    def post(cls, request, sensor_type, provider_key):
+        logger.info(f"{cls.SENSOR_TYPE} observation {request.data} for provider {provider_key}",
+                    extra={'data': request.data, 'provider_key': provider_key, 'sensor_type': sensor_type})
+
+        status_ok = {'status': 200, 'message': 'success',
+                     'handler': f'{cls.SENSOR_TYPE}'}
 
         return Response(data=status_ok, status=status.HTTP_200_OK)
 
