@@ -287,7 +287,7 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
                     '_latitude', '_longitude', '_state', '_event_action', 'exclusion_flags')
     ordering = ('source', 'location', 'recorded_at', 'created_at', 'source')
     list_editable = ('exclusion_flags',)
-    list_display_links = None
+    list_display_links = ('_recorded_at',)
     show_full_result_count = False
     autocomplete_fields = ('source',)
 
@@ -341,10 +341,7 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
     _created_at.admin_order_field = 'created_at'
 
     def _recorded_at(self, o):
-        recorded_at = o.recorded_at.strftime("%d %b, %Y, %H:%M")
-        return mark_safe(
-            f'<a href="{reverse("admin:observations_observation_change", args=(o.id,))}">{recorded_at}</a>'
-        )
+        return o.recorded_at
     _recorded_at.short_description = 'recorded at %s' % TIMEZONE_USED
     _recorded_at.admin_order_field = 'recorded_at'
     _recorded_at.admin_order_first_type = "desc"
