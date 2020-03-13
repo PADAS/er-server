@@ -2,11 +2,12 @@ from analyzers.models import SubjectAnalyzerResult, ProximityAnalyzerConfig
 from django.test import TestCase
 # Use python unit test here to persist results in test DB
 #from unittest import TestCase
-from django.core import management
+from unittest.mock import patch
 from .proximity_test_data import *
 from observations.models import Subject, Source, SubjectSource, SubjectGroup, DEFAULT_ASSIGNED_RANGE
 from observations.models import SubjectTrackSegmentFilter
 from mapping.models import SpatialFeature, SpatialFeatureGroupStatic
+from mapping.tasks import extract_features_from_files
 from .analyzer_test_utils import *
 from analyzers.proximity import ProximityAnalyzer
 from activity.models import Event, EventCategory, EventType
@@ -64,10 +65,12 @@ class TestProximityAnalyzer(TestCase):
     def setUp(self):
 
         # Load the geojson files into the database
-        management.call_command('import_spatial',
-                                './analyzers/fixtures/lines.geojson',
-                                './analyzers/fixtures/polygons.geojson',
-                                '--feature-types=./analyzers/fixtures/spatial_feature_types.geojson')
+        with patch('mapping.utils.cleanup_files') as mock_cleanup:
+            mock_cleanup.return_value = None
+            data_files = ['./analyzers/fixtures/lines.geojson',
+                          './analyzers/fixtures/polygons.geojson']
+            feature_types_file = './analyzers/fixtures/spatial_feature_types.geojson'
+            extract_features_from_files(data_files, 'ste', None, feature_types_file, name_field='', )
 
         ec, created = EventCategory.objects.get_or_create(
             value='analyzer_event', defaults=dict(display='Analyzer Events'))
