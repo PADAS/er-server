@@ -238,6 +238,7 @@ def mappingv2_save_spatial_data(feature, featuretype, source_name, spatialfile_i
 
     feature_record = save_spatial_file(spatialfile_id, models.SpatialFeatureFile, feature_record)
     set_feature_name(feature_record, feature, feature_type, counter)
+    feature_record.clean()
     feature_record.save()
 
 

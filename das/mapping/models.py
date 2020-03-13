@@ -5,6 +5,7 @@ import uuid
 import zipfile
 
 from django.contrib.gis.db import models
+from django.contrib.gis import geos
 from django.contrib.postgres.fields import JSONField
 from django.core import management
 from django.core.exceptions import ImproperlyConfigured, ValidationError
@@ -778,12 +779,22 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
             return self.feature_type.presentation
         return {}
 
+    def clean(self):
+        if self.feature_geometry.geom_type == 'Point':
+            self.feature_geometry = geos.MultiPoint(geos.GEOSGeometry(self.feature_geometry.ewkb))
+        elif self.feature_geometry.geom_type == 'LineString':
+            self.feature_geometry = geos.MultiLineString([geos.GEOSGeometry(self.feature_geometry.ewkb), ])
+        elif self.feature_geometry.geom_type == 'Polygon':
+            self.feature_geometry = geos.MultiPolygon([geos.GEOSGeometry(self.feature_geometry.ewkb), ])
+        else:
+            logger.debug(f'Not converting type {type(self.feature_geometry)}')
+
     def __str__(self):
         return '{0}-{1}-{2}'.format(self.name, self.feature_type.name, self.id)
 
 
 class ArcgisGroup(TimestampedModel):
-    name = models.CharField(max_length=100, blank=True, null=True )
+    name = models.CharField(max_length=100, blank=True, null=True)
     group_id = models.CharField(max_length=100, blank=False)
     # todo: this should be the FK
     config_id = models.CharField(max_length=100, blank=False)
