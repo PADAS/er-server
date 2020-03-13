@@ -1,14 +1,16 @@
 import copy
+import logging
 
+from django.contrib.auth import get_user_model
+from django.http.request import HttpRequest
 from geopy.distance import distance
 from shapely.geometry.multipoint import MultiPoint
-from django.http.request import HttpRequest
+
 from activity.models import Event
 from activity.serializers import EventSerializer
-from django.contrib.auth import get_user_model
 
-import logging
 logger = logging.getLogger(__name__)
+
 
 def latest_event_for(analyzer):
     """ Returns the most recent event or None for a given subject and analyzer """
@@ -87,4 +89,6 @@ def typify(fmap, item):
     for k, f in fmap.items():
         r[k] = f(r[k])
     return r
+
+
 
