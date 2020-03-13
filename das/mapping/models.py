@@ -162,7 +162,8 @@ class SpatialFilesBase(TimestampedModel):
     name = models.CharField(max_length=255, blank=True,
                             verbose_name='SpatialFile Name')
     description = models.CharField(max_length=100, blank=True)
-    data = models.FileField(storage=TempStorage(), blank=False)
+    data = models.FileField(upload_to='spatialfiles', blank=False)
+    data_filename = models.TextField(verbose_name='Data file', default='data_file')
     layer_number = models.IntegerField(blank=True, null=True, default=0)
     name_field = models.CharField(max_length=100, blank=True, null=True)
     id_field = models.CharField(max_length=100, blank=True, null=True)
@@ -236,12 +237,17 @@ class SpatialFilesBase(TimestampedModel):
         if file_type:
             check_file_extension(self.file_type, self.data,
                                  self.feature_types_file or None)
-        self.save()
-        data_file = self.get_upload_file(self.data)
+        self.data_filename = self.data.name
+        spatial_types_filename, spatial_types_file = None, None
         try:
-            spatial_types_file = self.get_upload_file(self.feature_types_file)
+            spatial_types_filename = self.feature_types_file.name
         except Exception:
-            spatial_types_file = None
+            spatial_types_filename = None
+        self.save()
+
+        data_file = self.get_upload_file(self.data)
+        if spatial_types_filename:
+            spatial_types_file = self.get_upload_file(self.feature_types_file)
         transaction.on_commit(lambda: self.call_mgt_command(data_file, spatial_types_file))
 
     def get_upload_file(self, upload_file):
@@ -692,8 +698,8 @@ class SpatialFeatureFile(SpatialFilesBase):
         max_length=100, default='shapefile', choices=FILE_TYPES)
     feature_type = models.ForeignKey(
         to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
-    feature_types_file = models.FileField(
-        storage=TempStorage(), blank=True, null=True)
+    feature_types_file = models.FileField(upload_to='spatialfiles', blank=True, null=True)
+    feature_types_filename = models.TextField(verbose_name='Featuretypes file', blank=True, null=True)
 
     class Meta:
         verbose_name = 'Feature Import File'

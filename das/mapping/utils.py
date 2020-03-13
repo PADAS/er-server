@@ -294,7 +294,7 @@ def cleanup_files(filename, spatial_file):
     """
     Remove files/directories from the temporary folder.
     """
-    uploaded_file_directory = spatial_file.data.storage.location
+    uploaded_file_directory = f'{spatial_file.data.storage.location}/spatialfiles'
 
     # clear directory
     if os.path.exists(uploaded_file_directory):
