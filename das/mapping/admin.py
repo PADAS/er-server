@@ -75,6 +75,7 @@ class TileLayerAdmin(admin.ModelAdmin):
 class BaseFeatureAdmin(OSMGeoExtendedAdmin):
     list_filter = ('type', 'featureset', 'spatialfile__name')
     list_display = ('name', 'type', 'featureset', 'get_spatialfile')
+    ordering = ('name', 'type', 'featureset')
     search_fields = ('name', )
 
     def get_spatialfile(self, obj):
@@ -128,6 +129,7 @@ else:
     @admin.register(models.SpatialFeatureGroup)
     class SpatialFeatureGroupAdmin(admin.ModelAdmin):
         search_fields = ('name',)
+        ordering = ('name', )
 
 
 @admin.register(models.SpatialFeatureGroupStatic)
@@ -140,7 +142,7 @@ class SpatialFeatureGroupStaticAdmin(admin.ModelAdmin):
 @admin.register(models.SpatialFeatureType)
 class SpatialFeatureTypeAdmin(admin.ModelAdmin):
     list_display = ('name', 'is_visible', 'display_category')
-    ordering = ('name', )
+    ordering = list_display
     search_fields = ('name',)
     list_filter = ('is_visible',)
     form = SpatialFeatureTypeForm
@@ -179,7 +181,7 @@ class GeometryTypeFilter(django_admin.SimpleListFilter):
 
 @admin.register(models.SpatialFeature)
 class SpatialFeatureAdmin(BaseFeatureAdmin):
-    ordering = ('name',)
+    ordering = ('name', 'feature_type', 'external_source')
     list_display = ('name', 'feature_type',
                     'external_source', 'geometry_type', 'get_spatialfile')
     list_filter = (GeometryTypeFilter, 'feature_type',)
@@ -205,7 +207,6 @@ class SpatialFeatureAdmin(BaseFeatureAdmin):
 
     def geometry_type(self, obj):
         return obj.geometry_type
-
     geometry_type.short_description = 'Geometry Type'
 
 
@@ -404,6 +405,7 @@ if MAPPING_FEATURES_V2:
     @admin.register(models.SpatialFeatureFile)
     class SpatialFeatureFileAdmin(BaseSpatialFileAdmin):
         list_display = ('id', 'name', 'file_type', 'description', 'feature_type')
+        ordering = list_display
         list_filter = ('name',)
         fieldsets = (
             (None, {
@@ -515,4 +517,5 @@ else:
     class SpatialFileAdmin(BaseSpatialFileAdmin):
         list_display = ('id', 'name', 'description', 'feature_set', 'feature_type',
                         'layer_number')
+        ordering = ('name', 'description', 'feature_set', 'feature_type', 'layer_number', 'id')
         list_filter = ('feature_set', 'feature_type')

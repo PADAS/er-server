@@ -95,6 +95,9 @@ class FeatureType(TimestampedModel):
     presentation = JSONField(default=dict, blank=True)
     objects = FeatureTypeManager()
 
+    class Meta:
+        ordering = ['name']
+
     def __str__(self):
         return self.name
 
@@ -127,6 +130,9 @@ class FeatureSet(TimestampedModel):
     description = models.TextField(null=True, blank=True)
 
     objects = FeatureSetManager()
+
+    class Meta:
+        ordering = ['name']
 
     def __str__(self):
         return self.name

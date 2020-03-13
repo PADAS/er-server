@@ -494,6 +494,7 @@ class SubjectSource(models.Model):
     class Meta:
         verbose_name = _('Subject Source Assignment')
         verbose_name_plural = _('Subject Source Assignments')
+        # ordering = ["subject", "source"]
 
     @property
     def safe_assigned_range(self):
