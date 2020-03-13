@@ -484,6 +484,7 @@ class AccessTokenAdmin(admin.ModelAdmin):
     list_display = ("token", "user", "application", "_expires")
     ordering = ("token", "user", "application", "expires")
     raw_id_fields = ("user", )
+    search_fields = ('user__username', 'token',)
 
     def _expires(self, o):
         return o.expires
