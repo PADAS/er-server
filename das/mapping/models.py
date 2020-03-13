@@ -775,11 +775,11 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
 
     def clean(self):
         if self.feature_geometry.geom_type == 'Point':
-            self.feature_geometry = geos.MultiPoint(geos.Point(self.feature_geometry.coords))
+            self.feature_geometry = geos.MultiPoint(geos.GEOSGeometry(self.feature_geometry.ewkb))
         elif self.feature_geometry.geom_type == 'LineString':
-            self.feature_geometry = geos.MultiLineString([geos.LineString(self.feature_geometry.coords), ])
+            self.feature_geometry = geos.MultiLineString([geos.GEOSGeometry(self.feature_geometry.ewkb), ])
         elif self.feature_geometry.geom_type == 'Polygon':
-            self.feature_geometry = geos.MultiPolygon([geos.Polygon(self.feature_geometry.coords[0]), ])
+            self.feature_geometry = geos.MultiPolygon([geos.GEOSGeometry(self.feature_geometry.ewkb), ])
         else:
             logger.debug(f'Not converting type {type(self.feature_geometry)}')
 
