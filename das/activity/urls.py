@@ -4,10 +4,7 @@ from activity import views, alerts_views
 urlpatterns = [
     url(r'^events/?$', views.EventsView.as_view()),
     url(r'^events/geojson/?$', views.EventsGeoJsonView.as_view()),
-    url(r'^events/export/?$', views.EventsExportView.as_view(
-        content_type='text/csv',
-        template_engine='jinja2',
-        template_name='event_export_template.html')),
+    url(r'^events/export/?$', views.EventsExportView.as_view()),
     url(r'^events/schema/?$', views.EventSchemaView.as_view()),
     url(r'^events/schema/eventtype/(?P<eventtype>[a-z0-9-_]+)?$',
         views.EventTypeSchemaView.as_view(), name='event-schema-eventtype'),

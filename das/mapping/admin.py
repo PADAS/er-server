@@ -1,5 +1,6 @@
 import logging
 from functools import reduce
+from urllib.parse import quote as urlquote
 
 from django.contrib import admin as django_admin
 from django.contrib import messages
@@ -14,14 +15,14 @@ from django.db.models import Q
 from django.db.models.expressions import RawSQL
 from django.http import HttpResponseRedirect
 from django.template.response import TemplateResponse
-from django.utils.html import escape
+from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 
 import mapping.models as models
 from core.openlayers import OSMGeoExtendedAdmin
-from mapping.forms import (ArcgisConfigurationForm,
-                           DisplayCategoryForm, FeatureTypeForm, MapCenterForm,
+from mapping.forms import (ArcgisConfigurationForm, DisplayCategoryForm,
+                           FeatureTypeForm, MapCenterForm,
                            SpatialFeatureGroupStaticForm,
                            SpatialFeatureTypeForm, TileLayerFormWithAttributes)
 from mapping.utils import MAPPING_FEATURES_V2
@@ -74,6 +75,7 @@ class TileLayerAdmin(admin.ModelAdmin):
 class BaseFeatureAdmin(OSMGeoExtendedAdmin):
     list_filter = ('type', 'featureset', 'spatialfile__name')
     list_display = ('name', 'type', 'featureset', 'get_spatialfile')
+    ordering = ('name', 'type', 'featureset')
     search_fields = ('name', )
 
     def get_spatialfile(self, obj):
@@ -127,6 +129,7 @@ else:
     @admin.register(models.SpatialFeatureGroup)
     class SpatialFeatureGroupAdmin(admin.ModelAdmin):
         search_fields = ('name',)
+        ordering = ('name', )
 
 
 @admin.register(models.SpatialFeatureGroupStatic)
@@ -139,7 +142,7 @@ class SpatialFeatureGroupStaticAdmin(admin.ModelAdmin):
 @admin.register(models.SpatialFeatureType)
 class SpatialFeatureTypeAdmin(admin.ModelAdmin):
     list_display = ('name', 'is_visible', 'display_category')
-    ordering = ('name', )
+    ordering = list_display
     search_fields = ('name',)
     list_filter = ('is_visible',)
     form = SpatialFeatureTypeForm
@@ -178,7 +181,7 @@ class GeometryTypeFilter(django_admin.SimpleListFilter):
 
 @admin.register(models.SpatialFeature)
 class SpatialFeatureAdmin(BaseFeatureAdmin):
-    ordering = ('name',)
+    ordering = ('name', 'feature_type', 'external_source')
     list_display = ('name', 'feature_type',
                     'external_source', 'geometry_type', 'get_spatialfile')
     list_filter = (GeometryTypeFilter, 'feature_type',)
@@ -204,7 +207,6 @@ class SpatialFeatureAdmin(BaseFeatureAdmin):
 
     def geometry_type(self, obj):
         return obj.geometry_type
-
     geometry_type.short_description = 'Geometry Type'
 
 
@@ -393,16 +395,22 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
                                       "Delete selected spatial files")
         return actions
 
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            return [f.name for f in self.model._meta.fields]
+        return self.readonly_fields
+
 
 if MAPPING_FEATURES_V2:
     @admin.register(models.SpatialFeatureFile)
     class SpatialFeatureFileAdmin(BaseSpatialFileAdmin):
         list_display = ('id', 'name', 'file_type', 'description', 'feature_type')
+        ordering = list_display
         list_filter = ('name',)
         fieldsets = (
             (None, {
                 'classes': ('wide',),
-                'fields': ('file_type', 'id', 'name', 'description', 'data',)
+                'fields': ('file_type', 'id', 'name', 'description', 'data', 'status')
             }),
             ('Shapefile Optional Attributes', {
                 'classes': ('wide', 'shapefile',),
@@ -414,15 +422,34 @@ if MAPPING_FEATURES_V2:
                 'fields': ('feature_types_file',)
             }
              ),)
-        readonly_fields = ('id',)
-
-        def get_readonly_fields(self, request, obj=None):
-            if obj:
-                return ('id', 'file_type',)
-            return self.readonly_fields
+        readonly_fields = ('id', 'status',)
 
         class Media:
             js = ["admin/js/jquery.init.js", "base.js"]
+
+        def response_add(self, request, obj, post_url_continue=None):
+            if '_save' in request.POST:
+                self.add_background_download_message(obj, request, 'added')
+                return self.response_post_save_add(request, obj)
+            else:
+                return super().response_add(request, obj, post_url_continue)
+
+        def response_change(self, request, obj):
+            if '_save' in request.POST:
+                self.add_background_download_message(obj, request, 'changed')
+                return self.response_post_save_change(request, obj)
+            else:
+                return super().response_change(request, obj)
+
+        def add_background_download_message(self, obj, request, action):
+            msg_dict = {
+                    'obj': format_html('<a href="{}">{}</a>', urlquote(request.path), obj),
+                    'features': format_html('<a href="/admin/mapping/spatialfeature/">features</a>'),
+                    'action': action
+                }
+            msg = format_html(_('The Feature Import File "{obj}" {action} successfully. Feature download in progress, check loaded {features} after a few minutes'),**msg_dict)
+            self.message_user(request, msg, messages.SUCCESS)
+
 
     @admin.register(models.ArcgisConfiguration)
     class ArcgisConfigurationAdmin(admin.ModelAdmin):
@@ -490,4 +517,5 @@ else:
     class SpatialFileAdmin(BaseSpatialFileAdmin):
         list_display = ('id', 'name', 'description', 'feature_set', 'feature_type',
                         'layer_number')
+        ordering = ('name', 'description', 'feature_set', 'feature_type', 'layer_number', 'id')
         list_filter = ('feature_set', 'feature_type')

@@ -33,7 +33,7 @@ spec:
           - containerPort: 8000
         volumeMounts:
         - name: google-credentials
-          mountPath: "/etc/earthranger"
+          mountPath: "/etc/earthranger/"
           readOnly: true
         env:
         - name: GOOGLE_APPLICATION_CREDENTIALS

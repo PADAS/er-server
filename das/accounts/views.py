@@ -9,7 +9,7 @@ from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import generics
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 
@@ -104,7 +104,7 @@ class AcceptEulaAPIView(generics.CreateAPIView):
     queryset = UserAgreement.objects.all()
 
     def create(self, request, *args, **kwargs):
-        if request.data.get("accept")  == False:
+        if request.data.get("accept") == False:
             user_id = request.data.get("user")
             eula_id = request.data.get("eula")
 
@@ -124,7 +124,7 @@ class AcceptEulaAPIView(generics.CreateAPIView):
 
 
 class GetActiveEulaAPIView(generics.RetrieveAPIView):
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny,)
     serializer_class = serializers.EulaSerializer
     queryset = EULA.objects.all()
 

@@ -3,9 +3,10 @@ from datetime import datetime
 
 import pytz
 from django.contrib.gis.geos import Point
-from django.http.request import HttpRequest
-from django.utils.translation import ugettext_lazy as _
 from django.db.models import signals
+from django.http.request import HttpRequest
+from django.utils.dateparse import parse_datetime
+from django.utils.translation import ugettext_lazy as _
 from rest_framework import status, serializers
 from rest_framework.response import Response
 
@@ -13,9 +14,12 @@ from accounts.models import User
 from activity.models import Event
 from activity.serializers import EventSerializer
 from analyzers.gfw_alert_schema import ensure_gfw_event_types, GFW_EVENT_TYPES_MAP
+from analyzers.gfw_utils import (prepare_downloadable_url, sub_id_from_unsubscribe_url,
+                                 rebuild_glad_download_url)
+from analyzers.models import GlobalForestWatchSubscription
 from das_server import celery
-from utils import stats
 from revision.manager import RevisionMixin
+from utils import stats
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +35,25 @@ class AlertSampleDownloaded(serializers.Serializer):
     julian_day = serializers.IntegerField()
     year = serializers.IntegerField()
     confidence = serializers.IntegerField()
+
+
+class FireAlertSampleDownloaded(serializers.Serializer):
+    cartodb_id = serializers.IntegerField()
+    the_geom = serializers.CharField()
+    the_geom_webmercator = serializers.CharField()
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
+    bright_ti4 = serializers.FloatField()
+    scan = serializers.FloatField()
+    track = serializers.FloatField()
+    acq_date = serializers.DateTimeField()
+    acq_time = serializers.CharField()
+    satellite = serializers.CharField()
+    confidence = serializers.CharField()
+    version = serializers.CharField()
+    bright_ti5 = serializers.FloatField()
+    frp = serializers.FloatField()
+    daynight = serializers.CharField()
 
 
 class AlertSample(serializers.Serializer):
@@ -72,78 +95,66 @@ def process_handler_post(request):
         return Response(status=status.HTTP_400_BAD_REQUEST, data=deserialized.errors)
 
     logger.info(f'process_handler_alerts posted {deserialized.validated_data}', extra={
-                'data': request.data})
+        'data': request.data})
 
     layer_slug = deserialized.validated_data.get('layerSlug')
-
-    event_type_value = GFW_EVENT_TYPES_MAP.get(layer_slug)
-    if event_type_value:
-        logger.info('Got %s alert', layer_slug,
+    if not GFW_EVENT_TYPES_MAP.get(layer_slug):
+        logger.info('Ignoring %s alert', layer_slug,
                     extra={'alert_type': layer_slug})
-        ensure_gfw_event_types()
+        return Response(status=status.HTTP_400_BAD_REQUEST,
+                        data=dict(message=f'Unknown layerSlug: {layer_slug}'))
 
-        event_details_dict = {
-            'gfw_alert_type': layer_slug,
-            'alert_link': deserialized.validated_data.get('alert_link'),
-            'subscription_name': deserialized.validated_data.get('alert_name')
-        }
+    ensure_gfw_event_types()
 
-        event_dict = {
-            'event_type': event_type_value,
-            'event_title': _('Global Forest Watch Alert'),
-            'event_details': event_details_dict
-        }
+    subscription_id = sub_id_from_unsubscribe_url(deserialized.validated_data.get('unsubscribe_url'))
 
-        return create_events(request, event_dict, deserialized.validated_data)
+    subscriptions_qs = GlobalForestWatchSubscription.objects.filter(subscription_id=subscription_id)
+    if subscriptions_qs.exists():
+        subscription_ids = [subscription_id]
+    else:
+        logger.warning('Unknown subscription %s received. Processing alerts for all subscriptions in db.',
+                       subscription_id)
+        subscription_ids = [o.subscription_id for o in GlobalForestWatchSubscription.objects.all()
+                            if layer_slug in o.additional['alert_types']]
 
-    logger.info('Ignoring %s alert', layer_slug,
+    [process_alert_for_subscription(layer_slug, sub_id, deserialized.validated_data, request) for sub_id in subscription_ids]
+
+    return Response(status=status.HTTP_200_OK, data=dict(message='Alerts are being processed'))
+
+
+def process_alert_for_subscription(layer_slug, subscription_id, validated_data, request):
+    logger.info('Got %s alert', layer_slug,
                 extra={'alert_type': layer_slug})
-    return Response(status=status.HTTP_400_BAD_REQUEST,
-                    data=dict(message=f'Unknown layerSlug: {layer_slug}'))
+    event_type_value = GFW_EVENT_TYPES_MAP.get(layer_slug)
 
+    event_details_dict = {
+        'gfw_alert_type': layer_slug,
+        'alert_link': validated_data.get('alert_link'),
+        'subscription_name': validated_data.get('alert_name'),
+        'subscription_id': subscription_id
+    }
 
-def create_events(request, common_fields, validated_data):
+    event_dict = {
+        'event_type': event_type_value,
+        'event_title': _('Global Forest Watch Alert'),
+        'event_details': event_details_dict
+    }
 
-    def create_alert_event(alert_sample):
-        deserialized_sample = AlertSample(data=alert_sample)
-        if not deserialized_sample.is_valid():
-            counts[ERROR_COUNTER] = counts[ERROR_COUNTER] + 1
-            return deserialized_sample.errors()
-
-        event_fields = {
-            **common_fields,
-            **{
-                'location': {
-                    'latitude': deserialized_sample.validated_data.get('latitude'),
-                    'longitude': deserialized_sample.validated_data.get('longitude')},
-                'time': datetime.combine(date=deserialized_sample.validated_data.get('acq_date'),
-                                         time=deserialized_sample.validated_data.get(
-                                             'acq_time'),
-                                         tzinfo=pytz.UTC)
-            }
-        }
-
-        return persist_event(event_fields, request, counts)
+    if event_dict.get('event_type') == 'gfw_activefire_alert':
+        validated_data['downloadUrls'] = prepare_downloadable_url(validated_data, subscription_id)
 
     download_urls = validated_data.get('downloadUrls')
     if download_urls:
-        result = celery.app.send_task('analyzers.tasks.download_gfw_alerts', args=(download_urls.get('json'),
-                                                                                   common_fields,
+        download_url = download_urls.get('json')
+        if event_dict.get('event_type') == 'gfw_glad_alert':
+            # make sure geostore is correct in download_url
+            download_url = rebuild_glad_download_url(download_url, GlobalForestWatchSubscription.objects.get(
+                subscription_id=subscription_id))
+
+        result = celery.app.send_task('analyzers.tasks.download_gfw_alerts', args=(download_url,
+                                                                                   event_dict,
                                                                                    str(request.user.id)))
         logger.info('Submitted task for downloading GFW Alerts. Celery Async result: %s', result)
-
-    counts = {PROCESSED_COUNTER: 0, ERROR_COUNTER: 0}
-    errors = [create_alert_event(alert)
-              for alert in validated_data.get('alerts')]
-    errors = filter(lambda x: len(list(x)) > 0, errors)
-
-    log_metrics(counts)
-
-    if len(list(errors)) > 0:
-        logger.error('Bad request received %s', errors)
-        return Response(status=status.HTTP_400_BAD_REQUEST, data=errors)
-    else:
-        return Response(status=status.HTTP_201_CREATED, data=dict(message='Alert processed'))
 
 
 def process_downloaded_alerts(payload, common_event_fields, user_id):
@@ -162,32 +173,58 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
     request = HttpRequest()
     request.user = User.objects.get(id=user_id)
 
-    deserialized_sample = AlertSampleDownloaded(data=downloaded_sample)
+    if common_event_fields.get('event_type') == 'gfw_activefire_alert':
+        downloaded_sample['acq_date'] = parse_datetime(downloaded_sample['acq_date'])
+        deserialized_sample = FireAlertSampleDownloaded(data=downloaded_sample)
+        # logger.info("Processed deserialized sample %s", deserialized_sample)
+    else:
+        deserialized_sample = AlertSampleDownloaded(data=downloaded_sample)
+
     if not deserialized_sample.is_valid():
         counts[ERROR_COUNTER] = counts[ERROR_COUNTER] + 1
-        return deserialized_sample.errors()
+        return deserialized_sample.errors
 
-    julian_day = deserialized_sample.validated_data.get('julian_day')
-    year = deserialized_sample.validated_data.get('year')
-    confidence = deserialized_sample.validated_data.get('confidence', -1)
+    if common_event_fields.get('event_type') == 'gfw_activefire_alert':
+        latitude = deserialized_sample.validated_data.get('latitude')
+        longitude = deserialized_sample.validated_data.get('longitude')
+        confidence = deserialized_sample.validated_data.get('confidence')
+        time = deserialized_sample.validated_data.get('acq_date')
+    else:
+        julian_day = deserialized_sample.validated_data.get('julian_day')
+        year = deserialized_sample.validated_data.get('year')
+        confidence = deserialized_sample.validated_data.get('confidence', -1)
+        latitude = deserialized_sample.validated_data.get('lat')
+        longitude = deserialized_sample.validated_data.get('long')
+        time = pytz.utc.localize(datetime.strptime(f'{julian_day}{year}', '%j%Y'))
 
     event_fields = {
         **common_event_fields,
         **{
             'location': {
-                'latitude': deserialized_sample.validated_data.get('lat'),
-                'longitude': deserialized_sample.validated_data.get('long')},
-            'time': pytz.utc.localize(datetime.strptime(f'{julian_day}{year}', '%j%Y'))
+                'latitude': latitude,
+                'longitude': longitude},
+            'time': time,
         }
     }
+    subscription_id = common_event_fields['event_details']['subscription_id']
+    gfw_query = GlobalForestWatchSubscription.objects.get(subscription_id=subscription_id)
 
-    event_fields.setdefault('event_details', {})['confidence'] = confidence
+    if common_event_fields.get('event_type') == 'gfw_activefire_alert':
+        conf_confidence = gfw_query.Fire_confidence
+        superset_cofidence = {i.strip() for i in conf_confidence.split(',')}
+    else:
+        conf_confidence = gfw_query.Deforestation_confidence
+        superset_cofidence = {int(i) for i in conf_confidence.split(',')}
 
-    return persist_event(event_fields, request, counts)
+    # Checks if confidence level from glad alerts is a subset of confidence level specified in ER.
+    if {confidence} <= superset_cofidence:
+        event_fields.setdefault('event_details', {})['confidence'] = confidence
+        return persist_event(event_fields, request, counts)
+    logger.info("GLAD Alert %s not within the confidence level" % downloaded_sample)
+    return {}
 
 
 def persist_event(event_fields, request, counts):
-
     def pre_save_info(sender, instance, **kwargs):
         if issubclass(sender, RevisionMixin):
             setattr(instance, 'revision_user', request.user)
@@ -199,13 +236,13 @@ def persist_event(event_fields, request, counts):
     if Event.objects.filter(location=location,
                             event_time=event_fields['time'],
                             event_type__value__exact=event_fields['event_type']).exists():
-        logger.warning('Event already exists - ignoring duplicate event')
+        logger.debug('Event already exists - ignoring duplicate event')
     else:
         evt_serializer = EventSerializer(
             data=event_fields, context={'request': request})
         if not evt_serializer.is_valid():
             counts[ERROR_COUNTER] = counts[ERROR_COUNTER] + 1
-            return evt_serializer.errors()
+            return evt_serializer.errors
 
         signals.pre_save.connect(pre_save_info,
                                  dispatch_uid=(

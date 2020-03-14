@@ -10,6 +10,11 @@ variable "site_ip_address" {
   type = string
 }
 
+variable "time_zone" {
+  type    = string
+  default = "US/Pacific"
+}
+
 variable "INGRESS_VERSION" {
   type = string
 }
@@ -73,7 +78,7 @@ variable "fqdn" {
 
 variable "from_email" {
   type    = string
-  default = "notifications.demo@pamdas.org"
+  default = null
 }
 
 
@@ -96,4 +101,60 @@ variable "web_service_name" {
   type    = string
   default = "web"
 }
+variable "accept_eula" {
+  type    = string
+  default = "false"
+}
+variable "enable_debug" {
+  type    = string
+  default = "false"
+}
+variable "show_track_days" {
+  type    = string
+  default = "16"
+}
 
+variable "eus_email" {
+  type    = string
+  default = ""
+}
+variable "eus_name" {
+  type    = string
+  default = ""
+}
+variable "eus_org" {
+  type    = string
+  default = null
+}
+
+variable "eus_type" {
+  type    = string
+  default = "email"
+}
+variable "sms_id" {
+  type    = string
+  default = ""
+}
+variable "sms_token" {
+  type    = string
+  default = ""
+}
+
+variable "alerts_enabled" {
+  type    = string
+  default = "True"
+}
+
+variable "email_host_user" {
+  type    = string
+  default = ""
+}
+variable "mapping_features_v2" {
+  type    = string
+  default = "True"
+}
+
+variable "show_stationary_subjects_on_map" {
+  type    = string
+  default = "False"
+}

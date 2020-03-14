@@ -1,31 +1,30 @@
-import uuid
-import os
-import logging
 import glob
+import logging
+import os
+import uuid
 import zipfile
 
 from django.conf import settings
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import JSONField
-from django.core.exceptions import ImproperlyConfigured
-from django.urls import reverse, NoReverseMatch
-from django.utils.translation import ugettext_lazy as _
-from tagulous.models import TagField, TagModel
-from model_utils.managers import InheritanceManager
 from django.core import management
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.core.files.storage import FileSystemStorage
+from django.db import transaction
+from django.urls import NoReverseMatch, reverse
 from django.utils.deconstruct import deconstructible
+from django.utils.translation import ugettext_lazy as _
+from model_utils.managers import InheritanceManager
+from tagulous.models import TagField, TagModel
 from pytz import timezone
 
 from core.models import TimestampedModel
-from utils.decorator import reify
 from mapping.app_settings import MBTILES
-from mapping.mbtiles import ExtractionError, GoogleProjection, MBTilesReader
-from mapping.mbtiles import InvalidFormatError
-from revision.manager import Revision, RevisionMixin
+from mapping.mbtiles import (ExtractionError, GoogleProjection,
+                             InvalidFormatError, MBTilesReader)
 from mapping.utils import MAPPING_FEATURES_V2, check_file_extension
-
+from revision.manager import Revision, RevisionMixin
+from utils.decorator import reify
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +97,9 @@ class FeatureType(TimestampedModel):
     presentation = JSONField(default=dict, blank=True)
     objects = FeatureTypeManager()
 
+    class Meta:
+        ordering = ['name']
+
     def __str__(self):
         return self.name
 
@@ -131,6 +133,9 @@ class FeatureSet(TimestampedModel):
 
     objects = FeatureSetManager()
 
+    class Meta:
+        ordering = ['name']
+
     def __str__(self):
         return self.name
 
@@ -160,6 +165,7 @@ class SpatialFilesBase(TimestampedModel):
     layer_number = models.IntegerField(blank=True, null=True, default=0)
     name_field = models.CharField(max_length=100, blank=True, null=True)
     id_field = models.CharField(max_length=100, blank=True, null=True)
+    status = models.CharField(max_length=100, blank=True, null=True, verbose_name='Feature Load Status')
 
     class Meta:
         abstract = True
@@ -210,31 +216,6 @@ class SpatialFilesBase(TimestampedModel):
             logger.error(err)
             raise ValidationError(err)
 
-    def cleanup_files(self):
-        files = [self.data]
-        try:
-            if self.feature_types_file.name:
-                files.append(self.feature_types_file)
-        except Exception:
-            pass
-
-        for upload_file in files:
-            uploaded_file_path = upload_file.path
-
-            uploaded_file_directory = os.path.dirname(upload_file.path)
-            """
-            Remove files/directories from the temporary folder.
-            """
-            import shutil
-            try:
-                if os.path.exists(uploaded_file_path):
-                    os.remove(uploaded_file_path)
-                shutil.rmtree(uploaded_file_directory)
-            except PermissionError:
-                logger.exception(
-                    f'Cleaning up spatial files after import: {uploaded_file_directory}')
-            upload_file.name = ''
-
     # Clean method is used for better error handling within the admin form
     # itself. To have the file data available, save method needs to be invoked.
     #  Cleanup method will remove files in case of validation error.
@@ -260,8 +241,7 @@ class SpatialFilesBase(TimestampedModel):
             spatial_types_file = self.get_upload_file(self.feature_types_file)
         except Exception:
             spatial_types_file = None
-        self.call_mgt_command(data_file, spatial_types_file)
-        self.cleanup_files()
+        transaction.on_commit(lambda: self.call_mgt_command(data_file, spatial_types_file))
 
     def get_upload_file(self, upload_file):
         if upload_file:
@@ -296,7 +276,6 @@ class SpatialFile(SpatialFilesBase):
             spatialfile_id=self.id, featureset=self.feature_set, featuretype=self.feature_type,
             name_field=self.name_field, id_field=self.id_field
         )
-
 
 class Feature(TimestampedModel):
     """
@@ -665,7 +644,7 @@ class SpatialFeatureType(TimestampedModel):
     objects = SpatialFeatureTypeManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, unique=True)
     # JSON field for storing the json schema for each unique feature type
     attribute_schema = JSONField(default=dict, blank=True)
     # Tags will allow categorization according to different views (e.g., HF)
@@ -839,7 +818,6 @@ class ArcgisConfiguration(TimestampedModel):
 
     class Meta:
         verbose_name = 'Feature Service Configuration'
-
     @property
     def last_download_time(self):
         t_zone = timezone(settings.TIME_ZONE)

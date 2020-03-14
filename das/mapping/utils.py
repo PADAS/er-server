@@ -1,5 +1,7 @@
 import datetime
 import logging
+import os
+import shutil
 import tempfile
 from zipfile import ZipFile
 
@@ -13,6 +15,7 @@ from django.utils.encoding import force_text
 
 import utils.json
 from mapping import models
+from mapping.tasks import load_features_from_wfs
 from utils.spatial import GeometryMapper
 
 geometry_mapper = GeometryMapper()
@@ -21,11 +24,16 @@ logger = logging.getLogger(__name__)
 MAPPING_FEATURES_V2 = getattr(settings, 'MAPPING_FEATURES_V2', False)
 
 
-def shortname_validator(value):
-    if value:
-        value = value[:25]
-    return value
+FEATURE_TYPES = {
+    'Primary': 'Primary Roads',
+    'Secondary': 'Secondary Roads',
+    'Old': 'Old Roads',
+    'Tertiary': 'Tertiary Roads',
+}
 
+TYPE_PROVENANCE_FIELDS = ('last_edited_user',
+                          'last_edited_date',
+                          'other_id')
 
 DEFAULT_SOURCE_NAME = 'STE'
 
@@ -35,6 +43,13 @@ PROVENANCE_FIELDS = ('collect_user', 'collect_method', 'collect_date',
                      'created_user', 'created_date', 'last_edited_user',
                      'last_edited_date',
                      'other_id')
+
+
+def shortname_validator(value):
+    if value:
+        value = value[:25]
+    return value
+
 
 ATTRIBUTES_TO_SPATIAL_MAPPING = {'short_name': {'field': 'short_name', 'validator': shortname_validator},
                                  'name': {'field': 'name', 'validator': lambda v: v}
@@ -122,30 +137,33 @@ def reduce_json(document):
     return reduced
 
 
-def get_spatial_feature_type(feature, type_label=None):
-    type_name = None
-    # for esri-integration get wfs type from given type label
-    if type_label:
-        try:
-            type_name = feature.get(type_label)
-        except Exception:
-            logger.warning(f'Type label given - {type_label} not a valid field for this feature')
+def get_spatial_feature_type(feature, type_label, featuretype):
+    try:
+        return models.SpatialFeatureType.objects.get(name=featuretype)
+    except Exception:
+        type_name = None
+        # get wfs type from given type label
+        if type_label:
+            try:
+                type_name = feature.get(type_label)
+            except Exception:
+                logger.warning(f'Type label given - {type_label} not a valid field for this feature')
 
-    if not type_name:
-        try:
-            # todo: eventually remove Types
-            type_name = feature.get('FeatureType') if 'FeatureType' in feature.fields else feature.get(
-                'Types') if 'Types' in feature.fields else feature.get('type')
-        except Exception:
-            logger.warning('%s missing featuretype', str(feature))
-            return
+        if not type_name:
+            try:
+                # todo: eventually remove Types
+                type_name = feature.get('FeatureType') if 'FeatureType' in feature.fields else feature.get(
+                    'Types') if 'Types' in feature.fields else feature.get('type')
+            except Exception:
+                logger.warning('%s missing featuretype', str(feature))
+                return
 
-    if type_name:
-        try:
-            return models.SpatialFeatureType.objects.get_or_create(name=type_name)[0]
-        except IntegrityError as ie:
-            logger.warning(ie)
-            return
+        if type_name:
+            try:
+                return models.SpatialFeatureType.objects.get_or_create(name=type_name)[0]
+            except IntegrityError as ie:
+                logger.warning(ie)
+                return
 
 
 # set feature name to some reasonable default if we can't find a name
@@ -185,9 +203,7 @@ def mappingv2_save_spatial_data(feature, source_name, spatialfile_id, external_i
     if not external_id:
         external_id = feature['globalid'].value if 'globalid' in feature.fields \
             else feature['fid'].value
-
-    fields = list(fields_iter(feature))
-    feature_type = get_spatial_feature_type(feature)
+    feature_type = get_spatial_feature_type(feature, type_label, featuretype)
     if not feature_type:
         return
 
