@@ -62,7 +62,7 @@ def arcgis_integration(request, obj):
                 # load_features_from_wfs(obj.id, obj.groups.group_id)
             else:
                 error_msg = "Select a group to enable features download"
-                message(request, messages.ERROR) if request else logger.debug(error_msg)
+                message(request, messages.ERROR, error_msg) if request else logger.debug(error_msg)
         return acrgis_groups_found
 
 

@@ -198,7 +198,7 @@ def get_or_create_feature(external_id, attributes):
     return feature_record, created
 
 
-def mappingv2_save_spatial_data(feature, featuretype, source_name, spatialfile_id, external_id=None):
+def mappingv2_save_spatial_data(feature, featuretype, source_name, spatialfile_id, counter, external_id=None):
     model = models.SpatialFeature
     if not external_id:
         external_id = feature['globalid'].value if 'globalid' in feature.fields \
@@ -249,7 +249,7 @@ def mappingv2_save_spatial_data(feature, featuretype, source_name, spatialfile_i
     for key, value in defaults.items():
         setattr(feature_record, key, value)
 
-	save_spatial_file(spatialfile_id, models.SpatialFeatureFile, feature_record)    
+    save_spatial_file(spatialfile_id, models.SpatialFeatureFile, feature_record)    
     set_feature_name(feature_record, feature, feature_type, counter)
     feature_record.clean()    
     feature_record.save()
@@ -288,7 +288,7 @@ def import_layer(layer, source_name, spatialfile_id, featuretype, featureset, id
         if featureset:
             mappingv1_save_spatial_data(feature, featureset, featuretype, external_id, name_field, spatialfile_id)
         else:
-            mappingv2_save_spatial_data(feature, featuretype, source_name, spatialfile_id, external_id)
+            mappingv2_save_spatial_data(feature, featuretype, source_name, spatialfile_id, i, external_id)
 
 
 def cleanup_files(filename):
