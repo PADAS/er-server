@@ -15,7 +15,7 @@ from django.utils.encoding import force_text
 
 import utils.json
 from mapping import models
-from mapping.tasks import load_features_from_wfs
+# from mapping.tasks import load_features_from_wfs
 from utils.spatial import GeometryMapper
 
 geometry_mapper = GeometryMapper()
@@ -93,7 +93,7 @@ def contains_unique_keys_in_layer(id_field, name_field, layer):
     return unique_keys
 
 
-def get_datasource_and_layer_num(filename, layer=None, tmpdirs=None):
+def get_datasource_and_layer_num(filename, tmpdirs=None, layer=None):
     datasource = datasource_from_file(filename, tmpdirs)
     logger.debug('Data Source: %s, layercount %s',
                  datasource.name, datasource.layer_count)
@@ -137,17 +137,17 @@ def reduce_json(document):
     return reduced
 
 
-def get_spatial_feature_type(feature, type_label, featuretype):
+def get_spatial_feature_type(feature, type_field=None, featuretype=None):
     try:
         return models.SpatialFeatureType.objects.get(name=featuretype)
     except Exception:
         type_name = None
         # get wfs type from given type label
-        if type_label:
+        if type_field:
             try:
-                type_name = feature.get(type_label)
+                type_name = feature.get(type_field)
             except Exception:
-                logger.warning(f'Type label given - {type_label} not a valid field for this feature')
+                logger.warning(f'Type label given - {type_field} not a valid field for this feature')
 
         if not type_name:
             try:
@@ -198,15 +198,16 @@ def get_or_create_feature(external_id, attributes):
     return feature_record, created
 
 
-def mappingv2_save_spatial_data(feature, source_name, spatialfile_id, external_id=None):
+def mappingv2_save_spatial_data(feature, featuretype, source_name, spatialfile_id, external_id=None):
     model = models.SpatialFeature
     if not external_id:
         external_id = feature['globalid'].value if 'globalid' in feature.fields \
             else feature['fid'].value
-    feature_type = get_spatial_feature_type(feature, type_label, featuretype)
+    feature_type = get_spatial_feature_type(feature, featuretype=featuretype)
     if not feature_type:
         return
 
+    fields = list(fields_iter(feature))
     model_fieldname = 'feature_geometry'
     model_field_type = model._meta.get_field(model_fieldname)
     feature_geometry = geometry_mapper.get_db_geom(
@@ -271,3 +272,165 @@ def validate_file_type(f_type, data_file, field):
             raise ValidationError({field: [f'Kindly chose a {extension} file']})
 
 
+def import_layer(layer, source_name, spatialfile_id, featuretype, featureset, id_field, name_field):
+    logger.info('Importing layer: %s, type: %s, fields: %s',
+                layer.name, layer.geom_type, layer.fields)
+
+    has_unique_keys = contains_unique_keys_in_layer(id_field, name_field, layer)
+
+    for i, feature in enumerate(layer):
+        external_id = make_external_id(id_field, name_field, layer, feature)
+        if not has_unique_keys:
+            external_id = external_id + '-' + str(i)
+        if featureset:
+            mappingv1_save_spatial_data(feature, featureset, featuretype, external_id, name_field, spatialfile_id)
+        else:
+            mappingv2_save_spatial_data(feature, featuretype, source_name, spatialfile_id, external_id)
+
+
+def cleanup_files(filename):
+    """
+    Remove files/directories from the temporary folder.
+    """
+    pathlist = filename.split("/")
+    name = pathlist[-1]
+
+    if 'json' not in name and len(pathlist) > 8:
+        name = pathlist[-2] + '.zip'
+
+    uploaded_file_directory = '/'.join(pathlist[:7])
+    uploaded_file_path = uploaded_file_directory + "/" + name
+
+    try:
+        if os.path.exists(uploaded_file_path):
+            os.remove(uploaded_file_path)
+        shutil.rmtree(uploaded_file_directory)
+    except PermissionError:
+        logger.exception(
+            f'Cleaning up spatial files after import: {uploaded_file_directory}')
+    filename = ''
+
+
+def mappingv1_save_spatial_data(feature, featureset, featuretype, external_id, name_field, spatialfile_id):
+    fields = {}
+    for name in feature.fields:
+        if name.lower() in (name_field.lower(), 'description'):
+            continue
+        value = feature[name].value
+        if isinstance(value, datetime.date):
+            value = value.isoformat()
+        fields[name] = value
+    try:
+        feature_model = get_feature_class(feature.geom_type.name)
+    except KeyError as ke:
+        feature_model = get_feature_class(str(feature.geom))
+    model_fieldname = 'feature_geometry'
+    model_field_type = feature_model._meta.get_field(model_fieldname)
+    feature_geometry = geometry_mapper.get_db_geom(
+        feature.geom, model_field_type)
+    defaults = {'feature_geometry': feature_geometry, 'fields': fields}
+    feature_record, created = feature_model.objects.get_or_create(
+        defaults=defaults,
+        featureset=models.FeatureSet.objects.get(name=featureset),
+        type=get_featuretype_for_feature(feature, default=featuretype),
+        external_id=external_id)
+
+    logger.debug('Import feature: %s, created:%s',
+                 external_id, created)
+
+    feature_record.feature_geometry = feature_geometry
+    feature_record.fields = fields
+    try:
+        feature_record.name = feature[name_field].value
+    except (KeyError, IndexError):
+        pass
+    try:
+        feature_record.description = feature['Description'].value
+    except (KeyError, IndexError):
+        pass
+    save_spatial_file(spatialfile_id, models.SpatialFile, feature_record)
+    feature_record.save()
+
+
+def get_feature_class(name):
+    name_lower = name.lower()
+    if 'polygon' in name_lower:
+        return models.PolygonFeature
+    if 'linestring' in name_lower:
+        return models.LineFeature
+    if 'point' in name_lower:
+        return models.PointFeature
+    raise KeyError('DAS Feature class not found for {0}'.format(name))
+
+
+def get_featuretype_for_feature(feature, default=None):
+    type_name = default
+    for name in feature.fields:
+        if name in ('roadclass',):
+            value = feature[name].value
+            type_name = FEATURE_TYPES[value]
+    if type_name:
+        featuretype = models.FeatureType.objects.get_by_natural_key(
+            type_name)
+        return featuretype
+    else:
+        raise KeyError('no default featuretype specified')
+
+
+def get_display_category(display_category_name, create_okay=True):
+    try:
+        display_category = models.DisplayCategory.objects.get_by_natural_key(
+            display_category_name)
+    except models.DisplayCategory.DoesNotExist:
+        if create_okay:
+            display_category = models.DisplayCategory.objects.create(
+                name=display_category_name)
+        else:
+            raise
+    return display_category
+
+
+def import_feature_types(datasource, source_name):
+    model = models.SpatialFeatureType
+    for feature in datasource:
+        fields = list(fields_iter(feature))
+        global_id = feature['globalid'].value
+        name = feature['type'].value
+
+        try:
+            type_record, created = model.objects.get_or_create(name=name)
+            display_category = get_display_category(feature['display_category'].value)
+        except IntegrityError as err:
+            logger.warning(err)
+            return
+        except Exception as error:
+            raise ValidationError({'feature_types_file': ["Unable to process file: ", error]})
+
+        type_record.display_category = display_category
+        type_record.external_id = global_id
+
+        provenance = {feature_name: feature[feature_name].value for feature_name in fields if
+                      feature_name in TYPE_PROVENANCE_FIELDS}
+        provenance = reduce_json(provenance)
+
+        attribute_schema = feature['attribute_schema'].value if 'attribute_schema' in fields else None
+        if attribute_schema:
+            try:
+                attribute_schema = utils.json.loads(attribute_schema)
+            except utils.json.JSONDecodeError as ex:
+                logger.warning('FeatureType attribute_schema not JSON for globalid=%s: %s',
+                               global_id, ex)
+                attribute_schema = {}
+
+        defaults = {'provenance': provenance, 'attribute_schema': attribute_schema,
+                    'external_source': source_name}
+
+        if 'tags' in fields:
+            type_record.tags = [value.strip()
+                                for value in feature['tags'].value.split(',')]
+        for key, value in defaults.items():
+            setattr(type_record, key, value)
+
+        type_record.save()
+        logger.debug('Import feature_type: %s, created:%s',
+                     global_id, created)

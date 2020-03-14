@@ -11,7 +11,6 @@ from django.utils.safestring import mark_safe
 
 from arcgis2geojson import arcgis2geojson
 from mapping import models
-from mapping.tasks import background_download_features_from_wfs
 from mapping.utils import (contains_unique_keys_in_layer, geometry_mapper,
                            get_datasource_and_layer_num, get_or_create_feature,
                            get_spatial_feature_type, make_external_id,
@@ -48,7 +47,7 @@ message = messages.add_message
 
 
 def arcgis_integration(request, obj):
-    # could optimize by authenticating conditionally
+    from mapping.tasks import load_features_from_wfs
     gis = arcgis_authentication(request, obj)
     if gis:
         acrgis_groups_found = search_groups(gis, obj)
@@ -56,16 +55,14 @@ def arcgis_integration(request, obj):
             message(request, messages.INFO, f'Successful Configuration')
         elif "_downloadfeatures" in request.POST:
             # set to a background task
-            try:
-                # TODO: undo this
+            if obj.groups:
                 task_started_msg = "Features download in progress, checkout loaded <a href='/admin/mapping/spatialfeature/'>spatialfeatures</a> after a few minutes"
                 message(request, messages.INFO, mark_safe(task_started_msg))
-                background_download_features_from_wfs.apply_async(args=(obj.id,))
-                # background_download_features_from_wfs(obj.id)
-            except Exception as ex:
-                error_msg = f"Select a group to enable features download"
-                message(request, messages.ERROR,ex) if request else logger.debug(error_msg)
-                logger.exception(ex)
+                load_features_from_wfs.apply_async(args=(obj.id, obj.groups.group_id))
+                # load_features_from_wfs(obj.id, obj.groups.group_id)
+            else:
+                error_msg = "Select a group to enable features download"
+                message(request, messages.ERROR) if request else logger.debug(error_msg)
         return acrgis_groups_found
 
 
@@ -144,7 +141,6 @@ def import_features_from_esri(tmp_filename, arcgis_item_id, external_sourcename,
         datasource, layer_num = get_datasource_and_layer_num(filename=tmp_filename)
         layer = datasource[layer_num]
 
-        # edit/delete features rough first cut
         arc_item = models.ArcgisItem.objects.get(id=arcgis_item_id)
         # TODO: bail if arc_item is null
 
@@ -158,7 +154,6 @@ def import_features_from_esri(tmp_filename, arcgis_item_id, external_sourcename,
         for i, feature in enumerate(layer):
 
             if simple_presentation:
-                # TODO: get sft regardless of presentation and pass on further
                 spatial_feature_type = get_spatial_feature_type(feature, type_field)
                 if not spatial_feature_type:
                     logger.warning('Did not get or create spatialfeaturetype for %s. Skipping', str(feature))
@@ -194,8 +189,8 @@ def db_feature_needs_update(feature_record, feature):
 
     return needs_update
 
-def save_esri_feature(feature, source_name, external_id, type_label, arcgis_item, counter):
 
+def save_esri_feature(feature, source_name, external_id, type_label, arcgis_item, counter):
     # With Esri integration we've seen some feature services give us json that has features with "geometry" missing
     # this handles and ignores that issue
     try:
@@ -216,15 +211,14 @@ def save_esri_feature(feature, source_name, external_id, type_label, arcgis_item
         return
 
     if created or db_feature_needs_update(feature_record, feature):
-        logger.info(f'creating or updating feature {external_id}')
+        logger.debug(f'creating or updating feature {external_id}')
         feature_record.arcgis_item = arcgis_item
         feature_record.external_source = source_name
         feature_record.feature_geometry = feature_geometry
         set_feature_name(feature_record, feature, feature_type, counter)
         feature_record.save()
     else:
-        logger.info(f'Skipping update for feature {external_id}')
-
+        logger.debug(f'Skipping update for feature {external_id}')
 
 
 def wfs_download_return_messages(request, errored_files, success_files):

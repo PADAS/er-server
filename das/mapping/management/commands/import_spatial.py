@@ -48,7 +48,7 @@ class Command(BaseCommand):
         self.id_field = options['id_field'] if options.get('id_field') else 'globalid'
 
         load_spatial_features_from_files.apply_async(args=(
-            self.filename, self.tmpdirs, self.source_name, self.spatialfile_id, self.feature_types_file, None, None, None,
+            self.filename, self.tmpdirs, self.source_name, self.spatialfile_id, self.feature_types_file, None,
             self.id_field, self.name_field))
 
     def add_arguments(self, parser):

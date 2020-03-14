@@ -5,7 +5,8 @@ from celery_once import QueueOnce
 from django.db import transaction
 
 from das_server import celery
-from mapping import models, esri_integration
+from mapping import models, utils
+from mapping.esri_integration import arcgis_authentication, wfs_download_return_messages, extract_gis_data
 from observations.utils import convert_date_string
 
 logger = logging.getLogger(__name__)
@@ -22,7 +23,7 @@ def automate_download_features_from_wfs():
 @celery.app.task(base=QueueOnce, once={'graceful': True})
 def load_features_from_wfs(obj_id, group_id):
     # Task only accepts primitive data, access config objects using obj_id
-    obj, wfs_group = get_wfs_config_objects(obj_id, group_id)
+    arc_config, wfs_group = get_wfs_config_objects(obj_id, group_id)
     errored_files, success_files, group_members = [], [], wfs_group.content()
     items_to_download = None
     AP_GROUP_ID = 'a47fb09a85fb41ec9d70ef608761f7fa'
@@ -67,7 +68,7 @@ def load_features_from_wfs(obj_id, group_id):
                     )
                     # timestamps seem broken in arcgis
                     # if created or last_modified > arcgis_item.updated_at:
-                    esri_integration.extract_gis_data(arc_config, member, title, errored_files, success_files, arcgis_item.id)
+                    extract_gis_data(arc_config, member, title, errored_files, success_files, arcgis_item.id)
                     # arcgis_item.save()  # update model's updated_at field
 
         except Exception as ex:
@@ -78,28 +79,26 @@ def load_features_from_wfs(obj_id, group_id):
     arc_config.last_download = convert_date_string(str(datetime.now()))
     arc_config.save()
 
-    esri_integration.wfs_download_return_messages(None, errored_files, success_files)
+    wfs_download_return_messages(None, errored_files, success_files)
 
 
 def get_wfs_config_objects(obj_id, group_id):
     obj = models.ArcgisConfiguration.objects.get(id=obj_id)
-    gis = esri_integration.arcgis_authentication(None, obj)
+    gis = arcgis_authentication(None, obj)
     wfs_group = gis.groups.get(group_id)
 
     return obj, wfs_group
 
-# todo: cleanup when merging with esri work
+
 @celery.app.task(base=QueueOnce, once={'graceful': True})
 def load_spatial_features_from_files(data_files, tmpdirs, source_name, spatialfile_id, feature_types_file=None,
-                                     layer=None, presentation=None, featuretype_label=None,
-                                     id_field=None, name_field=None, featuretype=None, featureset=None):
-
+                                     layer=None, id_field=None, name_field=None, featuretype=None, featureset=None):
     model = models.SpatialFile if featureset else models.SpatialFeatureFile
     spatial_file = model.objects.filter(id=spatialfile_id)
 
     try:
-        extract_features_from_files(data_files, source_name, spatialfile_id, feature_types_file, layer, presentation,
-                                    featuretype_label, id_field, name_field, featuretype, featureset, tmpdirs)
+        extract_features_from_files(data_files, source_name, spatialfile_id, feature_types_file, layer,
+                                    id_field, name_field, featuretype, featureset, tmpdirs)
         spatial_file.update(status='Success')
     except Exception as ex:
         logger.exception(ex)
@@ -109,8 +108,7 @@ def load_spatial_features_from_files(data_files, tmpdirs, source_name, spatialfi
 
 
 def extract_features_from_files(data_files, source_name, spatialfile_id, feature_types_file=None, layer=None,
-                                presentation=None, featuretype_label=None, id_field=None, name_field=None,
-                                featuretype=None, featureset=None, tmpdirs=None):
+                                id_field=None, name_field=None, featuretype=None, featureset=None, tmpdirs=None):
     data_files = [data_files] if isinstance(
         data_files, str) else data_files
     if feature_types_file:
@@ -124,6 +122,5 @@ def extract_features_from_files(data_files, source_name, spatialfile_id, feature
             filename, tmpdirs, layer)
         utils.import_layer(
             datasource[layer_num], source_name, spatialfile_id,
-            featuretype, featureset, presentation, featuretype_label,
-            id_field, name_field)
+            featuretype, featureset, id_field, name_field)
         utils.cleanup_files(filename)
