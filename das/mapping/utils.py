@@ -15,7 +15,6 @@ from django.utils.encoding import force_text
 
 import utils.json
 from mapping import models
-# from mapping.tasks import load_features_from_wfs
 from utils.spatial import GeometryMapper
 
 geometry_mapper = GeometryMapper()
@@ -147,7 +146,7 @@ def get_spatial_feature_type(feature, type_field=None, featuretype=None):
             try:
                 type_name = feature.get(type_field)
             except Exception:
-                logger.warning(f'Type label given - {type_field} not a valid field for this feature')
+                logger.debug(f'Type label given - {type_field} not a valid field for this feature')
 
         if not type_name:
             try:

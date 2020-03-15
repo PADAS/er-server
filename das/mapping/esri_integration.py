@@ -148,7 +148,7 @@ def import_features_from_esri(tmp_filename, arcgis_item_id, external_sourcename,
         received_global_ids = [make_external_id(id_field, name_field, layer, f, arc_item.id) for f in layer]
         delete_result = models.SpatialFeature.objects.filter(arcgis_item=arc_item).exclude(
             external_id__in=received_global_ids).delete()
-        logger.info(f'deleted featutes {delete_result}')
+        logger.info(f'deleted features {delete_result}')
 
         has_unique_keys = contains_unique_keys_in_layer(id_field, name_field, layer)
         for i, feature in enumerate(layer):
@@ -216,6 +216,7 @@ def save_esri_feature(feature, source_name, external_id, type_label, arcgis_item
         feature_record.external_source = source_name
         feature_record.feature_geometry = feature_geometry
         set_feature_name(feature_record, feature, feature_type, counter)
+        feature_record.clean()
         feature_record.save()
     else:
         logger.debug(f'Skipping update for feature {external_id}')

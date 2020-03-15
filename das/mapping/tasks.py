@@ -25,27 +25,7 @@ def load_features_from_wfs(obj_id, group_id):
     # Task only accepts primitive data, access config objects using obj_id
     arc_config, wfs_group = get_wfs_config_objects(obj_id, group_id)
     errored_files, success_files, group_members = [], [], wfs_group.content()
-    items_to_download = None
-    AP_GROUP_ID = 'a47fb09a85fb41ec9d70ef608761f7fa'
-    ER_GROUP_ID = 'dc27285af43546a080407241d7eeab47'
 
-    # restricting APN group members for demo
-    if wfs_group.id == AP_GROUP_ID:
-        items_to_download = [
-            'Akagera_Land_Cover',
-            'Built_point',
-            'Hydrology_polygon',
-            # 'Transport_line',
-            # 'Hydrology_line'
-        ]
-    elif wfs_group.id == ER_GROUP_ID:
-        items_to_download = [
-            'Point features near Vulcan',
-            'STE Points Wells Closed',
-            'polygon features',
-            'Lines near Vulcan',
-            'Villages'
-        ]
     received_item_ids = [m.itemid for m in group_members]
     delete_result = models.ArcgisItem.objects.filter(arcgis_config=arc_config).exclude(
         id__in=received_item_ids).delete()
@@ -54,10 +34,6 @@ def load_features_from_wfs(obj_id, group_id):
         try:
             with transaction.atomic():
                 if member.type == "Feature Service":
-                    # TODO: before merge to develop remove all the items_to_download related stuff
-                    if items_to_download and member.title not in items_to_download:
-                        logger.info(f'Skipping {member.title}')
-                        continue
                     title = member.title.replace(' ', '-')
                     last_modified = datetime.fromtimestamp(int(member.modified/1000), timezone.utc)
                     logger.info(f'processing {title}')
