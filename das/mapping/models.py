@@ -10,7 +10,7 @@ from django.contrib.gis import geos
 from django.contrib.postgres.fields import JSONField
 from django.core import management
 from django.core.exceptions import ImproperlyConfigured, ValidationError
-from django.core.files.storage import FileSystemStorage
+from django.core.files.storage import FileSystemStorage, default_storage
 from django.db import transaction
 from django.urls import NoReverseMatch, reverse
 from django.utils.deconstruct import deconstructible
@@ -26,7 +26,7 @@ from mapping.mbtiles import (ExtractionError, GoogleProjection,
 from mapping.utils import MAPPING_FEATURES_V2, check_file_extension
 from revision.manager import Revision, RevisionMixin
 from utils.decorator import reify
-
+import requests
 logger = logging.getLogger(__name__)
 
 FILE_TYPES = (
@@ -35,6 +35,11 @@ FILE_TYPES = (
     # ('geodatabase', 'Geodatabase'),
     ('geojson', 'GeoJSON'),
 )
+
+googlestorage = default_storage.__class__.__name__ == 'GoogleCloudStorage'
+spatialfiles_storage_folder = 'spatialfiles'
+local_ste_folder = f'mapping/{spatialfiles_storage_folder}' if googlestorage else spatialfiles_storage_folder
+
 
 class Map(TimestampedModel):
     """
@@ -162,7 +167,7 @@ class SpatialFilesBase(TimestampedModel):
     name = models.CharField(max_length=255, blank=True,
                             verbose_name='SpatialFile Name')
     description = models.CharField(max_length=100, blank=True)
-    data = models.FileField(upload_to='spatialfiles', blank=False)
+    data = models.FileField(upload_to=spatialfiles_storage_folder, blank=False)
     data_filename = models.TextField(verbose_name='Data file')
     layer_number = models.IntegerField(blank=True, null=True, default=0)
     name_field = models.CharField(max_length=100, blank=True, null=True)
@@ -186,34 +191,34 @@ class SpatialFilesBase(TimestampedModel):
                 break
         return import_file
 
-    def import_spatial_file(self, uploaded_file_path, uploaded_file_directory):
+    def import_spatial_file(self, uploaded_file):
         """
         Import features by invoking importlayer management command.
         :param uploaded_file_path: Path of uploaded file.
         :param uploaded_file_directory: Directory of uploaded file.
         """
+        filename = uploaded_file.name.split('/')[1]
         try:
             import_file = None
-            if uploaded_file_path.lower().endswith('.zip'):
+            if filename.lower().endswith('.zip'):
                 # Extract user-uploaded zip file.
-                with zipfile.ZipFile(
-                        uploaded_file_path, 'r') as zip_file_object:
-                    zip_file_object.extractall(uploaded_file_directory)
+                with zipfile.ZipFile(uploaded_file, 'r') as zip_file_object:
+                    zip_file_object.extractall(local_ste_folder)
 
                 import_file = self.fetch_shape_file_path(
-                    uploaded_file_directory)
+                    local_ste_folder)
                 # If zip contains a directory encapsulating all the shape files
                 if not import_file:
                     import_file = self.fetch_shape_file_path(
-                        uploaded_file_path[:-4])
+                        f'{local_ste_folder}/{filename[:-4]}')
             else:
-                import_file = uploaded_file_path
+                import_file = f'{local_ste_folder}/{filename}'
 
             if import_file:
                 return import_file
             else:
                 raise ValidationError(
-                    f'Unsupported file, or incomplete archive file uploaded {uploaded_file_path}')
+                    f'Unsupported file, or incomplete archive file uploaded {filename}')
         except Exception as err:
             logger.error(err)
             raise ValidationError(err)
@@ -245,17 +250,29 @@ class SpatialFilesBase(TimestampedModel):
             spatial_types_filename = None
         self.save()
 
+        # create if does not exist
+        if not os.path.exists('mapping/spatialfiles'):
+            os.makedirs('mapping/spatialfiles')
+
         data_file = self.get_upload_file(self.data)
         if spatial_types_filename:
             spatial_types_file = self.get_upload_file(self.feature_types_file)
         transaction.on_commit(lambda: self.call_mgt_command(data_file, spatial_types_file))
 
+    def download_features(self, upload_file):
+        storage_url = default_storage.url(upload_file.name)
+        r = requests.get(storage_url, allow_redirects=True)
+
+        with open(f'mapping/spatialfiles/{upload_file.name.split("/")[1]}', 'wb') as f:
+            f.write(r.content)
+
     def get_upload_file(self, upload_file):
         if upload_file:
-            uploaded_file_directory = os.path.dirname(upload_file.path)
+            if googlestorage:
+                # Download features to local storage
+                self.download_features(upload_file)
             try:
-                return self.import_spatial_file(
-                    upload_file.path, uploaded_file_directory)
+                return self.import_spatial_file(upload_file)
             except ValidationError as err:
                 self.__class__.objects.filter(id=self.id).delete()
                 raise ValidationError(

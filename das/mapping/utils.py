@@ -294,21 +294,20 @@ def cleanup_files(filename, spatial_file):
     """
     Remove files/directories from the temporary folder.
     """
-    uploaded_file_directory = f'{spatial_file.data.storage.location}/spatialfiles'
-
     # clear directory
-    if os.path.exists(uploaded_file_directory):
-        try:
-            shutil.rmtree(uploaded_file_directory)
-        except Exception:
-            shutil.rmtree('/'.join(filename.split("/")[:-1]))
-
-    logger.exception(
-        f'Cleaned up spatial files after import: {uploaded_file_directory}')
+    for folderpath in [models.local_ste_folder, models.spatialfiles_storage_folder]:
+        if os.path.exists(folderpath):
+            try:
+                shutil.rmtree(folderpath)
+            except Exception:
+                pass
+        logger.exception(
+            f'Cleaned up {folderpath}')
     filename = ''
 
 
 def mappingv1_save_spatial_data(feature, featureset, featuretype, external_id, name_field, spatialfile_id):
+    geometry_mapper = GeometryMapper()
     fields = {}
     for name in feature.fields:
         if name.lower() in (name_field.lower(), 'description'):
