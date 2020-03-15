@@ -4,10 +4,10 @@ import logging
 from unittest.mock import patch
 
 from core.tests import BaseAPITest
-from mapping.models import (ArcgisConfiguration, ArcgisGroup, SpatialFeature, ArcgisItem,
-                            SpatialFeatureType)
 from mapping.esri_integration import (arcgis_authentication, extract_features,
-                           import_featuretype_presentation, search_groups)
+                                      import_featuretype_presentation, search_groups)
+from mapping.models import (ArcgisConfiguration, SpatialFeature, ArcgisItem,
+                            SpatialFeatureType)
 
 logger = logging.getLogger(__name__)
 
@@ -210,29 +210,28 @@ class TestArcGisIntegration(BaseAPITest):
             after_features_deletion = SpatialFeature.objects.all().count()
             self.assertEqual(after_features_deletion, 39)
 
-
     def test_updated_feature_update_from_esri(self):
         with self.settings(UI_SITE_URL='http://www.liwonde.com'):
             self.load_features()
 
             initial_mponda = SpatialFeature.objects.get(name='Mponda')
-            prev_mponda_coordinates = [coord for coord in initial_mponda.feature_geometry]
+            prev_mponda_coordinates = [coord for coord in initial_mponda.feature_geometry.coords]
 
-            self.assertEqual(prev_mponda_coordinates, [35.2432244949146, -14.457755073238])
+            self.assertEqual(prev_mponda_coordinates[0], (35.2432244949146, -14.457755073238))
             with open('./mapping/tests/testdata/Built_point.geojson', 'r') as f:
                 data = json.load(f)
                 for feature in data['features']:
                     if feature["properties"]["Name"] == initial_mponda.name:
-
                         # Update feature geometry
                         feature["geometry"]["coordinates"] = [34.54, -15.77]
+                        break
                 extract_features(self.test_config, self.gis_group,
-                                    self.gis_group.title, json.dumps(data), [], [], self.arcgis_item.id)
+                                 self.gis_group.title, json.dumps(data), [], [], self.arcgis_item.id)
 
             updated_mponda = SpatialFeature.objects.get(name='Mponda')
-            new_mponda_coordinates = [coord for coord in updated_mponda.feature_geometry]
+            new_mponda_coordinates = [coord for coord in updated_mponda.feature_geometry.coords]
             
-            self.assertEqual(new_mponda_coordinates, [34.54, -15.77])
+            self.assertEqual(new_mponda_coordinates[0], (34.54, -15.77))
             self.assertTrue(prev_mponda_coordinates != new_mponda_coordinates)
 
 
