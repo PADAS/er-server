@@ -12,24 +12,6 @@ from utils.spatial import GeometryMapper
 logger = logging.getLogger(__name__)
 
 
-TYPE_PROVENANCE_FIELDS = ('last_edited_user',
-                          'last_edited_date',
-                          'other_id')
-
-
-def reduce_json(document):
-    '''reduce python object fields to simple types, convert datetime to str'''
-    if not isinstance(document, dict):
-        return document
-
-    reduced = {}
-    for key, value in document.items():
-        if isinstance(value, (datetime.date, datetime.datetime)):
-            value = utils.json.date_to_isoformat(value)
-        reduced[key] = value
-    return reduced
-
-
 # TODO: merge this with importlayer.py.
 class Command(BaseCommand):
     help = 'Import a spatial data layer'
@@ -48,7 +30,7 @@ class Command(BaseCommand):
         self.id_field = options['id_field'] if options.get('id_field') else 'globalid'
 
         load_spatial_features_from_files.apply_async(args=(
-            self.filename, self.tmpdirs, self.source_name, self.spatialfile_id, self.feature_types_file, None, None, None,
+            self.filename, self.tmpdirs, self.source_name, self.spatialfile_id, self.feature_types_file, None,
             self.id_field, self.name_field))
 
     def add_arguments(self, parser):
