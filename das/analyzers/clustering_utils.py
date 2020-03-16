@@ -124,7 +124,7 @@ def grow_cluster(dataset, labels, p, neighbor_pts, current_cluster, eps, min_clu
 
     # Look at each neighbor of p (neighbors are referred to as pn).
     # neighbor_pts will be used as a queue of points to search--that is, it
-    # will grow as we discover new branch points for the cluster.
+    # will grow as we discover new core points for the cluster.
     # In neighbor_pts, the points are represented by their index in the original
     # dataset.
     i = 0
@@ -134,8 +134,8 @@ def grow_cluster(dataset, labels, p, neighbor_pts, current_cluster, eps, min_clu
         pn = neighbor_pts[i]
 
         # If pn was labelled NOISE during the seed search, then we
-        # know it's not a branch point (it doesn't have enough neighbors), so
-        # make it a leaf point of the current_cluster and move on.
+        # know it's not a core point (it doesn't have enough neighbors), so
+        # make it a border point of the current_cluster and move on.
         if labels[pn] == -1:
             labels[pn] = current_cluster
 
@@ -148,11 +148,11 @@ def grow_cluster(dataset, labels, p, neighbor_pts, current_cluster, eps, min_clu
             # Find all the neighbors of pn
             pn_neighbor_pts = radius_query(dataset, pn, eps)
 
-            # If pn has at least min_cluster_size neighbors, it's a branch point!
+            # If pn has at least min_cluster_size neighbors, it's a core point!
             # Add all of its neighbors to the FIFO queue to be searched.
             if len(pn_neighbor_pts) >= min_cluster_size:
                 neighbor_pts = neighbor_pts + pn_neighbor_pts
-            # If pn *doesn't* have enough neighbors, then it's a leaf point.
+            # If pn *doesn't* have enough neighbors, then it's a border point.
             # Don't queue up it's neighbors as expansion points.
             # else:
             # Do nothing
@@ -213,7 +213,10 @@ def cluster_alerts(alerts, radius, min_cluster_size):
 
 # if __name__ == '__main__':
 #     alerts = cluster_alerts(data, 1, 1)
-#     print(alerts)
+#     print(f"Size of original data: {len(data)}")
+#     print(f"Number of clusters: {len(alerts)}\n")
+#     for i in alerts:
+#         print(i)
 
 
 
