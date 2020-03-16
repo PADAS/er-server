@@ -69,7 +69,7 @@ def dbscan(dataset, eps, min_cluster_size):
     # This outer loop is just responsible for picking new seed points--a point
     # from which to grow a new cluster.
     # Once a valid seed point is found, a new cluster is created, and the
-    # cluster growth is all handled by the 'expandCluster' routine.
+    # cluster growth is all handled by the 'grow_cluster' function.
 
     # For each point p in the dataset ...
     # ('p' is the index of the datapoint, rather than the data point itself.)
@@ -86,6 +86,10 @@ def dbscan(dataset, eps, min_cluster_size):
 
         # If the number is below min_cluster_size, this point is noise.
         # This is the only condition under which a point is labeled
+        # NOISE--when it's not a valid seed point. A NOISE point may later
+        # be picked up by another cluster as a boundary point (this is the only
+        # condition under which a cluster label can change--from NOISE to
+        # something else).
         if len(neighbor_pts) < min_cluster_size:
             labels[p] = -1
         # Otherwise, if there are at least MinPts nearby, use this point as the
@@ -109,7 +113,7 @@ def grow_cluster(dataset, labels, p, neighbor_pts, current_cluster, eps, min_clu
     :param labels: list storing the cluster labels for all dataset points
     :param p: Index of the seed point for this new cluster
     :param neighbor_pts: All of the neighbors of `p`
-    :param current_cluster:
+    :param current_cluster: he label for this new cluster
     :param eps: distance beyond which 2 features can not belong to the same cluster
     :param min_cluster_size:
     :return:
@@ -208,9 +212,9 @@ def cluster_alerts(alerts, radius, min_cluster_size):
     return result
 
 
-# if __name__ == '__main__':
-#     alerts = cluster_alerts(data, 1, 1)
-#     print(alerts)
+if __name__ == '__main__':
+    alerts = cluster_alerts(data, 1, 1)
+    print(alerts)
 
 
 
