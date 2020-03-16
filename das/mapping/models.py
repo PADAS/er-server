@@ -1,8 +1,10 @@
 import glob
+import io
 import logging
 import os
 import uuid
 import zipfile
+from zipfile import ZipFile, is_zipfile
 
 from django.conf import settings
 from django.contrib.gis.db import models
@@ -20,13 +22,16 @@ from tagulous.models import TagField, TagModel
 from pytz import timezone
 
 from core.models import TimestampedModel
+from google.cloud import storage
 from mapping.app_settings import MBTILES
 from mapping.mbtiles import (ExtractionError, GoogleProjection,
                              InvalidFormatError, MBTilesReader)
 from mapping.utils import MAPPING_FEATURES_V2, check_file_extension
+from model_utils.managers import InheritanceManager
 from revision.manager import Revision, RevisionMixin
 from utils.decorator import reify
-import requests
+
+storage_client = storage.Client()
 logger = logging.getLogger(__name__)
 
 FILE_TYPES = (
@@ -37,8 +42,9 @@ FILE_TYPES = (
 )
 
 googlestorage = default_storage.__class__.__name__ == 'GoogleCloudStorage'
-spatialfiles_storage_folder = 'spatialfiles'
-local_ste_folder = f'mapping/{spatialfiles_storage_folder}' if googlestorage else spatialfiles_storage_folder
+
+ste_folder = 'spatialfiles' if googlestorage else 'mapping/spatialfiles'
+bucket_name = "kezzy-ste-test"
 
 
 class Map(TimestampedModel):
@@ -167,7 +173,7 @@ class SpatialFilesBase(TimestampedModel):
     name = models.CharField(max_length=255, blank=True,
                             verbose_name='SpatialFile Name')
     description = models.CharField(max_length=100, blank=True)
-    data = models.FileField(upload_to=spatialfiles_storage_folder, blank=False)
+    data = models.FileField(upload_to=ste_folder, blank=False)
     data_filename = models.TextField(verbose_name='Data file')
     layer_number = models.IntegerField(blank=True, null=True, default=0)
     name_field = models.CharField(max_length=100, blank=True, null=True)
@@ -178,18 +184,47 @@ class SpatialFilesBase(TimestampedModel):
         abstract = True
 
     @staticmethod
-    def fetch_shape_file_path(directory_path):
+    def extract_zipfile(bucketname, zipfilename_with_path):
+
+        bucket = storage_client.get_bucket(bucketname)
+
+        destination_blob_pathname = zipfilename_with_path
+
+        blob = bucket.blob(destination_blob_pathname)
+        data = io.BytesIO(blob.download_as_string())
+
+        if is_zipfile(data):
+            with ZipFile(data, 'r') as myzip:
+                for contentfilename in myzip.namelist():
+                    contentfile = myzip.read(contentfilename)
+                    blob = bucket.blob(f'{ste_folder}/{contentfilename}')
+                    blob.upload_from_string(contentfile)
+
+    @staticmethod
+    def fetch_shape_file_path(uploaded_file, directory_path):
         """
         Fetch shape file path from the given directory.
         :param directory_path: Directory to iterate through.
         :return: Path of the shape file.
         """
         import_file = None
-        for file_name in os.listdir(directory_path):
-            if file_name.lower()[-4:] in ['.shp', '.gdb']:
-                import_file = os.path.join(directory_path, file_name)
-                break
-        return import_file
+
+        if googlestorage:
+            blobs = storage_client.list_blobs(bucket_name, prefix=directory_path)
+
+            for blob in blobs:
+                if '.' in blob.name:
+                    if blob.name.lower()[-4:] in ['.shp', '.gdb']:
+                        import_file = blob.name
+                        break
+            return import_file
+
+        else:
+            for file_name in os.listdir(directory_path):
+                if file_name.lower()[-4:] in ['.shp', '.gdb']:
+                    import_file = os.path.join(directory_path, file_name)
+                    break
+            return import_file
 
     def import_spatial_file(self, uploaded_file):
         """
@@ -197,22 +232,29 @@ class SpatialFilesBase(TimestampedModel):
         :param uploaded_file_path: Path of uploaded file.
         :param uploaded_file_directory: Directory of uploaded file.
         """
-        filename = uploaded_file.name.split('/')[1]
+        filename = uploaded_file.name.split('/')[-1]
         try:
             import_file = None
             if filename.lower().endswith('.zip'):
-                # Extract user-uploaded zip file.
-                with zipfile.ZipFile(uploaded_file, 'r') as zip_file_object:
-                    zip_file_object.extractall(local_ste_folder)
+                if googlestorage:
+                    # extract file in gcp
+                    SpatialFilesBase.extract_zipfile(bucket_name, uploaded_file.name)
+                else:
+                    # Extract user-uploaded zip file.
+                    with zipfile.ZipFile(
+                            uploaded_file.name, 'r') as zip_file_object:
+                        zip_file_object.extractall(ste_folder)
 
-                import_file = self.fetch_shape_file_path(
-                    local_ste_folder)
+                import_file = self.fetch_shape_file_path(uploaded_file, ste_folder)
+
                 # If zip contains a directory encapsulating all the shape files
                 if not import_file:
                     import_file = self.fetch_shape_file_path(
-                        f'{local_ste_folder}/{filename[:-4]}')
+                        uploaded_file, f'{ste_folder}/{filename[:-4]}/')
+                if googlestorage:
+                    import_file = f'https://storage.googleapis.com/{bucket_name}/{import_file}'
             else:
-                import_file = f'{local_ste_folder}/{filename}'
+                import_file = uploaded_file.url if googlestorage else uploaded_file.name
 
             if import_file:
                 return import_file
@@ -250,27 +292,13 @@ class SpatialFilesBase(TimestampedModel):
             spatial_types_filename = None
         self.save()
 
-        # create if does not exist
-        if not os.path.exists('mapping/spatialfiles'):
-            os.makedirs('mapping/spatialfiles')
-
         data_file = self.get_upload_file(self.data)
         if spatial_types_filename:
             spatial_types_file = self.get_upload_file(self.feature_types_file)
         transaction.on_commit(lambda: self.call_mgt_command(data_file, spatial_types_file))
 
-    def download_features(self, upload_file):
-        storage_url = default_storage.url(upload_file.name)
-        r = requests.get(storage_url, allow_redirects=True)
-
-        with open(f'mapping/spatialfiles/{upload_file.name.split("/")[1]}', 'wb') as f:
-            f.write(r.content)
-
     def get_upload_file(self, upload_file):
         if upload_file:
-            if googlestorage:
-                # Download features to local storage
-                self.download_features(upload_file)
             try:
                 return self.import_spatial_file(upload_file)
             except ValidationError as err:
