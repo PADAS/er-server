@@ -27,7 +27,7 @@ from django.template.loader import render_to_string
 from django.utils.html import format_html
 from django.db.models.expressions import RawSQL
 import django.contrib.gis.admin as gis_admin
-from django.utils.safestring import mark_safe
+from django.utils.safestring import mark_safe, SafeString
 from django.utils.functional import cached_property
 
 import observations.models as models
@@ -1073,7 +1073,7 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
         qs = qs.annotate(state_order=RawSQL(
             '''jsonb_extract_path_text(observations_subjectstatus.additional, 'state')
              || jsonb_extract_path_text(observations_subjectstatus.additional, 'gps_fix')''', ()))
-        qs = qs.prefetch_related('subject')
+        qs = qs.select_related('subject', 'subject__subject_subtype')
         return qs
 
     def _location(self, o):
@@ -1087,8 +1087,7 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
     _recorded_at.admin_order_field = 'recorded_at'
 
     def _source_provider(self, o):
-        o = o.subject.subjectsources.annotate(provider_name=F('source__provider__display_name'))
-        return o[0].provider_name
+        return o.subject.source.provider.display_name
 
     def _source_type(self, o):
         source = None
