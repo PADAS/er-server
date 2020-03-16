@@ -56,7 +56,7 @@ class TestSpatialFile(BaseTest):
                 extract_features_from_files(data_file_path, 'ste', None, feature_types_file, name_field='', )
 
                 # featuretypes added
-                self.assertEqual(SpatialFeatureType.objects.count(), 37)
+                self.assertEqual(SpatialFeatureType.objects.count(), 214)
                 self.assertEqual(SpatialFeature.objects.count(), 6)
 
     def test_spatial_feature_file_upload(self):

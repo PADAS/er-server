@@ -4,6 +4,7 @@ import os
 import uuid
 import zipfile
 
+from django.conf import settings
 from django.contrib.gis.db import models
 from django.contrib.gis import geos
 from django.contrib.postgres.fields import JSONField
@@ -16,6 +17,7 @@ from django.utils.deconstruct import deconstructible
 from django.utils.translation import ugettext_lazy as _
 from model_utils.managers import InheritanceManager
 from tagulous.models import TagField, TagModel
+from pytz import timezone
 
 from core.models import TimestampedModel
 from mapping.app_settings import MBTILES
@@ -164,7 +166,7 @@ class SpatialFilesBase(TimestampedModel):
     layer_number = models.IntegerField(blank=True, null=True, default=0)
     name_field = models.CharField(max_length=100, blank=True, null=True)
     id_field = models.CharField(max_length=100, blank=True, null=True)
-    status = models.CharField(max_length=100, blank=True, null=True, verbose_name='Feature Load Status')
+    status = models.CharField(max_length=1000, blank=True, null=True, verbose_name='Feature Load Status')
 
     class Meta:
         abstract = True
@@ -643,7 +645,7 @@ class SpatialFeatureType(TimestampedModel):
     objects = SpatialFeatureTypeManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     # JSON field for storing the json schema for each unique feature type
     attribute_schema = JSONField(default=dict, blank=True)
     # Tags will allow categorization according to different views (e.g., HF)
@@ -769,6 +771,7 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
     feature_geometry = models.GeometryField(geography=True, srid=4326)
     spatialfile = models.ForeignKey(
         to=SpatialFeatureFile, null=True, blank=True, on_delete=models.SET_NULL)
+    arcgis_item = models.ForeignKey(to='ArcgisItem', null=True, blank=True, on_delete=models.CASCADE)
     revision = Revision()
 
     @property
@@ -816,13 +819,25 @@ class ArcgisConfiguration(TimestampedModel):
     username = models.CharField(max_length=100, blank=False, help_text='ArcGIS account username')
     password = models.CharField(max_length=100, blank=False)
     source = models.CharField(max_length=100, blank=True, null=True, default='ArcGis')
-    name_field = models.CharField(max_length=100, blank=True, null=True,
+    name_field = models.CharField(max_length=100, blank=True, null=True, default='Name',
                                   help_text='Name of field in your GIS data that has the feature name. Default is Name')
-    id_field = models.CharField(max_length=100, blank=True, null=True,
+    id_field = models.CharField(max_length=100, blank=True, null=True, default='GlobalID',
                                 help_text='Name of field in your GIS data that has the feature ID. Default is GlobalID')
-    type_label = models.CharField(max_length=100, blank=True, null=True, verbose_name='Type field',
+    type_label = models.CharField(max_length=100, blank=True, null=True, verbose_name='Type field', default='FeatureType',
                                   help_text='Name of field in your GIS data that has the feature type. Defaults are Type and FeatureType')
     last_download = models.DateTimeField(blank=True, null=True, verbose_name='Last Download Time')
 
     class Meta:
         verbose_name = 'Feature Service Configuration'
+    @property
+    def last_download_time(self):
+        t_zone = timezone(settings.TIME_ZONE)
+        fmt = '%d %b %Y, %H:%M %p (%Z)'
+        return self.last_download.astimezone(t_zone).strftime(fmt)
+
+
+# Minimal model for an arcgis.gis.Item
+class ArcgisItem(TimestampedModel):
+    id = models.UUIDField(primary_key=True)
+    name = models.CharField(max_length=50)
+    arcgis_config = models.ForeignKey(to=ArcgisConfiguration, on_delete=models.SET_NULL, null=True)
