@@ -191,7 +191,7 @@ def radius_query(dataset, p, eps):
 
 
 def group_alerts(dataset, labels):
-    unique_labels_dict = {label: [] for label in labels}
+    unique_labels_dict = {label: [] for label in labels if label > 0}
     for lbl, alert in zip(labels, dataset):
         unique_labels_dict[lbl].append(alert)
 
@@ -211,9 +211,9 @@ def cluster_alerts(alerts, radius, min_cluster_size):
     return result
 
 
-if __name__ == '__main__':
-    alerts = cluster_alerts(data, 1, 1)
-    print(alerts)
+# if __name__ == '__main__':
+#     alerts = cluster_alerts(data, 1, 1)
+#     print(alerts)
 
 
 
