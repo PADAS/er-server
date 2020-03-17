@@ -9,6 +9,7 @@ from core.openlayers import OSMGeoExtendedAdmin
 @admin.register(models.ImmobilityAnalyzerConfig)
 class ImmobilityAnalyzerAdmin(admin.ModelAdmin):
     list_display = ('name', 'subject_group_name',)
+    ordering = ('name', 'subject_group')
     readonly_fields = ('id',)
     search_fields = ('subject_group__name',)
 
@@ -48,11 +49,13 @@ private key and paste it's contents in this form (be sure to use the JSON format
 @admin.register(models.EnvironmentalSubjectAnalyzerConfig)
 class EnvironmentalSubjectAnalyzerAdmin(admin.ModelAdmin):
     list_display = ('name', 'subject_group_name',)
+    ordering = ('name', 'subject_group')
     readonly_fields = ('id',)
     search_fields = ('subject_group__name',)
 
     def subject_group_name(self, o):
         return o.subject_group.name
+    subject_group_name.admin_order_field = 'subject_group'
 
     fieldsets = (
         (None, {
@@ -82,12 +85,14 @@ class EnvironmentalSubjectAnalyzerAdmin(admin.ModelAdmin):
 @admin.register(models.ProximityAnalyzerConfig)
 class ProximitySubjectAnalyzerAdmin(admin.ModelAdmin):
     list_display = ('name', 'subject_group_name',)
+    ordering = ('name', 'subject_group')
 
     search_fields = ('subject_group__name',)
     readonly_fields = ('id',)
 
     def subject_group_name(self, o):
         return o.subject_group.name
+    subject_group_name.admin_order_field = 'subject_group'
 
     fieldsets = (
         (None, {
@@ -111,11 +116,13 @@ class ProximitySubjectAnalyzerAdmin(admin.ModelAdmin):
 @admin.register(models.GeofenceAnalyzerConfig)
 class GeofenceSubjectAnalyzerAdmin(admin.ModelAdmin):
     list_display = ('name', 'subject_group_name',)
+    ordering = ('name', 'subject_group')
     search_fields = ('subject_group__name',)
     readonly_fields = ('id',)
 
     def subject_group_name(self, o):
         return o.subject_group.name
+    subject_group_name.admin_order_field = 'subject_group'
 
     fieldsets = (
         (None, {
@@ -138,11 +145,13 @@ class GeofenceSubjectAnalyzerAdmin(admin.ModelAdmin):
 @admin.register(models.LowSpeedWilcoxAnalyzerConfig)
 class LowSpeedWilcoxSubjectAnalyzerAdmin(admin.ModelAdmin):
     list_display = ('name', 'subject_group_name',)
+    ordering = ('name', 'subject_group')
     readonly_fields = ('id',)
     search_fields = ('subject_group__name',)
 
     def subject_group_name(self, o):
         return o.subject_group.name
+    subject_group_name.admin_order_field = 'subject_group'
 
     fieldsets = (
         (None, {
@@ -160,12 +169,14 @@ class LowSpeedWilcoxSubjectAnalyzerAdmin(admin.ModelAdmin):
 @admin.register(models.LowSpeedPercentileAnalyzerConfig)
 class LowSpeedPercentileSubjectAnalyzerAdmin(admin.ModelAdmin):
     list_display = ('name', 'subject_group_name',)
+    ordering = ('name', 'subject_group')
     readonly_fields = ('id',)
 
     search_fields = ('subject_group__name',)
 
     def subject_group_name(self, o):
         return o.subject_group.name
+    subject_group_name.admin_order_field = 'subject_group'
 
     fieldsets = (
         (None, {
@@ -196,6 +207,7 @@ class GlobalForestWatchAdmin(OSMGeoExtendedAdmin):
     readonly_fields = ('subscription_id', 'geostore_id',)
 
     list_display = ('name', 'subscription_id',)
+    ordering = list_display
 
     gis_geometry_field_name = 'subscription_geometry'
 

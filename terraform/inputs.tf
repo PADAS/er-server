@@ -41,7 +41,19 @@ data "aws_route53_zone" "public" {
 }
 
 variable "subdomain_name" {
-  type = string
+  type        = string
   description = "Subdomain to create in Route53"
-  default = null
+  default     = null
+}
+
+variable "ssl_privatekey_vault_path" {
+  type        = string
+  description = "Vault path for SSL private key"
+  default     = "generic/privatekey.pem"
+}
+
+variable "ssl_certificate_vault_path" {
+  type        = string
+  description = "Vault path for SSL certificate chain."
+  default     = "generic/fullchain.pem"
 }

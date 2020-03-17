@@ -1,17 +1,17 @@
 # requirements needed for development
 # pip-compile --output-file requirements-dev.txt requirements-dev.in ./requirements.txt --find-links ./wheelhouse
 
-pre-commit==2.1.1
+pre-commit==2.2.0
 mockredispy==2.9.3
 pep8==1.7.1
 ptvsd==4.3.2
-pytest==5.3.5
+pytest==5.4.1
 pytest-django==3.8.0
 pytest-pythonpath==0.7.3
 xmlunittest==0.5.0
-pip-tools==4.5.0
+pip-tools==4.5.1
 websocket-client==0.57.0
 coverage==4.5.4
 django-jenkins==0.110.0
 requests-mock==1.7.0
-faker==4.0.1
+faker==4.0.2

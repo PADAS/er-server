@@ -2,13 +2,16 @@ import json
 import logging
 
 import requests
-from requests.exceptions import Timeout
 from celery_once import QueueOnce
+from requests.exceptions import Timeout
 from rest_framework import status
 
 from analyzers import gfw_inbound
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.finder import get_subject_analyzers
+from analyzers.gfw_alert_schema import GFWGladEventTypeSpec
+from analyzers.gfw_utils import get_geostore_id, rebuild_glad_download_url
+from analyzers.models import GlobalForestWatchSubscription as gfw_model
 from analyzers.models import ObservationAnnotator
 from das_server import celery
 from observations.models import Subject
@@ -128,7 +131,8 @@ def handle_observation(observation_id):
 def download_gfw_alerts(self, download_url, common_event_fields, user_id):
     try:
         connect_timeout, read_timeout = 3, 30
-        logger.info('Processing GFW payload. Downloading from: %s', download_url)
+        logger.info('Processing GFW payload for %s. Downloading from: %s', common_event_fields.get('event_type'),
+                    download_url)
         resp = requests.get(url=download_url, timeout=(connect_timeout, read_timeout))
     except Timeout as tex:
         # TODO: revisit to figure out other failures that should be retried.
@@ -140,14 +144,15 @@ def download_gfw_alerts(self, download_url, common_event_fields, user_id):
                          extra={'Exception': ex})
     else:
         if resp and resp.status_code == status.HTTP_200_OK:
-            logger.info('Good response from GFW download url: %s', download_url)
-
             gfw_alerts_payload = json.loads(resp.text)
-            logger.debug('GFW Alerts downloaded data: %s', gfw_alerts_payload)
-            if common_event_fields.get('event_type') == 'gfw_activefire_alert':
-                gfw_inbound.process_downloaded_alerts(gfw_alerts_payload.get('rows', []), common_event_fields, user_id)
+            data_field = 'data' if common_event_fields.get('event_type') == GFWGladEventTypeSpec.value else 'rows'
+            if gfw_alerts_payload.get(data_field) is not None:
+                alert_data = gfw_alerts_payload.get(data_field)
+                logger.info('Valid response from GFW. %d alerts received.', len(alert_data))
+                logger.info('First alert payload %s', alert_data[0]) if len(alert_data) else None
+                gfw_inbound.process_downloaded_alerts(alert_data, common_event_fields, user_id)
             else:
-                gfw_inbound.process_downloaded_alerts(gfw_alerts_payload.get('data', []), common_event_fields, user_id)
+                logger.error('GFW API returned error: %s', gfw_alerts_payload)
         else:
             logger.error('GFW Alerts cannot be downloaded. Result is %s, \ndownload url is: %s\n Response is: %s',
                          resp.status_code, download_url, resp.text)
