@@ -28,7 +28,8 @@ def extract_features_from_files(spatial_file, model, presentation):
 
     if googlestorage:
         if filename.lower().endswith('.zip'):
-            data_file = extract_zipfile(bucket_name, filepath)
+            download_file_from_gcp(spatial_file)
+            data_file = get_upload_file(spatial_file.data, model, spatial_file.id)
         else:
             data_file = spatial_file.data.url
             feature_types_file = types_file.url if types_file else None
@@ -48,9 +49,15 @@ def extract_features_from_files(spatial_file, model, presentation):
 
 
 def get_upload_file(upload_file, model, spatial_file_id):
-    uploaded_file_directory = os.path.dirname(upload_file.path)
+    if googlestorage:
+        uploaded_file_directory = f'{os.getcwd()}/mapping/spatialfiles'
+        path = f'mapping/{upload_file.name}'
+    else:
+        uploaded_file_directory = os.path.dirname(upload_file.path)
+        path = upload_file.path
+
     try:
-        return import_spatial_file(upload_file.path, uploaded_file_directory)
+        return import_spatial_file(path, uploaded_file_directory)
     except ValidationError as err:
         model.objects.filter(id=spatial_file_id).delete()
         raise ValidationError(
@@ -106,35 +113,11 @@ def fetch_shape_file_path(directory_path):
     return import_file
 
 
-def extract_zipfile(bucketname, zipfilename_with_path):
-
-    bucket = storage_client.get_bucket(bucketname)
-
-    destination_blob_pathname = zipfilename_with_path
-
-    blob = bucket.blob(destination_blob_pathname)
-    data = io.BytesIO(blob.download_as_string())
-
-    if is_zipfile(data):
-        with ZipFile(data, 'r') as myzip:
-            for contentfilename in myzip.namelist():
-                contentfile = myzip.read(contentfilename)
-                blob = bucket.blob(f'{ste_folder}/{contentfilename}')
-                blob.upload_from_string(contentfile)
-
-    # Todo, generate a readable signed url instead of downloading, still unreadable
-    return download_shapefile(bucketname, destination_blob_pathname)
-
-
-def download_shapefile(bucketname, zipfilename_with_path):
-    blobs = storage_client.list_blobs(bucketname, prefix=f'{zipfilename_with_path[:-4]}/')
-    folder = f'mapping/{ste_folder}'
-    if not os.path.exists(folder): 
-        os.makedirs(folder)
-
+def download_file_from_gcp(spatial_file):
+    filename = spatial_file.data.name.split('/')[-1]
+    blobs = storage_client.list_blobs(bucket_name, prefix=ste_folder)
     for blob in blobs:
-        if '.' in blob.name:
-            if blob.name.lower()[-4:] in ['.shp', '.gdb']:
-                filepath = f'{folder}/{blob.name.split("/")[-1]}'
-                blob.download_to_filename(filepath)
-                return f'mapping/{blob.name}'
+        folder = f'mapping/{ste_folder}'
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        blob.download_to_filename(f'{folder}/{filename}')
