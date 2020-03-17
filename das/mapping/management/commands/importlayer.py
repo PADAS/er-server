@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 class Command(BaseCommand):
     help = 'Import a spatial data layer'
     tmpdirs = []
-    SUB_COMMANDS = ('importspatialfile', 'importlayerfile')
 
     default_name_field = 'Name'
     id_field = 'globalid'
@@ -37,10 +36,8 @@ class Command(BaseCommand):
         self.featureset = options['featureset']
         self.spatialfile_id = options['spatialfile_id'] if options['spatialfile_id'] else self.spatialfile_id
 
-        sub_command = options['sub_command']
-        if sub_command not in self.SUB_COMMANDS:
-            raise NameError('Command: {0} not supported'.format(sub_command))
-        getattr(self, sub_command)()
+        logger.info('Importing features from file: %s', self.filename)
+        load_spatial_features_from_files.apply_async(args=(self.spatialfile_id, self.presentation))
 
     def add_arguments(self, parser):
         parser.add_argument('sub_command', type=str,
@@ -64,31 +61,5 @@ class Command(BaseCommand):
                             help='Change to this utm')
         parser.add_argument('--spatialfile-id', type=str,
                             help='Spatial file ID')
-
-    def importlayerfile(self):
-
-        if not self.featureset and not self.featuretype:
-            logger.info('Featureset and featuretype not included in command, add flags --featureset and --featuretype')
-            return
-
-        featureset = validate_feature_record(
-            self.featureset, 'Featureset', models.FeatureSet)
-        featuretype = validate_feature_record(
-            self.featuretype, 'Featuretype', models.FeatureType)
-        logger.debug('Featureset: %s, FeatureType: %s',
-                     featureset.name, featuretype.name)
-
-        load_spatial_features_from_files.apply_async(args=(
-            self.filename, self.tmpdirs, self.source_name, self.spatialfile_id,
-            None, self.layer, self.id_field, self.name_field, featuretype.name, featureset.name,))
-
-    def importspatialfile(self):
-        logger.info('Importing features from shapefile: %s',
-                    self.filename)
-        featuretype = self.featuretype 
-        if featuretype:
-            featuretype = featuretype if isinstance(featuretype, str) else featuretype.name
-        load_spatial_features_from_files.apply_async(args=(
-            self.filename, self.tmpdirs, self.source_name, self.spatialfile_id,
-            None, self.layer, self.id_field, self.name_field, featuretype,))
-
+        parser.add_argument('--presentation', type=dict,
+                            help='Presentation from an ArcGIS Simple Renderer')
