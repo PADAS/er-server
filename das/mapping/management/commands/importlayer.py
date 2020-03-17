@@ -40,8 +40,6 @@ class Command(BaseCommand):
         load_spatial_features_from_files.apply_async(args=(self.spatialfile_id, self.presentation))
 
     def add_arguments(self, parser):
-        parser.add_argument('sub_command', type=str,
-                            help='supported commands are {0}'.format(Command.SUB_COMMANDS))
         parser.add_argument('filename', type=str,
                             help='spatial filename')
 

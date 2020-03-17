@@ -290,7 +290,17 @@ def import_layer(layer, source_name, spatialfile_id, featuretype, featureset, id
         if featureset:
             mappingv1_save_spatial_data(feature, featureset, featuretype, external_id, name_field, spatialfile_id)
         else:
-            mappingv2_save_spatial_data(feature, featuretype, source_name, spatialfile_id, i, external_id)
+            load_layer(layer, feature, i, spatialfile, has_unique_keys, label)
+
+
+def load_layer(layer, feature, i, spatialfile, has_unique_keys, label):
+    external_id = make_external_id(layer, feature, spatialfile.id_field, spatialfile.name_field)
+    if not has_unique_keys:
+        external_id = external_id + '-' + str(i)
+    if spatialfile.__class__.__name__ == 'SpatialFile':
+        mappingv1_save_spatial_data(feature, external_id, spatialfile)
+    else:
+        mappingv2_save_spatial_data(feature, external_id, spatialfile, label)
 
 
 def cleanup_files():

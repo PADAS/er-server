@@ -137,4 +137,4 @@ def download_shapefile(bucketname, zipfilename_with_path):
             if blob.name.lower()[-4:] in ['.shp', '.gdb']:
                 filepath = f'{folder}/{blob.name.split("/")[-1]}'
                 blob.download_to_filename(filepath)
-                return f'/var/www/app/das/mapping/spatialfiles/MatlaMamba_Airstrip.shp'
+                return f'mapping/{blob.name}'

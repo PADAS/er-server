@@ -80,7 +80,7 @@ def get_wfs_config_objects(obj_id, group_id):
     return obj, wfs_group
 
 # todo: cleanup when merging with esri work
-# @celery.app.task(base=QueueOnce, once={'graceful': True})
+@celery.app.task(base=QueueOnce, once={'graceful': True})
 def load_spatial_features_from_files(spatialfile_id, presentation=None):
 
     model = models.SpatialFeatureFile if utils.MAPPING_FEATURES_V2 else models.SpatialFile
