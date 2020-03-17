@@ -1,38 +1,5 @@
 from math import radians, cos, sin, asin, sqrt
 
-data = [
-    {
-        "acq_date": "2019-06-24",
-        "acq_time": "11:30",
-        "latitude": -2.55704,
-        "longitude": 23.26341
-    },
-    {
-        "acq_date": "2019-06-24",
-        "acq_time": "11:30",
-        "latitude": -2.52684,
-        "longitude": 23.30476
-    },
-    {
-        "acq_date": "2019-06-24",
-        "acq_time": "11:30",
-        "latitude": -2.51183,
-        "longitude": 23.29754
-    },
-    {
-        "acq_date": "2019-06-24",
-        "acq_time": "11:30",
-        "latitude": -2.52429,
-        "longitude": 23.3015
-    },
-    {
-        "acq_date": "2019-06-24",
-        "acq_time": "11:30",
-        "latitude": -2.50933,
-        "longitude": 23.29426
-    }
-]
-
 
 def haversine(lon1, lat1, lon2, lat2):
     """
@@ -154,9 +121,7 @@ def grow_cluster(dataset, labels, p, neighbor_pts, current_cluster, eps, min_clu
                 neighbor_pts = neighbor_pts + pn_neighbor_pts
             # If pn *doesn't* have enough neighbors, then it's a border point.
             # Don't queue up it's neighbors as expansion points.
-            # else:
-            # Do nothing
-            # neighbor_pts = neighbor_pts
+            # else Do nothing
 
         # Advance to the next point in the queue.
         i += 1
@@ -176,20 +141,19 @@ def radius_query(dataset, p, eps):
     current_point = dataset[p]
     for pn in range(0, len(dataset)):
         point = dataset[pn]
-        # If the distance is below the threshold, add it to the neighbors list.
-        if 'latitude' in current_point.keys() or 'longitude' in current_point.keys():
+
+        try:
             distance_apart = haversine(current_point['longitude'], current_point['latitude'], point['longitude'], point['latitude'])
-        else:
-            distance_apart = haversine(current_point['long'],
-                                       current_point['lat'],
-                                       point['long'], point['lat'])
-        # print(f"Distance between current point `{current_point['longitude']}, {current_point['latitude']}` and point `{point['longitude']}, {point['latitude']}` ===> {distance_apart}")
-        if distance_apart < eps:
-            neighbors.append(pn)
+
+            if distance_apart < eps:
+                neighbors.append(pn)
+
+        except KeyError:
+            pass
 
     return neighbors
 
-
+# [1,1,2,1,2,2,3,1]
 def group_alerts(dataset, labels):
     unique_labels_dict = {label: [] for label in labels if label > 0}
     for lbl, alert in zip(labels, dataset):
@@ -198,9 +162,20 @@ def group_alerts(dataset, labels):
     return [v for v in unique_labels_dict.values()]
 
 
+def normalize_alert_object(alert):
+    if isinstance(alert, dict) and 'long' in alert.keys() or 'lat' in alert.keys():
+        alert['latitude'] = alert['lat']
+        alert['longitude'] = alert['long']
+        del alert['lat']
+        del alert['long']
+
+    return alert
+
+
 def cluster_alerts(alerts, radius, min_cluster_size):
-    labels = dbscan(alerts, radius, min_cluster_size)
-    clustered_alerts = group_alerts(alerts, labels)
+    normalized_alerts = [normalize_alert_object(alert) for alert in alerts]
+    labels = dbscan(normalized_alerts, radius, min_cluster_size)
+    clustered_alerts = group_alerts(normalized_alerts, labels)
     # pick a random(the first alert) in a cluster
     # could also get the center of the points in the cluster?
     result = []
@@ -211,12 +186,6 @@ def cluster_alerts(alerts, radius, min_cluster_size):
     return result
 
 
-# if __name__ == '__main__':
-#     alerts = cluster_alerts(data, 1, 1)
-#     print(f"Size of original data: {len(data)}")
-#     print(f"Number of clusters: {len(alerts)}\n")
-#     for i in alerts:
-#         print(i)
 
 
 
