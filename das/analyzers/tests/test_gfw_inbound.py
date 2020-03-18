@@ -1,8 +1,11 @@
 import json
 import requests
+from django.conf import settings
 
 from rest_framework import status
 from unittest.mock import patch, Mock
+
+from analyzers.clustering_utils import cluster_alerts
 from das_server.celery import app
 
 from activity.models import Event
@@ -145,6 +148,6 @@ class GFWAlertHandlerTest(BaseAPITest):
         app.send_task = send_task
 
         response = self._post_data(json.dumps(VIIRS_FIRE_ALERT))
-        expected_event = len(VIIRS_FIRE_ALERT_DOWNLOADED_DATA['rows'])  # ALL have confidence level: Nominal
+        clustered_alerts = cluster_alerts(VIIRS_FIRE_ALERT_DOWNLOADED_DATA['rows'], settings.GFW_CLUSTER_RADIUS, 1)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(expected_event, Event.objects.all().count())
+        self.assertEqual(len(clustered_alerts), Event.objects.all().count())
