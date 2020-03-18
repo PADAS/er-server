@@ -4,6 +4,7 @@ import os
 import zipfile
 
 import requests
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
 
@@ -15,14 +16,11 @@ logger = logging.getLogger(__name__)
 googlestorage = default_storage.__class__.__name__ == 'GoogleCloudStorage'
 local_ste_folder = 'mapping/spatialfiles'
 ste_folder = 'spatialfiles' if googlestorage else local_ste_folder
-bucket_name = "kezzy-ste-test"
+bucket_name = getattr(settings, 'GS_BUCKET_NAME', None)
 storage_client = storage.Client()
 
 
 def extract_features_from_files(spatial_file, model, presentation):
-    filepath = spatial_file.data.name
-    filename = filepath.split('/')[-1]
-
     try:
         types_file = spatial_file.feature_types_file
     except Exception:
