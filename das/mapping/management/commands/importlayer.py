@@ -59,5 +59,3 @@ class Command(BaseCommand):
                             help='Change to this utm')
         parser.add_argument('--spatialfile-id', type=str,
                             help='Spatial file ID')
-        parser.add_argument('--presentation', type=dict,
-                            help='Presentation from an ArcGIS Simple Renderer')

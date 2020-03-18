@@ -206,14 +206,8 @@ def mappingv2_save_spatial_data(feature, external_id, spatialfile, label, counte
     fields = list(fields_iter(feature))
     model_fieldname = 'feature_geometry'
     model_field_type = model._meta.get_field(model_fieldname)
-
-    # With Esri integration we've seen some feature services give us json that has features with "geometry" missing
-    # this handles and ignores that issue
-    try:
-        feature_geometry = geometry_mapper.get_db_geom(feature.geom, model_field_type)
-    except GDALException as gex:
-        logger.warning(f'Saving feature {external_id} raised GDALException: {gex}')
-        return
+    feature_geometry = geometry_mapper.get_db_geom(
+        feature.geom, model_field_type)
 
     attribute_fields = feature_type.attribute_schema
 
@@ -227,8 +221,13 @@ def mappingv2_save_spatial_data(feature, external_id, spatialfile, label, counte
                   feature_name in PROVENANCE_FIELDS}
     provenance = reduce_json(provenance)
 
+    try:
+        source = spatialfile.source
+    except Exception:
+        source = DEFAULT_SOURCE_NAME
+
     defaults = {'attributes': attributes, 'provenance': provenance,
-                'external_source': DEFAULT_SOURCE_NAME}
+                'external_source': source}
     for attribute_field, spatial_field in ATTRIBUTES_TO_SPATIAL_MAPPING.items():
         if attribute_field in fields:
             defaults[spatial_field['field']] = spatial_field['validator'](
