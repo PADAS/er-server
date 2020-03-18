@@ -2,16 +2,11 @@ import logging
 from datetime import datetime, timezone
 
 from celery_once import QueueOnce
-<<<<<<< HEAD
 from django.db import transaction
 
 from das_server import celery
-from mapping import models, utils
-from mapping.esri_integration import arcgis_authentication, wfs_download_return_messages, extract_gis_data
-=======
-from das_server import celery
 from mapping import models, ste_utils, utils
->>>>>>> update importlayer anf feature extraction
+from mapping.esri_integration import arcgis_authentication, wfs_download_return_messages, extract_gis_data
 from observations.utils import convert_date_string
 
 logger = logging.getLogger(__name__)
@@ -31,7 +26,6 @@ def load_features_from_wfs(obj_id, group_id):
     arc_config, wfs_group = get_wfs_config_objects(obj_id, group_id)
     errored_files, success_files, group_members = [], [], wfs_group.content()
 
-<<<<<<< HEAD
     received_item_ids = [m.itemid for m in group_members]
     delete_result = models.ArcgisItem.objects.filter(arcgis_config=arc_config).exclude(
         id__in=received_item_ids).delete()
@@ -56,14 +50,6 @@ def load_features_from_wfs(obj_id, group_id):
         except Exception as ex:
             logger.warning(f'Exception raised for object id {obj_id}')
             logger.exception(ex)
-=======
-    for member in group_members:
-        if member.type == "Feature Service":
-            title = member.title.replace(' ', '-')
-            logger.info(f'processing {title}')
-            success_files, errored_files = utils.extract_gis_data(
-                obj, member, title, errored_files, success_files)
->>>>>>> update importlayer anf feature extraction
 
     # update last download time
     arc_config.last_download = convert_date_string(str(datetime.now()))

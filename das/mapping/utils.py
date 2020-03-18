@@ -194,7 +194,7 @@ def get_or_create_feature(external_id, attributes):
     return feature_record, created
 
 
-def mappingv2_save_spatial_data(feature, featuretype, source_name, spatialfile_id, counter, external_id=None):
+def mappingv2_save_spatial_data(feature, external_id, spatialfile, label, counter=0):
     model = models.SpatialFeature
     if not external_id:
         external_id = feature.get('globalid') if 'globalid' in [x.lower() for x in feature.fields] else feature.get(
@@ -280,20 +280,19 @@ def validate_file_type(f_type, data_file, field):
             raise ValidationError({field: [f'Kindly chose a {extension} file']})
 
 
-def import_layer(layer, source_name, spatialfile_id, featuretype, featureset, id_field, name_field):
+def import_layer(layer, spatialfile, presentation):
     logger.info('Importing layer: %s, type: %s, fields: %s',
                 layer.name, layer.geom_type, layer.fields)
 
-    has_unique_keys = contains_unique_keys_in_layer(id_field, name_field, layer)
+    has_unique_keys = contains_unique_keys_in_layer(spatialfile.id_field, spatialfile.name_field, layer)
 
     for i, feature in enumerate(layer):
-        external_id = make_external_id(id_field, name_field, layer, feature)
-        if not has_unique_keys:
-            external_id = external_id + '-' + str(i)
-        if featureset:
-            mappingv1_save_spatial_data(feature, featureset, featuretype, external_id, name_field, spatialfile_id)
-        else:
-            load_layer(layer, feature, i, spatialfile, has_unique_keys, label)
+        try:
+            label = spatialfile.type_label
+        except Exception:
+            label = None
+
+        load_layer(layer, feature, i, spatialfile, has_unique_keys, label)
 
 
 def load_layer(layer, feature, i, spatialfile, has_unique_keys, label):
