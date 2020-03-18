@@ -9,30 +9,28 @@ from mapping.tests.base_test import BaseTest
 logger = logging.getLogger(__name__)
 
 
-class MockSpatialFile(object):
-    def __init__(self, id, data, feature_set, feature_type, layer_number, id_field, name_field):
+class BaseFile(object):
+    def __init__(self, id, data, feature_type, layer_number, id_field, name_field):
         self.id = id
         self.data = data
-        self.feature_set = feature_set
         self.feature_type = feature_type
         self.layer_number = layer_number
         self.id_field = id_field
         self.name_field = name_field
 
+
+class MockSpatialFile(BaseFile):
+    def __init__(self, id, data, feature_type, layer_number, id_field, name_field, feature_set):
+        self.feature_set = feature_set
+        super().__init__(id, data, feature_type, layer_number, id_field, name_field)
 
 MockSpatialFile.__name__ = 'SpatialFile'
 
 
-class MockSpatialFeatureFile(object):
-    def __init__(self, id, data, feature_type, feature_types_file, layer_number, id_field, name_field):
-        self.id = id
-        self.data = data
-        self.feature_type = feature_type
+class MockSpatialFeatureFile(BaseFile):
+    def __init__(self, id, data, feature_type, layer_number, id_field, name_field, feature_types_file):
         self.feature_types_file = feature_types_file
-        self.layer_number = layer_number
-        self.id_field = id_field
-        self.name_field = name_field
-
+        super().__init__(id, data, feature_type, layer_number, id_field, name_field)
 
 MockSpatialFeatureFile.__name__ = 'SpatialFeatureFile'
 
@@ -53,7 +51,8 @@ class TestSpatialFile(BaseTest):
 
         filepath = './mapping/tests/NRT_Water_Points-2.geojson'
         data = Filedata(name=filepath, url=filepath, path=filepath)
-        spatialfile = MockSpatialFile(1, data, dummy_feature_set, dummy_feature_type, 0, 'globalid', 'Name')
+
+        spatialfile = MockSpatialFile(1, data, dummy_feature_type, 0, 'globalid', 'Name', dummy_feature_set)
 
         with patch('mapping.ste_utils.googlestorage', False):
             extract_features_from_files(spatialfile, 'SpatialFile', None)
@@ -70,7 +69,7 @@ class TestSpatialFile(BaseTest):
 
         filepath = './mapping/tests/testdata/Grbnd_New/Grbnd_New.SHP'
         data = Filedata(name=filepath, url=filepath, path=filepath)
-        spatialfile = MockSpatialFile(1, data, dummy_feature_set, dummy_feature_type, 0, 'globalid', 'Name')
+        spatialfile = MockSpatialFile(1, data, dummy_feature_type, 0, 'globalid', 'Name', dummy_feature_set)
 
         with patch('mapping.ste_utils.googlestorage', False):
             extract_features_from_files(spatialfile, 'SpatialFile', None)
@@ -88,7 +87,7 @@ class TestSpatialFile(BaseTest):
 
         data = Filedata(name=filepath, url=filepath, path=filepath)
         feature_types_file = Filedata(name=types_file, url=types_file, path=types_file)
-        spatialfile = MockSpatialFeatureFile(1, data, None, feature_types_file, 0, 'globalid', 'Name')
+        spatialfile = MockSpatialFeatureFile(1, data, None, 0, 'globalid', 'Name', feature_types_file)
 
         with patch('mapping.ste_utils.googlestorage', False):
             extract_features_from_files(spatialfile, 'SpatialFeatureFile', None)
@@ -100,9 +99,8 @@ class TestSpatialFile(BaseTest):
         logger.info('Shape-file test started.')
 
         filepath = './mapping/tests/testdata/Matlamamba/MatlaMamba_Airstrip.shp'
-
         data = Filedata(name=filepath, url=filepath, path=filepath)
-        spatialfile = MockSpatialFeatureFile(1, data, None, None, 0, 'globalid', 'Name')
+        spatialfile = MockSpatialFeatureFile(1, data, None, 0, 'globalid', 'Name', None)
         with patch('mapping.ste_utils.googlestorage', False):
             extract_features_from_files(spatialfile, 'SpatialFeatureFile', None)
 
