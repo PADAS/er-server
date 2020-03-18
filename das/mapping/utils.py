@@ -303,13 +303,13 @@ def cleanup_files():
     Remove files/directories from the temporary folder.
     """
     # clear directory
-    for folderpath in ['mapping/spatialfiles']:
-        if os.path.exists(folderpath):
-            try:
-                shutil.rmtree(folderpath)
-            except Exception:
-                pass
-        logger.exception(f'Cleaned up {folderpath}')
+    folderpath = 'mapping/spatialfiles'
+    if os.path.exists(folderpath):
+        try:
+            shutil.rmtree(folderpath)
+        except Exception:
+            pass
+    logger.exception(f'Cleaned up {folderpath}')
 
 
 def mappingv1_save_spatial_data(feature, external_id, spatialfile):

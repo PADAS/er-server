@@ -37,7 +37,7 @@ class Command(BaseCommand):
         self.spatialfile_id = options['spatialfile_id'] if options['spatialfile_id'] else self.spatialfile_id
 
         logger.info('Importing features from file: %s', self.filename)
-        load_spatial_features_from_files.apply_async(args=(self.spatialfile_id, self.presentation))
+        load_spatial_features_from_files.apply_async(args=(self.spatialfile_id,))
 
     def add_arguments(self, parser):
         parser.add_argument('filename', type=str,
