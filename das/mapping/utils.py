@@ -258,9 +258,12 @@ def mappingv2_save_spatial_data(feature, featuretype, source_name, spatialfile_i
 
 
 def save_spatial_file(spatialfile_id, model, record):
-    if spatialfile_id:
+    try:
         spatialfile = model.objects.get(id=spatialfile_id)
         record.spatialfile = spatialfile
+    except Exception:
+        pass
+    return record
 
 
 def check_file_extension(f_type, data_file, feature_types_file):

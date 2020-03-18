@@ -3,10 +3,45 @@ from unittest.mock import patch
 
 from mapping.models import (FeatureSet, FeatureType, PointFeature,
                             PolygonFeature, SpatialFeature, SpatialFeatureType)
-from mapping.tasks import extract_features_from_files
+from mapping.ste_utils import extract_features_from_files
 from mapping.tests.base_test import BaseTest
 
 logger = logging.getLogger(__name__)
+
+
+class MockSpatialFile(object):
+    def __init__(self, id, data, feature_set, feature_type, layer_number, id_field, name_field):
+        self.id = id
+        self.data = data
+        self.feature_set = feature_set
+        self.feature_type = feature_type
+        self.layer_number = layer_number
+        self.id_field = id_field
+        self.name_field = name_field
+
+
+MockSpatialFile.__name__ = 'SpatialFile'
+
+
+class MockSpatialFeatureFile(object):
+    def __init__(self, id, data, feature_type, feature_types_file, layer_number, id_field, name_field):
+        self.id = id
+        self.data = data
+        self.feature_type = feature_type
+        self.feature_types_file = feature_types_file
+        self.layer_number = layer_number
+        self.id_field = id_field
+        self.name_field = name_field
+
+
+MockSpatialFeatureFile.__name__ = 'SpatialFeatureFile'
+
+
+class Filedata(object):
+    def __init__(self, name, path, url=None):
+        self.name = name
+        self.path = path
+        self.url = url
 
 
 class TestSpatialFile(BaseTest):
@@ -16,12 +51,12 @@ class TestSpatialFile(BaseTest):
         dummy_feature_set = FeatureSet.objects.create(name='Water')
         dummy_feature_set.types.add(dummy_feature_type)
 
-        with patch('mapping.utils.cleanup_files') as mock_cleanup:
-            mock_cleanup.return_value = None
-            extract_features_from_files('./mapping/tests/NRT_Water_Points-2.geojson', 'ste', None,
-                                        featuretype=dummy_feature_type.name,
-                                        featureset=dummy_feature_set.name, name_field='')
+        filepath = './mapping/tests/NRT_Water_Points-2.geojson'
+        data = Filedata(name=filepath, url=filepath, path=filepath)
+        spatialfile = MockSpatialFile(1, data, dummy_feature_set, dummy_feature_type, 0, 'globalid', 'Name')
 
+        with patch('mapping.ste_utils.googlestorage', False):
+            extract_features_from_files(spatialfile, 'SpatialFile', None)
             point_feature = PointFeature.objects.all()[0]
             self.assertEqual(dummy_feature_type, point_feature.type)
             self.assertEqual(dummy_feature_set, point_feature.featureset)
@@ -33,11 +68,12 @@ class TestSpatialFile(BaseTest):
         dummy_feature_set = FeatureSet.objects.create(name='Boundaries')
         dummy_feature_set.types.add(dummy_feature_type)
 
-        path = './mapping/tests/testdata/Grbnd_New/Grbnd_New.SHP'
-        with patch('mapping.utils.cleanup_files') as mock_cleanup:
-            mock_cleanup.return_value = None
-            extract_features_from_files(path, 'ste', None, featuretype=dummy_feature_type.name,
-                                        featureset=dummy_feature_set.name, name_field='')
+        filepath = './mapping/tests/testdata/Grbnd_New/Grbnd_New.SHP'
+        data = Filedata(name=filepath, url=filepath, path=filepath)
+        spatialfile = MockSpatialFile(1, data, dummy_feature_set, dummy_feature_type, 0, 'globalid', 'Name')
+
+        with patch('mapping.ste_utils.googlestorage', False):
+            extract_features_from_files(spatialfile, 'SpatialFile', None)
 
             point_feature = PolygonFeature.objects.all()[0]
             self.assertEqual(dummy_feature_type, point_feature.type)
@@ -47,26 +83,27 @@ class TestSpatialFile(BaseTest):
     def test_loading_a_geojson_file_and_featuretypes(self):
         logger.info('Shape-file name-field test started.')
 
-        # load features
-        with self.settings(UI_SITE_URL='http://www.majete.com'):
-            with patch('mapping.utils.cleanup_files') as mock_cleanup:
-                mock_cleanup.return_value = None
-                data_file_path = ['./mapping/tests/testdata/wells_closed_points.geojson']
-                feature_types_file = './mapping/tests/testdata/spatial_feature_types.geojson'
-                extract_features_from_files(data_file_path, 'ste', None, feature_types_file, name_field='', )
+        filepath = './mapping/tests/testdata/wells_closed_points.geojson'
+        types_file = './mapping/tests/testdata/spatial_feature_types.geojson'
 
-                # featuretypes added
-                self.assertEqual(SpatialFeatureType.objects.count(), 214)
-                self.assertEqual(SpatialFeature.objects.count(), 6)
+        data = Filedata(name=filepath, url=filepath, path=filepath)
+        feature_types_file = Filedata(name=types_file, url=types_file, path=types_file)
+        spatialfile = MockSpatialFeatureFile(1, data, None, feature_types_file, 0, 'globalid', 'Name')
+
+        with patch('mapping.ste_utils.googlestorage', False):
+            extract_features_from_files(spatialfile, 'SpatialFeatureFile', None)
+
+            self.assertEqual(SpatialFeatureType.objects.count(), 37)
+            self.assertEqual(SpatialFeature.objects.count(), 6)
 
     def test_spatial_feature_file_upload(self):
         logger.info('Shape-file test started.')
 
-        # Load features
-        path = './mapping/tests/testdata/Matlamamba/MatlaMamba_Airstrip.shp'
-        with patch('mapping.utils.cleanup_files') as mock_cleanup:
-            mock_cleanup.return_value = None
-            extract_features_from_files(path, 'ste', None, name_field='')
-        logger.info('Shape-file test complete.')
+        filepath = './mapping/tests/testdata/Matlamamba/MatlaMamba_Airstrip.shp'
+
+        data = Filedata(name=filepath, url=filepath, path=filepath)
+        spatialfile = MockSpatialFeatureFile(1, data, None, None, 0, 'globalid', 'Name')
+        with patch('mapping.ste_utils.googlestorage', False):
+            extract_features_from_files(spatialfile, 'SpatialFeatureFile', None)
 
         self.assertEquals(SpatialFeature.objects.count(), 2)
