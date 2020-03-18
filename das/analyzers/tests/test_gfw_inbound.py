@@ -118,9 +118,11 @@ class GFWAlertHandlerTest(BaseAPITest):
         qs.update(Deforestation_confidence=GlobalForestWatchSubscription.BOTH_CONFIRMED_UNCONFIRMED)
 
         response = self._post_data(json.dumps(GLAD_ALERT))
-        expected_event = len(GLAD_ALERT_DOWNLOADED_DATA['data'])
+        clustered_alerts = cluster_alerts(
+            GLAD_ALERT_DOWNLOADED_DATA['data'],
+            settings.GFW_CLUSTER_RADIUS, 1)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(expected_event, Event.objects.all().count())
+        self.assertEqual(len(clustered_alerts), Event.objects.all().count())
 
     @patch('analyzers.gfw_utils.get_viirs_fire_alerts')
     @patch('analyzers.tasks.requests.get')

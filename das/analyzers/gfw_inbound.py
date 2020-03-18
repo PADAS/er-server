@@ -31,11 +31,12 @@ class DownloadUrlsField(serializers.Serializer):
 
 
 class AlertSampleDownloaded(serializers.Serializer):
-    lat = serializers.FloatField()
-    long = serializers.FloatField()
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
     julian_day = serializers.IntegerField()
     year = serializers.IntegerField()
     confidence = serializers.IntegerField()
+    num_clustered_alerts = serializers.IntegerField()
 
 
 class FireAlertSampleDownloaded(serializers.Serializer):
@@ -176,8 +177,8 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
         julian_day = deserialized_sample.validated_data.get('julian_day')
         year = deserialized_sample.validated_data.get('year')
         confidence = deserialized_sample.validated_data.get('confidence', -1)
-        latitude = deserialized_sample.validated_data.get('lat')
-        longitude = deserialized_sample.validated_data.get('long')
+        latitude = deserialized_sample.validated_data.get('latitude')
+        longitude = deserialized_sample.validated_data.get('longitude')
         time = pytz.utc.localize(datetime.strptime(f'{julian_day}{year}', '%j%Y'))
 
     event_fields = {
