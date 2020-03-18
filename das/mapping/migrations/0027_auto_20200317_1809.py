@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('mapping', '0026_add_feature_download_status_and_spatialfeaturetype_unique'),
+        ('mapping', '0026_arcgisitem_etc'),
     ]
 
     operations = [

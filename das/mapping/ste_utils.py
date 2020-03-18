@@ -17,7 +17,6 @@ googlestorage = default_storage.__class__.__name__ == 'GoogleCloudStorage'
 local_ste_folder = 'mapping/spatialfiles'
 ste_folder = 'spatialfiles' if googlestorage else local_ste_folder
 bucket_name = getattr(settings, 'GS_BUCKET_NAME', None)
-storage_client = storage.Client()
 
 
 def extract_features_from_files(spatial_file, model, presentation):
@@ -37,11 +36,11 @@ def extract_features_from_files(spatial_file, model, presentation):
 
     # extract data from upload file
     if types_file:
-        datasource, layer_num = utils.get_datasource_and_layer_num(feature_types_file, spatial_file.layer_number)
+        datasource, layer_num = utils.get_datasource_and_layer_num(feature_types_file, layer=spatial_file.layer_number)
         utils.import_feature_types(datasource[layer_num], 'STE')
 
     if data_file:
-        datasource, layer_num = utils.get_datasource_and_layer_num(data_file, spatial_file.layer_number)
+        datasource, layer_num = utils.get_datasource_and_layer_num(data_file, layer=spatial_file.layer_number)
         utils.import_layer(datasource[layer_num], spatial_file, presentation)
 
 

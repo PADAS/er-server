@@ -89,11 +89,12 @@ class TestSpatialFile(BaseTest):
         feature_types_file = Filedata(name=types_file, url=types_file, path=types_file)
         spatialfile = MockSpatialFeatureFile(1, data, None, 0, 'globalid', 'Name', feature_types_file)
 
-        with patch('mapping.ste_utils.googlestorage', False):
-            extract_features_from_files(spatialfile, 'SpatialFeatureFile', None)
+        with self.settings(UI_SITE_URL='http://www.majete.com'):
+            with patch('mapping.ste_utils.googlestorage', False):
+                extract_features_from_files(spatialfile, 'SpatialFeatureFile', None)
 
-            self.assertEqual(SpatialFeatureType.objects.count(), 37)
-            self.assertEqual(SpatialFeature.objects.count(), 6)
+                self.assertEqual(SpatialFeatureType.objects.count(), 214)
+                self.assertEqual(SpatialFeature.objects.count(), 6)
 
     def test_spatial_feature_file_upload(self):
         logger.info('Shape-file test started.')

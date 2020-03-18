@@ -136,9 +136,9 @@ def reduce_json(document):
     return reduced
 
 
-def get_spatial_feature_type(feature, type_label):
-    type_name = None
+def get_spatial_feature_type(feature, type_label=None):
     # get wfs type from given type label
+    type_name = None
     if type_label:
         try:
             type_name = feature.get(type_label)
@@ -194,12 +194,12 @@ def get_or_create_feature(external_id, attributes):
     return feature_record, created
 
 
-def mappingv2_save_spatial_data(feature, external_id, spatialfile, label, counter=0):
+def mappingv2_save_spatial_data(feature, external_id, spatialfile, counter=0):
     model = models.SpatialFeature
     if not external_id:
         external_id = feature.get('globalid') if 'globalid' in [x.lower() for x in feature.fields] else feature.get(
             'fid')
-    feature_type = spatialfile.feature_type if spatialfile.feature_type else get_spatial_feature_type(feature, label)
+    feature_type = spatialfile.feature_type if spatialfile.feature_type else get_spatial_feature_type(feature)
     if not feature_type:
         return
 
@@ -284,24 +284,18 @@ def import_layer(layer, spatialfile, presentation):
                 layer.name, layer.geom_type, layer.fields)
 
     has_unique_keys = contains_unique_keys_in_layer(spatialfile.id_field, spatialfile.name_field, layer)
-
     for i, feature in enumerate(layer):
-        try:
-            label = spatialfile.type_label
-        except Exception:
-            label = None
-
-        load_layer(layer, feature, i, spatialfile, has_unique_keys, label)
+        load_layer(layer, feature, i, spatialfile, has_unique_keys)
 
 
-def load_layer(layer, feature, i, spatialfile, has_unique_keys, label):
-    external_id = make_external_id(layer, feature, spatialfile.id_field, spatialfile.name_field)
+def load_layer(layer, feature, i, spatialfile, has_unique_keys):
+    external_id = make_external_id(spatialfile.id_field, spatialfile.name_field, layer, feature)
     if not has_unique_keys:
         external_id = external_id + '-' + str(i)
     if spatialfile.__class__.__name__ == 'SpatialFile':
         mappingv1_save_spatial_data(feature, external_id, spatialfile)
     else:
-        mappingv2_save_spatial_data(feature, external_id, spatialfile, label)
+        mappingv2_save_spatial_data(feature, external_id, spatialfile)
 
 
 def cleanup_files():
