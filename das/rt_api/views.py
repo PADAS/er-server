@@ -17,6 +17,7 @@ from rt_api.rest_api_interface.dummy_request import DummyRequest
 from rt_api import client
 import rt_api.pubsub_listener
 import utils.json
+from utils import stats
 
 logger = logging.getLogger('rt_api')
 
@@ -119,6 +120,7 @@ def cleanup_disconnected_clients(sios):
             environ = [sid for sid in sios.environ]
             client_list = set(client.get_client_list())
 
+            stats.update_guage('rt.clientcount', len(client_list), sample_rate=0.5)
             remove_these_clients = set(
                 [c for c in client_list if c.sid not in environ])
 
@@ -322,6 +324,10 @@ def create_realtime_handler(sios):
                     sios.emit(message_type, data, namespace='/das',
                               callback=receipt_callback)
                 else:
+
+                    # Sample 10% of realtime messages per message-type.
+                    stats.increment(f'rt.emit.{message_type}', tags={'service': 'realtime'}, sample_rate=0.1)
+
                     sios.emit(message_type, data, room=str(
                         socketid), namespace='/das', callback=receipt_callback)
 
