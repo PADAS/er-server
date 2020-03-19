@@ -5,7 +5,7 @@ from django.conf import settings
 from django.db import connection
 from django.utils import timezone
 from django.template import RequestContext
-from rest_framework import generics, status
+from rest_framework import generics
 from rest_framework.permissions import AllowAny, DjangoObjectPermissions
 import rest_framework.serializers
 
