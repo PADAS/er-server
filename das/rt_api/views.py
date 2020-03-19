@@ -120,7 +120,7 @@ def cleanup_disconnected_clients(sios):
             environ = [sid for sid in sios.environ]
             client_list = set(client.get_client_list())
 
-            stats.update_guage('rt.clientcount', len(client_list), sample_rate=0.5)
+            stats.update_gauge('rt.clientcount', len(client_list), sample_rate=0.5)
             remove_these_clients = set(
                 [c for c in client_list if c.sid not in environ])
 
