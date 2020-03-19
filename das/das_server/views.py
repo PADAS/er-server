@@ -5,9 +5,10 @@ from django.conf import settings
 from django.db import connection
 from django.utils import timezone
 from django.template import RequestContext
-from rest_framework import generics
+from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, DjangoObjectPermissions
 import rest_framework.serializers
+
 from activity.alerts import has_alerts_permissionset
 
 from das_server import __version__
@@ -48,6 +49,8 @@ class VersionSerializer(rest_framework.serializers.Serializer):
     server_timezone_name = rest_framework.serializers.CharField(read_only=True)
     server_timezone = rest_framework.serializers.CharField(read_only=True)
 
+    eula_enabled = rest_framework.serializers.BooleanField(read_only=True)
+
 
 class StatusView(generics.RetrieveAPIView):
     """
@@ -72,6 +75,7 @@ class StatusView(generics.RetrieveAPIView):
 
         resp['server_timezone_name'] = timezone.get_current_timezone_name()
         resp['server_timezone'] = timezone.localtime().strftime('%Z')
+        resp['eula_enabled'] = settings.ACCEPT_EULA
 
         if self.get_support_settings():
             resp['eus_settings'] = self.get_support_settings()
