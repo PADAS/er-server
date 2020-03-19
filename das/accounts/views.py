@@ -7,7 +7,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 from django.db import IntegrityError
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -141,7 +141,7 @@ class GetActiveEulaAPIView(generics.RetrieveAPIView):
 
     def dispatch(self, request, *args, **kwargs):
         if not settings.ACCEPT_EULA:
-            return Response(data={
+            return JsonResponse(data={
                 "message": "Site doesn't require users to accept a EULA"},
                 status=status.HTTP_200_OK)
         return super(GetActiveEulaAPIView, self).dispatch(request, *args, **kwargs)
