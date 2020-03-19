@@ -142,8 +142,8 @@ class GetActiveEulaAPIView(generics.RetrieveAPIView):
     def dispatch(self, request, *args, **kwargs):
         if not settings.ACCEPT_EULA:
             return Response(data={
-                "error": "Site doesn't require users to accept a EULA"},
-                status=status.HTTP_404_NOT_FOUND)
+                "message": "Site doesn't require users to accept a EULA"},
+                status=status.HTTP_200_OK)
         return super(GetActiveEulaAPIView, self).dispatch(request, *args, **kwargs)
 
     def get_object(self):
