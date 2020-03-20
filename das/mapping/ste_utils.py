@@ -13,10 +13,9 @@ from mapping import utils
 
 logger = logging.getLogger(__name__)
 
-googlestorage = default_storage.__class__.__name__ == 'GoogleCloudStorage'
+onlinestorage = default_storage.__class__.__name__ != 'FileSystemStorage'
 local_ste_folder = 'mapping/spatialfiles'
-ste_folder = 'spatialfiles' if googlestorage else local_ste_folder
-bucket_name = getattr(settings, 'GS_BUCKET_NAME', None)
+ste_folder = 'spatialfiles' if onlinestorage else local_ste_folder
 
 
 def extract_features_from_files(spatial_file, model, presentation):
@@ -25,7 +24,7 @@ def extract_features_from_files(spatial_file, model, presentation):
     except Exception:
         types_file = None
 
-    if googlestorage:
+    if onlinestorage:
         if not os.path.exists(local_ste_folder):
             os.makedirs(local_ste_folder)
 
@@ -45,7 +44,7 @@ def extract_features_from_files(spatial_file, model, presentation):
 
 
 def get_upload_file(upload_file, model, spatial_file_id):
-    if googlestorage:
+    if onlinestorage:
         path = f'mapping/{upload_file.name}'
     else:
         path = upload_file.path
@@ -70,7 +69,7 @@ def import_spatial_file(uploaded_file_path):
         import_file = None
         if uploaded_file_path.lower().endswith('.zip'):
             # Extract user-uploaded zip file.
-            if not googlestorage:
+            if not onlinestorage:
                 with zipfile.ZipFile(uploaded_file_path, 'r') as zip_file_object:
                     zip_file_object.extractall(local_ste_folder)
 
