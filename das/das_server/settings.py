@@ -532,3 +532,5 @@ METRICS_BUCKET = "er-site-metrics"
 
 ACCEPT_EULA = True
 
+AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME', '')
+GS_BUCKET_NAME = os.getenv('GS_BUCKET_NAME', '')
