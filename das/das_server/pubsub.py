@@ -16,6 +16,7 @@ from kombu import Consumer, Connection, Exchange, Queue
 from kombu.pools import producers, connections
 from kombu.utils import nested
 
+from utils import stats
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,8 @@ def publish(message, routing_key='das'):
     try:
         logger.debug('publish received message: {}'
                      '  routing_key: {}'.format(message, routing_key))
+
+        stats.increment(f'pub.{routing_key}', sample_rate=1.0)
         with get_pool().acquire(block=True, timeout=PUBLISH_TIMEOUT) as conn:
             producer = conn.Producer(exchange=das_exchange)
             producer.publish(message, routing_key=routing_key)
@@ -155,6 +158,19 @@ def get_consumer(connection, routing_key, callback, name=None):
 running = True
 
 
+from functools import wraps
+
+def stats_decorator(f, routing_key):
+
+    metric_name = 'mql.{f.__name__}'
+    tags = {'route': routing_key}
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        stats.increment(metric_name, sample_rate=1.0, tags=tags)
+        return f(*args, **kwargs)
+    return wrapper
+
+
 def start_message_queue_listeners():
     logger.debug("begin start_message_queue_listeners")
 
@@ -170,7 +186,7 @@ def start_message_queue_listeners():
         consumers = []
 
         for routing_key, callback, name in installed_apps_subscriptions():
-            consumer = get_consumer(conn, routing_key, callback, name)
+            consumer = get_consumer(conn, routing_key, stats_decorator(callback, routing_key), name)
             consumers.append(consumer)
 
         with nested(*consumers):
