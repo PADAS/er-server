@@ -162,7 +162,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
 
     def test_normal_user_access_subject_observation_data(self):
         # Generate random observation date & link with source.
-        observation_time = utc.localize(datetime.now())
+        observation_time = datetime.now(tz=timezone.utc)
         fixed_latitude = float(random.randint(3000, 3000)) / 100
         fixed_longitude = float(random.randint(2800, 4000)) / 100
         fixed_location = dict(longitude=fixed_longitude,
