@@ -22,7 +22,7 @@ from core.models import TimestampedModel
 from mapping.app_settings import MBTILES
 from mapping.mbtiles import (ExtractionError, GoogleProjection,
                              InvalidFormatError, MBTilesReader)
-from mapping.ste_utils import ste_folder
+from mapping.ste_utils import spatialfiles_folder
 from mapping.utils import MAPPING_FEATURES_V2, check_file_extension
 from model_utils.managers import InheritanceManager
 from revision.manager import Revision, RevisionMixin
@@ -164,7 +164,7 @@ class SpatialFilesBase(TimestampedModel):
     name = models.CharField(max_length=255, blank=True,
                             verbose_name='SpatialFile Name')
     description = models.CharField(max_length=100, blank=True)
-    data = models.FileField(upload_to=ste_folder, blank=False)
+    data = models.FileField(upload_to=spatialfiles_folder, blank=False)
     layer_number = models.IntegerField(blank=True, null=True, default=0)
     name_field = models.CharField(max_length=100, blank=True, default='Name')
     id_field = models.CharField(max_length=100, blank=True, default='globalid')
@@ -635,7 +635,7 @@ class SpatialFeatureFile(SpatialFilesBase):
         max_length=100, default='shapefile', choices=FILE_TYPES)
     feature_type = models.ForeignKey(
         to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
-    feature_types_file = models.FileField(upload_to=ste_folder, blank=True, null=True)
+    feature_types_file = models.FileField(upload_to=spatialfiles_folder, blank=True, null=True)
 
     class Meta:
         verbose_name = 'Feature Import File'

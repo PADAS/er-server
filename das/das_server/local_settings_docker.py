@@ -96,8 +96,6 @@ EUS_SETTINGS = {
 ALERTS_ENABLED = env.bool('ALERTS_ENABLED', True)
 MAPPING_FEATURES_V2 = env.bool('MAPPING_FEATURES_V2', True)
 ACCEPT_EULA = env.bool('ACCEPT_EULA', False)
-# per the documentation this chunk size needs to be a multiple of 256
-GS_BLOB_CHUNK_SIZE = env.bool('GS_BLOB_CHUNK_SIZE', 10485760)
 
 UI_SITE_NAME = f'EarthRanger {SERVER_FQDN}'
 UI_SITE_URL = f'https://{SERVER_FQDN}'
