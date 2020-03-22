@@ -70,14 +70,17 @@ def get_wfs_config_objects(obj_id, group_id):
 def load_spatial_features_from_files(spatialfile_id, presentation=None):
 
     model = models.SpatialFeatureFile if utils.MAPPING_FEATURES_V2 else models.SpatialFile
-    spatial_file = model.objects.filter(id=spatialfile_id)
-
     try:
-        ste_utils.extract_features_from_files(spatial_file[0], model, presentation)
-        spatial_file.update(status='Success')
+        spatial_file = model.objects.filter(id=spatialfile_id)
     except Exception as ex:
-        logger.exception(ex)
-        spatial_file.update(status=f'Error: {ex}')
+        logger.error(ex)
+    else:
+        try:
+            ste_utils.extract_features_from_files(spatial_file[0], model, presentation)
+            spatial_file.update(status='Success')
+        except Exception as ex:
+            logger.exception(ex)
+            spatial_file.update(status=f'Error: {ex}')
     finally:
         utils.cleanup_files()
         datasource = None

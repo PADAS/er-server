@@ -32,9 +32,6 @@ def extract_features_from_files(spatial_file, model, presentation):
     data_file = get_upload_file(spatial_file.data, model, spatial_file.id)
     if types_file:
         feature_types_file = get_upload_file(types_file, model, spatial_file.id)
-
-    # extract data from upload file
-    if types_file:
         datasource, layer_num = utils.get_datasource_and_layer_num(feature_types_file, layer=spatial_file.layer_number)
         utils.import_feature_types(datasource[layer_num], 'STE')
 
@@ -61,9 +58,8 @@ def get_upload_file(upload_file, model, spatial_file_id):
 
 def import_spatial_file(uploaded_file_path):
     """
-    Import features by invoking importlayer management command.
+    Import features from file.
     :param uploaded_file_path: Path of uploaded file.
-    :param uploaded_file_directory: Directory of uploaded file.
     """
     try:
         import_file = None
@@ -112,12 +108,15 @@ def download_files(spatial_file, types_file):
         files.append(spatial_file.feature_types_file)
 
     for upload_file in files:
-        request = requests.get(upload_file.url)
-        name = upload_file.name
+        try:
+            request = requests.get(upload_file.url)
+            name = upload_file.name
 
-        if upload_file.name.lower().endswith('.zip'):
-            downloaded_zip = zipfile.ZipFile(io.BytesIO(request.content), 'r')
-            downloaded_zip.extractall(local_spatialfiles_folder)
-        else:
-            with open(f'{local_spatialfiles_folder}/{name.split("/")[-1]}', 'w+') as fd:
-                fd.write(request.content.decode())
+            if upload_file.name.lower().endswith('.zip'):
+                downloaded_zip = zipfile.ZipFile(io.BytesIO(request.content), 'r')
+                downloaded_zip.extractall(local_spatialfiles_folder)
+            else:
+                with open(f'{local_spatialfiles_folder}/{name.split("/")[-1]}', 'w+') as fd:
+                    fd.write(request.content.decode())
+        except Exception as ex:
+            logger.exception(ex)
