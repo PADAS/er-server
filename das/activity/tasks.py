@@ -6,7 +6,9 @@ from datetime import datetime, timedelta
 from celery_once import QueueOnce
 from versatileimagefield.image_warmer import VersatileImageFieldWarmer
 
-from activity.alerting.message import send_event_alert
+from activity.alerting.businessrules import resolve_event_revisions
+from activity.alerting.message import send_event_alert, \
+    get_revised_event_fields, get_revised_event_details_fields
 from activity.alerting.service import evaluate_event
 from activity.models import EventPhoto, Event, AlertRule, RefreshRecreateEventDetailView
 from das_server import celery
@@ -34,7 +36,7 @@ def warm_eventphotos(self, event_photo_id):
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True, })
-def evaluate_alert_rules(event_id, created, updated_fields):
+def evaluate_alert_rules(event_id):
 
     try:
         logger.info('Evaluating Event %s for alerting.', event_id)
@@ -53,31 +55,32 @@ def evaluate_alert_rules(event_id, created, updated_fields):
         for alert_rule in AlertRule.objects.filter(id__in=alert_rule_ids).order_by('ordernum', 'title'):
 
             # Verify conditions to only send alerts when the set conditions are met
-            evaluate_conditions_for_sending_alerts(event, alert_rule, already_queued_nids, created, eval(updated_fields))
+            evaluate_conditions_for_sending_alerts(event, alert_rule, already_queued_nids)
 
     except Exception as e:
         logger.exception(
             'Failed when evaluating alert rules for event {}'.format(event_id))
 
 
-def evaluate_conditions_for_sending_alerts(event, alert_rule, queued_nids, created, updated_fields):
+def evaluate_conditions_for_sending_alerts(event, alert_rule, queued_nids):
+    event_revision, details_revision = resolve_event_revisions(event)
 
-    if created or not alert_rule.conditions:
-        # Sending all alerts, if new report created or report has no conditions set
-        evaluate_notifications(alert_rule, queued_nids, event.id)
-    elif not created and not updated_fields:
-        # Dont send an alert is nothing is updated
-        pass
-    else:
-        for alert_condition in alert_rule.conditions['all']:
-            condition_name = alert_condition['name']
-            event_value = getattr(event, condition_name)
-            condition_values = alert_condition['value']
-            condition_operator = alert_condition['operator']
+    # Calculate updated fields
+    updated_event_fields = get_revised_event_fields(event_revision)
+    updated_event_details_fields = get_revised_event_details_fields(
+        details_revision)
 
-            # Check if allowed condition values are updated
-            if condition_name in updated_fields and event_value in condition_values and condition_operator == 'shares_at_least_one_element_with':
-                evaluate_notifications(alert_rule, queued_nids, event.id)
+    for alert_condition in alert_rule.conditions['all']:
+        condition_name = alert_condition['name']
+        event_value = getattr(event, condition_name)
+        condition_values = alert_condition['value']
+        condition_operator = alert_condition['operator']
+
+        updated_event_fields.update(updated_event_details_fields)
+
+        # Check if allowed condition values are updated
+        if condition_name in updated_event_fields and event_value in condition_values:
+            evaluate_notifications(alert_rule, queued_nids, event.id)
 
 
 def evaluate_notifications(alert_rule, already_queued_nids, event_id):

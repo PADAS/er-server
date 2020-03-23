@@ -115,7 +115,9 @@ def get_revised_event_fields(event_revision):
 
     try:
         previous_version = event_revision.get_previous_by_revision_at(object_id=event_revision.object_id)
+        print(previous_version)
     except ObjectDoesNotExist:
+        print("Revision does not exist")
         return {}
     else:
         current_data = event_revision.data
