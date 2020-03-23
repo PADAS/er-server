@@ -18,7 +18,7 @@ local_spatialfiles_folder = 'mapping/spatialfiles'
 spatialfiles_folder = 'spatialfiles' if onlinestorage else local_spatialfiles_folder
 
 
-def extract_features_from_files(spatial_file, model, presentation):
+def extract_features_from_files(spatial_file, model):
     try:
         types_file = spatial_file.feature_types_file
     except Exception:
@@ -35,7 +35,7 @@ def extract_features_from_files(spatial_file, model, presentation):
 
     if data_file:
         datasource, layer_num = utils.get_datasource_and_layer_num(data_file, layer=spatial_file.layer_number)
-        utils.import_layer(datasource[layer_num], spatial_file, presentation)
+        utils.import_layer(datasource[layer_num], spatial_file)
 
 def create_local_spatialfiles_folder():
     if not os.path.exists(local_spatialfiles_folder):

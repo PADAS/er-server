@@ -30,9 +30,8 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.source_name = options['source'] if options['source'] else DEFAULT_SOURCE_NAME
         self.filename = options['filename']
-        self.name_field = options['name_field'] if options['name_field'] else self.default_name_field
-        self.id_field = options['id_field'] if options[
-            'id_field'] else self.id_field
+        self.name_field = options['name_field']
+        self.id_field = options['id_field']
         self.layer = options['layer']
         self.utm = options['utm'] if options['utm'] else self.utm
         self.featuretype = options['featuretype']

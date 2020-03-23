@@ -166,8 +166,8 @@ class SpatialFilesBase(TimestampedModel):
     description = models.CharField(max_length=100, blank=True)
     data = models.FileField(upload_to=spatialfiles_folder, blank=False)
     layer_number = models.IntegerField(blank=True, null=True, default=0)
-    name_field = models.CharField(max_length=100, blank=True, default='Name')
-    id_field = models.CharField(max_length=100, blank=True, default='globalid')
+    name_field = models.CharField(max_length=100, blank=True, null=True)
+    id_field = models.CharField(max_length=100, blank=True, null=True)
     status = models.CharField(max_length=1000, blank=True, null=True, verbose_name='Feature Load Status')
 
     class Meta:

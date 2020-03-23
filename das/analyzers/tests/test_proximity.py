@@ -1,20 +1,26 @@
-from analyzers.models import SubjectAnalyzerResult, ProximityAnalyzerConfig
-from django.test import TestCase
+import json
+import logging
 # Use python unit test here to persist results in test DB
 #from unittest import TestCase
 from unittest.mock import patch
-from .proximity_test_data import *
-from observations.models import Subject, Source, SubjectSource, SubjectGroup, DEFAULT_ASSIGNED_RANGE
-from observations.models import SubjectTrackSegmentFilter
-from mapping.models import SpatialFeature, SpatialFeatureGroupStatic
-from mapping.tasks import extract_features_from_files
-from .analyzer_test_utils import *
-from analyzers.proximity import ProximityAnalyzer
+
+import yaml
+from django.test import TestCase
+
 from activity.models import Event, EventCategory, EventType
 from analyzers.exceptions import InsufficientDataAnalyzerException
-import json
-import yaml
-import logging
+from analyzers.models import ProximityAnalyzerConfig, SubjectAnalyzerResult
+from analyzers.proximity import ProximityAnalyzer
+from mapping.models import SpatialFeature, SpatialFeatureGroupStatic
+from mapping.ste_utils import extract_features_from_files
+from mapping.tests.test_importlayer import Filedata, MockSpatialFeatureFile
+from observations.models import (DEFAULT_ASSIGNED_RANGE, Source, Subject,
+                                 SubjectGroup, SubjectSource,
+                                 SubjectTrackSegmentFilter)
+
+from .analyzer_test_utils import *
+from .proximity_test_data import *
+
 logger = logging.getLogger(__name__)
 
 
@@ -64,13 +70,14 @@ class TestProximityAnalyzer(TestCase):
 
     def setUp(self):
 
-        # Load the geojson files into the database
-        with patch('mapping.utils.cleanup_files') as mock_cleanup:
-            mock_cleanup.return_value = None
-            data_files = ['./analyzers/fixtures/lines.geojson',
-                          './analyzers/fixtures/polygons.geojson']
-            feature_types_file = './analyzers/fixtures/spatial_feature_types.geojson'
-            extract_features_from_files(data_files, 'ste', None, feature_types_file, name_field='', )
+        filepath = './analyzers/fixtures/lines.geojson'
+        types_file = './analyzers/fixtures/spatial_feature_types.geojson'
+        data = Filedata(name=filepath, url=filepath, path=filepath)
+        feature_types_file = Filedata(name=types_file, url=types_file, path=types_file)
+        spatialfile = MockSpatialFeatureFile(1, data, None, 0, 'globalid', 'Name', feature_types_file)
+
+        with patch('mapping.ste_utils.onlinestorage', False):
+            extract_features_from_files(spatialfile, 'SpatialFeatureFile')
 
         ec, created = EventCategory.objects.get_or_create(
             value='analyzer_event', defaults=dict(display='Analyzer Events'))

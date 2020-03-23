@@ -65,7 +65,7 @@ def validate_feature_record(record, record_name, model):
     return record
 
 
-def make_external_id(id_field, name_field, layer, feature, arc_item_id=None):
+def make_external_id(layer, feature, id_field='globalid', name_field='Name', arc_item_id=None):
     name_value = ''
     id_value = ''
     for name in feature.fields:
@@ -82,7 +82,7 @@ def contains_unique_keys_in_layer(id_field, name_field, layer):
     seen = set()
     unique_keys = True
     for feature in layer:
-        external_id = make_external_id(id_field, name_field, layer, feature)
+        external_id = make_external_id(layer, feature, id_field, name_field)
         if external_id in seen:
             logger.info('External_id=%s not unique to layer', external_id)
             unique_keys = False
@@ -249,20 +249,13 @@ def mappingv2_save_spatial_data(feature, external_id, spatialfile, counter=0):
     feature_record.feature_geometry = feature_geometry
     for key, value in defaults.items():
         setattr(feature_record, key, value)
-
-    feature_record = save_spatial_file(spatialfile.id, models.SpatialFeatureFile, feature_record)
+    try:
+        feature_record.spatialfile = spatialfile
+    except Exception:
+        pass
     set_feature_name(feature_record, feature, feature_type, counter)
     feature_record.clean()    
     feature_record.save()
-
-
-def save_spatial_file(spatialfile_id, model, record):
-    try:
-        spatialfile = model.objects.get(id=spatialfile_id)
-        record.spatialfile = spatialfile
-    except Exception:
-        pass
-    return record
 
 
 def check_file_extension(f_type, data_file, feature_types_file):
@@ -279,7 +272,7 @@ def validate_file_type(f_type, data_file, field):
             raise ValidationError({field: [f'Kindly chose a {extension} file']})
 
 
-def import_layer(layer, spatialfile, presentation):
+def import_layer(layer, spatialfile):
     logger.info('Importing layer: %s, type: %s, fields: %s',
                 layer.name, layer.geom_type, layer.fields)
 
@@ -289,7 +282,7 @@ def import_layer(layer, spatialfile, presentation):
 
 
 def load_layer(layer, feature, i, spatialfile, has_unique_keys):
-    external_id = make_external_id(spatialfile.id_field, spatialfile.name_field, layer, feature)
+    external_id = make_external_id(layer, feature, spatialfile.id_field, spatialfile.name_field)
     if not has_unique_keys:
         external_id = external_id + '-' + str(i)
     if spatialfile.__class__.__name__ == 'SpatialFile':
@@ -349,7 +342,10 @@ def mappingv1_save_spatial_data(feature, external_id, spatialfile):
         feature_record.description = feature['Description'].value
     except (KeyError, IndexError):
         pass
-    feature_record = save_spatial_file(spatialfile.id, models.SpatialFile, feature_record)
+    try:
+        feature_record.spatialfile = spatialfile
+    except Exception:
+        pass
     feature_record.save()
 
 

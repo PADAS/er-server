@@ -67,14 +67,14 @@ def get_wfs_config_objects(obj_id, group_id):
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True})
-def load_spatial_features_from_files(spatialfile_id, presentation=None):
+def load_spatial_features_from_files(spatialfile_id):
 
     model = models.SpatialFeatureFile if utils.MAPPING_FEATURES_V2 else models.SpatialFile
     spatial_file = model.objects.filter(id=spatialfile_id)
 
     if spatial_file.exists():
         try:
-            ste_utils.extract_features_from_files(spatial_file[0], model, presentation)
+            ste_utils.extract_features_from_files(spatial_file[0], model)
             spatial_file.update(status='Success')
         except Exception as ex:
             logger.exception(ex)

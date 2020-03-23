@@ -55,7 +55,7 @@ class TestSpatialFile(BaseTest):
         spatialfile = MockSpatialFile(1, data, dummy_feature_type, 0, 'globalid', 'Name', dummy_feature_set)
 
         with patch('mapping.ste_utils.onlinestorage', False):
-            extract_features_from_files(spatialfile, 'SpatialFile', None)
+            extract_features_from_files(spatialfile, 'SpatialFile')
             point_feature = PointFeature.objects.all()[0]
             self.assertEqual(dummy_feature_type, point_feature.type)
             self.assertEqual(dummy_feature_set, point_feature.featureset)
@@ -72,7 +72,7 @@ class TestSpatialFile(BaseTest):
         spatialfile = MockSpatialFile(1, data, dummy_feature_type, 0, 'globalid', 'Name', dummy_feature_set)
 
         with patch('mapping.ste_utils.onlinestorage', False):
-            extract_features_from_files(spatialfile, 'SpatialFile', None)
+            extract_features_from_files(spatialfile, 'SpatialFile')
 
             point_feature = PolygonFeature.objects.all()[0]
             self.assertEqual(dummy_feature_type, point_feature.type)
@@ -91,7 +91,7 @@ class TestSpatialFile(BaseTest):
 
         with self.settings(UI_SITE_URL='http://www.majete.com'):
             with patch('mapping.ste_utils.onlinestorage', False):
-                extract_features_from_files(spatialfile, 'SpatialFeatureFile', None)
+                extract_features_from_files(spatialfile, 'SpatialFeatureFile')
 
                 self.assertEqual(SpatialFeatureType.objects.count(), 214)
                 self.assertEqual(SpatialFeature.objects.count(), 6)
@@ -103,6 +103,6 @@ class TestSpatialFile(BaseTest):
         data = Filedata(name=filepath, url=filepath, path=filepath)
         spatialfile = MockSpatialFeatureFile(1, data, None, 0, 'globalid', 'Name', None)
         with patch('mapping.ste_utils.onlinestorage', False):
-            extract_features_from_files(spatialfile, 'SpatialFeatureFile', None)
+            extract_features_from_files(spatialfile, 'SpatialFeatureFile')
 
         self.assertEquals(SpatialFeature.objects.count(), 2)
