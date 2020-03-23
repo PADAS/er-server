@@ -14,9 +14,6 @@ logger = logging.getLogger(__name__)
 @receiver(post_save, sender=Event)
 def event_post_save(sender, instance, created, **kwargs):
 
-    updated_fields = kwargs.get('update_fields')
-    updated_fields = {f for f in updated_fields} if updated_fields else {}
-
     logger.info("saved event {}, created={}".format(instance.pk, str(created)))
     transaction.on_commit(lambda: pubsub.publish(
         {'event_id': str(instance.pk)},
