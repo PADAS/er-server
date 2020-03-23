@@ -163,11 +163,11 @@ def group_alerts(dataset, labels):
 
 
 def normalize_alert_object(alert):
-    if isinstance(alert, dict) and 'long' in alert.keys() or 'lat' in alert.keys():
-        alert['latitude'] = alert['lat']
-        alert['longitude'] = alert['long']
-        del alert['lat']
-        del alert['long']
+    if isinstance(alert, dict):
+        if 'lat' in alert:
+            alert['latitude'] = alert.pop('lat')
+        if 'long' in alert:
+            alert['longitude'] = alert.pop('long')
 
     return alert
 
