@@ -27,7 +27,7 @@ from django.template.loader import render_to_string
 from django.utils.html import format_html
 from django.db.models.expressions import RawSQL
 import django.contrib.gis.admin as gis_admin
-from django.utils.safestring import mark_safe
+from django.utils.safestring import mark_safe, SafeString
 from django.utils.functional import cached_property
 
 import observations.models as models
@@ -1079,11 +1079,11 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
     def get_queryset(self, request):
         """Limit Subjects to those this person can administer"""
         qs = super(SubjectStatusAdmin, self).get_queryset(request)
+        subject_source = models.SubjectSource.objects.filter(subject_id=OuterRef('subject__pk'))
         qs = qs.filter(delay_hours=0)
-        qs = qs.annotate(state_order=RawSQL(
-            '''jsonb_extract_path_text(observations_subjectstatus.additional, 'state')
-             || jsonb_extract_path_text(observations_subjectstatus.additional, 'gps_fix')''', ()))
-        qs = qs.prefetch_related('subject')
+        qs = qs.annotate(subject_provider=Subquery(subject_source.values('source__provider__display_name')[:1]),
+                         source_type=Subquery(subject_source.values('source__source_type')[:1]))
+        qs = qs.select_related('subject', 'subject__subject_subtype')
         return qs
 
     def _location(self, o):
@@ -1097,19 +1097,12 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
     _recorded_at.admin_order_field = 'recorded_at'
 
     def _source_provider(self, o):
-        o = o.subject.subjectsources.annotate(provider_name=F('source__provider__display_name'))
-        return o[0].provider_name
+        return o.subject_provider
 
     _source_provider.admin_order_field = 'source'
 
     def _source_type(self, o):
-        source = None
-        try:
-            source = o.subject.source.source_type
-        except Exception:
-            pass
-        return source
-
+        return o.source_type
 
 @admin.register(models.SourceProvider)
 class SourceProviderAdmin(admin.ModelAdmin):

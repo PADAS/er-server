@@ -38,6 +38,7 @@ from django.contrib.gis.db import models as dbmodels
 
 from django.contrib.gis.geos import Point
 from tracking.pubsub_registry import notify_new_tracks, notify_subjectstatus_update
+from django.utils.functional import cached_property
 
 from utils.json import zeroout_microseconds
 from das_server import settings
@@ -920,10 +921,11 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             color = to_rgb(color)
         return color
 
-    @property
+    @cached_property
     def source(self):
         subject_source = SubjectSource \
             .objects \
+            .select_related('source','source__provider') \
             .filter(subject_id=self.pk) \
             .order_by('-assigned_range') \
             .first()
@@ -1024,7 +1026,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
         try:
             state = getattr(self, 'status_radio_state', None) or \
-                self.subjectstatus_set.get(delay_hours=0).radio_state
+                self.objects.get(delay_hours=0).radio_state
         except (SubjectStatus.DoesNotExist, AttributeError):
             yield '-'.join((key, 'black'))
             yield key
