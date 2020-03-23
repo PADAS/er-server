@@ -64,7 +64,10 @@ class GFWAlertHandlerTest(BaseAPITest):
         self._create_and_get_test_model(subscription_id=self.test_data_viirs_subscription_id)
         response = self._post_data(json.dumps(VIIRS_FIRE_ALERT))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(VIIRS_FIRE_ALERT_DOWNLOADED_DATA['rows']), Event.objects.all().count())
+        clustered_alerts = cluster_alerts(
+            VIIRS_FIRE_ALERT_DOWNLOADED_DATA['rows'],
+            settings.GFW_CLUSTER_RADIUS, 1)
+        self.assertEqual(len(clustered_alerts), Event.objects.all().count())
 
     @patch('requests.get')
     def test_glad_with_duplicates(self, mock_request):
@@ -92,7 +95,10 @@ class GFWAlertHandlerTest(BaseAPITest):
         # create again, total events in db shouldn't change
         response = self._post_data(json.dumps(VIIRS_FIRE_ALERT))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(VIIRS_FIRE_ALERT_DOWNLOADED_DATA['rows']), Event.objects.all().count())
+        clustered_alerts = cluster_alerts(
+            VIIRS_FIRE_ALERT_DOWNLOADED_DATA['rows'],
+            settings.GFW_CLUSTER_RADIUS, 1)
+        self.assertEqual(len(clustered_alerts), Event.objects.all().count())
 
     def test_with_alerts_missing(self):
         data = VIIRS_FIRE_ALERT
