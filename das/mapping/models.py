@@ -216,10 +216,7 @@ class SpatialFile(SpatialFilesBase):
 
     def call_mgt_command(self, import_file, spatial_types_file=None):
         management.call_command(
-            'importlayer', import_file,
-            spatialfile_id=self.id, featureset=self.feature_set, featuretype=self.feature_type,
-            name_field=self.name_field, id_field=self.id_field
-        )
+            'importlayer', 'importlayerfile', import_file, spatialfile_id=self.id)
 
 class Feature(TimestampedModel):
     """
@@ -648,11 +645,7 @@ class SpatialFeatureFile(SpatialFilesBase):
             )
         else:
             management.call_command(
-                'importlayer', data_file,
-                spatialfile_id=self.id, featuretype=self.feature_type,
-                layer=self.layer_number, name_field=self.name_field,
-                id_field=self.id_field
-            )
+                'importlayer', 'importspatialfile', data_file, spatialfile_id=self.id)
 
 
 class SpatialFeatureManager(models.Manager):

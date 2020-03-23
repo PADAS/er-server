@@ -25,9 +25,7 @@ def extract_features_from_files(spatial_file, model, presentation):
         types_file = None
 
     if onlinestorage:
-        if not os.path.exists(local_spatialfiles_folder):
-            os.makedirs(local_spatialfiles_folder)
-
+        create_local_spatialfiles_folder()
         download_files(spatial_file, types_file)
     data_file = get_upload_file(spatial_file.data, model, spatial_file.id)
     if types_file:
@@ -39,6 +37,9 @@ def extract_features_from_files(spatial_file, model, presentation):
         datasource, layer_num = utils.get_datasource_and_layer_num(data_file, layer=spatial_file.layer_number)
         utils.import_layer(datasource[layer_num], spatial_file, presentation)
 
+def create_local_spatialfiles_folder():
+    if not os.path.exists(local_spatialfiles_folder):
+            os.makedirs(local_spatialfiles_folder)
 
 def get_upload_file(upload_file, model, spatial_file_id):
     if onlinestorage:
