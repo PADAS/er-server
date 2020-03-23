@@ -38,6 +38,8 @@ locals {
     "matlamamba"             = "prod1"
     "sabisands"              = "prod1"
     "sabiegamereserve"       = "prod1"
+    "oljogi"                 = "prod1"
+    "balule"                 = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
