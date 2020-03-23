@@ -5,13 +5,11 @@ import shutil
 import tempfile
 from zipfile import ZipFile
 
-
 from django.conf import settings
 from django.contrib.gis.gdal import DataSource
 from django.core.exceptions import ValidationError
 from django.db.utils import IntegrityError
 from django.utils.encoding import force_text
-
 
 import utils.json
 from mapping import models
@@ -21,6 +19,7 @@ geometry_mapper = GeometryMapper()
 
 logger = logging.getLogger(__name__)
 MAPPING_FEATURES_V2 = getattr(settings, 'MAPPING_FEATURES_V2', False)
+SPATIAL_FILES_FOLDER = getattr(settings, 'SPATIAL_FILES_FOLDER', 'mapping/spatialfiles')
 
 
 FEATURE_TYPES = {
@@ -296,13 +295,12 @@ def cleanup_files():
     Remove files/directories from the temporary folder.
     """
     # clear directory
-    folderpath = 'mapping/spatialfiles'
-    if os.path.exists(folderpath):
+    if os.path.exists(SPATIAL_FILES_FOLDER):
         try:
-            shutil.rmtree(folderpath)
+            shutil.rmtree(SPATIAL_FILES_FOLDER)
         except Exception:
             pass
-    logger.exception(f'Cleaned up {folderpath}')
+    logger.exception(f'Cleaned up {SPATIAL_FILES_FOLDER}')
 
 
 def mappingv1_save_spatial_data(feature, external_id, spatialfile):

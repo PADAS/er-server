@@ -66,9 +66,8 @@ def get_wfs_config_objects(obj_id, group_id):
     return obj, wfs_group
 
 
-@celery.app.task(base=QueueOnce, once={'graceful': True})
+# @celery.app.task(base=QueueOnce, once={'graceful': True})
 def load_spatial_features_from_files(spatialfile_id):
-
     model = models.SpatialFeatureFile if utils.MAPPING_FEATURES_V2 else models.SpatialFile
     spatial_file = model.objects.filter(id=spatialfile_id)
 

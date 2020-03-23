@@ -7,16 +7,14 @@ import requests
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
-
 from google.cloud import storage
-from mapping import utils
+
+from mapping.utils import (get_datasource_and_layer_num, import_feature_types,
+                           import_layer, SPATIAL_FILES_FOLDER)
 
 logger = logging.getLogger(__name__)
 
 onlinestorage = default_storage.__class__.__name__ != 'FileSystemStorage'
-local_spatialfiles_folder = 'mapping/spatialfiles'
-spatialfiles_folder = 'spatialfiles' if onlinestorage else local_spatialfiles_folder
-
 
 def extract_features_from_files(spatial_file, model):
     try:
@@ -25,21 +23,21 @@ def extract_features_from_files(spatial_file, model):
         types_file = None
 
     if onlinestorage:
-        create_local_spatialfiles_folder()
+        create_spatialfiles_folder()
         download_files(spatial_file, types_file)
     data_file = get_upload_file(spatial_file.data, model, spatial_file.id)
     if types_file:
         feature_types_file = get_upload_file(types_file, model, spatial_file.id)
-        datasource, layer_num = utils.get_datasource_and_layer_num(feature_types_file, layer=spatial_file.layer_number)
-        utils.import_feature_types(datasource[layer_num], 'STE')
+        datasource, layer_num = get_datasource_and_layer_num(feature_types_file, layer=spatial_file.layer_number)
+        import_feature_types(datasource[layer_num], 'STE')
 
     if data_file:
-        datasource, layer_num = utils.get_datasource_and_layer_num(data_file, layer=spatial_file.layer_number)
-        utils.import_layer(datasource[layer_num], spatial_file)
+        datasource, layer_num = get_datasource_and_layer_num(data_file, layer=spatial_file.layer_number)
+        import_layer(datasource[layer_num], spatial_file)
 
-def create_local_spatialfiles_folder():
-    if not os.path.exists(local_spatialfiles_folder):
-            os.makedirs(local_spatialfiles_folder)
+def create_spatialfiles_folder():
+    if not os.path.exists(SPATIAL_FILES_FOLDER):
+            os.makedirs(SPATIAL_FILES_FOLDER)
 
 def get_upload_file(upload_file, model, spatial_file_id):
     if onlinestorage:
@@ -68,9 +66,9 @@ def import_spatial_file(uploaded_file_path):
             # Extract user-uploaded zip file.
             if not onlinestorage:
                 with zipfile.ZipFile(uploaded_file_path, 'r') as zip_file_object:
-                    zip_file_object.extractall(local_spatialfiles_folder)
+                    zip_file_object.extractall(SPATIAL_FILES_FOLDER)
 
-            import_file = fetch_shape_file_path(local_spatialfiles_folder)
+            import_file = fetch_shape_file_path(SPATIAL_FILES_FOLDER)
             # If zip contains a directory encapsulating all the shape files
             if not import_file:
                 import_file = fetch_shape_file_path(uploaded_file_path[:-4])
@@ -115,9 +113,9 @@ def download_files(spatial_file, types_file):
 
             if upload_file.name.lower().endswith('.zip'):
                 downloaded_zip = zipfile.ZipFile(io.BytesIO(request.content), 'r')
-                downloaded_zip.extractall(local_spatialfiles_folder)
+                downloaded_zip.extractall(SPATIAL_FILES_FOLDER)
             else:
-                with open(f'{local_spatialfiles_folder}/{name.split("/")[-1]}', 'w+') as fd:
+                with open(f'{SPATIAL_FILES_FOLDER}/{name.split("/")[-1]}', 'w+') as fd:
                     fd.write(request.content.decode())
         except Exception as ex:
             logger.exception(ex)

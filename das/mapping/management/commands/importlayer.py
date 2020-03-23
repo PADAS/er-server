@@ -4,9 +4,10 @@ import shutil
 from django.core.management.base import BaseCommand
 
 from mapping import models
-from mapping.ste_utils import create_local_spatialfiles_folder
+from mapping.ste_utils import create_spatialfiles_folder
 from mapping.tasks import load_spatial_features_from_files
-from mapping.utils import DEFAULT_SOURCE_NAME, validate_feature_record
+from mapping.utils import (DEFAULT_SOURCE_NAME, SPATIAL_FILES_FOLDER,
+                           validate_feature_record)
 from utils.spatial import GeometryMapper
 
 logger = logging.getLogger(__name__)
@@ -71,48 +72,38 @@ class Command(BaseCommand):
             logger.info('Featureset and featuretype not included in command, add flags --featureset and --featuretype')
             return
 
-        if self.spatialfile_id:
-            self.load_features(self.spatialfile_id)
-        else:
-            try:
-                create_local_spatialfiles_folder()
-                self.filename = shutil.copy(self.filename, 'mapping/spatialfiles')
+        try:
+            create_spatialfiles_folder()
+            self.filename = shutil.copy(self.filename, SPATIAL_FILES_FOLDER)
 
-                featuretype = models.FeatureType.objects.get(name=self.featuretype)
-                featureset = models.FeatureSet.objects.get(name=self.featuretype)
-                spatialfile = models.SpatialFile.objects.create(
-                    data = self.filename,
-                    layer_number = self.layer,
-                    name_field = self.name_field,
-                    id_field = self.id_field,
-                    feature_type = featuretype,
-                    feature_set = featureset
-                )
-                self.load_features(spatialfile.id)
-            except Exception as err:
-                logger.info(err)
+            featuretype = models.FeatureType.objects.get(name=self.featuretype)
+            featureset = models.FeatureSet.objects.get(name=self.featuretype)
+            spatialfile = models.SpatialFile.objects.create(
+                data = self.filename,
+                layer_number = self.layer,
+                name_field = self.name_field,
+                id_field = self.id_field,
+                feature_type = featuretype,
+                feature_set = featureset
+            )
+            load_spatial_features_from_files.apply_async(args=(str(spatialfile.id),))
+        except Exception as err:
+            logger.info(err)
 
     def importspatialfile(self):
-        if self.spatialfile_id:
-            self.load_features(self.spatialfile_id)
-        else:
-            try:
-                create_local_spatialfiles_folder()
-                self.filename = shutil.copy(self.filename, 'mapping/spatialfiles')
+        try:
+            create_spatialfiles_folder()
+            self.filename = shutil.copy(self.filename, SPATIAL_FILES_FOLDER)
 
-                featuretype = models.SpatialFeatureType.objects.get(name=self.featuretype) if self.featuretype else None
-                spatialfile = models.SpatialFeatureFile.objects.create(
-                    data = self.filename,
-                    layer_number= self.layer,
-                    name_field= self.name_field,
-                    id_field= self.id_field,
-                    feature_type= featuretype
-                )
-                self.load_features(spatialfile.id)
-                
-            except Exception as err:
-                logger.info(err)
-
-    def load_features(self, spatialfile_id):
-        logger.info('Importing features from file: %s', self.filename)
-        load_spatial_features_from_files.apply_async(args=(str(spatialfile_id),))
+            featuretype = models.SpatialFeatureType.objects.get(name=self.featuretype) if self.featuretype else None
+            spatialfile = models.SpatialFeatureFile.objects.create(
+                data = self.filename,
+                layer_number= self.layer,
+                name_field= self.name_field,
+                id_field= self.id_field,
+                feature_type= featuretype
+            )
+            load_spatial_features_from_files.apply_async(args=(str(spatialfile.id),))
+            
+        except Exception as err:
+            logger.info(err)

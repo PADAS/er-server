@@ -4,8 +4,8 @@ import os
 import uuid
 
 from django.conf import settings
-from django.contrib.gis.db import models
 from django.contrib.gis import geos
+from django.contrib.gis.db import models
 from django.contrib.postgres.fields import JSONField
 from django.core import management
 from django.core.exceptions import ImproperlyConfigured, ValidationError
@@ -15,16 +15,16 @@ from django.urls import NoReverseMatch, reverse
 from django.utils.deconstruct import deconstructible
 from django.utils.translation import ugettext_lazy as _
 from model_utils.managers import InheritanceManager
-from tagulous.models import TagField, TagModel
 from pytz import timezone
+from tagulous.models import TagField, TagModel
 
 from core.models import TimestampedModel
 from mapping.app_settings import MBTILES
 from mapping.mbtiles import (ExtractionError, GoogleProjection,
                              InvalidFormatError, MBTilesReader)
-from mapping.ste_utils import spatialfiles_folder
-from mapping.utils import MAPPING_FEATURES_V2, check_file_extension
-from model_utils.managers import InheritanceManager
+from mapping.tasks import load_spatial_features_from_files
+from mapping.utils import (MAPPING_FEATURES_V2, SPATIAL_FILES_FOLDER,
+                           check_file_extension)
 from revision.manager import Revision, RevisionMixin
 from utils.decorator import reify
 
@@ -164,7 +164,7 @@ class SpatialFilesBase(TimestampedModel):
     name = models.CharField(max_length=255, blank=True,
                             verbose_name='SpatialFile Name')
     description = models.CharField(max_length=100, blank=True)
-    data = models.FileField(upload_to=spatialfiles_folder, blank=False)
+    data = models.FileField(upload_to=SPATIAL_FILES_FOLDER, blank=False)
     layer_number = models.IntegerField(blank=True, null=True, default=0)
     name_field = models.CharField(max_length=100, blank=True, null=True)
     id_field = models.CharField(max_length=100, blank=True, null=True)
@@ -184,21 +184,19 @@ class SpatialFilesBase(TimestampedModel):
         """
         if not self.data:
             raise ValidationError({'data': []})
+
+        file_type, featuretypes_file = None, None
         try:
             file_type = self.file_type
+            featuretypes_file = self.feature_types_file
         except Exception:
-            file_type = None
+            pass
 
         if file_type:
-            check_file_extension(self.file_type, self.data,
-                                 self.feature_types_file or None)
-        try:
-            types_file = self.feature_types_file.url
-        except Exception:
-            types_file = None
+            check_file_extension(self.file_type, self.data, featuretypes_file)
 
         self.save()
-        transaction.on_commit(lambda: self.call_mgt_command(self.data.url, types_file))
+        transaction.on_commit(lambda: load_spatial_features_from_files(str(self.id)))
 
     def __str__(self):
         return str(self.id)
@@ -214,9 +212,6 @@ class SpatialFile(SpatialFilesBase):
     class Meta:
         verbose_name = 'Spatial File'
 
-    def call_mgt_command(self, import_file, spatial_types_file=None):
-        management.call_command(
-            'importlayer', 'importlayerfile', import_file, spatialfile_id=self.id)
 
 class Feature(TimestampedModel):
     """
@@ -632,20 +627,11 @@ class SpatialFeatureFile(SpatialFilesBase):
         max_length=100, default='shapefile', choices=FILE_TYPES)
     feature_type = models.ForeignKey(
         to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
-    feature_types_file = models.FileField(upload_to=spatialfiles_folder, blank=True, null=True)
+    feature_types_file = models.FileField(upload_to=SPATIAL_FILES_FOLDER, blank=True, null=True)
 
     class Meta:
         verbose_name = 'Feature Import File'
 
-    def call_mgt_command(self, data_file, spatial_types_file):
-        if spatial_types_file:
-            management.call_command(
-                'import_spatial', data_file, spatialfile_id=self.id,
-                feature_types=spatial_types_file
-            )
-        else:
-            management.call_command(
-                'importlayer', 'importspatialfile', data_file, spatialfile_id=self.id)
 
 
 class SpatialFeatureManager(models.Manager):
