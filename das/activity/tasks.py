@@ -76,9 +76,6 @@ def evaluate_conditions_for_sending_alerts(event, alert_rule, queued_nids):
     for alert_condition in alert_rule.conditions['all']:
         condition_name = alert_condition['name']
 
-        print(f"Alert Condition {alert_condition}")
-        print(f"Updated fields {combined_updated_fields}")
-
         # if there are no updated fields, probably means it's a new event
         if combined_updated_fields == {}:
             evaluate_notifications(alert_rule, queued_nids, event.id)
