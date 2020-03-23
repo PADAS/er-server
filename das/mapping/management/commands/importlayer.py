@@ -5,6 +5,7 @@ from django.core.management.base import BaseCommand
 from mapping import models
 from mapping.tasks import load_spatial_features_from_files
 from mapping.utils import DEFAULT_SOURCE_NAME, validate_feature_record
+from utils.spatial import GeometryMapper
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +34,8 @@ class Command(BaseCommand):
         self.layer = options['layer']
         self.utm = options['utm'] if options['utm'] else self.utm
         self.featuretype = options['featuretype']
-        self.featuretype_label = options['typelabel']
         self.featureset = options['featureset']
         self.spatialfile_id = options['spatialfile_id'] if options['spatialfile_id'] else self.spatialfile_id
-        self.presentation = options['presentation']
 
         sub_command = options['sub_command']
         if sub_command not in self.SUB_COMMANDS:
@@ -51,8 +50,6 @@ class Command(BaseCommand):
 
         parser.add_argument('--featuretype', type=str,
                             help='Feature type')
-        parser.add_argument('--typelabel', type=str,
-                            help='Feature type label on wfs')
         parser.add_argument('--featureset', type=str,
                             help='FeatureSet')
         parser.add_argument(
@@ -67,8 +64,6 @@ class Command(BaseCommand):
                             help='Change to this utm')
         parser.add_argument('--spatialfile-id', type=str,
                             help='Spatial file ID')
-        parser.add_argument('--presentation', type=dict,
-                            help='Presentation from an ArcGIS Simple Renderer')
 
     def importlayerfile(self):
 
@@ -85,8 +80,7 @@ class Command(BaseCommand):
 
         load_spatial_features_from_files.apply_async(args=(
             self.filename, self.tmpdirs, self.source_name, self.spatialfile_id,
-            None, self.layer, self.presentation, self.featuretype_label,
-            self.id_field, self.name_field, featuretype.name, featureset.name,))
+            None, self.layer, self.id_field, self.name_field, featuretype.name, featureset.name,))
 
     def importspatialfile(self):
         logger.info('Importing features from shapefile: %s',
@@ -96,5 +90,5 @@ class Command(BaseCommand):
             featuretype = featuretype if isinstance(featuretype, str) else featuretype.name
         load_spatial_features_from_files.apply_async(args=(
             self.filename, self.tmpdirs, self.source_name, self.spatialfile_id,
-            None, self.layer, self.presentation, self.featuretype_label,
-            self.id_field, self.name_field, featuretype,))
+            None, self.layer, self.id_field, self.name_field, featuretype,))
+

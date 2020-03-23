@@ -6,6 +6,7 @@ import pytz
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
+from django.db import IntegrityError
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import generics
@@ -104,10 +105,12 @@ class AcceptEulaAPIView(generics.CreateAPIView):
     queryset = UserAgreement.objects.all()
 
     def create(self, request, *args, **kwargs):
-        if request.data.get("accept") == False:
-            user_id = request.data.get("user")
-            eula_id = request.data.get("eula")
+        user_id = request.data.get("user")
+        eula_id = request.data.get("eula")
+        accepted = request.data.get("accept", True)
 
+        # accept=False, so revoke eula
+        if not accepted:
             try:
                 user = User.objects.get(id=user_id)
                 UserAgreement.objects.filter(user=user).filter(
@@ -120,7 +123,15 @@ class AcceptEulaAPIView(generics.CreateAPIView):
             except MultipleObjectsReturned as me:
                 return Response({"error": str(me)}, status=status.HTTP_400_BAD_REQUEST)
 
+        if self.is_similar_data_in_db(user_id, eula_id):
+            data = request.data
+            data['accept'] = True
+            return Response(data, status=status.HTTP_200_OK)
+
         return super(AcceptEulaAPIView, self).create(request, *args, **kwargs)
+
+    def is_similar_data_in_db(self, user_id, eula_id):
+        return UserAgreement.objects.filter(user_id=user_id).filter(eula_id=eula_id).filter(accept=True).exists()
 
 
 class GetActiveEulaAPIView(generics.RetrieveAPIView):

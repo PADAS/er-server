@@ -10,7 +10,7 @@ from activity.alerting.businessrules import render_aggregate_event_variables
 
 from utils.drf import StandardResultsSetPagination
 from utils.json import parse_bool
-
+from utils.schema_utils import get_schema_renderer_method
 logger = logging.getLogger(__name__)
 
 # Views for Advanced Alert Functionality.
@@ -29,13 +29,26 @@ class EventAlertConditionsListView(generics.ListAPIView):
         event_types = self.request.query_params.get('event_type', '')
         if event_types:
             qs = qs.by_event_type(event_types)
+
+        # Exclude conditions with eventtypes of invalid schema
+        errored_types = []
+        for eventype in qs:
+            try:
+                get_schema_renderer_method()(eventype.schema)
+            except Exception:
+                logger.exception(f"{eventype} event type skipped, invalid schema")
+                errored_types.append(eventype.display)
+
+        qs = qs.exclude(display__in=errored_types)
+
         return qs
 
     def get(self, *args, **kwargs):
         only_common_factors = parse_bool(
             self.request.query_params.get('only_common_factors', False))
-        rules = render_aggregate_event_variables(self.get_queryset(
-        ), only_common_factors=only_common_factors, user=self.request.user)
+
+        rules = render_aggregate_event_variables(
+            self.get_queryset(), only_common_factors=only_common_factors, user=self.request.user)
 
         return response.Response(rules, status=status.HTTP_200_OK)
 

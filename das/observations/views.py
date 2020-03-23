@@ -1235,8 +1235,8 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         except:
             request_date_before = None
 
-        # return in json format or csv
-        format = self.request.GET.get('format', '').lower()
+        # return in json format or csv, default is csv
+        result_format = self.request.GET.get('format', 'csv').lower()
 
         # get data for a specific subject This is for STE downloader
         request_subject_id = self.request.GET.get(
@@ -1247,8 +1247,8 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
             'subject_chronofile', None)
 
         # get current status? or historical observations
-        get_current = self.request.GET.get(
-            'current_status', 'false').lower() == 'true'
+        get_current = utils.json.parse_bool(self.request.GET.get(
+            'current_status', 'false'))
 
         # This call will embed a in order manufactured serial number per returned row
         #  do we start at 0 or some other number? This is for STE downloader
@@ -1272,20 +1272,20 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
 
         # Get SubjectSource and Observations with in time range for subjects
         fixtime_label = 'fixtime ({})'.format(
-            tz_offset) if format != 'json' else 'fixtime'
+            tz_offset) if result_format == 'csv' else 'fixtime'
         dloadtime_label = 'dloadtime ({})'.format(
-            tz_offset) if format != 'json' else 'dloadtime'
+            tz_offset) if result_format == 'csv' else 'dloadtime'
         fieldnames = ['chronofile', 'recordserial', 'collar_id', fixtime_label, dloadtime_label,
-                      'lon', 'lat', 'height', 'temp']
+                      'lon', 'lat', 'height', 'temp', 'voltage']
         csv_data = []
         cur_record_serial = record_serial_base
-        if get_current is True:
+        if get_current:
             # all the current status objects for the allowed subjects
             items = self.get_subject_status_queryset(max_records)
             if items:
                 for item in items:
                     cur_record_serial += 1
-                    data = self.get_csv_observation_data(cur_record_serial, dloadtime_label, fixtime_label, format,
+                    data = self.get_csv_observation_data(cur_record_serial, dloadtime_label, fixtime_label, result_format,
                                                          item, request_subject_id, request_subject_chronofile)
                     csv_data.append(data)
         else:
@@ -1294,26 +1294,20 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                     request_subject_id, request_subject_chronofile)
                 for subject in subjects:
                     # all the relevant observations for the subject
-                    items = self.get_subject_trackdata_queryset(
-                        filter_flag, lower, subject, upper, max_records, request_subject_id, request_subject_chronofile)
-
-                    if items:
-                        for item in items:
-                            cur_record_serial += 1
-                            data = self.get_csv_observation_data(cur_record_serial, dloadtime_label, fixtime_label, format,
-                                                                 item, request_subject_id, request_subject_chronofile)
-                            csv_data.append(data)
+                    for item in self.get_subject_trackdata_queryset(
+                        filter_flag, lower, subject, upper, max_records, request_subject_id, request_subject_chronofile).values():
+                        cur_record_serial += 1
+                        data = self.get_csv_observation_data(cur_record_serial, dloadtime_label, fixtime_label, result_format,
+                                                             item, request_subject_id, request_subject_chronofile)
+                        csv_data.append(data)
             except django.core.exceptions.ValidationError:
                 raise ValidationError(
                     {'Error': f'{request_subject_id} is not a valid UUID'})
 
         timestamp = current_tz.localize(datetime.datetime.utcnow())
 
-        if format == 'json':
-            return HttpResponse(
-                json.dumps({'data': csv_data}, cls=DjangoJSONEncoder),
-                content_type='application/json', status=status.HTTP_200_OK
-            )
+        if result_format != 'csv':
+            return Response(csv_data)
 
         download_filename = f'Tracking Data {timestamp.strftime("%Y-%m-%d")}.csv'
         response = HttpResponse(content_type='text/csv')
@@ -1329,12 +1323,12 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
             writer.writerows(csv_data)
         return response
 
-    def get_csv_observation_data(self, cur_record_serial, dloadtime_label, fixtime_label, format, item,
-                                 subject_id=None, subject_chronofile=None):
+    def get_csv_observation_data(self, cur_record_serial, dloadtime_label, fixtime_label, result_format, item,
+                                 subject_id, subject_chronofile):
         recorded_at = item['recorded_at'].astimezone(
-            current_tz) if format != 'json' else item['recorded_at']
+            current_tz) if result_format == 'csv' else item['recorded_at']
         created_at = item['created_at'].astimezone(
-            current_tz) if format != 'json' else item['created_at']
+            current_tz) if result_format == 'csv' else item['created_at']
 
         request_key = 'chronofile'
         if subject_id:
@@ -1352,30 +1346,35 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                 request_key: value,
                 'collar_id': collar_id,
                 'recordserial': cur_record_serial,
-                fixtime_label: recorded_at.strftime('%m/%d/%Y %H:%M:%S') if format != 'json'
+                fixtime_label: recorded_at.strftime('%m/%d/%Y %H:%M:%S') if result_format == 'csv'
                 else recorded_at.isoformat(),
-                dloadtime_label: created_at.strftime('%m/%d/%Y %H:%M:%S') if format != 'json'
+                dloadtime_label: created_at.strftime('%m/%d/%Y %H:%M:%S') if result_format == 'csv'
                 else created_at.isoformat(),
-                'temp': item['additional'].get('temp', item['additional'].get('temperature', 0))
+                'temp': item['additional'].get('temp', item['additional'].get('temperature', 0)),
+                'voltage': item['additional'].get('voltage', item['additional'].get('battery', item['additional'].get('batt', 0))),
                 }
         return data
 
-    def get_subject_trackdata_queryset(self, filter_flag, lower, subject, upper, max_records, subject_id=None, subject_chronofile=None):
-        qs = models.Observation.objects.filter(exclusion_flags=filter_flag,
+    def get_subject_trackdata_queryset(self, filter_flag, lower, subject, upper, max_records, subject_id, subject_chronofile):
+        qs = models.Observation.objects.all().order_by('recorded_at')
+        if subject_id:
+            qs = qs.filter(
+                source__subjectsource__subject__id=subject_id)
+        elif subject_chronofile:
+            qs = qs.filter(source__subjectsource__additional__chronofile=int(
+                subject_chronofile))
+        else:
+            qs = qs.filter(source__subjectsource__subject=subject)
+
+        qs = qs.filter(exclusion_flags=filter_flag,
                                                recorded_at__gt=lower,
                                                recorded_at__lt=upper,
                                                source__subjectsource__assigned_range__contains=F('recorded_at'))
 
-        if subject_id:
-            qs = models.Observation.objects.filter(
-                source__subjectsource__subject__id=subject_id)
-        elif subject_chronofile:
-            qs.filter(source__subjectsource__additional__chronofile=int(
-                subject_chronofile))
-        else:
-            qs = qs.filter(source__subjectsource__subject=subject)
         qs = qs.annotate(subjectsource_additional=F('source__subjectsource__additional'),
-                         collar_id=F('source__manufacturer_id')).order_by('recorded_at').values()
+                         collar_id=F('source__manufacturer_id'))
+
+        logger.info(f'qs chrono {subject_chronofile} {qs.query}')
 
         if max_records > 0:
             qs = qs[:max_records]
@@ -1391,7 +1390,7 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                       collar_id=F('subject__subjectsource__source__manufacturer_id')).values()
         if max_records > 0:
             qs = qs[:max_records]
-        return qs
+        return qs.values()
 
 
 class TrackingMetaDataExportView(generics.RetrieveAPIView):

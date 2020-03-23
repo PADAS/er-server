@@ -68,8 +68,25 @@ class SoftDeleteModel(models.Model):
 
 
 class Choice(SoftDeleteModel):
+
+    Field_Reports = 'activity.event'
+    User = 'accounts.user.User'
+    Maps = 'mapping.TileLayer'
+    Region = 'observations.region'
+    Sources = 'observations.Source'
+    Field_Report_Type = 'activity.eventtype'
+
+    MODEL_REF_CHOICES = [
+        (Field_Reports, 'Field Reports'),
+        (User, 'User'),
+        (Maps, 'Maps'),
+        (Region, 'Region'),
+        (Sources, 'Sources'),
+        (Field_Report_Type, 'Field Report Type')
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    model = models.CharField(max_length=50)
+    model = models.CharField(max_length=50, choices=MODEL_REF_CHOICES, default=Field_Reports)
     field = models.CharField(max_length=40)
     value = models.CharField(max_length=100, blank=True)
     display = models.CharField(max_length=100, blank=True)

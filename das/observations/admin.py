@@ -27,7 +27,7 @@ from django.template.loader import render_to_string
 from django.utils.html import format_html
 from django.db.models.expressions import RawSQL
 import django.contrib.gis.admin as gis_admin
-from django.utils.safestring import mark_safe
+from django.utils.safestring import mark_safe, SafeString
 from django.utils.functional import cached_property
 
 import observations.models as models
@@ -118,7 +118,7 @@ class SubjectTypeAdmin(admin.ModelAdmin):
     list_editable = ('display', )
     readonly_fields = ('id',)
     search_fields = ('value', 'display')
-    ordering = ('display',)
+    ordering = list_display
 
     fieldsets = (
         (None,
@@ -139,7 +139,7 @@ class SubjectSubTypeAdmin(admin.ModelAdmin):
     search_fields = ('value', 'display',
                      'subject_type__display', 'subject_type__value')
 
-    ordering = ('subject_type', 'display')
+    ordering = ('value', 'subject_type', 'display')
     list_display_links = ('value',)
 
     fieldsets = (
@@ -285,8 +285,9 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
               "location", "exclusion_flags", "source", "additional")
     list_display = ('subject_link', '_manufacturer_id', '_recorded_at', '_created_at',
                     '_latitude', '_longitude', '_state', '_event_action', 'exclusion_flags')
+    ordering = ('source', 'location', 'recorded_at', 'created_at', 'source')
     list_editable = ('exclusion_flags',)
-    list_display_links = None
+    list_display_links = ('_recorded_at',)
     show_full_result_count = False
     autocomplete_fields = ('source',)
 
@@ -307,8 +308,9 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
                     args=(obj.subject_id,)),
             obj.subject_name
         ))
-
     subject_link.short_description = 'Subject'
+    subject_link.admin_order_field = 'subject_name'
+
 
     def _longitude(self, o):
         return round(o.location.x, 5)
@@ -331,6 +333,7 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
 
     def _manufacturer_id(self, o):
         return o.manufacturer_id
+    _manufacturer_id.admin_order_field = 'manufacturer_id'
 
     def _created_at(self, o):
         return o.created_at
@@ -338,10 +341,7 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
     _created_at.admin_order_field = 'created_at'
 
     def _recorded_at(self, o):
-        recorded_at = o.recorded_at.strftime("%d %b, %Y, %H:%M")
-        return mark_safe(
-            f'<a href="{reverse("admin:observations_observation_change", args=(o.id,))}">{recorded_at}</a>'
-        )
+        return o.recorded_at
     _recorded_at.short_description = 'recorded at %s' % TIMEZONE_USED
     _recorded_at.admin_order_field = 'recorded_at'
     _recorded_at.admin_order_first_type = "desc"
@@ -639,6 +639,7 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
 @admin.register(models.CommonName)
 class CommonNameAdmin(admin.ModelAdmin):
     list_display = ('value', 'display', 'subject_subtype')
+    ordering = list_display
 
     def queryset(self, request):
         """Limit Subjects to those this person can administer"""
@@ -658,7 +659,7 @@ class SubjectSourceSummaryAdmin(admin.ModelAdmin):
     list_filter = ('source__provider__display_name',)
     search_fields = ('source__manufacturer_id', 'subject__name',
                      'source__provider__display_name')
-    ordering = ('source', )
+    ordering = ('source', 'subject')
 
     def record_link(self, url, key, view):
         return mark_safe('<a href="{}">{}</a>'.format(
@@ -667,6 +668,7 @@ class SubjectSourceSummaryAdmin(admin.ModelAdmin):
 
     def _subject(self, o):
         return self.record_link("admin:observations_subject_change", o.subject.id, o.subject)
+    _subject.admin_order_field = 'subject'
 
     def _provider(self, o):
         provider = o.source.provider
@@ -720,6 +722,7 @@ class SubjectSourceSummaryAdmin(admin.ModelAdmin):
 class SourceAdmin(admin.ModelAdmin):
     list_display = ['manufacturer_id', 'source_type',
                     'model_name', 'get_attributes', '_source_provider', ]
+    ordering = ('manufacturer_id', 'source_type', 'model_name', 'provider')
     search_fields = ('id', 'manufacturer_id', 'model_name', 'additional',)
     list_filter = ('source_type', 'model_name', SourceSourceProviderFilter)
     readonly_fields = ('id', 'created_at', 'updated_at',)
@@ -772,6 +775,7 @@ class SourceAdmin(admin.ModelAdmin):
 
     def _source_provider(self, o):
         return o.provider.display_name
+    _source_provider.admin_order_field = 'provider'
 
 
 class CurrentAssignmentFilter(admin.SimpleListFilter):
@@ -797,6 +801,7 @@ class CurrentAssignmentFilter(admin.SimpleListFilter):
 class SubjectSourceAdmin(admin.ModelAdmin):
     list_display = ('subject_name', 'manufacturer_id',
                     'current', '_assigned_range')
+    ordering = ('subject','source', 'assigned_range')
     list_filter = ('source__source_type', CurrentAssignmentFilter,
                    'subject__subject_subtype__subject_type__value', 'subject__subject_subtype__value')
     search_fields = ('source__manufacturer_id', 'subject__name')
@@ -804,9 +809,11 @@ class SubjectSourceAdmin(admin.ModelAdmin):
 
     def subject_name(self, o):
         return o.subject.name
+    subject_name.admin_order_field = 'subject'
 
     def manufacturer_id(self, o):
         return o.source.manufacturer_id
+    manufacturer_id.admin_order_field = 'source'
 
     def current(self, o):
         return o.current
@@ -853,6 +860,7 @@ class SubjectSourceAdmin(admin.ModelAdmin):
 @admin.register(models.Region)
 class RegionAdmin(admin.ModelAdmin):
     list_display = ['id', 'region', 'country', 'slug']
+    ordering = list_display
     fields = ['id', 'region', 'country', 'slug']
     search_fields = ('region', 'country')
 
@@ -1021,7 +1029,7 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
     gis_geometry_field_name = 'location'
     search_fields = (
         'subject__name', 'subject__subjectsource__source__manufacturer_id')
-    ordering = ('-recorded_at',)
+    ordering = ('-recorded_at', 'subject',)
     # change_list_template = 'admin/subject_status_change_list.html'
     # readonly_fields = ('recorded_at', 'subject','delay_hours', 'additional')
     list_display = ('_status', 'radio_state_at', '_age_of_state',
@@ -1043,6 +1051,8 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
         ))
 
     subject_link.short_description = 'Subject'
+    subject_link.admin_order_field = 'subject'
+
 
     def _age(self, o):
         return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.recorded_at) if o.recorded_at else 'n/a'
@@ -1069,13 +1079,11 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
     def get_queryset(self, request):
         """Limit Subjects to those this person can administer"""
         qs = super(SubjectStatusAdmin, self).get_queryset(request)
+        subject_source = models.SubjectSource.objects.filter(subject_id=OuterRef('subject__pk'))
         qs = qs.filter(delay_hours=0)
-        qs = qs.annotate(state_order=RawSQL(
-            '''jsonb_extract_path_text(observations_subjectstatus.additional, 'state')
-             || jsonb_extract_path_text(observations_subjectstatus.additional, 'gps_fix')''', ()))
-        qs = qs.prefetch_related('subject')
-        qs = qs.annotate(
-            provider_name=F('subject__subjectsource__source__provider__display_name'))
+        qs = qs.annotate(subject_provider=Subquery(subject_source.values('source__provider__display_name')[:1]),
+                         source_type=Subquery(subject_source.values('source__source_type')[:1]))
+        qs = qs.select_related('subject', 'subject__subject_subtype')
         return qs
 
     def _location(self, o):
@@ -1089,21 +1097,17 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
     _recorded_at.admin_order_field = 'recorded_at'
 
     def _source_provider(self, o):
-        return o.provider_name
+        return o.subject_provider
+
+    _source_provider.admin_order_field = 'source'
 
     def _source_type(self, o):
-        source = None
-        try:
-            source = o.subject.source.source_type
-        except Exception:
-            pass
-        return source
-
+        return o.source_type
 
 @admin.register(models.SourceProvider)
 class SourceProviderAdmin(admin.ModelAdmin):
     search_fields = ('provider_key', 'display_name',)
-    ordering = ('provider_key',)
+    ordering = ('provider_key', 'display_name')
     list_display = ('provider_key', 'display_name',)
     readonly_fields = ('id',)
     form = SourceProviderForm
@@ -1258,11 +1262,12 @@ class ObservationAnnotatorAdmin(admin.ModelAdmin):
     search_fields = ('subject__name',)
     list_filter = ('max_speed', 'subject__subject_subtype__display',
                    'subject__subject_subtype__subject_type__display',)
-    ordering = ('subject__name', )
+    ordering = ('subject', 'max_speed', )
     readonly_fields = ('id',)
 
     def subject_name(self, o):
         return o.subject.name
+    subject_name.admin_order_field = 'subject'
 
     def subject_subtype(self, o):
         return o.subject.subject_subtype.value

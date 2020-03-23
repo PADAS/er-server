@@ -12,6 +12,9 @@ from activity.alerts import has_alerts_permissionset
 
 from das_server import __version__
 
+# This import ensures we register user-login receivers.
+from das_server import metrics
+
 from observations import servicesutils
 from utils.json import parse_bool
 
