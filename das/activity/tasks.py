@@ -70,16 +70,21 @@ def evaluate_conditions_for_sending_alerts(event, alert_rule, queued_nids):
     updated_event_details_fields = get_revised_event_details_fields(
         details_revision)
 
+    combined_updated_fields = updated_event_fields
+    combined_updated_fields.update(updated_event_details_fields)
+
     for alert_condition in alert_rule.conditions['all']:
         condition_name = alert_condition['name']
-        event_value = getattr(event, condition_name)
-        condition_values = alert_condition['value']
-        condition_operator = alert_condition['operator']
 
-        updated_event_fields.update(updated_event_details_fields)
+        print(f"Alert Condition {alert_condition}")
+        print(f"Updated fields {combined_updated_fields}")
+
+        # if there are no updated fields, probably means it's a new event
+        if combined_updated_fields == {}:
+            evaluate_notifications(alert_rule, queued_nids, event.id)
 
         # Check if allowed condition values are updated
-        if condition_name in updated_event_fields and event_value in condition_values:
+        if condition_name in combined_updated_fields:
             evaluate_notifications(alert_rule, queued_nids, event.id)
 
 
