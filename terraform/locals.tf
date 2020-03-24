@@ -40,6 +40,7 @@ locals {
     "sabiegamereserve"       = "prod1"
     "oljogi"                 = "prod1"
     "balule"                 = "prod1"
+    "elephantsalive"         = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
