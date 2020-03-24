@@ -21,13 +21,18 @@ GENERIC_GFW_ALERT_SCHEMA = {
             "confidence": {
                 "type": "string",
                 "title": "Confidence level of alert"
+            },
+            "num_of_clustered_events": {
+                "type": "number",
+                "title": "Number of clustered alerts"
             }
         },
     },
     "definition": [
         "subscription_name",
         "alert_link",
-        "confidence"
+        "confidence",
+        "num_of_clustered_events"
     ]
 }
 

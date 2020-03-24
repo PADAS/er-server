@@ -1,11 +1,13 @@
 import json
-import urllib.parse as parser
 from unittest.mock import patch, Mock
 
+from django.conf import settings
 from django.contrib.gis.geos import Polygon
-from rest_framework import status
 from faker import Faker
+from rest_framework import status
+import urllib.parse as parser
 
+from analyzers.clustering_utils import cluster_alerts
 from activity.models import Event
 from analyzers.gfw_utils import (get_geostore_id, GEOSTORE_FIELD, GLAD_CONFIRM_FIELD,
                                  rebuild_glad_download_url)
@@ -62,7 +64,10 @@ class GFWAlertHandlerTest(BaseAPITest):
         self._create_and_get_test_model(subscription_id=self.test_data_viirs_subscription_id)
         response = self._post_data(json.dumps(VIIRS_FIRE_ALERT))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(VIIRS_FIRE_ALERT_DOWNLOADED_DATA['rows']), Event.objects.all().count())
+        clustered_alerts = cluster_alerts(
+            VIIRS_FIRE_ALERT_DOWNLOADED_DATA['rows'],
+            settings.GFW_CLUSTER_RADIUS, 1)
+        self.assertEqual(len(clustered_alerts), Event.objects.all().count())
 
     @patch('requests.get')
     def test_glad_with_duplicates(self, mock_request):
@@ -90,7 +95,10 @@ class GFWAlertHandlerTest(BaseAPITest):
         # create again, total events in db shouldn't change
         response = self._post_data(json.dumps(VIIRS_FIRE_ALERT))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(VIIRS_FIRE_ALERT_DOWNLOADED_DATA['rows']), Event.objects.all().count())
+        clustered_alerts = cluster_alerts(
+            VIIRS_FIRE_ALERT_DOWNLOADED_DATA['rows'],
+            settings.GFW_CLUSTER_RADIUS, 1)
+        self.assertEqual(len(clustered_alerts), Event.objects.all().count())
 
     def test_with_alerts_missing(self):
         data = VIIRS_FIRE_ALERT
@@ -232,9 +240,11 @@ class GFWAlertHandlerTest(BaseAPITest):
         qs.update(Deforestation_confidence=gfw_model.BOTH_CONFIRMED_UNCONFIRMED)
 
         response = self._post_data(json.dumps(GLAD_ALERT))
-        expected_event = len(GLAD_ALERT_DOWNLOADED_DATA['data'])
+        clustered_alerts = cluster_alerts(
+            GLAD_ALERT_DOWNLOADED_DATA['data'],
+            settings.GFW_CLUSTER_RADIUS, 1)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(expected_event, Event.objects.all().count())
+        self.assertEqual(len(clustered_alerts), Event.objects.all().count())
 
     # @patch('analyzers.gfw_utils.get_viirs_fire_alerts')
     @patch('analyzers.tasks.requests.get')
@@ -262,9 +272,9 @@ class GFWAlertHandlerTest(BaseAPITest):
         app.send_task = send_task
 
         response = self._post_data(json.dumps(VIIRS_FIRE_ALERT))
-        expected_event = len(VIIRS_FIRE_ALERT_DOWNLOADED_DATA['rows'])  # ALL have confidence level: Nominal
+        clustered_alerts = cluster_alerts(VIIRS_FIRE_ALERT_DOWNLOADED_DATA['rows'], settings.GFW_CLUSTER_RADIUS, 1)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(expected_event, Event.objects.all().count())
+        self.assertEqual(len(clustered_alerts), Event.objects.all().count())
 
     def _create_and_get_test_model(self, subscription_id=None, geostore_id=None,
                                    glad_conf=None, viirs_conf=None, additional=None):
