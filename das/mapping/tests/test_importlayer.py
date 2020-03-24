@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from mapping.models import (FeatureSet, FeatureType, PointFeature,
                             PolygonFeature, SpatialFeature, SpatialFeatureType)
-from mapping.ste_utils import extract_features_from_files
+from mapping.spatialfile_utils import extract_features_from_files
 from mapping.tests.base_test import BaseTest
 
 logger = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ class TestSpatialFile(BaseTest):
 
         spatialfile = MockSpatialFile(1, data, dummy_feature_type, 0, 'globalid', 'Name', dummy_feature_set)
 
-        with patch('mapping.ste_utils.onlinestorage', False):
+        with patch('mapping.spatialfile_utils.onlinestorage', False):
             extract_features_from_files(spatialfile, 'SpatialFile')
             point_feature = PointFeature.objects.all()[0]
             self.assertEqual(dummy_feature_type, point_feature.type)
@@ -71,7 +71,7 @@ class TestSpatialFile(BaseTest):
         data = Filedata(name=filepath, url=filepath, path=filepath)
         spatialfile = MockSpatialFile(1, data, dummy_feature_type, 0, 'globalid', 'Name', dummy_feature_set)
 
-        with patch('mapping.ste_utils.onlinestorage', False):
+        with patch('mapping.spatialfile_utils.onlinestorage', False):
             extract_features_from_files(spatialfile, 'SpatialFile')
 
             point_feature = PolygonFeature.objects.all()[0]
@@ -90,7 +90,7 @@ class TestSpatialFile(BaseTest):
         spatialfile = MockSpatialFeatureFile(1, data, None, 0, 'globalid', 'Name', feature_types_file)
 
         with self.settings(UI_SITE_URL='http://www.majete.com'):
-            with patch('mapping.ste_utils.onlinestorage', False):
+            with patch('mapping.spatialfile_utils.onlinestorage', False):
                 extract_features_from_files(spatialfile, 'SpatialFeatureFile')
 
                 self.assertEqual(SpatialFeatureType.objects.count(), 214)
@@ -102,7 +102,7 @@ class TestSpatialFile(BaseTest):
         filepath = './mapping/tests/testdata/Matlamamba/MatlaMamba_Airstrip.shp'
         data = Filedata(name=filepath, url=filepath, path=filepath)
         spatialfile = MockSpatialFeatureFile(1, data, None, 0, 'globalid', 'Name', None)
-        with patch('mapping.ste_utils.onlinestorage', False):
+        with patch('mapping.spatialfile_utils.onlinestorage', False):
             extract_features_from_files(spatialfile, 'SpatialFeatureFile')
 
         self.assertEquals(SpatialFeature.objects.count(), 2)

@@ -2,15 +2,16 @@ import logging
 from datetime import datetime, timezone
 
 from celery_once import QueueOnce
+from django.core.files.storage import default_storage
 from django.db import transaction
 
 from das_server import celery
-from mapping import models, ste_utils, utils
-from mapping.esri_integration import arcgis_authentication, wfs_download_return_messages, extract_gis_data
+from mapping import models, spatialfile_utils, utils
+from mapping.esri_integration import (arcgis_authentication, extract_gis_data,
+                                      wfs_download_return_messages)
 from observations.utils import convert_date_string
 
 logger = logging.getLogger(__name__)
-
 
 @celery.app.task(base=QueueOnce, once={'graceful': True})
 def automate_download_features_from_wfs():
@@ -66,14 +67,14 @@ def get_wfs_config_objects(obj_id, group_id):
     return obj, wfs_group
 
 
-# @celery.app.task(base=QueueOnce, once={'graceful': True})
+@celery.app.task(base=QueueOnce, once={'graceful': True})
 def load_spatial_features_from_files(spatialfile_id):
     model = models.SpatialFeatureFile if utils.MAPPING_FEATURES_V2 else models.SpatialFile
     spatial_file = model.objects.filter(id=spatialfile_id)
 
     if spatial_file.exists():
         try:
-            ste_utils.extract_features_from_files(spatial_file[0], model)
+            spatialfile_utils.extract_features_from_files(spatial_file[0], model)
             spatial_file.update(status='Success')
         except Exception as ex:
             logger.exception(ex)

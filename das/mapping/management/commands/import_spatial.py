@@ -8,7 +8,7 @@ import utils.json
 from mapping import models
 from mapping.tasks import load_spatial_features_from_files
 from mapping.utils import DEFAULT_SOURCE_NAME, SPATIAL_FILES_FOLDER
-from mapping.ste_utils import create_spatialfiles_folder
+from mapping.spatialfile_utils import create_spatialfiles_folder
 import shutil
 from utils.spatial import GeometryMapper
 

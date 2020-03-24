@@ -12,7 +12,7 @@ from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.models import ProximityAnalyzerConfig, SubjectAnalyzerResult
 from analyzers.proximity import ProximityAnalyzer
 from mapping.models import SpatialFeature, SpatialFeatureGroupStatic
-from mapping.ste_utils import extract_features_from_files
+from mapping.spatialfile_utils import extract_features_from_files
 from mapping.tests.test_importlayer import Filedata, MockSpatialFeatureFile
 from observations.models import (DEFAULT_ASSIGNED_RANGE, Source, Subject,
                                  SubjectGroup, SubjectSource,
@@ -76,7 +76,7 @@ class TestProximityAnalyzer(TestCase):
         feature_types_file = Filedata(name=types_file, url=types_file, path=types_file)
         spatialfile = MockSpatialFeatureFile(1, data, None, 0, 'globalid', 'Name', feature_types_file)
 
-        with patch('mapping.ste_utils.onlinestorage', False):
+        with patch('mapping.spatialfile_utils.onlinestorage', False):
             extract_features_from_files(spatialfile, 'SpatialFeatureFile')
 
         ec, created = EventCategory.objects.get_or_create(

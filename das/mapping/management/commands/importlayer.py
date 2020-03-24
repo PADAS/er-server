@@ -4,7 +4,7 @@ import shutil
 from django.core.management.base import BaseCommand
 
 from mapping import models
-from mapping.ste_utils import create_spatialfiles_folder
+from mapping. import create_spatialfiles_folder
 from mapping.tasks import load_spatial_features_from_files
 from mapping.utils import (DEFAULT_SOURCE_NAME, SPATIAL_FILES_FOLDER,
                            validate_feature_record)
@@ -86,7 +86,7 @@ class Command(BaseCommand):
                 feature_type = featuretype,
                 feature_set = featureset
             )
-            load_spatial_features_from_files.apply_async(args=(str(spatialfile.id),))
+            load_spatial_features_from_files(str(spatialfile.id))
         except Exception as err:
             logger.info(err)
 
@@ -103,7 +103,7 @@ class Command(BaseCommand):
                 id_field= self.id_field,
                 feature_type= featuretype
             )
-            load_spatial_features_from_files.apply_async(args=(str(spatialfile.id),))
+            load_spatial_features_from_files(str(spatialfile.id))
             
         except Exception as err:
             logger.info(err)
