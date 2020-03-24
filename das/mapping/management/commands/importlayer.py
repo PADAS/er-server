@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand
 
 from mapping import models
 from mapping.tasks import load_spatial_features_from_files
-from mapping.utils import DEFAULT_SOURCE_NAME
+from mapping.utils import (DEFAULT_SOURCE_NAME, validate_feature_record)
 from utils.spatial import GeometryMapper
 
 logger = logging.getLogger(__name__)

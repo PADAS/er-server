@@ -73,8 +73,7 @@ class TestGeofenceAnalyzer(TestCase):
         feature_types_file = Filedata(name=types_file, url=types_file, path=types_file)
         spatialfile = MockSpatialFeatureFile(1, data, None, 0, 'globalid', 'Name', feature_types_file)
 
-        with patch('mapping.spatialfile_utils.onlinestorage', False):
-            extract_features_from_files(spatialfile, 'SpatialFeatureFile')        
+        extract_features_from_files(spatialfile, 'SpatialFeatureFile')        
 
         ec, created = EventCategory.objects.get_or_create(
             value='analyzer_event', defaults=dict(display='Analyzer Events'))

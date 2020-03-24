@@ -54,12 +54,11 @@ class TestSpatialFile(BaseTest):
 
         spatialfile = MockSpatialFile(1, data, dummy_feature_type, 0, 'globalid', 'Name', dummy_feature_set)
 
-        with patch('mapping.spatialfile_utils.onlinestorage', False):
-            extract_features_from_files(spatialfile, 'SpatialFile')
-            point_feature = PointFeature.objects.all()[0]
-            self.assertEqual(dummy_feature_type, point_feature.type)
-            self.assertEqual(dummy_feature_set, point_feature.featureset)
-            logger.info('GeoJson file test complete.')
+        extract_features_from_files(spatialfile, 'SpatialFile')
+        point_feature = PointFeature.objects.all()[0]
+        self.assertEqual(dummy_feature_type, point_feature.type)
+        self.assertEqual(dummy_feature_set, point_feature.featureset)
+        logger.info('GeoJson file test complete.')
 
     def test_shapefile_upload(self):
         logger.info('Shape-file test started.')
@@ -67,17 +66,15 @@ class TestSpatialFile(BaseTest):
         dummy_feature_set = FeatureSet.objects.create(name='Boundaries')
         dummy_feature_set.types.add(dummy_feature_type)
 
-        filepath = './mapping/tests/testdata/Grbnd_New/Grbnd_New.SHP'
+        filepath = './mapping/tests/testdata/Grbnd_New.zip'
         data = Filedata(name=filepath, url=filepath, path=filepath)
         spatialfile = MockSpatialFile(1, data, dummy_feature_type, 0, 'globalid', 'Name', dummy_feature_set)
 
-        with patch('mapping.spatialfile_utils.onlinestorage', False):
-            extract_features_from_files(spatialfile, 'SpatialFile')
-
-            point_feature = PolygonFeature.objects.all()[0]
-            self.assertEqual(dummy_feature_type, point_feature.type)
-            self.assertEqual(dummy_feature_set, point_feature.featureset)
-            logger.info('Shape-file test complete.')
+        extract_features_from_files(spatialfile, 'SpatialFile')
+        point_feature = PolygonFeature.objects.all()[0]
+        self.assertEqual(dummy_feature_type, point_feature.type)
+        self.assertEqual(dummy_feature_set, point_feature.featureset)
+        logger.info('Shape-file test complete.')
 
     def test_loading_a_geojson_file_and_featuretypes(self):
         logger.info('Shape-file name-field test started.')
@@ -90,19 +87,16 @@ class TestSpatialFile(BaseTest):
         spatialfile = MockSpatialFeatureFile(1, data, None, 0, 'globalid', 'Name', feature_types_file)
 
         with self.settings(UI_SITE_URL='http://www.majete.com'):
-            with patch('mapping.spatialfile_utils.onlinestorage', False):
-                extract_features_from_files(spatialfile, 'SpatialFeatureFile')
-
-                self.assertEqual(SpatialFeatureType.objects.count(), 214)
-                self.assertEqual(SpatialFeature.objects.count(), 6)
+            extract_features_from_files(spatialfile, 'SpatialFeatureFile')
+            self.assertEqual(SpatialFeatureType.objects.count(), 214)
+            self.assertEqual(SpatialFeature.objects.count(), 6)
 
     def test_spatial_feature_file_upload(self):
         logger.info('Shape-file test started.')
 
-        filepath = './mapping/tests/testdata/Matlamamba/MatlaMamba_Airstrip.shp'
+        filepath = './mapping/tests/testdata/Matlamamba.zip'
         data = Filedata(name=filepath, url=filepath, path=filepath)
         spatialfile = MockSpatialFeatureFile(1, data, None, 0, 'globalid', 'Name', None)
-        with patch('mapping.spatialfile_utils.onlinestorage', False):
-            extract_features_from_files(spatialfile, 'SpatialFeatureFile')
+        extract_features_from_files(spatialfile, 'SpatialFeatureFile')
 
         self.assertEquals(SpatialFeature.objects.count(), 2)

@@ -37,7 +37,7 @@ class Command(BaseCommand):
                 id_field= self.id_field,
                 feature_types_file = self.feature_types_file
             )
-            load_spatial_features_from_files.apply_async(args=(str(spatialfile.id),))
+            load_spatial_features_from_files(str(spatialfile.id))
         except Exception as err:
             logger.exception(err)
 
