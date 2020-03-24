@@ -5,8 +5,7 @@ from django.core.management.base import BaseCommand
 
 from mapping import models
 from mapping.tasks import load_spatial_features_from_files
-from mapping.utils import (DEFAULT_SOURCE_NAME, SPATIAL_FILES_FOLDER,
-                           validate_feature_record)
+from mapping.utils import DEFAULT_SOURCE_NAME
 from utils.spatial import GeometryMapper
 
 logger = logging.getLogger(__name__)
@@ -72,8 +71,6 @@ class Command(BaseCommand):
             return
 
         try:
-            self.filename = shutil.copy(self.filename, SPATIAL_FILES_FOLDER)
-
             featuretype = models.FeatureType.objects.get(name=self.featuretype)
             featureset = models.FeatureSet.objects.get(name=self.featuretype)
             spatialfile = models.SpatialFile.objects.create(
@@ -86,12 +83,10 @@ class Command(BaseCommand):
             )
             load_spatial_features_from_files(str(spatialfile.id))
         except Exception as err:
-            logger.info(err)
+            logger.exception(err)
 
     def importspatialfile(self):
         try:
-            self.filename = shutil.copy(self.filename, SPATIAL_FILES_FOLDER)
-
             featuretype = models.SpatialFeatureType.objects.get(name=self.featuretype) if self.featuretype else None
             spatialfile = models.SpatialFeatureFile.objects.create(
                 data = self.filename,
@@ -103,4 +98,4 @@ class Command(BaseCommand):
             load_spatial_features_from_files(str(spatialfile.id))
             
         except Exception as err:
-            logger.info(err)
+            logger.exception(err)

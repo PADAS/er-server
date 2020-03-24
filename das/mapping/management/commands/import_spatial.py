@@ -7,8 +7,7 @@ from django.core.management.base import BaseCommand
 import utils.json
 from mapping import models
 from mapping.tasks import load_spatial_features_from_files
-from mapping.utils import DEFAULT_SOURCE_NAME, SPATIAL_FILES_FOLDER
-import shutil
+from mapping.utils import DEFAULT_SOURCE_NAME
 from utils.spatial import GeometryMapper
 
 logger = logging.getLogger(__name__)
@@ -31,11 +30,7 @@ class Command(BaseCommand):
         self.name_field = options['name_field'] if options.get('name_field') else 'Name'
         self.id_field = options['id_field'] if options.get('id_field') else 'globalid'
 
-
         try:
-            self.filename = shutil.copy(self.filename, SPATIAL_FILES_FOLDER)
-            self.feature_types_file = shutil.copy(self.feature_types_file, SPATIAL_FILES_FOLDER)
-
             spatialfile = models.SpatialFeatureFile.objects.create(
                 data = self.filename,
                 name_field= self.name_field,
@@ -44,7 +39,7 @@ class Command(BaseCommand):
             )
             load_spatial_features_from_files.apply_async(args=(str(spatialfile.id),))
         except Exception as err:
-            logger.info(err)
+            logger.exception(err)
 
 
     def add_arguments(self, parser):
@@ -57,4 +52,3 @@ class Command(BaseCommand):
             '--source', type=str, help=f'Source of data, default is {DEFAULT_SOURCE_NAME}')
         parser.add_argument('--spatialfile-id', type=str,
                             help='Spatial file ID')
-

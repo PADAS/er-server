@@ -300,7 +300,7 @@ def cleanup_files():
             shutil.rmtree(SPATIAL_FILES_FOLDER)
         except Exception:
             pass
-    logger.exception(f'Cleaned up {SPATIAL_FILES_FOLDER}')
+    logger.info(f'Cleaned up {SPATIAL_FILES_FOLDER}')
 
 
 def mappingv1_save_spatial_data(feature, external_id, spatialfile):

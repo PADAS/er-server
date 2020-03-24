@@ -31,30 +31,26 @@ def extract_features_from_files(spatial_file, model):
 
 def get_and_read_from_upload_file(spatial_file, filename):
     with default_storage.open(filename) as f:
-        with tempfile.NamedTemporaryFile() as data_file:
-            data_file.write(f.read())
-            data_file.flush()
-            data_file.seek(0)
+        if filename.lower().endswith('.zip'):
+            return extract_zipfile(filename, f)
+        else:
+            with tempfile.NamedTemporaryFile() as data_file:
+                data_file.write(f.read())
+                data_file.flush()
+                data_file.seek(0)
+                return get_datasource_and_layer_num(data_file.name, layer=spatial_file.layer_number)
 
-            if filename.lower().endswith('.zip'):
-                import_file = extract_zipfile(data_file, filename)
-                
-            else:
-                import_file = data_file.name
-            return get_datasource_and_layer_num(import_file, layer=spatial_file.layer_number)
-
-def extract_zipfile(data_file, filename):
-    name = filename.split("/")[-1]
-    with tempfile.TemporaryDirectory() as tmpdirname: 
-        with zipfile.ZipFile(data_file.name, 'r') as zip_ref:
+def extract_zipfile(filename, f):
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        with zipfile.ZipFile(f, 'r') as zip_ref:
             zip_ref.extractall(tmpdirname)
             import_file = fetch_shape_file_path(tmpdirname)
 
             # If zip contains a directory encapsulating all the shape files
             if not import_file:
+                name = filename.split("/")[-1]
                 import_file = fetch_shape_file_path(f'{tmpdirname}/{name[:-4]}')
-            return import_file
-
+            return get_datasource_and_layer_num(import_file, layer=0)
 
 
 def fetch_shape_file_path(directory_path):
