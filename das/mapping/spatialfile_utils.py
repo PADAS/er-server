@@ -10,7 +10,7 @@ from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
 from google.cloud import storage
 
-from mapping.utils import (SPATIAL_FILES_FOLDER, get_datasource_and_layer_num,
+from mapping.utils import (get_datasource_and_layer_num,
                            import_feature_types, import_layer)
 
 logger = logging.getLogger(__name__)

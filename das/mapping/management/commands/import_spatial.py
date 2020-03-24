@@ -1,6 +1,7 @@
 # import geojson file (geofences) to dev db
 import datetime
 import logging
+import os
 
 from django.core.management.base import BaseCommand
 
@@ -30,6 +31,10 @@ class Command(BaseCommand):
         self.name_field = options['name_field'] if options.get('name_field') else 'Name'
         self.id_field = options['id_field'] if options.get('id_field') else 'globalid'
 
+        for uploadfile in [self.filename, self.feature_types_file]:
+            if not os.path.exists(uploadfile):
+                logger.error(f'Cannot find file: {self.filename}')
+                return
         try:
             spatialfile = models.SpatialFeatureFile.objects.create(
                 data = self.filename,
