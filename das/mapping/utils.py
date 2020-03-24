@@ -64,9 +64,10 @@ def validate_feature_record(record, record_name, model):
     return record
 
 
-def make_external_id(layer, feature, id_field='globalid', name_field='Name', arc_item_id=None):
-    name_value = ''
-    id_value = ''
+def make_external_id(layer, feature, id_field, name_field, arc_item_id=None):
+    id_field =  id_field or 'globalid'
+    name_field = name_field or 'Name'
+    name_value, id_value = '', ''
     for name in feature.fields:
         if id_field and name.lower() == id_field.lower():
             id_value = str(feature[name].value)
