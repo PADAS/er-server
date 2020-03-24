@@ -235,7 +235,7 @@ class SubjectNameFilter(InputFilter):
     def queryset(self, request, queryset):
         if self.value() is not None:
             return queryset.filter(
-                Q(source__subjectsource__subject__name=self.value(), )
+                Q(source__subjectsource__subject__name__icontains=self.value(), )
             )
 
 
