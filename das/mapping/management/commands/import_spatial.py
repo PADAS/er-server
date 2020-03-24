@@ -8,7 +8,6 @@ import utils.json
 from mapping import models
 from mapping.tasks import load_spatial_features_from_files
 from mapping.utils import DEFAULT_SOURCE_NAME, SPATIAL_FILES_FOLDER
-from mapping.spatialfile_utils import create_spatialfiles_folder
 import shutil
 from utils.spatial import GeometryMapper
 
@@ -34,7 +33,6 @@ class Command(BaseCommand):
 
 
         try:
-            create_spatialfiles_folder()
             self.filename = shutil.copy(self.filename, SPATIAL_FILES_FOLDER)
             self.feature_types_file = shutil.copy(self.feature_types_file, SPATIAL_FILES_FOLDER)
 

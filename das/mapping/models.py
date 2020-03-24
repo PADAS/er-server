@@ -196,7 +196,7 @@ class SpatialFilesBase(TimestampedModel):
             check_file_extension(self.file_type, self.data, featuretypes_file)
 
         self.save()
-        transaction.on_commit(lambda: load_spatial_features_from_files(str(self.id)))
+        transaction.on_commit(lambda: load_spatial_features_from_files.apply_async(args=(str(self.id),)))
 
     def __str__(self):
         return str(self.id)

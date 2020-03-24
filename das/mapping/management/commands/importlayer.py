@@ -4,7 +4,6 @@ import shutil
 from django.core.management.base import BaseCommand
 
 from mapping import models
-from mapping. import create_spatialfiles_folder
 from mapping.tasks import load_spatial_features_from_files
 from mapping.utils import (DEFAULT_SOURCE_NAME, SPATIAL_FILES_FOLDER,
                            validate_feature_record)
@@ -73,7 +72,6 @@ class Command(BaseCommand):
             return
 
         try:
-            create_spatialfiles_folder()
             self.filename = shutil.copy(self.filename, SPATIAL_FILES_FOLDER)
 
             featuretype = models.FeatureType.objects.get(name=self.featuretype)
@@ -92,7 +90,6 @@ class Command(BaseCommand):
 
     def importspatialfile(self):
         try:
-            create_spatialfiles_folder()
             self.filename = shutil.copy(self.filename, SPATIAL_FILES_FOLDER)
 
             featuretype = models.SpatialFeatureType.objects.get(name=self.featuretype) if self.featuretype else None
