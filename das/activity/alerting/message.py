@@ -104,6 +104,20 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
                                          value=notification_method.value,
                                          owner=notification_method.owner)
 
+    elif notification_method.method.lower() == 'whatsapp':
+        logger.debug(f"Sending whatsapp alert {event_id} to {notification_method.value}")
+        whatsapp_body = render_to_string('eventalert.sms', report_context)
+
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f'Sending sms body: {whatsapp_body}')
+
+        # TODO send to whatsapp here
+        logger.info(f"Sent alert {event_id} to {notification_method.value}")
+
+        EventNotification.objects.create(event=event, method=notification_method.method,
+                                         value=notification_method.value,
+                                         owner=notification_method.owner)
+
     else:
         logger.error(f"Unsupported NotifcationMethod ({notification_method.method})"
                      f" when processing event:{event_id} for notification: {notification_method.id}")
