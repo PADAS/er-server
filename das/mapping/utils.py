@@ -297,7 +297,7 @@ def mappingv1_save_spatial_data(feature, external_id, spatialfile):
     fields = {}
     name_field = spatialfile.name_field or default_name_field
     for name in feature.fields:
-        if name.lower() in (spatialfile.name_field.lower(), 'description'):
+        if name.lower() in (name_field.lower(), 'description'):
             continue
         value = feature[name].value
         if isinstance(value, datetime.date):

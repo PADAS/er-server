@@ -42,9 +42,8 @@ class Command(BaseCommand):
 
         # validate upload file paths  
         for input_filename in self.filename + [self.feature_types_file,]:
-            print(f'Looking for file named {input_filename}')
             if input_filename and not os.path.exists(input_filename):
-                logger.error(f'Cannot find file: {input_filename}')
+                logger.error(f'Could not find file: {input_filename}')
                 return
 
         getattr(self, sub_command)()
@@ -75,8 +74,8 @@ class Command(BaseCommand):
                             help='spatial feature types file')
 
     def importlayerfile(self):
-        if not self.featureset and not self.featuretype:
-            logger.info('Featureset and featuretype not included in command, add flags --featureset and --featuretype')
+        if not self.featureset or not self.featuretype:
+            logger.info('Ensure both featureset and featuretype are included in command, add flags --featureset and --featuretype')
             return
         
         featureset = validate_feature_record(self.featureset, 'Featureset', models.FeatureSet)
