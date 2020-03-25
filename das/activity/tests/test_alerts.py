@@ -1,9 +1,11 @@
 import json
 import logging
 from datetime import datetime
+from unittest import mock
 from unittest.mock import patch
 
 from django.contrib.auth.models import Permission
+from django.core import mail
 from django.core.management import call_command
 from django.db.models.signals import post_save
 
@@ -11,9 +13,12 @@ from django.test import TestCase
 
 from accounts.models import User, PermissionSet
 from activity.alerting.message import coerce_state_value, send_event_alert
+from activity.alerting.service import evaluate_event
 from activity.models import Event, NotificationMethod, AlertRule, EventType, \
     EventDetails, EventCategory
 from activity.signals import event_post_save
+from activity.tasks import send_alert_to_notificationmethod, \
+    evaluate_conditions_for_sending_alerts
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +90,7 @@ class TestAlerts(TestCase):
         self.alert_rule = AlertRule.objects.create(
             owner=self.owner,
             title="Alert",
-            conditions=json.dumps({
+            conditions={
                 "all": [
                     {
                         "name": "sex",
@@ -93,7 +98,7 @@ class TestAlerts(TestCase):
                         "operator": "equal_to"
                     }
                 ]
-            }),
+            },
             schedule={"timezone": "Africa/Nairobi"},
         )
 
@@ -124,3 +129,56 @@ class TestAlerts(TestCase):
         self.assertEqual(self.notification_method.value, kwargs.get('to_email'))
         self.assertIn("updated", kwargs.get('subject'))
         self.assertIn("Active", kwargs.get('html_content'))
+
+    def test_only_sending_notifications_when_the_condition_value_changes(self):
+        with self.settings(CELERY_TASK_ALWAYS_EAGER=True):
+            notification_method = NotificationMethod. \
+                objects.create(owner=self.owner,
+                               title="Email",
+                               method='email',
+                               value="test@test.com")
+
+            alert_rule = AlertRule.objects.create(
+                owner=self.owner,
+                title="State is one of resolved",
+                conditions={
+                    "all": [
+                        {
+                            "name": "state",
+                            "value": [
+                                "resolved",
+                                "new"
+                            ],
+                            "operator": "shares_at_least_one_element_with"
+                        }
+                    ]
+                }
+            )
+
+            alert_rule.notification_methods.add(notification_method)
+            alert_rule.event_types.add(self.event_type)
+
+            event = Event.objects.create(title="test event",
+                                         event_type=self.event_type,
+                                         created_by_user=self.owner, state="new")
+            EventDetails.objects.create(event=event, data={
+                "event_details": {"sex": "Male"}})
+            action_list = evaluate_event(event)
+            alert_rule_ids = [action['alert_rule_id'] for action in action_list]
+
+            evaluate_conditions_for_sending_alerts(event, alert_rule,
+                                                   set(alert_rule_ids))
+
+            self.assertEqual(len(mail.outbox), 1)
+
+            # update event title, no email should be sent
+            event.title = "New title"
+            event.save()
+
+            action_list = evaluate_event(event)
+            alert_rule_ids = [action['alert_rule_id'] for action in action_list]
+
+            evaluate_conditions_for_sending_alerts(event, alert_rule,
+                                                   set(alert_rule_ids))
+            # no email sent so outbox should still have 1 email
+            self.assertEqual(len(mail.outbox), 1)
