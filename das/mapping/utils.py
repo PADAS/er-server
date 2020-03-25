@@ -55,6 +55,7 @@ ATTRIBUTES_TO_SPATIAL_MAPPING = {'short_name': {'field': 'short_name', 'validato
 
 default_name_field = 'Name'
 default_id_field = 'globalid'
+default_layer = 0
 
 def validate_feature_record(record, record_name, model):
     try:
@@ -374,7 +375,7 @@ def get_display_category(display_category_name, create_okay=True):
     return display_category
 
 
-def import_feature_types(datasource, source_name='default'):
+def import_feature_types(datasource, source_name=DEFAULT_SOURCE_NAME):
     model = models.SpatialFeatureType
     for feature in datasource:
         fields = list(fields_iter(feature))

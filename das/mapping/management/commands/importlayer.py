@@ -4,10 +4,11 @@ import os
 from django.core.files import File
 from django.core.files.storage import default_storage
 from django.core.management.base import BaseCommand
+from django.db import transaction
 
 from mapping import models
 from mapping.tasks import load_spatial_features
-from mapping.utils import (DEFAULT_SOURCE_NAME, default_id_field,
+from mapping.utils import (DEFAULT_SOURCE_NAME, default_id_field, default_layer,
                            default_name_field, validate_feature_record)
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ class Command(BaseCommand):
         self.filename = options['filename']
         self.name_field = options['name_field'] or default_name_field
         self.id_field = options['id_field'] or default_id_field
-        self.layer = options['layer']
+        self.layer = options['layer'] or default_layer
         self.utm = options['utm']
         self.featuretype = options['featuretype']
         self.featureset = options['featureset']
@@ -42,7 +43,7 @@ class Command(BaseCommand):
         # validate upload file paths  
         for input_filename in self.filename + [self.feature_types_file,]:
             print(f'Looking for file named {input_filename}')
-            if not os.path.exists(input_filename):
+            if input_filename and not os.path.exists(input_filename):
                 logger.error(f'Cannot find file: {input_filename}')
                 return
 

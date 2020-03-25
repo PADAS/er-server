@@ -11,14 +11,13 @@ logger = logging.getLogger(__name__)
 
 def process_spatialfile(spatial_file):
 
-    if getattr(spatial_file, 'feature_types_file', None) is not None:
+    if getattr(spatial_file, 'feature_types_file', None):
 
         # DataSource requires a file path, regardless of where the data is coming from.
         with tempfile.NamedTemporaryFile('wb') as tf:
             write_contents_to_file(spatial_file.feature_types_file, tf)
             ds = DataSource(tf.name)
-            layer_number = 0 # TODO: Is it safe to assume layer zero?
-            import_feature_types(ds[layer_number])
+            import_feature_types(ds[spatial_file.layer_number])
 
     df = spatial_file.data
 
