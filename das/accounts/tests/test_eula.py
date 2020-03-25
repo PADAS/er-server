@@ -157,12 +157,13 @@ class EulaViewsTestCase(BaseAPITest):
         self.assertTrue(user.accepted_eula)
 
     @override_settings(ACCEPT_EULA=False)
-    def test_get_eula_returns_404_for_sites_that_dont_accept_eula(self):
+    def test_get_eula_returns_200_for_sites_that_dont_accept_eula(self):
         request = self.factory.get(self.api_base + '/eula/')
         self.force_authenticate(request, self.user)
 
         response = views.GetActiveEulaAPIView.as_view()(request)
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("version", response.data)
 
     @override_settings(ACCEPT_EULA=False)
     def test_accepted_eula_not_returned_for_sites_not_using_eula(self):
