@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import yaml
 from django.test import TestCase
+from django.core.files import File
 
 from activity.models import Event, EventCategory, EventType
 from analyzers.exceptions import InsufficientDataAnalyzerException
@@ -70,10 +71,9 @@ class TestProximityAnalyzer(TestCase):
 
     def setUp(self):
 
-        filepath = './analyzers/fixtures/lines.geojson'
-        types_file = './analyzers/fixtures/spatial_feature_types.geojson'
-        data = Filedata(name=filepath, url=filepath, path=filepath)
-        feature_types_file = Filedata(name=types_file, url=types_file, path=types_file)
+        data = File(open('./analyzers/fixtures/lines.geojson', 'rb'))
+        feature_types_file = File(open('./analyzers/fixtures/spatial_feature_types.geojson', 'rb'))
+
         spatialfile = MockSpatialFeatureFile(1, data, None, 0, 'globalid', 'Name', feature_types_file)
 
         process_spatialfile(spatialfile)
