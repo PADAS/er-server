@@ -1,14 +1,14 @@
 import logging
 import os
 
+from django.core.files import File
+from django.core.files.storage import default_storage
 from django.core.management.base import BaseCommand
 
 from mapping import models
-from mapping.tasks import load_spatial_features_from_files
-from mapping.spatialfile_utils import extract_features_from_files
-from mapping.utils import DEFAULT_SOURCE_NAME, validate_feature_record, default_name_field, default_id_field, SPATIAL_FILES_FOLDER
-from utils.spatial import GeometryMapper
-from django.core.files.storage import default_storage
+from mapping.tasks import load_spatial_features
+from mapping.utils import (DEFAULT_SOURCE_NAME, default_id_field,
+                           default_name_field, validate_feature_record)
 
 logger = logging.getLogger(__name__)
 
@@ -40,15 +40,18 @@ class Command(BaseCommand):
             raise NameError('Command: {0} not supported'.format(sub_command))
 
         # validate upload file paths  
-        if not self.all_files_exist():
-            return 
+        for input_filename in self.filename + [self.feature_types_file,]:
+            print(f'Looking for file named {input_filename}')
+            if not os.path.exists(input_filename):
+                logger.error(f'Cannot find file: {input_filename}')
+                return
 
         getattr(self, sub_command)()
 
     def add_arguments(self, parser):
         parser.add_argument('sub_command', type=str,
                             help='supported commands are {0}'.format(Command.SUB_COMMANDS))
-        parser.add_argument('filename', type=str,
+        parser.add_argument('filename', type=str, nargs='*',
                             help='spatial filename')
 
         parser.add_argument('--featuretype', type=str,
@@ -92,32 +95,16 @@ class Command(BaseCommand):
                 'feature_type': self.featuretype}
 
         if self.feature_types_file:
-            with open(self.feature_types_file, 'rb') as f:
-                types_file = default_storage.save(f'{SPATIAL_FILES_FOLDER}/{self.feature_types_file}', f)
-                data['feature_types_file'] = types_file
-                self.read_file_and_load_features(models.SpatialFeatureFile, data)
-        else:
-            self.read_file_and_load_features(models.SpatialFeatureFile, data)
-
-    def all_files_exist(self):
-        all_files, exists = [self.filename], True
-
-        if self.feature_types_file:
-            all_files.append(self.feature_types_file)
-
-        for filename in all_files:
-            if filename and not os.path.exists(filename):
-                logger.error(f'Could not find file: {filename}')
-                exists = False
-        return exists
-
+            types_file = File(open(self.feature_types_file, 'rb'))
+            data['feature_types_file'] = types_file
+        self.read_file_and_load_features(models.SpatialFeatureFile, data)
 
     def read_file_and_load_features(self, model, data):
-        with open(self.filename, 'rb') as f:
-            filename = default_storage.save(f'{SPATIAL_FILES_FOLDER}/{self.filename}', f)
-            data['data'] = filename
-
-            spatialfile = model(**data)
-            spatialfile.save()
-            load_spatial_features_from_files(str(spatialfile.id), model)
-
+        for input_spatial_file in self.filename:
+            try:
+                data['data'] = File(open(input_spatial_file, 'rb'))
+                spatialfile = model(**data)
+                spatialfile.save()
+                transaction.on_commit(lambda: load_spatial_features(spatialfile))
+            except Exception as err:
+                logger.exception(err)
