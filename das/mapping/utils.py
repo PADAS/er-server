@@ -3,7 +3,7 @@ import logging
 import os
 import shutil
 import tempfile
-from zipfile import ZipFile
+import zipfile
 
 from django.conf import settings
 from django.contrib.gis.gdal import DataSource
@@ -33,7 +33,7 @@ TYPE_PROVENANCE_FIELDS = ('last_edited_user',
                           'last_edited_date',
                           'other_id')
 
-DEFAULT_SOURCE_NAME = 'STE'
+DEFAULT_SOURCE_NAME = 'default'
 
 PROVENANCE_FIELDS = ('collect_user', 'collect_method', 'collect_date',
                      'ground_verified', 'spatial_feature_owners',
@@ -113,7 +113,7 @@ def datasource_from_file(filename, tmpdirs):  # geojson file
     if filename.endswith('kmz'):
         tmpdir = tempfile.TemporaryDirectory()
         tmpdirs.append(tmpdir)
-        zip = ZipFile(filename)
+        zip = zipfile.ZipFile(filename)
         filename = zip.extract('doc.kml', tmpdir.name)  # use break
     return DataSource(filename)
 
@@ -291,19 +291,6 @@ def load_layer(layer, feature, i, spatialfile, has_unique_keys):
         mappingv2_save_spatial_data(feature, external_id, spatialfile)
 
 
-def cleanup_files():
-    """
-    Remove files/directories from the temporary folder.
-    """
-    # clear directory
-    if os.path.exists(SPATIAL_FILES_FOLDER):
-        try:
-            shutil.rmtree(SPATIAL_FILES_FOLDER)
-        except Exception:
-            pass
-    logger.info(f'Cleaned up {SPATIAL_FILES_FOLDER}')
-
-
 def mappingv1_save_spatial_data(feature, external_id, spatialfile):
     geometry_mapper = GeometryMapper()
     fields = {}
@@ -387,7 +374,7 @@ def get_display_category(display_category_name, create_okay=True):
     return display_category
 
 
-def import_feature_types(datasource, source_name):
+def import_feature_types(datasource, source_name='default'):
     model = models.SpatialFeatureType
     for feature in datasource:
         fields = list(fields_iter(feature))

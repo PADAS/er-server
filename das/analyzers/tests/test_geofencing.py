@@ -12,7 +12,7 @@ from analyzers.geofence import GeofenceAnalyzer, GeofenceAnalyzerConfig
 from analyzers.models import SubjectAnalyzerResult
 from analyzers.tasks import analyze_subject
 from mapping.models import SpatialFeature, SpatialFeatureGroupStatic
-from mapping.spatialfile_utils import extract_features_from_files
+from mapping.spatialfile_utils import process_spatialfile
 from mapping.tests.test_importlayer import Filedata, MockSpatialFeatureFile
 from observations.models import (DEFAULT_ASSIGNED_RANGE, Source, Subject,
                                  SubjectGroup, SubjectSource,
@@ -73,7 +73,7 @@ class TestGeofenceAnalyzer(TestCase):
         feature_types_file = Filedata(name=types_file, url=types_file, path=types_file)
         spatialfile = MockSpatialFeatureFile(1, data, None, 0, 'globalid', 'Name', feature_types_file)
 
-        extract_features_from_files(spatialfile, 'SpatialFeatureFile')        
+        process_spatialfile(spatialfile)
 
         ec, created = EventCategory.objects.get_or_create(
             value='analyzer_event', defaults=dict(display='Analyzer Events'))

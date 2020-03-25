@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from mapping.models import (FeatureSet, FeatureType, PointFeature,
                             PolygonFeature, SpatialFeature, SpatialFeatureType)
-from mapping.spatialfile_utils import extract_features_from_files
+from mapping.spatialfile_utils import process_spatialfile
 from mapping.tests.base_test import BaseTest
 
 logger = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ class TestSpatialFile(BaseTest):
 
         spatialfile = MockSpatialFile(1, data, dummy_feature_type, 0, 'globalid', 'Name', dummy_feature_set)
 
-        extract_features_from_files(spatialfile, 'SpatialFile')
+        process_spatialfile(spatialfile)
         point_feature = PointFeature.objects.all()[0]
         self.assertEqual(dummy_feature_type, point_feature.type)
         self.assertEqual(dummy_feature_set, point_feature.featureset)
@@ -70,7 +70,7 @@ class TestSpatialFile(BaseTest):
         data = Filedata(name=filepath, url=filepath, path=filepath)
         spatialfile = MockSpatialFile(1, data, dummy_feature_type, 0, 'globalid', 'Name', dummy_feature_set)
 
-        extract_features_from_files(spatialfile, 'SpatialFile')
+        process_spatialfile(spatialfile)
         point_feature = PolygonFeature.objects.all()[0]
         self.assertEqual(dummy_feature_type, point_feature.type)
         self.assertEqual(dummy_feature_set, point_feature.featureset)
@@ -87,7 +87,7 @@ class TestSpatialFile(BaseTest):
         spatialfile = MockSpatialFeatureFile(1, data, None, 0, 'globalid', 'Name', feature_types_file)
 
         with self.settings(UI_SITE_URL='http://www.majete.com'):
-            extract_features_from_files(spatialfile, 'SpatialFeatureFile')
+            process_spatialfile(spatialfile)
             self.assertEqual(SpatialFeatureType.objects.count(), 214)
             self.assertEqual(SpatialFeature.objects.count(), 6)
 
@@ -97,6 +97,6 @@ class TestSpatialFile(BaseTest):
         filepath = './mapping/tests/testdata/Matlamamba.zip'
         data = Filedata(name=filepath, url=filepath, path=filepath)
         spatialfile = MockSpatialFeatureFile(1, data, None, 0, 'globalid', 'Name', None)
-        extract_features_from_files(spatialfile, 'SpatialFeatureFile')
+        process_spatialfile(spatialfile)
 
         self.assertEquals(SpatialFeature.objects.count(), 2)
