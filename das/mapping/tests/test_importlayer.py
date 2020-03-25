@@ -1,6 +1,8 @@
 import logging
 from unittest.mock import patch
 
+from django.core.files import File
+
 from mapping.models import (FeatureSet, FeatureType, PointFeature,
                             PolygonFeature, SpatialFeature, SpatialFeatureType)
 from mapping.spatialfile_utils import process_spatialfile
@@ -49,8 +51,7 @@ class TestSpatialFile(BaseTest):
         dummy_feature_set = FeatureSet.objects.create(name='Water')
         dummy_feature_set.types.add(dummy_feature_type)
 
-        filepath = './mapping/tests/NRT_Water_Points-2.geojson'
-        data = Filedata(name=filepath, url=filepath, path=filepath)
+        data = File(open('./mapping/tests/NRT_Water_Points-2.geojson', 'rb' ))
 
         spatialfile = MockSpatialFile(1, data, dummy_feature_type, 0, 'globalid', 'Name', dummy_feature_set)
 
@@ -66,8 +67,7 @@ class TestSpatialFile(BaseTest):
         dummy_feature_set = FeatureSet.objects.create(name='Boundaries')
         dummy_feature_set.types.add(dummy_feature_type)
 
-        filepath = './mapping/tests/testdata/Grbnd_New.zip'
-        data = Filedata(name=filepath, url=filepath, path=filepath)
+        data = File(open('./mapping/tests/testdata/Grbnd_New.zip', 'rb'))
         spatialfile = MockSpatialFile(1, data, dummy_feature_type, 0, 'globalid', 'Name', dummy_feature_set)
 
         process_spatialfile(spatialfile)
@@ -79,11 +79,8 @@ class TestSpatialFile(BaseTest):
     def test_loading_a_geojson_file_and_featuretypes(self):
         logger.info('Shape-file name-field test started.')
 
-        filepath = './mapping/tests/testdata/wells_closed_points.geojson'
-        types_file = './mapping/tests/testdata/spatial_feature_types.geojson'
-
-        data = Filedata(name=filepath, url=filepath, path=filepath)
-        feature_types_file = Filedata(name=types_file, url=types_file, path=types_file)
+        data = File(open('./mapping/tests/testdata/wells_closed_points.geojson', 'rb'))
+        feature_types_file = File(open('./mapping/tests/testdata/spatial_feature_types.geojson', 'rb'))
         spatialfile = MockSpatialFeatureFile(1, data, None, 0, 'globalid', 'Name', feature_types_file)
 
         with self.settings(UI_SITE_URL='http://www.majete.com'):
@@ -94,8 +91,7 @@ class TestSpatialFile(BaseTest):
     def test_spatial_feature_file_upload(self):
         logger.info('Shape-file test started.')
 
-        filepath = './mapping/tests/testdata/Matlamamba.zip'
-        data = Filedata(name=filepath, url=filepath, path=filepath)
+        data = File(open('./mapping/tests/testdata/Matlamamba.zip', 'rb'))
         spatialfile = MockSpatialFeatureFile(1, data, None, 0, 'globalid', 'Name', None)
         process_spatialfile(spatialfile)
 

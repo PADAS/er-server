@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 def process_spatialfile(spatial_file):
 
-    if spatial_file.feature_types_file is not None:
+    if getattr(spatial_file, 'feature_types_file', None) is not None:
 
         # DataSource requires a file path, regardless of where the data is coming from.
         with tempfile.NamedTemporaryFile('wb') as tf:
@@ -27,7 +27,7 @@ def process_spatialfile(spatial_file):
         with tempfile.TemporaryDirectory() as workingdir:
             with zipfile.ZipFile(df, 'r') as zip_ref:
                 for name in zip_ref.namelist():
-                    if name.endswith('.shp') or name.endswith('.gdb'):
+                    if name.lower().endswith('.shp') or name.lower().endswith('.gdb'):
                         zip_ref.extractall(workingdir)
                         break
 
