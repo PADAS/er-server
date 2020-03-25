@@ -1,9 +1,11 @@
 import logging
 from unittest.mock import patch
 
+from django.core.files import File
+
 from mapping.models import (FeatureSet, FeatureType, PointFeature,
                             PolygonFeature, SpatialFeature, SpatialFeatureType)
-from mapping.spatialfile_utils import extract_features_from_files
+from mapping.spatialfile_utils import process_spatialfile
 from mapping.tests.base_test import BaseTest
 
 logger = logging.getLogger(__name__)
@@ -49,12 +51,11 @@ class TestSpatialFile(BaseTest):
         dummy_feature_set = FeatureSet.objects.create(name='Water')
         dummy_feature_set.types.add(dummy_feature_type)
 
-        filepath = './mapping/tests/NRT_Water_Points-2.geojson'
-        data = Filedata(name=filepath, url=filepath, path=filepath)
+        data = File(open('./mapping/tests/NRT_Water_Points-2.geojson', 'rb' ))
 
         spatialfile = MockSpatialFile(1, data, dummy_feature_type, 0, 'globalid', 'Name', dummy_feature_set)
 
-        extract_features_from_files(spatialfile, 'SpatialFile')
+        process_spatialfile(spatialfile)
         point_feature = PointFeature.objects.all()[0]
         self.assertEqual(dummy_feature_type, point_feature.type)
         self.assertEqual(dummy_feature_set, point_feature.featureset)
@@ -66,11 +67,10 @@ class TestSpatialFile(BaseTest):
         dummy_feature_set = FeatureSet.objects.create(name='Boundaries')
         dummy_feature_set.types.add(dummy_feature_type)
 
-        filepath = './mapping/tests/testdata/Grbnd_New.zip'
-        data = Filedata(name=filepath, url=filepath, path=filepath)
+        data = File(open('./mapping/tests/testdata/Grbnd_New.zip', 'rb'))
         spatialfile = MockSpatialFile(1, data, dummy_feature_type, 0, 'globalid', 'Name', dummy_feature_set)
 
-        extract_features_from_files(spatialfile, 'SpatialFile')
+        process_spatialfile(spatialfile)
         point_feature = PolygonFeature.objects.all()[0]
         self.assertEqual(dummy_feature_type, point_feature.type)
         self.assertEqual(dummy_feature_set, point_feature.featureset)
@@ -79,24 +79,20 @@ class TestSpatialFile(BaseTest):
     def test_loading_a_geojson_file_and_featuretypes(self):
         logger.info('Shape-file name-field test started.')
 
-        filepath = './mapping/tests/testdata/wells_closed_points.geojson'
-        types_file = './mapping/tests/testdata/spatial_feature_types.geojson'
-
-        data = Filedata(name=filepath, url=filepath, path=filepath)
-        feature_types_file = Filedata(name=types_file, url=types_file, path=types_file)
+        data = File(open('./mapping/tests/testdata/wells_closed_points.geojson', 'rb'))
+        feature_types_file = File(open('./mapping/tests/testdata/spatial_feature_types.geojson', 'rb'))
         spatialfile = MockSpatialFeatureFile(1, data, None, 0, 'globalid', 'Name', feature_types_file)
 
         with self.settings(UI_SITE_URL='http://www.majete.com'):
-            extract_features_from_files(spatialfile, 'SpatialFeatureFile')
+            process_spatialfile(spatialfile)
             self.assertEqual(SpatialFeatureType.objects.count(), 214)
             self.assertEqual(SpatialFeature.objects.count(), 6)
 
     def test_spatial_feature_file_upload(self):
         logger.info('Shape-file test started.')
 
-        filepath = './mapping/tests/testdata/Matlamamba.zip'
-        data = Filedata(name=filepath, url=filepath, path=filepath)
+        data = File(open('./mapping/tests/testdata/Matlamamba.zip', 'rb'))
         spatialfile = MockSpatialFeatureFile(1, data, None, 0, 'globalid', 'Name', None)
-        extract_features_from_files(spatialfile, 'SpatialFeatureFile')
+        process_spatialfile(spatialfile)
 
         self.assertEquals(SpatialFeature.objects.count(), 2)

@@ -6,13 +6,14 @@ from unittest.mock import patch
 
 import yaml
 from django.test import TestCase
+from django.core.files import File
 
 from activity.models import Event, EventCategory, EventType
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.models import ProximityAnalyzerConfig, SubjectAnalyzerResult
 from analyzers.proximity import ProximityAnalyzer
 from mapping.models import SpatialFeature, SpatialFeatureGroupStatic
-from mapping.spatialfile_utils import extract_features_from_files
+from mapping.spatialfile_utils import process_spatialfile
 from mapping.tests.test_importlayer import Filedata, MockSpatialFeatureFile
 from observations.models import (DEFAULT_ASSIGNED_RANGE, Source, Subject,
                                  SubjectGroup, SubjectSource,
@@ -70,13 +71,12 @@ class TestProximityAnalyzer(TestCase):
 
     def setUp(self):
 
-        filepath = './analyzers/fixtures/lines.geojson'
-        types_file = './analyzers/fixtures/spatial_feature_types.geojson'
-        data = Filedata(name=filepath, url=filepath, path=filepath)
-        feature_types_file = Filedata(name=types_file, url=types_file, path=types_file)
+        data = File(open('./analyzers/fixtures/lines.geojson', 'rb'))
+        feature_types_file = File(open('./analyzers/fixtures/spatial_feature_types.geojson', 'rb'))
+
         spatialfile = MockSpatialFeatureFile(1, data, None, 0, 'globalid', 'Name', feature_types_file)
 
-        extract_features_from_files(spatialfile, 'SpatialFeatureFile')
+        process_spatialfile(spatialfile)
 
         ec, created = EventCategory.objects.get_or_create(
             value='analyzer_event', defaults=dict(display='Analyzer Events'))

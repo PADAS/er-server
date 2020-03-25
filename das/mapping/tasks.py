@@ -68,21 +68,24 @@ def get_wfs_config_objects(obj_id, group_id):
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True})
-def load_spatial_features_from_files(spatialfile_id, model=None):
-    if not model:
-        model = models.SpatialFeatureFile if utils.MAPPING_FEATURES_V2 else models.SpatialFile
-    spatial_file = model.objects.filter(id=spatialfile_id)
+def load_spatial_features_from_files(spatialfile_id):
+    object_model = models.SpatialFeatureFile if utils.MAPPING_FEATURES_V2 else models.SpatialFile
 
-    if spatial_file.exists():
-        import_file = spatial_file.first()
-        try:
-            spatialfile_utils.extract_features_from_files(import_file, model)
-            spatial_file.update(status='Success')
-            logger.info(f'Successful import of features from: {import_file.data.name}')
-        except Exception as ex:
-            logger.exception(f'Error loading features from {import_file.data.name}: {ex}')
-            spatial_file.update(status=f'Error: {ex}')
+    try:
+        sf = object_model.objects.get(id=spatialfile_id)
+    except object_model.DoesNotExist:
+        logger.warning('Spatial File wit ID: %s does not exist.', spatialfile_id)
     else:
-        logger.exception(f'Spatialfile with id {spatialfile_id} does not exist')
+        load_spatial_features(sf)
 
-    utils.cleanup_files()
+
+def load_spatial_features(sf_object):
+
+    try:
+        spatialfile_utils.process_spatialfile(sf_object)
+        sf_object.status = 'Success'
+        sf_object.save()
+    except Exception as ex:
+        logger.exception('Failed to process SpatialFile id=%s, name=%s', sf_object.id, sf_object.name)
+        sf_object.status = f'Error - {ex}'
+        sf_object.save()
