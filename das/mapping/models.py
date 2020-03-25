@@ -1,8 +1,10 @@
+import datetime
 import glob
 import logging
 import os
 import uuid
 
+import pytz
 from django.conf import settings
 from django.contrib.gis import geos
 from django.contrib.gis.db import models
@@ -155,6 +157,21 @@ class TempStorage(FileSystemStorage):
         kwargs.update({'location': temp_directory_name, })
         super(TempStorage, self).__init__(**kwargs)
 
+def upload_to(instance, filename):
+    '''
+    Providing a path to an Spatialfiles.
+    :param instance: SpatialFile of SpatialFeatureFile instance
+    :param filename: default filename.
+    :return: relative path for storing uploaded file
+    '''
+    _, extension = filename.rsplit('.', 1) if '.' in filename else (filename, '')
+
+    d = pytz.utc.localize(datetime.datetime.utcnow())
+    file_path = '{folder}/{year:04}/{month:02}/{day:02}/{pk!s}.{extension}'.format(year=d.year, month=d.month,
+                                                                                      day=d.day, pk=instance.id,
+                                                                                      extension=extension,
+                                                                                      folder=SPATIAL_FILES_FOLDER)
+    return file_path
 
 class SpatialFilesBase(TimestampedModel):
     """
@@ -164,7 +181,7 @@ class SpatialFilesBase(TimestampedModel):
     name = models.CharField(max_length=255, blank=True,
                             verbose_name='SpatialFile Name')
     description = models.CharField(max_length=100, blank=True)
-    data = models.FileField(upload_to=SPATIAL_FILES_FOLDER, blank=False)
+    data = models.FileField(upload_to=upload_to, blank=False)
     layer_number = models.IntegerField(blank=True, null=True, default=0)
     name_field = models.CharField(max_length=100, blank=True, null=True)
     id_field = models.CharField(max_length=100, blank=True, null=True)
@@ -186,9 +203,7 @@ class SpatialFilesBase(TimestampedModel):
             raise ValidationError({'data': []})
 
         try:
-            file_type = self.file_type
-            featuretypes_file = self.feature_types_file
-            check_file_extension(self.file_type, self.data, featuretypes_file)
+            check_file_extension(self.file_type, self.data, self.feature_types_file)
         except Exception:
             pass
 
@@ -624,7 +639,7 @@ class SpatialFeatureFile(SpatialFilesBase):
         max_length=100, default='shapefile', choices=FILE_TYPES)
     feature_type = models.ForeignKey(
         to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
-    feature_types_file = models.FileField(upload_to=SPATIAL_FILES_FOLDER, blank=True, null=True)
+    feature_types_file = models.FileField(upload_to=upload_to, blank=True, null=True)
 
     class Meta:
         verbose_name = 'Feature Import File'
