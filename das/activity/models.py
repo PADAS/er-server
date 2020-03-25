@@ -1266,6 +1266,7 @@ class NotificationMethodManager(models.Manager):
 NOTIFICATION_METHOD_CHOICES = (
     ('email', _('Email')),
     ('sms', _('SMS')),
+    ('whatsapp', _('WhatsApp')),
 )
 
 
