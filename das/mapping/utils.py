@@ -53,25 +53,25 @@ ATTRIBUTES_TO_SPATIAL_MAPPING = {'short_name': {'field': 'short_name', 'validato
                                  'name': {'field': 'name', 'validator': lambda v: v}
                                  }
 
+default_name_field = 'Name'
+default_id_field = 'globalid'
 
 def validate_feature_record(record, record_name, model):
-    if isinstance(record, str):
-        try:
-            return model.objects.get(name=record)
-        except Exception:
-            logger.error(f'{record_name} {record} does not exist')
-            exit()
-    return record
+    try:
+        return model.objects.get(name=record)
+    except Exception:
+        logger.error(f'{record_name} {record} does not exist')
+        exit()
 
 
 def make_external_id(layer, feature, id_field, name_field, arc_item_id=None):
-    id_field =  id_field or 'globalid'
-    name_field = name_field or 'Name'
+    id_field =  id_field or default_id_field
+    name_field = name_field or default_name_field
     name_value, id_value = '', ''
     for name in feature.fields:
-        if id_field and name.lower() == id_field.lower():
+        if name.lower() == id_field.lower():
             id_value = str(feature[name].value)
-        elif name_field and name.lower() == name_field.lower():
+        elif name.lower() == name_field.lower():
             name_value = str(feature[name].value)
     if arc_item_id:
         return '-'.join((str(arc_item_id), name_value, id_value))
@@ -165,7 +165,7 @@ def get_spatial_feature_type(feature, type_label=None):
 # set feature name to some reasonable default if we can't find a name
 def set_feature_name(feature_record, feature, feature_type, counter):
     if not feature_record.name.strip():
-        feature_name = 'Names' if 'Names' in feature.fields else 'Name'
+        feature_name = 'Names' if 'Names' in feature.fields else default_name_field
         try:
             feature_record.name = feature.get(feature_name)
         except Exception:
@@ -307,6 +307,7 @@ def cleanup_files():
 def mappingv1_save_spatial_data(feature, external_id, spatialfile):
     geometry_mapper = GeometryMapper()
     fields = {}
+    name_field = spatialfile.name_field or default_name_field
     for name in feature.fields:
         if name.lower() in (spatialfile.name_field.lower(), 'description'):
             continue
@@ -334,7 +335,7 @@ def mappingv1_save_spatial_data(feature, external_id, spatialfile):
     feature_record.feature_geometry = feature_geometry
     feature_record.fields = fields
     try:
-        feature_record.name = feature[spatialfile.name_field].value
+        feature_record.name = feature[name_field].value
     except (KeyError, IndexError):
         pass
     try:
@@ -430,3 +431,10 @@ def import_feature_types(datasource, source_name):
         type_record.save()
         logger.debug('Import feature_type: %s, created:%s',
                      global_id, created)
+
+
+class dotdict(dict):
+    """dot.notation access to dictionary attributes"""
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__

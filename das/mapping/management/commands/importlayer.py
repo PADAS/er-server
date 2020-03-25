@@ -5,8 +5,10 @@ from django.core.management.base import BaseCommand
 
 from mapping import models
 from mapping.tasks import load_spatial_features_from_files
-from mapping.utils import DEFAULT_SOURCE_NAME, validate_feature_record
+from mapping.spatialfile_utils import extract_features_from_files
+from mapping.utils import DEFAULT_SOURCE_NAME, validate_feature_record, default_name_field, default_id_field, dotdict
 from utils.spatial import GeometryMapper
+from django.core.files.storage import default_storage
 
 logger = logging.getLogger(__name__)
 
@@ -16,30 +18,30 @@ class Command(BaseCommand):
     tmpdirs = []
     SUB_COMMANDS = ('importspatialfile', 'importlayerfile')
 
-    default_name_field = 'Name'
-    id_field = 'globalid'
-    spatialfile_id = None
-
     # model for feature? could these be combined in to one dictionary attribute?
     # stroke = 'stroke'
     # stroke_width = 'stroke-width'
     # stroke_opacity = 'stroke-opacity'
-    utm = None
 
     def handle(self, *args, **options):
-        self.source_name = options['source'] if options['source'] else DEFAULT_SOURCE_NAME
+        self.source_name = options['source'] or DEFAULT_SOURCE_NAME
         self.filename = options['filename']
-        self.name_field = options['name_field']
-        self.id_field = options['id_field']
+        self.name_field = options['name_field'] or default_name_field
+        self.id_field = options['id_field'] or default_id_field
         self.layer = options['layer']
-        self.utm = options['utm'] if options['utm'] else self.utm
+        self.utm = options['utm']
         self.featuretype = options['featuretype']
         self.featureset = options['featureset']
-        self.spatialfile_id = options['spatialfile_id'] if options['spatialfile_id'] else self.spatialfile_id
+        self.spatialfile_id = options['spatialfile_id']
 
         sub_command = options['sub_command']
         if sub_command not in self.SUB_COMMANDS:
             raise NameError('Command: {0} not supported'.format(sub_command))
+
+        if not os.path.exists(self.filename):
+            logger.error(f'Cannot find file: {self.filename}')
+            return
+
         getattr(self, sub_command)()
 
     def add_arguments(self, parser):
@@ -69,9 +71,6 @@ class Command(BaseCommand):
         if not self.featureset and not self.featuretype:
             logger.info('Featureset and featuretype not included in command, add flags --featureset and --featuretype')
             return
-        if not os.path.exists(self.filename):
-            logger.error(f'Cannot find file: {self.filename}')
-            return
 
         try:
             featuretype = models.FeatureType.objects.get(name=self.featuretype)
@@ -89,9 +88,6 @@ class Command(BaseCommand):
             logger.exception(err)
 
     def importspatialfile(self):
-        if not os.path.exists(self.filename):
-            logger.error(f'Cannot find file: {self.filename}')
-            return
         try:
             featuretype = models.SpatialFeatureType.objects.get(name=self.featuretype) if self.featuretype else None
             spatialfile = models.SpatialFeatureFile.objects.create(

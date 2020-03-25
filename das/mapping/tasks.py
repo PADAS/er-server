@@ -74,7 +74,7 @@ def load_spatial_features_from_files(spatialfile_id):
 
     if spatial_file.exists():
         try:
-            spatialfile_utils.extract_features_from_files(spatial_file[0], model)
+            spatialfile_utils.extract_features_from_files(spatial_file.first(), model)
             spatial_file.update(status='Success')
         except Exception as ex:
             logger.exception(ex)

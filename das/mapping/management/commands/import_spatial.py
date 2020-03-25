@@ -8,7 +8,7 @@ from django.core.management.base import BaseCommand
 import utils.json
 from mapping import models
 from mapping.tasks import load_spatial_features_from_files
-from mapping.utils import DEFAULT_SOURCE_NAME
+from mapping.utils import DEFAULT_SOURCE_NAME, default_id_field, default_name_field
 from utils.spatial import GeometryMapper
 
 logger = logging.getLogger(__name__)
@@ -24,12 +24,12 @@ class Command(BaseCommand):
     geometry_mapper = GeometryMapper()
 
     def handle(self, *args, **options):
-        self.source_name = options['source'] if options['source'] else DEFAULT_SOURCE_NAME
-        self.spatialfile_id = options['spatialfile_id'] if options['spatialfile_id'] else self.spatialfile_id
+        self.source_name = options['source'] or DEFAULT_SOURCE_NAME
+        self.spatialfile_id = options['spatialfile_id']
         self.filename = options['filename']
         self.feature_types_file = options['feature_types']
-        self.name_field = options['name_field'] if options.get('name_field') else 'Name'
-        self.id_field = options['id_field'] if options.get('id_field') else 'globalid'
+        self.name_field = options['name_field'] or default_name_field
+        self.id_field = options['id_field'] or default_id_field
 
         for uploadfile in [self.filename, self.feature_types_file]:
             if uploadfile and not os.path.exists(uploadfile):
