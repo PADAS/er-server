@@ -32,7 +32,7 @@ class Command(BaseCommand):
         self.id_field = options['id_field'] if options.get('id_field') else 'globalid'
 
         for uploadfile in [self.filename, self.feature_types_file]:
-            if not os.path.exists(uploadfile):
+            if uploadfile and not os.path.exists(uploadfile):
                 logger.error(f'Cannot find file: {self.filename}')
                 return
         try:

@@ -1,16 +1,11 @@
-import io
 import logging
 import os
 import tempfile
 import zipfile
 
-import requests
-from django.conf import settings
-from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
-from google.cloud import storage
 
-from mapping.utils import (get_datasource_and_layer_num,
+from mapping.utils import (get_datasource_and_layer_num, DEFAULT_SOURCE_NAME,
                            import_feature_types, import_layer)
 
 logger = logging.getLogger(__name__)
@@ -24,10 +19,11 @@ def extract_features_from_files(spatial_file, model):
 
     if types_file:
         datasource, layer_num = get_and_read_from_upload_file(spatial_file, spatial_file.feature_types_file.name)
-        import_feature_types(datasource[layer_num], 'STE')
+        import_feature_types(datasource[layer_num], DEFAULT_SOURCE_NAME)
 
     datasource, layer_num = get_and_read_from_upload_file(spatial_file, spatial_file.data.name)
     import_layer(datasource[layer_num], spatial_file)
+
 
 def get_and_read_from_upload_file(spatial_file, filename):
     with default_storage.open(filename) as f:
@@ -39,6 +35,7 @@ def get_and_read_from_upload_file(spatial_file, filename):
                 data_file.flush()
                 data_file.seek(0)
                 return get_datasource_and_layer_num(data_file.name, layer=spatial_file.layer_number)
+
 
 def extract_zipfile(filename, f):
     with tempfile.TemporaryDirectory() as tmpdirname:

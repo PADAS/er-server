@@ -411,11 +411,12 @@ if MAPPING_FEATURES_V2:
         fieldsets = (
             (None, {
                 'classes': ('wide',),
-                'fields': ('file_type', 'id', 'name', 'description', 'data', 'status', 'feature_type')
+                'fields': ('file_type', 'id', 'name', 'description', 'data', 'feature_type', 'name_field', 'id_field',
+                           'status')
             }),
             ('Shapefile Optional Attributes', {
                 'classes': ('wide', 'shapefile',),
-                'fields': ('layer_number', 'name_field', 'id_field')
+                'fields': ('layer_number',)
             }
              ),
             ('GeoJSON Optional Attributes', {
