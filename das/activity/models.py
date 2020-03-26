@@ -616,7 +616,7 @@ class EventRelationship(TimestampedModel):
 class Event(RevisionMixin, TimestampedModel):
 
     objects = EventManager.from_queryset(EventFilteringQuerySet)()
-    revision_ignore_fields = ('updated_at', 'sort_at')
+    revision_ignore_fields = ('sort_at')
     revision_follow_relations = ('activity.EventPhoto',)
 
     ordering = ['-sort_at']

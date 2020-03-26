@@ -73,6 +73,11 @@ def evaluate_conditions_for_sending_alerts(event, alert_rule, queued_nids):
     combined_updated_fields = updated_event_fields
     combined_updated_fields.update(updated_event_details_fields)
 
+    print(f"updated_event_fields: {updated_event_fields}")
+    print(f"updated_event_details_fields: {updated_event_details_fields}")
+    print(f"combined_updated_fields: {combined_updated_fields}")
+    print(f"Alert rules: {alert_rule.conditions['all']}")
+
     for alert_condition in alert_rule.conditions['all']:
         condition_name = alert_condition['name']
 
