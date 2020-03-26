@@ -164,6 +164,7 @@ def upload_to(instance, filename):
     :param filename: default filename.
     :return: relative path for storing uploaded file
     '''
+    filename = filename.split('/')[-1]
     file_path = f'{SPATIAL_FILES_FOLDER}/{instance.id}-{filename}'
     return file_path
 
