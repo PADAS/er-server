@@ -125,14 +125,14 @@ class AlertRuleForm(forms.ModelForm):
 
     notification_methods = NotificationMethodSelectField(
         queryset=NotificationMethod.objects.all(),
-        required=False,
+        required=True,
         widget=FilteredSelectMultiple(
             verbose_name=_('Notification Methods'),
             is_stacked=False))
 
     event_types = forms.ModelMultipleChoiceField(
         queryset=EventType.objects.all(),
-        required=False,
+        required=True,
         widget=FilteredSelectMultiple(
             verbose_name=_('Event Types'),
             is_stacked=False))

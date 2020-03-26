@@ -77,7 +77,6 @@ class OSMGeoExtendedAdmin(admin.OSMGeoAdmin, SaveCoordinatesToCookieMixin):
 
     widget = OlWidget
 
-
     def get_map_widget(self, db_field):
         OLMap = super().get_map_widget(db_field)
         OLMap.params['tile_layers'] = [baselayer_conf for baselayer_conf in TileLayer.objects.values('attributes')]
@@ -107,3 +106,19 @@ class OSMGeoExtendedAdmin(admin.OSMGeoAdmin, SaveCoordinatesToCookieMixin):
                               self).response_post_save_change(request, obj)
         response = self.set_coordinates_cookie(http_response, obj)
         return response
+
+    def response_change(self, request, obj):
+        if "_addanother" in request.POST:
+            http_response = super(OSMGeoExtendedAdmin, self).response_change(request, obj)
+            response = self.set_coordinates_cookie(http_response, obj)
+            return response
+        else:
+            return super(OSMGeoExtendedAdmin, self).response_change(request, obj)
+
+    def response_add(self, request, obj, post_url_continue=None):
+        if "_addanother" in request.POST:
+            http_response = super(OSMGeoExtendedAdmin, self).response_add(request, obj, post_url_continue)
+            response = self.set_coordinates_cookie(http_response, obj)
+            return response
+        else:
+            return super(OSMGeoExtendedAdmin, self).response_add(request, obj, post_url_continue)

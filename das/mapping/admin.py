@@ -396,10 +396,6 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
                                       "Delete selected spatial files")
         return actions
 
-    def get_readonly_fields(self, request, obj=None):
-        if obj:
-            return [f.name for f in self.model._meta.fields]
-        return self.readonly_fields
 
 
 if MAPPING_FEATURES_V2:

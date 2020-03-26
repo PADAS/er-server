@@ -1326,9 +1326,9 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
     def get_csv_observation_data(self, cur_record_serial, dloadtime_label, fixtime_label, result_format, item,
                                  subject_id, subject_chronofile):
         recorded_at = item['recorded_at'].astimezone(
-            current_tz) if result_format == 'json' else item['recorded_at']
+            current_tz) if result_format == 'csv' else item['recorded_at']
         created_at = item['created_at'].astimezone(
-            current_tz) if result_format == 'json' else item['created_at']
+            current_tz) if result_format == 'csv' else item['created_at']
 
         request_key = 'chronofile'
         if subject_id:

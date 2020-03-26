@@ -2,6 +2,7 @@ import logging
 from datetime import datetime
 
 import pytz
+from django.conf import settings
 from django.contrib.gis.geos import Point
 from django.db.models import signals
 from django.http.request import HttpRequest
@@ -13,6 +14,7 @@ from rest_framework.response import Response
 from accounts.models import User
 from activity.models import Event
 from activity.serializers import EventSerializer
+from analyzers.clustering_utils import cluster_alerts
 from analyzers.gfw_alert_schema import ensure_gfw_event_types, GFW_EVENT_TYPES_MAP
 from analyzers.gfw_utils import (prepare_downloadable_url, sub_id_from_unsubscribe_url,
                                  rebuild_glad_download_url)
@@ -30,11 +32,12 @@ class DownloadUrlsField(serializers.Serializer):
 
 
 class AlertSampleDownloaded(serializers.Serializer):
-    lat = serializers.FloatField()
-    long = serializers.FloatField()
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
     julian_day = serializers.IntegerField()
     year = serializers.IntegerField()
     confidence = serializers.IntegerField()
+    num_clustered_alerts = serializers.IntegerField()
 
 
 class FireAlertSampleDownloaded(serializers.Serializer):
@@ -159,8 +162,9 @@ def process_alert_for_subscription(layer_slug, subscription_id, validated_data, 
 
 def process_downloaded_alerts(payload, common_event_fields, user_id):
     counts = {PROCESSED_COUNTER: 0, ERROR_COUNTER: 0}
+    alerts = cluster_alerts(payload, settings.GFW_CLUSTER_RADIUS, 1)
     errors = [create_event_from_downloadedalert(alert, common_event_fields, user_id, counts)
-              for alert in payload]
+              for alert in alerts]
     errors = filter(lambda x: len(list(x)) > 0, errors)
 
     log_metrics(counts)
@@ -193,8 +197,8 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
         julian_day = deserialized_sample.validated_data.get('julian_day')
         year = deserialized_sample.validated_data.get('year')
         confidence = deserialized_sample.validated_data.get('confidence', -1)
-        latitude = deserialized_sample.validated_data.get('lat')
-        longitude = deserialized_sample.validated_data.get('long')
+        latitude = deserialized_sample.validated_data.get('latitude')
+        longitude = deserialized_sample.validated_data.get('longitude')
         time = pytz.utc.localize(datetime.strptime(f'{julian_day}{year}', '%j%Y'))
 
     event_fields = {
@@ -206,7 +210,9 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
             'time': time,
         }
     }
+
     subscription_id = common_event_fields['event_details']['subscription_id']
+
     gfw_query = GlobalForestWatchSubscription.objects.get(subscription_id=subscription_id)
 
     if common_event_fields.get('event_type') == 'gfw_activefire_alert':
