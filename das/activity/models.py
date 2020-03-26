@@ -809,6 +809,7 @@ class Event(RevisionMixin, TimestampedModel):
         # if difference is less than 1, probably means the event and other object were created together
         if abs((self.created_at - timezone.now()).total_seconds()) > 1:
             self.updated_at = timezone.now()
+            self.state = 'active' if self.state == 'new' else self.state
             self.sort_at = self.updated_at
             self.save()
 
