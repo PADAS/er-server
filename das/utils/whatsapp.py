@@ -5,8 +5,8 @@ from twilio.rest import Client
 
 logger = logging.getLogger(__name__)
 
-TWILIO_ACCOUNT_SID = getattr(settings, 'SENDSMS_TWILIO_ACCOUNT_SID', '')
-TWILIO_AUTH_TOKEN = getattr(settings, 'SENDSMS_TWILIO_AUTH_TOKEN', '')
+TWILIO_ACCOUNT_SID = getattr(settings, 'TWILIO_ACCOUNT_SID', '')
+TWILIO_AUTH_TOKEN = getattr(settings, 'TWILIO_AUTH_TOKEN', '')
 TWILIO_FROM_NUMBER = getattr(settings, 'WHATSAPP_FROM_NUMBER', '')
 
 

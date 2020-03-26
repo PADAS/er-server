@@ -10,8 +10,8 @@ SMS_MESSAGE_LENGTH_LIMIT = 500  # Some sensible value
 class TwilioSmsBackend(BaseSmsBackend):
     from twilio.rest import Client
 
-    TWILIO_ACCOUNT_SID = getattr(settings, 'SENDSMS_TWILIO_ACCOUNT_SID', '')
-    TWILIO_AUTH_TOKEN = getattr(settings, 'SENDSMS_TWILIO_AUTH_TOKEN', '')
+    TWILIO_ACCOUNT_SID = getattr(settings, 'TWILIO_ACCOUNT_SID', '')
+    TWILIO_AUTH_TOKEN = getattr(settings, 'TWILIO_AUTH_TOKEN', '')
     TWILIO_FROM_NUMBER = getattr(settings, 'SENDSMS_TWILIO_FROM_NUMBER', '')
 
     def send_messages(self, messages):
@@ -21,8 +21,8 @@ class TwilioSmsBackend(BaseSmsBackend):
         # 1. Create a free trial Twilio account
         # 2. Add or update the following lines in settings
         #    SENDSMS_BACKEND='utils.smsbackend.TwilioSmsBackend'
-        #    SENDSMS_TWILIO_ACCOUNT_SID=[YOUR TRIAL ACCOUNT INFO]
-        #    SENDSMS_TWILIO_AUTH_TOKEN=[YOUR TRIAL ACCOUNT INFO]
+        #    TWILIO_ACCOUNT_SID=[YOUR TRIAL ACCOUNT INFO]
+        #    TWILIO_AUTH_TOKEN=[YOUR TRIAL ACCOUNT INFO]
 
         logger.info("Send message via Twilio")
         if not self.TWILIO_FROM_NUMBER:
