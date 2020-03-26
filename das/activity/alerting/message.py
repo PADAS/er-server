@@ -17,6 +17,8 @@ from reports.distribution import send_report
 
 import sendsms.api
 
+from utils.whatsapp import send_whatsapp
+
 logger = logging.getLogger(__name__)
 
 
@@ -106,12 +108,13 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
 
     elif notification_method.method.lower() == 'whatsapp':
         logger.debug(f"Sending whatsapp alert {event_id} to {notification_method.value}")
-        whatsapp_body = render_to_string('eventalert.sms', report_context)
+        whatsapp_body = render_to_string('eventalert.whatsapp', report_context)
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(f'Sending sms body: {whatsapp_body}')
 
-        # TODO send to whatsapp here
+        to_number = "+" + notification_method.value if not notification_method.value.startswith('+') else notification_method.value
+        send_whatsapp(body=whatsapp_body, to=to_number)
         logger.info(f"Sent alert {event_id} to {notification_method.value}")
 
         EventNotification.objects.create(event=event, method=notification_method.method,

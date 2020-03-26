@@ -371,9 +371,10 @@ SENDSMS_FROM = None
 SENDSMS_AFRICAS_TALKING_USERNAME = ''
 SENDSMS_AFRICAS_TALKING_API_KEY = ''
 
-# use these when you don't want to send SMS from kenya
+# use these when you don't want to send SMS from kenya or WhatsApp
 SENDSMS_TWILIO_ACCOUNT_SID = ''
 SENDSMS_TWILIO_AUTH_TOKEN = ''
+WHATSAPP_FROM_NUMBER = ''
 
 VERSATILEIMAGEFIELD_RENDITION_KEY_SETS = {
     'default': [
