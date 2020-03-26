@@ -206,7 +206,6 @@ class EulaViewsTestCase(BaseAPITest):
         response = views.AcceptEulaAPIView.as_view()(request)
         second_response_data = response.data
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(first_response_data.get("accept"), second_response_data.get("accept"))
         self.assertEqual(str(first_response_data.get("eula")), str(second_response_data.get("eula")))
         self.assertEqual(str(first_response_data.get("user")), str(second_response_data.get("user")))
         user = User.objects.get(id=self.user.id)
