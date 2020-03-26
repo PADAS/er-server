@@ -164,13 +164,7 @@ def upload_to(instance, filename):
     :param filename: default filename.
     :return: relative path for storing uploaded file
     '''
-    _, extension = filename.rsplit('.', 1) if '.' in filename else (filename, '')
-
-    d = pytz.utc.localize(datetime.datetime.utcnow())
-    file_path = '{folder}/{year:04}/{month:02}/{day:02}/{pk!s}.{extension}'.format(year=d.year, month=d.month,
-                                                                                      day=d.day, pk=instance.id,
-                                                                                      extension=extension,
-                                                                                      folder=SPATIAL_FILES_FOLDER)
+    file_path = f'{SPATIAL_FILES_FOLDER}/{instance.id}-{filename}'
     return file_path
 
 class SpatialFilesBase(TimestampedModel):
