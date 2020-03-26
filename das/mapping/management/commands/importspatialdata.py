@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class Command(BaseCommand):
     help = 'Import a spatial data layer'
     tmpdirs = []
-    SUB_COMMANDS = ('importspatialfile', 'importlayerfile')
+    SPATIALDATA_VERSIONS = ('v1', 'v2')
 
     # model for feature? could these be combined in to one dictionary attribute?
     # stroke = 'stroke'
@@ -36,9 +36,9 @@ class Command(BaseCommand):
         self.feature_types_file = options['feature_types']
         self.spatialfile_id = options['spatialfile_id']
 
-        sub_command = options['sub_command']
-        if sub_command not in self.SUB_COMMANDS:
-            raise NameError('Command: {0} not supported'.format(sub_command))
+        spatialdata_version = options['spatialdata_version']
+        if spatialdata_version not in self.SPATIALDATA_VERSIONS:
+            raise NameError('Version: {0} not supported'.format(spatialdata_version))
 
         # validate upload file paths  
         for input_filename in self.filename + [self.feature_types_file,]:
@@ -46,11 +46,15 @@ class Command(BaseCommand):
                 logger.error(f'Could not find file: {input_filename}')
                 return
 
-        getattr(self, sub_command)()
+        if spatialdata_version == self.SPATIALDATA_VERSIONS[0]:
+            self.import_spatial_v1()
+        else:
+            self.import_spatial_v2()
 
     def add_arguments(self, parser):
-        parser.add_argument('sub_command', type=str,
-                            help='supported commands are {0}'.format(Command.SUB_COMMANDS))
+        parser.add_argument('spatialdata_version', type=str,
+                            help='supported versions are {0}, {1}'.format(self.SPATIALDATA_VERSIONS[0],
+                                                                          self.SPATIALDATA_VERSIONS[1]))
         parser.add_argument('filename', type=str, nargs='*',
                             help='spatial filename')
 
@@ -73,7 +77,7 @@ class Command(BaseCommand):
         parser.add_argument('--feature-types',
                             help='spatial feature types file')
 
-    def importlayerfile(self):
+    def import_spatial_v1(self):
         if not self.featureset or not self.featuretype:
             logger.info('Ensure both featureset and featuretype are included in command, add flags --featureset and --featuretype')
             return
@@ -86,7 +90,7 @@ class Command(BaseCommand):
                 'feature_type': featuretype, 'feature_set': featureset}
         self.read_file_and_load_features(models.SpatialFile, data)
 
-    def importspatialfile(self):
+    def import_spatial_v2(self):
         if self.featuretype:
             self.featuretype = validate_feature_record(self.featuretype, 'Featuretype', models.SpatialFeatureType)
 
