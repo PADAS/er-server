@@ -10,7 +10,7 @@ from django.contrib.gis.gdal import DataSource
 from django.core.exceptions import ValidationError
 from django.db.utils import IntegrityError
 from django.utils.encoding import force_text
-
+from django.contrib.gis.gdal import GDALException
 import utils.json
 from mapping import models
 from utils.spatial import GeometryMapper
@@ -177,29 +177,23 @@ def set_feature_name(feature_record, feature, feature_type, counter):
         feature_record.name = feature_type.name + str(counter)
 
 
-def get_or_create_feature(external_id, attributes):
+def get_or_create_feature(data, model):
     created = False
     try:
-        feature_record = models.SpatialFeature.objects.get(external_id=external_id)
-    except models.SpatialFeature.DoesNotExist:
-        feature_record = None
-
-    if not feature_record:
+        feature_record = model.objects.get(external_id=data.get('external_id'), spatialfile=data.get('spatialfile'))
+    except model.DoesNotExist:
         try:
-            attributes.update(external_id=external_id)
-            feature_record = models.SpatialFeature.objects.create_spatialfeature(**attributes)
+            feature_record = model.objects.create(**data)
             created = True
         except IntegrityError as ie:
             logger.exception(ie)
+            feature_record = None
 
     return feature_record, created
 
 
 def mappingv2_save_spatial_data(feature, external_id, spatialfile, counter=0):
     model = models.SpatialFeature
-    if not external_id:
-        external_id = feature.get('globalid') if 'globalid' in [x.lower() for x in feature.fields] else feature.get(
-            'fid')
     feature_type = spatialfile.feature_type if spatialfile.feature_type else get_spatial_feature_type(feature)
     if not feature_type:
         return
@@ -209,6 +203,13 @@ def mappingv2_save_spatial_data(feature, external_id, spatialfile, counter=0):
     model_field_type = model._meta.get_field(model_fieldname)
     feature_geometry = geometry_mapper.get_db_geom(
         feature.geom, model_field_type)
+
+    data = {'external_id':external_id, 'feature_geometry':feature_geometry, 'spatialfile': spatialfile, 'feature_type':feature_type}
+    feature_record, created = get_or_create_feature(data, model)
+    feature_record.feature_type = feature_type
+    
+    if not feature_record:
+        return
 
     attribute_fields = feature_type.attribute_schema
 
@@ -221,11 +222,7 @@ def mappingv2_save_spatial_data(feature, external_id, spatialfile, counter=0):
                   for feature_name in fields if
                   feature_name in PROVENANCE_FIELDS}
     provenance = reduce_json(provenance)
-
-    try:
-        source = spatialfile.source
-    except Exception:
-        source = DEFAULT_SOURCE_NAME
+    source = getattr(spatialfile, 'source', DEFAULT_SOURCE_NAME)
 
     defaults = {'attributes': attributes, 'provenance': provenance,
                 'external_source': source}
@@ -234,15 +231,7 @@ def mappingv2_save_spatial_data(feature, external_id, spatialfile, counter=0):
             defaults[spatial_field['field']] = spatial_field['validator'](
                 feature[attribute_field].value)
 
-    feature_record, created = get_or_create_feature(external_id, dict(feature_geometry=feature_geometry,
-                                                                      feature_type=feature_type))
-
-    if not feature_record:
-        return
-
     logger.debug('Import feature: %s, created:%s', external_id, created)
-
-    feature_record.feature_type = feature_type
 
     if 'tags' in feature.fields:
         feature_record.tags = [value.strip()
@@ -250,10 +239,6 @@ def mappingv2_save_spatial_data(feature, external_id, spatialfile, counter=0):
     feature_record.feature_geometry = feature_geometry
     for key, value in defaults.items():
         setattr(feature_record, key, value)
-    try:
-        feature_record.spatialfile = spatialfile
-    except Exception:
-        pass
     set_feature_name(feature_record, feature, feature_type, counter)
     feature_record.clean()    
     feature_record.save()
@@ -311,28 +296,24 @@ def mappingv1_save_spatial_data(feature, external_id, spatialfile):
     model_field_type = feature_model._meta.get_field(model_fieldname)
     feature_geometry = geometry_mapper.get_db_geom(
         feature.geom, model_field_type)
-    defaults = {'feature_geometry': feature_geometry, 'fields': fields}
-    feature_record, created = feature_model.objects.get_or_create(
-        defaults=defaults,
-        featureset=spatialfile.feature_set,
-        type=get_featuretype_for_feature(feature, default=spatialfile.feature_type.name),
-        external_id=external_id)
+    featuretype = get_featuretype_for_feature(feature, default=spatialfile.feature_type.name)
+
+    data = {
+        'external_id':external_id, 'feature_geometry':feature_geometry,
+        'spatialfile': spatialfile, 'type':featuretype, 'featureset':spatialfile.feature_set}
+    feature_record, created = get_or_create_feature(data, feature_model)
+    if not feature_record:
+        return
+    feature_record.type = featuretype
+    feature_record.featureset = spatialfile.feature_set
+    feature_record.fields = fields
 
     logger.debug('Import feature: %s, created:%s', external_id, created)
+    feature_record.name = feature[name_field].value
 
-    feature_record.feature_geometry = feature_geometry
-    feature_record.fields = fields
-    try:
-        feature_record.name = feature[name_field].value
-    except (KeyError, IndexError):
-        pass
     try:
         feature_record.description = feature['Description'].value
     except (KeyError, IndexError):
-        pass
-    try:
-        feature_record.spatialfile = spatialfile
-    except Exception:
         pass
     feature_record.save()
 
