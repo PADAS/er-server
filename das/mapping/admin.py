@@ -11,24 +11,26 @@ from django.contrib.admin.utils import (get_deleted_objects, model_ngettext,
                                         unquote)
 from django.contrib.gis import admin
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.db.models import Q
 from django.db.models.expressions import RawSQL
 from django.http import HttpResponseRedirect
 from django.template.response import TemplateResponse
+from django.urls import reverse
 from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 
 import mapping.models as models
 from core.openlayers import OSMGeoExtendedAdmin
+from mapping.esri_integration import arcgis_integration, update_db_groups
 from mapping.forms import (ArcgisConfigurationForm, DisplayCategoryForm,
                            FeatureTypeForm, MapCenterForm,
                            SpatialFeatureGroupStaticForm,
                            SpatialFeatureTypeForm, TileLayerFormWithAttributes)
-from mapping.utils import MAPPING_FEATURES_V2
-from mapping.esri_integration import arcgis_integration, update_db_groups
+from mapping.tasks import load_spatial_features_from_files
+from mapping.utils import MAPPING_FEATURES_V2, clear_features
 
-from django.urls import reverse
 logger = logging.getLogger(__name__)
 
 
@@ -305,6 +307,25 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
     class Meta:
         abstract = True
 
+    def save_model(self, request, obj, form, change):
+        feature_updated = False
+        if change:
+            # check for feature related attributes update
+            for record in form.changed_data:
+                if record not in ['name', 'description']:
+                    feature_updated, change = True, False
+
+        if feature_updated:
+            # Clear features incase any feature related record is updated
+            logger.info("Clearing features, loading features afresh...")
+            clear_features(obj)
+
+        if not change:
+            # load features if a new object or feature attributes are updated
+            transaction.on_commit(lambda: load_spatial_features_from_files.apply_async(args=(str(obj.id),)))
+
+        super().save_model(request, obj, form, change)
+
     def _delete_view(self, request, object_id, extra_context):
         """The 'delete' admin view for this model."""
         opts = self.model._meta
@@ -398,7 +419,7 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         if obj:
-            return ['id', 'name_field', 'id_field', 'file_type', 'status']
+            return ['id', 'file_type', 'status']
         return self.readonly_fields
 
 

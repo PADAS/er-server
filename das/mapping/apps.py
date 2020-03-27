@@ -6,5 +6,3 @@ class MappingConfig(AppConfig):
     name = 'mapping'
     verbose_name = 'Map Layers'
 
-    def ready(self):
-        import mapping.signals

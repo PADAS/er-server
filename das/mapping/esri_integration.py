@@ -208,7 +208,7 @@ def save_esri_feature(feature, source_name, external_id, type_label, arcgis_item
         'external_id':external_id, 'feature_geometry':feature_geometry,
         'feature_type': feature_type}
 
-    feature_record, created = get_or_create_feature(data, models.SpatialFeature)
+    feature_record, created = get_or_create_feature(data)
 
     if not feature_record:
         return

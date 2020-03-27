@@ -177,21 +177,19 @@ def set_feature_name(feature_record, feature, feature_type, counter):
         feature_record.name = feature_type.name + str(counter)
 
 
-def get_or_create_feature(data, model):
+def get_or_create_feature(attributes):
     created = False
     try:
-        filter_data = {'external_id':data.get('external_id')}
-        if data.get('spatialfile'):
-            filter_data['spatialfile'] = data.get('spatialfile')
+        feature_record = models.SpatialFeature.objects.get(external_id=attributes.get('external_id'))
+    except models.SpatialFeature.DoesNotExist:
+        feature_record = None
 
-        feature_record = model.objects.get(**filter_data)
-    except model.DoesNotExist:
+    if not feature_record:
         try:
-            feature_record = model.objects.create(**data)
+            feature_record = models.SpatialFeature.objects.create_spatialfeature(**attributes)
             created = True
         except IntegrityError as ie:
             logger.exception(ie)
-            feature_record = None
 
     return feature_record, created
 
@@ -207,11 +205,12 @@ def mappingv2_save_spatial_data(feature, external_id, spatialfile, counter=0):
     model_field_type = model._meta.get_field(model_fieldname)
     feature_geometry = geometry_mapper.get_db_geom(
         feature.geom, model_field_type)
+    data = {
+        'external_id' : external_id,
+        'feature_geometry': feature_geometry,
+        'feature_type': feature_type}
 
-    data = {'external_id':external_id, 'feature_geometry':feature_geometry, 'spatialfile': spatialfile, 'feature_type':feature_type}
-    feature_record, created = get_or_create_feature(data, model)
-    feature_record.feature_type = feature_type
-    
+    feature_record, created = get_or_create_feature(data)
     if not feature_record:
         return
 
@@ -236,11 +235,11 @@ def mappingv2_save_spatial_data(feature, external_id, spatialfile, counter=0):
                 feature[attribute_field].value)
 
     logger.debug('Import feature: %s, created:%s', external_id, created)
+    feature_record.spatialfile = spatialfile
 
     if 'tags' in feature.fields:
         feature_record.tags = [value.strip()
                                for value in feature['tags'].value.split(',')]
-    feature_record.feature_geometry = feature_geometry
     for key, value in defaults.items():
         setattr(feature_record, key, value)
     set_feature_name(feature_record, feature, feature_type, counter)
@@ -300,20 +299,21 @@ def mappingv1_save_spatial_data(feature, external_id, spatialfile):
     model_field_type = feature_model._meta.get_field(model_fieldname)
     feature_geometry = geometry_mapper.get_db_geom(
         feature.geom, model_field_type)
-    featuretype = get_featuretype_for_feature(feature, default=spatialfile.feature_type.name)
+    defaults = {'feature_geometry': feature_geometry, 'fields': fields}
+    feature_record, created = feature_model.objects.get_or_create(
+        defaults=defaults,
+        featureset=models.FeatureSet.objects.get(name=spatialfile.feature_set),
+        type=get_featuretype_for_feature(feature, default=spatialfile.feature_type),
+        external_id=external_id)
 
-    data = {
-        'external_id':external_id, 'feature_geometry':feature_geometry,
-        'spatialfile': spatialfile, 'type':featuretype, 'featureset':spatialfile.feature_set}
-    feature_record, created = get_or_create_feature(data, feature_model)
-    if not feature_record:
-        return
-    feature_record.type = featuretype
-    feature_record.featureset = spatialfile.feature_set
+    logger.debug('Import feature: %s, created:%s',
+                 external_id, created)
+
+    feature_record.feature_geometry = feature_geometry
     feature_record.fields = fields
-
-    logger.debug('Import feature: %s, created:%s', external_id, created)
     feature_record.name = feature[name_field].value
+    feature_record.spatialfile = spatialfile
+    logger.debug('Import feature: %s, created:%s', external_id, created)
 
     try:
         feature_record.description = feature['Description'].value
@@ -405,3 +405,13 @@ def import_feature_types(datasource, source_name=DEFAULT_SOURCE_NAME):
         logger.debug('Import feature_type: %s, created:%s',
                      global_id, created)
 
+
+def clear_features(obj):
+    # Incase of a new spatialfile clear initially created features
+    tables = [models.SpatialFeature, models.LineFeature,
+              models.PointFeature, models.PolygonFeature]
+    for table in tables:
+        try:
+            table.objects.filter(spatialfile=obj).delete()
+        except Exception:
+            pass
