@@ -42,6 +42,10 @@ def evaluate_alert_rules(event_id, created):
     try:
         logger.info('Evaluating Event %s for alerting.', event_id)
         event = Event.objects.get(id=event_id)
+        inferred_state = infer_event_state(event)
+        if event.state != inferred_state:
+            event.state = inferred_state
+            event.save()
         action_list = evaluate_event(event)
 
         # For a single event we've gotten the list of alert rules that match.
@@ -83,11 +87,6 @@ def evaluate_conditions_for_sending_alerts(event, alert_rule, queued_nids, creat
 
         # Check if allowed condition values are updated
         if condition_name in combined_updated_fields:
-            evaluate_notifications(alert_rule, queued_nids, event.id)
-
-        # event state may not be updated on the object when the event
-        # or event_details change
-        if condition_name == 'state' and event.state != infer_event_state(event):
             evaluate_notifications(alert_rule, queued_nids, event.id)
 
 
