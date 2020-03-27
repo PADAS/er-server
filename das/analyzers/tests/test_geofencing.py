@@ -12,9 +12,8 @@ from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.geofence import GeofenceAnalyzer, GeofenceAnalyzerConfig
 from analyzers.models import SubjectAnalyzerResult
 from analyzers.tasks import analyze_subject
-from mapping.models import SpatialFeature, SpatialFeatureGroupStatic
+from mapping.models import SpatialFeature, SpatialFeatureGroupStatic, SpatialFeatureFile
 from mapping.spatialfile_utils import process_spatialfile
-from mapping.tests.test_importlayer import Filedata, MockSpatialFeatureFile
 from observations.models import (DEFAULT_ASSIGNED_RANGE, Source, Subject,
                                  SubjectGroup, SubjectSource,
                                  SubjectTrackSegmentFilter)
@@ -71,8 +70,7 @@ class TestGeofenceAnalyzer(TestCase):
 
         data = File(open('./analyzers/fixtures/lines.geojson', 'rb'))
         feature_types_file = File(open('./analyzers/fixtures/spatial_feature_types.geojson', 'rb'))
-        spatialfile = MockSpatialFeatureFile(1, data, None, 0, 'globalid', 'Name', feature_types_file)
-
+        spatialfile = SpatialFeatureFile.objects.create(data=data, feature_types_file=feature_types_file)
         process_spatialfile(spatialfile)
 
         ec, created = EventCategory.objects.get_or_create(

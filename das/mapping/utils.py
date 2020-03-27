@@ -280,7 +280,7 @@ def load_layer(layer, feature, i, spatialfile, has_unique_keys):
         mappingv2_save_spatial_data(feature, external_id, spatialfile)
 
 
-def mappingv1_save_spatial_data(feature, external_id, spatialfile):
+def mappingv1_save_spatial_data(feature, external_id, spatialfile, counter=0):
     geometry_mapper = GeometryMapper()
     fields = {}
     name_field = spatialfile.name_field or default_name_field
@@ -300,10 +300,11 @@ def mappingv1_save_spatial_data(feature, external_id, spatialfile):
     feature_geometry = geometry_mapper.get_db_geom(
         feature.geom, model_field_type)
     defaults = {'feature_geometry': feature_geometry, 'fields': fields}
+    feature_type = get_featuretype_for_feature(feature, default=spatialfile.feature_type)
     feature_record, created = feature_model.objects.get_or_create(
         defaults=defaults,
         featureset=models.FeatureSet.objects.get(name=spatialfile.feature_set),
-        type=get_featuretype_for_feature(feature, default=spatialfile.feature_type),
+        type=feature_type,
         external_id=external_id)
 
     logger.debug('Import feature: %s, created:%s',
@@ -311,7 +312,7 @@ def mappingv1_save_spatial_data(feature, external_id, spatialfile):
 
     feature_record.feature_geometry = feature_geometry
     feature_record.fields = fields
-    feature_record.name = feature[name_field].value
+    set_feature_name(feature_record, feature, feature_type, counter)
     feature_record.spatialfile = spatialfile
     logger.debug('Import feature: %s, created:%s', external_id, created)
 
