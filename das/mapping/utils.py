@@ -213,6 +213,8 @@ def mappingv2_save_spatial_data(feature, external_id, spatialfile, counter=0):
     feature_record, created = get_or_create_feature(data)
     if not feature_record:
         return
+    feature_record.feature_type = feature_type
+    feature_record.feature_geometry = feature_geometry
 
     attribute_fields = feature_type.attribute_schema
 
