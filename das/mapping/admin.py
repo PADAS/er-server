@@ -396,6 +396,11 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
                                       "Delete selected spatial files")
         return actions
 
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            return ['id', 'name_field', 'id_field', 'file_type', 'status']
+        return self.readonly_fields
+
 
 
 if MAPPING_FEATURES_V2:

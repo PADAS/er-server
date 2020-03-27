@@ -197,10 +197,11 @@ class SpatialFilesBase(TimestampedModel):
         if not self.data:
             raise ValidationError({'data': []})
 
-        try:
-            check_file_extension(self.file_type, self.data, self.feature_types_file)
-        except Exception:
-            pass
+        feature_types_file = getattr(self, 'feature_types_file', None)
+        file_type = getattr(self, 'file_type', None)
+
+        if file_type:
+            check_file_extension(self.file_type, self.data, feature_types_file)
 
         self.save()
         transaction.on_commit(lambda: load_spatial_features_from_files.apply_async(args=(str(self.id),)))
