@@ -6,7 +6,8 @@ from datetime import datetime, timedelta
 from celery_once import QueueOnce
 from versatileimagefield.image_warmer import VersatileImageFieldWarmer
 
-from activity.alerting.businessrules import resolve_event_revisions
+from activity.alerting.businessrules import resolve_event_revisions, \
+    infer_event_state
 from activity.alerting.message import send_event_alert, \
     get_revised_event_fields, get_revised_event_details_fields
 from activity.alerting.service import evaluate_event
@@ -82,6 +83,11 @@ def evaluate_conditions_for_sending_alerts(event, alert_rule, queued_nids, creat
 
         # Check if allowed condition values are updated
         if condition_name in combined_updated_fields:
+            evaluate_notifications(alert_rule, queued_nids, event.id)
+
+        # event state may not be updated on the object when the event
+        # or event_details change
+        if condition_name == 'state' and event.state != infer_event_state(event):
             evaluate_notifications(alert_rule, queued_nids, event.id)
 
 
