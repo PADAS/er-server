@@ -203,8 +203,14 @@ class SpatialFilesBase(TimestampedModel):
         if file_type:
             check_file_extension(self.file_type, self.data, feature_types_file)
 
-        self.save()
-        transaction.on_commit(lambda: load_spatial_features_from_files.apply_async(args=(str(self.id),)))
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.prev_data = self.data
+        self.prev_type = self.feature_type
+        self.prev_set = False
+
+        if getattr(self, 'feature_set', None):
+            self.prev_set = self.feature_set
 
     def __str__(self):
         return str(self.id)

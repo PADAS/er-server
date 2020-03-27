@@ -180,7 +180,11 @@ def set_feature_name(feature_record, feature, feature_type, counter):
 def get_or_create_feature(data, model):
     created = False
     try:
-        feature_record = model.objects.get(external_id=data.get('external_id'), spatialfile=data.get('spatialfile'))
+        filter_data = {'external_id':data.get('external_id')}
+        if data.get('spatialfile'):
+            filter_data['spatialfile'] = data.get('spatialfile')
+
+        feature_record = model.objects.get(**filter_data)
     except model.DoesNotExist:
         try:
             feature_record = model.objects.create(**data)
