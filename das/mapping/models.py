@@ -165,7 +165,8 @@ def upload_to(instance, filename):
     :return: relative path for storing uploaded file
     '''
     filename = filename.split('/')[-1]
-    file_path = f'{SPATIAL_FILES_FOLDER}/{instance.id}-{filename}'
+    timestamp = "{:%Y%m%d%H%s}".format(datetime.datetime.now())
+    file_path = f'{SPATIAL_FILES_FOLDER}/{timestamp}-{filename}'
     return file_path
 
 class SpatialFilesBase(TimestampedModel):
