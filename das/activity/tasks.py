@@ -36,7 +36,7 @@ def warm_eventphotos(self, event_photo_id):
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True, })
-def evaluate_alert_rules(event_id):
+def evaluate_alert_rules(event_id, created):
 
     try:
         logger.info('Evaluating Event %s for alerting.', event_id)
@@ -55,14 +55,14 @@ def evaluate_alert_rules(event_id):
         for alert_rule in AlertRule.objects.filter(id__in=alert_rule_ids).order_by('ordernum', 'title'):
 
             # Verify conditions to only send alerts when the set conditions are met
-            evaluate_conditions_for_sending_alerts(event, alert_rule, already_queued_nids)
+            evaluate_conditions_for_sending_alerts(event, alert_rule, already_queued_nids, created)
 
     except Exception as e:
         logger.exception(
             'Failed when evaluating alert rules for event {}'.format(event_id))
 
 
-def evaluate_conditions_for_sending_alerts(event, alert_rule, queued_nids):
+def evaluate_conditions_for_sending_alerts(event, alert_rule, queued_nids, created):
     event_revision, details_revision = resolve_event_revisions(event)
 
     # Calculate updated fields
@@ -76,8 +76,8 @@ def evaluate_conditions_for_sending_alerts(event, alert_rule, queued_nids):
     for alert_condition in alert_rule.conditions['all']:
         condition_name = alert_condition['name']
 
-        # if there are no updated fields, probably means it's a new event
-        if combined_updated_fields == {}:
+        # new event, no updated fields, or revisions
+        if created:
             evaluate_notifications(alert_rule, queued_nids, event.id)
 
         # Check if allowed condition values are updated

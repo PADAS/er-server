@@ -616,7 +616,7 @@ class EventRelationship(TimestampedModel):
 class Event(RevisionMixin, TimestampedModel):
 
     objects = EventManager.from_queryset(EventFilteringQuerySet)()
-    revision_ignore_fields = ('updated_at', 'sort_at')
+    revision_ignore_fields = ('sort_at')
     revision_follow_relations = ('activity.EventPhoto',)
 
     ordering = ['-sort_at']
@@ -806,9 +806,12 @@ class Event(RevisionMixin, TimestampedModel):
         return Event.marker_icon(self.event_type.icon_id, self.priority, self.state)
 
     def dependent_table_updated(self):
-        self.updated_at = timezone.now()
-        self.sort_at = self.updated_at
-        self.save()
+        # if difference is less than 1, probably means the event and other object were created together
+        if abs((self.created_at - timezone.now()).total_seconds()) > 1:
+            self.updated_at = timezone.now()
+            self.state = 'active' if self.state == 'new' else self.state
+            self.sort_at = self.updated_at
+            self.save()
 
     def update_parent_events(self, **kwargs):
         # This updates all events having a 'contains' relationship directed at this event. (Ex. parent collections).
