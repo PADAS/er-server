@@ -21,7 +21,7 @@ def event_post_save(sender, instance, created, **kwargs):
 
     transaction.on_commit(lambda:
                           celery.app.send_task(
-                              'activity.tasks.evaluate_alert_rules', args=(str(instance.id),))
+                              'activity.tasks.evaluate_alert_rules', args=(str(instance.id), created))
                           )
 
 
