@@ -767,14 +767,14 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         sources = Observation.objects.filter(location__within=geom)
 
         if updated_since and updated_until:
-            gt = parse_date(updated_since)
-            lt = parse_date(updated_until)
+            gt = updated_since
+            lt = updated_until
             sources = sources.filter(recorded_at__range=(gt, lt))
         elif updated_since:
-            gt = parse_date(updated_since)
+            gt = updated_since
             sources = sources.filter(recorded_at__gte=gt)
         elif updated_until:
-            lt = parse_date(updated_until)
+            lt = updated_until
             sources = sources.filter(recorded_at__lte=lt)
         elif last_days:
             lt = datetime.now(tz=pytz.UTC)
