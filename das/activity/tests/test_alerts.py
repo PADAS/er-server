@@ -1,15 +1,14 @@
 import json
 import logging
-from datetime import datetime
-from unittest import mock
+import time
 from unittest.mock import patch
 
 from django.contrib.auth.models import Permission
 from django.core import mail
 from django.core.management import call_command
 from django.db.models.signals import post_save
-
 from django.test import TestCase
+from mockredis import mock_redis_client, MockRedis
 
 from accounts.models import User, PermissionSet
 from activity.alerting.message import coerce_state_value, send_event_alert
@@ -18,7 +17,7 @@ from activity.models import Event, NotificationMethod, AlertRule, EventType, \
     EventDetails, EventCategory
 from activity.signals import event_post_save
 from activity.tasks import send_alert_to_notificationmethod, \
-    evaluate_conditions_for_sending_alerts
+    evaluate_conditions_for_sending_alerts, evaluate_alert_rules
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +26,7 @@ user_permissions = [
     'security_read', 'security_create', 'security_update', 'security_delete']
 
 
+@patch('redis.StrictRedis', MockRedis)
 class TestAlerts(TestCase):
     def setUp(self) -> None:
         call_command('loaddata', 'event_data_model')
@@ -118,6 +118,11 @@ class TestAlerts(TestCase):
         event = Event.objects.create(title="test event",
                                      event_type=self.event_type,
                                      created_by_user=self.owner)
+
+        # new rule, if update within 1 second of create Event record, the update is
+        # still considered new.
+        time.sleep(1)
+
         # event updated here
         event_details = EventDetails.objects.create(event=event, data={
             "event_details": {"sex": "Male"}})
@@ -161,24 +166,20 @@ class TestAlerts(TestCase):
             event = Event.objects.create(title="test event",
                                          event_type=self.event_type,
                                          created_by_user=self.owner, state="new")
-            EventDetails.objects.create(event=event, data={
-                "event_details": {"sex": "Male"}})
-            action_list = evaluate_event(event)
-            alert_rule_ids = [action['alert_rule_id'] for action in action_list]
+#            EventDetails.objects.create(event=event, data={
+#                "event_details": {"sex": "Male"}})
 
-            evaluate_conditions_for_sending_alerts(event, alert_rule,
-                                                   set(alert_rule_ids))
+            evaluate_alert_rules(event.id, created=True)
+
 
             self.assertEqual(len(mail.outbox), 1)
 
             # update event title, no email should be sent
+            time.sleep(1) # follow on update must be more than 1 sec from created_at time
             event.title = "New title"
             event.save()
 
-            action_list = evaluate_event(event)
-            alert_rule_ids = [action['alert_rule_id'] for action in action_list]
+            evaluate_alert_rules(event.id, created=False)
 
-            evaluate_conditions_for_sending_alerts(event, alert_rule,
-                                                   set(alert_rule_ids))
             # no email sent so outbox should still have 1 email
             self.assertEqual(len(mail.outbox), 1)

@@ -89,6 +89,7 @@ class EulaViewsTestCase(BaseAPITest):
             password='asdfo9823sfiu23$',
             email='user2user@user.org')
 
+    @override_settings(ACCEPT_EULA=True)
     def test_getting_active_eula(self):
         EULA.objects.create(eula_url="http://some.com/eula.pdf",
                             version="EarthRanger_EULA_ver2025-02-12",
@@ -107,6 +108,7 @@ class EulaViewsTestCase(BaseAPITest):
                          data.get("version", "0.0"))
         self.assertEqual(str(eula.id), data.get("id"))
 
+    @override_settings(ACCEPT_EULA=True)
     def test_accept_eula_view(self):
         eula = EULA.objects.create(eula_url="http://some.com/eulav1.1.pdf",
                                    version="EarthRanger_EULA_ver2025-03-12")
@@ -176,6 +178,7 @@ class EulaViewsTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn('accepted_eula', response_data)
 
+    @override_settings(ACCEPT_EULA=True)
     def test_user_cannot_accept_eula_for_another_user(self):
         eula = EULA.objects.create(eula_url="http://some.com/eulav1.1.pdf",
                                    version="EarthRanger_EULA_ver2025-03-12")

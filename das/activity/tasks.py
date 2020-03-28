@@ -42,10 +42,6 @@ def evaluate_alert_rules(event_id, created):
     try:
         logger.info('Evaluating Event %s for alerting.', event_id)
         event = Event.objects.get(id=event_id)
-        inferred_state = infer_event_state(event)
-        if event.state != inferred_state:
-            event.state = inferred_state
-            event.save()
         action_list = evaluate_event(event)
 
         # For a single event we've gotten the list of alert rules that match.
