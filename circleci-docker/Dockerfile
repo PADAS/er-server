@@ -15,8 +15,8 @@ RUN apt-get install -y \
     libssl-dev \
     wget \
     gnupg \
-    && apt-get autoremove \
-    && apt-get clean
+    locales locales-all \
+    && apt-get autoremove 
 
 WORKDIR /workspace
 
@@ -31,6 +31,7 @@ RUN /bin/sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg m
 RUN apt-get update
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y postgresql-9.6-postgis-2.4
 RUN apt-get install -y postgresql-9.6-postgis-2.4-scripts
+RUN apt-get clean
 
 RUN pip3 install -U "pip"
 RUN pip3 install numpy
@@ -45,6 +46,10 @@ ADD ./das /var/www/app
 
 EXPOSE 8000
 EXPOSE 5400
+
+ENV LC_ALL C.UTF-8
+ENV LANG C.UTF-8
+ENV LANGUAGE C.UTF-8
 
 ENV BUILT_VERSION=${built_version}
 
