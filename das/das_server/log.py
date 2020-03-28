@@ -46,10 +46,10 @@ DEFAULT_LOGGING = {
             'level': 'INFO',
         },
         'rt_api': {
-            'level': 'INFO',
+            'level': 'DEBUG',
         },
         'rt_api.socketio': {
-            'level': 'WARN',
+            'level': 'DEBUG',
         },
         'rt_api.pubsub_listener': {
             'level': 'INFO',
