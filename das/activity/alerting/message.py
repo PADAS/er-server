@@ -222,7 +222,8 @@ def render_event_alert_context(alert_rule, event, notification_method,
     schema = utils.schema_utils.get_rendered_schema(event.event_type.schema)
 
     pretty_details = {}
-    for k, internal_value in eventdata['event_details'].items():
+    event_details = eventdata.get('event_details', {}) or {}
+    for k, internal_value in event_details.items():
 
         key_display = _get_title_from_schema(k, schema)
 
@@ -307,7 +308,7 @@ def render_event_alert_context(alert_rule, event, notification_method,
             'location': location,
             'reported_by': {"title": "Reported By", "value": reported_by}
         },
-        'raw_event_details': eventdata['event_details'],
+        'raw_event_details': eventdata.get('event_details', {}) or {},
         'pretty_details': pretty_details,
         'notes': notes_list,
     }

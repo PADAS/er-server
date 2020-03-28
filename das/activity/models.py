@@ -612,7 +612,6 @@ class EventRelationship(TimestampedModel):
         return result
 
 
-# class Event(RevisionMixin, models.Model):
 class Event(RevisionMixin, TimestampedModel):
 
     objects = EventManager.from_queryset(EventFilteringQuerySet)()
@@ -858,6 +857,11 @@ class Event(RevisionMixin, TimestampedModel):
         else:
             self.sort_at = timezone.now()
             save_fields.add('sort_at')
+
+        # move the state to Active if we are stuck on New.
+        if not self._state.adding and prev_state == self.SC_NEW and self.state == self.SC_NEW and 'state' not in save_fields:
+            self.state = self.SC_ACTIVE
+            save_fields.add('state')
 
         save_fields.add('updated_at')
         if update_fields:
