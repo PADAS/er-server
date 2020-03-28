@@ -90,13 +90,12 @@ class TestSpatialFile(BaseAPITest):
 
             # Update only name and description, no features are affected
             spatialfile.name = 'Matlamamba Lines'
-            spatialfile.save
+            spatialfile.save()
             self.admin.save_model(self.request, spatialfile, form, True)
             self.assertEquals(SpatialFeature.objects.count(), 2)
 
             # Updated spatialfile on all related features
             self.assertEquals(SpatialFeature.objects.filter(spatialfile=spatialfile).count(), 2)
-            
             
             # update data file, new features loaded
             data2 = File(open('./mapping/tests/testdata/wells_closed_points.geojson', 'rb'))
@@ -105,20 +104,3 @@ class TestSpatialFile(BaseAPITest):
             self.admin.save_model(self.request, spatialfile, form, True)
             self.assertEquals(SpatialFeature.objects.count(), 6)
 
-            
-
-            
-
-
-
-        
-        # dummy_feature_type = SpatialFeatureType.objects.create(name='Water Points')
-
-        
-
-        
-        # spatialfile.data = data2
-        
-        
-        # # process_spatialfile(spatialfile)
-        # self.assertEquals(SpatialFeature.objects.count(), 92)

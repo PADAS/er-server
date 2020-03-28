@@ -19,11 +19,6 @@ class Command(BaseCommand):
     tmpdirs = []
     SPATIALDATA_VERSIONS = ('v1', 'v2')
 
-    # model for feature? could these be combined in to one dictionary attribute?
-    # stroke = 'stroke'
-    # stroke_width = 'stroke-width'
-    # stroke_opacity = 'stroke-opacity'
-
     def handle(self, *args, **options):
         self.source_name = options['source'] or DEFAULT_SOURCE_NAME
         self.filename = options['filename']
