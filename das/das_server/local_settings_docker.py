@@ -34,13 +34,25 @@ SHOW_STATIONARY_SUBJECTS_ON_MAP = env.bool('SHOW_STATIONARY_SUBJECTS_ON_MAP', Fa
 TIME_ZONE = env.str('TIME_ZONE', 'US/Pacific')
 
 SERVER_FQDN = env.str('FQDN', '')
-ALLOWED_HOSTS = ['localhost:9000', SERVER_FQDN,'localhost','*']
-# TODO - Make this default to False
-CORS_ORIGIN_ALLOW_ALL = env.bool('CORS_ORIGIN_ALLOW_ALL', True)
 
-CORS_ORIGIN_WHITELIST = (
-        'localhost:9000','http://localhost:9000', SERVER_FQDN, f'https://{SERVER_FQDN}', f'http://{SERVER_FQDN}'
-    )
+# Build a list to include legacy names for APN, FZS and WPS sites. This will be temporary
+# during a period when clients and users might still be browsing to our old partner sub-domains.
+SERVER_NAMES = [
+    SERVER_FQDN,
+    SERVER_FQDN.replace('pamdas.org', 'apn.pamdas.org'),
+    SERVER_FQDN.replace('pamdas.org', 'wps.pamdas.org'),
+    SERVER_FQDN.replace('pamdas.org', 'fzs.pamdas.org')
+]
+
+# Django allowed-hosts
+ALLOWED_HOSTS = SERVER_NAMES + ['localhost', '']
+
+CORS_ORIGIN_ALLOW_ALL = env.bool('CORS_ORIGIN_ALLOW_ALL', False)
+
+# Rest and realtime API allowed hosts.
+CORS_ORIGIN_WHITELIST = [f'{prefix}{servername}' for servername in SERVER_NAMES for prefix in ('', 'http://', 'https://')]
+CORS_ORIGIN_WHITELIST = CORS_ORIGIN_WHITELIST + ['localhost', 'http://localhost:9000',]
+
 CORS_REPLACE_HTTPS_REFERER = env.bool('CORS_REPLACE_HTTPS_REFERER', True)
 
 SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', True)
