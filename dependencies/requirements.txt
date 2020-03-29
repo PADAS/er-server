@@ -140,7 +140,7 @@ django-storages[google]==1.8  # via -r requirements.in (line 55)
 django-tagulous==0.14.0   # via -r requirements.in (line 56)
 django-treebeard==4.3     # via -r requirements.in (line 52)
 django-versatileimagefield==1.10  # via -r requirements.in (line 57)
-django==2.2.9             # via -r requirements.in (line 37), django-bitfield, django-cors-headers, django-debug-toolbar, django-leaflet, django-model-utils, django-mptt, django-oauth-toolkit, django-readonly-field, django-redis, django-storages, django-treebeard
+django==2.2.11             # via -r requirements.in (line 37), django-bitfield, django-cors-headers, django-debug-toolbar, django-leaflet, django-model-utils, django-mptt, django-oauth-toolkit, django-readonly-field, django-redis, django-storages, django-treebeard
 djangorestframework-gis==0.14.0  # via -r requirements.in (line 59)
 djangorestframework==3.10.3  # via -r requirements.in (line 39), django-rest-swagger, djangorestframework-gis, drf-extensions
 dnspython==1.16.0         # via eventlet
