@@ -46,7 +46,7 @@ SERVER_NAMES = [
 
 # Django allowed-hosts
 ALLOWED_HOSTS = SERVER_NAMES + ['localhost', '']
-# TODO - Make this default to False
+
 CORS_ORIGIN_ALLOW_ALL = env.bool('CORS_ORIGIN_ALLOW_ALL', False)
 
 # Rest and realtime API allowed hosts.
