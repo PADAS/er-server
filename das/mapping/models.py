@@ -1,12 +1,13 @@
+import datetime
 import glob
 import logging
 import os
 import uuid
-import zipfile
 
+import pytz
 from django.conf import settings
-from django.contrib.gis.db import models
 from django.contrib.gis import geos
+from django.contrib.gis.db import models
 from django.contrib.postgres.fields import JSONField
 from django.core import management
 from django.core.exceptions import ImproperlyConfigured, ValidationError
@@ -16,14 +17,16 @@ from django.urls import NoReverseMatch, reverse
 from django.utils.deconstruct import deconstructible
 from django.utils.translation import ugettext_lazy as _
 from model_utils.managers import InheritanceManager
-from tagulous.models import TagField, TagModel
 from pytz import timezone
+from tagulous.models import TagField, TagModel
 
 from core.models import TimestampedModel
 from mapping.app_settings import MBTILES
 from mapping.mbtiles import (ExtractionError, GoogleProjection,
                              InvalidFormatError, MBTilesReader)
-from mapping.utils import MAPPING_FEATURES_V2, check_file_extension
+from mapping.tasks import load_spatial_features_from_files
+from mapping.utils import (MAPPING_FEATURES_V2, SPATIAL_FILES_FOLDER,
+                           check_file_extension)
 from revision.manager import Revision, RevisionMixin
 from utils.decorator import reify
 
@@ -35,6 +38,7 @@ FILE_TYPES = (
     # ('geodatabase', 'Geodatabase'),
     ('geojson', 'GeoJSON'),
 )
+
 
 class Map(TimestampedModel):
     """
@@ -153,6 +157,17 @@ class TempStorage(FileSystemStorage):
         kwargs.update({'location': temp_directory_name, })
         super(TempStorage, self).__init__(**kwargs)
 
+def upload_to(instance, filename):
+    '''
+    Providing a path to an Spatialfiles.
+    :param instance: SpatialFile of SpatialFeatureFile instance
+    :param filename: default filename.
+    :return: relative path for storing uploaded file
+    '''
+    filename = filename.split('/')[-1]
+    timestamp = "{:%Y%m%d%H%s}".format(datetime.datetime.now())
+    file_path = f'{SPATIAL_FILES_FOLDER}/{timestamp}-{filename}'
+    return file_path
 
 class SpatialFilesBase(TimestampedModel):
     """
@@ -162,7 +177,7 @@ class SpatialFilesBase(TimestampedModel):
     name = models.CharField(max_length=255, blank=True,
                             verbose_name='SpatialFile Name')
     description = models.CharField(max_length=100, blank=True)
-    data = models.FileField(storage=TempStorage(), blank=False)
+    data = models.FileField(upload_to=upload_to, blank=False)
     layer_number = models.IntegerField(blank=True, null=True, default=0)
     name_field = models.CharField(max_length=100, blank=True, null=True)
     id_field = models.CharField(max_length=100, blank=True, null=True)
@@ -170,52 +185,6 @@ class SpatialFilesBase(TimestampedModel):
 
     class Meta:
         abstract = True
-
-    @staticmethod
-    def fetch_shape_file_path(directory_path):
-        """
-        Fetch shape file path from the given directory.
-        :param directory_path: Directory to iterate through.
-        :return: Path of the shape file.
-        """
-        import_file = None
-        for file_name in os.listdir(directory_path):
-            if file_name.lower()[-4:] in ['.shp', '.gdb']:
-                import_file = os.path.join(directory_path, file_name)
-                break
-        return import_file
-
-    def import_spatial_file(self, uploaded_file_path, uploaded_file_directory):
-        """
-        Import features by invoking importlayer management command.
-        :param uploaded_file_path: Path of uploaded file.
-        :param uploaded_file_directory: Directory of uploaded file.
-        """
-        try:
-            import_file = None
-            if uploaded_file_path.lower().endswith('.zip'):
-                # Extract user-uploaded zip file.
-                with zipfile.ZipFile(
-                        uploaded_file_path, 'r') as zip_file_object:
-                    zip_file_object.extractall(uploaded_file_directory)
-
-                import_file = self.fetch_shape_file_path(
-                    uploaded_file_directory)
-                # If zip contains a directory encapsulating all the shape files
-                if not import_file:
-                    import_file = self.fetch_shape_file_path(
-                        uploaded_file_path[:-4])
-            else:
-                import_file = uploaded_file_path
-
-            if import_file:
-                return import_file
-            else:
-                raise ValidationError(
-                    f'Unsupported file, or incomplete archive file uploaded {uploaded_file_path}')
-        except Exception as err:
-            logger.error(err)
-            raise ValidationError(err)
 
     # Clean method is used for better error handling within the admin form
     # itself. To have the file data available, save method needs to be invoked.
@@ -228,34 +197,12 @@ class SpatialFilesBase(TimestampedModel):
         """
         if not self.data:
             raise ValidationError({'data': []})
-        try:
-            file_type = self.file_type
-        except Exception:
-            file_type = None
+
+        feature_types_file = getattr(self, 'feature_types_file', None)
+        file_type = getattr(self, 'file_type', None)
 
         if file_type:
-            check_file_extension(self.file_type, self.data,
-                                 self.feature_types_file or None)
-        self.save()
-        data_file = self.get_upload_file(self.data)
-        try:
-            spatial_types_file = self.get_upload_file(self.feature_types_file)
-        except Exception:
-            spatial_types_file = None
-        transaction.on_commit(lambda: self.call_mgt_command(data_file, spatial_types_file))
-
-    def get_upload_file(self, upload_file):
-        if upload_file:
-            uploaded_file_directory = os.path.dirname(upload_file.path)
-            try:
-                return self.import_spatial_file(
-                    upload_file.path, uploaded_file_directory)
-            except ValidationError as err:
-                self.__class__.objects.filter(id=self.id).delete()
-                raise ValidationError(
-                    'Error in retrieving features from spatial file:    {}\n '
-                    'Please verify the spatial file.'.format(err)
-                )
+            check_file_extension(self.file_type, self.data, feature_types_file)
 
     def __str__(self):
         return str(self.id)
@@ -271,12 +218,6 @@ class SpatialFile(SpatialFilesBase):
     class Meta:
         verbose_name = 'Spatial File'
 
-    def call_mgt_command(self, import_file, spatial_types_file=None):
-        management.call_command(
-            'importlayer', 'importlayerfile', import_file,
-            spatialfile_id=self.id, featureset=self.feature_set, featuretype=self.feature_type,
-            name_field=self.name_field, id_field=self.id_field
-        )
 
 class Feature(TimestampedModel):
     """
@@ -692,25 +633,11 @@ class SpatialFeatureFile(SpatialFilesBase):
         max_length=100, default='shapefile', choices=FILE_TYPES)
     feature_type = models.ForeignKey(
         to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
-    feature_types_file = models.FileField(
-        storage=TempStorage(), blank=True, null=True)
+    feature_types_file = models.FileField(upload_to=upload_to, blank=True, null=True)
 
     class Meta:
         verbose_name = 'Feature Import File'
 
-    def call_mgt_command(self, data_file, spatial_types_file):
-        if spatial_types_file:
-            management.call_command(
-                'import_spatial', data_file, spatialfile_id=self.id,
-                feature_types=spatial_types_file
-            )
-        else:
-            management.call_command(
-                'importlayer', 'importspatialfile', data_file,
-                spatialfile_id=self.id, featuretype=self.feature_type,
-                layer=self.layer_number, name_field=self.name_field,
-                id_field=self.id_field
-            )
 
 
 class SpatialFeatureManager(models.Manager):

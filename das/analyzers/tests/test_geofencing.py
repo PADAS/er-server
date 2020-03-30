@@ -1,20 +1,25 @@
+import json
 import logging
-from analyzers.models import SubjectAnalyzerResult
-from django.test import TestCase
 # Use python unit test here to persist results in test DB
 from unittest.mock import patch
-from .geofence_test_data import *
-from observations.models import Subject, Source, SubjectSource, SubjectGroup, DEFAULT_ASSIGNED_RANGE
-from observations.models import SubjectTrackSegmentFilter
-from mapping.models import SpatialFeature, SpatialFeatureGroupStatic
-from .analyzer_test_utils import *
-from activity.models import Event, EventCategory, EventType
-from analyzers.geofence import GeofenceAnalyzer, GeofenceAnalyzerConfig
-from analyzers.exceptions import InsufficientDataAnalyzerException
-from analyzers.tasks import analyze_subject
-from mapping.tasks import extract_features_from_files
-import json
+
 import yaml
+from django.test import TestCase
+from django.core.files import File
+
+from activity.models import Event, EventCategory, EventType
+from analyzers.exceptions import InsufficientDataAnalyzerException
+from analyzers.geofence import GeofenceAnalyzer, GeofenceAnalyzerConfig
+from analyzers.models import SubjectAnalyzerResult
+from analyzers.tasks import analyze_subject
+from mapping.models import SpatialFeature, SpatialFeatureGroupStatic, SpatialFeatureFile
+from mapping.spatialfile_utils import process_spatialfile
+from observations.models import (DEFAULT_ASSIGNED_RANGE, Source, Subject,
+                                 SubjectGroup, SubjectSource,
+                                 SubjectTrackSegmentFilter)
+
+from .analyzer_test_utils import *
+from .geofence_test_data import *
 
 logger = logging.getLogger(__name__)
 
@@ -63,13 +68,10 @@ class TestGeofenceAnalyzer(TestCase):
 
     def setUp(self):
 
-        # Load the geojson files into the database
-        with patch('mapping.utils.cleanup_files') as mock_cleanup:
-            mock_cleanup.return_value = None
-            data_files = ['./analyzers/fixtures/lines.geojson',
-                          './analyzers/fixtures/polygons.geojson']
-            feature_types_file = './analyzers/fixtures/spatial_feature_types.geojson'
-            extract_features_from_files(data_files, 'ste', None, feature_types_file, name_field='', )
+        data = File(open('./analyzers/fixtures/lines.geojson', 'rb'))
+        feature_types_file = File(open('./analyzers/fixtures/spatial_feature_types.geojson', 'rb'))
+        spatialfile = SpatialFeatureFile.objects.create(data=data, feature_types_file=feature_types_file)
+        process_spatialfile(spatialfile)
 
         ec, created = EventCategory.objects.get_or_create(
             value='analyzer_event', defaults=dict(display='Analyzer Events'))

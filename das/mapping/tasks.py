@@ -2,15 +2,16 @@ import logging
 from datetime import datetime, timezone
 
 from celery_once import QueueOnce
+from django.core.files.storage import default_storage
 from django.db import transaction
 
 from das_server import celery
-from mapping import models, utils
-from mapping.esri_integration import arcgis_authentication, wfs_download_return_messages, extract_gis_data
+from mapping import models, spatialfile_utils, utils
+from mapping.esri_integration import (arcgis_authentication, extract_gis_data,
+                                      wfs_download_return_messages)
 from observations.utils import convert_date_string
 
 logger = logging.getLogger(__name__)
-
 
 @celery.app.task(base=QueueOnce, once={'graceful': True})
 def automate_download_features_from_wfs():
@@ -67,36 +68,24 @@ def get_wfs_config_objects(obj_id, group_id):
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True})
-def load_spatial_features_from_files(data_files, tmpdirs, source_name, spatialfile_id, feature_types_file=None,
-                                     layer=None, id_field=None, name_field=None, featuretype=None, featureset=None):
-    model = models.SpatialFile if featureset else models.SpatialFeatureFile
-    spatial_file = model.objects.filter(id=spatialfile_id)
+def load_spatial_features_from_files(spatialfile_id):
+    object_model = models.SpatialFeatureFile if utils.MAPPING_FEATURES_V2 else models.SpatialFile
 
     try:
-        extract_features_from_files(data_files, source_name, spatialfile_id, feature_types_file, layer,
-                                    id_field, name_field, featuretype, featureset, tmpdirs)
-        spatial_file.update(status='Success')
+        sf = object_model.objects.get(id=spatialfile_id)
+    except object_model.DoesNotExist:
+        logger.warning('Spatial File wit ID: %s does not exist.', spatialfile_id)
+    else:
+        load_spatial_features(sf)
+
+
+def load_spatial_features(sf_object):
+
+    try:
+        spatialfile_utils.process_spatialfile(sf_object)
+        sf_object.status = 'Success'
+        sf_object.save()
     except Exception as ex:
-        logger.exception(ex)
-        spatial_file.update(status=f'Error: {ex}')
-    finally:
-        datasource = None
-
-
-def extract_features_from_files(data_files, source_name, spatialfile_id, feature_types_file=None, layer=None,
-                                id_field=None, name_field=None, featuretype=None, featureset=None, tmpdirs=None):
-    data_files = [data_files] if isinstance(
-        data_files, str) else data_files
-    if feature_types_file:
-        datasource, layer_num = utils.get_datasource_and_layer_num(
-            feature_types_file, tmpdirs, 0)
-        utils.import_feature_types(
-            datasource[layer_num], source_name)
-
-    for filename in data_files:
-        datasource, layer_num = utils.get_datasource_and_layer_num(
-            filename, tmpdirs, layer)
-        utils.import_layer(
-            datasource[layer_num], source_name, spatialfile_id,
-            featuretype, featureset, id_field, name_field)
-        utils.cleanup_files(filename)
+        logger.exception('Failed to process SpatialFile id=%s, name=%s', sf_object.id, sf_object.name)
+        sf_object.status = f'Error - {ex}'
+        sf_object.save()

@@ -533,3 +533,5 @@ METRICS_BUCKET = "er-site-metrics"
 
 ACCEPT_EULA = True
 
+# Has to be a multiple of 256
+GS_BLOB_CHUNK_SIZE = 10485760
