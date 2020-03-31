@@ -415,7 +415,8 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
         filter = Q(title__unaccent__icontains=searchtext) \
             | Q(note__text__unaccent__icontains=searchtext) \
-            | Q(event_type__display__unaccent__icontains=searchtext)
+            | Q(event_type__display__unaccent__icontains=searchtext) \
+            | Q(in_relationship__from_event__title__unaccent__icontains=searchtext)
 
         queryset = self
         if re.match('[0-9]+', searchtext):
