@@ -19,23 +19,6 @@ update activity_event e set tsvector_doc =
 from activity_eventtype et, activity_eventdetails ed where e.event_type_id = et.id and ed.event_id = e.id
 """
 
-# TRIGGER_FUNC = """
-# CREATE OR REPLACE FUNCTION tsvector_doc_trigger() RETURNS trigger AS $$
-# begin
-#     new.tsvector_doc :=
-#         to_tsvector(et.display)||
-#         to_tsvector(coalesce(new.title,''))||
-#         to_tsvector(et.schema)||
-#         to_tsvector(coalesce(ed.data, '{}'::jsonb))
-#         from activity_eventtype et, activity_eventdetails ed where new.event_type_id = et.id and ed.event_id = new.id;
-#     return new;
-# end
-# $$ LANGUAGE plpgsql;
-#
-# CREATE TRIGGER tsvector_update AFTER INSERT OR UPDATE
-# on activity_event
-# FOR EACH ROW EXECUTE PROCEDURE tsvector_doc_trigger();
-# """
 
 # DROP TRIGGER tsvector_update on  activity_eventdetails
 

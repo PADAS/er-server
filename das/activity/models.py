@@ -413,48 +413,6 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
     def by_text_filter(self, searchtext):
 
-        # filter = Q(title__unaccent__icontains=searchtext) \
-        #     | Q(note__text__unaccent__icontains=searchtext) \
-        #     | Q(event_type__display__unaccent__icontains=searchtext)
-
-        # SELECT
-        # "activity_event".
-        # "created_at", "activity_event".
-        # "updated_at", "activity_event".
-        # "id", "activity_event".
-        # "serial_number", "activity_event".
-        # "message", "activity_event".
-        # "comment", "activity_event".
-        # "title", "activity_event".
-        # "created_by_user_id", "activity_event".
-        # "event_time", "activity_event".
-        # "end_time", "activity_event".
-        # "provenance", "activity_event".
-        # "event_type_id", "activity_event".
-        # "state", "activity_event".
-        # "location"::bytea, "activity_event".
-        # "priority", "activity_event".
-        # "attributes", "activity_event".
-        # "reported_by_content_type_id", "activity_event".
-        # "reported_by_id", "activity_event".
-        # "sort_at"
-        # FROM
-        # "activity_event"
-        # INNER
-        # JOIN
-        # "activity_eventnote"
-        # ON("activity_event".
-        # "id" = "activity_eventnote".
-        # "event_id") WHERE
-        # "activity_eventnote".
-        # "text" = size
-        # of
-        # poaching
-        # ORDER
-        # BY
-        # "activity_event".
-        # "sort_at"
-        # DESC
 
         queryset = self
         if re.match('[0-9]+', searchtext):
