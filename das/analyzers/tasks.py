@@ -10,7 +10,7 @@ from analyzers import gfw_inbound
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.finder import get_subject_analyzers
 from analyzers.gfw_alert_schema import GFWGladEventTypeSpec
-from analyzers.gfw_utils import get_geostore_id, rebuild_glad_download_url
+from analyzers.gfw_utils import get_geostore_id, rebuild_glad_download_url, generate_viirs_url
 from analyzers.models import GlobalForestWatchSubscription as gfw_model
 from analyzers.models import ObservationAnnotator
 from das_server import celery
@@ -131,9 +131,18 @@ def handle_observation(observation_id):
 def download_gfw_alerts(self, download_url, common_event_fields, user_id):
     try:
         connect_timeout, read_timeout = 3, 30
-        logger.info('Processing GFW payload for %s. Downloading from: %s', common_event_fields.get('event_type'),
-                    download_url)
-        resp = requests.get(url=download_url, timeout=(connect_timeout, read_timeout))
+        if common_event_fields.get('event_type') == GFWGladEventTypeSpec.value:
+            logger.info('Processing GFW payload for %s. Downloading from: %s', common_event_fields.get('event_type'),
+                        download_url)
+            resp = requests.get(url=download_url, timeout=(connect_timeout, read_timeout))
+        else:
+            # To avoid status: 414 [URL too long] we will use POST instead of GET to retrieve the alerts.
+            # and post query param as data.
+            base_url, param = download_url['URL'], download_url['param']
+            logger.info('Processing GFW payload for %s. Downloading from: %s', common_event_fields.get('event_type'),
+                        generate_viirs_url(sql_str=param['q']))
+
+            resp = requests.post(url=base_url, data=param, timeout=(connect_timeout, read_timeout))
     except Timeout as tex:
         # TODO: revisit to figure out other failures that should be retried.
         logger.exception('Failed downloading GFW alert data for url: %s', download_url,
