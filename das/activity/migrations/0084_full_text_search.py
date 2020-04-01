@@ -11,8 +11,51 @@ create index tsvector_doc_index on activity_event using gin(tsvector_doc);
 """
 
 UPDATE_TSVECTOR_DOC = """
-update activity_event set tsvector_doc = to_tsvector(ef.schema||ae.state||ef.value||ef.display)
-from activity_event ae join activity_eventtype ef on ae.event_type_id = ef.id;
+update activity_event e set tsvector_doc = 
+     to_tsvector(et.display)||
+     to_tsvector(coalesce(e.title,''))||
+     to_tsvector(et.schema)||
+     to_tsvector(ed.data)
+from activity_eventtype et, activity_eventdetails ed where e.event_type_id = et.id and ed.event_id = e.id
+"""
+
+# TRIGGER_FUNC = """
+# CREATE OR REPLACE FUNCTION tsvector_doc_trigger() RETURNS trigger AS $$
+# begin
+#     new.tsvector_doc :=
+#         to_tsvector(et.display)||
+#         to_tsvector(coalesce(new.title,''))||
+#         to_tsvector(et.schema)||
+#         to_tsvector(coalesce(ed.data, '{}'::jsonb))
+#         from activity_eventtype et, activity_eventdetails ed where new.event_type_id = et.id and ed.event_id = new.id;
+#     return new;
+# end
+# $$ LANGUAGE plpgsql;
+#
+# CREATE TRIGGER tsvector_update AFTER INSERT OR UPDATE
+# on activity_event
+# FOR EACH ROW EXECUTE PROCEDURE tsvector_doc_trigger();
+# """
+
+# DROP TRIGGER tsvector_update on  activity_eventdetails
+
+TRIGGER_FUNC = """
+CREATE OR REPLACE FUNCTION tsvector_doc_trigger() RETURNS trigger as $$
+begin
+    update activity_event e set tsvector_doc = 
+         to_tsvector(et.display)||
+         to_tsvector(coalesce(e.title,''))||
+         to_tsvector(et.schema)||
+         to_tsvector(new.data)
+        from activity_eventtype et where e.event_type_id = et.id and new.event_id = e.id;
+    return new;
+end
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tsvector_update AFTER INSERT OR UPDATE
+on activity_eventdetails
+FOR EACH ROW EXECUTE PROCEDURE tsvector_doc_trigger();
+ 
 """
 
 
@@ -28,5 +71,7 @@ class Migration(migrations.Migration):
         migrations.RunSQL(INDEX_TSVECTOR_DOC,
                           reverse_sql=migrations.RunSQL.noop),
         migrations.RunSQL(UPDATE_TSVECTOR_DOC,
+                          reverse_sql=migrations.RunSQL.noop),
+        migrations.RunSQL(TRIGGER_FUNC,
                           reverse_sql=migrations.RunSQL.noop)
     ]

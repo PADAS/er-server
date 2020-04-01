@@ -413,9 +413,48 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
     def by_text_filter(self, searchtext):
 
-        filter = Q(title__unaccent__icontains=searchtext) \
-            | Q(note__text__unaccent__icontains=searchtext) \
-            | Q(event_type__display__unaccent__icontains=searchtext)
+        # filter = Q(title__unaccent__icontains=searchtext) \
+        #     | Q(note__text__unaccent__icontains=searchtext) \
+        #     | Q(event_type__display__unaccent__icontains=searchtext)
+
+        # SELECT
+        # "activity_event".
+        # "created_at", "activity_event".
+        # "updated_at", "activity_event".
+        # "id", "activity_event".
+        # "serial_number", "activity_event".
+        # "message", "activity_event".
+        # "comment", "activity_event".
+        # "title", "activity_event".
+        # "created_by_user_id", "activity_event".
+        # "event_time", "activity_event".
+        # "end_time", "activity_event".
+        # "provenance", "activity_event".
+        # "event_type_id", "activity_event".
+        # "state", "activity_event".
+        # "location"::bytea, "activity_event".
+        # "priority", "activity_event".
+        # "attributes", "activity_event".
+        # "reported_by_content_type_id", "activity_event".
+        # "reported_by_id", "activity_event".
+        # "sort_at"
+        # FROM
+        # "activity_event"
+        # INNER
+        # JOIN
+        # "activity_eventnote"
+        # ON("activity_event".
+        # "id" = "activity_eventnote".
+        # "event_id") WHERE
+        # "activity_eventnote".
+        # "text" = size
+        # of
+        # poaching
+        # ORDER
+        # BY
+        # "activity_event".
+        # "sort_at"
+        # DESC
 
         queryset = self
         if re.match('[0-9]+', searchtext):
@@ -423,10 +462,26 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             queryset = self.annotate(serial_number_text=Func(F('serial_number'),
                                                              function='bigint_to_char'))
             # 'startswith' witll use an index.
-            filter = filter | Q(
-                serial_number_text__startswith=searchtext)
+            filter_ = Q(serial_number_text__startswith=searchtext)
+            return queryset.filter(filter_).distinct()
 
-        return queryset.filter(filter).distinct()
+        if len(searchtext.split()) > 1:
+            split_words = searchtext.split()
+            word_count = len(split_words)
+            initial = '{}:* & {}:*'
+            add = '& {}:*'
+            const = 2
+            fmt = initial+add*(word_count-const)
+            searchtext = fmt.format(*split_words)
+        else:
+            searchtext = '{}:*'.format(searchtext)
+
+        qs = queryset.extra(tables=['activity_event'],
+                            where=['tsvector_doc @@ to_tsquery(%s)'],
+                            params=[searchtext]).distinct()
+
+        # return queryset.filter(filter).distinct()
+        return qs
 
     # def by_date_range(self,
 
