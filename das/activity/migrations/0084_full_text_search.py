@@ -35,10 +35,9 @@ begin
 end
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER tsvector_update AFTER INSERT OR UPDATE
+CREATE TRIGGER tsvector_update BEFORE INSERT OR UPDATE
 on activity_eventdetails
 FOR EACH ROW EXECUTE PROCEDURE tsvector_doc_trigger();
- 
 """
 
 
