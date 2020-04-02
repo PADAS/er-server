@@ -413,7 +413,6 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
     def by_text_filter(self, searchtext):
 
-
         queryset = self
         if re.match('[0-9]+', searchtext):
             logger.info('Querying on numeric. %s', searchtext)
