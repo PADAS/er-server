@@ -38,16 +38,21 @@ from utils.json import zeroout_microseconds, parse_bool, ExtendedGEOJSONRenderer
 
 logger = logging.getLogger(__name__)
 
-try:
-    days = int(settings.SHOW_TRACK_DAYS)
-except AttributeError:
-    days = 16
 
-LAST_DAYS = datetime.timedelta(days=days)
+def get_track_days():
+    try:
+        days = int(settings.SHOW_TRACK_DAYS)
+    except AttributeError:
+        days = 16
+    return datetime.timedelta(days=days)
+
+
 ONE_YEAR = datetime.timedelta(days=365)
 
-INCLUDE_STATIONARY_SUBJECTS_ON_MAP = getattr(
-    settings, 'SHOW_STATIONARY_SUBJECTS_ON_MAP', False)
+
+def include_stationary_subjects_on_map():
+    return parse_bool(getattr(settings, 'SHOW_STATIONARY_SUBJECTS_ON_MAP', False))
+
 
 current_tz_name = timezone.get_current_timezone_name()
 current_tz = pytz.timezone(current_tz_name)
@@ -61,7 +66,7 @@ def default_since():
     """default value for since
     last days is the default
     """
-    return datetime.datetime.now(pytz.utc) - datetime.timedelta(days=days)
+    return datetime.datetime.now(pytz.utc) - get_track_days()
 
 
 def dateparse(date_str, default_tz=pytz.utc):
@@ -74,14 +79,14 @@ def dateparse(date_str, default_tz=pytz.utc):
 def check_valid_date_string(date_str, parameter_name):
     if date_str:
         try:
-            dateparse(date_str)
+            result = dateparse(date_str)
         except ValueError:
             raise ValueError(
                 f'Invalid value for {parameter_name}: "{date_str}"')
         else:
-            return True
+            return True, result
     else:
-        return False
+        return False, None
 
 
 def get_subjects_with_observations_in_daterange(start_date=None, end_date=None):
@@ -423,19 +428,19 @@ class SubjectsView(generics.ListCreateAPIView):
         updated_since = self.request.query_params.get('updated_since')
         updated_until = self.request.query_params.get('updated_until')
 
-        is_updated_since_valid = check_valid_date_string(
+        is_updated_since_valid, updated_since = check_valid_date_string(
             updated_since, 'updated_since')
-        is_updated_until_valid = check_valid_date_string(
+        is_updated_until_valid, updated_until = check_valid_date_string(
             updated_until, 'updated_until')
 
         if is_updated_since_valid and is_updated_until_valid:
             queryset = queryset.by_updated_since_until(
                 updated_since, updated_until)
         elif is_updated_since_valid:
-            queryset = queryset.by_updated_since(dateparse(updated_since))
+            queryset = queryset.by_updated_since(updated_since)
             updated_until = None
         elif is_updated_until_valid:
-            queryset = queryset.by_updated_until(dateparse(updated_until))
+            queryset = queryset.by_updated_until(updated_until)
             updated_since = None
         else:
             updated_since = None
@@ -447,8 +452,8 @@ class SubjectsView(generics.ListCreateAPIView):
             bbox = [float(v) for v in bbox]
             if len(bbox) != 4:
                 raise ValueError("invalid bbox param")
-            queryset = queryset.by_bbox(bbox, last_days=LAST_DAYS,
-                                        include_stationary_subjects=INCLUDE_STATIONARY_SUBJECTS_ON_MAP,
+            queryset = queryset.by_bbox(bbox, last_days=get_track_days(),
+                                        include_stationary_subjects=include_stationary_subjects_on_map(),
                                         updated_since=updated_since, updated_until=updated_until)
 
         if self.request.query_params.get('name', None):
@@ -592,7 +597,7 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
             raise Http404
 
         if since is None:
-            since = datetime.datetime.now(tz=pytz.UTC) - LAST_DAYS
+            since = datetime.datetime.now(tz=pytz.UTC) - get_track_days()
 
         coordinates = []
         times = []
