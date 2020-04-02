@@ -140,7 +140,7 @@ django-storages[google]==1.8  # via -r requirements.in (line 55)
 django-tagulous==0.14.0   # via -r requirements.in (line 56)
 django-treebeard==4.3     # via -r requirements.in (line 52)
 django-versatileimagefield==1.10  # via -r requirements.in (line 57)
-django==2.2.9             # via -r requirements.in (line 37), django-bitfield, django-cors-headers, django-debug-toolbar, django-leaflet, django-model-utils, django-mptt, django-oauth-toolkit, django-readonly-field, django-redis, django-storages, django-treebeard
+django==2.2.11             # via -r requirements.in (line 37), django-bitfield, django-cors-headers, django-debug-toolbar, django-leaflet, django-model-utils, django-mptt, django-oauth-toolkit, django-readonly-field, django-redis, django-storages, django-treebeard
 djangorestframework-gis==0.14.0  # via -r requirements.in (line 59)
 djangorestframework==3.10.3  # via -r requirements.in (line 39), django-rest-swagger, djangorestframework-gis, drf-extensions
 dnspython==1.16.0         # via eventlet
@@ -238,7 +238,7 @@ pyrsistent==0.15.7        # via jsonschema
 pyshp==1.2.12             # via arcgis
 python-dateutil==2.8.1    # via -r requirements.in (line 15), adal, azure-cosmosdb-table, azure-storage-common, botocore, jupyter-client, matplotlib, pandas
 python-docx==0.8.6        # via -r requirements.in (line 84), docxtpl
-python-engineio==3.8.2    # via -r requirements.in (line 17)
+python-engineio==3.12.1   # via -r requirements.in (line 17)
 python-json-logger==0.1.11  # via -r requirements.in (line 24)
 pytz==2019.3              # via -r requirements.in (line 14), celery, django, django-ses, google-api-core, pandas, twilio
 pyyaml==5.1.1             # via -r requirements.in (line 79)

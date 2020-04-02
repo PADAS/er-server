@@ -108,6 +108,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
         label='Additional data', required=False)
     created_at = rest_framework.serializers.DateTimeField(read_only=True)
     updated_at = rest_framework.serializers.DateTimeField(read_only=True)
+    is_active = rest_framework.serializers.BooleanField(required=False)
 
     additional_fields = ('region', 'country', 'sex',
                          'species', 'additional')
@@ -116,7 +117,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
         model = models.Subject
         read_only_fields = ('image_url', 'color', 'content_type')
         fields = ('id', 'name', 'subject_type', 'subject_subtype',
-                  'additional',) + read_only_fields
+                  'additional','is_active',) + read_only_fields
 
     def to_internal_value(self, data):
         if 'id' in data:

@@ -22,6 +22,12 @@ spec:
           items:
           - key: credentials_json
             path: "google_credentials.json"
+      - name: telegraf-config-volume
+        configMap:
+          name: telegraf-configmap
+          items:
+            - key: telegraf_conf
+              path: telegraf.conf
       containers:
       - image:  "${SERVER_VERSION}"
         name: das-mql
@@ -60,3 +66,11 @@ spec:
         envFrom:
           - configMapRef:
               name: server-configmap
+      - name: telegraf
+        image: telegraf
+        ports:
+          - containerPort: 8125
+        volumeMounts:
+        - name: telegraf-config-volume
+          mountPath: "/etc/telegraf/"
+          readOnly: true

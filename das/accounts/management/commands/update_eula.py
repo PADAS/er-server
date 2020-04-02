@@ -12,10 +12,10 @@ class EulaException(Exception):
 
 
 class Command(BaseCommand):
-    help = 'Generate the site metrics, default is by day'
+    help = 'Update EULA'
 
     def add_arguments(self, parser):
-        parser.add_argument('--version_string', type=float,
+        parser.add_argument('--version_string', type=str,
                             help='EULA version')
         parser.add_argument('--eula', type=str,
                             help='EULA version url')

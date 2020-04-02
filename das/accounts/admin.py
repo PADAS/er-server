@@ -76,6 +76,7 @@ class PermissionSetAdminForm(forms.ModelForm):
 class PermissionSetAdmin(DjangoGroupAdmin):
     form = PermissionSetAdminForm
     list_display = ('name', 'all_permissions', 'all_users')
+    ordering = ('name',)
     filter_horizontal = ('permissions', 'children')
     fieldsets = (
         (None, {
@@ -287,7 +288,7 @@ class KmkMasterLinkForm(forms.Form):
 
 class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
     readonly_fields = ('_last_login',)
-    ordering = ('last_name', 'first_name', 'username')
+    ordering = ('username', 'last_name', 'first_name',)
     fieldsets = (
         (None, {
             'fields': ('first_name', 'last_name', 'role',
@@ -351,6 +352,7 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
         if not full_name:
             full_name = instance.username
         return full_name
+    display_name.admin_order_field = 'username'
 
     def all_permission_sets(self, instance):
         pss = instance.get_all_permission_sets()
@@ -468,6 +470,7 @@ class RefreshForm(forms.ModelForm):
 class GrantAdmin(admin.ModelAdmin):
     form = AccessGrantForm
     list_display = ("code", "application", "user", "expires")
+    ordering = list_display
     raw_id_fields = ("user", )
 
     def _expires(self, o):
@@ -479,7 +482,9 @@ class GrantAdmin(admin.ModelAdmin):
 class AccessTokenAdmin(admin.ModelAdmin):
     form = AccessGrantForm
     list_display = ("token", "user", "application", "_expires")
+    ordering = ("token", "user", "application", "expires")
     raw_id_fields = ("user", )
+    search_fields = ('user__username', 'token',)
 
     def _expires(self, o):
         return o.expires
@@ -490,6 +495,7 @@ class AccessTokenAdmin(admin.ModelAdmin):
 class RefreshTokenAdmin(admin.ModelAdmin):
     form = RefreshForm
     list_display = ("token", "user", "application", '_revoked')
+    ordering =  ("token", "user", "application", "revoked")
     raw_id_fields = ("user", "access_token")
 
     def _revoked(self, o):

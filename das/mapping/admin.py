@@ -11,22 +11,25 @@ from django.contrib.admin.utils import (get_deleted_objects, model_ngettext,
                                         unquote)
 from django.contrib.gis import admin
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.db.models import Q
 from django.db.models.expressions import RawSQL
 from django.http import HttpResponseRedirect
 from django.template.response import TemplateResponse
+from django.urls import reverse
 from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 
 import mapping.models as models
 from core.openlayers import OSMGeoExtendedAdmin
+from mapping.esri_integration import arcgis_integration, update_db_groups
 from mapping.forms import (ArcgisConfigurationForm, DisplayCategoryForm,
                            FeatureTypeForm, MapCenterForm,
                            SpatialFeatureGroupStaticForm,
                            SpatialFeatureTypeForm, TileLayerFormWithAttributes)
-from mapping.utils import (MAPPING_FEATURES_V2, arcgis_integration,
-                           update_db_groups)
+from mapping.tasks import load_spatial_features_from_files
+from mapping.utils import MAPPING_FEATURES_V2, clear_features
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +78,7 @@ class TileLayerAdmin(admin.ModelAdmin):
 class BaseFeatureAdmin(OSMGeoExtendedAdmin):
     list_filter = ('type', 'featureset', 'spatialfile__name')
     list_display = ('name', 'type', 'featureset', 'get_spatialfile')
+    ordering = ('name', 'type', 'featureset')
     search_fields = ('name', )
 
     def get_spatialfile(self, obj):
@@ -128,6 +132,7 @@ else:
     @admin.register(models.SpatialFeatureGroup)
     class SpatialFeatureGroupAdmin(admin.ModelAdmin):
         search_fields = ('name',)
+        ordering = ('name', )
 
 
 @admin.register(models.SpatialFeatureGroupStatic)
@@ -140,7 +145,7 @@ class SpatialFeatureGroupStaticAdmin(admin.ModelAdmin):
 @admin.register(models.SpatialFeatureType)
 class SpatialFeatureTypeAdmin(admin.ModelAdmin):
     list_display = ('name', 'is_visible', 'display_category')
-    ordering = ('name', )
+    ordering = list_display
     search_fields = ('name',)
     list_filter = ('is_visible',)
     form = SpatialFeatureTypeForm
@@ -179,7 +184,7 @@ class GeometryTypeFilter(django_admin.SimpleListFilter):
 
 @admin.register(models.SpatialFeature)
 class SpatialFeatureAdmin(BaseFeatureAdmin):
-    ordering = ('name',)
+    ordering = ('name', 'feature_type', 'external_source')
     list_display = ('name', 'feature_type',
                     'external_source', 'geometry_type', 'get_spatialfile')
     list_filter = (GeometryTypeFilter, 'feature_type',)
@@ -205,7 +210,6 @@ class SpatialFeatureAdmin(BaseFeatureAdmin):
 
     def geometry_type(self, obj):
         return obj.geometry_type
-
     geometry_type.short_description = 'Geometry Type'
 
 
@@ -303,6 +307,25 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
     class Meta:
         abstract = True
 
+    def save_model(self, request, obj, form, change):
+        feature_updated = False
+        if change:
+            # check for feature related attributes update
+            for record in form.changed_data:
+                if record not in ['name', 'description']:
+                    feature_updated, change = True, False
+
+        if feature_updated:
+            # Clear features incase any feature related record is updated
+            logger.info("Clearing features, loading features afresh...")
+            clear_features(obj)
+
+        if not change:
+            # load features if a new object or feature attributes are updated
+            transaction.on_commit(lambda: load_spatial_features_from_files.apply_async(args=(str(obj.id),)))
+
+        super().save_model(request, obj, form, change)
+
     def _delete_view(self, request, object_id, extra_context):
         """The 'delete' admin view for this model."""
         opts = self.model._meta
@@ -396,23 +419,26 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         if obj:
-            return [f.name for f in self.model._meta.fields]
+            return ['id', 'file_type', 'status']
         return self.readonly_fields
+
 
 
 if MAPPING_FEATURES_V2:
     @admin.register(models.SpatialFeatureFile)
     class SpatialFeatureFileAdmin(BaseSpatialFileAdmin):
         list_display = ('id', 'name', 'file_type', 'description', 'feature_type')
+        ordering = list_display
         list_filter = ('name',)
         fieldsets = (
             (None, {
                 'classes': ('wide',),
-                'fields': ('file_type', 'id', 'name', 'description', 'data', 'status')
+                'fields': ('file_type', 'id', 'name', 'description', 'data', 'feature_type', 'name_field', 'id_field',
+                           'status')
             }),
             ('Shapefile Optional Attributes', {
                 'classes': ('wide', 'shapefile',),
-                'fields': ('feature_type', 'layer_number', 'name_field', 'id_field')
+                'fields': ('layer_number',)
             }
              ),
             ('GeoJSON Optional Attributes', {
@@ -441,8 +467,8 @@ if MAPPING_FEATURES_V2:
 
         def add_background_download_message(self, obj, request, action):
             msg_dict = {
-                    'obj': format_html('<a href="{}">{}</a>', urlquote(request.path), obj),
-                    'features': format_html('<a href="/admin/mapping/spatialfeature/">features</a>'),
+                    'obj': format_html(f'<a href="{reverse("admin:mapping_spatialfeaturefile_change", args=(obj.id,))}">{obj}</a>'),
+                    'features': format_html(f'<a href="{reverse("admin:mapping_spatialfeature_changelist")}">features</a>'),
                     'action': action
                 }
             msg = format_html(_('The Feature Import File "{obj}" {action} successfully. Feature download in progress, check loaded {features} after a few minutes'),**msg_dict)
@@ -455,7 +481,7 @@ if MAPPING_FEATURES_V2:
         fieldsets = (
             (None, {
                 'classes': ('wide',),
-                'fields': ('last_download','config_name', 'username', 'password', 'search_text')
+                'fields': ('last_download_time', 'config_name', 'username', 'password', 'search_text')
             }),
             ('ArcGIS Group', {
                 'classes': ('wide', 'groups'),
@@ -466,7 +492,7 @@ if MAPPING_FEATURES_V2:
                 'fields': ('service_url', 'source', 'type_label', 'id_field','name_field',)
             }
             ),)
-        readonly_fields = ('last_download',)
+        readonly_fields = ('last_download_time',)
         form = ArcgisConfigurationForm
 
         def get_fieldsets(self, request, obj=None):
@@ -515,4 +541,11 @@ else:
     class SpatialFileAdmin(BaseSpatialFileAdmin):
         list_display = ('id', 'name', 'description', 'feature_set', 'feature_type',
                         'layer_number')
+        ordering = ('name', 'description', 'feature_set', 'feature_type', 'layer_number', 'id')
         list_filter = ('feature_set', 'feature_type')
+        fieldsets = (
+            (None, {
+                'classes': ('wide',),
+                'fields': ('id', 'name', 'description', 'data', 'layer_number', 'name_field', 'id_field', 'status', 'feature_set', 'feature_type'),
+            }),)
+        readonly_fields = ('id', 'status',)

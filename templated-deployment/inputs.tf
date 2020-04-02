@@ -103,7 +103,7 @@ variable "web_service_name" {
 }
 variable "accept_eula" {
   type    = string
-  default = "false"
+  default = "true"
 }
 variable "enable_debug" {
   type    = string

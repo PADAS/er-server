@@ -1,14 +1,17 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from celery_once import QueueOnce
+from django.core.files.storage import default_storage
+from django.db import transaction
 
 from das_server import celery
-from mapping import models, utils
+from mapping import models, spatialfile_utils, utils
+from mapping.esri_integration import (arcgis_authentication, extract_gis_data,
+                                      wfs_download_return_messages)
 from observations.utils import convert_date_string
 
 logger = logging.getLogger(__name__)
-
 
 @celery.app.task(base=QueueOnce, once={'graceful': True})
 def automate_download_features_from_wfs():
@@ -21,92 +24,68 @@ def automate_download_features_from_wfs():
 @celery.app.task(base=QueueOnce, once={'graceful': True})
 def load_features_from_wfs(obj_id, group_id):
     # Task only accepts primitive data, access config objects using obj_id
-    obj, wfs_group = get_wfs_config_objects(obj_id, group_id)
+    arc_config, wfs_group = get_wfs_config_objects(obj_id, group_id)
     errored_files, success_files, group_members = [], [], wfs_group.content()
 
-    # items_to_download = None
-    # AP_GROUP_ID = 'a47fb09a85fb41ec9d70ef608761f7fa'
-    # ER_GROUP_ID = 'dc27285af43546a080407241d7eeab47'
-    #
-    # # restricting APN group members for demo
-    # if wfs_group.id == AP_GROUP_ID:
-    #     items_to_download = [
-    #         'Akagera_Land_Cover',
-    #         'Built_point',
-    #         'Hydrology_polygon',
-    #         'Transport_line',
-    #         # 'Hydrology_line'
-    #     ]
-    # elif wfs_group.id == ER_GROUP_ID:
-    #     items_to_download = [
-    #         'Point features near Vulcan',
-    #         'STE Points Wells Closed',
-    #         'polygon features',
-    #         'Lines near Vulcan',
-    #         'Villages'
-    #     ]
-
+    received_item_ids = [m.itemid for m in group_members]
+    delete_result = models.ArcgisItem.objects.filter(arcgis_config=arc_config).exclude(
+        id__in=received_item_ids).delete()
+    logger.info(f'deleted items {delete_result}')
     for member in group_members:
-        if member.type == "Feature Service":
-            # TODO: before merge to develop remove all the items_to_download related stuff
-            # if items_to_download and member.title not in items_to_download:
-            #     logger.info(f'Skipping {member.title}')
-            #     continue
-            title = member.title.replace(' ', '-')
-            logger.info(f'processing {title}')
-            success_files, errored_files = utils.extract_gis_data(
-                obj, member, title, errored_files, success_files)
+        try:
+            with transaction.atomic():
+                if member.type == "Feature Service":
+                    title = member.title.replace(' ', '-')
+                    last_modified = datetime.fromtimestamp(int(member.modified/1000), timezone.utc)
+                    logger.info(f'processing {title}')
+                    arcgis_item, created = models.ArcgisItem.objects.get_or_create(
+                        id=member.id,
+                        name=title,
+                        arcgis_config=arc_config
+                    )
+                    # timestamps seem broken in arcgis
+                    # if created or last_modified > arcgis_item.updated_at:
+                    extract_gis_data(arc_config, member, title, errored_files, success_files, arcgis_item.id)
+                    # arcgis_item.save()  # update model's updated_at field
+
+        except Exception as ex:
+            logger.warning(f'Exception raised for object id {obj_id}')
+            logger.exception(ex)
 
     # update last download time
-    obj.last_download = convert_date_string(str(datetime.now()))
-    obj.save()
+    arc_config.last_download = convert_date_string(str(datetime.now()))
+    arc_config.save()
 
-    utils.wfs_download_return_messages(None, errored_files, success_files)
+    wfs_download_return_messages(None, errored_files, success_files)
 
 
 def get_wfs_config_objects(obj_id, group_id):
     obj = models.ArcgisConfiguration.objects.get(id=obj_id)
-    gis = utils.arcgis_authentication(None, obj)
+    gis = arcgis_authentication(None, obj)
     wfs_group = gis.groups.get(group_id)
 
     return obj, wfs_group
 
-# todo: cleanup when merging with esri work
-@celery.app.task(base=QueueOnce, once={'graceful': True})
-def load_spatial_features_from_files(data_files, tmpdirs, source_name, spatialfile_id, feature_types_file=None,
-                                     layer=None, presentation=None, featuretype_label=None,
-                                     id_field=None, name_field=None, featuretype=None, featureset=None):
 
-    model = models.SpatialFile if featureset else models.SpatialFeatureFile
-    spatial_file = model.objects.filter(id=spatialfile_id)
+@celery.app.task(base=QueueOnce, once={'graceful': True})
+def load_spatial_features_from_files(spatialfile_id):
+    object_model = models.SpatialFeatureFile if utils.MAPPING_FEATURES_V2 else models.SpatialFile
 
     try:
-        extract_features_from_files(data_files, source_name, spatialfile_id, feature_types_file, layer, presentation,
-                                    featuretype_label, id_field, name_field, featuretype, featureset, tmpdirs)
-        spatial_file.update(status='Success')
+        sf = object_model.objects.get(id=spatialfile_id)
+    except object_model.DoesNotExist:
+        logger.warning('Spatial File wit ID: %s does not exist.', spatialfile_id)
+    else:
+        load_spatial_features(sf)
+
+
+def load_spatial_features(sf_object):
+
+    try:
+        spatialfile_utils.process_spatialfile(sf_object)
+        sf_object.status = 'Success'
+        sf_object.save()
     except Exception as ex:
-        logger.exception(ex)
-        spatial_file.update(status=f'Error: {ex}')
-    finally:
-        datasource = None
-
-
-def extract_features_from_files(data_files, source_name, spatialfile_id, feature_types_file=None, layer=None,
-                                presentation=None, featuretype_label=None, id_field=None, name_field=None,
-                                featuretype=None, featureset=None, tmpdirs=None):
-    data_files = [data_files] if isinstance(
-        data_files, str) else data_files
-    if feature_types_file:
-        datasource, layer_num = utils.get_datasource_and_layer_num(
-            feature_types_file, tmpdirs, 0)
-        utils.import_feature_types(
-            datasource[layer_num], source_name)
-
-    for filename in data_files:
-        datasource, layer_num = utils.get_datasource_and_layer_num(
-            filename, tmpdirs, layer)
-        utils.import_layer(
-            datasource[layer_num], source_name, spatialfile_id,
-            featuretype, featureset, presentation, featuretype_label,
-            id_field, name_field)
-        utils.cleanup_files(filename)
+        logger.exception('Failed to process SpatialFile id=%s, name=%s', sf_object.id, sf_object.name)
+        sf_object.status = f'Error - {ex}'
+        sf_object.save()

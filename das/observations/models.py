@@ -38,6 +38,7 @@ from django.contrib.gis.db import models as dbmodels
 
 from django.contrib.gis.geos import Point
 from tracking.pubsub_registry import notify_new_tracks, notify_subjectstatus_update
+from django.utils.functional import cached_property
 
 from utils.json import zeroout_microseconds
 from das_server import settings
@@ -494,6 +495,7 @@ class SubjectSource(models.Model):
     class Meta:
         verbose_name = _('Subject Source Assignment')
         verbose_name_plural = _('Subject Source Assignments')
+        # ordering = ["subject", "source"]
 
     @property
     def safe_assigned_range(self):
@@ -765,14 +767,14 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         sources = Observation.objects.filter(location__within=geom)
 
         if updated_since and updated_until:
-            gt = parse_date(updated_since)
-            lt = parse_date(updated_until)
+            gt = updated_since
+            lt = updated_until
             sources = sources.filter(recorded_at__range=(gt, lt))
         elif updated_since:
-            gt = parse_date(updated_since)
+            gt = updated_since
             sources = sources.filter(recorded_at__gte=gt)
         elif updated_until:
-            lt = parse_date(updated_until)
+            lt = updated_until
             sources = sources.filter(recorded_at__lte=lt)
         elif last_days:
             lt = datetime.now(tz=pytz.UTC)
@@ -919,10 +921,11 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             color = to_rgb(color)
         return color
 
-    @property
+    @cached_property
     def source(self):
         subject_source = SubjectSource \
             .objects \
+            .select_related('source','source__provider') \
             .filter(subject_id=self.pk) \
             .order_by('-assigned_range') \
             .first()
@@ -1023,7 +1026,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
         try:
             state = getattr(self, 'status_radio_state', None) or \
-                self.subjectstatus_set.get(delay_hours=0).radio_state
+                self.objects.get(delay_hours=0).radio_state
         except (SubjectStatus.DoesNotExist, AttributeError):
             yield '-'.join((key, 'black'))
             yield key

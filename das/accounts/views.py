@@ -6,6 +6,7 @@ import pytz
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
+from django.db import IntegrityError
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import generics
@@ -104,23 +105,32 @@ class AcceptEulaAPIView(generics.CreateAPIView):
     queryset = UserAgreement.objects.all()
 
     def create(self, request, *args, **kwargs):
-        if request.data.get("accept") == False:
-            user_id = request.data.get("user")
-            eula_id = request.data.get("eula")
+        user_id = request.data.get("user")
+        eula_id = request.data.get("eula")
+        accepted = request.data.get("accept", True)
 
+        # accept=False, so revoke eula
+        if not accepted:
             try:
                 user = User.objects.get(id=user_id)
-                UserAgreement.objects.filter(user=user).filter(
-                    eula_id=eula_id).delete()
                 user.accepted_eula = False
                 user.save()
-                return Response(request.data, status=status.HTTP_200_OK)
-            except ObjectDoesNotExist as e:
-                return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-            except MultipleObjectsReturned as me:
-                return Response({"error": str(me)}, status=status.HTTP_400_BAD_REQUEST)
 
-        return super(AcceptEulaAPIView, self).create(request, *args, **kwargs)
+                UserAgreement.objects.filter(user=user, eula_id=eula_id).delete()
+                return Response(request.data, status=status.HTTP_200_OK)
+
+            except User.DoesNotExist:
+                return Response({"error": f'User ID {user_id} does not exist.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Otherwise normal case where user has accepted a Eula.
+        try:
+            ua = UserAgreement.objects.get(user=user_id, eula_id=eula_id)
+            ua.save() # Let .save() handle dependent updates (ex. on User).
+
+            return Response(request.data, status=status.HTTP_200_OK)
+
+        except UserAgreement.DoesNotExist:
+            return super(AcceptEulaAPIView, self).create(request, *args, **kwargs)
 
 
 class GetActiveEulaAPIView(generics.RetrieveAPIView):
@@ -130,9 +140,12 @@ class GetActiveEulaAPIView(generics.RetrieveAPIView):
 
     def dispatch(self, request, *args, **kwargs):
         if not settings.ACCEPT_EULA:
-            return Response(data={
-                "error": "Site doesn't require users to accept a EULA"},
-                status=status.HTTP_404_NOT_FOUND)
+            self.headers = self.default_response_headers
+            response = Response(data={
+                "message": "Site doesn't require users to accept a EULA"},
+                status=status.HTTP_200_OK)
+            return self.finalize_response(request, response, *args, **kwargs)
+
         return super(GetActiveEulaAPIView, self).dispatch(request, *args, **kwargs)
 
     def get_object(self):

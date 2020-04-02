@@ -89,6 +89,7 @@ class EulaViewsTestCase(BaseAPITest):
             password='asdfo9823sfiu23$',
             email='user2user@user.org')
 
+    @override_settings(ACCEPT_EULA=True)
     def test_getting_active_eula(self):
         EULA.objects.create(eula_url="http://some.com/eula.pdf",
                             version="EarthRanger_EULA_ver2025-02-12",
@@ -107,6 +108,7 @@ class EulaViewsTestCase(BaseAPITest):
                          data.get("version", "0.0"))
         self.assertEqual(str(eula.id), data.get("id"))
 
+    @override_settings(ACCEPT_EULA=True)
     def test_accept_eula_view(self):
         eula = EULA.objects.create(eula_url="http://some.com/eulav1.1.pdf",
                                    version="EarthRanger_EULA_ver2025-03-12")
@@ -121,6 +123,7 @@ class EulaViewsTestCase(BaseAPITest):
         self.assertTrue(response_data.get('accept'))
         self.assertEqual(response_data.get('eula'), eula.id)
 
+    @override_settings(ACCEPT_EULA=True)
     def test_revoke_eula_acceptance_view(self):
         eula = EULA.objects.create(eula_url="http://some.com/eulav1.1.pdf",
                                    version="EarthRanger_EULA_ver2025-03-12")
@@ -156,12 +159,13 @@ class EulaViewsTestCase(BaseAPITest):
         self.assertTrue(user.accepted_eula)
 
     @override_settings(ACCEPT_EULA=False)
-    def test_get_eula_returns_404_for_sites_that_dont_accept_eula(self):
+    def test_get_eula_returns_200_for_sites_that_dont_accept_eula(self):
         request = self.factory.get(self.api_base + '/eula/')
         self.force_authenticate(request, self.user)
 
         response = views.GetActiveEulaAPIView.as_view()(request)
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("version", response.data)
 
     @override_settings(ACCEPT_EULA=False)
     def test_accepted_eula_not_returned_for_sites_not_using_eula(self):
@@ -174,6 +178,7 @@ class EulaViewsTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn('accepted_eula', response_data)
 
+    @override_settings(ACCEPT_EULA=True)
     def test_user_cannot_accept_eula_for_another_user(self):
         eula = EULA.objects.create(eula_url="http://some.com/eulav1.1.pdf",
                                    version="EarthRanger_EULA_ver2025-03-12")
@@ -182,6 +187,35 @@ class EulaViewsTestCase(BaseAPITest):
         self.force_authenticate(request, self.user2)
         response = views.AcceptEulaAPIView.as_view()(request)
         self.assertEqual(response.status_code, 403)
+
+    @override_settings(ACCEPT_EULA=True)
+    def test_sending_same_data_twice_returns_200_ok(self):
+        eula = EULA.objects.create(eula_url="http://some.com/eulav1.1.pdf",
+                                   version="EarthRanger_EULA_ver2025-03-12")
+        data = {"eula": eula.id, "user": self.user.id}
+        request = self.factory.post(self.api_base + '/eula/accept/', data)
+        self.force_authenticate(request, self.user)
+        response = views.AcceptEulaAPIView.as_view()(request)
+        first_response_data = response.data
+        self.assertEqual(response.status_code, 201)
+        user = User.objects.get(id=self.user.id)
+        self.assertTrue(user.accepted_eula)
+        self.assertTrue(first_response_data.get('accept'))
+        self.assertEqual(first_response_data.get('eula'), eula.id)
+
+        # 2nd time
+        request = self.factory.post(self.api_base + '/eula/accept/', data)
+        self.force_authenticate(request, user)
+        response = views.AcceptEulaAPIView.as_view()(request)
+        second_response_data = response.data
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(str(first_response_data.get("eula")), str(second_response_data.get("eula")))
+        self.assertEqual(str(first_response_data.get("user")), str(second_response_data.get("user")))
+        user = User.objects.get(id=self.user.id)
+        self.assertTrue(user.accepted_eula)
+
+
+
 
 
 

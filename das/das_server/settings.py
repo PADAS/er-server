@@ -527,8 +527,11 @@ GFW_CREDENTIALS = {
     'username': 'support@pamdas.org',
     'password': 'ns2S#@Bh3V&W2eR17Ru8'
 }
+GFW_CLUSTER_RADIUS = 5  # kilometers
 
 METRICS_BUCKET = "er-site-metrics"
 
 ACCEPT_EULA = True
 
+# Has to be a multiple of 256
+GS_BLOB_CHUNK_SIZE = 10485760
