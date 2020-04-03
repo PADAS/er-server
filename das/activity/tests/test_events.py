@@ -1104,9 +1104,9 @@ class TestEventView(BaseAPITest):
         EventRelationship.objects.add_relationship(
             from_event=incident, to_event=contained_event,
             type='contains')
-        url = '/activity/events/export?filter={"text":"Test incident collection"}'
-
-        request = self.factory.get(self.api_base + url)
+        url = '/activity/events/export/'
+        filter_spec = json.dumps({'text': incident_data['title']})
+        request = self.factory.get(self.api_base + url, {'filter': filter_spec})
 
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
