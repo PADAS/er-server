@@ -1,10 +1,13 @@
-import sys, inspect
+import inspect
+import sys
 
+from django.apps import apps
 from django.contrib.gis import admin
-import tracking.models as models
-import observations.models
-from tracking.forms import SourcePluginForm
 from django.utils.translation import ugettext_lazy as _
+
+import observations.models
+import tracking.models as models
+from tracking.forms import SourcePluginForm
 
 
 def _get_plugin_class_search_fields():
@@ -20,6 +23,19 @@ def _get_plugin_class_search_fields():
                     for n, c in plugin_classes if getattr(c, 'source_plugin_reverse_relation', None)]
     return search_names
 
+class PluginTypeFilter(django.contrib.admin.SimpleListFilter):
+    title = 'Plugin type'
+    parameter_name = 'plugin_type'
+
+    def lookups(self, request, model_admin):
+        return [(model, model.capitalize()) for model in sorted(apps.all_models['tracking'],
+                                                                 key=lambda model: model)]
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(plugin_type__model__icontains=value)
+        return queryset
 
 @admin.register(models.SourcePlugin)
 class SourcePluginAdmin(admin.ModelAdmin):
@@ -32,7 +48,7 @@ class SourcePluginAdmin(admin.ModelAdmin):
     search_fields = ['source__manufacturer_id'] + _get_plugin_class_search_fields()
     list_select_related = True
 
-    list_filter = ['plugin_type']
+    list_filter = [PluginTypeFilter]
     form = SourcePluginForm
 
     fieldsets = (

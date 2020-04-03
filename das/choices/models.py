@@ -86,7 +86,7 @@ class Choice(SoftDeleteModel):
     ], key=lambda item: item[1])
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    model = models.CharField(max_length=50, default=Field_Reports, choices=MODEL_REF_CHOICES)
+    model = models.CharField(max_length=50, choices=MODEL_REF_CHOICES, default=Field_Reports)
     field = models.CharField(max_length=40)
     value = models.CharField(max_length=100, blank=True)
     display = models.CharField(max_length=100, blank=True)
