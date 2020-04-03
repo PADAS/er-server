@@ -14,7 +14,7 @@ UPDATE_TSVECTOR_DOC = """
 update activity_event e set tsvector_doc = 
      et.display::tsvector||
      coalesce(e.title,'')::tsvector||
-     et.schema::tsvector||
+     to_tsvector(et.schema::text)||
      to_tsvector(ed.data::text)
 from activity_eventtype et, activity_eventdetails ed where e.event_type_id = et.id and ed.event_id = e.id
 """
@@ -29,7 +29,7 @@ begin
          to_tsvector(et.display)||
          to_tsvector(coalesce(e.title,''))||
          to_tsvector(et.schema)||
-         to_tsvector(new.data)
+         to_tsvector(new.data::text)
         from activity_eventtype et where e.event_type_id = et.id and new.event_id = e.id;
     return new;
 end
@@ -40,6 +40,17 @@ on activity_eventdetails
 FOR EACH ROW EXECUTE PROCEDURE tsvector_doc_trigger();
 """
 
+DROP_TSVECTOR_DOC_COL = """
+alter  table activity_event drop column if exists  tsvector_doc cascade;
+"""
+
+# DROP_TRIGGER = """
+# drop trigger if exists tsvector_update on  activity_eventdetails;
+# """
+# DROP_TRIGGER_FUNC = """
+# DROP TRIGGER if exists tsvector_update on  activity_eventdetails;
+# """
+
 
 class Migration(migrations.Migration):
 
@@ -49,7 +60,7 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunSQL(ADD_TSVECTOR_COLUMN,
-                          reverse_sql=migrations.RunSQL.noop),
+                          reverse_sql=DROP_TSVECTOR_DOC_COL),
         migrations.RunSQL(INDEX_TSVECTOR_DOC,
                           reverse_sql=migrations.RunSQL.noop),
         migrations.RunSQL(UPDATE_TSVECTOR_DOC,
