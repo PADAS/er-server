@@ -12,10 +12,10 @@ create index tsvector_doc_index on activity_event using gin(tsvector_doc);
 
 UPDATE_TSVECTOR_DOC = """
 update activity_event e set tsvector_doc = 
-     to_tsvector(et.display)||
-     to_tsvector(coalesce(e.title,''))||
-     to_tsvector(et.schema)||
-     to_tsvector(ed.data)
+     et.display::tsvector||
+     coalesce(e.title,'')::tsvector||
+     et.schema::tsvector||
+     to_tsvector(ed.data::text)
 from activity_eventtype et, activity_eventdetails ed where e.event_type_id = et.id and ed.event_id = e.id
 """
 
