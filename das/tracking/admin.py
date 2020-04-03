@@ -1,6 +1,7 @@
 import inspect
 import sys
 
+import django
 from django.apps import apps
 from django.contrib.gis import admin
 from django.utils.translation import ugettext_lazy as _
@@ -34,7 +35,7 @@ class PluginTypeFilter(django.contrib.admin.SimpleListFilter):
     def queryset(self, request, queryset):
         value = self.value()
         if value:
-            return queryset.filter(plugin_type__model__icontains=value)
+            return queryset.filter(plugin_type__model__iexact=value)
         return queryset
 
 @admin.register(models.SourcePlugin)
