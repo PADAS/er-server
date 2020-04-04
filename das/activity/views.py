@@ -558,7 +558,7 @@ class EventsExportView(views.APIView):
         if event_filter:
             try:
                 event_filter = json.loads(event_filter)
-                queryset = queryset.by_event_filter(event_filter, export=True)
+                queryset = queryset.by_event_filter(event_filter)
             except json.JSONDecodeError:
                 logger.exception(
                     'Invalid filter expression. filter=%s', event_filter)
@@ -567,6 +567,9 @@ class EventsExportView(views.APIView):
         state = query_params.getlist('state', None)
         if state:
             queryset = queryset.by_state(state)
+        for obj in queryset.annotate(child_event_ids=ArrayAgg('out_relationship__to_event')):
+            child_events = Event.objects.filter(id__in=obj.child_event_ids)
+            queryset = queryset | child_events.distinct()
 
         return queryset.order_by('event_type_id')
 

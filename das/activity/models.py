@@ -351,7 +351,7 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             return self
         return self.exclude(in_relationship__type__value='contains')
 
-    def by_event_filter(self, filter, export=False):
+    def by_event_filter(self, filter):
 
         queryset = self
 
@@ -365,7 +365,7 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
                 return Event.objects.none()
 
         if filter.get('text'):
-            queryset = queryset.by_text_filter(filter.get('text'), export)
+            queryset = queryset.by_text_filter(filter.get('text'))
 
         if 'date_range' in filter:
             lower, upper = parse_date_range(filter['date_range'])
@@ -411,14 +411,11 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
         return self
 
-    def by_text_filter(self, searchtext, export):
+    def by_text_filter(self, searchtext):
 
         filter = Q(title__unaccent__icontains=searchtext) \
             | Q(note__text__unaccent__icontains=searchtext) \
             | Q(event_type__display__unaccent__icontains=searchtext)
-
-        if export:
-            filter = filter | Q(in_relationship__from_event__title__unaccent__icontains=searchtext)
 
         queryset = self
         if re.match('[0-9]+', searchtext):
