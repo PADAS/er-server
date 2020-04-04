@@ -29,8 +29,13 @@ class PluginTypeFilter(django.contrib.admin.SimpleListFilter):
     parameter_name = 'plugin_type'
 
     def lookups(self, request, model_admin):
-        return [(model, model.capitalize()) for model in sorted(apps.all_models['tracking'],
-                                                                 key=lambda model: model)]
+
+        tracking_models = [
+            (model.__name__.lower(), model._meta.verbose_name.title())
+            for model in apps.get_app_config('tracking').get_models()
+            if model.__name__.lower() != 'sourceplugin'
+        ]
+        return sorted(tracking_models, key=lambda m: m[1])
 
     def queryset(self, request, queryset):
         value = self.value()
