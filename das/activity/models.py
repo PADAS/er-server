@@ -433,11 +433,10 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         else:
             searchtext = '{}:*'.format(searchtext)
 
-        queryset = queryset.extra(tables=['activity_event'],
-                                  where=['activity_event.tsvector_doc @@ to_tsquery(%s)'],
-                                  params=[searchtext],
-                                  select_params=['id', ])
-
+        queryset = queryset.extra(tables=['activity_tsvectormodel'],
+                                  where=['activity_tsvectormodel.tsvector_event @@ to_tsquery(%s)',
+                                         'activity_tsvectormodel.event_id=activity_event.id'],
+                                  params=[searchtext])
         return queryset.distinct()
 
     # def by_date_range(self,
@@ -1373,3 +1372,7 @@ class EventNotification(TimestampedModel):
         indexes = [
             models.Index(fields=['event'])
         ]
+
+
+class TSVectorModel(models.Model):
+    event = models.ForeignKey(Event, on_delete=models.CASCADE)
