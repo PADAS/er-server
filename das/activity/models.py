@@ -434,9 +434,10 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             searchtext = '{}:*'.format(searchtext)
 
         queryset = queryset.extra(tables=['activity_tsvectormodel'],
-                                  where=['activity_tsvectormodel.tsvector_event @@ to_tsquery(%s)',
+                                  where=['activity_tsvectormodel.tsvector_event @@ to_tsquery(%s) OR '
+                                         'activity_tsvectormodel.tsvector_event_note @@ to_tsquery(%s)',
                                          'activity_tsvectormodel.event_id=activity_event.id'],
-                                  params=[searchtext])
+                                  params=[searchtext, searchtext])
         return queryset.distinct()
 
     # def by_date_range(self,

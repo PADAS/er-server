@@ -2,8 +2,10 @@
 
 from django.db import migrations
 
-ADD_TSVECTOR_COLUMN_EVENT = """
- alter table activity_tsvectormodel add column tsvector_event TSVECTOR;
+ADD_TSVECTOR_COLUMNS = """
+ alter table activity_tsvectormodel 
+ add column tsvector_event TSVECTOR,
+ add column tsvector_event_note TSVECTOR;
 """
 
 INDEX_TSVECTOR_EVENT = """
@@ -15,6 +17,12 @@ INSERT INTO activity_tsvectormodel (event_id, tsvector_event)
 SELECT e.id, et.display::tsvector|| coalesce(e.title,'')::tsvector||to_tsvector(et.schema::text)||to_tsvector(ed.data::text)
 FROM activity_event e join activity_eventtype et on e.event_type_id = et.id join activity_eventdetails ed on e.id = ed.event_id
 on conflict do nothing;
+"""
+
+UPDATE_TSVECTOR_EVENT_NOTE = """
+UPDATE activity_tsvectormodel ts SET (tsvector_event_note) =
+    (SELECT string_agg(text, ',')::tsvector FROM activity_eventnote en
+     WHERE  en.event_id= ts.event_id);
 """
 
 TRIGGER_FUNC = """
@@ -39,9 +47,23 @@ begin
 end
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER tsvector_updat AFTER  INSERT OR UPDATE
+CREATE TRIGGER tsvector_update AFTER  INSERT OR UPDATE
 on activity_eventdetails
 FOR EACH ROW EXECUTE PROCEDURE tsvector_doc_trigger();
+"""
+
+TRIGGER_FUNC_EVENTNOTE = """
+CREATE OR REPLACE FUNCTION tsvector_eventnote_trigger() RETURNS trigger as $$
+begin
+    UPDATE activity_tsvectormodel ts SET (tsvector_event_note) =
+        (SELECT string_agg(text, ',')::tsvector FROM activity_eventnote en
+         WHERE  en.event_id= ts.event_id);
+    return new;
+end
+$$ LANGUAGE plpgsql;
+CREATE TRIGGER tsvector_evennote_update AFTER INSERT OR UPDATE
+on activity_eventnote
+FOR EACH ROW EXECUTE PROCEDURE tsvector_eventnote_trigger();
 """
 
 
@@ -52,12 +74,16 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunSQL(ADD_TSVECTOR_COLUMN_EVENT,
+        migrations.RunSQL(ADD_TSVECTOR_COLUMNS,
                           reverse_sql=migrations.RunSQL.noop),
         migrations.RunSQL(INDEX_TSVECTOR_EVENT,
                           reverse_sql=migrations.RunSQL.noop),
         migrations.RunSQL(INSERT_TSVECTOR_EVENT,
                           reverse_sql=migrations.RunSQL.noop),
         migrations.RunSQL(TRIGGER_FUNC,
+                          reverse_sql=migrations.RunSQL.noop),
+        migrations.RunSQL(UPDATE_TSVECTOR_EVENT_NOTE,
+                          reverse_sql=migrations.RunSQL.noop),
+        migrations.RunSQL(TRIGGER_FUNC_EVENTNOTE,
                           reverse_sql=migrations.RunSQL.noop)
     ]

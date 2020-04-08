@@ -27,6 +27,7 @@ from django.contrib.staticfiles import finders
 from kombu import Connection
 from rest_framework.fields import DateTimeField
 from drf_extra_fields.geo_fields import PointField
+from django.urls import reverse
 
 from activity.serializers import EventDetailsSerializer
 from core.tests import BaseAPITest
@@ -34,7 +35,7 @@ from choices.models import Choice
 from accounts.models import PermissionSet
 from activity.models import Event, EventAttachment, EventType, EventCategory, \
     EventRelationship, EventRelationshipType, EventNote, EventsourceEvent, \
-    EventSource, EventProvider, parse_date_range, EventDetails
+    EventSource, EventProvider, parse_date_range, EventDetails, TSVectorModel
 from activity import views
 from observations.models import Subject
 from accounts.serializers import UserDisplaySerializer
@@ -2080,14 +2081,15 @@ class TestEventView(BaseAPITest):
         from django.db import connection
         cursor = connection.cursor()
 
-        cursor.execute('SELECT tsvector_doc FROM activity_event WHERE id=%s', [uuid])
-        tsvector = cursor.fetchone
+        cursor.execute('SELECT tsvector_event_note FROM activity_tsvectormodel WHERE event_id=%s', [uuid])
+        tsvector = cursor.fetchone()
         return tsvector
 
     def test_tsvector_column_is_created(self):
-        event = Event.objects.raw('select * from activity_event')
+        event = TSVectorModel.objects.raw('select * from activity_tsvectormodel')
         columns = event.columns
-        self.assertIn('tsvector_doc', columns)
+        self.assertIn('tsvector_event', columns)
+        self.assertIn('tsvector_event_note', columns)
 
     def test_trigger_when_event_is_created(self):
         """Test trigger works whenever event with eventdetails is created. Creates a normalized lexeme token"""
@@ -2143,6 +2145,56 @@ class TestEventView(BaseAPITest):
         self.assertTrue(response.data)
         self.assertEqual(response.status_code, 200)
 
+    def test_eventnote_generate_tsvector_doc(self):
+        self.event_data['title'] = 'ETitle'
+
+        request = self.factory.post(self.api_base + '/events/', [self.event_data])
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        uuid = response.data['id']
+        url = reverse('event-view-notes', args=(uuid,))
+        event_note = dict(
+            id='747b4d5a-79a3-11ea-bc55-0242ac130003',
+            text=lorem_ipsum.paragraph()
+        )
+
+        request = self.factory.post(url, event_note)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventNotesView.as_view()(request, id=str(uuid))
+        self.assertEqual(response.status_code, 201)
+
+        tsvector = self.get_ts_token(uuid)
+        self.assertTrue(tsvector)
+
+    def test_event_note_text_search(self):
+
+        request = self.factory.post(self.api_base + '/events/', [self.event_data])
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        uuid = response.data['id']
+        url = reverse('event-view-notes', args=(uuid,))
+        event_note = dict(
+            id='747b4d5a-79a3-11ea-bc55-0242ac130003',
+            text="This is an example of a note."
+        )
+
+        request = self.factory.post(url, event_note)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventNotesView.as_view()(request, id=str(uuid))
+        self.assertEqual(response.status_code, 201)
+
+        search_text = event_note.get('text')
+
+        query = {'filter': json.dumps({'text': search_text})}
+        request = self.factory.get(self.api_base + '/events', data=query)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertTrue(response.data)
+        self.assertEqual(response.status_code, 200)
 
 
 class TestParsing(TestCase):
