@@ -1,12 +1,12 @@
 import logging
 
 from django.db import transaction
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 
-from activity.models import Event, EventPhoto
-from das_server import celery
-from das_server import pubsub
+from activity.models import Event, EventPhoto, EventFile
+from das_server import celery, pubsub
+from usercontent.tasks import thumbnails_verified
 
 logger = logging.getLogger(__name__)
 
@@ -45,3 +45,12 @@ def warm_EventPhoto_image(sender, instance, **kwargs):
 def delete_EventPhoto_products(sender, instance, **kwargs):
     logger.info('delete sized images for EventPhoto.id: {}'.format(instance.pk))
     instance.image.delete_all_created_images()
+
+
+def send_event_thumbnail_update(sender, file_id, **kwargs):
+    event = Event.objects.filter(file__usercontent_id=file_id)
+    pubsub.publish(
+        {'event_id': str(event.id)},
+        'das.event.update')
+
+thumbnails_verified.connect(send_event_thumbnail_update)

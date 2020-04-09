@@ -2,7 +2,7 @@ import logging
 
 from django.db.models.signals import post_save, post_delete
 from django.db import transaction
-from django.dispatch import receiver
+from django.dispatch import Signal, receiver
 
 from das_server import celery
 
@@ -21,3 +21,5 @@ def warm_imagefile_content_image(sender, instance, **kwargs):
 def delete_imagefile_content_files(sender, instance, **kwargs):
     logger.info('delete sized images for ImageFileContent.id: {}'.format(instance.pk))
     instance.file.delete_all_created_images()
+
+thumbnails_verified = Signal(providing_args=["file_id"])
