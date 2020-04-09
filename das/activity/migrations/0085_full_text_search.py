@@ -30,7 +30,7 @@ CREATE OR REPLACE FUNCTION tsvector_doc_trigger() RETURNS trigger as $$
 begin
     IF (TG_OP = 'INSERT') THEN
         INSERT INTO activity_tsvectormodel (event_id, tsvector_event)
-        SELECT e.id, et.display::tsvector|| coalesce(e.title,'')::tsvector||to_tsvector(et.schema::text)||to_tsvector(ed.data::text)
+        SELECT e.id, et.display::tsvector|| coalesce(e.title,'')::tsvector||to_tsvector(et.schema::text)||setweight(to_tsvector((ed.data#>> '{event_details}')::text), 'A')
         FROM activity_event e join activity_eventtype et on e.event_type_id = et.id join activity_eventdetails ed on e.id = ed.event_id
         on conflict do nothing;
     ELSIF (TG_OP = 'UPDATE') THEN
@@ -39,7 +39,7 @@ begin
         et.display::tsvector||
         coalesce(e.title,'')::tsvector||
         to_tsvector(et.schema::text)||
-        to_tsvector(ed.data::text)
+        setweight(to_tsvector((ed.data#>> '{event_details}')::text), 'A')
         from activity_event e, activity_eventtype et, activity_eventdetails ed 
         where e.event_type_id = et.id and ed.event_id = e.id and e.id = ts.event_id;
     END IF;
