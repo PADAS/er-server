@@ -21,11 +21,13 @@ def warm_imagefilecontent(self, imagefile_content_id):
             rendition_key_set='default',
             image_attr='file'
         )
-        print('warmed images.')
+
         num_created, failed_to_create = warmer.warm()
         logger.info('Warmed images for imagefile_content_id=%s', imagefile_content_id)
 
-        imagefile_rendered.send(sender=None, usercontent_id=instance.id)
+        # If any images have been created, signal receivers.
+        if num_created:
+            imagefile_rendered.send(sender=None, usercontent_id=instance.id)
 
     except Exception as e:
        logger.exception('Failed when warming images for imagefile_content_id {}'.format(imagefile_content_id))
