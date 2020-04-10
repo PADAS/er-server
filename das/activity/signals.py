@@ -6,7 +6,7 @@ from django.dispatch import receiver
 
 from activity.models import Event, EventPhoto, EventFile
 from das_server import celery, pubsub
-from usercontent.tasks import thumbnails_verified
+from usercontent.tasks import imagefile_rendered
 
 logger = logging.getLogger(__name__)
 
@@ -47,10 +47,9 @@ def delete_EventPhoto_products(sender, instance, **kwargs):
     instance.image.delete_all_created_images()
 
 
-def send_event_thumbnail_update(sender, file_id, **kwargs):
-    event = Event.objects.filter(file__usercontent_id=file_id)
-    pubsub.publish(
-        {'event_id': str(event.id)},
-        'das.event.update')
+def send_event_thumbnail_update(sender, usercontent_id, **kwargs):
+    for event in Event.objects.filter(file__usercontent_id=usercontent_id):
+        pubsub.publish(
+            {'event_id': str(event.id)}, 'das.event.update')
 
-thumbnails_verified.connect(send_event_thumbnail_update)
+imagefile_rendered.connect(send_event_thumbnail_update)
