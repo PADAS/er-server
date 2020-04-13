@@ -19,6 +19,8 @@ resource "template_dir" "deployments" {
     API_ENDPOINT                    = var.api_endpoint
     API_HOST                        = var.api_host
     API_PORT                        = var.api_port
+    AWS_ACCESS_KEY_ID               = data.vault_generic_secret.aws_metrics_credentials.data.aws_access_key_id
+    AWS_SECRET_ACCESS_KEY           = data.vault_generic_secret.aws_metrics_credentials.data.aws_secret_access_key
     CONFIG_CONTAINER                = var.config_container
     DB_HOST                         = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_private_ip
     DB_NAME                         = var.db_name
