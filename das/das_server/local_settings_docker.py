@@ -129,3 +129,5 @@ if DEV:
         "SHOW_TOOLBAR_CALLBACK": lambda x: True,
     }
 
+GFW_CLUSTER_RADIUS = env.bool('GFW_CLUSTER_RADIUS', 5)
+
