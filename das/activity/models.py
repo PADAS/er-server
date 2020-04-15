@@ -423,21 +423,19 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             return queryset.filter(filter_).distinct()
 
         if len(searchtext.split()) > 1:
-            split_words = searchtext.split()
-            word_count = len(split_words)
-            initial = '{}:* & {}:*'
-            add = '& {}:*'
-            const = 2
-            fmt = initial+add*(word_count-const)
-            searchtext = fmt.format(*split_words)
+            searchtext = ':* & '.join(searchtext.split()) + ':*'
         else:
-            searchtext = '{}:*'.format(searchtext)
+            searchtext = f'{searchtext}:*'
 
         queryset = queryset.extra(tables=['activity_tsvectormodel'],
+                                  select={'rank': 'ts_rank_cd(activity_tsvectormodel.tsvector_event, %s)'},
                                   where=['activity_tsvectormodel.tsvector_event @@ to_tsquery(%s) OR '
                                          'activity_tsvectormodel.tsvector_event_note @@ to_tsquery(%s)',
                                          'activity_tsvectormodel.event_id=activity_event.id'],
+                                  order_by=['-rank'],
+                                  select_params=[searchtext],
                                   params=[searchtext, searchtext])
+
         return queryset.distinct()
 
     # def by_date_range(self,
