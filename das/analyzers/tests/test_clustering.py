@@ -9,7 +9,6 @@ MIN_CLUSTER_SIZE = 1
 
 
 class TestClustering(TestCase):
-
     def test_cluster_deforestation_alerts(self):
         clustered_alerts = cluster_alerts(GFW_DEFORESTATION_ALERTS_DATA, CLUSTER_RADIUS, MIN_CLUSTER_SIZE)
         self.assertLess(len(clustered_alerts), len(GFW_DEFORESTATION_ALERTS_DATA))

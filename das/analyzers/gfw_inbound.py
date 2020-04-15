@@ -57,6 +57,7 @@ class FireAlertSampleDownloaded(serializers.Serializer):
     bright_ti5 = serializers.FloatField()
     frp = serializers.FloatField()
     daynight = serializers.CharField()
+    num_clustered_alerts = serializers.IntegerField()
 
 
 class AlertSample(serializers.Serializer):
@@ -200,6 +201,11 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
         latitude = deserialized_sample.validated_data.get('latitude')
         longitude = deserialized_sample.validated_data.get('longitude')
         time = pytz.utc.localize(datetime.strptime(f'{julian_day}{year}', '%j%Y'))
+
+    num_clustered_alerts = deserialized_sample.validated_data.get('num_clustered_alerts')
+
+    common_event_fields['event_details'][
+        'num_clustered_alerts'] = num_clustered_alerts
 
     event_fields = {
         **common_event_fields,
