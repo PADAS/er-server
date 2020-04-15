@@ -422,10 +422,7 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             filter_ = Q(serial_number_text__startswith=searchtext)
             return queryset.filter(filter_).distinct()
 
-        if len(searchtext.split()) > 1:
-            searchtext = ':* & '.join(searchtext.split()) + ':*'
-        else:
-            searchtext = f'{searchtext}:*'
+        searchtext = ':* & '.join(searchtext.split()) + ':*'
 
         queryset = queryset.extra(tables=['activity_tsvectormodel'],
                                   select={'rank': 'ts_rank_cd(activity_tsvectormodel.tsvector_event, %s)'},
