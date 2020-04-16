@@ -70,7 +70,8 @@ def analyze_subject(subject_id):
         subject = Subject.objects.get(id=subject_id, is_active=True)
     except Subject.DoesNotExist:
         logger.warning(
-            'No active Subject found by ID in analyze_subject. id=%s', subject_id)
+            'No active Subject found by ID in analyze_subject. id=%s',
+            subject_id)
 
     if subject:
         logger.info('Running analyzers for subject: %s', subject)
@@ -83,7 +84,8 @@ def analyze_subject(subject_id):
 
             except InsufficientDataAnalyzerException:
                 logger.warning(
-                    'insufficient observations exist to support analyzer {}'.format(analyzer))
+                    'insufficient observations exist to support analyzer {}'.format(
+                        analyzer))
             except Exception:
                 logger.exception(
                     'Programming error in analyzer. analyzer=%s', analyzer)
@@ -91,7 +93,6 @@ def analyze_subject(subject_id):
 
 @celery.app.task()
 def annotate_observations_for_subject(subject_id):
-
     logger.debug('Annotating observations for subject: %s', str(subject_id))
 
     try:
@@ -102,13 +103,13 @@ def annotate_observations_for_subject(subject_id):
 
     except Subject.DoesNotExist:
         logger.warning(
-            'Unable to run annotation for subject ID: %s, because it does not exist.', subject_id)
+            'Unable to run annotation for subject ID: %s, because it does not exist.',
+            subject_id)
         return
 
 
 @celery.app.task()
 def handle_observation(observation_id):
-
     logger.debug('Handling observation: %s', observation_id)
 
     subjects = Subject.objects.get_subjects_from_observation_id(
@@ -116,7 +117,8 @@ def handle_observation(observation_id):
 
     if not subjects:
         logger.debug(
-            'Handling observation %s, but it has no associated subject.', observation_id)
+            'Handling observation %s, but it has no associated subject.',
+            observation_id)
 
     for subject in subjects:
         subject_id = subject['id']
@@ -131,28 +133,196 @@ def handle_observation(observation_id):
 def download_gfw_alerts(self, download_url, common_event_fields, user_id):
     try:
         connect_timeout, read_timeout = 3, 30
-        logger.info('Processing GFW payload for %s. Downloading from: %s', common_event_fields.get('event_type'),
+        logger.info('Processing GFW payload for %s. Downloading from: %s',
+                    common_event_fields.get('event_type'),
                     download_url)
-        resp = requests.get(url=download_url, timeout=(connect_timeout, read_timeout))
+        resp = requests.get(url=download_url,
+                            timeout=(connect_timeout, read_timeout))
     except Timeout as tex:
         # TODO: revisit to figure out other failures that should be retried.
-        logger.exception('Failed downloading GFW alert data for url: %s', download_url,
+        logger.exception('Failed downloading GFW alert data for url: %s',
+                         download_url,
                          extra={'Exception': tex})
         self.retry(countdown=60)
     except Exception as ex:
-        logger.exception('Failed downloading GFW alert data for url: %s', download_url,
+        logger.exception('Failed downloading GFW alert data for url: %s',
+                         download_url,
                          extra={'Exception': ex})
     else:
         if resp and resp.status_code == status.HTTP_200_OK:
             gfw_alerts_payload = json.loads(resp.text)
-            data_field = 'data' if common_event_fields.get('event_type') == GFWGladEventTypeSpec.value else 'rows'
+            gfw_alerts_payload = {
+                "data": [
+                    {
+                        "year": 2019,
+                        "long": 22.246625000000066,
+                        "lat": -1.3636250000000303,
+                        "julian_day": 183,
+                        "confidence": 3
+                    },
+                    {
+                        "year": 2019,
+                        "long": 22.402625000000064,
+                        "lat": -1.3696250000000303,
+                        "julian_day": 183,
+                        "confidence": 3
+                    },
+                    {
+                        "year": 2019,
+                        "long": 22.251375000000063,
+                        "lat": -1.3943750000000301,
+                        "julian_day": 183,
+                        "confidence": 3
+                    },
+                    {
+                        "year": 2019,
+                        "long": 22.479625000000063,
+                        "lat": -1.3998750000000302,
+                        "julian_day": 183,
+                        "confidence": 3
+                    },
+                    {
+                        "year": 2019,
+                        "long": 22.475875000000066,
+                        "lat": -1.4003750000000301,
+                        "julian_day": 183,
+                        "confidence": 3
+                    },
+                    {
+                        "year": 2019,
+                        "long": 22.199125000000063,
+                        "lat": -1.4016250000000303,
+                        "julian_day": 183,
+                        "confidence": 3
+                    },
+                    {
+                        "year": 2019,
+                        "long": 22.198625000000064,
+                        "lat": -1.4018750000000302,
+                        "julian_day": 183,
+                        "confidence": 3
+                    },
+                    {
+                        "year": 2019,
+                        "long": 22.343125000000065,
+                        "lat": -1.4088750000000303,
+                        "julian_day": 183,
+                        "confidence": 3
+                    },
+                    {
+                        "year": 2019,
+                        "long": 22.343375000000066,
+                        "lat": -1.4088750000000303,
+                        "julian_day": 183,
+                        "confidence": 3
+                    },
+                    {
+                        "year": 2019,
+                        "long": 22.273375000000065,
+                        "lat": -1.4103750000000301,
+                        "julian_day": 183,
+                        "confidence": 3
+                    },
+                    {
+                        "year": 2019,
+                        "long": 22.340875000000064,
+                        "lat": -1.4136250000000303,
+                        "julian_day": 183,
+                        "confidence": 3
+                    },
+                    {
+                        "year": 2019,
+                        "long": 22.260625000000065,
+                        "lat": -1.4181250000000303,
+                        "julian_day": 183,
+                        "confidence": 3
+                    },
+                    {
+                        "year": 2019,
+                        "long": 22.487125000000063,
+                        "lat": -1.4271250000000302,
+                        "julian_day": 183,
+                        "confidence": 3
+                    },
+                    {
+                        "year": 2019,
+                        "long": 22.299375000000065,
+                        "lat": -1.4521250000000303,
+                        "julian_day": 183,
+                        "confidence": 3
+                    },
+                    {
+                        "year": 2019,
+                        "long": 22.299625000000063,
+                        "lat": -1.4521250000000303,
+                        "julian_day": 183,
+                        "confidence": 3
+                    },
+                    {
+                        "year": 2019,
+                        "long": 22.299375000000065,
+                        "lat": -1.4523750000000302,
+                        "julian_day": 183,
+                        "confidence": 3
+                    },
+                    {
+                        "year": 2019,
+                        "long": 22.299625000000063,
+                        "lat": -1.4523750000000302,
+                        "julian_day": 183,
+                        "confidence": 3
+                    },
+                    {
+                        "year": 2019,
+                        "long": 22.376875000000066,
+                        "lat": -1.4533750000000303,
+                        "julian_day": 183,
+                        "confidence": 3
+                    },
+                    {
+                        "year": 2019,
+                        "long": 22.377625000000066,
+                        "lat": -1.4533750000000303,
+                        "julian_day": 183,
+                        "confidence": 3
+                    },
+                    {
+                        "year": 2019,
+                        "long": 22.463875000000066,
+                        "lat": -1.4723750000000302,
+                        "julian_day": 183,
+                        "confidence": 3
+                    },
+                    {
+                        "year": 2019,
+                        "long": 22.463875000000066,
+                        "lat": -1.4726250000000303,
+                        "julian_day": 183,
+                        "confidence": 3
+                    },
+                    {
+                        "year": 2019,
+                        "long": 22.070625000000064,
+                        "lat": -2.0513750000000304,
+                        "julian_day": 183,
+                        "confidence": 3
+                    }
+                ]
+            }
+            data_field = 'data' if common_event_fields.get(
+                'event_type') == GFWGladEventTypeSpec.value else 'rows'
             if gfw_alerts_payload.get(data_field) is not None:
                 alert_data = gfw_alerts_payload.get(data_field)
-                logger.info('Valid response from GFW. %d alerts received.', len(alert_data))
-                logger.info('First alert payload %s', alert_data[0]) if len(alert_data) else None
-                gfw_inbound.process_downloaded_alerts(alert_data, common_event_fields, user_id)
+                logger.info('Valid response from GFW. %d alerts received.',
+                            len(alert_data))
+                logger.info('First alert payload %s', alert_data[0]) if len(
+                    alert_data) else None
+                gfw_inbound.process_downloaded_alerts(alert_data,
+                                                      common_event_fields,
+                                                      user_id)
             else:
                 logger.error('GFW API returned error: %s', gfw_alerts_payload)
         else:
-            logger.error('GFW Alerts cannot be downloaded. Result is %s, \ndownload url is: %s\n Response is: %s',
-                         resp.status_code, download_url, resp.text)
+            logger.error(
+                'GFW Alerts cannot be downloaded. Result is %s, \ndownload url is: %s\n Response is: %s',
+                resp.status_code, download_url, resp.text)

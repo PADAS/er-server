@@ -260,7 +260,7 @@ def persist_event(event_fields, request, counts):
                                  dispatch_uid=(
                                      __name__, request, event_fields),
                                  weak=False)
-        evt_serializer.create(evt_serializer.validated_data)
+        evt = evt_serializer.create(evt_serializer.validated_data)
         counts[PROCESSED_COUNTER] = counts[PROCESSED_COUNTER] + 1
         signals.pre_save.disconnect(
             dispatch_uid=(__name__, request, event_fields))
