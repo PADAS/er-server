@@ -70,8 +70,7 @@ def analyze_subject(subject_id):
         subject = Subject.objects.get(id=subject_id, is_active=True)
     except Subject.DoesNotExist:
         logger.warning(
-            'No active Subject found by ID in analyze_subject. id=%s',
-            subject_id)
+            'No active Subject found by ID in analyze_subject. id=%s', subject_id)
 
     if subject:
         logger.info('Running analyzers for subject: %s', subject)
@@ -84,8 +83,7 @@ def analyze_subject(subject_id):
 
             except InsufficientDataAnalyzerException:
                 logger.warning(
-                    'insufficient observations exist to support analyzer {}'.format(
-                        analyzer))
+                    'insufficient observations exist to support analyzer {}'.format(analyzer))
             except Exception:
                 logger.exception(
                     'Programming error in analyzer. analyzer=%s', analyzer)
@@ -93,6 +91,7 @@ def analyze_subject(subject_id):
 
 @celery.app.task()
 def annotate_observations_for_subject(subject_id):
+
     logger.debug('Annotating observations for subject: %s', str(subject_id))
 
     try:
@@ -103,13 +102,13 @@ def annotate_observations_for_subject(subject_id):
 
     except Subject.DoesNotExist:
         logger.warning(
-            'Unable to run annotation for subject ID: %s, because it does not exist.',
-            subject_id)
+            'Unable to run annotation for subject ID: %s, because it does not exist.', subject_id)
         return
 
 
 @celery.app.task()
 def handle_observation(observation_id):
+
     logger.debug('Handling observation: %s', observation_id)
 
     subjects = Subject.objects.get_subjects_from_observation_id(
@@ -117,8 +116,7 @@ def handle_observation(observation_id):
 
     if not subjects:
         logger.debug(
-            'Handling observation %s, but it has no associated subject.',
-            observation_id)
+            'Handling observation %s, but it has no associated subject.', observation_id)
 
     for subject in subjects:
         subject_id = subject['id']
@@ -133,38 +131,28 @@ def handle_observation(observation_id):
 def download_gfw_alerts(self, download_url, common_event_fields, user_id):
     try:
         connect_timeout, read_timeout = 3, 30
-        logger.info('Processing GFW payload for %s. Downloading from: %s',
-                    common_event_fields.get('event_type'),
+        logger.info('Processing GFW payload for %s. Downloading from: %s', common_event_fields.get('event_type'),
                     download_url)
-        resp = requests.get(url=download_url,
-                            timeout=(connect_timeout, read_timeout))
+        resp = requests.get(url=download_url, timeout=(connect_timeout, read_timeout))
     except Timeout as tex:
         # TODO: revisit to figure out other failures that should be retried.
-        logger.exception('Failed downloading GFW alert data for url: %s',
-                         download_url,
+        logger.exception('Failed downloading GFW alert data for url: %s', download_url,
                          extra={'Exception': tex})
         self.retry(countdown=60)
     except Exception as ex:
-        logger.exception('Failed downloading GFW alert data for url: %s',
-                         download_url,
+        logger.exception('Failed downloading GFW alert data for url: %s', download_url,
                          extra={'Exception': ex})
     else:
         if resp and resp.status_code == status.HTTP_200_OK:
             gfw_alerts_payload = json.loads(resp.text)
-            data_field = 'data' if common_event_fields.get(
-                'event_type') == GFWGladEventTypeSpec.value else 'rows'
+            data_field = 'data' if common_event_fields.get('event_type') == GFWGladEventTypeSpec.value else 'rows'
             if gfw_alerts_payload.get(data_field) is not None:
                 alert_data = gfw_alerts_payload.get(data_field)
-                logger.info('Valid response from GFW. %d alerts received.',
-                            len(alert_data))
-                logger.info('First alert payload %s', alert_data[0]) if len(
-                    alert_data) else None
-                gfw_inbound.process_downloaded_alerts(alert_data,
-                                                      common_event_fields,
-                                                      user_id)
+                logger.info('Valid response from GFW. %d alerts received.', len(alert_data))
+                logger.info('First alert payload %s', alert_data[0]) if len(alert_data) else None
+                gfw_inbound.process_downloaded_alerts(alert_data, common_event_fields, user_id)
             else:
                 logger.error('GFW API returned error: %s', gfw_alerts_payload)
         else:
-            logger.error(
-                'GFW Alerts cannot be downloaded. Result is %s, \ndownload url is: %s\n Response is: %s',
+            logger.error('GFW Alerts cannot be downloaded. Result is %s, \ndownload url is: %s\n Response is: %s',
                 resp.status_code, download_url, resp.text)
