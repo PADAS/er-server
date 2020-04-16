@@ -45,6 +45,7 @@ locals {
     "apntraining"            = "prod1"
     "gile"                   = "prod1"
     "dwnp"                   = "prod1"
+    "parcw"                  = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
