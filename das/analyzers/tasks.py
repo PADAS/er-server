@@ -136,12 +136,10 @@ def download_gfw_alerts(self, download_url, common_event_fields, user_id):
                         download_url)
             resp = requests.get(url=download_url, timeout=(connect_timeout, read_timeout))
         else:
-            # To avoid status: 414 [URL too long] we will use POST instead of GET to retrieve the alerts.
-            # and post query param as data.
             base_url, param = download_url['URL'], download_url['param']
+            download_url = generate_viirs_url(sql_str=param['q'])
             logger.info('Processing GFW payload for %s. Downloading from: %s', common_event_fields.get('event_type'),
-                        generate_viirs_url(sql_str=param['q']))
-
+                        download_url)
             resp = requests.post(url=base_url, data=param, timeout=(connect_timeout, read_timeout))
     except Timeout as tex:
         # TODO: revisit to figure out other failures that should be retried.
