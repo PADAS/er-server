@@ -12,7 +12,7 @@ from django.utils.translation import ugettext_lazy as _
 import utils
 from activity.alerting.businessrules import render_event, \
     resolve_event_revisions, infer_event_state
-from activity.models import Event, NotificationMethod, AlertRule, EventNotification
+from activity.models import Event, NotificationMethod, AlertRule, EventNotification, NOTIFICATION_METHOD_EMAIL, NOTIFICATION_METHOD_WHATSAPP, NOTIFICATION_METHOD_SMS
 from reports.distribution import send_report
 
 import sendsms.api
@@ -72,7 +72,7 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
         logger.debug(f'Update Event Fields: {json.dumps(updated_event_fields, indent=2, default=str)}')
         logger.debug(f'Update Event Details Fields: {json.dumps(updated_event_details_fields, indent=2, default=str)}')
 
-    if notification_method.method == 'email':
+    if notification_method.method == NOTIFICATION_METHOD_EMAIL:
 
         email_body = render_to_string('eventalert.html', report_context)
 
@@ -92,7 +92,7 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
                                          value=notification_method.value,
                                          owner=notification_method.owner)
 
-    elif notification_method.method.lower() == 'sms':
+    elif notification_method.method.lower() == NOTIFICATION_METHOD_SMS:
         logger.debug(f"Sending sms alert {event_id} to {notification_method.value}")
         sms_body = render_to_string('eventalert.sms', report_context)
 
@@ -106,7 +106,7 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
                                          value=notification_method.value,
                                          owner=notification_method.owner)
 
-    elif notification_method.method.lower() == 'whatsapp':
+    elif notification_method.method.lower() == NOTIFICATION_METHOD_WHATSAPP:
         logger.debug(f"Sending whatsapp alert {event_id} to {notification_method.value}")
         whatsapp_body = render_to_string('eventalert.whatsapp', report_context)
 

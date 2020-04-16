@@ -1262,11 +1262,15 @@ class EventsourceEvent(TimestampedModel):
 class NotificationMethodManager(models.Manager):
     pass
 
+NOTIFICATION_METHOD_EMAIL = "email"
+NOTIFICATION_METHOD_SMS = "sms"
+NOTIFICATION_METHOD_WHATSAPP = "whatsapp"
+
 
 NOTIFICATION_METHOD_CHOICES = (
-    ('email', _('Email')),
-    ('sms', _('SMS')),
-    ('whatsapp', _('WhatsApp')),
+    (NOTIFICATION_METHOD_EMAIL, _('Email')),
+    (NOTIFICATION_METHOD_SMS, _('SMS')),
+    (NOTIFICATION_METHOD_WHATSAPP, _('WhatsApp')),
 )
 
 
