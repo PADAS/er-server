@@ -567,8 +567,13 @@ class EventsExportView(views.APIView):
         state = query_params.getlist('state', None)
         if state:
             queryset = queryset.by_state(state)
-        for obj in queryset.annotate(child_event_ids=ArrayAgg('out_relationship__to_event')):
-            child_events = Event.objects.filter(id__in=obj.child_event_ids)
+
+        contained_event_ids = queryset.filter(event_type__is_collection=True) \
+            .aggregate(child_event_ids=ArrayAgg('out_relationship__to_event')) \
+            .get('child_event_ids')
+
+        if contained_event_ids:
+            child_events = Event.objects.filter(id__in=contained_event_ids)
             queryset = queryset | child_events.distinct()
 
         return queryset.order_by('event_type_id')
