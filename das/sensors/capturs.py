@@ -33,7 +33,8 @@ class CaptursAdapter:
         """
         obs = CaptursObservationSerializer(data=dict(
             device_id=data.pop('device'),
-            recorded_at=datetime.fromtimestamp(int(data.get('timestamp')), tz=pytz.UTC),
+            recorded_at=datetime.fromtimestamp(
+                int(data.pop('timestamp')), tz=pytz.UTC),
             lat=data.pop('latitude'),
             lon=data.pop('longitude'),
             additional=data
@@ -67,15 +68,14 @@ class CaptursPushHandler:
 
     @classmethod
     def post(cls, request, sensor_type, provider_key):
-        pos_data = request.data.get('position')
+        pos_data = request.data.get('position') or request.data.get('event')
         observations_count = 0
 
         for data in pos_data:
-
-            # Validate input
             serializer = CaptursAdapter.create_capturs_obs(data)
             if not serializer.is_valid():
-                logger.error(f'Invalid observation records {serializer.errors}')
+                logger.error(
+                    f'Invalid observation records {serializer.errors}')
                 return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
             capturs_obs = serializer.data
@@ -95,18 +95,8 @@ class CaptursPushHandler:
                 logger.info(f'Ignoring duplicate observation from {src}')
             else:
                 # create observations
-                observation = CaptursAdapter.create_das_obs(capturs_obs)
-                observation['source'] = str(src.id)
-
-                validator = ObservationSerializer(data=observation)
-                if validator.is_valid():
-                    validator.save()
-                    logger.info(f'New observation created from source {src}')
-                    observations_count += 1
-                else:
-                    logger.error(f'Invalid observation records {validator.errors}')
-                    return Response(data=validator.errors,
-                                    status=status.HTTP_400_BAD_REQUEST)
+                observations_count = cls.create_observations(
+                    capturs_obs, src, data, observations_count)
 
         if observations_count > 0:
             return Response(
@@ -117,3 +107,29 @@ class CaptursPushHandler:
             return Response(
                 data=dict(message='Ignored duplicate observations'),
                 status=status.HTTP_200_OK)
+
+    @classmethod
+    def create_observations(cls, capturs_obs, src, data, count):
+        observation = CaptursAdapter.create_das_obs(capturs_obs)
+        observation['source'] = str(src.id)
+
+        # Check existing observation from event's one click message - referenced using seqEvent
+        event_obs = Observation.objects.filter(
+            additional__icontains=f'"seqEvent": {data.get("seqEvent")}')
+
+        if event_obs:
+            validator = ObservationSerializer(
+                event_obs.first(), data=observation, partial=True)
+        else:
+            validator = ObservationSerializer(data=observation)
+
+        if validator.is_valid():
+            validator.save()
+            logger.info(
+                f'New observation created from source {src}')
+            return count+1
+        else:
+            logger.error(
+                f'Invalid observation records {validator.errors}')
+            return Response(data=validator.errors,
+                            status=status.HTTP_400_BAD_REQUEST)
