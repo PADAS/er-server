@@ -98,8 +98,21 @@ class CaptursPushHandler:
                     logger.info(f'Ignoring duplicate observation from {src}')
                 else:
                     # create observations
-                    observations_count = cls.create_observations(
-                        capturs_obs, src, data, observations_count)
+                    observation = CaptursAdapter.create_das_obs(capturs_obs)
+                    observation['source'] = str(src.id)
+
+                    validator = ObservationSerializer(data=observation)
+
+                    if validator.is_valid():
+                        validator.save()
+                        logger.info(
+                            f'New observation created from source {src}')
+                        observations_count += 1
+                    else:
+                        logger.error(
+                            f'Invalid observation records {validator.errors}')
+                        return Response(data=validator.errors,
+                                        status=status.HTTP_400_BAD_REQUEST)
 
         if observations_count > 0:
             return Response(
@@ -108,29 +121,3 @@ class CaptursPushHandler:
 
         else:
             return Response(data={}, status=status.HTTP_200_OK)
-
-    @classmethod
-    def create_observations(cls, capturs_obs, src, data, count):
-        observation = CaptursAdapter.create_das_obs(capturs_obs)
-        observation['source'] = str(src.id)
-
-        # Check existing observation from event's one click message - referenced using seqEvent
-        event_obs = Observation.objects.filter(
-            additional__icontains=f'"seqEvent": {data.get("seqEvent")}')
-
-        if event_obs:
-            validator = ObservationSerializer(
-                event_obs.first(), data=observation, partial=True)
-        else:
-            validator = ObservationSerializer(data=observation)
-
-        if validator.is_valid():
-            validator.save()
-            logger.info(
-                f'New observation created from source {src}')
-            return count+1
-        else:
-            logger.error(
-                f'Invalid observation records {validator.errors}')
-            return Response(data=validator.errors,
-                            status=status.HTTP_400_BAD_REQUEST)

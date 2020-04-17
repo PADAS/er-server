@@ -62,3 +62,12 @@ class CaptursPushHandlerTest(BaseAPITest):
         self.test_data['position'][0]['latitude'] = "errored"
         response = self._post_capturs_data(json.dumps(self.test_data))
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_event_observation_with_unset_position_skipped_data(self):
+        data = self.test_data['position'][0]
+        data['latitude'], data['longitude'] = 0, 0
+        response = self._post_capturs_data(json.dumps(self.test_data))
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # Only one observation created, 0,0 position skipped
+        self.assertEqual(Observation.objects.count(), 1)
