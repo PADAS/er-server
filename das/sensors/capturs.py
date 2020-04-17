@@ -72,31 +72,34 @@ class CaptursPushHandler:
         observations_count = 0
 
         for data in pos_data:
-            serializer = CaptursAdapter.create_capturs_obs(data)
-            if not serializer.is_valid():
-                logger.error(
-                    f'Invalid observation records {serializer.errors}')
-                return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-            capturs_obs = serializer.data
-            capturs_obs['name'] = capturs_obs['device_id']
-
-            # ensure source
-            src = Source.objects.ensure_source(
-                provider=provider_key,
-                manufacturer_id=capturs_obs['device_id'],
-                subject={
-                    'subject_subtype_id': DAS_SUBJECT_SUBTYPE,
-                    'name': capturs_obs['device_id']
-                })
-
-            if Observation.objects.filter(recorded_at=capturs_obs['recorded_at'],
-                                          source=src).exists():
-                logger.info(f'Ignoring duplicate observation from {src}')
+            if data['latitude'] == 0 and data['longitude'] == 0:
+                logger.info(f'skipped observation, position data not ready')
             else:
-                # create observations
-                observations_count = cls.create_observations(
-                    capturs_obs, src, data, observations_count)
+                serializer = CaptursAdapter.create_capturs_obs(data)
+                if not serializer.is_valid():
+                    logger.error(
+                        f'Invalid observation records {serializer.errors}')
+                    return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+                capturs_obs = serializer.data
+                capturs_obs['name'] = capturs_obs['device_id']
+
+                # ensure source
+                src = Source.objects.ensure_source(
+                    provider=provider_key,
+                    manufacturer_id=capturs_obs['device_id'],
+                    subject={
+                        'subject_subtype_id': DAS_SUBJECT_SUBTYPE,
+                        'name': capturs_obs['device_id']
+                    })
+
+                if Observation.objects.filter(recorded_at=capturs_obs['recorded_at'],
+                                              source=src).exists():
+                    logger.info(f'Ignoring duplicate observation from {src}')
+                else:
+                    # create observations
+                    observations_count = cls.create_observations(
+                        capturs_obs, src, data, observations_count)
 
         if observations_count > 0:
             return Response(
@@ -104,9 +107,7 @@ class CaptursPushHandler:
                 status=status.HTTP_201_CREATED)
 
         else:
-            return Response(
-                data=dict(message='Ignored duplicate observations'),
-                status=status.HTTP_200_OK)
+            return Response(data={}, status=status.HTTP_200_OK)
 
     @classmethod
     def create_observations(cls, capturs_obs, src, data, count):

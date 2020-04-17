@@ -56,8 +56,7 @@ class CaptursPushHandlerTest(BaseAPITest):
         self._post_capturs_data(json.dumps(self.test_data))
         response = self._post_capturs_data(json.dumps(self.test_data))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            response.data, {'message': 'Ignored duplicate observations'})
+        self.assertEqual(response.data, {})
 
     def test_invalid_observation_data(self):
         self.test_data['position'][0]['latitude'] = "errored"
