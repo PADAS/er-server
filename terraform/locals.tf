@@ -51,7 +51,7 @@ locals {
     "bazaruto"               = "prod1"
     "murchisonfalls"         = "prod1"
     "nsumbu"                 = "prod1"
-    "liuwaplain"             = "prod1"
+    "liuwa"                  = "prod1"
     "spaceforgiants"         = "prod1"
     "tswalu"                 = "prod1"
     "niassa"                 = "prod1"
