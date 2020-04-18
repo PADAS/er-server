@@ -69,7 +69,8 @@ class CaptursPushHandler:
     @classmethod
     def post(cls, request, sensor_type, provider_key):
         pos_data = request.data.get('position') or request.data.get('event')
-        observations_count = 0
+        cls.observations_count = 0
+        cls.provider_key = provider_key
 
         for data in pos_data:
             if data['latitude'] == 0 and data['longitude'] == 0:
@@ -81,43 +82,53 @@ class CaptursPushHandler:
                         f'Invalid observation records {serializer.errors}')
                     return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-                capturs_obs = serializer.data
-                capturs_obs['name'] = capturs_obs['device_id']
-
                 # ensure source
-                src = Source.objects.ensure_source(
-                    provider=provider_key,
-                    manufacturer_id=capturs_obs['device_id'],
-                    subject={
-                        'subject_subtype_id': DAS_SUBJECT_SUBTYPE,
-                        'name': capturs_obs['device_id']
-                    })
+                src = cls.ensure_source(serializer.data)
 
-                if Observation.objects.filter(recorded_at=capturs_obs['recorded_at'],
-                                              source=src).exists():
-                    logger.info(f'Ignoring duplicate observation from {src}')
-                else:
-                    # create observations
-                    observation = CaptursAdapter.create_das_obs(capturs_obs)
-                    observation['source'] = str(src.id)
+                cls.create_observations(src, serializer.data)
 
-                    validator = ObservationSerializer(data=observation)
-
-                    if validator.is_valid():
-                        validator.save()
-                        logger.info(
-                            f'New observation created from source {src}')
-                        observations_count += 1
-                    else:
-                        logger.error(
-                            f'Invalid observation records {validator.errors}')
-                        return Response(data=validator.errors,
-                                        status=status.HTTP_400_BAD_REQUEST)
-
-        if observations_count > 0:
+        if cls.observations_count:
             return Response(
-                data={"message": f"{observations_count} new observations added"},
+                data={"message": f"{cls.observations_count} new observations added"},
                 status=status.HTTP_201_CREATED)
 
         else:
             return Response(data={}, status=status.HTTP_200_OK)
+
+    @classmethod
+    def ensure_source(cls, capturs_obs):
+        """ Get or create provider, source and subject """
+
+        capturs_obs['name'] = capturs_obs['device_id']
+        src = Source.objects.ensure_source(
+            provider=cls.provider_key,
+            manufacturer_id=capturs_obs['device_id'],
+            subject={
+                'subject_subtype_id': DAS_SUBJECT_SUBTYPE,
+                'name': capturs_obs['device_id']
+            })
+        return src
+
+    @classmethod
+    def create_observations(cls, src, capturs_obs):
+        """ Create an observation, unless its a duplicate """
+
+        if Observation.objects.filter(recorded_at=capturs_obs['recorded_at'],
+                                      source=src).exists():
+            logger.info(f'Ignoring duplicate observation from {src}')
+        else:
+            observation = CaptursAdapter.create_das_obs(capturs_obs)
+            observation['source'] = str(src.id)
+
+            validator = ObservationSerializer(data=observation)
+
+            if validator.is_valid():
+                validator.save()
+                logger.info(
+                    f'New observation created from source {src}')
+                cls.observations_count += 1
+            else:
+                logger.error(
+                    f'Invalid observation records {validator.errors}')
+                return Response(data=validator.errors,
+                                status=status.HTTP_400_BAD_REQUEST)
