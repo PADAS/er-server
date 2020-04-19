@@ -252,7 +252,7 @@ pyparsing==2.4.0          # via -r ./requirements.txt, matplotlib, packaging, sn
 pyproj==1.9.5.1           # via -r ./requirements.txt, geopandas
 pyrsistent==0.15.7        # via -r ./requirements.txt, jsonschema
 pyshp==1.2.12             # via -r ./requirements.txt, arcgis
-pytest-django==3.8.0      # via -r requirements-dev.in
+pytest-django==3.9.0      # via -r requirements-dev.in
 pytest-pythonpath==0.7.3  # via -r requirements-dev.in
 pytest==5.4.1             # via -r requirements-dev.in, pytest-django, pytest-pythonpath
 python-dateutil==2.8.1    # via -r ./requirements.txt, adal, azure-cosmosdb-table, azure-storage-common, botocore, faker, jupyter-client, matplotlib, pandas
