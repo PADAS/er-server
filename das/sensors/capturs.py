@@ -132,5 +132,3 @@ class CaptursPushHandler:
             else:
                 logger.error(
                     f'Invalid observation records {validator.errors}')
-                return Response(data=validator.errors,
-                                status=status.HTTP_400_BAD_REQUEST)
