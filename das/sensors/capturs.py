@@ -27,19 +27,21 @@ class CaptursObservationSerializer(serializers.Serializer):
 
 class CaptursAdapter:
     @staticmethod
-    def create_capturs_obs(data):
+    def create_capturs_obs(obs_data):
         """
         Serialize and create capturs observation
         """
-        obs = CaptursObservationSerializer(data=dict(
-            device_id=data.pop('device'),
-            recorded_at=datetime.fromtimestamp(
-                int(data.pop('timestamp')), tz=pytz.UTC),
-            lat=data.pop('latitude'),
-            lon=data.pop('longitude'),
-            additional=data
-        ))
-        return obs
+        obs = [
+            dict(
+                device_id=data.pop('device'),
+                recorded_at=datetime.fromtimestamp(
+                    int(data.pop('timestamp')), tz=pytz.UTC),
+                lat=data.pop('latitude'),
+                lon=data.pop('longitude'),
+                additional=data
+            ) for data in obs_data]
+
+        return CaptursObservationSerializer(data=obs, many=True)
 
     @staticmethod
     def create_das_obs(capturs_obs):
@@ -72,20 +74,20 @@ class CaptursPushHandler:
         cls.observations_count = 0
         cls.provider_key = provider_key
 
-        for data in pos_data:
-            if data['latitude'] == 0 and data['longitude'] == 0:
+        # serialize received data
+        serializer = CaptursAdapter.create_capturs_obs(pos_data)
+        if not serializer.is_valid():
+            logger.error(
+                f'Invalid observation records: {serializer.errors}')
+            return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        for data in serializer.data:
+            if data['lat'] == 0 and data['lon'] == 0:
                 logger.info(f'skipped observation, position data not ready')
             else:
-                serializer = CaptursAdapter.create_capturs_obs(data)
-                if not serializer.is_valid():
-                    logger.error(
-                        f'Invalid observation records {serializer.errors}')
-                    return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
                 # ensure source
-                src = cls.ensure_source(serializer.data)
-
-                cls.create_observations(src, serializer.data)
+                src = cls.ensure_source(data)
+                cls.create_observations(src, data)
 
         if cls.observations_count:
             return Response(
