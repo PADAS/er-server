@@ -8,7 +8,7 @@ from django.urls import reverse
 import django
 from accounts.models import User
 from core.tests import BaseAPITest
-from mapping.admin import SpatialFeatureFileAdmin
+from mapping.admin import BaseSpatialFileAdmin
 from mapping.models import (FeatureSet, FeatureType, PointFeature,
                             PolygonFeature, SpatialFeature, SpatialFeatureFile,
                             SpatialFeatureType, SpatialFile)
@@ -24,7 +24,7 @@ class TestSpatialFile(BaseAPITest):
         # self.superuser = User.objects.get(username='admin')
         self.site = AdminSite()
         self.request = RequestFactory()
-        self.admin = SpatialFeatureFileAdmin(model=SpatialFeatureFile, admin_site=self.site)
+        self.admin = BaseSpatialFileAdmin(model=SpatialFeatureFile, admin_site=self.site)
         self.request = self.request.get('/admin')
 
     def test_geojson_file_upload(self):
@@ -95,7 +95,7 @@ class TestSpatialFile(BaseAPITest):
             self.assertEquals(SpatialFeature.objects.count(), 2)
 
             # Updated spatialfile on all related features
-            self.assertEquals(SpatialFeature.objects.filter(spatialfile=spatialfile).count(), 2)
+            self.assertEquals(SpatialFeature.objects.first().spatialfile.name, 'Matlamamba Lines')
             
             # update data file, new features loaded
             data2 = File(open('./mapping/tests/testdata/wells_closed_points.geojson', 'rb'))
