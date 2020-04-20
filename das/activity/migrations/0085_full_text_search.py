@@ -12,6 +12,10 @@ INDEX_TSVECTOR_EVENT = """
 create index tsvector_event_index on activity_tsvectormodel using gin(tsvector_event);
 """
 
+INDEX_TSVECTOR_EVENTNOTE = """
+create index tsvector_eventnote_index on activity_tsvectormodel using gin(tsvector_event_note);
+"""
+
 INSERT_TSVECTOR_EVENT = """
 INSERT INTO activity_tsvectormodel (event_id, tsvector_event)
 SELECT  e.id,
@@ -85,6 +89,8 @@ class Migration(migrations.Migration):
         migrations.RunSQL(ADD_TSVECTOR_COLUMNS,
                           reverse_sql=migrations.RunSQL.noop),
         migrations.RunSQL(INDEX_TSVECTOR_EVENT,
+                          reverse_sql=migrations.RunSQL.noop),
+        migrations.RunSQL(INDEX_TSVECTOR_EVENTNOTE,
                           reverse_sql=migrations.RunSQL.noop),
         migrations.RunSQL(INSERT_TSVECTOR_EVENT,
                           reverse_sql=migrations.RunSQL.noop),
