@@ -44,13 +44,6 @@ def create_viirs_downloadable_url(alert_date_begin, alert_date_end, geojson, con
     return {"URL": carto_url, "param": {"q": sql_str, "format": "json"}}
 
 
-def generate_viirs_url(sql_str):
-    url = carto_url + '?q='
-    quote_sql = urlparse.quote(sql_str)
-    url_format = f"{url}{quote_sql}&format=json"
-    return url_format
-
-
 def confidence_level_fmt(confidence_level):
     if gfw_model.HIGH == confidence_level:
         fmt = "(confidence=\'{}\')".format('high')

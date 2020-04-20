@@ -10,7 +10,7 @@ from analyzers import gfw_inbound
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.finder import get_subject_analyzers
 from analyzers.gfw_alert_schema import GFWGladEventTypeSpec
-from analyzers.gfw_utils import get_geostore_id, rebuild_glad_download_url, generate_viirs_url
+from analyzers.gfw_utils import get_geostore_id, rebuild_glad_download_url
 from analyzers.models import GlobalForestWatchSubscription as gfw_model
 from analyzers.models import ObservationAnnotator
 from das_server import celery
@@ -137,7 +137,6 @@ def download_gfw_alerts(self, download_url, common_event_fields, user_id):
             resp = requests.get(url=download_url, timeout=(connect_timeout, read_timeout))
         else:
             base_url, param = download_url['URL'], download_url['param']
-            download_url = generate_viirs_url(sql_str=param['q'])
             logger.info('Processing GFW payload for %s. Downloading from: %s', common_event_fields.get('event_type'),
                         download_url)
             resp = requests.post(url=base_url, data=param, timeout=(connect_timeout, read_timeout))
