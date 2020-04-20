@@ -137,7 +137,7 @@ def download_gfw_alerts(self, download_url, common_event_fields, user_id):
             resp = requests.get(url=download_url, timeout=(connect_timeout, read_timeout))
         else:
             base_url, param = download_url['URL'], download_url['param']
-            logger.info('Processing GFW payload for %s. Downloading from: %s', common_event_fields.get('event_type'),
+            logger.info('Processing GFW payload for %s. Downloading from query params: %s', common_event_fields.get('event_type'),
                         download_url)
             resp = requests.post(url=base_url, data=param, timeout=(connect_timeout, read_timeout))
     except Timeout as tex:
