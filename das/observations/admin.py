@@ -1005,7 +1005,7 @@ class SourceTypeFilter(admin.SimpleListFilter):
         source_types = [('trbonet', 'TRBOnet Radios')]
         for sourcetype in SOURCE_TYPES:
             source_types.append(sourcetype)
-        return source_types
+        return sorted(source_types, key=lambda item: item[1])
 
     def queryset(self, request, queryset):
         value = self.value()
