@@ -1,1 +1,1 @@
-daily_report_enabled = "true"
+daily_report_enabled = "True"
