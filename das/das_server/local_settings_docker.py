@@ -18,6 +18,18 @@ env = environ.Env(
 # specify specific envs if needed.
 environ.Env.read_env()
 
+# Let CACHES depend on settings.CELERY_ configuration.
+CACHES = {
+   'default': {
+      "BACKEND": "django_redis.cache.RedisCache",
+      "LOCATION": CELERY_BROKER_URL,
+      "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient"
+      },
+      "KEY_PREFIX": "django"
+   }
+}
+
 MEDIA_ROOT = '/user-uploads'
 MEDIA_URL = 'http://localhost:8000/media/user-uploads/'
 
