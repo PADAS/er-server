@@ -132,6 +132,7 @@ class TestEventView(BaseAPITest):
             {'text': self.notes_line1_prefix + lorem_ipsum.paragraph()},
             {'text': self.notes_line2_prefix + lorem_ipsum.paragraph()}]
         self.event_data = dict(
+            title="Test Event",
             message=lorem_ipsum.paragraph(),
             time=DateTimeField().to_representation(timezone.now()),
             provenance=Event.PC_SYSTEM,
@@ -1092,6 +1093,30 @@ class TestEventView(BaseAPITest):
         response = views.EventsExportView.as_view()(request)
 
         self.assertEqual(response.status_code, 200)
+    
+    def test_export_filter_on_incident_associated_reports(self):
+        incident_data = copy.deepcopy(self.event_data)
+        incident_data['event_type'] = 'incident_collection'
+        incident_data['title'] = 'Test incident collection'
+        incident = self.create_event(incident_data)
+    
+        contained_event = self.create_event(self.event_data)
+
+        EventRelationship.objects.add_relationship(
+            from_event=incident, to_event=contained_event,
+            type='contains')
+        url = '/activity/events/export/'
+        filter_spec = json.dumps({'text': incident_data['title']})
+        request = self.factory.get(self.api_base + url, {'filter': filter_spec})
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        report_names = [report["Title"] for report in rendered_dict[:-1]]
+
+        # 2 reports returned, Incident and contained report
+        self.assertEquals(2, len(report_names))
+        self.assertTrue(all(x in report_names for x in [incident.title,  contained_event.title]))
 
     def test_export_csv_with_line_feed(self):
 
