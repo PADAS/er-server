@@ -356,12 +356,6 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
     _recorded_at.admin_order_field = 'recorded_at'
     _recorded_at.admin_order_first_type = "desc"
 
-    def get_actions(self, request):
-        actions = super().get_actions(request)
-        if 'delete_selected' in actions:
-            del actions['delete_selected']
-        return actions
-
     def get_queryset(self, request):
         qs = super(ObservationAdmin, self).get_queryset(request)
 
