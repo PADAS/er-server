@@ -358,6 +358,17 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {
 # task:
 CELERY_TASK_TRACK_STARTED = True
 
+CACHES = {
+   'default': {
+      "BACKEND": "django_redis.cache.RedisCache",
+      "LOCATION": CELERY_BROKER_URL,
+      "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient"
+      },
+      "KEY_PREFIX": "django"
+   }
+}
+
 # the address to send notification emails from
 FROM_EMAIL = 'notifications@pamdas.org'
 DEFAULT_FROM_EMAIL = 'notifications@pamdas.org'
