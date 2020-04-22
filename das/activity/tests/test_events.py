@@ -1098,25 +1098,44 @@ class TestEventView(BaseAPITest):
         incident_data = copy.deepcopy(self.event_data)
         incident_data['event_type'] = 'incident_collection'
         incident_data['title'] = 'Test incident collection'
-        incident = self.create_event(incident_data)
-    
-        contained_event = self.create_event(self.event_data)
 
-        EventRelationship.objects.add_relationship(
-            from_event=incident, to_event=contained_event,
-            type='contains')
-        url = '/activity/events/export/'
+        request = self.factory.post(self.api_base + '/events/', incident_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        collection_id = response.data['id']
+
+        request = self.factory.post(
+            self.api_base + '/events/', self.event_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        report_id = response.data['id']
+
+        rel_data = {'to_event_id': report_id, 'type': 'contains'}
+        request = self.factory.post(
+            self.api_base + '/event/' + collection_id + '/relationships',
+            rel_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventRelationshipsView.as_view()(
+            request, from_event_id=collection_id)
+        self.assertEqual(response.status_code, 201)
+
+        url = """/activity/events/export"""
         filter_spec = json.dumps({'text': incident_data['title']})
-        request = self.factory.get(self.api_base + url, {'filter': filter_spec})
+        request = self.factory.get(
+            self.api_base + url, {'filter': filter_spec})
 
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        rendered_dict = self.convert_rendered_csv_to_dict(
+            response.content.decode("utf-8"))
         report_names = [report["Title"] for report in rendered_dict[:-1]]
 
         # 2 reports returned, Incident and contained report
         self.assertEquals(2, len(report_names))
-        self.assertTrue(all(x in report_names for x in [incident.title,  contained_event.title]))
+        self.assertTrue(all(x in report_names for x in [
+                        incident_data['title'],  self.event_data['title']]))
 
     def test_export_csv_with_line_feed(self):
 

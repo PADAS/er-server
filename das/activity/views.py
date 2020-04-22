@@ -574,7 +574,7 @@ class EventsExportView(views.APIView):
 
         if contained_event_ids:
             child_events = Event.objects.filter(id__in=contained_event_ids)
-            queryset = queryset | child_events.distinct()
+            queryset = queryset.distinct() | child_events.distinct()
 
         return queryset.order_by('event_type_id')
 
