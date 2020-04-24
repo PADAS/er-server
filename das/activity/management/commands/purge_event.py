@@ -18,6 +18,7 @@ REVISION_DELETIONS = [
     'delete from activity_eventfilerevision',
     'delete from activity_eventnoterevision',
     'delete from activity_eventphotorevision',
+    'delete from activity_eventnotification'
 ]
 
 
@@ -72,6 +73,8 @@ class Command(BaseCommand):
                           delete_revision=True)
         Command.delete_qs(models.EventPhoto.objects.filter(event_id=event_id),
                           delete_revision=True)
+        Command.delete_qs(models.EventNotification.objects.filter(event_id=event_id),
+                          delete_revision=False)
         Command.delete_qs(
             models.EventRelatedSubject.objects.filter(event_id=event_id))
         Command.delete_qs(

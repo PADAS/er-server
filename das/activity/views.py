@@ -568,6 +568,14 @@ class EventsExportView(views.APIView):
         if state:
             queryset = queryset.by_state(state)
 
+        contained_event_ids = queryset.filter(event_type__is_collection=True) \
+            .aggregate(child_event_ids=ArrayAgg('out_relationship__to_event')) \
+            .get('child_event_ids')
+
+        if contained_event_ids:
+            child_events = Event.objects.filter(id__in=contained_event_ids)
+            queryset = queryset.distinct() | child_events.distinct()
+
         return queryset.order_by('event_type_id')
 
 

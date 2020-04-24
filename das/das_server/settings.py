@@ -522,6 +522,8 @@ DAILY_REPORT_ENABLED = False
 ALERTS_ENABLED = True
 MAPPING_FEATURES_V2 = False
 
+CARTO_URL = 'https://wri-01.cartodb.com/api/v2/sql'  # For: VIIRS-Fire-Alerts
+
 GFW_API_ROOT = 'https://production-api.globalforestwatch.org/v1'
 GFW_CREDENTIALS = {
     'username': 'support@pamdas.org',

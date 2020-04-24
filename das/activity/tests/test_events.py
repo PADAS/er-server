@@ -27,6 +27,7 @@ from django.contrib.staticfiles import finders
 from kombu import Connection
 from rest_framework.fields import DateTimeField
 from drf_extra_fields.geo_fields import PointField
+from django.urls import reverse
 
 from activity.serializers import EventDetailsSerializer
 from core.tests import BaseAPITest
@@ -34,7 +35,7 @@ from choices.models import Choice
 from accounts.models import PermissionSet
 from activity.models import Event, EventAttachment, EventType, EventCategory, \
     EventRelationship, EventRelationshipType, EventNote, EventsourceEvent, \
-    EventSource, EventProvider, parse_date_range, EventDetails
+    EventSource, EventProvider, parse_date_range, EventDetails, TSVectorModel
 from activity import views
 from observations.models import Subject
 from accounts.serializers import UserDisplaySerializer
@@ -131,6 +132,7 @@ class TestEventView(BaseAPITest):
             {'text': self.notes_line1_prefix + lorem_ipsum.paragraph()},
             {'text': self.notes_line2_prefix + lorem_ipsum.paragraph()}]
         self.event_data = dict(
+            title="Test Event",
             message=lorem_ipsum.paragraph(),
             time=DateTimeField().to_representation(timezone.now()),
             provenance=Event.PC_SYSTEM,
@@ -1091,6 +1093,49 @@ class TestEventView(BaseAPITest):
         response = views.EventsExportView.as_view()(request)
 
         self.assertEqual(response.status_code, 200)
+    
+    def test_export_filter_on_incident_associated_reports(self):
+        incident_data = copy.deepcopy(self.event_data)
+        incident_data['event_type'] = 'incident_collection'
+        incident_data['title'] = 'Test incident collection'
+
+        request = self.factory.post(self.api_base + '/events/', incident_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        collection_id = response.data['id']
+
+        request = self.factory.post(
+            self.api_base + '/events/', self.event_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        report_id = response.data['id']
+
+        rel_data = {'to_event_id': report_id, 'type': 'contains'}
+        request = self.factory.post(
+            self.api_base + '/event/' + collection_id + '/relationships',
+            rel_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventRelationshipsView.as_view()(
+            request, from_event_id=collection_id)
+        self.assertEqual(response.status_code, 201)
+
+        url = """/activity/events/export"""
+        filter_spec = json.dumps({'text': incident_data['title']})
+        request = self.factory.get(
+            self.api_base + url, {'filter': filter_spec})
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        rendered_dict = self.convert_rendered_csv_to_dict(
+            response.content.decode("utf-8"))
+        report_names = [report["Title"] for report in rendered_dict[:-1]]
+
+        # 2 reports returned, Incident and contained report
+        self.assertEquals(2, len(report_names))
+        self.assertTrue(all(x in report_names for x in [
+                        incident_data['title'],  self.event_data['title']]))
 
     def test_export_csv_with_line_feed(self):
 
@@ -2074,6 +2119,126 @@ class TestEventView(BaseAPITest):
         self.assertEqual(target_row.get('Species'), 'Bongo;Buffalo')
         self.assertEqual(target_row.get('carcassrep_species'),
                          'bongo;buffalo')
+
+    @staticmethod
+    def get_ts_token(uuid):
+        from django.db import connection
+        cursor = connection.cursor()
+
+        cursor.execute('SELECT tsvector_event_note FROM activity_tsvectormodel WHERE event_id=%s', [uuid])
+        tsvector = cursor.fetchone()
+        return tsvector
+
+    def test_tsvector_column_is_created(self):
+        event = TSVectorModel.objects.raw('select * from activity_tsvectormodel')
+        columns = event.columns
+        self.assertIn('tsvector_event', columns)
+        self.assertIn('tsvector_event_note', columns)
+
+    def test_trigger_when_event_is_created(self):
+        """Test trigger works whenever event with eventdetails is created. Creates a normalized lexeme token"""
+        request = self.factory.post(self.api_base + '/events/', [self.event_data, self.event_data])
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        uuid = response.data[0]['id']
+        tsvector = self.get_ts_token(uuid)
+        self.assertTrue(tsvector)
+
+
+    def test_search_event_by_event_title(self):
+        title_text = 'EventTitle'
+        self.event_data['title'] = title_text
+
+        request = self.factory.post(self.api_base + '/events/', [self.event_data, self.event_data])
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        query = {'filter': json.dumps({'text': title_text})}
+        request = self.factory.get(self.api_base + '/events', data=query)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertTrue(response.data)
+        self.assertEqual(response.status_code, 200)
+
+
+    def test_can_search_event_by_eventtype_schema_used(self):
+        # schema used has some of its titles named: conservancy, Name Of Ranger, Beginning of Incident etc.
+
+        request = self.factory.post(self.api_base + '/events/', [self.event_data, self.event_data])
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        # # filter by text
+        searchtext_1 = 'conservancy'
+        searchtext_2 = 'name of ranger'
+
+        query = {'filter': json.dumps({'text': searchtext_1})}
+        request = self.factory.get(self.api_base + '/events', data=query)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertTrue(response.data)
+        self.assertEqual(response.status_code, 200)
+
+        request = self.factory.get(self.api_base + '/events', data={'filter': json.dumps({'text': searchtext_2})})
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertTrue(response.data)
+        self.assertEqual(response.status_code, 200)
+
+    def test_eventnote_generate_tsvector_doc(self):
+        self.event_data['title'] = 'ETitle'
+
+        request = self.factory.post(self.api_base + '/events/', [self.event_data])
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        uuid = response.data['id']
+        url = reverse('event-view-notes', args=(uuid,))
+        event_note = dict(
+            id='747b4d5a-79a3-11ea-bc55-0242ac130003',
+            text=lorem_ipsum.paragraph()
+        )
+
+        request = self.factory.post(url, event_note)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventNotesView.as_view()(request, id=str(uuid))
+        self.assertEqual(response.status_code, 201)
+
+        tsvector = self.get_ts_token(uuid)
+        self.assertTrue(tsvector)
+
+    def test_event_note_text_search(self):
+
+        request = self.factory.post(self.api_base + '/events/', [self.event_data])
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        uuid = response.data['id']
+        url = reverse('event-view-notes', args=(uuid,))
+        event_note = dict(
+            id='747b4d5a-79a3-11ea-bc55-0242ac130003',
+            text="This is an example of a note."
+        )
+
+        request = self.factory.post(url, event_note)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventNotesView.as_view()(request, id=str(uuid))
+        self.assertEqual(response.status_code, 201)
+
+        search_text = event_note.get('text')
+
+        query = {'filter': json.dumps({'text': search_text})}
+        request = self.factory.get(self.api_base + '/events', data=query)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertTrue(response.data)
+        self.assertEqual(response.status_code, 200)
 
 
 class TestParsing(TestCase):

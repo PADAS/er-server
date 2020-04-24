@@ -413,20 +413,27 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
     def by_text_filter(self, searchtext):
 
-        filter = Q(title__unaccent__icontains=searchtext) \
-            | Q(note__text__unaccent__icontains=searchtext) \
-            | Q(event_type__display__unaccent__icontains=searchtext)
-
         queryset = self
         if re.match('[0-9]+', searchtext):
             logger.info('Querying on numeric. %s', searchtext)
             queryset = self.annotate(serial_number_text=Func(F('serial_number'),
                                                              function='bigint_to_char'))
             # 'startswith' witll use an index.
-            filter = filter | Q(
-                serial_number_text__startswith=searchtext)
+            filter_ = Q(serial_number_text__startswith=searchtext)
+            return queryset.filter(filter_).distinct()
 
-        return queryset.filter(filter).distinct()
+        searchtext = ':* & '.join(searchtext.split()) + ':*'
+
+        queryset = queryset.extra(tables=['activity_tsvectormodel'],
+                                  select={'rank': 'ts_rank_cd(activity_tsvectormodel.tsvector_event, %s)'},
+                                  where=['activity_tsvectormodel.tsvector_event @@ to_tsquery(%s) OR '
+                                         'activity_tsvectormodel.tsvector_event_note @@ to_tsquery(%s)',
+                                         'activity_tsvectormodel.event_id=activity_event.id'],
+                                  order_by=['-rank'],
+                                  select_params=[searchtext],
+                                  params=[searchtext, searchtext])
+
+        return queryset.distinct()
 
     # def by_date_range(self,
 
@@ -1361,3 +1368,7 @@ class EventNotification(TimestampedModel):
         indexes = [
             models.Index(fields=['event'])
         ]
+
+
+class TSVectorModel(models.Model):
+    event = models.ForeignKey(Event, on_delete=models.CASCADE)
