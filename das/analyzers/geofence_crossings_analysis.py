@@ -55,6 +55,9 @@ class DasGeofenceAnalysis(GeofenceAnalysis):
 
                     total_intersection_points = len([pt for pt in _intersectPnts])
 
+                    # if total number of intersection points for a segment
+                    # are odd, it's a legitimate crossing, add segment to the
+                    # results
                     if total_intersection_points > 0 and total_intersection_points % 2 != 0:
 
                         for pnt in _intersectPnts:
