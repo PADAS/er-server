@@ -5,6 +5,10 @@ from pymet.geofence import GeofenceAnalysis, GeofenceAnalysisParams, \
 
 
 class DasGeofenceAnalysis(GeofenceAnalysis):
+    """
+    Implementation of pymet.geofence.GeofenceAnalysis to use https://en.wikipedia.org/wiki/Even%E2%80%93odd_rule
+    to determine if a subject crosses a geofence and keeps going.
+    """
 
     @classmethod
     def calc_crossings(cls, geofence_analysis_params=None, trajectories=None):
