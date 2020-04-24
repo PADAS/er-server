@@ -3,6 +3,8 @@ from datetime import timedelta
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.gis.geos import Point as DjangoPoint
 from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
+
+from analyzers.geofence_crossings_analysis import DasGeofenceAnalysis
 from mapping.models import SpatialFeature
 from activity.models import Event, EventType
 from analyzers.utils import save_analyzer_event
@@ -93,7 +95,7 @@ class GeofenceAnalyzer(SubjectAnalyzer):
         _analysis_params = self._create_geofence_analysis_param()
 
         # Generate a list of crossings
-        cross_results = pymet.geofence.GeofenceAnalysis.calc_crossings(_analysis_params, [traj])
+        cross_results = DasGeofenceAnalysis.calc_crossings(_analysis_params, [traj])
 
         das_analyzer_results = []
         for cross in cross_results.geofence_crossings:
