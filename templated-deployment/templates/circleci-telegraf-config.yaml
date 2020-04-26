@@ -7,6 +7,7 @@ data:
   telegraf_conf: |
          [global_tags]
            site = "${KUBERNETES_NAMESPACE}"
+           service_name = $SERVICE_NAME
          [agent]
            interval = "10s"
            round_interval = true
@@ -35,5 +36,6 @@ data:
            percentile_limit = 1000
          [[outputs.stackdriver]]
            project = "earthranger-78ca55ca"
-           namespace = "${KUBERNETES_NAMESPACE}"
+           namespace = "earthranger"
+           resource_type = $TELEGRAF_RESOURCE_TYPE
 
