@@ -22,6 +22,10 @@ on activity_event
 FOR EACH ROW EXECUTE PROCEDURE tsvector_event_title_trigger();
 """
 
+DROP_EVENT_TITILE_TRIGGER = """
+DROP TRIGGER IF EXISTS tsvector_event_title_update ON activity_event;
+"""
+
 
 class Migration(migrations.Migration):
 
@@ -31,5 +35,5 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunSQL(TRIGGER_EVENT_TITLE,
-                          reverse_sql=migrations.RunSQL.noop),
+                          reverse_sql=DROP_EVENT_TITILE_TRIGGER),
     ]
