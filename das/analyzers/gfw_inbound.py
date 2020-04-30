@@ -163,9 +163,10 @@ def process_alert_for_subscription(layer_slug, subscription_id, validated_data, 
 
 def process_downloaded_alerts(payload, common_event_fields, user_id):
     counts = {PROCESSED_COUNTER: 0, ERROR_COUNTER: 0}
-    alerts = cluster_alerts(payload, settings.GFW_CLUSTER_RADIUS, 1)
+    filtered_alerts = filter_alert_based_on_confidence(payload, common_event_fields)
+    clustered_alerts = cluster_alerts(filtered_alerts, settings.GFW_CLUSTER_RADIUS, 1)
     errors = [create_event_from_downloadedalert(alert, common_event_fields, user_id, counts)
-              for alert in alerts]
+              for alert in clustered_alerts]
     errors = filter(lambda x: len(list(x)) > 0, errors)
 
     log_metrics(counts)
@@ -217,23 +218,40 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
         }
     }
 
+    event_fields.setdefault('event_details', {})['confidence'] = confidence
+
+    return persist_event(event_fields, request, counts)
+
+
+def filter_alert_based_on_confidence(alerts, common_event_fields):
     subscription_id = common_event_fields['event_details']['subscription_id']
+    gfw_query = GlobalForestWatchSubscription.objects.get(
+        subscription_id=subscription_id)
 
-    gfw_query = GlobalForestWatchSubscription.objects.get(subscription_id=subscription_id)
+    filtered_alerts = []
 
-    if common_event_fields.get('event_type') == 'gfw_activefire_alert':
-        conf_confidence = gfw_query.Fire_confidence
-        superset_cofidence = {i.strip() for i in conf_confidence.split(',')}
-    else:
-        conf_confidence = gfw_query.Deforestation_confidence
-        superset_cofidence = {int(i) for i in conf_confidence.split(',')}
+    for alert in alerts:
+        try:
+            confidence = alert['confidence']
+            if common_event_fields.get('event_type') == 'gfw_activefire_alert':
+                conf_confidence = gfw_query.Fire_confidence
+                superset_confidence = {i.strip() for i in
+                                      conf_confidence.split(',')}
+            else:
+                conf_confidence = gfw_query.Deforestation_confidence
+                superset_confidence = {int(i) for i in
+                                      conf_confidence.split(',')}
 
-    # Checks if confidence level from glad alerts is a subset of confidence level specified in ER.
-    if {confidence} <= superset_cofidence:
-        event_fields.setdefault('event_details', {})['confidence'] = confidence
-        return persist_event(event_fields, request, counts)
-    logger.info("GLAD Alert %s not within the confidence level" % downloaded_sample)
-    return {}
+            # Checks if confidence level from glad alerts is a subset of confidence level specified in ER.
+            if {confidence} <= superset_confidence:
+                filtered_alerts.append(alert)
+            logger.info("GLAD Alert %s not within the confidence level" % alert)
+        except KeyError:
+            pass
+
+    return filtered_alerts
+
+
 
 
 def persist_event(event_fields, request, counts):
@@ -260,7 +278,7 @@ def persist_event(event_fields, request, counts):
                                  dispatch_uid=(
                                      __name__, request, event_fields),
                                  weak=False)
-        evt = evt_serializer.create(evt_serializer.validated_data)
+        evt_serializer.create(evt_serializer.validated_data)
         counts[PROCESSED_COUNTER] = counts[PROCESSED_COUNTER] + 1
         signals.pre_save.disconnect(
             dispatch_uid=(__name__, request, event_fields))
