@@ -3,12 +3,10 @@ import logging
 # Use python unit test here to persist results in test DB
 from unittest.mock import patch
 
-import pymet
 import yaml
 import urllib
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from django.core.files import File
-from osgeo import ogr
 from django.core.serializers import serialize
 
 from activity.models import Event, EventCategory, EventType
@@ -24,42 +22,8 @@ from observations.models import (DEFAULT_ASSIGNED_RANGE, Source, Subject,
 
 from .analyzer_test_utils import *
 from .geofence_test_data import *
-from .geofence_test_geojson import *
 
 logger = logging.getLogger(__name__)
-
-logger.setLevel(logging.DEBUG)
-
-
-def feature_from_observation_list():
-    pass
-
-def visualize_geofence_crossings(geofence_grp, track_observations, subject):
-    if logger.isEnabledFor(logging.DEBUG):
-        # Write results to a local file.
-        fences = json.loads(
-            serialize('geojson', geofence_grp.features.all(),
-                      geometry_field='feature_geometry', fields=('name', 'id'))
-        )
-        fences['features'] = fences['features'] + [
-            feature_from_observation_list(track_observations)]
-
-        fence_breaks = json.loads(
-            serialize('geojson',
-                      SubjectAnalyzerResult.objects.filter(subject=subject),
-                      geometry_field='geometry_collection',
-                      fields=('title', 'estimated_time'))
-        )
-
-        fences['features'] = fences['features'] + fence_breaks['features']
-
-        with open('test_geofencing_for_a_double_hop-results.json', 'w') as fo:
-            json.dump(fences, fo, indent=2)
-
-        # Print a link to view results at geojson.io
-        data = urllib.parse.quote(json.dumps(fences))
-        print(f'http://geojson.io/#data=data:application/json,{data}')
-    pass
 
 
 class TestGeofenceAnalyzer(TestCase):
@@ -103,6 +67,53 @@ class TestGeofenceAnalyzer(TestCase):
               type: object
             '''
         return json.dumps(yaml.load(schema_yaml, Loader=yaml.SafeLoader))
+
+    def feature_from_observation_list(self, observations, name='Subject Track', stroke='#cc0000',
+                                      stroke_width=3, stroke_opacity=1):
+        '''Create a generic LineString feature from a list of Observations.'''
+        feature = {
+                    "type": "Feature",
+                    "properties": {
+                        "name": name,
+                        "stroke": stroke,
+                        "stroke-width": stroke_width,
+                        "stroke-opacity": stroke_opacity,
+                    },
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [(obs.location.x, obs.location.y) for obs in observations]
+                    }
+                }
+
+        return feature
+
+    def visualize_geofence_crossings(self, geofence_grp, track_observations, subject, filename):
+        if logger.isEnabledFor(logging.DEBUG):
+            # Write results to a local file.
+            fences = json.loads(
+                serialize('geojson', geofence_grp.features.all(),
+                          geometry_field='feature_geometry',
+                          fields=('name', 'id'))
+            )
+            fences['features'] = fences['features'] + [
+                self.feature_from_observation_list(track_observations)]
+
+            fence_breaks = json.loads(
+                serialize('geojson',
+                          SubjectAnalyzerResult.objects.filter(subject=subject),
+                          geometry_field='geometry_collection',
+                          fields=('title', 'estimated_time'))
+            )
+
+            fences['features'] = fences['features'] + fence_breaks['features']
+
+            with open(f'{filename}.json',
+                      'w') as fo:
+                json.dump(fences, fo, indent=2)
+
+            # Print a link to view results at geojson.io
+            data = urllib.parse.quote(json.dumps(fences))
+            print(f'http://geojson.io/#data=data:application/json,{data}')
 
     def setUp(self):
 
@@ -285,6 +296,8 @@ class TestGeofenceAnalyzer(TestCase):
 
         self.assertEqual(len(results), 6)
 
+        self.visualize_geofence_crossings(gf_grp, test_observations, sub, self.test_geofencing_for_crooked_boundaries.__name__)
+
     def test_geofencing_for_a_double_hop(self):
         sub = Subject.objects.create(
             name='dumbo', subject_subtype_id='elephant')
@@ -342,27 +355,7 @@ class TestGeofenceAnalyzer(TestCase):
 
         self.assertEqual(len(results), 1)
 
-        if logger.isEnabledFor(logging.DEBUG):
-            # Write results to a local file.
-            fences = json.loads(
-                serialize('geojson', gf_grp.features.all(),
-                          geometry_field='feature_geometry', fields=('name', 'id'))
-            )
-            fences['features'] = fences['features'] + [self.feature_from_observation_list(test_observations)]
-
-            fence_breaks = json.loads(
-                serialize('geojson', SubjectAnalyzerResult.objects.filter(subject=sub),
-                          geometry_field='geometry_collection', fields=('title', 'estimated_time'))
-            )
-
-            fences['features'] = fences['features'] + fence_breaks['features']
-
-            with open('test_geofencing_for_a_double_hop-results.json', 'w') as fo:
-                json.dump(fences, fo, indent=2)
-
-            # Print a link to view results at geojson.io
-            data = urllib.parse.quote(json.dumps(fences))
-            print(f'http://geojson.io/#data=data:application/json,{data}')
+        self.visualize_geofence_crossings(gf_grp, test_observations, sub, self.test_geofencing_for_a_double_hop.__name__)
 
     def test_illegitimate_fence_crossings(self):
         sub = Subject.objects.create(
@@ -421,6 +414,8 @@ class TestGeofenceAnalyzer(TestCase):
 
         self.assertEqual(len(results), 0)
 
+        self.visualize_geofence_crossings(gf_grp, test_observations, sub, self.test_illegitimate_fence_crossings.__name__)
+
     def test_zero_crossings(self):
         sub = Subject.objects.create(
             name='dumbo', subject_subtype_id='elephant')
@@ -477,3 +472,5 @@ class TestGeofenceAnalyzer(TestCase):
             print('Geofence Result: %s' % result)
 
         self.assertEqual(len(results), 0)
+
+        self.visualize_geofence_crossings(gf_grp, test_observations, sub, self.test_zero_crossings.__name__)
