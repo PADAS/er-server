@@ -245,7 +245,8 @@ def filter_alert_based_on_confidence(alerts, common_event_fields):
             # Checks if confidence level from glad alerts is a subset of confidence level specified in ER.
             if {confidence} <= superset_confidence:
                 filtered_alerts.append(alert)
-            logger.info("GLAD Alert %s not within the confidence level" % alert)
+            else:
+                logger.debug("GLAD Alert %s not within the confidence level" % alert)
         except KeyError:
             pass
 
