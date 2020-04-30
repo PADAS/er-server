@@ -372,7 +372,7 @@ class EventsExportView(views.APIView):
             .annotate(notes_count=Count('note')) \
             .annotate(full_notes=StringAgg('note__text', delimiter='\n')) \
             .annotate(related_subjects_count=Count('related_subjects')) \
-            .annotate(parent_event_serial_numbers=ArrayAgg('in_relationship__from_event__serial_number')) \
+            .annotate(parent_event_serial_numbers=ArrayAgg('in_relationship__from_event__serial_number', distinct=True)) \
             .values('id', 'serial_number', 'priority', 'state',
                     'title', 'event_type_id', 'event_details__data',
                     'notes_count', 'full_notes', 'parent_event_serial_numbers',
