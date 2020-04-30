@@ -252,6 +252,25 @@ class TestGeofenceAnalyzer(TestCase):
 
         self.assertEqual(len(results), 6)
 
+    def feature_from_observation_list(self, observations, name='Subject Track', stroke='#cc0000',
+                                      stroke_width=3, stroke_opacity=1):
+        '''Create a generic LineString feature from a list of Observations.'''
+        feature = {
+                    "type": "Feature",
+                    "properties": {
+                        "name": name,
+                        "stroke": stroke,
+                        "stroke-width": stroke_width,
+                        "stroke-opacity": stroke_opacity,
+                    },
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [(obs.location.x, obs.location.y) for obs in observations]
+                    }
+                }
+
+        return feature
+
 
     def test_geofencing_for_a_double_hop(self):
         sub = Subject.objects.create(
