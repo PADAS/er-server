@@ -18,6 +18,18 @@ env = environ.Env(
 # specify specific envs if needed.
 environ.Env.read_env()
 
+# Let CACHES depend on settings.CELERY_ configuration.
+CACHES = {
+   'default': {
+      "BACKEND": "django_redis.cache.RedisCache",
+      "LOCATION": CELERY_BROKER_URL,
+      "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient"
+      },
+      "KEY_PREFIX": "django"
+   }
+}
+
 MEDIA_ROOT = '/user-uploads'
 MEDIA_URL = 'http://localhost:8000/media/user-uploads/'
 
@@ -75,6 +87,8 @@ EMAIL_HOST = env.str('EMAIL_HOST', 'email-smtp.us-west-2.amazonaws.com')
 EMAIL_HOST_PASSWORD = env.str('EMAIL_PASSWORD', '')
 EMAIL_USE_TLS = True
 EMAIL_PORT = env.int('EMAIL_PORT', 2587)
+
+DAILY_REPORT_ENABLED = env.bool('DAILY_REPORT_ENABLED', False)
 
 EXPORT_KML_ENABLED = env.bool('KML_EXPORT', True)
 

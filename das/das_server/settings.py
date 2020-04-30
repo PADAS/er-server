@@ -414,7 +414,7 @@ VERSATILEIMAGEFIELD_SETTINGS = {
     # Whether or not to create new images on-the-fly. Set this to `False` for
     # speedy performance but don't forget to 'pre-warm' to ensure they're
     # created and available at the appropriate URL.
-    'create_images_on_demand': False,
+    'create_images_on_demand': True,
     # A dot-notated python path string to a function that processes sized
     # image keys. Typically used to md5-ify the 'image key' portion of the
     # filename, giving each a uniform length.
@@ -521,6 +521,8 @@ WHITENOISE_ADD_HEADERS_FUNCTION = whitenoise_headers_func
 DAILY_REPORT_ENABLED = False
 ALERTS_ENABLED = True
 MAPPING_FEATURES_V2 = False
+
+CARTO_URL = 'https://wri-01.cartodb.com/api/v2/sql'  # For: VIIRS-Fire-Alerts
 
 GFW_API_ROOT = 'https://production-api.globalforestwatch.org/v1'
 GFW_CREDENTIALS = {

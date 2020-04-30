@@ -54,13 +54,13 @@ from bitfield import BitField
 logger = logging.getLogger(__name__)
 
 
-SOURCE_TYPES = (
+SOURCE_TYPES = sorted((
     ('tracking-device', 'Tracking Device'),
     ('trap', 'Trap'),
     ('seismic', 'Seismic sensor'),
     ('firms', 'FIRMS data'),
-    ('gps-radio', 'gps radio'),
-)
+    ('gps-radio', 'GPS radio')
+), key=lambda item: item[1])
 
 
 def to_rgb(color):
