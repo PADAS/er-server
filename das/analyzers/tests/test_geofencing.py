@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pymet
 import yaml
 import urllib
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.core.files import File
 from osgeo import ogr
 from django.core.serializers import serialize
@@ -27,6 +27,39 @@ from .geofence_test_data import *
 from .geofence_test_geojson import *
 
 logger = logging.getLogger(__name__)
+
+logger.setLevel(logging.DEBUG)
+
+
+def feature_from_observation_list():
+    pass
+
+def visualize_geofence_crossings(geofence_grp, track_observations, subject):
+    if logger.isEnabledFor(logging.DEBUG):
+        # Write results to a local file.
+        fences = json.loads(
+            serialize('geojson', geofence_grp.features.all(),
+                      geometry_field='feature_geometry', fields=('name', 'id'))
+        )
+        fences['features'] = fences['features'] + [
+            feature_from_observation_list(track_observations)]
+
+        fence_breaks = json.loads(
+            serialize('geojson',
+                      SubjectAnalyzerResult.objects.filter(subject=subject),
+                      geometry_field='geometry_collection',
+                      fields=('title', 'estimated_time'))
+        )
+
+        fences['features'] = fences['features'] + fence_breaks['features']
+
+        with open('test_geofencing_for_a_double_hop-results.json', 'w') as fo:
+            json.dump(fences, fo, indent=2)
+
+        # Print a link to view results at geojson.io
+        data = urllib.parse.quote(json.dumps(fences))
+        print(f'http://geojson.io/#data=data:application/json,{data}')
+    pass
 
 
 class TestGeofenceAnalyzer(TestCase):
@@ -252,7 +285,6 @@ class TestGeofenceAnalyzer(TestCase):
 
         self.assertEqual(len(results), 6)
 
-
     def test_geofencing_for_a_double_hop(self):
         sub = Subject.objects.create(
             name='dumbo', subject_subtype_id='elephant')
@@ -331,7 +363,6 @@ class TestGeofenceAnalyzer(TestCase):
             # Print a link to view results at geojson.io
             data = urllib.parse.quote(json.dumps(fences))
             print(f'http://geojson.io/#data=data:application/json,{data}')
-
 
     def test_illegitimate_fence_crossings(self):
         sub = Subject.objects.create(
