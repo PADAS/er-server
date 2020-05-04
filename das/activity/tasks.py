@@ -74,16 +74,17 @@ def evaluate_conditions_for_sending_alerts(event, alert_rule, queued_nids, creat
     combined_updated_fields = updated_event_fields
     combined_updated_fields.update(updated_event_details_fields)
 
-    for alert_condition in alert_rule.conditions['all']:
-        condition_name = alert_condition['name']
+    if isinstance(alert_rule.conditions, dict) and 'all' in alert_rule.conditions.keys():
+        for alert_condition in alert_rule.conditions['all']:
+            condition_name = alert_condition['name']
 
-        # new event, no updated fields, or revisions
-        if created:
-            evaluate_notifications(alert_rule, queued_nids, event.id)
+            # new event, no updated fields, or revisions
+            if created:
+                evaluate_notifications(alert_rule, queued_nids, event.id)
 
-        # Check if allowed condition values are updated
-        if condition_name in combined_updated_fields:
-            evaluate_notifications(alert_rule, queued_nids, event.id)
+            # Check if allowed condition values are updated
+            if condition_name in combined_updated_fields:
+                evaluate_notifications(alert_rule, queued_nids, event.id)
 
 
 def evaluate_notifications(alert_rule, already_queued_nids, event_id):
