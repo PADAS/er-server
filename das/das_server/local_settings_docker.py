@@ -18,6 +18,18 @@ env = environ.Env(
 # specify specific envs if needed.
 environ.Env.read_env()
 
+# Let CACHES depend on settings.CELERY_ configuration.
+CACHES = {
+   'default': {
+      "BACKEND": "django_redis.cache.RedisCache",
+      "LOCATION": CELERY_BROKER_URL,
+      "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient"
+      },
+      "KEY_PREFIX": "django"
+   }
+}
+
 MEDIA_ROOT = '/user-uploads'
 MEDIA_URL = 'http://localhost:8000/media/user-uploads/'
 
@@ -41,17 +53,20 @@ SERVER_NAMES = [
     SERVER_FQDN,
     SERVER_FQDN.replace('pamdas.org', 'apn.pamdas.org'),
     SERVER_FQDN.replace('pamdas.org', 'wps.pamdas.org'),
-    SERVER_FQDN.replace('pamdas.org', 'fzs.pamdas.org')
+    SERVER_FQDN.replace('pamdas.org', 'fzs.pamdas.org'),
+    'localhost:9000',
+
 ]
 
 # Django allowed-hosts
-ALLOWED_HOSTS = SERVER_NAMES + ['localhost', '']
+ALLOWED_HOSTS = SERVER_NAMES
 
+CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_ALLOW_ALL = env.bool('CORS_ORIGIN_ALLOW_ALL', False)
 
 # Rest and realtime API allowed hosts.
 CORS_ORIGIN_WHITELIST = [f'{prefix}{servername}' for servername in SERVER_NAMES for prefix in ('', 'http://', 'https://')]
-CORS_ORIGIN_WHITELIST = CORS_ORIGIN_WHITELIST + ['localhost', 'http://localhost:9000',]
+
 
 CORS_REPLACE_HTTPS_REFERER = env.bool('CORS_REPLACE_HTTPS_REFERER', True)
 
@@ -75,6 +90,8 @@ EMAIL_HOST = env.str('EMAIL_HOST', 'email-smtp.us-west-2.amazonaws.com')
 EMAIL_HOST_PASSWORD = env.str('EMAIL_PASSWORD', '')
 EMAIL_USE_TLS = True
 EMAIL_PORT = env.int('EMAIL_PORT', 2587)
+
+DAILY_REPORT_ENABLED = env.bool('DAILY_REPORT_ENABLED', False)
 
 EXPORT_KML_ENABLED = env.bool('KML_EXPORT', True)
 

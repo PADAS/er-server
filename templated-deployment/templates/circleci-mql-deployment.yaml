@@ -74,3 +74,8 @@ spec:
         - name: telegraf-config-volume
           mountPath: "/etc/telegraf/"
           readOnly: true
+        env:
+        - name: SERVICE_NAME
+          value: "mql_server"
+        - name: TELEGRAF_RESOURCE_TYPE
+          value: "generic_node"

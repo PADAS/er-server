@@ -251,6 +251,16 @@ class SubjectIdFilter(InputFilter, ValidateFilterMixin):
             )
 
 
+class SourceIdFilter(InputFilter, ValidateFilterMixin):
+    parameter_name = 'source_id'
+    title = _('Source ID')
+
+    def queryset(self, request, queryset):
+        if self.value() is not None:
+            uuid = self.check_uuid(self.value())
+            return queryset.filter(source__id=uuid)
+
+
 class LargeTablePaginator(Paginator):
     '''
     If the query has no filter, then get count from pg_class.
@@ -300,7 +310,7 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
 
     gis_geometry_field_name = 'location'
 
-    list_filter = (SubjectNameFilter, SubjectIdFilter, ('recorded_at', DateRangeFilter))
+    list_filter = (SubjectNameFilter, SubjectIdFilter, SourceIdFilter, ('recorded_at', DateRangeFilter))
 
     def subject_link(self, obj):
         return mark_safe('<a href="{}">{}</a>'.format(
@@ -345,12 +355,6 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
     _recorded_at.short_description = 'recorded at %s' % TIMEZONE_USED
     _recorded_at.admin_order_field = 'recorded_at'
     _recorded_at.admin_order_first_type = "desc"
-
-    def get_actions(self, request):
-        actions = super().get_actions(request)
-        if 'delete_selected' in actions:
-            del actions['delete_selected']
-        return actions
 
     def get_queryset(self, request):
         qs = super(ObservationAdmin, self).get_queryset(request)
@@ -435,9 +439,21 @@ class SourceSourceProviderFilter(SourceProviderFilter):
         return queryset
 
 
-@admin.register(models.Subject)
-class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
+class ObservationsContextMixin:
+    def get_observations_context(self, extra_context, observations, id):
+        """ Update extra context for rendering observations """
+        model_name = self.model._meta.model_name
+        extra_context = extra_context or {}
+        extra_context['observations'] = observations[:25]
+        extra_context['timezone'] = TIMEZONE_USED
+        extra_context['filter_params'] = f"?{str(model_name)}_id={str(id)}"
 
+        extra_context['model'] = model_name
+        return extra_context
+
+
+@admin.register(models.Subject)
+class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
     list_display = ('name', 'subject_subtype',  # '_subject_subtype_display',
                     '_is_active', 'get_attributes', 'all_groups', 'all_sources', '_status',
                     )
@@ -622,15 +638,12 @@ class SubjectAdmin(ExportCsvMixin, admin.ModelAdmin):
 
     def change_view(self, request, object_id, form_url='', extra_context=None):
 
-        extra_context = extra_context or {}
         latest_observations = models.Observation.objects.filter(
             source__subjectsource__subject__id=object_id,
             source__subjectsource__assigned_range__contains=F('recorded_at')).order_by('-recorded_at')\
             .values('source__manufacturer_id', 'recorded_at', 'location', 'additional')
-        extra_context['observations'] = latest_observations[:25]
-        extra_context['timezone'] = TIMEZONE_USED
-
-        extra_context['subject_id'] = str(object_id)
+        extra_context = self.get_observations_context(
+            extra_context, latest_observations, object_id)
         return super().change_view(
             request, object_id, form_url, extra_context=extra_context,
         )
@@ -719,7 +732,7 @@ class SubjectSourceSummaryAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.Source)
-class SourceAdmin(admin.ModelAdmin):
+class SourceAdmin(admin.ModelAdmin, ObservationsContextMixin):
     list_display = ['manufacturer_id', 'source_type',
                     'model_name', 'get_attributes', '_source_provider', ]
     ordering = ('manufacturer_id', 'source_type', 'model_name', 'provider')
@@ -776,6 +789,17 @@ class SourceAdmin(admin.ModelAdmin):
     def _source_provider(self, o):
         return o.provider.display_name
     _source_provider.admin_order_field = 'provider'
+
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        latest_observations = models.Observation.objects.filter(
+            source__id=object_id,
+            source__subjectsource__assigned_range__contains=F('recorded_at')).order_by('-recorded_at')\
+            .values('source__manufacturer_id', 'recorded_at', 'location', 'additional')
+        extra_context = self.get_observations_context(
+            extra_context, latest_observations, object_id)
+        return super().change_view(
+            request, object_id, form_url, extra_context=extra_context,
+        )
 
 
 class CurrentAssignmentFilter(admin.SimpleListFilter):
@@ -1005,7 +1029,7 @@ class SourceTypeFilter(admin.SimpleListFilter):
         source_types = [('trbonet', 'TRBOnet Radios')]
         for sourcetype in SOURCE_TYPES:
             source_types.append(sourcetype)
-        return source_types
+        return sorted(source_types, key=lambda item: item[1])
 
     def queryset(self, request, queryset):
         value = self.value()

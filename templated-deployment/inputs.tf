@@ -140,6 +140,11 @@ variable "sms_token" {
   default = ""
 }
 
+variable "daily_report_enabled" {
+  type    = string
+  default = "False"
+}
+
 variable "alerts_enabled" {
   type    = string
   default = "True"

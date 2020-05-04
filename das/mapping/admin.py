@@ -165,14 +165,14 @@ class GeometryTypeFilter(django_admin.SimpleListFilter):
     parameter_name = 'geometry_type'
 
     def lookups(self, request, model_admin):
-        return (
+        return sorted((
             ('MULTILINESTRING', 'Multi-line String'),
             ('MULTIPOLYGON', 'Multi-polygon'),
             ('LINESTRING', 'Line String'),
             ('POLYGON', 'Polygon'),
             ('MULTIPOINT', 'Multi-point'),
             ('POINT', 'Point'),
-        )
+        ), key=lambda item: item[1])
 
     def queryset(self, request, queryset):
         value = self.value()
