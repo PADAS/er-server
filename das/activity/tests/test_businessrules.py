@@ -1415,7 +1415,8 @@ class BusinessRulesTestCase(BaseAPITest):
         action_list = evaluate_event(event)
         self.assertEqual(len(action_list), 1)
 
-    def test_evaluating_alerts_for_empty_conditions(self):
+    @mock.patch("activity.tasks.evaluate_notifications")
+    def test_evaluating_alerts_for_empty_conditions(self, mock_evaluate_notifications):
         notification_method = NotificationMethod.objects.create(title="test",
                                                                 owner=self.admin_user,
                                                                 method="email",
@@ -1470,8 +1471,6 @@ class BusinessRulesTestCase(BaseAPITest):
             evaluate_conditions_for_sending_alerts(event, alert_rule, alert_rule_ids, True)
         except KeyError:
             raised = True
-        self.assertFalse(raised, 'Exception raised')
-
-
-
+        self.assertFalse(raised)
+        self.assertEqual(mock_evaluate_notifications.call_count, 1)
 
