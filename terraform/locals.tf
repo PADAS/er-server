@@ -42,6 +42,8 @@ locals {
     "balule"                 = "prod1"
     "elephantsalive"         = "prod1"
     "africanparks"           = "prod1"
+    "sawc"                   = "prod1"
+    "madikwe"                = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
