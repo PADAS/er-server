@@ -35,6 +35,7 @@ class SensorPostParameters(serializers.Serializer):
     model_name = serializers.CharField(default=None)
     source_type = serializers.CharField(default=None)
     additional = serializers.DictField(default={})
+    source_additional = serializers.DictField(default={})
 
 
 class GenericSensorHandler:
@@ -106,8 +107,6 @@ class GenericSensorHandler:
         model_name = an_observation.get('model_name', None) or '{}:{}'.format(
             sensor_type, provider_key)
         subject_name = an_observation.get('subject_name') or manufacturer_id
-        additional = an_observation.get('additional', {})
-        source_additional = dict(frequency=additional.get('frequency'))
 
         src = Source.objects.ensure_source(source_type,
                                            provider=provider_key,
@@ -119,9 +118,10 @@ class GenericSensorHandler:
                                                'subject_groups': clean_subjectgroups(an_observation.get('subject_groups')),
                                                'id': an_observation.get('subject_id')
                                            },
-                                           additional=source_additional
+                                           additional=an_observation.get('source_additional')
                                            )
         recorded_at = an_observation.get('recorded_at')
+        additional = an_observation.get('additional', {})
         observation = {
             'location': location,
             'recorded_at': recorded_at,
