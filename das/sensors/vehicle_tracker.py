@@ -109,6 +109,16 @@ class FollowltObservation(serializers.Serializer):
     name = serializers.CharField(allow_blank=True, allow_null=True, required=False)
 
 
+class EzytrackObservation(serializers.Serializer):
+    device = serializers.CharField()
+    name = serializers.CharField()
+    description = serializers.CharField(allow_blank=True, allow_null=True, required=False)
+    notificationDate = serializers.DateTimeField()
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
+    speed = serializers.IntegerField()
+
+
 class DasObservation(NamedTuple):
     """
     Data object that represents the payload that is posted to the DAS sensor API
@@ -174,3 +184,24 @@ class SkylineAdapter:
         logger.info("Creeated DAS observation %s",
                         das_obs, extra={'das.obs': das_obs})
         return das_obs
+
+
+class EzyTrackAdapter:
+
+    def create_das_object(self, ezytrack_observation):
+        latitude = ezytrack_observation.get('latitude')
+        longitude = ezytrack_observation.get('longitude')
+
+        das_observation = DasObservation(
+            location={'latitude': latitude, 'longitude': longitude},
+            recorded_at=ezytrack_observation.get('notificationDate'),
+            manufacturer_id=ezytrack_observation.get('device'),
+            subject_name=ezytrack_observation.get('name'),
+            subject_type=DAS_SUBJECT,
+            subject_subtype=DAS_DEF_VEHICLE_TYPE,
+            model_name=DAS_MODEL_NAME,
+            source_type=DAS_SOURCE_TYPE,
+            additional={}
+        )
+        logger.info(f"DAS observation {das_observation}")
+        return das_observation

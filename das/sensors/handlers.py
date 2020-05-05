@@ -14,8 +14,9 @@ from observations.serializers import ObservationSerializer
 from observations import servicesutils
 from observations.models import update_subject_status_from_post
 from tracking.pubsub_registry import notify_new_tracks
-from sensors.vehicle_tracker import SkylineObservations, SkylineAdapter,\
-    FollowltObservation, TractAdapter, TractVehicleData
+from sensors.vehicle_tracker import SkylineObservations, SkylineAdapter, \
+    FollowltObservation, TractAdapter, TractVehicleData, EzytrackObservation, \
+    EzyTrackAdapter
 from analyzers import gfw_inbound
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,6 @@ class SensorPostParameters(serializers.Serializer):
 
 
 class GenericSensorHandler:
-
     DEFAULT_SOURCE_TYPE = 'gps-radio'
     DEFAULT_SUBJECT_SUBTYPE = 'ranger'
 
@@ -114,7 +114,8 @@ class GenericSensorHandler:
                                            subject={
                                                'subject_subtype_id': subject_subtype,
                                                'name': subject_name,
-                                               'subject_groups': clean_subjectgroups(an_observation.get('subject_groups')),
+                                               'subject_groups': clean_subjectgroups(
+                                                   an_observation.get('subject_groups')),
                                                'id': an_observation.get('subject_id')
                                            }
                                            )
@@ -149,7 +150,6 @@ class GenericSensorHandler:
 
 
 class FollowltTrackerHandler:
-
     SENSOR_TYPE = 'animal-collar-push'
     DEFAULT_SOURCE_TYPE = 'tracking-device'
     MODEL_NAME = 'FollowIt'
@@ -246,7 +246,6 @@ def clean_subjectgroups(subjectgroups):
 
 
 class DraObservationSerializer(serializers.Serializer):
-
     manufacturer_id = serializers.CharField()
     source_type = serializers.CharField(default=None)
     subject_name = serializers.CharField(default=None)
@@ -371,7 +370,8 @@ class DasRadioAgentHandler:
                         )
 
             update_subject_status_from_post(existing_observation.source, recorded_at=recorded_at,
-                                            location=location, additional={'subject_name': postdata['subject_name'], **data['additional']})
+                                            location=location,
+                                            additional={'subject_name': postdata['subject_name'], **data['additional']})
 
         return Response({}, status=status.HTTP_200_OK)
 
@@ -412,7 +412,7 @@ class GsatHandler():
         except:
             pass
 
-       # Calculate state, that will be recorded in SubjectStatus.
+        # Calculate state, that will be recorded in SubjectStatus.
         r['state'] = 'alarm' if o.get('emer', 0) == '1' else 'default'
 
         r['events'] = o.get('events').split(',') if len(
@@ -560,7 +560,6 @@ class SkylineVehicleTrackerHandler():
 
 
 class TractVehicleHandler():
-
     SENSOR_TYPE = 'vehicle-observation'
     DEFAULT_SUBJECT_SUBTYPE = 'truck'
 
@@ -627,7 +626,6 @@ class SigFoxCallback(serializers.Serializer):
 
 
 class SigFoxPushHandler():
-
     SENSOR_TYPE = 'sf-animal-tracker'
     SOURCE_TYPE = 'tracking-device'
     MODEL_NAME = 'DigitAnimal'
@@ -665,6 +663,7 @@ class SigFoxPushHandler():
 
 class GateHandler:
     SENSOR_TYPE = 'gate'
+
     @classmethod
     def post(cls, request, sensor_type, provider_key):
         logger.info(f"{cls.SENSOR_TYPE} observation {request.data} for provider {provider_key}",
@@ -678,6 +677,7 @@ class GateHandler:
 
 class TestHandler:
     SENSOR_TYPE = 'test'
+
     @classmethod
     def post(cls, request, sensor_type, provider_key):
         logger.info(f"{cls.SENSOR_TYPE} observation {request.data} for provider {provider_key}",
@@ -696,3 +696,53 @@ class GFWAlertHandler:
     @classmethod
     def post(cls, request, provider_key):
         return gfw_inbound.process_handler_post(request)
+
+
+class EzyTrackHandler:
+    SENSOR_TYPE = 'ezytrack-alert'
+
+    @classmethod
+    def post(cls, request, sensor_type, provider_key):
+        logger.info(f"Received new push message {request.data}")
+
+        serializer_ = EzytrackObservation(data=request.data)
+        if not serializer_.is_valid():
+            status_msg = {'status': 400, 'message': serializer_.errors}
+            return Response(data=status_msg, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            adapter = EzyTrackAdapter()
+            das_observation = adapter.create_das_object(serializer_.data)
+
+            src = Source.objects.ensure_source(
+                das_observation.source_type,
+                provider=provider_key,
+                manufacturer_id=das_observation.manufacturer_id,
+                model_name=das_observation.model_name,
+                subject={
+                    'subject_subtype_id': das_observation.subject_subtype,
+                    'name': das_observation.subject_name
+                }
+            )
+            if Observation.objects.filter(source=src, recorded_at=das_observation.recorded_at).exists():
+                logger.info("Processed duplicate observation {}".format(das_observation))
+                return Response(data={}, status=status.HTTP_200_OK)
+            else:
+                observation = {
+                    'location': das_observation.location,
+                    'recorded_at': das_observation.recorded_at,
+                    'source': str(src.id),
+                    'additional': das_observation.additional
+                }
+
+                observation_serializer = ObservationSerializer(data=observation)
+                if observation_serializer.is_valid():
+                    observation_serializer.save()
+                    logger.info("New observation added. %s" % observation)
+                    # notify_new_tracks(src.id)
+                else:
+                    logger.info("Error occured while serializing observation: %s " % observation_serializer.errors)
+                    status_msg = {'status': 400, 'message': observation_serializer.errors}
+                    return Response(data=status_msg, status=status.HTTP_400_BAD_REQUEST)
+
+        status_ok = {'status': 201, 'message': 'Success'}
+        return Response(data=status_ok, status=status.HTTP_201_CREATED)
