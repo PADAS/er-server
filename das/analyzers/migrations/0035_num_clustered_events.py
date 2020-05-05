@@ -34,6 +34,7 @@ GENERIC_GFW_ALERT_SCHEMA = """{
    ]
 }"""
 
+
 def forwards(apps, schema_editor):
     EventCategory = apps.get_model('activity', 'EventCategory')
     EventType = apps.get_model('activity', 'EventType')
