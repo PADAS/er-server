@@ -14,9 +14,9 @@ class EzytrackHandlerTest(BaseAPITest):
     def setUp(self):
         super().setUp()
         self.api_path = self.get_webhook_base_url()
-        self.test_data = {"device": "114719", "name": "Green Van 114719", "description": "",
-                          "notificationDate": "2017-04-23T09:31:14Z", "latitude": "-26.0444252",
-                          "longitude": "28.0111314", "speed": "0", "zone": "Depot 3"}
+        self.test_data = {"device": "114719", "device_type": "Oyster 2 - 2G/LTE(4G)",
+                          "dateReceived": "2017-04-23T09:31:14Z", "latitude": "-26.0444252", "longitude": "28.0111314",
+                          "speed": "0"}
 
     def get_webhook_base_url(self):
         provider_key = self.PROVIDER_KEY
@@ -43,5 +43,3 @@ class EzytrackHandlerTest(BaseAPITest):
         response = self._post_ezytrack_data(json.dumps(self.test_data))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data, {})
-
-

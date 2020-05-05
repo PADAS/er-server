@@ -110,13 +110,24 @@ class FollowltObservation(serializers.Serializer):
 
 
 class EzytrackObservation(serializers.Serializer):
+    # BODY payload:
+    # {
+    #     {
+    #         "device": "{Asset.DeviceSerial}",
+    #         "device_type": "{Asset.DeviceType}",
+    #         "latitude": "{Event.Latitude}",
+    #         "longitude": "{Event.Longitude}",
+    #         "dateReceived": "{Event.DateReceivedUtc}",
+    #         "speed": "{Event.SpeedKmH}",
+    #     }
+    # }
+
     device = serializers.CharField()
-    name = serializers.CharField()
-    description = serializers.CharField(allow_blank=True, allow_null=True, required=False)
-    notificationDate = serializers.DateTimeField()
+    device_type = serializers.CharField()
     latitude = serializers.FloatField()
     longitude = serializers.FloatField()
-    speed = serializers.IntegerField()
+    dateReceived = serializers.DateTimeField()
+    speed = serializers.IntegerField(allow_null=True, required=False)
 
 
 class DasObservation(NamedTuple):
@@ -191,17 +202,18 @@ class EzyTrackAdapter:
     def create_das_object(self, ezytrack_observation):
         latitude = ezytrack_observation.get('latitude')
         longitude = ezytrack_observation.get('longitude')
+        speed = ezytrack_observation.get('speed')
 
         das_observation = DasObservation(
             location={'latitude': latitude, 'longitude': longitude},
-            recorded_at=ezytrack_observation.get('notificationDate'),
-            manufacturer_id=ezytrack_observation.get('device'),
-            subject_name=ezytrack_observation.get('name'),
+            recorded_at=ezytrack_observation.get('dateReceived'),
+            manufacturer_id=ezytrack_observation.get('device_type'),
+            subject_name=ezytrack_observation.get('device'),
             subject_type=DAS_SUBJECT,
             subject_subtype=DAS_DEF_VEHICLE_TYPE,
             model_name=DAS_MODEL_NAME,
             source_type=DAS_SOURCE_TYPE,
-            additional={}
+            additional=dict(speed=speed)
         )
         logger.info(f"DAS observation {das_observation}")
         return das_observation
