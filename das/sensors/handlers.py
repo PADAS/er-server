@@ -39,6 +39,7 @@ class SensorPostParameters(serializers.Serializer):
 
 
 class GenericSensorHandler:
+
     DEFAULT_SOURCE_TYPE = 'gps-radio'
     DEFAULT_SUBJECT_SUBTYPE = 'ranger'
 
@@ -150,6 +151,7 @@ class GenericSensorHandler:
 
 
 class FollowltTrackerHandler:
+
     SENSOR_TYPE = 'animal-collar-push'
     DEFAULT_SOURCE_TYPE = 'tracking-device'
     MODEL_NAME = 'FollowIt'
@@ -246,6 +248,7 @@ def clean_subjectgroups(subjectgroups):
 
 
 class DraObservationSerializer(serializers.Serializer):
+
     manufacturer_id = serializers.CharField()
     source_type = serializers.CharField(default=None)
     subject_name = serializers.CharField(default=None)
@@ -560,6 +563,7 @@ class SkylineVehicleTrackerHandler():
 
 
 class TractVehicleHandler():
+
     SENSOR_TYPE = 'vehicle-observation'
     DEFAULT_SUBJECT_SUBTYPE = 'truck'
 
@@ -626,6 +630,7 @@ class SigFoxCallback(serializers.Serializer):
 
 
 class SigFoxPushHandler():
+
     SENSOR_TYPE = 'sf-animal-tracker'
     SOURCE_TYPE = 'tracking-device'
     MODEL_NAME = 'DigitAnimal'
@@ -663,7 +668,6 @@ class SigFoxPushHandler():
 
 class GateHandler:
     SENSOR_TYPE = 'gate'
-
     @classmethod
     def post(cls, request, sensor_type, provider_key):
         logger.info(f"{cls.SENSOR_TYPE} observation {request.data} for provider {provider_key}",
@@ -677,7 +681,6 @@ class GateHandler:
 
 class TestHandler:
     SENSOR_TYPE = 'test'
-
     @classmethod
     def post(cls, request, sensor_type, provider_key):
         logger.info(f"{cls.SENSOR_TYPE} observation {request.data} for provider {provider_key}",
