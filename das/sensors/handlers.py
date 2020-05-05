@@ -115,8 +115,7 @@ class GenericSensorHandler:
                                            subject={
                                                'subject_subtype_id': subject_subtype,
                                                'name': subject_name,
-                                               'subject_groups': clean_subjectgroups(
-                                                   an_observation.get('subject_groups')),
+                                               'subject_groups': clean_subjectgroups(an_observation.get('subject_groups')),
                                                'id': an_observation.get('subject_id')
                                            }
                                            )
@@ -373,8 +372,7 @@ class DasRadioAgentHandler:
                         )
 
             update_subject_status_from_post(existing_observation.source, recorded_at=recorded_at,
-                                            location=location,
-                                            additional={'subject_name': postdata['subject_name'], **data['additional']})
+                                            location=location, additional={'subject_name': postdata['subject_name'], **data['additional']})
 
         return Response({}, status=status.HTTP_200_OK)
 
