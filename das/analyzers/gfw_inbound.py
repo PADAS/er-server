@@ -201,14 +201,12 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
         scan = deserialized_sample.validated_data.get('scan')
         track = deserialized_sample.validated_data.get('track')
         frp = deserialized_sample.validated_data.get('frp')
-        test = deserialized_sample.validated_data.get('test')
 
         common_event_fields['event_details']['bright_ti4'] = bright_ti4
         common_event_fields['event_details']['bright_ti5'] = bright_ti5
         common_event_fields['event_details']['scan'] = scan
         common_event_fields['event_details']['track'] = track
         common_event_fields['event_details']['frp'] = frp
-        common_event_fields['event_details']['test'] = test
 
     else:
         julian_day = deserialized_sample.validated_data.get('julian_day')

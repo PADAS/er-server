@@ -60,10 +60,6 @@ GENERIC_GFW_ACTIVE_FIRE_SCHEMA = """{
             "type": "string",
             "title": "Fire Radiative Power (MW)"
          },
-         "test": {
-            "type": "string",
-            "title": "This is a test field on an Analyzer Event"
-         },
          "subscription_name":{
             "type":"string",
             "title":"Name of subscription with Global Forest Watch"
@@ -89,7 +85,6 @@ GENERIC_GFW_ACTIVE_FIRE_SCHEMA = """{
       "scan",
       "track",
       "frp",
-      "test",
       "subscription_name",
       "alert_link",
       "confidence",
