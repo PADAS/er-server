@@ -1,6 +1,6 @@
 import logging
 import pytz
-from dateutil.parser import parse
+from dateutil.parser import parse, isoparse
 from datetime import datetime
 from typing import NamedTuple
 
@@ -199,10 +199,6 @@ class SkylineAdapter:
 
 class EzyTrackAdapter:
 
-    @staticmethod
-    def format_datetime(date_string):
-        return parse(date_string).replace(tzinfo=pytz.utc)
-
     def create_das_object(self, ezytrack_observation):
         latitude = ezytrack_observation.get('latitude')
         longitude = ezytrack_observation.get('longitude')
@@ -211,7 +207,7 @@ class EzyTrackAdapter:
 
         das_observation = DasObservation(
             location={'latitude': latitude, 'longitude': longitude},
-            recorded_at=self.format_datetime(time),
+            recorded_at=parse(time),
             manufacturer_id=ezytrack_observation.get('device_type'),
             subject_name=ezytrack_observation.get('device'),
             subject_type=DAS_SUBJECT,
