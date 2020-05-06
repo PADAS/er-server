@@ -1,6 +1,6 @@
 import logging
 import pytz
-from dateutil.parser import parse, isoparse
+from dateutil.parser import parse
 from datetime import datetime
 from typing import NamedTuple
 
