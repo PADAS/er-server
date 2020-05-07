@@ -41,7 +41,11 @@ GENERIC_GFW_ACTIVE_FIRE_SCHEMA = {
       "$schema":"http://json-schema.org/draft-04/schema#",
       "title":"Event Type Global Forest Watch Active Fire Alert",
       "type":"object",
-      "properties":{
+      "properties": {
+         "subscription_name":{
+            "type":"string",
+            "title":"Name of subscription with Global Forest Watch"
+         },
          "bright_ti4": {
             "type": "string",
             "title": "VIIRS I-4 channel brightness (Kelvin)"
@@ -62,10 +66,6 @@ GENERIC_GFW_ACTIVE_FIRE_SCHEMA = {
             "type": "string",
             "title": "Fire Radiative Power (MW)"
          },
-         "subscription_name":{
-            "type":"string",
-            "title":"Name of subscription with Global Forest Watch"
-         },
          "alert_link":{
             "type":"string",
             "title":"URL of the map for this alert",
@@ -81,13 +81,13 @@ GENERIC_GFW_ACTIVE_FIRE_SCHEMA = {
          }
       }
    },
-   "definition":[
+   "definition": [
+      "subscription_name",
       "bright_ti4",
       "bright_ti5",
       "scan",
       "track",
       "frp",
-      "subscription_name",
       "alert_link",
       "confidence",
       "num_clustered_alerts"
