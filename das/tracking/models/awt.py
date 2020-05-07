@@ -5,10 +5,9 @@ import copy
 import json
 import logging
 from time import sleep
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import redis
-import pytz
 import requests
 from Crypto.Cipher import AES
 from dateutil.parser import parse
@@ -82,7 +81,7 @@ class AwtClient(object):
             }
 
     def __init__(self, host=None, username=None, password=None,
-                 subscription_token=None, enable_history=False):
+                 subscription_token=None, enable_history=False, enable_replay=False):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.host = host
         self.username = username
@@ -92,6 +91,7 @@ class AwtClient(object):
         self.redis_client = redis.from_url(
             settings.CELERY_BROKER_URL)
         self.enable_history_api = enable_history
+        self.enable_replay_api = enable_replay
 
     def decrypt_response(self, response):
         # Get IV and Ciphertext from response
@@ -159,7 +159,7 @@ class AwtClient(object):
                         f'Account {self.username} exceeded backoff threshold for api {api_type}')
 
                 ttl = parse(ttl)
-                sleep_seconds = ttl - datetime.now(tz=pytz.UTC)
+                sleep_seconds = ttl - datetime.now(tz=timezone.utc)
                 sleep_seconds = sleep_seconds.total_seconds()
                 if sleep_seconds:
                     self.logger.warning(
@@ -172,7 +172,7 @@ class AwtClient(object):
 
     def set_use_policy_api(self, api_type, major_backoff=False):
         backoff_seconds = self.use_policy_backoff if not major_backoff else self.use_policy_major_backoff
-        ttl = datetime.now(tz=pytz.UTC) + timedelta(seconds=backoff_seconds)
+        ttl = datetime.now(tz=timezone.utc) + timedelta(seconds=backoff_seconds)
         cache.set(self.make_use_policy_key(api_type),
                   ttl.isoformat(),
                   backoff_seconds)
@@ -268,18 +268,15 @@ class AwtClient(object):
         key = f'awtplugin-{self.username}-{api_type}'
         if 'start_time' in params:
             start_time = datetime.fromtimestamp(
-                params['start_time'], tz=pytz.UTC)
-            now = datetime.now(tz=pytz.UTC)
-            if now - start_time > self.live_api_coverage:
+                params['start_time'], tz=timezone.utc)
+            now = datetime.now(tz=timezone.utc)
+            if now - start_time > self.live_api_coverage and (self.enable_replay_api or self.enable_history_api):
                 # disable caching for replay and history
                 key = None
                 api_type = self.REPLAY_API
-                if now - start_time > self.replay_api_coverage:
-                    if self.enable_history_api:
-                        api_type = self.HISTORY_API
-                    else:
-                        self.logger.warning(
-                            f'AWT date range requires disabled history api: {self.username}, {params}')
+                if now - start_time > self.replay_api_coverage and self.enable_history_api:
+                    api_type = self.HISTORY_API
+
         return api_type, key
 
     def fetch_data(self, params=None):
@@ -296,10 +293,17 @@ class AwtClient(object):
             url = self.host + self.APIS[api_type.upper()]
             # ST is Key (used in awt api) for Session Token
             payload = {'ST': self.session_token}
-            if api_type != self.LIVE_API:
+            if api_type == self.LIVE_API:
+                payload['RT'] = datetime.now(tz=timezone.utc) - self.live_api_coverage
+                payload['RT'] = payload['RT'].timestamp()
+            else:
                 for key, name in self.key_mapping.items():
                     if key in params:
                         payload[name] = params[key]
+                if 'T1' in payload and api_type == self.REPLAY_API:
+                    min_start_timestamp = (datetime.now(tz=timezone.utc) - self.replay_api_coverage).timestamp()
+                    payload['T1'] = max(min_start_timestamp, payload['T1'])
+
             response = self.handle_request(api_type, url, payload,
                                            key=cache_key,
                                            expiry_period=self.fetch_unit_data_expiry)
@@ -345,6 +349,7 @@ class AwtPlugin(TrackingPlugin):
     # DEFAULT_URL = "https://api.africawildlifetracking.com/"
     DEFAULT_REPORT_INTERVAL = timedelta(hours=1)
     DEFAULT_START_OFFSET = timedelta(days=14)
+    COLLAR_REACHBACK_OFFSET = timedelta(hours=12)
 
     # Timeout in seconds(Need to decide timeout)
     # DEFAULT_TIMEOUT = 30
@@ -370,7 +375,7 @@ class AwtPlugin(TrackingPlugin):
             latitude = float(track_data.get('lat'))
             longitude = float(track_data.get('lon'))
             recorded_at = datetime.fromtimestamp(track_data.get('timestamp'),
-                                                 tz=pytz.timezone('utc'))
+                                                 tz=timezone.utc)
 
             # Remove unnecessary keys and save remaining data in additional
             keys_to_remove = ['lat', 'lon', 'timestamp', 'tag_id']
@@ -417,21 +422,25 @@ class AwtPlugin(TrackingPlugin):
             additional_data.pop(key, None)
         return additional_data
 
-    def fetch(self, source, cursor_data, additional_data=None):
+    def fetch(self, source, cursor_data, additional_data={}):
         self.logger = logging.getLogger(self.__class__.__name__)
+        enable_history = additional_data.get('enable_history', False)
+        enable_replay = additional_data.get('enable_replay', False)
         client = AwtClient(host=self.host, username=self.username,
-                           password=self.password,
-                           subscription_token=self.subscription_token)
+                            password=self.password,
+                           subscription_token=self.subscription_token,
+                           enable_replay=enable_replay,
+                           enable_history=enable_history)
+        end_date = datetime.now(tz=timezone.utc)
         # create cursor_data
         self.cursor_data = copy.copy(cursor_data) if cursor_data else {}
         try:
             start_date = (parse(self.cursor_data['latest_timestamp']) -
-                          timedelta(hours=12))
+                          COLLAR_REACHBACK_OFFSET)
             if not start_date.tzinfo:
-                start_date = start_date.replace(tzinfo=pytz.UTC)
+                start_date = start_date.replace(tzinfo=timezone.utc)
         except Exception as e:
-            start_date = datetime.now(tz=pytz.UTC) - self.DEFAULT_START_OFFSET
-        end_date = datetime.now(tz=pytz.UTC)
+            start_date = datetime.now(tz=timezone.utc) - self.DEFAULT_START_OFFSET
 
         # Set tag value(manufacture id) if not in additional_data
         if additional_data:
@@ -450,21 +459,16 @@ class AwtPlugin(TrackingPlugin):
             params = additional_data
             if additional_data:
                 params = self._parse_additional_data(additional_data)
-            dry_run = additional_data.get('dry_run', False)
 
             observations = client.fetch_observations(params)
-            if dry_run:
-                self.logger.info(observations)
-            elif observations:
+            if observations:
                 for observation in observations:
                     fix_time = datetime.fromtimestamp(
-                        observation.get('timestamp'), tz=pytz.timezone('utc'))
-                    if fix_time < start_date:
-                        continue
+                        observation.get('timestamp'), tz=timezone.utc)
                     obs = self._transform_to_observation(source, observation)
                     if obs:
                         yield obs
-
+                    
                     # keep track of latest timestamp.
                     latest_timestamp = (max(latest_timestamp, fix_time) if
                                         latest_timestamp else fix_time)
