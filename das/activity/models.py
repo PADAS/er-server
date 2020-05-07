@@ -137,7 +137,7 @@ class EventCategory(TimestampedModel):
 
     @property
     def auto_permissionset_name(self):
-        return _('Admin {} Event Permissions').format(self.display)
+        return _('View {} Event Permissions').format(self.display)
 
 
 @receiver(post_save, sender=EventCategory)
