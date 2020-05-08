@@ -15,6 +15,7 @@ from activity.models import Event
 from activity.views import generate_event_type_cache
 from observations.models import Source, SourceProvider
 from tracking.models.plugin_base import SourcePlugin
+from accounts.models.eula import UserAgreement
 
 
 class SiteMetrics(NamedTuple):
@@ -25,7 +26,8 @@ class SiteMetrics(NamedTuple):
     created_at: datetime.datetime  # when the report was generated
     start_interval: datetime.datetime  # start date for the range of data
     end_interval: datetime.datetime  # end date for the range of data
-    sensors: dict  # sensor summary
+    sensors: list  # sensor summary
+    eula: list # eula compliance user list
 
 
 REPORT_TYPE = "daily_aggregate"
@@ -40,6 +42,7 @@ class Command(BaseCommand):
                             help='start date')
         parser.add_argument('--site', type=str,
                             help='site name')
+        parser.add_argument('--console', action='store_true', help='output to console')
 
     def handle(self, *args, **options):
         # calculate this in GMT, not the sites timezone
@@ -58,9 +61,14 @@ class Command(BaseCommand):
         extracter = ExtractSiteMetrics(start, end)
         reports = extracter.run()
         devices = sumarize_sources()
+        eula = get_eula_compliance_list()
         wrapper = SiteMetrics(REPORT_TYPE, REPORT_VERSION,
-                              reports, site_name, now, start, end, devices)
-        save_to_bucket(json.dumps(wrapper), start, site_name)
+                              reports, site_name, now, start, end, devices, eula)
+        result = json.dumps(wrapper)
+        if options['console']:
+            print(result)
+        else:
+            save_to_bucket(result, start, site_name)
 
 
 def save_to_bucket(file_contents, start_date, site):
@@ -250,3 +258,17 @@ def sumarize_sources():
                 provider["disabled_count"] += 1
 
     return [SourceProviderMetric(**summary) for summary in providers.values()]
+
+
+def get_eula_compliance_list():
+    if not settings.ACCEPT_EULA:
+        return []
+    qs = UserAgreement.objects.all().filter(user__accepted_eula=True, user__is_active=True, eula__active=True)
+    return [dict(username=agreement.user.username,
+                 email=agreement.user.email,
+                 version=agreement.eula.version,
+                 date_accepted=agreement.date_accepted
+        ) for agreement in qs]
+    
+    
+

@@ -137,7 +137,7 @@ class EventCategory(TimestampedModel):
 
     @property
     def auto_permissionset_name(self):
-        return _('Admin {} Event Permissions').format(self.display)
+        return _('View {} Event Permissions').format(self.display)
 
 
 @receiver(post_save, sender=EventCategory)
@@ -1276,10 +1276,15 @@ class EventsourceEvent(TimestampedModel):
 class NotificationMethodManager(models.Manager):
     pass
 
+NOTIFICATION_METHOD_EMAIL = "email"
+NOTIFICATION_METHOD_SMS = "sms"
+NOTIFICATION_METHOD_WHATSAPP = "whatsapp"
+
 
 NOTIFICATION_METHOD_CHOICES = (
-    ('email', _('Email')),
-    ('sms', _('SMS')),
+    (NOTIFICATION_METHOD_EMAIL, _('Email')),
+    (NOTIFICATION_METHOD_SMS, _('SMS')),
+    (NOTIFICATION_METHOD_WHATSAPP, _('WhatsApp')),
 )
 
 

@@ -53,17 +53,20 @@ SERVER_NAMES = [
     SERVER_FQDN,
     SERVER_FQDN.replace('pamdas.org', 'apn.pamdas.org'),
     SERVER_FQDN.replace('pamdas.org', 'wps.pamdas.org'),
-    SERVER_FQDN.replace('pamdas.org', 'fzs.pamdas.org')
+    SERVER_FQDN.replace('pamdas.org', 'fzs.pamdas.org'),
+    'localhost:9000',
+
 ]
 
 # Django allowed-hosts
-ALLOWED_HOSTS = SERVER_NAMES + ['localhost', '']
+ALLOWED_HOSTS = SERVER_NAMES
 
+CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_ALLOW_ALL = env.bool('CORS_ORIGIN_ALLOW_ALL', False)
 
 # Rest and realtime API allowed hosts.
 CORS_ORIGIN_WHITELIST = [f'{prefix}{servername}' for servername in SERVER_NAMES for prefix in ('', 'http://', 'https://')]
-CORS_ORIGIN_WHITELIST = CORS_ORIGIN_WHITELIST + ['localhost', 'http://localhost:9000',]
+
 
 CORS_REPLACE_HTTPS_REFERER = env.bool('CORS_REPLACE_HTTPS_REFERER', True)
 
@@ -143,5 +146,11 @@ if DEV:
         "SHOW_TOOLBAR_CALLBACK": lambda x: True,
     }
 
+
 GFW_CLUSTER_RADIUS = env.int('GFW_CLUSTER_RADIUS', 5)
+
+TWILIO_ACCOUNT_SID = env.str('TWILIO_ACCOUNT_SID', 'twilio_account_sid')
+TWILIO_AUTH_TOKEN = env.str('TWILIO_AUTH_TOKEN', 'twilio_auth_token')
+WHATSAPP_FROM_NUMBER = env.str('WHATSAPP_FROM_NUMBER', 'whatsapp_from_number')
+
 

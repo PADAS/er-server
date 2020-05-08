@@ -1,7 +1,7 @@
 # requirements needed for development
 # pip-compile --output-file requirements-dev.txt requirements-dev.in ./requirements.txt --find-links ./wheelhouse
 
-pre-commit==2.2.0
+pre-commit==2.3.0
 mockredispy==2.9.3
 pep8==1.7.1
 ptvsd==4.3.2

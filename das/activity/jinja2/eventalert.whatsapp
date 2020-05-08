@@ -1,0 +1,11 @@
+*EarthRanger Report {{ event.serial_number.value }}: {{ event.title.value }}*
+
+*{{ event.priority.title }}*: {{ event.priority.value }}
+*{{ event.state.title }}*: {{ event.state.value }}
+*{{ event.revision_action.title() }}*: {{ localtime(alert.time.value).strftime('%A %b %d, %Y %H:%M (%Z)') }}
+*Alert Rule*: {{ alert_rule if alert_rule else '<unnamed>' }}
+{%  if event.location.longitude and event.location.latitude %}
+{{ event.location.value }}
+{{ event.location.href }}
+{% endif %}
+{{ site_url }}

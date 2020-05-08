@@ -1,16 +1,16 @@
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
-import pytz
 from dateutil.parser import parse
 from django.apps import apps
 from django.core.management.base import BaseCommand
 
 from observations.models import Source, SourceProvider
-from tracking.models.plugin_base import SourcePlugin
+from tracking.models.plugin_base import SourcePlugin, DasDefaultTarget
 from tracking.models.awt import AwtClient
 from tracking.tasks import run_source_plugin
+from tracking.pubsub_registry import notify_new_tracks
 
 
 AWT_ID_CONVERSION_RE = re.compile(r'0([0-9]{7})[SKY,VTI][0-9A-Z]{4}')
@@ -30,7 +30,7 @@ class Command(BaseCommand):
     help = 'Run AwtPlugin maintenance.'
 
     SUB_COMMANDS = ('maintenance', 'observations',
-                    'list', 'taglist', 'upgrade')
+                     'list', 'taglist', 'upgrade')
     plugin_class = apps.get_model('tracking', 'AwtPlugin')
 
     def add_arguments(self, parser):
@@ -52,6 +52,12 @@ class Command(BaseCommand):
 
         parser.add_argument('--dry-run', action='store_true',
                             help="stdout data(won't store in DB). Possible "
+                                 "values [true/false]")
+        parser.add_argument('--enable-replay', action= 'store_true',
+                            help="use awt replay api as needed for 3 month backfill"
+                                 "values [true/false]")
+        parser.add_argument('--enable-history', action='store_true',
+                            help="use awt history api as needed for historical backfill"
                                  "values [true/false]")
 
     def handle(self, *args, **options):
@@ -98,11 +104,11 @@ class Command(BaseCommand):
 
     def validate_start_end_time(self, start, end=None):
         # Check Start/end should be less than now
-        if start >= datetime.now(tz=pytz.UTC):
+        if start >= datetime.now(tz=timezone.utc):
             raise ValueError('Start time should be less than or equal to '
                              'current time')
         if end:
-            if end > datetime.now(tz=pytz.UTC):
+            if end > datetime.now(tz=timezone.utc):
                 raise ValueError('End time should be less than or equal to '
                                  'current time')
             if end <= start:
@@ -113,7 +119,6 @@ class Command(BaseCommand):
         """get tag_id using options['manufacturer_id'] and show observations for
         same tag_id"""
         manufacturer_id = options['manufacturer_id']
-        options['dry_run'] = "true"
         try:
             source = Source.objects.get(manufacturer_id=manufacturer_id)
         except Exception as e:
@@ -128,9 +133,15 @@ class Command(BaseCommand):
                     source=source, status='enabled')
                 if source_plugins:
                     for source_plugin in source_plugins:
-                        for observations in source_plugin.plugin.fetch(
+                        accumulator = None
+                        with DasDefaultTarget() as t:
+                            for observation in source_plugin.plugin.fetch(
                                 source, source_plugin.cursor_data, options):
-                            self.logger.info(observations)
+                                if not options['dry_run']:
+                                    accumulator = t.send(observation)
+                                self.logger.info(observation)
+                        if accumulator and accumulator.get('created', 0) > 0:
+                            notify_new_tracks(str(source.id))
 
     def observations(self, options):
         if not options['start_time']:
@@ -138,9 +149,9 @@ class Command(BaseCommand):
                              'Use --start-time [start-time])')
         try:
             options['start_time'] = parse(
-                options['start_time']).replace(tzinfo=pytz.UTC)
-            options['end_time'] = (parse(options['end_time']).replace(tzinfo=pytz.UTC)
-                                   if options['end_time'] else datetime.now(tz=pytz.UTC))
+                options['start_time']).replace(tzinfo=timezone.utc)
+            options['end_time'] = (parse(options['end_time']).replace(tzinfo=timezone.utc)
+                                   if options['end_time'] else datetime.now(tz=timezone.utc))
             self.validate_start_end_time(options['start_time'],
                                          options['end_time'])
         except Exception as e:
@@ -169,6 +180,7 @@ class Command(BaseCommand):
                              'or --unit-id [unit-id].')
 
     def upgrade(self, options):
+
         # upgrade from skygistics to Awt API
         for plugin in self.fetch_plugins(options):
             awt_client = AwtClient(username=plugin.username,
