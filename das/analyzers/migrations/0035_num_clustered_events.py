@@ -45,23 +45,23 @@ GENERIC_GFW_ACTIVE_FIRE_SCHEMA = """{
             "title":"Name of subscription with Global Forest Watch"
          },
          "bright_ti4": {
-            "type": "string",
+            "type": "number",
             "title": "VIIRS I-4 channel brightness (Kelvin)"
          },
          "bright_ti5": {
-            "type": "string",
+            "type": "number",
             "title": "VIIRS I-5 channel brightness (Kelvin)"
          },
          "scan": {
-            "type": "string",
+            "type": "number",
             "title": "VIIRS Scan"
          },
          "track": {
-            "type": "string",
+            "type": "number",
             "title": "Satellite Track"
          },
          "frp": {
-            "type": "string",
+            "type": "number",
             "title": "Fire Radiative Power (MW)"
          },
          "alert_link":{
