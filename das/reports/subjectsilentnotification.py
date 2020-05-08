@@ -158,8 +158,9 @@ def get_required_eligible_sources(eligible_sources):
                 break
 
     if len(exclude) != 0:
+        el_sources = eligible_sources
         for src in exclude:
-            el_sources = eligible_sources.exclude(provider=src.provider)
+            el_sources = el_sources.exclude(provider=src.provider)
         return el_sources
     else:
         return eligible_sources

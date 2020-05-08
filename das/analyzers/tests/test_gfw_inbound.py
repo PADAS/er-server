@@ -57,7 +57,7 @@ class GFWAlertHandlerTest(BaseAPITest):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(1, Event.objects.all().count())  # GLAD_ALERT_DOWNLOADED_DATA has 1 confirmed sub
 
-    @patch('requests.get')
+    @patch('requests.post')
     def test_virrs(self, mock_request):
         mock_request.return_value = Mock(status_code=200, text=json.dumps(VIIRS_FIRE_ALERT_DOWNLOADED_DATA))
         app.send_task = send_task
@@ -82,7 +82,7 @@ class GFWAlertHandlerTest(BaseAPITest):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(1, Event.objects.all().count())
 
-    @patch('requests.get')
+    @patch('requests.post')
     def test_viirs_with_duplicates(self, mock_request):
         mock_request.return_value = Mock(status_code=200, text=json.dumps(VIIRS_FIRE_ALERT_DOWNLOADED_DATA))
         app.send_task = send_task
@@ -247,7 +247,7 @@ class GFWAlertHandlerTest(BaseAPITest):
         self.assertEqual(len(clustered_alerts), Event.objects.all().count())
 
     # @patch('analyzers.gfw_utils.get_viirs_fire_alerts')
-    @patch('analyzers.tasks.requests.get')
+    @patch('analyzers.tasks.requests.post')
     def test_filter_confidence_level_for_fire(self, mock_request):
         mock_request.return_value = Mock(status_code=200, text=json.dumps(VIIRS_FIRE_ALERT_DOWNLOADED_DATA))
         # mock_callback.return_value = VIIRS_CALLBACK_DATA

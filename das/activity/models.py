@@ -137,7 +137,7 @@ class EventCategory(TimestampedModel):
 
     @property
     def auto_permissionset_name(self):
-        return _('Admin {} Event Permissions').format(self.display)
+        return _('View {} Event Permissions').format(self.display)
 
 
 @receiver(post_save, sender=EventCategory)
@@ -413,20 +413,27 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
     def by_text_filter(self, searchtext):
 
-        filter = Q(title__unaccent__icontains=searchtext) \
-            | Q(note__text__unaccent__icontains=searchtext) \
-            | Q(event_type__display__unaccent__icontains=searchtext)
-
         queryset = self
         if re.match('[0-9]+', searchtext):
             logger.info('Querying on numeric. %s', searchtext)
             queryset = self.annotate(serial_number_text=Func(F('serial_number'),
                                                              function='bigint_to_char'))
             # 'startswith' witll use an index.
-            filter = filter | Q(
-                serial_number_text__startswith=searchtext)
+            filter_ = Q(serial_number_text__startswith=searchtext)
+            return queryset.filter(filter_).distinct()
 
-        return queryset.filter(filter).distinct()
+        searchtext = ':* & '.join(searchtext.split()) + ':*'
+
+        queryset = queryset.extra(tables=['activity_tsvectormodel'],
+                                  select={'rank': 'ts_rank_cd(activity_tsvectormodel.tsvector_event, %s)'},
+                                  where=['activity_tsvectormodel.tsvector_event @@ to_tsquery(%s) OR '
+                                         'activity_tsvectormodel.tsvector_event_note @@ to_tsquery(%s)',
+                                         'activity_tsvectormodel.event_id=activity_event.id'],
+                                  order_by=['-rank'],
+                                  select_params=[searchtext],
+                                  params=[searchtext, searchtext])
+
+        return queryset.distinct()
 
     # def by_date_range(self,
 
@@ -612,11 +619,10 @@ class EventRelationship(TimestampedModel):
         return result
 
 
-# class Event(RevisionMixin, models.Model):
 class Event(RevisionMixin, TimestampedModel):
 
     objects = EventManager.from_queryset(EventFilteringQuerySet)()
-    revision_ignore_fields = ('updated_at', 'sort_at')
+    revision_ignore_fields = ('sort_at')
     revision_follow_relations = ('activity.EventPhoto',)
 
     ordering = ['-sort_at']
@@ -806,9 +812,12 @@ class Event(RevisionMixin, TimestampedModel):
         return Event.marker_icon(self.event_type.icon_id, self.priority, self.state)
 
     def dependent_table_updated(self):
-        self.updated_at = timezone.now()
-        self.sort_at = self.updated_at
-        self.save()
+        # if difference is less than 1, probably means the event and other object were created together
+        if abs((self.created_at - timezone.now()).total_seconds()) > 1:
+            self.updated_at = timezone.now()
+            self.state = 'active' if self.state == 'new' else self.state
+            self.sort_at = self.updated_at
+            self.save()
 
     def update_parent_events(self, **kwargs):
         # This updates all events having a 'contains' relationship directed at this event. (Ex. parent collections).
@@ -855,6 +864,11 @@ class Event(RevisionMixin, TimestampedModel):
         else:
             self.sort_at = timezone.now()
             save_fields.add('sort_at')
+
+        # move the state to Active if we are stuck on New.
+        if not self._state.adding and prev_state == self.SC_NEW and self.state == self.SC_NEW and 'state' not in save_fields:
+            self.state = self.SC_ACTIVE
+            save_fields.add('state')
 
         save_fields.add('updated_at')
         if update_fields:
@@ -1305,8 +1319,8 @@ class AlertRule(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
     owner = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='alert_rules', related_query_name='alert_rule')
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        null=True, blank=False, related_name='alert_rules', related_query_name='alert_rule')
 
     title = models.CharField(max_length=100, blank=True, help_text=_('A user friendly name for this alert.'))
     ordernum = models.SmallIntegerField(blank=True, null=True, default=0)
@@ -1359,3 +1373,7 @@ class EventNotification(TimestampedModel):
         indexes = [
             models.Index(fields=['event'])
         ]
+
+
+class TSVectorModel(models.Model):
+    event = models.ForeignKey(Event, on_delete=models.CASCADE)

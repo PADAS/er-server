@@ -14,7 +14,7 @@ from django.utils.translation import ugettext as _
 
 import logging
 
-from activity.models import Event
+from activity.models import Event, EventDetails
 
 VIEW_SUBJECTGROUP_PERMS = ('observations.view_subjectgroup', )
 
@@ -177,11 +177,13 @@ def create_new_func(key, return_type, label=None, options_dict=None):
         return variables.select_multiple_rule_variable(label, options=options_list)(f)
 
     def string_f(self):
-        saved_value = self.event.get('event_details', {}).get(key, '')
+        event_details = self.event.get('event_details') or {}
+        saved_value = event_details.get(key, '')
         return str(saved_value)
 
     def numeric_f(self):
-        saved_value = self.event.get('event_details', {}).get(key, 0)
+        event_details = self.event.get('event_details') or {}
+        saved_value = event_details.get(key, 0)
 
         if isinstance(saved_value, (str,)):
             if '.' in saved_value:
@@ -399,7 +401,7 @@ def resolve_event_revisions(event):
     try:
         details_revision = event.event_details.latest('updated_at') \
             .revision.all_user().latest('revision_at')
-    except AttributeError:
+    except (AttributeError, EventDetails.DoesNotExist):
         return revision, None
 
     diff = (revision.revision_at - details_revision.revision_at).total_seconds()

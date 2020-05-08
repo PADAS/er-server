@@ -10,7 +10,7 @@ from analyzers.models import GlobalForestWatchSubscription as gfw_model
 
 logger = logging.getLogger(__name__)
 
-CARTO_URL = 'https://wri-01.cartodb.com/api/v2/sql?q='
+CARTO_URL = settings.CARTO_URL
 
 SQL_FORMAT = """SELECT pt.*
     FROM vnp14imgtdl_nrt_global_7d pt
@@ -40,9 +40,8 @@ def create_viirs_downloadable_url(alert_date_begin, alert_date_end, geojson, con
                                 alert_date_end=alert_date_end,
                                 geoJSON=geojson,
                                 confidence_level=confidence_level)
-    quote_sql = urlparse.quote(sql_str)
-    url_format = "{}{}&format=json"
-    return url_format.format(CARTO_URL, quote_sql)
+
+    return {"URL": CARTO_URL, "param": {"q": sql_str, "format": "json"}}
 
 
 def confidence_level_fmt(confidence_level):

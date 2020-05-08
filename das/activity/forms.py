@@ -93,8 +93,10 @@ class EventTypeForm(forms.ModelForm):
         schema_warning = f'Warning: The event type schema for {name} is not properly formatted JSON. The event type might not properly render in the EarthRanger client.'
         try:
             rendered_schema = get_schema_renderer_method()(schema)
+        except NameError as ne:
+            messages.add_message(self.request, messages.WARNING, schema_warning)
         except Exception:
-            raise forms.ValidationError(schema_warning)
+            messages.add_message(self.request, messages.WARNING, schema_warning)
         else:
             try:
                 validate_rendered_schema_is_wellformed(rendered_schema)
@@ -125,14 +127,14 @@ class AlertRuleForm(forms.ModelForm):
 
     notification_methods = NotificationMethodSelectField(
         queryset=NotificationMethod.objects.all(),
-        required=False,
+        required=True,
         widget=FilteredSelectMultiple(
             verbose_name=_('Notification Methods'),
             is_stacked=False))
 
     event_types = forms.ModelMultipleChoiceField(
         queryset=EventType.objects.all(),
-        required=False,
+        required=True,
         widget=FilteredSelectMultiple(
             verbose_name=_('Event Types'),
             is_stacked=False))

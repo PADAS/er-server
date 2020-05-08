@@ -131,9 +131,15 @@ def handle_observation(observation_id):
 def download_gfw_alerts(self, download_url, common_event_fields, user_id):
     try:
         connect_timeout, read_timeout = 3, 30
-        logger.info('Processing GFW payload for %s. Downloading from: %s', common_event_fields.get('event_type'),
-                    download_url)
-        resp = requests.get(url=download_url, timeout=(connect_timeout, read_timeout))
+        if common_event_fields.get('event_type') == GFWGladEventTypeSpec.value:
+            logger.info('Processing GFW payload for %s. Downloading from: %s', common_event_fields.get('event_type'),
+                        download_url)
+            resp = requests.get(url=download_url, timeout=(connect_timeout, read_timeout))
+        else:
+            base_url, param = download_url['URL'], download_url['param']
+            logger.info('Processing GFW payload for %s. Downloading from query params: %s', common_event_fields.get('event_type'),
+                        download_url)
+            resp = requests.post(url=base_url, data=param, timeout=(connect_timeout, read_timeout))
     except Timeout as tex:
         # TODO: revisit to figure out other failures that should be retried.
         logger.exception('Failed downloading GFW alert data for url: %s', download_url,

@@ -1,15 +1,18 @@
 import json
-from unittest.mock import patch
-import django.contrib.auth
-from django.urls import reverse
 from datetime import datetime, timedelta
-import dateutil.parser as dateparser
+from unittest.mock import patch
 
-from pytz import UTC
+import django.contrib.auth
 from django.contrib.gis.geos import Point
+from django.urls import reverse
+from django.conf import settings
+from django.test import override_settings
+import dateutil.parser as dateparser
+from pytz import UTC
+
 from core.tests import BaseAPITest
 from observations.models import Subject, Observation
-from observations.views import SubjectsView, INCLUDE_STATIONARY_SUBJECTS_ON_MAP
+from observations.views import SubjectsView
 
 User = django.contrib.auth.get_user_model()
 
@@ -101,7 +104,8 @@ class SubjectTestCase(BaseAPITest):
         response = SubjectsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
 
-    @patch('observations.views.INCLUDE_STATIONARY_SUBJECTS_ON_MAP', True)
+    @override_settings(SHOW_STATIONARY_SUBJECTS_ON_MAP=True)
+    @override_settings(SHOW_TRACK_DAYS=16)
     def test_date_range_filter_works(self):
         url = reverse('subjects-list-view')
 
@@ -109,8 +113,8 @@ class SubjectTestCase(BaseAPITest):
         subject2 = Subject.objects.get(name='Turvey')
 
         point = Point((-122.334, 47.598))
-        t1 = datetime.now(tz=UTC)
-        t2 = datetime.now(tz=UTC) + timedelta(days=3)
+        t2 = datetime.now(tz=UTC)
+        t1 = datetime.now(tz=UTC) - timedelta(days=3)
 
         Observation.objects.create(
             source=subject.source,

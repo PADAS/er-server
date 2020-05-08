@@ -241,13 +241,9 @@ workflows:
               ignore:
                 - 'develop'
                 - /release*/
-      - allow_terraform_planning:
-          requires:
-            - 'docker_build_and_generate_manifest'
-          type: 'approval'
       - terraform_plan_dev:
           requires:
-            - 'allow_terraform_planning'
+            - 'docker_build_and_generate_manifest'
       - review_plan_dev:
           requires:
             - 'terraform_plan_dev'

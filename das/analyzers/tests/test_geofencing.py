@@ -1,20 +1,27 @@
+import json
 import logging
-from analyzers.models import SubjectAnalyzerResult
-from django.test import TestCase
 # Use python unit test here to persist results in test DB
 from unittest.mock import patch
-from .geofence_test_data import *
-from observations.models import Subject, Source, SubjectSource, SubjectGroup, DEFAULT_ASSIGNED_RANGE
-from observations.models import SubjectTrackSegmentFilter
-from mapping.models import SpatialFeature, SpatialFeatureGroupStatic
-from .analyzer_test_utils import *
-from activity.models import Event, EventCategory, EventType
-from analyzers.geofence import GeofenceAnalyzer, GeofenceAnalyzerConfig
-from analyzers.exceptions import InsufficientDataAnalyzerException
-from analyzers.tasks import analyze_subject
-from mapping.tasks import extract_features_from_files
-import json
+
 import yaml
+import urllib
+from django.test import TestCase
+from django.core.files import File
+from django.core.serializers import serialize
+
+from activity.models import Event, EventCategory, EventType
+from analyzers.exceptions import InsufficientDataAnalyzerException
+from analyzers.geofence import GeofenceAnalyzer, GeofenceAnalyzerConfig
+from analyzers.models import SubjectAnalyzerResult
+from analyzers.tasks import analyze_subject
+from mapping.models import SpatialFeature, SpatialFeatureGroupStatic, SpatialFeatureFile
+from mapping.spatialfile_utils import process_spatialfile
+from observations.models import (DEFAULT_ASSIGNED_RANGE, Source, Subject,
+                                 SubjectGroup, SubjectSource,
+                                 SubjectTrackSegmentFilter)
+
+from .analyzer_test_utils import *
+from .geofence_test_data import *
 
 logger = logging.getLogger(__name__)
 
@@ -61,15 +68,59 @@ class TestGeofenceAnalyzer(TestCase):
             '''
         return json.dumps(yaml.load(schema_yaml, Loader=yaml.SafeLoader))
 
+    def feature_from_observation_list(self, observations, name='Subject Track', stroke='#cc0000',
+                                      stroke_width=3, stroke_opacity=1):
+        '''Create a generic LineString feature from a list of Observations.'''
+        feature = {
+                    "type": "Feature",
+                    "properties": {
+                        "name": name,
+                        "stroke": stroke,
+                        "stroke-width": stroke_width,
+                        "stroke-opacity": stroke_opacity,
+                    },
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [(obs.location.x, obs.location.y) for obs in observations]
+                    }
+                }
+
+        return feature
+
+    def visualize_geofence_crossings(self, geofence_grp, track_observations, subject, filename):
+        if logger.isEnabledFor(logging.DEBUG):
+            # Write results to a local file.
+            fences = json.loads(
+                serialize('geojson', geofence_grp.features.all(),
+                          geometry_field='feature_geometry',
+                          fields=('name', 'id'))
+            )
+            fences['features'] = fences['features'] + [
+                self.feature_from_observation_list(track_observations)]
+
+            fence_breaks = json.loads(
+                serialize('geojson',
+                          SubjectAnalyzerResult.objects.filter(subject=subject),
+                          geometry_field='geometry_collection',
+                          fields=('title', 'estimated_time'))
+            )
+
+            fences['features'] = fences['features'] + fence_breaks['features']
+
+            with open(f'{filename}.json',
+                      'w') as fo:
+                json.dump(fences, fo, indent=2)
+
+            # Print a link to view results at geojson.io
+            data = urllib.parse.quote(json.dumps(fences))
+            print(f'http://geojson.io/#data=data:application/json,{data}')
+
     def setUp(self):
 
-        # Load the geojson files into the database
-        with patch('mapping.utils.cleanup_files') as mock_cleanup:
-            mock_cleanup.return_value = None
-            data_files = ['./analyzers/fixtures/lines.geojson',
-                          './analyzers/fixtures/polygons.geojson']
-            feature_types_file = './analyzers/fixtures/spatial_feature_types.geojson'
-            extract_features_from_files(data_files, 'ste', None, feature_types_file, name_field='', )
+        data = File(open('./analyzers/fixtures/lines.geojson', 'rb'))
+        feature_types_file = File(open('./analyzers/fixtures/spatial_feature_types.geojson', 'rb'))
+        spatialfile = SpatialFeatureFile.objects.create(data=data, feature_types_file=feature_types_file)
+        process_spatialfile(spatialfile)
 
         ec, created = EventCategory.objects.get_or_create(
             value='analyzer_event', defaults=dict(display='Analyzer Events'))
@@ -168,7 +219,7 @@ class TestGeofenceAnalyzer(TestCase):
 
         # Iterate through the observations adding another point to the
         # trajectory on each loop
-        for i in range(2, relocs_len):
+        for i in range(2, relocs_len+1):
             try:
                 analyzer = GeofenceAnalyzer(config=config, subject=sub)
                 analyzer.analyze(observations=test_observations[i - 2:i])
@@ -187,3 +238,239 @@ class TestGeofenceAnalyzer(TestCase):
         for e in Event.objects.all():
             for ed in e.event_details.all():
                 print('Event Details: %s' % ed.data)
+
+    def test_geofencing_for_crooked_boundaries(self):
+        sub = Subject.objects.create(
+            name='dumbo', subject_subtype_id='elephant')
+        source = Source.objects.create(manufacturer_id='007')
+        SubjectSource.objects.create(
+            subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
+
+        sg = SubjectGroup.objects.create(
+            name='geofence_subject_analyzer_group2', )
+        sg.subjects.add(sub)
+        sg.save()
+
+        # parse recorded_at (from string to datetime).
+        test_observations = [parse_recorded_at(x) for x in DUMBO_TRACKS]
+        relocs_len = len(test_observations)
+        test_observations = list(generate_observations(test_observations))
+
+        # Create a SpatialFeatureGroupStatic group with the 'Ol Donyo Farm 2'
+        # geofence
+        geofences = SpatialFeature.objects.filter(
+            name__iexact='Ol Donyo Farm 2')
+        logger.info('Geofence count: %s', len(geofences))
+        gf_grp = SpatialFeatureGroupStatic.objects.create(
+            name='Crooked Geofences', )
+        gf_grp.features.add(*geofences)
+        gf_grp.save()
+
+        # Create a containment regions grp
+        contain_rgns = SpatialFeature.objects.filter(
+            name='Pardamat Conservancy')
+        logger.info('Containment region count: %s' % str(len(contain_rgns)))
+        cr_grp = SpatialFeatureGroupStatic.objects.create(
+            name='Geofence Containment Regions', )
+        cr_grp.features.add(*contain_rgns)
+        cr_grp.save()
+
+        # Create the Geofence Analyzer Config object
+        config = GeofenceAnalyzerConfig.objects.create(
+            subject_group=sg, critical_geofence_group=gf_grp,
+            containment_regions=cr_grp)
+
+        # Iterate through the observations adding another point to the
+        # trajectory on each loop
+        for i in range(2, relocs_len+1):
+            try:
+                analyzer = GeofenceAnalyzer(config=config, subject=sub)
+                analyzer.analyze(observations=test_observations[i - 2:i])
+            except InsufficientDataAnalyzerException:
+                break
+
+        # There should be 2 geofence breaks from this analysis.
+        results = SubjectAnalyzerResult.objects.filter(subject=sub)
+        for result in results:
+            print('Geofence Result: %s' % result)
+
+        self.assertEqual(len(results), 6)
+
+        self.visualize_geofence_crossings(gf_grp, test_observations, sub, self.test_geofencing_for_crooked_boundaries.__name__)
+
+    def test_geofencing_for_a_double_hop(self):
+        sub = Subject.objects.create(
+            name='dumbo', subject_subtype_id='elephant')
+        source = Source.objects.create(manufacturer_id='007')
+        SubjectSource.objects.create(
+            subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
+
+        sg = SubjectGroup.objects.create(
+            name='geofence_subject_analyzer_group2', )
+        sg.subjects.add(sub)
+        sg.save()
+
+        # parse recorded_at (from string to datetime).
+        test_observations = [parse_recorded_at(x) for x in SUBJECT_TRACK_FOR_DOUBLE_FENCE_HOP]
+        relocs_len = len(test_observations)
+        test_observations = list(generate_observations(test_observations))
+
+        # Create a SpatialFeatureGroupStatic group with the 'Ol Donyo Farm 2'
+        # geofence
+        geofences = SpatialFeature.objects.filter(
+            name__iexact='Ol Donyo Farm 2')
+        logger.info('Geofence count: %s', len(geofences))
+        gf_grp = SpatialFeatureGroupStatic.objects.create(
+            name='Crooked Geofences', )
+        gf_grp.features.add(*geofences)
+        gf_grp.save()
+
+        # Create a containment regions grp
+        contain_rgns = SpatialFeature.objects.filter(
+            name='Pardamat Conservancy')
+        logger.info('Containment region count: %s' % str(len(contain_rgns)))
+        cr_grp = SpatialFeatureGroupStatic.objects.create(
+            name='Geofence Containment Regions', )
+        cr_grp.features.add(*contain_rgns)
+        cr_grp.save()
+
+        # Create the Geofence Analyzer Config object
+        config = GeofenceAnalyzerConfig.objects.create(
+            subject_group=sg, critical_geofence_group=gf_grp,
+            containment_regions=cr_grp)
+
+        # Iterate through the observations adding another point to the
+        # trajectory on each loop
+        for i in range(2, relocs_len+1):
+            try:
+                analyzer = GeofenceAnalyzer(config=config, subject=sub)
+                analyzer.analyze(observations=test_observations[i - 2:i])
+            except InsufficientDataAnalyzerException:
+                break
+
+        # There should be 2 geofence breaks from this analysis.
+        results = SubjectAnalyzerResult.objects.filter(subject=sub)
+        for result in results:
+            logger.info('Geofence Result: %s' % result)
+
+        self.assertEqual(len(results), 1)
+
+        self.visualize_geofence_crossings(gf_grp, test_observations, sub, self.test_geofencing_for_a_double_hop.__name__)
+
+    def test_illegitimate_fence_crossings(self):
+        sub = Subject.objects.create(
+            name='dumbo', subject_subtype_id='elephant')
+        source = Source.objects.create(manufacturer_id='007')
+        SubjectSource.objects.create(
+            subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
+
+        sg = SubjectGroup.objects.create(
+            name='geofence_subject_analyzer_group2', )
+        sg.subjects.add(sub)
+        sg.save()
+
+        # parse recorded_at (from string to datetime).
+        test_observations = [parse_recorded_at(x) for x in TUMBO_TRACKS]
+        relocs_len = len(test_observations)
+        test_observations = list(generate_observations(test_observations))
+
+        # Create a SpatialFeatureGroupStatic group with the 'Ol Donyo Farm 2'
+        # geofence
+        geofences = SpatialFeature.objects.filter(
+            name__iexact='Ol Donyo Farm 2')
+        logger.info('Geofence count: %s', len(geofences))
+        gf_grp = SpatialFeatureGroupStatic.objects.create(
+            name='Crooked Geofences', )
+        gf_grp.features.add(*geofences)
+        gf_grp.save()
+
+        # Create a containment regions grp
+        contain_rgns = SpatialFeature.objects.filter(
+            name='Ol Donyo Farm 2')
+        logger.info('Containment region count: %s' % str(len(contain_rgns)))
+        cr_grp = SpatialFeatureGroupStatic.objects.create(
+            name='Geofence Containment Regions', )
+        cr_grp.features.add(*contain_rgns)
+        cr_grp.save()
+
+        # Create the Geofence Analyzer Config object
+        config = GeofenceAnalyzerConfig.objects.create(
+            subject_group=sg, critical_geofence_group=gf_grp,
+            containment_regions=cr_grp)
+
+        # Iterate through the observations adding another point to the
+        # trajectory on each loop
+        for i in range(2, relocs_len+1):
+            try:
+                analyzer = GeofenceAnalyzer(config=config, subject=sub)
+                analyzer.analyze(observations=test_observations[i - 2:i])
+            except InsufficientDataAnalyzerException:
+                break
+
+        # There should be 2 geofence breaks from this analysis.
+        results = SubjectAnalyzerResult.objects.filter(subject=sub)
+        for result in results:
+            print('Geofence Result: %s' % result)
+
+        self.assertEqual(len(results), 0)
+
+        self.visualize_geofence_crossings(gf_grp, test_observations, sub, self.test_illegitimate_fence_crossings.__name__)
+
+    def test_zero_crossings(self):
+        sub = Subject.objects.create(
+            name='dumbo', subject_subtype_id='elephant')
+        source = Source.objects.create(manufacturer_id='007')
+        SubjectSource.objects.create(
+            subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
+
+        sg = SubjectGroup.objects.create(
+            name='geofence_subject_analyzer_group2', )
+        sg.subjects.add(sub)
+        sg.save()
+
+        # parse recorded_at (from string to datetime).
+        test_observations = [parse_recorded_at(x) for x in ZERO_CROSSINGS]
+        relocs_len = len(test_observations)
+        test_observations = list(generate_observations(test_observations))
+
+        # Create a SpatialFeatureGroupStatic group with the 'Ol Donyo Farm 2'
+        # geofence
+        geofences = SpatialFeature.objects.filter(
+            name__iexact='Ol Donyo Farm 2')
+        logger.info('Geofence count: %s', len(geofences))
+        gf_grp = SpatialFeatureGroupStatic.objects.create(
+            name='Crooked Geofences', )
+        gf_grp.features.add(*geofences)
+        gf_grp.save()
+
+        # Create a containment regions grp
+        contain_rgns = SpatialFeature.objects.filter(
+            name='Ol Donyo Farm 2')
+        logger.info('Containment region count: %s' % str(len(contain_rgns)))
+        cr_grp = SpatialFeatureGroupStatic.objects.create(
+            name='Geofence Containment Regions', )
+        cr_grp.features.add(*contain_rgns)
+        cr_grp.save()
+
+        # Create the Geofence Analyzer Config object
+        config = GeofenceAnalyzerConfig.objects.create(
+            subject_group=sg, critical_geofence_group=gf_grp,
+            containment_regions=cr_grp)
+
+        # Iterate through the observations adding another point to the
+        # trajectory on each loop
+        for i in range(2, relocs_len + 1):
+            try:
+                analyzer = GeofenceAnalyzer(config=config, subject=sub)
+                analyzer.analyze(observations=test_observations[i - 2:i])
+            except InsufficientDataAnalyzerException:
+                break
+
+        # There should be 2 geofence breaks from this analysis.
+        results = SubjectAnalyzerResult.objects.filter(subject=sub)
+        for result in results:
+            print('Geofence Result: %s' % result)
+
+        self.assertEqual(len(results), 0)
+
+        self.visualize_geofence_crossings(gf_grp, test_observations, sub, self.test_zero_crossings.__name__)

@@ -6,7 +6,10 @@ from datetime import datetime, timedelta
 from celery_once import QueueOnce
 from versatileimagefield.image_warmer import VersatileImageFieldWarmer
 
-from activity.alerting.message import send_event_alert
+from activity.alerting.businessrules import resolve_event_revisions, \
+    infer_event_state
+from activity.alerting.message import send_event_alert, \
+    get_revised_event_fields, get_revised_event_details_fields
 from activity.alerting.service import evaluate_event
 from activity.models import EventPhoto, Event, AlertRule, RefreshRecreateEventDetailView
 from das_server import celery
@@ -34,7 +37,7 @@ def warm_eventphotos(self, event_photo_id):
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True, })
-def evaluate_alert_rules(event_id):
+def evaluate_alert_rules(event_id, created):
 
     try:
         logger.info('Evaluating Event %s for alerting.', event_id)
@@ -51,22 +54,50 @@ def evaluate_alert_rules(event_id):
 
         already_queued_nids = set()  # accumulator for Notification Methods.
         for alert_rule in AlertRule.objects.filter(id__in=alert_rule_ids).order_by('ordernum', 'title'):
-            for notification_method in alert_rule.notification_methods.filter(is_active=True):
 
-                if notification_method.id not in already_queued_nids:
-                    kwargs = {
-                        'alert_rule_id': str(alert_rule.id),
-                        'event_id': str(event_id),
-                        'notification_method_id': str(notification_method.id)
-                    }
-
-                    send_alert_to_notificationmethod.apply_async(
-                        args=(), kwargs=kwargs)
-                already_queued_nids.add(notification_method.id)
+            # Verify conditions to only send alerts when the set conditions are met
+            evaluate_conditions_for_sending_alerts(event, alert_rule, already_queued_nids, created)
 
     except Exception as e:
         logger.exception(
             'Failed when evaluating alert rules for event {}'.format(event_id))
+
+
+def evaluate_conditions_for_sending_alerts(event, alert_rule, queued_nids, created):
+    event_revision, details_revision = resolve_event_revisions(event)
+
+    # Calculate updated fields
+    updated_event_fields = get_revised_event_fields(event_revision)
+    updated_event_details_fields = get_revised_event_details_fields(
+        details_revision)
+
+    combined_updated_fields = updated_event_fields
+    combined_updated_fields.update(updated_event_details_fields)
+
+    if created or not alert_rule.conditions:
+        # Sending all alerts, if new report created or report has no conditions set
+        evaluate_notifications(alert_rule, queued_nids, event.id)
+
+    for alert_condition in alert_rule.conditions.get('all', {}):
+        condition_name = alert_condition['name']
+
+        # Check if allowed condition values are updated
+        if condition_name in combined_updated_fields:
+            evaluate_notifications(alert_rule, queued_nids, event.id)
+
+
+def evaluate_notifications(alert_rule, already_queued_nids, event_id):
+    for notification_method in alert_rule.notification_methods.filter(is_active=True):
+        if notification_method.id not in already_queued_nids:
+            kwargs = {
+                'alert_rule_id': str(alert_rule.id),
+                'event_id': str(event_id),
+                'notification_method_id': str(notification_method.id)
+            }
+
+            send_alert_to_notificationmethod.apply_async(
+                args=(), kwargs=kwargs)
+        already_queued_nids.add(notification_method.id)
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True, })

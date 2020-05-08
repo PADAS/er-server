@@ -11,22 +11,25 @@ from django.contrib.admin.utils import (get_deleted_objects, model_ngettext,
                                         unquote)
 from django.contrib.gis import admin
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.db.models import Q
 from django.db.models.expressions import RawSQL
 from django.http import HttpResponseRedirect
 from django.template.response import TemplateResponse
+from django.urls import reverse
 from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 
 import mapping.models as models
 from core.openlayers import OSMGeoExtendedAdmin
+from mapping.esri_integration import arcgis_integration, update_db_groups
 from mapping.forms import (ArcgisConfigurationForm, DisplayCategoryForm,
                            FeatureTypeForm, MapCenterForm,
                            SpatialFeatureGroupStaticForm,
                            SpatialFeatureTypeForm, TileLayerFormWithAttributes)
-from mapping.utils import MAPPING_FEATURES_V2
-from mapping.esri_integration import arcgis_integration, update_db_groups
+from mapping.tasks import load_spatial_features_from_files
+from mapping.utils import MAPPING_FEATURES_V2, clear_features
 
 logger = logging.getLogger(__name__)
 
@@ -162,14 +165,14 @@ class GeometryTypeFilter(django_admin.SimpleListFilter):
     parameter_name = 'geometry_type'
 
     def lookups(self, request, model_admin):
-        return (
+        return sorted((
             ('MULTILINESTRING', 'Multi-line String'),
             ('MULTIPOLYGON', 'Multi-polygon'),
             ('LINESTRING', 'Line String'),
             ('POLYGON', 'Polygon'),
             ('MULTIPOINT', 'Multi-point'),
             ('POINT', 'Point'),
-        )
+        ), key=lambda item: item[1])
 
     def queryset(self, request, queryset):
         value = self.value()
@@ -304,6 +307,25 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
     class Meta:
         abstract = True
 
+    def save_model(self, request, obj, form, change):
+        feature_updated = False
+        if change:
+            # check for feature related attributes update
+            for record in form.changed_data:
+                if record not in ['name', 'description']:
+                    feature_updated, change = True, False
+
+        if feature_updated:
+            # Clear features incase any feature related record is updated
+            logger.info("Clearing features, loading features afresh...")
+            clear_features(obj)
+
+        if not change:
+            # load features if a new object or feature attributes are updated
+            transaction.on_commit(lambda: load_spatial_features_from_files.apply_async(args=(str(obj.id),)))
+
+        super().save_model(request, obj, form, change)
+
     def _delete_view(self, request, object_id, extra_context):
         """The 'delete' admin view for this model."""
         opts = self.model._meta
@@ -395,6 +417,11 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
                                       "Delete selected spatial files")
         return actions
 
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            return ['id', 'file_type', 'status']
+        return self.readonly_fields
+
 
 
 if MAPPING_FEATURES_V2:
@@ -406,11 +433,12 @@ if MAPPING_FEATURES_V2:
         fieldsets = (
             (None, {
                 'classes': ('wide',),
-                'fields': ('file_type', 'id', 'name', 'description', 'data', 'status')
+                'fields': ('file_type', 'id', 'name', 'description', 'data', 'feature_type', 'name_field', 'id_field',
+                           'status')
             }),
             ('Shapefile Optional Attributes', {
                 'classes': ('wide', 'shapefile',),
-                'fields': ('feature_type', 'layer_number', 'name_field', 'id_field')
+                'fields': ('layer_number',)
             }
              ),
             ('GeoJSON Optional Attributes', {
@@ -439,8 +467,8 @@ if MAPPING_FEATURES_V2:
 
         def add_background_download_message(self, obj, request, action):
             msg_dict = {
-                    'obj': format_html('<a href="{}">{}</a>', urlquote(request.path), obj),
-                    'features': format_html('<a href="/admin/mapping/spatialfeature/">features</a>'),
+                    'obj': format_html(f'<a href="{reverse("admin:mapping_spatialfeaturefile_change", args=(obj.id,))}">{obj}</a>'),
+                    'features': format_html(f'<a href="{reverse("admin:mapping_spatialfeature_changelist")}">features</a>'),
                     'action': action
                 }
             msg = format_html(_('The Feature Import File "{obj}" {action} successfully. Feature download in progress, check loaded {features} after a few minutes'),**msg_dict)
@@ -515,3 +543,9 @@ else:
                         'layer_number')
         ordering = ('name', 'description', 'feature_set', 'feature_type', 'layer_number', 'id')
         list_filter = ('feature_set', 'feature_type')
+        fieldsets = (
+            (None, {
+                'classes': ('wide',),
+                'fields': ('id', 'name', 'description', 'data', 'layer_number', 'name_field', 'id_field', 'status', 'feature_set', 'feature_type'),
+            }),)
+        readonly_fields = ('id', 'status',)

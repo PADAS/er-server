@@ -26,7 +26,7 @@ from activity.models import EventType, Event, AlertRule, NotificationMethod, \
 
 from activity.serializers import EventSerializer, AlertRuleSerializer
 from activity.tasks import send_alert_to_notificationmethod, \
-    evaluate_alert_rules
+    evaluate_alert_rules, evaluate_conditions_for_sending_alerts
 from core.tests import BaseAPITest
 from core.utils import NonHttpRequest
 from core.utils import OneWeekSchedule
@@ -1414,4 +1414,63 @@ class BusinessRulesTestCase(BaseAPITest):
 
         action_list = evaluate_event(event)
         self.assertEqual(len(action_list), 1)
+
+    @mock.patch("activity.tasks.evaluate_notifications")
+    def test_evaluating_alerts_for_empty_conditions(self, mock_evaluate_notifications):
+        notification_method = NotificationMethod.objects.create(title="test",
+                                                                owner=self.admin_user,
+                                                                method="email",
+                                                                value="phillip@email.com")
+        self.assertEquals(1, NotificationMethod.objects.count())
+
+        subj2 = Subject.objects.create(
+            name="test_subject",
+            owner=self.admin_user,
+        )
+
+        conditions = {
+        }
+
+        immobility = EventType.objects.get(display='Immobility')
+
+        alert_rule = AlertRule.objects.create(
+            owner=self.power_user, title="test_alert_rule")
+        alert_rule.conditions = conditions
+        alert_rule.notification_methods.set([notification_method, ])
+        alert_rule.event_types.set([immobility, ])
+        alert_rule.save()
+        # 3. Create event
+        TEST_EVENT_TITLE = "Test Subject Group Email"
+        event_data = dict(
+            state='active',
+            title=TEST_EVENT_TITLE,
+            event_time=datetime.now(tz=pytz.utc),
+            provenance=Event.PC_STAFF,
+            event_type=immobility.value,
+            priority=Event.PRI_IMPORTANT,
+            location=dict(longitude=37.5123, latitude=1.4590),
+            event_details={},
+            related_subjects=[{'id': subj2.id}, ],
+        )
+
+        request = NonHttpRequest()
+        request.user = self.power_user
+        ser = EventSerializer(data=event_data, context={'request': request})
+
+        if not ser.is_valid():
+            self.fail(f'Event is not valid. Errors are: {ser.errors}')
+        else:
+            event = ser.create(ser.validated_data)
+            event = Event.objects.get(id=event.id)
+
+        action_list = evaluate_event(event)
+        alert_rule_ids = [action['alert_rule_id'] for action in action_list]
+
+        raised = False
+        try:
+            evaluate_conditions_for_sending_alerts(event, alert_rule, alert_rule_ids, True)
+        except KeyError:
+            raised = True
+        self.assertFalse(raised)
+        self.assertEqual(mock_evaluate_notifications.call_count, 1)
 

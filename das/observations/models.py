@@ -54,13 +54,13 @@ from bitfield import BitField
 logger = logging.getLogger(__name__)
 
 
-SOURCE_TYPES = (
+SOURCE_TYPES = sorted((
     ('tracking-device', 'Tracking Device'),
     ('trap', 'Trap'),
     ('seismic', 'Seismic sensor'),
     ('firms', 'FIRMS data'),
-    ('gps-radio', 'gps radio'),
-)
+    ('gps-radio', 'GPS radio')
+), key=lambda item: item[1])
 
 
 def to_rgb(color):
@@ -767,14 +767,14 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         sources = Observation.objects.filter(location__within=geom)
 
         if updated_since and updated_until:
-            gt = parse_date(updated_since)
-            lt = parse_date(updated_until)
+            gt = updated_since
+            lt = updated_until
             sources = sources.filter(recorded_at__range=(gt, lt))
         elif updated_since:
-            gt = parse_date(updated_since)
+            gt = updated_since
             sources = sources.filter(recorded_at__gte=gt)
         elif updated_until:
-            lt = parse_date(updated_until)
+            lt = updated_until
             sources = sources.filter(recorded_at__lte=lt)
         elif last_days:
             lt = datetime.now(tz=pytz.UTC)
@@ -818,11 +818,14 @@ class SubjectManager(models.Manager):
         # all subjects are added to the default subject group
         subject_groups = kwargs.pop('subject_groups', []) or []
         subject = super().create(**kwargs)
-        subject.groups.set((SubjectGroup.objects.get_default(),))
-        for group in subject_groups:
-            if not isinstance(group, SubjectGroup):
-                group, created = SubjectGroup.objects.get_or_create(name=group)
-            subject.groups.add(group)
+        if subject_groups:
+            for group in subject_groups:
+                if not isinstance(group, SubjectGroup):
+                    group, created = SubjectGroup.objects.get_or_create(
+                        name=group)
+                subject.groups.add(group)
+        else:
+            subject.groups.set((SubjectGroup.objects.get_default(),))
 
         return subject
 
@@ -1026,7 +1029,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
         try:
             state = getattr(self, 'status_radio_state', None) or \
-                self.objects.get(delay_hours=0).radio_state
+                self.subjectstatus_set.get(delay_hours=0).radio_state
         except (SubjectStatus.DoesNotExist, AttributeError):
             yield '-'.join((key, 'black'))
             yield key

@@ -28,8 +28,9 @@ class UserAgreement(TimestampedModel):
         self.accept = True
         user_agreement = super(UserAgreement, self).save(*args, **kwargs)
         user = self.user
-        user.accepted_eula = True
-        user.save()
+        if not user.accepted_eula:
+            user.accepted_eula = True
+            user.save()
         return user_agreement
 
 

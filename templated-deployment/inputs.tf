@@ -103,7 +103,7 @@ variable "web_service_name" {
 }
 variable "accept_eula" {
   type    = string
-  default = "false"
+  default = "true"
 }
 variable "enable_debug" {
   type    = string
@@ -138,6 +138,11 @@ variable "sms_id" {
 variable "sms_token" {
   type    = string
   default = ""
+}
+
+variable "daily_report_enabled" {
+  type    = string
+  default = "False"
 }
 
 variable "alerts_enabled" {

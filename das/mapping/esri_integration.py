@@ -145,7 +145,7 @@ def import_features_from_esri(tmp_filename, arcgis_item_id, external_sourcename,
         # TODO: bail if arc_item is null
 
         # TODO: revisit and handle case where layer/features do not have a GlobalID
-        received_global_ids = [make_external_id(id_field, name_field, layer, f, arc_item.id) for f in layer]
+        received_global_ids = [make_external_id(layer, f, id_field, name_field, arc_item.id) for f in layer]
         delete_result = models.SpatialFeature.objects.filter(arcgis_item=arc_item).exclude(
             external_id__in=received_global_ids).delete()
         logger.info(f'deleted features {delete_result}')
@@ -163,7 +163,7 @@ def import_features_from_esri(tmp_filename, arcgis_item_id, external_sourcename,
                 spatial_feature_type.save()
 
             # linked to above to revisit if don't have a GlobalID
-            external_id = make_external_id(id_field, name_field, layer, feature, arc_item.id)
+            external_id = make_external_id(layer, feature, id_field, name_field, arc_item.id)
             if not has_unique_keys:
                 external_id = external_id + '-' + str(i)
 
@@ -204,8 +204,11 @@ def save_esri_feature(feature, source_name, external_id, type_label, arcgis_item
     if not feature_type:
         return
 
-    feature_record, created = get_or_create_feature(external_id, dict(feature_geometry=feature_geometry,
-                                                                      feature_type=feature_type))
+    data = {
+        'external_id':external_id, 'feature_geometry':feature_geometry,
+        'feature_type': feature_type}
+
+    feature_record, created = get_or_create_feature(data)
 
     if not feature_record:
         return

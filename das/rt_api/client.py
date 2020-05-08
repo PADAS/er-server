@@ -92,7 +92,7 @@ def get_client_list():
 
 def get_expired_traces_client_list():
     for sid in redis_client.hgetall(EXPIRED_CLIENT_TRACES_LIST).keys():
-        yield sid
+        yield sid.decode('utf8')
 
 
 def add_client(sid, data):
