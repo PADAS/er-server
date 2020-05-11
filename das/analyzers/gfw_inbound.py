@@ -4,6 +4,7 @@ from datetime import datetime
 import pytz
 from django.conf import settings
 from django.contrib.gis.geos import Point
+from django.db import transaction
 from django.db.models import signals
 from django.http.request import HttpRequest
 from django.utils.dateparse import parse_datetime
@@ -292,7 +293,9 @@ def persist_event(event_fields, request, counts):
                                  dispatch_uid=(
                                      __name__, request, event_fields),
                                  weak=False)
-        evt_serializer.create(evt_serializer.validated_data)
+        with transaction.atomic():
+            evt_serializer.create(evt_serializer.validated_data)
+
         counts[PROCESSED_COUNTER] = counts[PROCESSED_COUNTER] + 1
         signals.pre_save.disconnect(
             dispatch_uid=(__name__, request, event_fields))
