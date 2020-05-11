@@ -1,7 +1,7 @@
 import logging
 
 from django.apps import apps
-from django.db.models.signals import post_save, post_migrate, pre_delete
+from django.db.models.signals import post_save, post_migrate, pre_delete, post_delete
 from django.dispatch import receiver
 from django.contrib.auth.management import _get_all_permissions
 from django.contrib.auth.models import Permission
@@ -12,6 +12,7 @@ from django.db import transaction
 
 from observations.models import Observation, Subject, SubjectSource, SubjectStatus, SubjectGroup
 from accounts.models import PermissionSet
+from tracking.pubsub_registry import notify_new_tracks
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,10 @@ def observation_post_save(sender, instance, created, **kwargs):
     observation = Observation.objects.get(id=instance.id)
     SubjectStatus.objects.update_current_from_source(observation.source)
 
+
+@receiver(post_delete, sender=Observation)
+def observation_post_delete(sender, instance, **kwargs):
+    notify_new_tracks(instance.source.id)
 
 @receiver(post_save, sender=SubjectStatus)
 def subject_status_post_save(sender, instance, created, **kwargs):
