@@ -70,6 +70,7 @@ class TileLayer(TimestampedModel):
     if MAPPING_FEATURES_V2:
         class Meta:
             verbose_name = 'Basemap'
+            ordering = ['name']
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
@@ -255,6 +256,7 @@ class Feature(TimestampedModel):
 
     class Meta:
         abstract = True
+        ordering = ['name']
 
     # todo:  perhaps type and name?
     def __str__(self):
@@ -510,6 +512,7 @@ class SpatialFeatureGroup(TimestampedModel):
     if MAPPING_FEATURES_V2:
         class Meta:
             verbose_name = 'Base Feature Group'
+            ordering = ['name']
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
@@ -583,6 +586,7 @@ class SpatialFeatureType(TimestampedModel):
         class Meta:
             verbose_name = 'Feature Class'
             verbose_name_plural = 'Feature Classes'
+            ordering = ['name']
 
     objects = SpatialFeatureTypeManager()
 
@@ -680,6 +684,7 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
     if MAPPING_FEATURES_V2:
         class Meta:
             verbose_name = 'Feature'
+            ordering = ['name']
 
     objects = SpatialFeatureManager()
     revision_ignore_fields = ('updated_at', )
