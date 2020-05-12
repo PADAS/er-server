@@ -57,6 +57,13 @@ class DasPluginTransformationError(DasPluginException):
 class DasPluginInsertError(DasPluginException):
     pass
 
+class DasPluginSourceRetryError(DasPluginException):
+    """Retry executing source plugin in seconds"""
+    def __init__(self, retry_seconds, message=None):
+        super().__init__(message)
+        self.retry_seconds = retry_seconds
+    
+
 
 logger = logging.getLogger(__name__)
 
@@ -300,11 +307,13 @@ class PluginTarget(object):
 
     def __exit__(self, ex_type, exc_value, tb):
 
-        if ex_type is not None:
-            self.logger.info("Exiting with Exception. %s %s %s",
+        if ex_type not in [None, DasPluginSourceRetryError]:
+            self.logger.info("Exiting with Exception. %s %s", ex_type, exc_value,
                              exc_info=(ex_type, exc_value, tb))
 
         self._r.close()
+        if ex_type == DasPluginSourceRetryError:
+            return False
         return True
 
 

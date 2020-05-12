@@ -18,7 +18,7 @@ from django.conf import settings
 
 import utils.redis as redis_utils
 
-from tracking.models.plugin_base import Obs, TrackingPlugin, SourcePlugin
+from tracking.models.plugin_base import Obs, TrackingPlugin, SourcePlugin, DasPluginSourceRetryError
 
 
 class AWTPluginException(Exception):
@@ -162,10 +162,10 @@ class AwtClient(object):
                 sleep_seconds = ttl - datetime.now(tz=timezone.utc)
                 sleep_seconds = sleep_seconds.total_seconds()
                 if sleep_seconds:
-                    self.logger.warning(
-                        f'AWT Use Policy enforcement for {api_type} account {self.username}, sleeping {sleep_seconds} secs')
-                    sleep(sleep_seconds)
-                    sleep(random.uniform(1, 10))
+                    message = f'AWT Use Policy enforcement for {api_type} account {self.username}, retry after {sleep_seconds} secs'
+                    self.logger.warning(message
+                        )
+                    raise DasPluginSourceRetryError(retry_seconds=sleep_seconds, message=message)
             else:
                 return
             backoff_count += 1
@@ -455,25 +455,22 @@ class AwtPlugin(TrackingPlugin):
             additional_data['end_time'] = end_date
 
         latest_timestamp = None
-        try:
-            params = additional_data
-            if additional_data:
-                params = self._parse_additional_data(additional_data)
+        params = additional_data
+        if additional_data:
+            params = self._parse_additional_data(additional_data)
 
-            observations = client.fetch_observations(params)
-            if observations:
-                for observation in observations:
-                    fix_time = datetime.fromtimestamp(
-                        observation.get('timestamp'), tz=timezone.utc)
-                    obs = self._transform_to_observation(source, observation)
-                    if obs:
-                        yield obs
-                    
-                    # keep track of latest timestamp.
-                    latest_timestamp = (max(latest_timestamp, fix_time) if
-                                        latest_timestamp else fix_time)
-        except Exception as e:
-            self.logger.error(e)
+        observations = client.fetch_observations(params)
+        if observations:
+            for observation in observations:
+                fix_time = datetime.fromtimestamp(
+                    observation.get('timestamp'), tz=timezone.utc)
+                obs = self._transform_to_observation(source, observation)
+                if obs:
+                    yield obs
+                
+                # keep track of latest timestamp.
+                latest_timestamp = (max(latest_timestamp, fix_time) if
+                                    latest_timestamp else fix_time)
 
         if latest_timestamp:  # Update cursor data.
             self.cursor_data['latest_timestamp'] = latest_timestamp.isoformat()

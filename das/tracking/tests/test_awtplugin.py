@@ -1,7 +1,10 @@
 import ast
 import os
+import logging
+from datetime import datetime, timezone, timedelta
 from unittest.mock import patch
 
+import celery.exceptions
 from django.apps import apps
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
@@ -10,12 +13,13 @@ from core.tests import fake_get_pool
 from observations.models import Source, Subject
 from tracking.models import SourcePlugin
 from tracking.models.awt import AwtPlugin, AwtClient
-from tracking.tasks import run_source_plugin
+from tracking.tasks import run_source_plugin, DasPluginSourceRetryError
 
 FIXTURE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),
                             'fixtures')
 TESTDATA_FILENAME = os.path.join(FIXTURE_PATH, 'awt_plugin_data.txt')
 
+logger = logging.getLogger(__name__)
 
 class AwtPluginTest(TestCase):
     fixtures = ['awt_plugin.json']
@@ -57,3 +61,22 @@ class AwtPluginTest(TestCase):
 
         source_plugin = SourcePlugin.objects.get(source=self.source)
         self.assertTrue(len(self.henry.observations()) > 0)
+
+    @patch("das_server.pubsub.get_pool", fake_get_pool)
+    def test_retry_lock(self):
+        def cache_get(key=''):
+            ttl = datetime.now(tz=timezone.utc) + timedelta(seconds=100)
+            logger.info(f"requesting cache key {key}")
+            if 'use_policy' in key:
+                return ttl.isoformat()
+        with patch(
+                'tracking.models.awt.cache') as mock_cache:
+            
+            mock_cache.get = cache_get
+            sp = SourcePlugin.objects.get(source=self.source)
+            with self.assertRaises(DasPluginSourceRetryError):
+                sp.execute()
+
+            with self.assertRaises(celery.exceptions.Retry):
+                run_source_plugin(sp.id)
+       
