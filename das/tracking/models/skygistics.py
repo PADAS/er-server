@@ -897,7 +897,7 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
 
             try:
                 observation = self._transform(source, unit_info)
-                if observation and self._pass_filter(observation):
+                if observation:
                     if not latest_observation or latest_observation.recorded_at < observation.recorded_at:
                         latest_observation = observation
                     yield observation
@@ -908,25 +908,24 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
             self.cursor_data['latest_timestamp'] = latest_observation.recorded_at.isoformat(
             )
 
-    def _pass_filter(self, observation):
+    def _validate_observation_location(self, observation):
         '''
-        Reject fixes that are at 180 x 90.
-        :param observation:
-        :return: True if the observation passes the filter.
+        Flag observations that are at 180 x 90 as automatically_excluded.
+        :param observation
         '''
-        try:
-            return not (int(observation.longitude) == 180 and int(observation.latitude) == 90)
-        except Exception as e:
-            self.logger.warning('Failure when filtering skygistics fix.')
-
-        return True
+        invalid_location = False
+        if (int(observation.longitude) == 180 and int(observation.latitude) == 90):
+            invalid_location = True
+        return invalid_location
 
     def _transform(self, source, observation):
+        flag_observation = self._validate_observation_location(observation)
         return Obs(source=source,
                    recorded_at=observation.recorded_at,
                    longitude=observation.longitude,
                    latitude=observation.latitude,
-                   additional=dict((k, observation._asdict().get(k)) for k in ('imei', 'voltage', 'received_at', 'temperature', 'location')))
+                   additional=dict((k, observation._asdict().get(k)) for k in ('imei', 'voltage', 'received_at', 'temperature', 'location')),
+                   exclude_observation=flag_observation)
 
     def _maintenance(self):
         self._sync_unit_info()

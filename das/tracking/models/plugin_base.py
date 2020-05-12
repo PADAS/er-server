@@ -1,8 +1,8 @@
-from functools import namedtuple
-
-import uuid
-import logging
 import json
+import logging
+import uuid
+from datetime import datetime, timedelta
+from typing import NamedTuple
 
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import JSONField
@@ -10,10 +10,6 @@ from django.contrib.gis.geos import Point, Polygon
 from django.contrib.contenttypes.fields import GenericRelation
 from core.models import TimestampedModel
 
-import uuid
-
-import logging
-from datetime import datetime, timedelta
 import pytz
 from dateutil.parser import parse as parse_date
 
@@ -326,12 +322,17 @@ class DasDefaultTarget(PluginTarget):
 
         location = Point(x=item.longitude, y=item.latitude)
         additional = item.additional or {}
-        result, created = observations.models.Observation.objects.get_or_create(source_id=item.source.id,
-                                                                                recorded_at=item.recorded_at,
-                                                                                defaults=dict(
-                                                                                    location=location,
-                                                                                    additional=additional
-                                                                                ))
+        observation_flag = 2 if item.exclude_observation else 0
+        result, created = observations.models.Observation.objects. \
+            get_or_create(
+                source_id=item.source.id,
+                recorded_at=item.recorded_at,
+                defaults=dict(
+                    location=location,
+                    additional=additional
+                ),
+                exclusion_flags=observation_flag)
+
         return result, created
 
 
@@ -353,8 +354,13 @@ class DasFireEventTarget(PluginTarget):
         return result, created
 
 
-'''
-Observation Football; meant to provide a consistent way for passing essential observation data between functions.
-'''
-Obs = namedtuple('Obs', ('source', 'latitude',
-                         'longitude', 'recorded_at', 'additional'))
+class Obs(NamedTuple):
+    """
+    Represents the payload sent to create a new observation
+    """
+    source: Source
+    recorded_at: datetime
+    latitude: float
+    longitude: float
+    exclude_observation: bool = False
+    additional: dict = {}
