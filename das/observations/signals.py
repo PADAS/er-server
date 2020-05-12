@@ -12,7 +12,6 @@ from django.db import transaction
 
 from observations.models import Observation, Subject, SubjectSource, SubjectStatus, SubjectGroup
 from accounts.models import PermissionSet
-from tracking.pubsub_registry import notify_new_tracks
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +29,8 @@ def observation_post_save(sender, instance, created, **kwargs):
 
 @receiver(post_delete, sender=Observation)
 def observation_post_delete(sender, instance, **kwargs):
-    notify_new_tracks(instance.source.id)
+    SubjectStatus.objects.update_current_from_source(instance.source)
+
 
 @receiver(post_save, sender=SubjectStatus)
 def subject_status_post_save(sender, instance, created, **kwargs):
