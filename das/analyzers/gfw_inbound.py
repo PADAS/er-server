@@ -4,6 +4,7 @@ from datetime import datetime
 import pytz
 from django.conf import settings
 from django.contrib.gis.geos import Point
+from django.db import transaction
 from django.db.models import signals
 from django.http.request import HttpRequest
 from django.utils.dateparse import parse_datetime
@@ -57,6 +58,7 @@ class FireAlertSampleDownloaded(serializers.Serializer):
     bright_ti5 = serializers.FloatField()
     frp = serializers.FloatField()
     daynight = serializers.CharField()
+    num_clustered_alerts = serializers.IntegerField()
 
 
 class AlertSample(serializers.Serializer):
@@ -162,9 +164,10 @@ def process_alert_for_subscription(layer_slug, subscription_id, validated_data, 
 
 def process_downloaded_alerts(payload, common_event_fields, user_id):
     counts = {PROCESSED_COUNTER: 0, ERROR_COUNTER: 0}
-    alerts = cluster_alerts(payload, settings.GFW_CLUSTER_RADIUS, 1)
+    filtered_alerts = filter_alert_based_on_confidence(payload, common_event_fields)
+    clustered_alerts = cluster_alerts(filtered_alerts, settings.GFW_CLUSTER_RADIUS, 1)
     errors = [create_event_from_downloadedalert(alert, common_event_fields, user_id, counts)
-              for alert in alerts]
+              for alert in clustered_alerts]
     errors = filter(lambda x: len(list(x)) > 0, errors)
 
     log_metrics(counts)
@@ -193,6 +196,19 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
         longitude = deserialized_sample.validated_data.get('longitude')
         confidence = deserialized_sample.validated_data.get('confidence')
         time = deserialized_sample.validated_data.get('acq_date')
+
+        bright_ti4 = deserialized_sample.validated_data.get('bright_ti4')
+        bright_ti5 = deserialized_sample.validated_data.get('bright_ti5')
+        scan = deserialized_sample.validated_data.get('scan')
+        track = deserialized_sample.validated_data.get('track')
+        frp = deserialized_sample.validated_data.get('frp')
+
+        common_event_fields['event_details']['bright_ti4'] = bright_ti4
+        common_event_fields['event_details']['bright_ti5'] = bright_ti5
+        common_event_fields['event_details']['scan'] = scan
+        common_event_fields['event_details']['track'] = track
+        common_event_fields['event_details']['frp'] = frp
+
     else:
         julian_day = deserialized_sample.validated_data.get('julian_day')
         year = deserialized_sample.validated_data.get('year')
@@ -200,6 +216,11 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
         latitude = deserialized_sample.validated_data.get('latitude')
         longitude = deserialized_sample.validated_data.get('longitude')
         time = pytz.utc.localize(datetime.strptime(f'{julian_day}{year}', '%j%Y'))
+
+    num_clustered_alerts = deserialized_sample.validated_data.get('num_clustered_alerts')
+
+    common_event_fields['event_details'][
+        'num_clustered_alerts'] = num_clustered_alerts
 
     event_fields = {
         **common_event_fields,
@@ -211,23 +232,41 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
         }
     }
 
+    event_fields.setdefault('event_details', {})['confidence'] = confidence
+
+    return persist_event(event_fields, request, counts)
+
+
+def filter_alert_based_on_confidence(alerts, common_event_fields):
     subscription_id = common_event_fields['event_details']['subscription_id']
+    gfw_query = GlobalForestWatchSubscription.objects.get(
+        subscription_id=subscription_id)
 
-    gfw_query = GlobalForestWatchSubscription.objects.get(subscription_id=subscription_id)
+    filtered_alerts = []
 
-    if common_event_fields.get('event_type') == 'gfw_activefire_alert':
-        conf_confidence = gfw_query.Fire_confidence
-        superset_cofidence = {i.strip() for i in conf_confidence.split(',')}
-    else:
-        conf_confidence = gfw_query.Deforestation_confidence
-        superset_cofidence = {int(i) for i in conf_confidence.split(',')}
+    for alert in alerts:
+        try:
+            confidence = alert['confidence']
+            if common_event_fields.get('event_type') == 'gfw_activefire_alert':
+                conf_confidence = gfw_query.Fire_confidence
+                superset_confidence = {i.strip() for i in
+                                      conf_confidence.split(',')}
+            else:
+                conf_confidence = gfw_query.Deforestation_confidence
+                superset_confidence = {int(i) for i in
+                                      conf_confidence.split(',')}
 
-    # Checks if confidence level from glad alerts is a subset of confidence level specified in ER.
-    if {confidence} <= superset_cofidence:
-        event_fields.setdefault('event_details', {})['confidence'] = confidence
-        return persist_event(event_fields, request, counts)
-    logger.info("GLAD Alert %s not within the confidence level" % downloaded_sample)
-    return {}
+            # Checks if confidence level from glad alerts is a subset of confidence level specified in ER.
+            if {confidence} <= superset_confidence:
+                filtered_alerts.append(alert)
+            else:
+                logger.debug("GLAD Alert %s not within the confidence level" % alert)
+        except KeyError:
+            pass
+
+    return filtered_alerts
+
+
 
 
 def persist_event(event_fields, request, counts):
@@ -254,7 +293,9 @@ def persist_event(event_fields, request, counts):
                                  dispatch_uid=(
                                      __name__, request, event_fields),
                                  weak=False)
-        evt_serializer.create(evt_serializer.validated_data)
+        with transaction.atomic():
+            evt_serializer.create(evt_serializer.validated_data)
+
         counts[PROCESSED_COUNTER] = counts[PROCESSED_COUNTER] + 1
         signals.pre_save.disconnect(
             dispatch_uid=(__name__, request, event_fields))

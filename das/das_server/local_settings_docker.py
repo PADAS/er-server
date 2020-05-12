@@ -146,7 +146,11 @@ if DEV:
         "SHOW_TOOLBAR_CALLBACK": lambda x: True,
     }
 
+
+GFW_CLUSTER_RADIUS = env.int('GFW_CLUSTER_RADIUS', 5)
+
 TWILIO_ACCOUNT_SID = env.str('TWILIO_ACCOUNT_SID', 'twilio_account_sid')
 TWILIO_AUTH_TOKEN = env.str('TWILIO_AUTH_TOKEN', 'twilio_auth_token')
 WHATSAPP_FROM_NUMBER = env.str('WHATSAPP_FROM_NUMBER', 'whatsapp_from_number')
+
 

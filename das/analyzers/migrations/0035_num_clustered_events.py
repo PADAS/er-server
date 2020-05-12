@@ -1,9 +1,7 @@
-import json
+from django.db import migrations, models
 
-from activity.models import EventType, EventCategory
-from analyzers.environmental import EventTypeSpec
 
-GENERIC_GFW_TREE_LOSS_SCHEMA = {
+GENERIC_GFW_TREE_LOSS_SCHEMA = """{
    "schema":{
       "$schema":"http://json-schema.org/draft-04/schema#",
       "title":"Event Type Global Forest Watch Tree Loss Alert",
@@ -34,14 +32,14 @@ GENERIC_GFW_TREE_LOSS_SCHEMA = {
       "confidence",
       "num_clustered_alerts"
    ]
-}
+}"""
 
-GENERIC_GFW_ACTIVE_FIRE_SCHEMA = {
+GENERIC_GFW_ACTIVE_FIRE_SCHEMA = """{
    "schema":{
       "$schema":"http://json-schema.org/draft-04/schema#",
       "title":"Event Type Global Forest Watch Active Fire Alert",
       "type":"object",
-      "properties": {
+      "properties":{
          "subscription_name":{
             "type":"string",
             "title":"Name of subscription with Global Forest Watch"
@@ -81,7 +79,7 @@ GENERIC_GFW_ACTIVE_FIRE_SCHEMA = {
          }
       }
    },
-   "definition": [
+   "definition":[
       "subscription_name",
       "alert_link",
       "confidence",
@@ -92,34 +90,42 @@ GENERIC_GFW_ACTIVE_FIRE_SCHEMA = {
       "track",
       "frp"
    ]
-}
-
-GFWGladEventTypeSpec = EventTypeSpec(value='gfw_glad_alert',
-                                     display='GLAD Tree-Loss Alert (GFW)',
-                                     schema=GENERIC_GFW_TREE_LOSS_SCHEMA,
-                                     icon='deforestation_rep')
-
-GFWActiveFireAlertEventTypeSpec = EventTypeSpec(value='gfw_activefire_alert',
-                                                display='Active Fire Alert (GFW)',
-                                                schema=GENERIC_GFW_ACTIVE_FIRE_SCHEMA,
-                                                icon='fire_rep')
-
-# Map GFW Layer-Slug to an EarthRanger event-type.
-GFW_EVENT_TYPES_MAP = {
-    'viirs-active-fires': GFWActiveFireAlertEventTypeSpec.value,
-    'glad-alerts': GFWGladEventTypeSpec.value,
-}
+}"""
 
 
-def ensure_gfw_event_types():
-    ec, created = EventCategory.objects.get_or_create(
-        value='analyzer_event', defaults=dict(display='Analyzer Events'))
+def forwards(apps, schema_editor):
+    EventCategory = apps.get_model('activity', 'EventCategory')
+    EventType = apps.get_model('activity', 'EventType')
 
-    for event_type_spec in (GFWGladEventTypeSpec, GFWActiveFireAlertEventTypeSpec):
-        EventType.objects.get_or_create(value=event_type_spec.value,
-                                        category=ec,
-                                        defaults=dict(display=event_type_spec.display,
-                                                      icon=event_type_spec.icon,
-                                                      schema=json.dumps(event_type_spec.schema,
-                                                                        indent=2,
-                                                                        default=str)))
+    db_alias = schema_editor.connection.alias
+
+    category, created = EventCategory.objects.using(db_alias).get_or_create(
+        value='analyzer_event',
+        display='Analyzer Event',
+        ordernum=1)
+
+    gfw_tree_loss_defaults = {'schema': GENERIC_GFW_TREE_LOSS_SCHEMA, 'display': 'GLAD Tree-Loss Alert (GFW)',
+                'category_id': category.id, 'icon': 'deforestation_rep'}
+
+    EventType.objects.using(db_alias).update_or_create(
+        value="gfw_glad_alert",
+        defaults=gfw_tree_loss_defaults
+    )
+
+    gfw_activefire_alert_defaults = {'schema': GENERIC_GFW_ACTIVE_FIRE_SCHEMA, 'display': 'Active Fire Alert (GFW)',
+                'category_id': category.id, 'icon': 'fire_rep'}
+
+    EventType.objects.using(db_alias).update_or_create(
+        value="gfw_activefire_alert",
+        defaults=gfw_activefire_alert_defaults
+    )
+
+
+class Migration(migrations.Migration):
+    dependencies = [
+        ('analyzers', '0034_auto_20200225_1159'),
+    ]
+
+    operations = [
+        migrations.RunPython(forwards, migrations.RunPython.noop)
+    ]

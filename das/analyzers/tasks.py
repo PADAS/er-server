@@ -161,4 +161,4 @@ def download_gfw_alerts(self, download_url, common_event_fields, user_id):
                 logger.error('GFW API returned error: %s', gfw_alerts_payload)
         else:
             logger.error('GFW Alerts cannot be downloaded. Result is %s, \ndownload url is: %s\n Response is: %s',
-                         resp.status_code, download_url, resp.text)
+                resp.status_code, download_url, resp.text)

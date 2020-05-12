@@ -105,6 +105,10 @@ variable "accept_eula" {
   type    = string
   default = "true"
 }
+variable "gfw_cluster_radius" {
+  type    = string
+  default = "5"
+}
 variable "enable_debug" {
   type    = string
   default = "false"
