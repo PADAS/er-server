@@ -1243,20 +1243,20 @@ def build_updates(recorded_at, location, radio_state=None, radio_state_at=None,
 def build_updates_conditions(recorded_at, location, radio_state=None, radio_state_at=None,
                              last_voice_call_start_at=None, location_requested_at=None, ):
     conditional_updates = {
-        'recorded_at': Value(recorded_at),
-        'location': Value(str(location))
+        'recorded_at': recorded_at,
+        'location': str(location)
     }
 
     if radio_state_at and radio_state:
-        conditional_updates['radio_state'] = Value(radio_state)
+        conditional_updates['radio_state'] = radio_state
 
-        conditional_updates['radio_state_at'] = Value(radio_state_at)
+        conditional_updates['radio_state_at'] = radio_state_at
 
     if last_voice_call_start_at:
-        conditional_updates['last_voice_call_start_at'] = Value(last_voice_call_start_at)
+        conditional_updates['last_voice_call_start_at'] = last_voice_call_start_at
 
     if location_requested_at:
-        conditional_updates['location_requested_at'] = Value(location_requested_at)
+        conditional_updates['location_requested_at'] = location_requested_at
 
     return conditional_updates
 
