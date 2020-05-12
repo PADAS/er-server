@@ -700,7 +700,7 @@ class GFWAlertHandler:
 
 
 class EzyTrackHandler:
-    SENSOR_TYPE = 'ezytrack-alert'
+    SENSOR_TYPE = 'ezytrack-tracker'
 
     @classmethod
     def post(cls, request, sensor_type, provider_key):
@@ -738,10 +738,10 @@ class EzyTrackHandler:
                 observation_serializer = ObservationSerializer(data=observation)
                 if observation_serializer.is_valid():
                     observation_serializer.save()
-                    logger.info("New observation added. %s" % observation)
-                    # notify_new_tracks(src.id)
+                    logger.debug("New observation added. %s" % observation)
+                    notify_new_tracks(src.id)
                 else:
-                    logger.info("Error occured while serializing observation: %s " % observation_serializer.errors)
+                    logger.debug("Error occured while serializing observation: %s " % observation_serializer.errors)
                     status_msg = {'status': 400, 'message': observation_serializer.errors}
                     return Response(data=status_msg, status=status.HTTP_400_BAD_REQUEST)
 
