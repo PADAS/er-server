@@ -216,5 +216,5 @@ class EzyTrackAdapter:
             source_type=DAS_SOURCE_TYPE,
             additional=dict(speed=speed)
         )
-        logger.info(f"DAS observation {das_observation}")
+        logger.debug(f"DAS observation {das_observation}")
         return das_observation
