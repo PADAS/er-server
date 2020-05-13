@@ -1262,12 +1262,14 @@ def build_updates_conditions(recorded_at, location, radio_state=None, radio_stat
 
 
 def check_observation_exist(subject_status):
-    subjectStatus = subject_status.annotate(recorded_time=F('recorded_at'),
-                                            source=F('subject__subjectsource__source')).values('recorded_time',
-                                                                                               'source')
-    recorded_at = subjectStatus[0].get('recorded_time')
-    source = subjectStatus[0].get('source')
-    return Observation.objects.filter(recorded_at=recorded_at, source=source).exists()
+    if subject_status:
+        subjectStatus = subject_status.annotate(recorded_time=F('recorded_at'),
+                                                source=F('subject__subjectsource__source')).values('recorded_time',
+                                                                                                   'source')
+        recorded_at = subjectStatus[0].get('recorded_time')
+        source = subjectStatus[0].get('source')
+        return Observation.objects.filter(recorded_at=recorded_at, source=source).exists()
+    return True
 
 
 def update_subject_status(source, recorded_at, location,
