@@ -1,4 +1,7 @@
+import logging
 from copy import copy
+
+logger = logging.getLogger(__name__)
 
 
 def dictify(r, root=True):
@@ -24,3 +27,15 @@ def split_link(url):
     url, qs = url.split('?')
     params = dict([p.split('=') for p in qs.split('&')])
     return (url, params)
+
+
+def validate_obs_location(longitude, latitude):
+    '''
+    Flag observations that are at 180 x 90 as automatically_excluded.
+    :param observation's logitude and latitude
+    '''
+    invalid_location = False
+    if (int(longitude) == 180 and int(latitude) == 90):
+        logger.info("Invalid observation location.To be flagged/excluded")
+        invalid_location = True
+    return invalid_location

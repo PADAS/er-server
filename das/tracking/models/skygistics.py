@@ -21,7 +21,7 @@ from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError
 from tracking.models import SourcePlugin
 from observations.models import Source, Subject, SubjectSource
 
-from tracking.models.utils import dictify
+from tracking.models.utils import dictify, validate_obs_location
 import logging
 
 
@@ -908,18 +908,9 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
             self.cursor_data['latest_timestamp'] = latest_observation.recorded_at.isoformat(
             )
 
-    def _validate_observation_location(self, observation):
-        '''
-        Flag observations that are at 180 x 90 as automatically_excluded.
-        :param observation
-        '''
-        invalid_location = False
-        if (int(observation.longitude) == 180 and int(observation.latitude) == 90):
-            invalid_location = True
-        return invalid_location
-
     def _transform(self, source, observation):
-        flag_observation = self._validate_observation_location(observation)
+        flag_observation = validate_obs_location(
+            observation.longitude, observation.latitude)
         return Obs(source=source,
                    recorded_at=observation.recorded_at,
                    longitude=observation.longitude,
