@@ -118,6 +118,7 @@ class SourcePlugin(TimestampedModel):
     # last_run: datetime.min implies it hasn't ever been executed.
     last_run = models.DateTimeField(default=pytz.utc.localize(datetime(2000, 1, 1)),
                                     verbose_name='Timestamp for when this plugin last executed.')
+    plugins_to_validate_location = ['awtplugin', 'skygisticssatelliteplugin']
 
     def execute(self, target=None):
         '''
@@ -135,6 +136,10 @@ class SourcePlugin(TimestampedModel):
             accumulator = None
             with target or DasDefaultTarget() as t:
                 for observation in self.plugin.fetch(self.source, self.cursor_data):
+
+                    # flag observations at point (180 x 90) for selected plugins
+                    if self.plugin._meta.model_name in self.plugins_to_validate_location:
+                        observation = self.validate_obs_location(observation)
                     accumulator = t.send(observation)
 
             self.last_run = pytz.utc.localize(datetime.utcnow())
@@ -162,6 +167,17 @@ class SourcePlugin(TimestampedModel):
 
         # return self.plugin.should_run(self) if hasattr(self.plugin,
         # 'should_run') else True
+
+    def validate_obs_location(self, observation):
+        '''
+        Flags observations that are at 180 x 90 as excluded_automatically.
+        :param observation
+        :return observation
+        '''
+        if (int(observation.longitude) == 180 and int(observation.latitude) == 90):
+            logger.info("Invalid observation location.To be flagged/excluded")
+            observation = observation._replace(exclusion_flags=2) # 2 for excluded_automatically
+        return observation
 
     def __str__(self):
         return '%s: source: %s, manufacturer_id: %s' % (self.id, self.source_id, self.source.manufacturer_id)
@@ -322,7 +338,6 @@ class DasDefaultTarget(PluginTarget):
 
         location = Point(x=item.longitude, y=item.latitude)
         additional = item.additional or {}
-        observation_flag = 2 if item.exclude_observation else 0
         result, created = observations.models.Observation.objects. \
             get_or_create(
                 source_id=item.source.id,
@@ -331,7 +346,7 @@ class DasDefaultTarget(PluginTarget):
                     location=location,
                     additional=additional
                 ),
-                exclusion_flags=observation_flag)
+                exclusion_flags=item.exclusion_flags)
 
         return result, created
 
@@ -362,5 +377,5 @@ class Obs(NamedTuple):
     recorded_at: datetime
     latitude: float
     longitude: float
-    exclude_observation: bool = False
+    exclusion_flags: int = 0
     additional: dict = {}

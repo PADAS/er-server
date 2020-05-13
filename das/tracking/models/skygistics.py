@@ -21,7 +21,7 @@ from tracking.models.plugin_base import Obs, TrackingPlugin, DasPluginFetchError
 from tracking.models import SourcePlugin
 from observations.models import Source, Subject, SubjectSource
 
-from tracking.models.utils import dictify, validate_obs_location
+from tracking.models.utils import dictify
 import logging
 
 
@@ -909,14 +909,11 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
             )
 
     def _transform(self, source, observation):
-        flag_observation = validate_obs_location(
-            observation.longitude, observation.latitude)
         return Obs(source=source,
                    recorded_at=observation.recorded_at,
                    longitude=observation.longitude,
                    latitude=observation.latitude,
-                   additional=dict((k, observation._asdict().get(k)) for k in ('imei', 'voltage', 'received_at', 'temperature', 'location')),
-                   exclude_observation=flag_observation)
+                   additional=dict((k, observation._asdict().get(k)) for k in ('imei', 'voltage', 'received_at', 'temperature', 'location')))
 
     def _maintenance(self):
         self._sync_unit_info()

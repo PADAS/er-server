@@ -1,8 +1,5 @@
 import pytest
 import tracking.models.skygistics as skygistics
-from tracking.models.plugin_base import DasDefaultTarget, Obs
-from datetime import datetime
-from observations.models import Source, Observation
 
 SKYQ3_FAULT_RESPONSE = '''<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
@@ -105,26 +102,3 @@ def test_parse_replay_data():
             assert observation.latitude
         observation_count += 1
     assert observation_count > 0
-
-
-def test_invalid_observations_saved_but_flagged():
-    ssp = skygistics.SkygisticsSatellitePlugin.objects.first()
-    src = Source.objects.first()
-
-    obs = skygistics.Observation(
-        imei='test_imei',
-        latitude=90,
-        longitude=180,
-        voltage="12.9",
-        location="test_location",
-        temperature="103",
-        recorded_at=datetime.now(),
-        received_time=datetime.now()
-    )
-    observation = ssp._transform(src, obs)
-    with DasDefaultTarget() as t:
-        t.send(observation)
-
-    from observations.models import Observation
-    result = Observation.objects.get(recorded_at=obs.recorded_at)
-    assert result.exclusion_flags._value == 2 # automatically excluded

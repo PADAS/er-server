@@ -19,7 +19,6 @@ from django.conf import settings
 import utils.redis as redis_utils
 
 from tracking.models.plugin_base import Obs, TrackingPlugin, SourcePlugin, DasPluginSourceRetryError
-from tracking.models.utils import validate_obs_location
 
 
 class AWTPluginException(Exception):
@@ -383,12 +382,8 @@ class AwtPlugin(TrackingPlugin):
             for key in keys_to_remove:
                 track_data.pop(key)
             metadata = track_data
-
-            # flag observations at point (180 x 90)
-            flag_observation = validate_obs_location(longitude, latitude)
             return Obs(source=source, latitude=latitude, longitude=longitude,
-                       recorded_at=recorded_at, additional=metadata,
-                       exclude_observation=flag_observation)
+                       recorded_at=recorded_at, additional=metadata)
         # If latitude or longitude is not there in API Data, return None
         return None
 

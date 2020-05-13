@@ -10,11 +10,10 @@ from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
 
 from core.tests import fake_get_pool
-from observations.models import Source, Subject, Observation
+from observations.models import Source, Subject
 from tracking.models import SourcePlugin
 from tracking.models.awt import AwtPlugin, AwtClient
 from tracking.tasks import run_source_plugin, DasPluginSourceRetryError
-from tracking.models.plugin_base import DasDefaultTarget
 
 FIXTURE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),
                             'fixtures')
@@ -40,8 +39,6 @@ class AwtPluginTest(TestCase):
             plugin_type=self.plugin_type, plugin_id=awt_plugin.id,
             source=self.source, cursor_data=cursor_data)
         self.henry = Subject.objects.get(name='Henry')
-
-        self.test_plugin = awt_plugin
 
         # Store data in cache
         data = open(TESTDATA_FILENAME).read()
@@ -82,19 +79,3 @@ class AwtPluginTest(TestCase):
 
             with self.assertRaises(celery.exceptions.Retry):
                 run_source_plugin(sp.id)
-
-    def test_invalid_awt_observations_saved_but_flagged(self):
-        obs = dict(
-            lat=90,
-            lon=180,
-            timestamp=1986384825,
-            tag_id=2,
-            imei="test_imei"
-        )
-        observation = self.test_plugin._transform_to_observation(
-            self.source, obs)
-        with DasDefaultTarget() as t:
-            t.send(observation)
-
-        result = Observation.objects.get(recorded_at=observation.recorded_at)
-        self.assertTrue(result.exclusion_flags._value == 2)  # automatically excluded
