@@ -90,8 +90,8 @@ def _event_handler(event_id, type):
 
                 try:
                     socket_client = SocketClient.objects.get(id=sid)
-                    queryset = queryset.by_event_filter(
-                        socket_client.event_filter)
+                    queryset = get_filtered_events(
+                        socket_client.event_filter, queryset)
                 except SocketClient.DoesNotExist:
                     logger.debug('SocketClient does not exist for sid=%s', sid)
 
@@ -124,6 +124,16 @@ def _event_handler(event_id, type):
 
     finally:
         close_old_connections()
+
+
+def get_filtered_events(event_filter, queryset):
+    filter = event_filter.get("filter", event_filter)
+
+    # Add state to event filter
+    if event_filter.get("state"):
+        filter["state"] = event_filter.get("state")
+
+    return queryset.by_event_filter(filter)
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True}, rate_limit='10/m')
