@@ -2,7 +2,6 @@ import pytest
 import tracking.models.skygistics as skygistics
 from tracking.models.plugin_base import DasDefaultTarget, Obs
 from datetime import datetime
-from django.test import TestCase
 from observations.models import Source, Observation
 
 SKYQ3_FAULT_RESPONSE = '''<?xml version="1.0" encoding="utf-8"?>
@@ -128,4 +127,4 @@ def test_invalid_observations_saved_but_flagged():
 
     from observations.models import Observation
     result = Observation.objects.get(recorded_at=obs.recorded_at)
-    assert result.exclusion_flags == 2 # automatically excluded
+    assert result.exclusion_flags._value == 2 # automatically excluded
