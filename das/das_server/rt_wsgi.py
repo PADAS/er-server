@@ -12,7 +12,7 @@ import eventlet
 eventlet.monkey_patch()
 
 from django.core.wsgi import get_wsgi_application
-from socketio import Middleware
+from socketio import WSGIApp
 from das_server.log import init_logging
 from rt_api.views import create_rt_socketio
 
@@ -23,4 +23,4 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "das_server.settings")
 
 app = get_wsgi_application()
 sio = create_rt_socketio()
-application = Middleware(sio, app)
+application = WSGIApp(sio, app)
