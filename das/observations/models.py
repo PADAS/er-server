@@ -1242,6 +1242,7 @@ def build_updates(recorded_at, location, radio_state=None, radio_state_at=None,
 
 def build_updates_conditions(recorded_at, location, radio_state=None, radio_state_at=None,
                              last_voice_call_start_at=None, location_requested_at=None, ):
+    # Build condition when observation record is deleted.
     conditional_updates = {
         'recorded_at': recorded_at,
         'location': str(location)
@@ -1264,10 +1265,9 @@ def build_updates_conditions(recorded_at, location, radio_state=None, radio_stat
 def check_observation_exist(subject_status):
     if subject_status:
         subjectStatus = subject_status.annotate(recorded_time=F('recorded_at'),
-                                                source=F('subject__subjectsource__source')).values('recorded_time',
-                                                                                                   'source')
-        recorded_at = subjectStatus[0].get('recorded_time')
-        source = subjectStatus[0].get('source')
+                                                source=F('subject__subjectsource__source'))
+        recorded_at = subjectStatus[0].recorded_at
+        source = subjectStatus[0].source
         return Observation.objects.filter(recorded_at=recorded_at, source=source).exists()
     return True
 
