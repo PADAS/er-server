@@ -749,3 +749,88 @@ class EzyTrackHandler:
 
         status_ok = {'status': 201, 'message': 'Success'}
         return Response(data=status_ok, status=status.HTTP_201_CREATED)
+class PointDictSerializer(serializers.Serializer):
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
+    altitude = serializers.IntegerField()
+    gpsFix = serializers.IntegerField()
+    course = serializers.IntegerField()
+    speed = serializers.IntegerField()
+
+
+class InreachObservation(serializers.Serializer):
+    imei = serializers.IntegerField()
+    messageCode = serializers.IntegerField()
+    freeText = serializers.CharField(allow_blank=True)
+    timeStamp = serializers.IntegerField()
+    addresses = serializers.ListField()
+    status = serializers.DictField()
+    point = PointDictSerializer()
+
+
+class InreachPushHandler:
+
+    SENSOR_TYPE = 'inreach-tracker'
+
+    @classmethod
+    def post(cls, request, sensor_type, provider_key):
+        logger.info("Recieved new push message %s", request.data)
+        cls.provider_key = provider_key
+        cls.new_observations = 0
+
+        serializer = InreachObservation(data=request.data.get('Events'), many=True)
+        if not serializer.is_valid():
+            return Response(
+                data={'status': 400, 'message': serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST)
+
+        else:
+            for data in serializer.data:
+                cls.ensure_source(data)
+                cls.create_observation(data)
+
+            if cls.new_observations:
+                return Response(
+                    data={"message": f"{cls.new_observations} new observation(s) added"}, status=status.HTTP_201_CREATED)
+            else:
+                return Response(data={}, status=status.HTTP_200_OK)
+
+    @classmethod
+    def ensure_source(cls, obs):
+        """ Get or create provider, source and subject """
+
+        cls.src = Source.objects.ensure_source(
+            provider=cls.provider_key,
+            manufacturer_id=obs.get('imei'),
+            subject={
+                'name': obs.pop('imei')
+            })
+
+    @classmethod
+    def create_observation(cls, data):
+        """ Create observation, ignore duplicates """
+        recorded_at = datetime.fromtimestamp(
+            int(data.pop('timeStamp'))/1000, tz=pytz.UTC)
+
+        if Observation.objects.filter(
+                recorded_at=recorded_at, source=cls.src).exists():
+            logger.info(f'Skipping duplicate observation from {cls.src}')
+        else:
+            point = data.get('point')
+            observation = dict(
+                location={
+                    'latitude': point.pop('latitude'),
+                    'longitude': point.pop('longitude')
+                    },
+                recorded_at=recorded_at,
+                source=str(cls.src.id),
+                additional=data
+            )
+            serializer = ObservationSerializer(data=observation)
+
+            if serializer.is_valid():
+                serializer.save()
+                cls.new_observations += 1
+                logger.info(f'New observation created from source {cls.src}')
+            else:
+                logger.error(f'Invalid observation records {serializer.errors}')
