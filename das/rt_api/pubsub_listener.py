@@ -2,7 +2,6 @@ import utils.json as json
 import logging
 
 from das_server import pubsub, celery
-from observations.models import Subject
 import threading
 
 logger = logging.getLogger(__name__)
@@ -34,6 +33,7 @@ def start(realtime_server):
         if 'subject_id' in data:
             subject_id = data['subject_id']
         elif 'source_id' in data:
+            from observations.models import Subject
             try:
                 subject = Subject.objects.filter(
                     subjectsource__source__id=data['source_id']).latest('subjectsource__assigned_range')

@@ -6,8 +6,8 @@ python3 manage.py collectstatic --no-input
 
 export EVENTLET_SHOULDPATCH=True
 if [ "$DEV" = "True" ]; then
-    python3 manage.py rtserver 0.0.0.0:8000 --nothreading
+    gunicorn -k eventlet -w 1 das_server.rt_wsgi --log-level=debug --bind=0.0.0.0:8000
 else
-    python3 manage.py rtserver 0.0.0.0:8000 --noreload --nothreading
+    gunicorn -k eventlet -w 1 das_server.rt_wsgi --bind=0.0.0.0:8000
 fi
 

@@ -6,7 +6,6 @@ import pytz
 import socket
 
 from django.contrib.gis.geos import Polygon, MultiPolygon
-from observations.models import SocketClient
 
 from django.conf import settings
 from utils import json
@@ -69,6 +68,7 @@ def update_client(sid, bbox=None, event_filter=None):
             update_values['event_filter'] = event_filter
 
         if update_values:
+            from observations.models import SocketClient
             update_values['username'] = client_data.username
             socket_client, created = SocketClient.objects.update_or_create(
                 id=sid, defaults=update_values)
@@ -165,6 +165,8 @@ def remove_clients(*sids):
 
     logger.info('Deleteing mid keys for sids %s.', sids)
     redis_client.delete(*[f'mid-{sid}' for sid in sids])
+
+    from observations.models import SocketClient
 
     try:
         SocketClient.objects.filter(id__in=sids).delete()
