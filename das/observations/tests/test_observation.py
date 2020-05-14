@@ -99,11 +99,6 @@ class ObservationTestCase(TestCase):
 
     def test_observation_post_delete_subject_status(self):
 
-        '''
-        Test saving an observation for an existing source.
-        Validate that an associated SubjectStatus is updated appropriately.
-        '''
-
         # These are known IDs for subject and source, from test fixtures.
         subject_id = '269524d5-a434-4377-9ea9-2a7946dbd9c4'
         source_id = '56b1cf14-ef97-4054-8fbd-1342f265b2a9'
@@ -121,12 +116,7 @@ class ObservationTestCase(TestCase):
             'source': source_id,
             'additional': {}
         }
-
-
         serializer = ObservationSerializer(data=observation)
-
-        self.assertTrue(serializer.is_valid(), msg='Observation is not valid.')
-
         observation_instance = None
         if serializer.is_valid():
             observation_instance = serializer.save()
