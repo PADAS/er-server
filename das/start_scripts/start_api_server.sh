@@ -8,7 +8,7 @@ python3 manage.py collectstatic --no-input
 # Override GUNICORN_CMD_ARGS at deployment if desired.
 # Keep in mind that the flags specified below, when running gunicorn, take 
 # precedence.
-export GUNICORN_CMD_ARGS=${GUNICORN_CMD_ARGS:-"--bind 0.0.0.0:8000 --workers 6"}
+export GUNICORN_CMD_ARGS=${GUNICORN_CMD_ARGS:-"--bind 0.0.0.0:8000 --workers 4 --threads 4 --worker-class gthread"}
 
 echo "Notice GUNICORN_CMD_ARGS: ${GUNICORN_CMD_ARGS}"
 
@@ -16,4 +16,6 @@ gunicorn das_server.wsgi --name das \
     --user www-data \
     --group www-data \
     --limit-request-line 6000 \
+    --worker-tmp-dir /dev/shm \
+    --log-file - \
     --env DJANGO_SETTINGS_MODULE=das_server.local_settings_docker
