@@ -2163,6 +2163,55 @@ class TestEventView(BaseAPITest):
         self.assertTrue(response.data)
         self.assertEqual(response.status_code, 200)
 
+    def test_search_filter_with_one_event_id_returns_none(self):
+        title_text = 'EventTitle'
+        title_search_text = 'NoMatch'
+        event_data = copy.copy(self.event_data)
+        event_data['title'] = title_text
+
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        event_id = response.data['id']
+
+        query = {'filter': json.dumps({'text': title_search_text}),
+                 'event_ids': [event_id]}
+        
+        request = self.factory.get(self.api_base + '/events', data=query)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertTrue(response.data)
+        self.assertEqual(response.data['count'], 0)
+        self.assertEqual(response.status_code, 200)
+
+    def test_search_filter_with_two_event_id_returns_one(self):
+        title_text = 'EventTitle'
+        title_search_text = 'NoMatch'
+        event_data = copy.copy(self.event_data)
+        event_data_two = copy.copy(self.event_data)
+        event_data['title'] = title_text
+        event_data_two['title'] = title_search_text
+
+        request = self.factory.post(self.api_base + '/events/', [event_data, event_data_two])
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        event_ids = [response.data[0]['id'], response.data[1]['id']]
+        query = {'filter': json.dumps({'text': title_search_text}),
+                 'event_ids': event_ids}
+
+
+        
+        request = self.factory.get(self.api_base + '/events', data=query)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertTrue(response.data)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['results'][0]['id'], event_ids[1])
+        self.assertEqual(response.status_code, 200)
 
     def test_can_search_event_by_eventtype_schema_used(self):
         # schema used has some of its titles named: conservancy, Name Of Ranger, Beginning of Incident etc.

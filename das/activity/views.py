@@ -657,6 +657,12 @@ class EventsView(generics.ListCreateAPIView):
             'eventsource_event_refs')
 
         query_params = self.request.query_params
+        event_ids = query_params.get('event_ids', [])
+        if event_ids:
+            if isinstance(event_ids, str):
+                event_ids = [event_ids,]
+            queryset = queryset.filter(id__in=event_ids)
+
         bbox = query_params.get('bbox', None)
         if bbox:
             bbox = bbox.split(',')
