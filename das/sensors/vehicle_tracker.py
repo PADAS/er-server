@@ -110,17 +110,19 @@ class FollowltObservation(serializers.Serializer):
 
 
 class EzytrackObservation(serializers.Serializer):
-    # BODY payload:
-    # {
-    #     {
-    #         "device": "{Asset.DeviceSerial}",
-    #         "device_type": "{Asset.DeviceType}",
-    #         "latitude": "{Event.Latitude}",
-    #         "longitude": "{Event.Longitude}",
-    #         "dateReceived": "{Event.DateReceivedUtc}",
-    #         "speed": "{Event.SpeedKmH}",
-    #     }
-    # }
+    """
+    This Specifies the body of POST that we need to sent over to support-team
+    {
+        {
+            "device": "{Asset.DeviceSerial}",
+            "device_type": "{Asset.DeviceType}",
+            "latitude": "{Event.Latitude}",
+            "longitude": "{Event.Longitude}",
+            "dateReceived": "{Event.DateReceivedUtc}",
+            "speed": "{Event.SpeedKmH}",
+        }
+    }
+    """
 
     device = serializers.CharField()
     device_type = serializers.CharField()
