@@ -3,6 +3,7 @@ import logging
 import time
 from datetime import datetime, timedelta
 import pytz
+import socket
 
 import eventlet
 from django.shortcuts import render
@@ -298,6 +299,7 @@ def create_realtime_handler(sios):
             sios.emit('echo_resp',
                       {'type': 'echo_resp',
                        'resp_id': 5,
+                       'hostname': str(socket.gethostname()),
                        'message': args[0]['data']},
                       room=str(sid),
                       namespace='/das')
