@@ -13,9 +13,6 @@ export GUNICORN_CMD_ARGS=${GUNICORN_CMD_ARGS:-"--bind 0.0.0.0:8000 --workers 4 -
 echo "Notice GUNICORN_CMD_ARGS: ${GUNICORN_CMD_ARGS}"
 
 gunicorn das_server.wsgi --name das \
-    --user www-data \
-    --group www-data \
     --limit-request-line 6000 \
     --worker-tmp-dir /dev/shm \
-    --log-file - \
-    --env DJANGO_SETTINGS_MODULE=das_server.local_settings_docker
+    --log-file - 
