@@ -6,8 +6,7 @@ python3 cfgloader.py
 python3 manage.py collectstatic --no-input
 
 if [ "$DEV" = "True" ]; then
-    gunicorn -k eventlet -w 1 das_server.rt_wsgi --log-level=debug --bind=0.0.0.0:8000
+    python3 manage.py rtserver 0.0.0.0:8000 --nothreading --noreload
 else
-    gunicorn -k eventlet -w 1 das_server.rt_wsgi --bind=0.0.0.0:8000
+    python3 manage.py rtserver 0.0.0.0:8000 --noreload --nothreading
 fi
-

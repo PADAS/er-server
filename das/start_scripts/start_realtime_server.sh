@@ -5,9 +5,12 @@ wait_for $API_HOST $API_PORT
 python3 manage.py collectstatic --no-input
 
 export EVENTLET_SHOULDPATCH=True
-if [ "$DEV" = "True" ]; then
-    gunicorn -k eventlet -w 1 das_server.rt_wsgi --log-level=debug --bind=0.0.0.0:8000 --timeout=90
-else
-    gunicorn -k eventlet -w 1 das_server.rt_wsgi --bind=0.0.0.0:8000 --timeout=90
-fi
 
+# Override GUNICORN_CMD_ARGS at deployment if desired.
+# Keep in mind that the flags specified below, when running gunicorn, take
+# precedence.
+export GUNICORN_CMD_ARGS=${GUNICORN_CMD_ARGS:-"--bind 0.0.0.0:8000 --worker-class eventlet --timeout=90 --log-level=debug"}
+
+echo "Notice GUNICORN_CMD_ARGS: ${GUNICORN_CMD_ARGS}"
+
+gunicorn das_server.rt_wsgi --name das_rt -w 1
