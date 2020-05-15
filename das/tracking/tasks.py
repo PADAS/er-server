@@ -3,6 +3,7 @@ from celery_once import QueueOnce
 from django.apps import apps
 from das_server import celery
 from tracking.models import *
+from tracking.models.plugin_base import DasPluginSourceRetryError
 
 logger = logging.getLogger(__name__)
 
@@ -87,13 +88,18 @@ def run_sirtrack_plugins(self):
         p.execute()
 
 
-@celery.app.task(base=QueueOnce, once={'graceful': True, })
-def run_source_plugin(source_plugin_id):
+@celery.app.task(bind=True, base=QueueOnce, once={'graceful': True, }, max_retries=2)
+def run_source_plugin(self, source_plugin_id):
 
     sp = SourcePlugin.objects.get(id=source_plugin_id)
 
     logger.debug('Running plugin {} for source {}'.format(sp, sp.source))
-    result = sp.execute()
+    try:
+        result = sp.execute()
+    except DasPluginSourceRetryError as ex:
+        logger.debug('Retry plugin {} for source {} after {}'.format(sp, sp.source, ex.retry_seconds))
+        self.retry(countdown=ex.retry_seconds)
+
     logger.debug('Finished running plugin {} for source {} with result.count={}'.format(
         sp, sp.source, result.count))
 

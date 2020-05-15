@@ -54,9 +54,12 @@ def create_rt_socketio():
         server_options['cors_credentials'] = \
             getattr(settings, 'CORS_ALLOW_CREDENTIALS', False)
 
-        if not getattr(settings, 'CORS_ORIGIN_ALLOW_ALL', False):
+        if getattr(settings, 'CORS_ORIGIN_ALLOW_ALL', False):
+            server_options['cors_allowed_origins'] = '*'
+        else:
             server_options['cors_allowed_origins'] = \
                 getattr(settings, 'CORS_ORIGIN_WHITELIST', None)
+            
 
         socketio_logger = logging.getLogger('rt_api.socketio')
         sio = DasSocketServer(client_manager=client_mgr,
@@ -124,8 +127,8 @@ def cleanup_disconnected_clients(sios):
             remove_these_clients = set(
                 [c for c in client_list if c.sid not in environ])
 
-            expired_clients = [
-                c for c in client.get_expired_traces_client_list()]
+            expired_clients = [client
+                for sid in client.get_expired_traces_client_list() for client in client_list if client.sid == sid]
 
             remove_these_clients = remove_these_clients.union(expired_clients)
 
