@@ -334,6 +334,12 @@ def flatten_definition_items(definition: list = list):
 def definition_key_order_as_dict(schema):
     return OrderedDict(definition_keys(schema.get('definition', [])))
 
+
+def property_keys_order_as_dict(schema):
+    property_keys = schema.get("schema").get("properties", []).keys()
+    return OrderedDict(definition_keys(property_keys))
+
+
 def detail_resolver(schema, key, value):
     if key in schema['schema']['properties']:
         schema_item = schema['schema']['properties'][key]

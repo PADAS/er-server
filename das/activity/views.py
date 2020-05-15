@@ -393,7 +393,7 @@ class EventsExportView(views.APIView):
                 try:
                     current_schema = renderer(event_type['schema'])
                     current_schema_order = \
-                        schema_utils.definition_key_order_as_dict(
+                        schema_utils.property_keys_order_as_dict(
                             current_schema)
 
                     for key, order in current_schema_order.items():
