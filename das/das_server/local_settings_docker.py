@@ -54,7 +54,7 @@ SERVER_NAMES = [
     SERVER_FQDN.replace('pamdas.org', 'apn.pamdas.org'),
     SERVER_FQDN.replace('pamdas.org', 'wps.pamdas.org'),
     SERVER_FQDN.replace('pamdas.org', 'fzs.pamdas.org'),
-    'localhost',
+    'localhost:9000',
 
 ]
 

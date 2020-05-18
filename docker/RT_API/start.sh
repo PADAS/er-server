@@ -10,3 +10,4 @@ if [ "$DEV" = "True" ]; then
 else
     python3 manage.py rtserver 0.0.0.0:8000 --noreload --nothreading
 fi
+
