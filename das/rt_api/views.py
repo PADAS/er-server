@@ -45,6 +45,8 @@ class DasSocketServer(Server):
 
 
 def create_rt_socketio():
+    client.start_trace_consumer()
+
     global GLOBAL_SIO
     if GLOBAL_SIO is None:
 
@@ -60,7 +62,6 @@ def create_rt_socketio():
         else:
             server_options['cors_allowed_origins'] = \
                 getattr(settings, 'CORS_ORIGIN_WHITELIST', None)
-            
 
         socketio_logger = logging.getLogger('rt_api.socketio')
         sio = DasSocketServer(client_manager=client_mgr,
@@ -92,14 +93,15 @@ AUTH_CHECK_SLEEP_TIME = getattr(settings, 'REALTIME_AUTH_TIMEOUT_SECONDS', 1.0)
 
 
 def confirm_authorzation(sid, sios):
-
     extra = dict(sid=sid)
-    logger.debug('Confirming auth for new socket connection (waiting %s seconds).',
-                 AUTH_CHECK_SLEEP_TIME, extra=extra)
+    logger.debug(
+        'Confirming auth for new socket connection (waiting %s seconds).',
+        AUTH_CHECK_SLEEP_TIME, extra=extra)
     eventlet.sleep(AUTH_CHECK_SLEEP_TIME)
     if not client.is_client(sid):
         logger.debug(
-            "Disconnecting unauthenticated socket connection %s", sid, extra=extra)
+            "Disconnecting unauthenticated socket connection %s", sid,
+            extra=extra)
         sios.disconnect(sid)
     else:
         logger.debug(
@@ -107,29 +109,31 @@ def confirm_authorzation(sid, sios):
 
 
 def connect_ack(sid, sios):
-
     logger.debug('Acknowledge connection for sid: %s', sid)
     eventlet.sleep(1.0)
     sios.emit('connect_ack', {
-              'type': 'connect_ack', 'message': 'Connect acknowledgment.'}, room=str(sid), namespace='/das')
+        'type': 'connect_ack', 'message': 'Connect acknowledgment.'},
+              room=str(sid), namespace='/das')
 
 
 CLIENT_CLEANUP_INTERVAL = 30  # seconds
 
 
 def cleanup_disconnected_clients(sios):
-
     try:
         if sios.environ:
             environ = [sid for sid in sios.environ]
             client_list = set(client.get_client_list())
 
-            stats.update_gauge('rt.clientcount', len(client_list), sample_rate=0.5)
+            stats.update_gauge('rt.clientcount', len(client_list),
+                               sample_rate=0.5)
             remove_these_clients = set(
                 [c for c in client_list if c.sid not in environ])
 
             expired_clients = [client
-                for sid in client.get_expired_traces_client_list() for client in client_list if client.sid == sid]
+                               for sid in
+                               client.get_expired_traces_client_list() for
+                               client in client_list if client.sid == sid]
 
             remove_these_clients = remove_these_clients.union(expired_clients)
 
@@ -153,7 +157,8 @@ def create_realtime_handler(sios):
     class RealtimeServices:
 
         supported_message_types = ['new_event', 'update_event', 'delete_event',
-                                   'count_event', 'service_status', 'subject_status', ]
+                                   'count_event', 'service_status',
+                                   'subject_status', ]
 
         do_not_trace_these_types = ['service_status', ]
 
@@ -164,7 +169,7 @@ def create_realtime_handler(sios):
 
             logger.info('on_connect', extra={'sid': str(sid)})
             logger.debug('on_connect', extra={
-                         'sid': str(sid), 'socket': repr(socket)})
+                'sid': str(sid), 'socket': repr(socket)})
 
             # Send a connect acknowledgment (helpful for troubleshooting).
             eventlet.spawn(connect_ack, sid, sios)
@@ -216,7 +221,8 @@ def create_realtime_handler(sios):
 
                     # tell the user that they've been authenticated
                     sios.emit('resp_authorization',
-                              {'type': 'resp_authorization', 'resp_id': data['id'],
+                              {'type': 'resp_authorization',
+                               'resp_id': data['id'],
                                'status': {'code': 200, 'message': 'OK'}},
                               room=str(sid),
                               namespace='/das')
@@ -229,7 +235,8 @@ def create_realtime_handler(sios):
                     sios.emit('resp_authorization',
                               {'type': 'resp_authorization',
                                'resp_id': data['id'],
-                               'status': {'code': 401, 'message': 'Invalid credentials'}},
+                               'status': {'code': 401,
+                                          'message': 'Invalid credentials'}},
                               room=str(sid),
                               namespace='/das')
 
@@ -237,7 +244,8 @@ def create_realtime_handler(sios):
                 sios.emit('resp_authorization',
                           {'type': 'resp_authorization',
                            'resp_id': data['id'],
-                           'status': {'code': 401, 'message': 'Authentication error'}},
+                           'status': {'code': 401,
+                                      'message': 'Authentication error'}},
                           room=str(sid),
                           namespace='/das')
                 logger.exception('Disconnecting session. data=%s', data)
@@ -311,7 +319,8 @@ def create_realtime_handler(sios):
                 client.remove_client(socketid)
                 # extra = dict(sid=user)
                 logger.warning(
-                    'Tried to send a message to a disconnected client.', extra={'sid': socketid})
+                    'Tried to send a message to a disconnected client.',
+                    extra={'sid': socketid})
                 return
             try:
 
@@ -321,7 +330,7 @@ def create_realtime_handler(sios):
 
                 # Add trace ID to message. It will be sent back in callback.
                 if message_type not in RealtimeServices.do_not_trace_these_types \
-                        and isinstance(data, dict):
+                    and isinstance(data, dict):
                     data['trace_id'] = f'trace-{socketid}-{time.time()}'
                     client.push_trace(data['trace_id'], data)
 
@@ -331,7 +340,9 @@ def create_realtime_handler(sios):
                 else:
 
                     # Sample 10% of realtime messages per message-type.
-                    stats.increment(f'rt.emit.{message_type}', tags={'service': 'realtime'}, sample_rate=0.1)
+                    stats.increment(f'rt.emit.{message_type}',
+                                    tags={'service': 'realtime'},
+                                    sample_rate=0.1)
 
                     sios.emit(message_type, data, room=str(
                         socketid), namespace='/das', callback=receipt_callback)
@@ -349,14 +360,16 @@ def create_realtime_handler(sios):
             if message_data['type'] in RealtimeServices.supported_message_types:
                 extra = dict(sid=message_data['sid'],
                              type=message_data['type'])
-                logger.info('Sending realtime messsage to %s', message_data['sid'],
+                logger.info('Sending realtime messsage to %s',
+                            message_data['sid'],
                             extra=extra)
                 RealtimeServices.emit(message_type=message_data['type'],
                                       data=message_data['data'],
                                       socketid=message_data['sid'])
             else:
-                logger.error('Realtime server received invalid message type: %s',
-                             message_data['type'])
+                logger.error(
+                    'Realtime server received invalid message type: %s',
+                    message_data['type'])
 
     # Start up recursive calls to clean up disconnected clients.
     eventlet.spawn_after(CLIENT_CLEANUP_INTERVAL,

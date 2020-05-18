@@ -83,7 +83,7 @@ def start(realtime_server):
             subscription['name'] = 'rt_api.{0}'.format(
                 subscription['callback'].__name__)
 
-            logger.info('Adding subbscription for "%s"', subscription['name'])
+            logger.info('Adding subscription for "%s"', subscription['name'])
         pubsub.subscribe(subscriptions)
 
     logger.info("Starting pubsub listener threads.")
