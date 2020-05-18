@@ -2307,7 +2307,7 @@ class TestEventView(BaseAPITest):
         response = views.EventsExportView.as_view()(request)
         self.assertEqual(response.status_code, 200)
 
-        # convert_rendered_csv_to_dictionary
+        # convert rendered csv to dictionary format
         content = response.content.decode('utf-8')
         csv_reader = csv.reader(io.StringIO(content))
         data = list(csv_reader)
