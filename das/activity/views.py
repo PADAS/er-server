@@ -502,8 +502,6 @@ class EventsExportView(views.APIView):
         # carriage returns are not handled in csv, join with space instead
         strings = string.splitlines()
         string = " ".join(strings)
-        # if ',' in string or '"' in string:
-        #     string = '"' + string + '"'
         return string
 
     def get(self, request, *args, **kwargs):
