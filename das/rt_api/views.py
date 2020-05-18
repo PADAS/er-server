@@ -45,6 +45,7 @@ class DasSocketServer(Server):
 
 
 def create_rt_socketio():
+    client.init_redis_storage()
     client.start_trace_consumer()
 
     global GLOBAL_SIO

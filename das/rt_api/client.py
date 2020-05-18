@@ -23,7 +23,7 @@ def get_ip_address():
 
 
 SERVICE_ID = socket.gethostname() or str(get_ip_address())
-CLIENT_LIST_KEY = 'rt_api.{}'.format(SERVICE_ID)
+CLIENT_LIST_KEY = 'rt_api.{}'.format("1")
 EXPIRED_CLIENT_TRACES_LIST = 'rt_api.expired_traces'
 REALTIME_SERVICES_KEY = 'rt_api.services'
 
@@ -37,8 +37,9 @@ Bbox = collections.namedtuple('Bbox', BBOX_FIELDS)
 
 
 def init_redis_storage():
+    logger.info("Initializing redis storage")
     # first, remove existing key to remove stale clients
-    redis_client.delete(CLIENT_LIST_KEY)
+    # redis_client.delete(CLIENT_LIST_KEY)
     # add the service as a member of services set
     redis_client.sadd(REALTIME_SERVICES_KEY, CLIENT_LIST_KEY)
 
