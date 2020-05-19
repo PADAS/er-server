@@ -22,7 +22,7 @@ def get_ip_address():
     return s.getsockname()[0]
 
 
-SERVICE_ID = socket.gethostname() or str(get_ip_address())
+SERVICE_ID = socket.gethostbyname(socket.gethostname()) or str(get_ip_address())
 CLIENT_LIST_KEY = 'rt_api.{}'.format("1")
 EXPIRED_CLIENT_TRACES_LIST = 'rt_api.expired_traces'
 REALTIME_SERVICES_KEY = 'rt_api.services'
@@ -77,6 +77,14 @@ def update_client(sid, bbox=None, event_filter=None):
 
 def get_all_connections():
     all_conns = redis_client.hgetall(CLIENT_LIST_KEY)
+    return all_conns
+
+
+def get_all_connections_list():
+    all_conns = {}
+    for list_key in get_rt_service_list():
+        conn = redis_client.hgetall(list_key)
+        all_conns.update(conn)
     return all_conns
 
 

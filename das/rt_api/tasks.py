@@ -46,7 +46,7 @@ def dumps_helper(obj):
 
 
 def get_username_sids_map():
-    all_connections = client.get_all_connections()
+    all_connections = client.get_all_connections_list()
 
     user_sids_map = {}
     for sid, session_data in all_connections.items():
