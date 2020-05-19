@@ -14,8 +14,9 @@ from observations.serializers import ObservationSerializer
 from observations import servicesutils
 from observations.models import update_subject_status_from_post
 from tracking.pubsub_registry import notify_new_tracks
-from sensors.vehicle_tracker import SkylineObservations, SkylineAdapter,\
-    FollowltObservation, TractAdapter, TractVehicleData
+from sensors.vehicle_tracker import SkylineObservations, SkylineAdapter, \
+    FollowltObservation, TractAdapter, TractVehicleData, EzytrackObservation, \
+    EzyTrackAdapter
 from analyzers import gfw_inbound
 
 logger = logging.getLogger(__name__)
@@ -414,7 +415,7 @@ class GsatHandler():
         except:
             pass
 
-       # Calculate state, that will be recorded in SubjectStatus.
+        # Calculate state, that will be recorded in SubjectStatus.
         r['state'] = 'alarm' if o.get('emer', 0) == '1' else 'default'
 
         r['events'] = o.get('events').split(',') if len(
@@ -698,3 +699,53 @@ class GFWAlertHandler:
     @classmethod
     def post(cls, request, provider_key):
         return gfw_inbound.process_handler_post(request)
+
+
+class EzyTrackHandler:
+    SENSOR_TYPE = 'ezytrack-tracker'
+
+    @classmethod
+    def post(cls, request, sensor_type, provider_key):
+        logger.info(f"Received new push message {request.data}")
+
+        serializer_ = EzytrackObservation(data=request.data)
+        if not serializer_.is_valid():
+            status_msg = {'status': 400, 'message': serializer_.errors}
+            return Response(data=status_msg, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            adapter = EzyTrackAdapter()
+            das_observation = adapter.create_das_object(serializer_.data)
+
+            src = Source.objects.ensure_source(
+                das_observation.source_type,
+                provider=provider_key,
+                manufacturer_id=das_observation.manufacturer_id,
+                model_name=das_observation.model_name,
+                subject={
+                    'subject_subtype_id': das_observation.subject_subtype,
+                    'name': das_observation.subject_name
+                }
+            )
+            if Observation.objects.filter(source=src, recorded_at=das_observation.recorded_at).exists():
+                logger.info("Processed duplicate observation {}".format(das_observation))
+                return Response(data={}, status=status.HTTP_200_OK)
+            else:
+                observation = {
+                    'location': das_observation.location,
+                    'recorded_at': das_observation.recorded_at,
+                    'source': str(src.id),
+                    'additional': das_observation.additional
+                }
+
+                observation_serializer = ObservationSerializer(data=observation)
+                if observation_serializer.is_valid():
+                    observation_serializer.save()
+                    logger.debug("New observation added. %s" % observation)
+                    notify_new_tracks(src.id)
+                else:
+                    logger.debug("Error occured while serializing observation: %s " % observation_serializer.errors)
+                    status_msg = {'status': 400, 'message': observation_serializer.errors}
+                    return Response(data=status_msg, status=status.HTTP_400_BAD_REQUEST)
+
+        status_ok = {'status': 201, 'message': 'Success'}
+        return Response(data=status_ok, status=status.HTTP_201_CREATED)
