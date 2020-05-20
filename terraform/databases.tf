@@ -1,5 +1,5 @@
 locals {
-  db_secret_path    = (local.is_production ? "prod1" : "dev")
+  db_secret_path    = data.terraform_remote_state.earthranger_app_infra.outputs.db_secret_path
   sanitized_db_name = lower(substr(replace(terraform.workspace, "/[^A-Za-z0-9_]/", "_"), 0, 24))
   unique_db_name    = "${local.sanitized_db_name}_${random_string.db_name_uniqueness.result}"
   app_role_name     = "${local.unique_db_name}_approle"
