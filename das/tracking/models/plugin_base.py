@@ -374,8 +374,8 @@ class Obs(NamedTuple):
     Represents the payload sent to create a new observation
     """
     source: Source
-    recorded_at: datetime
     latitude: float
     longitude: float
-    exclusion_flags: int = 0
+    recorded_at: datetime
     additional: dict = {}
+    exclusion_flags: int = 0
