@@ -9,7 +9,7 @@ export EVENTLET_SHOULDPATCH=True
 # Override GUNICORN_CMD_ARGS at deployment if desired.
 # Keep in mind that the flags specified below, when running gunicorn, take
 # precedence.
-export GUNICORN_CMD_ARGS=${GUNICORN_CMD_ARGS:-"--bind 0.0.0.0:8000 --worker-class eventlet --timeout=90 --log-level=debug"}
+export GUNICORN_CMD_ARGS=${GUNICORN_CMD_ARGS:-"--bind 0.0.0.0:8000 --worker-class eventlet --timeout=90 --log-level=info"}
 
 echo "Notice GUNICORN_CMD_ARGS: ${GUNICORN_CMD_ARGS}"
 
