@@ -62,7 +62,7 @@ class Command(BaseCommand):
         client.remove_rt_service(client.CLIENT_LIST_KEY)
 
     def list_services(self):
-        for service in client.get_service_list():
+        for service in client.get_rt_service_list():
             print(service)
 
     def list_connections(self):
