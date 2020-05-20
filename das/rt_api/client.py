@@ -23,7 +23,7 @@ def get_ip_address():
 
 
 SERVICE_ID = socket.gethostbyname(socket.gethostname()) or str(get_ip_address())
-CLIENT_LIST_KEY = 'rt_api.{}'.format("1")
+CLIENT_LIST_KEY = 'rt_api.{}'.format(SERVICE_ID)
 EXPIRED_CLIENT_TRACES_LIST = 'rt_api.expired_traces'
 REALTIME_SERVICES_KEY = 'rt_api.services'
 
@@ -206,7 +206,7 @@ def remove_all_rt_services():
     leave the
     :return:
     '''
-    rt_services = redis_client.srem(REALTIME_SERVICES_KEY)
+    rt_services = get_rt_service_list()
     for rt_svc in rt_services:
         remove_rt_service(rt_svc)
 
