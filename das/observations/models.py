@@ -1240,38 +1240,6 @@ def build_updates(recorded_at, location, radio_state=None, radio_state_at=None,
     return conditional_updates
 
 
-def build_updates_conditions(recorded_at, location, radio_state=None, radio_state_at=None,
-                             last_voice_call_start_at=None, location_requested_at=None, ):
-    # Build condition when observation record is deleted.
-    conditional_updates = {
-        'recorded_at': recorded_at,
-        'location': str(location)
-    }
-
-    if radio_state_at and radio_state:
-        conditional_updates['radio_state'] = radio_state
-
-        conditional_updates['radio_state_at'] = radio_state_at
-
-    if last_voice_call_start_at:
-        conditional_updates['last_voice_call_start_at'] = last_voice_call_start_at
-
-    if location_requested_at:
-        conditional_updates['location_requested_at'] = location_requested_at
-
-    return conditional_updates
-
-
-def check_observation_exist(subject_status):
-    if subject_status:
-        subjectStatus = subject_status.annotate(recorded_time=F('recorded_at'),
-                                                source=F('subject__subjectsource__source'))
-        recorded_at = subjectStatus[0].recorded_at
-        source = subjectStatus[0].source
-        return Observation.objects.filter(recorded_at=recorded_at, source=source).exists()
-    return True
-
-
 def update_subject_status(source, recorded_at, location,
                           last_voice_call_start_at=None,
                           location_requested_at=None,
@@ -1279,29 +1247,21 @@ def update_subject_status(source, recorded_at, location,
                           radio_state_at=None,
                           reported_subject_name=None,
                           delay_hours=0):
-    subject_status = SubjectStatus.objects.filter(subject__subjectsource__source=source,
-                                                  subject__subjectsource__assigned_range__contains=recorded_at,
-                                                  delay_hours=delay_hours)
 
-    if check_observation_exist(subject_status):
-        status_updates = build_updates(recorded_at=recorded_at,
-                                       location=location,
-                                       radio_state=radio_state,
-                                       radio_state_at=radio_state_at,
-                                       last_voice_call_start_at=last_voice_call_start_at,
-                                       location_requested_at=location_requested_at)
-    else:
-        status_updates = build_updates_conditions(recorded_at=recorded_at,
-                                                  location=location,
-                                                  radio_state=radio_state,
-                                                  radio_state_at=radio_state_at,
-                                                  last_voice_call_start_at=last_voice_call_start_at,
-                                                  location_requested_at=location_requested_at)
+    status_updates = build_updates(recorded_at=recorded_at,
+                                   location=location,
+                                   radio_state=radio_state,
+                                   radio_state_at=radio_state_at,
+                                   last_voice_call_start_at=last_voice_call_start_at,
+                                   location_requested_at=location_requested_at)
 
     if reported_subject_name:
         status_updates['additional'] = {'subject_name': reported_subject_name}
 
-    subject_status.update(**status_updates)
+    SubjectStatus.objects.filter(subject__subjectsource__source=source,
+                                 subject__subjectsource__assigned_range__contains=recorded_at,
+                                 delay_hours=delay_hours
+                                 ).update(**status_updates)
 
     if reported_subject_name and delay_hours == 0:
         Subject.objects.filter(subjectsource__assigned_range__contains=recorded_at,
