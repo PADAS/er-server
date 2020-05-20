@@ -16,7 +16,7 @@ from observations.models import update_subject_status_from_post
 from tracking.pubsub_registry import notify_new_tracks
 from sensors.vehicle_tracker import SkylineObservations, SkylineAdapter, \
     FollowltObservation, TractAdapter, TractVehicleData, EzytrackObservation, \
-    EzyTrackAdapter
+    EzyTrackAdapter, DasObservation
 from analyzers import gfw_inbound
 
 logger = logging.getLogger(__name__)
@@ -771,6 +771,8 @@ class InreachObservation(serializers.Serializer):
 class InreachPushHandler:
 
     SENSOR_TYPE = 'inreach-tracker'
+    DAS_SUBJECT_TYPE = 'inreach-device'
+    DAS_SOURCE_TYPE = 'tracking-device'
 
     @classmethod
     def post(cls, request, sensor_type, provider_key):
@@ -783,11 +785,11 @@ class InreachPushHandler:
             return Response(
                 data={'status': 400, 'message': serializer.errors},
                 status=status.HTTP_400_BAD_REQUEST)
-
         else:
             for data in serializer.data:
-                cls.ensure_source(data)
-                cls.create_observation(data)
+                das_obs = cls.create_das_object(data)
+                cls.ensure_source(das_obs)
+                cls.create_observation(das_obs)
 
             if cls.new_observations:
                 return Response(
@@ -796,36 +798,48 @@ class InreachPushHandler:
                 return Response(data={}, status=status.HTTP_200_OK)
 
     @classmethod
+    def create_das_object(cls, data):
+        point = data.get('point')
+        obs = DasObservation(
+            location={'latitude': point.pop('latitude'),
+                      'longitude': point.pop('longitude')},
+            recorded_at=datetime.fromtimestamp(
+                int(data.get('timeStamp'))/1000, timezone.utc),
+            manufacturer_id=data.get('imei'),
+            subject_name=data.get('imei'),
+            subject_type=cls.DAS_SUBJECT_TYPE,
+            subject_subtype=cls.DAS_SUBJECT_TYPE,
+            model_name=cls.SENSOR_TYPE,
+            source_type=cls.DAS_SOURCE_TYPE,
+            additional=data
+        )
+        return obs
+
+    @classmethod
     def ensure_source(cls, obs):
         """ Get or create provider, source and subject """
 
         cls.src = Source.objects.ensure_source(
             provider=cls.provider_key,
-            manufacturer_id=obs.get('imei'),
+            manufacturer_id=obs.manufacturer_id,
             subject={
-                'name': obs.pop('imei')
+                'subject_subtype_id': obs.subject_subtype,
+                'name': obs.subject_name,
             })
 
     @classmethod
-    def create_observation(cls, data):
+    def create_observation(cls, observation):
         """ Create observation, ignore duplicates """
-        recorded_at = datetime.fromtimestamp(
-            int(data.pop('timeStamp'))/1000, tz=pytz.UTC)
-
         if Observation.objects.filter(
-                recorded_at=recorded_at, source=cls.src).exists():
+                recorded_at=observation.recorded_at, source=cls.src).exists():
             logger.info(f'Skipping duplicate observation from {cls.src}')
         else:
-            point = data.get('point')
-            observation = dict(
-                location={
-                    'latitude': point.pop('latitude'),
-                    'longitude': point.pop('longitude')
-                    },
-                recorded_at=recorded_at,
-                source=str(cls.src.id),
-                additional=data
-            )
+            observation = {
+                'location': observation.location,
+                'recorded_at': observation.recorded_at,
+                'source': str(cls.src.id),
+                'additional': observation.additional
+            }
             serializer = ObservationSerializer(data=observation)
 
             if serializer.is_valid():

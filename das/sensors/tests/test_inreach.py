@@ -65,3 +65,8 @@ class InreachPushHandlerTest(BaseAPITest):
         response = self._post_inreach_data(json.dumps(self.test_data))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data, {})
+
+    def test_invalid_inreach_payload(self):
+        invalid_data = {"Events": [{"imei": "100000000000001"}]}
+        response = self._post_inreach_data(json.dumps(invalid_data))
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
