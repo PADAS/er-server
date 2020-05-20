@@ -498,8 +498,6 @@ class EventsExportView(views.APIView):
     def escape_string(self, string):
         if not isinstance(string, str) or not string:
             return string
-        string = string.replace('"', '""')
-        # carriage returns are not handled in csv, join with space instead
         strings = string.splitlines()
         string = " ".join(strings)
         return string
