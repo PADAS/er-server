@@ -39,6 +39,7 @@ locals {
     "wildhorizons"           = "prod1"
     "zakouma"                = "prod1"
     "hello-asia"             = "prod-asia"
+    "socp"                   = "prod-asia"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
