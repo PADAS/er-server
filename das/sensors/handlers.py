@@ -749,6 +749,8 @@ class EzyTrackHandler:
 
         status_ok = {'status': 201, 'message': 'Success'}
         return Response(data=status_ok, status=status.HTTP_201_CREATED)
+
+
 class PointDictSerializer(serializers.Serializer):
     latitude = serializers.FloatField()
     longitude = serializers.FloatField()
@@ -771,8 +773,10 @@ class InreachObservation(serializers.Serializer):
 class InreachPushHandler:
 
     SENSOR_TYPE = 'inreach-tracker'
-    DAS_SUBJECT_TYPE = 'inreach-device'
-    DAS_SOURCE_TYPE = 'tracking-device'
+    subject_type = "person"
+    subject_subtype = "ranger"
+    model_name = "InReach"
+    source_type = "gps-radio"
 
     @classmethod
     def post(cls, request, sensor_type, provider_key):
@@ -807,10 +811,10 @@ class InreachPushHandler:
                 int(data.get('timeStamp'))/1000, timezone.utc),
             manufacturer_id=data.get('imei'),
             subject_name=data.get('imei'),
-            subject_type=cls.DAS_SUBJECT_TYPE,
-            subject_subtype=cls.DAS_SUBJECT_TYPE,
-            model_name=cls.SENSOR_TYPE,
-            source_type=cls.DAS_SOURCE_TYPE,
+            subject_type=cls.subject_type,
+            subject_subtype=cls.subject_subtype,
+            model_name=cls.model_name,
+            source_type=cls.source_type,
             additional=data
         )
         return obs
@@ -820,6 +824,8 @@ class InreachPushHandler:
         """ Get or create provider, source and subject """
 
         cls.src = Source.objects.ensure_source(
+            source_type=obs.source_type,
+            model_name=obs.model_name,
             provider=cls.provider_key,
             manufacturer_id=obs.manufacturer_id,
             subject={
