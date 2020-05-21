@@ -40,7 +40,7 @@ Bbox = collections.namedtuple('Bbox', BBOX_FIELDS)
 def init_redis_storage():
     logger.info("Initializing redis storage")
     # first, remove existing key to remove stale clients
-    # redis_client.delete(CLIENT_LIST_KEY)
+    redis_client.delete(CLIENT_LIST_KEY)
     # add the service as a member of services set
     redis_client.sadd(REALTIME_SERVICES_KEY, CLIENT_LIST_KEY)
 
