@@ -4,6 +4,7 @@ import redis
 import datetime
 import pytz
 import socket
+import signal
 
 from django.contrib.gis.geos import Polygon, MultiPolygon
 
@@ -239,13 +240,16 @@ def start_trace_consumer():
         'Stopping trace consumer.'), trace_consumer.stop())
 
 
-def shutdown_cleanup():
-    logger.info('Shutdown cleanup for realtime client list.')
+def shutdown_cleanup(*args):
+    logger.info('Shutdown cleanup for realtime client list: %s', CLIENT_LIST_KEY)
     remove_rt_service(CLIENT_LIST_KEY)
 
-    logger.info('Deleting message ID counters.')
-    redis_client.delete(redis_client.keys('mid-*'))
+    # logger.info('Deleting message ID counters.')
+    # redis_client.delete(redis_client.keys('mid-*'))
 
+
+signal.signal(signal.SIGINT, shutdown_cleanup)
+signal.signal(signal.SIGTERM, shutdown_cleanup)
 
 trace_ttl = 60
 
