@@ -807,8 +807,7 @@ class InreachPushHandler:
         obs = DasObservation(
             location={'latitude': point.pop('latitude'),
                       'longitude': point.pop('longitude')},
-            recorded_at=datetime.fromtimestamp(
-                int(data.get('timeStamp'))/1000, timezone.utc),
+            recorded_at=datetime.fromtimestamp(data.get('timeStamp')/1000, timezone.utc),
             manufacturer_id=data.get('imei'),
             subject_name=data.get('imei'),
             subject_type=cls.subject_type,
