@@ -1,5 +1,5 @@
 locals {
-  storage_location = (local.is_production ? "EU" : "US")
+  storage_location = data.terraform_remote_state.earthranger_app_infra.outputs.gcp_storage_location
 }
 
 resource "google_storage_bucket" "user_uploads" {
