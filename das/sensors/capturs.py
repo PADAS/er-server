@@ -67,9 +67,10 @@ class CaptursAdapter:
 
 class CaptursPushHandler:
     SENSOR_TYPE = 'capturs-tracker'
+    serializer_class = CaptursObservationSerializer
 
     @classmethod
-    def post(cls, request, sensor_type, provider_key):
+    def post(cls, request, provider_key):
         pos_data = request.data.get('position') or request.data.get('event')
         cls.observations_count = 0
         cls.provider_key = provider_key

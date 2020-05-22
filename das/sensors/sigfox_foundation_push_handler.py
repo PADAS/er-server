@@ -33,14 +33,15 @@ class PayloadValidator(serializers.Serializer):
 class SigfoxFoundationPushHandler:
     SENSOR_TYPE = 'sff-tracker'
     DEFAULT_SUBJECT_SUBTYPE = 'wildlife'
+    serializer_class = PayloadValidator
 
     @classmethod
-    def post(cls, request, sensor_type, provider_key):
+    def post(cls, request, provider_key):
         sigfox_data = PayloadValidator(data=request.data)
         if sigfox_data.is_valid():
             validated_data = sigfox_data.validated_data
             if validated_data.get('data'):
-                return cls.process_data_uplink(validated_data, sensor_type, provider_key)
+                return cls.process_data_uplink(validated_data, cls.SENSOR_TYPE, provider_key)
             elif validated_data.get('computedLocation'):
                 return Response(data=dict(message='Message received'), status=status.HTTP_200_OK)
 

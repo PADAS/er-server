@@ -30,7 +30,7 @@ class SensorPostParameters(serializers.Serializer):
     subject_id = serializers.CharField(default=None)
     subject_name = serializers.CharField(default=None)
     subject_groups = serializers.ListField(
-        child=serializers.CharField(allow_blank=True), allow_empty=True, default=list)
+        child=serializers.CharField(allow_blank=True), allow_empty=True, default=[])
     subject_type = serializers.CharField(default=None)  # Legacy key
     subject_subtype = serializers.CharField(default=None)
     model_name = serializers.CharField(default=None)
@@ -43,6 +43,7 @@ class GenericSensorHandler:
 
     DEFAULT_SOURCE_TYPE = 'gps-radio'
     DEFAULT_SUBJECT_SUBTYPE = 'ranger'
+    serializer_class = SensorPostParameters
 
     @classmethod
     def post(cls, request, sensor_type, provider_key):
@@ -156,6 +157,7 @@ class FollowltTrackerHandler:
     SENSOR_TYPE = 'animal-collar-push'
     DEFAULT_SOURCE_TYPE = 'tracking-device'
     MODEL_NAME = 'FollowIt'
+    serializer_class = FollowltObservation
 
     @staticmethod
     def convert_to_das_format(data):
@@ -176,8 +178,8 @@ class FollowltTrackerHandler:
                     additional=additional)
 
     @classmethod
-    def post(cls, request, sensor_type, provider_key):
-        logger.info("Recieved new push message from {}: {}".format(sensor_type,
+    def post(cls, request, provider_key):
+        logger.info("Recieved new push message from {}: {}".format(cls.SENSOR_TYPE,
                                                                    request.data))
         sensor_observations = request.data
         # Check if received data is in list format or not
@@ -254,7 +256,7 @@ class DraObservationSerializer(serializers.Serializer):
     source_type = serializers.CharField(default=None)
     subject_name = serializers.CharField(default=None)
     subject_groups = serializers.ListField(
-        child=serializers.CharField(allow_blank=True), allow_empty=True, default=list)
+        child=serializers.CharField(allow_blank=True), allow_empty=True, default=[])
     recorded_at = serializers.DateTimeField()
     location = LocationDictSerializer()
 
@@ -270,6 +272,7 @@ class DasRadioAgentHandler:
     SENSOR_TYPE = 'dasradioagent'
     SOURCE_TYPE = 'gps-radio'
     DEFAULT_SUBJECT_SUBTYPE = 'ranger'
+    serializer_class = DraObservationSerializer
 
     @classmethod
     def handle_heartbeat(cls, data, provider_key):
@@ -504,9 +507,10 @@ class GsatHandler():
 class SkylineVehicleTrackerHandler():
     SENSOR_TYPE = 'vehicle-tracker-push'
     DEFAULT_SUBJECT_SUBTYPE = 'truck'
+    serializer_class = SkylineObservations
 
     @classmethod
-    def post(cls, request, sensor_type, provider_key):
+    def post(cls, request, provider_key):
 
         logger.info("Recieved new push message %s", request.data,
                     extra={'msg.data': request.data})
@@ -566,9 +570,9 @@ class TractVehicleHandler():
 
     SENSOR_TYPE = 'vehicle-observation'
     DEFAULT_SUBJECT_SUBTYPE = 'truck'
-
+    serializer_class = TractVehicleData
     @classmethod
-    def post(cls, request, sensor_type, provider_key):
+    def post(cls, request, provider_key):
 
         logger.info("Recieved new push message %s", request.data)
         params = TractVehicleData.parse_observations(request.data)
@@ -634,9 +638,10 @@ class SigFoxPushHandler():
     SENSOR_TYPE = 'sf-animal-tracker'
     SOURCE_TYPE = 'tracking-device'
     MODEL_NAME = 'DigitAnimal'
+    serializer_class = SigFoxCallback
 
     @classmethod
-    def post(cls, request, sensor_type, provider_key):
+    def post(cls, request, provider_key):
 
         params = SigFoxCallback(data=request.data)
 
@@ -669,9 +674,9 @@ class SigFoxPushHandler():
 class GateHandler:
     SENSOR_TYPE = 'gate'
     @classmethod
-    def post(cls, request, sensor_type, provider_key):
+    def post(cls, request, provider_key):
         logger.info(f"{cls.SENSOR_TYPE} observation {request.data} for provider {provider_key}",
-                    extra={'data': request.data, 'provider_key': provider_key, 'sensor_type': sensor_type})
+                    extra={'data': request.data, 'provider_key': provider_key, 'sensor_type': cls.SENSOR_TYPE})
 
         status_ok = {'status': 200, 'message': 'success',
                      'handler': f'{cls.SENSOR_TYPE}'}
@@ -682,9 +687,9 @@ class GateHandler:
 class TestHandler:
     SENSOR_TYPE = 'test'
     @classmethod
-    def post(cls, request, sensor_type, provider_key):
+    def post(cls, request, provider_key):
         logger.info(f"{cls.SENSOR_TYPE} observation {request.data} for provider {provider_key}",
-                    extra={'data': request.data, 'provider_key': provider_key, 'sensor_type': sensor_type})
+                    extra={'data': request.data, 'provider_key': provider_key, 'sensor_type': cls.SENSOR_TYPE})
 
         status_ok = {'status': 200, 'message': 'success',
                      'handler': f'{cls.SENSOR_TYPE}'}
@@ -695,6 +700,7 @@ class TestHandler:
 class GFWAlertHandler:
     SENSOR_TYPE = 'gfw-alert'
     PROVIDER_KEY = 'gfw'
+    serializer_class = gfw_inbound.GFWAlertParameters
 
     @classmethod
     def post(cls, request, provider_key):
@@ -703,9 +709,10 @@ class GFWAlertHandler:
 
 class EzyTrackHandler:
     SENSOR_TYPE = 'ezytrack-tracker'
+    serializer_class = EzytrackObservation
 
     @classmethod
-    def post(cls, request, sensor_type, provider_key):
+    def post(cls, request, provider_key):
         logger.info(f"Received new push message {request.data}")
 
         serializer_ = EzytrackObservation(data=request.data)
