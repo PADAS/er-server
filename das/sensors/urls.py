@@ -1,4 +1,5 @@
 from django.conf.urls import url
+from django.views.generic import TemplateView
 from rest_framework.renderers import JSONOpenAPIRenderer
 from rest_framework.schemas import get_schema_view
 
@@ -15,6 +16,9 @@ url_suffix = '(?P<provider_key>[\w-]{3,20})/status/?$'
 
 urlpatterns = [
     url(r'^openapi-schema/', schema_view, name='openapi-schema'),
+    url(r'^docs/', TemplateView.as_view(
+        template_name="swagger-ui.html",
+        extra_context={'schema_url':'openapi-schema'})),
     url(rf'^(?P<sensor_type>[\w-]{3,20})/{url_suffix}', views.GenericSensorHandlerView.as_view()),
     url(rf'^gsat/{url_suffix}', views.GsatHandlerView.as_view()),
     url(rf'^dasradioagent/{url_suffix}', views.RadioAgentHandlerView.as_view()),
