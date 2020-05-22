@@ -206,5 +206,99 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(actual_size, expected_size)
 
+    @property
+    def additional_data_for_user(self):
+        expiry_date = (datetime.now(tz=UTC) + timedelta(days=5)).date().isoformat()
+        mou_datesigned = datetime.now(tz=UTC).date().isoformat()
+        additional_data = {
+            'notes': 'Testing Notes',
+            'expiry': expiry_date,
+            'moudatesigned': mou_datesigned,
+            'moutype': 'Sample MoU Type',
+            'tech': ['iOS'],
+            'organization': 'KWS',
+        }
+        return additional_data
+
+    def test_subject_api_returning_last_position_per_MOU_expiry(self):
+        url = reverse('subjects-list-view')
+
+        password = User.objects.make_random_password()
+        extra_fields = dict(additional=self.additional_data_for_user)
+        user = User.objects.create_user(username='Capt.America',
+                                        email='Capt.American@avenger.com',
+                                        password=password,
+                                        is_superuser=True,
+                                        is_staff=True,
+                                        **extra_fields)
+
+        subject = Subject.objects.get(name='Topsy')
+        subject2 = Subject.objects.get(name='Turvey')
+        subject3 = Subject.objects.get(name='StatusGuy')
+
+
+        point = Point((-122.334, 47.598))
+        t1 = datetime.now(tz=UTC)
+        t2 = datetime.now(tz=UTC) + timedelta(days=3)
+        t3 = datetime.now(tz=UTC) + timedelta(days=5)
+
+
+        Observation.objects.create(
+            source=subject.source,
+            location=point,
+            recorded_at=t1,
+            additional={}
+            )
+
+        Observation.objects.create(
+            source=subject2.source,
+            location=point,
+            recorded_at=t2,
+            additional={}
+        )
+
+        Observation.objects.create(
+            source=subject3.source,
+            location=point,
+            recorded_at=t3,
+            additional={}
+        )
+        request = self.factory.get(url)
+
+        self.force_authenticate(request, user)
+        response = SubjectsView.as_view()(request)
+
+        response_data = json.loads(response.render().content.decode())['data']
+        extracted_data = {}
+        for o in response_data:
+            if o['id'] == str(subject.id):
+                extracted_data['subject_last_position'] = o['last_position_date']
+            elif o['id'] == str(subject2.id):
+                extracted_data['subject2_last_position'] = o['last_position_date']
+            elif o['id'] == str(subject3.id):
+                extracted_data['subject3_last_position'] = o['last_position_date']
+
+        # subject1 and subject2 are within MOU expiry date.
+        subject_last_position = dateparser.parse(extracted_data.get('subject_last_position')).date().isoformat()
+        subject2_last_postion = dateparser.parse(extracted_data.get('subject2_last_position')).date().isoformat()
+        self.assertEqual(t1.date().isoformat(), subject_last_position)
+        self.assertEqual(t2.date().isoformat(), subject2_last_postion)
+
+        # Past MOU expiry date, should not retrieve observation past mou expiry date.
+        subject3_last_position = extracted_data.get('subject3_last_position')  # return None
+        self.assertNotEqual(t3.date().isoformat(), subject3_last_position)
+
+
+
+
+
+
+
+
+        # actual = len(response.data)
+        # expected = 2
+        self.assertEqual(response.status_code, 200)
+
+
 
 
