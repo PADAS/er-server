@@ -704,9 +704,14 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
 
         return self.filter(groups__in=effective_subject_group_set).distinct('id')
 
-    def annotate_with_subjectstatus(self, delay_hours=0):
-
-        return self.annotate(s1=FilteredRelation('subjectstatus', condition=Q(subjectstatus__delay_hours=delay_hours))) \
+    def annotate_with_subjectstatus(self, delay_hours=0, mou_expiry_date=None):
+        if not mou_expiry_date:
+            annotate_subject_status = self.annotate(
+                s1=FilteredRelation('subjectstatus', condition=Q(subjectstatus__delay_hours=delay_hours)))
+        else:
+            annotate_subject_status = self.annotate(s1=FilteredRelation('subjectstatus', condition=Q(
+                subjectstatus__delay_hours=delay_hours, subjectstatus__recorded_at__lte=mou_expiry_date)))
+        return annotate_subject_status \
             .annotate(status_recorded_at=F('s1__recorded_at')) \
             .annotate(status_last_voice_call_start_at=F('s1__last_voice_call_start_at')) \
             .annotate(status_radio_state=F('s1__radio_state')) \
