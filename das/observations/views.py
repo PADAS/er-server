@@ -371,9 +371,12 @@ class SubjectsView(generics.ListCreateAPIView):
         self.subject_linked_sources = {}
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
 
+        mou_date = self.request.user.additional.get('expiry', None)
+        mou_date = dateparse(mou_date) if mou_date else None
+
         all_subjects = models.Subject.objects.all()
         queryset = all_subjects \
-            .annotate_with_subjectstatus(delay_hours=min_age_days * 24)
+            .annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
         # need a stable sort for pagination. this needs to match the distinct
         # parameter set in by_user_subjects
         queryset = check_to_include_inactive_subjects(self.request, queryset)
@@ -383,8 +386,6 @@ class SubjectsView(generics.ListCreateAPIView):
 
         queryset = queryset.select_related(
             'subject_subtype', 'subject_subtype__subject_type')
-        queryset = queryset.annotate_with_subjectstatus(
-            delay_hours=min_age_days * 24)
 
         # Allow specifying a single subject group by 'id'.
         subject_group = self.request.query_params.get('subject_group')
@@ -497,8 +498,10 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView):
             raise UnauthorizedView
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
         queryset = models.Subject.objects.all()
+        mou_date = self.request.user.additional.get('expiry', None)
+        mou_date = dateparse(mou_date) if mou_date else None
         queryset = queryset.annotate_with_subjectstatus(
-            delay_hours=min_age_days * 24)
+            delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
         return queryset
 
 
