@@ -9,6 +9,7 @@ schema_view = get_schema_view(
     title="DAS API Documentation",
     description="Sensors API",
     urlconf="sensors.urls",
+    url="api/v1.0/sensors",
     renderer_classes=[JSONOpenAPIRenderer]
 )
 
@@ -27,10 +28,10 @@ urlpatterns = [
     url(rf'^vehicle-observation/{url_suffix}', views.TractVehicleHandlerView.as_view()),
     url(rf'^animal-collar-push/{url_suffix}', views.FollowltHandlerView.as_view()),
     url(rf'^sf-animal-tracker/{url_suffix}', views.SigFoxHandlerView.as_view()),
-    url(rf'^gfw-alert/{url_suffix}', views.GFWAlertHandlerView.as_view()),
+    url(rf'^gfw-alert/{url_suffix}', views.GFWAlertHandlerView.as_view(), name='gfahandler-view'),
     url(rf'^sff-tracker/{url_suffix}', views.SigfoxFoundationHandlerView.as_view()),
     url(rf'^gate/{url_suffix}', views.GateHandlerView.as_view()),
     url(rf'^test/{url_suffix}', views.TestHandlerView.as_view()),
     url(rf'^capturs-tracker/{url_suffix}', views.CaptursHandlerView.as_view()),
-    url(rf'^ezytrack-tracker/{url_suffix}', views.EzyTrackHandlerView.as_view())
+    url(rf'^ezytrack-tracker/{url_suffix}', views.EzyTrackHandlerView.as_view(), name='ezytrack-view')
 ]
