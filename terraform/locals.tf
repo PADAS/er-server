@@ -41,6 +41,7 @@ locals {
     "hello-asia"             = "prod-asia"
     "socp"                   = "prod-asia"
     "westernsiempang"        = "prod-asia"
+    "damai"                  = "prod-asia"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
