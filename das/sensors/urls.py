@@ -10,8 +10,23 @@ schema_view = get_schema_view(
     urlconf="sensors.urls",
     renderer_classes=[JSONOpenAPIRenderer]
 )
+
+url_suffix = '(?P<provider_key>[\w-]{3,20})/status/?$'
+
 urlpatterns = [
     url(r'^openapi-schema/', schema_view, name='openapi-schema'),
-    url(r'^(?P<sensor_type>[\w-]{3,20})/(?P<provider_key>[\w-]{3,20})/status/?$', views.SensorObservation.as_view(),
-        name='sensor-observation-view'),
+    url(rf'^(?P<sensor_type>[\w-]{3,20})/{url_suffix}', views.GenericSensorHandlerView.as_view()),
+    url(rf'^gsat/{url_suffix}', views.GsatHandlerView.as_view()),
+    url(rf'^dasradioagent/{url_suffix}', views.RadioAgentHandlerView.as_view()),
+    url(rf'^camera-trap/{url_suffix}', views.CameraTrapHandlerView.as_view()),
+    url(rf'^vehicle-tracker-push/{url_suffix}', views.SkylineVehicleHandlerView.as_view()),
+    url(rf'^vehicle-observation/{url_suffix}', views.TractVehicleHandlerView.as_view()),
+    url(rf'^animal-collar-push/{url_suffix}', views.FollowltHandlerView.as_view()),
+    url(rf'^sf-animal-tracker/{url_suffix}', views.SigFoxHandlerView.as_view()),
+    url(rf'^gfw-alert/{url_suffix}', views.GFWAlertHandlerView.as_view()),
+    url(rf'^sff-tracker/{url_suffix}', views.SigfoxFoundationHandlerView.as_view()),
+    url(rf'^gate/{url_suffix}', views.GateHandlerView.as_view()),
+    url(rf'^test/{url_suffix}', views.TestHandlerView.as_view()),
+    url(rf'^capturs-tracker/{url_suffix}', views.CaptursHandlerView.as_view()),
+    url(rf'^ezytrack-tracker/{url_suffix}', views.EzyTrackHandlerView.as_view())
 ]

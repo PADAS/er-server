@@ -1,92 +1,120 @@
-import logging
+from rest_framework import generics
+from rest_framework.parsers import (FileUploadParser, FormParser, JSONParser,
+                                    MultiPartParser)
 
-from django.utils.translation import ugettext_lazy as _
-from rest_framework import generics, status
-from rest_framework.response import Response
-from rest_framework.parsers import JSONParser, MultiPartParser, FormParser, FileUploadParser
-from utils.json import JSONTextParser
-
-from utils.drf import AllowAnyGet
-from sensors.handlers import GsatHandler, GenericSensorHandler,\
-    DasRadioAgentHandler, SkylineVehicleTrackerHandler, FollowltTrackerHandler,  TractVehicleHandler, \
-    SigFoxPushHandler, GFWAlertHandler, GateHandler, TestHandler, EzyTrackHandler, InreachPushHandler
-
+from observations.serializers import ObservationSerializer
 from sensors.camera_trap import CameraTrapSensorHandler
 from sensors.capturs import CaptursPushHandler
+from sensors.handlers import (DasRadioAgentHandler, EzyTrackHandler,
+                              FollowltTrackerHandler, GateHandler,
+                              GenericSensorHandler, GFWAlertHandler,
+                              GsatHandler, SigFoxPushHandler,
+                              SkylineVehicleTrackerHandler, TestHandler,
+                              TractVehicleHandler)
 from sensors.sigfox_foundation_push_handler import SigfoxFoundationPushHandler
-from observations.serializers import ObservationSerializer
-
+from utils.drf import AllowAnyGet
+from utils.json import JSONTextParser
 from utils.stats import increment
 
 
-class SensorObservation(generics.GenericAPIView):
-
+class BaseSensorsView(generics.GenericAPIView):
     permission_classes = (AllowAnyGet,)
     serializer_class = ObservationSerializer
-    parser_classes = (JSONParser, JSONTextParser, MultiPartParser, FormParser, FileUploadParser)
+    parser_classes = (JSONParser, JSONTextParser,
+                      MultiPartParser, FormParser, FileUploadParser)
 
-    def get(self, request, *args, sensor_type=None, provider_key=None, **kwargs):
 
-        if sensor_type == GsatHandler.SENSOR_TYPE:
-            return GsatHandler.post(request, provider_key)
-
-        # TODO: Write a validator to do this error response.
-        errordata = {
-            'data':
-                {'sensor_type': _(
-                    '{} is not a valid sensor_type').format(sensor_type)}
-        }
-
-        return Response(data=errordata, status=status.HTTP_400_BAD_REQUEST)
+class GenericSensorHandlerView(BaseSensorsView):
+    serializer_class = GenericSensorHandler.serializer_class
 
     def post(self, request, *args, sensor_type=None, provider_key=None, **kwargs):
 
         increment(f'sensor_{sensor_type}')
         increment(f'sensor_{sensor_type}_{provider_key}')
+        return GenericSensorHandler.post(request, sensor_type=sensor_type, provider_key=provider_key)
 
-        if sensor_type == DasRadioAgentHandler.SENSOR_TYPE:
-            return DasRadioAgentHandler.post(request, provider_key)
 
-        elif sensor_type == CameraTrapSensorHandler.SENSOR_TYPE:
-            return CameraTrapSensorHandler.post(request, provider_key)
+class GsatHandlerView(BaseSensorsView):
+    # Identify appropriate serializers
+    def get(self, request, provider_key=None):
+        return GsatHandler.post(request, provider_key)
 
-        elif sensor_type == SkylineVehicleTrackerHandler.SENSOR_TYPE:
-            return SkylineVehicleTrackerHandler.post(request, sensor_type=sensor_type, 
-                                                        provider_key=provider_key)
 
-        elif sensor_type == TractVehicleHandler.SENSOR_TYPE:
-            return TractVehicleHandler.post(request, sensor_type=sensor_type, 
-                                                provider_key=provider_key)
+class RadioAgentHandlerView(BaseSensorsView):
+    serializer_class = DasRadioAgentHandler.serializer_class
 
-        elif sensor_type == FollowltTrackerHandler.SENSOR_TYPE:
-            return FollowltTrackerHandler.post(request, sensor_type=sensor_type,
-                                               provider_key=provider_key)
+    def post(self, request, provider_key=None):
+        return DasRadioAgentHandler.post(request, provider_key)
 
-        elif sensor_type == SigFoxPushHandler.SENSOR_TYPE:
-            return SigFoxPushHandler.post(request, sensor_type=sensor_type,
-                                               provider_key=provider_key)
 
-        elif sensor_type == GFWAlertHandler.SENSOR_TYPE:
-            return GFWAlertHandler.post(request, provider_key=provider_key)
+class CameraTrapHandlerView(BaseSensorsView):
+    serializer_class = CameraTrapSensorHandler.serializer_class
 
-        elif sensor_type == SigfoxFoundationPushHandler.SENSOR_TYPE:
-            return SigfoxFoundationPushHandler.post(request, sensor_type=sensor_type,
-                                                    provider_key=provider_key)
-        elif sensor_type == GateHandler.SENSOR_TYPE:
-            return GateHandler.post(request, sensor_type=sensor_type, provider_key=provider_key)
+    def post(self, request, provider_key=None):
+        return CameraTrapSensorHandler.post(request, provider_key)
 
-        elif sensor_type == TestHandler.SENSOR_TYPE:
-            return TestHandler.post(request, sensor_type=sensor_type, provider_key=provider_key)
 
-        elif sensor_type == CaptursPushHandler.SENSOR_TYPE:
-            return CaptursPushHandler.post(request, sensor_type=sensor_type, provider_key=provider_key)
+class SkylineVehicleHandlerView(BaseSensorsView):
+    serializer_class = SkylineVehicleTrackerHandler.serializer_class
 
-        elif sensor_type == EzyTrackHandler.SENSOR_TYPE:
-            return EzyTrackHandler.post(request, sensor_type=sensor_type, provider_key=provider_key)
+    def post(self, request, provider_key=None):
+        return SkylineVehicleTrackerHandler.post(request, provider_key)
 
-        elif sensor_type == InreachPushHandler.SENSOR_TYPE:
-            return InreachPushHandler.post(request, sensor_type=sensor_type, provider_key=provider_key)
 
-        else:
-            return GenericSensorHandler.post(request, sensor_type=sensor_type, 
-                                                provider_key=provider_key)
+class TractVehicleHandlerView(BaseSensorsView):
+    serializer_class = TractVehicleHandler.serializer_class
+
+    def post(self, request, provider_key=None):
+        return TractVehicleHandler.post(request, provider_key)
+
+
+class FollowltHandlerView(BaseSensorsView):
+    serializer_class = FollowltTrackerHandler.serializer_class
+
+    def post(self, request, provider_key=None):
+        return FollowltTrackerHandler.post(request, provider_key)
+
+
+class SigFoxHandlerView(BaseSensorsView):
+    serializer_class = SigFoxPushHandler.serializer_class
+
+    def post(self, request, provider_key=None):
+        return SigFoxPushHandler.post(request, provider_key)
+
+
+class GFWAlertHandlerView(BaseSensorsView):
+    serializer_class = GFWAlertHandler.serializer_class
+
+    def post(self, request, provider_key=None):
+        return GFWAlertHandler.post(request, provider_key=provider_key)
+
+
+class SigfoxFoundationHandlerView(BaseSensorsView):
+    serializer_class = SigfoxFoundationPushHandler.serializer_class
+
+    def post(self, request, provider_key=None):
+        return SigfoxFoundationPushHandler.post(request, provider_key)
+
+
+class GateHandlerView(BaseSensorsView):
+    def post(self, request, provider_key=None):
+        return GateHandler.post(request, provider_key)
+
+
+class TestHandlerView(BaseSensorsView):
+    def post(self, request, provider_key=None):
+        return TestHandler.post(request, provider_key)
+
+
+class CaptursHandlerView(BaseSensorsView):
+    serializer_class = CaptursPushHandler.serializer_class
+
+    def post(self, request, provider_key=None):
+        return CaptursPushHandler.post(request, provider_key)
+
+
+class EzyTrackHandlerView(BaseSensorsView):
+    serializer_class = EzyTrackHandler.serializer_class
+
+    def post(self, request, provider_key=None):
+        return EzyTrackHandler.post(request, provider_key)
