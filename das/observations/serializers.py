@@ -145,7 +145,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
             mou_expiry_date = user.mou_expiry_date
 
             if mou_expiry_date is not None:
-                mou_expiry_age = datetime.now(tz=pytz.utc) - mou_expiry_date
+                mou_expiry_age = datetime.now(tz=pytz.utc) - mou_expiry_date.replace(tzinfo=pytz.utc)
 
                 minimum_allowed_age = max(
                     mou_expiry_age.days, minimum_allowed_age)
