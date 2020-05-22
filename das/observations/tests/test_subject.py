@@ -287,16 +287,6 @@ class SubjectTestCase(BaseAPITest):
         # Past MOU expiry date, should not retrieve observation past mou expiry date.
         subject3_last_position = extracted_data.get('subject3_last_position')  # return None
         self.assertNotEqual(t3.date().isoformat(), subject3_last_position)
-
-
-
-
-
-
-
-
-        # actual = len(response.data)
-        # expected = 2
         self.assertEqual(response.status_code, 200)
 
 
