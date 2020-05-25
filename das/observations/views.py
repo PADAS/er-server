@@ -430,7 +430,7 @@ class SubjectsView(generics.ListCreateAPIView):
                         self.subject_linked_sources.setdefault(
                             subject['name'], set()).add(subject['subjectsource__source'])
 
-                logger.info(f'SubjectsView.get_queryset {len(subject_linked_sources)} subject_linked_sources')
+                logger.info(f'SubjectsView.get_queryset {len(self.subject_linked_sources)} subject_linked_sources')
 
             # TODO: Review this to determine whether it would be better to join
             # in a query.
