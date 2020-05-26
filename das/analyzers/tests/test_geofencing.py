@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import yaml
 import urllib
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.core.files import File
 from django.core.serializers import serialize
 
@@ -26,6 +26,7 @@ from .geofence_test_data import *
 logger = logging.getLogger(__name__)
 
 
+@override_settings(DEFAULT_FILE_STORAGE='django.core.files.storage.FileSystemStorage')
 class TestGeofenceAnalyzer(TestCase):
 
     @classmethod
