@@ -1,2 +1,5 @@
-mapping_features_v2 = "false"
-time_zone           = "Africa/Nairobi"
+mapping_features_v2  = "false"
+time_zone            = "Africa/Nairobi"
+twilio_account_sid   = "<provided-twilio_account_sid>"
+twilio_auth_token    = "<provided-twilio_auth_token>"
+whatsapp_from_number = "<provided-whatsapp_from_number>"

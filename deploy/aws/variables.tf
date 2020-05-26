@@ -4,8 +4,8 @@ variable "aws_region" {
 }
 
 variable "build_version" {
-    description = "DAS build number, 1.70.1-rc.15"
-    default = "1.70.1-rc.15"
+  description = "DAS build number, 1.70.1-rc.15"
+  default     = "1.70.1-rc.15"
 }
 variable "site" {
   description = "Name of site, used for naming resources and dns"
@@ -13,7 +13,7 @@ variable "site" {
 
 variable "dns_name" {
   description = "DNS hostname, default is the site"
-  default = ""
+  default     = ""
 }
 
 variable "partner" {
@@ -154,8 +154,9 @@ data "template_file" "site_json" {
     alerts_enabled                  = var.alerts_enabled
     daily_report_enabled            = var.daily_report_enabled
     mapping_features_v2             = var.mapping_features_v2
-
-
+    twilio_account_sid              = var.twilio_account_sid
+    twilio_auth_token               = var.twilio_auth_token
+    whatsapp_from_number            = var.whatsapp_from_number
   }
 }
 
