@@ -85,7 +85,6 @@ MIDDLEWARE = (
     'revision.middleware.RevisionMiddleware',
     'utils.middleware.RequestLoggingMiddleware',
     'utils.middleware.EULARedirectMiddleware',
-    # 'debug_toolbar.middleware.DebugToolbarMiddleware',
     #'django.contrib.sites.middleware.CurrentSiteMiddleware',
 )
 
