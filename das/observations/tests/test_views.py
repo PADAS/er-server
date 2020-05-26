@@ -1,8 +1,10 @@
 import datetime
 import random
+from urllib.parse import urlencode
 
 import pytz
 from django.test import TestCase
+from django.urls import reverse
 from rest_framework.test import APIRequestFactory, force_authenticate
 from django.contrib.auth.models import Permission
 from oauth2_provider.models import Application, AccessToken
@@ -13,6 +15,7 @@ from core.tests import BaseAPITest
 from accounts.models import User, PermissionSet
 from observations.models import Subject, SubjectGroup, Source, SubjectSource, Observation, SourceGroup
 import observations.views as views
+from observations.serializers import ObservationSerializer
 
 API_BASE = '/api/v1.0'
 
@@ -372,3 +375,83 @@ class SourceGroupViewTest(BasePermissionTest):
 
         response = views.SourceGroupsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
+
+
+class ObservationViewTestCase(BaseAPITest):
+    user_const = dict(last_name='last', first_name='first')
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            'user', 'das_user@vulcan.com', 'user', is_superuser=True, is_staff=True, **self.user_const)
+        self.elephant = Subject.objects.create_subject(
+            id='d2ed403e-9419-41aa-8fa9-45a70e5ce2ef', name='Elephant 1',
+            subject_subtype_id='elephant')
+
+        source_args = {
+            'subject': {'name': str(self.elephant.id)},
+            'provider': 'test_provider',
+            'manufacturer_id': 'best_manufacturer'
+        }
+        self.collar = Source.objects.ensure_source(**source_args)
+
+        observation_time = pytz.UTC.localize(datetime.datetime.now())
+        fixed_latitude = float(random.randint(3000, 3000)) / 100
+        fixed_longitude = float(random.randint(2800, 4000)) / 100
+
+        location = Point(x=fixed_longitude, y=fixed_latitude)
+        self.additional = {"Name": "Name"}
+        observation_data = {
+            'recorded_at': observation_time,
+            'location': location,
+            'source': self.collar,
+            'additional': self.additional
+        }
+
+        self.observation = Observation.objects.create(**observation_data)
+
+    def test_include_details_false(self):
+        url = reverse('observations-list-view')
+        url += '?{}'.format(urlencode({'include_details': 'false'}))
+
+        request = self.factory.get(self.api_base + url)
+        self.force_authenticate(request, self.user)
+
+        response = views.ObservationsView.as_view()(request)
+        results = response.data.get('results', [])
+        self.assertEqual(response.status_code, 200)
+        self.assertEquals(len(results), 1)
+
+        obs = results[0]
+        self.assertNotIn('observation_addtional', obs.keys())
+
+    def test_include_details_true(self):
+        url = reverse('observations-list-view')
+        url += '?{}'.format(urlencode({'include_details': 'true'}))
+
+        request = self.factory.get(self.api_base + url)
+        self.force_authenticate(request, self.user)
+
+        response = views.ObservationsView.as_view()(request)
+        results = response.data.get('results', [])
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(results), 1)
+
+        obs = results[0]
+        self.assertIn('observation_additional', obs.keys())
+        self.assertEqual(obs.get('observation_additional'), self.additional)
+
+    def test_include_details_not_specified(self):
+        url = reverse('observations-list-view')
+
+        request = self.factory.get(self.api_base + url)
+        self.force_authenticate(request, self.user)
+
+        response = views.ObservationsView.as_view()(request)
+        results = response.data.get('results', [])
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(results), 1)
+
+        obs = results[0]
+        self.assertIn('observation_additional', obs.keys())
+        self.assertEqual(obs.get('observation_additional'), self.additional)
