@@ -416,7 +416,7 @@ class SubjectsView(generics.ListCreateAPIView):
                 logger.info(f'SubjectsView.get_queryset getting subjects for SG: {source_group}')
                 subjects_via_sourcegroup = models.Subject.objects.filter(subjectsource__source__groups=source_group)
                 logger.info('SubjectsView.get_queryset got subjects. Now getting subjects.values')
-                subjects_via_sourcegroup_values = models.Subject.objects.filter(subjectsource__source__groups=source_group).values('name', 'subjectsource__source')
+                subjects_via_sourcegroup_values = subjects_via_sourcegroup.values('name', 'subjectsource__source')
                 logger.info('SubjectsView.get_queryset got subjects.values')
 
                 # can check for is_active directly in qs filter chain instead of calling below
@@ -431,25 +431,6 @@ class SubjectsView(generics.ListCreateAPIView):
                             subject['name'], set()).add(subject['subjectsource__source'])
 
                 logger.info(f'SubjectsView.get_queryset {len(self.subject_linked_sources)} subject_linked_sources')
-
-            # TODO: Review this to determine whether it would be better to join
-            # in a query.
-            # for source_group in source_groups:
-            #     sources = source_group.get_all_sources()
-            #     for source in sources:
-            #
-            #         subjects_via_source = all_subjects.filter(
-            #             subjectsource__source=source)
-            #         subjects_via_source = check_to_include_inactive_subjects(self.request, subjects_via_source)
-            #
-            #         queryset = queryset.distinct() | subjects_via_source.distinct()
-            #
-            #         # Send all allowed Sources of each Subject to serializer for
-            #         # latest_location finding.
-            #         if not self.request.user.is_superuser:
-            #             for subject in subjects_via_source:
-            #                 self.subject_linked_sources.setdefault(
-            #                     subject.name, set()).add(source)
 
         # Apply request query filters that have are compatible with any of the
         # criteria above.
