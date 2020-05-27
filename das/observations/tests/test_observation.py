@@ -97,4 +97,56 @@ class ObservationTestCase(TestCase):
         self.assertEqual((subject_status.location.x, subject_status.location.y), (fixed_longitude, \
                                                                                     fixed_latitude))
 
+    def test_observation_post_delete_subject_status(self):
 
+        # These are known IDs for subject and source, from test fixtures.
+        subject_id = '269524d5-a434-4377-9ea9-2a7946dbd9c4'
+        source_id = '56b1cf14-ef97-4054-8fbd-1342f265b2a9'
+
+        # Generate some random data for the observation.
+        observation_time = UTC.localize(datetime.now())
+        fixed_latitude = float(random.randint(3000, 3000))/100
+        fixed_longitude = float(random.randint(2800, 4000))/100
+
+        fixed_location = dict(longitude=fixed_longitude, latitude=fixed_latitude)
+
+        observation = {
+            'location': fixed_location,
+            'recorded_at': observation_time,
+            'source': source_id,
+            'additional': {}
+        }
+        serializer = ObservationSerializer(data=observation)
+        observation_instance = None
+        if serializer.is_valid():
+            observation_instance = serializer.save()
+
+        self.assertTrue(observation_instance is not None)
+
+        subject_statuses = SubjectStatus.objects.filter(subject_id=subject_id, delay_hours=0)
+
+        self.assertTrue(subject_statuses is not None)
+
+        subject_status = subject_statuses.first()
+        self.assertEqual(subject_status.recorded_at, observation_time)
+        self.assertEqual((subject_status.location.x, subject_status.location.y), (fixed_longitude, \
+                                                                                    fixed_latitude))
+        observation_time2 = UTC.localize(datetime.now())
+        observation = {
+            'location': fixed_location,
+            'recorded_at': observation_time2,
+            'source': source_id,
+            'additional': {}
+        }
+        serializer = ObservationSerializer(data=observation)
+        observation_instance = None
+        if serializer.is_valid():
+            observation_instance = serializer.save()
+        self.assertTrue(observation_instance is not None)
+
+        obs = Observation.objects.filter(recorded_at=observation_time2, source=source_id)
+        self.assertTrue(obs is not None)
+        obs.delete()
+
+        subject_status = SubjectStatus.objects.filter(subject_id=subject_id, delay_hours=0, recorded_at=observation_time2)
+        self.assertTrue(subject_status.first() is None)

@@ -33,7 +33,7 @@ import pytz
 import logging
 from dateutil.parser import parse as parse_date
 
-from django.db.models.functions import Greatest
+from django.db.models.functions import Greatest, Least
 from django.contrib.gis.db import models as dbmodels
 
 from django.contrib.gis.geos import Point
@@ -1132,14 +1132,14 @@ class SubjectStatusManager(models.Manager):
     #         logger.warning(
     #             'Cannot find SubjectStatus with subject_id: %s', subject_id)
     #
-    def update_current_from_source(self, source):
+    def update_current_from_source(self, source, **kwargs):
 
         observation = Observation.objects.get_last_source_observation(source)
 
         if not observation:
             return
 
-        update_subject_status_from_observation(observation)
+        update_subject_status_from_observation(observation, **kwargs)
 
     def update_current(self, subject):
         for subjectsource in SubjectSource.objects.filter(subject=subject, assigned_range__contains=datetime.now(tz=pytz.utc)):
@@ -1208,14 +1208,16 @@ class SubjectStatusManager(models.Manager):
 
 
 def build_updates(recorded_at, location, radio_state=None, radio_state_at=None,
-                  last_voice_call_start_at=None, location_requested_at=None,):
+                  last_voice_call_start_at=None, location_requested_at=None, **kwargs):
     '''
     Build conditional updates for SubjectStatus Record..
     '''
+    comparison_db_func = Least if kwargs.get('obs_deleted') else Greatest
     conditional_updates = {
-        'recorded_at': Greatest(F('recorded_at'), Value(recorded_at)),
+        'recorded_at': comparison_db_func(F('recorded_at'), Value(recorded_at)),
         'location': Case(
             When(recorded_at__lte=Value(recorded_at), then=Value(str(location))),
+            When(recorded_at__gte=Value(recorded_at), then=Value(str(location))),
             default=F('location')
         ),
     }
@@ -1224,17 +1226,19 @@ def build_updates(recorded_at, location, radio_state=None, radio_state_at=None,
         conditional_updates['radio_state'] = Case(
             When(radio_state_at__lte=Value(
                 radio_state_at), then=Value(radio_state)),
+            When(radio_state_at__gte=Value(
+                radio_state_at), then=Value(radio_state)),
             default=F('radio_state'), output_field=dbmodels.CharField())
 
-        conditional_updates['radio_state_at'] = Greatest(F('radio_state_at'), Value(radio_state_at),
+        conditional_updates['radio_state_at'] = comparison_db_func(F('radio_state_at'), Value(radio_state_at),
                                                          output_field=dbmodels.DateTimeField())
 
     if last_voice_call_start_at:
-        conditional_updates['last_voice_call_start_at'] = Greatest(F('last_voice_call_start_at'),
+        conditional_updates['last_voice_call_start_at'] = comparison_db_func(F('last_voice_call_start_at'),
                                                                    Value(last_voice_call_start_at))
 
     if location_requested_at:
-        conditional_updates['location_requested_at'] = Greatest(F('location_requested_at'),
+        conditional_updates['location_requested_at'] = comparison_db_func(F('location_requested_at'),
                                                                 Value(location_requested_at))
 
     return conditional_updates
@@ -1246,14 +1250,16 @@ def update_subject_status(source, recorded_at, location,
                           radio_state=None,
                           radio_state_at=None,
                           reported_subject_name=None,
-                          delay_hours=0):
+                          delay_hours=0,
+                          **kwargs):
 
     status_updates = build_updates(recorded_at=recorded_at,
                                    location=location,
                                    radio_state=radio_state,
                                    radio_state_at=radio_state_at,
                                    last_voice_call_start_at=last_voice_call_start_at,
-                                   location_requested_at=location_requested_at)
+                                   location_requested_at=location_requested_at,
+                                   **kwargs)
 
     if reported_subject_name:
         status_updates['additional'] = {'subject_name': reported_subject_name}
@@ -1269,7 +1275,7 @@ def update_subject_status(source, recorded_at, location,
             .exclude(name=reported_subject_name).update(name=reported_subject_name)
 
 
-def update_subject_status_from_observation(observation, delay_hours=0):
+def update_subject_status_from_observation(observation, delay_hours=0, **kwargs):
 
     additional = observation.additional
 
@@ -1306,7 +1312,8 @@ def update_subject_status_from_observation(observation, delay_hours=0):
                           radio_state=radio_state,
                           radio_state_at=radio_state_at,
                           reported_subject_name=reported_subject_name,
-                          delay_hours=delay_hours)
+                          delay_hours=delay_hours,
+                          **kwargs)
 
 
 def update_subject_status_from_post(source, recorded_at, location, additional):
