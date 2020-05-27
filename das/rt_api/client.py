@@ -244,9 +244,6 @@ def shutdown_cleanup(*args):
     logger.info('Shutdown cleanup for realtime client list: %s', CLIENT_LIST_KEY)
     remove_rt_service(CLIENT_LIST_KEY)
 
-    # logger.info('Deleting message ID counters.')
-    # redis_client.delete(redis_client.keys('mid-*'))
-
 
 signal.signal(signal.SIGINT, shutdown_cleanup)
 signal.signal(signal.SIGTERM, shutdown_cleanup)

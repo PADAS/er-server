@@ -302,7 +302,6 @@ def create_realtime_handler(sios):
             sios.emit('echo_resp',
                       {'type': 'echo_resp',
                        'resp_id': 5,
-                       'hostname': socket.gethostbyname(socket.gethostname()),
                        'message': args[0]['data']},
                       room=str(sid),
                       namespace='/das')
