@@ -9,7 +9,6 @@
 affine==2.2.2             # via -r ./requirements.txt, rasterio
 amqp==2.4.2               # via -r ./requirements.txt, kombu
 appdirs==1.4.4            # via virtualenv
-appnope==0.1.0            # via -r ./requirements.txt
 arcgis2geojson==2.0.0     # via -r ./requirements.txt
 arcgis==1.7.1             # via -r ./requirements.txt
 asn1crypto==0.24.0        # via -r ./requirements.txt, cryptography
@@ -108,7 +107,7 @@ ipywidgets==7.5.1         # via -r ./requirements.txt, arcgis
 itypes==1.1.0             # via -r ./requirements.txt, coreapi
 jdcal==1.4.1              # via -r ./requirements.txt, openpyxl
 jedi==0.16.0              # via -r ./requirements.txt, ipython
-jeepney==0.4.3            # via keyring, secretstorage
+jeepney==0.4.3            # via -r ./requirements.txt, keyring, secretstorage
 jinja2==2.10.1            # via -r ./requirements.txt, coreschema, docxtpl, jupyterlab, jupyterlab-server, nbconvert, notebook
 jmespath==0.9.4           # via -r ./requirements.txt, boto3, botocore
 joblib==0.13.0            # via -r ./requirements.txt, pymet
@@ -189,7 +188,7 @@ rsa==4.0                  # via -r ./requirements.txt, google-auth, oauth2client
 s3transfer==0.3.2         # via -r ./requirements.txt, boto3
 scikit-learn==0.20.3      # via -r ./requirements.txt, pymet
 scipy==1.2.1              # via -r ./requirements.txt, pymet, scikit-learn
-secretstorage==3.1.2      # via keyring
+secretstorage==3.1.2      # via -r ./requirements.txt, keyring
 send2trash==1.5.0         # via -r ./requirements.txt, notebook
 shapely==1.6.3            # via -r ./requirements.txt, geopandas, rasterstats
 simplejson==3.16.0        # via -r ./requirements.txt, django-rest-swagger, rasterstats
@@ -203,7 +202,7 @@ text-unidecode==1.3       # via faker
 toml==0.10.0              # via pre-commit
 tornado==6.0.3            # via -r ./requirements.txt, ipykernel, jupyter-client, jupyterlab, notebook, terminado
 traitlets==4.3.3          # via -r ./requirements.txt, ipykernel, ipython, ipywidgets, jupyter-client, jupyter-core, nbconvert, nbformat, notebook
-twilio==6.35.3            # via -r ./requirements.txt
+twilio==6.40.0            # via -r ./requirements.txt
 uritemplate==3.0.0        # via -r ./requirements.txt, coreapi, google-api-python-client
 urllib3==1.24.2           # via -r ./requirements.txt, botocore, requests
 vine==1.3.0               # via -r ./requirements.txt, amqp
