@@ -10,7 +10,7 @@ from sensors.handlers import (DasRadioAgentHandler, EzyTrackHandler,
                               GenericSensorHandler, GFWAlertHandler,
                               GsatHandler, SigFoxPushHandler,
                               SkylineVehicleTrackerHandler, TestHandler,
-                              TractVehicleHandler)
+                              TractVehicleHandler, InreachPushHandler)
 from sensors.sigfox_foundation_push_handler import SigfoxFoundationPushHandler
 from utils.drf import AllowAnyGet
 from utils.json import JSONTextParser
@@ -144,3 +144,11 @@ class EzyTrackHandlerView(BaseSensorsView):
     def post(self, request, provider_key=None):
         """ Add Ezy Track Observations """
         return EzyTrackHandler.post(request, provider_key)
+
+
+class InreachHandlerView(BaseSensorsView):
+    serializer_class = InreachPushHandler.serializer_class
+
+    def post(self, request, provider_key=None):
+        """ Add Ezy Track Observations """
+        return InreachPushHandler.post(request, provider_key)

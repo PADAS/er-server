@@ -784,9 +784,10 @@ class InreachPushHandler:
     subject_subtype = "ranger"
     model_name = "InReach"
     source_type = "gps-radio"
+    serializer_class = InreachObservation
 
     @classmethod
-    def post(cls, request, sensor_type, provider_key):
+    def post(cls, request, provider_key):
         logger.info("Recieved new push message %s", request.data)
         cls.provider_key = provider_key
         cls.new_observations = 0

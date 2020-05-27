@@ -33,5 +33,6 @@ urlpatterns = [
     url(rf'^gate/{url_suffix}', views.GateHandlerView.as_view()),
     url(rf'^test/{url_suffix}', views.TestHandlerView.as_view()),
     url(rf'^capturs-tracker/{url_suffix}', views.CaptursHandlerView.as_view()),
-    url(rf'^ezytrack-tracker/{url_suffix}', views.EzyTrackHandlerView.as_view(), name='ezytrack-view')
+    url(rf'^ezytrack-tracker/{url_suffix}', views.EzyTrackHandlerView.as_view(), name='ezytrack-view'),
+    url(rf'^inreach-tracker/{url_suffix}', views.InreachHandlerView.as_view())
 ]
