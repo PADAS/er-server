@@ -16,7 +16,7 @@ from observations.models import update_subject_status_from_post
 from tracking.pubsub_registry import notify_new_tracks
 from sensors.vehicle_tracker import SkylineObservations, SkylineAdapter, \
     FollowltObservation, TractAdapter, TractVehicleData, EzytrackObservation, \
-    EzyTrackAdapter
+    EzyTrackAdapter, DasObservation
 from analyzers import gfw_inbound
 
 logger = logging.getLogger(__name__)
@@ -749,3 +749,107 @@ class EzyTrackHandler:
 
         status_ok = {'status': 201, 'message': 'Success'}
         return Response(data=status_ok, status=status.HTTP_201_CREATED)
+
+
+class PointDictSerializer(serializers.Serializer):
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
+    altitude = serializers.IntegerField()
+    gpsFix = serializers.IntegerField()
+    course = serializers.IntegerField()
+    speed = serializers.IntegerField()
+
+
+class InreachObservation(serializers.Serializer):
+    imei = serializers.IntegerField()
+    messageCode = serializers.IntegerField()
+    freeText = serializers.CharField(allow_blank=True)
+    timeStamp = serializers.IntegerField()
+    addresses = serializers.ListField()
+    status = serializers.DictField()
+    point = PointDictSerializer()
+
+
+class InreachPushHandler:
+
+    SENSOR_TYPE = 'inreach-tracker'
+    subject_type = "person"
+    subject_subtype = "ranger"
+    model_name = "InReach"
+    source_type = "gps-radio"
+
+    @classmethod
+    def post(cls, request, sensor_type, provider_key):
+        logger.info("Recieved new push message %s", request.data)
+        cls.provider_key = provider_key
+        cls.new_observations = 0
+
+        serializer = InreachObservation(data=request.data.get('Events'), many=True)
+        if not serializer.is_valid():
+            return Response(
+                data={'status': 400, 'message': serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST)
+        else:
+            for data in serializer.data:
+                das_obs = cls.create_das_object(data)
+                cls.ensure_source(das_obs)
+                cls.create_observation(das_obs)
+
+            if cls.new_observations:
+                return Response(
+                    data={"message": f"{cls.new_observations} new observation(s) added"}, status=status.HTTP_201_CREATED)
+            else:
+                return Response(data={}, status=status.HTTP_200_OK)
+
+    @classmethod
+    def create_das_object(cls, data):
+        point = data.get('point')
+        obs = DasObservation(
+            location={'latitude': point.pop('latitude'),
+                      'longitude': point.pop('longitude')},
+            recorded_at=datetime.fromtimestamp(data.get('timeStamp')/1000, timezone.utc),
+            manufacturer_id=data.get('imei'),
+            subject_name=data.get('imei'),
+            subject_type=cls.subject_type,
+            subject_subtype=cls.subject_subtype,
+            model_name=cls.model_name,
+            source_type=cls.source_type,
+            additional=data
+        )
+        return obs
+
+    @classmethod
+    def ensure_source(cls, obs):
+        """ Get or create provider, source and subject """
+
+        cls.src = Source.objects.ensure_source(
+            source_type=obs.source_type,
+            model_name=obs.model_name,
+            provider=cls.provider_key,
+            manufacturer_id=obs.manufacturer_id,
+            subject={
+                'subject_subtype_id': obs.subject_subtype,
+                'name': obs.subject_name,
+            })
+
+    @classmethod
+    def create_observation(cls, observation):
+        """ Create observation, ignore duplicates """
+        if Observation.objects.filter(
+                recorded_at=observation.recorded_at, source=cls.src).exists():
+            logger.info(f'Skipping duplicate observation from {cls.src}')
+        else:
+            observation = {
+                'location': observation.location,
+                'recorded_at': observation.recorded_at,
+                'source': str(cls.src.id),
+                'additional': observation.additional
+            }
+            serializer = ObservationSerializer(data=observation)
+
+            if serializer.is_valid():
+                serializer.save()
+                cls.new_observations += 1
+                logger.info(f'New observation created from source {cls.src}')
+            else:
+                logger.error(f'Invalid observation records {serializer.errors}')
