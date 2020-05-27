@@ -1138,6 +1138,43 @@ class TestEventView(BaseAPITest):
         self.assertTrue(all(x in report_names for x in [
                         incident_data['title'],  self.event_data['title']]))
 
+    def test_export_includes_all_event_detail_fields(self):
+
+        request = self.factory.post(
+            self.api_base + '/events/', self.event_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        et_schema = json.dumps({
+            "schema":
+            {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "title": "kctype (kctype)",
+                "type": "object",
+                "properties":
+                    {
+                        "hidden": {},
+                        "rhinosighting": {}
+                    }
+            },
+            "definition": []
+        })
+        event_type = self.sample_event.event_type
+        event_type.schema = et_schema
+        event_type.save()
+
+        url = """/activity/events/export"""
+        filter_spec = json.dumps({'text': "e"})
+        request = self.factory.get(
+            self.api_base + url, {'filter': filter_spec})
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        rendered_dict = self.convert_rendered_csv_to_dict(
+            response.content.decode("utf-8"))
+        report_headers = rendered_dict[0].keys()
+
+        self.assertTrue("Hidden" in report_headers)
+
     def test_export_csv_with_line_feed(self):
 
         currentactivity = '\n'.join(
