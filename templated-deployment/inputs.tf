@@ -167,3 +167,18 @@ variable "show_stationary_subjects_on_map" {
   type    = string
   default = "False"
 }
+
+variable "twilio_account_sid" {
+  type    = string
+  default = "False"
+}
+
+variable "twilio_auth_token" {
+  type    = string
+  default = "False"
+}
+
+variable "whatsapp_from_number" {
+  type    = string
+  default = "False"
+}
