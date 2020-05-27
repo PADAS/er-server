@@ -1,5 +1,5 @@
 try:
-    # Build system may have written version.py with a new build number.
+    #  Build system may have written version.py with a new build number.
     from .version import BUILD_NUMBER
 except ImportError:
     BUILD_NUMBER = 1
