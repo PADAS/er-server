@@ -7,6 +7,7 @@ import copy
 import collections
 import string
 import random
+import csv
 import io
 from datetime import datetime, timedelta
 from unittest import mock
@@ -2289,6 +2290,34 @@ class TestEventView(BaseAPITest):
         self.assertTrue(response.data)
         self.assertEqual(response.status_code, 200)
 
+    def test_report_is_not_overquoted_when_there_is_comma_in_field(self):
+        carcass_data = json.loads(
+            """{"event_type":"cameratrap_rep","priority":200,"event_details":{"cameratraprep_camera-version": "v1,v2,v3"}}""")
+
+        request = self.factory.post(self.api_base + '/events/', carcass_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        url = """/activity/events/export"""
+
+        request = self.factory.get(
+            self.api_base + url)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+
+        # convert rendered csv to dictionary format
+        content = response.content.decode('utf-8')
+        csv_reader = csv.reader(io.StringIO(content))
+        data = list(csv_reader)
+        header = data[0]
+        body = data[2]
+
+        to_dict = {key: value for key, value in zip(header, body)}
+        camera_version = to_dict.get('Camera_Version')
+        expected = "v1,v2,v3"
+        self.assertEqual(camera_version, expected)
 
 class TestParsing(TestCase):
 
