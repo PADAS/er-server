@@ -48,7 +48,7 @@ output "app_user_name" {
 }
 
 output "app_user_pass" {
-  value     = google_sql_user.app_user.password
+  value = google_sql_user.app_user.password
   #sensitive = true
 }
 

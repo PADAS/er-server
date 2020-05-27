@@ -54,8 +54,5 @@ resource "template_dir" "deployments" {
     USE_AZURE_STORAGE               = var.use_azure_storage
     WEB_SERVICE_NAME                = var.web_service_name
     WEB_VERSION                     = var.WEB_VERSION
-    TWILIO_ACCOUNT_SID              = var.twilio_account_sid
-    TWILIO_AUTH_TOKEN               = var.twilio_auth_token
-    WHATSAPP_FROM_NUMBER            = var.whatsapp_from_number
   }
 }
