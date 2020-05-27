@@ -897,7 +897,7 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
 
             try:
                 observation = self._transform(source, unit_info)
-                if observation and self._pass_filter(observation):
+                if observation:
                     if not latest_observation or latest_observation.recorded_at < observation.recorded_at:
                         latest_observation = observation
                     yield observation
@@ -907,19 +907,6 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
         if latest_observation:
             self.cursor_data['latest_timestamp'] = latest_observation.recorded_at.isoformat(
             )
-
-    def _pass_filter(self, observation):
-        '''
-        Reject fixes that are at 180 x 90.
-        :param observation:
-        :return: True if the observation passes the filter.
-        '''
-        try:
-            return not (int(observation.longitude) == 180 and int(observation.latitude) == 90)
-        except Exception as e:
-            self.logger.warning('Failure when filtering skygistics fix.')
-
-        return True
 
     def _transform(self, source, observation):
         return Obs(source=source,

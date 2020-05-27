@@ -71,7 +71,7 @@ class AwtPluginTest(TestCase):
                 return ttl.isoformat()
         with patch(
                 'tracking.models.awt.cache') as mock_cache:
-            
+
             mock_cache.get = cache_get
             sp = SourcePlugin.objects.get(source=self.source)
             with self.assertRaises(DasPluginSourceRetryError):
@@ -79,4 +79,3 @@ class AwtPluginTest(TestCase):
 
             with self.assertRaises(celery.exceptions.Retry):
                 run_source_plugin(sp.id)
-       
