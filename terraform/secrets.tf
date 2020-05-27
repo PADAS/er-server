@@ -41,8 +41,8 @@ resource "kubernetes_secret" "app_db_credentials" {
   }
 
   data = {
-      username = google_sql_user.app_user.name
-      password = google_sql_user.app_user.password
+    username = google_sql_user.app_user.name
+    password = google_sql_user.app_user.password
   }
 }
 
@@ -62,3 +62,15 @@ resource "kubernetes_secret" "ssl_privatekey_pem" {
   data = data.vault_generic_secret.ssl_privatekey_pem.data
 }
 
+resource "kubernetes_secret" "twilio_account_settings" {
+  metadata {
+    name      = "twilio-account-settings"
+    namespace = kubernetes_namespace.this.metadata.0.name
+  }
+
+  data = {
+    account_sid          = data.vault_generic_secret.twilio_account_settings.data.account_sid
+    auth_token           = data.vault_generic_secret.twilio_account_settings.data.auth_token
+    whatsapp_from_number = data.vault_generic_secret.twilio_account_settings.data.whatsapp_from_number
+  }
+}
