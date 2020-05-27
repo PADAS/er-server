@@ -393,7 +393,7 @@ class EventsExportView(views.APIView):
                 try:
                     current_schema = renderer(event_type['schema'])
                     current_schema_order = \
-                        schema_utils.definition_key_order_as_dict(
+                        schema_utils.property_keys_order_as_dict(
                             current_schema)
 
                     for key, order in current_schema_order.items():
@@ -498,12 +498,8 @@ class EventsExportView(views.APIView):
     def escape_string(self, string):
         if not isinstance(string, str) or not string:
             return string
-        string = string.replace('"', '""')
-        # carriage returns are not handled in csv, join with space instead
         strings = string.splitlines()
         string = " ".join(strings)
-        if ',' in string or '"' in string:
-            string = '"' + string + '"'
         return string
 
     def get(self, request, *args, **kwargs):
@@ -657,6 +653,12 @@ class EventsView(generics.ListCreateAPIView):
             'eventsource_event_refs')
 
         query_params = self.request.query_params
+        event_ids = query_params.get('event_ids', [])
+        if event_ids:
+            if isinstance(event_ids, str):
+                event_ids = [event_ids,]
+            queryset = queryset.filter(id__in=event_ids)
+
         bbox = query_params.get('bbox', None)
         if bbox:
             bbox = bbox.split(',')

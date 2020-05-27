@@ -371,9 +371,12 @@ class SubjectsView(generics.ListCreateAPIView):
         self.subject_linked_sources = {}
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
 
+        mou_date = self.request.user.additional.get('expiry', None)
+        mou_date = dateparse(mou_date) if mou_date else None
+
         all_subjects = models.Subject.objects.all()
         queryset = all_subjects \
-            .annotate_with_subjectstatus(delay_hours=min_age_days * 24)
+            .annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
         # need a stable sort for pagination. this needs to match the distinct
         # parameter set in by_user_subjects
         queryset = check_to_include_inactive_subjects(self.request, queryset)
@@ -383,8 +386,6 @@ class SubjectsView(generics.ListCreateAPIView):
 
         queryset = queryset.select_related(
             'subject_subtype', 'subject_subtype__subject_type')
-        queryset = queryset.annotate_with_subjectstatus(
-            delay_hours=min_age_days * 24)
 
         # Allow specifying a single subject group by 'id'.
         subject_group = self.request.query_params.get('subject_group')
@@ -497,8 +498,10 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView):
             raise UnauthorizedView
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
         queryset = models.Subject.objects.all()
+        mou_date = self.request.user.additional.get('expiry', None)
+        mou_date = dateparse(mou_date) if mou_date else None
         queryset = queryset.annotate_with_subjectstatus(
-            delay_hours=min_age_days * 24)
+            delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
         return queryset
 
 
@@ -828,6 +831,13 @@ class ObservationsView(generics.ListCreateAPIView):
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def get_serializer_context(self):
+        context = super(ObservationsView, self).get_serializer_context()
+        query_params = self.request.query_params \
+            if self.request and hasattr(self.request, 'query_params') else {}
+        context['include_details'] = parse_bool(query_params.get('include_details', True))
+        return context
 
 
 class KmlRootView(generics.GenericAPIView):
@@ -1280,7 +1290,7 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
             tz_offset) if result_format == 'csv' else 'fixtime'
         dloadtime_label = 'dloadtime ({})'.format(
             tz_offset) if result_format == 'csv' else 'dloadtime'
-        fieldnames = ['chronofile', 'recordserial', 'collar_id', fixtime_label, dloadtime_label,
+        fieldnames = ['chronofile', 'recordserial', 'observation_id', 'collar_id', fixtime_label, dloadtime_label,
                       'lon', 'lat', 'height', 'temp', 'voltage']
         csv_data = []
         cur_record_serial = record_serial_base
@@ -1345,7 +1355,8 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                 if item['subjectsource_additional'] else ''
 
         collar_id = item['collar_id']
-        data = {'lat': item['location'].y,
+        data = {'observation_id': item['id'],
+                'lat': item['location'].y,
                 'lon': item['location'].x,
                 'height': item['location'].z,
                 request_key: value,

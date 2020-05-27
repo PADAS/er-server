@@ -5,14 +5,14 @@ from django.test import TestCase
 
 from tracking.models.plugin_base import SourcePlugin
 from mapping.models import FeatureType, PolygonFeature
-from observations.models import Source
-from tracking.models import SavannahPlugin
-import tracking
+from observations.models import Source, Observation
+from tracking.models import SavannahPlugin, SkygisticsSatellitePlugin, AwtPlugin
 
 from django.contrib.gis.geos import Polygon, MultiPolygon
 
 import uuid
-
+from tracking.models.plugin_base import DasDefaultTarget
+from tracking.models import skygistics
 class TestSourcePlugin(TestCase):
 
     def setUp(self):
@@ -93,5 +93,26 @@ class TestSourcePlugin(TestCase):
         sp = SourcePlugin.objects.create(source=source, plugin=plugin, cursor_data={'latest_timestamp':latest_timestamp_early.isoformat()})
         self.assertTrue(sp.should_run())
 
+    def test_invalid_skygistic_observations_saved_but_flagged(self):
+        plugin = SkygisticsSatellitePlugin.objects.create()
+        source_plugin = SourcePlugin(source=self.source, plugin=plugin)
 
+        obs_data = skygistics.Observation(
+            imei='test_imei',
+            latitude=90,
+            longitude=180,
+            voltage="12.9",
+            location="test_location",
+            temperature="103",
+            recorded_at=datetime.now(),
+            received_time=datetime.now()
+        )
 
+        observation = plugin._transform(self.source, obs_data)
+        validated_obs = source_plugin.validate_obs_location(observation)
+
+        with DasDefaultTarget() as t:
+            t.send(validated_obs)
+
+        result = Observation.objects.get(recorded_at=observation.recorded_at)
+        self.assertTrue(result.exclusion_flags._value == 2) # automatically excluded

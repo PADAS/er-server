@@ -63,7 +63,7 @@ urlpatterns = [
         views.SourceView.as_view()),
     url(r'^observation/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
         views.ObservationView.as_view()),
-    url(r'^observations/?$', views.ObservationsView.as_view()),
+    url(r'^observations/?$', views.ObservationsView.as_view(), name="observations-list-view"),
     url(r'^subjectgroups/?$', views.SubjectGroupsView.as_view()),
     url(r'^subjectgroup/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
         views.SubjectGroupView.as_view()),

@@ -1,10 +1,10 @@
 locals {
-   domain_parts = regex("(?P<subdomain>[^.]+).(?P<primary_domain>.*)", var.fqdn)
-   standard_from_email = join("", ["notifications.", local.domain_parts["subdomain"],
-                                   "@", local.domain_parts["primary_domain"]])
+  domain_parts = regex("(?P<subdomain>[^.]+).(?P<primary_domain>.*)", var.fqdn)
+  standard_from_email = join("", ["notifications.", local.domain_parts["subdomain"],
+  "@", local.domain_parts["primary_domain"]])
 
-   from_email = coalesce(var.from_email, local.standard_from_email)
-   resolved_eus_organization = coalesce(var.eus_org, var.fqdn)
+  from_email                = coalesce(var.from_email, local.standard_from_email)
+  resolved_eus_organization = coalesce(var.eus_org, var.fqdn)
 }
 
 resource "template_dir" "deployments" {
@@ -54,5 +54,8 @@ resource "template_dir" "deployments" {
     USE_AZURE_STORAGE               = var.use_azure_storage
     WEB_SERVICE_NAME                = var.web_service_name
     WEB_VERSION                     = var.WEB_VERSION
+    TWILIO_ACCOUNT_SID              = var.twilio_account_sid
+    TWILIO_AUTH_TOKEN               = var.twilio_auth_token
+    WHATSAPP_FROM_NUMBER            = var.whatsapp_from_number
   }
 }

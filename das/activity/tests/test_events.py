@@ -7,6 +7,7 @@ import copy
 import collections
 import string
 import random
+import csv
 import io
 from datetime import datetime, timedelta
 from unittest import mock
@@ -1137,6 +1138,43 @@ class TestEventView(BaseAPITest):
         self.assertTrue(all(x in report_names for x in [
                         incident_data['title'],  self.event_data['title']]))
 
+    def test_export_includes_all_event_detail_fields(self):
+
+        request = self.factory.post(
+            self.api_base + '/events/', self.event_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        et_schema = json.dumps({
+            "schema":
+            {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "title": "kctype (kctype)",
+                "type": "object",
+                "properties":
+                    {
+                        "hidden": {},
+                        "rhinosighting": {}
+                    }
+            },
+            "definition": []
+        })
+        event_type = self.sample_event.event_type
+        event_type.schema = et_schema
+        event_type.save()
+
+        url = """/activity/events/export"""
+        filter_spec = json.dumps({'text': "e"})
+        request = self.factory.get(
+            self.api_base + url, {'filter': filter_spec})
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        rendered_dict = self.convert_rendered_csv_to_dict(
+            response.content.decode("utf-8"))
+        report_headers = rendered_dict[0].keys()
+
+        self.assertTrue("Hidden" in report_headers)
+
     def test_export_csv_with_line_feed(self):
 
         currentactivity = '\n'.join(
@@ -2163,6 +2201,55 @@ class TestEventView(BaseAPITest):
         self.assertTrue(response.data)
         self.assertEqual(response.status_code, 200)
 
+    def test_search_filter_with_one_event_id_returns_none(self):
+        title_text = 'EventTitle'
+        title_search_text = 'NoMatch'
+        event_data = copy.copy(self.event_data)
+        event_data['title'] = title_text
+
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        event_id = response.data['id']
+
+        query = {'filter': json.dumps({'text': title_search_text}),
+                 'event_ids': [event_id]}
+        
+        request = self.factory.get(self.api_base + '/events', data=query)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertTrue(response.data)
+        self.assertEqual(response.data['count'], 0)
+        self.assertEqual(response.status_code, 200)
+
+    def test_search_filter_with_two_event_id_returns_one(self):
+        title_text = 'EventTitle'
+        title_search_text = 'NoMatch'
+        event_data = copy.copy(self.event_data)
+        event_data_two = copy.copy(self.event_data)
+        event_data['title'] = title_text
+        event_data_two['title'] = title_search_text
+
+        request = self.factory.post(self.api_base + '/events/', [event_data, event_data_two])
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        event_ids = [response.data[0]['id'], response.data[1]['id']]
+        query = {'filter': json.dumps({'text': title_search_text}),
+                 'event_ids': event_ids}
+
+
+        
+        request = self.factory.get(self.api_base + '/events', data=query)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertTrue(response.data)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['results'][0]['id'], event_ids[1])
+        self.assertEqual(response.status_code, 200)
 
     def test_can_search_event_by_eventtype_schema_used(self):
         # schema used has some of its titles named: conservancy, Name Of Ranger, Beginning of Incident etc.
@@ -2240,6 +2327,34 @@ class TestEventView(BaseAPITest):
         self.assertTrue(response.data)
         self.assertEqual(response.status_code, 200)
 
+    def test_report_is_not_overquoted_when_there_is_comma_in_field(self):
+        carcass_data = json.loads(
+            """{"event_type":"cameratrap_rep","priority":200,"event_details":{"cameratraprep_camera-version": "v1,v2,v3"}}""")
+
+        request = self.factory.post(self.api_base + '/events/', carcass_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        url = """/activity/events/export"""
+
+        request = self.factory.get(
+            self.api_base + url)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+
+        # convert rendered csv to dictionary format
+        content = response.content.decode('utf-8')
+        csv_reader = csv.reader(io.StringIO(content))
+        data = list(csv_reader)
+        header = data[0]
+        body = data[2]
+
+        to_dict = {key: value for key, value in zip(header, body)}
+        camera_version = to_dict.get('Camera_Version')
+        expected = "v1,v2,v3"
+        self.assertEqual(camera_version, expected)
 
 class TestParsing(TestCase):
 
