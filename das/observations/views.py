@@ -1280,7 +1280,7 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
             tz_offset) if result_format == 'csv' else 'fixtime'
         dloadtime_label = 'dloadtime ({})'.format(
             tz_offset) if result_format == 'csv' else 'dloadtime'
-        fieldnames = ['chronofile', 'recordserial', 'collar_id', fixtime_label, dloadtime_label,
+        fieldnames = ['chronofile', 'recordserial', 'observation_id', 'collar_id', fixtime_label, dloadtime_label,
                       'lon', 'lat', 'height', 'temp', 'voltage']
         csv_data = []
         cur_record_serial = record_serial_base
@@ -1345,7 +1345,8 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                 if item['subjectsource_additional'] else ''
 
         collar_id = item['collar_id']
-        data = {'lat': item['location'].y,
+        data = {'observation_id': item['id'],
+                'lat': item['location'].y,
                 'lon': item['location'].x,
                 'height': item['location'].z,
                 request_key: value,

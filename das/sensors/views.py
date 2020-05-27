@@ -9,7 +9,7 @@ from utils.json import JSONTextParser
 from utils.drf import AllowAnyGet
 from sensors.handlers import GsatHandler, GenericSensorHandler,\
     DasRadioAgentHandler, SkylineVehicleTrackerHandler, FollowltTrackerHandler,  TractVehicleHandler, \
-    SigFoxPushHandler, GFWAlertHandler, GateHandler, TestHandler
+    SigFoxPushHandler, GFWAlertHandler, GateHandler, TestHandler, EzyTrackHandler, InreachPushHandler
 
 from sensors.camera_trap import CameraTrapSensorHandler
 from sensors.capturs import CaptursPushHandler
@@ -80,6 +80,12 @@ class SensorObservation(generics.GenericAPIView):
 
         elif sensor_type == CaptursPushHandler.SENSOR_TYPE:
             return CaptursPushHandler.post(request, sensor_type=sensor_type, provider_key=provider_key)
+
+        elif sensor_type == EzyTrackHandler.SENSOR_TYPE:
+            return EzyTrackHandler.post(request, sensor_type=sensor_type, provider_key=provider_key)
+
+        elif sensor_type == InreachPushHandler.SENSOR_TYPE:
+            return InreachPushHandler.post(request, sensor_type=sensor_type, provider_key=provider_key)
 
         else:
             return GenericSensorHandler.post(request, sensor_type=sensor_type, 

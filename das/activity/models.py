@@ -1376,4 +1376,5 @@ class EventNotification(TimestampedModel):
 
 
 class TSVectorModel(models.Model):
-    event = models.ForeignKey(Event, on_delete=models.CASCADE)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    event = models.OneToOneField(Event, on_delete=models.CASCADE)

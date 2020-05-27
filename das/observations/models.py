@@ -1365,10 +1365,6 @@ class CommonNameManager(models.Manager):
         return self.get(**{value: value})
 
 
-def get_default_subject_subtype():
-    return SubjectSubType.objects.get(value='unassigned').id
-
-
 class CommonName(TimestampedModel):
     """Common name for an animal, could stretch this to other subtypes as well.
     """
