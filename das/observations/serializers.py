@@ -497,17 +497,26 @@ class ObservationSerializer(rest_framework.serializers.ModelSerializer):
 
     location = PointField(required=False)
     source = SourceRelatedField()
+    observation_additional = rest_framework.serializers.JSONField(source="additional")
 
     class Meta:
         model = models.Observation
         fields = ('id', 'location', 'created_at',
-                  'recorded_at', 'additional', 'source')
+                  'recorded_at', 'observation_additional', 'source')
         id_field = False
         geo_field = 'location'
 
     def to_representation(self, instance):
         rep = super(ObservationSerializer, self).to_representation(instance)
         return rep
+
+    def __init__(self, *args, **kwargs):
+        super(ObservationSerializer, self).__init__(*args, **kwargs)
+
+        if self.context.get('include_details', True):
+            self.fields['observation_additional'].context.update(self.context)
+        else:
+            self.fields.pop('observation_additional')
 
 
 SUBJECT_STATUS_RETURN_FIELDS = (

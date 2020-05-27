@@ -832,6 +832,13 @@ class ObservationsView(generics.ListCreateAPIView):
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
+    def get_serializer_context(self):
+        context = super(ObservationsView, self).get_serializer_context()
+        query_params = self.request.query_params \
+            if self.request and hasattr(self.request, 'query_params') else {}
+        context['include_details'] = parse_bool(query_params.get('include_details', True))
+        return context
+
 
 class KmlRootView(generics.GenericAPIView):
     renderer_classes = (StaticHTMLRenderer,)
