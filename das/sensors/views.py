@@ -1,6 +1,8 @@
+from django.conf import settings
 from rest_framework import generics
 from rest_framework.parsers import (FileUploadParser, FormParser, JSONParser,
                                     MultiPartParser)
+from rest_framework.schemas.openapi import AutoSchema
 
 from observations.serializers import ObservationSerializer
 from sensors.camera_trap import CameraTrapSensorHandler
@@ -8,15 +10,15 @@ from sensors.capturs import CaptursPushHandler
 from sensors.handlers import (DasRadioAgentHandler, EzyTrackHandler,
                               FollowltTrackerHandler, GateHandler,
                               GenericSensorHandler, GFWAlertHandler,
-                              GsatHandler, SigFoxPushHandler,
-                              SkylineVehicleTrackerHandler, TestHandler,
-                              TractVehicleHandler, InreachPushHandler)
+                              GsatHandler, InreachPushHandler,
+                              SigFoxPushHandler, SkylineVehicleTrackerHandler,
+                              TestHandler, TractVehicleHandler)
 from sensors.sigfox_foundation_push_handler import SigfoxFoundationPushHandler
 from utils.drf import AllowAnyGet
 from utils.json import JSONTextParser
 from utils.stats import increment
 
-from rest_framework.schemas.openapi import AutoSchema
+schema_class = settings.REST_FRAMEWORK.get('DEFAULT_SCHEMA_CLASS', '')
 
 
 class CustomSchema(AutoSchema):
@@ -33,7 +35,9 @@ class BaseSensorsView(generics.GenericAPIView):
     serializer_class = ObservationSerializer
     parser_classes = (JSONParser, JSONTextParser,
                       MultiPartParser, FormParser, FileUploadParser)
-    schema = CustomSchema()
+
+    if 'coreapi' not in schema_class:
+        schema = CustomSchema()
 
 
 class GenericSensorHandlerView(BaseSensorsView):
