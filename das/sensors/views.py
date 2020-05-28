@@ -94,7 +94,7 @@ class FollowltHandlerView(BaseSensorsView):
     serializer_class = FollowltTrackerHandler.serializer_class
 
     def post(self, request, provider_key=None):
-        """ dd Followlt Tracker Observations """
+        """ Add Followlt Tracker Observations """
         return FollowltTrackerHandler.post(request, provider_key)
 
 
@@ -154,5 +154,5 @@ class InreachHandlerView(BaseSensorsView):
     serializer_class = InreachPushHandler.serializer_class
 
     def post(self, request, provider_key=None):
-        """ Add Ezy Track Observations """
+        """ Add Inreach Track Observations """
         return InreachPushHandler.post(request, provider_key)

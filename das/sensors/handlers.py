@@ -767,7 +767,7 @@ class PointDictSerializer(serializers.Serializer):
     speed = serializers.IntegerField()
 
 
-class InreachObservation(serializers.Serializer):
+class InreachEventSerializer(serializers.Serializer):
     imei = serializers.IntegerField()
     messageCode = serializers.IntegerField()
     freeText = serializers.CharField(allow_blank=True)
@@ -775,6 +775,10 @@ class InreachObservation(serializers.Serializer):
     addresses = serializers.ListField()
     status = serializers.DictField()
     point = PointDictSerializer()
+
+
+class InreachObservation(serializers.Serializer):
+    Events = serializers.ListField(child=InreachEventSerializer())
 
 
 class InreachPushHandler:
@@ -792,13 +796,13 @@ class InreachPushHandler:
         cls.provider_key = provider_key
         cls.new_observations = 0
 
-        serializer = InreachObservation(data=request.data.get('Events'), many=True)
+        serializer = InreachObservation(data=request.data)
         if not serializer.is_valid():
             return Response(
                 data={'status': 400, 'message': serializer.errors},
                 status=status.HTTP_400_BAD_REQUEST)
         else:
-            for data in serializer.data:
+            for data in serializer.data.get('Events'):
                 das_obs = cls.create_das_object(data)
                 cls.ensure_source(das_obs)
                 cls.create_observation(das_obs)

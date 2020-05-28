@@ -16,13 +16,21 @@ DAS_SUBJECT_SUBTYPE = 'ranger'
 DAS_SOURCE_TYPE = 'tracking-device'
 
 
+class ItemSerializer(serializers.Serializer):
+    device = serializers.CharField()
+    timestamp = serializers.IntegerField()
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
+
+
 class CaptursObservationSerializer(serializers.Serializer):
-    device_id = serializers.CharField()
-    name = serializers.CharField(default=None)
-    recorded_at = serializers.DateTimeField()
-    lat = serializers.FloatField()
-    lon = serializers.FloatField()
-    additional = serializers.DictField()
+    event = serializers.ListField(child=ItemSerializer(), required=False)
+    position = serializers.ListField(child=ItemSerializer(), required=False)
+
+    def validate(self, data):
+        if not data:
+            raise serializers.ValidationError("Must include at least event or position data")
+        return data
 
 
 class CaptursAdapter:
@@ -41,7 +49,7 @@ class CaptursAdapter:
                 additional=data
             ) for data in obs_data]
 
-        return CaptursObservationSerializer(data=obs, many=True)
+        return obs
 
     @staticmethod
     def create_das_obs(capturs_obs):
@@ -71,18 +79,18 @@ class CaptursPushHandler:
 
     @classmethod
     def post(cls, request, provider_key):
-        pos_data = request.data.get('position') or request.data.get('event')
         cls.observations_count = 0
         cls.provider_key = provider_key
 
         # serialize received data
-        serializer = CaptursAdapter.create_capturs_obs(pos_data)
+        serializer = CaptursObservationSerializer(data=request.data)
         if not serializer.is_valid():
             logger.error(
                 f'Invalid observation records: {serializer.errors}')
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        for data in serializer.data:
+        observation_data = CaptursAdapter.create_capturs_obs(serializer.data.get('position') or serializer.data.get('event'))
+        for data in observation_data:
             if data['lat'] == 0 and data['lon'] == 0:
                 logger.info(f'skipped observation, position data not ready')
             else:
