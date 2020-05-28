@@ -84,7 +84,7 @@ MIDDLEWARE = (
     'oauth2_provider.middleware.OAuth2TokenMiddleware',
     'revision.middleware.RevisionMiddleware',
     'utils.middleware.RequestLoggingMiddleware',
-    'utils.middleware.EULARedirectMiddleware',
+    'utils.middleware.EULARedirectMiddleware'
     #'django.contrib.sites.middleware.CurrentSiteMiddleware',
 )
 

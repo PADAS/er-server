@@ -365,7 +365,6 @@ class SubjectsView(generics.ListCreateAPIView):
     subject_linked_sources = {}
 
     def get_queryset(self):
-        # logger.info('SubjectsView.get_queryset entered')
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
             raise UnauthorizedView
 
@@ -407,13 +406,9 @@ class SubjectsView(generics.ListCreateAPIView):
                 permission_sets__in=self.request.user.get_all_permission_sets())
 
             for source_group in source_groups:
-                # logger.info(f'SubjectsView.get_queryset getting subjects for SG: {source_group}')
                 subjects_via_sourcegroup = models.Subject.objects.filter(subjectsource__source__groups=source_group)
-                # logger.info('SubjectsView.get_queryset got subjects. Now getting subjects.values')
-                subjects_via_sourcegroup_values = subjects_via_sourcegroup.values('name', 'subjectsource__source')
-                # logger.info('SubjectsView.get_queryset got subjects.values')
+                subjects_via_sourcegroup_values = subjects_via_sourcegroup.values('id', 'subjectsource__source')
 
-                # can check for is_active directly in qs filter chain instead of calling below
                 subjects_via_sourcegroup = check_to_include_inactive_subjects(self.request, subjects_via_sourcegroup)
                 queryset = queryset.distinct() | subjects_via_sourcegroup.distinct()
 
@@ -422,9 +417,8 @@ class SubjectsView(generics.ListCreateAPIView):
                 if not self.request.user.is_superuser:
                     for subject in subjects_via_sourcegroup_values:
                         self.subject_linked_sources.setdefault(
-                            subject['name'], set()).add(subject['subjectsource__source'])
+                            subject['id'], set()).add(subject['subjectsource__source'])
 
-                # logger.info(f'SubjectsView.get_queryset {len(self.subject_linked_sources)} subject_linked_sources')
 
         # Apply request query filters that have are compatible with any of the
         # criteria above.
@@ -463,7 +457,6 @@ class SubjectsView(generics.ListCreateAPIView):
             queryset = queryset.by_name_search(
                 self.request.query_params.get('name'))
 
-        # logger.info('SubjectsView.get_queryset exiting')
         return queryset
 
     def get_serializer_context(self):

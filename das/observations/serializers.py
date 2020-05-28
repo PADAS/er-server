@@ -162,7 +162,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                 # Get last_position details from latest accessible source
                 # according to SourceGroup permissions.
                 linked_sources = self.context.get(
-                    'subject_linked_sources', {}).get(instance.name)
+                    'subject_linked_sources', {}).get(instance.id)
                 if linked_sources:
                     # Fetch latest & oldest Observations available to plot
                     # latest_position & tracks_range.
