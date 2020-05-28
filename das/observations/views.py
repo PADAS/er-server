@@ -401,13 +401,12 @@ class SubjectsView(generics.ListCreateAPIView):
         else:
             # Fetch all the Subjects whose access is gained through Source Group
             # permissions.
-            # logger.info('SubjectsView.get_queryset filtering SourceGroups for grps with Admin Srcs ps')
             source_groups = models.SourceGroup.objects.filter(
                 permission_sets__in=self.request.user.get_all_permission_sets())
 
             for source_group in source_groups:
                 subjects_via_sourcegroup = models.Subject.objects.filter(subjectsource__source__groups=source_group)
-                subjects_via_sourcegroup_values = subjects_via_sourcegroup.values('id', 'subjectsource__source')
+                subjects_via_sourcegroup_values = subjects_via_sourcegroup.values('name', 'subjectsource').order_by('subjectsource__assigned_range').prefetch_related('subjectsource')
 
                 subjects_via_sourcegroup = check_to_include_inactive_subjects(self.request, subjects_via_sourcegroup)
                 queryset = queryset.distinct() | subjects_via_sourcegroup.distinct()
@@ -416,9 +415,16 @@ class SubjectsView(generics.ListCreateAPIView):
                 # latest_location finding.
                 if not self.request.user.is_superuser:
                     for subject in subjects_via_sourcegroup_values:
-                        self.subject_linked_sources.setdefault(
-                            subject['id'], set()).add(subject['subjectsource__source'])
+                        subject_name, ss_id = subject['name'], subject['subjectsource']
+                        ss_model = models.SubjectSource.objects.get(id=ss_id)
+                        linked_subjectsource = self.subject_linked_sources.get(subject_name)
+                        if linked_subjectsource:
+                            linked_subjectsource['latest_subjectsource'] = ss_model
+                        else:
+                            self.subject_linked_sources[subject_name] = {'oldest_subjectsource': ss_model,
+                                                                         'latest_subjectsource': ss_model}
 
+                # logger.info(f'SubjectsView.get_queryset {len(self.subject_linked_sources)} subject_linked_sources')
 
         # Apply request query filters that have are compatible with any of the
         # criteria above.
@@ -457,6 +463,7 @@ class SubjectsView(generics.ListCreateAPIView):
             queryset = queryset.by_name_search(
                 self.request.query_params.get('name'))
 
+        logger.info('SubjectsView.get_queryset exiting')
         return queryset
 
     def get_serializer_context(self):

@@ -166,12 +166,8 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                 if linked_sources:
                     # Fetch latest & oldest Observations available to plot
                     # latest_position & tracks_range.
-                    latest_subject_source = models.SubjectSource.objects.filter(
-                        source__in=linked_sources,
-                        subject=instance).order_by('-assigned_range').first()
-                    oldest_subject_source = models.SubjectSource.objects.filter(
-                        source__in=linked_sources,
-                        subject=instance).order_by('assigned_range').first()
+                    latest_subject_source = linked_sources['latest_subjectsource']
+                    oldest_subject_source = linked_sources['oldest_subjectsource']
                     if latest_subject_source and oldest_subject_source:
                         latest_observation = models.Observation.objects.filter(
                             source__subjectsource=latest_subject_source,
