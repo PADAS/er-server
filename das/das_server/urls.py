@@ -26,15 +26,13 @@ from das_server.admin import dasadmin_site
 
 schema_view = get_schema_view(
     title="DAS API Documentation",
-    renderer_classes=[DocumentationRenderer]
+    renderer_classes=[JSONOpenAPIRenderer]
 )
 
 template_view = TemplateView.as_view(
     template_name='swagger-ui.html',
     extra_context={'schema_url': 'openapi-schema'}
 )
-
-
 
 urlpatterns = [
     url(r'^api/v1.0/status/?$', views.StatusView.as_view()),

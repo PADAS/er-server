@@ -179,6 +179,9 @@ REST_FRAMEWORK = {
             'in': 'header',
         }
     },
+
+    # Custom openapi autoschema
+    'DEFAULT_SCHEMA_CLASS': 'das_server.views.CustomSchema'
 }
 
 AUTHENTICATION_BACKENDS = (
