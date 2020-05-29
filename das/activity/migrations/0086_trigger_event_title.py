@@ -12,7 +12,8 @@ begin
         setweight(to_tsvector(et.schema::text), 'B')||
         setweight(to_tsvector((ed.data#>> '{event_details}')::text), 'A')
         from activity_event e, activity_eventtype et, activity_eventdetails ed 
-        where e.event_type_id = et.id and ed.event_id = e.id and e.id = ts.event_id;
+        where e.event_type_id = et.id and ed.event_id = e.id and e.id = ts.event_id
+           and e.id = OLD.id;
     return new;
 end
 $$ LANGUAGE plpgsql;
