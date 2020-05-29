@@ -24,6 +24,18 @@ from rest_framework.documentation import include_docs_urls
 from das_server import views
 from das_server.admin import dasadmin_site
 
+schema_view = get_schema_view(
+    title="DAS API Documentation",
+    renderer_classes=[DocumentationRenderer]
+)
+
+template_view = TemplateView.as_view(
+    template_name='swagger-ui.html',
+    extra_context={'schema_url': 'openapi-schema'}
+)
+
+
+
 urlpatterns = [
     url(r'^api/v1.0/status/?$', views.StatusView.as_view()),
     url(r'^api/v1.0/', include('accounts.urls')),
