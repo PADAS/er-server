@@ -54,6 +54,8 @@ from observations.models import Subject
 from utils.drf import StandardResultsSetPagination, \
     StandardResultsSetGeoJsonPagination
 from utils.json import parse_bool, loads, ExtendedGEOJSONRenderer
+from rest_framework.schemas.openapi import AutoSchema
+from rest_framework import exceptions, serializers
 
 logger = logging.getLogger(__name__)
 
@@ -750,7 +752,38 @@ class EventsGeoJsonView(EventsView):
     renderer_classes = (ExtendedGEOJSONRenderer,)
 
 
+class CustomPatchSchema(AutoSchema):
+    def get_operation(self, path, method):
+        return super().get_operation(path, method)
+
+    def _get_request_body(self, path, method):
+        if method not in ('PUT', 'PATCH', 'POST'):
+            return {}
+
+        serializer = self._get_serializer(path, method)
+
+        if not isinstance(serializer, serializers.Serializer):
+            return {}
+
+        content = self._map_serializer(serializer)
+        # No required fields for PATCH
+        if method == 'PATCH' and 'required' in content:
+            del content['required']
+        # No read_only fields for request.
+        for name, schema in content['properties'].copy().items():
+            if 'readOnly' in schema:
+                del content['properties'][name]
+
+        return {
+            'content': {
+                ct: {'schema': content}
+                for ct in self.content_types
+            }
+        }
+
+
 class EventView(generics.RetrieveUpdateDestroyAPIView):
+    schema = CustomPatchSchema()
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventSerializer
 
@@ -794,6 +827,7 @@ class EventView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class EventStateView(generics.RetrieveUpdateAPIView):
+    schema = CustomPatchSchema()
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventStateSerializer
     queryset = Event.objects.all()
