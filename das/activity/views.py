@@ -817,7 +817,7 @@ class EventNotesView(generics.ListCreateAPIView):
 
     def get_event(self):
         event = generics.get_object_or_404(Event.objects.all(),
-                                           pk=self.kwargs['id'])
+                                           pk=self.kwargs.get('id'))
         return event
 
 

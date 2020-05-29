@@ -52,7 +52,7 @@ class UserProfilesView(generics.ListAPIView):
 
     def get_queryset(self):
         lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
-        if self.kwargs[lookup_url_kwarg] == 'me':
+        if self.kwargs.get(lookup_url_kwarg) == 'me':
             self.kwargs[lookup_url_kwarg] = self.request.user.id
 
         user = self.request.user

@@ -495,7 +495,7 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         subject = generics.get_object_or_404(
-            models.Subject.objects.all(), pk=self.kwargs['id'])
+            models.Subject.objects.all(), pk=self.kwargs.get('id'))
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
             raise UnauthorizedView
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
@@ -578,6 +578,7 @@ class SubjectSourceView(generics.RetrieveAPIView):
 
 
 class SubjectSourceTrackView(generics.RetrieveAPIView):
+    schema = None
     lookup_field = 'id'
     serializer_class = serializers.TrackSerializer
     queryset = models.Subject.objects.all()  # .annotate_with_subjectstatus()
@@ -696,7 +697,7 @@ class SubjectTracksView(generics.RetrieveAPIView):
 
         context['tracks_since'] = self.request.query_params.get('since', None)
         context['tracks_until'] = self.request.query_params.get('until', None)
-        context['subject_linked_sources'] = self.subject_linked_sources
+        context['subject_linked_sources'] = getattr(self, 'subject_linked_sources', None)
 
         for key in ('tracks_since', 'tracks_until'):
             context[key] = dateparse(context[key]) if context[key] else None
@@ -998,7 +999,7 @@ class KmlSubjectView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         subject = generics.get_object_or_404(
-            models.Subject.objects.all(), pk=self.kwargs['id'])
+            models.Subject.objects.all(), pk=self.kwargs.get('id'))
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS,
                                                subject):
             raise PermissionDenied
