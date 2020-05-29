@@ -24,6 +24,7 @@ from rest_framework.compat import coreapi, coreschema
 from rest_framework.exceptions import APIException, PermissionDenied, ValidationError
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 import observations.serializers as serializers
 import utils
@@ -121,21 +122,21 @@ class RegionsView(generics.ListAPIView):
     serializer_class = serializers.RegionSerializer
 
 
-class InactiveSubjectsViewSchema(rest_framework.schemas.AutoSchema):
-    def get_manual_fields(self, path, method):
-        if method == 'GET':
-            extra_fields = [
-                coreapi.Field(
-                    name='include_inactive',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Include Inactive Subjects',
-                        description='Include inactive subjects in list.',
-                    )
-                ),
-            ]
-            return super().get_manual_fields(path, method) + extra_fields
+# class InactiveSubjectsViewSchema(rest_framework.schemas.AutoSchema):
+#     def get_manual_fields(self, path, method):
+#         if method == 'GET':
+#             extra_fields = [
+#                 coreapi.Field(
+#                     name='include_inactive',
+#                     required=False,
+#                     location='query',
+#                     schema=coreschema.String(
+#                         title='Include Inactive Subjects',
+#                         description='Include inactive subjects in list.',
+#                     )
+#                 ),
+#             ]
+#             return super().get_manual_fields(path, method) + extra_fields
 
 
 class RegionView(generics.RetrieveAPIView):
@@ -154,7 +155,7 @@ class SubjectGroupsView(generics.ListAPIView):
     filter_backends = (create_gp_filter_class('subjectgf',
                                               ('observations.view_subjectgroup',),
                                               models.SubjectGroup),)
-    schema = InactiveSubjectsViewSchema()
+    # schema = InactiveSubjectsViewSchema()
 
     def get_queryset(self):
         if not self.request.user.has_any_perms(VIEW_SUBJECTGROUP_PERMS):
@@ -233,110 +234,110 @@ class RegionSubjectsView(generics.ListAPIView):
     permission_classes = (StandardObjectPermissions,)
     filter_backends = (SubjectObjectPermissionsFilter,)
 
-    schema = InactiveSubjectsViewSchema()
+    # schema = InactiveSubjectsViewSchema()
 
     def get_queryset(self):
         region = generics.get_object_or_404(models.Region.objects.all(),
-                                            slug=self.kwargs['slug'])
+                                            slug=self.kwargs.get('slug'))
         queryset = models.Subject.objects.all()
         queryset = check_to_include_inactive_subjects(self.request, queryset)
         subjects = queryset.by_region(region).annotate_with_subjectstatus()
         return subjects
 
 
-class SubjectsViewSchema(InactiveSubjectsViewSchema):
+# class SubjectsViewSchema(InactiveSubjectsViewSchema):
 
-    def get_manual_fields(self, path, method):
-        if method == 'GET':
-            extra_fields = [
-                coreapi.Field(
-                    name='tracks_since',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Tracks Since',
-                        description='Include tracks since this timestamp',
+#     def get_manual_fields(self, path, method):
+#         if method == 'GET':
+#             extra_fields = [
+#                 coreapi.Field(
+#                     name='tracks_since',
+#                     required=False,
+#                     location='query',
+#                     schema=coreschema.String(
+#                         title='Tracks Since',
+#                         description='Include tracks since this timestamp',
 
-                    )
-                ),
-                coreapi.Field(
-                    name='tracks_until',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Tracks Until',
-                        description='Include tracks up through this timestamp'
-                    )
-                ),
-                coreapi.Field(
-                    name='bbox',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Bounding Box',
-                        description='Include subjects having track data within this bounding box defined by '
-                                    'a 4-tuple of coordinates marking west, south, east, north.',
+#                     )
+#                 ),
+#                 coreapi.Field(
+#                     name='tracks_until',
+#                     required=False,
+#                     location='query',
+#                     schema=coreschema.String(
+#                         title='Tracks Until',
+#                         description='Include tracks up through this timestamp'
+#                     )
+#                 ),
+#                 coreapi.Field(
+#                     name='bbox',
+#                     required=False,
+#                     location='query',
+#                     schema=coreschema.String(
+#                         title='Bounding Box',
+#                         description='Include subjects having track data within this bounding box defined by '
+#                                     'a 4-tuple of coordinates marking west, south, east, north.',
 
-                    ),
-                ),
-                coreapi.Field(
-                    name='subject_group',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Subject Group ID',
-                        description='Indicate a subject group for which Subjects should be listed.',
-                        format='UUID'
+#                     ),
+#                 ),
+#                 coreapi.Field(
+#                     name='subject_group',
+#                     required=False,
+#                     location='query',
+#                     schema=coreschema.String(
+#                         title='Subject Group ID',
+#                         description='Indicate a subject group for which Subjects should be listed.',
+#                         format='UUID'
 
-                    )
-                ),
-                coreapi.Field(
-                    name='name',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Subject name',
-                        description='Find subjects with the given name.',
-                    )
-                ),
-                coreapi.Field(
-                    name='updated_since',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Updated Since',
-                        description='Return Subject that have been updated since the given timestamp.',
-                    )
-                ),
-                coreapi.Field(
-                    name='render_last_location',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Subject Group ID',
-                        description='Indicate whether to render each subject\'s last location.',
-                    )
-                ),
-                coreapi.Field(
-                    name='tracks',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Tracks',
-                        description='Indicate whether to render each subject\'s recent tracks.',
-                    )
-                ),
-                coreapi.Field(
-                    name='id',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Subject ID(s)',
-                        description='A comma-delimited list of Subject IDs.',
-                    )
-                ),
-            ]
-            return super().get_manual_fields(path, method) + extra_fields
+#                     )
+#                 ),
+#                 coreapi.Field(
+#                     name='name',
+#                     required=False,
+#                     location='query',
+#                     schema=coreschema.String(
+#                         title='Subject name',
+#                         description='Find subjects with the given name.',
+#                     )
+#                 ),
+#                 coreapi.Field(
+#                     name='updated_since',
+#                     required=False,
+#                     location='query',
+#                     schema=coreschema.String(
+#                         title='Updated Since',
+#                         description='Return Subject that have been updated since the given timestamp.',
+#                     )
+#                 ),
+#                 coreapi.Field(
+#                     name='render_last_location',
+#                     required=False,
+#                     location='query',
+#                     schema=coreschema.String(
+#                         title='Subject Group ID',
+#                         description='Indicate whether to render each subject\'s last location.',
+#                     )
+#                 ),
+#                 coreapi.Field(
+#                     name='tracks',
+#                     required=False,
+#                     location='query',
+#                     schema=coreschema.String(
+#                         title='Tracks',
+#                         description='Indicate whether to render each subject\'s recent tracks.',
+#                     )
+#                 ),
+#                 coreapi.Field(
+#                     name='id',
+#                     required=False,
+#                     location='query',
+#                     schema=coreschema.String(
+#                         title='Subject ID(s)',
+#                         description='A comma-delimited list of Subject IDs.',
+#                     )
+#                 ),
+#             ]
+#             return super().get_manual_fields(path, method) + extra_fields
 
 
 class SubjectsView(generics.ListCreateAPIView):
@@ -353,7 +354,7 @@ class SubjectsView(generics.ListCreateAPIView):
     TRACK_QPARAMS = ('tracks_limit',)
     TRACK_DATE_QPARAMS = ('tracks_since', 'tracks_until')
 
-    schema = SubjectsViewSchema()
+    # schema = SubjectsViewSchema()
 
     # Ensure this attribute is present with a sensible default for any child
     # classes.
@@ -534,7 +535,7 @@ class SubjectSourcesView(generics.ListCreateAPIView):
 
 class SourceSubjectsView(generics.ListCreateAPIView):
     serializer_class = serializers.SubjectSerializer
-    schema = InactiveSubjectsViewSchema()
+    # schema = InactiveSubjectsViewSchema()
 
     def get_queryset(self):
         source = generics.get_object_or_404(
@@ -841,7 +842,7 @@ class ObservationsView(generics.ListCreateAPIView):
         return context
 
 
-class KmlRootView(generics.GenericAPIView):
+class KmlRootView(APIView):
     renderer_classes = (StaticHTMLRenderer,)
 
     def build_link_for_user(self, start_date=None, end_date=None):
@@ -892,7 +893,7 @@ class KmlRootView(generics.GenericAPIView):
         return kmlutils.render_to_kmz(result, filename)
 
 
-class KmlSubjectsView(generics.GenericAPIView):
+class KmlSubjectsView(APIView):
     permission_classes = (StandardObjectPermissions,)
     renderer_classes = (StaticHTMLRenderer,)
 
@@ -1113,108 +1114,108 @@ class KmlSubjectView(generics.RetrieveAPIView):
         return kmlutils.render_to_kmz(result, filename)
 
 
-class TrackingDataViewSchema(rest_framework.schemas.AutoSchema):
-    def get_manual_fields(self, path, method):
-        if method == 'GET':
-            extra_fields = [
-                coreapi.Field(
-                    name='include_inactive',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Include Inactive Subjects',
-                        description='Include inactive subjects in list',
-                    )
-                ),
-                coreapi.Field(
-                    name='current_status',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Current Status',
-                        description='Get current status or historical observations',
-                    )
-                ),
-                coreapi.Field(
-                    name='subject_id',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Subject Id',
-                        description='Get Tracking data for specific subject ID',
-                    )
-                ),
-                coreapi.Field(
-                    name='subject_chronofile',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Subject Chronofiles',
-                        description='Get Tracking data for specific chronofiles',
-                    )
-                ),
-                coreapi.Field(
-                    name='filter',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Filter',
-                        description='Add Exclusion flags as a bitmap',
-                    )
-                ),
-                coreapi.Field(
-                    name='format',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Format',
-                        description='Return report as CSV or JSON',
-                    )
-                ),
-                coreapi.Field(
-                    name='before_date',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Before Date',
-                        description='Return report before given date',
-                    )
-                ),
-                coreapi.Field(
-                    name='after_date',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='After date',
-                        description='Return report after given date',
-                    )
-                ),
-                coreapi.Field(
-                    name='record_serial_base',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Record Serial Base',
-                        description='Return report in order of generated serial number',
-                    )
-                ),
-                coreapi.Field(
-                    name='max_records',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Maximum Records',
-                        description='Maximum number of records to return',
-                    )
-                ),
-            ]
-            return super().get_manual_fields(path, method) + extra_fields
+# class TrackingDataViewSchema(rest_framework.schemas.AutoSchema):
+#     def get_manual_fields(self, path, method):
+#         if method == 'GET':
+#             extra_fields = [
+#                 coreapi.Field(
+#                     name='include_inactive',
+#                     required=False,
+#                     location='query',
+#                     schema=coreschema.String(
+#                         title='Include Inactive Subjects',
+#                         description='Include inactive subjects in list',
+#                     )
+#                 ),
+#                 coreapi.Field(
+#                     name='current_status',
+#                     required=False,
+#                     location='query',
+#                     schema=coreschema.String(
+#                         title='Current Status',
+#                         description='Get current status or historical observations',
+#                     )
+#                 ),
+#                 coreapi.Field(
+#                     name='subject_id',
+#                     required=False,
+#                     location='query',
+#                     schema=coreschema.String(
+#                         title='Subject Id',
+#                         description='Get Tracking data for specific subject ID',
+#                     )
+#                 ),
+#                 coreapi.Field(
+#                     name='subject_chronofile',
+#                     required=False,
+#                     location='query',
+#                     schema=coreschema.String(
+#                         title='Subject Chronofiles',
+#                         description='Get Tracking data for specific chronofiles',
+#                     )
+#                 ),
+#                 coreapi.Field(
+#                     name='filter',
+#                     required=False,
+#                     location='query',
+#                     schema=coreschema.String(
+#                         title='Filter',
+#                         description='Add Exclusion flags as a bitmap',
+#                     )
+#                 ),
+#                 coreapi.Field(
+#                     name='format',
+#                     required=False,
+#                     location='query',
+#                     schema=coreschema.String(
+#                         title='Format',
+#                         description='Return report as CSV or JSON',
+#                     )
+#                 ),
+#                 coreapi.Field(
+#                     name='before_date',
+#                     required=False,
+#                     location='query',
+#                     schema=coreschema.String(
+#                         title='Before Date',
+#                         description='Return report before given date',
+#                     )
+#                 ),
+#                 coreapi.Field(
+#                     name='after_date',
+#                     required=False,
+#                     location='query',
+#                     schema=coreschema.String(
+#                         title='After date',
+#                         description='Return report after given date',
+#                     )
+#                 ),
+#                 coreapi.Field(
+#                     name='record_serial_base',
+#                     required=False,
+#                     location='query',
+#                     schema=coreschema.String(
+#                         title='Record Serial Base',
+#                         description='Return report in order of generated serial number',
+#                     )
+#                 ),
+#                 coreapi.Field(
+#                     name='max_records',
+#                     required=False,
+#                     location='query',
+#                     schema=coreschema.String(
+#                         title='Maximum Records',
+#                         description='Maximum number of records to return',
+#                     )
+#                 ),
+#             ]
+#             return super().get_manual_fields(path, method) + extra_fields
 
 
 class TrackingDataCsvView(generics.RetrieveAPIView):
     permission_classes = (StandardObjectPermissions,)
 
-    schema = TrackingDataViewSchema()
+    schema = None
 
     def get_queryset(self, subject_id=None, chronofile=None):
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
@@ -1410,9 +1411,9 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         return qs.values()
 
 
-class TrackingMetaDataExportView(generics.RetrieveAPIView):
+class TrackingMetaDataExportView(APIView):
     permission_classes = (StandardObjectPermissions,)
-    schema = InactiveSubjectsViewSchema()
+    # schema = InactiveSubjectsViewSchema()
 
     def get_source_details(self, format):
         """
