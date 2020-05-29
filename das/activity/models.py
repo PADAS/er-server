@@ -314,6 +314,9 @@ class RefreshRecreateEventDetailView(models.Model):
 
     objects = RefreshRecreateEventDetailViewQuery.as_manager()
 
+    class Meta:
+        verbose_name_plural = 'Refresh Data for Tableau'
+
 
 class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
