@@ -40,10 +40,9 @@ $$ LANGUAGE plpgsql;
 SQL_FUNC_EVENTNOTE_TRIGGER = """
 CREATE OR REPLACE FUNCTION tsvector_eventnote_trigger() RETURNS trigger as $$
 begin
-    UPDATE activity_tsvectormodel ts SET (tsvector_event_note) =
+    UPDATE activity_tsvectormodel ts SET tsvector_event_note =
         (SELECT to_tsvector(string_agg(text, ','))::tsvector FROM activity_eventnote en
-         WHERE  en.event_id= ts.event_id 
-           AND en.event_id = NEW.event_id);
+         WHERE en.event_id = NEW.event_id) WHERE ts.event_id = NEW.event_id;
     return new;
 end
 $$ LANGUAGE plpgsql;
