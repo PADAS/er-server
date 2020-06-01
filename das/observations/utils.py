@@ -204,3 +204,10 @@ def convert_date_string(date_str):
     # Convert datetime's timezone with UTC
     utc_date = localize_date.astimezone(timezone('UTC'))
     return utc_date.isoformat()
+
+
+def dateparse(date_str, default_tz=pytz.utc):
+    dt = dateutil.parser.parse(date_str)
+    if not dt.tzinfo:
+        dt = dt.replace(tzinfo=default_tz)
+    return dt

@@ -15,7 +15,7 @@ from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 
 from core.serializers import ContentTypeField
 from observations import models
-from observations.utils import get_maximum_allowed_age, get_minimum_allowed_age
+from observations.utils import get_maximum_allowed_age, get_minimum_allowed_age, dateparse
 import utils.json
 from utils.json import zeroout_microseconds
 from utils import add_base_url
@@ -61,8 +61,11 @@ class GroupSerializer(rest_framework.serializers.ModelSerializer):
         except Exception:
             pass
 
+        mou_date = self.context["request"].user.additional.get('expiry', None)
+        mou_date = dateparse(mou_date) if mou_date else None
+
         queryset = getattr(instance, 'get_all_{0}'.format(contained_field))(
-            user=user, active=active, include_from_subgroups=False)
+            user=user, active=active, include_from_subgroups=False, mou_expiry_date=mou_date)
 
         # queryset = queryset.order_by('name')
         # queryset variable contains list of sources linked with source group.

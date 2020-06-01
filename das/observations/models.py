@@ -642,12 +642,12 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
     )
     objects = SubjectGroupManager()
 
-    def get_all_subjects(self, user=None, active=None, include_from_subgroups=True):
+    def get_all_subjects(self, user=None, active=None, include_from_subgroups=True, mou_expiry_date=None):
 
         min_age_days = get_minimum_allowed_age(user) or 0 if user else 0
 
         queryset = Subject.objects.all() \
-            .annotate_with_subjectstatus(delay_hours=min_age_days * 24)\
+            .annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_expiry_date)\
             .select_related('subject_subtype__subject_type')
         if active is not None:
             queryset = queryset.by_is_active(active=active).order_by('name')
