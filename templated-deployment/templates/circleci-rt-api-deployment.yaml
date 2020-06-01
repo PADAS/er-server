@@ -37,6 +37,16 @@ spec:
             memory: "500Mi"
         ports:
           - containerPort: 8000
+        readinessProbe:
+          tcpSocket:
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 20
         volumeMounts:
         - name: google-credentials
           mountPath: "/etc/earthranger/"
