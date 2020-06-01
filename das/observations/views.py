@@ -1,11 +1,9 @@
-import urllib
-
-from observations.utils import get_minimum_allowed_age
 import csv
 import datetime
 import json
 import logging
 import re
+import urllib
 
 import dateutil.parser
 import django
@@ -13,7 +11,8 @@ import pytz
 import rest_framework
 from django.conf import settings
 from django.core.serializers.json import DjangoJSONEncoder
-from django.db.models import F, Q, FilteredRelation
+from django.db.models import F, Q, FilteredRelation, Window
+from django.db.models.functions import FirstValue
 from django.http import Http404, HttpResponse
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -32,7 +31,9 @@ from observations import kmlutils
 from observations import models
 from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
 from observations.permissions import StandardObjectPermissions
-from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS, VIEW_SUBJECTGROUP_PERMS, check_to_include_inactive_subjects
+from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS, VIEW_SUBJECTGROUP_PERMS, \
+    check_to_include_inactive_subjects
+from observations.utils import get_minimum_allowed_age
 from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination, StandardResultsSetGeoJsonPagination
 from utils.json import zeroout_microseconds, parse_bool, ExtendedGEOJSONRenderer
 
@@ -364,6 +365,15 @@ class SubjectsView(generics.ListCreateAPIView):
     # classes.
     subject_linked_sources = {}
 
+    window_asc = {
+        'partition_by': F('subject_id'),
+        'order_by': [F('assigned_range').asc(), ],
+    }
+    window_desc = {
+        'partition_by': F('subject_id'),
+        'order_by': [F('assigned_range').desc(), ],
+    }
+
     def get_queryset(self):
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
             raise UnauthorizedView
@@ -404,25 +414,23 @@ class SubjectsView(generics.ListCreateAPIView):
             source_groups = models.SourceGroup.objects.filter(
                 permission_sets__in=self.request.user.get_all_permission_sets())
 
-            for source_group in source_groups:
-                subjects_via_sourcegroup = models.Subject.objects.filter(subjectsource__source__groups=source_group)
-                subjects_via_sourcegroup_values = subjects_via_sourcegroup.values('name', 'subjectsource').order_by('subjectsource__assigned_range').prefetch_related('subjectsource')
+            queryset = queryset.distinct() | models.Subject.objects.filter(
+                subjectsource__source__groups__in=source_groups).distinct()
 
-                subjects_via_sourcegroup = check_to_include_inactive_subjects(self.request, subjects_via_sourcegroup)
-                queryset = queryset.distinct() | subjects_via_sourcegroup.distinct()
+            if not self.request.user.is_superuser:
+                subject_linked_sources = models.SubjectSource.objects.filter(source__groups__in=source_groups).annotate(
+                    subject_name=F('subject__name'),
+                    latest_range=Window(expression=FirstValue(F('assigned_range')), **self.window_desc),
+                    latest_source=Window(expression=FirstValue(F('source_id')), **self.window_desc),
+                    oldest_range=Window(expression=FirstValue(F('assigned_range')), **self.window_asc),
+                    oldest_source=Window(expression=FirstValue(F('source_id')), **self.window_asc)).distinct(
+                    'subject_name', 'subject_id').values(
+                    'subject_id', 'subject_name', 'latest_range', 'oldest_range', 'latest_source', 'oldest_source')
 
-                # Send all allowed Sources of each Subject to serializer for
-                # latest_location finding.
-                if not self.request.user.is_superuser:
-                    for subject in subjects_via_sourcegroup_values:
-                        subject_name, ss_id = subject['name'], subject['subjectsource']
-                        ss_model = models.SubjectSource.objects.get(id=ss_id)
-                        linked_subjectsource = self.subject_linked_sources.get(subject_name)
-                        if linked_subjectsource:
-                            linked_subjectsource['latest_subjectsource'] = ss_model
-                        else:
-                            self.subject_linked_sources[subject_name] = {'oldest_subjectsource': ss_model,
-                                                                         'latest_subjectsource': ss_model}
+                self.subject_linked_sources = {
+                    ss['subject_id']: (ss['latest_source'], ss['latest_range'], ss['oldest_source'], ss['oldest_range'],
+                                       ss['subject_name'])
+                    for ss in subject_linked_sources}
 
                 # logger.info(f'SubjectsView.get_queryset {len(self.subject_linked_sources)} subject_linked_sources')
 
@@ -463,7 +471,7 @@ class SubjectsView(generics.ListCreateAPIView):
             queryset = queryset.by_name_search(
                 self.request.query_params.get('name'))
 
-        logger.info('SubjectsView.get_queryset exiting')
+        # logger.info('SubjectsView.get_queryset exiting')
         return queryset
 
     def get_serializer_context(self):
