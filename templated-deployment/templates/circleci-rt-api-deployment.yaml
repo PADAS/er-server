@@ -42,11 +42,15 @@ spec:
             port: 8000
           initialDelaySeconds: 5
           periodSeconds: 10
+          failureThreshold: 3
+          successThreshold: 1
         livenessProbe:
           tcpSocket:
             port: 8000
           initialDelaySeconds: 15
           periodSeconds: 20
+          failureThreshold: 3
+          successThreshold: 1
         volumeMounts:
         - name: google-credentials
           mountPath: "/etc/earthranger/"

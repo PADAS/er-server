@@ -25,12 +25,16 @@ spec:
             path: /
           initialDelaySeconds: 5
           periodSeconds: 10
+          failureThreshold: 3
+          successThreshold: 1
         livenessProbe:
           httpGet:
             port: 9000
             path: /
           initialDelaySeconds: 15
           periodSeconds: 20
+          failureThreshold: 3
+          successThreshold: 1
         env:
         - name: APIENDPOINT
           value: "${API_ENDPOINT}"
