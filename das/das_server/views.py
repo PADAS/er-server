@@ -9,8 +9,6 @@ from rest_framework import generics
 from rest_framework.permissions import AllowAny, DjangoObjectPermissions
 import rest_framework.serializers
 from rest_framework.schemas.openapi import AutoSchema
-from activity.alerts import has_alerts_permissionset
-
 from das_server import __version__
 
 # This import ensures we register user-login receivers.
@@ -31,6 +29,31 @@ class CustomSchema(AutoSchema):
         operation['summary'] = getattr(self.view, method.lower()).__doc__
 
         return operation
+
+    def _get_request_body(self, path, method):
+        if method not in ('PUT', 'PATCH', 'POST'):
+            return {}
+
+        serializer = self._get_serializer(path, method)
+
+        if not isinstance(serializer, rest_framework.serializers.Serializer):
+            return {}
+
+        content = self._map_serializer(serializer)
+        # No required fields for PATCH
+        if method == 'PATCH' and 'required' in content:
+            del content['required']
+        # No read_only fields for request.
+        for name, schema in content['properties'].copy().items():
+            if 'readOnly' in schema:
+                del content['properties'][name]
+
+        return {
+            'content': {
+                ct: {'schema': content}
+                for ct in self.content_types
+            }
+        }
 
 
 class VersionSerializer(rest_framework.serializers.Serializer):
