@@ -414,8 +414,9 @@ class SubjectsView(generics.ListCreateAPIView):
             source_groups = models.SourceGroup.objects.filter(
                 permission_sets__in=self.request.user.get_all_permission_sets())
 
-            queryset = queryset.distinct() | models.Subject.objects.filter(
-                subjectsource__source__groups__in=source_groups).distinct()
+            subjects_via_source_groups = models.Subject.objects.filter(subjectsource__source__groups__in=source_groups)
+            subjects_via_source_groups = check_to_include_inactive_subjects(self.request, subjects_via_source_groups)
+            queryset = queryset.distinct() | subjects_via_source_groups.distinct()
 
             if not self.request.user.is_superuser:
                 subject_linked_sources = models.SubjectSource.objects.filter(source__groups__in=source_groups).annotate(
