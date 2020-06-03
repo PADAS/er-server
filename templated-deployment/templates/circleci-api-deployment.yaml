@@ -38,12 +38,12 @@ spec:
         ports:
           - containerPort: 8000
         readinessProbe:
-          tcpSocket:
+          httpGet:
+            httpHeaders:
+            - name: Host 
+              value: '${FQDN}'
+            path: '/api/v1.0/status'
             port: 8000
-          initialDelaySeconds: 5
-          periodSeconds: 10
-          failureThreshold: 3
-          successThreshold: 1
         livenessProbe:
           tcpSocket:
             port: 8000
