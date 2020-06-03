@@ -419,19 +419,16 @@ class SubjectsView(generics.ListCreateAPIView):
             queryset = queryset.distinct() | subjects_via_source_groups.distinct()
 
             if not self.request.user.is_superuser:
+                # TODO: rather than this, can we get the latest & oldest observation for each subject? (needed in
+                #  serializer.to_representation)
                 subject_linked_sources = models.SubjectSource.objects.filter(source__groups__in=source_groups).annotate(
-                    subject_name=F('subject__name'),
                     latest_range=Window(expression=FirstValue(F('assigned_range')), **self.window_desc),
                     latest_source=Window(expression=FirstValue(F('source_id')), **self.window_desc),
                     oldest_range=Window(expression=FirstValue(F('assigned_range')), **self.window_asc),
                     oldest_source=Window(expression=FirstValue(F('source_id')), **self.window_asc)).distinct(
-                    'subject_name', 'subject_id').values(
-                    'subject_id', 'subject_name', 'latest_range', 'oldest_range', 'latest_source', 'oldest_source')
+                    'subject_id').values('subject_id', 'latest_range', 'oldest_range', 'latest_source', 'oldest_source')
 
-                self.subject_linked_sources = {
-                    ss['subject_id']: (ss['latest_source'], ss['latest_range'], ss['oldest_source'], ss['oldest_range'],
-                                       ss['subject_name'])
-                    for ss in subject_linked_sources}
+                self.subject_linked_sources = {ss['subject_id']: ss for ss in subject_linked_sources}
 
                 # logger.info(f'SubjectsView.get_queryset {len(self.subject_linked_sources)} subject_linked_sources')
 
@@ -472,7 +469,7 @@ class SubjectsView(generics.ListCreateAPIView):
             queryset = queryset.by_name_search(
                 self.request.query_params.get('name'))
 
-        # logger.info('SubjectsView.get_queryset exiting')
+        logger.info('SubjectsView.get_queryset exiting')
         return queryset
 
     def get_serializer_context(self):
