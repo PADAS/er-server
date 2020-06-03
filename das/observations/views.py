@@ -430,8 +430,6 @@ class SubjectsView(generics.ListCreateAPIView):
 
                 self.subject_linked_sources = {ss['subject_id']: ss for ss in subject_linked_sources}
 
-                # logger.info(f'SubjectsView.get_queryset {len(self.subject_linked_sources)} subject_linked_sources')
-
         # Apply request query filters that have are compatible with any of the
         # criteria above.
         updated_since = self.request.query_params.get('updated_since')
@@ -469,7 +467,6 @@ class SubjectsView(generics.ListCreateAPIView):
             queryset = queryset.by_name_search(
                 self.request.query_params.get('name'))
 
-        logger.info('SubjectsView.get_queryset exiting')
         return queryset
 
     def get_serializer_context(self):
