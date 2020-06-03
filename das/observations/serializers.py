@@ -162,29 +162,26 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                 # Get last_position details from latest accessible source
                 # according to SourceGroup permissions.
                 linked_sources = self.context.get(
-                    'subject_linked_sources', {}).get(instance.name)
+                    'subject_linked_sources', {}).get(instance.id)
                 if linked_sources:
                     # Fetch latest & oldest Observations available to plot
                     # latest_position & tracks_range.
-                    latest_subject_source = models.SubjectSource.objects.filter(
-                        source__in=linked_sources,
-                        subject=instance).order_by('-assigned_range').first()
-                    oldest_subject_source = models.SubjectSource.objects.filter(
-                        source__in=linked_sources,
-                        subject=instance).order_by('assigned_range').first()
-                    if latest_subject_source and oldest_subject_source:
+                    latest_source, latest_range = linked_sources['latest_source'], linked_sources['latest_range']
+                    oldest_source, oldest_range = linked_sources['oldest_source'], linked_sources['oldest_range']
+
+                    if latest_range and oldest_range:
                         latest_observation = models.Observation.objects.filter(
-                            source__subjectsource=latest_subject_source,
+                            source=latest_source,
                             recorded_at__range=[
-                                latest_subject_source.safe_assigned_range.lower,
-                                latest_subject_source.safe_assigned_range.upper
+                                latest_range.lower,
+                                latest_range.upper
                             ]).order_by('-recorded_at').first()
 
                         oldest_observation = models.Observation.objects.filter(
-                            source__subjectsource=oldest_subject_source,
+                            source=oldest_source,
                             recorded_at__range=[
-                                oldest_subject_source.safe_assigned_range.lower,
-                                oldest_subject_source.safe_assigned_range.upper
+                                oldest_range.lower,
+                                oldest_range.upper
                             ]).order_by('recorded_at').first()
 
                         rep[
