@@ -28,7 +28,6 @@ from rest_framework.exceptions import APIException
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_extensions.etag.decorators import etag
-from rest_framework.views import APIView
 
 import accounts.models
 import accounts.serializers
@@ -241,7 +240,7 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
 from activity.search import get_event_search_schema
 
 
-class EventFilterSchemaView(APIView):
+class EventFilterSchemaView(generics.RetrieveAPIView):
     def get(self, request, *args, **kwargs):
         schema = get_event_search_schema()
         schema['schema']['id'] = utils.add_base_url(
@@ -271,7 +270,7 @@ class EventClassFactorsView(generics.ListAPIView):
         return queryset
 
 
-class EventCountView(APIView):
+class EventCountView(generics.ListAPIView):
     __doc__ = """
     Returns the count of New Events.
     """

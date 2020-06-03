@@ -2,7 +2,6 @@ import itertools
 
 from rest_framework import generics, status, response
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
 from utils.drf import StandardResultsSetPagination
 from analyzers.models import GeofenceAnalyzerConfig, ProximityAnalyzerConfig
@@ -12,16 +11,14 @@ from analyzers.permissions import ModelPermissions
 from utils.json import parse_bool
 
 
-class SpatialAnalyzerListView(APIView):
+class SpatialAnalyzerListView(generics.ListAPIView):
     # permission_classes = (ModelPermissions,)
     #pagination_class = StandardResultsSetPagination
 
     MODEL_TO_SERIALIZER = ((GeofenceAnalyzerConfig, GeofenceAnalyzerConfigSerializer),
                            (ProximityAnalyzerConfig, ProximityAnalyzerConfigSerializer))
 
-    queryset = None
-
-    def get(self, request, *args, **kwargs):
+    def list(self, request, *args, **kwargs):
 
         if 'active' in request.query_params:
             filter = {'is_active': parse_bool(
@@ -34,10 +31,10 @@ class SpatialAnalyzerListView(APIView):
 
             required_perm = f'{spatial_model._meta.app_label}.view_{spatial_model._meta.model_name}'
             if self.request.user.has_perm(required_perm):
-                queryset = spatial_model.objects.all()
+                qs = spatial_model.objects.all()
                 if filter:
-                    queryset = queryset.filter(**filter)
-                for row in queryset:
+                    qs = qs.filter(**filter)
+                for row in qs:
                     serializer = spatial_serializer(
                         row, context={'request': request})
                     results.append(serializer.data)

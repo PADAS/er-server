@@ -1652,9 +1652,10 @@ class NotificationMethodSerializer(rest_framework.serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
-_default_schedule = {
-    'timezone': timezone.get_current_timezone_name(),
-    'periods': {}
+def _default_schedule():
+    return {
+        'timezone': timezone.get_current_timezone_name(),
+        'periods': {}
     }
 
 
@@ -1672,9 +1673,9 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
         slug_field='value', source='event_types')
 
     conditions = rest_framework.serializers.JSONField(
-        required=False, default={})
+        required=False, default=dict)
     schedule = rest_framework.serializers.JSONField(
-        required=False, default=_default_schedule)
+        required=False, default=_default_schedule())
 
     owner = rest_framework.serializers.HiddenField(
         default=rest_framework.serializers.CurrentUserDefault())

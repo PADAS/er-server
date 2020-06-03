@@ -12,7 +12,6 @@ from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
 import accounts.serializers as serializers
 from accounts.filters import UserObjectPermissionsFilter
@@ -60,7 +59,7 @@ class UserProfilesView(generics.ListAPIView):
         return queryset
 
 
-class UsersCsvView(APIView):
+class UsersCsvView(generics.RetrieveAPIView):
     permission_classes = (UserObjectPermissions,)
 
     def get_queryset(self):

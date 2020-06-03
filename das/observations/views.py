@@ -805,7 +805,7 @@ class ObservationsView(generics.ListCreateAPIView):
         return context
 
 
-class KmlRootView(APIView):
+class KmlRootView(generics.GenericAPIView):
     renderer_classes = (StaticHTMLRenderer,)
 
     def build_link_for_user(self, start_date=None, end_date=None):
@@ -856,7 +856,7 @@ class KmlRootView(APIView):
         return kmlutils.render_to_kmz(result, filename)
 
 
-class KmlSubjectsView(APIView):
+class KmlSubjectsView(generics.GenericAPIView):
     permission_classes = (StandardObjectPermissions,)
     renderer_classes = (StaticHTMLRenderer,)
 
@@ -1141,7 +1141,7 @@ class TrackingDataViewSchema(InactiveSubjectsViewSchema):
         return operation
 
 
-class TrackingDataCsvView(APIView):
+class TrackingDataCsvView(generics.RetrieveAPIView):
     permission_classes = (StandardObjectPermissions,)
     schema = TrackingDataViewSchema()
 
@@ -1339,7 +1339,7 @@ class TrackingDataCsvView(APIView):
         return qs.values()
 
 
-class TrackingMetaDataExportView(APIView):
+class TrackingMetaDataExportView(generics.RetrieveAPIView):
     permission_classes = (StandardObjectPermissions,)
     # schema = InactiveSubjectsViewSchema()
 

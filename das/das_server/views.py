@@ -11,6 +11,8 @@ import rest_framework.serializers
 from rest_framework.schemas.openapi import AutoSchema
 from das_server import __version__
 
+from activity.alerts import has_alerts_permissionset
+
 # This import ensures we register user-login receivers.
 from das_server import metrics
 
@@ -30,30 +32,29 @@ class CustomSchema(AutoSchema):
 
         return operation
 
-    def _get_request_body(self, path, method):
-        if method not in ('PUT', 'PATCH', 'POST'):
-            return {}
+    def get_serializer_class(self):
+        if self.view.serializer_class:
+            return self.view.serializer_class
+        else:
+            return self.view.__class__
 
-        serializer = self._get_serializer(path, method)
+    def _get_operation_id(self, path, method):
+        if hasattr(self.view, 'get_serializer_class'):
+            self.view.get_serializer_class = self.get_serializer_class
 
-        if not isinstance(serializer, rest_framework.serializers.Serializer):
-            return {}
+        return super()._get_operation_id(path, method)
 
-        content = self._map_serializer(serializer)
-        # No required fields for PATCH
-        if method == 'PATCH' and 'required' in content:
-            del content['required']
-        # No read_only fields for request.
-        for name, schema in content['properties'].copy().items():
-            if 'readOnly' in schema:
-                del content['properties'][name]
+    def _map_serializer(self, serializer):
+        result = super()._map_serializer(serializer)
+        for res in result.get('properties').values():
+            default = res.get('default')
+            if default:
+                res['default'] = [] if default == type([]) else {} if default == type({}) else default
 
-        return {
-            'content': {
-                ct: {'schema': content}
-                for ct in self.content_types
-            }
-        }
+        for method in self._view.allowed_methods:
+            if method == 'PATCH' and 'required' not in result:
+                result['required'] = []
+        return result
 
 
 class VersionSerializer(rest_framework.serializers.Serializer):
