@@ -18,8 +18,10 @@ spec:
         ports:
           - containerPort: 6379
         readinessProbe:
-          tcpSocket:
-            port: 6379
+          exec:
+            command:
+            - redis-cli
+            - "bash -c '[[ $(redis-cli PING) == \"PONG\" ]]'"
           initialDelaySeconds: 5
           periodSeconds: 10
           failureThreshold: 3
