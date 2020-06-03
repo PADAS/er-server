@@ -2375,7 +2375,8 @@ class TestEventView(BaseAPITest):
                             {
                                 "key": "rhinosightingrep_unknownpicklist",
                                 "type": "checkboxes",
-                                "title": "Line 3: Unknown"
+                                "title": "Line 3: Unknown",
+                                "titleMap": [{'value': 'unknown_rhino_1', 'name': 'Unknown Rhino 1'}]
                             }
                         ]}]})
         event_type = self.sample_event.event_type
@@ -2393,7 +2394,7 @@ class TestEventView(BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        self.assertTrue("unknown_rhino_1" in response.content.decode("utf-8"))
+        self.assertTrue("Unknown Rhino 1" in response.content.decode("utf-8"))
 
 
 class TestParsing(TestCase):

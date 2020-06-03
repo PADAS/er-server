@@ -265,8 +265,8 @@ def extractor(schema_item, definition, key, value):
         if isinstance(definition_item, dict) \
                 and (schema_item['key'] == definition_item.get('key') or key == definition_item.get('key')):
             if definition_item.get("type") == "checkboxes":
-                new_val, new_display = handle_checkboxes_in_fieldsets(definition_item, value)
-                return definition_item.get('title'), new_val or val, new_display or display
+                val, display = handle_checkboxes_in_fieldsets(definition_item, value)
+                return definition_item.get('title'), val, display
             return definition_item.get('title'), val, display
     else:
         logger.info('Unable to resolve title for schema_item %s', repr(schema_item))
