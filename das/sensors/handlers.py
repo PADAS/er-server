@@ -30,13 +30,13 @@ class SensorPostParameters(serializers.Serializer):
     subject_id = serializers.CharField(default=None)
     subject_name = serializers.CharField(default=None)
     subject_groups = serializers.ListField(
-        child=serializers.CharField(allow_blank=True), allow_empty=True, default=[])
+        child=serializers.CharField(allow_blank=True), allow_empty=True, default=list)
     subject_type = serializers.CharField(default=None)  # Legacy key
     subject_subtype = serializers.CharField(default=None)
     model_name = serializers.CharField(default=None)
     source_type = serializers.CharField(default=None)
-    additional = serializers.DictField(default={})
-    source_additional = serializers.DictField(default={})
+    additional = serializers.DictField(default=dict)
+    source_additional = serializers.DictField(default=dict)
 
 
 class GenericSensorHandler:
@@ -256,7 +256,7 @@ class DraObservationSerializer(serializers.Serializer):
     source_type = serializers.CharField(default=None)
     subject_name = serializers.CharField(default=None)
     subject_groups = serializers.ListField(
-        child=serializers.CharField(allow_blank=True), allow_empty=True, default=[])
+        child=serializers.CharField(allow_blank=True), allow_empty=True, default=list)
     recorded_at = serializers.DateTimeField()
     location = LocationDictSerializer()
 

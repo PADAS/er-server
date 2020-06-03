@@ -29,6 +29,14 @@ class CustomSchema(AutoSchema):
 
         return operation
 
+    def _map_serializer(self, serializer):
+        result = super()._map_serializer(serializer)
+        for res in result.get('properties').values():
+            default = res.get('default')
+            if default:
+                res['default'] = [] if default == type([]) else {} if default == type({}) else default
+        return result
+
 
 class BaseSensorsView(generics.GenericAPIView):
     permission_classes = (AllowAnyGet,)

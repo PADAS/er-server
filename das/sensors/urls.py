@@ -21,7 +21,6 @@ url_suffix = '(?P<provider_key>[\w-]{3,20})/status/?$'
 
 urlpatterns = [
     url(r'^openapi-schema/', schema_view, name='openapi-schema'),
-    url(rf'^(?P<sensor_type>[\w-]{3,20})/{url_suffix}', views.GenericSensorHandlerView.as_view()),
     url(rf'^gsat/{url_suffix}', views.GsatHandlerView.as_view()),
     url(rf'^dasradioagent/{url_suffix}', views.RadioAgentHandlerView.as_view()),
     url(rf'^camera-trap/{url_suffix}', views.CameraTrapHandlerView.as_view()),
@@ -35,5 +34,6 @@ urlpatterns = [
     url(rf'^test/{url_suffix}', views.TestHandlerView.as_view()),
     url(rf'^capturs-tracker/{url_suffix}', views.CaptursHandlerView.as_view()),
     url(rf'^ezytrack-tracker/{url_suffix}', views.EzyTrackHandlerView.as_view(), name='ezytrack-view'),
-    url(rf'^inreach-tracker/{url_suffix}', views.InreachHandlerView.as_view())
+    url(rf'^inreach-tracker/{url_suffix}', views.InreachHandlerView.as_view()),
+    url(rf'^(?P<sensor_type>[\w-]{3,20})/{url_suffix}', views.GenericSensorHandlerView.as_view()),
 ]
