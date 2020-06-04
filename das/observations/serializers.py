@@ -507,10 +507,10 @@ class ObservationSerializer(rest_framework.serializers.ModelSerializer):
 
     def to_representation(self, instance):
         rep = super(ObservationSerializer, self).to_representation(instance)
-        rep['observation_additional'] = rep['additional']
+        rep['observation_details'] = rep['additional']
         rep.pop('additional')
         if not self.context.get('include_details', True):
-            rep.pop('observation_additional')
+            rep.pop('observation_details')
         return rep
 
 
