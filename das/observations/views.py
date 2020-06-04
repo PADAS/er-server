@@ -837,7 +837,7 @@ class ObservationsView(generics.ListCreateAPIView):
         context = super(ObservationsView, self).get_serializer_context()
         query_params = self.request.query_params \
             if self.request and hasattr(self.request, 'query_params') else {}
-        context['include_details'] = parse_bool(query_params.get('include_details', True))
+        context['include_details'] = parse_bool(query_params.get('include_details', False))
         return context
 
 

@@ -453,5 +453,4 @@ class ObservationViewTestCase(BaseAPITest):
         self.assertEqual(len(results), 1)
 
         obs = results[0]
-        self.assertIn('observation_additional', obs.keys())
-        self.assertEqual(obs.get('observation_additional'), self.additional)
+        self.assertNotIn('observation_additional', obs.keys())
