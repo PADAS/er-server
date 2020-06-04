@@ -245,7 +245,7 @@ def extract_from_dict_or_string(schema_item, value):
     return value, display
 
 
-def extractor(schema_item, definition, value):
+def extractor(schema_item, definition, key, value):
 
     # Determine how the value should appear.
     if isinstance(value, list):
@@ -262,7 +262,8 @@ def extractor(schema_item, definition, value):
         return
 
     for definition_item in flatten_definition_items(definition):
-        if isinstance(definition_item, dict) and definition_item.get('key') == schema_item['key']:
+        if isinstance(definition_item, dict) \
+                and (schema_item['key'] == definition_item.get('key') or key == definition_item.get('key')):
             if definition_item.get("type") == "checkboxes":
                 val, display = handle_checkboxes_in_fieldsets(definition_item, value)
                 return definition_item.get('title'), val, display
@@ -343,7 +344,7 @@ def property_keys_order_as_dict(schema):
 def detail_resolver(schema, key, value):
     if key in schema['schema']['properties']:
         schema_item = schema['schema']['properties'][key]
-        return extractor(schema_item, schema.get('definition', []), value)
+        return extractor(schema_item, schema.get('definition', []), key, value)
 
 
 def generate_details(event, schema):
