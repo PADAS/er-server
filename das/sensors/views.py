@@ -32,9 +32,8 @@ class CustomSchema(AutoSchema):
     def _map_serializer(self, serializer):
         result = super()._map_serializer(serializer)
         for res in result.get('properties').values():
-            default = res.get('default')
-            if default:
-                res['default'] = [] if default == type([]) else {} if default == type({}) else default
+            if res.get('default'):
+                res['default'] = res['default']()
         return result
 
 
