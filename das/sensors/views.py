@@ -2,8 +2,8 @@ from django.conf import settings
 from rest_framework import generics
 from rest_framework.parsers import (FileUploadParser, FormParser, JSONParser,
                                     MultiPartParser)
-from rest_framework.schemas.openapi import AutoSchema
 
+from das_server.views import CustomSchema
 from observations.serializers import ObservationSerializer
 from sensors.camera_trap import CameraTrapSensorHandler
 from sensors.capturs import CaptursPushHandler
@@ -18,33 +18,12 @@ from utils.drf import AllowAnyGet
 from utils.json import JSONTextParser
 from utils.stats import increment
 
-schema_class = settings.REST_FRAMEWORK.get('DEFAULT_SCHEMA_CLASS', '')
-
-
-class CustomSchema(AutoSchema):
-    def get_operation(self, path, method):
-        operation = super().get_operation(path, method)
-        operation['tags'] = ["Sensors"]
-        operation['summary'] = getattr(self.view, method.lower()).__doc__
-
-        return operation
-
-    def _map_serializer(self, serializer):
-        result = super()._map_serializer(serializer)
-        for res in result.get('properties').values():
-            if res.get('default'):
-                res['default'] = res['default']()
-        return result
-
 
 class BaseSensorsView(generics.GenericAPIView):
     permission_classes = (AllowAnyGet,)
     serializer_class = ObservationSerializer
     parser_classes = (JSONParser, JSONTextParser,
                       MultiPartParser, FormParser, FileUploadParser)
-
-    if 'coreapi' not in schema_class:
-        schema = CustomSchema()
 
 
 class GenericSensorHandlerView(BaseSensorsView):
@@ -58,8 +37,28 @@ class GenericSensorHandlerView(BaseSensorsView):
         return GenericSensorHandler.post(request, sensor_type=sensor_type, provider_key=provider_key)
 
 
+class GsatSchema(CustomSchema):
+    def get_operation(self, path, method):
+        operation = super().get_operation(path, method)
+        if method == 'GET':
+            query_params = [
+                {'name': 'uniqueid', 'in': 'query', 'required': True},
+                {'name': 'lat', 'in': 'query', 'required': True, 'description': 'latitude'},
+                {'name': 'lng', 'in': 'query', 'required': True, 'description': 'longitude'},
+                {'name': 'time', 'in': 'query', 'required': True, 'description': 'recorded time'},
+                {'name': 'alt', 'in': 'query', 'description': 'altitude'},
+                {'name': 'heading', 'in': 'query', 'description': 'Direction subject is headed'},
+                {'name': 'speed', 'in': 'query', 'description': 'subject speed'},
+                {'name': 'emer', 'in': 'query', 'description': 'If emergency', 'schema': {'type': 'bool'}},
+                ]
+            operation['parameters'].extend(query_params)
+        return operation
+
+
 class GsatHandlerView(BaseSensorsView):
-    # Identify appropriate serializers
+    serializer_class = None
+    schema = GsatSchema()
+
     def get(self, request, provider_key=None):
         """ Add Gsat Observations """
         return GsatHandler.post(request, provider_key)
@@ -130,12 +129,16 @@ class SigfoxFoundationHandlerView(BaseSensorsView):
 
 
 class GateHandlerView(BaseSensorsView):
+    serializer_class = None
+
     def post(self, request, provider_key=None):
         """ Add Gate Sensor Observations """
         return GateHandler.post(request, provider_key)
 
 
 class TestHandlerView(BaseSensorsView):
+    serializer_class = None
+
     def post(self, request, provider_key=None):
         """ Add Test Sensor Observations """
         return TestHandler.post(request, provider_key)

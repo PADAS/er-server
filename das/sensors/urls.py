@@ -4,17 +4,12 @@ from rest_framework.schemas import get_schema_view
 
 from sensors import views
 
-renderer = [JSONOpenAPIRenderer]
-
-if 'coreapi' in views.schema_class:
-    renderer = None
-
 schema_view = get_schema_view(
     title="DAS API Documentation",
     description="Sensors API",
     urlconf="sensors.urls",
     url="api/v1.0/sensors",
-    renderer_classes=renderer
+    renderer_classes=[JSONOpenAPIRenderer]
 )
 
 url_suffix = '(?P<provider_key>[\w-]{3,20})/status/?$'
