@@ -51,11 +51,9 @@ class CustomSchema(AutoSchema):
         # update default values to be json serializable
         result = super()._map_serializer(serializer)
         for res in result.get('properties').values():
-            default = res.get('default')
-            if default:
-                res['default'] = [] if default == type([]) else {} if default == type({}) else default
+            if res.get('default'):
+                res['default'] = res['default']()
 
-        
         # add required field to result to fix the break when clearing the same field for a patch method in _get_request_body.
         for method in self._view.allowed_methods:
             if method == 'PATCH' and 'required' not in result:

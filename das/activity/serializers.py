@@ -1675,7 +1675,7 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
     conditions = rest_framework.serializers.JSONField(
         required=False, default=dict)
     schedule = rest_framework.serializers.JSONField(
-        required=False, default=_default_schedule())
+        required=False, default=_default_schedule)
 
     owner = rest_framework.serializers.HiddenField(
         default=rest_framework.serializers.CurrentUserDefault())
