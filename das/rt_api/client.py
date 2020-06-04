@@ -27,7 +27,7 @@ SERVICE_ID = socket.gethostbyname(socket.gethostname()) or str(get_ip_address())
 CLIENT_LIST_KEY = 'rt_api.{}'.format(SERVICE_ID)
 EXPIRED_CLIENT_TRACES_LIST = 'rt_api.expired_traces'
 REALTIME_SERVICES_KEY = 'rt_api.services'
-
+TRACE_TTL = 60
 
 FIELDS = ['username', 'sid', 'bbox']
 ClientData = collections.namedtuple('ClientData', FIELDS)
@@ -243,17 +243,13 @@ def start_trace_consumer():
 def shutdown_cleanup(*args):
     logger.info('Shutdown cleanup for realtime client list: %s', CLIENT_LIST_KEY)
     remove_rt_service(CLIENT_LIST_KEY)
-
-
-signal.signal(signal.SIGINT, shutdown_cleanup)
-signal.signal(signal.SIGTERM, shutdown_cleanup)
-
-trace_ttl = 60
+    signal.signal(signal.SIGINT, shutdown_cleanup)
+    signal.signal(signal.SIGTERM, shutdown_cleanup)
 
 
 def push_trace(trace_id, data):
     logger.info('TRACE', extra={'action': 'push', 'trace_id': trace_id})
-    redis_client.setex(trace_id, data, trace_ttl)
+    redis_client.setex(trace_id, data, TRACE_TTL)
 
 
 def pop_trace(trace_id):
