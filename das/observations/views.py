@@ -70,13 +70,6 @@ def default_since():
     return datetime.datetime.now(pytz.utc) - get_track_days()
 
 
-def dateparse(date_str, default_tz=pytz.utc):
-    dt = dateutil.parser.parse(date_str)
-    if not dt.tzinfo:
-        dt = dt.replace(tzinfo=default_tz)
-    return dt
-
-
 def check_valid_date_string(date_str, parameter_name):
     if date_str:
         try:
