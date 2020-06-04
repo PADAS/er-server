@@ -22,3 +22,7 @@ data "vault_generic_secret" "ssl_privatekey_pem" {
 data "vault_generic_secret" "ssl_certificate_chain" {
   path = "${local.legacy_vault_path}/${var.ssl_certificate_vault_path}"
 }
+
+data "vault_generic_secret" "twilio_account_settings" {
+  path = "${local.legacy_vault_path}/earthranger/twilio/default"
+}

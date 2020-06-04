@@ -15,7 +15,7 @@ from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 
 from core.serializers import ContentTypeField
 from observations import models
-from observations.utils import get_maximum_allowed_age, get_minimum_allowed_age
+from observations.utils import get_maximum_allowed_age, get_minimum_allowed_age, dateparse
 import utils.json
 from utils.json import zeroout_microseconds
 from utils import add_base_url
@@ -61,8 +61,11 @@ class GroupSerializer(rest_framework.serializers.ModelSerializer):
         except Exception:
             pass
 
+        mou_date = user.additional.get('expiry', None)
+        mou_date = dateparse(mou_date) if mou_date else None
+
         queryset = getattr(instance, 'get_all_{0}'.format(contained_field))(
-            user=user, active=active, include_from_subgroups=False)
+            user=user, active=active, include_from_subgroups=False, mou_expiry_date=mou_date)
 
         # queryset = queryset.order_by('name')
         # queryset variable contains list of sources linked with source group.
@@ -162,29 +165,26 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                 # Get last_position details from latest accessible source
                 # according to SourceGroup permissions.
                 linked_sources = self.context.get(
-                    'subject_linked_sources', {}).get(instance.name)
+                    'subject_linked_sources', {}).get(instance.id)
                 if linked_sources:
                     # Fetch latest & oldest Observations available to plot
                     # latest_position & tracks_range.
-                    latest_subject_source = models.SubjectSource.objects.filter(
-                        source__in=linked_sources,
-                        subject=instance).order_by('-assigned_range').first()
-                    oldest_subject_source = models.SubjectSource.objects.filter(
-                        source__in=linked_sources,
-                        subject=instance).order_by('assigned_range').first()
-                    if latest_subject_source and oldest_subject_source:
+                    latest_source, latest_range = linked_sources['latest_source'], linked_sources['latest_range']
+                    oldest_source, oldest_range = linked_sources['oldest_source'], linked_sources['oldest_range']
+
+                    if latest_range and oldest_range:
                         latest_observation = models.Observation.objects.filter(
-                            source__subjectsource=latest_subject_source,
+                            source=latest_source,
                             recorded_at__range=[
-                                latest_subject_source.safe_assigned_range.lower,
-                                latest_subject_source.safe_assigned_range.upper
+                                latest_range.lower,
+                                latest_range.upper
                             ]).order_by('-recorded_at').first()
 
                         oldest_observation = models.Observation.objects.filter(
-                            source__subjectsource=oldest_subject_source,
+                            source=oldest_source,
                             recorded_at__range=[
-                                oldest_subject_source.safe_assigned_range.lower,
-                                oldest_subject_source.safe_assigned_range.upper
+                                oldest_range.lower,
+                                oldest_range.upper
                             ]).order_by('recorded_at').first()
 
                         rep[
@@ -497,26 +497,22 @@ class ObservationSerializer(rest_framework.serializers.ModelSerializer):
 
     location = PointField(required=False)
     source = SourceRelatedField()
-    observation_additional = rest_framework.serializers.JSONField(source="additional")
 
     class Meta:
         model = models.Observation
         fields = ('id', 'location', 'created_at',
-                  'recorded_at', 'observation_additional', 'source')
+                  'recorded_at', 'additional', 'source')
         id_field = False
         geo_field = 'location'
 
     def to_representation(self, instance):
         rep = super(ObservationSerializer, self).to_representation(instance)
+        rep['observation_additional'] = rep['additional']
+        rep.pop('additional')
+        if not self.context.get('include_details', True):
+            rep.pop('observation_additional')
         return rep
 
-    def __init__(self, *args, **kwargs):
-        super(ObservationSerializer, self).__init__(*args, **kwargs)
-
-        if self.context.get('include_details', True):
-            self.fields['observation_additional'].context.update(self.context)
-        else:
-            self.fields.pop('observation_additional')
 
 
 SUBJECT_STATUS_RETURN_FIELDS = (

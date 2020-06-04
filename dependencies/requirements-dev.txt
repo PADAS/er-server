@@ -147,7 +147,7 @@ pexpect==4.8.0            # via -r ./requirements.txt, ipython
 pickleshare==0.7.5        # via -r ./requirements.txt, ipython
 piexif==1.0.13            # via -r ./requirements.txt
 pillow==4.3.0             # via -r ./requirements.txt, django-versatileimagefield
-pip-tools==5.1.2          # via -r requirements-dev.in
+pip-tools==5.2.0          # via -r requirements-dev.in
 pluggy==0.13.0            # via pytest
 pre-commit==2.4.0         # via -r requirements-dev.in
 prometheus-client==0.7.1  # via -r ./requirements.txt, notebook

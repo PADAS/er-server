@@ -13,6 +13,7 @@ from activity.views import EventView
 from das_server import celery, pubsub
 from django.conf import settings
 from django.db import close_old_connections
+from rest_framework.exceptions import PermissionDenied
 
 from observations import servicesutils
 
@@ -87,43 +88,53 @@ def _event_handler(event_id, type):
                 request = DummyRequest(
                     user=user, http_method='GET', query_parameters={})
                 queryset = Event.objects.filter(id=event_id)
-
-                try:
-                    socket_client = SocketClient.objects.get(id=sid)
-                    queryset = get_filtered_events(
-                        socket_client.event_filter, queryset)
-                except SocketClient.DoesNotExist:
-                    logger.debug('SocketClient does not exist for sid=%s', sid)
-
                 event = queryset.first()
 
                 if event:
                     try:
                         event_view.check_object_permissions(
                             request=request, obj=event)
-                    except:
+                    except PermissionDenied:
                         logger.debug(
                             'Permission denied. user=%s, event=%s', username, event.id)
                     else:
-                        data = EventSerializer(event,
-                                               context={'request': request,
-                                                        'include_related_events': True
-                                                        }).data
+                        matches_current_filter = True
+                        should_annotate = False
+                        try:
+                            socket_client = SocketClient.objects.get(id=sid)
+                            should_annotate = should_annotate_filtered_events(socket_client.event_filter)
+                            queryset = get_filtered_events(
+                                socket_client.event_filter, queryset)
+                            matches_current_filter = queryset.exists()
+                        except SocketClient.DoesNotExist:
+                            logger.debug(f'SocketClient does not exist for sid={sid}')
+                        
+                        if should_annotate or matches_current_filter:
+                            data = EventSerializer(event,
+                                                context={'request': request,
+                                                            'include_related_events': True
+                                                            }).data
 
-                        emit_data = {
-                            'type': type,
-                            'sid': sid,
-                            'object_id': event_id,
-                            'data': {'type': type, 'event_id': event_id, 'event_data': data}
-                        }
+                            emit_data = {
+                                'type': type,
+                                'sid': sid,
+                                'object_id': event_id,
+                                'data': {'type': type, 'event_id': event_id, 'matches_current_filter': matches_current_filter, 'event_data': data}
+                            }
 
-                        logger.debug(
-                            'Publish das.realtime.emit.  data=%s', emit_data)
-                        pubsub.publish(json.dumps(
-                            emit_data, default=dumps_helper), 'das.realtime.emit')
+                            logger.debug(
+                                'Publish das.realtime.emit.  data=%s', emit_data)
+                            pubsub.publish(json.dumps(
+                                emit_data, default=dumps_helper), 'das.realtime.emit')
 
     finally:
         close_old_connections()
+
+
+def should_annotate_filtered_events(event_filter):
+    # TODO: Better way to detect the caller wants us to return all events, but
+    # mark it as being filtered or not by current event filter
+    return "filter" in event_filter
 
 
 def get_filtered_events(event_filter, queryset):

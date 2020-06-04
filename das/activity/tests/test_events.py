@@ -2356,6 +2356,47 @@ class TestEventView(BaseAPITest):
         expected = "v1,v2,v3"
         self.assertEqual(camera_version, expected)
 
+    def test_checkbox_field_values_included_in_export(self):
+        et_schema = json.dumps({
+            "schema":
+            {
+                "properties":
+                    {
+                            "rhinosightingrep_unknownpicklist": {
+                                "key": "rhinosightingrep_unknown"
+                            }
+                    }
+            },
+                "definition": [
+                    {
+                        "type": "fieldset",
+                        "htmlClass": "col-lg-6",
+                        "items": [
+                            {
+                                "key": "rhinosightingrep_unknownpicklist",
+                                "type": "checkboxes",
+                                "title": "Line 3: Unknown",
+                                "titleMap": [{'value': 'unknown_rhino_1', 'name': 'Unknown Rhino 1'}]
+                            }
+                        ]}]})
+        event_type = self.sample_event.event_type
+        event_type.schema = et_schema
+        event_type.save()
+
+        EventDetails.objects.create(
+            data={"event_details": {"rhinosightingrep_unknownpicklist": ["unknown_rhino_1"]}},
+            event=self.sample_event)
+
+        url = """/activity/events/export"""
+        filter_spec = json.dumps({'text': "Test event"})
+        request = self.factory.get(
+            self.api_base + url, {'filter': filter_spec})
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        self.assertTrue("Unknown Rhino 1" in response.content.decode("utf-8"))
+
+
 class TestParsing(TestCase):
 
     def test_dates(self):
