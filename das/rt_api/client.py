@@ -4,9 +4,9 @@ import redis
 import datetime
 import pytz
 import socket
+import signal
 
 from django.contrib.gis.geos import Polygon, MultiPolygon
-from observations.models import SocketClient
 
 from django.conf import settings
 from utils import json
@@ -23,7 +23,7 @@ def get_ip_address():
     return s.getsockname()[0]
 
 
-SERVICE_ID = '1'  # str(get_ip_address())
+SERVICE_ID = socket.gethostbyname(socket.gethostname()) or str(get_ip_address())
 CLIENT_LIST_KEY = 'rt_api.{}'.format(SERVICE_ID)
 EXPIRED_CLIENT_TRACES_LIST = 'rt_api.expired_traces'
 REALTIME_SERVICES_KEY = 'rt_api.services'
@@ -38,6 +38,7 @@ Bbox = collections.namedtuple('Bbox', BBOX_FIELDS)
 
 
 def init_redis_storage():
+    logger.info("Initializing redis storage")
     # first, remove existing key to remove stale clients
     redis_client.delete(CLIENT_LIST_KEY)
     # add the service as a member of services set
@@ -69,6 +70,7 @@ def update_client(sid, bbox=None, event_filter=None):
             update_values['event_filter'] = event_filter
 
         if update_values:
+            from observations.models import SocketClient
             update_values['username'] = client_data.username
             socket_client, created = SocketClient.objects.update_or_create(
                 id=sid, defaults=update_values)
@@ -76,6 +78,14 @@ def update_client(sid, bbox=None, event_filter=None):
 
 def get_all_connections():
     all_conns = redis_client.hgetall(CLIENT_LIST_KEY)
+    return all_conns
+
+
+def get_all_connections_list():
+    all_conns = {}
+    for list_key in get_rt_service_list():
+        conn = redis_client.hgetall(list_key)
+        all_conns.update(conn)
     return all_conns
 
 
@@ -166,6 +176,8 @@ def remove_clients(*sids):
     logger.info('Deleteing mid keys for sids %s.', sids)
     redis_client.delete(*[f'mid-{sid}' for sid in sids])
 
+    from observations.models import SocketClient
+
     try:
         SocketClient.objects.filter(id__in=sids).delete()
     except ValueError:
@@ -195,7 +207,7 @@ def remove_all_rt_services():
     leave the
     :return:
     '''
-    rt_services = redis_client.srem(REALTIME_SERVICES_KEY)
+    rt_services = get_rt_service_list()
     for rt_svc in rt_services:
         remove_rt_service(rt_svc)
 
@@ -228,13 +240,13 @@ def start_trace_consumer():
         'Stopping trace consumer.'), trace_consumer.stop())
 
 
-def shutdown_cleanup():
-    logger.info('Shutdown cleanup for realtime client list.')
+def shutdown_cleanup(*args):
+    logger.info('Shutdown cleanup for realtime client list: %s', CLIENT_LIST_KEY)
     remove_rt_service(CLIENT_LIST_KEY)
 
-    logger.info('Deleting message ID counters.')
-    redis_client.delete(redis_client.keys('mid-*'))
 
+signal.signal(signal.SIGINT, shutdown_cleanup)
+signal.signal(signal.SIGTERM, shutdown_cleanup)
 
 trace_ttl = 60
 

@@ -12,7 +12,7 @@ import eventlet
 eventlet.monkey_patch()
 
 from django.core.wsgi import get_wsgi_application
-from socketio import Middleware
+from socketio import WSGIApp
 from das_server.log import init_logging
 
 init_logging()
@@ -22,4 +22,4 @@ app = get_wsgi_application()
 
 from rt_api.views import create_rt_socketio
 sio = create_rt_socketio()
-application = Middleware(sio, app)
+application = WSGIApp(sio, app)
