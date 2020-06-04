@@ -23,7 +23,7 @@ def get_ip_address():
     return s.getsockname()[0]
 
 
-SERVICE_ID = socket.gethostbyname(socket.gethostname()) or str(get_ip_address())
+SERVICE_ID = socket.gethostbyname(socket.getfqdn()) or str(get_ip_address())
 CLIENT_LIST_KEY = 'rt_api.{}'.format(SERVICE_ID)
 EXPIRED_CLIENT_TRACES_LIST = 'rt_api.expired_traces'
 REALTIME_SERVICES_KEY = 'rt_api.services'
