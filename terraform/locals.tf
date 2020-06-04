@@ -42,6 +42,8 @@ locals {
     "socp"                   = "prod-asia"
     "westernsiempang"        = "prod-asia"
     "damai"                  = "prod-asia"
+    "preylang"               = "prod-asia"
+    "snowleopardtrust"       = "prod-asia"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
