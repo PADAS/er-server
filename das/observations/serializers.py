@@ -61,7 +61,7 @@ class GroupSerializer(rest_framework.serializers.ModelSerializer):
         except Exception:
             pass
 
-        mou_date = self.context["request"].user.additional.get('expiry', None)
+        mou_date = user.additional.get('expiry', None)
         mou_date = dateparse(mou_date) if mou_date else None
 
         queryset = getattr(instance, 'get_all_{0}'.format(contained_field))(
