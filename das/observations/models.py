@@ -105,7 +105,7 @@ class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin)
                                      blank=True)
     objects = SourceGroupManager()
 
-    def get_all_sources(self, user=None, active=None, include_from_subgroups=True):
+    def get_all_sources(self, user=None, active=None, include_from_subgroups=True, **kwargs):
         """Including descendant group sources"""
         sources = set(iter(self.sources.all()))
 
