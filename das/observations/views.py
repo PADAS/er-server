@@ -32,7 +32,7 @@ from observations import models
 from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
 from observations.permissions import StandardObjectPermissions
 from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS, VIEW_SUBJECTGROUP_PERMS, \
-    check_to_include_inactive_subjects, dateparse
+    check_to_include_inactive_subjects
 from observations.utils import get_minimum_allowed_age
 from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination, StandardResultsSetGeoJsonPagination
 from utils.json import zeroout_microseconds, parse_bool, ExtendedGEOJSONRenderer
