@@ -13,13 +13,15 @@ Including another URLconf
     1. Add an import:  from blog import urls as blog_urls
     2. Add a URL to urlpatterns:  url(r'^blog/', include(blog_urls))
 """
-from django.conf.urls import include, url
-from django.urls import path
-from django.contrib import admin
 import django.contrib.staticfiles.views
-from django.conf import settings
 import oauth2_provider.views as oauth2_views
-from rest_framework.documentation import include_docs_urls
+from django.conf import settings
+from django.conf.urls import include, url
+from django.contrib import admin
+from django.urls import path
+from django.views.generic import TemplateView
+from rest_framework.renderers import JSONOpenAPIRenderer
+from rest_framework.schemas import get_schema_view
 
 from das_server import views
 from das_server.admin import dasadmin_site
@@ -45,7 +47,8 @@ urlpatterns = [
     url(r'^api/v1.0/', include('rt_api.urls')),
     url(r'^api/v1.0/api-auth/',
         include('rest_framework.urls', namespace='rest_framework')),
-    url(r'^api/v1.0/docs/', include_docs_urls(title='DAS API Documentation')),
+    url(r'^api/v1.0/api-schema/', schema_view, name='openapi-schema'),
+    url(r'^api/v1.0/docs/', template_view),
     url(r'^admin/', admin.site.urls),
     url(r'^dasadmin/', dasadmin_site.urls),
     url(r'^accounts/', include('accounts.urls_user')),
