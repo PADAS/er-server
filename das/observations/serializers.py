@@ -507,12 +507,10 @@ class ObservationSerializer(rest_framework.serializers.ModelSerializer):
 
     def to_representation(self, instance):
         rep = super(ObservationSerializer, self).to_representation(instance)
-        rep['observation_additional'] = rep['additional']
+        if self.context.get('include_details'):
+            rep['observation_details'] = rep['additional']
         rep.pop('additional')
-        if not self.context.get('include_details', True):
-            rep.pop('observation_additional')
         return rep
-
 
 
 SUBJECT_STATUS_RETURN_FIELDS = (

@@ -438,8 +438,8 @@ class ObservationViewTestCase(BaseAPITest):
         self.assertEqual(len(results), 1)
 
         obs = results[0]
-        self.assertIn('observation_additional', obs.keys())
-        self.assertEqual(obs.get('observation_additional'), self.additional)
+        self.assertIn('observation_details', obs.keys())
+        self.assertEqual(obs.get('observation_details'), self.additional)
 
     def test_include_details_not_specified(self):
         url = reverse('observations-list-view')
@@ -453,5 +453,4 @@ class ObservationViewTestCase(BaseAPITest):
         self.assertEqual(len(results), 1)
 
         obs = results[0]
-        self.assertIn('observation_additional', obs.keys())
-        self.assertEqual(obs.get('observation_additional'), self.additional)
+        self.assertNotIn('observation_details', obs.keys())
