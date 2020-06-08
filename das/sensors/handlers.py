@@ -797,7 +797,7 @@ class InreachPushHandler:
 
             if cls.new_observations:
                 return Response(
-                    data={"message": f"{cls.new_observations} new observation(s) added"}, status=status.HTTP_201_CREATED)
+                    data={"message": f"{cls.new_observations} new observation(s) added"}, status=status.HTTP_200_OK)
             else:
                 return Response(data={}, status=status.HTTP_200_OK)
 
