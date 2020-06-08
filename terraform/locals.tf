@@ -60,6 +60,7 @@ locals {
     "welgevonden"            = "prod1"
     "wildhorizons"           = "prod1"
     "zakouma"                = "prod1"
+    "degrees51"              = "prod1"
     "hello-asia"             = "prod-asia"
     "socp"                   = "prod-asia"
     "westernsiempang"        = "prod-asia"
