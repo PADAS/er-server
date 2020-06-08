@@ -58,7 +58,7 @@ class InreachPushHandlerTest(BaseAPITest):
 
     def test_inreach_observations(self):
         response = self._post_inreach_data(json.dumps(self.test_data))
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_duplicate_observations(self):
         self._post_inreach_data(json.dumps(self.test_data))
