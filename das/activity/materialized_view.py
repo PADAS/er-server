@@ -1,3 +1,4 @@
+import json
 from activity.models import Event, EventType
 from utils import schema_utils
 
@@ -12,7 +13,10 @@ def load_schema():
     schema_accumulator = {}
 
     for et in EventType.objects.all():
-        schema_accumulator[et.value] = render_f(et.schema)
+        try:
+            schema_accumulator[et.value] = render_f(et.schema)
+        except json.decoder.JSONDecodeError:
+            continue        # skip invalid schema.
     return schema_accumulator
 
 
