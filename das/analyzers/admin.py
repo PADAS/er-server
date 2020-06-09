@@ -2,7 +2,9 @@ from django.contrib import admin
 import django.contrib.gis.admin as gis_admin
 
 import analyzers.models as models
-from analyzers.forms import EnvironmentalAnalyzerAdminForm, GlobalForestWatchSubscriptionForm
+from analyzers.forms import EnvironmentalAnalyzerAdminForm, GlobalForestWatchSubscriptionForm, \
+    GeofenceSubjectAnalyzerForm, ImmobilityAnalyzerForm, LowSpeedPercentileSubjectAnalyzerForm, \
+    LowSpeedWilcoxSubjectAnalyzerForm, ProximitySubjectAnalyzerForm
 from core.openlayers import OSMGeoExtendedAdmin
 
 
@@ -12,6 +14,7 @@ class ImmobilityAnalyzerAdmin(admin.ModelAdmin):
     ordering = ('name', 'subject_group')
     readonly_fields = ('id',)
     search_fields = ('subject_group__name',)
+    form = ImmobilityAnalyzerForm
 
     def subject_group_name(self, o):
         return o.subject_group.name
@@ -89,6 +92,7 @@ class ProximitySubjectAnalyzerAdmin(admin.ModelAdmin):
 
     search_fields = ('subject_group__name',)
     readonly_fields = ('id',)
+    form = ProximitySubjectAnalyzerForm
 
     def subject_group_name(self, o):
         return o.subject_group.name
@@ -119,6 +123,7 @@ class GeofenceSubjectAnalyzerAdmin(admin.ModelAdmin):
     ordering = ('name', 'subject_group')
     search_fields = ('subject_group__name',)
     readonly_fields = ('id',)
+    form = GeofenceSubjectAnalyzerForm
 
     def subject_group_name(self, o):
         return o.subject_group.name
@@ -148,6 +153,7 @@ class LowSpeedWilcoxSubjectAnalyzerAdmin(admin.ModelAdmin):
     ordering = ('name', 'subject_group')
     readonly_fields = ('id',)
     search_fields = ('subject_group__name',)
+    form = LowSpeedWilcoxSubjectAnalyzerForm
 
     def subject_group_name(self, o):
         return o.subject_group.name
@@ -171,6 +177,7 @@ class LowSpeedPercentileSubjectAnalyzerAdmin(admin.ModelAdmin):
     list_display = ('name', 'subject_group_name',)
     ordering = ('name', 'subject_group')
     readonly_fields = ('id',)
+    form = LowSpeedPercentileSubjectAnalyzerForm
 
     search_fields = ('subject_group__name',)
 
