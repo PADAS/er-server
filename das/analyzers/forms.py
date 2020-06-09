@@ -17,8 +17,6 @@ class TimeFrameWidget(forms.MultiWidget):
 
     def __init__(self, attrs=None):
         widgets = [forms.NumberInput, forms.NumberInput]
-        # Note that we're calling MultiWidget, because
-        # we want to define widgets.
         forms.MultiWidget.__init__(self, widgets, attrs)
 
     def get_context(self, name, value, attrs):
