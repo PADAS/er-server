@@ -10,26 +10,28 @@ spec:
         das.component: redis
     spec:
       containers:
-      - image: redis
-        name: das-redis
-        resources:
-          requests:
-            cpu: "50m"
-        ports:
-          - containerPort: 6379
-        readinessProbe:
-          exec:
-            command:
-            - redis-cli
-            - "bash -c '[[ $(redis-cli PING) == \"PONG\" ]]'"
-          initialDelaySeconds: 5
-          periodSeconds: 10
-          failureThreshold: 3
-          successThreshold: 1
-        livenessProbe:
-          tcpSocket:
-            port: 6379
-          initialDelaySeconds: 15
-          periodSeconds: 20
-          failureThreshold: 3
-          successThreshold: 1
+        - image: redis
+          name: das-redis
+          resources:
+            requests:
+              cpu: "50m"
+          ports:
+            - containerPort: 6379
+          readinessProbe:
+            exec:
+              command:
+                - redis-cli
+                - 'bash -c ''[[ $(redis-cli PING) == "PONG" ]]'''
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+            successThreshold: 1
+          livenessProbe:
+            exec:
+              command:
+                - redis-cli
+                - 'bash -c ''[[ $(redis-cli PING) == "PONG" ]]'''
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+            successThreshold: 1
