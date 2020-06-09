@@ -1,3 +1,4 @@
+import math
 import logging
 
 from django import forms
@@ -27,7 +28,8 @@ class TimeFrameWidget(forms.MultiWidget):
 
     def decompress(self, value):
         if value:
-            return [value, value]
+            minutes, hours = math.modf(value)
+            return [int(hours), round(minutes*60)]
         return [24, 0]
 
 
