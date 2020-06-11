@@ -1,11 +1,9 @@
-import urllib
-
-from observations.utils import get_minimum_allowed_age
 import csv
 import datetime
 import json
 import logging
 import re
+import urllib
 
 import dateutil.parser
 import django
@@ -13,7 +11,8 @@ import pytz
 import rest_framework
 from django.conf import settings
 from django.core.serializers.json import DjangoJSONEncoder
-from django.db.models import F, Q, FilteredRelation
+from django.db.models import F, Q, FilteredRelation, Window
+from django.db.models.functions import FirstValue
 from django.http import Http404, HttpResponse
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -32,9 +31,12 @@ from observations import kmlutils
 from observations import models
 from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
 from observations.permissions import StandardObjectPermissions
-from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS, VIEW_SUBJECTGROUP_PERMS, check_to_include_inactive_subjects
+from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS, VIEW_SUBJECTGROUP_PERMS, \
+    check_to_include_inactive_subjects
+from observations.utils import get_minimum_allowed_age
 from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination, StandardResultsSetGeoJsonPagination
 from utils.json import zeroout_microseconds, parse_bool, ExtendedGEOJSONRenderer
+from observations.utils import dateparse
 
 logger = logging.getLogger(__name__)
 
@@ -67,13 +69,6 @@ def default_since():
     last days is the default
     """
     return datetime.datetime.now(pytz.utc) - get_track_days()
-
-
-def dateparse(date_str, default_tz=pytz.utc):
-    dt = dateutil.parser.parse(date_str)
-    if not dt.tzinfo:
-        dt = dt.replace(tzinfo=default_tz)
-    return dt
 
 
 def check_valid_date_string(date_str, parameter_name):
@@ -364,6 +359,15 @@ class SubjectsView(generics.ListCreateAPIView):
     # classes.
     subject_linked_sources = {}
 
+    window_asc = {
+        'partition_by': F('subject_id'),
+        'order_by': [F('assigned_range').asc(), ],
+    }
+    window_desc = {
+        'partition_by': F('subject_id'),
+        'order_by': [F('assigned_range').desc(), ],
+    }
+
     def get_queryset(self):
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
             raise UnauthorizedView
@@ -405,24 +409,21 @@ class SubjectsView(generics.ListCreateAPIView):
             source_groups = models.SourceGroup.objects.filter(
                 permission_sets__in=self.request.user.get_all_permission_sets())
 
-            # TODO: Review this to determine whether it would be better to join
-            # in a query.
-            for source_group in source_groups:
-                sources = source_group.get_all_sources()
-                for source in sources:
+            subjects_via_source_groups = models.Subject.objects.filter(subjectsource__source__groups__in=source_groups)
+            subjects_via_source_groups = check_to_include_inactive_subjects(self.request, subjects_via_source_groups)
+            queryset = queryset.distinct() | subjects_via_source_groups.distinct()
 
-                    subjects_via_source = all_subjects.filter(
-                        subjectsource__source=source)
-                    subjects_via_source = check_to_include_inactive_subjects(self.request, subjects_via_source)
+            if not self.request.user.is_superuser:
+                # TODO: rather than this, can we get the latest & oldest observation for each subject? (needed in
+                #  serializer.to_representation)
+                subject_linked_sources = models.SubjectSource.objects.filter(source__groups__in=source_groups).annotate(
+                    latest_range=Window(expression=FirstValue(F('assigned_range')), **self.window_desc),
+                    latest_source=Window(expression=FirstValue(F('source_id')), **self.window_desc),
+                    oldest_range=Window(expression=FirstValue(F('assigned_range')), **self.window_asc),
+                    oldest_source=Window(expression=FirstValue(F('source_id')), **self.window_asc)).distinct(
+                    'subject_id').values('subject_id', 'latest_range', 'oldest_range', 'latest_source', 'oldest_source')
 
-                    queryset = queryset.distinct() | subjects_via_source.distinct()
-
-                    # Send all allowed Sources of each Subject to serializer for
-                    # latest_location finding.
-                    if not self.request.user.is_superuser:
-                        for subject in subjects_via_source:
-                            self.subject_linked_sources.setdefault(
-                                subject.name, set()).add(source)
+                self.subject_linked_sources = {ss['subject_id']: ss for ss in subject_linked_sources}
 
         # Apply request query filters that have are compatible with any of the
         # criteria above.
@@ -834,9 +835,7 @@ class ObservationsView(generics.ListCreateAPIView):
 
     def get_serializer_context(self):
         context = super(ObservationsView, self).get_serializer_context()
-        query_params = self.request.query_params \
-            if self.request and hasattr(self.request, 'query_params') else {}
-        context['include_details'] = parse_bool(query_params.get('include_details', True))
+        context['include_details'] = parse_bool(self.request.query_params.get('include_details', False))
         return context
 
 
