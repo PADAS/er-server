@@ -7,7 +7,7 @@ from django.contrib.auth.models import Permission
 import django.contrib.auth
 
 from core.tests import BaseAPITest, fake_get_pool
-from sensors.views import SensorObservation
+from sensors.views import RadioAgentHandlerView
 from observations.views import SubjectTracksView
 from observations.models import Subject, Source, SourceProvider, SubjectSource, SubjectStatus, \
     DEFAULT_ASSIGNED_RANGE, EMPTY_POINT
@@ -71,9 +71,7 @@ class RadioObservationTest(BaseAPITest):
         request = self.factory.post(path, data=data)
 
         self.force_authenticate(request, self.testuser)
-        response = SensorObservation.as_view()(request,
-                                               sensor_type=self.sensor_type,
-                                               provider_key=provider)
+        response = RadioAgentHandlerView.as_view()(request, provider)
 
         self.assertEqual(response.status_code, 201)
 
@@ -110,9 +108,7 @@ class RadioObservationTest(BaseAPITest):
         request = self.factory.post(path, data=data)
 
         self.force_authenticate(request, self.testuser)
-        response = SensorObservation.as_view()(request,
-                                               sensor_type=self.sensor_type,
-                                               provider_key=self.test_sourceprovider_no1.provider_key)
+        response = RadioAgentHandlerView.as_view()(request, self.test_sourceprovider_no1.provider_key)
 
         self.assertEqual(201, response.status_code)
 
