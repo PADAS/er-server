@@ -44,8 +44,16 @@ spec:
               value: '${FQDN}'
             path: '/api/v1.0/status?db_connections=true'
             port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          failureThreshold: 3
+          successThreshold: 1
         livenessProbe:
-          tcpSocket:
+          httpGet:
+            httpHeaders:
+            - name: Host 
+              value: '${FQDN}'
+            path: '/api/v1.0/status?db_connections=true'
             port: 8000
           initialDelaySeconds: 15
           periodSeconds: 20
