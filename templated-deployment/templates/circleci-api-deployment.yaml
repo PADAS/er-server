@@ -37,6 +37,28 @@ spec:
             memory: "500Mi"
         ports:
           - containerPort: 8000
+        readinessProbe:
+          httpGet:
+            httpHeaders:
+            - name: Host 
+              value: '${FQDN}'
+            path: '/api/v1.0/status?db_connections=true'
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          failureThreshold: 3
+          successThreshold: 1
+        livenessProbe:
+          httpGet:
+            httpHeaders:
+            - name: Host 
+              value: '${FQDN}'
+            path: '/api/v1.0/status?db_connections=true'
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          failureThreshold: 3
+          successThreshold: 1
         volumeMounts:
         - name: google-credentials
           mountPath: "/etc/earthranger/"
