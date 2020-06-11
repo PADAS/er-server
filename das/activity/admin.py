@@ -345,7 +345,7 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
             self.message_user(
                 request, f"Successfully {name} 'event_detail_view'")
         if task.state == 'FAILURE':
-            qs_method(activity=action, status=task.state)
+            qs_method(activity=action, status=f'Error ({name}): {task.info}')
             self.message_user(
                 request, f"Failed to {name} 'event_detail_view'", messages.ERROR)
         if task.state == 'RETRY':
@@ -357,7 +357,7 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
 
     def refresh_view(self, request):
         task = refresh_event_details_view.apply_async(args=('Admin',))
-        status = self.model.REFRESH
+        status = dict(self.model.STATUS_MESSAGE).get('REFRESH')
         qs_method = self.model.objects.refresh
         name = 'refresh'
         return self.manage_task_status(request=request,
@@ -368,7 +368,7 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
 
     def recreate_view(self, request):
         task = recreate_event_details_view.delay()
-        status = self.model.SUCCESS
+        status = dict(self.model.STATUS_MESSAGE).get('SUCCESS')
         qs_method = self.model.objects.recreate
         name = 'recreate'
         return self.manage_task_status(request=request,
