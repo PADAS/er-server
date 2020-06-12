@@ -309,6 +309,19 @@ class TestEventView(BaseAPITest):
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 400)
 
+    def test_not_fail_with_emptystring_location(self):
+        event_data = copy.deepcopy(self.event_data)
+        event_data['reported_by'] = self.user_rep
+        event_data['provenance'] = Event.PC_STAFF
+        event_data['event_type'] = ET_OTHER
+        event_data['lcation'] = ""
+
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
     def test_not_fail_with_no_location(self):
         event_data = copy.deepcopy(self.event_data)
         event_data['reported_by'] = self.user_rep
@@ -322,6 +335,15 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
+
+    def test_bad_request_with_empty_string_location(self):
+        event_data = dict(event_details={}, event_type=ET_OTHER, icon_id=ET_OTHER, is_collection=False, location="", priority=100, time="2020-06-11T18:57:12.629Z")
+
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 400)
 
     def test_create_matrix_event(self):
         event_data = {'priority': Event.PRI_REFERENCE,
