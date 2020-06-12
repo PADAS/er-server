@@ -127,7 +127,7 @@ class DisableChoice(Choice):
     class Meta:
         proxy = True
         verbose_name = 'Disable Choice'
-        verbose_name_plural = 'Disable Choices'
+        verbose_name_plural = 'Disabled Choices'
 
 
 class ChoiceCharField(models.CharField):
