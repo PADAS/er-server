@@ -126,8 +126,7 @@ class Choice(SoftDeleteModel):
 class DisableChoice(Choice):
     class Meta:
         proxy = True
-        verbose_name = 'Disable Choice'
-        verbose_name_plural = 'Disabled Choices'
+        verbose_name = 'Disabled Choice'
 
 
 class ChoiceCharField(models.CharField):
