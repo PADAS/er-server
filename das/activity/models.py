@@ -310,7 +310,7 @@ class RefreshRecreateEventDetailView(models.Model):
     performed_by = models.CharField(blank=True, null=True, max_length=255)
     refresh_at = models.DateTimeField(blank=True, null=True)
     recreated_at = models.DateField(blank=True, null=True)
-    maintenance_status = models.CharField(max_length=255, choices=STATUS_MESSAGE, default=PENDING)
+    maintenance_status = models.CharField(max_length=255)
 
     objects = RefreshRecreateEventDetailViewQuery.as_manager()
 

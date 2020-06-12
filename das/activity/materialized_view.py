@@ -15,8 +15,8 @@ def load_schema():
     for et in EventType.objects.all():
         try:
             schema_accumulator[et.value] = render_f(et.schema)
-        except json.decoder.JSONDecodeError:
-            continue        # skip invalid schema.
+        except json.decoder.JSONDecodeError as exc:
+            raise Exception(f"{exc} in eventtype '{et}'")
     return schema_accumulator
 
 
