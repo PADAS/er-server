@@ -754,16 +754,15 @@ class EzyTrackHandler:
 class PointDictSerializer(serializers.Serializer):
     latitude = serializers.FloatField()
     longitude = serializers.FloatField()
-    altitude = serializers.IntegerField()
+    altitude = serializers.FloatField()
     gpsFix = serializers.IntegerField()
-    course = serializers.IntegerField()
-    speed = serializers.IntegerField()
+    course = serializers.FloatField()
+    speed = serializers.FloatField()
 
 
 class InreachObservation(serializers.Serializer):
     imei = serializers.IntegerField()
     messageCode = serializers.IntegerField()
-    freeText = serializers.CharField(allow_blank=True)
     timeStamp = serializers.IntegerField()
     addresses = serializers.ListField()
     status = serializers.DictField()
