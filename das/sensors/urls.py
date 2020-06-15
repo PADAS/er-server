@@ -12,7 +12,7 @@ schema_view = get_schema_view(
     renderer_classes=[JSONOpenAPIRenderer]
 )
 
-url_suffix = '(?P<provider_key>[\w-]{3,20})/status/?$'
+url_suffix = r'(?P<provider_key>[\w-]{3,20})/status/?$'
 
 urlpatterns = [
     url(r'^openapi-schema/', schema_view, name='openapi-schema'),
@@ -30,5 +30,7 @@ urlpatterns = [
     url(rf'^capturs-tracker/{url_suffix}', views.CaptursHandlerView.as_view()),
     url(rf'^ezytrack-tracker/{url_suffix}', views.EzyTrackHandlerView.as_view(), name='ezytrack-view'),
     url(rf'^inreach-tracker/{url_suffix}', views.InreachHandlerView.as_view()),
-    url(rf'^(?P<sensor_type>[\w-]{3,20})/{url_suffix}', views.GenericSensorHandlerView.as_view()),
+    url(
+        r'^(?P<sensor_type>[\w-]{3,20})/(?P<provider_key>[\w-]{3,20})/status/?$',
+        views.GenericSensorHandlerView.as_view()),
 ]
