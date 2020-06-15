@@ -292,7 +292,9 @@ SWAGGER_SETTINGS = {
     }
 }
 
-OAUTH2_PROVIDER = {'ACCESS_TOKEN_EXPIRE_SECONDS': 3600 * 48}
+OAUTH2_PROVIDER = {'ACCESS_TOKEN_EXPIRE_SECONDS': 3600 * 48,    # two days
+                   'REFRESH_TOKEN_EXPIRE_SECONDS': 31*24*3600,  # one month
+                  }
 
 # RT API settings
 ASYNC_MODE = 'eventlet'
