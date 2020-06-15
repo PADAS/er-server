@@ -84,6 +84,8 @@ class PointValidator:
     we do this by checking Point.valid is True"""
 
     def __call__(self, value):
+        if value is None:
+            raise serializers.ValidationError("Location value is empty")
         if not value.valid:
             raise serializers.ValidationError(value.valid_reason)
 
