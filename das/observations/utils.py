@@ -37,6 +37,8 @@ VIEW_SUBJECT_PERMS = ('observations.view_subject',) + \
 
 VIEW_SUBJECTGROUP_PERMS = ('observations.view_subjectgroup', )
 
+VIEW_OBSERVATION_PERMS = ('observations.view_observation')
+
 
 def get_maximum_allowed_age(user):
     maximum_allowed_age = None

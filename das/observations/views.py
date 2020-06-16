@@ -32,7 +32,7 @@ from observations import models
 from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
 from observations.permissions import StandardObjectPermissions
 from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS, VIEW_SUBJECTGROUP_PERMS, \
-    check_to_include_inactive_subjects
+    check_to_include_inactive_subjects, VIEW_OBSERVATION_PERMS
 from observations.utils import get_minimum_allowed_age
 from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination, StandardResultsSetGeoJsonPagination
 from utils.json import zeroout_microseconds, parse_bool, ExtendedGEOJSONRenderer
@@ -708,8 +708,20 @@ class ObservationView(generics.RetrieveUpdateDestroyAPIView):
         return super().create(request, *args, **kwargs)
 
     lookup_field = 'id'
-    queryset = models.Observation.objects.all()
     serializer_class = serializers.ObservationSerializer
+
+    def get_queryset(self):
+        if not self.request.user.has_any_perms(VIEW_OBSERVATION_PERMS):
+            raise UnauthorizedView
+
+        queryset = models.Observation.objects.all()
+
+        mou_date = self.request.user.additional.get('expiry', None)
+        mou_expiry_date = dateparse(mou_date) if mou_date else None
+
+        if mou_expiry_date:
+            queryset = queryset.filter(recorded_at__lte=mou_expiry_date)
+        return queryset
 
 
 class SourceView(generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
@@ -812,10 +824,44 @@ class ObservationsView(generics.ListCreateAPIView):
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
 
-    queryset = models.Observation.objects.all()
     serializer_class = serializers.ObservationSerializer
     pagination_class = StandardResultsSetPagination
     permission_classes = (StandardObjectPermissions,)
+
+    def get_queryset(self):
+        if not self.request.user.has_any_perms(VIEW_OBSERVATION_PERMS):
+            raise UnauthorizedView
+
+        queryset = models.Observation.objects.all()
+
+        mou_date = self.request.user.additional.get('expiry', None)
+        mou_expiry_date = dateparse(mou_date) if mou_date else None
+
+        if mou_expiry_date:
+            queryset = queryset.filter(recorded_at__lte=mou_expiry_date)
+
+        query_params = self.request.query_params
+        subject_id = query_params.get('subject_id', None)
+        if subject_id:
+            queryset = queryset.by_subject_id(subject_id)
+
+        source_id = query_params.get('source_id', None)
+        if source_id:
+            queryset = queryset.by_source_id(source_id)
+
+        since = query_params.get('since', None)
+        until = query_params.get('until', None)
+        recorded_since_is_valid, recorded_since = check_valid_date_string(since, 'recorded_since')
+        recorded_until_is_valid, recorded_until = check_valid_date_string(until, 'recorded_since')
+
+        if recorded_since_is_valid and recorded_until_is_valid:
+            queryset = queryset.by_since_until(recorded_since, recorded_until)
+        elif recorded_since_is_valid:
+            queryset = queryset.by_since(recorded_since)
+        elif recorded_until_is_valid:
+            queryset = queryset.by_until(recorded_until)
+
+        return queryset
 
     def create(self, request, *args, **kwargs):
         '''
