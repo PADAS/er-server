@@ -6,8 +6,11 @@ from django.utils.dateparse import parse_duration
 from django import forms
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
+from django.contrib.admin.widgets import RelatedFieldWidgetWrapper
+from django.db.models.fields import related
 
-from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider
+
+from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider, GPXTrackFile
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
 from choices.models import Choice
 from core.common import TIMEZONE_USED
@@ -141,6 +144,10 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
 class SubjectSubtypeChoiceField(forms.ModelChoiceField):
     def label_from_instance(self, obj):
         return '{1} ({0})'.format(obj.subject_type.display, obj.display)
+
+
+class F(RelatedFieldWidgetWrapper):
+    template_name = 'admin/widgets/related_widget.html'
 
 
 class SubjectForm(JSONFieldFormMixin, forms.ModelForm):
@@ -303,3 +310,6 @@ class SetRandomColorForm(ActionForm):
 #     def save(self, commit=True):
 #         return super().save(commit=commit)
 #
+
+class GPXFORM(forms.ModelForm):
+    pass

@@ -6,6 +6,7 @@ import urllib
 
 import pytz
 import humanize
+import django
 from django.contrib import admin
 from django.db import connection
 from django.conf import settings
@@ -54,6 +55,21 @@ admin.site.index_template = 'admin/standard_admin_index.html'
 
 OBSERVATIONS_HISTORY_LIMIT = timedelta(days=90)
 
+
+class RFW(admin.widgets.RelatedFieldWidgetWrapper):
+    template_name = 'admin/widgets/related_widget.html'
+
+    @property
+    def get_model_name(self):
+        return self.rel.model.__name__
+
+    def get_context(self, name, value, attrs):
+        context = super().get_context(name, value, attrs)
+        if self.get_model_name == 'GPXTrackFile':
+            context['gpx_file'] = True
+        return context
+
+admin.widgets.RelatedFieldWidgetWrapper = RFW
 
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
@@ -480,6 +496,9 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
         ('Advanced Subject Attributes', {
             'classes': ('wide', 'collapse'),
             'fields': ('additional', 'created_at', 'updated_at',)
+        }),
+        ('GPX Data imports', {
+            'fields': ('import_gpx_data',)
         })
     )
     list_filter = ('is_active', GroupAssignedFilter,
@@ -663,6 +682,22 @@ class CommonNameAdmin(admin.ModelAdmin):
         raise NotImplementedError(
             'implement filtering SubjectAdmin to user permissions')
         return qs.filter(owner=request.user)
+
+
+@admin.register(models.GPXTrackFile)
+class GPXAdmin(admin.ModelAdmin):
+    readonly_fields = ('id',)
+    fields = ('id', 'source', 'description', 'data', 'file_size')
+
+
+    # fields = ['id', 'source', 'description']
+
+    # def get_model_perms(self, request):
+    #     """
+    #     Return empty perms dict thus hiding the model from admin index.
+    #     """
+    #     return {}
+
 
 
 @admin.register(models.SubjectSourceSummary)
