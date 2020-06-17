@@ -396,24 +396,21 @@ class ObservationViewTestCase(BaseAPITest):
         }
         self.collar = Source.objects.ensure_source(**source_args)
 
-        
         fixed_latitude = float(random.randint(3000, 3000)) / 100
         fixed_longitude = float(random.randint(2800, 4000)) / 100
 
         location = Point(x=fixed_longitude, y=fixed_latitude)
         self.additional = {"Name": "Name"}
         self.observation_time = pytz.UTC.localize(datetime.datetime.now())
-        observation_data = {
+        self.observation_data = {
             'recorded_at': self.observation_time,
             'location': location,
             'source': self.collar,
             'additional': self.additional
         }
 
-        self.observation = Observation.objects.create(**observation_data)
+        self.observation = Observation.objects.create(**self.observation_data)
 
-        observation_data['recorded_at'] = self.observation_time + timedelta(days=4)
-        self.observation2 = Observation.objects.create(**observation_data)
         DEFAULT_DATE_RANGE = (
             datetime.datetime(2015, 11, 1, tzinfo=pytz.utc),
             datetime.datetime(3030, 1, 1, tzinfo=pytz.utc)
@@ -423,7 +420,6 @@ class ObservationViewTestCase(BaseAPITest):
             source=self.collar,
             subject=self.elephant,
             additional={})
-
 
     def test_include_details_false(self):
         url = reverse('observations-list-view')
@@ -498,6 +494,9 @@ class ObservationViewTestCase(BaseAPITest):
         self.assertEquals(response.data.get('count'), 1)
 
     def test_filter_observations_by_date_range(self):
+        self.observation_data['recorded_at'] = self.observation_time + timedelta(days=4)
+        self.observation2 = Observation.objects.create(**self.observation_data)
+
         filter_params = {
             'since': self.observation_time,
             'until': self.observation_time + timedelta(days=5)}
