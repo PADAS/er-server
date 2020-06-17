@@ -881,7 +881,9 @@ class ObservationsView(generics.ListCreateAPIView):
 
     def get_serializer_context(self):
         context = super(ObservationsView, self).get_serializer_context()
-        context['include_details'] = parse_bool(self.request.query_params.get('include_details', False))
+
+        # Check request before accessing params since self.request is None when generating docs schema
+        context['include_details'] = parse_bool(self.request.query_params.get('include_details', False)) if self.request else False
         return context
 
 
