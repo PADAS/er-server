@@ -32,13 +32,13 @@ from django.urls import reverse
 
 from activity.serializers import EventDetailsSerializer
 from core.tests import BaseAPITest
-from choices.models import Choice
+from choices.models import Choice, DynamicChoice
 from accounts.models import PermissionSet
 from activity.models import Event, EventAttachment, EventType, EventCategory, \
     EventRelationship, EventRelationshipType, EventNote, EventsourceEvent, \
     EventSource, EventProvider, parse_date_range, EventDetails, TSVectorModel
 from activity import views
-from observations.models import Subject
+from observations.models import Subject, SubjectType, SubjectSubType
 from accounts.serializers import UserDisplaySerializer
 from observations.serializers import SubjectSerializer
 from utils.html import clean_user_text
@@ -2417,6 +2417,51 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
         self.assertTrue("Unknown Rhino 1" in response.content.decode("utf-8"))
+
+    def test_export_on_checkbox_with_query_titlemaps(self):
+        DynamicChoice.objects.create(
+            id="queens",
+            model_name='observations.subject', 
+            criteria='[["subject_subtype", "queens"], ["additional__sex", "female"]]',
+            value_col='id',
+            display_col='name')
+
+        subject_type = SubjectType.objects.create(value='Cats')
+        subject_subtype = SubjectSubType.objects.create(value='queens', subject_type=subject_type)
+        subject = Subject.objects.create(name='Katie Kitten', subject_subtype=subject_subtype, additional={'sex':'female'})
+
+        et_schema = """{
+            "schema":
+            {
+                "properties":
+                    {"kitten": {"type": "a", "title" : "Test checkbox with query"}}
+            },
+            "definition": [
+                {
+                    "key": "kitten",
+                    "type": "checkboxes",
+                    "title": "Test checkbox with query",
+                    "titleMap": {{query___queens___map}}
+                }]}"""
+        event_type = self.sample_event.event_type
+        event_type.schema = et_schema
+        event_type.save()
+
+        EventDetails.objects.create(
+            data={"event_details": {"kitten": [str(subject.id)]}},
+            event=self.sample_event)
+
+        url = """/activity/events/export"""
+        filter_spec = json.dumps({'text': "Test event"})
+        request = self.factory.get(
+            self.api_base + url, {'filter': filter_spec})
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+
+
+        # title returned, not UUID
+        self.assertTrue('Katie Kitten' in response.content.decode("utf-8"))
 
 
 class TestParsing(TestCase):
