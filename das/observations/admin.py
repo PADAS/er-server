@@ -67,6 +67,9 @@ class RFW(admin.widgets.RelatedFieldWidgetWrapper):
         context = super().get_context(name, value, attrs)
         if self.get_model_name == 'GPXTrackFile':
             context['gpx_file'] = True
+            context['trial'] = self.can_work
+        from pprint import pprint
+        pprint(context)
         return context
 
 admin.widgets.RelatedFieldWidgetWrapper = RFW
@@ -667,6 +670,26 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
             request, object_id, form_url, extra_context=extra_context,
         )
 
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name == 'import_gpx_data':
+            formfield = self.formfield_for_foreignkey(db_field, request, **kwargs)
+            related_modeladmin = self.admin_site._registry.get(db_field.remote_field.model)
+            wrapper_kwargs = {}
+            if related_modeladmin:
+                wrapper_kwargs.update(
+                    can_add_related=related_modeladmin.has_add_permission(request),
+                    can_change_related=related_modeladmin.has_change_permission(request),
+                    can_delete_related=related_modeladmin.has_delete_permission(request),
+                    can_view_related=related_modeladmin.has_view_permission(request),
+                    can_work=request.resolver_match.kwargs['object_id'],
+                )
+            formfield.widget = RFW(
+                formfield.widget, db_field.remote_field, self.admin_site, **wrapper_kwargs
+            )
+            return formfield
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
+
+
 
 @admin.register(models.CommonName)
 class CommonNameAdmin(admin.ModelAdmin):
@@ -684,19 +707,67 @@ class CommonNameAdmin(admin.ModelAdmin):
         return qs.filter(owner=request.user)
 
 
+class GPXMixin:
+
+    @staticmethod
+    def get_url_path(urlstring):
+        urlparse = urllib.parse.urlparse(urlstring)
+        return urlparse.path
+
+    def get_subject_id(self, urlstring):
+        if urlstring:
+            urlpath = self.get_url_path(urlstring=urlstring).split('/')
+            if set(urlpath) >= {'subject', 'observations', 'change'}:
+                subject_id = urlpath[4]
+                return subject_id
+            return
+        return
+
+
+
+
 @admin.register(models.GPXTrackFile)
-class GPXAdmin(admin.ModelAdmin):
+class GPXAdmin(admin.ModelAdmin, GPXMixin):
     readonly_fields = ('id',)
     fields = ('id', 'source', 'description', 'data', 'file_size')
 
+    # def get_model_perms(self, request): return {}
 
     # fields = ['id', 'source', 'description']
 
-    # def get_model_perms(self, request):
-    #     """
-    #     Return empty perms dict thus hiding the model from admin index.
-    #     """
-    #     return {}
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        form = super(GPXAdmin, self).get_form(request, obj, change, **kwargs)
+        http_referer = request.META.get('HTTP_REFERER')
+
+        subject_id = self.get_subject_id(http_referer)
+        if subject_id:
+            form.base_fields['source'].queryset = models.Subject.objects.get(id=subject_id).subjectsources.all()
+        return form
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        formfield = super().formfield_for_dbfield(db_field, request, **kwargs)
+
+        if db_field.name == 'source':
+            related_modeladmin = self.admin_site._registry.get(db_field.remote_field.model)
+            wrapper_kwargs = {}
+            if related_modeladmin:
+                wrapper_kwargs.update(
+                    can_add_related=related_modeladmin.has_add_permission(request),
+                    can_change_related=related_modeladmin.has_change_permission(request),
+                    can_delete_related=related_modeladmin.has_delete_permission(request),
+                    can_view_related=related_modeladmin.has_view_permission(request),
+                    can_work=self.get_subject_id(request.META.get('HTTP_REFERER')),
+                )
+            formfield.widget = RFW(
+                formfield.widget, db_field.remote_field, self.admin_site, **wrapper_kwargs
+            )
+            return formfield
+        return formfield
+
+
+
+
+
 
 
 

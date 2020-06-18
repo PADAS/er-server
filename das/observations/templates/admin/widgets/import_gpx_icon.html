@@ -4,7 +4,7 @@
     {{ rendered_widget }}
 
     <a class="related-widget-wrapper-link add-related" id="add_id_{{ name }}"
-       href="{{ add_related_url }}?{{ url_params }}"
+       href="{{ add_related_url }}?{{ url_params }}&subject_id={{ trial }}"
        title="{% blocktrans %}Add another {{ model }}{% endblocktrans %}">
         <button type="submit" class="submit-row">
             <svg id="Layer_1" fill="#0d86b7"  height="40" viewBox="0 0 512 512" width="40" xmlns="http://www.w3.org/2000/svg">

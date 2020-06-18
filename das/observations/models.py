@@ -1520,7 +1520,7 @@ class GPXTrackFile(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    source = models.ForeignKey('Source', on_delete=models.CASCADE)
+    source = models.ForeignKey('SubjectSource', on_delete=models.PROTECT)
     description = models.CharField(max_length=255, null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL,
                                    on_delete=models.SET_NULL,
