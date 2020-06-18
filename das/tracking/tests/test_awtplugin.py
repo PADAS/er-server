@@ -79,3 +79,22 @@ class AwtPluginTest(TestCase):
 
             with self.assertRaises(celery.exceptions.Retry):
                 run_source_plugin(sp.id)
+
+    def test_awt_temp_and_batt_saved_as_floats(self):
+        test_data = {
+            "unit_id": "AWTIMCVAP256", "tag_id": 1081026,
+            "alarms": {"Track Mode": False, "Battery": False, "Geofence": False, "Coverage": True, "Memory": False, "CBit": False, "Movement": "Unknown", "Tamperfoil": False},
+            "batt": 6,
+            "temperature": "Unknown",
+            "timestamp": 1591663622,
+            "lat": -1.3824166666666666,
+            "lon": 35.487966666666665,
+            "dop": 0,
+            "speed": 0,
+            "accelerometer": {"X": "Unknown", "Y": "Unknown", "Z": "Unknown"}, "log_interval": "Off",
+        }
+
+        plugin = AwtPlugin()
+        observation = plugin._transform_to_observation(self.source, test_data)
+        self.assertTrue(isinstance(observation.additional.get('temperature'), float))
+        self.assertTrue(isinstance(observation.additional.get('batt'), float))

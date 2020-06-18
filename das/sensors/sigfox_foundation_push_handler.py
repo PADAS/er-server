@@ -1,7 +1,7 @@
 import logging
 import math
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
 from rest_framework import serializers, status
 from rest_framework.response import Response
@@ -60,7 +60,7 @@ class SigfoxFoundationPushHandler:
                                                    'name': device_id
                                                })
 
-            recorded_at = datetime.fromtimestamp(payload.pop('time')).isoformat()
+            recorded_at = datetime.fromtimestamp(payload.pop('time'), timezone.utc).isoformat()
             # for data_uplink this test is sufficient for dups...
             if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
                 logger.info('Ignoring duplicate observation from %s', src)

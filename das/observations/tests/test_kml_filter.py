@@ -10,12 +10,10 @@ from pytz import utc, timezone
 
 import observations.views as views
 from accounts.models import User, PermissionSet
-from core.tests import BaseAPITest
+from core.tests import BaseAPITest, API_BASE
 from observations import kmlutils
 from observations.models import SubjectGroup, Subject, Observation, Source
 from observations.serializers import ObservationSerializer
-
-API_BASE = '/api/v1.0'
 
 
 class KmlSubjectViewTest(BaseAPITest):

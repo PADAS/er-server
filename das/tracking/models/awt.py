@@ -19,6 +19,7 @@ from django.conf import settings
 import utils.redis as redis_utils
 
 from tracking.models.plugin_base import Obs, TrackingPlugin, SourcePlugin, DasPluginSourceRetryError
+from .utils import to_float
 
 
 class AWTPluginException(Exception):
@@ -376,6 +377,8 @@ class AwtPlugin(TrackingPlugin):
             longitude = float(track_data.get('lon'))
             recorded_at = datetime.fromtimestamp(track_data.get('timestamp'),
                                                  tz=timezone.utc)
+            track_data['temperature'] = to_float(track_data.get('temperature'))
+            track_data['batt'] = to_float(track_data.get('batt'))
 
             # Remove unnecessary keys and save remaining data in additional
             keys_to_remove = ['lat', 'lon', 'timestamp', 'tag_id']
@@ -386,6 +389,7 @@ class AwtPlugin(TrackingPlugin):
                        recorded_at=recorded_at, additional=metadata)
         # If latitude or longitude is not there in API Data, return None
         return None
+
 
     def _parse_additional_data(self, metadata):
         additional_data = copy.copy(metadata)

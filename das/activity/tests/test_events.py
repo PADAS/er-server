@@ -32,13 +32,13 @@ from django.urls import reverse
 
 from activity.serializers import EventDetailsSerializer
 from core.tests import BaseAPITest
-from choices.models import Choice
+from choices.models import Choice, DynamicChoice
 from accounts.models import PermissionSet
 from activity.models import Event, EventAttachment, EventType, EventCategory, \
     EventRelationship, EventRelationshipType, EventNote, EventsourceEvent, \
     EventSource, EventProvider, parse_date_range, EventDetails, TSVectorModel
 from activity import views
-from observations.models import Subject
+from observations.models import Subject, SubjectType, SubjectSubType
 from accounts.serializers import UserDisplaySerializer
 from observations.serializers import SubjectSerializer
 from utils.html import clean_user_text
@@ -309,6 +309,19 @@ class TestEventView(BaseAPITest):
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 400)
 
+    def test_not_fail_with_emptystring_location(self):
+        event_data = copy.deepcopy(self.event_data)
+        event_data['reported_by'] = self.user_rep
+        event_data['provenance'] = Event.PC_STAFF
+        event_data['event_type'] = ET_OTHER
+        event_data['lcation'] = ""
+
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
     def test_not_fail_with_no_location(self):
         event_data = copy.deepcopy(self.event_data)
         event_data['reported_by'] = self.user_rep
@@ -322,6 +335,15 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
+
+    def test_bad_request_with_empty_string_location(self):
+        event_data = dict(event_details={}, event_type=ET_OTHER, icon_id=ET_OTHER, is_collection=False, location="", priority=100, time="2020-06-11T18:57:12.629Z")
+
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 400)
 
     def test_create_matrix_event(self):
         event_data = {'priority': Event.PRI_REFERENCE,
@@ -1134,7 +1156,7 @@ class TestEventView(BaseAPITest):
         report_names = [report["Title"] for report in rendered_dict[:-1]]
 
         # 2 reports returned, Incident and contained report
-        self.assertEquals(2, len(report_names))
+        self.assertEqual(2, len(report_names))
         self.assertTrue(all(x in report_names for x in [
                         incident_data['title'],  self.event_data['title']]))
 
@@ -1202,7 +1224,7 @@ class TestEventView(BaseAPITest):
         reported_by_users = list(Event.objects.get_reported_by_for_provenance(
             Event.PC_STAFF))
 
-        self.assertEquals(2, len(reported_by_users))
+        self.assertEqual(2, len(reported_by_users))
         self.assertIn(self.all_perms_user, reported_by_users)
         self.assertIn(self.power_user, reported_by_users)
 
@@ -2395,6 +2417,51 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
         self.assertTrue("Unknown Rhino 1" in response.content.decode("utf-8"))
+
+    def test_export_on_checkbox_with_query_titlemaps(self):
+        DynamicChoice.objects.create(
+            id="queens",
+            model_name='observations.subject', 
+            criteria='[["subject_subtype", "queens"], ["additional__sex", "female"]]',
+            value_col='id',
+            display_col='name')
+
+        subject_type = SubjectType.objects.create(value='Cats')
+        subject_subtype = SubjectSubType.objects.create(value='queens', subject_type=subject_type)
+        subject = Subject.objects.create(name='Katie Kitten', subject_subtype=subject_subtype, additional={'sex':'female'})
+
+        et_schema = """{
+            "schema":
+            {
+                "properties":
+                    {"kitten": {"type": "a", "title" : "Test checkbox with query"}}
+            },
+            "definition": [
+                {
+                    "key": "kitten",
+                    "type": "checkboxes",
+                    "title": "Test checkbox with query",
+                    "titleMap": {{query___queens___map}}
+                }]}"""
+        event_type = self.sample_event.event_type
+        event_type.schema = et_schema
+        event_type.save()
+
+        EventDetails.objects.create(
+            data={"event_details": {"kitten": [str(subject.id)]}},
+            event=self.sample_event)
+
+        url = """/activity/events/export"""
+        filter_spec = json.dumps({'text': "Test event"})
+        request = self.factory.get(
+            self.api_base + url, {'filter': filter_spec})
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+
+
+        # title returned, not UUID
+        self.assertTrue('Katie Kitten' in response.content.decode("utf-8"))
 
 
 class TestParsing(TestCase):

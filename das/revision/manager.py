@@ -1,24 +1,15 @@
-import uuid
 import logging
-import copy
+import uuid
 
-import simplejson as json
-from django.core import serializers
-from django.conf import settings
 import django.db.transaction as transaction
-from django.db.models import Prefetch
-from django.contrib.auth import get_user_model
-from django.contrib.gis.db import models
-from django.contrib.gis.geos import Polygon
-import django.utils
-from django.contrib.postgres.fields import JSONField
-from django.contrib.contenttypes.fields import GenericForeignKey
+import simplejson as json
+from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
-from django.utils import timezone
-
-from core.models import TimestampedModel
-from observations.models import Subject
-
+from django.contrib.gis.db import models
+from django.contrib.postgres.fields import JSONField
+from django.core import serializers
+from django.db.models import Max
+from django.db.models import Prefetch
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +19,7 @@ relation_deleted = django.dispatch.Signal(
 
 
 class RevisionManager(models.Manager):
+
     def __init__(self, model, instance=None):
         super().__init__()
         self.model = model
@@ -155,9 +147,7 @@ class Revision(object):
         manager = getattr(instance, self.manager_name)
         adapter = RevisionAdapter(type(instance))
 
-        sequence = instance.revision_sequence + 1
-
-        if sequence == 1:
+        if instance.revision_sequence == 0:
             data = adapter.get_serialized_data(instance)
         elif action == AC_DELETED:
             data = {}
@@ -175,14 +165,21 @@ class Revision(object):
             if not data:
                 return
 
-        manager.create(
-            object_id=instance.id,
-            sequence=sequence,
-            action=action,
-            user=user,
-            data=data
-        )
-        instance.revision_sequence += 1
+
+        with transaction.atomic():
+
+            o = manager.filter(object_id=instance.id).aggregate(max_sequence=Max('sequence'))
+            max_sequence = o.get('max_sequence') or 0
+
+            revision = manager.create(
+                object_id=instance.id,
+                sequence=max_sequence + 1,
+                action=action,
+                user=user,
+                data=data
+            )
+
+        instance.revision_sequence = revision.sequence
 
     def post_save(self, instance, created, **kwargs):
         try:

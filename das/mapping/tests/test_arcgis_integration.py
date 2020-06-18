@@ -1,6 +1,7 @@
 import functools
 import json
 import logging
+import os
 from unittest.mock import patch
 
 from core.tests import BaseAPITest
@@ -11,6 +12,10 @@ from mapping.models import (ArcgisConfiguration, SpatialFeature, ArcgisItem,
 
 logger = logging.getLogger(__name__)
 
+FIXTURE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                            'fixtures')
+TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                            'tests')
 
 def _lazy_property(fn):
     attr_name = '_lazy_' + fn.__name__
@@ -89,7 +94,7 @@ class TestArcGisIntegration(BaseAPITest):
 
 
     def test_unique_value_renderer_line(self):
-        json_dict = self._read_test_data('./mapping/tests/testdata/line-renderer.json')
+        json_dict = self._read_test_data(os.path.join(TESTS_PATH, 'testdata/line-renderer.json'))
         self._verify_types(json_dict)
 
         for t in SpatialFeatureType.objects.all():
@@ -99,7 +104,7 @@ class TestArcGisIntegration(BaseAPITest):
             self.assertTrue('stroke-opacity' in keys)
 
     def test_unique_value_renderer_polygon(self):
-        json_dict = self._read_test_data('./mapping/tests/testdata/polygon-renderer.json')
+        json_dict = self._read_test_data(os.path.join(TESTS_PATH, 'testdata/polygon-renderer.json'))
         self._verify_types(json_dict)
 
         for t in SpatialFeatureType.objects.all():
@@ -108,7 +113,7 @@ class TestArcGisIntegration(BaseAPITest):
             self.assertTrue('fill-opacity' in keys)
 
     def test_unique_value_renderer_point(self):
-        json_dict = self._read_test_data('./mapping/tests/testdata/point-renderer.json')
+        json_dict = self._read_test_data(os.path.join(TESTS_PATH, 'testdata/point-renderer.json'))
         self._verify_types(json_dict)
 
     def test_simple_renderer(self):
@@ -143,7 +148,7 @@ class TestArcGisIntegration(BaseAPITest):
         self.assertTrue(gis)
 
     def load_features(self):
-        with open('./mapping/tests/testdata/Built_point.geojson', 'rb') as geojson_file:
+        with open(os.path.join(TESTS_PATH, 'testdata/Built_point.geojson'), 'rb') as geojson_file:
             extract_features(self.test_config, self.gis_group,
                              self.gis_group.title, geojson_file.read().decode("utf-8"), [], [], self.arcgis_item.id)
 
@@ -199,7 +204,7 @@ class TestArcGisIntegration(BaseAPITest):
             features_originally = SpatialFeature.objects.all().count()
             self.assertEqual(features_originally, 41)
 
-            with open('./mapping/tests/testdata/Built_point.geojson', 'r') as f:
+            with open(os.path.join(TESTS_PATH, 'testdata/Built_point.geojson'), 'r') as f:
                 data = json.load(f)
 
                 # 2 features deleted from the online groups feature
@@ -218,7 +223,7 @@ class TestArcGisIntegration(BaseAPITest):
             prev_mponda_coordinates = [coord for coord in initial_mponda.feature_geometry.coords]
 
             self.assertEqual(prev_mponda_coordinates[0], (35.2432244949146, -14.457755073238))
-            with open('./mapping/tests/testdata/Built_point.geojson', 'r') as f:
+            with open(os.path.join(TESTS_PATH, 'testdata/Built_point.geojson'), 'r') as f:
                 data = json.load(f)
                 for feature in data['features']:
                     if feature["properties"]["Name"] == initial_mponda.name:

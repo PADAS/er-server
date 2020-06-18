@@ -11,13 +11,12 @@ from oauth2_provider.models import Application, AccessToken
 from django.contrib.gis.geos import Point
 from django.utils import timezone
 
-from core.tests import BaseAPITest
+from core.tests import BaseAPITest, API_BASE
 from accounts.models import User, PermissionSet
 from observations.models import Subject, SubjectGroup, Source, SubjectSource, Observation, SourceGroup
 import observations.views as views
 from observations.serializers import ObservationSerializer
-
-API_BASE = '/api/v1.0'
+from datetime import timedelta
 
 
 def random_string(length=10):
@@ -395,20 +394,30 @@ class ObservationViewTestCase(BaseAPITest):
         }
         self.collar = Source.objects.ensure_source(**source_args)
 
-        observation_time = pytz.UTC.localize(datetime.datetime.now())
         fixed_latitude = float(random.randint(3000, 3000)) / 100
         fixed_longitude = float(random.randint(2800, 4000)) / 100
 
         location = Point(x=fixed_longitude, y=fixed_latitude)
         self.additional = {"Name": "Name"}
-        observation_data = {
-            'recorded_at': observation_time,
+        self.observation_time = pytz.UTC.localize(datetime.datetime.now())
+        self.observation_data = {
+            'recorded_at': self.observation_time,
             'location': location,
             'source': self.collar,
             'additional': self.additional
         }
 
-        self.observation = Observation.objects.create(**observation_data)
+        self.observation = Observation.objects.create(**self.observation_data)
+
+        DEFAULT_DATE_RANGE = (
+            datetime.datetime(2015, 11, 1, tzinfo=pytz.utc),
+            datetime.datetime(3030, 1, 1, tzinfo=pytz.utc)
+        )
+        SubjectSource.objects.create(
+            assigned_range=DEFAULT_DATE_RANGE,
+            source=self.collar,
+            subject=self.elephant,
+            additional={})
 
     def test_include_details_false(self):
         url = reverse('observations-list-view')
@@ -438,8 +447,8 @@ class ObservationViewTestCase(BaseAPITest):
         self.assertEqual(len(results), 1)
 
         obs = results[0]
-        self.assertIn('observation_additional', obs.keys())
-        self.assertEqual(obs.get('observation_additional'), self.additional)
+        self.assertIn('observation_details', obs.keys())
+        self.assertEqual(obs.get('observation_details'), self.additional)
 
     def test_include_details_not_specified(self):
         url = reverse('observations-list-view')
@@ -453,5 +462,53 @@ class ObservationViewTestCase(BaseAPITest):
         self.assertEqual(len(results), 1)
 
         obs = results[0]
-        self.assertIn('observation_additional', obs.keys())
-        self.assertEqual(obs.get('observation_additional'), self.additional)
+        self.assertNotIn('observation_details', obs.keys())
+
+    def test_filter_observations_by_subject_id(self):
+        filter_params = {'subject_id': self.elephant.id}
+        response = self.make_observations_filter_request(filter_params)
+
+        # all records are of the given subject
+        self.assertTrue(self.elephant.observations().count(), response.data.get('count'))
+
+    def test_filter_observations_by_source_id(self):
+        filter_params = {'source_id': self.collar.id}
+        response = self.make_observations_filter_request(filter_params)
+
+        # all records are of the given source
+        self.assertTrue(all(k.get('source') == self.collar.id for k in response.data.get('results')))
+
+    def test_filter_observations_by_recorded_since(self):
+        filter_params = {'since': self.observation_time + timedelta(days=1)}
+        response = self.make_observations_filter_request(filter_params)
+
+        # no records 1 days from last observations creation date        
+        self.assertEquals(response.data.get('count'), 0)
+
+    def test_filter_observations_by_recorded_until(self):
+        filter_params = {'until': self.observation_time + timedelta(days=1)}
+        response = self.make_observations_filter_request(filter_params)
+
+        self.assertEquals(response.data.get('count'), 1)
+
+    def test_filter_observations_by_date_range(self):
+        self.observation_data['recorded_at'] = self.observation_time + timedelta(days=4)
+        self.observation2 = Observation.objects.create(**self.observation_data)
+
+        filter_params = {
+            'since': self.observation_time,
+            'until': self.observation_time + timedelta(days=5)}
+        response = self.make_observations_filter_request(filter_params)
+
+        # self.observation and self.observation both lie in this range
+        self.assertEquals(response.data.get('count'), 2)
+
+    def make_observations_filter_request(self, filter_params):
+        url = reverse('observations-list-view')
+        url += f'?{urlencode(filter_params)}'
+        request = self.factory.get(self.api_base + url)
+
+        self.force_authenticate(request, self.user)
+        response = views.ObservationsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        return response

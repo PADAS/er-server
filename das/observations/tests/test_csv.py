@@ -4,17 +4,15 @@ from datetime import datetime
 from urllib.parse import urlencode
 
 from dateutil import tz, parser
-from pytz import utc
 from django.utils import timezone
 from django.db.models import F
 
 from accounts.models import User, PermissionSet
-from core.tests import BaseAPITest
+from core.tests import BaseAPITest, API_BASE
 from observations.models import Observation, SubjectGroup
 from observations.serializers import ObservationSerializer
 from observations.views import TrackingMetaDataExportView, TrackingDataCsvView
 
-API_BASE = '/api/v1.0'
 
 current_tz_name = timezone.get_current_timezone_name()
 current_tz = pytz.timezone(current_tz_name)
