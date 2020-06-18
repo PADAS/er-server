@@ -68,8 +68,7 @@ class EnvironmentalSubjectAnalyzerAdmin(admin.ModelAdmin):
         ),
         ('Environmental Analysis Parameters', {
             'classes': ('wide',),
-            'fields': ('threshold_value', 'scale_meters', 'GEE_img_name', 'GEE_img_band_name', 'short_description',
-                       'search_time_hours', 'notes',)
+            'fields': ('threshold_value', 'scale_meters', 'GEE_img_name', 'GEE_img_band_name', 'short_description',)
         }),
         ('Earth Engine Access', {
             'description': EARTH_ENGINE_KEY_DESCRIPTION,
@@ -78,7 +77,7 @@ class EnvironmentalSubjectAnalyzerAdmin(admin.ModelAdmin):
         }),
         ('Advanced Analyzer Attributes', {
             'classes': ('wide', 'collapse'),
-            'fields': ('id',)
+            'fields': ('id', 'search_time_hours', 'notes',)
         })
     )
 
