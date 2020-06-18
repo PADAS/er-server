@@ -2,8 +2,6 @@ from accounts.models import User
 from core.tests import BaseAPITest
 from accounts.views import UsersCsvView
 
-API_BASE = '/api/v1.0'
-
 
 class UsersCSVExportTest(BaseAPITest):
     fixtures = [
@@ -20,7 +18,7 @@ class UsersCSVExportTest(BaseAPITest):
     def test_csv_metadata(self):
         # Test CSV export API success.
         self.request = self.factory.get(
-            API_BASE + '/users/csv/?additional.tech=iOS')
+            self.api_base + '/users/csv/?additional.tech=iOS')
         self.force_authenticate(self.request, self.superuser)
         response = UsersCsvView.as_view()(self.request)
         self.assertEqual(response.status_code, 200)

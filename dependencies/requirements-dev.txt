@@ -10,15 +10,15 @@ affine==2.2.2             # via -r ./requirements.txt, rasterio
 amqp==2.4.2               # via -r ./requirements.txt, kombu
 appdirs==1.4.4            # via virtualenv
 arcgis2geojson==2.0.0     # via -r ./requirements.txt
-arcgis==1.7.1             # via -r ./requirements.txt
+arcgis==1.8.0             # via -r ./requirements.txt
 asn1crypto==0.24.0        # via -r ./requirements.txt, cryptography
 attrs==19.1.0             # via -r ./requirements.txt, jsonschema, pytest, rasterio
 backcall==0.1.0           # via -r ./requirements.txt, ipython
 billiard==3.5.0.5         # via -r ./requirements.txt, celery
 bleach==2.1.4             # via -r ./requirements.txt, nbconvert
-boto3==1.11.9             # via -r ./requirements.txt
+boto3==1.13.24            # via -r ./requirements.txt
 boto==2.49.0              # via -r ./requirements.txt, django-ses
-botocore==1.14.9          # via -r ./requirements.txt, boto3, s3transfer
+botocore==1.16.24         # via -r ./requirements.txt, boto3, s3transfer
 business-rules==1.0.1     # via -r ./requirements.txt
 cachetools==3.1.0         # via -r ./requirements.txt, google-auth
 celery==4.2.2             # via -r ./requirements.txt, celery-once
@@ -33,16 +33,16 @@ cligj==0.5.0              # via -r ./requirements.txt, fiona, rasterio, rasterst
 coreapi==2.3.3            # via -r ./requirements.txt, django-rest-swagger, openapi-codec
 coreschema==0.0.4         # via -r ./requirements.txt, coreapi
 coverage==4.5.4           # via -r requirements-dev.in
-cryptography==2.6.1       # via -r ./requirements.txt, pyopenssl, secretstorage
+cryptography==2.6.1       # via -r ./requirements.txt, pyopenssl, requests-ntlm, secretstorage
 cycler==0.10.0            # via -r ./requirements.txt, matplotlib
 cython==0.29.10           # via -r ./requirements.txt
-datadog==0.29.3           # via -r ./requirements.txt
+datadog==0.36.0           # via -r ./requirements.txt
 decorator==4.4.0          # via -r ./requirements.txt, datadog, ipython, traitlets
 defusedxml==0.6.0         # via -r ./requirements.txt, nbconvert
 distlib==0.3.0            # via virtualenv
 django-bitfield==1.9.6    # via -r ./requirements.txt
 django-cors-headers==2.5.3  # via -r ./requirements.txt
-django-debug-toolbar==2.1  # via -r ./requirements.txt
+django-debug-toolbar==2.2  # via -r ./requirements.txt
 django-environ==0.4.5     # via -r ./requirements.txt
 django-extensions==2.2.6  # via -r ./requirements.txt
 django-extra-fields==0.9  # via -r ./requirements.txt
@@ -76,6 +76,7 @@ eventlet==0.25.1          # via -r ./requirements.txt
 faker==4.1.0              # via -r requirements-dev.in
 filelock==3.0.12          # via virtualenv
 fiona==1.7.11             # via -r ./requirements.txt, geopandas, pymet, rasterstats
+flake8==3.8.2             # via -r requirements-dev.in
 future==0.17.1            # via -r ./requirements.txt, django-ses
 gdal==2.2.3               # via -r ./requirements.txt, pymet
 geographiclib==1.49       # via -r ./requirements.txt, pymet
@@ -95,10 +96,10 @@ greenlet==0.4.15          # via -r ./requirements.txt, eventlet, gevent
 gunicorn==19.9.0          # via -r ./requirements.txt
 html5lib==1.0.1           # via -r ./requirements.txt, bleach
 httplib2==0.12.3          # via -r ./requirements.txt, google-api-python-client, google-auth-httplib2, oauth2client
-humanize==0.5.1           # via -r ./requirements.txt
+humanize==2.4.0           # via -r ./requirements.txt
 identify==1.4.7           # via pre-commit
 idna==2.8                 # via -r ./requirements.txt, requests
-importlib-metadata==1.5.0  # via -r ./requirements.txt, importlib-resources, keyring, pluggy, pre-commit, pytest, virtualenv
+importlib-metadata==1.5.0  # via -r ./requirements.txt, flake8, importlib-resources, keyring, pluggy, pre-commit, pytest, virtualenv
 importlib-resources==1.4.0  # via pre-commit, virtualenv
 ipykernel==5.1.4          # via -r ./requirements.txt, ipywidgets, notebook
 ipython-genutils==0.2.0   # via -r ./requirements.txt, nbformat, notebook, traitlets
@@ -120,9 +121,12 @@ jupyterlab==1.2.6         # via -r ./requirements.txt, arcgis
 keyring==21.1.0           # via -r ./requirements.txt, arcgis
 kiwisolver==1.1.0         # via -r ./requirements.txt, matplotlib
 kombu==4.2.2.post1        # via -r ./requirements.txt, celery
+lerc==0.1.0               # via -r ./requirements.txt, arcgis
 lxml==4.3.4               # via -r ./requirements.txt, docxtpl, python-docx, xmlunittest
 markupsafe==1.1.1         # via -r ./requirements.txt, jinja2
 matplotlib==3.1.3         # via -r ./requirements.txt, arcgis
+mccabe==0.6.1             # via flake8
+mimesis==4.0.0            # via -r requirements-dev.in, pytest-mimesis
 mistune==0.8.4            # via -r ./requirements.txt, nbconvert
 mockredispy==2.9.3        # via -r requirements-dev.in
 monotonic==1.5            # via -r ./requirements.txt, eventlet
@@ -132,20 +136,21 @@ nbconvert==5.6.1          # via -r ./requirements.txt, notebook
 nbformat==5.0.4           # via -r ./requirements.txt, ipywidgets, nbconvert, notebook
 nodeenv==1.3.3            # via pre-commit
 notebook==6.0.3           # via -r ./requirements.txt, jupyterlab, jupyterlab-server, widgetsnbextension
+ntlm-auth==1.4.0          # via -r ./requirements.txt, requests-ntlm
 numpy==1.16.4             # via -r ./requirements.txt, arcgis, matplotlib, pandas, pymet, rasterio, rasterstats, scikit-learn, scipy, snuggs
 oauth2client==4.1.3       # via -r ./requirements.txt
-oauthlib==3.0.2           # via -r ./requirements.txt, django-oauth-toolkit
+oauthlib==3.0.2           # via -r ./requirements.txt, django-oauth-toolkit, requests-oauthlib
 olefile==0.46             # via -r ./requirements.txt, pillow
 openapi-codec==1.3.2      # via -r ./requirements.txt, django-rest-swagger
 openpyxl==2.5.4           # via -r ./requirements.txt
 packaging==19.2           # via pytest
-pandas==0.24.2            # via -r ./requirements.txt, arcgis, geopandas, pymet
+pandas==1.0.4             # via -r ./requirements.txt, arcgis, geopandas, pymet
 pandocfilters==1.4.2      # via -r ./requirements.txt, nbconvert
 parso==0.6.1              # via -r ./requirements.txt, jedi
 pep8==1.7.1               # via -r requirements-dev.in
 pexpect==4.8.0            # via -r ./requirements.txt, ipython
 pickleshare==0.7.5        # via -r ./requirements.txt, ipython
-piexif==1.0.13            # via -r ./requirements.txt
+piexif==1.1.3             # via -r ./requirements.txt
 pillow==4.3.0             # via -r ./requirements.txt, django-versatileimagefield
 pip-tools==5.2.0          # via -r requirements-dev.in
 pluggy==0.13.0            # via pytest
@@ -159,8 +164,10 @@ ptyprocess==0.6.0         # via -r ./requirements.txt, pexpect, terminado
 py==1.8.0                 # via pytest
 pyasn1-modules==0.2.5     # via -r ./requirements.txt, google-auth, oauth2client
 pyasn1==0.4.5             # via -r ./requirements.txt, oauth2client, pyasn1-modules, rsa
+pycodestyle==2.6.0        # via flake8
 pycparser==2.19           # via -r ./requirements.txt, cffi
-pycryptodome==3.7.0       # via -r ./requirements.txt
+pycryptodome==3.9.7       # via -r ./requirements.txt
+pyflakes==2.2.0           # via flake8
 pygments==2.5.2           # via -r ./requirements.txt, ipython, nbconvert
 pyjwt==1.7.1              # via -r ./requirements.txt, twilio
 pymet==0.1.24             # via -r ./requirements.txt
@@ -168,22 +175,26 @@ pyopenssl==19.0.0         # via -r ./requirements.txt, earthengine-api
 pyparsing==2.4.0          # via -r ./requirements.txt, matplotlib, packaging, snuggs
 pyproj==1.9.5.1           # via -r ./requirements.txt, geopandas
 pyrsistent==0.15.7        # via -r ./requirements.txt, jsonschema
-pyshp==1.2.12             # via -r ./requirements.txt, arcgis
+pyshp==2.1.0              # via -r ./requirements.txt, arcgis
 pytest-django==3.9.0      # via -r requirements-dev.in
+pytest-mimesis==1.1.0     # via -r requirements-dev.in
 pytest-pythonpath==0.7.3  # via -r requirements-dev.in
-pytest==5.4.3             # via -r requirements-dev.in, pytest-django, pytest-pythonpath
+pytest==5.4.3             # via -r requirements-dev.in, pytest-django, pytest-mimesis, pytest-pythonpath
 python-dateutil==2.8.1    # via -r ./requirements.txt, botocore, faker, jupyter-client, matplotlib, pandas
 python-docx==0.8.6        # via -r ./requirements.txt, docxtpl
 python-engineio==3.12.1   # via -r ./requirements.txt
 python-json-logger==0.1.11  # via -r ./requirements.txt
-pytz==2019.3              # via -r ./requirements.txt, celery, django, django-ses, google-api-core, pandas, twilio
-pyyaml==5.1.1             # via -r ./requirements.txt, pre-commit
+pytz==2020.1              # via -r ./requirements.txt, celery, django, django-ses, google-api-core, pandas, twilio
+pyyaml==5.3.1             # via -r ./requirements.txt, pre-commit
 pyzmq==18.1.1             # via -r ./requirements.txt, jupyter-client, notebook
 rasterio==1.0.23          # via -r ./requirements.txt, pymet, rasterstats
 rasterstats==0.13.1       # via -r ./requirements.txt, pymet
 redis==2.10.6             # via -r ./requirements.txt, celery-once, django-redis
 requests-mock==1.8.0      # via -r requirements-dev.in
-requests==2.22.0          # via -r ./requirements.txt, coreapi, datadog, django-oauth-toolkit, google-api-core, requests-mock, twilio
+requests-ntlm==1.1.0      # via -r ./requirements.txt, arcgis
+requests-oauthlib==1.3.0  # via -r ./requirements.txt, arcgis
+requests-toolbelt==0.9.1  # via -r ./requirements.txt, arcgis
+requests==2.23.0          # via -r ./requirements.txt, arcgis, coreapi, datadog, django-oauth-toolkit, google-api-core, requests-mock, requests-ntlm, requests-oauthlib, requests-toolbelt, twilio
 rsa==4.0                  # via -r ./requirements.txt, google-auth, oauth2client
 s3transfer==0.3.2         # via -r ./requirements.txt, boto3
 scikit-learn==0.20.3      # via -r ./requirements.txt, pymet
@@ -191,7 +202,7 @@ scipy==1.2.1              # via -r ./requirements.txt, pymet, scikit-learn
 secretstorage==3.1.2      # via -r ./requirements.txt, keyring
 send2trash==1.5.0         # via -r ./requirements.txt, notebook
 shapely==1.6.3            # via -r ./requirements.txt, geopandas, rasterstats
-simplejson==3.16.0        # via -r ./requirements.txt, django-rest-swagger, rasterstats
+simplejson==3.17.0        # via -r ./requirements.txt, django-rest-swagger, rasterstats
 simplekml==1.3.1          # via -r ./requirements.txt
 six==1.11.0               # via -r ./requirements.txt, arcgis, bleach, cfgv, cryptography, cycler, django-bitfield, django-extensions, docxtpl, earthengine-api, eventlet, fiona, google-api-core, google-api-python-client, google-auth, google-resumable-media, html5lib, jsonschema, munch, oauth2client, packaging, pip-tools, protobuf, pyopenssl, pyrsistent, python-dateutil, python-engineio, requests-mock, traitlets, twilio, virtualenv, websocket-client
 snuggs==1.4.3             # via -r ./requirements.txt, rasterio
@@ -210,7 +221,7 @@ virtualenv==20.0.20       # via pre-commit
 wcwidth==0.1.8            # via -r ./requirements.txt, prompt-toolkit, pytest
 webencodings==0.5.1       # via -r ./requirements.txt, html5lib
 websocket-client==0.57.0  # via -r requirements-dev.in
-whitenoise==4.1.4         # via -r ./requirements.txt
+whitenoise==5.1.0         # via -r ./requirements.txt
 widgetsnbextension==3.5.1  # via -r ./requirements.txt, arcgis, ipywidgets
 xmlunittest==0.5.0        # via -r requirements-dev.in
 zipp==3.0.0               # via -r ./requirements.txt, importlib-metadata, importlib-resources

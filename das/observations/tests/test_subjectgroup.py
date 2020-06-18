@@ -6,12 +6,10 @@ from django.contrib.auth.models import Permission
 from django.test import TestCase
 
 from accounts.models import User, PermissionSet
-from core.tests import BaseAPITest, fake_get_pool
+from core.tests import BaseAPITest, fake_get_pool, API_BASE
 from observations.admin import SubjectGroupChangeForm
 from observations.models import Subject, SubjectGroup
 from observations.views import SubjectGroupsView, SubjectsView
-
-API_BASE = '/api/v1.0'
 
 
 def make_perm(perm):

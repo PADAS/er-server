@@ -1156,7 +1156,7 @@ class TestEventView(BaseAPITest):
         report_names = [report["Title"] for report in rendered_dict[:-1]]
 
         # 2 reports returned, Incident and contained report
-        self.assertEquals(2, len(report_names))
+        self.assertEqual(2, len(report_names))
         self.assertTrue(all(x in report_names for x in [
                         incident_data['title'],  self.event_data['title']]))
 
@@ -1224,7 +1224,7 @@ class TestEventView(BaseAPITest):
         reported_by_users = list(Event.objects.get_reported_by_for_provenance(
             Event.PC_STAFF))
 
-        self.assertEquals(2, len(reported_by_users))
+        self.assertEqual(2, len(reported_by_users))
         self.assertIn(self.all_perms_user, reported_by_users)
         self.assertIn(self.power_user, reported_by_users)
 

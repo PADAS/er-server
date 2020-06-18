@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 # Use python unit test here to persist results in test DB
 from unittest.mock import patch
 
@@ -25,6 +26,8 @@ from .geofence_test_data import *
 
 logger = logging.getLogger(__name__)
 
+FIXTURE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                            'fixtures')
 
 @override_settings(DEFAULT_FILE_STORAGE='django.core.files.storage.FileSystemStorage')
 class TestGeofenceAnalyzer(TestCase):
@@ -118,8 +121,8 @@ class TestGeofenceAnalyzer(TestCase):
 
     def setUp(self):
 
-        data = File(open('./analyzers/fixtures/lines.geojson', 'rb'))
-        feature_types_file = File(open('./analyzers/fixtures/spatial_feature_types.geojson', 'rb'))
+        data = File(open(os.path.join(FIXTURE_PATH, 'lines.geojson'), 'rb'))
+        feature_types_file = File(open(os.path.join(FIXTURE_PATH, 'spatial_feature_types.geojson'), 'rb'))
         spatialfile = SpatialFeatureFile.objects.create(data=data, feature_types_file=feature_types_file)
         process_spatialfile(spatialfile)
 

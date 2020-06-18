@@ -11,14 +11,12 @@ from oauth2_provider.models import Application, AccessToken
 from django.contrib.gis.geos import Point
 from django.utils import timezone
 
-from core.tests import BaseAPITest
+from core.tests import BaseAPITest, API_BASE
 from accounts.models import User, PermissionSet
 from observations.models import Subject, SubjectGroup, Source, SubjectSource, Observation, SourceGroup
 import observations.views as views
 from observations.serializers import ObservationSerializer
 from datetime import timedelta
-
-API_BASE = '/api/v1.0'
 
 
 def random_string(length=10):
