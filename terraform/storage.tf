@@ -32,3 +32,32 @@ resource "kubernetes_secret" "google-application-credentials" {
     credentials_json = base64decode(google_service_account_key.er_app_account_key.private_key)
   }
 }
+
+# Service Account for writing metrics to padas-app project.
+resource "google_service_account" "metrics_writer_sa" {
+  provider   = google
+  account_id = "metrics-${kubernetes_namespace.this.metadata.0.name}"
+  project    = "padas-app"
+}
+
+resource "google_project_iam_binding" "metrics_writer" {
+  project    = "padas-app"
+  role   = "roles/monitoring.metricWriter"
+  members = [
+    "serviceAccount:${google_service_account.metrics_writer_sa.email}"
+  ]
+}
+
+resource "google_service_account_key" "metrics_writer_account_key" {
+  service_account_id = google_service_account.metrics_writer_sa.name
+}
+
+resource "kubernetes_secret" "metrics-writer-credentials" {
+  metadata {
+    name      = "metrics-writer-credentials"
+    namespace = kubernetes_namespace.this.metadata.0.name
+  }
+  data = {
+    credentials_json = base64decode(google_service_account_key.metrics_writer_account_key.private_key)
+  }
+}
