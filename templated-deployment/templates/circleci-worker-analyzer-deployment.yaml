@@ -28,6 +28,12 @@ spec:
           items:
             - key: telegraf_conf
               path: telegraf.conf
+      - name: metrics-writer-credentials
+        secret:
+          secretName: metrics-writer-credentials
+          items:
+          - key: credentials_json
+            path: "metrics_writer_credentials.json"
       containers:
       - image:  "${SERVER_VERSION}"
         name: das-worker-analyzer
@@ -89,8 +95,11 @@ spec:
         - name: telegraf-config-volume
           mountPath: "/etc/telegraf/"
           readOnly: true
+        - name: metrics-writer-credentials
+          mountPath: "/etc/earthranger/"
+          readOnly: true
         env:
         - name: SERVICE_NAME
           value: "analyzer_worker"
-        - name: TELEGRAF_RESOURCE_TYPE
-          value: "generic_task"
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/etc/earthranger/metrics_writer_credentials.json"

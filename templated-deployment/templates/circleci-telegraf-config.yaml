@@ -6,6 +6,7 @@ metadata:
 data:
   telegraf_conf: |
          [global_tags]
+           site = "${KUBERNETES_NAMESPACE}"
            service_name = "$SERVICE_NAME"
          [agent]
            interval = "10s"
@@ -38,4 +39,10 @@ data:
          [[outputs.stackdriver]]
            project = "padas-app"
            namespace = "earthranger"
+         [[outputs.file]]
+           # Temporary for use during development of metrics.
+           files = ["/dev/shm/metrics.out"]
+           rotation_max_size = "1MB"
+           rotation_max_archives = 2
+           data_format = "influx"
 
