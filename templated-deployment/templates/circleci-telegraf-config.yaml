@@ -36,7 +36,6 @@ data:
            [inputs.statsd.tags]
             site = "${KUBERNETES_NAMESPACE}"
          [[outputs.stackdriver]]
-           project = "earthranger-78ca55ca"
+           project = "padas-app"
            namespace = "earthranger"
-           resource_type = "$TELEGRAF_RESOURCE_TYPE"
 
