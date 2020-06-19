@@ -195,16 +195,6 @@ jobs:
           paths:
             - '*'
 
-  commit_and_push_manifest:
-    docker:
-      - image: circleci/buildpack-deps:stretch
-    steps:
-      - attach_workspace:
-          at: './'
-      - setup_remote_docker
-      - docker_login
-      - 'configure_git_for_commit_and_push'
-      - run: 'cd infra-automation && make commit_and_push_manifest descriptive_gcr_path_stem="$CIRCLE_BRANCH" unique_gcr_tag="$CIRCLE_WORKFLOW_ID"'
 workflows:
   version: 2
   build_and_terraform_dev:
@@ -227,9 +217,6 @@ workflows:
       - kubectl_apply:
           requires:
             - 'render_templates'
-      - commit_and_push_manifest:
-          requires:
-            - 'kubectl_apply'
 
   build_and_terraform_feature_branch:
   # Build for all branches except develop and release.
@@ -257,9 +244,6 @@ workflows:
       - kubectl_apply:
           requires:
             - 'render_templates'
-      - commit_and_push_manifest:
-          requires:
-            - 'kubectl_apply'
 
   build_and_terraform_prod1:
   # Build for all release branches
@@ -282,9 +266,7 @@ workflows:
       - render_templates:
           requires:
             - 'terraform_apply_prod1'
-      - commit_and_push_manifest:
-          requires:
-            - 'render_templates'
+
   audit:
     jobs:
       - check_for_abandoned_workspaces
