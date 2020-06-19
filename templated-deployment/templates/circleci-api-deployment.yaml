@@ -35,6 +35,9 @@ spec:
           requests:
             cpu: "200m"
             memory: "500Mi"
+          limits:
+            cpu: "600m"
+            memory: "1000Mi"
         ports:
           - containerPort: 8000
         readinessProbe:
