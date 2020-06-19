@@ -6,7 +6,6 @@ metadata:
 data:
   telegraf_conf: |
          [global_tags]
-           site = "${KUBERNETES_NAMESPACE}"
            service_name = "$SERVICE_NAME"
          [agent]
            interval = "10s"
@@ -34,8 +33,9 @@ data:
            datadog_extensions = true
            allowed_pending_messages = 10000
            percentile_limit = 1000
+           [inputs.statsd.tags]
+            site = "${KUBERNETES_NAMESPACE}"
          [[outputs.stackdriver]]
-           project = "earthranger-78ca55ca"
+           project = "padas-app"
            namespace = "earthranger"
-           resource_type = "$TELEGRAF_RESOURCE_TYPE"
 
