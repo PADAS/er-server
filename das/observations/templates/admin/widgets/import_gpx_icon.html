@@ -4,42 +4,23 @@
     {{ rendered_widget }}
 
     <a class="related-widget-wrapper-link add-related" id="add_id_{{ name }}"
-       href="{{ add_related_url }}?{{ url_params }}&subject_id={{ trial }}"
+       href="{{ add_related_url }}?{{ url_params }}&subject_id={{ query_id }}"
        title="{% blocktrans %}Add another {{ model }}{% endblocktrans %}">
         <button type="submit" class="submit-row">
-            <svg id="Layer_1" fill="#0d86b7"  height="40" viewBox="0 0 512 512" width="40" xmlns="http://www.w3.org/2000/svg">
-                <g>
-                    <path d="m470 83.515-83.515-83.515h-248.485v308.181c-53.461 3.117-96 47.59-96 101.819 0 56.243 45.757 102 102 102 38.087 0 71.36-20.987 88.876-52h237.124zm-80-63.03 59.515 59.515h-59.515zm-246 479.515c-49.626 0-90-40.374-90-90s40.374-90 90-90 90 40.374 90 90-40.374 90-90 90zm94.653-52c4.734-11.75 7.347-24.575 7.347-38 0-54.229-42.539-98.702-96-101.819v-296.181h228v80h80v356z"/>
-                    <path d="m192 64h96v12h-96z"/>
-                    <path d="m192 96h64v12h-64z"/>
-                    <path d="m192 144h224v12h-224z"/>
-                    <path d="m192 176h224v12h-224z"/>
-                    <path d="m192 240h224v12h-224z"/>
-                    <path d="m192 272h160v12h-160z"/>
-                    <path d="m192 208h224v12h-224z"/>
-                    <path d="m336 320h80v12h-80z"/>
-                    <path d="m138 360.485v65.515h12v-65.515l21.757 21.758 8.486-8.486-36.243-36.242-36.243 36.242 8.486 8.486z"/>
-                    <path d="m178 452h-68v-26h-12v38h92v-38h-12z"/>
-                </g>
-            </svg>
+            Import <span style="font-size: 12px">GPX Data</span>
         </button>
     </a>
 </div>
 
 <style>
     button.submit-row {
-        /*background: #79aec8;*/
-        padding: 4px 50px;
+        margin: 4px 10px;
+        border: 2px solid #78aec8;
         border-radius: 8px;
-        color: black;
         cursor: pointer;
-        vertical-align: middle;
-        font-family: "Roboto", "Lucida Grande", Verdana, Arial, sans-serif;
-        font-weight: normal;
-        font-size: 5px;
-        text-align: center;
-        border: solid 1px #2e7692;
+
     }
+
     #id_import_gpx_data {
         display: None;
     }
