@@ -161,26 +161,18 @@ jobs:
       - attach_workspace:
           at: './'
       - 'export_google_credentials'
-      - run: 'cd infra-automation && make render_templates tfvars_environment=$CIRCLE_BRANCH'
+      - run:
+          name: 'Generate Manifest and Render Templates'
+          command: |
+            cd infra-automation
+            make generate_manifest current_branch="$CIRCLE_BRANCH"
+            make render_templates tfvars_environment=$CIRCLE_BRANCH'
       - persist_to_workspace:
           root: './'
           paths:
             - '*'
 
-  generate_manifest:
-    docker:
-      - image: circleci/buildpack-deps:stretch
-    steps:
-      - setup_remote_docker
-      - docker_login
-      - checkout
-      - run: 'cd circleci-docker && make generate_manifest semver_metadata_suffix=$CIRCLE_SHA1'
-      - persist_to_workspace:
-          root: './'
-          paths:
-            - '*'
-
-  docker_build_and_generate_manifest:
+  docker_build_image:
     executor: 'default'
     steps:
       - setup_remote_docker:
@@ -189,7 +181,6 @@ jobs:
       - 'checkout'
       - run: 'cd infra-automation && make build_and_push current_branch="$CIRCLE_BRANCH" unique_gcr_tag="$CIRCLE_WORKFLOW_ID" build_number="$CIRCLE_BUILD_NUM"'
       - 'activate_google_service_account'
-      - run: 'cd infra-automation && make generate_manifest current_branch="$CIRCLE_BRANCH"'
       - persist_to_workspace:
           root: './'
           paths:
@@ -201,13 +192,13 @@ workflows:
   # This is our eager workflow for deploying from our main code branch.
   # So no review step.
     jobs:
-      - docker_build_and_generate_manifest:
+      - docker_build_image:
           filters:
             branches:
               only: 'develop'
       - terraform_plan_dev:
           requires:
-            - 'docker_build_and_generate_manifest'
+            - 'docker_build_image'
       - terraform_apply_dev:
           requires:
             - 'terraform_plan_dev'
@@ -222,7 +213,7 @@ workflows:
   # Build for all branches except develop and release.
   # Include a review step.
     jobs:
-      - docker_build_and_generate_manifest:
+      - docker_build_image:
           filters:
             branches:
               ignore:
@@ -230,7 +221,7 @@ workflows:
                 - /release*/
       - terraform_plan_dev:
           requires:
-            - 'docker_build_and_generate_manifest'
+            - 'docker_build_image'
       - review_plan_dev:
           requires:
             - 'terraform_plan_dev'
@@ -249,13 +240,13 @@ workflows:
   # Build for all release branches
   # Review step for apply
     jobs:
-      - docker_build_and_generate_manifest:
+      - docker_build_image:
           filters:
             branches:
               only: /release*/
       - terraform_plan_prod1:
           requires:
-            - 'docker_build_and_generate_manifest'
+            - 'docker_build_image'
       - review_plan_prod1:
           requires:
             - 'terraform_plan_prod1'
