@@ -167,7 +167,7 @@ jobs:
           command: |
             cd infra-automation
             make generate_manifest current_branch="$CIRCLE_BRANCH"
-            make render_templates tfvars_environment=$CIRCLE_BRANCH'
+            make render_templates tfvars_environment="$CIRCLE_BRANCH"
       - persist_to_workspace:
           root: './'
           paths:
