@@ -50,8 +50,6 @@ from observations.mixins import FilterMixin
 from observations.utils import calculate_track_range, get_minimum_allowed_age
 from bitfield import BitField
 
-from django.utils.deconstruct import deconstructible
-from django.core.files.storage import FileSystemStorage
 
 logger = logging.getLogger(__name__)
 
@@ -897,7 +895,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
     subject_subtype = models.ForeignKey(
         SubjectSubType, default=get_default_subject_subtype, on_delete=models.PROTECT)
-    import_gpx_data = models.ForeignKey('GPXTrackFile', on_delete=models.PROTECT, null=True, blank=True)
+    import_gpx_data = models.ForeignKey('GPXTrackFile', help_text=_('Click on the button to import gpx data'), on_delete=models.PROTECT, null=True, blank=True)
 
     @property
     def subject_type(self):
@@ -1489,16 +1487,6 @@ class SubjectMaximumSpeed(ObservationAnnotator):
         proxy = True
 
 
-@deconstructible
-class TempStorage(FileSystemStorage):
-    def __init__(self, **kwargs):
-        import tempfile
-
-        temp_directory_name = tempfile.mkdtemp()
-        kwargs.update({'location': temp_directory_name, })
-        super(TempStorage, self).__init__(**kwargs)
-
-
 class GPXManager(models.Manager):
     def get_by_natural_key(self, value):
         return self.get(value=value)
@@ -1508,6 +1496,10 @@ class GPXManager(models.Manager):
 
     def natural_key(self):
         return (self.value,)
+
+
+def upload_to(instance, filename):
+    return filename
 
 
 class GPXTrackFile(models.Model):
@@ -1520,18 +1512,16 @@ class GPXTrackFile(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    source = models.ForeignKey('SubjectSource', on_delete=models.PROTECT)
+    source_assignment = models.ForeignKey('SubjectSource', on_delete=models.PROTECT)
     description = models.CharField(max_length=255, null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL,
                                    on_delete=models.SET_NULL,
                                    null=True, blank=True, related_name='gpx_track_files',
                                    related_query_name='gpx_track_file')
-    data = models.FileField(upload_to=TempStorage, null=True, blank=True)
+    data = models.FileField(upload_to=upload_to)
     file_size = models.IntegerField()
     processed_date = models.DateTimeField(auto_now_add=True)
-    processed_status = models.CharField(choices=PROCESSED_STATUS_CHOICES, max_length=255)
+    processed_status = models.CharField(choices=PROCESSED_STATUS_CHOICES, max_length=255, null=False, blank=False)
     objects = GPXManager()
 
-    def __str__(self):
-        return self.description
 
