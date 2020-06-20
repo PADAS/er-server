@@ -18,15 +18,6 @@ import urllib.parse as urlparse
 from urllib.parse import urlencode, quote
 
 
-@register.inclusion_tag('admin/choices_submit_line.html', takes_context=True)
-def submit_row(context):
-    ctx = original_submit_row(context)
-    if ctx['opts'].model_name == 'choice':
-        ctx.update({'addchoices': True})
-    return ctx
-
-
-
 @admin.register(models.Choice)
 class ChoiceAdmin(admin.ModelAdmin):
     change_list_template = "admin/disable_change_list.html"
