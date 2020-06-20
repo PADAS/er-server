@@ -1519,7 +1519,7 @@ class GPXTrackFile(models.Model):
                                    null=True, blank=True, related_name='gpx_track_files',
                                    related_query_name='gpx_track_file')
     data = models.FileField(upload_to=upload_to)
-    file_size = models.IntegerField()
+    file_size = models.IntegerField(null=True, blank=True)
     processed_date = models.DateTimeField(auto_now_add=True)
     processed_status = models.CharField(choices=PROCESSED_STATUS_CHOICES, max_length=255, null=False, blank=False)
     objects = GPXManager()
