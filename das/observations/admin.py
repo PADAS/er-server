@@ -6,7 +6,6 @@ import urllib
 
 import pytz
 import humanize
-import django
 from django.contrib import admin
 from django.db import connection
 from django.conf import settings
@@ -56,8 +55,16 @@ admin.site.index_template = 'admin/standard_admin_index.html'
 OBSERVATIONS_HISTORY_LIMIT = timedelta(days=90)
 
 
-class RFW(admin.widgets.RelatedFieldWidgetWrapper):
+class _RelatedFieldWidgetWrapper(admin.widgets.RelatedFieldWidgetWrapper):
     template_name = 'admin/widgets/related_widget.html'
+
+    def __init__(self, widget,
+                 rel, admin_site, can_add_related=None,
+                 can_change_related=False, can_delete_related=False,
+                 can_view_related=False, query_value=None):
+        self.query_value = query_value
+        super(_RelatedFieldWidgetWrapper, self).__init__(widget, rel, admin_site, can_add_related,
+                                                         can_change_related, can_delete_related, can_view_related)
 
     @property
     def get_model_name(self):
@@ -67,12 +74,12 @@ class RFW(admin.widgets.RelatedFieldWidgetWrapper):
         context = super().get_context(name, value, attrs)
         if self.get_model_name == 'GPXTrackFile':
             context['gpx_file'] = True
-            context['trial'] = self.can_work
-        from pprint import pprint
-        pprint(context)
+            context['query_id'] = self.query_value
         return context
 
-admin.widgets.RelatedFieldWidgetWrapper = RFW
+
+admin.widgets.RelatedFieldWidgetWrapper = _RelatedFieldWidgetWrapper  # Monkey-patched RelatedFieldWidgetWrapper
+
 
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
@@ -108,7 +115,7 @@ class ValidateFilterMixin:
     def check_uuid(self, uuid):
         try:
             uuid_version = UUID(uuid).version
-        except ValueError:
+        except Exception as exc:
             return
         return uuid
 
@@ -681,9 +688,9 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
                     can_change_related=related_modeladmin.has_change_permission(request),
                     can_delete_related=related_modeladmin.has_delete_permission(request),
                     can_view_related=related_modeladmin.has_view_permission(request),
-                    can_work=request.resolver_match.kwargs['object_id'],
+                    query_value=request.resolver_match.kwargs.get('object_id'),
                 )
-            formfield.widget = RFW(
+            formfield.widget = _RelatedFieldWidgetWrapper(
                 formfield.widget, db_field.remote_field, self.admin_site, **wrapper_kwargs
             )
             return formfield
@@ -707,68 +714,67 @@ class CommonNameAdmin(admin.ModelAdmin):
         return qs.filter(owner=request.user)
 
 
-class GPXMixin:
-
-    @staticmethod
-    def get_url_path(urlstring):
-        urlparse = urllib.parse.urlparse(urlstring)
-        return urlparse.path
-
-    def get_subject_id(self, urlstring):
-        if urlstring:
-            urlpath = self.get_url_path(urlstring=urlstring).split('/')
-            if set(urlpath) >= {'subject', 'observations', 'change'}:
-                subject_id = urlpath[4]
-                return subject_id
-            return
-        return
-
-
-
-
 @admin.register(models.GPXTrackFile)
-class GPXAdmin(admin.ModelAdmin, GPXMixin):
+class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
     readonly_fields = ('id',)
-    fields = ('id', 'source', 'description', 'data', 'file_size')
-
-    # def get_model_perms(self, request): return {}
-
-    # fields = ['id', 'source', 'description']
+    fields = ('id', 'source_assignment', 'description', 'data')
 
     def get_form(self, request, obj=None, change=False, **kwargs):
+        """
+        :param request:
+        :param obj:
+        :param change:
+        :param kwargs:
+        :return: form
+        todo: query the latest subjectsource
+        """
         form = super(GPXAdmin, self).get_form(request, obj, change, **kwargs)
-        http_referer = request.META.get('HTTP_REFERER')
-
-        subject_id = self.get_subject_id(http_referer)
-        if subject_id:
-            form.base_fields['source'].queryset = models.Subject.objects.get(id=subject_id).subjectsources.all()
+        subject_id = request.GET.get('subject_id')
+        none_qs = models.SubjectSource.objects.none()
+        queryset = models.Subject.objects.get(id=subject_id).subjectsources.all() if self.check_uuid(subject_id) else none_qs
+        form.base_fields['source_assignment'].queryset = queryset
+        form.base_fields['source_assignment'].initial = queryset.first()
         return form
 
-    def formfield_for_dbfield(self, db_field, request, **kwargs):
-        formfield = super().formfield_for_dbfield(db_field, request, **kwargs)
+    def response_add(self, request, obj, post_url_continue=None):
+        """
+        Determine the HttpResponse for the add_view stage.
+        todo: put the imports at the top
+        # """
+        from django.http.response import HttpResponseRedirect
+        from django.contrib.admin.utils import quote
+        from urllib.parse import quote as urlquote
+        from django.contrib import messages
+        from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
 
-        if db_field.name == 'source':
-            related_modeladmin = self.admin_site._registry.get(db_field.remote_field.model)
-            wrapper_kwargs = {}
-            if related_modeladmin:
-                wrapper_kwargs.update(
-                    can_add_related=related_modeladmin.has_add_permission(request),
-                    can_change_related=related_modeladmin.has_change_permission(request),
-                    can_delete_related=related_modeladmin.has_delete_permission(request),
-                    can_view_related=related_modeladmin.has_view_permission(request),
-                    can_work=self.get_subject_id(request.META.get('HTTP_REFERER')),
-                )
-            formfield.widget = RFW(
-                formfield.widget, db_field.remote_field, self.admin_site, **wrapper_kwargs
+        if "_addanother" in request.POST:
+
+            opts = obj._meta
+            preserved_filters = self.get_preserved_filters(request)
+            obj_url = reverse(
+                'admin:%s_%s_change' % (opts.app_label, opts.model_name),
+                args=(quote(obj.pk),),
+                current_app=self.admin_site.name,
             )
-            return formfield
-        return formfield
-
-
-
-
-
-
+            # Add a link to the object's change form if the user can edit the obj.
+            if self.has_change_permission(request, obj):
+                obj_repr = format_html('<a href="{}">{}</a>', urlquote(obj_url), obj)
+            else:
+                obj_repr = str(obj)
+            msg_dict = {
+                'name': opts.verbose_name,
+                'obj': obj_repr,
+            }
+            msg = format_html(
+                _('The {name} "{obj}" was added successfully. You may add another {name} below.'),
+                **msg_dict
+            )
+            self.message_user(request, msg, messages.SUCCESS)
+            redirect_url = request.get_full_path()
+            redirect_url = add_preserved_filters({'preserved_filters': preserved_filters, 'opts': opts}, redirect_url)
+            return HttpResponseRedirect(redirect_url)
+        else:
+            return super().response_add(request, obj, post_url_continue)
 
 
 @admin.register(models.SubjectSourceSummary)
