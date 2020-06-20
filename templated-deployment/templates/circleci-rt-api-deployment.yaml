@@ -16,18 +16,18 @@ spec:
         - name: gcr-secret
       # Mount secrets
       volumes:
-        - name: google-credentials
-          secret:
-            secretName: google-application-credentials
-            items:
-              - key: credentials_json
-                path: "google_credentials.json"
-        - name: telegraf-config-volume
-          configMap:
-            name: telegraf-configmap
-            items:
-              - key: telegraf_conf
-                path: telegraf.conf
+      - name: google-credentials
+        secret:
+          secretName: google-application-credentials
+          items:
+          - key: credentials_json
+            path: "google_credentials.json"
+      - name: telegraf-config-volume
+        configMap:
+          name: telegraf-configmap
+          items:
+            - key: telegraf_conf
+              path: telegraf.conf
       - name: metrics-writer-credentials
         secret:
           secretName: metrics-writer-credentials
@@ -125,9 +125,9 @@ spec:
           ports:
             - containerPort: 8125
           volumeMounts:
-            - name: telegraf-config-volume
-              mountPath: "/etc/telegraf/"
-              readOnly: true
+          - name: telegraf-config-volume
+            mountPath: "/etc/telegraf/"
+            readOnly: true
           - name: metrics-writer-credentials
             mountPath: "/etc/earthranger/"
             readOnly: true
