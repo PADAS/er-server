@@ -6,9 +6,6 @@ from django.utils.dateparse import parse_duration
 from django import forms
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
-from django.contrib.admin.widgets import RelatedFieldWidgetWrapper
-from django.db.models.fields import related
-
 
 from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider, GPXTrackFile
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
@@ -144,10 +141,6 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
 class SubjectSubtypeChoiceField(forms.ModelChoiceField):
     def label_from_instance(self, obj):
         return '{1} ({0})'.format(obj.subject_type.display, obj.display)
-
-
-class F(RelatedFieldWidgetWrapper):
-    template_name = 'admin/widgets/related_widget.html'
 
 
 class SubjectForm(JSONFieldFormMixin, forms.ModelForm):
@@ -311,5 +304,17 @@ class SetRandomColorForm(ActionForm):
 #         return super().save(commit=commit)
 #
 
-class GPXFORM(forms.ModelForm):
-    pass
+
+class GPXFileForm(forms.ModelForm):
+    class Meta:
+        model = GPXTrackFile
+        fields = '__all__'
+
+    def clean_data(self):
+        file_extension = '.gpx'
+        error_msg = _('Only .gpx files can be imported.')
+        file_name = self.cleaned_data.get('data').name
+        if file_name.endswith(file_extension):
+            return self.cleaned_data
+        else:
+            raise forms.ValidationError(error_msg, code='invalid')
