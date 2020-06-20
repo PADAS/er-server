@@ -10,7 +10,7 @@
                 <div>
                     {{ field.label_tag }} {{ field.field }}
                     {% if field.field.help_text %}
-                        <div class="help">{{ field.field.help_text|safe }}</div>
+                        <div class="help" style="margin-left: 0;">{{ field.field.help_text|safe }}</div>
                     {% endif %}
                 </div>
             {% endfor %}
@@ -20,7 +20,6 @@
 
 <style>
     .field-import_gpx_data label {
-        width: 110px;
-        padding: 10px 10px 0 0;
+        display: None;
     }
 </style>
