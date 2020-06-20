@@ -161,6 +161,7 @@ jobs:
       - attach_workspace:
           at: './'
       - 'export_google_credentials'
+      - 'activate_google_service_account'
       - run:
           name: 'Generate Manifest and Render Templates'
           command: |
