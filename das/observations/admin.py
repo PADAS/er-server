@@ -29,6 +29,11 @@ from django.db.models.expressions import RawSQL
 import django.contrib.gis.admin as gis_admin
 from django.utils.safestring import mark_safe, SafeString
 from django.utils.functional import cached_property
+from django.http.response import HttpResponseRedirect
+from django.contrib.admin.utils import quote
+from urllib.parse import quote as urlquote
+from django.contrib import messages
+from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
 
 import observations.models as models
 from tracking.models import SourcePlugin
@@ -727,27 +732,20 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
         :param change:
         :param kwargs:
         :return: form
-        todo: query the latest subjectsource
         """
         form = super(GPXAdmin, self).get_form(request, obj, change, **kwargs)
         subject_id = request.GET.get('subject_id')
         none_qs = models.SubjectSource.objects.none()
         queryset = models.Subject.objects.get(id=subject_id).subjectsources.all() if self.check_uuid(subject_id) else none_qs
+        form.base_fields['source_assignment'].widget = forms.Select()
         form.base_fields['source_assignment'].queryset = queryset
-        form.base_fields['source_assignment'].initial = queryset.first()
+        form.base_fields['source_assignment'].initial = queryset.last()
         return form
 
     def response_add(self, request, obj, post_url_continue=None):
         """
         Determine the HttpResponse for the add_view stage.
-        todo: put the imports at the top
-        # """
-        from django.http.response import HttpResponseRedirect
-        from django.contrib.admin.utils import quote
-        from urllib.parse import quote as urlquote
-        from django.contrib import messages
-        from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
-
+        """
         if "_addanother" in request.POST:
 
             opts = obj._meta
