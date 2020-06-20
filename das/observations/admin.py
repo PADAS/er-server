@@ -33,7 +33,7 @@ from django.utils.functional import cached_property
 import observations.models as models
 from tracking.models import SourcePlugin
 import observations.forms
-from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm
+from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm, GPXFileForm
 from observations.utils import assigned_range_dates
 from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin, \
     SaveCoordinatesToCookieMixin
@@ -718,6 +718,7 @@ class CommonNameAdmin(admin.ModelAdmin):
 class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
     readonly_fields = ('id',)
     fields = ('id', 'source_assignment', 'description', 'data')
+    form = GPXFileForm
 
     def get_form(self, request, obj=None, change=False, **kwargs):
         """
