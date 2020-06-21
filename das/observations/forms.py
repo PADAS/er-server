@@ -313,8 +313,9 @@ class GPXFileForm(forms.ModelForm):
     def clean_data(self):
         file_extension = '.gpx'
         error_msg = _('Only .gpx files can be imported.')
-        file_name = self.cleaned_data.get('data').name
-        if file_name.endswith(file_extension):
-            return self.cleaned_data
+        file = self.cleaned_data.get('data')
+        file_name = file.name
+        if file_name.lower().endswith(file_extension):
+            return file
         else:
             raise forms.ValidationError(error_msg, code='invalid')
