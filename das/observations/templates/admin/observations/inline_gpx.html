@@ -1,0 +1,79 @@
+
+{% load humanize %}
+{% load i18n %}
+
+<style type="text/css">
+
+
+</style>
+<div class="module">
+<div class="results">
+    <table>
+        <thead>
+          <tr>
+             <th>
+                 <div class="text">
+                    Subject Name
+                 </div>
+             </th>
+             <th>
+                 <div class="text">
+                    Source
+                 </div>
+             </th>
+              <th>
+                 <div class="text">
+                     File Name
+                 </div>
+             </th>
+             <th>
+                 <div class="text">
+                     Description
+                 </div>
+             </th>
+              <th>
+                 <div class="text">
+                     Processed date
+                 </div>
+             </th>
+             <th>
+                 <div class="text">
+                    Processed status
+                 </div>
+             </th>
+             <th>
+                 <div class="text">
+                    Created by
+                 </div>
+             </th>
+             <th>
+                 <div class="text">
+                     File size (Bytes)
+                 </div>
+             </th>
+             <th>
+                 <div class="text">
+                     id
+                 </div>
+             </th>
+          </tr>
+        </thead>
+        <tbody>
+            {% for gpx in gpxdata %}
+            <tr class="{% cycle 'row1' 'row2' %}">
+                <td>{{ gpx.subject_name }}</td>
+                <td>{{ gpx.source_name }}</td>
+                <td>{{ gpx.data }}</td>
+                <td>{% if gpx.description != None %} {{gpx.description }} {% else %} - {% endif %}</td>
+                <td>{{ gpx.processed_status }}</td>
+                <td>{{ gpx.processed_date|naturaltime }}</td>
+                <td>{{ gpx.username }}</td>
+                <td>{{ gpx.file_size|intcomma }}</td>
+                <td>{{ gpx.id }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div style="margin-top: 12px; font-size: 13px;">See more GPX data file upload attempts for this subject  <a href="{{ query_filter }}">here</a></div>
+</div>
+</div>
