@@ -513,6 +513,7 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
             'fields': ('additional', 'created_at', 'updated_at',)
         }),
         ('GPX Data imports', {
+            'classes': ('gpx-cls',),
             'fields': ('import_gpx_data',)
         })
     )
@@ -670,6 +671,15 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
     def get_changelist_form(self, request, **kwargs):
         return SubjectChangeListForm
 
+    @staticmethod
+    def get_gpxdata_context(extra_context, gpxdata, object_id):
+        extra_context = extra_context or {}
+        _url = reverse('admin:observations_gpxtrackfile_changelist')
+        filter_param = 'source_assignment__subject__id__exact'
+        extra_context['gpxdata'] = gpxdata[:3]
+        extra_context['query_filter'] = f'{_url}?{filter_param}={object_id}'
+        return extra_context
+
     def change_view(self, request, object_id, form_url='', extra_context=None):
 
         latest_observations = models.Observation.objects.filter(
@@ -678,6 +688,13 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
             .values('source__manufacturer_id', 'recorded_at', 'location', 'additional')
         extra_context = self.get_observations_context(
             extra_context, latest_observations, object_id)
+
+        latest_gpx_upload = models.GPXTrackFile.objects.filter(source_assignment__subject=object_id). \
+            annotate(subject_name=F('source_assignment__subject__name'),
+                     source_name=F('source_assignment__source__manufacturer_id'),
+                     username=F('created_by__username')).order_by('-processed_date').values()
+        extra_context = self.get_gpxdata_context(extra_context, latest_gpx_upload, object_id)
+
         return super().change_view(
             request, object_id, form_url, extra_context=extra_context,
         )
@@ -702,7 +719,6 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
         return super().formfield_for_dbfield(db_field, request, **kwargs)
 
 
-
 @admin.register(models.CommonName)
 class CommonNameAdmin(admin.ModelAdmin):
     list_display = ('value', 'display', 'subject_subtype')
@@ -722,6 +738,9 @@ class CommonNameAdmin(admin.ModelAdmin):
 @admin.register(models.GPXTrackFile)
 class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
     readonly_fields = ('id',)
+    list_display = ('subject', 'source', 'filename', '_file_size', 'description', 'processed_date',
+                    'processed_status', 'created_by', 'id')
+    list_filter = ('source_assignment__subject', )
     fields = ('id', 'source_assignment', 'description', 'data')
     form = GPXFileForm
 
@@ -774,6 +793,34 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
             return HttpResponseRedirect(redirect_url)
         else:
             return super().response_add(request, obj, post_url_continue)
+
+    def save_model(self, request, obj, form, change):
+        obj.processed_status = self.model.success
+        obj.file_size = obj.data.size
+        obj.created_by = request.user
+        return obj.save()
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        queryset = queryset.annotate(subject_name=F('source_assignment__subject__name'),
+                                     source_name=F('source_assignment__source__manufacturer_id'))
+        return queryset
+
+    def source(self, o):
+        return o.source_name
+    source.short_description = 'Source'
+
+    def subject(self, o):
+        return o.subject_name
+    subject.short_description = 'Subject'
+
+    def filename(self, o):
+        return o.data.name
+    filename.short_description = 'File Name'
+
+    def _file_size(self, o):
+        return o.file_size
+    _file_size.short_description = 'File Size (Bytes)'
 
 
 @admin.register(models.SubjectSourceSummary)
