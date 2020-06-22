@@ -1487,6 +1487,28 @@ class SubjectMaximumSpeed(ObservationAnnotator):
         proxy = True
 
 
+class GPXLogRecord(models.Model):
+    success = 'success'
+    failure = 'failure'
+
+    PROCESSED_STATUS_CHOICES = [
+        (success, 'Success'),
+        (failure, 'Failure'),
+    ]
+
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL,
+                                   on_delete=models.SET_NULL,
+                                   null=True, blank=True, related_name='gpx_track_files',
+                                   related_query_name='gpx_track_file')
+    file_name = models.CharField(max_length=225, null=True, blank=True)
+    file_size = models.IntegerField(null=True, blank=True)
+    processed_date = models.DateTimeField(auto_now_add=True)
+    processed_status = models.CharField(choices=PROCESSED_STATUS_CHOICES, max_length=255, null=False, blank=False)
+
+    class Meta:
+        abstract = True
+
+
 class GPXManager(models.Manager):
     def get_by_natural_key(self, value):
         return self.get(value=value)
@@ -1496,26 +1518,13 @@ def upload_to(instance, filename):
     return filename
 
 
-class GPXTrackFile(models.Model):
-    success = 'success'
-    failure = 'failure'
-
-    PROCESSED_STATUS_CHOICES = [
-        (success, 'Success'),
-        (failure, 'Failure'),
-    ]
-
+class GPXTrackFile(GPXLogRecord):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     source_assignment = models.ForeignKey('SubjectSource', on_delete=models.PROTECT)
     description = models.CharField(max_length=255, null=True, blank=True)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL,
-                                   on_delete=models.SET_NULL,
-                                   null=True, blank=True, related_name='gpx_track_files',
-                                   related_query_name='gpx_track_file')
-    data = models.FileField(upload_to=upload_to)
+    data = models.FileField(upload_to=upload_to, null=True, blank=True)
     file_size = models.IntegerField(null=True, blank=True)
-    processed_date = models.DateTimeField(auto_now_add=True)
-    processed_status = models.CharField(choices=PROCESSED_STATUS_CHOICES, max_length=255, null=False, blank=False)
+
     objects = GPXManager()
 
 
