@@ -306,6 +306,8 @@ class SetRandomColorForm(ActionForm):
 
 
 class GPXFileForm(forms.ModelForm):
+    data = forms.FileField(required=True)
+
     class Meta:
         model = GPXTrackFile
         fields = '__all__'
