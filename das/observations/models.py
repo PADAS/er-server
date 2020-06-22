@@ -895,7 +895,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
     subject_subtype = models.ForeignKey(
         SubjectSubType, default=get_default_subject_subtype, on_delete=models.PROTECT)
-    import_gpx_data = models.ForeignKey('GPXTrackFile', help_text=_('Click on the button to import gpx data'), on_delete=models.PROTECT, null=True, blank=True)
+    import_gpx_data = models.ForeignKey('GPXTrackFile', help_text=_('Click on the button to import gpx data'), on_delete=models.SET_NULL, null=True, blank=True)
 
     @property
     def subject_type(self):
@@ -1490,12 +1490,6 @@ class SubjectMaximumSpeed(ObservationAnnotator):
 class GPXManager(models.Manager):
     def get_by_natural_key(self, value):
         return self.get(value=value)
-
-    def get_by_value(self, value):
-        return self.get(value=value)
-
-    def natural_key(self):
-        return (self.value,)
 
 
 def upload_to(instance, filename):
