@@ -46,3 +46,12 @@ data:
            rotation_max_archives = 2
            data_format = "influx"
 
+          [[aggregators.basicstats]]
+           # The period on which to flush & clear the aggregator.
+           period = "3600s"
+         
+           # Drop original metric
+           drop_original = true
+         
+           # stats to push to output
+           stats = ["count", "mean"]
