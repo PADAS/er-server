@@ -63,7 +63,7 @@
             <tr class="{% cycle 'row1' 'row2' %}">
                 <td>{{ gpx.subject_name }}</td>
                 <td>{{ gpx.source_name }}</td>
-                <td>{{ gpx.data }}</td>
+                <td>{{ gpx.file_name }}</td>
                 <td>{% if gpx.description != None %} {{gpx.description }} {% else %} - {% endif %}</td>
                 <td>{{ gpx.processed_status }}</td>
                 <td>{{ gpx.processed_date|naturaltime }}</td>
