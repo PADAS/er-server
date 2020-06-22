@@ -48,4 +48,4 @@ data:
            drop_original = true
          
            # stats to push to output
-           stats = ["count", "max", "min", "mean"]
+           stats = ["count", "mean"]
