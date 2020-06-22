@@ -771,26 +771,24 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
         """
         Determine the HttpResponse for the add_view stage.
         """
+        opts = obj._meta
+        preserved_filters = self.get_preserved_filters(request)
+        obj_url = reverse(
+            'admin:%s_%s_change' % (opts.app_label, opts.model_name),
+            args=(quote(obj.pk),),
+            current_app=self.admin_site.name,
+        )
+        # Add a link to the object's change form if the user can edit the obj.
+        if self.has_change_permission(request, obj):
+            obj_repr = format_html('<a href="{}">{}</a>', urlquote(obj_url), obj)
+        else:
+            obj_repr = str(obj)
+        msg_dict = {'name': opts.verbose_name, 'obj': obj_repr, 'filename': obj.file_name}
+
         if "_addanother" in request.POST:
 
-            opts = obj._meta
-            preserved_filters = self.get_preserved_filters(request)
-            obj_url = reverse(
-                'admin:%s_%s_change' % (opts.app_label, opts.model_name),
-                args=(quote(obj.pk),),
-                current_app=self.admin_site.name,
-            )
-            # Add a link to the object's change form if the user can edit the obj.
-            if self.has_change_permission(request, obj):
-                obj_repr = format_html('<a href="{}">{}</a>', urlquote(obj_url), obj)
-            else:
-                obj_repr = str(obj)
-            msg_dict = {
-                'name': opts.verbose_name,
-                'obj': obj_repr,
-            }
             msg = format_html(
-                _('The {name} "{obj}" was added successfully. You may add another {name} below.'),
+                _('The GPX data "{filename}" was successfully added. You may add another {name} below.'),
                 **msg_dict
             )
             self.message_user(request, msg, messages.SUCCESS)
@@ -798,11 +796,18 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
             redirect_url = add_preserved_filters({'preserved_filters': preserved_filters, 'opts': opts}, redirect_url)
             return HttpResponseRedirect(redirect_url)
         else:
+
+            msg = format_html(
+                _('The GPX data file "{filename}" was successfully imported.',),
+                **msg_dict
+            )
+            self.message_user(request, msg, messages.SUCCESS)
             return super().response_add(request, obj, post_url_continue)
 
     def save_model(self, request, obj, form, change):
         obj.processed_status = self.model.success
         obj.file_size = obj.data.size
+        obj.file_name = obj.data.name
         obj.created_by = request.user
         return obj.save()
 
@@ -821,7 +826,7 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
     subject.short_description = 'Subject'
 
     def filename(self, o):
-        return o.data.name
+        return o.file_name
     filename.short_description = 'File Name'
 
     def _file_size(self, o):
