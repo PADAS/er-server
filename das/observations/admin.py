@@ -699,6 +699,12 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
             request, object_id, form_url, extra_context=extra_context,
         )
 
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        form = super().get_form(request, obj, change, **kwargs)
+        none_qs = models.GPXTrackFile.objects.none()
+        form.base_fields['import_gpx_data'].queryset = none_qs
+        return form
+
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         if db_field.name == 'import_gpx_data':
             formfield = self.formfield_for_foreignkey(db_field, request, **kwargs)
