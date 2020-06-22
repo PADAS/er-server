@@ -804,6 +804,17 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
             self.message_user(request, msg, messages.SUCCESS)
             return super().response_add(request, obj, post_url_continue)
 
+    def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
+        try:
+            return super().changeform_view(request, object_id, form_url, extra_context)
+        except Exception as exc:
+            url_path = request.get_full_path()
+            file_name = request.FILES.get('data').name
+            error_msg = f'The GPX data file {file_name} failed to import: {exc}'
+            self.message_user(request, error_msg, level=messages.ERROR)
+            self.create_gpxfile_object(request)
+            return HttpResponseRedirect(url_path)
+
     def save_model(self, request, obj, form, change):
         obj.processed_status = self.model.success
         obj.file_size = obj.data.size
@@ -817,17 +828,39 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
                                      source_name=F('source_assignment__source__manufacturer_id'))
         return queryset
 
+    def create_gpxfile_object(self, request):
+        """When gpx file upload fails, create one with status=Failure"""
+        model = self.model
+        posted_data = request.POST
+        posted_file = request.FILES
+        data = posted_file.get('data')
+        file_name = data.name
+        file_size = data.size
+        user = request.user
+        source_assignment = posted_data.get('source_assignment')
+        subject_source = models.SubjectSource.objects.get(id=source_assignment)
+        description = posted_data.get('description')
+        return model.objects.create(source_assignment=subject_source,
+                                    description=description,
+                                    processed_status=self.model.failure,
+                                    file_size=file_size,
+                                    file_name=file_name,
+                                    created_by=user)
+
     def source(self, o):
         return o.source_name
     source.short_description = 'Source'
+    source.admin_order_field = 'source_name'
 
     def subject(self, o):
         return o.subject_name
     subject.short_description = 'Subject'
+    subject.admin_order_field = 'subject_name'
 
     def filename(self, o):
         return o.file_name
     filename.short_description = 'File Name'
+    filename.admin_order_field = 'file_name'
 
     def _file_size(self, o):
         return o.file_size
