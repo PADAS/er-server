@@ -55,4 +55,4 @@ data:
          
            # Drop original metric
            drop_original = true
-           stats = ["count"]
+           stats = ["count", "min"]
