@@ -33,7 +33,11 @@ spec:
         name: das-worker-rt
         resources:
           requests:
+            cpu: "50m"
+            memory: "100Mi"
+          limits:
             cpu: "100m"
+            memory: "300Mi"
         volumeMounts:
         - name: google-credentials
           mountPath: "/etc/earthranger/"
