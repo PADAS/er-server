@@ -3,7 +3,6 @@
 wait_for $DB_HOST $DB_PORT
 
 python3 manage.py migrate --no-input
-python3 manage.py collectstatic --no-input
 
 # Override GUNICORN_CMD_ARGS at deployment if desired.
 # Keep in mind that the flags specified below, when running gunicorn, take 
