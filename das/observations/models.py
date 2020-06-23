@@ -52,6 +52,7 @@ from bitfield import BitField
 
 
 logger = logging.getLogger(__name__)
+GPX_FILES_FOLDER = getattr(settings, 'GPX_FILES_FOLDER', 'observations/gpxfile')
 
 
 SOURCE_TYPES = sorted((
@@ -1515,7 +1516,10 @@ class GPXManager(models.Manager):
 
 
 def upload_to(instance, filename):
-    return filename
+    filename = filename.split('/')[-1]
+    timestamp = "{:%Y%m%d%H%M}".format(datetime.now(tz=pytz.utc))
+    file_path = f'{GPX_FILES_FOLDER}/{timestamp}-{filename}'
+    return file_path
 
 
 class GPXTrackFile(GPXLogRecord):
