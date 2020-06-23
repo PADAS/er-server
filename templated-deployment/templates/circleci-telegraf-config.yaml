@@ -8,6 +8,7 @@ data:
          [global_tags]
            site = "${KUBERNETES_NAMESPACE}"
            service_name = "$SERVICE_NAME"
+
          [agent]
            interval = "10s"
            round_interval = true
@@ -19,6 +20,7 @@ data:
            precision = ""
            hostname = ""
            omit_hostname = false
+
          [[inputs.statsd]]
            protocol = "udp"
            max_tcp_connections = 250
@@ -34,18 +36,23 @@ data:
            datadog_extensions = true
            allowed_pending_messages = 10000
            percentile_limit = 1000
+
          [[outputs.stackdriver]]
            project = "padas-app"
            namespace = "earthranger"
           
-           # Aggregators
+          
+          [[outputs.file]]
+           # Temporary for use during development of metrics.
+           files = ["/dev/shm/metrics.out"]
+           rotation_max_size = "1MB"
+           rotation_max_archives = 2
+           data_format = "influx"
 
           [[aggregators.basicstats]]
            # The period on which to flush & clear the aggregator.
-           period = "10s"
+           period = "20s"
          
            # Drop original metric
            drop_original = true
-         
-           # stats to push to output
-           stats = ["count", "max", "min", "mean", "s2", "stdev"]
+           stats = ["count"]
