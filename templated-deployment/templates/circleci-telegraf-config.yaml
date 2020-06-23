@@ -51,8 +51,8 @@ data:
 
           [[aggregators.basicstats]]
            # The period on which to flush & clear the aggregator.
-           period = "20s"
+           period = "10s"
          
            # Drop original metric
            drop_original = true
-           stats = ["count", "min"]
+           stats = ["count"]
