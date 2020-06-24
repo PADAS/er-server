@@ -2,7 +2,7 @@
 . $(dirname "$0")/wait_for.sh
 wait_for $API_HOST $API_PORT
 
-python3 manage.py collectstatic --no-input
+. $(dirname "$0")/django_common_startup.sh
 
 export EVENTLET_SHOULDPATCH=True
 
