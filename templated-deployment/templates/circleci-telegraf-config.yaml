@@ -57,5 +57,3 @@ data:
            # Drop original metric
            drop_original = true
            stats = ["count"]
-
-           # site two
