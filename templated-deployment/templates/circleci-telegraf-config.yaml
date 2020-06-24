@@ -42,15 +42,17 @@ data:
            project = "padas-app"
            namespace = "earthranger"
           
-          
-          [[outputs.file]]
+         [[outputs.file]]
            # Temporary for use during development of metrics.
            files = ["/dev/shm/metrics.out"]
            rotation_max_size = "1MB"
            rotation_max_archives = 2
            data_format = "influx"
 
-          [[aggregators.basicstats]]
+         [[aggregators.merge]]
+           drop_original = true
+
+         [[aggregators.basicstats]]
            # The period on which to flush & clear the aggregator.
            period = "20s"
          
