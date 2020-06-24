@@ -36,6 +36,7 @@ data:
            datadog_extensions = true
            allowed_pending_messages = 10000
            percentile_limit = 1000
+           namedrop = ["datadog_*"]
 
          [[outputs.stackdriver]]
            project = "padas-app"
@@ -51,8 +52,10 @@ data:
 
           [[aggregators.basicstats]]
            # The period on which to flush & clear the aggregator.
-           period = "10s"
+           period = "20s"
          
            # Drop original metric
            drop_original = true
            stats = ["count"]
+
+           # site two
