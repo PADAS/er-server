@@ -37,15 +37,13 @@ resource "kubernetes_secret" "google-application-credentials" {
 resource "google_service_account" "metrics_writer_sa" {
   provider   = google
   account_id = "metrics-${kubernetes_namespace.this.metadata.0.name}"
-  project    = "padas-app"
+  project    = local.legacy_project_id
 }
 
-resource "google_project_iam_binding" "metrics_writer" {
-  project    = "padas-app"
-  role   = "roles/monitoring.metricWriter"
-  members = [
-    "serviceAccount:${google_service_account.metrics_writer_sa.email}"
-  ]
+resource "google_project_iam_member" "project" {
+  project    = local.legacy_project_id
+  role    = "roles/monitoring.metricWriter"
+  member  = "serviceAccount:${google_service_account.metrics_writer_sa.email}"
 }
 
 resource "google_service_account_key" "metrics_writer_account_key" {
