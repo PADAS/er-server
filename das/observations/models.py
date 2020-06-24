@@ -1527,7 +1527,6 @@ class GPXTrackFile(GPXLogRecord):
     source_assignment = models.ForeignKey('SubjectSource', on_delete=models.PROTECT)
     description = models.CharField(max_length=255, null=True, blank=True)
     data = models.FileField(upload_to=upload_to, null=True, blank=True)
-    file_size = models.IntegerField(null=True, blank=True)
 
     objects = GPXManager()
 
