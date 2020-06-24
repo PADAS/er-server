@@ -7,14 +7,32 @@ from django.contrib.gis.geos import Point
 from django.urls import reverse
 from django.conf import settings
 from django.test import override_settings
+from django.core.files import File
+from django.contrib.admin.sites import AdminSite
+from django.test import RequestFactory
+from django.http import QueryDict
+from django.contrib.messages.storage.cookie import CookieStorage
+
 import dateutil.parser as dateparser
 from pytz import UTC
 
 from core.tests import BaseAPITest
-from observations.models import Subject, Observation
+from observations.models import Subject, Observation, GPXTrackFile, SubjectSource
 from observations.views import SubjectsView
+from observations.admin import GPXAdmin
 
 User = django.contrib.auth.get_user_model()
+
+
+class ContexT(object):
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def __enter__(self, *args, **kwargs):
+        pass
+
+    def __exit__(self, *args, **kwargs):
+        pass
 
 
 class SubjectTestCase(BaseAPITest):
@@ -30,6 +48,10 @@ class SubjectTestCase(BaseAPITest):
         user_const = dict(last_name='last', first_name='first')
         self.user = User.objects.create_user('user', 'user@test.com', 'all_perms_user', is_superuser=True,
                                              is_staff=True, **user_const)
+        self.site = AdminSite()
+        self.request = RequestFactory()
+        self.admin = GPXAdmin(model=GPXTrackFile, admin_site=self.site)
+
 
     def test_subject_observations(self):
         subject = Subject.objects.get(name='Topsy')
@@ -289,6 +311,79 @@ class SubjectTestCase(BaseAPITest):
         self.assertNotEqual(t3.date().isoformat(), subject3_last_position)
         self.assertEqual(response.status_code, 200)
 
+    def test_gpx_file_model(self):
 
+        subject = Subject.objects.get(name='Topsy')
+        subject_source = SubjectSource.objects.get(subject=subject)
+        data = File(open('./observations/tests/testdata/gpsmap_data.gpx', 'rb'))
+        GPXTrackFile.objects.create(data=data, source_assignment=subject_source)
+
+        self.assertEqual(GPXTrackFile.objects.count(), 1)
+
+    def test_gpxfile_upload_on_adminpage(self):
+
+        subject = Subject.objects.get(name='Topsy')
+        subject_source = SubjectSource.objects.get(subject=subject)
+        data = File(open('./observations/tests/testdata/gpsmap_data.gpx', 'rb'))
+
+        url = reverse('admin:observations_gpxtrackfile_add')
+        url += f'?subject_id={subject.id}'
+        request = self.factory.post(url, data={'source_assignment': subject_source.id, '_save': 'Save'})
+
+        self.force_authenticate(request, self.user)
+        query_dict = QueryDict('', mutable=True)
+        post_data = {'source_assignment': subject_source.id, '_save': 'Save',
+                     'csrfmiddlewaretoken': 'y3WZXVzvwNlEAYd76nA4MvdvVKSaGSiS91Q2HGwV8ag99etBRgAXs2FgLO49XU3e',
+                     'description': ''}
+        query_dict.update(post_data)
+
+        with ContexT() as c:
+            request.FILES['data'] = data
+            request.POST = query_dict
+            request.META['CSRF_COOKIE'] = 'y3WZXVzvwNlEAYd76nA4MvdvVKSaGSiS91Q2HGwV8ag99etBRgAXs2FgLO49XU3e'
+
+        messages = CookieStorage(request)
+        setattr(request, '_messages', messages)
+
+        self.assertFalse(GPXTrackFile.objects.all())  # No gpx on database.
+
+        template_response = self.admin.changeform_view(request)
+        successful_msg = 'The GPX data file "./observations/tests/testdata/gpsmap_data.gpx" was successfully imported.'
+        gpx_object = GPXTrackFile.objects.all()
+        processed_status = gpx_object.values('processed_status')
+        self.assertEqual(template_response.status_code, 302)
+        self.assertEqual(messages._queued_messages[0].message, successful_msg)
+        self.assertEqual(gpx_object.count(), 1)
+        self.assertEqual(processed_status[0].get('processed_status'), 'success')
+
+    def test_gpx_upload_fails(self):
+        subject = Subject.objects.get(name='Topsy')
+        subject_source = SubjectSource.objects.get(subject=subject)
+        data = File(open('./observations/tests/testdata/gpsmap_data.gpx', 'rb'))
+
+        url = reverse('admin:observations_gpxtrackfile_add')
+        request = self.factory.post(url, data={'source_assignment': subject_source.id, '_save': 'Save'})
+        self.force_authenticate(request, self.user)
+        query_ = QueryDict('', mutable=True)
+        post_data = {'source_assignment': subject_source.id, '_save': 'Save',
+                     'csrfmiddlewaretoken': ['y3WZXVzvwNlEAYd76nA4MvdvVKSaGSiS91Q2HGwV8ag99etBRgAXs2FgLO49XU3e'],
+                     'description': ''}
+        query_.update(post_data)
+
+        with ContexT() as c:
+            request.FILES['data'] = data
+            request.POST = query_
+            request.META['CSRF_COOKIE'] = 'y3WZXVzvwNlEAYd76nA4MvdvVKSaGSiS91Q2HGwV8ag99etBRgAXs2FgLO49XU3e'
+
+        messages = CookieStorage(request)
+        setattr(request, '_messages', messages)
+
+        gpx_object = GPXTrackFile.objects.all()
+        processed_status = gpx_object.values('processed_status')
+        template_response = self.admin.changeform_view(request)
+        fail_msg = 'The GPX data file ./observations/tests/testdata/gpsmap_data.gpx failed to import: expected string or bytes-like object'
+        self.assertEqual(template_response.status_code, 302)
+        self.assertEqual(messages._queued_messages[0].message, fail_msg)
+        self.assertEqual(processed_status[0].get('processed_status'), 'failure')
 
 
