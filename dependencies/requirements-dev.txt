@@ -32,7 +32,7 @@ click==7.0                # via -r ./requirements.txt, click-plugins, cligj, pip
 cligj==0.5.0              # via -r ./requirements.txt, fiona, rasterio, rasterstats
 coreapi==2.3.3            # via -r ./requirements.txt, django-rest-swagger, openapi-codec
 coreschema==0.0.4         # via -r ./requirements.txt, coreapi
-coverage==4.5.4           # via -r requirements-dev.in
+coverage==5.1             # via -r requirements-dev.in
 cryptography==2.6.1       # via -r ./requirements.txt, pyopenssl, requests-ntlm, secretstorage
 cycler==0.10.0            # via -r ./requirements.txt, matplotlib
 cython==0.29.10           # via -r ./requirements.txt
