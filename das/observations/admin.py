@@ -759,9 +759,15 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
         :return: form
         """
         form = super(GPXAdmin, self).get_form(request, obj, change, **kwargs)
-        subject_id = request.GET.get('subject_id')
-        none_qs = models.SubjectSource.objects.none()
-        queryset = models.Subject.objects.get(id=subject_id).subjectsources.all() if self.check_uuid(subject_id) else none_qs
+        subject_id, _popup = request.GET.get('subject_id'),  request.GET.get('_popup')
+
+        if self.check_uuid(subject_id) and _popup:
+            queryset = models.Subject.objects.get(id=subject_id).subjectsources.all()
+        elif _popup:
+            queryset = models.SubjectSource.objects.none()
+        else:
+            queryset = models.SubjectSource.objects.all()
+
         form.base_fields['source_assignment'].widget = forms.Select()
         form.base_fields['source_assignment'].queryset = queryset
         form.base_fields['source_assignment'].initial = queryset.last()
