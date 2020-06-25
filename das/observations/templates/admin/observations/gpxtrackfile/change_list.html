@@ -42,7 +42,7 @@
     {% block object-tools %}
         <ul class="object-tools">
           {% block object-tools-items %}
-            {% change_list_object_tools %}
+{#            {% change_list_object_tools %}#} <!-- Comment out the add button -->
           {% endblock %}
         </ul>
     {% endblock %}
@@ -52,12 +52,12 @@
         </p>
         {{ cl.formset.non_form_errors }}
     {% endif %}
-{#    <div class="module{% if cl.has_filters %} filtered{% endif %}" id="changelist">#}
+{#    <div class="module{% if cl.has_filters %} filtered{% endif %}" id="changelist">#}  <!-- Comment out the filter on the side -->
     <div class="module" id="changelist">
       {% block search %}{% search_form cl %}{% endblock %}
       {% block date_hierarchy %}{% if cl.date_hierarchy %}{% date_hierarchy cl %}{% endif %}{% endblock %}
 
-{#      {% block filters %}#}
+{#      {% block filters %}#}    <!-- Comment out the filter on the side -->
 {#        {% if cl.has_filters %}#}
 {#          <div id="changelist-filter">#}
 {#            <h2>{% trans 'Filter' %}</h2>#}
