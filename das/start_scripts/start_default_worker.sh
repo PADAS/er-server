@@ -6,4 +6,4 @@ wait_for $API_HOST $API_PORT
 
 WORKERS=10
 
-celery -A das_server worker -Q default,maintenance -l info -c $WORKERS -P gevent --without-gossip -n default --pidfile /dev/shm/celerybeat.pid
+celery -A das_server worker -Q default,maintenance -l info -c $WORKERS -P gevent --without-gossip -n default
