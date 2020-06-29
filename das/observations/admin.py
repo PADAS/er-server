@@ -749,6 +749,7 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
                     'processed_status', 'created_by', 'id')
     list_filter = ('source_assignment__subject', )
     fields = ('id', 'source_assignment', 'description', 'data')
+    list_display_links = None
     form = GPXFileForm
 
     def get_model_perms(self, request):
