@@ -14,7 +14,7 @@ class PermissionSetManager(HierarchyManager):
     use_in_migrations = True
 
     def get_by_natural_key(self, name):
-        return self.get(**{name: name})
+        return self.get(**{"name": name})
 
 
 class PermissionSet(HierarchyModel, TimestampedModel):

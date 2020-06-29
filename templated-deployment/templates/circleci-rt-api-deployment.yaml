@@ -33,8 +33,11 @@ spec:
           name: das-rt-api
           resources:
             requests:
-              cpu: "100m"
+              cpu: "200m"
               memory: "500Mi"
+            limits:
+              cpu: "600m"
+              memory: "2000Mi"
           ports:
             - containerPort: 8000
           readinessProbe:

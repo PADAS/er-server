@@ -35,6 +35,9 @@ spec:
           requests:
             cpu: "200m"
             memory: "500Mi"
+          limits:
+            cpu: "600m"
+            memory: "2000Mi"
         ports:
           - containerPort: 8000
         readinessProbe:
@@ -45,7 +48,8 @@ spec:
             path: '/api/v1.0/status?db_connections=true'
             port: 8000
           initialDelaySeconds: 15
-          periodSeconds: 20
+          timeoutSeconds: 10
+          periodSeconds: 5
           failureThreshold: 3
           successThreshold: 1
         livenessProbe:
@@ -55,7 +59,8 @@ spec:
               value: '${FQDN}'
             path: '/api/v1.0/status?db_connections=true'
             port: 8000
-          initialDelaySeconds: 15
+          initialDelaySeconds: 10
+          timeoutSeconds: 10
           periodSeconds: 20
           failureThreshold: 3
           successThreshold: 1
@@ -106,17 +111,17 @@ spec:
         envFrom:
           - configMapRef:
               name: server-configmap
-      - name: telegraf
-        image: gcr.io/padas-app/telegraf:1.14.3
-        ports:
-          - containerPort: 8125
-        volumeMounts:
-        - name: telegraf-config-volume
-          mountPath: "/etc/telegraf/"
-          readOnly: true
-        env:
-        - name: SERVICE_NAME
-          value: "api_server"
-        - name: TELEGRAF_RESOURCE_TYPE
-          value: "generic_node"
+      # - name: telegraf
+      #   image: gcr.io/padas-app/telegraf:1.14.3
+      #   ports:
+      #     - containerPort: 8125
+      #   volumeMounts:
+      #   - name: telegraf-config-volume
+      #     mountPath: "/etc/telegraf/"
+      #     readOnly: true
+      #   env:
+      #   - name: SERVICE_NAME
+      #     value: "api_server"
+      #   - name: TELEGRAF_RESOURCE_TYPE
+      #     value: "generic_node"
 

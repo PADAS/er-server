@@ -15,6 +15,10 @@ spec:
           resources:
             requests:
               cpu: "50m"
+              memory: "100Mi"
+            limits:
+              cpu: "100m"
+              memory: "200Mi"
           ports:
             - containerPort: 6379
           readinessProbe:

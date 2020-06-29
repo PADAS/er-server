@@ -18,6 +18,9 @@ spec:
           requests:
             cpu: "10m"
             memory: "100Mi"
+          limits: 
+            cpu: "50m"
+            memory: "250Mi"
         ports:
         - containerPort: 443
         - containerPort: 8000

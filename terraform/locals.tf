@@ -6,6 +6,7 @@ locals {
   this_workspaces_to_infra_workspaces = {
     # if not here, the lookup has a default
     "africanparks"           = "prod1"
+    "apntraining"            = "prod1"
     "amboseli"               = "prod1"
     "akagera"                = "prod1"
     "amakhala"               = "prod1"
