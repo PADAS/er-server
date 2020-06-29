@@ -66,7 +66,7 @@ def parse_xml_to_dict(xml):
     try:
         xml_todict = xmltodict.parse(xml)
     except Exception as exc:
-        logger.debug("Converting xml to dictionary failed: %s", exc)
+        logger.exception(f"Exception raised {exc} when converting gpx-xml to dictionary.")
     else:
         to_json = json.dumps(xml_todict)
         return json.loads(to_json)
@@ -76,7 +76,7 @@ def get_track_points(gpx):
     try:
         trkpoint = gpx['gpx']['trk']['trkseg']['trkpt']
     except Exception as exc:
-        logger.debug("Failed to get trackpoint from file due to: %s", exc)
+        logger.exception(f"Exception raised {exc} when getting trackpoint")
     else:
         return trkpoint
 
@@ -95,9 +95,9 @@ def validate_observation(location, recorded_at, source_id, additional, obs_persi
     validator = ObservationSerializer(data=observation)
     if validator.is_valid():
         obs_persist.append(observation)
-        logger.info("Added new observation record %s", observation)
+        logger.info(f"Added new observation record {observation}")
     else:
-        logger.info("Observation validation failed %s", validator.errors)
+        logger.error(f"Observation validation failed {validator.errors}")
 
 
 def get_additional(trkpoint):
@@ -111,7 +111,11 @@ def process_gpxtrack_file(gpx_id):
     gpx_file = GPXTrackFile.objects.get_file(gpx_id)
     data = gpx_file.read()
     to_dict = parse_xml_to_dict(data)
+    if not to_dict:
+        return
     trkpoints = get_track_points(to_dict)
+    if not trkpoints:
+        return
 
     source_id = GPXTrackFile.objects.get_source_id(gpx_id)
     obs_records = []
@@ -130,6 +134,6 @@ def process_gpxtrack_file(gpx_id):
         bulk_serializer = ObservationSerializer(data=obs_records, many=True)
         if bulk_serializer.is_valid():
             bulk_serializer.save()
-            logger.info("Successfully created bulky observation")
+            logger.info(f"Successfully created bulky observations {len(obs_records)}")
         else:
-            logger.error("Failed to process bulk observation: %s", bulk_serializer.errors)
+            logger.error(f"Failed to process bulk observation: {bulk_serializer.errors}")
