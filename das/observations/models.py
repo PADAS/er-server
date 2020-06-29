@@ -1514,6 +1514,14 @@ class GPXManager(models.Manager):
     def get_by_natural_key(self, value):
         return self.get(value=value)
 
+    def get_file(self, gpx_id):
+        gpx = self.get(id=gpx_id)
+        return gpx.data
+
+    def get_source_id(self, gpx_id):
+        src_id = self.filter(id=gpx_id).annotate(source_id=F('source_assignment__source__id')).values('source_id')
+        return src_id[0].get('source_id')
+
 
 def upload_to(instance, filename):
     filename = filename.split('/')[-1]
@@ -1529,5 +1537,8 @@ class GPXTrackFile(GPXLogRecord):
     data = models.FileField(upload_to=upload_to, null=True, blank=True)
 
     objects = GPXManager()
+
+    class Meta:
+        verbose_name_plural = 'GPX track file'
 
 
