@@ -14,7 +14,7 @@ spec:
         memory: 25Mi
       max:
         cpu: 800m
-        memory: 2000Mi
+        memory: 3000Mi
     - type: Pod
       min:
         cpu: 50m
