@@ -40,6 +40,7 @@ from tracking.models import SourcePlugin
 import observations.forms
 from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm, GPXFileForm
 from observations.utils import assigned_range_dates
+from observations.tasks import process_gpxtrack_file
 from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin, \
     SaveCoordinatesToCookieMixin
 from core.openlayers import OSMGeoExtendedAdmin
@@ -827,7 +828,9 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
         obj.file_size = obj.data.size
         obj.file_name = obj.data.name
         obj.created_by = request.user
-        return obj.save()
+        saved = obj.save()
+        process_gpxtrack_file.apply_async(args=(obj.id,), countdown=3)
+        return saved
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
