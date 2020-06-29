@@ -82,7 +82,7 @@ def get_track_points(gpx):
 
 
 def check_if_observation_exist(recorded_at, src):
-    Observation.objects.filter(source=src, recorded_at=recorded_at).exists()
+    return Observation.objects.filter(source=src, recorded_at=recorded_at).exists()
 
 
 def validate_observation(location, recorded_at, source_id, additional, obs_persist):
@@ -129,6 +129,7 @@ def process_gpxtrack_file(gpx_id):
             location = {'latitude': float(lat), 'longitude': float(lon)}
             additional = get_additional(trkpt)
             validate_observation(location, recorded_at, source_id, additional, obs_records)
+        logger.info(f"Ignore observation record of recorded_at: {recorded_at} and source: {source}")
 
     if obs_records:
         bulk_serializer = ObservationSerializer(data=obs_records, many=True)
