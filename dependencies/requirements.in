@@ -103,3 +103,5 @@ django-debug-toolbar==2.1
 
 arcgis==1.7.1
 arcgis2geojson==2.0.0
+
+xmltodict==0.12.0
