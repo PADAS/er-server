@@ -24,17 +24,6 @@ from observations.admin import GPXAdmin
 User = django.contrib.auth.get_user_model()
 
 
-class ContexT(object):
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def __enter__(self, *args, **kwargs):
-        pass
-
-    def __exit__(self, *args, **kwargs):
-        pass
-
-
 class SubjectTestCase(BaseAPITest):
     fixtures = [
         'test/observations_source.json',
@@ -337,10 +326,10 @@ class SubjectTestCase(BaseAPITest):
                      'description': ''}
         query_dict.update(post_data)
 
-        with ContexT() as c:
-            request.FILES['data'] = data
-            request.POST = query_dict
-            request.META['CSRF_COOKIE'] = 'y3WZXVzvwNlEAYd76nA4MvdvVKSaGSiS91Q2HGwV8ag99etBRgAXs2FgLO49XU3e'
+        # with ContexT() as c:
+        request.FILES['data'] = data
+        request.POST = query_dict
+        request.META['CSRF_COOKIE'] = 'y3WZXVzvwNlEAYd76nA4MvdvVKSaGSiS91Q2HGwV8ag99etBRgAXs2FgLO49XU3e'
 
         messages = CookieStorage(request)
         setattr(request, '_messages', messages)
@@ -370,10 +359,10 @@ class SubjectTestCase(BaseAPITest):
                      'description': ''}
         query_.update(post_data)
 
-        with ContexT() as c:
-            request.FILES['data'] = data
-            request.POST = query_
-            request.META['CSRF_COOKIE'] = 'y3WZXVzvwNlEAYd76nA4MvdvVKSaGSiS91Q2HGwV8ag99etBRgAXs2FgLO49XU3e'
+        # with ContexT() as c:
+        request.FILES['data'] = data
+        request.POST = query_
+        request.META['CSRF_COOKIE'] = 'y3WZXVzvwNlEAYd76nA4MvdvVKSaGSiS91Q2HGwV8ag99etBRgAXs2FgLO49XU3e'
 
         messages = CookieStorage(request)
         setattr(request, '_messages', messages)
