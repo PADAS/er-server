@@ -48,6 +48,7 @@ locals {
     "odzala"                 = "prod1"
     "parcw"                  = "prod1"
     "pendjari"               = "prod1"
+    "queenelizabeth"         = "prod1"
     "rcb"                    = "prod1"
     "sabiegamereserve"       = "prod1"
     "sabisands"              = "prod1"
