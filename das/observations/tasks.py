@@ -129,7 +129,8 @@ def process_gpxtrack_file(gpx_id):
             location = {'latitude': float(lat), 'longitude': float(lon)}
             additional = get_additional(trkpt)
             validate_observation(location, recorded_at, source_id, additional, obs_records)
-        logger.info(f"Ignore observation record of recorded_at: {recorded_at} and source: {source}")
+        else:
+            logger.info(f"Ignore observation record of recorded_at: {recorded_at} and source: {source}")
 
     if obs_records:
         bulk_serializer = ObservationSerializer(data=obs_records, many=True)
