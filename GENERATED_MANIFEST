@@ -1,3 +1,9 @@
-SERVER_VERSION = "gcr.io/padas-app/circleci/das-server/develop@sha256:c0f34a5286e049f4eaa28524e49e7de2965b135c56f36129825191ed1c0d468a"
-WEB_VERSION = "gcr.io/padas-app/circleci/das-web/develop@sha256:ce24a759f436419b47c78103cba6f50809af066e4e3704dec12f08cee8467a45"
-INGRESS_VERSION = "gcr.io/padas-app/circleci/das-ingress/develop@sha256:159d371e7d64df9fba624107ceef65f9d4892623be0a97d91af0246e6c3d165b"
+# This file will be overwritten during deployment.
+# If you see this message, it means you're using the 
+# default contents from source.
+
+# Entries here are commented out to avoid accidental use.
+
+#SERVER_VERSION = "gcr.io/padas-app/circleci/das-server/develop:latest"
+#WEB_VERSION = "gcr.io/padas-app/circleci/das-web/develop:latest"
+#INGRESS_VERSION = "gcr.io/padas-app/circleci/das-ingress/develop:latest"
