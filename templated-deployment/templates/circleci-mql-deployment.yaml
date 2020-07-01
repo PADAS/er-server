@@ -35,9 +35,9 @@ spec:
           requests:
             cpu: "75m"
             memory: "150Mi"
-          limits:
-            cpu: "500m"
-            memory: "4000Mi"
+#          limits:
+#            cpu: "500m"
+#            memory: "4000Mi"
         volumeMounts:
         - name: google-credentials
           mountPath: "/etc/earthranger/"
