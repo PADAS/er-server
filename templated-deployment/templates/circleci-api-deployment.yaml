@@ -37,7 +37,7 @@ spec:
             memory: "500Mi"
           limits:
             cpu: "600m"
-            memory: "2000Mi"
+            memory: "4000Mi"
         ports:
           - containerPort: 8000
         readinessProbe:
