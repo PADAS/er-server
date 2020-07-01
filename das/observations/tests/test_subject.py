@@ -12,6 +12,7 @@ from django.contrib.admin.sites import AdminSite
 from django.test import RequestFactory
 from django.http import QueryDict
 from django.contrib.messages.storage.cookie import CookieStorage
+from django.db import transaction
 
 import dateutil.parser as dateparser
 from pytz import UTC
@@ -336,33 +337,38 @@ class SubjectTestCase(BaseAPITest):
 
         self.assertFalse(GPXTrackFile.objects.all())  # No gpx on database.
 
-        template_response = self.admin.changeform_view(request)
-        successful_msg = 'The GPX data file "./observations/tests/testdata/gpsmap_data.gpx" was successfully imported.'
-        gpx_object = GPXTrackFile.objects.all()
-        processed_status = gpx_object.values('processed_status')
-        self.assertEqual(template_response.status_code, 302)
-        self.assertEqual(messages._queued_messages[0].message, successful_msg)
-        self.assertEqual(gpx_object.count(), 1)
-        self.assertEqual(processed_status[0].get('processed_status'), 'success')
+        with patch('django.db.backends.base.base.BaseDatabaseWrapper.validate_no_atomic_block',
+                   lambda a: False):
 
-        # This is an example of trackpoint that we expect to be saved in the observation table.
-        # <trkpt lat="-2.573374444618821" lon="37.896002875640988">
-        #     <ele>1244.769999999999982</ele>
-        #     <time>2020-06-06T05:17:26Z</time>
-        #  </trkpt>
+            template_response = self.admin.changeform_view(request)
+            transaction.get_connection().run_and_clear_commit_hooks()
 
-        trkpoint_lat = '-2.573374444618821'
-        trkpoint_lon = '37.896002875640988'
-        trkpoint_time = dateparser.parse('2020-06-06T05:17:26Z')
+            successful_msg = 'The GPX data file "./observations/tests/testdata/gpsmap_data.gpx" was successfully imported.'
+            gpx_object = GPXTrackFile.objects.all()
+            processed_status = gpx_object.values('processed_status')
+            self.assertEqual(template_response.status_code, 302)
+            self.assertEqual(messages._queued_messages[0].message, successful_msg)
+            self.assertEqual(gpx_object.count(), 1)
+            self.assertEqual(processed_status[0].get('processed_status'), 'success')
 
-        # trackpoint saved in observation table.
-        trkpoint_obs = Observation.objects.filter(recorded_at=trkpoint_time, source__id=subject_source.source_id)
-        obs_latitude = trkpoint_obs[0].location.y
-        obs_longitude = trkpoint_obs[0].location.x
+            # This is an example of trackpoint that we expect to be saved in the observation table.
+            # <trkpt lat="-2.573374444618821" lon="37.896002875640988">
+            #     <ele>1244.769999999999982</ele>
+            #     <time>2020-06-06T05:17:26Z</time>
+            #  </trkpt>
 
-        self.assertTrue(trkpoint_obs.exists())
-        self.assertEqual(float(trkpoint_lat), obs_latitude)
-        self.assertEqual(float(trkpoint_lon), obs_longitude)
+            trkpoint_lat = '-2.573374444618821'
+            trkpoint_lon = '37.896002875640988'
+            trkpoint_time = dateparser.parse('2020-06-06T05:17:26Z')
+
+            # trackpoint saved in observation table.
+            trkpoint_obs = Observation.objects.filter(recorded_at=trkpoint_time, source__id=subject_source.source_id)
+            self.assertTrue(trkpoint_obs.exists())
+
+            obs_latitude = trkpoint_obs[0].location.y
+            obs_longitude = trkpoint_obs[0].location.x
+            self.assertEqual(float(trkpoint_lat), obs_latitude)
+            self.assertEqual(float(trkpoint_lon), obs_longitude)
 
     def test_gpx_upload_fails(self):
         subject = Subject.objects.get(name='Topsy')
