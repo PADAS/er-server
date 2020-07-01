@@ -89,7 +89,7 @@ def get_array_recorded_time(src, array_recorded_at):
     return arr_recorded_at
 
 
-def validate_observation(location, recorded_at, source_id, additional, obs_persist):
+def validate_observation(location, recorded_at, source_id, additional, obs_persist, obs_errors):
     observation = {
         'location': location,
         'recorded_at': recorded_at,
@@ -101,6 +101,7 @@ def validate_observation(location, recorded_at, source_id, additional, obs_persi
         obs_persist.append(observation)
         logger.info(f"Added new observation record {observation}")
     else:
+        obs_errors.append(validator.errors)
         logger.error(f"Observation validation failed {validator.errors}")
 
 
@@ -110,18 +111,29 @@ def get_additional(trkpoint):
     return trkpoint
 
 
+def success_process_gpxtrack(gpx_id):
+    return GPXTrackFile.objects.filter(id=gpx_id).update(processed_status='success')
+
+
+def failed_process_gpxtrack(gpx_id):
+    return GPXTrackFile.objects.filter(id=gpx_id).update(processed_status='failure')
+
+
 @celery.app.task
 def process_gpxtrack_file(gpx_id):
     gpx_file = GPXTrackFile.objects.get_file(gpx_id)
     data = gpx_file.read()
     to_dict = parse_xml_to_dict(data)
     if not to_dict:
+        failed_process_gpxtrack(gpx_id)
         return
     trkpoints = get_track_points(to_dict)
     if not trkpoints:
+        failed_process_gpxtrack(gpx_id)
         return
 
     obs_records = []
+    obs_errors = []
     source_id = GPXTrackFile.objects.get_source_id(gpx_id)
     source = Source.objects.get(id=source_id)
     list_gpx_dt = [dateparse(trkp.get('time')) for trkp in trkpoints]
@@ -134,7 +146,7 @@ def process_gpxtrack_file(gpx_id):
             lon = trkpt.get('@lon')
             location = {'latitude': float(lat), 'longitude': float(lon)}
             additional = get_additional(trkpt)
-            validate_observation(location, recorded_at, source_id, additional, obs_records)
+            validate_observation(location, recorded_at, source_id, additional, obs_records, obs_errors)
         else:
             logger.info(f"Ignore observation record of recorded_at: {recorded_at} and source: {source}")
 
@@ -143,5 +155,13 @@ def process_gpxtrack_file(gpx_id):
         if bulk_serializer.is_valid():
             bulk_serializer.save()
             logger.info(f"Successfully created bulky observations {len(obs_records)}")
+            success_process_gpxtrack(gpx_id)
         else:
             logger.error(f"Failed to process bulk observation: {bulk_serializer.errors}")
+            failed_process_gpxtrack(gpx_id)
+    elif obs_errors:
+        failed_process_gpxtrack(gpx_id)
+        logger.error(f"Failed to process observation: {obs_errors}")
+    else:
+        # Case where all observation are duplicate.
+        success_process_gpxtrack(gpx_id)
