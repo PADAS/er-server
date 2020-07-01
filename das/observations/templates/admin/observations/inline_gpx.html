@@ -8,6 +8,13 @@
 </style>
 <div class="module">
 <div class="results">
+<div>
+          <a href="javascript:reload_window()" style="float: right">
+            <img class="one" src="https://img.icons8.com/office/16/000000/refresh.png"/>
+            <span style="margin-left: 5px; color: grey;">
+            Refresh the page.</span>
+    </a>
+</div>
     <table>
         <thead>
           <tr>
@@ -77,3 +84,9 @@
     <div style="margin-top: 12px; font-size: 13px;">See more GPX data file upload attempts for this subject  <a href="{{ query_filter }}">here</a></div>
 </div>
 </div>
+
+<script type="application/javascript">
+    function reload_window() {
+        location.reload();
+    }
+</script>
