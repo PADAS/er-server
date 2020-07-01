@@ -309,6 +309,7 @@ class SubjectTestCase(BaseAPITest):
 
         self.assertEqual(GPXTrackFile.objects.count(), 1)
 
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_gpxfile_upload_on_adminpage(self):
 
         subject = Subject.objects.get(name='Topsy')
@@ -326,7 +327,6 @@ class SubjectTestCase(BaseAPITest):
                      'description': ''}
         query_dict.update(post_data)
 
-        # with ContexT() as c:
         request.FILES['data'] = data
         request.POST = query_dict
         request.META['CSRF_COOKIE'] = 'y3WZXVzvwNlEAYd76nA4MvdvVKSaGSiS91Q2HGwV8ag99etBRgAXs2FgLO49XU3e'
@@ -344,6 +344,25 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(messages._queued_messages[0].message, successful_msg)
         self.assertEqual(gpx_object.count(), 1)
         self.assertEqual(processed_status[0].get('processed_status'), 'success')
+
+        # This is an example of trackpoint that we expect to be saved in the observation table.
+        # <trkpt lat="-2.573374444618821" lon="37.896002875640988">
+        #     <ele>1244.769999999999982</ele>
+        #     <time>2020-06-06T05:17:26Z</time>
+        #  </trkpt>
+
+        trkpoint_lat = '-2.573374444618821'
+        trkpoint_lon = '37.896002875640988'
+        trkpoint_time = dateparser.parse('2020-06-06T05:17:26Z')
+
+        # trackpoint saved in observation table.
+        trkpoint_obs = Observation.objects.filter(recorded_at=trkpoint_time, source__id=subject_source.source_id)
+        obs_latitude = trkpoint_obs[0].location.y
+        obs_longitude = trkpoint_obs[0].location.x
+
+        self.assertTrue(trkpoint_obs.exists())
+        self.assertEqual(float(trkpoint_lat), obs_latitude)
+        self.assertEqual(float(trkpoint_lon), obs_longitude)
 
     def test_gpx_upload_fails(self):
         subject = Subject.objects.get(name='Topsy')
@@ -370,7 +389,7 @@ class SubjectTestCase(BaseAPITest):
         gpx_object = GPXTrackFile.objects.all()
         processed_status = gpx_object.values('processed_status')
         template_response = self.admin.changeform_view(request)
-        fail_msg = 'The GPX data file ./observations/tests/testdata/gpsmap_data.gpx failed to import: expected string or bytes-like object'
+        fail_msg = 'The GPX data file "./observations/tests/testdata/gpsmap_data.gpx" failed to be processed: expected string or bytes-like object'
         self.assertEqual(template_response.status_code, 302)
         self.assertEqual(messages._queued_messages[0].message, fail_msg)
         self.assertEqual(processed_status[0].get('processed_status'), 'failure')
