@@ -84,7 +84,7 @@ class _RelatedFieldWidgetWrapper(admin.widgets.RelatedFieldWidgetWrapper):
         return context
 
 
-admin.widgets.RelatedFieldWidgetWrapper = _RelatedFieldWidgetWrapper  # Monkey-patched RelatedFieldWidgetWrapper
+admin.widgets.RelatedFieldWidgetWrapper = _RelatedFieldWidgetWrapper
 
 
 class ExportCsvMixin:
@@ -749,6 +749,7 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
                     'processed_status', 'created_by', 'id')
     list_filter = ('source_assignment__subject', )
     fields = ('id', 'source_assignment', 'description', 'data')
+    ordering = ('-processed_date',)
     list_display_links = None
     form = GPXFileForm
 
@@ -814,12 +815,15 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
             return super().response_add(request, obj, post_url_continue)
 
     def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
+        # atomic blocks can be nested. In this case,
+        # when an inner block completes successfully,
+        # its effects can still be rolled back if an exception is raised in the outer block at a later point.
         try:
             return super().changeform_view(request, object_id, form_url, extra_context)
         except Exception as exc:
             url_path = request.get_full_path()
             file_name = request.FILES.get('data').name
-            error_msg = f'The GPX data file {file_name} failed to import: {exc}'
+            error_msg = f'The GPX data file "{file_name}" failed to be processed: {exc}'
             self.message_user(request, error_msg, level=messages.ERROR)
             self.create_gpxfile_object(request)
             return HttpResponseRedirect(url_path)
@@ -830,7 +834,7 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
         obj.file_name = obj.data.name
         obj.created_by = request.user
         saved = obj.save()
-        process_gpxtrack_file.apply_async(args=(obj.id,), countdown=3)
+        process_gpxtrack_file.delay(obj.id)
         return saved
 
     def get_queryset(self, request):
