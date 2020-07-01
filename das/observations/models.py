@@ -1490,10 +1490,12 @@ class SubjectMaximumSpeed(ObservationAnnotator):
 
 class GPXLogRecord(models.Model):
     success = 'success'
+    pending = 'pending'
     failure = 'failure'
 
     PROCESSED_STATUS_CHOICES = [
         (success, 'Success'),
+        (pending, 'Pending'),
         (failure, 'Failure'),
     ]
 
