@@ -1,18 +1,29 @@
 
 {% load humanize %}
 {% load i18n %}
+{% load static %}
 
 <style type="text/css">
+    .one:hover{
+        animation: rotation 2s infinite linear;
+    }
 
+    @keyframes rotation {
+		from {
+				transform: rotate(0deg);
+		}
+		to {
+				transform: rotate(359deg);
+		}
+}
 
 </style>
 <div class="module">
 <div class="results">
 <div>
-          <a href="javascript:reload_window()" style="float: right">
-            <img class="one" src="https://img.icons8.com/office/16/000000/refresh.png"/>
-            <span style="margin-left: 5px; color: grey;">
-            Refresh the page.</span>
+          <a href="javascript:reload_window()" style="float: right" role="button">
+            <img class="one" src="{% static 'gpx/refresh.png' %}""/>
+            <span style="margin-left: 5px; color: grey; vertical-align: top;">Refresh the page.</span>
     </a>
 </div>
     <table>
