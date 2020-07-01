@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: DaemonSet
+metadata:
+  namespace: "${KUBERNETES_NAMESPACE}"
+  name: telegraf-daemonset
+spec:
+  template:
+    metadata:
+      name: telegraf
+      labels:
+        daemon: telegraf-daemon
+    spec:
+      volumes:
+        - name: telegraf-consolidated-config-volume
+          configMap:
+            name: consolidated-telegraf-configmap
+            items:
+              - key: telegraf_consolidated_conf
+                path: condolidated-telegraf.conf
+      containers:
+      - name: telegraf
+        image: gcr.io/padas-app/telegraf:1.14.3
+        ports:
+          - containerPort: 8125
+          - NodePort: 30050
+        volumeMounts:
+        - name: telegraf-consolidated-config-volume
+          mountPath: "/etc/telegraf/"
+          readOnly: true
+        - name: metrics-writer-credentials
+          mountPath: "/etc/earthranger/"
+          readOnly: true
+        env:
+          - name: GOOGLE_APPLICATION_CREDENTIALS
+            value: "/etc/earthranger/metrics_writer_credentials.json"
