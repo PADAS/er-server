@@ -22,6 +22,7 @@ from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models.functions import FirstValue, Trunc
 from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
 from django.db.models.functions import Now
+from django.db import transaction
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.utils.html import format_html
@@ -829,12 +830,12 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
             return HttpResponseRedirect(url_path)
 
     def save_model(self, request, obj, form, change):
-        obj.processed_status = self.model.success
+        obj.processed_status = self.model.pending
         obj.file_size = obj.data.size
         obj.file_name = obj.data.name
         obj.created_by = request.user
         saved = obj.save()
-        process_gpxtrack_file.delay(obj.id)
+        transaction.on_commit(lambda: process_gpxtrack_file.delay(obj.id))
         return saved
 
     def get_queryset(self, request):
