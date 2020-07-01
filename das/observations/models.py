@@ -1540,5 +1540,6 @@ class GPXTrackFile(GPXLogRecord):
 
     class Meta:
         verbose_name_plural = 'GPX track file'
+        ordering = ('processed_date',)
 
 
