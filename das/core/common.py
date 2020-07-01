@@ -16,7 +16,8 @@ TIMEZONE_USED = timezone_used()
 def submit_row(context):
     ctx = original_submit_row(context)
     if ctx['opts'].model_name == 'gpxtrackfile':
-        ctx['show_save_and_add_another'] = True
+        ctx['show_popclose'] = True
+        ctx['show_save_and_add_another'] = ctx['show_save']
 
     if ctx['opts'].model_name == 'choice':
         ctx.update({'addchoices': True})
