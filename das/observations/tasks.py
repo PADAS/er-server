@@ -81,8 +81,12 @@ def get_track_points(gpx):
         return trkpoint
 
 
-def check_if_observation_exist(recorded_at, src):
-    return Observation.objects.filter(source=src, recorded_at=recorded_at).exists()
+def get_array_recorded_time(src, array_recorded_at):
+    """Returns an array of trackpoints datetime that does not exist in observation table"""
+    arr_obs = Observation.objects.filter(source=src,
+                                         recorded_at__in=array_recorded_at).values_list('recorded_at', flat=True)
+    arr_recorded_at = set(array_recorded_at).difference(set(arr_obs))
+    return arr_recorded_at
 
 
 def validate_observation(location, recorded_at, source_id, additional, obs_persist):
@@ -117,13 +121,15 @@ def process_gpxtrack_file(gpx_id):
     if not trkpoints:
         return
 
-    source_id = GPXTrackFile.objects.get_source_id(gpx_id)
     obs_records = []
+    source_id = GPXTrackFile.objects.get_source_id(gpx_id)
+    source = Source.objects.get(id=source_id)
+    list_gpx_dt = [dateparse(trkp.get('time')) for trkp in trkpoints]
+    array_datetime = get_array_recorded_time(source, list_gpx_dt)
 
     for trkpt in trkpoints:
         recorded_at = dateparse(trkpt.get('time'))
-        source = Source.objects.get(id=source_id)
-        if not check_if_observation_exist(recorded_at, source):
+        if recorded_at in array_datetime:
             lat = trkpt.get('@lat')
             lon = trkpt.get('@lon')
             location = {'latitude': float(lat), 'longitude': float(lon)}
