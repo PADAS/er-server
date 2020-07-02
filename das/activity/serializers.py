@@ -361,7 +361,19 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
 
 class EventTypeRelatedField(rest_framework.serializers.RelatedField):
     def get_queryset(self):
-        return activity.models.EventType.objects.all_sort()
+        queryset = activity.models.EventType.objects.all_sort()
+        if self.context.get('view').get_view_name() == 'Event Schema':
+            event_categories = activity.models.EventCategory.objects.values_list('value').distinct()
+            event_categories = [ec[0] for ec in event_categories]
+            allowed_event_categories = []
+            for event_category in event_categories:
+                permission_name = 'activity.{0}_read'.format(event_category)
+                if self.context.get('request').user.has_perm(permission_name):
+                    allowed_event_categories.append(event_category)
+
+                return queryset.by_category(allowed_event_categories) if allowed_event_categories else queryset.none()
+        else:
+            return queryset
 
     def to_representation(self, value):
         return value.value if value else None
