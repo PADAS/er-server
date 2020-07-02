@@ -1,7 +1,7 @@
 import logging
 import math
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
 from rest_framework import serializers, status
 from rest_framework.response import Response
@@ -33,14 +33,15 @@ class PayloadValidator(serializers.Serializer):
 class SigfoxFoundationPushHandler:
     SENSOR_TYPE = 'sff-tracker'
     DEFAULT_SUBJECT_SUBTYPE = 'wildlife'
+    serializer_class = PayloadValidator
 
     @classmethod
-    def post(cls, request, sensor_type, provider_key):
+    def post(cls, request, provider_key):
         sigfox_data = PayloadValidator(data=request.data)
         if sigfox_data.is_valid():
             validated_data = sigfox_data.validated_data
             if validated_data.get('data'):
-                return cls.process_data_uplink(validated_data, sensor_type, provider_key)
+                return cls.process_data_uplink(validated_data, cls.SENSOR_TYPE, provider_key)
             elif validated_data.get('computedLocation'):
                 return Response(data=dict(message='Message received'), status=status.HTTP_200_OK)
 
@@ -59,7 +60,7 @@ class SigfoxFoundationPushHandler:
                                                    'name': device_id
                                                })
 
-            recorded_at = datetime.fromtimestamp(payload.pop('time')).isoformat()
+            recorded_at = datetime.fromtimestamp(payload.pop('time'), timezone.utc).isoformat()
             # for data_uplink this test is sufficient for dups...
             if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
                 logger.info('Ignoring duplicate observation from %s', src)

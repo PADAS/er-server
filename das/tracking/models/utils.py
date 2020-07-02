@@ -24,3 +24,11 @@ def split_link(url):
     url, qs = url.split('?')
     params = dict([p.split('=') for p in qs.split('&')])
     return (url, params)
+
+
+def to_float(record):
+    """ Convert str/int records to float """
+    try:
+        return float(record)
+    except Exception:
+        return float()

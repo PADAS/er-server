@@ -136,11 +136,11 @@ class TestReportUtils(TestCase):
     def test_get_all_replacement_fields(self):
         result = schema_utils.get_replacement_fields_in_schema(
             self.raw_schema_1)
-        self.assertEquals(result, self.replacement_fields_schema_1)
+        self.assertEqual(result, self.replacement_fields_schema_1)
 
     def test_schema_renderer(self):
         result = schema_utils.get_schema_renderer_method()(self.raw_schema_1)
-        self.assertEquals(result, self.rendered_schema_1)
+        self.assertEqual(result, self.rendered_schema_1)
 
     def test_schema_validation(self):
         result = schema_utils.validate(
@@ -150,19 +150,19 @@ class TestReportUtils(TestCase):
     def test_definition_key_order(self):
         result = schema_utils.definition_keys(
             self.rendered_schema_1.get('definition', []))
-        self.assertEquals(list(result), self.definition_order_schema_1)
+        self.assertEqual(list(result), self.definition_order_schema_1)
 
     def test_definition_key_order_as_dict(self):
         result = schema_utils.definition_key_order_as_dict(
             self.rendered_schema_1)
-        self.assertEquals(result, self.definition_order_dict_schema_1)
+        self.assertEqual(result, self.definition_order_dict_schema_1)
 
     def test_definition_key_parsing_with_fieldsets(self):
         result = schema_utils.definition_key_order_as_dict(
             self.rendered_schema_2)
 
         print(result)
-        self.assertEquals(result, self.definition_order_dict_schema_2)
+        self.assertEqual(result, self.definition_order_dict_schema_2)
 
     def test_lookup_type_query(self):
 

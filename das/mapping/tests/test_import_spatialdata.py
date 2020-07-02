@@ -1,4 +1,5 @@
 import logging
+import os
 from unittest.mock import patch
 
 from django.contrib.admin.sites import AdminSite
@@ -16,6 +17,8 @@ from mapping.spatialfile_utils import process_spatialfile
 from mapping.tasks import load_spatial_features
 logger = logging.getLogger(__name__)
 
+TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                            'tests')
 
 class TestSpatialFile(BaseAPITest):
 
@@ -33,7 +36,7 @@ class TestSpatialFile(BaseAPITest):
         dummy_feature_set = FeatureSet.objects.create(name='Water')
         dummy_feature_set.types.add(dummy_feature_type)
 
-        data = File(open('./mapping/tests/NRT_Water_Points-2.geojson', 'rb' ))
+        data = File(open(os.path.join(TESTS_PATH, 'NRT_Water_Points-2.geojson'), 'rb' ))
         spatialfile = SpatialFile.objects.create(data=data, feature_set=dummy_feature_set, feature_type=dummy_feature_type)
 
         process_spatialfile(spatialfile)
@@ -48,7 +51,7 @@ class TestSpatialFile(BaseAPITest):
         dummy_feature_set = FeatureSet.objects.create(name='Boundaries')
         dummy_feature_set.types.add(dummy_feature_type)
 
-        data = File(open('./mapping/tests/testdata/Grbnd_New.zip', 'rb'))
+        data = File(open(os.path.join(TESTS_PATH, 'testdata/Grbnd_New.zip'), 'rb'))
         spatialfile = SpatialFile.objects.create(data=data, feature_set=dummy_feature_set, feature_type=dummy_feature_type)
 
         process_spatialfile(spatialfile)
@@ -60,8 +63,8 @@ class TestSpatialFile(BaseAPITest):
     def test_loading_a_geojson_file_and_featuretypes(self):
         logger.info('Spatialfile and featuretypes file upload test started.')
 
-        data = File(open('./mapping/tests/testdata/wells_closed_points.geojson', 'rb'))
-        feature_types_file = File(open('./mapping/tests/testdata/spatial_feature_types.geojson', 'rb'))
+        data = File(open(os.path.join(TESTS_PATH, 'testdata/wells_closed_points.geojson'), 'rb'))
+        feature_types_file = File(open(os.path.join(TESTS_PATH, 'testdata/spatial_feature_types.geojson'), 'rb'))
         spatialfile = SpatialFeatureFile.objects.create(data=data, feature_types_file=feature_types_file)
 
         with self.settings(UI_SITE_URL='http://www.majete.com'):
@@ -70,14 +73,14 @@ class TestSpatialFile(BaseAPITest):
             self.assertEqual(SpatialFeature.objects.count(), 6)
 
     def test_spatial_feature_file_upload(self):
-        data = File(open('./mapping/tests/testdata/Matlamamba.zip', 'rb'))
+        data = File(open(os.path.join(TESTS_PATH, 'testdata/Matlamamba.zip'), 'rb'))
         spatialfile = SpatialFeatureFile.objects.create(data=data)
         process_spatialfile(spatialfile)
 
         self.assertEquals(SpatialFeature.objects.count(), 2)
 
     def test_updating_spatialfile(self):
-        data = File(open('./mapping/tests/testdata/Matlamamba.zip', 'rb' ))
+        data = File(open(os.path.join(TESTS_PATH, 'testdata/Matlamamba.zip'), 'rb' ))
         
         spatialfile = SpatialFeatureFile.objects.create(data=data)
 
@@ -98,7 +101,7 @@ class TestSpatialFile(BaseAPITest):
             self.assertEquals(SpatialFeature.objects.first().spatialfile.name, 'Matlamamba Lines')
             
             # update data file, new features loaded
-            data2 = File(open('./mapping/tests/testdata/wells_closed_points.geojson', 'rb'))
+            data2 = File(open(os.path.join(TESTS_PATH, 'testdata/wells_closed_points.geojson'), 'rb'))
             spatialfile.data = data2
             spatialfile.save()
             self.admin.save_model(self.request, spatialfile, form, True)

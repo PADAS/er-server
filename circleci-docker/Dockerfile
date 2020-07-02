@@ -63,4 +63,7 @@ ENV SERVICE_NAME=api_server
 
 WORKDIR /var/www/app
 
+# Collect static files (using a stub database)
+RUN python3 manage.py collectstatic --noinput --settings=das_server.local_settings_nodb
+
 CMD ["/var/www/app/start_scripts/start.sh"]

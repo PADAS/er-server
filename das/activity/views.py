@@ -103,6 +103,11 @@ class EventCategoriesView(generics.ListAPIView):
     def get_queryset(self):
         queryset = EventCategory.objects.all_sort()
         queryset = queryset.filter(is_active=True)
+        for q in queryset:
+            actions = ('create', 'update', 'read', 'delete')
+            permission_name = [f'activity.{q.value}_{action}' for action in actions]
+            if not any([self.request.user.has_perm(perm) for perm in permission_name]):
+                queryset = queryset.exclude(id=q.id)
         return queryset
 
 
@@ -816,7 +821,7 @@ class EventNotesView(generics.ListCreateAPIView):
 
     def get_event(self):
         event = generics.get_object_or_404(Event.objects.all(),
-                                           pk=self.kwargs['id'])
+                                           pk=self.kwargs.get('id'))
         return event
 
 

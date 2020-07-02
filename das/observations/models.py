@@ -252,6 +252,24 @@ class Source(TimestampedModel):
 EMPTY_POINT = Point(0, 0)
 
 
+class ObservationQuerySet(models.QuerySet, FilterMixin):
+
+    def by_subject_id(self, subject_id):
+        return self.filter(source__subjectsource__subject_id=subject_id)
+
+    def by_source_id(self, source_id):
+        return self.filter(source__id=source_id)
+
+    def by_since(self, recorded_since):
+        return self.filter(Q(recorded_at__gte=recorded_since))
+
+    def by_until(self, recorded_until):
+        return self.filter(Q(recorded_at__lte=recorded_until))
+
+    def by_since_until(self, recorded_since, recorded_until):
+        return self.filter(Q(recorded_at__range=[recorded_since, recorded_until]))
+
+
 class ObservationManager(models.Manager):
     def get_subject_observations(
             self, subject, since=None, until=None, limit=None, values=None,
@@ -383,7 +401,7 @@ class Observation(models.Model):
     additional = JSONField(null=True, blank=True)
 
     exclusion_flags = BitField(flags=BITMAP_FILTER_CHOICES, default=0)
-    objects = ObservationManager()
+    objects = ObservationManager.from_queryset(ObservationQuerySet)()
 
     def __str__(self):
         return '{}:{}:{:08b}'.format(self.recorded_at.isoformat(), self.location, self.exclusion_flags.mask)

@@ -37,6 +37,8 @@ VIEW_SUBJECT_PERMS = ('observations.view_subject',) + \
 
 VIEW_SUBJECTGROUP_PERMS = ('observations.view_subjectgroup', )
 
+VIEW_OBSERVATION_PERMS = ('observations.view_observation')
+
 
 def get_maximum_allowed_age(user):
     maximum_allowed_age = None
@@ -211,3 +213,9 @@ def dateparse(date_str, default_tz=pytz.utc):
     if not dt.tzinfo:
         dt = dt.replace(tzinfo=default_tz)
     return dt
+
+
+def get_null_point():
+    from django.contrib.gis.geos import Point
+    point = Point(0, 0)
+    return point
