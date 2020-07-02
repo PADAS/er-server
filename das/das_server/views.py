@@ -8,10 +8,10 @@ from django.template import RequestContext
 from rest_framework import generics
 from rest_framework.permissions import AllowAny, DjangoObjectPermissions
 import rest_framework.serializers
+from rest_framework.schemas.openapi import AutoSchema
+from das_server import __version__
 
 from activity.alerts import has_alerts_permissionset
-
-from das_server import __version__
 
 # This import ensures we register user-login receivers.
 from das_server import metrics
@@ -22,6 +22,43 @@ from utils.json import parse_bool
 
 def index(request):
     return render_to_response('www/index.html')
+
+
+class CustomSchema(AutoSchema):
+    def get_operation(self, path, method):
+        # Add operation tags and summary to schema
+        operation = super().get_operation(path, method)
+        operation['tags'] = [self._view.__module__.split('.')[0]]
+        operation['summary'] = getattr(self.view, method.lower()).__doc__
+
+        return operation
+
+    def get_serializer_class(self):
+        if self.view.serializer_class:
+            return self.view.serializer_class
+        else:
+            return self.view.__class__
+
+    def _get_operation_id(self, path, method):
+        # Patch get_serializer_class to use views class if no serializer class is defined
+        if hasattr(self.view, 'get_serializer_class'):
+            self.view.get_serializer_class = self.get_serializer_class
+
+        return super()._get_operation_id(path, method)
+
+    def _map_serializer(self, serializer):
+
+        # update default values to be json serializable
+        result = super()._map_serializer(serializer)
+        for res in result.get('properties').values():
+            if res.get('default'):
+                res['default'] = res['default']()
+
+        # add required field to result to fix the break when clearing the same field for a patch method in _get_request_body.
+        for method in self._view.allowed_methods:
+            if method == 'PATCH' and 'required' not in result:
+                result['required'] = []
+        return result
 
 
 class VersionSerializer(rest_framework.serializers.Serializer):

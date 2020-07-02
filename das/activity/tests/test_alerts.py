@@ -11,13 +11,15 @@ from django.test import TestCase
 from mockredis import mock_redis_client, MockRedis
 
 from accounts.models import User, PermissionSet
-from activity.alerting.message import coerce_state_value, send_event_alert
+from activity.alerting.message import coerce_state_value, send_event_alert, render_event_alert_context
 from activity.alerting.service import evaluate_event
 from activity.models import Event, NotificationMethod, AlertRule, EventType, \
     EventDetails, EventCategory
 from activity.signals import event_post_save
 from activity.tasks import send_alert_to_notificationmethod, \
     evaluate_conditions_for_sending_alerts, evaluate_alert_rules
+from observations.models import Subject, SubjectType, SubjectSubType
+from choices.models import DynamicChoice
 
 logger = logging.getLogger(__name__)
 
@@ -183,3 +185,68 @@ class TestAlerts(TestCase):
 
             # no email sent so outbox should still have 1 email
             self.assertEqual(len(mail.outbox), 1)
+
+    def test_checkbox_event_details_returned_with_correct_titles_on_alert(self):
+        DynamicChoice.objects.create(
+            id="queens",
+            model_name='observations.subject', 
+            criteria='[["subject_subtype", "queens"], ["additional__sex", "female"]]',
+            value_col='id',
+            display_col='name')
+
+        subject_type = SubjectType.objects.create(value='Cats')
+        subject_subtype = SubjectSubType.objects.create(value='queens', subject_type=subject_type)
+        subject = Subject.objects.create(name='Katie Kitten', subject_subtype=subject_subtype, additional={'sex':'female'})
+
+        et_schema = """{
+            "schema":
+            {
+                "properties":
+                    {"kitten": {"type": "a", "title" : "Test checkbox with query"}}
+            },
+            "definition": [
+                {
+                    "key": "kitten",
+                    "type": "checkboxes",
+                    "title": "Test checkbox with query",
+                    "titleMap": {{query___queens___map}}
+                }]}"""
+        event_type = self.event_type
+        event_type.schema = et_schema
+        event_type.save()
+
+        notification_method = NotificationMethod.objects.create(
+            owner=self.owner,
+            title="Email",
+            method='email',
+            value="test@test.com")
+
+        alert_rule = AlertRule.objects.create(
+            owner=self.owner,
+            conditions={
+                "all": [
+                    { 
+                        "name": "kitten", "value": [str(subject.id)],
+                        "operator": "shares_at_least_one_element_with"
+                    }
+                ]})
+
+        alert_rule.notification_methods.add(notification_method)
+        alert_rule.event_types.add(self.event_type)
+        event = Event.objects.create(
+            title="test event",
+            event_type=self.event_type,
+            created_by_user=self.owner, state="new")
+
+        EventDetails.objects.create(
+            data={"event_details": {"kitten": [str(subject.id)]}},
+            event=event)
+        report_context = render_event_alert_context(
+            alert_rule, event, notification_method,
+            event_updated_fields={}, event_details_updated_fields={})
+
+        details_sent_to_mail = dict(report_context.get('pretty_details').get('kitten'))
+        expected_detail = {'title': 'Test checkbox with query', 'value': 'Katie Kitten'}
+
+        # details sent to email as titles rather than guids, checkbox title returned
+        self. assertTrue(expected_detail == details_sent_to_mail)

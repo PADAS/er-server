@@ -4,7 +4,7 @@ from rest_framework import status
 
 from core.tests import BaseAPITest
 from sensors.handlers import InreachPushHandler
-from sensors.views import SensorObservation
+from sensors.views import InreachHandlerView
 from observations.models import Observation
 
 
@@ -60,8 +60,7 @@ class InreachPushHandlerTest(BaseAPITest):
         request = self.factory.post(
             self.api_path, data=payload, content_type='application/json')
         self.force_authenticate(request, self.app_user)
-        response = SensorObservation.as_view()(
-            request, sensor_type=InreachPushHandler.SENSOR_TYPE, provider_key=self.PROVIDER_KEY)
+        response = InreachHandlerView.as_view()(request, provider_key=self.PROVIDER_KEY)
         return response
 
     def test_inreach_observations(self):

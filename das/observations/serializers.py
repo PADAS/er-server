@@ -15,7 +15,7 @@ from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 
 from core.serializers import ContentTypeField
 from observations import models
-from observations.utils import get_maximum_allowed_age, get_minimum_allowed_age, dateparse
+from observations.utils import get_maximum_allowed_age, get_minimum_allowed_age, dateparse, get_null_point
 import utils.json
 from utils.json import zeroout_microseconds
 from utils import add_base_url
@@ -214,20 +214,30 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                     # If no linked_sources are available then fetch
                     # latest_position from SubjectStatus as usual.
 
-                    rep['tracks_available'] = statusvalues.recorded_at and statusvalues.recorded_at > default_window_cutoff
+                    request = self.context.get('request')
+                    if mou_expiry_date and (mou_expiry_date.replace(tzinfo=pytz.utc) <= datetime.now(tz=pytz.utc)) \
+                            and request.method == 'GET':
+                        observation = get_observation_location(instance, mou_expiry_date)
+                        location = observation.location if observation else get_null_point()
+                        recorded_at = observation.recorded_at if observation else None
+                    else:
+                        location = statusvalues.location if statusvalues.location else get_null_point()
+                        recorded_at = statusvalues.recorded_at
+
 
                     # TODO: These values might be more appropriate in the
                     # geeojson properties.
+                    rep['tracks_available'] = recorded_at and recorded_at > default_window_cutoff
                     rep['last_position_status'] = {
                         'last_voice_call_start_at': statusvalues.last_voice_call_start_at,
                         'radio_state_at': statusvalues.radio_state_at,
                         'radio_state': statusvalues.radio_state
                     }
 
-                    rep['last_position_date'] = statusvalues.recorded_at
+                    rep['last_position_date'] = recorded_at
                     rep['last_position'] = make_feature(
-                        self.context['request'], statusvalues.location, instance,
-                        time=statusvalues.recorded_at, image_url=rep['image_url']
+                        self.context['request'], location, instance,
+                        time=recorded_at, image_url=rep['image_url']
                     )
 
         if 'request' in self.context:
@@ -300,6 +310,11 @@ def resolve_status_values(subject):
         raise ValueError(
             f'SubjectStatus does not exist for subject ID: {subject.id}')
 
+
+def get_observation_location(subject, mou_date):
+    observation = models.Observation.objects.filter(source__subjectsource__subject=subject,
+                                                    recorded_at__lte=mou_date).order_by('-recorded_at').first()
+    return observation
 
 class SourceProviderRelatedField(rest_framework.serializers.RelatedField):
     def get_queryset(self):

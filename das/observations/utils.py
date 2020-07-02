@@ -213,3 +213,9 @@ def dateparse(date_str, default_tz=pytz.utc):
     if not dt.tzinfo:
         dt = dt.replace(tzinfo=default_tz)
     return dt
+
+
+def get_null_point():
+    from django.contrib.gis.geos import Point
+    point = Point(0, 0)
+    return point

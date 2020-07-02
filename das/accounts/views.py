@@ -9,10 +9,9 @@ from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 from django.db import IntegrityError
 from django.http import HttpResponse
 from django.utils import timezone
-from rest_framework import generics
+from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from rest_framework import status
 
 import accounts.serializers as serializers
 from accounts.filters import UserObjectPermissionsFilter
@@ -52,7 +51,7 @@ class UserProfilesView(generics.ListAPIView):
 
     def get_queryset(self):
         lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
-        if self.kwargs[lookup_url_kwarg] == 'me':
+        if self.kwargs.get(lookup_url_kwarg) == 'me':
             self.kwargs[lookup_url_kwarg] = self.request.user.id
 
         user = self.request.user
