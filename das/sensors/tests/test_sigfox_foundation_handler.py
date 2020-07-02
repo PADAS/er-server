@@ -8,7 +8,7 @@ from core.tests import BaseAPITest
 from observations.models import Observation, Source, Subject
 from sensors.sigfox_foundation_push_handler import SigfoxFoundationPushHandler, SigfoxPayloadParser
 from sensors.tests.sigfox_foundation_test_data import DATA_PAIRS
-from sensors.views import SensorObservation
+from sensors.views import SigfoxFoundationHandlerView
 
 
 class SigfoxFoundationHandlerTest(BaseAPITest):
@@ -119,7 +119,5 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
     def _post_data(self, payload):
         request = self.factory.post(self.api_path, data=payload, content_type='application/json')
         self.force_authenticate(request, self.app_user)
-        response = SensorObservation.as_view()(request,
-                                               sensor_type=SigfoxFoundationPushHandler.SENSOR_TYPE,
-                                               provider_key=self.PROVIDER_KEY)
+        response = SigfoxFoundationHandlerView.as_view()(request, self.PROVIDER_KEY)
         return response

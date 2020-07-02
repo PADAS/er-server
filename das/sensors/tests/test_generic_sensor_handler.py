@@ -12,7 +12,7 @@ from rest_framework import status
 from django.utils import lorem_ipsum
 
 from core.tests import BaseAPITest, fake_get_pool
-from sensors.views import SensorObservation
+from sensors.views import GenericSensorHandlerView
 from observations.models import Subject, SourceProvider, Source, Observation, SubjectGroup, SubjectSubType
 
 
@@ -378,6 +378,6 @@ class GenericSensorHandlerTest(BaseAPITest):
         request = self.factory.post(
             self.api_path, data=payload, content_type='application/json')
         self.force_authenticate(request, self.app_user)
-        response = SensorObservation.as_view()(
+        response = GenericSensorHandlerView.as_view()(
             request, sensor_type=self.sensor_type, provider_key=provider)
         return response

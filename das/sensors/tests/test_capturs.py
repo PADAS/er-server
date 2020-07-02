@@ -5,7 +5,7 @@ from rest_framework import status
 from core.tests import BaseAPITest
 from observations.models import Observation, Source
 from sensors.capturs import CaptursPushHandler
-from sensors.views import SensorObservation
+from sensors.views import CaptursHandlerView
 
 
 class CaptursPushHandlerTest(BaseAPITest):
@@ -38,9 +38,8 @@ class CaptursPushHandlerTest(BaseAPITest):
             content_type='application/json')
 
         self.force_authenticate(request, self.app_user)
-        response = SensorObservation.as_view()(
-            request, sensor_type=CaptursPushHandler.SENSOR_TYPE,
-            provider_key=self.PROVIDER_KEY)
+        response = CaptursHandlerView.as_view()(
+            request, self.PROVIDER_KEY)
         return response
 
     def test_post_capturs_observations(self):
