@@ -236,17 +236,18 @@ def render_event_alert_context(alert_rule, event, notification_method,
     logger.debug('Rendered event: %s', json.dumps(eventdata, indent=2, default=str))
 
     # Render display titles and values
-    schema = utils.schema_utils.get_rendered_schema(event.event_type.schema)
-
+    schema = utils.schema_utils.get_schema_renderer_method()(event.event_type.schema)
     pretty_details = {}
     event_details = eventdata.get('event_details', {}) or {}
+
+    # Get details with display values
+    details = utils.schema_utils.get_details_and_display_values(event, schema)
+
     for k, internal_value in event_details.items():
 
-        key_display = _get_title_from_schema(k, schema)
+        key_display = _get_title_from_schema(k, schema['schema'])
 
-        pretty_details[k] = {'title': key_display,
-                             'value': render_pretty_value(internal_value)
-                             }
+        pretty_details[k] = {'title': key_display, 'value': render_pretty_value(details[key_display])}
 
         old_internal_value = event_details_updated_fields.get(k)
 
