@@ -34,8 +34,10 @@ data:
            datadog_extensions = true
            allowed_pending_messages = 10000
            percentile_limit = 1000
-         [[outputs.stackdriver]]
-           project = "earthranger-78ca55ca"
-           namespace = "earthranger"
-           resource_type = "$TELEGRAF_RESOURCE_TYPE"
+         [[outputs.file]]
+          # This temporary, while we work on fixing our metrics.
+           files = ["/dev/shm/metrics.out"]
+           rotation_max_size = "1MB"
+           rotation_max_archives = 2
+           data_format = "influx"
 

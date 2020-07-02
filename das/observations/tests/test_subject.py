@@ -289,6 +289,43 @@ class SubjectTestCase(BaseAPITest):
         self.assertNotEqual(t3.date().isoformat(), subject3_last_position)
         self.assertEqual(response.status_code, 200)
 
+    def test_return_point_zero_zero_when_geometry_null(self):
+        url = reverse('subjects-list-view')
+
+        password = User.objects.make_random_password()
+        extra_fields = dict(additional=self.additional_data_for_user)
+        user = User.objects.create_user(username='Capt.America',
+                                        email='Capt.American@avenger.com',
+                                        password=password,
+                                        is_superuser=True,
+                                        is_staff=True,
+                                        **extra_fields)
+
+        subject = Subject.objects.get(name='StatusGuy')
+        point = Point((-122.334, 47.598))
+        t1 = datetime.now(tz=UTC) + timedelta(days=6)
+
+        # this observation is past mou date
+        Observation.objects.create(
+            source=subject.source,
+            location=point,
+            recorded_at=t1,
+            additional={}
+        )
+
+        request = self.factory.get(url)
+
+        self.force_authenticate(request, user)
+        response = SubjectsView.as_view()(request)
+        response_data = json.loads(response.render().content.decode())['data']
+
+        extracted_data = {}
+        for o in response_data:
+            if o['id'] == str(subject.id):
+                extracted_data['last_position'] = o['last_position']['geometry']['coordinates']
+        geom_ = extracted_data.get('last_position')
+        self.assertEqual(geom_, [0.0, 0.0])
+
 
 
 
