@@ -2463,6 +2463,36 @@ class TestEventView(BaseAPITest):
         # title returned, not UUID
         self.assertTrue('Katie Kitten' in response.content.decode("utf-8"))
 
+    def test_no_event_type_display(self):
+        # User with no-perms can't view event categories
+        request = self.factory.get(
+            self.api_base + '/events/eventtypes')
+        self.force_authenticate(request, self.no_perms_user)
+
+        response = views.EventTypesView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, [])
+
+    def test_only_display_eventtype_of_category_logistic_only(self):
+        # Guest users can see logistics events and nothing else
+        request = self.factory.get(
+            self.api_base + '/events/eventtypes')
+        self.force_authenticate(request, self.guest_user)
+
+        response = views.EventTypesView.as_view()(request)
+        expected_display = 'Logistics'
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(all(o.get('category').get('display') == expected_display for o in response.data))
+
+    def test_no_schema_display(self):
+        request = self.factory.get(
+            self.api_base + '/events/schema')
+        self.force_authenticate(request, self.no_perms_user)
+
+        response = views.EventTypesView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, [])
+
 
 class TestParsing(TestCase):
 
