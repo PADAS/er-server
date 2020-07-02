@@ -365,10 +365,11 @@ class EventTypeRelatedField(rest_framework.serializers.RelatedField):
         if self.context.get('view').get_view_name() == 'Event Schema':
             event_categories = activity.models.EventCategory.objects.values_list('value').distinct()
             event_categories = [ec[0] for ec in event_categories]
+            actions = ('create', 'update', 'read', 'delete')
             allowed_event_categories = []
             for event_category in event_categories:
-                permission_name = 'activity.{0}_read'.format(event_category)
-                if self.context.get('request').user.has_perm(permission_name):
+                permission_name = [f'activity.{event_category}_{action}' for action in actions]
+                if any([self.context.get('request').user.has_perm(perm) for perm in permission_name]):
                     allowed_event_categories.append(event_category)
 
                 return queryset.by_category(allowed_event_categories) if allowed_event_categories else queryset.none()
