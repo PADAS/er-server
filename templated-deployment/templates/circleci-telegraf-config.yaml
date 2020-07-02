@@ -5,81 +5,50 @@ metadata:
   name: telegraf-configmap
 data:
   telegraf_conf: |
-         [global_tags]
-           site = "${KUBERNETES_NAMESPACE}"
-           service_name = "$SERVICE_NAME"
+        [global_tags]
+          site = "${KUBERNETES_NAMESPACE}"
 
-         [agent]
-           interval = "10s"
-           round_interval = true
-           metric_batch_size = 1000
-           metric_buffer_limit = 10000
-           collection_jitter = "0s"
-           flush_interval = "10s"
-           flush_jitter = "5s"
-           precision = ""
-           hostname = ""
-           omit_hostname = false
+        [agent]
+          interval = "10s"
+          round_interval = true
+          metric_batch_size = 1000
+          metric_buffer_limit = 10000
+          collection_jitter = "0s"
+          flush_interval = "10s"
+          flush_jitter = "5s"
+          precision = ""
+          hostname = ""
+          omit_hostname = false
 
-         [[inputs.statsd]]
-           protocol = "udp"
-           max_tcp_connections = 250
-           tcp_keep_alive = false
-           service_address = ":8125"
-           delete_gauges = true
-           delete_counters = true
-           delete_sets = true
-           delete_timings = true
-           percentiles = [50.0, 90.0, 99.0, 99.9, 99.95, 100.0]
-           metric_separator = "_"
-           parse_data_dog_tags = false
-           datadog_extensions = true
-           allowed_pending_messages = 10000
-           percentile_limit = 1000
-           namedrop = ["datadog_*"]
+        [[inputs.statsd]]
+          protocol = "udp"
+          max_tcp_connections = 250
+          tcp_keep_alive = false
+          service_address = ":8125"
+        #  delete_gauges = true
+        #  delete_counters = true
+        #  delete_sets = true
+        #  delete_timings = true
+          #percentiles = [50.0, 90.0, 99.0, 99.9, 99.95, 100.0]
+          metric_separator = "_"
+          parse_data_dog_tags = false
+          datadog_extensions = true
+          allowed_pending_messages = 10000
+          percentile_limit = 1000
+          namedrop = ["datadog_*"]
 
-         [[outputs.file]]
-           # Temporary for use during development of metrics.
-           files = ["/etc/telegraf/metrics.out"]
-           rotation_max_size = "1MB"
-           rotation_max_archives = 2
-           data_format = "influx"
-
-         [[outputs.influxdb]]
-           urls = ["${FQDN}:30050"]
-
-         [[aggregators.merge]]
-           drop_original = true
-
-           apiVersion: v1
----
-kind: ConfigMap
-metadata:
-  namespace: "${KUBERNETES_NAMESPACE}"
-  name: consolidated-telegraf-configmap
-data:
-  telegraf_consolidated_conf: |
-        [[inputs.influxdb_listener]]
-            service_address = ":30050"
-            read_timeout = "10s"
-            write_timeout = "10s"
-            max_body_size = "500MiB"
-            max_line_size = "64KiB"
+        [[outputs.http]]
+          url = "http://metrics-consolidator.metrics.svc.cluster.local:8086/telegraf"
+          method = "POST"
+          data_format = "influx"
 
         [[outputs.file]]
-            # Temporary for use during development of metrics.
-            files = ["/etc/telegraf/consolidator_metrics.out"]
-            rotation_max_size = "1MB"
-            rotation_max_archives = 2
-            data_format = "influx"
+          # Temporary for use during development of metrics.
+          files = ["/dev/shm/metrics.out"]
+          rotation_max_size = "1MB"
+          rotation_max_archives = 2
+          data_format = "influx"
+  
 
-        [[outputs.stackdriver]]
-            project = "padas-app"
-            namespace = "earthranger"
 
-        [[aggregators.basicstats]]
-            # The period on which to flush & clear the aggregator.
-            period = "60s"
-            drop_original = true
-            stats = ["count"]
 
