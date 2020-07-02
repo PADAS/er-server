@@ -46,7 +46,6 @@ django-debug-toolbar==2.2  # via -r ./requirements.txt
 django-environ==0.4.5     # via -r ./requirements.txt
 django-extensions==2.2.6  # via -r ./requirements.txt
 django-extra-fields==0.9  # via -r ./requirements.txt
-django-jenkins==0.110.0   # via -r requirements-dev.in
 django-js-asset==1.2.2    # via -r ./requirements.txt, django-mptt
 django-leaflet==0.24.0    # via -r ./requirements.txt
 django-model-utils==3.2.0  # via -r ./requirements.txt
@@ -62,7 +61,7 @@ django-storages[google]==1.8  # via -r ./requirements.txt
 django-tagulous==0.14.0   # via -r ./requirements.txt
 django-treebeard==4.3     # via -r ./requirements.txt
 django-versatileimagefield==1.10  # via -r ./requirements.txt
-django==2.2.11            # via -r ./requirements.txt, django-bitfield, django-cors-headers, django-debug-toolbar, django-jenkins, django-leaflet, django-model-utils, django-mptt, django-oauth-toolkit, django-readonly-field, django-redis, django-storages, django-treebeard
+django==2.2.11            # via -r ./requirements.txt, django-bitfield, django-cors-headers, django-debug-toolbar, django-leaflet, django-model-utils, django-mptt, django-oauth-toolkit, django-readonly-field, django-redis, django-storages, django-treebeard
 djangorestframework-gis==0.14.0  # via -r ./requirements.txt
 djangorestframework==3.10.3  # via -r ./requirements.txt, django-rest-swagger, djangorestframework-gis, drf-extensions
 dnspython==1.16.0         # via -r ./requirements.txt, eventlet
