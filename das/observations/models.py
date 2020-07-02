@@ -52,6 +52,7 @@ from bitfield import BitField
 
 
 logger = logging.getLogger(__name__)
+GPX_FILES_FOLDER = getattr(settings, 'GPX_FILES_FOLDER', 'observations/gpxfile')
 
 
 SOURCE_TYPES = sorted((
@@ -913,6 +914,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
     subject_subtype = models.ForeignKey(
         SubjectSubType, default=get_default_subject_subtype, on_delete=models.PROTECT)
+    import_gpx_data = models.ForeignKey('GPXTrackFile', help_text=_('Click on the button to import gpx data'), on_delete=models.SET_NULL, null=True, blank=True)
 
     @property
     def subject_type(self):
@@ -1502,3 +1504,62 @@ from analyzers.models import ObservationAnnotator
 class SubjectMaximumSpeed(ObservationAnnotator):
     class Meta:
         proxy = True
+
+
+class GPXLogRecord(models.Model):
+    success = 'success'
+    pending = 'pending'
+    failure = 'failure'
+
+    PROCESSED_STATUS_CHOICES = [
+        (success, 'Success'),
+        (pending, 'Pending'),
+        (failure, 'Failure'),
+    ]
+
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL,
+                                   on_delete=models.SET_NULL,
+                                   null=True, blank=True, related_name='gpx_track_files',
+                                   related_query_name='gpx_track_file')
+    file_name = models.CharField(max_length=225, null=True, blank=True)
+    file_size = models.IntegerField(null=True, blank=True)
+    processed_date = models.DateTimeField(auto_now_add=True)
+    processed_status = models.CharField(choices=PROCESSED_STATUS_CHOICES, max_length=255, null=False, blank=False)
+
+    class Meta:
+        abstract = True
+
+
+class GPXManager(models.Manager):
+    def get_by_natural_key(self, value):
+        return self.get(value=value)
+
+    def get_file(self, gpx_id):
+        gpx = self.get(id=gpx_id)
+        return gpx.data
+
+    def get_source_id(self, gpx_id):
+        src_id = self.filter(id=gpx_id).annotate(source_id=F('source_assignment__source__id')).values('source_id')
+        return src_id[0].get('source_id')
+
+
+def upload_to(instance, filename):
+    filename = filename.split('/')[-1]
+    timestamp = "{:%Y%m%d%H%M}".format(datetime.now(tz=pytz.utc))
+    file_path = f'{GPX_FILES_FOLDER}/{timestamp}-{filename}'
+    return file_path
+
+
+class GPXTrackFile(GPXLogRecord):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    source_assignment = models.ForeignKey('SubjectSource', on_delete=models.PROTECT)
+    description = models.CharField(max_length=255, null=True, blank=True)
+    data = models.FileField(upload_to=upload_to, null=True, blank=True)
+
+    objects = GPXManager()
+
+    class Meta:
+        verbose_name_plural = 'GPX track file'
+        ordering = ('processed_date',)
+
+

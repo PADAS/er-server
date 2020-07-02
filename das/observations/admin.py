@@ -22,6 +22,7 @@ from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models.functions import FirstValue, Trunc
 from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
 from django.db.models.functions import Now
+from django.db import transaction
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.utils.html import format_html
@@ -29,12 +30,18 @@ from django.db.models.expressions import RawSQL
 import django.contrib.gis.admin as gis_admin
 from django.utils.safestring import mark_safe, SafeString
 from django.utils.functional import cached_property
+from django.http.response import HttpResponseRedirect
+from django.contrib.admin.utils import quote
+from urllib.parse import quote as urlquote
+from django.contrib import messages
+from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
 
 import observations.models as models
 from tracking.models import SourcePlugin
 import observations.forms
-from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm
+from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm, GPXFileForm
 from observations.utils import assigned_range_dates
+from observations.tasks import process_gpxtrack_file
 from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin, \
     SaveCoordinatesToCookieMixin
 from core.openlayers import OSMGeoExtendedAdmin
@@ -53,6 +60,32 @@ admin.site.index_title = site_title
 admin.site.index_template = 'admin/standard_admin_index.html'
 
 OBSERVATIONS_HISTORY_LIMIT = timedelta(days=90)
+
+
+class _RelatedFieldWidgetWrapper(admin.widgets.RelatedFieldWidgetWrapper):
+    template_name = 'admin/widgets/related_widget.html'
+
+    def __init__(self, widget,
+                 rel, admin_site, can_add_related=None,
+                 can_change_related=False, can_delete_related=False,
+                 can_view_related=False, query_value=None):
+        self.query_value = query_value
+        super(_RelatedFieldWidgetWrapper, self).__init__(widget, rel, admin_site, can_add_related,
+                                                         can_change_related, can_delete_related, can_view_related)
+
+    @property
+    def get_model_name(self):
+        return self.rel.model.__name__
+
+    def get_context(self, name, value, attrs):
+        context = super().get_context(name, value, attrs)
+        if self.get_model_name == 'GPXTrackFile':
+            context['gpx_file'] = True
+            context['query_id'] = self.query_value
+        return context
+
+
+admin.widgets.RelatedFieldWidgetWrapper = _RelatedFieldWidgetWrapper
 
 
 class ExportCsvMixin:
@@ -89,7 +122,7 @@ class ValidateFilterMixin:
     def check_uuid(self, uuid):
         try:
             uuid_version = UUID(uuid).version
-        except ValueError:
+        except Exception as exc:
             return
         return uuid
 
@@ -480,6 +513,10 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
         ('Advanced Subject Attributes', {
             'classes': ('wide', 'collapse'),
             'fields': ('additional', 'created_at', 'updated_at',)
+        }),
+        ('GPX Data imports', {
+            'classes': ('gpx-cls',),
+            'fields': ('import_gpx_data',)
         })
     )
     list_filter = ('is_active', GroupAssignedFilter,
@@ -636,6 +673,15 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
     def get_changelist_form(self, request, **kwargs):
         return SubjectChangeListForm
 
+    @staticmethod
+    def get_gpxdata_context(extra_context, gpxdata, object_id):
+        extra_context = extra_context or {}
+        _url = reverse('admin:observations_gpxtrackfile_changelist')
+        filter_param = 'source_assignment__subject__id__exact'
+        extra_context['gpxdata'] = gpxdata[:3]
+        extra_context['query_filter'] = f'{_url}?{filter_param}={object_id}'
+        return extra_context
+
     def change_view(self, request, object_id, form_url='', extra_context=None):
 
         latest_observations = models.Observation.objects.filter(
@@ -644,9 +690,41 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
             .values('source__manufacturer_id', 'recorded_at', 'location', 'additional')
         extra_context = self.get_observations_context(
             extra_context, latest_observations, object_id)
+
+        latest_gpx_upload = models.GPXTrackFile.objects.filter(source_assignment__subject=object_id). \
+            annotate(subject_name=F('source_assignment__subject__name'),
+                     source_name=F('source_assignment__source__manufacturer_id'),
+                     username=F('created_by__username')).order_by('-processed_date').values()
+        extra_context = self.get_gpxdata_context(extra_context, latest_gpx_upload, object_id)
+
         return super().change_view(
             request, object_id, form_url, extra_context=extra_context,
         )
+
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        form = super().get_form(request, obj, change, **kwargs)
+        none_qs = models.GPXTrackFile.objects.none()
+        form.base_fields['import_gpx_data'].queryset = none_qs
+        return form
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name == 'import_gpx_data':
+            formfield = self.formfield_for_foreignkey(db_field, request, **kwargs)
+            related_modeladmin = self.admin_site._registry.get(db_field.remote_field.model)
+            wrapper_kwargs = {}
+            if related_modeladmin:
+                wrapper_kwargs.update(
+                    can_add_related=related_modeladmin.has_add_permission(request),
+                    can_change_related=related_modeladmin.has_change_permission(request),
+                    can_delete_related=related_modeladmin.has_delete_permission(request),
+                    can_view_related=related_modeladmin.has_view_permission(request),
+                    query_value=request.resolver_match.kwargs.get('object_id'),
+                )
+            formfield.widget = _RelatedFieldWidgetWrapper(
+                formfield.widget, db_field.remote_field, self.admin_site, **wrapper_kwargs
+            )
+            return formfield
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
 
 
 @admin.register(models.CommonName)
@@ -663,6 +741,146 @@ class CommonNameAdmin(admin.ModelAdmin):
         raise NotImplementedError(
             'implement filtering SubjectAdmin to user permissions')
         return qs.filter(owner=request.user)
+
+
+@admin.register(models.GPXTrackFile)
+class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
+    readonly_fields = ('id',)
+    list_display = ('subject', 'source', 'filename', '_file_size', 'description', 'processed_date',
+                    'processed_status', 'created_by', 'id')
+    list_filter = ('source_assignment__subject', )
+    fields = ('id', 'source_assignment', 'description', 'data')
+    ordering = ('-processed_date',)
+    list_display_links = None
+    form = GPXFileForm
+
+    def get_model_perms(self, request):
+        # Hides this page from showing up on admin site.
+        return {}
+
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        """
+        :param request:
+        :param obj:
+        :param change:
+        :param kwargs:
+        :return: form
+        """
+        form = super(GPXAdmin, self).get_form(request, obj, change, **kwargs)
+        if not change:
+            subject_id = request.GET.get('subject_id')
+            none_qs = models.SubjectSource.objects.none()
+            queryset = models.Subject.objects.get(id=subject_id).subjectsources.all() if self.check_uuid(subject_id) else none_qs
+            form.base_fields['source_assignment'].widget = forms.Select()
+            form.base_fields['source_assignment'].queryset = queryset
+            form.base_fields['source_assignment'].initial = queryset.last()
+        else:
+            form.base_fields['source_assignment'].widget = forms.Select()
+        return form
+
+    def response_add(self, request, obj, post_url_continue=None):
+        """
+        Determine the HttpResponse for the add_view stage.
+        """
+        opts = obj._meta
+        preserved_filters = self.get_preserved_filters(request)
+        obj_url = reverse(
+            'admin:%s_%s_change' % (opts.app_label, opts.model_name),
+            args=(quote(obj.pk),),
+            current_app=self.admin_site.name,
+        )
+        # Add a link to the object's change form if the user can edit the obj.
+        if self.has_change_permission(request, obj):
+            obj_repr = format_html('<a href="{}">{}</a>', urlquote(obj_url), obj)
+        else:
+            obj_repr = str(obj)
+        msg_dict = {'name': opts.verbose_name, 'obj': obj_repr, 'filename': obj.file_name}
+
+        if "_addanother" in request.POST:
+
+            msg = format_html(
+                _('The GPX data "{filename}" was successfully added. You may add another {name} below.'),
+                **msg_dict
+            )
+            self.message_user(request, msg, messages.SUCCESS)
+            redirect_url = request.get_full_path()
+            redirect_url = add_preserved_filters({'preserved_filters': preserved_filters, 'opts': opts}, redirect_url)
+            return HttpResponseRedirect(redirect_url)
+        else:
+
+            msg = format_html(
+                _('The GPX data file "{filename}" was successfully imported.',),
+                **msg_dict
+            )
+            self.message_user(request, msg, messages.SUCCESS)
+            return super().response_add(request, obj, post_url_continue)
+
+    def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
+        # atomic blocks can be nested. In this case,
+        # when an inner block completes successfully,
+        # its effects can still be rolled back if an exception is raised in the outer block at a later point.
+        try:
+            return super().changeform_view(request, object_id, form_url, extra_context)
+        except Exception as exc:
+            url_path = request.get_full_path()
+            file_name = request.FILES.get('data').name
+            error_msg = f'The GPX data file "{file_name}" failed to be processed: {exc}'
+            self.message_user(request, error_msg, level=messages.ERROR)
+            self.create_gpxfile_object(request)
+            return HttpResponseRedirect(url_path)
+
+    def save_model(self, request, obj, form, change):
+        obj.processed_status = self.model.pending
+        obj.file_size = obj.data.size
+        obj.file_name = obj.data.name
+        obj.created_by = request.user
+        saved = obj.save()
+        transaction.on_commit(lambda: process_gpxtrack_file.delay(obj.id))
+        return saved
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        queryset = queryset.annotate(subject_name=F('source_assignment__subject__name'),
+                                     source_name=F('source_assignment__source__manufacturer_id'))
+        return queryset
+
+    def create_gpxfile_object(self, request):
+        """When gpx file upload fails, create one with status=Failure"""
+        model = self.model
+        posted_data = request.POST
+        posted_file = request.FILES
+        data = posted_file.get('data')
+        file_name = data.name
+        file_size = data.size
+        user = request.user
+        source_assignment = posted_data.get('source_assignment')
+        subject_source = models.SubjectSource.objects.get(id=source_assignment)
+        description = posted_data.get('description')
+        return model.objects.create(source_assignment=subject_source,
+                                    description=description,
+                                    processed_status=self.model.failure,
+                                    file_size=file_size,
+                                    file_name=file_name,
+                                    created_by=user)
+
+    def source(self, o):
+        return o.source_name
+    source.short_description = 'Source'
+    source.admin_order_field = 'source_name'
+
+    def subject(self, o):
+        return o.subject_name
+    subject.short_description = 'Subject'
+    subject.admin_order_field = 'subject_name'
+
+    def filename(self, o):
+        return o.file_name
+    filename.short_description = 'File Name'
+    filename.admin_order_field = 'file_name'
+
+    def _file_size(self, o):
+        return o.file_size
+    _file_size.short_description = 'File Size (Bytes)'
 
 
 @admin.register(models.SubjectSourceSummary)

@@ -223,6 +223,7 @@ webencodings==0.5.1       # via -r ./requirements.txt, html5lib
 websocket-client==0.57.0  # via -r requirements-dev.in
 whitenoise==5.1.0         # via -r ./requirements.txt
 widgetsnbextension==3.5.1  # via -r ./requirements.txt, arcgis, ipywidgets
+xmltodict==0.12.0         # via -r ./requirements.txt
 xmlunittest==0.5.0        # via -r requirements-dev.in
 zipp==3.0.0               # via -r ./requirements.txt, importlib-metadata, importlib-resources
 

@@ -1,0 +1,27 @@
+{% load i18n static %}
+
+<div class="related-widget-wrapper">
+    {{ rendered_widget }}
+
+    <a class="related-widget-wrapper-link add-related" id="add_id_{{ name }}"
+       href="{{ add_related_url }}?{{ url_params }}&subject_id={{ query_id }}"
+       title="{% blocktrans %}Add another {{ model }}{% endblocktrans %}">
+        <button type="submit" class="submit-row">
+            Import <span style="font-size: 12px">GPX Data</span>
+        </button>
+    </a>
+</div>
+
+<style>
+    button.submit-row {
+        margin: 4px 10px;
+        border: 2px solid #78aec8;
+        border-radius: 8px;
+        cursor: pointer;
+
+    }
+
+    #id_import_gpx_data {
+        display: None;
+    }
+</style>
