@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -23,7 +24,8 @@ from observations.views import SubjectsView
 from observations.admin import GPXAdmin
 
 User = django.contrib.auth.get_user_model()
-
+TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                            'tests')
 
 class SubjectTestCase(BaseAPITest):
     fixtures = [
@@ -342,7 +344,7 @@ class SubjectTestCase(BaseAPITest):
 
         subject = Subject.objects.get(name='Topsy')
         subject_source = SubjectSource.objects.get(subject=subject)
-        data = File(open('./observations/tests/testdata/gpsmap_data.gpx', 'rb'))
+        data = File(open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
         GPXTrackFile.objects.create(data=data, source_assignment=subject_source)
 
         self.assertEqual(GPXTrackFile.objects.count(), 1)
@@ -352,7 +354,7 @@ class SubjectTestCase(BaseAPITest):
 
         subject = Subject.objects.get(name='Topsy')
         subject_source = SubjectSource.objects.get(subject=subject)
-        data = File(open('./observations/tests/testdata/gpsmap_data.gpx', 'rb'))
+        data = File(open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
 
         url = reverse('admin:observations_gpxtrackfile_add')
         url += f'?subject_id={subject.id}'
@@ -380,11 +382,10 @@ class SubjectTestCase(BaseAPITest):
             template_response = self.admin.changeform_view(request)
             transaction.get_connection().run_and_clear_commit_hooks()
 
-            successful_msg = 'The GPX data file "./observations/tests/testdata/gpsmap_data.gpx" was successfully imported.'
             gpx_object = GPXTrackFile.objects.all()
             processed_status = gpx_object.values('processed_status')
             self.assertEqual(template_response.status_code, 302)
-            self.assertEqual(messages._queued_messages[0].message, successful_msg)
+            self.assertTrue("was successfully imported" in messages._queued_messages[0].message)
             self.assertEqual(gpx_object.count(), 1)
             self.assertEqual(processed_status[0].get('processed_status'), 'success')
 
@@ -410,7 +411,7 @@ class SubjectTestCase(BaseAPITest):
     def test_gpx_upload_fails(self):
         subject = Subject.objects.get(name='Topsy')
         subject_source = SubjectSource.objects.get(subject=subject)
-        data = File(open('./observations/tests/testdata/gpsmap_data.gpx', 'rb'))
+        data = File(open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
 
         url = reverse('admin:observations_gpxtrackfile_add')
         request = self.factory.post(url, data={'source_assignment': subject_source.id, '_save': 'Save'})
@@ -432,9 +433,8 @@ class SubjectTestCase(BaseAPITest):
         gpx_object = GPXTrackFile.objects.all()
         processed_status = gpx_object.values('processed_status')
         template_response = self.admin.changeform_view(request)
-        fail_msg = 'The GPX data file "./observations/tests/testdata/gpsmap_data.gpx" failed to be processed: expected string or bytes-like object'
         self.assertEqual(template_response.status_code, 302)
-        self.assertEqual(messages._queued_messages[0].message, fail_msg)
+        self.assertTrue("failed to be processed" in messages._queued_messages[0].message)
         self.assertEqual(processed_status[0].get('processed_status'), 'failure')
 
 
