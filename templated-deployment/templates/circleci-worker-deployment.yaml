@@ -28,12 +28,6 @@ spec:
           items:
             - key: telegraf_conf
               path: telegraf.conf
-      - name: metrics-writer-credentials
-        secret:
-          secretName: metrics-writer-credentials
-          items:
-          - key: credentials_json
-            path: "metrics_writer_credentials.json"
       containers:
       - image:  "${SERVER_VERSION}"
         name: das-worker
@@ -99,11 +93,6 @@ spec:
         - name: telegraf-config-volume
           mountPath: "/etc/telegraf/"
           readOnly: true
-        - name: metrics-writer-credentials
-          mountPath: "/etc/earthranger/"
-          readOnly: true
         env:
         - name: SERVICE_NAME
           value: "default_worker"
-        - name: GOOGLE_APPLICATION_CREDENTIALS
-          value: "/etc/earthranger/metrics_writer_credentials.json"

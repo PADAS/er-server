@@ -48,7 +48,4 @@ data:
           rotation_max_size = "1MB"
           rotation_max_archives = 2
           data_format = "influx"
-  
-
-
 
