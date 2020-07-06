@@ -164,16 +164,12 @@ def get_spatial_feature_type(feature, type_label=None):
 
 
 # set feature name to some reasonable default if we can't find a name
-def set_feature_name(feature_record, feature, feature_type, counter):
-    if not feature_record.name.strip():
-        feature_name = 'Names' if 'Names' in feature.fields else default_name_field
-        try:
-            feature_record.name = feature.get(feature_name)
-        except Exception:
-            pass
-
-    # if still not set, use type & counter
-    if not feature_record.name.strip():
+def set_feature_name(feature_record, feature, feature_type, name_field, counter):
+    if not name_field:
+        name_field = 'Names' if 'Names' in feature.fields else default_name_field
+    try:
+        feature_record.name = feature.get(name_field)
+    except Exception:
         feature_record.name = feature_type.name + str(counter)
 
 
@@ -244,7 +240,7 @@ def mappingv2_save_spatial_data(feature, external_id, spatialfile, counter=0):
                                for value in feature['tags'].value.split(',')]
     for key, value in defaults.items():
         setattr(feature_record, key, value)
-    set_feature_name(feature_record, feature, feature_type, counter)
+    set_feature_name(feature_record, feature, feature_type, spatialfile.name_field, counter)
     feature_record.clean()    
     feature_record.save()
 
@@ -314,7 +310,7 @@ def mappingv1_save_spatial_data(feature, external_id, spatialfile, counter=0):
 
     feature_record.feature_geometry = feature_geometry
     feature_record.fields = fields
-    set_feature_name(feature_record, feature, feature_type, counter)
+    set_feature_name(feature_record, feature, feature_type, spatialfile.name_field, counter)
     feature_record.spatialfile = spatialfile
     logger.debug('Import feature: %s, created:%s', external_id, created)
 
