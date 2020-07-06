@@ -123,7 +123,14 @@ def calculate_track_range(user, since, until, limit):
         # if oldest_age < newest_age:
         #     raise PermissionDenied()
 
-    begin = now - timedelta(days=oldest_age)
+    if since:
+        age_secs = (now - since).seconds
+        if oldest_age == 0 and since.date() == now.date():
+            begin = now - timedelta(seconds=age_secs)
+        else:
+            begin = now - timedelta(days=oldest_age, seconds=age_secs)
+    else:
+        begin = now - timedelta(days=oldest_age)
 
     if newest_age > 0:
         until = now - timedelta(days=newest_age)

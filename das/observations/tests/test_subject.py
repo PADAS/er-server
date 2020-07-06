@@ -20,6 +20,7 @@ from pytz import UTC
 
 from core.tests import BaseAPITest
 from observations.models import Subject, Observation, GPXTrackFile, SubjectSource
+from observations.utils import calculate_track_range
 from observations.views import SubjectsView
 from observations.admin import GPXAdmin
 
@@ -436,5 +437,38 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(template_response.status_code, 302)
         self.assertTrue("failed to be processed" in messages._queued_messages[0].message)
         self.assertEqual(processed_status[0].get('processed_status'), 'failure')
+
+    def test_calculate_track_range_fn(self):
+        user = self.user
+        t1 = datetime.now(tz=UTC) - timedelta(days=3, hours=2, minutes=30)
+        since, until, limit = calculate_track_range(user=user, since=t1, until=None, limit=None)
+
+        expected_since = t1.replace(microsecond=0, second=0).isoformat()
+        returned_since = since.replace(microsecond=0, second=0).isoformat()
+        self.assertEqual(returned_since, expected_since)
+
+        # when since greater than today
+        t2 = datetime.now(tz=UTC) + timedelta(days=3, hours=7, minutes=30)
+        since, until, limit = calculate_track_range(user=user, since=t2, until=None, limit=None)
+
+        expected_since = t2.replace(microsecond=0, second=0).isoformat()
+        returned_since = since.replace(microsecond=0, second=0).isoformat()
+        self.assertEqual(returned_since, expected_since)
+
+    def test_calculate_track_range_fn_today(self):
+        t1 = datetime.combine(datetime.today(), datetime.min.time()).replace(tzinfo=UTC) # midnight
+        since, until, limit = calculate_track_range(user=self.user, since=t1, until=None, limit=None)
+
+        expected_since = t1.replace(microsecond=0, second=0).isoformat()
+        returned_since = since.replace(microsecond=0).isoformat()
+        self.assertEqual(returned_since, expected_since)
+
+        t2 = t1.replace(hour=5, minute=45, second=0, microsecond=0)  # past midnight
+        since, until, limit = calculate_track_range(user=self.user, since=t2, until=None, limit=None)
+
+        expected_since = t2.isoformat()
+        returned_since = since.replace(microsecond=0, second=0).isoformat()
+        self.assertEqual(returned_since, expected_since)
+
 
 
