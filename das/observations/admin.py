@@ -679,7 +679,7 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
         _url = reverse('admin:observations_gpxtrackfile_changelist')
         filter_param = 'source_assignment__subject__id__exact'
         extra_context['gpxdata'] = gpxdata[:3]
-        extra_context['query_filter'] = f'{_url}?{filter_param}={object_id}'
+        extra_context['query_filter'] = f'{_url}?{filter_param}={object_id}' if gpxdata.count() > 3 else None
         return extra_context
 
     def change_view(self, request, object_id, form_url='', extra_context=None):

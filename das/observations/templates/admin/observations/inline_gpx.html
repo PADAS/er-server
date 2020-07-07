@@ -92,7 +92,9 @@
             {% endfor %}
         </tbody>
     </table>
+    {% if query_filter %}
     <div style="margin-top: 12px; font-size: 13px;">See more GPX data file upload attempts for this subject  <a href="{{ query_filter }}">here</a></div>
+    {% endif %}
 </div>
 </div>
 

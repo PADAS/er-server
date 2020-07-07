@@ -914,7 +914,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
     subject_subtype = models.ForeignKey(
         SubjectSubType, default=get_default_subject_subtype, on_delete=models.PROTECT)
-    import_gpx_data = models.ForeignKey('GPXTrackFile', help_text=_('Click on the button to import gpx data'), on_delete=models.SET_NULL, null=True, blank=True)
+    import_gpx_data = models.ForeignKey('GPXTrackFile', on_delete=models.SET_NULL, null=True, blank=True)
 
     @property
     def subject_type(self):
