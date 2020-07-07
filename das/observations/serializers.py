@@ -8,6 +8,7 @@ from dateutil.parser import parse as parse_date
 from django.contrib.gis.geos import Point
 from django.urls import reverse
 from django.conf import settings
+from django.db import transaction
 import rest_framework.serializers
 from drf_extra_fields.geo_fields import PointField
 from drf_extra_fields.fields import DateTimeRangeField
@@ -604,3 +605,40 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
         properties['coordinateProperties'] = {'times': coordinate_times or []}
 
     return feature
+
+
+class GPXTrackFileUploadSerializer(rest_framework.serializers.ModelSerializer):
+    processed_status = rest_framework.serializers.ChoiceField(allow_null=True, required=False,
+                                                              choices=models.GPXLogRecord.PROCESSED_STATUS_CHOICES,
+                                                              read_only=True)
+
+    class Meta:
+        model = models.GPXTrackFile
+        fields = '__all__'
+        extra_kwargs = {
+            'id': {'read_only': True},
+            'created_by': {'read_only': True},
+            'file_name': {'read_only': True},
+            'file_size': {'read_only': True},
+        }
+
+    def create(self, validated_data):
+        from observations.tasks import process_gpxtrack_file
+
+        request = self.context.get('request')
+        file = validated_data.get('data')
+        validated_data['processed_status'] = models.GPXLogRecord.pending
+        validated_data['file_size'] = file.size
+        validated_data['file_name'] = file.name
+        validated_data['created_by'] = request.user
+        gpx_object = models.GPXTrackFile.objects.create(**validated_data)
+        transaction.on_commit(lambda: process_gpxtrack_file.delay(gpx_object.id))
+        return gpx_object
+
+    def validate(self, data):
+        file_extension = '.gpx'
+        file = data.get('data')
+        file_name = file.name
+        if not file_name.lower().endswith(file_extension):
+            raise rest_framework.serializers.ValidationError({'data': 'Only .gpx files can be imported.'})
+        return data

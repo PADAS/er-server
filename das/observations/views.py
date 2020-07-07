@@ -1528,3 +1528,9 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
         queryset = check_to_include_inactive_subjects(self.request, queryset)
         queryset = queryset.by_user_subjects(self.request.user)
         return queryset
+
+
+class GPXTrackFileUploadView(generics.ListCreateAPIView):
+    permission_classes = (StandardObjectPermissions,)
+    serializer_class = serializers.GPXTrackFileUploadSerializer
+    queryset = models.GPXTrackFile.objects.all()
