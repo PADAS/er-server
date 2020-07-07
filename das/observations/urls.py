@@ -76,7 +76,7 @@ urlpatterns = [
         views.TrackingMetaDataExportView.as_view()),
     url(r'^sourcegroup/(?P<slug>[a-zA-Z0-9\w\W\s\S-]+)/?$',
         views.SourceGroupView.as_view()),
-    url(r'^gpxtrackfile/upload/?$', views.GPXTrackFileUploadView.as_view()),
+    url(r'^gpxtrackfile/upload/?$', views.GPXTrackFileUploadView.as_view(), name='gpx-upload'),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

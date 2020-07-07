@@ -21,7 +21,7 @@ from pytz import UTC
 from core.tests import BaseAPITest
 from observations.models import Subject, Observation, GPXTrackFile, SubjectSource
 from observations.utils import calculate_track_range
-from observations.views import SubjectsView
+from observations.views import SubjectsView, GPXTrackFileUploadView
 from observations.admin import GPXAdmin
 
 User = django.contrib.auth.get_user_model()
@@ -469,6 +469,51 @@ class SubjectTestCase(BaseAPITest):
         expected_since = t2.isoformat()
         returned_since = since.replace(microsecond=0, second=0).isoformat()
         self.assertEqual(returned_since, expected_since)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_process_gpx_file_upload_via_api(self):
+        subject = Subject.objects.get(name='Topsy')
+        subject_source = SubjectSource.objects.get(subject=subject)
+        file = File(open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
+
+        data = dict(description='upload gpx data',
+                    source_assignment=subject_source.id,
+                    data=file)
+
+        url = reverse('gpx-upload')
+        with patch('django.db.backends.base.base.BaseDatabaseWrapper.validate_no_atomic_block',
+                   lambda a: False):
+
+            request = self.factory.post(url, data, format='multipart')
+            self.force_authenticate(request, self.user)
+
+            response = GPXTrackFileUploadView.as_view()(request)
+            transaction.get_connection().run_and_clear_commit_hooks()
+
+        gpx_id = response.data.get('id')
+        gpx_object = GPXTrackFile.objects.get(id=gpx_id)
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(gpx_object.processed_status, 'success')
+
+        # This is an example of trackpoint that we expect to be saved in the observation table.
+        # <trkpt lat="-2.573374444618821" lon="37.896002875640988">
+        #     <ele>1244.769999999999982</ele>
+        #     <time>2020-06-06T05:17:26Z</time>
+        #  </trkpt>
+
+        trkpoint_lat = '-2.573374444618821'
+        trkpoint_lon = '37.896002875640988'
+        trkpoint_time = dateparser.parse('2020-06-06T05:17:26Z')
+
+        # trackpoint saved in observation table.
+        trkpoint_obs = Observation.objects.filter(recorded_at=trkpoint_time, source__id=subject_source.source_id)
+        self.assertTrue(trkpoint_obs.exists())
+
+        obs_latitude = trkpoint_obs[0].location.y
+        obs_longitude = trkpoint_obs[0].location.x
+        self.assertEqual(float(trkpoint_lat), obs_latitude)
+        self.assertEqual(float(trkpoint_lon), obs_longitude)
 
 
 
