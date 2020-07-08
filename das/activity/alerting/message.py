@@ -236,6 +236,9 @@ def render_event_alert_context(alert_rule, event, notification_method,
 
     for k in event_details.keys():
         key_display = schema_utils.get_display_value_header_for_key(schema, k)
+        if key_display not in details.keys():
+            # different property & def titles, get alternative title
+            key_display = schema_utils.find_display_value_for_key_in_definition(schema, k)
 
         pretty_details[k] = {'title': key_display, 'value': render_pretty_value(details[key_display])}
 
