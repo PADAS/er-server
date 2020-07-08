@@ -1208,11 +1208,11 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
     def get(self, request, *args, **kwargs):
         # Set exclusion flag value
         filter_flag = 0
+        qparam = self.request.GET.get('filter', 0)
         try:
-            if self.request.GET.get('filter'):
-                filter_flag = int(self.request.GET.get('filter', 0))
+            filter_flag = int(qparam)
         except (ValueError, TypeError):
-            filter_flag = 0
+            filter_flag = None if qparam == 'null' else filter_flag
 
         try:
             request_date_after = parse_datetime(
@@ -1358,10 +1358,16 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         else:
             qs = qs.filter(source__subjectsource__subject=subject)
 
-        qs = qs.filter(exclusion_flags=filter_flag,
-                                               recorded_at__gt=lower,
-                                               recorded_at__lt=upper,
-                                               source__subjectsource__assigned_range__contains=F('recorded_at'))
+        if filter_flag is not None:
+            if filter_flag > 0:
+                qs = qs.annotate(exclusion_filter=F('exclusion_flags').bitand(filter_flag)).filter(exclusion_filter__gt=0)
+            else:
+                qs = qs.filter(exclusion_flags=filter_flag)
+
+        qs = qs.filter(
+            recorded_at__gt=lower,
+            recorded_at__lt=upper,
+            source__subjectsource__assigned_range__contains=F('recorded_at'))
 
         qs = qs.annotate(subjectsource_additional=F('source__subjectsource__additional'),
                          collar_id=F('source__manufacturer_id'))
