@@ -9,7 +9,7 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
 
-import utils
+from utils import schema_utils
 from activity.alerting.businessrules import render_event, \
     resolve_event_revisions, infer_event_state
 from activity.models import Event, NotificationMethod, AlertRule, EventNotification, NOTIFICATION_METHOD_EMAIL, NOTIFICATION_METHOD_WHATSAPP, NOTIFICATION_METHOD_SMS
@@ -180,15 +180,6 @@ def dict_changes(current, previous, ignore_these=('sort_at', 'updated_at', 'crea
                    and v != previous.get(k))
     return changes
 
-
-def _get_title_from_schema(key, schema):
-    properties = schema['properties']
-    if key in properties and 'title' in properties[key]:
-        return properties[key]['title']
-
-    return key.replace('_', ' ').title()
-
-
 priority_label_colors = {
     'Red': '#b00000',
     'Amber': '#d97900',
@@ -236,16 +227,15 @@ def render_event_alert_context(alert_rule, event, notification_method,
     logger.debug('Rendered event: %s', json.dumps(eventdata, indent=2, default=str))
 
     # Render display titles and values
-    schema = utils.schema_utils.get_schema_renderer_method()(event.event_type.schema)
+    schema = schema_utils.get_schema_renderer_method()(event.event_type.schema)
     pretty_details = {}
     event_details = eventdata.get('event_details', {}) or {}
 
     # Get details with display values
-    details = utils.schema_utils.get_details_and_display_values(event, schema)
+    details = schema_utils.get_details_and_display_values(event, schema)
 
-    for k, internal_value in event_details.items():
-
-        key_display = _get_title_from_schema(k, schema['schema'])
+    for k in event_details.keys():
+        key_display = schema_utils.get_display_value_header_for_key(schema, k)
 
         pretty_details[k] = {'title': key_display, 'value': render_pretty_value(details[key_display])}
 
