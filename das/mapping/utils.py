@@ -165,8 +165,7 @@ def get_spatial_feature_type(feature, type_label=None):
 
 # set feature name to some reasonable default if we can't find a name
 def set_feature_name(feature_record, feature, feature_type, name_field, counter):
-    if not name_field:
-        name_field = 'Names' if 'Names' in feature.fields else default_name_field
+    name_field = name_field or default_name_field
     try:
         feature_record.name = feature.get(name_field)
     except Exception:
