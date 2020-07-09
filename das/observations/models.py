@@ -1248,7 +1248,7 @@ def build_updates(recorded_at, location, radio_state=None, radio_state_at=None,
 
     conditional_updates = {
         'recorded_at': Value(recorded_at) if force else Greatest(F('recorded_at'), Value(recorded_at)),
-        'location': Value(str(location)) if force else Case(
+        'location': location if force else Case(
                 When(recorded_at__lte=Value(recorded_at), then=Value(str(location))),
                 default=F('location')
             ),
