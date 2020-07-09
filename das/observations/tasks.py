@@ -3,6 +3,7 @@ import json
 import xmltodict
 from datetime import datetime, timedelta
 import pytz
+import gpxpy
 
 from celery_once import QueueOnce
 from das_server import celery, pubsub
@@ -10,6 +11,7 @@ from observations import servicesutils
 from observations.models import Subject, SubjectStatus, Observation, SourceProvider, Source, GPXTrackFile
 from observations.serializers import ObservationSerializer
 from django.db.models import F
+from django.core.exceptions import ValidationError
 from observations.utils import dateparse
 
 
@@ -165,3 +167,56 @@ def process_gpxtrack_file(gpx_id):
     else:
         # Case where all observation are duplicate.
         success_process_gpxtrack(gpx_id)
+
+
+@celery.app.task(bind=True, track_started=True, ignore_result=False)
+def process_gpxdata_api(self, filename, source_id):
+    with open(filename, 'r') as file:
+        try:
+            gpx = gpxpy.parse(file)
+        except Exception as exc:
+            raise ValidationError(f"Exception raised '{exc}' when parsing gpx file")
+
+    try:
+        source = Source.objects.get(id=source_id)
+    except Source.DoesNotExist:
+        raise ValidationError(f"Source object with id={source_id} DoesNotExist")
+
+    list_gpx_dt = []
+
+    for trk in gpx.tracks:
+        for trkseg in trk.segments:
+            for trkpt in trkseg.points:
+                list_gpx_dt.append(trkpt.time.replace(tzinfo=pytz.utc))
+
+    array_datetime = get_array_recorded_time(source, list_gpx_dt)
+
+    obs_records = []
+    obs_errors = []
+    for trk in gpx.tracks:
+        for trkseg in trk.segments:
+            for trkpt in trkseg.points:
+                recorded_at = trkpt.time.replace(tzinfo=pytz.utc)
+                if recorded_at in array_datetime:
+                    location = {'latitude': float(trkpt.latitude), 'longitude': float(trkpt.longitude)}
+                    validate_observation(location, recorded_at, source_id, {}, obs_records, obs_errors)
+                else:
+                    logger.info(f"Ignored observation record of recorded_at: {recorded_at} and source: {source}")
+
+    if obs_records:
+        bulk_serializer = ObservationSerializer(data=obs_records, many=True)
+        if bulk_serializer.is_valid():
+            bulk_serializer.save()
+            logger.info(f"Successfully created bulky observations {len(obs_records)}")
+            return f"Successfully created {len(obs_records)} observations"
+        else:
+            message = f"Failed to process bulk observation: {bulk_serializer.errors}"
+            logger.error(message)
+            raise ValidationError(message)
+    elif obs_errors:
+        message = f"Failed to process observation: {obs_errors}"
+        logger.error(message)
+        return message
+    else:
+        message = f'GPX trackpoints for file {filename} already exists'
+        return message
