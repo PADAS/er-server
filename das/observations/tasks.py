@@ -4,7 +4,6 @@ import json
 import xmltodict
 from datetime import datetime, timedelta
 import pytz
-import gpxpy
 
 from celery_once import QueueOnce
 from das_server import celery, pubsub
