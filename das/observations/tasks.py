@@ -201,7 +201,7 @@ def process_gpxdata_api(self, filename, source_id):
 
         trkpoints = get_track_points(response)
         if isinstance(trkpoints, str):
-            return ValidationError(trkpoints)
+            raise ValidationError(trkpoints)
 
     try:
         os.remove(filename)
