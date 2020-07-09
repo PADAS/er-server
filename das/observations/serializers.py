@@ -607,38 +607,15 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
     return feature
 
 
-class GPXTrackFileUploadSerializer(rest_framework.serializers.ModelSerializer):
-    processed_status = rest_framework.serializers.ChoiceField(allow_null=True, required=False,
-                                                              choices=models.GPXLogRecord.PROCESSED_STATUS_CHOICES,
-                                                              read_only=True)
+class GPXTrackFileUploadSerializer(rest_framework.serializers.Serializer):
+    gpx_file = rest_framework.serializers.FileField()
 
     class Meta:
-        model = models.GPXTrackFile
-        fields = '__all__'
-        extra_kwargs = {
-            'id': {'read_only': True},
-            'created_by': {'read_only': True},
-            'file_name': {'read_only': True},
-            'file_size': {'read_only': True},
-        }
-
-    def create(self, validated_data):
-        from observations.tasks import process_gpxtrack_file
-
-        request = self.context.get('request')
-        file = validated_data.get('data')
-        validated_data['processed_status'] = models.GPXLogRecord.pending
-        validated_data['file_size'] = file.size
-        validated_data['file_name'] = file.name
-        validated_data['created_by'] = request.user
-        gpx_object = models.GPXTrackFile.objects.create(**validated_data)
-        transaction.on_commit(lambda: process_gpxtrack_file.delay(gpx_object.id))
-        return gpx_object
+        fields = ('gpx_file',)
 
     def validate(self, data):
-        file_extension = '.gpx'
-        file = data.get('data')
+        file = data.get('gpx_file')
         file_name = file.name
-        if not file_name.lower().endswith(file_extension):
+        if not file_name.lower().endswith('.gpx'):
             raise rest_framework.serializers.ValidationError({'data': 'Only .gpx files can be imported.'})
         return data
