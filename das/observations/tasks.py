@@ -108,6 +108,27 @@ def validate_observation(location, recorded_at, source_id, additional, obs_persi
         logger.error(f"Observation validation failed {validator.errors}")
 
 
+def process_observation(observation_records, observation_errors):
+    if observation_records:
+        bulk_serializer = ObservationSerializer(data=observation_records, many=True)
+        if bulk_serializer.is_valid():
+            bulk_serializer.save()
+            message = f"Successfully created {len(observation_records)} observations"
+            logger.info(message)
+            return True, message
+        else:
+            message = f"Failed to process bulk observation: {bulk_serializer.errors}"
+            logger.error(message)
+            return False, message
+    elif observation_errors:
+        message = f"Failed to process observation: {observation_errors}"
+        logger.error(message)
+        return False, message
+    else:
+        message = 'GPX trackpoints for file already exists'
+        return True, message
+
+
 def get_additional(trkpoint):
     keys = ['@lat', '@lon', 'time']
     [trkpoint.pop(i) for i in keys]
@@ -153,21 +174,11 @@ def process_gpxtrack_file(gpx_id):
         else:
             logger.info(f"Ignore observation record of recorded_at: {recorded_at} and source: {source}")
 
-    if obs_records:
-        bulk_serializer = ObservationSerializer(data=obs_records, many=True)
-        if bulk_serializer.is_valid():
-            bulk_serializer.save()
-            logger.info(f"Successfully created bulky observations {len(obs_records)}")
-            success_process_gpxtrack(gpx_id)
-        else:
-            logger.error(f"Failed to process bulk observation: {bulk_serializer.errors}")
-            failed_process_gpxtrack(gpx_id)
-    elif obs_errors:
-        failed_process_gpxtrack(gpx_id)
-        logger.error(f"Failed to process observation: {obs_errors}")
-    else:
-        # Case where all observation are duplicate.
+    status, _ = process_observation(observation_records=obs_records, observation_errors=obs_errors)
+    if status:
         success_process_gpxtrack(gpx_id)
+    else:
+        failed_process_gpxtrack(gpx_id)
 
 
 @celery.app.task(bind=True, track_started=True, ignore_result=False)
@@ -209,20 +220,8 @@ def process_gpxdata_api(self, filename, source_id):
                 else:
                     logger.info(f"Ignored observation record of recorded_at: {recorded_at} and source: {source}")
 
-    if obs_records:
-        bulk_serializer = ObservationSerializer(data=obs_records, many=True)
-        if bulk_serializer.is_valid():
-            bulk_serializer.save()
-            logger.info(f"Successfully created bulky observations {len(obs_records)}")
-            return f"Successfully created {len(obs_records)} observations"
-        else:
-            message = f"Failed to process bulk observation: {bulk_serializer.errors}"
-            logger.error(message)
-            raise ValidationError(message)
-    elif obs_errors:
-        message = f"Failed to process observation: {obs_errors}"
-        logger.error(message)
+    status, message = process_observation(observation_records=obs_records, observation_errors=obs_errors)
+    if status:
         return message
     else:
-        message = f'GPX trackpoints for file {filename} already exists'
-        return message
+        raise ValidationError(message)

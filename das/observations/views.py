@@ -1584,8 +1584,7 @@ class GPXTaskStatusView(generics.ListAPIView):
         data = dict(task_result=result,
                     task_status=asyncResult.status.title(),
                     task_success=asyncResult.successful(),
-                    task_failed=asyncResult.failed(),
-                    # task_traceback=result.traceback
+                    task_failed=asyncResult.failed()
                     )
-        asyncResult.forget()
+        asyncResult.forget()    # Release the resources once we done with it.
         return Response(data, status=status.HTTP_200_OK)
