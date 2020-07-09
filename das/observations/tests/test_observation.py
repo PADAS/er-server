@@ -1,11 +1,18 @@
+import os
+import random
 from datetime import datetime, timedelta
 
-from pytz import UTC
+from django.db.models import F
 from django.test import TestCase
+from pytz import UTC
+
 from observations.models import Observation, SubjectSource, SubjectStatus
-from django.contrib.gis.geos import Point
 from observations.serializers import ObservationSerializer
-import random
+
+FIXTURE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                            'fixtures')
+
+FIXTURE_FOR_SUBJECT_STATUS_TESTS = 'test/radio-subject-fixtures.json'
 class ObservationTestCase(TestCase):
 
     fixtures = [
@@ -14,6 +21,7 @@ class ObservationTestCase(TestCase):
         'test/observations_subject.json',
         'test/observations_subject_source.json',
         'test/observations_observation.json',
+        FIXTURE_FOR_SUBJECT_STATUS_TESTS,
     ]
 
     def setUp(self):
@@ -150,3 +158,64 @@ class ObservationTestCase(TestCase):
 
         subject_status = SubjectStatus.objects.filter(subject_id=subject_id, delay_hours=0, recorded_at=observation_time2)
         self.assertTrue(subject_status.first() is None)
+
+
+    def test_delete_latest_observation(self):
+        f'''
+        Using fixture data in {FIXTURE_FOR_SUBJECT_STATUS_TESTS} 
+        '''
+        subject_id = 'd35cb4fe-c15f-404f-bc86-b479f01b6a01'
+
+        initial_subjectstatus = SubjectStatus.objects.get(subject_id=subject_id, delay_hours=0)
+
+        print(f'initial radio state: {initial_subjectstatus.radio_state}')
+        # Grab the latest two observations -- we'll after deleting the latest, we'll use these
+        # to assert proper updates in SubjectStatus.
+        last1, last2 = Observation.objects.filter(source__subjectsource__subject_id=subject_id,
+                                                        source__subjectsource__assigned_range__contains=F('recorded_at')
+                                                        ).order_by('-recorded_at')[:2]
+
+        self.assertEqual(initial_subjectstatus.recorded_at, last1.recorded_at)
+
+        # DELETE the latest observations
+        last1.delete()
+
+        # After delete, check consistency.
+        next_subjectstatus = SubjectStatus.objects.get(subject_id=subject_id, delay_hours=0)
+
+        last2 = Observation.objects.filter(source__subjectsource__subject_id=subject_id,
+                                                        source__subjectsource__assigned_range__contains=F('recorded_at')
+                                                        ).order_by('-recorded_at').first()
+
+        self.assertEqual(last2.recorded_at, next_subjectstatus.recorded_at)
+        self.assertEqual(last2.location, next_subjectstatus.location)
+
+        # Assert our test data is set up to test that during an Observation delete we will
+        # forgo updating the radio state in SubjectStatus.
+        self.assertNotEqual(last1.additional['radio_state'], last2.additional['radio_state'])
+        self.assertEqual(initial_subjectstatus.radio_state, next_subjectstatus.radio_state)
+
+    def test_delete_observation_that_is_not_latest(self):
+        f'''
+        Using fixture data in {FIXTURE_FOR_SUBJECT_STATUS_TESTS} 
+        '''
+        subject_id = 'd35cb4fe-c15f-404f-bc86-b479f01b6a01'
+
+        initial_subjectstatus = SubjectStatus.objects.get(subject_id=subject_id, delay_hours=0)
+
+        # Grab the latest two observations -- we'll after deleting the latest, we'll use these
+        # to assert proper updates in SubjectStatus.
+        last1, last2 = Observation.objects.filter(source__subjectsource__subject_id=subject_id,
+                                                        source__subjectsource__assigned_range__contains=F('recorded_at')
+                                                        ).order_by('-recorded_at')[:2]
+
+        self.assertEqual(initial_subjectstatus.recorded_at, last1.recorded_at)
+
+        # DELETE the second latest observations
+        last2.delete()
+
+        # Assert that the subject status did not change.
+        self.assertEqual(last1.recorded_at, initial_subjectstatus.recorded_at)
+        self.assertEqual(last1.location, initial_subjectstatus.location)
+
+
