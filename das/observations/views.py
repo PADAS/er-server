@@ -1586,5 +1586,5 @@ class GPXTaskStatusView(generics.ListAPIView):
                     task_success=asyncResult.successful(),
                     task_failed=asyncResult.failed()
                     )
-        asyncResult.forget()    # Release the resources once we done with it.
+        asyncResult.forget()    # Release the resources whenever AsyncResult instance is called.
         return Response(data, status=status.HTTP_200_OK)
