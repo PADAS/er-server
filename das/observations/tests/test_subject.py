@@ -19,9 +19,9 @@ import dateutil.parser as dateparser
 from pytz import UTC
 
 from core.tests import BaseAPITest
-from observations.models import Subject, Observation, GPXTrackFile, SubjectSource
+from observations.models import Subject, Observation, GPXTrackFile, SubjectSource, Source
 from observations.utils import calculate_track_range
-from observations.views import SubjectsView, GPXTrackFileUploadView
+from observations.views import SubjectsView, GPXFileUploadView
 from observations.admin import GPXAdmin
 
 User = django.contrib.auth.get_user_model()
@@ -476,25 +476,14 @@ class SubjectTestCase(BaseAPITest):
         subject_source = SubjectSource.objects.get(subject=subject)
         file = File(open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
 
-        data = dict(description='upload gpx data',
-                    source_assignment=subject_source.id,
-                    data=file)
+        data = dict(gpx_file=file)
 
-        url = reverse('gpx-upload')
-        with patch('django.db.backends.base.base.BaseDatabaseWrapper.validate_no_atomic_block',
-                   lambda a: False):
+        url = reverse('gpx-upload', kwargs={'id': str(subject_source.source_id)})
+        request = self.factory.post(url, data, format='multipart')
+        self.force_authenticate(request, self.user)
 
-            request = self.factory.post(url, data, format='multipart')
-            self.force_authenticate(request, self.user)
-
-            response = GPXTrackFileUploadView.as_view()(request)
-            transaction.get_connection().run_and_clear_commit_hooks()
-
-        gpx_id = response.data.get('id')
-        gpx_object = GPXTrackFile.objects.get(id=gpx_id)
-
+        response = GPXFileUploadView.as_view()(request, id=str(subject_source.source_id))
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(gpx_object.processed_status, 'success')
 
         # This is an example of trackpoint that we expect to be saved in the observation table.
         # <trkpt lat="-2.573374444618821" lon="37.896002875640988">
