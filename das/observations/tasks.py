@@ -68,7 +68,7 @@ def parse_xml_to_dict(xml):
     try:
         xml_todict = xmltodict.parse(xml)
     except Exception as exc:
-        message = f"Exception raised {exc} when parsing gpx file."
+        message = f"Error occurred: {repr(exc)} when parsing gpx file."
         logger.exception(message)
         return message
     else:
@@ -80,7 +80,7 @@ def get_track_points(gpx):
     try:
         trkpoint = gpx['gpx']['trk']['trkseg']['trkpt']
     except Exception as exc:
-        message = f"Exception raised {exc} when getting trackpoint"
+        message = f"Error occurred: {repr(exc)} when getting trackpoints from gpx file"
         logger.exception(message)
         return message
     else:
@@ -128,7 +128,7 @@ def process_observation(observation_records, observation_errors):
         logger.error(message)
         return False, message
     else:
-        message = 'All the trackpoints already exists'
+        message = f'Observations records already exists'
         return True, message
 
 
@@ -147,7 +147,7 @@ def process_trackpoints(source, source_id, trkpoints):
             additional = get_additional(trkpt)
             validate_observation(location, recorded_at, source_id, additional, obs_records, obs_errors)
         else:
-            logger.info(f"Ignore observation record of recorded_at: {recorded_at} and source: {source}")
+            logger.info(f"Ignored observation record of recorded_at: {recorded_at} and source: {source}")
 
     return obs_records, obs_errors
 
