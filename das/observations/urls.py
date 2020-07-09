@@ -61,6 +61,10 @@ urlpatterns = [
         views.SourceSubjectsView.as_view(), name='source-subjects-view'),
     url(r'^source/(?P<manufacturer_id>[0-9a-zA-Z\-\.]{1,80})/?$',
         views.SourceView.as_view()),
+    url(r'^source/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/gpxdata/upload/?$',
+        views.GPXFileUploadView.as_view(), name='gpx-upload'),
+    url(r'^gpxstatus/(?P<task_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
+        views.GPXTaskStatusView.as_view(), name='gpx-status'),
     url(r'^observation/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
         views.ObservationView.as_view()),
     url(r'^observations/?$', views.ObservationsView.as_view(), name="observations-list-view"),
@@ -76,7 +80,6 @@ urlpatterns = [
         views.TrackingMetaDataExportView.as_view()),
     url(r'^sourcegroup/(?P<slug>[a-zA-Z0-9\w\W\s\S-]+)/?$',
         views.SourceGroupView.as_view()),
-    url(r'^gpxtrackfile/upload/?$', views.GPXTrackFileUploadView.as_view(), name='gpx-upload'),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

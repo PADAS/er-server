@@ -4,6 +4,7 @@ import json
 import logging
 import re
 import urllib
+import tempfile
 
 import dateutil.parser
 import django
@@ -25,8 +26,10 @@ from rest_framework.exceptions import APIException, PermissionDenied, Validation
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
 
 from das_server.views import CustomSchema
+from das_server import celery
 import observations.serializers as serializers
 import utils
 from observations import kmlutils
@@ -38,7 +41,9 @@ from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS
 from observations.utils import get_minimum_allowed_age
 from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination, StandardResultsSetGeoJsonPagination
 from utils.json import zeroout_microseconds, parse_bool, ExtendedGEOJSONRenderer
+from utils import add_base_url
 from observations.utils import dateparse
+from observations.tasks import process_gpxdata_api
 
 logger = logging.getLogger(__name__)
 
@@ -1530,7 +1535,57 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
         return queryset
 
 
-class GPXTrackFileUploadView(generics.ListCreateAPIView):
-    permission_classes = (StandardObjectPermissions,)
+class GPXFileUploadView(generics.CreateAPIView):
+    permission_classes = (IsAuthenticated,)
     serializer_class = serializers.GPXTrackFileUploadSerializer
-    queryset = models.GPXTrackFile.objects.all()
+
+    def create(self, request, *args, **kwargs):
+        source_id = kwargs.get('id')
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        validated_data = dict(serializer.validated_data)
+
+        inmemory_file = validated_data.get('gpx_file')
+        file = self.create_temporaryfile_storage(inmemory_file)
+        async_result = process_gpxdata_api.apply_async(args=(file.name, source_id))
+        data = self.create_data(request, inmemory_file, source_id, async_result)
+        return Response(data, status=status.HTTP_201_CREATED)
+
+    @staticmethod
+    def create_temporaryfile_storage(inmemory_file):
+        with tempfile.NamedTemporaryFile(delete=False) as file:
+            file.write(inmemory_file.read())
+            file.seek(0)
+        return file
+
+    @staticmethod
+    def create_data(request, file, source_id, async_result):
+        status_url = add_base_url(request, reverse('gpx-status', kwargs={'task_id': async_result.id}))
+        data = dict(source_id=source_id,
+                    filename=file.name,
+                    filesize_bytes=file.size,
+                    process_status=dict(task_info=async_result.info,
+                                        task_id=async_result.id,
+                                        task_success=async_result.successful(),
+                                        task_failed=async_result.failed(),
+                                        task_url=status_url))
+        return data
+
+
+class GPXTaskStatusView(generics.ListAPIView):
+    permission_classes = (IsAuthenticated,)
+
+    def list(self, request, *args, **kwargs):
+        task_id = self.kwargs.get('task_id')
+        asyncResult = celery.app.AsyncResult(task_id)
+        result = dict(error_msg=asyncResult.result.message) \
+            if isinstance(asyncResult.result, Exception) else asyncResult.result
+
+        data = dict(task_result=result,
+                    task_status=asyncResult.status.title(),
+                    task_success=asyncResult.successful(),
+                    task_failed=asyncResult.failed(),
+                    # task_traceback=result.traceback
+                    )
+        asyncResult.forget()
+        return Response(data, status=status.HTTP_200_OK)
