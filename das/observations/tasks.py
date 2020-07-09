@@ -1,3 +1,4 @@
+import os
 import logging
 import json
 import xmltodict
@@ -176,6 +177,11 @@ def process_gpxdata_api(self, filename, source_id):
             gpx = gpxpy.parse(file)
         except Exception as exc:
             raise ValidationError(f"Exception raised '{exc}' when parsing gpx file")
+
+    try:
+        os.remove(filename)
+    except FileNotFoundError:
+        logger.error(f"file: {filename} was not found.")
 
     try:
         source = Source.objects.get(id=source_id)
