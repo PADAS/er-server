@@ -1351,7 +1351,8 @@ def update_subject_status_from_observation(observation, delay_hours=0, force=Fal
     # trigger a notify. In the case of force, it is likely we're handling
     # an Observation.delete.
     if force:
-        notify_all_subjectstatus_updates(source, recorded_at)
+        logger.debug('Notifying for subject status update source: %s, recorded_at: %s', source, recorded_at)
+        transaction.on_commit(lambda: notify_all_subjectstatus_updates(source, recorded_at))
 
 
 def update_subject_status_from_post(source, recorded_at, location, additional):
@@ -1388,7 +1389,7 @@ def update_subject_status_from_post(source, recorded_at, location, additional):
                           radio_state_at=radio_state_at,
                           reported_subject_name=reported_subject_name)
 
-    notify_all_subjectstatus_updates(source, recorded_at)
+    transaction.on_commit(lambda: notify_all_subjectstatus_updates(source, recorded_at))
 
 
 def notify_all_subjectstatus_updates(source, recorded_at):
