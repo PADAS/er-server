@@ -540,11 +540,12 @@ class SubjectSourceView(generics.RetrieveAPIView):
         return obj
 
 
-class SubjectSourceTrackView(APIView):
+class SubjectSourceTrackView(generics.RetrieveAPIView):
     lookup_field = 'id'
     serializer_class = serializers.TrackSerializer
     queryset = models.Subject.objects.all()  # .annotate_with_subjectstatus()
     permission_classes = (StandardObjectPermissions,)
+    schema = None
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
