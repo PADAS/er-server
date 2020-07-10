@@ -19,6 +19,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework import status
 from rest_framework.compat import coreapi, coreschema
@@ -27,6 +28,8 @@ from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
+
+from kombu import exceptions
 
 from das_server.views import CustomSchema
 from das_server import celery
@@ -42,7 +45,7 @@ from observations.utils import get_minimum_allowed_age
 from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination, StandardResultsSetGeoJsonPagination
 from utils.json import zeroout_microseconds, parse_bool, ExtendedGEOJSONRenderer
 from utils import add_base_url
-from observations.utils import dateparse
+from observations.utils import dateparse, get_chunk_file
 from observations.tasks import process_gpxdata_api
 
 logger = logging.getLogger(__name__)
@@ -1541,22 +1544,32 @@ class GPXFileUploadView(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         source_id = kwargs.get('id')
+        get_object_or_404(models.Source, id=source_id)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         validated_data = dict(serializer.validated_data)
 
         inmemory_file = validated_data.get('gpx_file')
         file = self.create_temporaryfile_storage(inmemory_file)
-        async_result = process_gpxdata_api.apply_async(args=(file.name, source_id))
+        async_result = self.get_async_result(file, source_id)
         data = self.create_data(request, inmemory_file, source_id, async_result)
         return Response(data, status=status.HTTP_201_CREATED)
 
     @staticmethod
     def create_temporaryfile_storage(inmemory_file):
         with tempfile.NamedTemporaryFile(delete=False) as file:
-            file.write(inmemory_file.read())
-            file.seek(0)
-        return file
+            for chunk in get_chunk_file(inmemory_file):
+                file.write(chunk)
+            return file
+
+    @staticmethod
+    def get_async_result(file, source_id):
+        try:
+            async_result = process_gpxdata_api.apply_async(args=(file.name, source_id))
+        except exceptions.OperationalError as exc:
+            raise ValidationError({'error_message': exc})
+        else:
+            return async_result
 
     @staticmethod
     def create_data(request, file, source_id, async_result):

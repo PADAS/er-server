@@ -105,7 +105,7 @@ def validate_observation(location, recorded_at, source_id, additional, obs_persi
     validator = ObservationSerializer(data=observation)
     if validator.is_valid():
         obs_persist.append(observation)
-        logger.info(f"Added new observation record {observation}")
+        logger.debug(f"Added new observation record {observation}")
     else:
         obs_errors.append(validator.errors)
         logger.error(f"Observation validation failed {validator.errors}")
@@ -208,11 +208,7 @@ def process_gpxdata_api(self, filename, source_id):
     except FileNotFoundError:
         logger.error(f"file: {filename} was not found.")
 
-    try:
-        source = Source.objects.get(id=source_id)
-    except Source.DoesNotExist:
-        raise ValidationError(f"Source object with id={source_id} DoesNotExist")
-
+    source = Source.objects.get(id=source_id)
     obs_records, obs_errors = process_trackpoints(source, source_id, trkpoints)
 
     status, message = process_observation(observation_records=obs_records, observation_errors=obs_errors)
