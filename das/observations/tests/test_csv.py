@@ -279,6 +279,13 @@ class TrackingDataCsvViewTest(BaseAPITest):
 
         self.assertTrue(len(unique_subject_ids) == 1)
 
+    def test_tracking_data_current_status_for_specific_subject(self):
+        request = self.factory.get(API_BASE + '/trackingdata/export/?current_status=true&format=json&subject_id=0fa8ec9a-7e92-4575-9575-df202d5dde25?')
+        self.force_authenticate(request, self.user)
+        response = TrackingDataCsvView.as_view()(request)
+        self.assertEquals(response.status_code, 200)
+        self.assertEquals(len(response.data), 1)
+
     def test_tracking_data_for_specific_subject_with_invalid_uuid(self):
         self.request = self.factory.get(API_BASE + '/trackingdata/export/?subject_id=1')
         self.force_authenticate(self.request, self.user)

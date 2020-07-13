@@ -1,13 +1,17 @@
 import os
 import random
-from datetime import datetime, timedelta
+import uuid
+from typing import NamedTuple
+from datetime import datetime, timedelta, timezone
 
 from django.db.models import F
 from django.test import TestCase
 from pytz import UTC
+import pytest
 
-from observations.models import Observation, SubjectSource, SubjectStatus
+from observations.models import Observation, SubjectSource, SubjectStatus, Subject, Source, SourceProvider
 from observations.serializers import ObservationSerializer
+from observations.views import TrackingDataCsvView
 
 FIXTURE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),
                             'fixtures')
@@ -159,7 +163,6 @@ class ObservationTestCase(TestCase):
         subject_status = SubjectStatus.objects.filter(subject_id=subject_id, delay_hours=0, recorded_at=observation_time2)
         self.assertTrue(subject_status.first() is None)
 
-
     def test_delete_latest_observation(self):
         f'''
         Using fixture data in {FIXTURE_FOR_SUBJECT_STATUS_TESTS} 
@@ -219,3 +222,77 @@ class ObservationTestCase(TestCase):
         self.assertEqual(last1.location, initial_subjectstatus.location)
 
 
+def generate_observation(source, recorded_at=None):
+    observation_time = recorded_at if recorded_at else datetime.now(tz=timezone.utc)
+    fixed_latitude = float(random.randint(3000, 3000))/100
+    fixed_longitude = float(random.randint(2800, 4000))/100
+    fixed_location = dict(longitude=fixed_longitude, latitude=fixed_latitude)
+    observation = {
+        'location': fixed_location,
+        'recorded_at': observation_time,
+        'source': str(source.id),
+        'additional': {}
+    }
+    serializer = ObservationSerializer(data=observation)
+    serializer.is_valid(raise_exception=True)
+    observation_instance = serializer.save()
+    return observation_instance
+
+class TwoSubjectsOneSource(NamedTuple):
+    bobo: Subject
+    ivy: Subject
+    source: Source
+    bobo_observations: list
+    ivy_observations: list
+
+
+@pytest.fixture
+def two_subjects_one_source(db):
+    bobo = Subject.objects.create_subject(name="Bobo", subject_subtype_id='elephant')
+    ivy = Subject.objects.create_subject(name="Ivy", subject_subtype_id='elephant')
+
+    source = Source.objects.ensure_source(manufacturer_id="1125496", provider="bobo_provider")
+    
+    time_start = datetime(year=2019, month=1, day=1, hour=2, tzinfo=timezone.utc)
+
+    bobo_observations = [generate_observation(source, recorded_at=time_start + timedelta(days=i)).recorded_at for i in range(1, 5)]
+    SubjectSource.objects.ensure(source, bobo, (bobo_observations[0], bobo_observations[3]+timedelta(seconds=1)))
+
+    ivy_observations = [generate_observation(source, recorded_at=time_start + timedelta(days=i)).recorded_at for i in range(5, 9)]
+    SubjectSource.objects.ensure(source, ivy, (ivy_observations[0], ivy_observations[3]+timedelta(seconds=1)))
+
+    bobo_observations += [generate_observation(source, recorded_at=time_start + timedelta(days=i)).recorded_at for i in range(9, 13)]
+    SubjectSource.objects.ensure(source, bobo, (bobo_observations[4], bobo_observations[7]+timedelta(seconds=1)))
+
+    ivy_observations += [generate_observation(source, recorded_at=time_start + timedelta(days=i)).recorded_at for i in range(13, 17)]
+    SubjectSource.objects.ensure(source, ivy, (ivy_observations[4], ivy_observations[7]+timedelta(seconds=1)))
+
+    return TwoSubjectsOneSource(bobo, ivy, source, bobo_observations, ivy_observations)
+
+
+def test_subject_observations_for_multiple_source_assignments(two_subjects_one_source):
+    bobo_get_observations = [x.recorded_at for x in Observation.objects.get_subject_observations(str(two_subjects_one_source.bobo.id))]
+
+    assert set(bobo_get_observations) == set(two_subjects_one_source.bobo_observations)
+    assert set(bobo_get_observations).difference(set(two_subjects_one_source.ivy_observations))
+
+
+def test_trackingdata_view_for_multiple_source_assignments(two_subjects_one_source):
+    view = TrackingDataCsvView()
+    lower = datetime.min.replace(tzinfo=timezone.utc)
+    upper = datetime.now(tz=timezone.utc)
+    max_records = -1
+    filter_flag = None
+    qs = view.get_subject_trackdata_queryset(filter_flag, lower, two_subjects_one_source.bobo, upper, max_records)
+    values = list(qs)
+    bobo_get_observations = [x.recorded_at for x in values]
+
+    assert set(bobo_get_observations) == set(two_subjects_one_source.bobo_observations)
+    assert set(bobo_get_observations).difference(set(two_subjects_one_source.ivy_observations))
+
+# # TODO: client requests using pytest
+# def test_trackingdata_view_for_subjectstatus(two_subjects_one_source):
+#     view = TrackingDataCsvView()
+#     result = view.get_subject_status_queryset(two_subjects_one_source.bobo.id)
+#     status = result.first()
+#     assert status.recorded_at == two_subjects_one_source.bobo_observations[-1].recorded_at

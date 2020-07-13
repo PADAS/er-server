@@ -266,28 +266,57 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         return self.filter(Q(recorded_at__lte=recorded_until))
 
     def by_since_until(self, recorded_since, recorded_until):
-        return self.filter(Q(recorded_at__range=[recorded_since, recorded_until]))
+        if recorded_since and recorded_until:
+            return self.filter(Q(recorded_at__range=[recorded_since, recorded_until]))
+        elif recorded_since:
+            return self.by_since(recorded_since)
+        elif recorded_until:
+            return self.by_until(recorded_until)
+        return self
 
+    def by_exclusion_flags(self, filter_flag=None):
+        """Works with more than one filter flag, for example 3 which is manual and automatic exclusion"""
+        if filter_flag is not None:
+            if filter_flag > 0:
+                return self.annotate(exclusion_filter=F('exclusion_flags').bitand(filter_flag)).filter(exclusion_filter__gt=0)
+            else:
+                return self.filter(exclusion_flags=filter_flag)
+        return self
 
 class ObservationManager(models.Manager):
+    def get_source_observations(
+            self, source, since=None, until=None, limit=None, values=None,
+            filter_flag=0):
+        queryset = Observation.objects.filter(
+            source=source)
+        queryset = queryset.by_exclusion_flags(filter_flag)
+
+        queryset = queryset.by_since_until(since, until)
+
+        queryset = queryset.exclude(location=EMPTY_POINT)
+
+        if limit and limit > 0:
+            queryset = queryset[:limit]
+
+        if values:
+            queryset = queryset.values(*values)
+
+        return queryset
+
     def get_subject_observations(
             self, subject, since=None, until=None, limit=None, values=None,
             filter_flag=0):
         queryset = Observation.objects.filter(
             source__subjectsource__subject=subject,
-            source__subjectsource__assigned_range__contains=F('recorded_at'),
-            exclusion_flags=filter_flag)
+            source__subjectsource__assigned_range__contains=F('recorded_at'))
 
-        if since and until:
-            queryset = queryset.filter(Q(recorded_at__range=(since, until)))
-        elif since:
-            queryset = queryset.filter(Q(recorded_at__gt=since))
-        elif until:
-            queryset = queryset.filter(Q(recorded_at__lte=until))
+        queryset = queryset.by_exclusion_flags(filter_flag)
+
+        queryset = queryset.by_since_until(since, until)
 
         queryset = queryset.exclude(location=EMPTY_POINT)
 
-        if limit:
+        if limit and limit > 0:
             queryset = queryset[:limit]
 
         if values:

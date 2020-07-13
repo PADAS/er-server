@@ -797,34 +797,37 @@ class ObservationsView(generics.ListCreateAPIView):
         if not self.request.user.has_any_perms(VIEW_OBSERVATION_PERMS):
             raise UnauthorizedView
 
-        queryset = models.Observation.objects.all()
+        query_params = self.request.query_params
+        since = query_params.get('since', None)
+        until = query_params.get('until', None)
+        recorded_since_is_valid, recorded_since = check_valid_date_string(since, 'recorded_since')
+        recorded_until_is_valid, recorded_until = check_valid_date_string(until, 'recorded_until')
+        subject_id = query_params.get('subject_id', None)
+        source_id = query_params.get('source_id', None)
+        filter_flag = 0
+        filter_qparam = query_params.get('filter', 0)
+        try:
+            filter_flag = int(filter_qparam)
+        except (ValueError, TypeError):
+            filter_flag = None if filter_qparam == 'null' else filter_flag
+
+        if subject_id and source_id:
+            raise ValueError("subject_id and source_id specified")
+        elif subject_id:
+            queryset = models.Observation.objects.get_subject_observations(
+                subject_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag)
+        elif source_id:
+            queryset = models.Observation.objects.get_source_observations(
+                source_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag)
+        else:
+            queryset = models.Observation.objects.by_since_until(recorded_since, recorded_until)
+            queryset = queryset.by_exclusion_flags(filter_flag)
 
         mou_date = self.request.user.additional.get('expiry', None)
         mou_expiry_date = dateparse(mou_date) if mou_date else None
 
         if mou_expiry_date:
             queryset = queryset.filter(recorded_at__lte=mou_expiry_date)
-
-        query_params = self.request.query_params
-        subject_id = query_params.get('subject_id', None)
-        if subject_id:
-            queryset = queryset.by_subject_id(subject_id)
-
-        source_id = query_params.get('source_id', None)
-        if source_id:
-            queryset = queryset.by_source_id(source_id)
-
-        since = query_params.get('since', None)
-        until = query_params.get('until', None)
-        recorded_since_is_valid, recorded_since = check_valid_date_string(since, 'recorded_since')
-        recorded_until_is_valid, recorded_until = check_valid_date_string(until, 'recorded_since')
-
-        if recorded_since_is_valid and recorded_until_is_valid:
-            queryset = queryset.by_since_until(recorded_since, recorded_until)
-        elif recorded_since_is_valid:
-            queryset = queryset.by_since(recorded_since)
-        elif recorded_until_is_valid:
-            queryset = queryset.by_until(recorded_until)
 
         return queryset
 
@@ -1149,7 +1152,7 @@ class TrackingDataViewSchema(InactiveSubjectsViewSchema):
                 {
                     'name': 'filter',
                     'in': 'query',
-                    'description': 'Add Exclusion flags as a bitmap',
+                    'description': 'Add Exclusion flags as a bitmap. oneof [null, 0, 1, 2, 3]',
                     # 'schema': {'type': 'integer'}
                 },
                 {
@@ -1273,12 +1276,12 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         cur_record_serial = record_serial_base
         if get_current:
             # all the current status objects for the allowed subjects
-            items = self.get_subject_status_queryset(max_records)
+            items = self.get_subject_status_queryset(max_records, request_subject_id, request_subject_chronofile)
             if items:
                 for item in items:
                     cur_record_serial += 1
                     data = self.get_csv_observation_data(cur_record_serial, dloadtime_label, fixtime_label, result_format,
-                                                         item, request_subject_id, request_subject_chronofile)
+                                                         item, item['subject_id'] if request_subject_id else None, None)
                     csv_data.append(data)
         else:
             try:
@@ -1287,10 +1290,10 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                 for subject in subjects:
                     # all the relevant observations for the subject
                     for item in self.get_subject_trackdata_queryset(
-                        filter_flag, lower, subject, upper, max_records, request_subject_id, request_subject_chronofile).values():
+                        filter_flag, lower, subject, upper, max_records).values():
                         cur_record_serial += 1
                         data = self.get_csv_observation_data(cur_record_serial, dloadtime_label, fixtime_label, result_format,
-                                                             item, request_subject_id, request_subject_chronofile)
+                                                             item, subject.id if request_subject_id else None, None)
                         csv_data.append(data)
             except django.core.exceptions.ValidationError:
                 raise ValidationError(
@@ -1348,44 +1351,28 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                 }
         return data
 
-    def get_subject_trackdata_queryset(self, filter_flag, lower, subject, upper, max_records, subject_id, subject_chronofile):
-        qs = models.Observation.objects.all().order_by('recorded_at')
-        if subject_id:
-            qs = qs.filter(
-                source__subjectsource__subject__id=subject_id)
-        elif subject_chronofile:
-            qs = qs.filter(source__subjectsource__additional__chronofile=int(
-                subject_chronofile))
-        else:
-            qs = qs.filter(source__subjectsource__subject=subject)
-
-        if filter_flag is not None:
-            if filter_flag > 0:
-                qs = qs.annotate(exclusion_filter=F('exclusion_flags').bitand(filter_flag)).filter(exclusion_filter__gt=0)
-            else:
-                qs = qs.filter(exclusion_flags=filter_flag)
-
-        qs = qs.filter(
-            recorded_at__gt=lower,
-            recorded_at__lt=upper,
-            source__subjectsource__assigned_range__contains=F('recorded_at'))
-
+    def get_subject_trackdata_queryset(self, filter_flag, lower, subject, upper, max_records):
+        qs = models.Observation.objects.get_subject_observations(subject, lower, upper, max_records, filter_flag=filter_flag)
+        qs = qs.order_by('recorded_at')
         qs = qs.annotate(subjectsource_additional=F('source__subjectsource__additional'),
                          collar_id=F('source__manufacturer_id'))
-
-        logger.info(f'qs chrono {subject_chronofile} {qs.query}')
-
-        if max_records > 0:
-            qs = qs[:max_records]
         return qs
 
-    def get_subject_status_queryset(self, max_records):
-        now = pytz.utc.localize(datetime.datetime.utcnow())
+    def get_subject_status_queryset(self, max_records, subject_id=None, chronofile=None):
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
+        
         qs = models.SubjectStatus.objects.filter(delay_hours=min_age_days * 24)\
-            .filter(subject__subjectsource__additional__chronofile__isnull=False,
-                    subject__subjectsource__assigned_range__contains=now) \
-            .annotate(subjectsource_additional=F('subject__subjectsource__additional'),
+            .filter(subject__subjectsource__assigned_range__contains=now)
+        if subject_id:
+            qs = qs.filter(subject__id=subject_id)
+        elif chronofile:
+            qs = qs.filter(
+                subject__subjectsource__additional__chronofile=int(chronofile))
+        else:
+            qs = qs.filter(subject__subjectsource__additional__chronofile__isnull=False)
+
+        qs = qs.annotate(subjectsource_additional=F('subject__subjectsource__additional'),
                       collar_id=F('subject__subjectsource__source__manufacturer_id')).values()
         if max_records > 0:
             qs = qs[:max_records]
