@@ -41,7 +41,9 @@ spec:
         livenessProbe:
           exec:
             command:
-              - "bash mql_liveness.sh"
+              - "/bin/sh"
+              - "-c"
+              - "sh mql_liveness.sh"
           initialDelaySeconds: 15
           timeoutSeconds: 10
           periodSeconds: 180

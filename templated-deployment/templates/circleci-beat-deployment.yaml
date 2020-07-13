@@ -41,7 +41,9 @@ spec:
         livenessProbe:
           exec:
             command:
-              - "bash beat_liveness.sh"
+              - "/bin/sh"
+              - "-c"
+              - "sh beat_liveness.sh"
           initialDelaySeconds: 20
           timeoutSeconds: 20
           periodSeconds: 180

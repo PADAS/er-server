@@ -41,7 +41,9 @@ spec:
         livenessProbe:
           exec:
             command:
-              - "bash -c celery inspect ping -A das_server -d celery@priority"
+              - "/bin/sh"
+              - "-c"
+              - "celery inspect ping -A das_server -d celery@priority"
           initialDelaySeconds: 20
           timeoutSeconds: 20
           periodSeconds: 180
