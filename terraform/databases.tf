@@ -1,9 +1,11 @@
 locals {
+  is_production     = (data.terraform_remote_state.earthranger_app_infra.workspace == "prod1")
   db_secret_path    = data.terraform_remote_state.earthranger_app_infra.outputs.db_secret_path
   sanitized_db_name = lower(substr(replace(terraform.workspace, "/[^A-Za-z0-9_]/", "_"), 0, 24))
   unique_db_name    = "${local.sanitized_db_name}_${random_string.db_name_uniqueness.result}"
   app_role_name     = "${local.unique_db_name}_approle"
   app_user_name     = "${local.unique_db_name}_appuser"
+  db_instance       = local.is_production ? data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_name : data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
 
   migration_role_name = "${local.unique_db_name}_migrationrole"
   migration_user_name = "${local.unique_db_name}_migrationuser"
@@ -67,7 +69,7 @@ resource "random_password" "migration_role_pass" {
 resource "google_sql_user" "migration_role" {
   project  = data.google_project.earthranger.project_id
   name     = local.migration_role_name
-  instance = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
+  instance = local.db_instance
   password = random_password.migration_role_pass.result
 }
 
@@ -83,7 +85,7 @@ resource "random_password" "migration_user_pass" {
 resource "google_sql_user" "migration_user" {
   project  = data.google_project.earthranger.project_id
   name     = local.migration_user_name
-  instance = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
+  instance = local.db_instance
   password = random_password.migration_user_pass.result
 }
 
@@ -101,7 +103,7 @@ resource "random_password" "analytics_role_pass" {
 resource "google_sql_user" "analytics_role" {
   project  = data.google_project.earthranger.project_id
   name     = local.analytics_role_name
-  instance = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
+  instance = local.db_instance
   password = random_password.analytics_role_pass.result
 }
 
@@ -117,7 +119,7 @@ resource "random_password" "analytics_user_pass" {
 resource "google_sql_user" "analytics_user" {
   project  = data.google_project.earthranger.project_id
   name     = local.analytics_user_name
-  instance = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
+  instance = local.db_instance
   password = random_password.analytics_user_pass.result
 }
 
@@ -134,7 +136,7 @@ resource "random_password" "app_role_pass" {
 resource "google_sql_user" "app_role" {
   project  = data.google_project.earthranger.project_id
   name     = local.app_role_name
-  instance = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
+  instance = local.db_instance
   password = random_password.app_role_pass.result
 }
 
@@ -150,7 +152,7 @@ resource "random_password" "app_user_pass" {
 resource "google_sql_user" "app_user" {
   project  = data.google_project.earthranger.project_id
   name     = local.app_user_name
-  instance = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
+  instance = local.db_instance
   password = random_password.app_user_pass.result
 
   depends_on = [
