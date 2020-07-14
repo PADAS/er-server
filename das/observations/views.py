@@ -784,6 +784,21 @@ class SourceObservationsView(generics.ListAPIView):
         return observations
 
 
+class ObservationsViewSchema(CustomSchema):
+    def get_operation(self, path, method):
+        operation = super().get_operation(path, method)
+        if method == "GET":
+            query_params = [
+                {'name': 'subject_id', 'in': 'query', 'description': 'filter to a single subject'},
+                {'name': 'source_id', 'in': 'query', 'description': 'filter to a single source'},
+                {'name': 'since', 'in': 'query', 'description': 'get observations after this ISO8061 date, include timezone'},
+                {'name': 'until', 'in': 'query', 'description': 'get observations up to this ISO8061 date, include timezone'},
+                {'name': 'filter', 'in': 'query', 'description': 'filter using exclusion_flags for an observation. one of [null, 0, 1, 2  or 3].'},
+                {'name': 'include_details', 'in': 'query', 'description': ' one of [true,false], default is false. This brings back the observation additional field'},
+            ]
+            operation['parameters'].extend(query_params)
+        return operation
+
 class ObservationsView(generics.ListCreateAPIView):
 
     def get(self, request, *args, **kwargs):
@@ -792,6 +807,7 @@ class ObservationsView(generics.ListCreateAPIView):
     serializer_class = serializers.ObservationSerializer
     pagination_class = StandardResultsSetPagination
     permission_classes = (StandardObjectPermissions,)
+    schema = ObservationsViewSchema()
 
     def get_queryset(self):
         if not self.request.user.has_any_perms(VIEW_OBSERVATION_PERMS):
