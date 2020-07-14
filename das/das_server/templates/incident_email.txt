@@ -1,4 +1,4 @@
-DAS {{id}}: {{title}}
+EarthRanger {{id}}: {{title}}
 Priority: {{color}}
 
 {% for field in fields %} {{field}}
@@ -8,7 +8,7 @@ Priority: {{color}}
 
  - Contained Reports:
 {% for child in children %}
-    - DAS {{child.id}}: {{child.title}}
+    - EarthRanger {{child.id}}: {{child.title}}
     - Priority: {{child.color}}
 {% for event_field in child.fields %}      {{ event_field }}
 {% endfor %}{% if child.deep_links|length >= 1 %}{% for child_deep_link in child.deep_links %}     {{child_deep_link|safe}}
