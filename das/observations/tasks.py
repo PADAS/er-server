@@ -128,7 +128,7 @@ def process_observation(observation_records, observation_errors):
         logger.error(message)
         return False, message
     else:
-        message = f'Observations records already exists'
+        message = 'Observations records already exists'
         return True, message
 
 
@@ -146,6 +146,7 @@ def process_trackpoints(source, source_id, trkpoints):
             location = {'latitude': float(lat), 'longitude': float(lon)}
             additional = get_additional(trkpt)
             validate_observation(location, recorded_at, source_id, additional, obs_records, obs_errors)
+            array_datetime.remove(recorded_at)
         else:
             logger.info(f"Ignored observation record of recorded_at: {recorded_at} and source: {source}")
 

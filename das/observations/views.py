@@ -1573,7 +1573,7 @@ class GPXFileUploadView(generics.CreateAPIView):
 
     @staticmethod
     def create_data(request, file, source_id, async_result):
-        status_url = add_base_url(request, reverse('gpx-status', kwargs={'task_id': async_result.id}))
+        status_url = add_base_url(request, reverse('gpx-status', kwargs={'id': source_id, 'task_id': async_result.id}))
         data = dict(source_id=source_id,
                     filename=file.name,
                     filesize_bytes=file.size,
@@ -1589,6 +1589,8 @@ class GPXTaskStatusView(generics.ListAPIView):
     permission_classes = (IsAuthenticated,)
 
     def list(self, request, *args, **kwargs):
+        # status: Pending means task is waiting for execution or unknown.
+        # Any task id that is unknown is implied to be in pending state.
         task_id = self.kwargs.get('task_id')
         asyncResult = celery.app.AsyncResult(task_id)
         result = dict(error_msg=asyncResult.result.message) \
