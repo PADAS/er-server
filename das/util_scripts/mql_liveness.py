@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import sys
 
 from das_server.pubsub import get_pool

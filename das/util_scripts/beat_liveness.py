@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import shelve
 import sys
 from datetime import datetime
