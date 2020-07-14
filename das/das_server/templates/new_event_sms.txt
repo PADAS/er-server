@@ -1,1 +1,1 @@
-DAS {{color}} Alert: {{serial}} {{title}}
+EarthRanger {{color}} Alert: {{serial}} {{title}}

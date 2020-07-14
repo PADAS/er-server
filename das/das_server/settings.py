@@ -281,11 +281,11 @@ SWAGGER_SETTINGS = {
     #'is_superuser': True,
     'info': {
         'contact': 'guest@test.com',
-        'description': 'DAS Server',
+        'description': 'EarthRanger Server',
         'license': '',
         'licenseUrl': '',
         'termsOfServiceUrl': '',
-        'title': 'DAS Server API',
+        'title': 'EarthRanger Server API',
     }
 }
 

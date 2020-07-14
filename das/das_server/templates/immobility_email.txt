@@ -1,4 +1,4 @@
-DAS Immobility Alert
+EarthRanger Immobility Alert
 
 Name: {{subject_name}}
 Start time of immobility (GMT): {{time}}

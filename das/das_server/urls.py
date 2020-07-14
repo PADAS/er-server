@@ -27,7 +27,7 @@ from das_server import views
 from das_server.admin import dasadmin_site
 
 schema_view = get_schema_view(
-    title="DAS API Documentation",
+    title="EarthRanger API Documentation",
     renderer_classes=[JSONOpenAPIRenderer]
 )
 

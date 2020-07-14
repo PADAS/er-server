@@ -52,7 +52,7 @@ from observations.daterange_filter import DateRangeFilter
 from bitfield import BitField
 from bitfield.forms import BitFieldCheckboxSelectMultiple
 
-site_title = _('DAS Administration (advanced view)')
+site_title = _('EarthRanger Administration (advanced view)')
 admin.site.site_title = site_title
 admin.site.site_header = site_title
 admin.site.index_title = site_title

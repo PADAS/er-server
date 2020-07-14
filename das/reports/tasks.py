@@ -42,10 +42,10 @@ def subjectsource_report(self, usernames=None):
         report_timestamp = report_context.get(
             'report_date').strftime('%b %d, %Y %H:%M (utc)')
 
-        message_subject = _('DAS Source Report - {}').format(report_timestamp)
+        message_subject = _('EarthRanger Source Report - {}').format(report_timestamp)
         send_report(subject=message_subject,
                     to_email=user.email, text_content=_(
-                        'DAS Source report (attached as HTML).'),
+                        'EarthRanger Source report (attached as HTML).'),
                     html_content=email_body)
 
 
