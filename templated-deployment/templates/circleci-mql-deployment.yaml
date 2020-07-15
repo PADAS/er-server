@@ -41,9 +41,9 @@ spec:
         livenessProbe:
           exec:
             command:
-              - "PYTHONPATH=/var/www/app"
               - "/bin/sh"
               - "-c"
+              - "PYTHONPATH=/var/www/app"
               - "./util_scripts/mql_liveness.py"
           initialDelaySeconds: 15
           timeoutSeconds: 10
