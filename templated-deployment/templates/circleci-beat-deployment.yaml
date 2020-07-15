@@ -41,8 +41,8 @@ spec:
         livenessProbe:
           exec:
             command:
-              - "/bin/sh"
-              - "-c"
+              - "PYTHONPATH=."
+              - "python3"
               - "./util_scripts/beat_liveness.py"
           initialDelaySeconds: 20
           timeoutSeconds: 20
