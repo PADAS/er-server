@@ -6,7 +6,7 @@ from datetime import datetime
 import pytz
 
 now = datetime.now(tz=pytz.utc)
-file_data = shelve.open('celerybeat-schedule')  # file that store the last run times of periodic tasks.
+file_data = shelve.open('celerybeat-schedule', flag='r')  # file that store the last run times of periodic tasks.
 for task_name, task in file_data['entries'].items():
     try:
         if now > task.last_run_at + task.schedule.run_every:
