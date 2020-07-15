@@ -43,7 +43,7 @@ spec:
             command:
               - "/bin/sh"
               - "-c"
-              - "./util_scripts/beat_liveness.py"
+              - "./util_scripts/mql_liveness.py"
           initialDelaySeconds: 15
           timeoutSeconds: 10
           periodSeconds: 180
