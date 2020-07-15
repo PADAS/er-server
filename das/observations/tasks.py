@@ -13,6 +13,7 @@ from observations.serializers import ObservationSerializer
 from django.db.models import F
 from django.core.exceptions import ValidationError
 from observations.utils import dateparse
+from django.core.files.storage import default_storage
 
 
 
@@ -193,7 +194,7 @@ def process_gpxtrack_file(gpx_id):
 
 @celery.app.task(bind=True, track_started=True, ignore_result=False)
 def process_gpxdata_api(self, filename, source_id):
-    with open(filename, 'r') as file:
+    with default_storage.open(filename, 'r') as file:
         data = file.read()
 
         response = parse_xml_to_dict(data)
@@ -203,11 +204,6 @@ def process_gpxdata_api(self, filename, source_id):
         trkpoints = get_track_points(response)
         if isinstance(trkpoints, str):
             raise ValidationError(trkpoints)
-
-    try:
-        os.remove(filename)
-    except FileNotFoundError:
-        logger.error(f"file: {filename} was not found.")
 
     source = Source.objects.get(id=source_id)
     obs_records, obs_errors = process_trackpoints(source, source_id, trkpoints)
