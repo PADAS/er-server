@@ -1551,14 +1551,15 @@ class GPXFileUploadView(generics.CreateAPIView):
         validated_data = dict(serializer.validated_data)
 
         inmemory_file = validated_data.get('gpx_file')
-        filename = self.create_temporaryfile_storage(inmemory_file)
+        filename = self.save_in_defaultstorage(inmemory_file)
         async_result = self.get_async_result(filename, source_id)
         data = self.create_data(request, inmemory_file, source_id, async_result)
         return Response(data, status=status.HTTP_201_CREATED)
 
     @staticmethod
-    def create_temporaryfile_storage(inmemory_file):
-        return default_storage.save(f'gpx-api/{inmemory_file.name}', inmemory_file)
+    def save_in_defaultstorage(inmemory_file):
+        file_path = f'{models.GPX_FILES_FOLDER}/{inmemory_file.name}'
+        return default_storage.save(file_path, inmemory_file)
 
     @staticmethod
     def get_async_result(file, source_id):
