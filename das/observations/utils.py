@@ -226,3 +226,7 @@ def get_null_point():
     from django.contrib.gis.geos import Point
     point = Point(0, 0)
     return point
+
+
+def get_chunk_file(file, chunksize=5120):
+    return iter(lambda: file.read(chunksize), b'')

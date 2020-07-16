@@ -4,6 +4,7 @@ import json
 import logging
 import re
 import urllib
+import tempfile
 
 import dateutil.parser
 import django
@@ -18,6 +19,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework import status
 from rest_framework.compat import coreapi, coreschema
@@ -25,8 +27,13 @@ from rest_framework.exceptions import APIException, PermissionDenied, Validation
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from django.core.files.storage import default_storage
+
+from kombu import exceptions
 
 from das_server.views import CustomSchema
+from das_server import celery
 import observations.serializers as serializers
 import utils
 from observations import kmlutils
@@ -38,7 +45,9 @@ from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS
 from observations.utils import get_minimum_allowed_age
 from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination, StandardResultsSetGeoJsonPagination
 from utils.json import zeroout_microseconds, parse_bool, ExtendedGEOJSONRenderer
+from utils import add_base_url
 from observations.utils import dateparse
+from observations.tasks import process_gpxdata_api
 
 logger = logging.getLogger(__name__)
 
@@ -1538,3 +1547,69 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
         queryset = check_to_include_inactive_subjects(self.request, queryset)
         queryset = queryset.by_user_subjects(self.request.user)
         return queryset
+
+
+class GPXFileUploadView(generics.CreateAPIView):
+    permission_classes = (IsAuthenticated,)
+    serializer_class = serializers.GPXTrackFileUploadSerializer
+
+    def create(self, request, *args, **kwargs):
+        source_id = kwargs.get('id')
+        get_object_or_404(models.Source, id=source_id)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        validated_data = dict(serializer.validated_data)
+
+        inmemory_file = validated_data.get('gpx_file')
+        filename = self.save_in_defaultstorage(inmemory_file)
+        async_result = self.get_async_result(filename, source_id)
+        data = self.create_data(request, inmemory_file, source_id, async_result)
+        return Response(data, status=status.HTTP_201_CREATED)
+
+    @staticmethod
+    def save_in_defaultstorage(inmemory_file):
+        file_path = f'{models.GPX_FILES_FOLDER}/{inmemory_file.name}'
+        return default_storage.save(file_path, inmemory_file)
+
+    @staticmethod
+    def get_async_result(file, source_id):
+        try:
+            async_result = process_gpxdata_api.apply_async(args=(file, source_id))
+        except exceptions.OperationalError as exc:
+            raise ValidationError({'error_message': exc})
+        else:
+            return async_result
+
+    @staticmethod
+    def create_data(request, file, source_id, async_result):
+        status_url = add_base_url(request, reverse('gpx-status', kwargs={'id': source_id, 'task_id': async_result.id}))
+        data = dict(source_id=source_id,
+                    filename=file.name,
+                    filesize_bytes=file.size,
+                    process_status=dict(task_info=async_result.info,
+                                        task_id=async_result.id,
+                                        task_success=async_result.successful(),
+                                        task_failed=async_result.failed(),
+                                        task_url=status_url))
+        return data
+
+
+class GPXTaskStatusView(generics.ListAPIView):
+    permission_classes = (IsAuthenticated,)
+
+    def list(self, request, *args, **kwargs):
+        # status: Pending means task is waiting for execution or unknown.
+        # Any task id that is unknown is implied to be in pending state.
+        task_id = self.kwargs.get('task_id')
+        asyncResult = celery.app.AsyncResult(task_id)
+        result = dict(error_msg=asyncResult.result.message) \
+            if isinstance(asyncResult.result, Exception) else asyncResult.result
+
+        data = dict(task_result=result,
+                    task_status=asyncResult.status.title(),
+                    task_success=asyncResult.successful(),
+                    task_failed=asyncResult.failed()
+                    )
+        if asyncResult.status != 'STARTED':
+            asyncResult.forget()    # Release the resources whenever AsyncResult instance is called.
+        return Response(data, status=status.HTTP_200_OK)

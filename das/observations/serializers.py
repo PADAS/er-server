@@ -8,6 +8,7 @@ from dateutil.parser import parse as parse_date
 from django.contrib.gis.geos import Point
 from django.urls import reverse
 from django.conf import settings
+from django.db import transaction
 import rest_framework.serializers
 from drf_extra_fields.geo_fields import PointField
 from drf_extra_fields.fields import DateTimeRangeField
@@ -604,3 +605,17 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
         properties['coordinateProperties'] = {'times': coordinate_times or []}
 
     return feature
+
+
+class GPXTrackFileUploadSerializer(rest_framework.serializers.Serializer):
+    gpx_file = rest_framework.serializers.FileField()
+
+    class Meta:
+        fields = ('gpx_file',)
+
+    def validate(self, data):
+        file = data.get('gpx_file')
+        file_name = file.name
+        if not file_name.lower().endswith('.gpx'):
+            raise rest_framework.serializers.ValidationError({'data': 'Only .gpx files can be imported.'})
+        return data
