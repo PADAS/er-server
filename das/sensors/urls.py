@@ -5,7 +5,7 @@ from rest_framework.schemas import get_schema_view
 from sensors import views
 
 schema_view = get_schema_view(
-    title="DAS API Documentation",
+    title="EarthRanger API Documentation",
     description="Sensors API",
     urlconf="sensors.urls",
     url="api/v1.0/sensors",

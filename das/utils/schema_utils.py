@@ -223,7 +223,7 @@ def extract_from_list(items: list = list):
             names.append(str(item))
             ids.append(item)
         elif isinstance(item, dict) and 'name' in item and 'value' in item:
-            logger.info(f'extracting name/value from {item}')
+            logger.debug(f'extracting name/value from {item}')
             names.append(item['name'])
             ids.append(item['value'])
         else:
@@ -254,37 +254,36 @@ def is_uuid(record):
         return False
 
 
-def extract_from_definition(schema_item, definition, key, value):
+def extract_from_definition(schema_item, definition, key, eventdetail_value, extracted_value, display):
     for definition_item in flatten_definition_items(definition):
         if isinstance(definition_item, dict) \
                 and (schema_item.get('key') == definition_item.get('key') or key == definition_item.get('key')):
             if definition_item.get("type") == "checkboxes":
-                val, display = handle_checkboxes_in_fieldsets(definition_item, value)
-                return definition_item.get('title'), val, display
-            return definition_item.get('title'), val, display
-    else:
-        logger.info('Unable to resolve title for schema_item %s', repr(schema_item))
+                extracted_value, display = handle_checkboxes_in_fieldsets(definition_item, eventdetail_value)
+            return definition_item.get('title'), extracted_value, display
 
 
-def extractor(schema_item, definition, key, value):
+def extractor(schema_item, definition, key, eventdetail_value):
 
     # Determine how the value should appear.
-    if isinstance(value, list):
-        val, display = extract_from_list(value)
+    if isinstance(eventdetail_value, list):
+        extracted_value, display = extract_from_list(eventdetail_value)
     else:
-        val, display = extract_from_dict_or_string(schema_item, value)
+        extracted_value, display = extract_from_dict_or_string(schema_item, eventdetail_value)
 
     # The simplest case is when the json schema specifies the title.
     if 'title' in schema_item:
-        if val == display and all(is_uuid(data) for data in str(display).split(';')):
-            return extract_from_definition(schema_item, definition, key, value)
-        return schema_item['title'], val, display
+        if extracted_value == display and all(is_uuid(data) for data in str(display).split(';')):
+            return extract_from_definition(
+                schema_item, definition, key, eventdetail_value, extracted_value, display)
+        return schema_item['title'], extracted_value, display
 
     if 'key' not in schema_item:
         logger.warning(f'key not found in schema_item {schema_item}')
-        return
+        return key, extracted_value, display
 
-    return extract_from_definition(schema_item, definition, key, value)
+    return extract_from_definition(
+        schema_item, definition, key, eventdetail_value, extracted_value, display)
 
 
 def handle_checkboxes_in_fieldsets(definition_item, values):
@@ -522,8 +521,11 @@ def get_display_value_header_for_key(schema, key):
         properties_title = properties[key]['title']
     if properties_title and definition_header != properties_title:
         return properties_title
-    else:
+    elif definition_header:
         return definition_header
+    else:
+         # return property key for fields with no key or title
+        return key
 
 
 def generate_schema_from_document(doc):

@@ -267,7 +267,9 @@ def get_eula_compliance_list():
     return [dict(username=agreement.user.username,
                  email=agreement.user.email,
                  version=agreement.eula.version,
-                 date_accepted=agreement.date_accepted
+                 date_accepted=agreement.date_accepted,
+                 accepted_eula=agreement.user.accepted_eula,
+                 role=agreement.user.get_role()
         ) for agreement in qs]
     
     

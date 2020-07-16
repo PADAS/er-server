@@ -4,6 +4,7 @@ import json
 import logging
 import re
 import urllib
+import tempfile
 
 import dateutil.parser
 import django
@@ -18,6 +19,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework import status
 from rest_framework.compat import coreapi, coreschema
@@ -25,8 +27,13 @@ from rest_framework.exceptions import APIException, PermissionDenied, Validation
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from django.core.files.storage import default_storage
+
+from kombu import exceptions
 
 from das_server.views import CustomSchema
+from das_server import celery
 import observations.serializers as serializers
 import utils
 from observations import kmlutils
@@ -38,7 +45,9 @@ from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS
 from observations.utils import get_minimum_allowed_age
 from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination, StandardResultsSetGeoJsonPagination
 from utils.json import zeroout_microseconds, parse_bool, ExtendedGEOJSONRenderer
+from utils import add_base_url
 from observations.utils import dateparse
+from observations.tasks import process_gpxdata_api
 
 logger = logging.getLogger(__name__)
 
@@ -540,11 +549,12 @@ class SubjectSourceView(generics.RetrieveAPIView):
         return obj
 
 
-class SubjectSourceTrackView(APIView):
+class SubjectSourceTrackView(generics.RetrieveAPIView):
     lookup_field = 'id'
     serializer_class = serializers.TrackSerializer
     queryset = models.Subject.objects.all()  # .annotate_with_subjectstatus()
     permission_classes = (StandardObjectPermissions,)
+    schema = None
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -783,6 +793,21 @@ class SourceObservationsView(generics.ListAPIView):
         return observations
 
 
+class ObservationsViewSchema(CustomSchema):
+    def get_operation(self, path, method):
+        operation = super().get_operation(path, method)
+        if method == "GET":
+            query_params = [
+                {'name': 'subject_id', 'in': 'query', 'description': 'filter to a single subject'},
+                {'name': 'source_id', 'in': 'query', 'description': 'filter to a single source'},
+                {'name': 'since', 'in': 'query', 'description': 'get observations after this ISO8061 date, include timezone'},
+                {'name': 'until', 'in': 'query', 'description': 'get observations up to this ISO8061 date, include timezone'},
+                {'name': 'filter', 'in': 'query', 'description': 'filter using exclusion_flags for an observation. one of [null, 0, 1, 2  or 3].'},
+                {'name': 'include_details', 'in': 'query', 'description': ' one of [true,false], default is false. This brings back the observation additional field'},
+            ]
+            operation['parameters'].extend(query_params)
+        return operation
+
 class ObservationsView(generics.ListCreateAPIView):
 
     def get(self, request, *args, **kwargs):
@@ -791,39 +816,43 @@ class ObservationsView(generics.ListCreateAPIView):
     serializer_class = serializers.ObservationSerializer
     pagination_class = StandardResultsSetPagination
     permission_classes = (StandardObjectPermissions,)
+    schema = ObservationsViewSchema()
 
     def get_queryset(self):
         if not self.request.user.has_any_perms(VIEW_OBSERVATION_PERMS):
             raise UnauthorizedView
 
-        queryset = models.Observation.objects.all()
+        query_params = self.request.query_params
+        since = query_params.get('since', None)
+        until = query_params.get('until', None)
+        recorded_since_is_valid, recorded_since = check_valid_date_string(since, 'recorded_since')
+        recorded_until_is_valid, recorded_until = check_valid_date_string(until, 'recorded_until')
+        subject_id = query_params.get('subject_id', None)
+        source_id = query_params.get('source_id', None)
+        filter_flag = 0
+        filter_qparam = query_params.get('filter', 0)
+        try:
+            filter_flag = int(filter_qparam)
+        except (ValueError, TypeError):
+            filter_flag = None if filter_qparam == 'null' else filter_flag
+
+        if subject_id and source_id:
+            raise ValueError("subject_id and source_id specified")
+        elif subject_id:
+            queryset = models.Observation.objects.get_subject_observations(
+                subject_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag)
+        elif source_id:
+            queryset = models.Observation.objects.get_source_observations(
+                source_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag)
+        else:
+            queryset = models.Observation.objects.by_since_until(recorded_since, recorded_until)
+            queryset = queryset.by_exclusion_flags(filter_flag)
 
         mou_date = self.request.user.additional.get('expiry', None)
         mou_expiry_date = dateparse(mou_date) if mou_date else None
 
         if mou_expiry_date:
             queryset = queryset.filter(recorded_at__lte=mou_expiry_date)
-
-        query_params = self.request.query_params
-        subject_id = query_params.get('subject_id', None)
-        if subject_id:
-            queryset = queryset.by_subject_id(subject_id)
-
-        source_id = query_params.get('source_id', None)
-        if source_id:
-            queryset = queryset.by_source_id(source_id)
-
-        since = query_params.get('since', None)
-        until = query_params.get('until', None)
-        recorded_since_is_valid, recorded_since = check_valid_date_string(since, 'recorded_since')
-        recorded_until_is_valid, recorded_until = check_valid_date_string(until, 'recorded_since')
-
-        if recorded_since_is_valid and recorded_until_is_valid:
-            queryset = queryset.by_since_until(recorded_since, recorded_until)
-        elif recorded_since_is_valid:
-            queryset = queryset.by_since(recorded_since)
-        elif recorded_until_is_valid:
-            queryset = queryset.by_until(recorded_until)
 
         return queryset
 
@@ -1148,7 +1177,7 @@ class TrackingDataViewSchema(InactiveSubjectsViewSchema):
                 {
                     'name': 'filter',
                     'in': 'query',
-                    'description': 'Add Exclusion flags as a bitmap',
+                    'description': 'Add Exclusion flags as a bitmap. oneof [null, 0, 1, 2, 3]',
                     # 'schema': {'type': 'integer'}
                 },
                 {
@@ -1208,11 +1237,11 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
     def get(self, request, *args, **kwargs):
         # Set exclusion flag value
         filter_flag = 0
+        qparam = self.request.GET.get('filter', 0)
         try:
-            if self.request.GET.get('filter'):
-                filter_flag = int(self.request.GET.get('filter', 0))
+            filter_flag = int(qparam)
         except (ValueError, TypeError):
-            filter_flag = 0
+            filter_flag = None if qparam == 'null' else filter_flag
 
         try:
             request_date_after = parse_datetime(
@@ -1272,12 +1301,12 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         cur_record_serial = record_serial_base
         if get_current:
             # all the current status objects for the allowed subjects
-            items = self.get_subject_status_queryset(max_records)
+            items = self.get_subject_status_queryset(max_records, request_subject_id, request_subject_chronofile)
             if items:
                 for item in items:
                     cur_record_serial += 1
                     data = self.get_csv_observation_data(cur_record_serial, dloadtime_label, fixtime_label, result_format,
-                                                         item, request_subject_id, request_subject_chronofile)
+                                                         item, item['subject_id'] if request_subject_id else None, None)
                     csv_data.append(data)
         else:
             try:
@@ -1286,10 +1315,10 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                 for subject in subjects:
                     # all the relevant observations for the subject
                     for item in self.get_subject_trackdata_queryset(
-                        filter_flag, lower, subject, upper, max_records, request_subject_id, request_subject_chronofile).values():
+                        filter_flag, lower, subject, upper, max_records).values():
                         cur_record_serial += 1
                         data = self.get_csv_observation_data(cur_record_serial, dloadtime_label, fixtime_label, result_format,
-                                                             item, request_subject_id, request_subject_chronofile)
+                                                             item, subject.id if request_subject_id else None, None)
                         csv_data.append(data)
             except django.core.exceptions.ValidationError:
                 raise ValidationError(
@@ -1347,38 +1376,28 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                 }
         return data
 
-    def get_subject_trackdata_queryset(self, filter_flag, lower, subject, upper, max_records, subject_id, subject_chronofile):
-        qs = models.Observation.objects.all().order_by('recorded_at')
-        if subject_id:
-            qs = qs.filter(
-                source__subjectsource__subject__id=subject_id)
-        elif subject_chronofile:
-            qs = qs.filter(source__subjectsource__additional__chronofile=int(
-                subject_chronofile))
-        else:
-            qs = qs.filter(source__subjectsource__subject=subject)
-
-        qs = qs.filter(exclusion_flags=filter_flag,
-                                               recorded_at__gt=lower,
-                                               recorded_at__lt=upper,
-                                               source__subjectsource__assigned_range__contains=F('recorded_at'))
-
+    def get_subject_trackdata_queryset(self, filter_flag, lower, subject, upper, max_records):
+        qs = models.Observation.objects.get_subject_observations(subject, lower, upper, max_records, filter_flag=filter_flag)
+        qs = qs.order_by('recorded_at')
         qs = qs.annotate(subjectsource_additional=F('source__subjectsource__additional'),
                          collar_id=F('source__manufacturer_id'))
-
-        logger.info(f'qs chrono {subject_chronofile} {qs.query}')
-
-        if max_records > 0:
-            qs = qs[:max_records]
         return qs
 
-    def get_subject_status_queryset(self, max_records):
-        now = pytz.utc.localize(datetime.datetime.utcnow())
+    def get_subject_status_queryset(self, max_records, subject_id=None, chronofile=None):
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
+        
         qs = models.SubjectStatus.objects.filter(delay_hours=min_age_days * 24)\
-            .filter(subject__subjectsource__additional__chronofile__isnull=False,
-                    subject__subjectsource__assigned_range__contains=now) \
-            .annotate(subjectsource_additional=F('subject__subjectsource__additional'),
+            .filter(subject__subjectsource__assigned_range__contains=now)
+        if subject_id:
+            qs = qs.filter(subject__id=subject_id)
+        elif chronofile:
+            qs = qs.filter(
+                subject__subjectsource__additional__chronofile=int(chronofile))
+        else:
+            qs = qs.filter(subject__subjectsource__additional__chronofile__isnull=False)
+
+        qs = qs.annotate(subjectsource_additional=F('subject__subjectsource__additional'),
                       collar_id=F('subject__subjectsource__source__manufacturer_id')).values()
         if max_records > 0:
             qs = qs[:max_records]
@@ -1528,3 +1547,69 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
         queryset = check_to_include_inactive_subjects(self.request, queryset)
         queryset = queryset.by_user_subjects(self.request.user)
         return queryset
+
+
+class GPXFileUploadView(generics.CreateAPIView):
+    permission_classes = (IsAuthenticated,)
+    serializer_class = serializers.GPXTrackFileUploadSerializer
+
+    def create(self, request, *args, **kwargs):
+        source_id = kwargs.get('id')
+        get_object_or_404(models.Source, id=source_id)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        validated_data = dict(serializer.validated_data)
+
+        inmemory_file = validated_data.get('gpx_file')
+        filename = self.save_in_defaultstorage(inmemory_file)
+        async_result = self.get_async_result(filename, source_id)
+        data = self.create_data(request, inmemory_file, source_id, async_result)
+        return Response(data, status=status.HTTP_201_CREATED)
+
+    @staticmethod
+    def save_in_defaultstorage(inmemory_file):
+        file_path = f'{models.GPX_FILES_FOLDER}/{inmemory_file.name}'
+        return default_storage.save(file_path, inmemory_file)
+
+    @staticmethod
+    def get_async_result(file, source_id):
+        try:
+            async_result = process_gpxdata_api.apply_async(args=(file, source_id))
+        except exceptions.OperationalError as exc:
+            raise ValidationError({'error_message': exc})
+        else:
+            return async_result
+
+    @staticmethod
+    def create_data(request, file, source_id, async_result):
+        status_url = add_base_url(request, reverse('gpx-status', kwargs={'id': source_id, 'task_id': async_result.id}))
+        data = dict(source_id=source_id,
+                    filename=file.name,
+                    filesize_bytes=file.size,
+                    process_status=dict(task_info=async_result.info,
+                                        task_id=async_result.id,
+                                        task_success=async_result.successful(),
+                                        task_failed=async_result.failed(),
+                                        task_url=status_url))
+        return data
+
+
+class GPXTaskStatusView(generics.ListAPIView):
+    permission_classes = (IsAuthenticated,)
+
+    def list(self, request, *args, **kwargs):
+        # status: Pending means task is waiting for execution or unknown.
+        # Any task id that is unknown is implied to be in pending state.
+        task_id = self.kwargs.get('task_id')
+        asyncResult = celery.app.AsyncResult(task_id)
+        result = dict(error_msg=asyncResult.result.message) \
+            if isinstance(asyncResult.result, Exception) else asyncResult.result
+
+        data = dict(task_result=result,
+                    task_status=asyncResult.status.title(),
+                    task_success=asyncResult.successful(),
+                    task_failed=asyncResult.failed()
+                    )
+        if asyncResult.status != 'STARTED':
+            asyncResult.forget()    # Release the resources whenever AsyncResult instance is called.
+        return Response(data, status=status.HTTP_200_OK)

@@ -1,2 +1,2 @@
-mapping_features_v2 = "false"
+mapping_features_v2 = "true"
 time_zone           = "Africa/Kampala"

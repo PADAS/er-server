@@ -66,6 +66,7 @@ locals {
     "malamala"               = "prod1"
     "degrees51"              = "prod1"
     "hello-asia"             = "prod-asia"
+    "birdshead"              = "prod-asia"
     "socp"                   = "prod-asia"
     "westernsiempang"        = "prod-asia"
     "damai"                  = "prod-asia"

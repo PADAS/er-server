@@ -9,11 +9,12 @@ python3 manage.py migrate --no-input
 # Override GUNICORN_CMD_ARGS at deployment if desired.
 # Keep in mind that the flags specified below, when running gunicorn, take 
 # precedence.
-export GUNICORN_CMD_ARGS=${GUNICORN_CMD_ARGS:-"--bind 0.0.0.0:8000 --workers 4 --threads 4 --worker-class gthread"}
+export GUNICORN_CMD_ARGS=${GUNICORN_CMD_ARGS:-"--workers 4 --threads 4 --worker-class gthread --max-requests 500 --max-requests-jitter 25"}
 
 echo "Notice GUNICORN_CMD_ARGS: ${GUNICORN_CMD_ARGS}"
 
 gunicorn das_server.wsgi --name das \
+    --bind 0.0.0.0:8000 \
     --limit-request-line 6000 \
     --worker-tmp-dir /dev/shm \
     --log-file - 

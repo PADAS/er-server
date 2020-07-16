@@ -1,0 +1,7 @@
+{% load i18n static %}
+
+{% if gpx_file %}
+    {% include 'admin/widgets/import_gpx_icon.html' %}
+{% else %}
+    {% include 'admin/widgets/related_widget_wrapper.html' %}
+{% endif %}

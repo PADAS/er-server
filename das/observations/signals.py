@@ -29,7 +29,7 @@ def observation_post_save(sender, instance, created, **kwargs):
 
 @receiver(post_delete, sender=Observation)
 def observation_post_delete(sender, instance, **kwargs):
-    SubjectStatus.objects.update_current_from_source(instance.source, obs_deleted=True)
+    SubjectStatus.objects.update_current_from_deleted_observation(instance)
 
 
 @receiver(post_save, sender=SubjectStatus)

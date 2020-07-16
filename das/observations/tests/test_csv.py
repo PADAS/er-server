@@ -140,8 +140,7 @@ class TrackingDataCsvViewTest(BaseAPITest):
                                        exclusion_flags=0).count(), len(csv_data)
         )
 
-    def test_csv_observation_data_with_exclusion_flag(self):
-        observation_filter = {'filter': 1}
+    def filter_observations_with_exclusion_flag(self, observation_filter):
         self.request = self.factory.get(
             API_BASE + '/trackingdata/export/?{0}'.format(
                 urlencode(observation_filter)
@@ -153,10 +152,36 @@ class TrackingDataCsvViewTest(BaseAPITest):
 
         # Remove header and empty line from csv_data to get actual values
         csv_data = csv_data[1:-1]
+        return csv_data
+
+    def test_csv_observation_data_with_exclusion_flag(self):
+        # filter1, returns all observations with exclusion flag 1
+        observation_filter = {'filter': 1}
+        csv_data = self.filter_observations_with_exclusion_flag(observation_filter)
+        
         self.assertEqual(
             Observation.objects.filter(source__subjectsource__assigned_range__contains=F('recorded_at'),
                                        exclusion_flags=1).count(), len(csv_data)
         )
+
+    def test_csv_observation_data_with_exclusion_flag_set_to_3(self):
+        observation_filter = {'filter': 3}
+        csv_data = self.filter_observations_with_exclusion_flag(observation_filter)
+
+        # All observations are returned (1 or 2), excluding observations with flag 0
+        self.assertEqual(
+            Observation.objects.filter(source__subjectsource__assigned_range__contains=F('recorded_at')).exclude(exclusion_flags=0).count(), len(csv_data)
+        )
+
+    def test_csv_observation_data_with_exclusion_flag_set_to_null(self):
+        observation_filter = {'filter': 'null'}
+        csv_data = self.filter_observations_with_exclusion_flag(observation_filter)
+
+        # All observations are returned
+        self.assertEqual(
+            Observation.objects.filter(source__subjectsource__assigned_range__contains=F('recorded_at')).count(), len(csv_data))
+        
+    
 
     def test_normal_user_access_subject_observation_data(self):
         # Generate random observation date & link with source.
@@ -253,6 +278,13 @@ class TrackingDataCsvViewTest(BaseAPITest):
                                        for observation in observations]))
 
         self.assertTrue(len(unique_subject_ids) == 1)
+
+    def test_tracking_data_current_status_for_specific_subject(self):
+        request = self.factory.get(API_BASE + '/trackingdata/export/?current_status=true&format=json&subject_id=0fa8ec9a-7e92-4575-9575-df202d5dde25?')
+        self.force_authenticate(request, self.user)
+        response = TrackingDataCsvView.as_view()(request)
+        self.assertEquals(response.status_code, 200)
+        self.assertEquals(len(response.data), 1)
 
     def test_tracking_data_for_specific_subject_with_invalid_uuid(self):
         self.request = self.factory.get(API_BASE + '/trackingdata/export/?subject_id=1')

@@ -93,18 +93,18 @@ def send_lag_delay_alert(provider_lag_check_data, provider_lag_config, usernames
 
 def generate_lag_notification_email(provider_lag_check_data, provider_lag_config):
     site_name = provider_lag_config.get('site_name')
-    message_subject = 'EarthRanger WARNING ({0}): Average delay in data from source provider {1}' \
-        .format(site_name, provider_lag_check_data.get('provider_name'))
-    email_body = """EarthRanger WARNING: Average delay in data from source provider exceeds configured threshold.
+    message_subject = f"""EarthRanger WARNING ({site_name}): Lag in data from source provider {provider_lag_check_data.get('provider_name')}"""
+    email_body = """EarthRanger WARNING: Average lag in data from source provider exceeds configured threshold.
+    The lag is the avg time between when the observation was recorded and when it was created in ER over the time period below.
 
 Site name: {site_name}
 Site URL: {site_url}
 Source provider: {provider_name}
-Configured delay threshold: {threshold}
+Configured lag threshold: {threshold}
 Start of period: {period_start}
 End of period: {period_end}
 Number of data points: {data_points}
-Average delay: {avg_lag}
+Average lag: {avg_lag}
     """.format(site_name=site_name,
                site_url=provider_lag_config.get('site_url'),
                threshold=provider_lag_config.get('lag_notification_threshold'),
