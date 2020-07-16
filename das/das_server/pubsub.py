@@ -162,7 +162,7 @@ from functools import wraps
 
 def stats_decorator(f, routing_key):
 
-    metric_name = 'mql.{f.__name__}'
+    metric_name = f'mql.{f.__name__}'
     tags = {'route': routing_key}
     @wraps(f)
     def wrapper(*args, **kwargs):

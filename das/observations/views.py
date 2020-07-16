@@ -4,6 +4,7 @@ import json
 import logging
 import re
 import urllib
+import tempfile
 
 import dateutil.parser
 import django
@@ -18,13 +19,21 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework import status
 from rest_framework.compat import coreapi, coreschema
 from rest_framework.exceptions import APIException, PermissionDenied, ValidationError
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from django.core.files.storage import default_storage
 
+from kombu import exceptions
+
+from das_server.views import CustomSchema
+from das_server import celery
 import observations.serializers as serializers
 import utils
 from observations import kmlutils
@@ -36,7 +45,9 @@ from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS
 from observations.utils import get_minimum_allowed_age
 from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination, StandardResultsSetGeoJsonPagination
 from utils.json import zeroout_microseconds, parse_bool, ExtendedGEOJSONRenderer
+from utils import add_base_url
 from observations.utils import dateparse
+from observations.tasks import process_gpxdata_api
 
 logger = logging.getLogger(__name__)
 
@@ -121,21 +132,17 @@ class RegionsView(generics.ListAPIView):
     serializer_class = serializers.RegionSerializer
 
 
-class InactiveSubjectsViewSchema(rest_framework.schemas.AutoSchema):
-    def get_manual_fields(self, path, method):
+class InactiveSubjectsViewSchema(CustomSchema):
+    def get_operation(self, path, method):
+        operation = super().get_operation(path, method)
         if method == 'GET':
-            extra_fields = [
-                coreapi.Field(
-                    name='include_inactive',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Include Inactive Subjects',
-                        description='Include inactive subjects in list.',
-                    )
-                ),
-            ]
-            return super().get_manual_fields(path, method) + extra_fields
+            query_params = {
+                'name': 'include_inactive',
+                'in': 'query',
+                'description': 'Include inactive subjects in list.'}
+
+            operation['parameters'].append(query_params)
+        return operation
 
 
 class RegionView(generics.RetrieveAPIView):
@@ -237,7 +244,7 @@ class RegionSubjectsView(generics.ListAPIView):
 
     def get_queryset(self):
         region = generics.get_object_or_404(models.Region.objects.all(),
-                                            slug=self.kwargs['slug'])
+                                            slug=self.kwargs.get('slug'))
         queryset = models.Subject.objects.all()
         queryset = check_to_include_inactive_subjects(self.request, queryset)
         subjects = queryset.by_region(region).annotate_with_subjectstatus()
@@ -245,99 +252,65 @@ class RegionSubjectsView(generics.ListAPIView):
 
 
 class SubjectsViewSchema(InactiveSubjectsViewSchema):
-
-    def get_manual_fields(self, path, method):
+    def get_operation(self, path, method):
+        operation = super().get_operation(path, method)
         if method == 'GET':
-            extra_fields = [
-                coreapi.Field(
-                    name='tracks_since',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Tracks Since',
-                        description='Include tracks since this timestamp',
+            query_params = [
+                {
+                    'name': 'tracks_since',
+                    'in': 'query',
+                    'description': 'Include tracks since this timestamp'
+                },
+                {
+                    'name': 'tracks_until',
+                    'in': 'query',
+                    'description': 'Include tracks up through this timestamp',
+                },
+                {
+                    'name': 'bbox',
+                    'in': 'query',
+                    'description': 'Include subjects having track data within this bounding box defined by a 4-tuple of coordinates marking west, south, east, north.',
+                },
+                {
+                    'name': 'subject_group',
+                    'in': 'query',
+                    'description': 'Indicate a subject group for which Subjects should be listed.'
+                },
+                {
+                    'name': 'subject_group',
+                    'in': 'query',
+                    'description': 'Indicate a subject group for which Subjects should be listed.',
+                    'schema': {'type': 'UUID'}
+                },
+                {
+                    'name': 'name',
+                    'in': 'query',
+                    'description': 'Find subjects with the given name.',
+                    'schema': {'type': 'UUID'}
+                },
+                {
+                    'name': 'updated_since',
+                    'in': 'query',
+                    'description': 'Return Subject that have been updated since the given timestamp.'
+                },
+                {
+                    'name': 'render_last_location',
+                    'in': 'query',
+                    'description': 'Indicate whether to render each subject\'s last location.'
+                },
+                {
+                    'name': 'tracks',
+                    'in': 'query',
+                    'description': 'Indicate whether to render each subject\'s recent tracks.'
+                },
+                {
+                    'name': 'id',
+                    'in': 'query',
+                    'description': 'A comma-delimited list of Subject IDs.'
+                }]
 
-                    )
-                ),
-                coreapi.Field(
-                    name='tracks_until',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Tracks Until',
-                        description='Include tracks up through this timestamp'
-                    )
-                ),
-                coreapi.Field(
-                    name='bbox',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Bounding Box',
-                        description='Include subjects having track data within this bounding box defined by '
-                                    'a 4-tuple of coordinates marking west, south, east, north.',
-
-                    ),
-                ),
-                coreapi.Field(
-                    name='subject_group',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Subject Group ID',
-                        description='Indicate a subject group for which Subjects should be listed.',
-                        format='UUID'
-
-                    )
-                ),
-                coreapi.Field(
-                    name='name',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Subject name',
-                        description='Find subjects with the given name.',
-                    )
-                ),
-                coreapi.Field(
-                    name='updated_since',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Updated Since',
-                        description='Return Subject that have been updated since the given timestamp.',
-                    )
-                ),
-                coreapi.Field(
-                    name='render_last_location',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Subject Group ID',
-                        description='Indicate whether to render each subject\'s last location.',
-                    )
-                ),
-                coreapi.Field(
-                    name='tracks',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Tracks',
-                        description='Indicate whether to render each subject\'s recent tracks.',
-                    )
-                ),
-                coreapi.Field(
-                    name='id',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Subject ID(s)',
-                        description='A comma-delimited list of Subject IDs.',
-                    )
-                ),
-            ]
-            return super().get_manual_fields(path, method) + extra_fields
-
+            operation['parameters'].extend(query_params)
+        return operation
 
 class SubjectsView(generics.ListCreateAPIView):
     """
@@ -494,7 +467,7 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         subject = generics.get_object_or_404(
-            models.Subject.objects.all(), pk=self.kwargs['id'])
+            models.Subject.objects.all(), pk=self.kwargs.get('id'))
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
             raise UnauthorizedView
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
@@ -534,7 +507,7 @@ class SubjectSourcesView(generics.ListCreateAPIView):
 
 class SourceSubjectsView(generics.ListCreateAPIView):
     serializer_class = serializers.SubjectSerializer
-    schema = InactiveSubjectsViewSchema()
+    # schema = InactiveSubjectsViewSchema()
 
     def get_queryset(self):
         source = generics.get_object_or_404(
@@ -581,6 +554,7 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
     serializer_class = serializers.TrackSerializer
     queryset = models.Subject.objects.all()  # .annotate_with_subjectstatus()
     permission_classes = (StandardObjectPermissions,)
+    schema = None
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -695,7 +669,7 @@ class SubjectTracksView(generics.RetrieveAPIView):
 
         context['tracks_since'] = self.request.query_params.get('since', None)
         context['tracks_until'] = self.request.query_params.get('until', None)
-        context['subject_linked_sources'] = self.subject_linked_sources
+        context['subject_linked_sources'] = getattr(self, 'subject_linked_sources', None)
 
         for key in ('tracks_since', 'tracks_until'):
             context[key] = dateparse(context[key]) if context[key] else None
@@ -819,6 +793,21 @@ class SourceObservationsView(generics.ListAPIView):
         return observations
 
 
+class ObservationsViewSchema(CustomSchema):
+    def get_operation(self, path, method):
+        operation = super().get_operation(path, method)
+        if method == "GET":
+            query_params = [
+                {'name': 'subject_id', 'in': 'query', 'description': 'filter to a single subject'},
+                {'name': 'source_id', 'in': 'query', 'description': 'filter to a single source'},
+                {'name': 'since', 'in': 'query', 'description': 'get observations after this ISO8061 date, include timezone'},
+                {'name': 'until', 'in': 'query', 'description': 'get observations up to this ISO8061 date, include timezone'},
+                {'name': 'filter', 'in': 'query', 'description': 'filter using exclusion_flags for an observation. one of [null, 0, 1, 2  or 3].'},
+                {'name': 'include_details', 'in': 'query', 'description': ' one of [true,false], default is false. This brings back the observation additional field'},
+            ]
+            operation['parameters'].extend(query_params)
+        return operation
+
 class ObservationsView(generics.ListCreateAPIView):
 
     def get(self, request, *args, **kwargs):
@@ -827,39 +816,43 @@ class ObservationsView(generics.ListCreateAPIView):
     serializer_class = serializers.ObservationSerializer
     pagination_class = StandardResultsSetPagination
     permission_classes = (StandardObjectPermissions,)
+    schema = ObservationsViewSchema()
 
     def get_queryset(self):
         if not self.request.user.has_any_perms(VIEW_OBSERVATION_PERMS):
             raise UnauthorizedView
 
-        queryset = models.Observation.objects.all()
+        query_params = self.request.query_params
+        since = query_params.get('since', None)
+        until = query_params.get('until', None)
+        recorded_since_is_valid, recorded_since = check_valid_date_string(since, 'recorded_since')
+        recorded_until_is_valid, recorded_until = check_valid_date_string(until, 'recorded_until')
+        subject_id = query_params.get('subject_id', None)
+        source_id = query_params.get('source_id', None)
+        filter_flag = 0
+        filter_qparam = query_params.get('filter', 0)
+        try:
+            filter_flag = int(filter_qparam)
+        except (ValueError, TypeError):
+            filter_flag = None if filter_qparam == 'null' else filter_flag
+
+        if subject_id and source_id:
+            raise ValueError("subject_id and source_id specified")
+        elif subject_id:
+            queryset = models.Observation.objects.get_subject_observations(
+                subject_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag)
+        elif source_id:
+            queryset = models.Observation.objects.get_source_observations(
+                source_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag)
+        else:
+            queryset = models.Observation.objects.by_since_until(recorded_since, recorded_until)
+            queryset = queryset.by_exclusion_flags(filter_flag)
 
         mou_date = self.request.user.additional.get('expiry', None)
         mou_expiry_date = dateparse(mou_date) if mou_date else None
 
         if mou_expiry_date:
             queryset = queryset.filter(recorded_at__lte=mou_expiry_date)
-
-        query_params = self.request.query_params
-        subject_id = query_params.get('subject_id', None)
-        if subject_id:
-            queryset = queryset.by_subject_id(subject_id)
-
-        source_id = query_params.get('source_id', None)
-        if source_id:
-            queryset = queryset.by_source_id(source_id)
-
-        since = query_params.get('since', None)
-        until = query_params.get('until', None)
-        recorded_since_is_valid, recorded_since = check_valid_date_string(since, 'recorded_since')
-        recorded_until_is_valid, recorded_until = check_valid_date_string(until, 'recorded_since')
-
-        if recorded_since_is_valid and recorded_until_is_valid:
-            queryset = queryset.by_since_until(recorded_since, recorded_until)
-        elif recorded_since_is_valid:
-            queryset = queryset.by_since(recorded_since)
-        elif recorded_until_is_valid:
-            queryset = queryset.by_until(recorded_until)
 
         return queryset
 
@@ -1043,7 +1036,7 @@ class KmlSubjectView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         subject = generics.get_object_or_404(
-            models.Subject.objects.all(), pk=self.kwargs['id'])
+            models.Subject.objects.all(), pk=self.kwargs.get('id'))
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS,
                                                subject):
             raise PermissionDenied
@@ -1158,108 +1151,73 @@ class KmlSubjectView(generics.RetrieveAPIView):
         result = render_to_string('kml/subject_track.xml', context)
         return kmlutils.render_to_kmz(result, filename)
 
-
-class TrackingDataViewSchema(rest_framework.schemas.AutoSchema):
-    def get_manual_fields(self, path, method):
+class TrackingDataViewSchema(InactiveSubjectsViewSchema):
+    def get_operation(self, path, method):
+        operation = super().get_operation(path, method)
         if method == 'GET':
-            extra_fields = [
-                coreapi.Field(
-                    name='include_inactive',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Include Inactive Subjects',
-                        description='Include inactive subjects in list',
-                    )
-                ),
-                coreapi.Field(
-                    name='current_status',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Current Status',
-                        description='Get current status or historical observations',
-                    )
-                ),
-                coreapi.Field(
-                    name='subject_id',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Subject Id',
-                        description='Get Tracking data for specific subject ID',
-                    )
-                ),
-                coreapi.Field(
-                    name='subject_chronofile',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Subject Chronofiles',
-                        description='Get Tracking data for specific chronofiles',
-                    )
-                ),
-                coreapi.Field(
-                    name='filter',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Filter',
-                        description='Add Exclusion flags as a bitmap',
-                    )
-                ),
-                coreapi.Field(
-                    name='format',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Format',
-                        description='Return report as CSV or JSON',
-                    )
-                ),
-                coreapi.Field(
-                    name='before_date',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Before Date',
-                        description='Return report before given date',
-                    )
-                ),
-                coreapi.Field(
-                    name='after_date',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='After date',
-                        description='Return report after given date',
-                    )
-                ),
-                coreapi.Field(
-                    name='record_serial_base',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Record Serial Base',
-                        description='Return report in order of generated serial number',
-                    )
-                ),
-                coreapi.Field(
-                    name='max_records',
-                    required=False,
-                    location='query',
-                    schema=coreschema.String(
-                        title='Maximum Records',
-                        description='Maximum number of records to return',
-                    )
-                ),
-            ]
-            return super().get_manual_fields(path, method) + extra_fields
+            query_params = [
+                {
+                    'name': 'current_status',
+                    'in': 'query',
+                    'description': 'Get current status or historical observations',
+                    'schema': {'type': 'bool'}
+                },
+                {
+                    'name': 'subject_id',
+                    'in': 'query',
+                    'description': 'Get data for specific subject ID',
+                    # 'schema': {'type': 'integer'}
+                },
+                {
+                    'name': 'subject_chronofile',
+                    'in': 'query',
+                    'description': 'Get data for specific chronofiles',
+                    'schema': {'type': 'integer'}
+                },
+                {
+                    'name': 'filter',
+                    'in': 'query',
+                    'description': 'Add Exclusion flags as a bitmap. oneof [null, 0, 1, 2, 3]',
+                    # 'schema': {'type': 'integer'}
+                },
+                {
+                    'name': 'format',
+                    'in': 'query',
+                    'description': 'Return report as CSV or JSON',
+                    'schema': {'type': 'string'}
+                },
+                {
+                    'name': 'before_date',
+                    'in': 'query',
+                    'description': 'Return report before given date',
+                    # 'schema': {'type': 'string'}
+                },
+                {
+                    'name': 'after_date',
+                    'in': 'query',
+                    'description': 'Return report after given date',
+                    # 'schema': {'type': 'string'}
+                },
+                {
+                    'name': 'record_serial_base',
+                    'in': 'query',
+                    'description': 'Return report in order of generated serial number',
+                    # 'schema': {'type': 'bool'}
+                },
+                {
+                    'name': 'max_records',
+                    'in': 'query',
+                    'description': 'Maximum number of records to return',
+                    'schema': {'type': 'integer'}
+                },
+                ]
+
+            operation['parameters'].extend(query_params)
+        return operation
 
 
 class TrackingDataCsvView(generics.RetrieveAPIView):
     permission_classes = (StandardObjectPermissions,)
-
     schema = TrackingDataViewSchema()
 
     def get_queryset(self, subject_id=None, chronofile=None):
@@ -1279,11 +1237,11 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
     def get(self, request, *args, **kwargs):
         # Set exclusion flag value
         filter_flag = 0
+        qparam = self.request.GET.get('filter', 0)
         try:
-            if self.request.GET.get('filter'):
-                filter_flag = int(self.request.GET.get('filter', 0))
+            filter_flag = int(qparam)
         except (ValueError, TypeError):
-            filter_flag = 0
+            filter_flag = None if qparam == 'null' else filter_flag
 
         try:
             request_date_after = parse_datetime(
@@ -1343,12 +1301,12 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         cur_record_serial = record_serial_base
         if get_current:
             # all the current status objects for the allowed subjects
-            items = self.get_subject_status_queryset(max_records)
+            items = self.get_subject_status_queryset(max_records, request_subject_id, request_subject_chronofile)
             if items:
                 for item in items:
                     cur_record_serial += 1
                     data = self.get_csv_observation_data(cur_record_serial, dloadtime_label, fixtime_label, result_format,
-                                                         item, request_subject_id, request_subject_chronofile)
+                                                         item, item['subject_id'] if request_subject_id else None, None)
                     csv_data.append(data)
         else:
             try:
@@ -1357,10 +1315,10 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                 for subject in subjects:
                     # all the relevant observations for the subject
                     for item in self.get_subject_trackdata_queryset(
-                        filter_flag, lower, subject, upper, max_records, request_subject_id, request_subject_chronofile).values():
+                        filter_flag, lower, subject, upper, max_records).values():
                         cur_record_serial += 1
                         data = self.get_csv_observation_data(cur_record_serial, dloadtime_label, fixtime_label, result_format,
-                                                             item, request_subject_id, request_subject_chronofile)
+                                                             item, subject.id if request_subject_id else None, None)
                         csv_data.append(data)
             except django.core.exceptions.ValidationError:
                 raise ValidationError(
@@ -1418,38 +1376,28 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                 }
         return data
 
-    def get_subject_trackdata_queryset(self, filter_flag, lower, subject, upper, max_records, subject_id, subject_chronofile):
-        qs = models.Observation.objects.all().order_by('recorded_at')
-        if subject_id:
-            qs = qs.filter(
-                source__subjectsource__subject__id=subject_id)
-        elif subject_chronofile:
-            qs = qs.filter(source__subjectsource__additional__chronofile=int(
-                subject_chronofile))
-        else:
-            qs = qs.filter(source__subjectsource__subject=subject)
-
-        qs = qs.filter(exclusion_flags=filter_flag,
-                                               recorded_at__gt=lower,
-                                               recorded_at__lt=upper,
-                                               source__subjectsource__assigned_range__contains=F('recorded_at'))
-
+    def get_subject_trackdata_queryset(self, filter_flag, lower, subject, upper, max_records):
+        qs = models.Observation.objects.get_subject_observations(subject, lower, upper, max_records, filter_flag=filter_flag)
+        qs = qs.order_by('recorded_at')
         qs = qs.annotate(subjectsource_additional=F('source__subjectsource__additional'),
                          collar_id=F('source__manufacturer_id'))
-
-        logger.info(f'qs chrono {subject_chronofile} {qs.query}')
-
-        if max_records > 0:
-            qs = qs[:max_records]
         return qs
 
-    def get_subject_status_queryset(self, max_records):
-        now = pytz.utc.localize(datetime.datetime.utcnow())
+    def get_subject_status_queryset(self, max_records, subject_id=None, chronofile=None):
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
+        
         qs = models.SubjectStatus.objects.filter(delay_hours=min_age_days * 24)\
-            .filter(subject__subjectsource__additional__chronofile__isnull=False,
-                    subject__subjectsource__assigned_range__contains=now) \
-            .annotate(subjectsource_additional=F('subject__subjectsource__additional'),
+            .filter(subject__subjectsource__assigned_range__contains=now)
+        if subject_id:
+            qs = qs.filter(subject__id=subject_id)
+        elif chronofile:
+            qs = qs.filter(
+                subject__subjectsource__additional__chronofile=int(chronofile))
+        else:
+            qs = qs.filter(subject__subjectsource__additional__chronofile__isnull=False)
+
+        qs = qs.annotate(subjectsource_additional=F('subject__subjectsource__additional'),
                       collar_id=F('subject__subjectsource__source__manufacturer_id')).values()
         if max_records > 0:
             qs = qs[:max_records]
@@ -1458,7 +1406,7 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
 
 class TrackingMetaDataExportView(generics.RetrieveAPIView):
     permission_classes = (StandardObjectPermissions,)
-    schema = InactiveSubjectsViewSchema()
+    # schema = InactiveSubjectsViewSchema()
 
     def get_source_details(self, format):
         """
@@ -1599,3 +1547,69 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
         queryset = check_to_include_inactive_subjects(self.request, queryset)
         queryset = queryset.by_user_subjects(self.request.user)
         return queryset
+
+
+class GPXFileUploadView(generics.CreateAPIView):
+    permission_classes = (IsAuthenticated,)
+    serializer_class = serializers.GPXTrackFileUploadSerializer
+
+    def create(self, request, *args, **kwargs):
+        source_id = kwargs.get('id')
+        get_object_or_404(models.Source, id=source_id)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        validated_data = dict(serializer.validated_data)
+
+        inmemory_file = validated_data.get('gpx_file')
+        filename = self.save_in_defaultstorage(inmemory_file)
+        async_result = self.get_async_result(filename, source_id)
+        data = self.create_data(request, inmemory_file, source_id, async_result)
+        return Response(data, status=status.HTTP_201_CREATED)
+
+    @staticmethod
+    def save_in_defaultstorage(inmemory_file):
+        file_path = f'{models.GPX_FILES_FOLDER}/{inmemory_file.name}'
+        return default_storage.save(file_path, inmemory_file)
+
+    @staticmethod
+    def get_async_result(file, source_id):
+        try:
+            async_result = process_gpxdata_api.apply_async(args=(file, source_id))
+        except exceptions.OperationalError as exc:
+            raise ValidationError({'error_message': exc})
+        else:
+            return async_result
+
+    @staticmethod
+    def create_data(request, file, source_id, async_result):
+        status_url = add_base_url(request, reverse('gpx-status', kwargs={'id': source_id, 'task_id': async_result.id}))
+        data = dict(source_id=source_id,
+                    filename=file.name,
+                    filesize_bytes=file.size,
+                    process_status=dict(task_info=async_result.info,
+                                        task_id=async_result.id,
+                                        task_success=async_result.successful(),
+                                        task_failed=async_result.failed(),
+                                        task_url=status_url))
+        return data
+
+
+class GPXTaskStatusView(generics.ListAPIView):
+    permission_classes = (IsAuthenticated,)
+
+    def list(self, request, *args, **kwargs):
+        # status: Pending means task is waiting for execution or unknown.
+        # Any task id that is unknown is implied to be in pending state.
+        task_id = self.kwargs.get('task_id')
+        asyncResult = celery.app.AsyncResult(task_id)
+        result = dict(error_msg=asyncResult.result.message) \
+            if isinstance(asyncResult.result, Exception) else asyncResult.result
+
+        data = dict(task_result=result,
+                    task_status=asyncResult.status.title(),
+                    task_success=asyncResult.successful(),
+                    task_failed=asyncResult.failed()
+                    )
+        if asyncResult.status != 'STARTED':
+            asyncResult.forget()    # Release the resources whenever AsyncResult instance is called.
+        return Response(data, status=status.HTTP_200_OK)

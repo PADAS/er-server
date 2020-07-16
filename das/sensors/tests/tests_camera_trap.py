@@ -15,7 +15,7 @@ import django.contrib.auth
 from utils import json
 from accounts.models import PermissionSet
 from core.tests import BaseAPITest
-from sensors.views import SensorObservation
+from sensors.views import CameraTrapHandlerView
 from sensors import camera_trap
 
 logger = logging.getLogger(__name__)
@@ -86,13 +86,10 @@ class CameraTrapTest(BaseAPITest):
 
         path = '/'.join((self.api_base, 'sensors',
                          self.sensor_type, provider, 'status'))
-        request = self.factory.post(
-            path, data=data, format='multipart')
+        request = self.factory.post(path, data=data, format='multipart')
 
         self.force_authenticate(request, self.sensor_user)
-        return SensorObservation.as_view()(request,
-                                           sensor_type=self.sensor_type,
-                                           provider_name=provider)
+        return CameraTrapHandlerView.as_view()(request, provider)
 
     def test_post_image(self):
         for sample in SAMPLES:

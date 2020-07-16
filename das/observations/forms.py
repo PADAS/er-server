@@ -7,7 +7,7 @@ from django import forms
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
 
-from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider
+from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider, GPXTrackFile
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
 from choices.models import Choice
 from core.common import TIMEZONE_USED
@@ -303,3 +303,21 @@ class SetRandomColorForm(ActionForm):
 #     def save(self, commit=True):
 #         return super().save(commit=commit)
 #
+
+
+class GPXFileForm(forms.ModelForm):
+    data = forms.FileField(required=True)
+
+    class Meta:
+        model = GPXTrackFile
+        fields = '__all__'
+
+    def clean_data(self):
+        file_extension = '.gpx'
+        error_msg = _('Only .gpx files can be imported.')
+        file = self.cleaned_data.get('data')
+        file_name = file.name
+        if file_name.lower().endswith(file_extension):
+            return file
+        else:
+            raise forms.ValidationError(error_msg, code='invalid')

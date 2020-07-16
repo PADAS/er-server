@@ -34,9 +34,8 @@ def get_webhook_base_url(provider_key=GFWAlertHandler.PROVIDER_KEY):
     :param provider_key:
     :return:
     '''
-    path = reverse('sensor-observation-view',
-                   kwargs={'sensor_type': GFWAlertHandler.SENSOR_TYPE,
-                           'provider_key': provider_key})
+    path = reverse('gfahandler-view',
+                   kwargs={'provider_key': provider_key})
 
     return ''.join([getattr(settings, 'UI_SITE_URL'), path])
 

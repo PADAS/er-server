@@ -35,9 +35,21 @@ spec:
           requests:
             cpu: "25m"
             memory: "100Mi"
-          limits:
-            cpu: "50m"
-            memory: "200Mi"
+#          limits:
+#            cpu: "500m"
+#            memory: "2000Mi"
+        livenessProbe:
+          exec:
+            command:
+              - "/bin/sh"
+              - "-c"
+              - "PYTHONPATH=/var/www/app"
+              - "./util_scripts/beat_liveness.py"
+          initialDelaySeconds: 20
+          timeoutSeconds: 20
+          periodSeconds: 180
+          failureThreshold: 3
+          successThreshold: 1
         volumeMounts:
         - name: google-credentials
           mountPath: "/etc/earthranger/"

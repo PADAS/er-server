@@ -9,8 +9,8 @@ export EVENTLET_SHOULDPATCH=True
 # Override GUNICORN_CMD_ARGS at deployment if desired.
 # Keep in mind that the flags specified below, when running gunicorn, take
 # precedence.
-export GUNICORN_CMD_ARGS=${GUNICORN_CMD_ARGS:-"--bind 0.0.0.0:8000 --worker-class eventlet --timeout=90 --log-level=info"}
+export GUNICORN_CMD_ARGS=${GUNICORN_CMD_ARGS:-"--worker-class eventlet --timeout=90 --log-level=info --max-requests 500 --max-requests-jitter 25"}
 
 echo "Notice GUNICORN_CMD_ARGS: ${GUNICORN_CMD_ARGS}"
 
-gunicorn das_server.rt_wsgi --name das_rt -w 1
+gunicorn das_server.rt_wsgi --name das_rt -w 1 --bind 0.0.0.0:8000 

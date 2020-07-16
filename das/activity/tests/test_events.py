@@ -1174,8 +1174,11 @@ class TestEventView(BaseAPITest):
                 "type": "object",
                 "properties":
                     {
-                        "hidden": {},
-                        "rhinosighting": {}
+                        "hidden_key": {"type":"string"},
+                        "test_key": {"type":"string"},
+                        "rhinosightingrep_unknownpicklist": {
+                                "key": "rhinosightingrep_unknown"
+                            }
                     }
             },
             "definition": []
@@ -1184,6 +1187,10 @@ class TestEventView(BaseAPITest):
         event_type.schema = et_schema
         event_type.save()
 
+        EventDetails.objects.create(
+            data={"event_details": {"hidden_key": "hidden_key_value", "test_key":"test_key_value"}},
+            event=self.sample_event)
+
         url = """/activity/events/export"""
         filter_spec = json.dumps({'text': "e"})
         request = self.factory.get(
@@ -1191,11 +1198,16 @@ class TestEventView(BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        rendered_dict = self.convert_rendered_csv_to_dict(
-            response.content.decode("utf-8"))
+        rendered_content = response.content.decode("utf-8")
+        rendered_dict = self.convert_rendered_csv_to_dict(rendered_content)
         report_headers = rendered_dict[0].keys()
 
-        self.assertTrue("Hidden" in report_headers)
+        # All hidden fields returned indipendently in the export headers
+        self.assertTrue(all(x in report_headers for x in ["Hidden_Key", "Test_Key"]))
+
+        # All hidden fields values returned in export content
+        self.assertTrue(all(x in rendered_content for x in ["hidden_key_value", "test_key_value"]))
+
 
     def test_export_csv_with_line_feed(self):
 
@@ -2462,6 +2474,36 @@ class TestEventView(BaseAPITest):
 
         # title returned, not UUID
         self.assertTrue('Katie Kitten' in response.content.decode("utf-8"))
+
+    def test_no_event_type_display(self):
+        # User with no-perms can't view event categories
+        request = self.factory.get(
+            self.api_base + '/events/eventtypes')
+        self.force_authenticate(request, self.no_perms_user)
+
+        response = views.EventTypesView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, [])
+
+    def test_only_display_eventtype_of_category_logistic_only(self):
+        # Guest users can see logistics events and nothing else
+        request = self.factory.get(
+            self.api_base + '/events/eventtypes')
+        self.force_authenticate(request, self.guest_user)
+
+        response = views.EventTypesView.as_view()(request)
+        expected_display = 'Logistics'
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(all(o.get('category').get('display') == expected_display for o in response.data))
+
+    def test_no_schema_display(self):
+        request = self.factory.get(
+            self.api_base + '/events/schema')
+        self.force_authenticate(request, self.no_perms_user)
+
+        response = views.EventTypesView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, [])
 
 
 class TestParsing(TestCase):

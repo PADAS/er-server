@@ -24,7 +24,7 @@ recommonmark==0.6.0       # via -r ./requirements-docs.in
 requests==2.18.3          # via sphinx
 six==1.10.0               # via packaging, sphinxcontrib-httpdomain
 snowballstemmer==1.2.1    # via sphinx
-sphinx==3.0.4             # via -r ./requirements-docs.in, recommonmark, sphinxcontrib-httpdomain
+sphinx==3.1.2             # via -r ./requirements-docs.in, recommonmark, sphinxcontrib-httpdomain
 sphinxcontrib-applehelp==1.0.1  # via sphinx
 sphinxcontrib-devhelp==1.0.1  # via sphinx
 sphinxcontrib-htmlhelp==1.0.2  # via sphinx

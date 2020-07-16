@@ -118,6 +118,7 @@ def iter_exif(exif_dict):
 
 class CameraTrapSensorHandler:
     SENSOR_TYPE = 'camera-trap'
+    serializer_class = CameraTrapPostParameters
 
     @classmethod
     def post(cls, request, provider_name):

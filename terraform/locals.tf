@@ -6,6 +6,7 @@ locals {
   this_workspaces_to_infra_workspaces = {
     # if not here, the lookup has a default
     "africanparks"           = "prod1"
+    "apntraining"            = "prod1"
     "amboseli"               = "prod1"
     "akagera"                = "prod1"
     "amakhala"               = "prod1"
@@ -31,6 +32,7 @@ locals {
     "liuwa"                  = "prod1"
     "lowerzambezi"           = "prod1"
     "liwonde"                = "prod1"
+    "lionlandscapes"         = "prod1"
     "madikwe"                = "prod1"
     "majete"                 = "prod1"
     "malamala"               = "prod1"
@@ -47,6 +49,7 @@ locals {
     "odzala"                 = "prod1"
     "parcw"                  = "prod1"
     "pendjari"               = "prod1"
+    "queenelizabeth"         = "prod1"
     "rcb"                    = "prod1"
     "sabiegamereserve"       = "prod1"
     "sabisands"              = "prod1"
@@ -63,6 +66,7 @@ locals {
     "malamala"               = "prod1"
     "degrees51"              = "prod1"
     "hello-asia"             = "prod-asia"
+    "birdshead"              = "prod-asia"
     "socp"                   = "prod-asia"
     "westernsiempang"        = "prod-asia"
     "damai"                  = "prod-asia"

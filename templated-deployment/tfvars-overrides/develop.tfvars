@@ -1,6 +1,3 @@
 daily_report_enabled = "True"
 mapping_features_v2  = "true"
 time_zone            = "Africa/Nairobi"
-twilio_account_sid   = "<provided-twilio_account_sid>"
-twilio_auth_token    = "<provided-twilio_auth_token>"
-whatsapp_from_number = "<provided-whatsapp_from_number>"
