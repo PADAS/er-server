@@ -72,7 +72,7 @@ variable "email_host" {
 }
 
 variable "fqdn" {
-  type    = "string"
+  type    = string
   default = "localhost"
 }
 
