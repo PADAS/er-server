@@ -65,6 +65,7 @@ locals {
     "zakouma"                = "prod1"
     "malamala"               = "prod1"
     "degrees51"              = "prod1"
+    "DAS-5406"               = "prod1"
     "hello-asia"             = "prod-asia"
     "birdshead"              = "prod-asia"
     "socp"                   = "prod-asia"
