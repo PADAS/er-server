@@ -1,13 +1,27 @@
 locals {
-  is_production          = (data.terraform_remote_state.earthranger_app_infra.workspace == "prod1")
+
+  db_instances = [
+    {
+      db_instance            = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name,
+      db_instance_private_ip = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_private_ip,
+      db_password_path       = "padas-app/main/earthranger-app-infra-postgres-server-${local.db_secret_path}"
+    },
+    {
+      db_instance            = data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_name,
+      db_instance_private_ip = data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_private_ip,
+      db_password_path       = "padas-app/main/earthranger-app-infra-postgres-server2-${local.db_secret_path}"
+    }
+  ]
+
   db_secret_path         = data.terraform_remote_state.earthranger_app_infra.outputs.db_secret_path
+
   sanitized_db_name      = lower(substr(replace(terraform.workspace, "/[^A-Za-z0-9_]/", "_"), 0, 24))
   unique_db_name         = "${local.sanitized_db_name}_${random_string.db_name_uniqueness.result}"
   app_role_name          = "${local.unique_db_name}_approle"
   app_user_name          = "${local.unique_db_name}_appuser"
-  db_instance            = local.is_production ? data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_name : data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
-  db_instance_private_ip = local.is_production ? data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_private_ip : data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_private_ip
-  db_password_path       = local.is_production ? "padas-app/main/earthranger-app-infra-postgres-server2" : "padas-app/main/earthranger-app-infra-postgres-server"
+  db_instance            = element(local.db_instances, local.db_instance_index).db_instance
+  db_instance_private_ip = element(local.db_instances, local.db_instance_index).db_instance_private_ip
+  db_password_vault_path       = element(local.db_instances, local.db_instance_index).db_password_path
 
   migration_role_name = "${local.unique_db_name}_migrationrole"
   migration_user_name = "${local.unique_db_name}_migrationuser"
@@ -23,7 +37,7 @@ resource "random_string" "db_name_uniqueness" {
 }
 
 data "vault_generic_secret" "db_password" {
-  path = "${local.db_password_path}-${local.db_secret_path}"
+  path = local.db_password_vault_path
 }
 
 
