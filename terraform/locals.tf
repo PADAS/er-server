@@ -32,6 +32,7 @@ locals {
     "liuwa"                  = "prod1"
     "lowerzambezi"           = "prod1"
     "liwonde"                = "prod1"
+    "lionalert"              = "prod1"
     "lionlandscapes"         = "prod1"
     "madikwe"                = "prod1"
     "majete"                 = "prod1"
