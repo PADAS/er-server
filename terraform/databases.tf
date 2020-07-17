@@ -7,6 +7,7 @@ locals {
   app_user_name          = "${local.unique_db_name}_appuser"
   db_instance            = local.is_production ? data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_name : data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name
   db_instance_private_ip = local.is_production ? data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_private_ip : data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_private_ip
+  db_password_path       = local.is_production ? "padas-app/main/earthranger-app-infra-postgres-server2" : "padas-app/main/earthranger-app-infra-postgres-server"
 
   migration_role_name = "${local.unique_db_name}_migrationrole"
   migration_user_name = "${local.unique_db_name}_migrationuser"
@@ -22,7 +23,7 @@ resource "random_string" "db_name_uniqueness" {
 }
 
 data "vault_generic_secret" "db_password" {
-  path = "padas-app/main/earthranger-app-infra-postgres-server-${local.db_secret_path}"
+  path = "${local.db_password_path}-${local.db_secret_path}"
 }
 
 
