@@ -5,31 +5,9 @@ locals {
 
   from_email                = coalesce(var.from_email, local.standard_from_email)
   resolved_eus_organization = coalesce(var.eus_org, var.fqdn)
-#  db_instance_private_ip    = data.terraform_remote_state.site_terraform.outputs.db_instance_private_ip
 
+  db_instance_private_ip    = data.terraform_remote_state.site_terraform.outputs.db_instance_private_ip
 
-  # This section for selecting a database is temporary. It's only here because
-  # Terraform hasn't succeeded in reading outputs from terraform_remote_state.site_terraform.
-  # TODO: Figure out why CircleCI can't see outputs from terraform remote state.
-  db_instances = [
-    {
-      db_instance_private_ip = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_private_ip,
-    },
-    {
-      db_instance_private_ip = data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_private_ip,
-    }
-  ]
-
-  workspace_to_database_instance = {
-    # if not here, the lookup has a default
-    "meru"             = 1
-    "aberdares"        = 1
-    "baminguibangoran" = 1
-  }
-
-  db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
-  db_instance_private_ip = element(local.db_instances, local.db_instance_index).db_instance_private_ip
-  # End of temporary section.
 }
 
 resource "template_dir" "deployments" {
