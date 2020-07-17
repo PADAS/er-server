@@ -61,3 +61,7 @@ output "analytics_user_pass" {
   sensitive = true
 }
 
+output "db_instance_private_ip" {
+  value     = "${local.db_instance_private_ip}"
+}
+

@@ -5,6 +5,8 @@ locals {
 
   this_workspaces_to_infra_workspaces = {
     # if not here, the lookup has a default
+    "aberdares"              = "prod1"
+    "baminguibangoran"       = "prod1"
     "africanparks"           = "prod1"
     "apntraining"            = "prod1"
     "amboseli"               = "prod1"
@@ -40,6 +42,7 @@ locals {
     "marataba"               = "prod1"
     "matusadona"             = "prod1"
     "matlamamba"             = "prod1"
+    "meru"                   = "prod1"
     "mtkenya"                = "prod1"
     "murchisonfalls"         = "prod1"
     "natgeo"                 = "prod1"
@@ -66,6 +69,7 @@ locals {
     "zakouma"                = "prod1"
     "malamala"               = "prod1"
     "degrees51"              = "prod1"
+    "DAS-5406"               = "prod1"
     "hello-asia"             = "prod-asia"
     "birdshead"              = "prod-asia"
     "socp"                   = "prod-asia"
@@ -83,6 +87,15 @@ locals {
 
 
   legacy_vault_path = "padas-app/main"
+
+  workspace_to_database_instance = {
+    # if not here, the lookup has a default
+    "meru"             = 1
+    "aberdares"        = 1
+    "baminguibangoran" = 1
+  }
+
+  db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
 
 
 }

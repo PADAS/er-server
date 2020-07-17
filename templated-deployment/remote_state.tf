@@ -6,3 +6,10 @@ data "terraform_remote_state" "earthranger_app_infra" {
   }
 }
 
+data "terraform_remote_state" "site_terraform" {
+  backend   = "gcs"
+  workspace = terraform.workspace
+  config = {
+     bucket = "das-terraform-state-0625d0da"
+  }
+}
