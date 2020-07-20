@@ -110,6 +110,3 @@ spec:
         env:
         - name: SERVICE_NAME
           value: "beat_service"
-        - name: TELEGRAF_RESOURCE_TYPE
-          value: "generic_node"
-

@@ -107,5 +107,3 @@ spec:
         env:
         - name: SERVICE_NAME
           value: "realtime_worker"
-        - name: TELEGRAF_RESOURCE_TYPE
-          value: "generic_task"
