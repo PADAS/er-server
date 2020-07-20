@@ -82,7 +82,6 @@ locals {
 
 
   legacy_vault_path = "padas-app/main"
-  legacy_project_id = "padas-app"
 
 }
 
