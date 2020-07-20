@@ -42,6 +42,7 @@ from observations.models import Subject, SubjectType, SubjectSubType
 from accounts.serializers import UserDisplaySerializer
 from observations.serializers import SubjectSerializer
 from utils.html import clean_user_text
+from utils.schema_utils import format_key_for_title
 
 logger = logging.getLogger(__name__)
 
@@ -1023,16 +1024,8 @@ class TestEventView(BaseAPITest):
         self.assertTrue(self.notes_line2_prefix in response.content.decode("utf-8"))
 
     def convert_rendered_csv_to_dict(self, content):
-        lines = content.split("\n")
-        keys = lines[0].split(",")
-
-        dict_list = []
-        d = {}
-        for line in lines[1:]:
-            values = line.split(",")
-            d = {k: v for k, v in zip(keys, values)}
-            dict_list.append(d)
-        return dict_list
+        d = csv.DictReader(io.StringIO(content))
+        return list(d)
 
     def test_collection_report_id_exported_as_parent_event_serial_number(self):
         collection_event_data = copy.deepcopy(self.event_data)
@@ -1166,29 +1159,95 @@ class TestEventView(BaseAPITest):
             self.api_base + '/events/', self.event_data)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
-        et_schema = json.dumps({
+        et_schema = """
+            {
             "schema":
             {
                 "$schema": "http://json-schema.org/draft-04/schema#",
-                "title": "kctype (kctype)",
+                "title": "Locust Absence Report (locustabsence_rep)",
+
                 "type": "object",
+
                 "properties":
-                    {
-                        "hidden_key": {"type":"string"},
-                        "test_key": {"type":"string"},
-                        "rhinosightingrep_unknownpicklist": {
-                                "key": "rhinosightingrep_unknown"
-                            }
-                    }
+                {
+
+                "repObserver": {
+                    "type": "string",
+                    "title": "Report Observer"
+                },
+                "repHASurveyed": {
+                    "type": "number",
+                    "title": "HA Surveyed",
+                    "minimum": 0
+                },           
+                "repCountry": {
+                    "type": "string",
+                    "title": "Country",
+                    "enum": {{enum___countries___values}},
+                    "enumNames": {{enum___countries___names}}
+                },   
+                "repLocation": {
+                    "type": "string",
+                    "title": "Report Location"
+                },
+                "eLocust-key": {
+                    "type": "string",
+                    "title": "e-locust-key"
+                }
+            }
+        },
+        "definition": [
+
+            {
+            "type": "fieldset",
+            "title": "Report Info",
+            "htmlClass": "col-lg-12",
+            "items": []
             },
-            "definition": []
-        })
+            {
+            "type": "fieldset",
+            "htmlClass": "col-lg-6",
+            "items": [
+                "repObserver",
+                "repHASurveyed",
+                "",
+                "",                        
+                "",
+                "",
+                "",
+                ""
+            ]
+            },
+            {
+            "type": "fieldset",
+            "htmlClass": "col-lg-6",
+            "items": [
+                "repCountry",  
+                "repLocation",
+                "",
+                "",
+                "",
+                "",
+                ""
+            ]
+            },
+
+            {
+            "type": "fieldset",
+            "title": "No Locusts Reported",
+            "htmlClass": "col-lg-12",
+            "items": []
+            }    
+
+        ]
+        }
+        """
         event_type = self.sample_event.event_type
         event_type.schema = et_schema
         event_type.save()
 
         EventDetails.objects.create(
-            data={"event_details": {"hidden_key": "hidden_key_value", "test_key":"test_key_value"}},
+            data={"event_details": {"eLocust-key": "e locust id key", "repObserver": "an observer"}},
             event=self.sample_event)
 
         url = """/activity/events/export"""
@@ -1203,11 +1262,127 @@ class TestEventView(BaseAPITest):
         report_headers = rendered_dict[0].keys()
 
         # All hidden fields returned indipendently in the export headers
-        self.assertTrue(all(x in report_headers for x in ["Hidden_Key", "Test_Key"]))
+        test_headers = set(["e-locust-key", "Report_Observer"])
+        assert test_headers == set(report_headers) & test_headers
 
         # All hidden fields values returned in export content
-        self.assertTrue(all(x in rendered_content for x in ["hidden_key_value", "test_key_value"]))
+        self.assertTrue(all(x in rendered_content for x in ["e locust id key", "an observer"]))
 
+    def test_export_includes_all_event_detail_fields_no_title(self):
+    
+        request = self.factory.post(
+            self.api_base + '/events/', self.event_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        et_schema = """
+            {
+                "schema":
+                {
+                    "$schema": "http://json-schema.org/draft-04/schema#",
+                    "title": "Locust Absence Report (locustabsence_rep)",
+
+                    "type": "object",
+
+                    "properties":
+                    {
+
+                    "repObserver": {
+                        "type": "string",
+                        "title": "Report Observer"
+                    },
+                    "repHASurveyed": {
+                        "type": "number",
+                        "title": "HA Surveyed",
+                        "minimum": 0
+                    },           
+                    "repCountry": {
+                        "type": "string",
+                        "title": "Country",
+                        "enum": {{enum___countries___values}},
+                        "enumNames": {{enum___countries___names}}
+                    },   
+                    "repLocation": {
+                        "type": "string",
+                        "title": "Report Location"
+                    },
+                    "eLocust-key": {
+                        "type": "string"
+                    }
+                }
+            },
+            "definition": [
+
+                {
+                "type": "fieldset",
+                "title": "Report Info",
+                "htmlClass": "col-lg-12",
+                "items": []
+                },
+                {
+                "type": "fieldset",
+                "htmlClass": "col-lg-6",
+                "items": [
+                    "repObserver",
+                    "repHASurveyed",
+                    "",
+                    "",                        
+                    "",
+                    "",
+                    "",
+                    ""
+                ]
+                },
+                {
+                "type": "fieldset",
+                "htmlClass": "col-lg-6",
+                "items": [
+                    "repCountry",  
+                    "repLocation",
+                    "",
+                    "",
+                    "",
+                    "",
+                    ""
+                ]
+                },
+
+                {
+                "type": "fieldset",
+                "title": "No Locusts Reported",
+                "htmlClass": "col-lg-12",
+                "items": []
+                }    
+
+            ]
+            }
+        """
+        event_type = self.sample_event.event_type
+        event_type.schema = et_schema
+        event_type.save()
+
+        EventDetails.objects.create(
+            data={"event_details": {"eLocust-key": "e locust id key",
+                                    "repObserver": "an observer"}},
+            event=self.sample_event)
+
+        url = """/activity/events/export"""
+        filter_spec = json.dumps({'text': "e"})
+        request = self.factory.get(
+            self.api_base + url, {'filter': filter_spec})
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        rendered_content = response.content.decode("utf-8")
+        rendered_dict = self.convert_rendered_csv_to_dict(rendered_content)
+        report_headers = rendered_dict[0].keys()
+
+        # All hidden fields returned indipendently in the export headers
+        test_headers = set([format_key_for_title("eLocust-key").replace(' ', '_'), "Report_Observer"])
+        assert test_headers == set(report_headers) & test_headers
+
+        # All hidden fields values returned in export content
+        test_rendered_content = set(["e locust id key", "an observer"])
+        assert test_rendered_content == set(rendered_dict[1].values()) & test_rendered_content
 
     def test_export_csv_with_line_feed(self):
 
