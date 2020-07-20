@@ -1,8 +1,7 @@
-data "terraform_remote_state" "earthranger_app_infra" {
+data "terraform_remote_state" "site_terraform" {
   backend   = "gcs"
-  workspace = var.app_infra_workspace
+  workspace = var.kubernetes_namespace
   config = {
-    bucket = "earthranger-app-infra-terraform-state-540d878e"
+     bucket = "das-terraform-state-0625d0da"
   }
 }
-

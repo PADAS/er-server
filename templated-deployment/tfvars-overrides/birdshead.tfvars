@@ -1,1 +1,1 @@
-time_zone           = "Asia/Jayapura"
+time_zone = "Asia/Jayapura"
