@@ -48,7 +48,7 @@ def query_statement(json_path, data_type):
         array_elements = f"select jsonb_array_elements(data#>'{{{array_path}}}')"
         query_string = f"case when jsonb_typeof(data#> '{{{array_path}}}') = 'array' then case\
             when array_position(array({array_elements}->>'value'), null) is not null\
-                then array({array_elements})::text[] else array({array_elements}->>'value') end end as {json_path[1]}"
+                then array(select jsonb_array_elements_text(data#>'{{{array_path}}}'))::text[] else array({array_elements}->>'value') end end as {json_path[1]}"
     elif data_type == 'NUMERIC':
         # Wrap in a function that'll safely coerce values to NUMERIC.
         query_string = f'TO_NUMERIC((data#>>\'{{{path}}}\')::TEXT) as "{json_path[1]}"'
