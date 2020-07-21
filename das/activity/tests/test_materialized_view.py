@@ -14,7 +14,7 @@ from activity.materialized_view import (check_db_view_exists, generate_DDL,
 from activity.models import (Event, EventCategory, EventDetails,
                              EventType, RefreshRecreateEventDetailView)
 from core.tests import BaseAPITest
-
+from collections import namedtuple
 
 class MockSuperUser:
     def has_perm(self, perm):
@@ -81,32 +81,78 @@ class TestMaterializedView(BaseAPITest):
 
     def test_enum_values_returned_instead_of_names(self):
 
+        # Use this tuple to hold "Event Details Data" and a nested version of itself to hold "expected view output".
+        # This will help when we try comparing before/after at the end of the test.
+        EventDetailsItem = namedtuple('EventDetailsItem',
+                                      'subjects_name behavior_choice behavior sample_attr expected_report_tuple')
+
+        event1 = EventDetailsItem(subjects_name='event1 subjects',
+                                    behavior_choice={"name": "Ambushed", "value": "ambushed"},
+                                    behavior=[{"name": "sleeping", "value": "b1"}, {"name": "eating", "value": "b2"}],
+                                    sample_attr={"name": "Sample_attr Name", "value": "sample_attr 1"},
+                                  expected_report_tuple=EventDetailsItem(
+                                      subjects_name='event1 subjects',
+                                      behavior_choice='ambushed',
+                                      behavior=['b1', 'b2'],
+                                      sample_attr='sample_attr 1',
+                                      expected_report_tuple=None
+                                  ))
+
+        event2 = EventDetailsItem(subjects_name='event2 subjects',
+                                    behavior_choice="ambushed",
+                                    behavior=[{"name": "Eating", "value": "eating"}, {"name": "Sleeping", "value": "sleeping"}],
+                                    sample_attr="sample_attr 2",
+                                  expected_report_tuple=EventDetailsItem(
+                                      subjects_name='event2 subjects',
+                                      behavior_choice='ambushed',
+                                      behavior=['eating', 'sleeping',],
+                                      sample_attr='sample_attr 2',
+                                      expected_report_tuple=None
+
+                                  ))
+
+        test_events = dict((e.subjects_name, e) for e in [event1, event2])
+
         # array types, old and new enum(string types) representations normalised to detail value
         schema = json.dumps({
             "schema":
                 {"properties": {
                     "subjects_name": {"type": "string", "title": "enum test"},
                     "behavior_choice": {"type": "string", "title": "name and value test"},
-                    "behavior": {"type": "array", "title": "array test"}}
+                    "behavior": {"type": "array", "title": "array test"},
+                    "sample_attr": {"type": "string", "title": "name and value test"}},
                 },
-            "definition": ["behavior_choice"]
+            "definition": ["behavior_choice", "sample_attr"]
             })
 
         self.event_type = EventType.objects.filter(value="immobility").first()
         self.event_type.schema = schema
         self.event_type.save()
 
-        self.event = Event.objects.create(
-            title="test event", event_type=self.event_type,
-            created_by_user=self.app_user, state="new")
+        # Create two new events, one with old format and one with new format.
         EventDetails.objects.create(
             data={
                 "event_details": {
-                    "subjects_name": "fatu",
-                    "behavior_choice": {"name": "Ambushed", "value": "ambushed"},
-                    "behavior": [{"name": "sleeping", "value": "b1"}, {"name": "eating", "value": "b2"}]}
+                    "subjects_name": event1.subjects_name,
+                    "behavior_choice": event1.behavior_choice,
+                    "sample_attr": event1.sample_attr,
+                    "behavior": event1.behavior}
             },
-            event=self.event)
+            event=Event.objects.create(
+            title="test event with new format", event_type=self.event_type,
+            created_by_user=self.app_user, state="new"))
+
+        EventDetails.objects.create(
+            data={
+                "event_details": {
+                    "subjects_name": event2.subjects_name,
+                    "behavior_choice": event2.behavior_choice,
+                    "sample_attr": event2.sample_attr,
+                    "behavior": event2.behavior}
+            },
+            event=Event.objects.create(
+            title="test event old format", event_type=self.event_type,
+            created_by_user=self.app_user, state="new"))
 
         # clear all eventtypes to focus ddl generation on one eventtype
         EventType.objects.exclude(value="immobility").delete()
@@ -116,8 +162,16 @@ class TestMaterializedView(BaseAPITest):
         for line in generate_DDL()[1:]:
             query_string += line
 
-        detail = details_view.objects.raw(query_string)[0]
+        # At end we expect two event records and we can compare results to what
+        # our previous code determined is expected.
+        for event_details in details_view.objects.raw(query_string)[:2]:
 
-        self.assertTrue(detail.subjects_name == 'fatu')
-        self.assertTrue(detail.behavior_choice == 'ambushed')
-        self.assertTrue(detail.behavior == ['b1', 'b2'])
+            test_event = test_events.get(event_details.subjects_name)
+
+            self.assertEqual(
+                (test_event.expected_report_tuple.behavior,
+                 test_event.expected_report_tuple.behavior_choice,
+                 test_event.expected_report_tuple.sample_attr),
+                (event_details.behavior, event_details.behavior_choice, event_details.sample_attr)
+            )
+
