@@ -1024,8 +1024,8 @@ class TestEventView(BaseAPITest):
         self.assertTrue(self.notes_line2_prefix in response.content.decode("utf-8"))
 
     def convert_rendered_csv_to_dict(self, content):
-        d = csv.DictReader(io.StringIO(content))
-        return list(d)
+        reader = csv.DictReader(io.StringIO(content))
+        return [row for row in reader]
 
     def test_collection_report_id_exported_as_parent_event_serial_number(self):
         collection_event_data = copy.deepcopy(self.event_data)
