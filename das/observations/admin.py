@@ -691,11 +691,12 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
         extra_context = self.get_observations_context(
             extra_context, latest_observations, object_id)
 
-        latest_gpx_upload = models.GPXTrackFile.objects.filter(source_assignment__subject=object_id). \
-            annotate(subject_name=F('source_assignment__subject__name'),
-                     source_name=F('source_assignment__source__manufacturer_id'),
-                     username=F('created_by__username')).order_by('-processed_date').values()
-        extra_context = self.get_gpxdata_context(extra_context, latest_gpx_upload, object_id)
+        if request.user.has_any_perms(('observations.view_observation', 'observations.change_observation')):
+            latest_gpx_upload = models.GPXTrackFile.objects.filter(source_assignment__subject=object_id). \
+                annotate(subject_name=F('source_assignment__subject__name'),
+                         source_name=F('source_assignment__source__manufacturer_id'),
+                         username=F('created_by__username')).order_by('-processed_date').values()
+            extra_context = self.get_gpxdata_context(extra_context, latest_gpx_upload, object_id)
 
         return super().change_view(
             request, object_id, form_url, extra_context=extra_context,
