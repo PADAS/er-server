@@ -726,6 +726,13 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
             return formfield
         return super().formfield_for_dbfield(db_field, request, **kwargs)
 
+    def _changeform_view(self, request, object_id, form_url, extra_context):
+        if request.GET and request.GET.get('popup') == 'false' and \
+                not request.user.has_perm('observations.add_observation'):
+            error_msg = "Error: User does not have permissions to create Observation records"
+            self.message_user(request, error_msg, level=messages.ERROR)
+        return super(SubjectAdmin, self)._changeform_view(request, object_id, form_url, extra_context)
+
 
 @admin.register(models.CommonName)
 class CommonNameAdmin(admin.ModelAdmin):
@@ -752,6 +759,7 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
     fields = ('id', 'source_assignment', 'description', 'data')
     ordering = ('-processed_date',)
     list_display_links = None
+    observation_opts = models.Observation._meta
     form = GPXFileForm
 
     def get_model_perms(self, request):
@@ -759,16 +767,27 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
         return {}
 
     def has_add_permission(self, request):
-        return True
+        opts = self.observation_opts
+        codename = get_permission_codename('add', opts)
+        return request.user.has_perm("%s.%s" % (opts.app_label, codename))
 
     def has_change_permission(self, request, obj=None):
-        return True
+        opts = self.observation_opts
+        codename = get_permission_codename('change', opts)
+        return request.user.has_perm("%s.%s" % (opts.app_label, codename))
 
     def has_delete_permission(self, request, obj=None):
-        return True
+        opts = self.observation_opts
+        codename = get_permission_codename('delete', opts)
+        return request.user.has_perm("%s.%s" % (opts.app_label, codename))
 
     def has_view_permission(self, request, obj=None):
-        return True
+        opts = self.observation_opts
+        codename_view = get_permission_codename('view', opts)
+        codename_change = get_permission_codename('change', opts)
+        return (
+            request.user.has_perm('%s.%s' % (opts.app_label, codename_view)) or
+            request.user.has_perm('%s.%s' % (opts.app_label, codename_change)))
 
     def get_form(self, request, obj=None, change=False, **kwargs):
         """

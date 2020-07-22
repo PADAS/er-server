@@ -3,8 +3,13 @@
 <div class="related-widget-wrapper">
     {{ rendered_widget }}
 
-    <a class="related-widget-wrapper-link add-related" id="add_id_{{ name }}"
-       href="{{ add_related_url }}?{{ url_params }}&subject_id={{ query_id }}"
+    <a {% if add_related_url %}
+            class="related-widget-wrapper-link add-related" id="add_id_{{ name }}"
+            href="{{ add_related_url }}?{{ url_params }}&subject_id={{ query_id }}"
+            {% else %}
+            class="related-widget-reload add-related"
+            href="?popup=false"
+    {% endif %}
        title="{% blocktrans %}Add another {{ model }}{% endblocktrans %}">
         <button
                 type="submit"
@@ -37,3 +42,20 @@
         display: None;
     }
 </style>
+
+<script type="application/javascript">
+    (function($) {
+    'use strict';
+
+    $(document).ready(function() {
+        $('body').on('click', '.related-widget-reload', function(e) {
+            e.preventDefault();
+            if (this.href) {
+                window.location.replace(this.href)
+            }
+        });
+    });
+
+})(django.jQuery);
+
+</script>
