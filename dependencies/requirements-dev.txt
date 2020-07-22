@@ -182,7 +182,7 @@ pytest-django==3.9.0      # via -r requirements-dev.in
 pytest-forked==1.2.0      # via pytest-xdist
 pytest-mimesis==1.1.0     # via -r requirements-dev.in
 pytest-pythonpath==0.7.3  # via -r requirements-dev.in
-pytest-xdist==1.32.0      # via -r requirements-dev.in
+pytest-xdist==1.33.0      # via -r requirements-dev.in
 pytest==5.4.3             # via -r requirements-dev.in, pytest-cov, pytest-django, pytest-forked, pytest-mimesis, pytest-pythonpath, pytest-xdist
 python-dateutil==2.8.1    # via -r ./requirements.txt, botocore, faker, jupyter-client, matplotlib, pandas
 python-docx==0.8.6        # via -r ./requirements.txt, docxtpl
