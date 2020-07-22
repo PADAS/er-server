@@ -41,6 +41,10 @@ class SubjectTestCase(BaseAPITest):
         user_const = dict(last_name='last', first_name='first')
         self.user = User.objects.create_user('user', 'user@test.com', 'all_perms_user', is_superuser=True,
                                              is_staff=True, **user_const)
+        self.no_perms_user = User.objects.create_user('no_perms_user',
+                                                      'das_no_perms@vulcan.com',
+                                                      'noperms',
+                                                      **user_const)
         self.site = AdminSite()
         self.request = RequestFactory()
         self.admin = GPXAdmin(model=GPXTrackFile, admin_site=self.site)
@@ -504,5 +508,19 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(float(trkpoint_lat), obs_latitude)
         self.assertEqual(float(trkpoint_lon), obs_longitude)
 
+    def test_process_gpx_upload_nopermission(self):
+        # user that does not have permissions to create Observations records
+        # cant import gpx file.
+        subject = Subject.objects.get(name='Topsy')
+        subject_source = SubjectSource.objects.get(subject=subject)
+        file = File(open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
 
+        data = dict(gpx_file=file)
+
+        url = reverse('gpx-upload', kwargs={'id': str(subject_source.source_id)})
+        request = self.factory.post(url, data, format='multipart')
+
+        self.force_authenticate(request, self.no_perms_user)
+        response = GPXFileUploadView.as_view()(request, id=str(subject_source.source_id))
+        self.assertEqual(response.status_code, 403)
 
