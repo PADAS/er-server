@@ -770,25 +770,25 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
     def has_add_permission(self, request):
         opts = self.observation_opts
         codename = get_permission_codename('add', opts)
-        return request.user.has_perm("%s.%s" % (opts.app_label, codename))
+        return request.user.has_perm(f"{opts.app_label}.{codename}")
 
     def has_change_permission(self, request, obj=None):
         opts = self.observation_opts
         codename = get_permission_codename('change', opts)
-        return request.user.has_perm("%s.%s" % (opts.app_label, codename))
+        return request.user.has_perm(f"{opts.app_label}.{codename}")
 
     def has_delete_permission(self, request, obj=None):
         opts = self.observation_opts
         codename = get_permission_codename('delete', opts)
-        return request.user.has_perm("%s.%s" % (opts.app_label, codename))
+        return request.user.has_perm(f"{opts.app_label}.{codename}")
 
     def has_view_permission(self, request, obj=None):
         opts = self.observation_opts
         codename_view = get_permission_codename('view', opts)
         codename_change = get_permission_codename('change', opts)
         return (
-            request.user.has_perm('%s.%s' % (opts.app_label, codename_view)) or
-            request.user.has_perm('%s.%s' % (opts.app_label, codename_change)))
+            request.user.has_perm(f"{opts.app_label}.{codename_view}") or
+            request.user.has_perm(f"{opts.app_label}.{codename_change}"))
 
     def get_form(self, request, obj=None, change=False, **kwargs):
         """
