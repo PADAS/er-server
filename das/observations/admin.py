@@ -691,7 +691,9 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
         extra_context = self.get_observations_context(
             extra_context, latest_observations, object_id)
 
-        if request.user.has_any_perms(('observations.view_observation', 'observations.change_observation')):
+        if request.user.has_any_perms(('observations.add_observation'
+                                       'observations.view_observation',
+                                       'observations.change_observation')):
             latest_gpx_upload = models.GPXTrackFile.objects.filter(source_assignment__subject=object_id). \
                 annotate(subject_name=F('source_assignment__subject__name'),
                          source_name=F('source_assignment__source__manufacturer_id'),
