@@ -33,10 +33,15 @@ CREATE EXTENSION IF NOT EXISTS "postgis_topology";
 GRANT SELECT ON ALL TABLES IN SCHEMA PUBLIC, TOPOLOGY TO :analytics_role_name;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA PUBLIC, TOPOLOGY TO :analytics_role_name;
 
+-- Switch to app user, to allow altering default privileges.
+SET ROLE :app_user_name;
 ALTER DEFAULT PRIVILEGES FOR ROLE :app_user_name IN SCHEMA public, topology GRANT ALL PRIVILEGES ON TABLES TO :app_role_name, :migration_role_name WITH GRANT OPTION;
 ALTER DEFAULT PRIVILEGES FOR ROLE :app_user_name IN SCHEMA public, topology GRANT ALL PRIVILEGES ON SEQUENCES TO :app_role_name, :migration_role_name WITH GRANT OPTION;
 ALTER DEFAULT PRIVILEGES FOR ROLE :app_user_name IN SCHEMA public, topology GRANT SELECT ON TABLES TO :analytics_role_name;
 ALTER DEFAULT PRIVILEGES FOR ROLE :app_user_name IN SCHEMA public, topology GRANT USAGE, SELECT ON SEQUENCES TO :analytics_role_name;
+
+-- Switch back to app role
+SET ROLE :app_user_name;
 
 -- Role statement timeouts
 ALTER ROLE :app_role_name SET statement_timeout TO '30s';
