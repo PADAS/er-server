@@ -10,7 +10,7 @@ spec:
         das.component: redis
     spec:
       containers:
-        - image: redis
+        - image: redis:6.0.6
           name: das-redis
           resources:
             requests:
