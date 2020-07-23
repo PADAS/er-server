@@ -134,6 +134,10 @@ def cleanup_disconnected_clients(sios):
             expired_clients = [client
                 for sid in client.get_expired_traces_client_list() for client in client_list if client.sid == sid]
 
+            disconnect_these_sids = [key
+                                 for sid in client.get_expired_traces_client_list()
+                                 for key, value in sios.environ.items() if value == sid]
+
             remove_these_clients = remove_these_clients.union(expired_clients)
 
             if len(remove_these_clients) > 0:
@@ -142,6 +146,12 @@ def cleanup_disconnected_clients(sios):
 
                 client.remove_clients(
                     *[x.sid for x in remove_these_clients])
+
+                for sid in disconnect_these_sids:
+                    sios.disconnect(sid)
+                    if sid in sios.environ:
+                        del sios.environ[sid]
+
             else:
                 logger.info(
                     f'No sockets to clean up. {len(environ)} Existing sockets connected')
