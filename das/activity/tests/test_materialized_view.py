@@ -31,6 +31,7 @@ class details_view(models.Model):
 
     class Meta:
         managed = False
+        app_label = 'activity'
 
 
 class TestMaterializedView(BaseAPITest):
