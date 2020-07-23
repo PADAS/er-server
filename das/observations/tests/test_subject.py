@@ -14,6 +14,8 @@ from django.test import RequestFactory
 from django.http import QueryDict
 from django.contrib.messages.storage.cookie import CookieStorage
 from django.db import transaction
+from accounts.models import PermissionSet
+from django.contrib.auth.models import Permission
 
 import dateutil.parser as dateparser
 from pytz import UTC
@@ -523,4 +525,26 @@ class SubjectTestCase(BaseAPITest):
         self.force_authenticate(request, self.no_perms_user)
         response = GPXFileUploadView.as_view()(request, id=str(subject_source.source_id))
         self.assertEqual(response.status_code, 403)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_process_gpx_upload_with_create_observation_perm(self):
+        # give user with no permission, permission to create observation.
+        subject = Subject.objects.get(name='Topsy')
+        subject_source = SubjectSource.objects.get(subject=subject)
+        file = File(open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
+        data = dict(gpx_file=file)
+
+        observation_permission = ('add_observation',)
+        permset = PermissionSet.objects.create(name='observation Permission')
+        for perm in observation_permission:
+            permset.permissions.add(Permission.objects.get(codename=perm))
+        self.no_perms_user.permission_sets.add(permset)
+
+        url = reverse('gpx-upload', kwargs={'id': str(subject_source.source_id)})
+        request = self.factory.post(url, data, format='multipart')
+
+        self.force_authenticate(request, self.no_perms_user)
+        response = GPXFileUploadView.as_view()(request, id=str(subject_source.source_id))
+        self.assertEqual(response.status_code, 201)
+
 

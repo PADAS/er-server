@@ -1554,7 +1554,7 @@ class GPXFileUploadView(generics.CreateAPIView):
     serializer_class = serializers.GPXTrackFileUploadSerializer
 
     def create(self, request, *args, **kwargs):
-        if not self.request.user.has_any_perms('observations.add_observation'):
+        if not self.request.user.has_perm('observations.add_observation'):
             raise PermissionDenied
         source_id = kwargs.get('id')
         get_object_or_404(models.Source, id=source_id)
