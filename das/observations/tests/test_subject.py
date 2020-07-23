@@ -545,6 +545,7 @@ class SubjectTestCase(BaseAPITest):
 
         self.force_authenticate(request, self.no_perms_user)
         response = GPXFileUploadView.as_view()(request, id=str(subject_source.source_id))
+        self.assertTrue(self.no_perms_user.has_perm('observations.add_observation'))
         self.assertEqual(response.status_code, 201)
 
 
