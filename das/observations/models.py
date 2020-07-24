@@ -1571,6 +1571,7 @@ class GPXLogRecord(models.Model):
     file_name = models.CharField(max_length=225, null=True, blank=True)
     file_size = models.IntegerField(null=True, blank=True)
     processed_date = models.DateTimeField(auto_now_add=True)
+    points_imported = models.IntegerField(default=0)
     processed_status = models.CharField(choices=PROCESSED_STATUS_CHOICES, max_length=255, null=False, blank=False)
 
     class Meta:

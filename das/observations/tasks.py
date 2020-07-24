@@ -119,18 +119,18 @@ def process_observation(observation_records, observation_errors):
             bulk_serializer.save()
             message = f"Successfully created {len(observation_records)} observations"
             logger.info(message)
-            return True, message
+            return True, message, len(observation_records)
         else:
             message = f"Failed to process bulk observation: {bulk_serializer.errors}"
             logger.error(message)
-            return False, message
+            return False, message, 0
     elif observation_errors:
         message = f"Failed to process observation: {observation_errors}"
         logger.error(message)
-        return False, message
+        return False, message, 0
     else:
         message = 'Observations records already exists'
-        return True, message
+        return True, message, 0
 
 
 def process_trackpoints(source, source_id, trkpoints):
@@ -160,8 +160,10 @@ def get_additional(trkpoint):
     return trkpoint
 
 
-def success_process_gpxtrack(gpx_id):
-    return GPXTrackFile.objects.filter(id=gpx_id).update(processed_status='success')
+def success_process_gpxtrack(gpx_id, count):
+    return GPXTrackFile.objects.filter(id=gpx_id).update(
+        processed_status='success',
+        points_imported=count)
 
 
 def failed_process_gpxtrack(gpx_id):
@@ -185,9 +187,9 @@ def process_gpxtrack_file(gpx_id):
     source = Source.objects.get(id=source_id)
     obs_records, obs_errors = process_trackpoints(source, source_id, trkpoints)
 
-    status, _ = process_observation(observation_records=obs_records, observation_errors=obs_errors)
+    status, _, count = process_observation(observation_records=obs_records, observation_errors=obs_errors)
     if status:
-        success_process_gpxtrack(gpx_id)
+        success_process_gpxtrack(gpx_id, count)
     else:
         failed_process_gpxtrack(gpx_id)
 
@@ -208,7 +210,7 @@ def process_gpxdata_api(self, filename, source_id):
     source = Source.objects.get(id=source_id)
     obs_records, obs_errors = process_trackpoints(source, source_id, trkpoints)
 
-    status, message = process_observation(observation_records=obs_records, observation_errors=obs_errors)
+    status, message, _ = process_observation(observation_records=obs_records, observation_errors=obs_errors)
     if status:
         return message
     else:
