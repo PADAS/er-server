@@ -2720,15 +2720,40 @@ class TestEventView(BaseAPITest):
             "schema":
             {
                 "properties":
-                    {"species": {"title" : "Test checkbox with enum"}}
+                    {"species": {"title" : "Test checkbox with enum"},
+                    "animal_species": {"title" : "Test animal checkbox with enum"},
+                    "reportlocationarea": {"type": "string", "title": "Location / Area TEST String"},
+                    "reportreportername": {"type": "string", "title": "Reporter Name"}
+                    }
             },
             "definition": [
+                {
+                    "type": "fieldset",
+                    "htmlClass": "col-lg-6",
+                    "items": [
+                      {
+                        "key": "animal_species",
+                        "type": "checkboxes",
+                        "title": "Test animal checkbox with enum",
+                        "titleMap": {{enum___wildlifesighting_species___map}}
+                       }
+                    ]
+                },
+                {
+                    "type": "fieldset",
+                    "htmlClass": "col-lg-6",
+                    "items": [
+                        "reportlocationarea",
+                        "reportreportername"
+                    ]
+                },
                 {
                     "key": "species",
                     "type": "checkboxes",
                     "title": "Test checkbox with enum",
                     "titleMap": {{enum___wildlifesighting_species___map}}
-                }]
+                }
+            ]
             }"""
         event_type = self.sample_event.event_type
         event_type.schema = et_schema
@@ -2740,8 +2765,13 @@ class TestEventView(BaseAPITest):
         response = views.EventTypeSchemaView.as_view()(request, eventtype=event_type.value)
 
         assert response.status_code == 200
-        species_display = [display_prop  for display_prop in response.data['definition'] if display_prop['key']=='species'][0]
+        species_display = [display_prop  for display_prop in response.data['definition'] if display_prop.get('key', '')=='species'][0]
         assert "inactive_titleMap" in species_display
+
+        species_display = [display_prop  for display_prop in response.data['definition'][0]['items'] if display_prop.get('key', '')=='animal_species'][0]
+        assert "inactive_titleMap" in species_display
+
+
 
 
 class TestParsing(TestCase):
