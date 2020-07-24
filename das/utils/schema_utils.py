@@ -8,7 +8,7 @@ import uuid
 from collections import OrderedDict
 from django.apps import apps
 from django.template import Template, Context
-from django.template.base import VariableNode
+from django.template.base import VariableNode, TextNode
 
 from activity.exceptions import SchemaValidationError, \
     SCHEMA_ERROR_EMPTY_PROPERTY, SCHEMA_ERROR_MISSING_DOLLAR_SIGN_SCHEMA
@@ -627,8 +627,17 @@ def validate_rendered_schema_is_wellformed(rendered_schema: dict):
             f'Form definition keys {repr(extra_keys_in_definition)} are not present in the schema definition')
 
 
-def confirm_definition(load_schema):
-    return True if load_schema['definition'] else False
+def get_map(schema):
+    # Map VariableNode to TextNode.
+    values = []
+    template = Template(schema)
+    _ = dict(zip(template.nodelist.get_nodes_by_type(VariableNode), template.nodelist.get_nodes_by_type(TextNode)))
+    for k, v in _.items():
+        if 'titleMap' in v.token.contents:
+            field_tag = k.token.contents
+            field_details = field_tag.split('___')
+            values.append(field_details[1])
+    return values
 
 
 def map_schema(schema, load_schema):
@@ -637,12 +646,6 @@ def map_schema(schema, load_schema):
     for key in keys:
         if bool({'enum', 'query', 'table'} & load_schema['schema']['properties'][key].keys()):
             lookups.append(key)
-
-    if confirm_definition(load_schema):
-        keys_dfn = load_schema['definition'][0].keys()
-        if 'titleMap' in keys_dfn:
-            lookups.append('titleMap')
-
 
     fields = []
     index = 0
