@@ -81,7 +81,7 @@ def get_track_points(gpx):
     try:
         trkpoint = gpx['gpx']['trk']['trkseg']['trkpt']
     except Exception as exc:
-        message = f"Error occurred: {repr(exc)} when getting trackpoints from gpx file"
+        message = "No track points were found in the file."
         logger.exception(message)
         return message
     else:
@@ -119,18 +119,18 @@ def process_observation(observation_records, observation_errors):
             bulk_serializer.save()
             message = f"Successfully created {len(observation_records)} observations"
             logger.info(message)
-            return True, message, len(observation_records)
+            return True, message
         else:
             message = f"Failed to process bulk observation: {bulk_serializer.errors}"
             logger.error(message)
-            return False, message, 0
+            return False, message
     elif observation_errors:
         message = f"Failed to process observation: {observation_errors}"
         logger.error(message)
-        return False, message, 0
+        return False, message
     else:
         message = 'Observations records already exists'
-        return True, message, 0
+        return True, message
 
 
 def process_trackpoints(source, source_id, trkpoints):
@@ -160,14 +160,18 @@ def get_additional(trkpoint):
     return trkpoint
 
 
-def success_process_gpxtrack(gpx_id, count):
+def success_process_gpxtrack(gpx_id, message):
+    # get length of observations from message
+    count = ''.join(filter(str.isdigit, message))
+    points_imported = int(count) if count else None
+
     return GPXTrackFile.objects.filter(id=gpx_id).update(
         processed_status='success',
-        points_imported=count)
+        points_imported=points_imported)
 
 
-def failed_process_gpxtrack(gpx_id):
-    return GPXTrackFile.objects.filter(id=gpx_id).update(processed_status='failure')
+def failed_process_gpxtrack(gpx_id, trkpoints=None):
+    return GPXTrackFile.objects.filter(id=gpx_id).update(processed_status='failure', status_description=trkpoints)
 
 
 @celery.app.task
@@ -180,16 +184,16 @@ def process_gpxtrack_file(gpx_id):
         return
     trkpoints = get_track_points(response)
     if isinstance(trkpoints, str):
-        failed_process_gpxtrack(gpx_id)
+        failed_process_gpxtrack(gpx_id, trkpoints)
         return
 
     source_id = GPXTrackFile.objects.get_source_id(gpx_id)
     source = Source.objects.get(id=source_id)
     obs_records, obs_errors = process_trackpoints(source, source_id, trkpoints)
 
-    status, _, count = process_observation(observation_records=obs_records, observation_errors=obs_errors)
+    status, message = process_observation(observation_records=obs_records, observation_errors=obs_errors)
     if status:
-        success_process_gpxtrack(gpx_id, count)
+        success_process_gpxtrack(gpx_id, message)
     else:
         failed_process_gpxtrack(gpx_id)
 
@@ -210,7 +214,7 @@ def process_gpxdata_api(self, filename, source_id):
     source = Source.objects.get(id=source_id)
     obs_records, obs_errors = process_trackpoints(source, source_id, trkpoints)
 
-    status, message, _ = process_observation(observation_records=obs_records, observation_errors=obs_errors)
+    status, message = process_observation(observation_records=obs_records, observation_errors=obs_errors)
     if status:
         return message
     else:

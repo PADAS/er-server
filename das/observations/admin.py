@@ -682,6 +682,15 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
         extra_context['query_filter'] = f'{_url}?{filter_param}={object_id}' if gpxdata.count() > 3 else None
         return extra_context
 
+    def check_for_no_trackpoints_import_failure(self, request, gpx_uploads):
+        no_trackpoint_records = gpx_uploads.filter(
+            created_by=request.user, status_description__isnull=False)
+
+        if no_trackpoint_records:
+            message = no_trackpoint_records.first().get('status_description')
+            messages.add_message(request, messages.WARNING, message)
+            no_trackpoint_records.update(status_description=None)
+
     def change_view(self, request, object_id, form_url='', extra_context=None):
 
         latest_observations = models.Observation.objects.filter(
@@ -696,6 +705,8 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
                      source_name=F('source_assignment__source__manufacturer_id'),
                      username=F('created_by__username')).order_by('-processed_date').values()
         extra_context = self.get_gpxdata_context(extra_context, latest_gpx_upload, object_id)
+
+        self.check_for_no_trackpoints_import_failure(request, latest_gpx_upload)
 
         return super().change_view(
             request, object_id, form_url, extra_context=extra_context,
