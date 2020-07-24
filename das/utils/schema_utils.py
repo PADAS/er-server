@@ -627,12 +627,22 @@ def validate_rendered_schema_is_wellformed(rendered_schema: dict):
             f'Form definition keys {repr(extra_keys_in_definition)} are not present in the schema definition')
 
 
+def confirm_definition(load_schema):
+    return True if load_schema['definition'] else False
+
+
 def map_schema(schema, load_schema):
     lookups = []
     keys = load_schema['schema']['properties'].keys()
     for key in keys:
         if bool({'enum', 'query', 'table'} & load_schema['schema']['properties'][key].keys()):
             lookups.append(key)
+
+    if confirm_definition(load_schema):
+        keys_dfn = load_schema['definition'][0].keys()
+        if 'titleMap' in keys_dfn:
+            lookups.append('titleMap')
+
 
     fields = []
     index = 0

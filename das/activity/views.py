@@ -243,7 +243,9 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
                 is_active=False, field=value['field_name'])
             for o in obj:
                 inactive_choices.append(o.value)
-            if inactive_choices:
+            if key == 'titleMap' and inactive_choices:
+                schema['definition'][0]['inactive_'+key] = inactive_choices
+            elif inactive_choices:
                 schema['schema']['properties'][key]["inactive" +
                                                     "_" + value['lookup']] = inactive_choices
 
