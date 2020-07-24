@@ -261,6 +261,8 @@ def extract_from_definition(schema_item, definition, key, eventdetail_value, ext
             if definition_item.get("type") == "checkboxes":
                 extracted_value, display = handle_checkboxes_in_fieldsets(definition_item, eventdetail_value)
             return definition_item.get('title'), extracted_value, display
+    title = schema_item.get('title') or key
+    return title, extracted_value, display
 
 
 def extractor(schema_item, definition, key, eventdetail_value):

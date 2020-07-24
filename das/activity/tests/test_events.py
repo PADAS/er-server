@@ -1146,7 +1146,7 @@ class TestEventView(BaseAPITest):
         response = views.EventsExportView.as_view()(request)
         rendered_dict = self.convert_rendered_csv_to_dict(
             response.content.decode("utf-8"))
-        report_names = [report["Title"] for report in rendered_dict[:-1]]
+        report_names = [report["Title"] for report in rendered_dict]
 
         # 2 reports returned, Incident and contained report
         self.assertEqual(2, len(report_names))
@@ -1247,11 +1247,11 @@ class TestEventView(BaseAPITest):
         event_type.save()
 
         EventDetails.objects.create(
-            data={"event_details": {"eLocust-key": "e locust id key", "repObserver": "an observer"}},
+            data={"event_details": {"eLocust-key": "716c9a58ca0b9a7bf3351517d7393b49", "repObserver": "an observer"}},
             event=self.sample_event)
 
         url = """/activity/events/export"""
-        filter_spec = json.dumps({'text': "e"})
+        filter_spec = json.dumps({'text': "event"})
         request = self.factory.get(
             self.api_base + url, {'filter': filter_spec})
 
@@ -1266,7 +1266,7 @@ class TestEventView(BaseAPITest):
         assert test_headers == set(report_headers) & test_headers
 
         # All hidden fields values returned in export content
-        self.assertTrue(all(x in rendered_content for x in ["e locust id key", "an observer"]))
+        self.assertTrue(all(x in rendered_content for x in ["716c9a58ca0b9a7bf3351517d7393b49", "an observer"]))
 
     def test_export_includes_all_event_detail_fields_no_title(self):
     
@@ -1366,7 +1366,7 @@ class TestEventView(BaseAPITest):
             event=self.sample_event)
 
         url = """/activity/events/export"""
-        filter_spec = json.dumps({'text': "e"})
+        filter_spec = json.dumps({'text': "event"})
         request = self.factory.get(
             self.api_base + url, {'filter': filter_spec})
 
