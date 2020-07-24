@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from unittest import mock
 
 import pytz
-
+import pytest
 from django.utils import dateparse
 import django.contrib.auth
 from django.db import transaction
@@ -88,6 +88,7 @@ eventsource_user_permissions = [
 guest_user_permissions = ['logistics_read']
 
 reported_by_permission_set_id = 'b5057387-9f6c-4685-8ec1-46ad29684eea'
+  
 
 
 def fake_get_pool():
@@ -2679,6 +2680,68 @@ class TestEventView(BaseAPITest):
         response = views.EventTypesView.as_view()(request)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data, [])
+
+    def test_schema_with_inactive_choices(self):
+        for choice in Choice.objects.all():
+            choice.delete()
+
+        choices = []
+        choice = Choice.objects.create(
+            model='activity.event',
+            field='wildlifesighting_species',
+            value='elephant',
+            display='Elephant',
+        )
+
+        choice.save()
+        choices.append(choice)
+
+        choice = Choice.objects.create(
+            model='activity.event',
+            field='wildlifesighting_species',
+            value='rhino',
+            display='Rhino',
+        )
+        choice.save()
+        choices.append(choice)
+
+        choice = Choice.objects.create(
+            model='activity.event',
+            field='wildlifesighting_species',
+            value='baboon',
+            display='Baboon',
+            is_active=False
+        )
+        choice.save()
+        choices.append(choice)
+
+
+        et_schema = """{
+            "schema":
+            {
+                "properties":
+                    {"species": {"title" : "Test checkbox with enum"}}
+            },
+            "definition": [
+                {
+                    "key": "species",
+                    "type": "checkboxes",
+                    "title": "Test checkbox with enum",
+                    "titleMap": {{enum___wildlifesighting_species___map}}
+                }]
+            }"""
+        event_type = self.sample_event.event_type
+        event_type.schema = et_schema
+        event_type.save()
+
+        url = self.api_base + f'/events/schema/eventtype/'
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventTypeSchemaView.as_view()(request, eventtype=event_type.value)
+
+        assert response.status_code == 200
+        species_display = [display_prop  for display_prop in response.data['definition'] if display_prop['key']=='species'][0]
+        assert "inactive_titleMap" in species_display
 
 
 class TestParsing(TestCase):
