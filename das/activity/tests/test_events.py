@@ -2650,6 +2650,49 @@ class TestEventView(BaseAPITest):
         # title returned, not UUID
         self.assertTrue('Katie Kitten' in response.content.decode("utf-8"))
 
+    def test_export_on_similar_titles_for_different_reports(self):
+        et_schema = """{"schema": 
+                        {"properties": 
+                            {
+                            "eLocust-key": {"type": "string"},
+                            "behavior": {"type": "string"}
+                        }},
+                    "definition": []
+                    }"""
+
+        et = EventType.objects.filter(display='Other').first()
+        et.schema = et_schema
+        et.save()
+
+        traffic_et = EventType.objects.filter(display='Traffic').first()
+        traffic_et.schema = et_schema
+        traffic_et.save()
+
+        event1 = Event.objects.create(title="test_event_1", event_type=et, created_by_user=self.all_perms_user)
+        event2 = Event.objects.create(title="test_event_2", event_type=et, created_by_user=self.all_perms_user)
+
+        # Report from a different eventtype, similar property key
+        event3 = Event.objects.create(title="test_event_3", event_type=traffic_et, created_by_user=self.all_perms_user)
+
+        EventDetails.objects.bulk_create([
+            EventDetails(data={"event_details": {"eLocust-key": "one"}}, event=event1),
+            EventDetails(data={"event_details": {"eLocust-key": "two"}}, event=event2),
+            EventDetails(data={"event_details": {"eLocust-key": "three"}}, event=event3)])
+
+        url = """/activity/events/export"""
+        filter_spec = json.dumps({'text': "test_event"})
+        request = self.factory.get(
+            self.api_base + url, {'filter': filter_spec})
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        rendered_content = response.content.decode("utf-8")
+        rendered_dict = self.convert_rendered_csv_to_dict(rendered_content)
+        report_headers = [key for key in rendered_dict[0].keys()]
+
+        # Single column returned containing all the three report records
+        assert report_headers.count('E_Locust-Key') == 1
+
     def test_no_event_type_display(self):
         # User with no-perms can't view event categories
         request = self.factory.get(

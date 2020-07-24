@@ -429,11 +429,12 @@ class EventsExportView(views.APIView):
                             if self.value_cols and key not in custom_headers:
                                 custom_headers.append(key)
 
-                            if self.display_cols and display_value not in custom_headers:
+                            if self.display_cols:
                                 column_name = schema_utils.get_column_header_name(
                                     current_schema, key)
                                 column_name = self.escape_string(column_name)
-                                custom_headers.append(column_name)
+                                if column_name not in custom_headers:
+                                    custom_headers.append(column_name)
 
                 except json.JSONDecodeError:
                     # Event type does not have schema, which is weird but not
@@ -442,7 +443,6 @@ class EventsExportView(views.APIView):
                     current_schema_order = {}
 
                 event_export_data.append(current_event_type_data)
-
             # First, get the event details (schema data) in the correct order
             # for the headers above
             if event['event_details__data']:
