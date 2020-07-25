@@ -258,10 +258,13 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
                     if isinstance(key, OrderedDict):
                         items = key.get('items')
                         tmap_values = schema_utils.get_values_items(items, 'titleMap') if items else None
+                        incr = 0
                         if tmap_values:
-                            for tmap in tmap_values[0]:
-                                if tmap.get('value') in inactive_choices:
-                                    schema['definition'][index]['items'][0]['inactive_titleMap'] = inactive_choices
+                            for tmap in tmap_values:
+                                for tm in tmap:
+                                    if tm.get('value') in inactive_choices:
+                                        schema['definition'][index]['items'][incr]['inactive_titleMap'] = inactive_choices
+                                incr += 1
                         elif key.get('titleMap'):
                             for _ in key.get('titleMap'):
                                 if _.get('value') in inactive_choices:
