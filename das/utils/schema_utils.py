@@ -627,7 +627,7 @@ def validate_rendered_schema_is_wellformed(rendered_schema: dict):
             f'Form definition keys {repr(extra_keys_in_definition)} are not present in the schema definition')
 
 
-def get_map(schema):
+def get_values_titlemap(schema):
     # Map VariableNode to TextNode.
     values = []
     template = Template(schema)
@@ -638,6 +638,10 @@ def get_map(schema):
             field_details = field_tag.split('___')
             values.append(field_details[1])
     return values
+
+
+def get_values_items(items, key):
+    return [i.get(key) for i in items if isinstance(i, OrderedDict) and i.get(key)]
 
 
 def map_schema(schema, load_schema):

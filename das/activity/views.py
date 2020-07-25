@@ -247,7 +247,7 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
                 schema['schema']['properties'][key]["inactive" +
                                                     "_" + value['lookup']] = inactive_choices
 
-        for value in schema_utils.get_map(eventtype.schema):
+        for value in schema_utils.get_values_titlemap(eventtype.schema):
             inactive_choices = []
             obj = Choice.objects.filter(is_active=False, field=value)
             for o in obj:
@@ -256,13 +256,12 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
                 index = 0
                 for key in schema['definition']:
                     if isinstance(key, OrderedDict):
-                        if key.get('items'):
-                            items_titlemap = [i.get('titleMap') for i in key.get('items')
-                                              if isinstance(i, OrderedDict) and i.get('titleMap')]
-                            if items_titlemap:
-                                for it in items_titlemap[0]:
-                                    if it.get('value') in inactive_choices:
-                                        schema['definition'][index]['items'][0]['inactive_titleMap'] = inactive_choices
+                        items = key.get('items')
+                        tmap_values = schema_utils.get_values_items(items, 'titleMap') if items else None
+                        if tmap_values:
+                            for tmap in tmap_values[0]:
+                                if tmap.get('value') in inactive_choices:
+                                    schema['definition'][index]['items'][0]['inactive_titleMap'] = inactive_choices
                         elif key.get('titleMap'):
                             for _ in key.get('titleMap'):
                                 if _.get('value') in inactive_choices:
