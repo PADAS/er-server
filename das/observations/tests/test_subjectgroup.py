@@ -91,7 +91,7 @@ class SubjectGroupTest(BaseAPITest):
                         (str(self.rosie.id) in subject_ids and
                          str(self.henry.id) in subject_ids))
 
-    def test_cyclic_subjectgroup_guard_recurssionError(self):
+    def test_cyclic_subjectgroup_and_guard_infinite_recursion(self):
 
         sgrp1 = SubjectGroup.objects.create(name='Subject Group 1')
         sgrp2 = SubjectGroup.objects.create(name='Subject Group 2')
