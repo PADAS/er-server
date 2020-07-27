@@ -106,7 +106,7 @@ class SubjectGroupTest(BaseAPITest):
         response = SubjectGroupsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
 
-        sgrp1_pk = sgrp1.id
+        sgrp1_pk = sgrp1.id  # forms a cyclic graph.
         request = self.factory.get(API_BASE + f'/subjectgroup/{sgrp1_pk}/')
         self.force_authenticate(request, self.user)
         response = SubjectGroupView.as_view()(request, id=str(sgrp1_pk))
