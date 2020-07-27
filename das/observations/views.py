@@ -197,6 +197,15 @@ class SubjectGroupView(generics.RetrieveAPIView):
         context['render_last_location'] = True
         return context
 
+    def get_queryset(self):
+        if not self.request.user.has_any_perms(VIEW_SUBJECTGROUP_PERMS):
+            raise UnauthorizedView
+
+        queryset = models.SubjectGroup.objects.filter(
+            _parents=None)
+        queryset = queryset.order_by('name')
+        return queryset
+
 
 class SourceGroupsView(generics.ListAPIView):
     """
