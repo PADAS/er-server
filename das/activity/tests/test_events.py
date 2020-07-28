@@ -2679,7 +2679,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventSchemaView.as_view()(request)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data.get('properties'), {})
+        self.assertEqual(response.data.get('properties')['reported_by']['enum'], [])
 
 
 class TestParsing(TestCase):

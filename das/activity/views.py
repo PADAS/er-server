@@ -67,7 +67,7 @@ class EventSchemaView(generics.ListCreateAPIView):
     serializer_class = EventSerializer
     pagination_class = StandardResultsSetPagination
     metadata_class = EventJSONSchema
-    # queryset = Event.objects.all()
+    queryset = Event.objects.all()
 
     def get(self, request, *args, **kwargs):
         meta = self.metadata_class()
@@ -76,20 +76,6 @@ class EventSchemaView(generics.ListCreateAPIView):
 
     def post(self, request, *args, **kwargs):
         raise rest_framework.exceptions.MethodNotAllowed('For Schema')
-
-    def check_ec_permission(self):
-        # Checks if the user has any event-category permission.
-        allowed_categories = []
-        event_categories = EventCategory.objects.values_list('value').distinct()
-        event_categories = [ec[0] for ec in event_categories]
-        actions = ('read', )
-
-        for event_category in event_categories:
-            permission_name = [f'activity.{event_category}_{action}' for action in actions]
-            if any([self.request.user.has_perm(perm) for perm in permission_name]):
-                allowed_categories.append(event_category)
-
-        return True if allowed_categories else False
 
 
 class EventTypesView(generics.ListAPIView):

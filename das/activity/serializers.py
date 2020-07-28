@@ -197,9 +197,8 @@ class EventJSONSchema(BaseMetadata):
                 # If user has appropriate permissions for the view, include
                 # appropriate metadata about the fields that should be
                 # supplied.
-                if view.check_ec_permission():
-                    serializer = view.get_serializer()
-                    return self.get_serializer_info(serializer)
+                serializer = view.get_serializer()
+                return self.get_serializer_info(serializer)
             finally:
                 view.request = request
 
@@ -326,7 +325,23 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
     def get_queryset(self):
         return activity.models.Community.objects.all()
 
+    def check_has_event_category_permission(self):
+        # Checks if the user has any event-category permission.
+        allowed_categories = []
+        event_categories = activity.models.EventCategory.objects.values_list('value').distinct()
+        event_categories = [ec[0] for ec in event_categories]
+        actions = ('create', 'update', 'read', 'delete')
+
+        for event_category in event_categories:
+            permission_name = [f'activity.{event_category}_{action}' for action in actions]
+            if any([self.request.user.has_perm(perm) for perm in permission_name]):
+                allowed_categories.append(event_category)
+        return True if allowed_categories else False
+
     def get_object_queryset(self):
+        if not self.check_has_event_category_permission():
+            return False
+
         for p in activity.models.Event.PROVENANCE_CHOICES:
             provenance = p[0]
             values = list(
