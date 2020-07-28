@@ -331,10 +331,11 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
         event_categories = activity.models.EventCategory.objects.values_list('value').distinct()
         event_categories = [ec[0] for ec in event_categories]
         actions = ('create', 'update', 'read', 'delete')
+        request = self.context.get('request')
 
         for event_category in event_categories:
             permission_name = [f'activity.{event_category}_{action}' for action in actions]
-            if any([self.request.user.has_perm(perm) for perm in permission_name]):
+            if any([request.user.has_perm(perm) for perm in permission_name]):
                 allowed_categories.append(event_category)
         return True if allowed_categories else False
 
