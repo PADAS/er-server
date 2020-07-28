@@ -197,8 +197,9 @@ class EventJSONSchema(BaseMetadata):
                 # If user has appropriate permissions for the view, include
                 # appropriate metadata about the fields that should be
                 # supplied.
-                serializer = view.get_serializer()
-                return self.get_serializer_info(serializer)
+                if view.check_ec_permission():
+                    serializer = view.get_serializer()
+                    return self.get_serializer_info(serializer)
             finally:
                 view.request = request
 
