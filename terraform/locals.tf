@@ -66,6 +66,7 @@ locals {
     "sabiegamereserve"       = "prod1"
     "sabisands"              = "prod1"
     "sawc"                   = "prod1"
+    "serengeti"              = "prod1"
     "snowleopardtrust"       = "prod-asia"
     "socp"                   = "prod-asia"
     "spaceforgiants"         = "prod1"
@@ -94,6 +95,7 @@ locals {
     "meru"             = 1
     "aberdares"        = 1
     "baminguibangoran" = 1
+    "serengeti"        = 1
     "mapesu"           = 1
   }
 
