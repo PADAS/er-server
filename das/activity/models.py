@@ -24,11 +24,12 @@ from django.utils import timezone
 from django.utils.encoding import force_text
 from django.utils.translation import ugettext_lazy as _
 from versatileimagefield.fields import VersatileImageField
+from django.contrib.postgres.fields import DateTimeRangeField
 
 from accounts.models.permissionset import PermissionSet
 from core.models import TimestampedModel
 from core.utils import static_image_finder
-from observations.models import Subject
+from observations.models import Subject, Source
 from revision.manager import Revision, RevisionMixin
 from utils.html import clean_user_text
 
@@ -1381,3 +1382,55 @@ class EventNotification(TimestampedModel):
 class TSVectorModel(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     event = models.OneToOneField(Event, on_delete=models.CASCADE)
+
+
+# Patrol Management.
+
+class Person(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    display = models.CharField(max_length=255)
+    type = models.CharField(max_length=255, blank=True, null=True)
+
+    def __str__(self):
+        return f'{self.display}'
+
+
+class Team(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    display = models.CharField(max_length=255, blank=True, null=True)
+    members = models.ForeignKey(Person,
+                                on_delete=models.CASCADE,
+                                related_name='team_members',
+                                related_query_name='team_member')
+    leader = models.OneToOneField(Person,
+                                  on_delete=models.SET_NULL, blank=True, null=True)
+
+
+class Target(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    display = models.CharField(max_length=255, blank=True, null=True)
+    location = models.PointField(srid=4326)
+
+
+class Patrol(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    title = models.CharField(max_length=255, blank=True, null=True)
+    objective = models.CharField(max_length=255)
+    time_range = DateTimeRangeField()
+
+
+class PatrolType(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    display = models.CharField(max_length=255, blank=True, null=True)
+
+
+class PatrolSegment(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    patrol = models.ForeignKey(Patrol, on_delete=models.SET_NULL, blank=True, null=True)
+    source = models.ForeignKey(Source, on_delete=models.CASCADE, blank=True, null=True)
+    members = models.ForeignKey(Person, on_delete=models.SET_NULL, blank=True, null=True)
+    targets = models.ForeignKey(Target, on_delete=models.PROTECT, blank=True, null=True)
+    patrol_type = models.ForeignKey(PatrolType, on_delete=models.SET_NULL, blank=True, null=True)
+    time_range = DateTimeRangeField(null=True, blank=True)
+    segment_leader = models.CharField(max_length=255, blank=True, null=True)
+    status = models.CharField(max_length=255, blank=True, null=True)
