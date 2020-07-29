@@ -70,7 +70,7 @@ spec:
           - configMapRef:
               name: server-configmap
       - name: telegraf
-        image: telegraf
+        image: gcr.io/padas-app/telegraf:1.14.3
         ports:
           - containerPort: 8125
         volumeMounts:
