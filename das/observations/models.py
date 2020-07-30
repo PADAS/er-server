@@ -46,7 +46,7 @@ from accounts.models import PermissionSet
 from core.models import HierarchyManager, HierarchyModel, TimestampedModel
 from core.utils import static_image_finder
 from observations.mixins import FilterMixin
-from observations.utils import calculate_track_range, get_minimum_allowed_age
+from observations.utils import calculate_track_range, get_minimum_allowed_age, get_cyclic_subjectgroup
 from bitfield import BitField
 
 
@@ -666,6 +666,16 @@ class SubjectGroupManager(HierarchyManager):
         groups = set(parent.get_descendants())
         groups.add(parent)
         return groups
+
+    def get_non_cyclic_subjectgroups(self):
+        queryset = self.filter(_parents=None)
+        cyclic_sg = get_cyclic_subjectgroup()
+
+        for o in queryset:
+            descendents = [q.id for q in o.get_descendants()]
+            if bool(set(descendents) & set(cyclic_sg)):
+                queryset = queryset.exclude(id=o.id)
+        return queryset
 
 
 class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin):

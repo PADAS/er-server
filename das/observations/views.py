@@ -41,7 +41,7 @@ from observations import models
 from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
 from observations.permissions import StandardObjectPermissions
 from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS, VIEW_SUBJECTGROUP_PERMS, \
-    check_to_include_inactive_subjects, VIEW_OBSERVATION_PERMS, get_cyclic_subjectgroup
+    check_to_include_inactive_subjects, VIEW_OBSERVATION_PERMS
 from observations.utils import get_minimum_allowed_age
 from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination, StandardResultsSetGeoJsonPagination
 from utils.json import zeroout_microseconds, parse_bool, ExtendedGEOJSONRenderer
@@ -167,15 +167,7 @@ class SubjectGroupsView(generics.ListAPIView):
         if not self.request.user.has_any_perms(VIEW_SUBJECTGROUP_PERMS):
             raise UnauthorizedView
 
-        cyclic_sg = get_cyclic_subjectgroup()
-        queryset = models.SubjectGroup.objects.filter(
-            _parents=None)
-
-        for o in queryset:
-            descendents = [q.id for q in o.get_descendants()]
-            if bool(set(descendents) & set(cyclic_sg)):
-                queryset = queryset.exclude(id=o.id)
-
+        queryset = models.SubjectGroup.objects.get_non_cyclic_subjectgroups()
         queryset = queryset.order_by('name')
         return queryset
 
@@ -208,15 +200,8 @@ class SubjectGroupView(generics.RetrieveAPIView):
         if not self.request.user.has_any_perms(VIEW_SUBJECTGROUP_PERMS):
             raise UnauthorizedView
 
-        cyclic_sg = get_cyclic_subjectgroup()
-        queryset = models.SubjectGroup.objects.filter(
-            _parents=None)
-
-        for o in queryset:
-            descendents = [q.id for q in o.get_descendants()]
-            if bool(set(descendents) & set(cyclic_sg)):
-                queryset = queryset.exclude(id=o.id)
-
+        queryset = models.SubjectGroup.objects.get_non_cyclic_subjectgroups()
+        queryset.order_by('name')
         return queryset
 
 
