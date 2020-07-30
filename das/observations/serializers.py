@@ -8,6 +8,7 @@ from dateutil.parser import parse as parse_date
 from django.contrib.gis.geos import Point
 from django.urls import reverse
 from django.conf import settings
+from django.db import transaction
 import rest_framework.serializers
 from drf_extra_fields.geo_fields import PointField
 from drf_extra_fields.fields import DateTimeRangeField
@@ -15,7 +16,7 @@ from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 
 from core.serializers import ContentTypeField
 from observations import models
-from observations.utils import get_maximum_allowed_age, get_minimum_allowed_age
+from observations.utils import get_maximum_allowed_age, get_minimum_allowed_age, dateparse, get_null_point
 import utils.json
 from utils.json import zeroout_microseconds
 from utils import add_base_url
@@ -61,8 +62,11 @@ class GroupSerializer(rest_framework.serializers.ModelSerializer):
         except Exception:
             pass
 
+        mou_date = user.additional.get('expiry', None)
+        mou_date = dateparse(mou_date) if mou_date else None
+
         queryset = getattr(instance, 'get_all_{0}'.format(contained_field))(
-            user=user, active=active, include_from_subgroups=False)
+            user=user, active=active, include_from_subgroups=False, mou_expiry_date=mou_date)
 
         # queryset = queryset.order_by('name')
         # queryset variable contains list of sources linked with source group.
@@ -145,7 +149,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
             mou_expiry_date = user.mou_expiry_date
 
             if mou_expiry_date is not None:
-                mou_expiry_age = datetime.now(tz=pytz.utc) - mou_expiry_date
+                mou_expiry_age = datetime.now(tz=pytz.utc) - mou_expiry_date.replace(tzinfo=pytz.utc)
 
                 minimum_allowed_age = max(
                     mou_expiry_age.days, minimum_allowed_age)
@@ -162,29 +166,26 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                 # Get last_position details from latest accessible source
                 # according to SourceGroup permissions.
                 linked_sources = self.context.get(
-                    'subject_linked_sources', {}).get(instance.name)
+                    'subject_linked_sources', {}).get(instance.id)
                 if linked_sources:
                     # Fetch latest & oldest Observations available to plot
                     # latest_position & tracks_range.
-                    latest_subject_source = models.SubjectSource.objects.filter(
-                        source__in=linked_sources,
-                        subject=instance).order_by('-assigned_range').first()
-                    oldest_subject_source = models.SubjectSource.objects.filter(
-                        source__in=linked_sources,
-                        subject=instance).order_by('assigned_range').first()
-                    if latest_subject_source and oldest_subject_source:
+                    latest_source, latest_range = linked_sources['latest_source'], linked_sources['latest_range']
+                    oldest_source, oldest_range = linked_sources['oldest_source'], linked_sources['oldest_range']
+
+                    if latest_range and oldest_range:
                         latest_observation = models.Observation.objects.filter(
-                            source__subjectsource=latest_subject_source,
+                            source=latest_source,
                             recorded_at__range=[
-                                latest_subject_source.safe_assigned_range.lower,
-                                latest_subject_source.safe_assigned_range.upper
+                                latest_range.lower,
+                                latest_range.upper
                             ]).order_by('-recorded_at').first()
 
                         oldest_observation = models.Observation.objects.filter(
-                            source__subjectsource=oldest_subject_source,
+                            source=oldest_source,
                             recorded_at__range=[
-                                oldest_subject_source.safe_assigned_range.lower,
-                                oldest_subject_source.safe_assigned_range.upper
+                                oldest_range.lower,
+                                oldest_range.upper
                             ]).order_by('recorded_at').first()
 
                         rep[
@@ -214,20 +215,30 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                     # If no linked_sources are available then fetch
                     # latest_position from SubjectStatus as usual.
 
-                    rep['tracks_available'] = statusvalues.recorded_at and statusvalues.recorded_at > default_window_cutoff
+                    request = self.context.get('request')
+                    if mou_expiry_date and (mou_expiry_date.replace(tzinfo=pytz.utc) <= datetime.now(tz=pytz.utc)) \
+                            and request.method == 'GET':
+                        observation = get_observation_location(instance, mou_expiry_date)
+                        location = observation.location if observation else get_null_point()
+                        recorded_at = observation.recorded_at if observation else None
+                    else:
+                        location = statusvalues.location if statusvalues.location else get_null_point()
+                        recorded_at = statusvalues.recorded_at
+
 
                     # TODO: These values might be more appropriate in the
                     # geeojson properties.
+                    rep['tracks_available'] = recorded_at and recorded_at > default_window_cutoff
                     rep['last_position_status'] = {
                         'last_voice_call_start_at': statusvalues.last_voice_call_start_at,
                         'radio_state_at': statusvalues.radio_state_at,
                         'radio_state': statusvalues.radio_state
                     }
 
-                    rep['last_position_date'] = statusvalues.recorded_at
+                    rep['last_position_date'] = recorded_at
                     rep['last_position'] = make_feature(
-                        self.context['request'], statusvalues.location, instance,
-                        time=statusvalues.recorded_at, image_url=rep['image_url']
+                        self.context['request'], location, instance,
+                        time=recorded_at, image_url=rep['image_url']
                     )
 
         if 'request' in self.context:
@@ -300,6 +311,11 @@ def resolve_status_values(subject):
         raise ValueError(
             f'SubjectStatus does not exist for subject ID: {subject.id}')
 
+
+def get_observation_location(subject, mou_date):
+    observation = models.Observation.objects.filter(source__subjectsource__subject=subject,
+                                                    recorded_at__lte=mou_date).order_by('-recorded_at').first()
+    return observation
 
 class SourceProviderRelatedField(rest_framework.serializers.RelatedField):
     def get_queryset(self):
@@ -507,6 +523,9 @@ class ObservationSerializer(rest_framework.serializers.ModelSerializer):
 
     def to_representation(self, instance):
         rep = super(ObservationSerializer, self).to_representation(instance)
+        if self.context.get('include_details'):
+            rep['observation_details'] = rep['additional']
+        rep.pop('additional')
         return rep
 
 
@@ -586,3 +605,17 @@ def make_feature(request, coordinates, subject, coordinate_times=None, time=None
         properties['coordinateProperties'] = {'times': coordinate_times or []}
 
     return feature
+
+
+class GPXTrackFileUploadSerializer(rest_framework.serializers.Serializer):
+    gpx_file = rest_framework.serializers.FileField()
+
+    class Meta:
+        fields = ('gpx_file',)
+
+    def validate(self, data):
+        file = data.get('gpx_file')
+        file_name = file.name
+        if not file_name.lower().endswith('.gpx'):
+            raise rest_framework.serializers.ValidationError({'data': 'Only .gpx files can be imported.'})
+        return data

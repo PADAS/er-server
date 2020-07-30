@@ -18,7 +18,7 @@ from analyzers.tests.gfw_test_data import VIIRS_FIRE_ALERT, GLAD_ALERT, GLAD_ALE
     VIIRS_FIRE_ALERT_DOWNLOADED_DATA, VIIRS_CALLBACK_DATA
 from core.tests import BaseAPITest
 from das_server.celery import app
-from sensors.views import SensorObservation
+from sensors.views import GFWAlertHandlerView
 
 
 def send_task(name, args=(), kwargs={}, **opts):
@@ -201,8 +201,7 @@ class GFWAlertHandlerTest(BaseAPITest):
         request = self.factory.post(
             self.api_path, data=payload, content_type='application/json')
         self.force_authenticate(request, self.app_user)
-        response = SensorObservation.as_view()(
-            request, sensor_type=self.sensor_type, provider_key=self.provider)
+        response = GFWAlertHandlerView.as_view()(request, self.provider)
         return response
 
     @patch('requests.get')

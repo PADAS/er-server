@@ -33,7 +33,23 @@ spec:
         name: das-worker-analyzer
         resources:
           requests:
-            cpu: "100m"
+            cpu: "50m"
+            memory: "300Mi"
+#          limits:
+#            cpu: "500m"
+#            memory: "4000Mi"
+        livenessProbe:
+          exec:
+            command:
+              - "/bin/sh"
+              - "-c"
+              - "celery inspect ping -A das_server -d celery@analyzers"
+          initialDelaySeconds: 20
+          timeoutSeconds: 20
+          periodSeconds: 180
+          failureThreshold: 3
+          successThreshold: 1
+
         volumeMounts:
         - name: google-credentials
           mountPath: "/etc/earthranger/"
@@ -63,6 +79,21 @@ spec:
             secretKeyRef:
               name: email-username
               key: value
+        - name: TWILIO_ACCOUNT_SID
+          valueFrom:
+            secretKeyRef:
+              name: twilio-account-settings
+              key: account_sid
+        - name: TWILIO_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: twilio-account-settings
+              key: auth_token
+        - name: WHATSAPP_FROM_NUMBER
+          valueFrom:
+            secretKeyRef:
+              name: twilio-account-settings
+              key: whatsapp_from_number
         envFrom:
           - configMapRef:
               name: server-configmap
@@ -77,5 +108,3 @@ spec:
         env:
         - name: SERVICE_NAME
           value: "analyzer_worker"
-        - name: TELEGRAF_RESOURCE_TYPE
-          value: "generic_task"

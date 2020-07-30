@@ -1143,7 +1143,7 @@ class BusinessRulesTestCase(BaseAPITest):
                                                                 method="email",
                                                                 value=NOTIFICATION_METHOD_EMAIL_ADDRESS)
         notification_method.save()
-        self.assertEquals(1, NotificationMethod.objects.count())
+        self.assertEqual(1, NotificationMethod.objects.count())
 
         subj = Subject.objects.create(
             name="test_subject",
@@ -1228,7 +1228,7 @@ class BusinessRulesTestCase(BaseAPITest):
                                                                 owner=self.admin_user,
                                                                 method="email",
                                                                 value=NOTIFICATION_METHOD_EMAIL_ADDRESS)
-        self.assertEquals(1, NotificationMethod.objects.count())
+        self.assertEqual(1, NotificationMethod.objects.count())
 
         subj2 = Subject.objects.create(
             name="test_subject",
@@ -1421,7 +1421,7 @@ class BusinessRulesTestCase(BaseAPITest):
                                                                 owner=self.admin_user,
                                                                 method="email",
                                                                 value="phillip@email.com")
-        self.assertEquals(1, NotificationMethod.objects.count())
+        self.assertEqual(1, NotificationMethod.objects.count())
 
         subj2 = Subject.objects.create(
             name="test_subject",

@@ -1,13 +1,20 @@
+import os
 import logging
 import json
+import xmltodict
 from datetime import datetime, timedelta
 import pytz
 
 from celery_once import QueueOnce
 from das_server import celery, pubsub
 from observations import servicesutils
-from observations.models import Subject, SubjectStatus, Observation, SourceProvider, Source
+from observations.models import Subject, SubjectStatus, Observation, SourceProvider, Source, GPXTrackFile
+from observations.serializers import ObservationSerializer
 from django.db.models import F
+from django.core.exceptions import ValidationError
+from observations.utils import dateparse
+from django.core.files.storage import default_storage
+
 
 
 logger = logging.getLogger(__name__)
@@ -56,3 +63,153 @@ def maintain_observation_data():
 
         if observation_queryset.exists():
             observation_queryset.delete()
+
+
+def parse_xml_to_dict(xml):
+    try:
+        xml_todict = xmltodict.parse(xml)
+    except Exception as exc:
+        message = f"Error occurred: {repr(exc)} when parsing gpx file."
+        logger.exception(message)
+        return message
+    else:
+        to_json = json.dumps(xml_todict)
+        return json.loads(to_json)
+
+
+def get_track_points(gpx):
+    try:
+        trkpoint = gpx['gpx']['trk']['trkseg']['trkpt']
+    except Exception as exc:
+        message = f"Error occurred: {repr(exc)} when getting trackpoints from gpx file"
+        logger.exception(message)
+        return message
+    else:
+        return trkpoint
+
+
+def get_array_recorded_time(src, array_recorded_at):
+    """Returns an array of trackpoints datetime that does not exist in observation table"""
+    arr_obs = Observation.objects.filter(source=src,
+                                         recorded_at__in=array_recorded_at).values_list('recorded_at', flat=True)
+    arr_recorded_at = set(array_recorded_at).difference(set(arr_obs))
+    return arr_recorded_at
+
+
+def validate_observation(location, recorded_at, source_id, additional, obs_persist, obs_errors):
+    observation = {
+        'location': location,
+        'recorded_at': recorded_at,
+        'source': str(source_id),
+        'additional': additional,
+    }
+    validator = ObservationSerializer(data=observation)
+    if validator.is_valid():
+        obs_persist.append(observation)
+        logger.debug(f"Added new observation record {observation}")
+    else:
+        obs_errors.append(validator.errors)
+        logger.error(f"Observation validation failed {validator.errors}")
+
+
+def process_observation(observation_records, observation_errors):
+    if observation_records:
+        bulk_serializer = ObservationSerializer(data=observation_records, many=True)
+        if bulk_serializer.is_valid():
+            bulk_serializer.save()
+            message = f"Successfully created {len(observation_records)} observations"
+            logger.info(message)
+            return True, message
+        else:
+            message = f"Failed to process bulk observation: {bulk_serializer.errors}"
+            logger.error(message)
+            return False, message
+    elif observation_errors:
+        message = f"Failed to process observation: {observation_errors}"
+        logger.error(message)
+        return False, message
+    else:
+        message = 'Observations records already exists'
+        return True, message
+
+
+def process_trackpoints(source, source_id, trkpoints):
+    list_gpx_datetime = [dateparse(trkp.get('time')) for trkp in trkpoints]
+    array_datetime = get_array_recorded_time(source, list_gpx_datetime)
+
+    obs_records = []
+    obs_errors = []
+    for trkpt in trkpoints:
+        recorded_at = dateparse(trkpt.get('time'))
+        if recorded_at in array_datetime:
+            lat = trkpt.get('@lat')
+            lon = trkpt.get('@lon')
+            location = {'latitude': float(lat), 'longitude': float(lon)}
+            additional = get_additional(trkpt)
+            validate_observation(location, recorded_at, source_id, additional, obs_records, obs_errors)
+            array_datetime.remove(recorded_at)
+        else:
+            logger.info(f"Ignored observation record of recorded_at: {recorded_at} and source: {source}")
+
+    return obs_records, obs_errors
+
+
+def get_additional(trkpoint):
+    keys = ['@lat', '@lon', 'time']
+    [trkpoint.pop(i) for i in keys]
+    return trkpoint
+
+
+def success_process_gpxtrack(gpx_id):
+    return GPXTrackFile.objects.filter(id=gpx_id).update(processed_status='success')
+
+
+def failed_process_gpxtrack(gpx_id):
+    return GPXTrackFile.objects.filter(id=gpx_id).update(processed_status='failure')
+
+
+@celery.app.task
+def process_gpxtrack_file(gpx_id):
+    gpx_file = GPXTrackFile.objects.get_file(gpx_id)
+    data = gpx_file.read()
+    response = parse_xml_to_dict(data)
+    if isinstance(response, str):
+        failed_process_gpxtrack(gpx_id)
+        return
+    trkpoints = get_track_points(response)
+    if isinstance(trkpoints, str):
+        failed_process_gpxtrack(gpx_id)
+        return
+
+    source_id = GPXTrackFile.objects.get_source_id(gpx_id)
+    source = Source.objects.get(id=source_id)
+    obs_records, obs_errors = process_trackpoints(source, source_id, trkpoints)
+
+    status, _ = process_observation(observation_records=obs_records, observation_errors=obs_errors)
+    if status:
+        success_process_gpxtrack(gpx_id)
+    else:
+        failed_process_gpxtrack(gpx_id)
+
+
+@celery.app.task(bind=True, track_started=True, ignore_result=False)
+def process_gpxdata_api(self, filename, source_id):
+    with default_storage.open(filename, 'r') as file:
+        data = file.read()
+
+        response = parse_xml_to_dict(data)
+        if isinstance(response, str):
+            raise ValidationError(response)
+
+        trkpoints = get_track_points(response)
+        if isinstance(trkpoints, str):
+            raise ValidationError(trkpoints)
+
+    source = Source.objects.get(id=source_id)
+    obs_records, obs_errors = process_trackpoints(source, source_id, trkpoints)
+
+    status, message = process_observation(observation_records=obs_records, observation_errors=obs_errors)
+    if status:
+        return message
+    else:
+        raise ValidationError(message)

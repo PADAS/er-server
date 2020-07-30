@@ -48,7 +48,7 @@ output "app_user_name" {
 }
 
 output "app_user_pass" {
-  value     = google_sql_user.app_user.password
+  value = google_sql_user.app_user.password
   #sensitive = true
 }
 
@@ -59,5 +59,9 @@ output "analytics_user_name" {
 output "analytics_user_pass" {
   value     = google_sql_user.analytics_user.password
   sensitive = true
+}
+
+output "db_instance_private_ip" {
+  value     = "${local.db_instance_private_ip}"
 }
 

@@ -37,6 +37,8 @@ VIEW_SUBJECT_PERMS = ('observations.view_subject',) + \
 
 VIEW_SUBJECTGROUP_PERMS = ('observations.view_subjectgroup', )
 
+VIEW_OBSERVATION_PERMS = ('observations.view_observation')
+
 
 def get_maximum_allowed_age(user):
     maximum_allowed_age = None
@@ -121,7 +123,14 @@ def calculate_track_range(user, since, until, limit):
         # if oldest_age < newest_age:
         #     raise PermissionDenied()
 
-    begin = now - timedelta(days=oldest_age)
+    if since:
+        age_secs = (now - since).seconds
+        if oldest_age == 0 and since.date() == now.date():
+            begin = now - timedelta(seconds=age_secs)
+        else:
+            begin = now - timedelta(days=oldest_age, seconds=age_secs)
+    else:
+        begin = now - timedelta(days=oldest_age)
 
     if newest_age > 0:
         until = now - timedelta(days=newest_age)
@@ -204,3 +213,20 @@ def convert_date_string(date_str):
     # Convert datetime's timezone with UTC
     utc_date = localize_date.astimezone(timezone('UTC'))
     return utc_date.isoformat()
+
+
+def dateparse(date_str, default_tz=pytz.utc):
+    dt = dateutil.parser.parse(date_str)
+    if not dt.tzinfo:
+        dt = dt.replace(tzinfo=default_tz)
+    return dt
+
+
+def get_null_point():
+    from django.contrib.gis.geos import Point
+    point = Point(0, 0)
+    return point
+
+
+def get_chunk_file(file, chunksize=5120):
+    return iter(lambda: file.read(chunksize), b'')

@@ -1,10 +1,13 @@
 locals {
-   domain_parts = regex("(?P<subdomain>[^.]+).(?P<primary_domain>.*)", var.fqdn)
-   standard_from_email = join("", ["notifications.", local.domain_parts["subdomain"],
-                                   "@", local.domain_parts["primary_domain"]])
+  domain_parts = regex("(?P<subdomain>[^.]+).(?P<primary_domain>.*)", var.fqdn)
+  standard_from_email = join("", ["notifications.", local.domain_parts["subdomain"],
+  "@", local.domain_parts["primary_domain"]])
 
-   from_email = coalesce(var.from_email, local.standard_from_email)
-   resolved_eus_organization = coalesce(var.eus_org, var.fqdn)
+  from_email                = coalesce(var.from_email, local.standard_from_email)
+  resolved_eus_organization = coalesce(var.eus_org, var.fqdn)
+
+  db_instance_private_ip    = data.terraform_remote_state.site_terraform.outputs.db_instance_private_ip
+
 }
 
 resource "template_dir" "deployments" {
@@ -23,7 +26,7 @@ resource "template_dir" "deployments" {
     AWS_SECRET_ACCESS_KEY           = data.vault_generic_secret.aws_metrics_credentials.data.aws_secret_access_key
     CONFIG_CONTAINER                = var.config_container
     DAILY_REPORT_ENABLED            = var.daily_report_enabled
-    DB_HOST                         = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_private_ip
+    DB_HOST                         = local.db_instance_private_ip
     DB_NAME                         = var.db_name
     DB_PORT                         = var.db_port
     DB_USER                         = var.db_user
@@ -54,5 +57,6 @@ resource "template_dir" "deployments" {
     USE_AZURE_STORAGE               = var.use_azure_storage
     WEB_SERVICE_NAME                = var.web_service_name
     WEB_VERSION                     = var.WEB_VERSION
+    SENDSMS_TWILIO_FROM_NUMBER      = "+14254904368"
   }
 }

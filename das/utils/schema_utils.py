@@ -3,6 +3,7 @@ import json
 import jsonschema
 import logging
 import re
+import uuid
 
 from collections import OrderedDict
 from django.apps import apps
@@ -222,7 +223,7 @@ def extract_from_list(items: list = list):
             names.append(str(item))
             ids.append(item)
         elif isinstance(item, dict) and 'name' in item and 'value' in item:
-            logger.info(f'extracting name/value from {item}')
+            logger.debug(f'extracting name/value from {item}')
             names.append(item['name'])
             ids.append(item['value'])
         else:
@@ -245,30 +246,46 @@ def extract_from_dict_or_string(schema_item, value):
     return value, display
 
 
-def extractor(schema_item, definition, value):
+def is_uuid(record):
+    try:
+        uuid.UUID(str(record))
+        return True
+    except ValueError:
+        return False
+
+
+def extract_from_definition(schema_item, definition, key, eventdetail_value, extracted_value, display):
+    for definition_item in flatten_definition_items(definition):
+        if isinstance(definition_item, dict) \
+                and (schema_item.get('key') == definition_item.get('key') or key == definition_item.get('key')):
+            if definition_item.get("type") == "checkboxes":
+                extracted_value, display = handle_checkboxes_in_fieldsets(definition_item, eventdetail_value)
+            return definition_item.get('title'), extracted_value, display
+    title = schema_item.get('title') or key
+    return title, extracted_value, display
+
+
+def extractor(schema_item, definition, key, eventdetail_value):
 
     # Determine how the value should appear.
-    if isinstance(value, list):
-        val, display = extract_from_list(value)
+    if isinstance(eventdetail_value, list):
+        extracted_value, display = extract_from_list(eventdetail_value)
     else:
-        val, display = extract_from_dict_or_string(schema_item, value)
+        extracted_value, display = extract_from_dict_or_string(schema_item, eventdetail_value)
 
     # The simplest case is when the json schema specifies the title.
     if 'title' in schema_item:
-        return schema_item['title'], val, display
+        if extracted_value == display and all(is_uuid(data) for data in str(display).split(';')):
+            return extract_from_definition(
+                schema_item, definition, key, eventdetail_value, extracted_value, display)
+        return schema_item['title'], extracted_value, display
 
     if 'key' not in schema_item:
         logger.warning(f'key not found in schema_item {schema_item}')
-        return
+        return key, extracted_value, display
 
-    for definition_item in flatten_definition_items(definition):
-        if isinstance(definition_item, dict) and definition_item.get('key') == schema_item['key']:
-            if definition_item.get("type") == "checkboxes":
-                val, display = handle_checkboxes_in_fieldsets(definition_item, value)
-                return definition_item.get('title'), val, display
-            return definition_item.get('title'), val, display
-    else:
-        logger.info('Unable to resolve title for schema_item %s', repr(schema_item))
+    return extract_from_definition(
+        schema_item, definition, key, eventdetail_value, extracted_value, display)
 
 
 def handle_checkboxes_in_fieldsets(definition_item, values):
@@ -334,10 +351,16 @@ def flatten_definition_items(definition: list = list):
 def definition_key_order_as_dict(schema):
     return OrderedDict(definition_keys(schema.get('definition', [])))
 
+
+def property_keys_order_as_dict(schema):
+    property_keys = schema.get("schema").get("properties", []).keys()
+    return OrderedDict(definition_keys(property_keys))
+
+
 def detail_resolver(schema, key, value):
     if key in schema['schema']['properties']:
         schema_item = schema['schema']['properties'][key]
-        return extractor(schema_item, schema.get('definition', []), value)
+        return extractor(schema_item, schema.get('definition', []), key, value)
 
 
 def generate_details(event, schema):
@@ -500,8 +523,11 @@ def get_display_value_header_for_key(schema, key):
         properties_title = properties[key]['title']
     if properties_title and definition_header != properties_title:
         return properties_title
-    else:
+    elif definition_header:
         return definition_header
+    else:
+         # return property key for fields with no key or title
+        return key
 
 
 def generate_schema_from_document(doc):

@@ -28,9 +28,9 @@ resource "random_string" "bastion_name_uniqueness" {
 resource "google_compute_instance" "bastion_server" {
 
   timeouts {
-    create = "15m" 
-    update = "15m" 
-    delete = "15m" 
+    create = "15m"
+    update = "15m"
+    delete = "15m"
   }
 
   # Toggle this variable to ensure bastion server spins down after bootstrapping

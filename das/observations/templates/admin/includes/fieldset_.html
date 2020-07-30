@@ -1,0 +1,31 @@
+<fieldset class="module aligned {{ fieldset.classes }}">
+    {% if fieldset.name %}<h2>{{ fieldset.name }}</h2>{% endif %}
+    {% if fieldset.description %}
+        <div class="description">{{ fieldset.description|safe }}</div>
+    {% endif %}
+    {% for line in fieldset %}
+        <div class="form-row{% if line.fields|length_is:'1' and line.errors %} errors{% endif %}{% if not line.has_visible_field %} hidden{% endif %}{% for field in line %}{% if field.field.name %} field-{{ field.field.name }}{% endif %}{% endfor %}">
+            {% if line.fields|length_is:'1' %}{{ line.errors }}{% endif %}
+            {% for field in line %}
+                <div>
+                    {{ field.label_tag }} {{ field.field }}
+                    {% if field.field.help_text %}
+                        <div class="help" style="margin-left: 0;">{{ field.field.help_text|safe }}</div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% endfor %}
+</fieldset>
+
+<style>
+    div.form-row.field-import_gpx_data {
+        padding-bottom: 5px;
+    }
+    .field-import_gpx_data label {
+        display: None;
+    }
+    .gpx-cls {
+        margin-bottom: 10px;
+    }
+</style>

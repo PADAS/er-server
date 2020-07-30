@@ -33,10 +33,9 @@ import pytz
 import logging
 from dateutil.parser import parse as parse_date
 
-from django.db.models.functions import Greatest
+from django.db.models.functions import Greatest, Least
 from django.contrib.gis.db import models as dbmodels
 
-from django.contrib.gis.geos import Point
 from tracking.pubsub_registry import notify_new_tracks, notify_subjectstatus_update
 from django.utils.functional import cached_property
 
@@ -52,6 +51,7 @@ from bitfield import BitField
 
 
 logger = logging.getLogger(__name__)
+GPX_FILES_FOLDER = getattr(settings, 'GPX_FILES_FOLDER', 'observations/gpxfile')
 
 
 SOURCE_TYPES = sorted((
@@ -105,7 +105,7 @@ class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin)
                                      blank=True)
     objects = SourceGroupManager()
 
-    def get_all_sources(self, user=None, active=None, include_from_subgroups=True):
+    def get_all_sources(self, user=None, active=None, include_from_subgroups=True, **kwargs):
         """Including descendant group sources"""
         sources = set(iter(self.sources.all()))
 
@@ -251,25 +251,72 @@ class Source(TimestampedModel):
 EMPTY_POINT = Point(0, 0)
 
 
+class ObservationQuerySet(models.QuerySet, FilterMixin):
+
+    def by_subject_id(self, subject_id):
+        return self.filter(source__subjectsource__subject_id=subject_id)
+
+    def by_source_id(self, source_id):
+        return self.filter(source__id=source_id)
+
+    def by_since(self, recorded_since):
+        return self.filter(Q(recorded_at__gte=recorded_since))
+
+    def by_until(self, recorded_until):
+        return self.filter(Q(recorded_at__lte=recorded_until))
+
+    def by_since_until(self, recorded_since, recorded_until):
+        if recorded_since and recorded_until:
+            return self.filter(Q(recorded_at__range=[recorded_since, recorded_until]))
+        elif recorded_since:
+            return self.by_since(recorded_since)
+        elif recorded_until:
+            return self.by_until(recorded_until)
+        return self
+
+    def by_exclusion_flags(self, filter_flag=None):
+        """Works with more than one filter flag, for example 3 which is manual and automatic exclusion"""
+        if filter_flag is not None:
+            if filter_flag > 0:
+                return self.annotate(exclusion_filter=F('exclusion_flags').bitand(filter_flag)).filter(exclusion_filter__gt=0)
+            else:
+                return self.filter(exclusion_flags=filter_flag)
+        return self
+
 class ObservationManager(models.Manager):
+    def get_source_observations(
+            self, source, since=None, until=None, limit=None, values=None,
+            filter_flag=0):
+        queryset = Observation.objects.filter(
+            source=source)
+        queryset = queryset.by_exclusion_flags(filter_flag)
+
+        queryset = queryset.by_since_until(since, until)
+
+        queryset = queryset.exclude(location=EMPTY_POINT)
+
+        if limit and limit > 0:
+            queryset = queryset[:limit]
+
+        if values:
+            queryset = queryset.values(*values)
+
+        return queryset
+
     def get_subject_observations(
             self, subject, since=None, until=None, limit=None, values=None,
             filter_flag=0):
         queryset = Observation.objects.filter(
             source__subjectsource__subject=subject,
-            source__subjectsource__assigned_range__contains=F('recorded_at'),
-            exclusion_flags=filter_flag)
+            source__subjectsource__assigned_range__contains=F('recorded_at'))
 
-        if since and until:
-            queryset = queryset.filter(Q(recorded_at__range=(since, until)))
-        elif since:
-            queryset = queryset.filter(Q(recorded_at__gt=since))
-        elif until:
-            queryset = queryset.filter(Q(recorded_at__lte=until))
+        queryset = queryset.by_exclusion_flags(filter_flag)
+
+        queryset = queryset.by_since_until(since, until)
 
         queryset = queryset.exclude(location=EMPTY_POINT)
 
-        if limit:
+        if limit and limit > 0:
             queryset = queryset[:limit]
 
         if values:
@@ -382,7 +429,7 @@ class Observation(models.Model):
     additional = JSONField(null=True, blank=True)
 
     exclusion_flags = BitField(flags=BITMAP_FILTER_CHOICES, default=0)
-    objects = ObservationManager()
+    objects = ObservationManager.from_queryset(ObservationQuerySet)()
 
     def __str__(self):
         return '{}:{}:{:08b}'.format(self.recorded_at.isoformat(), self.location, self.exclusion_flags.mask)
@@ -642,12 +689,12 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
     )
     objects = SubjectGroupManager()
 
-    def get_all_subjects(self, user=None, active=None, include_from_subgroups=True):
+    def get_all_subjects(self, user=None, active=None, include_from_subgroups=True, mou_expiry_date=None):
 
         min_age_days = get_minimum_allowed_age(user) or 0 if user else 0
 
         queryset = Subject.objects.all() \
-            .annotate_with_subjectstatus(delay_hours=min_age_days * 24)\
+            .annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_expiry_date)\
             .select_related('subject_subtype__subject_type')
         if active is not None:
             queryset = queryset.by_is_active(active=active).order_by('name')
@@ -704,9 +751,14 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
 
         return self.filter(groups__in=effective_subject_group_set).distinct('id')
 
-    def annotate_with_subjectstatus(self, delay_hours=0):
-
-        return self.annotate(s1=FilteredRelation('subjectstatus', condition=Q(subjectstatus__delay_hours=delay_hours))) \
+    def annotate_with_subjectstatus(self, delay_hours=0, mou_expiry_date=None):
+        if not mou_expiry_date:
+            annotate_subject_status = self.annotate(
+                s1=FilteredRelation('subjectstatus', condition=Q(subjectstatus__delay_hours=delay_hours)))
+        else:
+            annotate_subject_status = self.annotate(s1=FilteredRelation('subjectstatus', condition=Q(
+                subjectstatus__delay_hours=delay_hours, subjectstatus__recorded_at__lte=mou_expiry_date)))
+        return annotate_subject_status \
             .annotate(status_recorded_at=F('s1__recorded_at')) \
             .annotate(status_last_voice_call_start_at=F('s1__last_voice_call_start_at')) \
             .annotate(status_radio_state=F('s1__radio_state')) \
@@ -890,6 +942,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
     subject_subtype = models.ForeignKey(
         SubjectSubType, default=get_default_subject_subtype, on_delete=models.PROTECT)
+    import_gpx_data = models.ForeignKey('GPXTrackFile', on_delete=models.SET_NULL, null=True, blank=True)
 
     @property
     def subject_type(self):
@@ -1124,15 +1177,8 @@ class SubjectStatusManager(models.Manager):
     # Delayed windows include all but 'current'.
     delayed_windows = list((item for item in VIEW_END_WINDOWS if item[1] > 0))
 
-    # def get_latest(self, subject_id):
-    #     try:
-    #         obj = self.get(id=subject_id, delay_hours=0)
-    #         return obj
-    #     except SubjectStatus.DoesNotExist:
-    #         logger.warning(
-    #             'Cannot find SubjectStatus with subject_id: %s', subject_id)
-    #
-    def update_current_from_source(self, source):
+    @staticmethod
+    def update_current_from_source(source):
 
         observation = Observation.objects.get_last_source_observation(source)
 
@@ -1140,6 +1186,18 @@ class SubjectStatusManager(models.Manager):
             return
 
         update_subject_status_from_observation(observation)
+
+    @staticmethod
+    def update_current_from_deleted_observation(deleted_observation):
+        '''
+        Only update SubjectStatus if the *deleted* observation was apparently the latest for the source.
+
+        :param deleted_observation: Observation instance that was deleted.
+        '''
+        latest_observation = Observation.objects.get_last_source_observation(deleted_observation.source)
+
+        if latest_observation and latest_observation.recorded_at < deleted_observation.recorded_at:
+            update_subject_status_from_observation(latest_observation, force=True)
 
     def update_current(self, subject):
         for subjectsource in SubjectSource.objects.filter(subject=subject, assigned_range__contains=datetime.now(tz=pytz.utc)):
@@ -1208,16 +1266,21 @@ class SubjectStatusManager(models.Manager):
 
 
 def build_updates(recorded_at, location, radio_state=None, radio_state_at=None,
-                  last_voice_call_start_at=None, location_requested_at=None,):
+                  last_voice_call_start_at=None, location_requested_at=None, force=False):
     '''
     Build conditional updates for SubjectStatus Record..
     '''
+
+    # Ignore radio_state values if we're forcing this update.
+    if force:
+        radio_state = last_voice_call_start_at = location_requested_at = radio_state_at = None
+
     conditional_updates = {
-        'recorded_at': Greatest(F('recorded_at'), Value(recorded_at)),
-        'location': Case(
-            When(recorded_at__lte=Value(recorded_at), then=Value(str(location))),
-            default=F('location')
-        ),
+        'recorded_at': Value(recorded_at) if force else Greatest(F('recorded_at'), Value(recorded_at)),
+        'location': location if force else Case(
+                When(recorded_at__lte=Value(recorded_at), then=Value(str(location))),
+                default=F('location')
+            ),
     }
 
     if radio_state_at and radio_state:
@@ -1231,11 +1294,13 @@ def build_updates(recorded_at, location, radio_state=None, radio_state_at=None,
 
     if last_voice_call_start_at:
         conditional_updates['last_voice_call_start_at'] = Greatest(F('last_voice_call_start_at'),
-                                                                   Value(last_voice_call_start_at))
+                                                                   Value(last_voice_call_start_at),
+                                                                   output_field=dbmodels.DateTimeField())
 
     if location_requested_at:
         conditional_updates['location_requested_at'] = Greatest(F('location_requested_at'),
-                                                                Value(location_requested_at))
+                                                                Value(location_requested_at),
+                                                                output_field=dbmodels.DateTimeField())
 
     return conditional_updates
 
@@ -1246,14 +1311,16 @@ def update_subject_status(source, recorded_at, location,
                           radio_state=None,
                           radio_state_at=None,
                           reported_subject_name=None,
-                          delay_hours=0):
+                          delay_hours=0,
+                          force=False):
 
     status_updates = build_updates(recorded_at=recorded_at,
                                    location=location,
                                    radio_state=radio_state,
                                    radio_state_at=radio_state_at,
                                    last_voice_call_start_at=last_voice_call_start_at,
-                                   location_requested_at=location_requested_at)
+                                   location_requested_at=location_requested_at,
+                                   force=force)
 
     if reported_subject_name:
         status_updates['additional'] = {'subject_name': reported_subject_name}
@@ -1269,7 +1336,7 @@ def update_subject_status(source, recorded_at, location,
             .exclude(name=reported_subject_name).update(name=reported_subject_name)
 
 
-def update_subject_status_from_observation(observation, delay_hours=0):
+def update_subject_status_from_observation(observation, delay_hours=0, force=False):
 
     additional = observation.additional
 
@@ -1306,7 +1373,15 @@ def update_subject_status_from_observation(observation, delay_hours=0):
                           radio_state=radio_state,
                           radio_state_at=radio_state_at,
                           reported_subject_name=reported_subject_name,
-                          delay_hours=delay_hours)
+                          delay_hours=delay_hours,
+                          force=force)
+
+    # Ordinarily this will not be required, because an Observation signal will
+    # trigger a notify. In the case of force, it is likely we're handling
+    # an Observation.delete.
+    if force:
+        logger.debug('Notifying for subject status update source: %s, recorded_at: %s', source, recorded_at)
+        transaction.on_commit(lambda: notify_all_subjectstatus_updates(source, recorded_at))
 
 
 def update_subject_status_from_post(source, recorded_at, location, additional):
@@ -1343,6 +1418,10 @@ def update_subject_status_from_post(source, recorded_at, location, additional):
                           radio_state_at=radio_state_at,
                           reported_subject_name=reported_subject_name)
 
+    transaction.on_commit(lambda: notify_all_subjectstatus_updates(source, recorded_at))
+
+
+def notify_all_subjectstatus_updates(source, recorded_at):
     logger.debug(
         'Looking for subjects for notify_subjectstatus_update. source_id=%s', source.id)
 
@@ -1472,3 +1551,62 @@ from analyzers.models import ObservationAnnotator
 class SubjectMaximumSpeed(ObservationAnnotator):
     class Meta:
         proxy = True
+
+
+class GPXLogRecord(models.Model):
+    success = 'success'
+    pending = 'pending'
+    failure = 'failure'
+
+    PROCESSED_STATUS_CHOICES = [
+        (success, 'Success'),
+        (pending, 'Pending'),
+        (failure, 'Failure'),
+    ]
+
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL,
+                                   on_delete=models.SET_NULL,
+                                   null=True, blank=True, related_name='gpx_track_files',
+                                   related_query_name='gpx_track_file')
+    file_name = models.CharField(max_length=225, null=True, blank=True)
+    file_size = models.IntegerField(null=True, blank=True)
+    processed_date = models.DateTimeField(auto_now_add=True)
+    processed_status = models.CharField(choices=PROCESSED_STATUS_CHOICES, max_length=255, null=False, blank=False)
+
+    class Meta:
+        abstract = True
+
+
+class GPXManager(models.Manager):
+    def get_by_natural_key(self, value):
+        return self.get(value=value)
+
+    def get_file(self, gpx_id):
+        gpx = self.get(id=gpx_id)
+        return gpx.data
+
+    def get_source_id(self, gpx_id):
+        src_id = self.filter(id=gpx_id).annotate(source_id=F('source_assignment__source__id')).values('source_id')
+        return src_id[0].get('source_id')
+
+
+def upload_to(instance, filename):
+    filename = filename.split('/')[-1]
+    timestamp = "{:%Y%m%d%H%M}".format(datetime.now(tz=pytz.utc))
+    file_path = f'{GPX_FILES_FOLDER}/{timestamp}-{filename}'
+    return file_path
+
+
+class GPXTrackFile(GPXLogRecord):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    source_assignment = models.ForeignKey('SubjectSource', on_delete=models.PROTECT)
+    description = models.CharField(max_length=255, null=True, blank=True)
+    data = models.FileField(upload_to=upload_to, null=True, blank=True)
+
+    objects = GPXManager()
+
+    class Meta:
+        verbose_name_plural = 'GPX track file'
+        ordering = ('processed_date',)
+
+

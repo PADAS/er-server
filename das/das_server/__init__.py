@@ -1,10 +1,10 @@
 try:
-    # Build system may have written version.py with a new build number.
+    #  Build system may have written version.py with a new build number.
     from .version import BUILD_NUMBER
 except ImportError:
     BUILD_NUMBER = 1
 
-VERSION = (1, 95, 1, 'dev', BUILD_NUMBER)
+VERSION = (2, 5, 1, 'dev', BUILD_NUMBER)
 
 if VERSION[3]:  # pragma: no cover
     __version__ = '{0}.{1}.{2}-{3}.{4}'.format(*VERSION)

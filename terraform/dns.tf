@@ -1,5 +1,12 @@
 locals {
-  subdomain_name = var.subdomain_name != null ? var.subdomain_name : kubernetes_namespace.this.metadata.0.name
+
+  alt_subdomains = {
+      "connected-conservation" = "cc"
+      "degrees51"              = "51degrees"
+  }
+
+  subdomain_name = lookup(local.alt_subdomains, terraform.workspace, kubernetes_namespace.this.metadata.0.name)
+
 }
 resource "aws_route53_record" "www" {
   zone_id = data.aws_route53_zone.public.zone_id

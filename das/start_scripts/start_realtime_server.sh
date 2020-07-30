@@ -2,12 +2,15 @@
 . $(dirname "$0")/wait_for.sh
 wait_for $API_HOST $API_PORT
 
-python3 manage.py collectstatic --no-input
+. $(dirname "$0")/django_common_startup.sh
 
 export EVENTLET_SHOULDPATCH=True
-if [ "$DEV" = "True" ]; then
-    python3 manage.py rtserver 0.0.0.0:8000 --nothreading
-else
-    python3 manage.py rtserver 0.0.0.0:8000 --noreload --nothreading
-fi
 
+# Override GUNICORN_CMD_ARGS at deployment if desired.
+# Keep in mind that the flags specified below, when running gunicorn, take
+# precedence.
+export GUNICORN_CMD_ARGS=${GUNICORN_CMD_ARGS:-"--worker-class eventlet --timeout=90 --log-level=info --max-requests 500 --max-requests-jitter 25"}
+
+echo "Notice GUNICORN_CMD_ARGS: ${GUNICORN_CMD_ARGS}"
+
+gunicorn das_server.rt_wsgi --name das_rt -w 1 --bind 0.0.0.0:8000 

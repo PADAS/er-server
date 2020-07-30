@@ -72,7 +72,7 @@ variable "email_host" {
 }
 
 variable "fqdn" {
-  type    = "string"
+  type    = string
   default = "localhost"
 }
 
@@ -167,3 +167,4 @@ variable "show_stationary_subjects_on_map" {
   type    = string
   default = "False"
 }
+

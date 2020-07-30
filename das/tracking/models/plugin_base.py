@@ -1,8 +1,8 @@
-from functools import namedtuple
-
-import uuid
-import logging
 import json
+import logging
+import uuid
+from datetime import datetime, timedelta
+from typing import NamedTuple
 
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import JSONField
@@ -10,10 +10,6 @@ from django.contrib.gis.geos import Point, Polygon
 from django.contrib.contenttypes.fields import GenericRelation
 from core.models import TimestampedModel
 
-import uuid
-
-import logging
-from datetime import datetime, timedelta
 import pytz
 from dateutil.parser import parse as parse_date
 
@@ -122,6 +118,7 @@ class SourcePlugin(TimestampedModel):
     # last_run: datetime.min implies it hasn't ever been executed.
     last_run = models.DateTimeField(default=pytz.utc.localize(datetime(2000, 1, 1)),
                                     verbose_name='Timestamp for when this plugin last executed.')
+    plugins_to_validate_location = ['awtplugin', 'skygisticssatelliteplugin']
 
     def execute(self, target=None):
         '''
@@ -139,6 +136,10 @@ class SourcePlugin(TimestampedModel):
             accumulator = None
             with target or DasDefaultTarget() as t:
                 for observation in self.plugin.fetch(self.source, self.cursor_data):
+
+                    # flag observations at point (180 x 90) for selected plugins
+                    if self.plugin._meta.model_name in self.plugins_to_validate_location:
+                        observation = self.validate_obs_location(observation)
                     accumulator = t.send(observation)
 
             self.last_run = pytz.utc.localize(datetime.utcnow())
@@ -166,6 +167,17 @@ class SourcePlugin(TimestampedModel):
 
         # return self.plugin.should_run(self) if hasattr(self.plugin,
         # 'should_run') else True
+
+    def validate_obs_location(self, observation):
+        '''
+        Flags observations that are at 180 x 90 as excluded_automatically.
+        :param observation
+        :return observation
+        '''
+        if (int(observation.longitude) == 180 and int(observation.latitude) == 90):
+            logger.info("Invalid observation location.To be flagged/excluded")
+            observation = observation._replace(exclusion_flags=2) # 2 for excluded_automatically
+        return observation
 
     def __str__(self):
         return '%s: source: %s, manufacturer_id: %s' % (self.id, self.source_id, self.source.manufacturer_id)
@@ -326,12 +338,16 @@ class DasDefaultTarget(PluginTarget):
 
         location = Point(x=item.longitude, y=item.latitude)
         additional = item.additional or {}
-        result, created = observations.models.Observation.objects.get_or_create(source_id=item.source.id,
-                                                                                recorded_at=item.recorded_at,
-                                                                                defaults=dict(
-                                                                                    location=location,
-                                                                                    additional=additional
-                                                                                ))
+        result, created = observations.models.Observation.objects. \
+            get_or_create(
+                source_id=item.source.id,
+                recorded_at=item.recorded_at,
+                defaults=dict(
+                    location=location,
+                    additional=additional
+                ),
+                exclusion_flags=item.exclusion_flags)
+
         return result, created
 
 
@@ -353,8 +369,13 @@ class DasFireEventTarget(PluginTarget):
         return result, created
 
 
-'''
-Observation Football; meant to provide a consistent way for passing essential observation data between functions.
-'''
-Obs = namedtuple('Obs', ('source', 'latitude',
-                         'longitude', 'recorded_at', 'additional'))
+class Obs(NamedTuple):
+    """
+    Represents the payload sent to create a new observation
+    """
+    source: Source
+    latitude: float
+    longitude: float
+    recorded_at: datetime
+    additional: dict = {}
+    exclusion_flags: int = 0

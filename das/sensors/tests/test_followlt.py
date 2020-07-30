@@ -11,7 +11,7 @@ from core.tests import fake_get_pool, User
 from core.tests import BaseAPITest
 from observations.models import Subject, Source, SourceProvider, SubjectSource, \
     DEFAULT_ASSIGNED_RANGE
-from sensors.views import SensorObservation
+from sensors.views import FollowltHandlerView
 
 logger = logging.getLogger(__name__)
 
@@ -70,9 +70,7 @@ class FollowltObservationTest(BaseAPITest):
         request.user = self.testuser
         force_authenticate(request, user=request.user, token=tok)
 
-        response = SensorObservation.as_view()(request,
-                                               sensor_type=self.sensor_type,
-                                               provider_key=self.provider_key)
+        response = FollowltHandlerView.as_view()(request, self.provider_key)
         self.assertEqual(response.status_code, 201)
         self.assertTrue(len(self.henry.observations()) == 2)
 
@@ -102,9 +100,7 @@ class FollowltObservationTest(BaseAPITest):
         request.user = self.testuser
         force_authenticate(request, user=request.user, token=tok)
 
-        response = SensorObservation.as_view()(request,
-                                               sensor_type=self.sensor_type,
-                                               provider_key=self.provider_key)
+        response = FollowltHandlerView.as_view()(request, self.provider_key)
         self.assertEqual(response.status_code, 201)
 
     @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
@@ -133,7 +129,5 @@ class FollowltObservationTest(BaseAPITest):
         request.user = self.testuser
         force_authenticate(request, user=request.user, token=tok)
 
-        response = SensorObservation.as_view()(request,
-                                               sensor_type=self.sensor_type,
-                                               provider_key=self.provider_key)
+        response = FollowltHandlerView.as_view()(request, self.provider_key)
         self.assertEqual(response.status_code, 201)

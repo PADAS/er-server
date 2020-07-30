@@ -58,15 +58,10 @@ def load_default_clients(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
-    replaces = [('das_server', '0001_initial'), ('das_server', '0002_add_kml_application')]
-
     initial = True
 
     dependencies = [
-        ('oauth2_provider', '0005_auto_20170514_1141'),
-        ('oauth2_provider', '0004_auto_20160525_1623'),
-        ('oauth2_provider', '0002_08_updates'),
+        ('oauth2_provider', '0001_initial'),
     ]
 
     operations = [

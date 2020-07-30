@@ -1,4 +1,7 @@
 #!/bin/sh
 . $(dirname "$0")/wait_for.sh
 wait_for $API_HOST $API_PORT
-celery -A das_server beat -l info -s /tmp/celerybeat-schedule
+
+. $(dirname "$0")/django_common_startup.sh
+
+celery -A das_server beat -l info -s /dev/shm/celerybeat-schedule --pidfile /dev/shm/celerybeat.pid
