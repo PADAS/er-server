@@ -8,6 +8,7 @@ from django.core.exceptions import PermissionDenied
 from django.conf import settings
 from pytz import timezone
 from dateutil.parser import parse
+from django.db import connection
 
 
 logger = logging.getLogger(__name__)
@@ -230,3 +231,29 @@ def get_null_point():
 
 def get_chunk_file(file, chunksize=5120):
     return iter(lambda: file.read(chunksize), b'')
+
+
+def get_cyclic_subjectgroup():
+    with connection.cursor() as cursor:
+        cursor.execute("""
+        WITH RECURSIVE graph AS (
+            SELECT from_subjectgroup_id
+            , ARRAY[to_subjectgroup_id, from_subjectgroup_id] AS path
+            , (to_subjectgroup_id = from_subjectgroup_id) AS cycle
+            FROM  observations_subjectgroup_children
+
+            UNION ALL
+
+            SELECT sgc.from_subjectgroup_id,
+                sgc.to_subjectgroup_id || path ,
+                sgc.to_subjectgroup_id = ANY(path)
+            FROM   graph g
+            JOIN   observations_subjectgroup_children sgc ON sgc.from_subjectgroup_id = g.path[1]
+            WHERE  NOT g.cycle
+        )
+        SELECT DISTINCT graph.from_subjectgroup_id 
+        FROM   graph
+        JOIN observations_subjectgroup sg ON sg.id = graph.from_subjectgroup_id
+        WHERE  cycle;
+        """)
+        return [row[0] for row in cursor.fetchall()]

@@ -96,12 +96,14 @@ class SubjectGroupTest(BaseAPITest):
         sgrp1 = SubjectGroup.objects.create(name='Subject Group 1')
         sgrp2 = SubjectGroup.objects.create(name='Subject Group 2')
         sgrp3 = SubjectGroup.objects.create(name='Subject Group 3')
+        sgrp4 = SubjectGroup.objects.create(name='Subject Group 4')
 
         sgrp1.children.add(sgrp2)
         sgrp2.children.add(sgrp1, sgrp3)
         sgrp3.children.add(sgrp2)
+        sgrp4.children.add(sgrp3)
 
-        request = self.factory.get(API_BASE + '/subjectgroup')
+        request = self.factory.get(API_BASE + '/subjectgroups')
         self.force_authenticate(request, self.user)
         response = SubjectGroupsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
