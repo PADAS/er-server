@@ -247,6 +247,30 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
                 schema['schema']['properties'][key]["inactive" +
                                                     "_" + value['lookup']] = inactive_choices
 
+        for value in schema_utils.get_values_titlemap(eventtype.schema):
+            inactive_choices = []
+            obj = Choice.objects.filter(is_active=False, field=value)
+            for o in obj:
+                inactive_choices.append(o.value)
+            if inactive_choices:
+                index = 0
+                for key in schema['definition']:
+                    if isinstance(key, OrderedDict):
+                        items = key.get('items')
+                        tmap_values = schema_utils.get_values_items(items, 'titleMap') if items else None
+                        incr = 0
+                        if tmap_values:
+                            for tmap in tmap_values:
+                                for tm in tmap:
+                                    if tm.get('value') in inactive_choices:
+                                        schema['definition'][index]['items'][incr]['inactive_titleMap'] = inactive_choices
+                                incr += 1
+                        elif key.get('titleMap'):
+                            for _ in key.get('titleMap'):
+                                if _.get('value') in inactive_choices:
+                                    schema['definition'][index]['inactive_titleMap'] = inactive_choices
+                    index += 1
+
         for key, value in field_schema.items():
             for o, vals in enumImages_vals.items():
                 if value['field_name'] == o:
