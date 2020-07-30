@@ -163,7 +163,7 @@ def get_additional(trkpoint):
 def success_process_gpxtrack(gpx_id, message):
     # get length of observations from message
     count = ''.join(filter(str.isdigit, message))
-    points_imported = int(count) if count else None
+    points_imported = int(count) if count else 0
 
     return GPXTrackFile.objects.filter(id=gpx_id).update(
         processed_status='success',
@@ -171,7 +171,10 @@ def success_process_gpxtrack(gpx_id, message):
 
 
 def failed_process_gpxtrack(gpx_id, trkpoints=None):
-    return GPXTrackFile.objects.filter(id=gpx_id).update(processed_status='failure', status_description=trkpoints)
+    return GPXTrackFile.objects.filter(id=gpx_id).update(
+        processed_status='failure',
+        status_description=trkpoints,
+        points_imported=0)
 
 
 @celery.app.task
