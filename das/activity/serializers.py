@@ -334,9 +334,9 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
 
         for event_category in event_categories:
             permission_name = [f'activity.{event_category}_{action}' for action in actions]
-            if any([request.user.has_perm(perm) for perm in permission_name]):
-                return True
-        return False
+            for perm in permission_name:
+                if request.user.has_perm(perm):
+                    return True
 
     def get_object_queryset(self):
         if not self.check_has_event_category_permission():
