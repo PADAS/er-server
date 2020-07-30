@@ -90,6 +90,22 @@ class EventTypesView(generics.ListAPIView):
         category = query_params.getlist('category', None)
         if category:
             queryset = queryset.by_category(category)
+        else:
+            allowed_categories = []
+            event_categories = EventCategory.objects.values_list('value').distinct()
+            event_categories = [ec[0] for ec in event_categories]
+            actions = ('create', 'update', 'read', 'delete')
+
+            for event_category in event_categories:
+                permission_name = [f'activity.{event_category}_{action}' for action in actions]
+                if any([self.request.user.has_perm(perm) for perm in permission_name]):
+                    allowed_categories.append(event_category)
+
+            if allowed_categories:
+                queryset = queryset.by_category(allowed_categories)
+            elif query_params.get('is_collection', None) is None:
+                return queryset.none()
+
         is_collection = query_params.get('is_collection', None)
         if is_collection is not None:
             queryset = queryset.by_is_collection(parse_bool(is_collection))
@@ -103,6 +119,11 @@ class EventCategoriesView(generics.ListAPIView):
     def get_queryset(self):
         queryset = EventCategory.objects.all_sort()
         queryset = queryset.filter(is_active=True)
+        for q in queryset:
+            actions = ('create', 'update', 'read', 'delete')
+            permission_name = [f'activity.{q.value}_{action}' for action in actions]
+            if not any([self.request.user.has_perm(perm) for perm in permission_name]):
+                queryset = queryset.exclude(id=q.id)
         return queryset
 
 
@@ -393,7 +414,7 @@ class EventsExportView(views.APIView):
                 try:
                     current_schema = renderer(event_type['schema'])
                     current_schema_order = \
-                        schema_utils.definition_key_order_as_dict(
+                        schema_utils.property_keys_order_as_dict(
                             current_schema)
 
                     for key, order in current_schema_order.items():
@@ -408,11 +429,12 @@ class EventsExportView(views.APIView):
                             if self.value_cols and key not in custom_headers:
                                 custom_headers.append(key)
 
-                            if self.display_cols and display_value not in custom_headers:
+                            if self.display_cols:
                                 column_name = schema_utils.get_column_header_name(
                                     current_schema, key)
                                 column_name = self.escape_string(column_name)
-                                custom_headers.append(column_name)
+                                if column_name not in custom_headers:
+                                    custom_headers.append(column_name)
 
                 except json.JSONDecodeError:
                     # Event type does not have schema, which is weird but not
@@ -421,7 +443,6 @@ class EventsExportView(views.APIView):
                     current_schema_order = {}
 
                 event_export_data.append(current_event_type_data)
-
             # First, get the event details (schema data) in the correct order
             # for the headers above
             if event['event_details__data']:
@@ -498,12 +519,8 @@ class EventsExportView(views.APIView):
     def escape_string(self, string):
         if not isinstance(string, str) or not string:
             return string
-        string = string.replace('"', '""')
-        # carriage returns are not handled in csv, join with space instead
         strings = string.splitlines()
         string = " ".join(strings)
-        if ',' in string or '"' in string:
-            string = '"' + string + '"'
         return string
 
     def get(self, request, *args, **kwargs):
@@ -820,7 +837,7 @@ class EventNotesView(generics.ListCreateAPIView):
 
     def get_event(self):
         event = generics.get_object_or_404(Event.objects.all(),
-                                           pk=self.kwargs['id'])
+                                           pk=self.kwargs.get('id'))
         return event
 
 

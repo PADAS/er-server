@@ -1,6 +1,6 @@
 from django.conf.urls import url
 from django.views.generic.base import TemplateView
-from rt_api.views import *
+from rt_api.views import RTMClient
 
 app_name = 'rt_api'
 

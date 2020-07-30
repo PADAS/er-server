@@ -101,8 +101,8 @@ def forwards(apps, schema_editor):
 
     category, created = EventCategory.objects.using(db_alias).get_or_create(
         value='analyzer_event',
-        display='Analyzer Event',
-        ordernum=1)
+        defaults={"display": "Analyzer Event",
+                  "ordernum": 1})
 
     gfw_tree_loss_defaults = {'schema': GENERIC_GFW_TREE_LOSS_SCHEMA, 'display': 'GLAD Tree-Loss Alert (GFW)',
                 'category_id': category.id, 'icon': 'deforestation_rep'}

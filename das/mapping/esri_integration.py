@@ -173,9 +173,9 @@ def import_features_from_esri(tmp_filename, arcgis_item_id, external_sourcename,
             #  to the admin UI.
             if hasattr(settings, 'UI_SITE_URL') and 'Park' in feature.fields:
                 if feature['Park'].value.lower() in settings.UI_SITE_URL.lower():
-                    save_esri_feature(feature, external_sourcename, external_id, type_field, arc_item, i)
+                    save_esri_feature(feature, external_sourcename, external_id, type_field, name_field, arc_item, i)
             else:
-                save_esri_feature(feature, external_sourcename, external_id, type_field, arc_item, i)
+                save_esri_feature(feature, external_sourcename, external_id, type_field, name_field, arc_item, i)
     finally:
         datasource = None
 
@@ -190,7 +190,7 @@ def db_feature_needs_update(feature_record, feature):
     return needs_update
 
 
-def save_esri_feature(feature, source_name, external_id, type_label, arcgis_item, counter):
+def save_esri_feature(feature, source_name, external_id, type_label, name_field, arcgis_item, counter):
     # With Esri integration we've seen some feature services give us json that has features with "geometry" missing
     # this handles and ignores that issue
     try:
@@ -218,7 +218,7 @@ def save_esri_feature(feature, source_name, external_id, type_label, arcgis_item
         feature_record.arcgis_item = arcgis_item
         feature_record.external_source = source_name
         feature_record.feature_geometry = feature_geometry
-        set_feature_name(feature_record, feature, feature_type, counter)
+        set_feature_name(feature_record, feature, feature_type, name_field, counter)
         feature_record.clean()
         feature_record.save()
     else:

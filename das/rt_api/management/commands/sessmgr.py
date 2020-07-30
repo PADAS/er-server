@@ -59,10 +59,10 @@ class Command(BaseCommand):
         client.add_client(testdata.sid, testdata)
 
     def delete_all(self):
-        client.remove_rt_service(client.CLIENT_LIST_KEY)
+        client.remove_all_rt_services()
 
     def list_services(self):
-        for service in client.get_service_list():
+        for service in client.get_rt_service_list():
             print(service)
 
     def list_connections(self):

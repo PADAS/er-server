@@ -5,43 +5,80 @@ locals {
 
   this_workspaces_to_infra_workspaces = {
     # if not here, the lookup has a default
+    "aberdares"              = "prod1"
     "africanparks"           = "prod1"
     "akagera"                = "prod1"
     "amakhala"               = "prod1"
+    "amboseli"               = "prod1"
+    "apntraining"            = "prod1"
     "balule"                 = "prod1"
+    "baminguibangoran"       = "prod1"
     "bangweulu"              = "prod1"
+    "bazaruto"               = "prod1"
     "biocarbonpartners"      = "prod1"
+    "birdshead"              = "prod-asia"
     "bomani"                 = "prod1"
     "bubyevalley"            = "prod1"
     "chipinge"               = "prod1"
     "connected-conservation" = "prod1"
-    "demo-two"               = "prod1"
+    "damai"                  = "prod-asia"
+    "degrees51"              = "prod1"
+    "dwnp"                   = "prod1"
     "elephantsalive"         = "prod1"
+    "ennedi"                 = "prod1"
     "ewt"                    = "prod1"
+    "fao"                    = "prod1"
     "garamba"                = "prod1"
+    "gile"                   = "prod1"
     "gonarezhou"             = "prod1"
+    "gorongosa"              = "prod1"
     "gotcha"                 = "prod1"
+    "hello-asia"             = "prod-asia"
+    "karingani"              = "prod1"
+    "lionalert"              = "prod1"
+    "lionlandscapes"         = "prod1"
+    "liuwa"                  = "prod1"
     "liwonde"                = "prod1"
+    "lowerzambezi"           = "prod1"
     "madikwe"                = "prod1"
     "majete"                 = "prod1"
+    "malamala"               = "prod1"
+    "malamala"               = "prod1"
     "marataba"               = "prod1"
     "matlamamba"             = "prod1"
+    "matusadona"             = "prod1"
+    "mapesu"                 = "prod1"
+    "meru"                   = "prod1"
     "mtkenya"                = "prod1"
+    "murchisonfalls"         = "prod1"
     "natgeo"                 = "prod1"
+    "niassa"                 = "prod1"
     "nkhotakota"             = "prod1"
+    "nsumbu"                 = "prod1"
+    "odzala"                 = "prod1"
     "oljogi"                 = "prod1"
+    "olpejeta"               = "prod1"
+    "parcw"                  = "prod1"
+    "pendjari"               = "prod1"
+    "preylang"               = "prod-asia"
+    "queenelizabeth"         = "prod1"
+    "rcb"                    = "prod1"
     "sabiegamereserve"       = "prod1"
     "sabisands"              = "prod1"
     "sawc"                   = "prod1"
+    "serengeti"              = "prod1"
+    "snowleopardtrust"       = "prod-asia"
+    "socp"                   = "prod-asia"
+    "spaceforgiants"         = "prod1"
     "thabatholo"             = "prod1"
+    "thornybush"             = "prod1"
     "training"               = "prod1"
+    "tswalu"                 = "prod1"
+    "twiga"                  = "prod1"
     "welgevonden"            = "prod1"
+    "westernsiempang"        = "prod-asia"
     "wildhorizons"           = "prod1"
     "zakouma"                = "prod1"
-    "hello-asia"             = "prod-asia"
-    "socp"                   = "prod-asia"
-    "westernsiempang"        = "prod-asia"
-    "damai"                  = "prod-asia"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -52,6 +89,17 @@ locals {
 
 
   legacy_vault_path = "padas-app/main"
+
+  workspace_to_database_instance = {
+    # if not here, the lookup has a default
+    "meru"             = 1
+    "aberdares"        = 1
+    "baminguibangoran" = 1
+    "serengeti"        = 1
+    "mapesu"           = 1
+  }
+
+  db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
 
 
 }

@@ -23,6 +23,7 @@ from observations.models import Source, Subject, SubjectSource
 
 from tracking.models.utils import dictify
 import logging
+from .utils import to_float
 
 
 SKYGISTICS_DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S'
@@ -110,8 +111,8 @@ class Unit(NamedTuple):
     status: str
     status_code: int
     speed: float
-    voltage: int
-    temperature: str
+    voltage: float
+    temperature: float
     user: str
     mobid: str
     longitude: float
@@ -125,8 +126,8 @@ class Replay(NamedTuple):
     time: datetime
     status: str
     speed: float
-    voltage: str
-    temperature: str
+    voltage: float
+    temperature: float
     longitude: float
     latitude: float
     place: str
@@ -158,9 +159,9 @@ class Observation(NamedTuple):
     imei: str
     latitude: float
     longitude: float
-    voltage: str
+    voltage: float
     location: str
-    temperature: str
+    temperature: float
     recorded_at: datetime
     received_time: datetime
 
@@ -247,8 +248,8 @@ class SkygisticsQ3Client(SkygisticsClient):
                         status=status,
                         mobid=mobid,
                         speed=round(float(strArray2[3])),
-                        voltage=int(strArray2[4]),
-                        temperature=strArray2[5],
+                        voltage=to_float(strArray2[4]),
+                        temperature=to_float(strArray2[5]),
                         user=strArray2[7],
                         longitude=strArray2[12],
                         latitude=strArray2[13],
@@ -261,7 +262,7 @@ class SkygisticsQ3Client(SkygisticsClient):
                     unit = Unit(name=name, time=time, status=status, imei=imei,
                                 mobid=mobid, longitude=None, latitude=None, lmtime=None,
                                 regno=None,
-                                speed=None, voltage=None, temperature=None,
+                                speed=None, voltage=0, temperature=0,
                                 user=None,
                                 status_code=status_code)
             except ValueError:
@@ -315,8 +316,8 @@ class SkygisticsQ3Client(SkygisticsClient):
                 time=str2date(strArray3[0]),
                 status=strArray3[1],
                 speed=round(float(strArray3[2]), 1),
-                voltage=strArray3[3],
-                temperature=strArray3[4],
+                voltage=to_float(strArray3[3]),
+                temperature=to_float(strArray3[4]),
                 longitude=float(strArray3[5]),
                 latitude=float(strArray3[6]),
                 place=place,
@@ -784,9 +785,9 @@ class SkygisticsQ1Client(SkygisticsClient):
                 imei=unit_info[_qualify('IMEI')][0]['_text'],
                 latitude=float(unit_info[_qualify('Latitude')][0]['_text']),
                 longitude=float(unit_info[_qualify('Longitude')][0]['_text']),
-                voltage=unit_info[_qualify('Voltage')][0].get('_text'),
+                voltage=to_float(unit_info[_qualify('Voltage')][0].get('_text')),
                 location=unit_info[_qualify('Location')][0].get('_text'),
-                temperature=unit_info[_qualify('Temperature')][0].get('_text'),
+                temperature=to_float(unit_info[_qualify('Temperature')][0].get('_text')),
                 recorded_at=timezone.make_aware(datetime.strptime(unit_info[_qualify('Time')][0]['_text'],
                                                                   SKYGISTICS_DATETIME_FORMAT), timezone.utc),
                 # add T and Z to string timestamp so UTC is obvious.
@@ -795,7 +796,7 @@ class SkygisticsQ1Client(SkygisticsClient):
                                                   timezone.utc).strftime(SKYGISTICS_PLUGIN_DATETIME_FORMAT),
             )
         except Exception as e:
-            self.logger.exception('Transforming skygistics unit_info')
+            self.logger.exception('Error transforming skygistics unit_info')
             raise
         return observation
 
@@ -897,7 +898,7 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
 
             try:
                 observation = self._transform(source, unit_info)
-                if observation and self._pass_filter(observation):
+                if observation:
                     if not latest_observation or latest_observation.recorded_at < observation.recorded_at:
                         latest_observation = observation
                     yield observation
@@ -907,19 +908,6 @@ class SkygisticsSatellitePlugin(TrackingPlugin):
         if latest_observation:
             self.cursor_data['latest_timestamp'] = latest_observation.recorded_at.isoformat(
             )
-
-    def _pass_filter(self, observation):
-        '''
-        Reject fixes that are at 180 x 90.
-        :param observation:
-        :return: True if the observation passes the filter.
-        '''
-        try:
-            return not (int(observation.longitude) == 180 and int(observation.latitude) == 90)
-        except Exception as e:
-            self.logger.warning('Failure when filtering skygistics fix.')
-
-        return True
 
     def _transform(self, source, observation):
         return Obs(source=source,

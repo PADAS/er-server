@@ -7,6 +7,7 @@ import copy
 import collections
 import string
 import random
+import csv
 import io
 from datetime import datetime, timedelta
 from unittest import mock
@@ -31,16 +32,17 @@ from django.urls import reverse
 
 from activity.serializers import EventDetailsSerializer
 from core.tests import BaseAPITest
-from choices.models import Choice
+from choices.models import Choice, DynamicChoice
 from accounts.models import PermissionSet
 from activity.models import Event, EventAttachment, EventType, EventCategory, \
     EventRelationship, EventRelationshipType, EventNote, EventsourceEvent, \
     EventSource, EventProvider, parse_date_range, EventDetails, TSVectorModel
 from activity import views
-from observations.models import Subject
+from observations.models import Subject, SubjectType, SubjectSubType
 from accounts.serializers import UserDisplaySerializer
 from observations.serializers import SubjectSerializer
 from utils.html import clean_user_text
+from utils.schema_utils import format_key_for_title
 
 logger = logging.getLogger(__name__)
 
@@ -308,6 +310,19 @@ class TestEventView(BaseAPITest):
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 400)
 
+    def test_not_fail_with_emptystring_location(self):
+        event_data = copy.deepcopy(self.event_data)
+        event_data['reported_by'] = self.user_rep
+        event_data['provenance'] = Event.PC_STAFF
+        event_data['event_type'] = ET_OTHER
+        event_data['lcation'] = ""
+
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
     def test_not_fail_with_no_location(self):
         event_data = copy.deepcopy(self.event_data)
         event_data['reported_by'] = self.user_rep
@@ -321,6 +336,15 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
+
+    def test_bad_request_with_empty_string_location(self):
+        event_data = dict(event_details={}, event_type=ET_OTHER, icon_id=ET_OTHER, is_collection=False, location="", priority=100, time="2020-06-11T18:57:12.629Z")
+
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 400)
 
     def test_create_matrix_event(self):
         event_data = {'priority': Event.PRI_REFERENCE,
@@ -1000,16 +1024,8 @@ class TestEventView(BaseAPITest):
         self.assertTrue(self.notes_line2_prefix in response.content.decode("utf-8"))
 
     def convert_rendered_csv_to_dict(self, content):
-        lines = content.split("\n")
-        keys = lines[0].split(",")
-
-        dict_list = []
-        d = {}
-        for line in lines[1:]:
-            values = line.split(",")
-            d = {k: v for k, v in zip(keys, values)}
-            dict_list.append(d)
-        return dict_list
+        reader = csv.DictReader(io.StringIO(content))
+        return [row for row in reader]
 
     def test_collection_report_id_exported_as_parent_event_serial_number(self):
         collection_event_data = copy.deepcopy(self.event_data)
@@ -1130,12 +1146,243 @@ class TestEventView(BaseAPITest):
         response = views.EventsExportView.as_view()(request)
         rendered_dict = self.convert_rendered_csv_to_dict(
             response.content.decode("utf-8"))
-        report_names = [report["Title"] for report in rendered_dict[:-1]]
+        report_names = [report["Title"] for report in rendered_dict]
 
         # 2 reports returned, Incident and contained report
-        self.assertEquals(2, len(report_names))
+        self.assertEqual(2, len(report_names))
         self.assertTrue(all(x in report_names for x in [
                         incident_data['title'],  self.event_data['title']]))
+
+    def test_export_includes_all_event_detail_fields(self):
+
+        request = self.factory.post(
+            self.api_base + '/events/', self.event_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        et_schema = """
+            {
+            "schema":
+            {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "title": "Locust Absence Report (locustabsence_rep)",
+
+                "type": "object",
+
+                "properties":
+                {
+
+                "repObserver": {
+                    "type": "string",
+                    "title": "Report Observer"
+                },
+                "repHASurveyed": {
+                    "type": "number",
+                    "title": "HA Surveyed",
+                    "minimum": 0
+                },           
+                "repCountry": {
+                    "type": "string",
+                    "title": "Country",
+                    "enum": {{enum___countries___values}},
+                    "enumNames": {{enum___countries___names}}
+                },   
+                "repLocation": {
+                    "type": "string",
+                    "title": "Report Location"
+                },
+                "eLocust-key": {
+                    "type": "string",
+                    "title": "e-locust-key"
+                }
+            }
+        },
+        "definition": [
+
+            {
+            "type": "fieldset",
+            "title": "Report Info",
+            "htmlClass": "col-lg-12",
+            "items": []
+            },
+            {
+            "type": "fieldset",
+            "htmlClass": "col-lg-6",
+            "items": [
+                "repObserver",
+                "repHASurveyed",
+                "",
+                "",                        
+                "",
+                "",
+                "",
+                ""
+            ]
+            },
+            {
+            "type": "fieldset",
+            "htmlClass": "col-lg-6",
+            "items": [
+                "repCountry",  
+                "repLocation",
+                "",
+                "",
+                "",
+                "",
+                ""
+            ]
+            },
+
+            {
+            "type": "fieldset",
+            "title": "No Locusts Reported",
+            "htmlClass": "col-lg-12",
+            "items": []
+            }    
+
+        ]
+        }
+        """
+        event_type = self.sample_event.event_type
+        event_type.schema = et_schema
+        event_type.save()
+
+        EventDetails.objects.create(
+            data={"event_details": {"eLocust-key": "716c9a58ca0b9a7bf3351517d7393b49", "repObserver": "an observer"}},
+            event=self.sample_event)
+
+        url = """/activity/events/export"""
+        filter_spec = json.dumps({'text': "event"})
+        request = self.factory.get(
+            self.api_base + url, {'filter': filter_spec})
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        rendered_content = response.content.decode("utf-8")
+        rendered_dict = self.convert_rendered_csv_to_dict(rendered_content)
+        report_headers = rendered_dict[0].keys()
+
+        # All hidden fields returned indipendently in the export headers
+        test_headers = set(["e-locust-key", "Report_Observer"])
+        assert test_headers == set(report_headers) & test_headers
+
+        # All hidden fields values returned in export content
+        self.assertTrue(all(x in rendered_content for x in ["716c9a58ca0b9a7bf3351517d7393b49", "an observer"]))
+
+    def test_export_includes_all_event_detail_fields_no_title(self):
+    
+        request = self.factory.post(
+            self.api_base + '/events/', self.event_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        et_schema = """
+            {
+                "schema":
+                {
+                    "$schema": "http://json-schema.org/draft-04/schema#",
+                    "title": "Locust Absence Report (locustabsence_rep)",
+
+                    "type": "object",
+
+                    "properties":
+                    {
+
+                    "repObserver": {
+                        "type": "string",
+                        "title": "Report Observer"
+                    },
+                    "repHASurveyed": {
+                        "type": "number",
+                        "title": "HA Surveyed",
+                        "minimum": 0
+                    },           
+                    "repCountry": {
+                        "type": "string",
+                        "title": "Country",
+                        "enum": {{enum___countries___values}},
+                        "enumNames": {{enum___countries___names}}
+                    },   
+                    "repLocation": {
+                        "type": "string",
+                        "title": "Report Location"
+                    },
+                    "eLocust-key": {
+                        "type": "string"
+                    }
+                }
+            },
+            "definition": [
+
+                {
+                "type": "fieldset",
+                "title": "Report Info",
+                "htmlClass": "col-lg-12",
+                "items": []
+                },
+                {
+                "type": "fieldset",
+                "htmlClass": "col-lg-6",
+                "items": [
+                    "repObserver",
+                    "repHASurveyed",
+                    "",
+                    "",                        
+                    "",
+                    "",
+                    "",
+                    ""
+                ]
+                },
+                {
+                "type": "fieldset",
+                "htmlClass": "col-lg-6",
+                "items": [
+                    "repCountry",  
+                    "repLocation",
+                    "",
+                    "",
+                    "",
+                    "",
+                    ""
+                ]
+                },
+
+                {
+                "type": "fieldset",
+                "title": "No Locusts Reported",
+                "htmlClass": "col-lg-12",
+                "items": []
+                }    
+
+            ]
+            }
+        """
+        event_type = self.sample_event.event_type
+        event_type.schema = et_schema
+        event_type.save()
+
+        EventDetails.objects.create(
+            data={"event_details": {"eLocust-key": "e locust id key",
+                                    "repObserver": "an observer"}},
+            event=self.sample_event)
+
+        url = """/activity/events/export"""
+        filter_spec = json.dumps({'text': "event"})
+        request = self.factory.get(
+            self.api_base + url, {'filter': filter_spec})
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        rendered_content = response.content.decode("utf-8")
+        rendered_dict = self.convert_rendered_csv_to_dict(rendered_content)
+        report_headers = rendered_dict[0].keys()
+
+        # All hidden fields returned indipendently in the export headers
+        test_headers = set([format_key_for_title("eLocust-key").replace(' ', '_'), "Report_Observer"])
+        assert test_headers == set(report_headers) & test_headers
+
+        # All hidden fields values returned in export content
+        test_rendered_content = set(["e locust id key", "an observer"])
+        assert test_rendered_content == set(rendered_dict[1].values()) & test_rendered_content
 
     def test_export_csv_with_line_feed(self):
 
@@ -1164,7 +1411,7 @@ class TestEventView(BaseAPITest):
         reported_by_users = list(Event.objects.get_reported_by_for_provenance(
             Event.PC_STAFF))
 
-        self.assertEquals(2, len(reported_by_users))
+        self.assertEqual(2, len(reported_by_users))
         self.assertIn(self.all_perms_user, reported_by_users)
         self.assertIn(self.power_user, reported_by_users)
 
@@ -2288,6 +2535,193 @@ class TestEventView(BaseAPITest):
         response = views.EventsView.as_view()(request)
         self.assertTrue(response.data)
         self.assertEqual(response.status_code, 200)
+
+    def test_report_is_not_overquoted_when_there_is_comma_in_field(self):
+        carcass_data = json.loads(
+            """{"event_type":"cameratrap_rep","priority":200,"event_details":{"cameratraprep_camera-version": "v1,v2,v3"}}""")
+
+        request = self.factory.post(self.api_base + '/events/', carcass_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        url = """/activity/events/export"""
+
+        request = self.factory.get(
+            self.api_base + url)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+
+        # convert rendered csv to dictionary format
+        content = response.content.decode('utf-8')
+        csv_reader = csv.reader(io.StringIO(content))
+        data = list(csv_reader)
+        header = data[0]
+        body = data[2]
+
+        to_dict = {key: value for key, value in zip(header, body)}
+        camera_version = to_dict.get('Camera_Version')
+        expected = "v1,v2,v3"
+        self.assertEqual(camera_version, expected)
+
+    def test_checkbox_field_values_included_in_export(self):
+        et_schema = json.dumps({
+            "schema":
+            {
+                "properties":
+                    {
+                            "rhinosightingrep_unknownpicklist": {
+                                "key": "rhinosightingrep_unknown"
+                            }
+                    }
+            },
+                "definition": [
+                    {
+                        "type": "fieldset",
+                        "htmlClass": "col-lg-6",
+                        "items": [
+                            {
+                                "key": "rhinosightingrep_unknownpicklist",
+                                "type": "checkboxes",
+                                "title": "Line 3: Unknown",
+                                "titleMap": [{'value': 'unknown_rhino_1', 'name': 'Unknown Rhino 1'}]
+                            }
+                        ]}]})
+        event_type = self.sample_event.event_type
+        event_type.schema = et_schema
+        event_type.save()
+
+        EventDetails.objects.create(
+            data={"event_details": {"rhinosightingrep_unknownpicklist": ["unknown_rhino_1"]}},
+            event=self.sample_event)
+
+        url = """/activity/events/export"""
+        filter_spec = json.dumps({'text': "Test event"})
+        request = self.factory.get(
+            self.api_base + url, {'filter': filter_spec})
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        self.assertTrue("Unknown Rhino 1" in response.content.decode("utf-8"))
+
+    def test_export_on_checkbox_with_query_titlemaps(self):
+        DynamicChoice.objects.create(
+            id="queens",
+            model_name='observations.subject', 
+            criteria='[["subject_subtype", "queens"], ["additional__sex", "female"]]',
+            value_col='id',
+            display_col='name')
+
+        subject_type = SubjectType.objects.create(value='Cats')
+        subject_subtype = SubjectSubType.objects.create(value='queens', subject_type=subject_type)
+        subject = Subject.objects.create(name='Katie Kitten', subject_subtype=subject_subtype, additional={'sex':'female'})
+
+        et_schema = """{
+            "schema":
+            {
+                "properties":
+                    {"kitten": {"type": "a", "title" : "Test checkbox with query"}}
+            },
+            "definition": [
+                {
+                    "key": "kitten",
+                    "type": "checkboxes",
+                    "title": "Test checkbox with query",
+                    "titleMap": {{query___queens___map}}
+                }]}"""
+        event_type = self.sample_event.event_type
+        event_type.schema = et_schema
+        event_type.save()
+
+        EventDetails.objects.create(
+            data={"event_details": {"kitten": [str(subject.id)]}},
+            event=self.sample_event)
+
+        url = """/activity/events/export"""
+        filter_spec = json.dumps({'text': "Test event"})
+        request = self.factory.get(
+            self.api_base + url, {'filter': filter_spec})
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+
+
+        # title returned, not UUID
+        self.assertTrue('Katie Kitten' in response.content.decode("utf-8"))
+
+    def test_export_on_similar_titles_for_different_reports(self):
+        et_schema = """{"schema": 
+                        {"properties": 
+                            {
+                            "eLocust-key": {"type": "string"},
+                            "behavior": {"type": "string"}
+                        }},
+                    "definition": []
+                    }"""
+
+        et = EventType.objects.filter(display='Other').first()
+        et.schema = et_schema
+        et.save()
+
+        traffic_et = EventType.objects.filter(display='Traffic').first()
+        traffic_et.schema = et_schema
+        traffic_et.save()
+
+        event1 = Event.objects.create(title="test_event_1", event_type=et, created_by_user=self.all_perms_user)
+        event2 = Event.objects.create(title="test_event_2", event_type=et, created_by_user=self.all_perms_user)
+
+        # Report from a different eventtype, similar property key
+        event3 = Event.objects.create(title="test_event_3", event_type=traffic_et, created_by_user=self.all_perms_user)
+
+        EventDetails.objects.bulk_create([
+            EventDetails(data={"event_details": {"eLocust-key": "one"}}, event=event1),
+            EventDetails(data={"event_details": {"eLocust-key": "two"}}, event=event2),
+            EventDetails(data={"event_details": {"eLocust-key": "three"}}, event=event3)])
+
+        url = """/activity/events/export"""
+        filter_spec = json.dumps({'text': "test_event"})
+        request = self.factory.get(
+            self.api_base + url, {'filter': filter_spec})
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        rendered_content = response.content.decode("utf-8")
+        rendered_dict = self.convert_rendered_csv_to_dict(rendered_content)
+        report_headers = [key for key in rendered_dict[0].keys()]
+
+        # Single column returned containing all the three report records
+        assert report_headers.count('E_Locust-Key') == 1
+
+    def test_no_event_type_display(self):
+        # User with no-perms can't view event categories
+        request = self.factory.get(
+            self.api_base + '/events/eventtypes')
+        self.force_authenticate(request, self.no_perms_user)
+
+        response = views.EventTypesView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, [])
+
+    def test_only_display_eventtype_of_category_logistic_only(self):
+        # Guest users can see logistics events and nothing else
+        request = self.factory.get(
+            self.api_base + '/events/eventtypes')
+        self.force_authenticate(request, self.guest_user)
+
+        response = views.EventTypesView.as_view()(request)
+        expected_display = 'Logistics'
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(all(o.get('category').get('display') == expected_display for o in response.data))
+
+    def test_no_schema_display(self):
+        request = self.factory.get(
+            self.api_base + '/events/schema')
+        self.force_authenticate(request, self.no_perms_user)
+
+        response = views.EventTypesView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, [])
 
 
 class TestParsing(TestCase):

@@ -1,3 +1,4 @@
+import math
 import logging
 
 from django import forms
@@ -7,8 +8,46 @@ from analyzers.environmental import EnvironmentalSubjectAnalyzerConfig
 from analyzers.models.gfw import GlobalForestWatchSubscription
 from analyzers.gfw_outbound import create_subscription, update_subscription
 from core.forms_utils import JSONFieldFormMixin, FixedWidthFontTextArea
+import analyzers.models as models
 
 logger = logging.getLogger(__name__)
+
+
+class TimeFrameWidget(forms.MultiWidget):
+    template_name = 'widgets/analyzer_time.html'
+
+    def __init__(self, attrs=None):
+        widgets = [forms.NumberInput, forms.NumberInput]
+        forms.MultiWidget.__init__(self, widgets, attrs)
+
+    def get_context(self, name, value, attrs):
+        context = super().get_context(name, value, attrs)
+        context['hour_label'] = _('Hours:')
+        context['min_label'] = _('Minutes:')
+        return context
+
+    def decompress(self, value):
+        if value:
+            minutes, hours = math.modf(value)
+            return [int(hours), round(minutes*60)]
+        return [24, 0]
+
+
+class TimeFrameField(forms.fields.MultiValueField):
+    widget = TimeFrameWidget
+    error_message_hours = {'min_value': "Ensure 'value for hours' is greater than or equal to 0"}
+    error_message_minutes = {'max_value': "Ensure 'value for minutes' is less than or equal to 59",
+                             'min_value': "Ensure 'value for minutes' is greater than or equal to 0"}
+
+    def __init__(self, *args, **kwargs):
+        _fields = [
+            forms.fields.IntegerField(min_value=0, max_value=2147483647, error_messages=self.error_message_hours),
+            forms.fields.IntegerField(min_value=0, max_value=59, error_messages=self.error_message_minutes)]
+        super().__init__(_fields, *args, **kwargs)
+
+    def compress(self, values):
+        hours, minutes = values[0], values[1]
+        return hours + (minutes / 60)
 
 
 class EnvironmentalAnalyzerAdminForm(JSONFieldFormMixin, forms.ModelForm):
@@ -18,6 +57,7 @@ class EnvironmentalAnalyzerAdminForm(JSONFieldFormMixin, forms.ModelForm):
                                             required=False,
                                             help_text=_(
                                                 'Paste the contents of your Earth Engine JSON key here.'))
+    search_time_hours = TimeFrameField(label='Analysis time frame')
 
     class Meta:
         model = EnvironmentalSubjectAnalyzerConfig
@@ -77,3 +117,29 @@ class GlobalForestWatchSubscriptionForm(JSONFieldFormMixin, forms.ModelForm):
             'subscription_geometry': cleaned_data['subscription_geometry'],
         }
 
+
+class BaseAnalyzerForm(forms.ModelForm):
+    search_time_hours = TimeFrameField(label='Analysis time frame')
+
+    class Meta:
+        fields = '__all__'
+
+
+class GeofenceSubjectAnalyzerForm(BaseAnalyzerForm):
+    BaseAnalyzerForm.Meta.model = models.GeofenceAnalyzerConfig
+
+
+class ImmobilityAnalyzerForm(BaseAnalyzerForm):
+    BaseAnalyzerForm.Meta.model = models.ImmobilityAnalyzerConfig
+
+
+class ProximitySubjectAnalyzerForm(BaseAnalyzerForm):
+    BaseAnalyzerForm.Meta.model = models.ProximityAnalyzerConfig
+
+
+class LowSpeedWilcoxSubjectAnalyzerForm(BaseAnalyzerForm):
+    BaseAnalyzerForm.Meta.model = models.LowSpeedWilcoxAnalyzerConfig
+
+
+class LowSpeedPercentileSubjectAnalyzerForm(BaseAnalyzerForm):
+    BaseAnalyzerForm.Meta.model = models.LowSpeedPercentileAnalyzerConfig

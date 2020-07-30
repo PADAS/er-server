@@ -44,6 +44,7 @@ begin
                 setweight(to_tsvector(et.schema::text), 'B')||
                 setweight(to_tsvector((ed.data#>> '{event_details}')::text), 'A')
         FROM activity_event e join activity_eventtype et on e.event_type_id = et.id join activity_eventdetails ed on e.id = ed.event_id
+          WHERE ed.id = NEW.id
         on conflict do nothing;
     ELSIF (TG_OP = 'UPDATE') THEN
         update activity_tsvectormodel ts set
@@ -53,7 +54,8 @@ begin
         setweight(to_tsvector(et.schema::text), 'B')||
         setweight(to_tsvector((ed.data#>> '{event_details}')::text), 'A')
         from activity_event e, activity_eventtype et, activity_eventdetails ed 
-        where e.event_type_id = et.id and ed.event_id = e.id and e.id = ts.event_id;
+        where e.event_type_id = et.id and ed.event_id = e.id and e.id = ts.event_id
+        and ed.id = OLD.id;
     END IF;
     return new;
 end
@@ -69,7 +71,8 @@ CREATE OR REPLACE FUNCTION tsvector_eventnote_trigger() RETURNS trigger as $$
 begin
     UPDATE activity_tsvectormodel ts SET (tsvector_event_note) =
         (SELECT to_tsvector(string_agg(text, ','))::tsvector FROM activity_eventnote en
-         WHERE  en.event_id= ts.event_id);
+         WHERE  en.event_id= ts.event_id 
+           AND en.event_id = OLD.event_id);
     return new;
 end
 $$ LANGUAGE plpgsql;

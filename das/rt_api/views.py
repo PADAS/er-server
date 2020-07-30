@@ -3,6 +3,7 @@ import logging
 import time
 from datetime import datetime, timedelta
 import pytz
+import socket
 
 import eventlet
 from django.shortcuts import render
@@ -44,6 +45,9 @@ class DasSocketServer(Server):
 
 
 def create_rt_socketio():
+    client.init_redis_storage()
+    client.start_trace_consumer()
+
     global GLOBAL_SIO
     if GLOBAL_SIO is None:
 
@@ -59,7 +63,7 @@ def create_rt_socketio():
         else:
             server_options['cors_allowed_origins'] = \
                 getattr(settings, 'CORS_ORIGIN_WHITELIST', None)
-            
+
 
         socketio_logger = logging.getLogger('rt_api.socketio')
         sio = DasSocketServer(client_manager=client_mgr,
@@ -94,7 +98,7 @@ def confirm_authorzation(sid, sios):
 
     extra = dict(sid=sid)
     logger.debug('Confirming auth for new socket connection (waiting %s seconds).',
-                 AUTH_CHECK_SLEEP_TIME, extra=extra)
+        AUTH_CHECK_SLEEP_TIME, extra=extra)
     eventlet.sleep(AUTH_CHECK_SLEEP_TIME)
     if not client.is_client(sid):
         logger.debug(
@@ -130,6 +134,10 @@ def cleanup_disconnected_clients(sios):
             expired_clients = [client
                 for sid in client.get_expired_traces_client_list() for client in client_list if client.sid == sid]
 
+            disconnect_these_sids = [key
+                                 for sid in client.get_expired_traces_client_list()
+                                 for key, value in sios.environ.items() if value == sid]
+
             remove_these_clients = remove_these_clients.union(expired_clients)
 
             if len(remove_these_clients) > 0:
@@ -138,6 +146,12 @@ def cleanup_disconnected_clients(sios):
 
                 client.remove_clients(
                     *[x.sid for x in remove_these_clients])
+
+                for sid in disconnect_these_sids:
+                    sios.disconnect(sid)
+                    if sid in sios.environ:
+                        del sios.environ[sid]
+
             else:
                 logger.info(
                     f'No sockets to clean up. {len(environ)} Existing sockets connected')
@@ -163,7 +177,7 @@ def create_realtime_handler(sios):
 
             logger.info('on_connect', extra={'sid': str(sid)})
             logger.debug('on_connect', extra={
-                         'sid': str(sid), 'socket': repr(socket)})
+                'sid': str(sid), 'socket': repr(socket)})
 
             # Send a connect acknowledgment (helpful for troubleshooting).
             eventlet.spawn(connect_ack, sid, sios)
@@ -319,7 +333,7 @@ def create_realtime_handler(sios):
 
                 # Add trace ID to message. It will be sent back in callback.
                 if message_type not in RealtimeServices.do_not_trace_these_types \
-                        and isinstance(data, dict):
+                    and isinstance(data, dict):
                     data['trace_id'] = f'trace-{socketid}-{time.time()}'
                     client.push_trace(data['trace_id'], data)
 
@@ -354,7 +368,7 @@ def create_realtime_handler(sios):
                                       socketid=message_data['sid'])
             else:
                 logger.error('Realtime server received invalid message type: %s',
-                             message_data['type'])
+                    message_data['type'])
 
     # Start up recursive calls to clean up disconnected clients.
     eventlet.spawn_after(CLIENT_CLEANUP_INTERVAL,

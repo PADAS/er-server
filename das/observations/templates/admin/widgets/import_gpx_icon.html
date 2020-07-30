@@ -1,0 +1,61 @@
+{% load i18n static %}
+
+<div class="related-widget-wrapper">
+    {{ rendered_widget }}
+
+    <a {% if add_related_url %}
+            class="related-widget-wrapper-link add-related" id="add_id_{{ name }}"
+            href="{{ add_related_url }}?{{ url_params }}&subject_id={{ query_id }}"
+            {% else %}
+            class="related-widget-reload add-related"
+            href="?popup=false"
+    {% endif %}
+       title="{% blocktrans %}Add another {{ model }}{% endblocktrans %}">
+        <button
+                type="submit"
+                class="button gpx-btn"
+                onMouseOver="this.style.background='#447e9b'"
+                onMouseOut="this.style.background='#999'">
+      IMPORT GPX DATA
+    </button>
+    </a>
+</div>
+
+<style>
+    button.gpx-btn {
+        {#margin: 4px 10px;#}
+        cursor: pointer;
+        padding: 9px 15px;
+        background: #999;
+        font-weight: 400;
+        font-size: 11px;
+        letter-spacing: 0.5px;
+        color: #fff;
+        text-decoration: none;
+        display: block;
+        float: left;
+        border-radius: 10px;
+        outline: none;
+
+    }
+    #id_import_gpx_data {
+        display: None;
+    }
+</style>
+
+<script type="application/javascript">
+    (function($) {
+    'use strict';
+
+    $(document).ready(function() {
+        $('body').on('click', '.related-widget-reload', function(e) {
+            e.preventDefault();
+            if (this.href) {
+                window.location.replace(this.href)
+            }
+        });
+    });
+
+})(django.jQuery);
+
+</script>

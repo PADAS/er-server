@@ -35,8 +35,35 @@ spec:
           requests:
             cpu: "200m"
             memory: "500Mi"
+#          limits:
+#            cpu: "600m"
+#            memory: "4000Mi"
         ports:
           - containerPort: 8000
+        readinessProbe:
+          httpGet:
+            httpHeaders:
+            - name: Host 
+              value: '${FQDN}'
+            path: '/api/v1.0/status?db_connections=true'
+            port: 8000
+          initialDelaySeconds: 15
+          timeoutSeconds: 10
+          periodSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        livenessProbe:
+          httpGet:
+            httpHeaders:
+            - name: Host 
+              value: '${FQDN}'
+            path: '/api/v1.0/status?db_connections=true'
+            port: 8000
+          initialDelaySeconds: 10
+          timeoutSeconds: 10
+          periodSeconds: 20
+          failureThreshold: 3
+          successThreshold: 1
         volumeMounts:
         - name: google-credentials
           mountPath: "/etc/earthranger/"
@@ -66,6 +93,21 @@ spec:
             secretKeyRef:
               name: email-username
               key: value
+        - name: TWILIO_ACCOUNT_SID
+          valueFrom:
+            secretKeyRef:
+              name: twilio-account-settings
+              key: account_sid
+        - name: TWILIO_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: twilio-account-settings
+              key: auth_token
+        - name: WHATSAPP_FROM_NUMBER
+          valueFrom:
+            secretKeyRef:
+              name: twilio-account-settings
+              key: whatsapp_from_number
         envFrom:
           - configMapRef:
               name: server-configmap
@@ -80,6 +122,4 @@ spec:
         env:
         - name: SERVICE_NAME
           value: "api_server"
-        - name: TELEGRAF_RESOURCE_TYPE
-          value: "generic_node"
 

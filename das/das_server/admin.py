@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class DasAdminSite(AdminSite):
 
-    site_title = _('DAS Administration (simple view)')
+    site_title = _('EarthRanger Administration (simple view)')
     site_header = site_title
     index_title = site_title
 

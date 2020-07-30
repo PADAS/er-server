@@ -34,8 +34,22 @@ spec:
         resources:
           requests:
             cpu: "25m"
-          limits:
-            cpu: "50m"
+            memory: "100Mi"
+#          limits:
+#            cpu: "500m"
+#            memory: "2000Mi"
+        livenessProbe:
+          exec:
+            command:
+              - "/bin/sh"
+              - "-c"
+              - "PYTHONPATH=/var/www/app"
+              - "./util_scripts/beat_liveness.py"
+          initialDelaySeconds: 20
+          timeoutSeconds: 20
+          periodSeconds: 180
+          failureThreshold: 3
+          successThreshold: 1
         volumeMounts:
         - name: google-credentials
           mountPath: "/etc/earthranger/"
@@ -67,6 +81,21 @@ spec:
             secretKeyRef:
               name: email-username
               key: value
+        - name: TWILIO_ACCOUNT_SID
+          valueFrom:
+            secretKeyRef:
+              name: twilio-account-settings
+              key: account_sid
+        - name: TWILIO_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: twilio-account-settings
+              key: auth_token
+        - name: WHATSAPP_FROM_NUMBER
+          valueFrom:
+            secretKeyRef:
+              name: twilio-account-settings
+              key: whatsapp_from_number
         envFrom:
           - configMapRef:
               name: server-configmap
@@ -81,6 +110,3 @@ spec:
         env:
         - name: SERVICE_NAME
           value: "beat_service"
-        - name: TELEGRAF_RESOURCE_TYPE
-          value: "generic_node"
-

@@ -1,7 +1,7 @@
 import logging
 
 from django.apps import apps
-from django.db.models.signals import post_save, post_migrate, pre_delete
+from django.db.models.signals import post_save, post_migrate, pre_delete, post_delete
 from django.dispatch import receiver
 from django.contrib.auth.management import _get_all_permissions
 from django.contrib.auth.models import Permission
@@ -25,6 +25,11 @@ def observation_post_save(sender, instance, created, **kwargs):
 
     observation = Observation.objects.get(id=instance.id)
     SubjectStatus.objects.update_current_from_source(observation.source)
+
+
+@receiver(post_delete, sender=Observation)
+def observation_post_delete(sender, instance, **kwargs):
+    SubjectStatus.objects.update_current_from_deleted_observation(instance)
 
 
 @receiver(post_save, sender=SubjectStatus)

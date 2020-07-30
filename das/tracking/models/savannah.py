@@ -25,7 +25,7 @@ class STObservation(NamedTuple):
     recorded_at: datetime.datetime
     speed: float
     heading: float
-    temperature: str
+    temperature: float
     height: int
     hdop: float = None
     battery: float = None
@@ -39,7 +39,7 @@ class STAlert(NamedTuple):
     recorded_at: datetime.datetime
     speed: float
     heading: float
-    temperature: str
+    temperature: float
     height: int
     hdop: float
     battery: float
@@ -68,10 +68,11 @@ REQUEST_TO_URL = {
 
 
 class SavannaClient(object):
+    logger = logging.getLogger(__name__)
 
     def __init__(self, host=None, username=None, password=None):
 
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = SavannaClient.logger
 
         self.username = username
         self.password = password
@@ -113,8 +114,10 @@ class SavannaClient(object):
                 response_body = json.loads(res.text)
                 all_records = response_body["records"]
                 for line in all_records:
-                    record = self.parse_line(
-                        STObservation, self.select_data(collar_id, line))
+                    record = self.parse_line(STObservation, self.select_data(collar_id, line))
+                    if not record:
+                        continue
+
                     last_record_index = record.record_index
                     yield record
                 if response_body['has_more_records']:
@@ -160,6 +163,8 @@ class SavannaClient(object):
                         alert.append(True)
 
                     record = self.parse_line(STAlert, alert)
+                    if not record:
+                        continue
                     last_exception_index = record.record_index
                     yield record
                 if response_body['has_more_records']:
@@ -176,8 +181,11 @@ class SavannaClient(object):
         '''
         dt = ((cls.str2date(i) if c == datetime.datetime else c(i))
               for c, i in zip(observation_class._field_types.values(), s))
-        dt = observation_class(*dt)
-        return dt
+        try:
+            return observation_class(*dt)
+        except Exception as error:
+            cls.logger.info(f"Error transforming record, {error}")
+            return None
 
 
 class SavannahPlugin(TrackingPlugin):

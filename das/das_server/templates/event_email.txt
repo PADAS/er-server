@@ -1,4 +1,4 @@
-DAS {{color}} Alert{% if newness == "UPDATE" %} {{newness}}{% endif %}
+EarthRanger {{color}} Alert{% if newness == "UPDATE" %} {{newness}}{% endif %}
 {{id}}: {{title}}{% if parent > 0 %} (contained in {{parent}}){% endif %}
 
 {% if newness == "UPDATE" %}
