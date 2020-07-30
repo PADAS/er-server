@@ -325,7 +325,23 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
     def get_queryset(self):
         return activity.models.Community.objects.all()
 
+    def check_has_event_category_permission(self):
+        # Checks if the user has any event-category permission.
+        event_categories = activity.models.EventCategory.objects.values_list('value').distinct()
+        event_categories = [ec[0] for ec in event_categories]
+        actions = ('create', 'update', 'read', 'delete')
+        request = self.context.get('request')
+
+        for event_category in event_categories:
+            permission_name = [f'activity.{event_category}_{action}' for action in actions]
+            for perm in permission_name:
+                if request.user.has_perm(perm):
+                    return True
+
     def get_object_queryset(self):
+        if not self.check_has_event_category_permission():
+            return False
+
         for p in activity.models.Event.PROVENANCE_CHOICES:
             provenance = p[0]
             values = list(

@@ -2716,13 +2716,14 @@ class TestEventView(BaseAPITest):
         self.assertTrue(all(o.get('category').get('display') == expected_display for o in response.data))
 
     def test_no_schema_display(self):
+        # no event-schema is displayed for user with no even-category permission.
         request = self.factory.get(
             self.api_base + '/events/schema')
         self.force_authenticate(request, self.no_perms_user)
 
-        response = views.EventTypesView.as_view()(request)
+        response = views.EventSchemaView.as_view()(request)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data, [])
+        self.assertEqual(response.data.get('properties')['reported_by']['enum'], [])
 
     def test_schema_with_inactive_choices(self):
         for choice in Choice.objects.all():
