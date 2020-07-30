@@ -1,8 +1,9 @@
 locals {
 
   alt_subdomains = {
-      "connected-conservation" = "cc"
-      "degrees51"              = "51degrees"
+    "connected-conservation" = "cc"
+    "degrees51"              = "51degrees"
+    "niassawcs"              = "niassa-wcs"
   }
 
   subdomain_name = lookup(local.alt_subdomains, terraform.workspace, kubernetes_namespace.this.metadata.0.name)
