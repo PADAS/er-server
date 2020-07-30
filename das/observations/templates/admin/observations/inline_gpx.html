@@ -90,7 +90,7 @@
                 <td>{% if gpx.description != None %} {{gpx.description }} {% else %} - {% endif %}</td>
                 <td>{{ gpx.processed_date|naturaltime}}</td>
                 <td>{{ gpx.processed_status }}</td>
-                <td>{{ gpx.points_imported }}</td>
+                <td>{% if gpx.points_imported %} {{gpx.points_imported }} {% else %} - {% endif %}</td>
                 <td>{{ gpx.username }}</td>
                 <td>{{ gpx.file_size|intcomma }}</td>
                 <td>{{ gpx.id }}</td>
