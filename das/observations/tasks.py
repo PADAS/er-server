@@ -163,7 +163,7 @@ def get_additional(trkpoint):
 def success_process_gpxtrack(gpx_id, message):
     # get length of observations from message
     count = ''.join(filter(str.isdigit, message))
-    points_imported = int(count) if count else 0
+    points_imported = int(count) if count else 'Duplicate'
 
     return GPXTrackFile.objects.filter(id=gpx_id).update(
         processed_status='success',
