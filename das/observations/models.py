@@ -667,8 +667,8 @@ class SubjectGroupManager(HierarchyManager):
         groups.add(parent)
         return groups
 
-    def get_non_cyclic_subjectgroups(self):
-        queryset = self.filter(_parents=None)
+    def get_non_cyclic_subjectgroups(self, single_sg=False):
+        queryset = self.all() if single_sg else self.filter(_parents=None)
         cyclic_sg = get_cyclic_subjectgroup()
 
         for o in queryset:

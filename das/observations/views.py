@@ -197,10 +197,7 @@ class SubjectGroupView(generics.RetrieveAPIView):
         return context
 
     def get_queryset(self):
-        if not self.request.user.has_any_perms(VIEW_SUBJECTGROUP_PERMS):
-            raise UnauthorizedView
-
-        queryset = models.SubjectGroup.objects.get_non_cyclic_subjectgroups()
+        queryset = models.SubjectGroup.objects.get_non_cyclic_subjectgroups(single_sg=True)
         queryset.order_by('name')
         return queryset
 
