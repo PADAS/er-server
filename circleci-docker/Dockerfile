@@ -37,7 +37,7 @@ RUN pip3 install -U "pip"
 RUN pip3 install numpy
 
 RUN rm -rf /usr/lib/python3/dist-packages/GDAL-2.2.2.*
-RUN pip3 install -r /workspace/dependencies/requirements.txt -r /workspace/dependencies/requirements-pinned.txt --no-cache-dir -f /workspace/dependencies/wheelhouse
+RUN pip3 install -r /workspace/dependencies/requirements-docs.in -r /workspace/dependencies/requirements-pinned.txt -r/workspace/dependencies/requirements.txt -r /workspace/dependencies/requirements-pinned.txt --no-cache-dir -f /workspace/dependencies/wheelhouse
 #RUN pip3 install django-debug-toolbar
 
 ARG built_version=""
@@ -52,6 +52,7 @@ ENV LANG C.UTF-8
 ENV LANGUAGE C.UTF-8
 
 ENV BUILT_VERSION=${built_version}
+ENV SPHINXBUILD=sphinx-build
 
 # TODO: Validate this is necessary.
 VOLUME /tmp
@@ -60,6 +61,12 @@ ENV DJANGO_SETTINGS_MODULE=das_server.local_settings_docker
 
 # Default service name
 ENV SERVICE_NAME=api_server
+
+# # Add sphinx docs
+ADD ./docs /var/www/app/docs
+WORKDIR /var/www/app/docs
+RUN make html
+
 
 WORKDIR /var/www/app
 
