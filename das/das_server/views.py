@@ -90,6 +90,7 @@ class VersionSerializer(rest_framework.serializers.Serializer):
     server_timezone = rest_framework.serializers.CharField(read_only=True)
 
     eula_enabled = rest_framework.serializers.BooleanField(read_only=True)
+    patrol_enabled = rest_framework.serializers.BooleanField(read_only=True)
 
 
 class StatusView(generics.RetrieveAPIView):
@@ -116,6 +117,7 @@ class StatusView(generics.RetrieveAPIView):
         resp['server_timezone_name'] = timezone.get_current_timezone_name()
         resp['server_timezone'] = timezone.localtime().strftime('%Z')
         resp['eula_enabled'] = settings.ACCEPT_EULA
+        resp['patrol_enabled'] = settings.PATROL_ENABLED
 
         if self.get_support_settings():
             resp['eus_settings'] = self.get_support_settings()
