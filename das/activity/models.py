@@ -1448,7 +1448,6 @@ class TeamMembership(TimestampedModel):
 class Patrol(TimestampedModel, RevisionMixin):
 
     PRIORITY_CHOICES = PRIORITY_CHOICES
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     serial_number = models.BigIntegerField(verbose_name='Serial Number', unique=True, blank=True, null=True)
     priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
