@@ -82,4 +82,9 @@ urlpatterns = [
     url(
         r'^event/(?P<from_event_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/relationship/(?P<relationship_type>[0-9a-zA-Z_]+)/(?P<to_event_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
         views.EventRelationshipView.as_view(), name='event-view-relationship'),
+    url(
+        r'^patrols/types/?$', views.PatrolTypesView.as_view()),
+    url(
+        r'^patrols/type/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.PatrolTypeview.as_view()),
+
 ]

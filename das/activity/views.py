@@ -38,7 +38,7 @@ from activity.filters import EventObjectPermissionsFilter
 from activity.models import Event, EventNote, EventClass, \
     EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, \
     EventFile, Community, \
-    EventFilter, EventSource, EventProvider
+    EventFilter, EventSource, EventProvider, PatrolType
 from activity.permissions import EventCategoryPermissions, \
     EventNotesCategoryPermissions, IsOwner
 from activity.serializers import EventSerializer, EventNoteSerializer, \
@@ -47,7 +47,8 @@ from activity.serializers import EventSerializer, EventNoteSerializer, \
     EventTypeSerializer, EventRelationshipSerializer, EventCategorySerializer, \
     EventFileSerializer, \
     EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, \
-    EventGeoJsonSerializer
+    EventGeoJsonSerializer, \
+    PatrolTypeSerializer
 from choices.models import Choice
 from observations.models import Subject
 from utils.drf import StandardResultsSetPagination, \
@@ -1080,3 +1081,14 @@ class EventAlertTargetsListView(generics.ListAPIView):
     serializer_class = accounts.serializers.UserDisplaySerializer
 
     queryset = accounts.models.User.objects.none()
+
+
+class PatrolTypesView(generics.ListAPIView):
+    serializer_class = PatrolTypeSerializer
+    queryset = PatrolType.objects.all()
+
+
+class PatrolTypeview(generics.RetrieveAPIView):
+    lookup_field = 'id'
+    serializer_class = PatrolTypeSerializer
+    queryset = PatrolType.objects.all()
