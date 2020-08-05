@@ -80,12 +80,14 @@ def parse_xml_to_dict(xml):
 def get_track_points(gpx):
     try:
         trkpoint = gpx['gpx']['trk']['trkseg']['trkpt']
-    except Exception as exc:
+    except KeyError:
         message = "No track points were found in the file."
-        logger.exception(message)
-        return message
+    except Exception as exc:
+        message = f"Error occurred: {repr(exc)} when getting trackpoints from gpx file"
     else:
         return trkpoint
+    logger.exception(message)
+    return message
 
 
 def get_array_recorded_time(src, array_recorded_at):
@@ -163,7 +165,7 @@ def get_additional(trkpoint):
 def success_process_gpxtrack(gpx_id, message):
     # get length of observations from message
     count = ''.join(filter(str.isdigit, message))
-    points_imported = int(count) if count else 'Duplicate'
+    points_imported = int(count) if count else '0 (All Duplicates)'
 
     return GPXTrackFile.objects.filter(id=gpx_id).update(
         processed_status='success',
