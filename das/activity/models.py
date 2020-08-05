@@ -1403,8 +1403,23 @@ class Team(models.Model):
                                   on_delete=models.SET_NULL, blank=True, null=True)
 
 
-class Patrol(models.Model, RevisionMixin):
+class Patrol(TimestampedModel, RevisionMixin):
+
+    SC_UPCOMING = 'upcoming'
+    SC_ACTIVE = 'active'
+    SC_PAST = 'past'
+
+    STATE_CHOICES = (
+        (SC_UPCOMING, 'Upcoming'),
+        (SC_ACTIVE, 'Active'),
+        (SC_PAST, 'Past'),
+    )
+
+    PRIORITY_CHOICES = PRIORITY_CHOICES
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    serial_number = models.BigIntegerField(verbose_name='Serial Number', unique=True, blank=True, null=True)
+    priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
     title = models.CharField(max_length=255, blank=True, null=True)
     objective = models.CharField(max_length=255)
     time_range = DateTimeRangeField()
@@ -1417,8 +1432,10 @@ class PatrolType(models.Model):
     display = models.CharField(max_length=255, blank=True, null=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     icon = models.CharField(max_length=100, blank=True, null=True)
-    schema_template = JSONField('additional', default=dict, blank=False, null=True)
-    form_definition = JSONField('form_definition', default=dict, blank=False, null=True)
+    default_priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
+
+    # schema_template = JSONField('additional', default=dict, blank=False, null=True)
+    # form_definition = JSONField('form_definition', default=dict, blank=False, null=True)
 
 
 class PatrolSegment(models.Model, RevisionMixin):
@@ -1435,6 +1452,8 @@ class PatrolSegment(models.Model, RevisionMixin):
                                 related_name='persons', related_query_name='person')
     patrol_type = models.ForeignKey(PatrolType, on_delete=models.SET_NULL, blank=True, null=True)
     time_range = DateTimeRangeField(null=True, blank=True)
+    start_location = models.PointField(srid=4326)
+    end_location = models.PointField(srid=4326)
     segment_leader = models.ForeignKey(Person,
                                        on_delete=models.SET_NULL,
                                        related_name='segment_leaders',
@@ -1450,7 +1469,7 @@ class PatrolTemplate(models.Model):
     objective = models.CharField(max_length=255, blank=True, null=True)
     patrol_type = models.ForeignKey(PatrolType, on_delete=models.SET_NULL, blank=True, null=True)
     team = models.ForeignKey(Team, on_delete=models.SET_NULL, blank=True, null=True)
-    Length = models.IntegerField(blank=True, null=True)
+    length = models.IntegerField(blank=True, null=True)
     source = models.ForeignKey(Source, on_delete=models.CASCADE, blank=True,
                                null=True,
                                related_name='sources_assigned',
