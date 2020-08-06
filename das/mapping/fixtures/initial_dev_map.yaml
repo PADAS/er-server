@@ -1,26 +1,13 @@
 - model: mapping.map
   pk: 03bd4486-9dee-404e-a666-055afee90434
   fields:
-    created_at: "2018-08-01 00:00:00+00:00"
-    updated_at: "2018-08-01 00:00:00+00:00"
-    name: Seattle
-    attributes:
-      default: false
-      icon: {bottom: 0, height: 34, src: 'https://cdn1.iconfinder.com/data/icons/world-top-cities-1/512/18-Seattle-256.png'}
-      id: seattle
-      title: Seattle
-    center: SRID=4326;POINT (-122.3286437817934 47.58949410579475)
-    zoom: 12
-- model: mapping.map
-  pk: d37bbc31-652a-4de6-9421-1e9aa0bfbaee
-  fields:
-    created_at: "2018-08-01 00:00:00+00:00"
-    updated_at: "2018-08-01 00:00:00+00:00"
-    name: Lewa
+    created_at: "2020-07-30 00:00:00+00:00"
+    updated_at: "2020-07-30 00:00:00+00:00"
+    name: Earth
     attributes:
       default: true
-      icon: {bottom: 2, height: 30, src: assets/static/home-area-lewa.png}
-      id: lewa
-      title: Lewa
-    center: SRID=4326;POINT (37.43231293674571 0.2110129288033955)
-    zoom: 12
+      icon: {bottom: 0, height: 34, src: 'https://img.icons8.com/officel/80/000000/earth-planet.png'}
+      id: earth
+      title: Earth
+    center: SRID=4326;POINT (-122.3286437817934 47.58949410579475)
+    zoom: 1
