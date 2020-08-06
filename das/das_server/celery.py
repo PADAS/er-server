@@ -132,7 +132,7 @@ app.conf.beat_schedule = {
     },
     'poll-gfw': {
         'task': 'analyzers.tasks.poll_gfw',
-        'schedule': timedelta(hours=24)
+        'schedule': timedelta(minutes=10)  # TODO: shorter polling interval only for testing. change to 24 hrs.
     },
 
 }
