@@ -42,7 +42,7 @@ class AdminFeatureFlag:
             raise ValueError("Wrapped class must be subclass of ModelAdmin.")
 
         admin_site = default_site
-        flag_status = getattr(settings, self.flag, True)
+        flag_status = getattr(settings, self.flag, False)
 
         if flag_status:
             admin_site.unregister(self.model)
