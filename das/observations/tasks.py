@@ -83,10 +83,10 @@ def get_track_points(gpx):
     except KeyError:
         message = "No track points were found in the file."
     except Exception as exc:
+        logger.exception(message)
         message = f"Error occurred: {repr(exc)} when getting trackpoints from gpx file"
     else:
         return trkpoint
-    logger.exception(message)
     return message
 
 
