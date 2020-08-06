@@ -44,7 +44,8 @@ class GlobalForestWatchSubscription (TimestampedModel):
                                        default=HIGH_NOMINAL)
 
     subscription_geometry = models.PolygonField(geography=True, srid=4326, null=True)
-    last_check_time = models.DateTimeField(blank=True, null=True, verbose_name='Last Check Time')
+    last_check_time = models.DateTimeField(blank=True, null=True)
+    last_check_status = models.CharField(max_length=100, blank=True)
 
     class Meta:
         verbose_name = 'Global Forest Watch Subscription'
