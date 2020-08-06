@@ -90,17 +90,20 @@ class EventTypeForm(forms.ModelForm):
     def clean_schema(self):
         schema = self.cleaned_data.get('schema')
         name = self.cleaned_data['display']
-        schema_warning = f'Warning: The event type schema for {name} is not properly formatted JSON. The event type might not properly render in the EarthRanger client.'
+        schema_warning = f'Warning: The event type schema for {name} is not properly formatted JSON. '
         try:
             rendered_schema = get_schema_renderer_method()(schema)
         except NameError as ne:
+            schema_warning += f'Received the following error: {ne}'
             messages.add_message(self.request, messages.WARNING, schema_warning)
-        except Exception:
+        except Exception as exc:
+            schema_warning += f'Received the following error: {exc}'
             messages.add_message(self.request, messages.WARNING, schema_warning)
         else:
             try:
                 validate_rendered_schema_is_wellformed(rendered_schema)
             except SchemaValidationError as e:
+                schema_warning += f'Received the following error: {e}'
                 messages.add_message(self.request, messages.WARNING, schema_warning)
         return schema
 
