@@ -44,7 +44,7 @@ class AdminFeatureFlag:
         admin_site = default_site
         flag_status = getattr(settings, self.flag, False)
 
-        if flag_status:
+        if not flag_status:
             admin_site.unregister(self.model)
         else:
             return admin_class
