@@ -210,9 +210,9 @@ class SpeedDistroAdmin(admin.ModelAdmin):
 @admin.register(models.GlobalForestWatchSubscription)
 class GlobalForestWatchAdmin(OSMGeoExtendedAdmin):
     form = GlobalForestWatchSubscriptionForm
-    readonly_fields = ('subscription_id', 'geostore_id',)
+    readonly_fields = ('subscription_id', 'geostore_id', 'last_check_time')
 
-    list_display = ('name', 'subscription_id',)
+    list_display = ('name', 'subscription_id', 'last_check_time')
     ordering = list_display
 
     gis_geometry_field_name = 'subscription_geometry'
@@ -220,7 +220,7 @@ class GlobalForestWatchAdmin(OSMGeoExtendedAdmin):
     fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('name', )
+            'fields': ('name', 'last_check_time')
         }),
         ('Global Forest Watch API Properties', {
             'classes': ('wide',),

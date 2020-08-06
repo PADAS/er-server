@@ -98,6 +98,8 @@ def make_alert_info(alert_name, geostore_id, start_date, end_date):
     return dict(
         alert_name=alert_name,
         alert_link=f'{gfw_endpoint}/map/3/0/0/ALL/grayscale/?fit_to_geom=true&begin={start_date}&end={end_date}&geostore={geostore_id}',
+        alert_date_begin=start_date,
+        alert_date_end=end_date,
         downloadUrls={
             'json': f'{download_url_prefix}&period={start_date},{end_date}&geostore={geostore_id}'
         }
