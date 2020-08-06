@@ -1088,7 +1088,7 @@ class PatrolTypesView(generics.ListAPIView):
     queryset = PatrolType.objects.all()
 
 
-class PatrolTypeview(generics.RetrieveAPIView):
+class PatrolTypeView(generics.RetrieveAPIView):
     lookup_field = 'id'
     serializer_class = PatrolTypeSerializer
     queryset = PatrolType.objects.all()
