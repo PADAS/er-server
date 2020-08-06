@@ -1386,7 +1386,27 @@ class TSVectorModel(models.Model):
 
 # Patrol Management.
 
+
+PC_UPCOMING = 'upcoming'
+PC_ACTIVE = 'active'
+PC_PAST = 'past'
+
+PATROL_STATE_CHOICES = (
+    (PC_UPCOMING, 'Upcoming'),
+    (PC_ACTIVE, 'Active'),
+    (PC_PAST, 'Past'),
+)
+
+
+class PersonManager(models.Manager):
+
+    def get_queryset(self):
+        return super(PersonManager, self).get_queryset().filter(subject_subtype__subject_type__value='person')
+
+
 class Person(Subject):
+    objects = PersonManager()
+
     class Meta:
         proxy = True
         verbose_name = _('Person')
@@ -1405,40 +1425,32 @@ class Team(models.Model):
 
 class Patrol(TimestampedModel, RevisionMixin):
 
-    SC_UPCOMING = 'upcoming'
-    SC_ACTIVE = 'active'
-    SC_PAST = 'past'
-
-    STATE_CHOICES = (
-        (SC_UPCOMING, 'Upcoming'),
-        (SC_ACTIVE, 'Active'),
-        (SC_PAST, 'Past'),
-    )
-
     PRIORITY_CHOICES = PRIORITY_CHOICES
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     serial_number = models.BigIntegerField(verbose_name='Serial Number', unique=True, blank=True, null=True)
     priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
+    state = models.PositiveSmallIntegerField(choices=PATROL_STATE_CHOICES, default=PC_ACTIVE)
     title = models.CharField(max_length=255, blank=True, null=True)
     objective = models.CharField(max_length=255)
     time_range = DateTimeRangeField()
     revision = Revision()
 
 
-class PatrolType(models.Model):
+class PatrolType(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(max_length=50, unique=True)
     display = models.CharField(max_length=255, blank=True, null=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     icon = models.CharField(max_length=100, blank=True, null=True)
     default_priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
+    is_active = models.BooleanField(default=True)
 
     # schema_template = JSONField('additional', default=dict, blank=False, null=True)
     # form_definition = JSONField('form_definition', default=dict, blank=False, null=True)
 
 
-class PatrolSegment(models.Model, RevisionMixin):
+class PatrolSegment(TimestampedModel, RevisionMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     patrol = models.ForeignKey(Patrol,
                                on_delete=models.SET_NULL,
@@ -1460,17 +1472,18 @@ class PatrolSegment(models.Model, RevisionMixin):
                                        related_query_name='segment_leader',
                                        blank=True,
                                        null=True)
-    status = models.CharField(max_length=255, blank=True, null=True)
+    state = models.PositiveSmallIntegerField(choices=PATROL_STATE_CHOICES, default=PC_ACTIVE)
+    revision = Revision()
 
 
-class PatrolTemplate(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    title = models.CharField(max_length=255, blank=True, null=True)
-    objective = models.CharField(max_length=255, blank=True, null=True)
-    patrol_type = models.ForeignKey(PatrolType, on_delete=models.SET_NULL, blank=True, null=True)
-    team = models.ForeignKey(Team, on_delete=models.SET_NULL, blank=True, null=True)
-    length = models.IntegerField(blank=True, null=True)
-    source = models.ForeignKey(Source, on_delete=models.CASCADE, blank=True,
-                               null=True,
-                               related_name='sources_assigned',
-                               related_query_name='source_assigned')
+# class PatrolTemplate(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     title = models.CharField(max_length=255, blank=True, null=True)
+#     objective = models.CharField(max_length=255, blank=True, null=True)
+#     patrol_type = models.ForeignKey(PatrolType, on_delete=models.SET_NULL, blank=True, null=True)
+#     team = models.ForeignKey(Team, on_delete=models.SET_NULL, blank=True, null=True)
+#     length = models.IntegerField(blank=True, null=True)
+#     source = models.ForeignKey(Source, on_delete=models.CASCADE, blank=True,
+#                                null=True,
+#                                related_name='sources_assigned',
+#                                related_query_name='source_assigned')
