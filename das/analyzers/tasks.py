@@ -1,5 +1,7 @@
 import json
 import logging
+from datetime import date, timedelta
+import urllib
 
 import requests
 from celery_once import QueueOnce
@@ -10,11 +12,12 @@ from analyzers import gfw_inbound
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.finder import get_subject_analyzers
 from analyzers.gfw_alert_schema import GFWGladEventTypeSpec
-from analyzers.gfw_utils import get_geostore_id, rebuild_glad_download_url
+from analyzers.gfw_utils import get_geostore_id, rebuild_glad_download_url, get_gfw_user, make_alert_info
 from analyzers.models import GlobalForestWatchSubscription as gfw_model
 from analyzers.models import ObservationAnnotator
 from das_server import celery
 from observations.models import Subject
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -162,3 +165,27 @@ def download_gfw_alerts(self, download_url, common_event_fields, user_id):
         else:
             logger.error('GFW Alerts cannot be downloaded. Result is %s, \ndownload url is: %s\n Response is: %s',
                 resp.status_code, download_url, resp.text)
+
+
+@celery.app.task()
+def poll_gfw():
+    # check gfw for alerts for subscriptions in the db. check for the past 2 days
+    today = date.today()
+    start_date = today - timedelta(2)
+    start_date = start_date.strftime('%Y-%m-%d')
+    end_date = today.strftime('%Y-%m-%d')
+
+    gfw_user = get_gfw_user()
+#     process_alert_for_subscription(layer_slug, subscription_id, validated_data, request)
+#     layer_slug is in model's json blob, sub_id from model, need user.id from request. get user from gfw_outbound
+#     validated_data has alert_name, alert_link, downloadUrls.json
+
+    [send_alert(m, start_date, end_date, gfw_user) for m in gfw_model.objects.all()]
+
+
+def send_alert(gfw_subscription, start_date, end_date, gfw_user):
+    alert_info = make_alert_info(gfw_subscription.name, gfw_subscription.geostore_id, start_date, end_date)
+    # for layer_slug in gfw_subscription.additional['alert_types']:
+    [gfw_inbound.process_alert_for_subscription(t, gfw_subscription.subscription_id, alert_info, str(gfw_user.id))
+     for t in gfw_subscription.additional['alert_types']]
+

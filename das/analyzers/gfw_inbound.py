@@ -122,12 +122,13 @@ def process_handler_post(request):
         subscription_ids = [o.subscription_id for o in GlobalForestWatchSubscription.objects.all()
                             if layer_slug in o.additional['alert_types']]
 
-    [process_alert_for_subscription(layer_slug, sub_id, deserialized.validated_data, request) for sub_id in subscription_ids]
+    [process_alert_for_subscription(layer_slug, sub_id, deserialized.validated_data, str(request.user.id))
+     for sub_id in subscription_ids]
 
     return Response(status=status.HTTP_200_OK, data=dict(message='Alerts are being processed'))
 
 
-def process_alert_for_subscription(layer_slug, subscription_id, validated_data, request):
+def process_alert_for_subscription(layer_slug, subscription_id, validated_data, user_id):
     logger.info('Got %s alert', layer_slug,
                 extra={'alert_type': layer_slug})
     event_type_value = GFW_EVENT_TYPES_MAP.get(layer_slug)
@@ -158,7 +159,7 @@ def process_alert_for_subscription(layer_slug, subscription_id, validated_data, 
 
         result = celery.app.send_task('analyzers.tasks.download_gfw_alerts', args=(download_url,
                                                                                    event_dict,
-                                                                                   str(request.user.id)))
+                                                                                   user_id))
         logger.info('Submitted task for downloading GFW Alerts. Celery Async result: %s', result)
 
 

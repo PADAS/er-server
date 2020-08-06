@@ -1,11 +1,9 @@
-import json
 import logging
 import urllib.parse as urlparse
 
-import requests
 from django.conf import settings
-from rest_framework import status
 
+from accounts.models import User
 from analyzers.models import GlobalForestWatchSubscription as gfw_model
 
 logger = logging.getLogger(__name__)
@@ -89,3 +87,31 @@ def rebuild_glad_download_url(download_url, gfw_object):
                                              fragment=parsed_result.fragment,
                                              query=urlparse.urlencode(query_params, doseq=True))
     return urlparse.urlunparse(new_parsed_result)
+
+
+def make_alert_info(alert_name, geostore_id, start_date, end_date):
+    parsed_gfw_api_root = urlparse.urlparse(settings.GFW_API_ROOT)
+    gfw_endpoint = f'{parsed_gfw_api_root.scheme}://{parsed_gfw_api_root.netloc}'
+
+    download_url_prefix = f'{gfw_endpoint}/glad-alerts/download/?gladConfirmOnly=False&aggregate_values=False&aggregate_by=False&format=json'
+
+    return dict(
+        alert_name=alert_name,
+        alert_link=f'{gfw_endpoint}/map/3/0/0/ALL/grayscale/?fit_to_geom=true&begin={start_date}&end={end_date}&geostore={geostore_id}',
+        downloadUrls={
+            'json': f'{download_url_prefix}&period={start_date},{end_date}&geostore={geostore_id}'
+        }
+    )
+
+
+def get_gfw_user():
+    '''
+    Get the system-generated user to associate with the Global Forest Watch events.
+    :return:
+    '''
+    user, create = User.objects.get_or_create(username='gfwwebhookuser',
+                                              defaults={'first_name': 'GFW',
+                                                        'last_name': 'Webhook',
+                                                        'password': User.objects.make_random_password()
+                                                        })
+    return user

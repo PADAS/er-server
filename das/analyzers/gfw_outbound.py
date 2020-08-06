@@ -14,6 +14,7 @@ from rest_framework import status
 
 from accounts.models import User
 from sensors.handlers import GFWAlertHandler
+from analyzers.gfw_utils import get_gfw_user
 
 from oauth2_provider.models import AccessToken
 
@@ -38,19 +39,6 @@ def get_webhook_base_url(provider_key=GFWAlertHandler.PROVIDER_KEY):
                    kwargs={'provider_key': provider_key})
 
     return ''.join([getattr(settings, 'UI_SITE_URL'), path])
-
-
-def get_gfw_user():
-    '''
-    Get the system-generated user to associate with the Global Forest Watch events.
-    :return:
-    '''
-    user, create = User.objects.get_or_create(username='gfwwebhookuser',
-                                              defaults={'first_name': 'GFW',
-                                                        'last_name': 'Webhook',
-                                                        'password': User.objects.make_random_password()
-                                                        })
-    return user
 
 
 def get_gfw_oauth2_application():
