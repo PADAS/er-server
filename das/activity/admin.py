@@ -10,7 +10,7 @@ from django.http import HttpResponseRedirect
 from django.contrib import messages
 
 import activity.models as models
-from activity.forms import EventTypeForm, EventForm
+from activity.forms import EventTypeForm, EventForm, PatrolTypeForm
 from core.admin import InlineExtraDynamicMixin
 from activity.forms import EventProviderForm, AlertRuleForm
 from core.openlayers import OSMGeoExtendedAdmin
@@ -376,3 +376,12 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
                                        status=status,
                                        qs_method=qs_method,
                                        name=name)
+
+
+@admin.register(models.PatrolType)
+class PatrolTypeAdmin(admin.ModelAdmin):
+    form = PatrolTypeForm
+    readonly_fields = ('id',)
+    list_display = ('display', 'value', 'ordernum', 'icon', 'is_active')
+    search_fields = ('display', 'value')
+    list_editable = ('ordernum', 'is_active',)
