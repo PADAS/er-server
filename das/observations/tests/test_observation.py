@@ -290,6 +290,18 @@ def test_trackingdata_view_for_multiple_source_assignments(two_subjects_one_sour
     assert set(bobo_get_observations) == set(two_subjects_one_source.bobo_observations)
     assert set(bobo_get_observations).difference(set(two_subjects_one_source.ivy_observations))
 
+def test_trackingdata_view_for_max_records(two_subjects_one_source):
+    # Verify we don't see: AssertionError: Cannot reorder a query once a slice has been taken.
+    view = TrackingDataCsvView()
+    lower = datetime.min.replace(tzinfo=timezone.utc)
+    upper = datetime.now(tz=timezone.utc)
+    max_records = 1
+    filter_flag = None
+    qs = view.get_subject_trackdata_queryset(filter_flag, lower, two_subjects_one_source.bobo, upper, max_records)
+    values = list(qs)
+
+    assert len(values) >= 1
+
 # # TODO: client requests using pytest
 # def test_trackingdata_view_for_subjectstatus(two_subjects_one_source):
 #     view = TrackingDataCsvView()

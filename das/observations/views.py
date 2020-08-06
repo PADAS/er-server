@@ -12,7 +12,7 @@ import pytz
 import rest_framework
 from django.conf import settings
 from django.core.serializers.json import DjangoJSONEncoder
-from django.db.models import F, Q, FilteredRelation, Window
+from django.db.models import F, Q, FilteredRelation, Window, Prefetch
 from django.db.models.functions import FirstValue
 from django.http import Http404, HttpResponse
 from django.template.loader import render_to_string
@@ -1377,8 +1377,7 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         return data
 
     def get_subject_trackdata_queryset(self, filter_flag, lower, subject, upper, max_records):
-        qs = models.Observation.objects.get_subject_observations(subject, lower, upper, max_records, filter_flag=filter_flag)
-        qs = qs.order_by('recorded_at')
+        qs = models.Observation.objects.get_subject_observations(subject, lower, upper, max_records, filter_flag=filter_flag, order_by='recorded_at')
         qs = qs.annotate(subjectsource_additional=F('source__subjectsource__additional'),
                          collar_id=F('source__manufacturer_id'))
         return qs
@@ -1430,15 +1429,13 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
         # NOTE: nearly all the data for this call is actually found in the source and subject source, however
         #       it is the subject and by association the subject_group that are limited by the user
         #       so make sure to get the source the is currently assigned
-        now = pytz.utc.localize(datetime.datetime.utcnow())
         subjects = self.get_queryset()
-        subjects = subjects.annotate(ss=FilteredRelation('subjectsource',
-                                                         condition=Q(subjectsource__assigned_range__contains=now)))\
-            .annotate(subjectsource_additional=F('ss__additional'))\
-            .annotate(source_model_name=F('ss__source__model_name'))\
-            .annotate(source_manufacturer_id=F('ss__source__manufacturer_id'))\
-            .annotate(subjectsource_assigned_range=F('ss__assigned_range'))\
-            .annotate(source_additional=F('ss__source__additional'))
+        subjects = subjects.prefetch_related('subjectsources')\
+            .annotate(subjectsource_additional=F('subjectsource__additional'))\
+            .annotate(source_model_name=F('subjectsource__source__model_name'))\
+            .annotate(source_manufacturer_id=F('subjectsource__source__manufacturer_id'))\
+            .annotate(subjectsource_assigned_range=F('subjectsource__assigned_range'))\
+            .annotate(source_additional=F('subjectsource__source__additional'))
 
         for subject in subjects:
             subject.subjectsource_additional = {} if subject.subjectsource_additional is None \
