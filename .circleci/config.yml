@@ -104,7 +104,6 @@ executors:
     docker:
       - image: 'circleci/buildpack-deps:stretch'
 jobs:
-  jobs:
   check_for_abandoned_workspaces:
     executor: circleci_executor
     steps:
@@ -172,6 +171,20 @@ jobs:
           root: './'
           paths:
             - '*'
+
+  build_sphinx_docs:
+    executor: 'circleci_executor'
+    steps:
+      - run:
+          name: "Generate build files"
+          command: |
+            cd docs
+            make html
+      - persist_to_workspace:
+          root: './_build/html'
+          paths:
+            - 'html'
+
 
   docker_build_image:
     executor: 'default'

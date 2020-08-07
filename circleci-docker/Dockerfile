@@ -52,7 +52,6 @@ ENV LANG C.UTF-8
 ENV LANGUAGE C.UTF-8
 
 ENV BUILT_VERSION=${built_version}
-ENV SPHINXBUILD=sphinx-build
 
 # TODO: Validate this is necessary.
 VOLUME /tmp
@@ -61,11 +60,6 @@ ENV DJANGO_SETTINGS_MODULE=das_server.local_settings_docker
 
 # Default service name
 ENV SERVICE_NAME=api_server
-
-# # Add sphinx docs
-ADD ./docs /var/www/app/docs
-WORKDIR /var/www/app/docs
-RUN make html
 
 
 WORKDIR /var/www/app
