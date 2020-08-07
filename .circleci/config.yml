@@ -182,7 +182,7 @@ jobs:
       - run:
           name: "Generate build files"
           command: |
-            pip3 install -r dependencies/requirements-docs.txt 
+            sudo pip3 install -r dependencies/requirements-docs.txt 
             cd docs
             make html
       - persist_to_workspace:
