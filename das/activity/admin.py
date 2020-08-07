@@ -382,6 +382,12 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
 class PatrolTypeAdmin(admin.ModelAdmin):
     form = PatrolTypeForm
     readonly_fields = ('id',)
-    list_display = ('display', 'value', 'ordernum', 'icon', 'is_active')
+    list_display = ('display', 'value', 'ordernum', '_icon_display', 'is_active')
     search_fields = ('display', 'value')
     list_editable = ('ordernum', 'is_active',)
+
+    def _icon_display(self, obj):
+        url = models.PatrolType.marker_icon(obj.icon_id)
+        return mark_safe(
+            f'<img src="{url}" style="height:2.5em; filter:opacity(0.8)" />')
+    _icon_display.short_description = 'Icon'

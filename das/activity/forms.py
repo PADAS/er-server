@@ -212,7 +212,7 @@ class EventForm(forms.ModelForm):
 
 class PatrolTypeForm(forms.ModelForm):
     icon = forms.CharField(required=False,
-                           label='Icon Override',
+                           label='Icon',
                            widget=IconKeyInput(image_list_fn=get_icon_select_list))
 
     class Meta:
