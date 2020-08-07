@@ -103,6 +103,9 @@ executors:
   circleci_executor:
     docker:
       - image: 'circleci/buildpack-deps:stretch'
+  docs_executor:
+    docker:
+      - image: 'circleci/python:3.6.11'
 jobs:
   check_for_abandoned_workspaces:
     executor: circleci_executor
@@ -171,13 +174,19 @@ jobs:
           root: './'
           paths:
             - '*'
+  # docker_buid_sphinx_docs:
+  #   executor: 'default'
+  #   steps:
+  #     - 
 
   build_sphinx_docs:
-    executor: 'circleci_executor'
+    executor: 'docs_executor'
     steps:
+      - 'checkout'
       - run:
           name: "Generate build files"
           command: |
+            pip3 install -r dependencies/requirements-docs.txt 
             cd docs
             make html
       - persist_to_workspace:
@@ -230,7 +239,7 @@ workflows:
       - build_sphinx_docs
       - docker_build_image:
           requires:
-            - build_sphinx_docs
+            - 'build_sphinx_docs'
           filters:
             branches:
               ignore:
