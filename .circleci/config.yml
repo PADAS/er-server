@@ -179,6 +179,7 @@ jobs:
   build_sphinx_docs:
     executor: 'circleci_executor'
     steps:
+      - 'checkout'
       - run:
           name: "Generate build files"
           command: |
