@@ -1432,7 +1432,7 @@ class Patrol(TimestampedModel, RevisionMixin):
     priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
     state = models.PositiveSmallIntegerField(choices=PATROL_STATE_CHOICES, default=PC_ACTIVE)
     title = models.CharField(max_length=255, blank=True, null=True)
-    objective = models.CharField(max_length=255)
+    objective = models.TextField()
     time_range = DateTimeRangeField()
     revision = Revision()
 
@@ -1492,10 +1492,10 @@ class PatrolSegment(TimestampedModel, RevisionMixin):
     members = models.ForeignKey(Person, on_delete=models.SET_NULL, blank=True, null=True,
                                 related_name='persons', related_query_name='person')
     patrol_type = models.ForeignKey(PatrolType, on_delete=models.SET_NULL, blank=True, null=True)
-    scheduled_start = models.DateTimeField()
+    scheduled_start = models.DateTimeField(blank=True, null=True)
     time_range = DateTimeRangeField(null=True, blank=True)
-    start_location = models.PointField(srid=4326)
-    end_location = models.PointField(srid=4326)
+    start_location = models.PointField(srid=4326, blank=True, null=True)
+    end_location = models.PointField(srid=4326, blank=True, null=True)
     segment_leader = models.ForeignKey(Person,
                                        on_delete=models.SET_NULL,
                                        related_name='segment_leaders',
