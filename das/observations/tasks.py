@@ -80,12 +80,14 @@ def parse_xml_to_dict(xml):
 def get_track_points(gpx):
     try:
         trkpoint = gpx['gpx']['trk']['trkseg']['trkpt']
+    except KeyError:
+        message = "No track points were found in the file."
     except Exception as exc:
-        message = f"Error occurred: {repr(exc)} when getting trackpoints from gpx file"
         logger.exception(message)
-        return message
+        message = f"Error occurred: {repr(exc)} when getting trackpoints from gpx file"
     else:
         return trkpoint
+    return message
 
 
 def get_array_recorded_time(src, array_recorded_at):
@@ -160,12 +162,21 @@ def get_additional(trkpoint):
     return trkpoint
 
 
-def success_process_gpxtrack(gpx_id):
-    return GPXTrackFile.objects.filter(id=gpx_id).update(processed_status='success')
+def success_process_gpxtrack(gpx_id, message):
+    # get length of observations from message
+    count = ''.join(filter(str.isdigit, message))
+    points_imported = int(count) if count else '0 (All Duplicates)'
+
+    return GPXTrackFile.objects.filter(id=gpx_id).update(
+        processed_status='success',
+        points_imported=points_imported)
 
 
-def failed_process_gpxtrack(gpx_id):
-    return GPXTrackFile.objects.filter(id=gpx_id).update(processed_status='failure')
+def failed_process_gpxtrack(gpx_id, trkpoints=None):
+    return GPXTrackFile.objects.filter(id=gpx_id).update(
+        processed_status='failure',
+        status_description=trkpoints,
+        points_imported=0)
 
 
 @celery.app.task
@@ -178,16 +189,16 @@ def process_gpxtrack_file(gpx_id):
         return
     trkpoints = get_track_points(response)
     if isinstance(trkpoints, str):
-        failed_process_gpxtrack(gpx_id)
+        failed_process_gpxtrack(gpx_id, trkpoints)
         return
 
     source_id = GPXTrackFile.objects.get_source_id(gpx_id)
     source = Source.objects.get(id=source_id)
     obs_records, obs_errors = process_trackpoints(source, source_id, trkpoints)
 
-    status, _ = process_observation(observation_records=obs_records, observation_errors=obs_errors)
+    status, message = process_observation(observation_records=obs_records, observation_errors=obs_errors)
     if status:
-        success_process_gpxtrack(gpx_id)
+        success_process_gpxtrack(gpx_id, message)
     else:
         failed_process_gpxtrack(gpx_id)
 
