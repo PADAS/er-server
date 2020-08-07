@@ -186,7 +186,7 @@ jobs:
             cd docs
             make html
       - persist_to_workspace:
-          root: './_build/html'
+          root: 'docs/_build/html'
           paths:
             - 'html'
 
