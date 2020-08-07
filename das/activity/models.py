@@ -1455,7 +1455,7 @@ class PatrolFile(TimestampedModel, RevisionMixin):
                       models.Q(app_label='usercontent', model='imagefilecontent')
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='patrol_files', related_query_name='patrik_file')
+        null=True, blank=True, related_name='patrol_files', related_query_name='patrol_file')
 
     # Generic foreign key to plugin
     usercontent_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, limit_choices_to=relation_limits)
