@@ -1437,10 +1437,39 @@ class Patrol(TimestampedModel, RevisionMixin):
     revision = Revision()
 
 
+class PatrolNote(RevisionMixin, TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    text = models.TextField()
+    created_by_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True)
+    patrol = models.ForeignKey(Patrol, on_delete=models.CASCADE,
+                               related_name='notes',
+                               related_query_name='note')
+    revision = Revision()
+
+
+class PatrolFile(TimestampedModel, RevisionMixin):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    patrol = models.ForeignKey('Patrol', related_name='files', related_query_name='file', on_delete=models.CASCADE)
+    comment = models.TextField(blank=True, null=False, default='', verbose_name='Comment about the file.')
+    relation_limits = models.Q(app_label='usercontent', model='filecontent') | \
+                      models.Q(app_label='usercontent', model='imagefilecontent')
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='patrol_files', related_query_name='patrik_file')
+
+    # Generic foreign key to plugin
+    usercontent_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, limit_choices_to=relation_limits)
+    usercontent_id = models.UUIDField()
+    usercontent = GenericForeignKey('usercontent_type', 'usercontent_id')
+
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+    revision = Revision()
+
+
 class PatrolType(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(max_length=50, unique=True)
-    display = models.CharField(max_length=255, blank=True, null=True)
+    display = models.CharField(max_length=255)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     icon = models.CharField(max_length=100, blank=True, null=True)
     default_priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
@@ -1463,6 +1492,7 @@ class PatrolSegment(TimestampedModel, RevisionMixin):
     members = models.ForeignKey(Person, on_delete=models.SET_NULL, blank=True, null=True,
                                 related_name='persons', related_query_name='person')
     patrol_type = models.ForeignKey(PatrolType, on_delete=models.SET_NULL, blank=True, null=True)
+    scheduled_start = models.DateTimeField()
     time_range = DateTimeRangeField(null=True, blank=True)
     start_location = models.PointField(srid=4326)
     end_location = models.PointField(srid=4326)
