@@ -167,8 +167,7 @@ class SubjectGroupsView(generics.ListAPIView):
         if not self.request.user.has_any_perms(VIEW_SUBJECTGROUP_PERMS):
             raise UnauthorizedView
 
-        queryset = models.SubjectGroup.objects.filter(
-            _parents=None)
+        queryset = models.SubjectGroup.objects.get_non_cyclic_subjectgroups()
         queryset = queryset.order_by('name')
         return queryset
 
@@ -196,6 +195,11 @@ class SubjectGroupView(generics.RetrieveAPIView):
         context = super().get_serializer_context()
         context['render_last_location'] = True
         return context
+
+    def get_queryset(self):
+        queryset = models.SubjectGroup.objects.get_non_cyclic_subjectgroups(single_sg=True)
+        queryset.order_by('name')
+        return queryset
 
 
 class SourceGroupsView(generics.ListAPIView):

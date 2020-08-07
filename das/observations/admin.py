@@ -40,7 +40,7 @@ import observations.models as models
 from tracking.models import SourcePlugin
 import observations.forms
 from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm, GPXFileForm
-from observations.utils import assigned_range_dates
+from observations.utils import assigned_range_dates, get_cyclic_subjectgroup
 from observations.tasks import process_gpxtrack_file
 from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin, \
     SaveCoordinatesToCookieMixin
@@ -1208,6 +1208,21 @@ class SubjectGroupChangeForm(forms.ModelForm):
         for subject in self.cleaned_data['inactive_subjects']:
             instance.subjects.add(subject)
         return instance
+
+    def clean_children(self):
+        cyclic_list = []
+        groups = queryset = self.cleaned_data.get('children')
+        cyclic_sg = get_cyclic_subjectgroup()
+
+        for o in queryset:
+            descendents = [q.id for q in o.get_descendants()]
+            if bool(set(descendents) & set(cyclic_sg)):
+                cyclic_list.append(o.name)
+        if cyclic_list:
+            raise forms.ValidationError(f"The following subject group {cyclic_list}  relation "
+                                        f"results in cyclic dependency", code='invalid')
+        return groups
+
 
 
 from django.contrib.auth import get_permission_codename

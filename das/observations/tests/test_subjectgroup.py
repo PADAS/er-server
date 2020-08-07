@@ -9,7 +9,7 @@ from accounts.models import User, PermissionSet
 from core.tests import BaseAPITest, fake_get_pool, API_BASE
 from observations.admin import SubjectGroupChangeForm
 from observations.models import Subject, SubjectGroup
-from observations.views import SubjectGroupsView, SubjectsView
+from observations.views import SubjectGroupsView, SubjectsView, SubjectGroupView
 
 
 def make_perm(perm):
@@ -90,6 +90,29 @@ class SubjectGroupTest(BaseAPITest):
                          str(self.beta.id) not in subject_ids) and
                         (str(self.rosie.id) in subject_ids and
                          str(self.henry.id) in subject_ids))
+
+    def test_cyclic_subjectgroup_and_guard_infinite_recursion(self):
+
+        sgrp1 = SubjectGroup.objects.create(name='Subject Group 1')
+        sgrp2 = SubjectGroup.objects.create(name='Subject Group 2')
+        sgrp3 = SubjectGroup.objects.create(name='Subject Group 3')
+        sgrp4 = SubjectGroup.objects.create(name='Subject Group 4')
+
+        sgrp1.children.add(sgrp2)
+        sgrp2.children.add(sgrp1, sgrp3)
+        sgrp3.children.add(sgrp2)
+        sgrp4.children.add(sgrp3)
+
+        request = self.factory.get(API_BASE + '/subjectgroups')
+        self.force_authenticate(request, self.user)
+        response = SubjectGroupsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+
+        sgrp1_pk = sgrp1.id  # forms a cyclic graph.
+        request = self.factory.get(API_BASE + f'/subjectgroup/{sgrp1_pk}/')
+        self.force_authenticate(request, self.user)
+        response = SubjectGroupView.as_view()(request, id=str(sgrp1_pk))
+        self.assertEqual(response.status_code, 404)
 
 
 class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
