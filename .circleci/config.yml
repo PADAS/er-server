@@ -235,7 +235,7 @@ workflows:
       - build_sphinx_docs
       - docker_build_image:
           requires:
-            - build_sphinx_docs
+            - 'build_sphinx_docs'
           filters:
             branches:
               ignore:
