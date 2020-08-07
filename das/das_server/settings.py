@@ -534,6 +534,7 @@ GFW_CLUSTER_RADIUS = 5 # kilometers
 METRICS_BUCKET = "er-site-metrics"
 
 ACCEPT_EULA = True
+PATROL_ENABLED = False
 
 # Has to be a multiple of 256
 GS_BLOB_CHUNK_SIZE = 10485760
