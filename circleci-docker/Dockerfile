@@ -37,7 +37,7 @@ RUN pip3 install -U "pip"
 RUN pip3 install numpy
 
 RUN rm -rf /usr/lib/python3/dist-packages/GDAL-2.2.2.*
-RUN pip3 install -r /workspace/dependencies/requirements-docs.in -r /workspace/dependencies/requirements-pinned.txt -r/workspace/dependencies/requirements.txt -r /workspace/dependencies/requirements-pinned.txt --no-cache-dir -f /workspace/dependencies/wheelhouse
+RUN pip3 install -r /workspace/dependencies/requirements.txt -r /workspace/dependencies/requirements-pinned.txt --no-cache-dir -f /workspace/dependencies/wheelhouse
 #RUN pip3 install django-debug-toolbar
 
 ARG built_version=""
@@ -60,7 +60,6 @@ ENV DJANGO_SETTINGS_MODULE=das_server.local_settings_docker
 
 # Default service name
 ENV SERVICE_NAME=api_server
-
 
 WORKDIR /var/www/app
 

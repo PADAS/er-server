@@ -32,7 +32,7 @@ CACHES = {
 
 MEDIA_ROOT = '/user-uploads'
 MEDIA_URL = 'http://localhost:8000/media/user-uploads/'
-DOCS_ROOT = os.path.join(BASE_DIR, 'docs_html')
+DOCS_ROOT = os.path.join(BASE_DIR, 'html')
 
 SECRET_KEY = 'aefefsfees'
 
