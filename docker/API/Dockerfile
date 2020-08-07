@@ -3,7 +3,7 @@ FROM gcr.io/padas-app/app:${app_tag}
 
 ARG version=""
 
-ADD docker/API/start.sh /var/www/app/start.sh
+ADD ./start.sh /var/www/app/start.sh
 
 EXPOSE 8000
 EXPOSE 5400

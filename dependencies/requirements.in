@@ -42,6 +42,7 @@ django-pgviews==0.5.5
 django-model-utils==3.2.0
 #see https://github.com/ottoyiu/django-cors-headers
 django-cors-headers==2.5.3
+django-docs==0.3.1
 django-environ==0.4.5
 django-oauth-toolkit==1.3.2
 django-rest-swagger==2.2.0
