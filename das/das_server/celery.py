@@ -130,6 +130,10 @@ app.conf.beat_schedule = {
         # 2 AM per settings.TIME_ZONE
         'schedule': crontab(hour=2, minute=0)
     },
+    'poll-gfw': {
+        'task': 'analyzers.tasks.poll_gfw',
+        'schedule': timedelta(hours=24)
+    },
 
 }
 
