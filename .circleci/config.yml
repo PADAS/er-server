@@ -227,7 +227,10 @@ workflows:
   # Build for all branches except develop and release.
   # Include a review step.
     jobs:
+      - build_sphinx_docs
       - docker_build_image:
+          requires:
+            - build_sphinx_docs
           filters:
             branches:
               ignore:
