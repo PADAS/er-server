@@ -11,7 +11,7 @@ def populate_initial_patroltypes(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('activity', '0095_Patrol_initial'),
+        ('activity', '0095_initial_patrol'),
     ]
 
     operations = [
