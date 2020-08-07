@@ -171,10 +171,10 @@ jobs:
           root: './'
           paths:
             - '*'
-  docker_buid_sphinx_docs:
-    executor: 'default'
-    steps:
-      - 
+  # docker_buid_sphinx_docs:
+  #   executor: 'default'
+  #   steps:
+  #     - 
 
   build_sphinx_docs:
     executor: 'circleci_executor'
