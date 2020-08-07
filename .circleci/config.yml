@@ -185,9 +185,8 @@ jobs:
             sudo pip3 install -r dependencies/requirements-docs.txt 
             cd docs
             make html
-            pwd
       - persist_to_workspace:
-          root: 'das/docs/_build/html'
+          root: 'docs/_build'
           paths:
             - 'html'
 
