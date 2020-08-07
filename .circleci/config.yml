@@ -105,7 +105,7 @@ executors:
       - image: 'circleci/buildpack-deps:stretch'
   docs_executor:
     docker:
-      - image: 'circleci/python:3.6.11'
+      - image: 'circleci/python:3.6.4'
 jobs:
   check_for_abandoned_workspaces:
     executor: circleci_executor
@@ -174,10 +174,6 @@ jobs:
           root: './'
           paths:
             - '*'
-  # docker_buid_sphinx_docs:
-  #   executor: 'default'
-  #   steps:
-  #     - 
 
   build_sphinx_docs:
     executor: 'docs_executor'
