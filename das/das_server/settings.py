@@ -17,7 +17,6 @@ from corsheaders.defaults import default_headers
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOCS_ROOT = os.path.join(BASE_DIR, '../docs/_build/html')
-DOCS_ACCESS = 'login_required'
 
 
 # Quick-start development settings - unsuitable for production
@@ -245,7 +244,6 @@ STATICFILES_DIRS = (
     os.path.join(BASE_DIR, 'mapping'),
     os.path.join(BASE_DIR, 'rt_api')
 )
-
 
 SITE_ID = 1
 UI_SITE_NAME = 'EarthRanger'
