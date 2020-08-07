@@ -180,16 +180,16 @@ jobs:
     executor: 'circleci_executor'
     steps:
       - 'checkout'
-      - run: python3 --version
-      # - run:
-      #     name: "Generate build files"
-      #     command: |
-      #       cd docs
-      #       make html
-      # - persist_to_workspace:
-      #     root: './_build/html'
-      #     paths:
-      #       - 'html'
+      - run:
+          name: "Generate build files"
+          command: |
+            pip3 install -r dependencies/requirements-docs.txt 
+            cd docs
+            make html
+      - persist_to_workspace:
+          root: './_build/html'
+          paths:
+            - 'html'
 
 
   docker_build_image:
