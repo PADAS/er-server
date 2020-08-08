@@ -211,6 +211,7 @@ jobs:
           root: './'
           paths:
             - '*'
+      - run: cd das/sphinx_docs && ls
 
 workflows:
   version: 2
