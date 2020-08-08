@@ -189,7 +189,7 @@ jobs:
           root: 'docs/_build'
           paths:
             - 'html'
-      - run: 'cd docs/_build && ls'
+      - run: 'pwd'
 
 
   docker_build_image:
