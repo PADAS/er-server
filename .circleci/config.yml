@@ -189,10 +189,10 @@ jobs:
             cp -rf /home/circleci/project/docs/_build/ /home/circleci/project/sphinx-docs
             cd /home/circleci/project/sphinx-docs
             ls
-      # - persist_to_workspace:
-      #     root: sphinx-docs
-      #     paths:
-      #       - html
+      - persist_to_workspace:
+          root: 'sphinx-docs/_build'
+          paths:
+            - 'html'
 
 
   docker_build_image:
