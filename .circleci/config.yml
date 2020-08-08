@@ -188,7 +188,6 @@ jobs:
       - store_artifacts:
           path: /home/circleci/project/docs/_build/html
           destination: sphinc-docs
-      - run: 'cd /tmp/dir/docs/_build/html && ls'
 
 
   docker_build_image:
