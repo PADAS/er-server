@@ -43,7 +43,7 @@ RUN pip3 install -r /workspace/dependencies/requirements.txt -r /workspace/depen
 ARG built_version=""
 
 ADD ./das /var/www/app
-ADD /home/circleci/project/sphinx-docs /var/www/app/sphinx_docs
+# ADD /home/circleci/project/sphinx-docs /var/www/app/sphinx_docs
 
 EXPOSE 8000
 EXPOSE 5400
