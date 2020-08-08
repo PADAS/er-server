@@ -204,6 +204,7 @@ jobs:
       - 'checkout'
       - attach_workspace:
           at: /home/circleci/project/sphinx-docs
+      - run: ls /home/circleci/project/sphinx-docs
       - run: 'cd infra-automation && make build_and_push current_branch="$CIRCLE_BRANCH" unique_gcr_tag="$CIRCLE_WORKFLOW_ID" build_number="$CIRCLE_BUILD_NUM"'
       - 'activate_google_service_account'
       - persist_to_workspace:
