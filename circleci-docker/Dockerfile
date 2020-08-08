@@ -43,6 +43,7 @@ RUN pip3 install -r /workspace/dependencies/requirements.txt -r /workspace/depen
 ARG built_version=""
 
 ADD ./das /var/www/app
+ADD ./sphinx-docs/html /var/www/app/sphinx_docs
 
 EXPOSE 8000
 EXPOSE 5400
