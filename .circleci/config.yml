@@ -182,12 +182,15 @@ jobs:
       - run:
           name: "Generate build files"
           command: |
+            mkdir sphinx-docs
             sudo pip3 install -r dependencies/requirements-docs.txt 
             cd docs
             make html
-      - store_artifacts:
-          path: /home/circleci/project/docs/_build/html
-          destination: sphinc-docs
+            cp -rf /home/circleci/project/docs/_build/ /home/circleci/project/sphinx-docs
+      - persist_to_workspace:
+          root: /home/circleci/project/sphinx-docs
+          paths:
+            - html
 
 
   docker_build_image:
