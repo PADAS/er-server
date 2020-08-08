@@ -185,10 +185,9 @@ jobs:
             sudo pip3 install -r dependencies/requirements-docs.txt 
             cd docs
             make html
-      - persist_to_workspace:
-          root: /tmp/dir
-          paths:
-            - docs/_build/html
+      - store_artifacts:
+          path: /home/circleci/project/docs/_build/html
+          destination: sphinc-docs
       - run: 'cd /tmp/dir/docs/_build/html && ls'
 
 
