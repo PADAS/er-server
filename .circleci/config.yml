@@ -186,10 +186,10 @@ jobs:
             cd docs
             make html
       - persist_to_workspace:
-          root: 'docs/_build'
+          root: /tmp/dir
           paths:
-            - 'html'
-      - run: 'pwd && ls'
+            - docs/_build/html
+      - run: 'cd /tmp/dir/docs/_build/html && ls'
 
 
   docker_build_image:
