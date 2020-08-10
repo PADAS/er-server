@@ -215,7 +215,10 @@ workflows:
   build_and_terraform_dev:
   # This is our eager workflow for deploying from our main code branch. So no review step.
     jobs:
-      - build_sphinx_docs
+      - build_sphinx_docs:
+          filters:
+            branches:
+              only: 'develop'
       - docker_build_image:
           filters:
             branches:
@@ -239,7 +242,12 @@ workflows:
   # Build for all branches except develop and release.
   # Include a review step.
     jobs:
-      - build_sphinx_docs
+      - build_sphinx_docs:
+          filters:
+            branches:
+              ignore:
+                - 'develop'
+                - /release*/
       - docker_build_image:
           requires:
             - 'build_sphinx_docs'
@@ -269,7 +277,10 @@ workflows:
   # Build for all release branches
   # Review step for apply
     jobs:
-      - build_sphinx_docs
+      - build_sphinx_docs:
+          filters:
+            branches:
+              only: /release*/
       - docker_build_image:
           filters:
             branches:
