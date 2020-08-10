@@ -103,8 +103,10 @@ executors:
   circleci_executor:
     docker:
       - image: 'circleci/buildpack-deps:stretch'
+  docs_executor:
+    docker:
+      - image: 'circleci/python:3.6.4'
 jobs:
-  jobs:
   check_for_abandoned_workspaces:
     executor: circleci_executor
     steps:
@@ -173,6 +175,24 @@ jobs:
           paths:
             - '*'
 
+  build_sphinx_docs:
+    executor: 'docs_executor'
+    steps:
+      - 'checkout'
+      - run:
+          name: "Generate build files"
+          command: |
+            mkdir sphinx-docs
+            sudo pip3 install -r dependencies/requirements-docs.txt 
+            cd docs
+            make html
+            cp -rf /home/circleci/project/docs/_build/ /home/circleci/project/sphinx-docs
+      - persist_to_workspace:
+          root: 'sphinx-docs/_build'
+          paths:
+            - 'html'
+
+
   docker_build_image:
     executor: 'default'
     steps:
@@ -180,6 +200,9 @@ jobs:
           docker_layer_caching: true
       - 'docker_login'
       - 'checkout'
+      - attach_workspace:
+          at: /home/circleci/project/sphinx-docs
+      - run: cp -rf /home/circleci/project/sphinx-docs/html /root/project/das/sphinx_docs
       - run: 'cd infra-automation && make build_and_push current_branch="$CIRCLE_BRANCH" unique_gcr_tag="$CIRCLE_WORKFLOW_ID" build_number="$CIRCLE_BUILD_NUM"'
       - 'activate_google_service_account'
       - persist_to_workspace:
@@ -214,7 +237,10 @@ workflows:
   # Build for all branches except develop and release.
   # Include a review step.
     jobs:
+      - build_sphinx_docs
       - docker_build_image:
+          requires:
+            - 'build_sphinx_docs'
           filters:
             branches:
               ignore:

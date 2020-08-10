@@ -5,7 +5,7 @@ DAS documentation
 Contents:
 
 * :ref:`Overview`
-* :ref:`Documentation`
+* `Documentation <interactive/>`__
 * :ref:`API`
 
 .. _overview:

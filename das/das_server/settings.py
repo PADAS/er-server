@@ -16,6 +16,7 @@ import os
 from corsheaders.defaults import default_headers
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DOCS_ROOT = os.path.join(BASE_DIR, '../docs/_build/html')
 
 
 # Quick-start development settings - unsuitable for production
@@ -64,6 +65,7 @@ INSTALLED_APPS = (
     'django.contrib.postgres',
     'django.contrib.humanize',
     'django_extensions',
+    'docs',
 
 )
 
