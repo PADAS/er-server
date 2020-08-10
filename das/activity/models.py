@@ -1412,23 +1412,7 @@ class Person(Subject):
         verbose_name = _('Person')
 
 
-class Team(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    display = models.CharField(max_length=255, blank=True, null=True)
-    # members = models.ForeignKey(Person,
-    #                             on_delete=models.CASCADE,
-    #                             related_name='members',
-    #                             related_query_name='member')
-    # leader = models.OneToOneField(Person,
-    #                               on_delete=models.SET_NULL, blank=True, null=True)
-    #
-
-
-class TeamMembershipManager(models.Manager):
-    pass
-
-
-class TeamMembershipType(models.Model):
+class MembershipType(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(max_length=50, unique=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
@@ -1438,10 +1422,19 @@ class TeamMembershipType(models.Model):
         return self.value
 
 
+class Team(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    display = models.CharField(max_length=255, blank=True, null=True)
+
+
+class TeamMembershipManager(models.Manager):
+    pass
+
+
 class TeamMembership(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    type = models.ForeignKey('TeamMembershipType', on_delete=models.PROTECT)
+    type = models.ForeignKey('MembershipType', on_delete=models.PROTECT)
     team = models.ForeignKey('Team', related_name='members', related_query_name='member', on_delete=models.CASCADE)
     person = models.ForeignKey('Person', related_name='team_memberships', related_query_name='team_membership', on_delete=models.CASCADE)
     ordernum = models.SmallIntegerField(blank=True, null=True)
@@ -1451,26 +1444,6 @@ class TeamMembership(TimestampedModel):
 
     class Meta:
         unique_together = ('type', 'team', 'person')
-        ordering = ['type', 'ordernum', ]
-
-
-class PatrolSegmentMembershipManager(models.Manager):
-    pass
-
-
-class PatrolSegmentMembership(TimestampedModel):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    type = models.ForeignKey('TeamMembershipType', on_delete=models.PROTECT)
-    patrol_segment = models.ForeignKey('PatrolSegment', related_name='members', related_query_name='member', on_delete=models.CASCADE)
-    person = models.ForeignKey('Person', related_name='patrolsegment_memberships', related_query_name='patrolsegment_membership',
-                               on_delete=models.CASCADE)
-    ordernum = models.SmallIntegerField(blank=True, null=True)
-
-    objects = PatrolSegmentMembershipManager()
-    name = 'Patrol Segment Membership'
-
-    class Meta:
-        unique_together = ('type', 'patrol_segment', 'person')
         ordering = ['type', 'ordernum', ]
 
 
@@ -1530,6 +1503,26 @@ class PatrolType(TimestampedModel):
     # form_definition = JSONField('form_definition', default=dict, blank=False, null=True)
 
 
+class PatrolSegmentMembershipManager(models.Manager):
+    pass
+
+
+class PatrolSegmentMembership(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    type = models.ForeignKey('MembershipType', on_delete=models.PROTECT)
+    patrol_segment = models.ForeignKey('PatrolSegment', related_name='members', related_query_name='member', on_delete=models.CASCADE)
+    person = models.ForeignKey('Person', related_name='patrolsegment_memberships', related_query_name='patrolsegment_membership',
+                               on_delete=models.CASCADE)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+
+    objects = PatrolSegmentMembershipManager()
+    name = 'Patrol Segment Membership'
+
+    class Meta:
+        unique_together = ('type', 'patrol_segment', 'person')
+        ordering = ['type', 'ordernum', ]
+
+
 class PatrolSegment(TimestampedModel, RevisionMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     patrol = models.ForeignKey(Patrol,
@@ -1540,19 +1533,11 @@ class PatrolSegment(TimestampedModel, RevisionMixin):
                                null=True,
                                related_name='sources',
                                related_query_name='source')
-    # members = models.ForeignKey(Person, on_delete=models.SET_NULL, blank=True, null=True,
-    #                             related_name='persons', related_query_name='person')
     patrol_type = models.ForeignKey(PatrolType, on_delete=models.SET_NULL, blank=True, null=True)
     scheduled_start = models.DateTimeField(blank=True, null=True)
     time_range = DateTimeRangeField(null=True, blank=True)
     start_location = models.PointField(srid=4326, blank=True, null=True)
     end_location = models.PointField(srid=4326, blank=True, null=True)
-    # segment_leader = models.ForeignKey(Person,
-    #                                    on_delete=models.SET_NULL,
-    #                                    related_name='segment_leaders',
-    #                                    related_query_name='segment_leader',
-    #                                    blank=True,
-    #                                    null=True)
     state = models.PositiveSmallIntegerField(choices=PATROL_STATE_CHOICES, default=PC_ACTIVE)
     revision = Revision()
 
