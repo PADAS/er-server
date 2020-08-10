@@ -8,7 +8,7 @@
       "value": "routine_patrol",
       "display": "Routine Patrol",
       "ordernum": 10,
-      "is_active": "false"
+      "is_active": "False"
 
     }
   },
@@ -21,7 +21,7 @@
       "value": "fence_patrol",
       "display": "Fence Patrol",
       "ordernum": 20,
-      "is_active": "false"
+      "is_active": "False"
 
     }
   },
@@ -34,7 +34,7 @@
       "value": "dog_patrol",
       "display": "Dog Patrol",
       "ordernum": 30,
-      "is_active": "false"
+      "is_active": "False"
     }
   }
 ]
