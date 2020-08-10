@@ -1473,7 +1473,7 @@ class PatrolType(TimestampedModel):
     ordernum = models.SmallIntegerField(blank=True, null=True)
     icon = models.CharField(max_length=100, blank=True, null=True)
     default_priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=False)
 
     # schema_template = JSONField('additional', default=dict, blank=False, null=True)
     # form_definition = JSONField('form_definition', default=dict, blank=False, null=True)
