@@ -1,7 +1,7 @@
 import functools
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 import geojson
 import pytz
@@ -13,11 +13,11 @@ from oauth2_provider.models import Application, generate_client_secret
 from oauthlib.common import generate_token
 from rest_framework import status
 
-from analyzers.gfw_utils import get_gfw_user
+from analyzers.gfw_utils import get_gfw_user, make_download_url
 from sensors.handlers import GFWAlertHandler
 
 DEFAULT_REQUESTS_TIMEOUT_SECS = (2, 5)
-SERVICE_ERROR_CODE = 500
+SERVICE_ERROR_CODE = -1
 DEFAULT_GFW_PROVIDER_KEY = 'gfw'
 GFW_OAUTH_APPLICATION_ID = 'gfw-application'
 
@@ -98,10 +98,12 @@ def get_gfw_auth_token():
 def create_subscription(gfw_info):
     token = get_gfw_auth_token()
     if token:
-        geostore_id = _get_geostore_id(gfw_info)
-        if not geostore_id:
-            return _make_service_response(-1,
-                                          'Error creating or fetching geostore from GFW. Is the selected geography valid?')
+        is_valid, geostore_response = _validate_geostore(_get_geostore_id(gfw_info))
+        if not is_valid:
+            return geostore_response
+        else:
+            geostore_id = geostore_response
+
         subscribe_json = _make_subscribe_msg(gfw_info['name'],
                                              gfw_info['alert_types'],
                                              geostore_id)
@@ -166,10 +168,11 @@ def update_subscription(gfw_info, geometry_changed):
         geostore_id = gfw_info.get('geostore_id')
         if not geostore_id or geometry_changed:
             logger.debug('geometry changed. updating geostore %s', str(geometry_changed))
-            geostore_id = _get_geostore_id(gfw_info)
-            if not geostore_id:
-                return _make_service_response(-1,
-                                              'Error creating or fetching geostore from GFW. Is the selected geography valid?')
+            is_valid, geostore_response = _validate_geostore(_get_geostore_id(gfw_info))
+            if not is_valid:
+                return geostore_response
+            else:
+                geostore_id = geostore_response
 
         subscribe_json = _make_subscribe_msg(gfw_info['name'],
                                              gfw_info['alert_types'],
@@ -244,13 +247,40 @@ def _get_geostore_id(gfw_info):
                             timeout=DEFAULT_REQUESTS_TIMEOUT_SECS)
     except Exception as ex:
         logger.exception('Exception %s raised in get_geostore_id', ex)
-        return None
+        return _make_service_response(SERVICE_ERROR_CODE,
+                                      f'Error communicating with Global Forest Watch service. '
+                                      f'{getattr(ex, "message", "")}')
     else:
         if rsp and rsp.status_code == status.HTTP_200_OK:
             return json.loads(rsp.text).get('data', {}).get('id')
         else:
-            logger.error('_update_geostore failed with code %s', rsp)
-            return None
+            logger.error('_get_geostore_id failed with code %s', rsp)
+            return _make_service_response(rsp.status_code, rsp.text)
+
+
+def _validate_geostore(geostore):
+    if not geostore or type(geostore) != str:
+        return False, geostore
+    # else we have a valid geostore_id from gfw. lets verify that its not too big for glad alerts download
+    today = date.today()
+    download_url = make_download_url(geostore, today, today)
+    try:
+        response = requests.get(download_url)
+    except Exception as ex:
+        logger.exception('Exception %s raised in validate_geostore', ex)
+        return _make_service_response(SERVICE_ERROR_CODE,
+                                      f'Error communicating with Global Forest Watch service. '
+                                      f'{getattr(ex, "message", "")}')
+    else:
+        if response.status_code == status.HTTP_200_OK:
+            payload = json.loads(response.text)
+            if 'data' in payload.keys():
+                return True, geostore
+            else:
+                return False, _make_service_response(SERVICE_ERROR_CODE, payload)
+        else:
+            logger.error('validate_geostore failed with code %s', rsp)
+            return False, _make_service_response(response.status_code, response.text)
 
 
 def _make_subscribe_msg(name, alert_types, geostore_id):
