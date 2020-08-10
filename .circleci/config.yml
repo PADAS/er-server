@@ -213,8 +213,7 @@ jobs:
 workflows:
   version: 2
   build_and_terraform_dev:
-  # This is our eager workflow for deploying from our main code branch.
-  # So no review step.
+  # This is our eager workflow for deploying from our main code branch. So no review step.
     jobs:
       - build_sphinx_docs
       - docker_build_image:
