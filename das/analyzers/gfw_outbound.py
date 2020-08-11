@@ -240,6 +240,7 @@ def delete_subscription(model):
 
 def _get_geostore_id(gfw_info):
     json_dict = dict(geojson=geojson.loads(gfw_info['subscription_geometry'].geojson))
+    logger.info(f'geostore geojson: {json.dumps(json_dict)}')  # TODO: delete or change loglevel before merge to develop
 
     try:
         rsp = requests.post(url=f'{settings.GFW_API_ROOT}/geostore',
@@ -262,24 +263,26 @@ def _validate_geostore(geostore):
     if not geostore or type(geostore) != str:
         return False, geostore
     # else we have a valid geostore_id from gfw. lets verify that its not too big for glad alerts download
+    # alerts downloaded or the date range don't matter
     today = date.today()
     download_url = make_download_url(geostore, today, today)
     try:
         response = requests.get(download_url)
     except Exception as ex:
-        logger.exception('Exception %s raised in validate_geostore', ex)
+        logger.exception(f'Exception {ex} raised in validate_geostore for geostore {geostore}')
         return _make_service_response(SERVICE_ERROR_CODE,
                                       f'Error communicating with Global Forest Watch service. '
                                       f'{getattr(ex, "message", "")}')
     else:
         if response.status_code == status.HTTP_200_OK:
             payload = json.loads(response.text)
-            if 'data' in payload.keys():
+            if 'data' in payload.keys():  # if the geostore is good, the data element contains alerts
                 return True, geostore
-            else:
+            else:  # otherwise there's no data element and we get an errors element with details of errors.
+                logger.warning(f'download test for geostore {geostore} returned error {payload}')
                 return False, _make_service_response(SERVICE_ERROR_CODE, payload)
         else:
-            logger.error('validate_geostore failed with code %s', rsp)
+            logger.error(f'validate_geostore failed with code {rsp} for geostore {geostore}')
             return False, _make_service_response(response.status_code, response.text)
 
 
