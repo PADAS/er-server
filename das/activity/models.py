@@ -1416,7 +1416,6 @@ class MembershipType(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(max_length=50, unique=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
-    symmetrical = models.BooleanField(default=False)
 
     def __str__(self):
         return self.value
