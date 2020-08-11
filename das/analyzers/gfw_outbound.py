@@ -240,7 +240,6 @@ def delete_subscription(model):
 
 def _get_geostore_id(gfw_info):
     json_dict = dict(geojson=geojson.loads(gfw_info['subscription_geometry'].geojson))
-    logger.info(f'geostore geojson: {json.dumps(json_dict)}')  # TODO: delete or change loglevel before merge to develop
 
     try:
         rsp = requests.post(url=f'{settings.GFW_API_ROOT}/geostore',
@@ -255,7 +254,7 @@ def _get_geostore_id(gfw_info):
         if rsp and rsp.status_code == status.HTTP_200_OK:
             return json.loads(rsp.text).get('data', {}).get('id')
         else:
-            logger.error('_get_geostore_id failed with code %s', rsp)
+            logger.error(f'_get_geostore_id failed. {rsp.status_code} {rsp.text} geostore geojson: {json.dumps(json_dict)}')
             return _make_service_response(rsp.status_code, rsp.text)
 
 
@@ -275,8 +274,8 @@ def _validate_geostore(geostore):
                                       f'{getattr(ex, "message", "")}')
     else:
         if response.status_code == status.HTTP_200_OK:
-            payload = json.loads(response.text)
-            if 'data' in payload.keys():  # if the geostore is good, the data element contains alerts
+            payload = response.json()
+            if 'data' in payload:  # if the geostore is good, the data element contains alerts
                 return True, geostore
             else:  # otherwise there's no data element and we get an errors element with details of errors.
                 logger.warning(f'download test for geostore {geostore} returned error {payload}')
