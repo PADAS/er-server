@@ -1423,7 +1423,7 @@ class MembershipType(models.Model):
 
 class Team(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    display = models.CharField(max_length=255, blank=True, null=True)
+    display = models.CharField(max_length=255, blank=True)
 
 
 class TeamMembershipManager(models.Manager):
@@ -1454,9 +1454,9 @@ class Patrol(TimestampedModel, RevisionMixin):
     serial_number = models.BigIntegerField(verbose_name='Serial Number', unique=True, blank=True, null=True)
     priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
     state = models.PositiveSmallIntegerField(choices=PATROL_STATE_CHOICES, default=PC_ACTIVE)
-    title = models.CharField(max_length=255, blank=True, null=True)
-    objective = models.TextField()
-    time_range = DateTimeRangeField()
+    title = models.CharField(max_length=255, blank=True)
+    objective = models.TextField(blank=True)
+    time_range = DateTimeRangeField(blank=True, null=True)
     revision = Revision()
 
 
@@ -1494,7 +1494,7 @@ class PatrolType(TimestampedModel):
     value = models.CharField(max_length=50, unique=True)
     display = models.CharField(max_length=255)
     ordernum = models.SmallIntegerField(blank=True, null=True)
-    icon = models.CharField(max_length=100, blank=True, null=True)
+    icon = models.CharField(max_length=100, blank=True)
     default_priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
     is_active = models.BooleanField(default=True)
 
