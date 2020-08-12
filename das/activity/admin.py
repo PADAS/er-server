@@ -15,7 +15,7 @@ from core.admin import InlineExtraDynamicMixin
 from activity.forms import EventProviderForm, AlertRuleForm
 from core.openlayers import OSMGeoExtendedAdmin
 from activity.tasks import refresh_event_details_view, recreate_event_details_view
-from core.common import TIMEZONE_USED
+from core.common import TIMEZONE_USED, AdminFeatureFlag
 
 logger = logging.getLogger(__name__)
 
@@ -378,6 +378,7 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
                                        name=name)
 
 
+@AdminFeatureFlag(models.PatrolType, flag='PATROL_ENABLED')
 @admin.register(models.PatrolType)
 class PatrolTypeAdmin(admin.ModelAdmin):
     form = PatrolTypeForm
