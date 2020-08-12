@@ -1501,6 +1501,20 @@ class PatrolType(TimestampedModel):
     # schema_template = JSONField('additional', default=dict, blank=False, null=True)
     # form_definition = JSONField('form_definition', default=dict, blank=False, null=True)
 
+    @property
+    def icon_id(self):
+        return self.icon if self.icon else self.value
+
+    @staticmethod
+    def generate_image_keys(obj_icon):
+        yield obj_icon
+
+    @staticmethod
+    def marker_icon(obj_icon, default='/static/generic-black.svg'):
+        image_url = static_image_finder.get_marker_icon(
+            PatrolType.generate_image_keys(obj_icon))
+        return image_url or default
+
 
 class PatrolSegmentMembershipManager(models.Manager):
     pass
