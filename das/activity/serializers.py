@@ -1780,3 +1780,11 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
             instance.notification_methods.add(*notification_method_ids)
 
         return super().update(instance, validated_data)
+
+
+class PatrolTypeSerializer(rest_framework.serializers.ModelSerializer):
+
+    class Meta:
+        model = activity.models.PatrolType
+        read_only_fields = ('id', 'value', 'display', 'ordernum', 'icon_id', 'default_priority',)
+        fields = read_only_fields
