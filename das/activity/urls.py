@@ -85,6 +85,6 @@ urlpatterns = [
     url(
         r'^patrols/types/?$', views.PatrolTypesView.as_view(), name='patrol-types'),
     url(
-        r'^patrols/type/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.PatrolTypeView.as_view(), name='patrol-type'),
+        r'^patrols/types/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.PatrolTypeView.as_view(), name='patrol-type'),
 
 ]
