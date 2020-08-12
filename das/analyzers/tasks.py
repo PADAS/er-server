@@ -146,10 +146,9 @@ def download_gfw_alerts(self, download_url, event_dict, user_id):
 @celery.app.task()
 def poll_gfw():
     # check gfw for alerts for subscriptions in the db. check for the past 2 days
-    today = date.today()
-    start_date = today - timedelta(2)
-    start_date = start_date.strftime('%Y-%m-%d')
-    end_date = today.strftime('%Y-%m-%d')
+    end_date = date.today()
+    start_date = end_date - timedelta(2)
+
     gfw_user = get_gfw_user()
 
     [generate_alert(m, start_date, end_date, gfw_user) for m in gfw_model.objects.all()]
