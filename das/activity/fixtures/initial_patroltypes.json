@@ -1,0 +1,40 @@
+[
+  {
+    "model": "activity.patroltype",
+    "pk": "c6f88fd2-2b87-477a-9c23-3bc4b3eb845d",
+    "fields": {
+      "created_at": "2020-06-23T12:56:41.276Z",
+      "updated_at": "2020-06-23T12:57:33.261Z",
+      "value": "routine_patrol",
+      "display": "Routine Patrol",
+      "ordernum": 10,
+      "is_active": "False"
+
+    }
+  },
+  {
+    "model": "activity.patroltype",
+    "pk": "e62ca278-8687-455e-ba76-2c7dfa4d6b5f",
+    "fields": {
+      "created_at": "2020-06-24T18:56:40.423Z",
+      "updated_at": "2020-06-24T19:23:40.554Z",
+      "value": "fence_patrol",
+      "display": "Fence Patrol",
+      "ordernum": 20,
+      "is_active": "False"
+
+    }
+  },
+  {
+    "model": "activity.patroltype",
+    "pk": "ff2f7da6-ade4-4dc1-bd7a-c2c5244017fa",
+    "fields": {
+      "created_at": "2020-06-21T18:56:40.423Z",
+      "updated_at": "2020-06-21T19:23:40.554Z",
+      "value": "dog_patrol",
+      "display": "Dog Patrol",
+      "ordernum": 30,
+      "is_active": "False"
+    }
+  }
+]
