@@ -25,6 +25,7 @@ from observations.models import Subject, Observation, GPXTrackFile, SubjectSourc
 from observations.utils import calculate_track_range
 from observations.views import SubjectsView, GPXFileUploadView
 from observations.admin import GPXAdmin
+from observations.tasks import process_trackpoints
 
 User = django.contrib.auth.get_user_model()
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),
@@ -509,6 +510,15 @@ class SubjectTestCase(BaseAPITest):
         obs_longitude = trkpoint_obs[0].location.x
         self.assertEqual(float(trkpoint_lat), obs_latitude)
         self.assertEqual(float(trkpoint_lon), obs_longitude)
+
+    def test_process_gpx_file_upload_with_no_trackpoints_time(self):
+        source = Source.objects.first()
+        trkpoints = [
+            {'@lat': '-2.86950624063618', '@lon': '38.968550268933178', 'ele': '506.110000000000018', 'time': '2020-06-06T04:17:28Z'},
+            {'@lat': '-2.76951453872028', '@lon': '38.268555130437018', 'ele': '503.029999999999978'}] # No trackpoints time
+        file_name = "test_file.gpx"
+        _, obs_errors = process_trackpoints(source, source.id, trkpoints, file_name)
+        assert obs_errors == 'Points are missing timestamps in GPX file test_file.gpx'
 
     def test_process_gpx_upload_nopermission(self):
         # user that does not have permissions to create Observations records

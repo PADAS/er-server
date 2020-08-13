@@ -1601,7 +1601,7 @@ class GPXManager(models.Manager):
 
     def get_file(self, gpx_id):
         gpx = self.get(id=gpx_id)
-        return gpx.data
+        return gpx.data, gpx.file_name
 
     def get_source_id(self, gpx_id):
         src_id = self.filter(id=gpx_id).annotate(source_id=F('source_assignment__source__id')).values('source_id')
