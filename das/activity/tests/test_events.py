@@ -1271,10 +1271,14 @@ class TestEventView(BaseAPITest):
 
     def test_export_includes_all_event_detail_fields_no_title(self):
     
+        event_data = copy.deepcopy(self.event_data)
+        event_data['title'] = 'Event details No Title Test'
+
         request = self.factory.post(
-            self.api_base + '/events/', self.event_data)
+            self.api_base + '/events/', event_data)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
+
         et_schema = """
             {
                 "schema":
@@ -1361,10 +1365,10 @@ class TestEventView(BaseAPITest):
         event_type.schema = et_schema
         event_type.save()
 
-        EventDetails.objects.create(
-            data={"event_details": {"eLocust-key": "e locust id key",
-                                    "repObserver": "an observer"}},
-            event=self.sample_event)
+        details = EventDetails.objects.get(event_id=response.data['id'])
+        details.data = {"event_details": {"eLocust-key": "e locust id key",
+                                    "repObserver": "an observer"}}
+        details.save()
 
         url = """/activity/events/export"""
         filter_spec = json.dumps({'text': "event"})
@@ -1382,8 +1386,9 @@ class TestEventView(BaseAPITest):
         assert test_headers == set(report_headers) & test_headers
 
         # All hidden fields values returned in export content
+        row = [row for row in rendered_dict if row['Title'] == event_data['title']][0]
         test_rendered_content = set(["e locust id key", "an observer"])
-        assert test_rendered_content == set(rendered_dict[1].values()) & test_rendered_content
+        assert test_rendered_content == set(row.values()) & test_rendered_content
 
     def test_export_csv_with_line_feed(self):
 
