@@ -278,9 +278,10 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         """Works with more than one filter flag, for example 3 which is manual and automatic exclusion"""
         if filter_flag is not None:
             if filter_flag > 0:
-                return self.annotate(exclusion_filter=F('exclusion_flags').bitand(filter_flag)).filter(exclusion_filter__gt=0)
+                qs = self.annotate(exclusion_filter=F('exclusion_flags').bitand(filter_flag)).filter(exclusion_filter__gt=0)
             else:
-                return self.filter(exclusion_flags=filter_flag)
+                qs = self.filter(exclusion_flags=filter_flag)
+            return qs.exclude(location=EMPTY_POINT)
         return self
 
 class ObservationManager(models.Manager):
@@ -292,8 +293,6 @@ class ObservationManager(models.Manager):
         queryset = queryset.by_exclusion_flags(filter_flag)
 
         queryset = queryset.by_since_until(since, until)
-
-        queryset = queryset.exclude(location=EMPTY_POINT)
 
         if order_by:
             queryset = queryset.order_by(order_by)
@@ -316,9 +315,7 @@ class ObservationManager(models.Manager):
         queryset = queryset.by_exclusion_flags(filter_flag)
 
         queryset = queryset.by_since_until(since, until)
-
-        queryset = queryset.exclude(location=EMPTY_POINT)
-
+        
         if order_by:
             queryset = queryset.order_by(order_by)
 
@@ -1601,7 +1598,7 @@ class GPXManager(models.Manager):
 
     def get_file(self, gpx_id):
         gpx = self.get(id=gpx_id)
-        return gpx.data
+        return gpx.data, gpx.file_name
 
     def get_source_id(self, gpx_id):
         src_id = self.filter(id=gpx_id).annotate(source_id=F('source_assignment__source__id')).values('source_id')

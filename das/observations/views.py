@@ -844,12 +844,13 @@ class ObservationsView(generics.ListCreateAPIView):
             raise ValueError("subject_id and source_id specified")
         elif subject_id:
             queryset = models.Observation.objects.get_subject_observations(
-                subject_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag)
+                subject_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag, order_by='recorded_at')
         elif source_id:
             queryset = models.Observation.objects.get_source_observations(
-                source_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag)
+                source_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag, order_by='recorded_at')
         else:
             queryset = models.Observation.objects.by_since_until(recorded_since, recorded_until)
+            queryset = queryset.order_by('recorded_at')
             queryset = queryset.by_exclusion_flags(filter_flag)
 
         mou_date = self.request.user.additional.get('expiry', None)
@@ -1428,7 +1429,7 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                    'predicted_expiry', 'rgb', 'sex', 'gmt', 'data_status',
                    'data_starts_source', 'data_stops_source',
                    'data_stops_reason', 'collar_status', 'collar_model',
-                   'has_acc_data', 'data_owners', 'region', 'country']
+                   'has_acc_data', 'data_owners', 'region', 'country', 'subject_id', 'source_id', 'subjectsource_id']
 
         # NOTE: nearly all the data for this call is actually found in the source and subject source, however
         #       it is the subject and by association the subject_group that are limited by the user
@@ -1439,7 +1440,9 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
             .annotate(source_model_name=F('subjectsource__source__model_name'))\
             .annotate(source_manufacturer_id=F('subjectsource__source__manufacturer_id'))\
             .annotate(subjectsource_assigned_range=F('subjectsource__assigned_range'))\
-            .annotate(source_additional=F('subjectsource__source__additional'))
+            .annotate(source_additional=F('subjectsource__source__additional'))\
+            .annotate(source_id=F('subjectsource__source__id'))\
+            .annotate(subjectsource_id=F('subjectsource__id'))
 
         for subject in subjects:
             subject.subjectsource_additional = {} if subject.subjectsource_additional is None \
@@ -1460,7 +1463,9 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                     'active': subject.is_active,
                     'country': subject.additional.get('country', ''),
                     'subtype': subject.subject_subtype.display,
-                    'groups': subject_groups},)
+                    'groups': subject_groups,
+                    'subject_id': subject.id,                  
+                    })
 
                 if subject.source_additional is not None:
                     # Collect Source details.
@@ -1509,7 +1514,9 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                         'has_acc_data': subject.source_additional.get(
                             'has_acc_data', ''),
                         'data_owners': subject.source_additional.get(
-                            'data_owners', '')
+                            'data_owners', ''),
+                        'source_id': subject.source_id,
+                        'subjectsource_id': subject.subjectsource_id
                     })
             except Exception as error:
                 logger.exception(error)

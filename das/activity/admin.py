@@ -10,12 +10,12 @@ from django.http import HttpResponseRedirect
 from django.contrib import messages
 
 import activity.models as models
-from activity.forms import EventTypeForm, EventForm
+from activity.forms import EventTypeForm, EventForm, PatrolTypeForm
 from core.admin import InlineExtraDynamicMixin
 from activity.forms import EventProviderForm, AlertRuleForm
 from core.openlayers import OSMGeoExtendedAdmin
 from activity.tasks import refresh_event_details_view, recreate_event_details_view
-from core.common import TIMEZONE_USED
+from core.common import TIMEZONE_USED, AdminFeatureFlag
 
 logger = logging.getLogger(__name__)
 
@@ -376,3 +376,19 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
                                        status=status,
                                        qs_method=qs_method,
                                        name=name)
+
+
+@AdminFeatureFlag(models.PatrolType, flag='PATROL_ENABLED')
+@admin.register(models.PatrolType)
+class PatrolTypeAdmin(admin.ModelAdmin):
+    form = PatrolTypeForm
+    readonly_fields = ('id',)
+    list_display = ('display', 'value', 'ordernum', '_icon_display', 'is_active')
+    search_fields = ('display', 'value')
+    list_editable = ('ordernum', 'is_active',)
+
+    def _icon_display(self, obj):
+        url = models.PatrolType.marker_icon(obj.icon_id)
+        return mark_safe(
+            f'<img src="{url}" style="height:2.5em; filter:opacity(0.8)" />')
+    _icon_display.short_description = 'Icon'

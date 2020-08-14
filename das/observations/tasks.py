@@ -14,7 +14,7 @@ from django.db.models import F
 from django.core.exceptions import ValidationError
 from observations.utils import dateparse
 from django.core.files.storage import default_storage
-
+from django.utils.translation import gettext as _
 
 
 logger = logging.getLogger(__name__)
@@ -135,8 +135,19 @@ def process_observation(observation_records, observation_errors):
         return True, message
 
 
-def process_trackpoints(source, source_id, trkpoints):
-    list_gpx_datetime = [dateparse(trkp.get('time')) for trkp in trkpoints]
+def process_trackpoints(source, source_id, trkpoints, file_name):
+    error_msg = None
+
+    try:
+        list_gpx_datetime = [dateparse(trkp.get('time')) for trkp in trkpoints]
+    except TypeError:
+        error_msg = _('Points are missing timestamps in GPX file %s') % (file_name, )
+    except Exception as exc:
+        error_msg = _('Invalid timestamp, %s') % (exc, )
+
+    if error_msg:
+        return None, error_msg
+
     array_datetime = get_array_recorded_time(source, list_gpx_datetime)
 
     obs_records = []
@@ -172,16 +183,16 @@ def success_process_gpxtrack(gpx_id, message):
         points_imported=points_imported)
 
 
-def failed_process_gpxtrack(gpx_id, trkpoints=None):
+def failed_process_gpxtrack(gpx_id, error_msg=None):
     return GPXTrackFile.objects.filter(id=gpx_id).update(
         processed_status='failure',
-        status_description=trkpoints,
+        status_description=error_msg,
         points_imported=0)
 
 
 @celery.app.task
 def process_gpxtrack_file(gpx_id):
-    gpx_file = GPXTrackFile.objects.get_file(gpx_id)
+    gpx_file, file_name = GPXTrackFile.objects.get_file(gpx_id)
     data = gpx_file.read()
     response = parse_xml_to_dict(data)
     if isinstance(response, str):
@@ -194,13 +205,16 @@ def process_gpxtrack_file(gpx_id):
 
     source_id = GPXTrackFile.objects.get_source_id(gpx_id)
     source = Source.objects.get(id=source_id)
-    obs_records, obs_errors = process_trackpoints(source, source_id, trkpoints)
+    obs_records, obs_errors = process_trackpoints(source, source_id, trkpoints, file_name)
 
     status, message = process_observation(observation_records=obs_records, observation_errors=obs_errors)
     if status:
         success_process_gpxtrack(gpx_id, message)
     else:
-        failed_process_gpxtrack(gpx_id)
+        if obs_records is None:
+            failed_process_gpxtrack(gpx_id, obs_errors)
+        else:
+            failed_process_gpxtrack(gpx_id)
 
 
 @celery.app.task(bind=True, track_started=True, ignore_result=False)
@@ -217,7 +231,9 @@ def process_gpxdata_api(self, filename, source_id):
             raise ValidationError(trkpoints)
 
     source = Source.objects.get(id=source_id)
-    obs_records, obs_errors = process_trackpoints(source, source_id, trkpoints)
+
+    file_name = filename.split('/')[-1]
+    obs_records, obs_errors = process_trackpoints(source, source_id, trkpoints, file_name)
 
     status, message = process_observation(observation_records=obs_records, observation_errors=obs_errors)
     if status:

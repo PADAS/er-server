@@ -24,11 +24,12 @@ from django.utils import timezone
 from django.utils.encoding import force_text
 from django.utils.translation import ugettext_lazy as _
 from versatileimagefield.fields import VersatileImageField
+from django.contrib.postgres.fields import DateTimeRangeField
 
 from accounts.models.permissionset import PermissionSet
 from core.models import TimestampedModel
 from core.utils import static_image_finder
-from observations.models import Subject
+from observations.models import Subject, Source
 from revision.manager import Revision, RevisionMixin
 from utils.html import clean_user_text
 
@@ -1381,3 +1382,187 @@ class EventNotification(TimestampedModel):
 class TSVectorModel(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     event = models.OneToOneField(Event, on_delete=models.CASCADE)
+
+
+# Patrol Management.
+
+
+PC_UPCOMING = 'upcoming'
+PC_ACTIVE = 'active'
+PC_PAST = 'past'
+
+PATROL_STATE_CHOICES = (
+    (PC_UPCOMING, 'Upcoming'),
+    (PC_ACTIVE, 'Active'),
+    (PC_PAST, 'Past'),
+)
+
+
+class PersonManager(models.Manager):
+
+    def get_queryset(self):
+        return super(PersonManager, self).get_queryset().filter(subject_subtype__subject_type__value='person')
+
+
+class Person(Subject):
+    objects = PersonManager()
+
+    class Meta:
+        proxy = True
+        verbose_name = _('Person')
+
+
+class MembershipType(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    value = models.CharField(max_length=50, unique=True)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+
+    def __str__(self):
+        return self.value
+
+
+class Team(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    display = models.CharField(max_length=255, blank=True)
+
+
+class TeamMembershipManager(models.Manager):
+    pass
+
+
+class TeamMembership(TimestampedModel):
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    type = models.ForeignKey('MembershipType', on_delete=models.PROTECT)
+    team = models.ForeignKey('Team', related_name='members', related_query_name='member', on_delete=models.CASCADE)
+    person = models.ForeignKey('Person', related_name='team_memberships', related_query_name='team_membership', on_delete=models.CASCADE)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+
+    objects = TeamMembershipManager()
+    name = 'Team Membership'
+
+    class Meta:
+        unique_together = ('type', 'team', 'person')
+        ordering = ['type', 'ordernum', ]
+
+
+class Patrol(TimestampedModel, RevisionMixin):
+
+    PRIORITY_CHOICES = PRIORITY_CHOICES
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    serial_number = models.BigIntegerField(verbose_name='Serial Number', unique=True, blank=True, null=True)
+    priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
+    state = models.PositiveSmallIntegerField(choices=PATROL_STATE_CHOICES, default=PC_ACTIVE)
+    title = models.CharField(max_length=255, blank=True)
+    objective = models.TextField(blank=True)
+    time_range = DateTimeRangeField(blank=True, null=True)
+    revision = Revision()
+
+
+class PatrolNote(RevisionMixin, TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    text = models.TextField()
+    created_by_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True)
+    patrol = models.ForeignKey(Patrol, on_delete=models.CASCADE,
+                               related_name='notes',
+                               related_query_name='note')
+    revision = Revision()
+
+
+class PatrolFile(TimestampedModel, RevisionMixin):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    patrol = models.ForeignKey('Patrol', related_name='files', related_query_name='file', on_delete=models.CASCADE)
+    comment = models.TextField(blank=True, null=False, default='', verbose_name='Comment about the file.')
+    relation_limits = models.Q(app_label='usercontent', model='filecontent') | \
+                      models.Q(app_label='usercontent', model='imagefilecontent')
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='patrol_files', related_query_name='patrol_file')
+
+    # Generic foreign key to plugin
+    usercontent_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, limit_choices_to=relation_limits)
+    usercontent_id = models.UUIDField()
+    usercontent = GenericForeignKey('usercontent_type', 'usercontent_id')
+
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+    revision = Revision()
+
+
+class PatrolType(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    value = models.CharField(max_length=50, unique=True)
+    display = models.CharField(max_length=255)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+    icon = models.CharField(max_length=100, blank=True)
+    default_priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
+    is_active = models.BooleanField(default=True)
+
+    # schema_template = JSONField('additional', default=dict, blank=False, null=True)
+    # form_definition = JSONField('form_definition', default=dict, blank=False, null=True)
+
+    @property
+    def icon_id(self):
+        return self.icon if self.icon else self.value
+
+    @staticmethod
+    def generate_image_keys(obj_icon):
+        yield obj_icon
+
+    @staticmethod
+    def marker_icon(obj_icon, default='/static/generic-black.svg'):
+        image_url = static_image_finder.get_marker_icon(
+            PatrolType.generate_image_keys(obj_icon))
+        return image_url or default
+
+
+class PatrolSegmentMembershipManager(models.Manager):
+    pass
+
+
+class PatrolSegmentMembership(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    type = models.ForeignKey('MembershipType', on_delete=models.PROTECT)
+    patrol_segment = models.ForeignKey('PatrolSegment', related_name='members', related_query_name='member', on_delete=models.CASCADE)
+    person = models.ForeignKey('Person', related_name='patrolsegment_memberships', related_query_name='patrolsegment_membership',
+                               on_delete=models.CASCADE)
+    ordernum = models.SmallIntegerField(blank=True, null=True)
+
+    objects = PatrolSegmentMembershipManager()
+    name = 'Patrol Segment Membership'
+
+    class Meta:
+        unique_together = ('type', 'patrol_segment', 'person')
+        ordering = ['type', 'ordernum', ]
+
+
+class PatrolSegment(TimestampedModel, RevisionMixin):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    patrol = models.ForeignKey(Patrol,
+                               on_delete=models.SET_NULL,
+                               blank=True, null=True, related_name='patrol_assignments',
+                               related_query_name='patrol_assignment')
+    source = models.ForeignKey(Source, on_delete=models.CASCADE, blank=True,
+                               null=True,
+                               related_name='sources',
+                               related_query_name='source')
+    patrol_type = models.ForeignKey(PatrolType, on_delete=models.SET_NULL, blank=True, null=True)
+    scheduled_start = models.DateTimeField(blank=True, null=True)
+    time_range = DateTimeRangeField(null=True, blank=True)
+    start_location = models.PointField(srid=4326, blank=True, null=True)
+    end_location = models.PointField(srid=4326, blank=True, null=True)
+    state = models.PositiveSmallIntegerField(choices=PATROL_STATE_CHOICES, default=PC_ACTIVE)
+    revision = Revision()
+
+
+# class PatrolTemplate(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+#     title = models.CharField(max_length=255, blank=True, null=True)
+#     objective = models.CharField(max_length=255, blank=True, null=True)
+#     patrol_type = models.ForeignKey(PatrolType, on_delete=models.SET_NULL, blank=True, null=True)
+#     team = models.ForeignKey(Team, on_delete=models.SET_NULL, blank=True, null=True)
+#     length = models.IntegerField(blank=True, null=True)
+#     source = models.ForeignKey(Source, on_delete=models.CASCADE, blank=True,
+#                                null=True,
+#                                related_name='sources_assigned',
+#                                related_query_name='source_assigned')

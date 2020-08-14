@@ -89,19 +89,32 @@ def rebuild_glad_download_url(download_url, gfw_object):
     return urlparse.urlunparse(new_parsed_result)
 
 
-def make_alert_info(alert_name, geostore_id, start_date, end_date):
+def get_gfw_endpoint():
     parsed_gfw_api_root = urlparse.urlparse(settings.GFW_API_ROOT)
-    gfw_endpoint = f'{parsed_gfw_api_root.scheme}://{parsed_gfw_api_root.netloc}'
+    return f'{parsed_gfw_api_root.scheme}://{parsed_gfw_api_root.netloc}'
+
+
+def make_download_url(geostore_id, start_date, end_date, gfw_endpoint=None):
+    if not gfw_endpoint:
+        gfw_endpoint = get_gfw_endpoint()
 
     download_url_prefix = f'{gfw_endpoint}/glad-alerts/download/?gladConfirmOnly=False&aggregate_values=False&aggregate_by=False&format=json'
+    start_date_str, end_date_str = start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')
+
+    return f'{download_url_prefix}&period={start_date_str},{end_date_str}&geostore={geostore_id}'
+
+
+def make_alert_info(alert_name, geostore_id, start_date, end_date):
+    gfw_endpoint = get_gfw_endpoint()
+    start_date_str, end_date_str = start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')
 
     return dict(
         alert_name=alert_name,
-        alert_link=f'{gfw_endpoint}/map/3/0/0/ALL/grayscale/?fit_to_geom=true&begin={start_date}&end={end_date}&geostore={geostore_id}',
-        alert_date_begin=start_date,
-        alert_date_end=end_date,
+        alert_link=f'{gfw_endpoint}/map/3/0/0/ALL/grayscale/?fit_to_geom=true&begin={start_date_str}&end={end_date_str}&geostore={geostore_id}',
+        alert_date_begin=start_date_str,
+        alert_date_end=end_date_str,
         downloadUrls={
-            'json': f'{download_url_prefix}&period={start_date},{end_date}&geostore={geostore_id}'
+            'json': make_download_url(geostore_id, start_date, end_date, gfw_endpoint)
         }
     )
 
