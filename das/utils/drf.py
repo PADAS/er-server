@@ -72,7 +72,7 @@ class OptionalResultsSetPagination(PageNumberPagination):
 
 class StandardResultsSetPagination(OptionalResultsSetPagination):
     page_size = 25
-    max_page_size = 1000
+    max_page_size = 4000
 
 
 class StandardResultsSetGeoJsonPagination(GeoJsonPagination):
