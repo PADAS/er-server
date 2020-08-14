@@ -17,7 +17,7 @@ import json
 import jsonschema
 from core.utils import OneWeekSchedule
 from activity.alerting.conditions import Conditions
-from activity.models import EventProvider, NotificationMethod, EventType, Event
+from activity.models import EventProvider, NotificationMethod, EventType, Event, PatrolType
 from utils.schema_utils import get_schema_renderer_method, \
     validate_rendered_schema_is_wellformed
 from core.widget import IconKeyInput, get_icon_select_list
@@ -208,3 +208,13 @@ class EventForm(forms.ModelForm):
             'event_time': f'Event time in {TIMEZONE_USED}',
             'end_time': f'End Time in {TIMEZONE_USED}'
         }
+
+
+class PatrolTypeForm(forms.ModelForm):
+    icon = forms.CharField(required=False,
+                           label='Icon',
+                           widget=IconKeyInput(image_list_fn=get_icon_select_list))
+
+    class Meta:
+        model = PatrolType
+        fields = '__all__'

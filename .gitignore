@@ -36,6 +36,7 @@ var/
 .env.local
 .vscode
 .venv
+.docsvenv
 .vs/*
 
 # PyInstaller
