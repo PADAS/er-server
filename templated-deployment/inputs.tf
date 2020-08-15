@@ -2,6 +2,10 @@ variable "app_infra_workspace" {
   type = string
 }
 
+variable "site_terraform_workspace" {
+  type = string
+}
+
 variable "kubernetes_namespace" {
   type = string
 }

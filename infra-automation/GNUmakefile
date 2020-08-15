@@ -106,6 +106,7 @@ render_templates: ## render templates (using Terraform) | [tfvars_environment="B
 	 apply_options="-auto-approve -var-file='$(tfvars_overrides)/$(tfvars_environment).tfvars' \
 	 -var app_infra_workspace=$$APP_INFRA_WORKSPACE \
 	 -var kubernetes_namespace=$$K8S_NAMESPACE \
+	 -var site_terraform_workspace=$(tfvars_environment) \
        	 -var db_name=$$DATABASE_NAME \
 	 -var site_ip_address=$$SITE_IP_ADDRESS \
 	 -var fqdn=$$FQDN \
