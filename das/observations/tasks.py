@@ -69,7 +69,7 @@ def parse_xml_to_dict(xml):
     try:
         xml_todict = xmltodict.parse(xml)
     except Exception as exc:
-        message = f"Error occurred: {repr(exc)} when parsing gpx file."
+        message = f"Error occurred when parsing gpx file: {str(exc)} "
         logger.exception(message)
         return message
     else:
@@ -83,7 +83,7 @@ def get_track_points(gpx):
     except KeyError:
         message = "No track points were found in the file."
     except Exception as exc:
-        message = f"Error occurred: {repr(exc)} when getting trackpoints from gpx file"
+        message = f"Error occurred when getting trackpoints from gpx file: {str(exc)}"
         logger.exception(message)
     else:
         return trkpoint
