@@ -83,8 +83,8 @@ def get_track_points(gpx):
     except KeyError:
         message = "No track points were found in the file."
     except Exception as exc:
-        logger.exception(message)
         message = f"Error occurred: {repr(exc)} when getting trackpoints from gpx file"
+        logger.exception(message)
     else:
         return trkpoint
     return message
@@ -196,7 +196,7 @@ def process_gpxtrack_file(gpx_id):
     data = gpx_file.read()
     response = parse_xml_to_dict(data)
     if isinstance(response, str):
-        failed_process_gpxtrack(gpx_id)
+        failed_process_gpxtrack(gpx_id, response)
         return
     trkpoints = get_track_points(response)
     if isinstance(trkpoints, str):
