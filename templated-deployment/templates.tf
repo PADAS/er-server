@@ -6,7 +6,7 @@ locals {
   from_email                = coalesce(var.from_email, local.standard_from_email)
   resolved_eus_organization = coalesce(var.eus_org, var.fqdn)
 
-  db_instance_private_ip    = data.terraform_remote_state.site_terraform.outputs.db_instance_private_ip
+  db_instance_private_ip = data.terraform_remote_state.site_terraform.outputs.db_instance_private_ip
 
 }
 
@@ -58,5 +58,6 @@ resource "template_dir" "deployments" {
     WEB_SERVICE_NAME                = var.web_service_name
     WEB_VERSION                     = var.WEB_VERSION
     SENDSMS_TWILIO_FROM_NUMBER      = "+14254904368"
+    PATROL_ENABLED                  = var.patrol_enabled
   }
 }

@@ -168,3 +168,8 @@ variable "show_stationary_subjects_on_map" {
   default = "False"
 }
 
+variable "patrol_enabled" {
+  type    = string
+  default = "False"
+}
+
