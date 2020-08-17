@@ -22,7 +22,7 @@ SERVICE_ERROR_CODE = -1
 DEFAULT_GFW_PROVIDER_KEY = 'gfw'
 GFW_OAUTH_APPLICATION_ID = 'gfw-application'
 NETWORK_ERROR_MESSAGE = _('Network error occurred while setting up your subscription. Please try again later. For further assistance contact Support.')
-GFW_ERROR_MESSAGE = 'While setting up your subscription, GFW responded with the following error. For further assistance contact Support. GFW error:'
+GFW_ERROR_MESSAGE = _('While setting up your subscription, GFW responded with the following error. For further assistance contact Support. GFW error:')
 
 logger = logging.getLogger(__name__)
 subscriptions_endpoint = f'{settings.GFW_API_ROOT}/subscriptions'
