@@ -696,7 +696,7 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
     short_name = models.CharField(max_length=25, blank=True)
     # for ste, this is the ste_guid
     external_id = models.CharField(max_length=255, blank=True, null=True)
-    external_source = models.CharField(max_length=25, blank=True)
+    external_source = models.CharField(max_length=100, blank=True)
     description = models.TextField(null=True, blank=True)
     presentation = JSONField(default=dict, blank=True)
     attributes = JSONField(default=dict, blank=True)
