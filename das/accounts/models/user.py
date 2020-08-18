@@ -165,6 +165,7 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
     act_as_profiles = models.ManyToManyField(
         'self', blank=True,
         verbose_name=_('user profiles'),
+        symmetrical=False,
         help_text=_(
             'The list of user profiles that this user can act as.'
         ),
