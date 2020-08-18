@@ -437,7 +437,7 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
                                   select_params=[searchtext],
                                   params=[searchtext, searchtext])
 
-        return queryset.distinct()
+        return queryset.order_by('-sort_at').distinct()
 
     # def by_date_range(self,
 
