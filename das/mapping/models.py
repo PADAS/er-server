@@ -606,7 +606,7 @@ class SpatialFeatureType(TimestampedModel):
     provenance = JSONField(default=dict, blank=True)
     external_id = models.CharField(max_length=255, unique=True, blank=True,
                                    null=True)
-    external_source = models.CharField(max_length=25, blank=True)
+    external_source = models.CharField(max_length=100, blank=True)
     is_visible = models.BooleanField(_('visible'), default=True)
 
     # Points: https://www.mapbox.com/mapbox-gl-style-spec/#layers-symbol
