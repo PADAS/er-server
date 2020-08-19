@@ -200,7 +200,7 @@ jobs:
     steps:
       - checkout
       - docker_login
-      - run: 'cd das && docker-compose -f test_scripts/compose-unittests.yaml up --remove-orphans --force-recreate'
+      - run: 'cd das && docker-compose -f test_scripts/compose-unittests.yaml up --remove-orphans --force-recreate --quiet-pull --abort-on-container-exit'
 
   docker_build_image:
     executor: 'default'
