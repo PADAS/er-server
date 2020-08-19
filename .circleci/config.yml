@@ -192,6 +192,18 @@ jobs:
           paths:
             - 'html'
 
+  run_api_unittests:
+    branches:
+      only:
+        - autotest
+    machine:
+      image: ubuntu-1604:202007-01
+      docker_layer_caching: true
+    resource_class: medium
+    steps:
+      - checkout
+      - docker_login
+      - run: 'cd das && docker-compose -f test_scripts/compose-unittests.yaml up --remove-orphans --force-recreate'
 
   docker_build_image:
     executor: 'default'
@@ -256,6 +268,12 @@ workflows:
               ignore:
                 - 'develop'
                 - /release*/
+      - run_api_unittests:
+          filters:
+            branches:
+              only: 'autotest'
+          requires:
+            - 'docker_build_image'
       - terraform_plan_dev:
           requires:
             - 'docker_build_image'
