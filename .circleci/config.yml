@@ -193,9 +193,6 @@ jobs:
             - 'html'
 
   run_api_unittests:
-    branches:
-      only:
-        - autotest
     machine:
       image: ubuntu-1604:202007-01
       docker_layer_caching: true
