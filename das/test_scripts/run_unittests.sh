@@ -5,7 +5,7 @@ wait_for $DB_HOST $DB_PORT
 
 export PYTHONPATH=$(dirname "$0"):$PYTHONPATH
 
-python3 -m pip install -r /workspace/dependences/requirements-dev.txt \
+python3 -m pip install -r /workspace/dependencies/requirements-dev.txt \
    --find-links /workspace/dependencies/wheelhouse/ --upgrade
 
 python3 manage.py test --keepdb --settings=unittest_settings

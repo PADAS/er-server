@@ -10,6 +10,7 @@ services:
       - DB_NAME=testdb
       - DB_USER=testuser
       - DB_PASSWORD=fancypassword
+      - DB_PORT=5432
     links:
       - postgis-test
     command: sh -c "test_scripts/run_unittests.sh"
