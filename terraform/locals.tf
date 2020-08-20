@@ -11,6 +11,7 @@ locals {
     "amakhala"               = "prod1"
     "amboseli"               = "prod1"
     "apntraining"            = "prod1"
+    "apr"                    = "prod1"
     "balule"                 = "prod1"
     "baminguibangoran"       = "prod1"
     "bangweulu"              = "prod1"
@@ -39,6 +40,7 @@ locals {
     "lionlandscapes"         = "prod1"
     "liuwa"                  = "prod1"
     "liwonde"                = "prod1"
+    "loisaba"                = "prod1"
     "lowerzambezi"           = "prod1"
     "madikwe"                = "prod1"
     "majete"                 = "prod1"
@@ -63,6 +65,7 @@ locals {
     "olpejeta"               = "prod1"
     "parcw"                  = "prod1"
     "pendjari"               = "prod1"
+    "pinelands"              = "prod1"
     "preylang"               = "prod-asia"
     "queenelizabeth"         = "prod1"
     "rcb"                    = "prod1"
@@ -105,6 +108,9 @@ locals {
     "northluangwa"     = 1
     "velebit"          = 1
     "mep"              = 1
+    "pinelands"        = 1
+    "loisaba"          = 1
+    "apr"              = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
