@@ -213,6 +213,12 @@ jobs:
       - checkout
       - docker_login
       - run:
+          name: Install Docker Compose
+          command: |
+            set -x
+            curl -L https://github.com/docker/compose/releases/download/1.25.3/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose
+            chmod +x /usr/local/bin/docker-compose
+      - run:
           name: Run Tests using Docker Compose
           command: 'cd das && docker-compose -f test_scripts/compose-unittests.yaml up --remove-orphans --force-recreate --quiet-pull --abort-on-container-exit'
 
