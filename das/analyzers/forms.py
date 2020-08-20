@@ -103,8 +103,7 @@ class GlobalForestWatchSubscriptionForm(JSONFieldFormMixin, forms.ModelForm):
                 self.instance.subscription_id = data['subscription_id']
                 self.instance.geostore_id = data['geostore_id']
             else:
-                err_text = service_response.get('text')
-                raise forms.ValidationError(f'Error code: {status_code} message: {err_text}')
+                raise forms.ValidationError(service_response.get('text'))
 
         return res
 
