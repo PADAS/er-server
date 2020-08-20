@@ -13,6 +13,7 @@ services:
       - DB_PORT=5432
     links:
       - postgis-test
+      - redis
     command: sh -c "test_scripts/run_unittests.sh"
     depends_on:
       - postgis-test
@@ -30,6 +31,19 @@ services:
       - 5432:5432
     healthcheck:
       test: ["CMD-SHELL", "export PGPASSWORD=fancypassword && pg_isready -U testuser -d testdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:6.0.6
+    container_name: redis-test
+    environment:
+      - FOO=bar
+    ports:
+      - 6379:6379
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli && bash -c '[[ $$(redis-cli PING) == \"PONG\" ]]'"]
       interval: 10s
       timeout: 5s
       retries: 5
