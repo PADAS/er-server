@@ -59,5 +59,6 @@ resource "template_dir" "deployments" {
     WEB_VERSION                     = var.WEB_VERSION
     SENDSMS_TWILIO_FROM_NUMBER      = "+14254904368"
     PATROL_ENABLED                  = var.patrol_enabled
+    SUBJECT_REGION_ENABLED          = var.subject_region_enabled
   }
 }
