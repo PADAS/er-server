@@ -51,6 +51,7 @@ locals {
     "matusadona"             = "prod1"
     "mapesu"                 = "prod1"
     "meru"                   = "prod1"
+    "mep"                    = "prod1"
     "mtkenya"                = "prod1"
     "murchisonfalls"         = "prod1"
     "natgeo"                 = "prod1"
@@ -106,6 +107,7 @@ locals {
     "niassawcs"        = 1
     "northluangwa"     = 1
     "velebit"          = 1
+    "mep"              = 1
     "pinelands"        = 1
     "loisaba"          = 1
     "apr"              = 1
