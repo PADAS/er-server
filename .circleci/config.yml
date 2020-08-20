@@ -207,11 +207,11 @@ jobs:
   run_api_unittests:
     executor: 'default'
     steps:
-      - checkout
-      - docker_login
       - setup_remote_docker:
           docker_layer_caching: true
           version: 18.06.0-ce
+      - checkout
+      - docker_login
       # Install Docker Client via apk on alpine based images
       - run:
           name: Install Docker client
