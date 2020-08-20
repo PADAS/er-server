@@ -56,6 +56,7 @@ locals {
     "mtkenya"                = "prod1"
     "murchisonfalls"         = "prod1"
     "natgeo"                 = "prod1"
+    "ndoki"                  = "prod1"
     "niassa"                 = "prod1"
     "niassawcs"              = "prod1"
     "nkhotakota"             = "prod1"
@@ -108,6 +109,7 @@ locals {
     "niassawcs"        = 1
     "northluangwa"     = 1
     "velebit"          = 1
+    "ndoki"            = 1
     "grumeti"          = 1
     "mep"              = 1
     "pinelands"        = 1
