@@ -1,2 +1,2 @@
 time_zone           = "Africa/Nairobi"
-mapping_features_v2 = "false"
+subject_region_enabled = "True"
