@@ -192,15 +192,34 @@ jobs:
           paths:
             - 'html'
 
+#  run_api_unittest:
+#    machine:
+#      image: ubuntu-1604:202007-01
+#      docker_layer_caching: true
+#    resource_class: medium
+#    steps:
+#      - checkout
+#      - docker_login
+#      - run:
+#          name: Run Tests using Docker Compose
+#          command: 'cd das && docker-compose -f test_scripts/compose-unittests.yaml up --remove-orphans --force-recreate --quiet-pull --abort-on-container-exit'
+#
   run_api_unittests:
-    machine:
-      image: ubuntu-1604:202007-01
-      docker_layer_caching: true
-    resource_class: medium
+    docker:
+      - image: circleci/golang:1.13-alpine
     steps:
       - checkout
       - docker_login
-      - run: 'cd das && docker-compose -f test_scripts/compose-unittests.yaml up --remove-orphans --force-recreate --quiet-pull --abort-on-container-exit'
+      - setup_remote_docker:
+          docker_layer_caching: true
+          version: 18.06.0-ce
+      # Install Docker Client via apk on alpine based images
+      - run:
+          name: Install Docker client
+          command: apk add docker-cli
+      - run:
+          name: Run Tests using Docker Compose
+          command: 'cd das && docker-compose -f test_scripts/compose-unittests.yaml up --remove-orphans --force-recreate --quiet-pull --abort-on-container-exit'
 
   docker_build_image:
     executor: 'default'
