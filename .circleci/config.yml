@@ -205,8 +205,7 @@ jobs:
 #          command: 'cd das && docker-compose -f test_scripts/compose-unittests.yaml up --remove-orphans --force-recreate --quiet-pull --abort-on-container-exit'
 #
   run_api_unittests:
-    docker:
-      - image: circleci/golang:1.13-alpine
+    executor: 'default'
     steps:
       - checkout
       - docker_login
