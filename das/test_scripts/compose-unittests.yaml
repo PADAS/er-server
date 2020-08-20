@@ -15,6 +15,8 @@ services:
       - postgis-test
       - redis
     command: sh -c "test_scripts/run_unittests.sh"
+    volumes:
+      - /Users/chris/padas/das/das/test_scripts/run_unittests.sh:/var/www/app/test_scripts/run_unittests.sh
     depends_on:
       - postgis-test
           #condition: service_healthy
