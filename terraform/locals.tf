@@ -34,6 +34,7 @@ locals {
     "gonarezhou"             = "prod1"
     "gorongosa"              = "prod1"
     "gotcha"                 = "prod1"
+    "grumeti"                = "prod1"
     "hello-asia"             = "prod-asia"
     "karingani"              = "prod1"
     "lionalert"              = "prod1"
@@ -107,6 +108,7 @@ locals {
     "niassawcs"        = 1
     "northluangwa"     = 1
     "velebit"          = 1
+    "grumeti"          = 1
     "mep"              = 1
     "pinelands"        = 1
     "loisaba"          = 1
