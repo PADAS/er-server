@@ -190,20 +190,7 @@ jobs:
       - persist_to_workspace:
           root: 'sphinx-docs/_build'
           paths:
-            - 'html'
-
-#  run_api_unittest:
-#    machine:
-#      image: ubuntu-1604:202007-01
-#      docker_layer_caching: true
-#    resource_class: medium
-#    steps:
-#      - checkout
-#      - docker_login
-#      - run:
-#          name: Run Tests using Docker Compose
-#          command: 'cd das && docker-compose -f test_scripts/compose-unittests.yaml up --remove-orphans --force-recreate --quiet-pull --abort-on-container-exit'
-#
+            - 'html'        
   run_api_unittests:
     executor: 'default'
     steps:
