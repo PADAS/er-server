@@ -301,7 +301,9 @@ workflows:
       - run_api_unittests:
           filters:
             branches:
-              only: 'autotest'
+              only:
+                - 'autotest'
+                - 'develop'
           requires:
             - 'docker_build_image'
       - terraform_plan_dev:
