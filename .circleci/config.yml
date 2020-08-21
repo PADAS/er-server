@@ -227,8 +227,8 @@ jobs:
           name: Run Tests using Docker Compose
           command: |
             cd das
-            docker-compose -f test_scripts/compose-unittests.yaml up -d dbserver redis --remove-orphans --force-recreate --quiet-pull
-            docker-compose -f test_scripts/compose-unittests.yaml up api --remove-orphans --force-recreate --quiet-pull
+            docker-compose -f test_scripts/compose-unittests.yaml up -d --remove-orphans --force-recreate --quiet-pull dbserver redis
+            docker-compose -f test_scripts/compose-unittests.yaml up --remove-orphans --force-recreate --quiet-pull api
             TEST_EXIT_CODE=$?
             docker cp dbserver-test:/testresults/result.xml ~/unittest-output/result.xml
             docker-compose -f test_scripts/compose-unittests.yaml down
