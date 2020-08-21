@@ -11,6 +11,7 @@ locals {
     "amakhala"               = "prod1"
     "amboseli"               = "prod1"
     "apntraining"            = "prod1"
+    "apr"                    = "prod1"
     "balule"                 = "prod1"
     "baminguibangoran"       = "prod1"
     "bangweulu"              = "prod1"
@@ -33,12 +34,14 @@ locals {
     "gonarezhou"             = "prod1"
     "gorongosa"              = "prod1"
     "gotcha"                 = "prod1"
+    "grumeti"                = "prod1"
     "hello-asia"             = "prod-asia"
     "karingani"              = "prod1"
     "lionalert"              = "prod1"
     "lionlandscapes"         = "prod1"
     "liuwa"                  = "prod1"
     "liwonde"                = "prod1"
+    "loisaba"                = "prod1"
     "lowerzambezi"           = "prod1"
     "madikwe"                = "prod1"
     "majete"                 = "prod1"
@@ -49,9 +52,11 @@ locals {
     "matusadona"             = "prod1"
     "mapesu"                 = "prod1"
     "meru"                   = "prod1"
+    "mep"                    = "prod1"
     "mtkenya"                = "prod1"
     "murchisonfalls"         = "prod1"
     "natgeo"                 = "prod1"
+    "ndoki"                  = "prod1"
     "niassa"                 = "prod1"
     "niassawcs"              = "prod1"
     "nkhotakota"             = "prod1"
@@ -62,6 +67,7 @@ locals {
     "olpejeta"               = "prod1"
     "parcw"                  = "prod1"
     "pendjari"               = "prod1"
+    "pinelands"              = "prod1"
     "preylang"               = "prod-asia"
     "queenelizabeth"         = "prod1"
     "rcb"                    = "prod1"
@@ -103,6 +109,12 @@ locals {
     "niassawcs"        = 1
     "northluangwa"     = 1
     "velebit"          = 1
+    "ndoki"            = 1
+    "grumeti"          = 1
+    "mep"              = 1
+    "pinelands"        = 1
+    "loisaba"          = 1
+    "apr"              = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)

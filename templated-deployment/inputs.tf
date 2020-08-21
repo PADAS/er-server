@@ -177,3 +177,8 @@ variable "patrol_enabled" {
   default = "False"
 }
 
+variable "subject_region_enabled" {
+  type    = string
+  default = "False"
+}
+

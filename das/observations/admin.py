@@ -768,7 +768,7 @@ class CommonNameAdmin(admin.ModelAdmin):
 class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
     readonly_fields = ('id',)
     list_display = ('subject', 'source', 'filename', '_file_size', 'description', 'processed_date',
-                    'processed_status', 'created_by', 'id')
+                    'processed_status', '_points_imported', 'created_by', 'id')
     list_filter = ('source_assignment__subject', )
     fields = ('id', 'source_assignment', 'description', 'data')
     ordering = ('-processed_date',)
@@ -926,8 +926,18 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
     filename.admin_order_field = 'file_name'
 
     def _file_size(self, o):
-        return o.file_size
+        return f'{o.file_size:,}'
     _file_size.short_description = 'File Size (Bytes)'
+
+    def _points_imported(self, o):
+        imported_points = o.points_imported
+        try:
+            imported_points = f'{int(imported_points):,}'
+        except Exception:
+            pass
+        return imported_points if imported_points else '-'
+    _points_imported.short_description = 'Track Points Imported'
+
 
 
 @admin.register(models.SubjectSourceSummary)
