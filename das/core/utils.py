@@ -217,6 +217,11 @@ class NonHttpRequest(HttpRequest):
 
 
 def get_site_name():
+    """The sites name as used in google analytics and our ER site metrics
+    """
+    if hasattr(settings, 'METRICS_SITE_NAME'):
+        return settings.METRICS_SITE_NAME
+
     if hasattr(settings, 'UI_SITE_URL'):
         parts = urllib.parse.urlsplit(settings.UI_SITE_URL)
         sitename = parts.hostname.split('.')[0]
