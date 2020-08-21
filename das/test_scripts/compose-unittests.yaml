@@ -6,23 +6,24 @@ services:
     image: gcr.io/padas-app/circleci/das-server/${CIRCLE_BRANCH:-develop}:${CIRCLE_WORKFLOW_ID:-latest}
     container_name: api
     environment:
-      - DB_HOST=postgis-test
+      - DB_HOST=dbserver
       - DB_NAME=testdb
       - DB_USER=testuser
       - DB_PASSWORD=fancypassword
       - DB_PORT=5432
     links:
-      - postgis-test
+      - dbserver
       - redis
     command: sh -c "test_scripts/run_unittests.sh"
     depends_on:
-      - postgis-test
+      - dbserver
           #condition: service_healthy
+    volumes:
+      - testresults:/testresults
 
-
-  postgis-test:
+  dbserver:
     image: gcr.io/padas-app/postgis
-    container_name: postgis-test
+    container_name: dbserver-test
     environment:
       - POSTGRES_USER=testuser
       - POSTGRES_DB=testdb
@@ -34,6 +35,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    volumes:
+      - testresults:/testresults
 
   redis:
     image: redis:6.0.6
@@ -47,3 +50,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+volumes:
+    # Using testresults to capture unit test output.
+    testresults:
