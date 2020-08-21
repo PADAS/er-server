@@ -58,12 +58,10 @@ def ensure_subject_status_exists(sender, **kwargs):
 
 @receiver(post_save, sender=SubjectSource)
 def maintain_subjectstatus(sender, instance, created, **kwargs):
-    '''
-    Trigger Subject Status update in case the subject-source assignment changed.
-    '''
-    transaction.on_commit(
-        lambda: SubjectStatus.objects.maintain_subject_status(instance.subject_id)
-    )
+
+    # This function is triggered when source is updated for subject.
+    SubjectStatus.objects.maintain_subject_status(instance.subject_id)
+
 
 def create_proxy_permissions(**kwargs):
     """
