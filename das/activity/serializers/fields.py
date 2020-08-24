@@ -65,14 +65,7 @@ class PriorityField(serializers.Field):
             )
 
     def to_representation(self, value):
-        priority_number = next(
-            filter(
-                lambda priority_choice: priority_choice[1] == value,
-                self.choices
-            )
-        )[0]
-
-        return priority_number
+        return value
 
     def to_internal_value(self, data):
         """Validate the 'data' sent by the client is valid, return the 'data'"""
@@ -98,7 +91,7 @@ class PatrolStateField(serializers.Field):
     def to_representation(self, value):
         priority_state = next(
             filter(
-                lambda choice: choice[1] == value,
+                lambda choice: choice[1] == value or choice[0] == value,
                 self.choices
             )
         )[0]

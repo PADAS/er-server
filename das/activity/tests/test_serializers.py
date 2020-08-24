@@ -1,3 +1,4 @@
+import json
 import logging
 
 from django.test import TestCase
@@ -7,7 +8,8 @@ from activity.serializers.fields import (
     PriorityField
 )
 from activity.serializers.patrol_serializers import (
-    PatrolSerializer
+    PatrolSerializer,
+    PatrolSegmentSerializer
 )
 from activity.models import Patrol, PatrolSegment
 
@@ -46,9 +48,12 @@ class TestPatrolSerializer(TestCase):
         patrol = Patrol.objects.create(
             title="Test Patrol"
         )
-        PatrolSegment.objects.create(patrol=patrol)
+        patrol_segment = PatrolSegment.objects.create(patrol=patrol)
 
         serializer = PatrolSerializer(instance=patrol)
-        print(serializer.data)
+        print('PATROL', json.dumps(serializer.data))
+
+        serializer = PatrolSegmentSerializer(instance=patrol_segment)
+        print('PATROL SEGMENT', json.dumps(serializer.data))
 
         return
