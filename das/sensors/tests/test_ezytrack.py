@@ -1,11 +1,12 @@
 import json
+from unittest import mock
 
 from django.urls import reverse
 from rest_framework import status
 
 from sensors.handlers import EzyTrackHandler
 from sensors.views import EzyTrackHandlerView
-from core.tests import BaseAPITest
+from core.tests import fake_get_pool, User, BaseAPITest
 
 
 class EzytrackHandlerTest(BaseAPITest):
@@ -32,10 +33,12 @@ class EzytrackHandlerTest(BaseAPITest):
         response = EzyTrackHandlerView.as_view()(request, self.PROVIDER_KEY)
         return response
 
+    @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def test_ezytrack_observations(self):
         response = self._post_ezytrack_data(json.dumps(self.test_data))
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
+    @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def test_duplicate_observation(self):
         self._post_ezytrack_data(json.dumps(self.test_data))
         response = self._post_ezytrack_data(json.dumps(self.test_data))
