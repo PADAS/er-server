@@ -51,6 +51,7 @@ locals {
     "matlamamba"             = "prod1"
     "matusadona"             = "prod1"
     "mapesu"                 = "prod1"
+    "masungi"                = "prod-asia"
     "meru"                   = "prod1"
     "mep"                    = "prod1"
     "mtkenya"                = "prod1"
