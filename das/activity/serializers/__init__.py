@@ -7,6 +7,7 @@ import django.db
 import drf_extra_fields.geo_fields
 import pytz
 import rest_framework.serializers
+from rest_framework import serializers
 import rest_framework.status
 import versatileimagefield.files
 from django.contrib.auth import get_user_model
@@ -19,12 +20,14 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.encoding import force_text
 from django.template.defaultfilters import truncatechars
+from drf_extra_fields.fields import DateTimeRangeField
 from drf_extra_fields.geo_fields import PointField
 from rest_framework.exceptions import ValidationError, APIException
 from rest_framework.fields import DateTimeField
 from rest_framework.metadata import BaseMetadata
 from rest_framework.request import clone_request
 from rest_framework.utils.field_mapping import ClassLookupDict
+from rest_framework.validators import UniqueValidator
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from versatileimagefield.serializers import VersatileImageFieldSerializer
 # Make dictionaries from the IMAGE_SETS, to make lookups a little easier.
@@ -1788,3 +1791,19 @@ class PatrolTypeSerializer(rest_framework.serializers.ModelSerializer):
         model = activity.models.PatrolType
         read_only_fields = ('id', 'value', 'display', 'ordernum', 'icon_id', 'default_priority',)
         fields = read_only_fields
+
+
+from activity import models
+class PatrolSerializer(serializers.Serializer):
+    id = serializers.UUIDField(read_only=True)
+    serial_number = serializers.IntegerField(
+        validators=[UniqueValidator(queryset=models.Patrol.objects.all())])
+    priority = serializers.ChoiceField(choices=models.PRIORITY_CHOICES, default=models.PRI_NONE)
+    new_state = serializers.ChoiceField(choices=models.PATROL_STATE_CHOICES, default=models.PC_ACTIVE)
+    title = serializers.CharField(required=False)
+    objective = serializers.CharField(style={'base_template': 'textarea.html'}, required=False)
+    time_range = DateTimeRangeField()
+
+    def create(self, validated_data):
+        return models.Patrol.objects.create(**validated_data)
+    
