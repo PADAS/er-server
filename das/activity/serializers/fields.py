@@ -3,6 +3,8 @@ from rest_framework import serializers
 
 from activity.models import (
     PATROL_STATE_CHOICES,
+    PC_ACTIVE,
+    PRI_NONE,
     PRIORITY_CHOICES,
 )
 
@@ -48,6 +50,7 @@ class PriorityField(serializers.Field):
     """This field represents Priority levels"""
 
     choices = PRIORITY_CHOICES
+    default = PRI_NONE
     priority_choices_numbers = list(
         map(
             lambda priority_choice: priority_choice[0],
@@ -78,6 +81,7 @@ class PatrolStateField(serializers.Field):
     """This field represents Patrol State levels"""
 
     choices = PATROL_STATE_CHOICES
+    default = PC_ACTIVE
 
     @classmethod
     def validate(cls, data):
