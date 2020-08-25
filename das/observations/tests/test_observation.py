@@ -169,6 +169,7 @@ class ObservationTestCase(TestCase):
         '''
         subject_id = 'd35cb4fe-c15f-404f-bc86-b479f01b6a01'
 
+        SubjectStatus.objects.maintain_subject_status(subject_id)
         initial_subjectstatus = SubjectStatus.objects.get(subject_id=subject_id, delay_hours=0)
 
         print(f'initial radio state: {initial_subjectstatus.radio_state}')
@@ -204,6 +205,7 @@ class ObservationTestCase(TestCase):
         '''
         subject_id = 'd35cb4fe-c15f-404f-bc86-b479f01b6a01'
 
+        SubjectStatus.objects.maintain_subject_status(subject_id)
         initial_subjectstatus = SubjectStatus.objects.get(subject_id=subject_id, delay_hours=0)
 
         # Grab the latest two observations -- we'll after deleting the latest, we'll use these
