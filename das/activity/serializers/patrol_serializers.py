@@ -11,6 +11,7 @@ from activity.serializers.fields import (
     PatrolStateField,
     PriorityField,
 )
+from observations.serializers import SourceSerializer
 
 
 class PatrolFileSerializer(BaseSerializer, RevisionMixin):
@@ -68,17 +69,23 @@ class PatrolSegmentSerializer(BaseSerializer):
 
     patrol = PatrolSerializer(excludes=['patrol_segments'])
     patrol_type = serializers.CharField()
-    # priority = PriorityField()
+    priority = PriorityField()
     state = PatrolStateField()
-    # sources = EventSourceSerializer()
+    source = SourceSerializer(many=True)
     scheduled_start = serializers.DateTimeField()
-    # start_time = serializers.DateTimeField()
-    # end_time = serializers.DateTimeField()
+    start_time = serializers.DateTimeField()
+    end_time = serializers.DateTimeField()
     start_location = CoordinateField()
     end_location = CoordinateField()
-    # icon_id = serializers.URLField()
-    # image_url = serializers.URLField()
+    icon_id = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
     # reports = ReportSerializer(many=True)
+
+    def get_icon_id(self, obj):
+        return obj.icon_id
+
+    def get_image_url(self, obj):
+        return obj.image_url
 
 
 class PatrolTemplateSerializer(BaseSerializer):

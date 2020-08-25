@@ -1385,9 +1385,13 @@ class TSVectorModel(models.Model):
 # Patrol Management.
 
 
-PC_UPCOMING = 'upcoming'
-PC_ACTIVE = 'active'
-PC_PAST = 'past'
+# PC_UPCOMING = 'upcoming'
+# PC_ACTIVE = 'active'
+# PC_PAST = 'past'
+
+PC_UPCOMING = 0
+PC_ACTIVE = 1
+PC_PAST = 2
 
 PATROL_STATE_CHOICES = (
     (PC_UPCOMING, 'Upcoming'),
@@ -1551,6 +1555,22 @@ class PatrolSegment(TimestampedModel, RevisionMixin):
     end_location = models.PointField(srid=4326, blank=True, null=True)
     state = models.PositiveSmallIntegerField(choices=PATROL_STATE_CHOICES, default=PC_ACTIVE)
     revision = Revision()
+    icon = models.CharField(max_length=100, blank=True, null=True)
+    priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES,
+                                                default=PRI_NONE)
+    start_time = models.DateTimeField(blank=True, null=True)
+    end_time = models.DateTimeField(blank=True, null=True)
+
+    @property
+    def icon_id(self):
+        return self.icon
+
+    @property
+    def image_url(self):
+        if self.icon_id is None:
+            return None
+
+        return Event.marker_icon(self.icon_id, PRI_BLACK, Event.SC_NEW)
 
 
 # class PatrolTemplate(models.Model):
