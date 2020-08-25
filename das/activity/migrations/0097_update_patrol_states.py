@@ -14,8 +14,18 @@ class Migration(migrations.Migration):
             model_name='patrol',
             name='state',
         ),
+        migrations.RemoveField(
+            model_name='patrolsegment',
+            name='state',
+        ),
         migrations.AddField(
             model_name='patrol',
+            name='state',
+            field=models.CharField(choices=[('upcoming', 'Upcoming'), ('active', 'Active'), ('past', 'Past')],
+                                   default='active', max_length=25),
+        ),
+        migrations.AddField(
+            model_name='patrolsegment',
             name='state',
             field=models.CharField(choices=[('upcoming', 'Upcoming'), ('active', 'Active'), ('past', 'Past')],
                                    default='active', max_length=25),

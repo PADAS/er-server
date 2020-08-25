@@ -1799,11 +1799,10 @@ class PatrolSerializer(serializers.Serializer):
     serial_number = serializers.IntegerField(
         validators=[UniqueValidator(queryset=models.Patrol.objects.all())])
     priority = serializers.ChoiceField(choices=models.PRIORITY_CHOICES, default=models.PRI_NONE)
-    new_state = serializers.ChoiceField(choices=models.PATROL_STATE_CHOICES, default=models.PC_ACTIVE)
+    state = serializers.ChoiceField(choices=models.PATROL_STATE_CHOICES, default=models.PC_ACTIVE)
     title = serializers.CharField(required=False)
     objective = serializers.CharField(style={'base_template': 'textarea.html'}, required=False)
     time_range = DateTimeRangeField()
 
     def create(self, validated_data):
         return models.Patrol.objects.create(**validated_data)
-    
