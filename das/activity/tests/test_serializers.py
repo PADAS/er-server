@@ -57,7 +57,13 @@ class TestPatrolSerializer(TestCase):
             patrol=patrol,
             text='Hello world'
         )
-        patrol_segment = PatrolSegment.objects.create(patrol=patrol)
+        patrol_segment = PatrolSegment.objects.create(
+            patrol=patrol,
+            time_range={
+                'lower': 'asdfdfs',
+                'upper': 'asddsfdsf'
+            }
+        )
 
         serializer = PatrolNoteSerializer(instance=patrol_note)
         print('\n\nPATROL NOTE', json.dumps(serializer.data))

@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from drf_extra_fields.fields import DateTimeRangeField
 
 from activity.serializers import AlertRuleSerializer, EventSourceSerializer
 from activity.serializers.base import (
@@ -73,8 +74,7 @@ class PatrolSegmentSerializer(BaseSerializer):
     state = PatrolStateField()
     source = SourceSerializer(many=True)
     scheduled_start = serializers.DateTimeField()
-    start_time = serializers.DateTimeField()
-    end_time = serializers.DateTimeField()
+    time_range = DateTimeRangeField()
     start_location = CoordinateField()
     end_location = CoordinateField()
     icon_id = serializers.SerializerMethodField()

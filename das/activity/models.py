@@ -1554,8 +1554,6 @@ class PatrolSegment(TimestampedModel, RevisionMixin):
     icon = models.CharField(max_length=100, blank=True, null=True)
     priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES,
                                                 default=PRI_NONE)
-    start_time = models.DateTimeField(blank=True, null=True)
-    end_time = models.DateTimeField(blank=True, null=True)
 
     @property
     def icon_id(self):
