@@ -8,10 +8,15 @@ from activity.serializers.fields import (
     PriorityField
 )
 from activity.serializers.patrol_serializers import (
+    PatrolNoteSerializer,
     PatrolSerializer,
     PatrolSegmentSerializer
 )
-from activity.models import Patrol, PatrolSegment
+from activity.models import (
+    Patrol,
+    PatrolNote,
+    PatrolSegment
+)
 
 
 logger = logging.getLogger(__name__)
@@ -48,12 +53,19 @@ class TestPatrolSerializer(TestCase):
         patrol = Patrol.objects.create(
             title="Test Patrol"
         )
+        patrol_note = PatrolNote.objects.create(
+            patrol=patrol,
+            text='Hello world'
+        )
         patrol_segment = PatrolSegment.objects.create(patrol=patrol)
 
+        serializer = PatrolNoteSerializer(instance=patrol_note)
+        print('\n\nPATROL NOTE', json.dumps(serializer.data))
+
         serializer = PatrolSerializer(instance=patrol)
-        print('PATROL', json.dumps(serializer.data))
+        print('\n\nPATROL', json.dumps(serializer.data))
 
         serializer = PatrolSegmentSerializer(instance=patrol_segment)
-        print('PATROL SEGMENT', json.dumps(serializer.data))
+        print('\n\nPATROL SEGMENT', json.dumps(serializer.data))
 
         return

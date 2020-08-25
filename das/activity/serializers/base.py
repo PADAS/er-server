@@ -33,7 +33,9 @@ class BaseSerializer(serializers.Serializer):
 
 
 class RevisionMixin(serializers.Serializer):
-    def render_updates(self, note):
+    updates = serializers.SerializerMethodField()
+
+    def get_updates(self, obj):
         def get_action(revision):
             if revision.action == AC_UPDATED:
                 field_mapping = {'text': 'Note Text'}
@@ -45,15 +47,17 @@ class RevisionMixin(serializers.Serializer):
             return revision.get_action_display()
 
         return [
-            dict(message='Note {action}'.format(
-                action=get_action(revision),
-                user=get_user_display(revision.user)),
+            dict(
+                message='Note {action}'.format(
+                    action=get_action(revision),
+                    user=get_user_display(revision.user)
+                ),
                 time=revision.revision_at.isoformat(),
                 text=revision.data.get('text', ''),
                 user=UserDisplaySerializer().to_representation(revision.user),
                 type=get_update_type(revision),
             )
-            for revision in note.revision.all_user()
+            for revision in obj.revision.all_user()
         ]
 
 

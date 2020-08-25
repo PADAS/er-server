@@ -1385,9 +1385,9 @@ class TSVectorModel(models.Model):
 # Patrol Management.
 
 
-PC_UPCOMING = 0 # 'upcoming'
-PC_ACTIVE = 1 # 'active'
-PC_PAST = 2 # 'past'
+PC_UPCOMING = 'upcoming'
+PC_ACTIVE = 'active'
+PC_PAST = 'past'
 
 PATROL_STATE_CHOICES = (
     (PC_UPCOMING, 'Upcoming'),
@@ -1451,7 +1451,7 @@ class Patrol(TimestampedModel, RevisionMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     serial_number = models.BigIntegerField(verbose_name='Serial Number', unique=True, blank=True, null=True)
     priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
-    state = models.PositiveSmallIntegerField(choices=PATROL_STATE_CHOICES, default=PC_ACTIVE)
+    state = models.CharField(choices=PATROL_STATE_CHOICES, default=PC_ACTIVE, max_length=25)
     title = models.CharField(max_length=255, blank=True)
     objective = models.TextField(blank=True)
     time_range = DateTimeRangeField(blank=True, null=True)
