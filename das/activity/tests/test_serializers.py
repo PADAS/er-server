@@ -46,6 +46,7 @@ class TestPriorityField(TestCase):
         ps = PatrolSerializer(
             data={
                 "title": "Test Patrol",
+                "priority": 100000
             }
         )
 

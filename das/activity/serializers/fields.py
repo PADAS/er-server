@@ -29,6 +29,14 @@ class CoordinateField(serializers.Field):
         except jsonschema.exceptions.ValidationError as ex:
             raise serializers.ValidationError(ex.message)
 
+    def to_representation(self, value):
+        return value
+
+    def to_internal_value(self, data):
+        self.validate(data)
+
+        return data
+
 
 def patrol_state_field(*args, **kwargs):
     return serializers.ChoiceField(
