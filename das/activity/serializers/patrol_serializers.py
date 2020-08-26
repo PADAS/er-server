@@ -9,8 +9,8 @@ from activity.serializers.base import (
 )
 from activity.serializers.fields import (
     CoordinateField,
-    PatrolStateField,
-    PriorityField,
+    patrol_state_field,
+    priority_field,
 )
 from observations.serializers import SourceSerializer
 
@@ -29,9 +29,9 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
     """Serializer class for a Patrol"""
 
     objective = serializers.CharField()
-    priority = PriorityField()
+    priority = priority_field()
     serial_number = serializers.IntegerField()
-    state = PatrolStateField()
+    state = patrol_state_field()
     title = serializers.CharField(allow_null=True)
 
     files = serializers.SerializerMethodField()
@@ -70,8 +70,8 @@ class PatrolSegmentSerializer(BaseSerializer):
 
     patrol = PatrolSerializer(excludes=['patrol_segments'])
     patrol_type = serializers.CharField()
-    priority = PriorityField()
-    state = PatrolStateField()
+    priority = priority_field()
+    state = patrol_state_field()
     source = SourceSerializer(many=True)
     scheduled_start = serializers.DateTimeField()
     time_range = DateTimeRangeField()
@@ -102,5 +102,5 @@ class PatrolTypeSerializer(BaseSerializer):
     display = serializers.CharField()
     ordernum = serializers.CharField()
     icon = serializers.CharField()
-    default_priority = PriorityField()
+    default_priority = priority_field()
     is_active = serializers.BooleanField()

@@ -5,7 +5,7 @@ from django.test import TestCase
 
 from activity.serializers.fields import (
     CoordinateField,
-    PriorityField
+    priority_field
 )
 from activity.serializers.patrol_serializers import (
     PatrolNoteSerializer,
@@ -43,9 +43,13 @@ class TestPriorityField(TestCase):
         is_correct_data_valid = None
         is_wrong_data_valid = None
 
-        PriorityField.validate(
-            is_correct_data_valid
+        ps = PatrolSerializer(
+            data={
+                "title": "Test Patrol",
+            }
         )
+
+        print(ps.is_valid(), ps.validated_data, ps.errors)
 
 
 class TestPatrolSerializer(TestCase):
