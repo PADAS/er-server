@@ -10,6 +10,7 @@ from activity.models import (
 
 
 class CoordinateField(serializers.Field):
+    allow_null = True
     schema = {
         "type": "object",
         "properties": {

@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 
@@ -64,19 +65,25 @@ class TestPatrolSerializer(TestCase):
         )
         patrol_segment = PatrolSegment.objects.create(
             patrol=patrol,
-            time_range={
-                'lower': 'asdfdfs',
-                'upper': 'asddsfdsf'
-            }
         )
 
-        serializer = PatrolNoteSerializer(instance=patrol_note)
-        print('\n\nPATROL NOTE', json.dumps(serializer.data))
+        patrol_note_serializer = PatrolNoteSerializer(instance=patrol_note)
+        print('\n\nPATROL NOTE', json.dumps(patrol_note_serializer.data))
 
-        serializer = PatrolSerializer(instance=patrol)
-        print('\n\nPATROL', json.dumps(serializer.data))
+        patrol_serializer = PatrolSerializer(instance=patrol)
+        print('\n\nPATROL', json.dumps(patrol_serializer.data))
 
-        serializer = PatrolSegmentSerializer(instance=patrol_segment)
-        print('\n\nPATROL SEGMENT', json.dumps(serializer.data))
+        patrol_segment_serializer = PatrolSegmentSerializer(data={
+            'patrol': patrol_serializer.data,
+            'start_date': '2000-01-01T00:00:00',
+            'end_date': datetime.datetime(2020, 12, 31, 23, 59, 59)
+        })
+
+        print(
+            '\n\nPATROL SEGMENT',
+            patrol_segment_serializer.is_valid(),
+            patrol_segment_serializer.errors,
+            patrol_segment_serializer.validated_data
+        )
 
         return

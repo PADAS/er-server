@@ -28,11 +28,11 @@ class PatrolFileSerializer(BaseSerializer, RevisionMixin):
 class PatrolSerializer(BaseSerializer, TimestampMixin):
     """Serializer class for a Patrol"""
 
-    objective = serializers.CharField()
+    objective = serializers.CharField(allow_blank=True)
     priority = priority_field()
-    serial_number = serializers.IntegerField()
+    serial_number = serializers.IntegerField(allow_null=True, required=False)
     state = patrol_state_field()
-    title = serializers.CharField(allow_null=True)
+    title = serializers.CharField(allow_blank=True, max_length=255)
 
     files = serializers.SerializerMethodField()
     notes = serializers.SerializerMethodField()
@@ -69,14 +69,16 @@ class PatrolSegmentSerializer(BaseSerializer):
     """Serializer class for a Patrol Segment"""
 
     patrol = PatrolSerializer(excludes=['patrol_segments'])
-    patrol_type = serializers.CharField()
+    patrol_type = serializers.CharField(
+        allow_blank=True, allow_null=True, required=False
+    )
     priority = priority_field()
     state = patrol_state_field()
-    source = SourceSerializer(many=True)
-    scheduled_start = serializers.DateTimeField()
-    time_range = DateTimeRangeField()
-    start_location = CoordinateField()
-    end_location = CoordinateField()
+    source = SourceSerializer(many=True, required=False)
+    scheduled_start = serializers.DateTimeField(allow_null=True, required=False)
+    time_range = DateTimeRangeField(allow_null=True, required=False)
+    start_location = CoordinateField(allow_null=True, required=False)
+    end_location = CoordinateField(allow_null=True, required=False)
     icon_id = serializers.SerializerMethodField()
     image_url = serializers.SerializerMethodField()
     # reports = ReportSerializer(many=True)
@@ -98,9 +100,11 @@ class PatrolTemplateSerializer(BaseSerializer):
 
 
 class PatrolTypeSerializer(BaseSerializer):
-    value = serializers.CharField()
-    display = serializers.CharField()
-    ordernum = serializers.CharField()
-    icon = serializers.CharField()
+    value = serializers.CharField(max_length=50)
+    display = serializers.CharField(max_length=255)
+    ordernum = serializers.CharField(
+        allow_blank=True, allow_null=True, required=False
+    )
+    icon = serializers.CharField(max_length=100, allow_blank=True)
     default_priority = priority_field()
-    is_active = serializers.BooleanField()
+    is_active = serializers.BooleanField(default=True)
