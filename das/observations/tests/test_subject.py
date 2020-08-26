@@ -393,7 +393,7 @@ class SubjectTestCase(BaseAPITest):
             gpx_object = GPXTrackFile.objects.all()
             processed_status = gpx_object.values('processed_status')
             self.assertEqual(template_response.status_code, 302)
-            self.assertTrue("was successfully imported" in messages._queued_messages[0].message)
+            self.assertTrue("was successfully uploaded for processing" in messages._queued_messages[0].message)
             self.assertEqual(gpx_object.count(), 1)
             self.assertEqual(processed_status[0].get('processed_status'), 'success')
 
