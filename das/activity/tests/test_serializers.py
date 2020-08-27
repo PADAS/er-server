@@ -3,9 +3,11 @@ import json
 import logging
 
 from django.test import TestCase
+from rest_framework.exceptions import ValidationError
 
 from activity.serializers.fields import (
     CoordinateField,
+    patrol_state_field,
     priority_field
 )
 from activity.serializers.patrol_serializers import (
@@ -17,7 +19,13 @@ from activity.models import (
     Patrol,
     PatrolNote,
     PatrolSegment,
-    PatrolType
+    PatrolType,
+)
+from activity.models import (
+    PATROL_STATE_CHOICES,
+    PC_ACTIVE,
+    PRI_NONE,
+    PRIORITY_CHOICES,
 )
 
 
@@ -40,19 +48,161 @@ class TestCoordinateField(TestCase):
         CoordinateField().to_representation(0)
 
 
-class TestPriorityField(TestCase):
-    def test_validate(self):
-        is_correct_data_valid = None
-        is_wrong_data_valid = None
+class TestPatrolStateField(TestCase):
+    custom_choices = (
+        (0, 'Zero'),
+        (1, 'One'),
+        (2, 'Two')
+    )
+    custom_default_parameter = 2
+    default_choices = PATROL_STATE_CHOICES
+    default_default_parameter = PC_ACTIVE
 
-        ps = PatrolSerializer(
-            data={
-                "title": "Test Patrol",
-                "priority": 100000
-            }
+    def test_custom_choices(self):
+        psf = patrol_state_field(choices=self.custom_choices)
+        self.assertEqual(
+            tuple(psf.choices.items()),
+            self.custom_choices
+        )
+        self.assertNotEqual(
+            tuple(psf.choices.items()),
+            self.default_choices
         )
 
-        print(ps.is_valid(), ps.validated_data, ps.errors)
+    def test_custom_default_parameter(self):
+        psf = patrol_state_field(default=self.custom_default_parameter)
+        self.assertEqual(
+            psf.default,
+            self.custom_default_parameter
+        )
+        self.assertNotEqual(
+            psf.default,
+            self.default_default_parameter
+        )
+
+    def test_default_choices(self):
+        psf = patrol_state_field()
+        self.assertEqual(
+            tuple(psf.choices.items()),
+            self.default_choices
+        )
+        self.assertNotEqual(
+            tuple(psf.choices.items()),
+            self.custom_choices
+        )
+
+    def test_default_default_parameter(self):
+        psf = patrol_state_field()
+        self.assertEqual(
+            psf.default,
+            self.default_default_parameter
+        )
+        self.assertNotEqual(
+            psf.default,
+            self.custom_default_parameter
+        )
+
+    def test_validation(self):
+        correct_data = 0
+        wrong_data = 100900
+
+        pf = priority_field()
+
+        try:
+            pf.run_validation(wrong_data)
+        except ValidationError:
+            is_wrong_data_valid = False
+        else:
+            is_wrong_data_valid = True
+
+        try:
+            pf.run_validation(correct_data)
+        except ValidationError:
+            is_correct_data_valid = False
+        else:
+            is_correct_data_valid = True
+
+        self.assertFalse(is_wrong_data_valid)
+        self.assertTrue(is_correct_data_valid)
+
+
+class TestPriorityField(TestCase):
+    custom_choices = (
+        (0, 'Zero'),
+        (1, 'One'),
+        (2, 'Two')
+    )
+    custom_default_parameter = 1
+    default_choices = PRIORITY_CHOICES
+    default_default_parameter = PRI_NONE
+
+    def test_custom_choices(self):
+        pf = priority_field(choices=self.custom_choices)
+        self.assertEqual(
+            tuple(pf.choices.items()),
+            self.custom_choices
+        )
+        self.assertNotEqual(
+            tuple(pf.choices.items()),
+            self.default_choices
+        )
+
+    def test_custom_default_parameter(self):
+        psf = priority_field(default=self.custom_default_parameter)
+        self.assertEqual(
+            psf.default,
+            self.custom_default_parameter
+        )
+        self.assertNotEqual(
+            psf.default,
+            self.default_default_parameter
+        )
+
+    def test_default_choices(self):
+        pf = priority_field()
+        self.assertEqual(
+            tuple(pf.choices.items()),
+            self.default_choices
+        )
+        self.assertNotEqual(
+            tuple(pf.choices.items()),
+            self.custom_choices
+        )
+
+    def test_default_default_parameter(self):
+        psf = priority_field()
+        self.assertEqual(
+            psf.default,
+            self.default_default_parameter
+        )
+        self.assertNotEqual(
+            psf.default,
+            self.custom_default_parameter
+        )
+
+    def test_validation(self):
+
+        correct_data = 0
+        wrong_data = 100900
+
+        pf = priority_field()
+
+        try:
+            pf.run_validation(wrong_data)
+        except ValidationError:
+            is_wrong_data_valid = False
+        else:
+            is_wrong_data_valid = True
+
+        try:
+            pf.run_validation(correct_data)
+        except ValidationError:
+            is_correct_data_valid = False
+        else:
+            is_correct_data_valid = True
+
+        self.assertFalse(is_wrong_data_valid)
+        self.assertTrue(is_correct_data_valid)
 
 
 class TestPatrolSerializer(TestCase):

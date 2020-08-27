@@ -39,19 +39,23 @@ class CoordinateField(serializers.Field):
         return data
 
 
-def patrol_state_field(*args, **kwargs):
+def patrol_state_field(**kwargs):
+    choices = kwargs.pop('choices', PATROL_STATE_CHOICES)
+    default = kwargs.pop('default', PC_ACTIVE)
+
     return serializers.ChoiceField(
-        choices=PATROL_STATE_CHOICES,
-        default=PC_ACTIVE,
-        *args,
+        choices=choices,
+        default=default,
         **kwargs
     )
 
 
-def priority_field(*args, **kwargs):
+def priority_field(**kwargs):
+    choices = kwargs.pop('choices', PRIORITY_CHOICES)
+    default = kwargs.pop('default', PRI_NONE)
+
     return serializers.ChoiceField(
-        choices=PRIORITY_CHOICES,
-        default=PRI_NONE,
-        *args,
+        choices=choices,
+        default=default,
         **kwargs
     )
