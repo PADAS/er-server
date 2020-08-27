@@ -1385,9 +1385,9 @@ class TSVectorModel(models.Model):
 # Patrol Management.
 
 
-PC_UPCOMING = 0 #'upcoming'
-PC_ACTIVE = 1 #'active'
-PC_PAST = 2 #'past'
+PC_UPCOMING = 'upcoming'
+PC_ACTIVE = 'active'
+PC_PAST = 'past'
 
 PATROL_STATE_CHOICES = (
     (PC_UPCOMING, 'Upcoming'),
