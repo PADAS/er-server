@@ -3,6 +3,7 @@ import json
 import logging
 
 from django.test import TestCase
+import jsonschema
 from rest_framework.exceptions import ValidationError
 
 from activity.serializers.fields import (
@@ -206,28 +207,98 @@ class TestPriorityField(TestCase):
 
 
 class TestPatrolSerializer(TestCase):
-    def test_patrol_serializer(self):
+    serialized_data_schema = {
+        "type": "object",
+        "properties": {
+            "id": {
+                "type": "string"
+            },
+            "created_at": {
+                "type": "string"
+            },
+            "updated_at": {
+                "type": "string"
+            },
+            "objective": {
+                "type": "string"
+            },
+            "priority": {
+                "type": "number"
+            },
+            "state": {
+                "type": "string"
+            },
+            "title": {
+                "type": "string"
+            },
+            "files": {
+                "type": "array"
+            },
+            "notes": {
+                "type": "array"
+            },
+            "patrol_segments": {
+                "type": "array"
+            },
+            "serial_number": {
+                "type": ["null", "number"]
+            }
+        }
+    }
+    objective = 'Test Patrol object'
+    title = "Test Patrol"
+
+    def test_data_serialization(self):
+        ps = PatrolSerializer(
+            data={
+                'objective': self.objective,
+                'title': self.title
+            }
+        )
+
+        self.assertTrue(ps.is_valid())
+
+        try:
+            jsonschema.validate(ps.data, self.serialized_data_schema)
+        except jsonschema.exceptions.ValidationError:
+            does_serialized_data_match_schema = False
+        else:
+            does_serialized_data_match_schema = True
+
+        self.assertTrue(does_serialized_data_match_schema)
+
+    def test_instance_to_data_serialization(self):
         patrol = Patrol.objects.create(
-            title="Test Patrol"
+            title=self.title
         )
-        patrol_note = PatrolNote.objects.create(
-            patrol=patrol,
-            text='Hello world'
-        )
-        patrol_type = PatrolType.objects.create(
-            display='Patrol Type 112233',
-            value='patrol-type-112233'
-        )
-        patrol_segment = PatrolSegment.objects.create(
-            patrol=patrol,
-            patrol_type=patrol_type
-        )
+        ps = PatrolSerializer(instance=patrol)
 
-        patrol_note_serializer = PatrolNoteSerializer(instance=patrol_note)
-        print('\n\nPATROL NOTE', json.dumps(patrol_note_serializer.data))
+        try:
+            jsonschema.validate(ps.data, self.serialized_data_schema)
+        except jsonschema.exceptions.ValidationError:
+            does_serialized_data_match_schema = False
+        else:
+            does_serialized_data_match_schema = True
 
-        patrol_serializer = PatrolSerializer(instance=patrol)
-        print('\n\nPATROL', json.dumps(patrol_serializer.data))
+        self.assertEqual(ps.data['title'], self.title)
+        self.assertTrue(does_serialized_data_match_schema)
+
+        # patrol_note = PatrolNote.objects.create(
+        #     patrol=patrol,
+        #     text='Hello world'
+        # )
+        # patrol_type = PatrolType.objects.create(
+        #     display='Patrol Type 112233',
+        #     value='patrol-type-112233'
+        # )
+        # patrol_segment = PatrolSegment.objects.create(
+        #     patrol=patrol,
+        #     patrol_type=patrol_type
+        # )
+        #
+        # patrol_note_serializer = PatrolNoteSerializer(instance=patrol_note)
+        #
+        # patrol_serializer = PatrolSerializer(instance=patrol)
 
         # patrol_segment_serializer = PatrolSegmentSerializer(data={
         #     'patrol': patrol_serializer.data,
@@ -236,15 +307,15 @@ class TestPatrolSerializer(TestCase):
         #     'end_date': datetime.datetime(2020, 12, 31, 23, 59, 59)
         # })
 
-        patrol_segment_serializer = PatrolSegmentSerializer(
-            instance=patrol_segment
-        )
-
-        print(
-            '\n\nPATROL SEGMENT',
-            # patrol_segment_serializer.is_valid(),
-            # patrol_segment_serializer.errors,
-            json.dumps(patrol_segment_serializer.data)
-        )
+        # patrol_segment_serializer = PatrolSegmentSerializer(
+        #     instance=patrol_segment
+        # )
+        #
+        # print(
+        #     '\n\nPATROL SEGMENT',
+        #     # patrol_segment_serializer.is_valid(),
+        #     # patrol_segment_serializer.errors,
+        #     json.dumps(patrol_segment_serializer.data)
+        # )
 
         return
