@@ -23,6 +23,7 @@ class BaseSerializer(serializers.Serializer):
 
         super().__init__(*args, **kwargs)
 
+    # TODO Leverage on metaclass
     def clear_excludes(self, excludes):
         list(
             map(

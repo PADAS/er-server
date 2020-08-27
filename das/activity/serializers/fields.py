@@ -59,3 +59,12 @@ def priority_field(**kwargs):
         default=default,
         **kwargs
     )
+
+
+def text_field(**kwargs):
+    style = kwargs.pop('style', {'base_template': 'textarea.html'})
+
+    return serializers.CharField(
+        style=style,
+        **kwargs
+    )

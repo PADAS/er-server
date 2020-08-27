@@ -1,6 +1,7 @@
-from rest_framework import serializers
+from rest_framework import serializers, validators
 from drf_extra_fields.fields import DateTimeRangeField
 
+from activity.models import Patrol
 from activity.serializers import AlertRuleSerializer, EventSourceSerializer
 from activity.serializers.base import (
     BaseSerializer,
@@ -11,6 +12,7 @@ from activity.serializers.fields import (
     CoordinateField,
     patrol_state_field,
     priority_field,
+    text_field
 )
 from observations.serializers import SourceSerializer
 
@@ -25,12 +27,15 @@ class PatrolFileSerializer(BaseSerializer, RevisionMixin):
     ordernum = serializers.CharField()
 
 
-class PatrolSerializer(BaseSerializer, TimestampMixin):
+class PatrolSerializer(BaseSerializer, RevisionMixin, TimestampMixin):
     """Serializer class for a Patrol"""
 
-    objective = serializers.CharField(allow_blank=True)
+    objective = text_field(allow_blank=True)
     priority = priority_field()
-    serial_number = serializers.IntegerField(allow_null=True, required=False)
+    serial_number = serializers.IntegerField(
+        allow_null=True, required=False,
+        validators=[validators.UniqueValidator(queryset=Patrol.objects.all())]
+    )
     state = patrol_state_field()
     title = serializers.CharField(allow_blank=True, max_length=255)
 
@@ -58,7 +63,7 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
 
 
 class PatrolNoteSerializer(BaseSerializer, RevisionMixin):
-    text = serializers.CharField()
+    text = text_field()
     created_by_user = serializers.HiddenField(
         default=serializers.CurrentUserDefault()
     )
@@ -68,7 +73,10 @@ class PatrolNoteSerializer(BaseSerializer, RevisionMixin):
 class PatrolSegmentSerializer(BaseSerializer):
     """Serializer class for a Patrol Segment"""
 
-    patrol = PatrolSerializer(excludes=['patrol_segments'])
+    patrol = PatrolSerializer(
+        excludes=['patrol_segments', 'files', 'notes', 'serial_number', 'state',
+                  'updates', 'objective', 'created_at', 'updated_at']
+    )
     patrol_type = serializers.CharField(
         allow_blank=True, allow_null=True, required=False
     )
