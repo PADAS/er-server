@@ -24,8 +24,9 @@ spec:
           readinessProbe:
             exec:
               command:
-                - redis-cli
-                - 'bash -c ''[[ $(redis-cli PING) == "PONG" ]]'''
+                - /bin/bash
+                - -c
+                - '[[ $(redis-cli PING) == "PONG" ]]'
             initialDelaySeconds: 5
             periodSeconds: 10
             failureThreshold: 3
@@ -33,8 +34,9 @@ spec:
           livenessProbe:
             exec:
               command:
-                - redis-cli
-                - 'bash -c ''[[ $(redis-cli PING) == "PONG" ]]'''
+                - /bin/bash
+                - -c
+                - '[[ $(redis-cli PING) == "PONG" ]]'
             initialDelaySeconds: 5
             periodSeconds: 10
             failureThreshold: 3
