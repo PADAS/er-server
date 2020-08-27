@@ -6,28 +6,14 @@ from django.test import TestCase
 import jsonschema
 from rest_framework.exceptions import ValidationError
 
-from activity.serializers.fields import (
-    CoordinateField,
-    patrol_state_field,
-    priority_field
-)
-from activity.serializers.patrol_serializers import (
-    PatrolNoteSerializer,
-    PatrolSerializer,
-    PatrolSegmentSerializer
-)
-from activity.models import (
-    Patrol,
-    PatrolNote,
-    PatrolSegment,
-    PatrolType,
-)
-from activity.models import (
-    PATROL_STATE_CHOICES,
-    PC_ACTIVE,
-    PRI_NONE,
-    PRIORITY_CHOICES,
-)
+from activity.serializers.fields import (CoordinateField, patrol_state_field,
+                                         priority_field)
+from activity.serializers.patrol_serializers import (PatrolNoteSerializer,
+                                                     PatrolSerializer,
+                                                     PatrolSegmentSerializer)
+from activity.models import Patrol, PatrolNote, PatrolSegment, PatrolType
+from activity.models import (PATROL_STATE_CHOICES, PC_ACTIVE, PRI_NONE,
+                             PRIORITY_CHOICES)
 
 
 logger = logging.getLogger(__name__)

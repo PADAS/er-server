@@ -3,17 +3,10 @@ from drf_extra_fields.fields import DateTimeRangeField
 
 from activity.models import Patrol
 from activity.serializers import AlertRuleSerializer, EventSourceSerializer
-from activity.serializers.base import (
-    BaseSerializer,
-    RevisionMixin,
-    TimestampMixin,
-)
-from activity.serializers.fields import (
-    CoordinateField,
-    patrol_state_field,
-    priority_field,
-    text_field
-)
+from activity.serializers.base import (BaseSerializer, RevisionMixin,
+                                       TimestampMixin)
+from activity.serializers.fields import (CoordinateField, patrol_state_field,
+                                         priority_field, text_field)
 from observations.serializers import SourceSerializer
 
 
