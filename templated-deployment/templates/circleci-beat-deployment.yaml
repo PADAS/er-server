@@ -41,13 +41,12 @@ spec:
         livenessProbe:
           exec:
             command:
-              - "/bin/sh"
-              - "-c"
-              - "PYTHONPATH=/var/www/app"
-              - "./util_scripts/beat_liveness.py"
+              - /bin/bash
+              - -c
+              - './util_scripts/beat_liveness.py'
           initialDelaySeconds: 20
-          timeoutSeconds: 20
-          periodSeconds: 180
+          timeoutSeconds: 10
+          periodSeconds: 60
           failureThreshold: 3
           successThreshold: 1
         volumeMounts:

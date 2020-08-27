@@ -16,21 +16,12 @@ DAS_SUBJECT_SUBTYPE = 'ranger'
 DAS_SOURCE_TYPE = 'tracking-device'
 
 
-class ItemSerializer(serializers.Serializer):
+class CaptursObservationSerializer(serializers.Serializer):
     device = serializers.CharField()
-    timestamp = serializers.IntegerField()
+    timestamp = serializers.IntegerField(required=False)
+    time = serializers.IntegerField(required=False)
     latitude = serializers.FloatField()
     longitude = serializers.FloatField()
-
-
-class CaptursObservationSerializer(serializers.Serializer):
-    event = serializers.ListField(child=ItemSerializer(), required=False)
-    position = serializers.ListField(child=ItemSerializer(), required=False)
-
-    def validate(self, data):
-        if not data:
-            raise serializers.ValidationError("Must include at least event or position data")
-        return data
 
 
 class CaptursAdapter:
@@ -41,15 +32,22 @@ class CaptursAdapter:
         """
         obs = [
             dict(
-                device_id=data.pop('device'),
+                name=data.get('deviceName'),
+                device_id=data.get('device'),
                 recorded_at=datetime.fromtimestamp(
-                    int(data.pop('timestamp')), tz=pytz.UTC),
-                lat=data.pop('latitude'),
-                lon=data.pop('longitude'),
-                additional=data
+                    int(data.get('timestamp', data.get('time'))), tz=pytz.UTC),
+                lat=data.get('latitude'),
+                lon=data.get('longitude'),
+                additional=CaptursAdapter.get_additional(data)
             ) for data in obs_data]
 
         return obs
+
+    @staticmethod
+    def get_additional(data):
+        keys_to_skip = ['latitude', 'longitude', 'device', 'deviceName', 'timestamp', 'time']
+        additional = {k:v for k, v in data.items() if k not in keys_to_skip}
+        return additional
 
     @staticmethod
     def create_das_obs(capturs_obs):
@@ -63,7 +61,7 @@ class CaptursAdapter:
                       'longitude': capturs_obs['lon']},
             recorded_at=capturs_obs['recorded_at'],
             manufacturer_id=capturs_obs['device_id'],
-            subject_name=capturs_obs['device_id'],
+            subject_name=capturs_obs['name'] or capturs_obs['device_id'],
             subject_type=DAS_SUBJECT_TYPE,
             subject_subtype=DAS_SUBJECT_SUBTYPE,
             model_name='capturs',
@@ -81,15 +79,17 @@ class CaptursPushHandler:
     def post(cls, request, provider_key):
         cls.observations_count = 0
         cls.provider_key = provider_key
+        data = request.data.get('position') or request.data.get('event')
+        obs_data = data if isinstance(data, list) else [request.data]
 
         # serialize received data
-        serializer = CaptursObservationSerializer(data=request.data)
+        serializer = CaptursObservationSerializer(data=obs_data, many=True)
         if not serializer.is_valid():
             logger.error(
-                f'Invalid observation records: {serializer.errors}')
+                f'Invalid observation records: {serializer.errors} , {request.data}')
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        observation_data = CaptursAdapter.create_capturs_obs(serializer.data.get('position') or serializer.data.get('event'))
+        observation_data = CaptursAdapter.create_capturs_obs(serializer.data)
         for data in observation_data:
             if data['lat'] == 0 and data['lon'] == 0:
                 logger.info(f'skipped observation, position data not ready')

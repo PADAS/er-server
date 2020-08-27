@@ -32,6 +32,15 @@ class CaptursPushHandlerTest(BaseAPITest):
             ]
         }
 
+        self.new_test_data = {
+            'label': 2, 'move': 0, 'latitude': -11.7671, 'longitude': 32.1729, 'latitudeInt': -11.767,
+            'longitudeInt': 32.1729, 'latitudeInt2': -11.767, 'longitudeInt2': 32.173, 'latitudeHist': -11.767,
+            'longitudeHist': 32.1728, 'device': 'CDCD30', 'time': 1598445769, 'signal': '13.67',
+            'station': 'A9D9', 'avgSignal': 'null', 'rssi': '-141.00', 'seqNumber': '1956',
+            'inhibitAlert': False, 'stationLat': 'null', 'stationLng': 'null', 'group': 'capturs',
+            'deviceName': 'Monitoring 4', 'deviceType': 'capturs', 'deviceconnectionid': 'CAPTURS_BCDCD30',
+            'deviceId': 'CDCD30', 'reception': [{'id': 'A9D9', 'RSSI': '-141.00', 'SNR': '13.67'}]}
+
     def _post_capturs_data(self, payload):
         request = self.factory.post(
             self.api_path, data=payload,
@@ -50,6 +59,11 @@ class CaptursPushHandlerTest(BaseAPITest):
             manufacturer_id=self.test_data['position'][0]['device'])
         self.assertIsNotNone(source)
         self.assertEqual(Observation.objects.count(), 2)
+
+        # post capturs observations with new test data
+        self._post_capturs_data(json.dumps(self.new_test_data))
+        source = Source.objects.get(manufacturer_id=self.new_test_data.get('device'))
+        self.assertIsNotNone(source)
 
     def test_post_duplicate_observations(self):
         self._post_capturs_data(json.dumps(self.test_data))

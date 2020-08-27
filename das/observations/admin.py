@@ -846,7 +846,7 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
         if "_addanother" in request.POST:
 
             msg = format_html(
-                _('The GPX data "{filename}" was successfully added. You may add another {name} below.'),
+                _('The GPX data file "{filename}" was successfully uploaded for processing. You may add another {name} below.'),
                 **msg_dict
             )
             self.message_user(request, msg, messages.SUCCESS)
@@ -856,7 +856,7 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
         else:
 
             msg = format_html(
-                _('The GPX data file "{filename}" was successfully imported.',),
+                _('The GPX data file "{filename}" was successfully uploaded for processing.',),
                 **msg_dict
             )
             self.message_user(request, msg, messages.SUCCESS)

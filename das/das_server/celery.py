@@ -53,6 +53,8 @@ app.conf.task_routes = {
     # Queue analyzer tasks separately.
     'analyzers.tasks.*': {'queue': 'analyzers', },
 
+    'das_server.tasks.celerybeat_pulse': {'queue': 'realtime_p1', },
+
 }
 
 
@@ -135,6 +137,11 @@ app.conf.beat_schedule = {
         # 3 AM per settings.TIME_ZONE
         'schedule': crontab(hour=3, minute=0)
     },
+    # Run pulse routine frequently and on a high-priority queue.
+    'beat-pulse': {
+        'task': 'das_server.tasks.celerybeat_pulse',
+        'schedule': timedelta(seconds=60)
+    }
 
 }
 
