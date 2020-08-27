@@ -1508,10 +1508,14 @@ class PatrolType(TimestampedModel):
         yield obj_icon
 
     @staticmethod
-    def marker_icon(obj_icon, default='/static/generic-black.svg'):
+    def marker_icon(patroltype_value, default='/static/generic-black.svg'):
         image_url = static_image_finder.get_marker_icon(
-            PatrolType.generate_image_keys(obj_icon))
+            PatrolType.generate_image_keys(patroltype_value))
         return image_url or default
+
+    @property
+    def image_url(self):
+        return PatrolType.marker_icon(self.icon_id)
 
 
 class PatrolSegmentMembershipManager(models.Manager):
