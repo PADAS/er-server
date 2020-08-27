@@ -1551,20 +1551,6 @@ class PatrolSegment(TimestampedModel, RevisionMixin):
     end_location = models.PointField(srid=4326, blank=True, null=True)
     state = models.CharField(choices=PATROL_STATE_CHOICES, default=PC_ACTIVE, max_length=25)
     revision = Revision()
-    icon = models.CharField(max_length=100, blank=True, null=True)
-    priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES,
-                                                default=PRI_NONE)
-
-    @property
-    def icon_id(self):
-        return self.icon
-
-    @property
-    def image_url(self):
-        if self.icon_id is None:
-            return None
-
-        return Event.marker_icon(self.icon_id, PRI_BLACK, Event.SC_NEW)
 
 
 # class PatrolTemplate(models.Model):

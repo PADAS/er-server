@@ -16,7 +16,8 @@ from activity.serializers.patrol_serializers import (
 from activity.models import (
     Patrol,
     PatrolNote,
-    PatrolSegment
+    PatrolSegment,
+    PatrolType
 )
 
 
@@ -63,8 +64,13 @@ class TestPatrolSerializer(TestCase):
             patrol=patrol,
             text='Hello world'
         )
+        patrol_type = PatrolType.objects.create(
+            display='Patrol Type 112233',
+            value='patrol-type-112233'
+        )
         patrol_segment = PatrolSegment.objects.create(
             patrol=patrol,
+            patrol_type=patrol_type
         )
 
         patrol_note_serializer = PatrolNoteSerializer(instance=patrol_note)
@@ -73,17 +79,22 @@ class TestPatrolSerializer(TestCase):
         patrol_serializer = PatrolSerializer(instance=patrol)
         print('\n\nPATROL', json.dumps(patrol_serializer.data))
 
-        patrol_segment_serializer = PatrolSegmentSerializer(data={
-            'patrol': patrol_serializer.data,
-            'start_date': '2000-01-01T00:00:00',
-            'end_date': datetime.datetime(2020, 12, 31, 23, 59, 59)
-        })
+        # patrol_segment_serializer = PatrolSegmentSerializer(data={
+        #     'patrol': patrol_serializer.data,
+        #     'patrol_type': patrol_type,
+        #     'start_date': '2000-01-01T00:00:00',
+        #     'end_date': datetime.datetime(2020, 12, 31, 23, 59, 59)
+        # })
+
+        patrol_segment_serializer = PatrolSegmentSerializer(
+            instance=patrol_segment
+        )
 
         print(
             '\n\nPATROL SEGMENT',
-            patrol_segment_serializer.is_valid(),
-            patrol_segment_serializer.errors,
-            patrol_segment_serializer.validated_data
+            # patrol_segment_serializer.is_valid(),
+            # patrol_segment_serializer.errors,
+            json.dumps(patrol_segment_serializer.data)
         )
 
         return

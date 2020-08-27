@@ -79,15 +79,20 @@ class PatrolSegmentSerializer(BaseSerializer):
     time_range = DateTimeRangeField(allow_null=True, required=False)
     start_location = CoordinateField(allow_null=True, required=False)
     end_location = CoordinateField(allow_null=True, required=False)
-    icon_id = serializers.SerializerMethodField()
-    image_url = serializers.SerializerMethodField()
     # reports = ReportSerializer(many=True)
 
-    def get_icon_id(self, obj):
-        return obj.icon_id
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
 
-    def get_image_url(self, obj):
-        return obj.image_url
+        patrol_type = getattr(instance, 'patrol_type', None)
+
+        if patrol_type is not None:
+            ret['icon_id'] = patrol_type.icon_id
+            ret['image_url'] = patrol_type.marker_icon(patrol_type.icon)
+            ret['priority'] = patrol_type.default_priority
+            ret['patrol_type'] = str(patrol_type.id)
+
+        return ret
 
 
 class PatrolTemplateSerializer(BaseSerializer):
