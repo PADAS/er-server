@@ -1793,7 +1793,24 @@ class PatrolTypeSerializer(rest_framework.serializers.ModelSerializer):
         fields = read_only_fields
 
 
+class PatrolFileSerializer(serializers.Serializer):
+    id = serializers.UUIDField(read_only=True)
+    comment = serializers.CharField()
+    # To be updated from patrol serializers branch
+
+
+class PatrolNoteSerializer(serializers.Serializer):
+    id = serializers.UUIDField(read_only=True)
+    text = serializers.CharField()
+    # To be updated from patrol serializers branch
+
+
 from activity import models
+class PatrolSegmentSerializer(serializers.Serializer):
+    id = serializers.UUIDField(read_only=True)
+    # To be built on - patrolsegments api ticket
+
+
 class PatrolSerializer(serializers.Serializer):
     id = serializers.UUIDField(read_only=True)
     serial_number = serializers.IntegerField(
@@ -1803,6 +1820,9 @@ class PatrolSerializer(serializers.Serializer):
     title = serializers.CharField(required=False)
     objective = serializers.CharField(style={'base_template': 'textarea.html'}, required=False)
     time_range = DateTimeRangeField()
+    files = PatrolFileSerializer(many=True, required=False)
+    notes = PatrolNoteSerializer(many=True, required=False)
+    patrol_segments = PatrolSegmentSerializer(many=True, required=False)
 
     def create(self, validated_data):
         return models.Patrol.objects.create(**validated_data)

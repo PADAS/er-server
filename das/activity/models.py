@@ -1538,8 +1538,8 @@ class PatrolSegment(TimestampedModel, RevisionMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     patrol = models.ForeignKey(Patrol,
                                on_delete=models.SET_NULL,
-                               blank=True, null=True, related_name='patrol_assignments',
-                               related_query_name='patrol_assignment')
+                               blank=True, null=True, related_name='patrol_segments',
+                               related_query_name='patrol_segment')
     source = models.ForeignKey(Source, on_delete=models.CASCADE, blank=True,
                                null=True,
                                related_name='sources',
