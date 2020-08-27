@@ -1549,7 +1549,7 @@ class PatrolSegment(TimestampedModel, RevisionMixin):
     time_range = DateTimeRangeField(null=True, blank=True)
     start_location = models.PointField(srid=4326, blank=True, null=True)
     end_location = models.PointField(srid=4326, blank=True, null=True)
-    state = models.PositiveSmallIntegerField(choices=PATROL_STATE_CHOICES, default=PC_ACTIVE)
+    state = models.CharField(choices=PATROL_STATE_CHOICES, default=PC_ACTIVE, max_length=25)
     revision = Revision()
     icon = models.CharField(max_length=100, blank=True, null=True)
     priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES,
