@@ -76,7 +76,8 @@ class PatrolNoteSerializer(BaseSerializer, RevisionMixin):
 
 
 class PatrolSegmentSerializer(BaseSerializer):
-    patrol = PatrolSerializer(required=False)
+    patrol = PatrolSerializer(required=False, excludes=['patrol_segments', 'files', 'notes', 'serial_number',
+                                                        'updates', 'objective', 'created_at', 'updated_at'])
     patrol_type = PatrolTypeSerializer(required=False)
     state = state_choices_serializer
     sources = SourceSerializer(required=False, allow_null=True)
@@ -97,6 +98,7 @@ class PatrolSegmentSerializer(BaseSerializer):
         if request:
             image_url = self.resolve_image_url(instance)
             rep['image_url'] = utils.add_base_url(request, image_url)
+        rep['patrol_type'] = str(instance.patrol_type.id) if instance.patrol_type else None
         return rep
 
     def create(self, validated_data):
