@@ -51,6 +51,7 @@ import usercontent.serializers
 
 from activity.alerting.conditions import Conditions
 
+
 logger = logging.getLogger(__name__)
 
 MAX_UPDATES_STR_LENGTH = 10
