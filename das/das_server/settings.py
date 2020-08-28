@@ -522,7 +522,6 @@ WHITENOISE_ADD_HEADERS_FUNCTION = whitenoise_headers_func
 
 DAILY_REPORT_ENABLED = False
 ALERTS_ENABLED = True
-MAPPING_FEATURES_V2 = False
 
 CARTO_URL = 'https://wri-01.cartodb.com/api/v2/sql'  # For: VIIRS-Fire-Alerts
 
