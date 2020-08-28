@@ -49,7 +49,7 @@ from activity.serializers import EventSerializer, EventNoteSerializer, \
     EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, \
     EventGeoJsonSerializer, \
     PatrolTypeSerializer
-from activity.serializers.patrol_serializers import PatrolSerializer
+from activity.serializers.patrol_serializers import PatrolSerializer, PatrolSegmentSerializer
 from choices.models import Choice
 from observations.models import Subject
 from utils.drf import StandardResultsSetPagination, \

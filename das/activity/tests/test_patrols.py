@@ -4,7 +4,6 @@ from django.core.management import call_command
 from django.urls import reverse
 from core.tests import BaseAPITest
 from activity.models import PatrolType, Patrol, PatrolSegment
-from activity.serializers import PatrolSegmentSerializer
 from activity import views
 User = django.contrib.auth.get_user_model()
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tests')
@@ -44,16 +43,6 @@ class TestPatrol(BaseAPITest):
         self.force_authenticate(request, self.user)
         response = views.PatrolTypeView.as_view()(request, id=dog_patrol_id)
         self.assertEqual(response.status_code, 200)
-
-    def test_create_patrol(self):
-        patrol_data = dict(
-            serial_number=3, title='Test Patrol', objective='Test Objective',
-            time_range={"lower": "2020-08-04 04:00:00+03", "upper": "2020-11-04 04:00:00+03"})
-        request = self.factory.post(self.api_base + '/patrols/', patrol_data)
-        self.force_authenticate(request, self.app_user)
-
-        response = views.PatrolsView.as_view()(request)
-        assert response.status_code == 201
 
     def test_get_all_patrols(self):
         request = self.factory.get(self.api_base + '/patrols/')

@@ -1,14 +1,22 @@
-from drf_extra_fields.fields import DateTimeRangeField
-from rest_framework import serializers, validators
+from abc import ABC
 
+from drf_extra_fields.fields import DateTimeRangeField
+from drf_extra_fields.geo_fields import PointField
+from rest_framework import serializers, validators
+from rest_framework.fields import DateTimeField
+
+import activity.models
+import utils
 from activity.models import PATROL_STATE_CHOICES, PC_ACTIVE, PRI_NONE, PRIORITY_CHOICES
 from activity.models import Patrol
-from activity.serializers import AlertRuleSerializer, EventSourceSerializer
-from activity.serializers.base import (BaseSerializer, RevisionMixin,
-                                       TimestampMixin)
-from activity.serializers.fields import (CoordinateField, text_field)
-from activity.serializers.fields import choicefield_serializer
+from activity.serializers import PatrolTypeSerializer, AlertRuleSerializer, EventSourceSerializer
+from activity.serializers.base import BaseSerializer, RevisionMixin, TimestampMixin
+from activity.serializers.fields import choicefield_serializer, text_field
 from observations.serializers import SourceSerializer
+from utils.drf import PointValidator
+
+priority_choices_serializer = choicefield_serializer(PRIORITY_CHOICES, default=PRI_NONE)
+state_choices_serializer = choicefield_serializer(PATROL_STATE_CHOICES, default=PC_ACTIVE)
 
 priority_choices_serializer = choicefield_serializer(PRIORITY_CHOICES, default=PRI_NONE)
 state_choices_serializer = choicefield_serializer(PATROL_STATE_CHOICES, default=PC_ACTIVE)
@@ -72,36 +80,31 @@ class PatrolNoteSerializer(BaseSerializer, RevisionMixin):
 
 
 class PatrolSegmentSerializer(BaseSerializer):
-    """Serializer class for a Patrol Segment"""
-
-    patrol = PatrolSerializer(
-        excludes=['patrol_segments', 'files', 'notes', 'serial_number', 'state',
-                  'updates', 'objective', 'created_at', 'updated_at']
-    )
-    patrol_type = serializers.CharField(
-        allow_blank=True, allow_null=True, required=False
-    )
-    priority = priority_choices_serializer
+    patrol = PatrolSerializer(required=False, many=True)
+    patrol_type = PatrolTypeSerializer(required=False, many=True)
     state = state_choices_serializer
-    source = SourceSerializer(many=True, required=False)
-    scheduled_start = serializers.DateTimeField(allow_null=True, required=False)
-    time_range = DateTimeRangeField(allow_null=True, required=False)
-    start_location = CoordinateField(allow_null=True, required=False)
-    end_location = CoordinateField(allow_null=True, required=False)
-    # reports = ReportSerializer(many=True)
+    sources = SourceSerializer(required=False, many=True)
+    scheduled_start = DateTimeField(required=False)
+    time_range = DateTimeRangeField(required=False)
+    start_location = PointField(required=False, allow_null=True,
+                                validators=[PointValidator()])
+    end_location = PointField(required=False, allow_null=True,
+                              validators=[PointValidator()])
+
+    @staticmethod
+    def resolve_image_url(patrolsegment):
+        return patrolsegment.patrol_type.image_url if patrolsegment.patrol_type else None
 
     def to_representation(self, instance):
-        ret = super().to_representation(instance)
+        rep = super().to_representation(instance)
+        request = self.context.get('request')
+        if request:
+            image_url = self.resolve_image_url(instance)
+            rep['image_url'] = utils.add_base_url(request, image_url)
+        return rep
 
-        patrol_type = getattr(instance, 'patrol_type', None)
-
-        if patrol_type is not None:
-            ret['icon_id'] = patrol_type.icon_id
-            ret['image_url'] = patrol_type.marker_icon(patrol_type.icon)
-            ret['priority'] = patrol_type.default_priority
-            ret['patrol_type'] = str(patrol_type.id)
-
-        return ret
+    def create(self, validated_data):
+        return activity.models.PatrolSegment.objects.create(**validated_data)
 
 
 class PatrolTemplateSerializer(BaseSerializer):
@@ -112,13 +115,3 @@ class PatrolTemplateSerializer(BaseSerializer):
     alert_rule = AlertRuleSerializer()
     source = EventSourceSerializer()
 
-
-class PatrolTypeSerializer(BaseSerializer):
-    value = serializers.CharField(max_length=50)
-    display = serializers.CharField(max_length=255)
-    ordernum = serializers.CharField(
-        allow_blank=True, allow_null=True, required=False
-    )
-    icon = serializers.CharField(max_length=100, allow_blank=True)
-    default_priority = priority_choices_serializer
-    is_active = serializers.BooleanField(default=True)
