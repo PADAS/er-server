@@ -50,8 +50,6 @@ import utils.schema_utils as schema_utils
 import usercontent.serializers
 
 from activity.alerting.conditions import Conditions
-from observations.serializers import SourceSerializer
-
 
 logger = logging.getLogger(__name__)
 
