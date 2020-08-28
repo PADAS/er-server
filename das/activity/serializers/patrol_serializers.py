@@ -18,10 +18,6 @@ from utils.drf import PointValidator
 priority_choices_serializer = choicefield_serializer(PRIORITY_CHOICES, default=PRI_NONE)
 state_choices_serializer = choicefield_serializer(PATROL_STATE_CHOICES, default=PC_ACTIVE)
 
-priority_choices_serializer = choicefield_serializer(PRIORITY_CHOICES, default=PRI_NONE)
-state_choices_serializer = choicefield_serializer(PATROL_STATE_CHOICES, default=PC_ACTIVE)
-
-
 
 class PatrolFileSerializer(BaseSerializer, RevisionMixin):
     """Serializer class for a PatrolFile"""
