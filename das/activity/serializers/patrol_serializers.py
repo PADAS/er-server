@@ -36,6 +36,9 @@ class PatrolSerializer(BaseSerializer, RevisionMixin, TimestampMixin):
     notes = serializers.SerializerMethodField()
     patrol_segments = serializers.SerializerMethodField()
 
+    def create(self, validated_data):
+        return Patrol.objects.create(**validated_data)
+
     def get_files(self, obj):
         return [
             PatrolFileSerializer(instance=x, excludes=["patrol"]).data
@@ -51,7 +54,7 @@ class PatrolSerializer(BaseSerializer, RevisionMixin, TimestampMixin):
     def get_patrol_segments(self, obj):
         return [
             PatrolSegmentSerializer(instance=x, excludes=["patrol"]).data
-            for x in obj.patrol_assignments.all()
+            for x in obj.patrol_segments.all()
         ]
 
 
