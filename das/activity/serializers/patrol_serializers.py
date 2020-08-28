@@ -1,13 +1,18 @@
-from rest_framework import serializers, validators
 from drf_extra_fields.fields import DateTimeRangeField
+from rest_framework import serializers, validators
 
+from activity.models import PATROL_STATE_CHOICES, PC_ACTIVE, PRI_NONE, PRIORITY_CHOICES
 from activity.models import Patrol
 from activity.serializers import AlertRuleSerializer, EventSourceSerializer
 from activity.serializers.base import (BaseSerializer, RevisionMixin,
                                        TimestampMixin)
-from activity.serializers.fields import (CoordinateField, patrol_state_field,
-                                         priority_field, text_field)
+from activity.serializers.fields import (CoordinateField, text_field)
+from activity.serializers.fields import choicefield_serializer
 from observations.serializers import SourceSerializer
+
+priority_choices_serializer = choicefield_serializer(PRIORITY_CHOICES, default=PRI_NONE)
+state_choices_serializer = choicefield_serializer(PATROL_STATE_CHOICES, default=PC_ACTIVE)
+
 
 
 class PatrolFileSerializer(BaseSerializer, RevisionMixin):
@@ -20,16 +25,16 @@ class PatrolFileSerializer(BaseSerializer, RevisionMixin):
     ordernum = serializers.CharField()
 
 
-class PatrolSerializer(BaseSerializer, RevisionMixin, TimestampMixin):
+class PatrolSerializer(BaseSerializer, TimestampMixin):
     """Serializer class for a Patrol"""
 
     objective = text_field(allow_blank=True)
-    priority = priority_field()
+    priority = priority_choices_serializer
     serial_number = serializers.IntegerField(
         allow_null=True, required=False,
         validators=[validators.UniqueValidator(queryset=Patrol.objects.all())]
     )
-    state = patrol_state_field()
+    state = state_choices_serializer
     title = serializers.CharField(allow_blank=True, max_length=255)
 
     files = serializers.SerializerMethodField()
@@ -76,8 +81,8 @@ class PatrolSegmentSerializer(BaseSerializer):
     patrol_type = serializers.CharField(
         allow_blank=True, allow_null=True, required=False
     )
-    priority = priority_field()
-    state = patrol_state_field()
+    priority = priority_choices_serializer
+    state = state_choices_serializer
     source = SourceSerializer(many=True, required=False)
     scheduled_start = serializers.DateTimeField(allow_null=True, required=False)
     time_range = DateTimeRangeField(allow_null=True, required=False)
@@ -115,5 +120,5 @@ class PatrolTypeSerializer(BaseSerializer):
         allow_blank=True, allow_null=True, required=False
     )
     icon = serializers.CharField(max_length=100, allow_blank=True)
-    default_priority = priority_field()
+    default_priority = priority_choices_serializer
     is_active = serializers.BooleanField(default=True)
