@@ -3,7 +3,7 @@ import django.contrib.auth
 from django.core.management import call_command
 from django.urls import reverse
 from core.tests import BaseAPITest
-from activity.models import PatrolType, Patrol
+from activity.models import PatrolType, Patrol, PatrolSegment
 from activity import views
 User = django.contrib.auth.get_user_model()
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tests')
@@ -23,6 +23,7 @@ class TestPatrol(BaseAPITest):
                 Patrol(id="b14bc72f-96d6-4248-9fea-7dd0bbc8c196", serial_number=1, title='Test Patrol', objective='Test Objective'),
                 Patrol(serial_number=2, title='Test Patrol 2', objective='Test Objective 2')
             ])
+        PatrolSegment.objects.create(patrol_type=PatrolType.objects.first())
 
     def test_get_all_patroltypes(self):
         patrol_types = PatrolType.objects.all()
@@ -43,16 +44,6 @@ class TestPatrol(BaseAPITest):
         response = views.PatrolTypeView.as_view()(request, id=dog_patrol_id)
         self.assertEqual(response.status_code, 200)
 
-    def test_create_patrol(self):
-        patrol_data = dict(
-            serial_number=3, title='Test Patrol', objective='Test Objective',
-            time_range={"lower": "2020-08-04 04:00:00+03", "upper": "2020-11-04 04:00:00+03"})
-        request = self.factory.post(self.api_base + '/patrols/', patrol_data)
-        self.force_authenticate(request, self.app_user)
-
-        response = views.PatrolsView.as_view()(request)
-        assert response.status_code == 201
-
     def test_get_all_patrols(self):
         request = self.factory.get(self.api_base + '/patrols/')
         self.force_authenticate(request, self.app_user)
@@ -68,3 +59,35 @@ class TestPatrol(BaseAPITest):
         self.force_authenticate(request, self.user)
         response = views.PatrolView.as_view()(request, id=patrol_id)
         assert response.status_code == 200
+
+    def test_create_patrolsegment(self):
+        patrolsgm_data = dict(scheduled_start='2020-08-05 02:00:00+00',
+                              time_range={"lower": "2020-08-05 02:00:00+00", "upper": "2020-08-06 04:00:00+00"},
+                              start_location={'latitude': '-122.334', 'longitude': '47.598'},
+                              end_location={'latitude': '-124.54', 'longitude': '38.98'},
+                              state='active'
+                              )
+        url = reverse('patrol-segments')
+        request = self.factory.post(url, data=patrolsgm_data)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsegmentsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+    def test_get_all_patrolsegments(self):
+        url = reverse('patrol-segments')
+        request = self.factory.get(url)
+        patrolsgm = PatrolSegment.objects.all().count()
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsegmentsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), patrolsgm)
+
+    def test_get_one_patrolsegment_by_id(self):
+        patrolsgm = PatrolSegment.objects.first()
+        patrolsgm_id = str(patrolsgm.id)
+        url = reverse('patrol-segment', kwargs={'id': patrolsgm_id})
+
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.user)
+        response = views.PatrolsegmentView.as_view()(request, id=patrolsgm_id)
+        self.assertEqual(response.status_code, 200)
