@@ -38,7 +38,7 @@ from activity.filters import EventObjectPermissionsFilter
 from activity.models import Event, EventNote, EventClass, \
     EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, \
     EventFile, Community, \
-    EventFilter, EventSource, EventProvider, PatrolType
+    EventFilter, EventSource, EventProvider, PatrolType, Patrol, PatrolSegment
 from activity.permissions import EventCategoryPermissions, \
     EventNotesCategoryPermissions, IsOwner
 from activity.serializers import EventSerializer, EventNoteSerializer, \
@@ -49,6 +49,7 @@ from activity.serializers import EventSerializer, EventNoteSerializer, \
     EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, \
     EventGeoJsonSerializer, \
     PatrolTypeSerializer
+from activity.serializers.patrol_serializers import PatrolSerializer, PatrolSegmentSerializer
 from choices.models import Choice
 from observations.models import Subject
 from utils.drf import StandardResultsSetPagination, \
@@ -1083,6 +1084,8 @@ class EventAlertTargetsListView(generics.ListAPIView):
     queryset = accounts.models.User.objects.none()
 
 
+# Patrol Management API Views
+
 class PatrolTypesView(generics.ListAPIView):
     serializer_class = PatrolTypeSerializer
     queryset = PatrolType.objects.all()
@@ -1092,3 +1095,26 @@ class PatrolTypeView(generics.RetrieveAPIView):
     lookup_field = 'id'
     serializer_class = PatrolTypeSerializer
     queryset = PatrolType.objects.all()
+
+
+class PatrolsView(generics.ListCreateAPIView):
+    serializer_class = PatrolSerializer
+    queryset = Patrol.objects.all()
+
+
+class PatrolView(generics.RetrieveAPIView):
+    lookup_field = 'id'
+    serializer_class = PatrolSerializer
+    queryset = Patrol.objects.all()
+
+
+class PatrolsegmentsView(generics.ListCreateAPIView):
+    serializer_class = PatrolSegmentSerializer
+    queryset = PatrolSegment.objects.all()
+
+
+class PatrolsegmentView(generics.RetrieveAPIView):
+    lookup_field = 'id'
+    serializer_class = PatrolSegmentSerializer
+    queryset = PatrolSegment.objects.all()
+

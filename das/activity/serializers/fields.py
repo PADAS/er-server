@@ -1,12 +1,6 @@
 import jsonschema
 from rest_framework import serializers
-
-from activity.models import (
-    PATROL_STATE_CHOICES,
-    PC_ACTIVE,
-    PRI_NONE,
-    PRIORITY_CHOICES,
-)
+from rest_framework.fields import empty
 
 
 class CoordinateField(serializers.Field):
@@ -39,32 +33,10 @@ class CoordinateField(serializers.Field):
         return data
 
 
-def patrol_state_field(**kwargs):
-    choices = kwargs.pop('choices', PATROL_STATE_CHOICES)
-    default = kwargs.pop('default', PC_ACTIVE)
-
-    return serializers.ChoiceField(
-        choices=choices,
-        default=default,
-        **kwargs
-    )
-
-
-def priority_field(**kwargs):
-    choices = kwargs.pop('choices', PRIORITY_CHOICES)
-    default = kwargs.pop('default', PRI_NONE)
-
-    return serializers.ChoiceField(
-        choices=choices,
-        default=default,
-        **kwargs
-    )
+def choicefield_serializer(choices, default=empty, **kwargs):
+    return serializers.ChoiceField(choices=choices, default=default, **kwargs)
 
 
 def text_field(**kwargs):
     style = kwargs.pop('style', {'base_template': 'textarea.html'})
-
-    return serializers.CharField(
-        style=style,
-        **kwargs
-    )
+    return serializers.CharField(style=style, **kwargs)

@@ -53,7 +53,10 @@ class CustomSchema(AutoSchema):
         result = super()._map_serializer(serializer)
         for res in result.get('properties').values():
             if res.get('default'):
-                res['default'] = res['default']()
+                try:
+                    res['default'] = res['default']()
+                except Exception:
+                    pass
 
         # add required field to result to fix the break when clearing the same field for a patch method in _get_request_body.
         for method in self._view.allowed_methods:
