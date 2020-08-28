@@ -76,10 +76,10 @@ class PatrolNoteSerializer(BaseSerializer, RevisionMixin):
 
 
 class PatrolSegmentSerializer(BaseSerializer):
-    patrol = PatrolSerializer(required=False, many=True)
-    patrol_type = PatrolTypeSerializer(required=False, many=True)
+    patrol = PatrolSerializer(required=False)
+    patrol_type = PatrolTypeSerializer(required=False)
     state = state_choices_serializer
-    sources = SourceSerializer(required=False, many=True)
+    sources = SourceSerializer(required=False, allow_null=True)
     scheduled_start = DateTimeField(required=False)
     time_range = DateTimeRangeField(required=False)
     start_location = PointField(required=False, allow_null=True,
