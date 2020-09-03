@@ -18,7 +18,6 @@ from utils.spatial import GeometryMapper
 geometry_mapper = GeometryMapper()
 
 logger = logging.getLogger(__name__)
-MAPPING_FEATURES_V2 = getattr(settings, 'MAPPING_FEATURES_V2', False)
 SPATIAL_FILES_FOLDER = getattr(settings, 'SPATIAL_FILES_FOLDER', 'mapping/spatialfiles')
 
 

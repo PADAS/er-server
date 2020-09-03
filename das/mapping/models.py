@@ -25,8 +25,7 @@ from mapping.app_settings import MBTILES
 from mapping.mbtiles import (ExtractionError, GoogleProjection,
                              InvalidFormatError, MBTilesReader)
 from mapping.tasks import load_spatial_features_from_files
-from mapping.utils import (MAPPING_FEATURES_V2, SPATIAL_FILES_FOLDER,
-                           check_file_extension)
+from mapping.utils import (SPATIAL_FILES_FOLDER, check_file_extension)
 from revision.manager import Revision, RevisionMixin
 from utils.decorator import reify
 
@@ -44,9 +43,8 @@ class Map(TimestampedModel):
     """
     A Map defines the center location, zoom level
     """
-    if MAPPING_FEATURES_V2:
-        class Meta:
-            verbose_name = 'Map Quicklink'
+    class Meta:
+        verbose_name = 'Map Quicklink'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
@@ -67,10 +65,9 @@ class TileLayer(TimestampedModel):
     """
     External
     """
-    if MAPPING_FEATURES_V2:
-        class Meta:
-            verbose_name = 'Basemap'
-            ordering = ['name']
+    class Meta:
+        verbose_name = 'Basemap'
+        ordering = ['name']
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
@@ -509,10 +506,9 @@ class SpatialFeatureGroup(TimestampedModel):
       ... better than handling as a layer group in UI as it allows grouping
        to be controlled in db?
     """
-    if MAPPING_FEATURES_V2:
-        class Meta:
-            verbose_name = 'Base Feature Group'
-            ordering = ['name']
+    class Meta:
+        verbose_name = 'Base Feature Group'
+        ordering = ['name']
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
@@ -535,9 +531,8 @@ class SpatialFeatureGroupQuery(SpatialFeatureGroup):
 class SpatialFeatureGroupStatic(SpatialFeatureGroup):
     """Static group of features
     """
-    if MAPPING_FEATURES_V2:
-        class Meta:
-            verbose_name = 'Feature Group'
+    class Meta:
+        verbose_name = 'Feature Group'
 
     features = models.ManyToManyField(to='SpatialFeature', related_name='groups', related_query_name='group',
                                       blank=True,)
@@ -582,11 +577,10 @@ class SpatialFeatureTypeManager(models.Manager):
 
 
 class SpatialFeatureType(TimestampedModel):
-    if MAPPING_FEATURES_V2:
-        class Meta:
-            verbose_name = 'Feature Class'
-            verbose_name_plural = 'Feature Classes'
-            ordering = ['name']
+    class Meta:
+        verbose_name = 'Feature Class'
+        verbose_name_plural = 'Feature Classes'
+        ordering = ['name']
 
     objects = SpatialFeatureTypeManager()
 
@@ -681,10 +675,9 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
             other_id # this will map from the other_id' column in STESpatial
 
     """
-    if MAPPING_FEATURES_V2:
-        class Meta:
-            verbose_name = 'Feature'
-            ordering = ['name']
+    class Meta:
+        verbose_name = 'Feature'
+        ordering = ['name']
 
     objects = SpatialFeatureManager()
     revision_ignore_fields = ('updated_at', )
