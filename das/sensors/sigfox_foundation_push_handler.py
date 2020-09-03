@@ -173,13 +173,13 @@ class SigfoxPayloadParserV1(SigfoxParser):
     def parse(cls, data, device_id):
         if len(data) != 24:
             logger.debug("Invalid data, expecting only 24 bit data")
-            return None
+            return
         try:
             bin_string = cls._to_binary_string(data)
             components = cls._get_components(bin_string, cls.SIGFOX_PAYLOAD_PATTERN)
         except Exception as ex:
             logger.exception(ex)
-            return None
+            return
         else:
             logger.debug('parsed components', components)
             return {
@@ -228,14 +228,11 @@ class SigfoxPayloadParserV2(SigfoxParser):
     @classmethod
     def get_ubi_credentials(cls):
         username = os.getenv('UBI_API_USERNAME', 'username')
-        # password = os.getenv('UBI_API_PASSWORD', 'password')
-        password = 'N]_4~q(+BF?Z'
+        password = os.getenv('UBI_API_PASSWORD', 'password')
         credentials = f"{username}:{password}"
 
         encoded_credentials = str(b64encode(credentials.encode("utf-8")), "utf-8")
         return encoded_credentials
-
-
 
     @classmethod
     def get_position_from_ubi(cls, data, device_id):
@@ -279,15 +276,15 @@ class SigfoxPayloadParserV2(SigfoxParser):
     def parse(cls, data, device_id):
         result = None
         if len(data) == 2 or len(data) == 4:
-            logger.debug("skipping Boot/Reboot and Sigfox geolocation data")
-            return None
+            logger.info("skipping Boot/Reboot and Sigfox geolocation data")
+            return
 
         mode_value, mode_display, components = cls.prepare_data(data)
         if not mode_value:
-            logger.debug("Error when preparing data, only gps and ubiscale modes allowed")
-            return None
+            logger.info("Error when preparing data, only gps and ubiscale modes allowed")
+            return
 
-        logger.debug(f'sigfox version 2, mode: {mode_display}, parsed components: {components}')
+        logger.info(f'sigfox version 2, mode: {mode_display}, parsed components: {components}')
         if mode_value == 1:
             # gps tracking -> Location provided
             result = {
