@@ -55,7 +55,7 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
 
     def test_all_data_advanced_msgs_ignored(self):
         for (_, data_advanced) in DATA_PAIRS:
-            rsp = self._post_data(json.dumps(data_advanced),)
+            rsp = self._post_data(json.dumps(data_advanced))
 
             self.assertIsNotNone(rsp)
             self.assertEqual(rsp.status_code, status.HTTP_200_OK)

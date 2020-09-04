@@ -1,16 +1,18 @@
 V2_DATA_PAIRS = [
     {
+        # Tracking Ubiscale data
         "deviceId": "CDBB84",
         "time": 1569563495,
         "seqNumber": 1,
-        "data": "40aeBB1444601D3C735EA20C",  # Tracking Ubiscale data
+        "data": "40aeBB1444601D3C735EA20C",
         "reception": [{"id": "A9DC", "RSSI": -138.00, "SNR": 14.73}],
         "duplicate": "false"
     },
     {
+        # Gpx Tracking data
         "deviceId": "ADBB84",
         "time": 2111563495,
-        "seqNumber": 2,  # Gpx Tracking data
+        "seqNumber": 2,
         "data": "20aeBB1444601D3C735EA20C",
         "reception": [{"id": "A9DC", "RSSI": -138.00, "SNR": 14.73}],
         "duplicate": "false"
