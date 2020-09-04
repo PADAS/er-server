@@ -171,7 +171,7 @@ class SigfoxPayloadParserV1(SigfoxParser):
     @classmethod
     def parse(cls, data, device_id):
         if len(data) != 24:
-            logger.debug("Invalid data, expecting only 24 bit data")
+            logger.info("Invalid data, expecting only 24 bit data")
             return
         try:
             bin_string = cls._to_binary_string(data)
@@ -223,6 +223,8 @@ class SigfoxPayloadParserV1(SigfoxParser):
 
 
 class SigfoxPayloadParserV2(SigfoxParser):
+    # Decoding described in parserTektos.docx attached in the below ticket
+    # https://vulcan.atlassian.net/browse/DAS-5294
 
     @classmethod
     def get_ubi_credentials(cls):
@@ -259,16 +261,14 @@ class SigfoxPayloadParserV2(SigfoxParser):
             bin_string = cls._to_binary_string(data)
             mode_value, mode_display = cls._parse_mode(bin_string[:3])
             if mode_value == 1:
-                # gps tracking (Location provided)
-                pattern = '(.{3})(.{5})(.)(.)(.{6})(.)(.{31})(.)(.{31})'
+                pattern = '(.{3})(.{5})(.)(.)(.{6})(.)(.{31})(.)(.{31})'  # gps
             elif mode_value == 2:
-                # ubiscale tracking (To get location from ubi api)
-                pattern = '(.{3})(.{5})(.)(.)(.{6})(.{20})'
+                pattern = '(.{3})(.{5})(.)(.)(.{6})(.{20})'  # ubiscale
             else:
                 logger.debug("skipping setup, Tracking GPS and unknown modes")
             components = cls._get_components(bin_string, pattern) if pattern else None
         except Exception as exc:
-                logger.exception(exc)
+            logger.exception(exc)
         return mode_value, mode_display, components
 
     @classmethod
@@ -281,6 +281,10 @@ class SigfoxPayloadParserV2(SigfoxParser):
         mode_value, mode_display, components = cls.prepare_data(data)
         if not mode_value:
             logger.info("Error when preparing data, only gps and ubiscale modes allowed")
+            return
+
+        if not components:
+            logger.info("Error when preparing data, Missing components in binary string ")
             return
 
         logger.info(f'sigfox version 2, mode: {mode_display}, parsed components: {components}')
@@ -310,6 +314,8 @@ class SigfoxPayloadParserV2(SigfoxParser):
                     'altitude': device_position.get('alt'),
                     'accuracy': device_position.get('accuracy')
                 }
+            else:
+                logger.info('No position returned from UBI')
         return result
 
     @staticmethod
