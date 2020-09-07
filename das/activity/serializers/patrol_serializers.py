@@ -40,6 +40,7 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
     )
     state = state_choices_serializer
     title = serializers.CharField(allow_blank=True, max_length=255)
+    time_range = DateTimeRangeField(required=False)
 
     files = serializers.SerializerMethodField()
     notes = serializers.SerializerMethodField()
