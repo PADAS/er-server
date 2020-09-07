@@ -1447,13 +1447,15 @@ class TeamMembership(TimestampedModel):
 class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_patrol_filter(self, filter):
         queryset = self
-        if 'date_range' in filter:
-            lower, upper = parse_date_range(filter['date_range'])
-            queryset = queryset.by_date_range(lower=lower, upper=upper)
+        filter_param_and_funcs = {'date_range': 'by_date_range'}
+        for param, func in filter_param_and_funcs.items():
+            if param in filter:
+                queryset = getattr(queryset, func)(filter.get(param))
         return queryset.distinct()
 
-    def by_date_range(self, lower=None, upper=None):
+    def by_date_range(self, filter_param):
         queryset = self
+        lower, upper = parse_date_range(filter_param)
         if lower:
             queryset = queryset.filter(time_range__startswith__gt=lower)
         if upper:

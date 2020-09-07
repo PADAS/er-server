@@ -605,7 +605,7 @@ class EventsExportView(views.APIView):
             except json.JSONDecodeError:
                 logger.exception(
                     'Invalid filter expression. filter=%s', event_filter)
-                raise 
+                raise
 
         state = query_params.getlist('state', None)
         if state:
@@ -1112,6 +1112,7 @@ class PatrolsView(generics.ListCreateAPIView):
             except json.JSONDecodeError:
                 logger.exception(
                     'Invalid filter expression. filter=%s', patrol_filter)
+                raise
         return queryset
 
 
