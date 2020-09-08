@@ -125,16 +125,8 @@ class SigfoxFoundationHandlerView(BaseSensorsView):
 
     def post(self, request, provider_key=None):
         """ Add Sigfox Foundation Observations """
-        return SigfoxFoundationPushHandler.post(request, provider_key, version=1)
-
-
-class SigfoxFoundationHandlerV2View(BaseSensorsView):
-    serializer_class = SigfoxFoundationPushHandler.serializer_class
-
-    def post(self, request, provider_key=None):
-        """ Add Sigfox Foundation Observations Version 2"""
-        return SigfoxFoundationPushHandler.post(request, provider_key, version=2)
-
+        version = 2 if 'sff-tracker-v2' in request.path else 1
+        return SigfoxFoundationPushHandler.post(request, provider_key, version)
 
 class GateHandlerView(BaseSensorsView):
     serializer_class = None
