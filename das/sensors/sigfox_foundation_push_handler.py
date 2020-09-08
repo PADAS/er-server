@@ -11,6 +11,7 @@ from rest_framework.response import Response
 
 from observations.models import Observation, Source
 from observations.serializers import ObservationSerializer
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
@@ -55,9 +56,8 @@ class SigfoxFoundationPushHandler:
 
     @classmethod
     def process_data_uplink(cls, payload, provider_key, parser):
-        data = payload.pop('data')
-        device_id = payload.pop('deviceId')
-        parsed_data = parser.parse(data, device_id)
+        device_id = payload.get('deviceId')
+        parsed_data = parser.parse(payload)
         if parsed_data:
             src = Source.objects.ensure_source(provider=provider_key,
                                                manufacturer_id=device_id,
@@ -103,6 +103,7 @@ class SigfoxFoundationPushHandler:
 class SigfoxParser:
     BYTE_PATTERN = '.{1,2}'
     byte_re = re.compile(BYTE_PATTERN)
+    cache_timeout = 300  # 5 minutes
 
     @classmethod
     def _to_binary_string(cls, payload):
@@ -170,7 +171,8 @@ class SigfoxPayloadParserV1(SigfoxParser):
     SIGFOX_PAYLOAD_PATTERN = '(.)(.{31})(.)(.{31})(.{2})(.{2})(.{4})(.{4})(.{4})(.{8})(.{8})'
 
     @classmethod
-    def parse(cls, data, device_id):
+    def parse(cls, payload):
+        data = payload.pop('data')
         if len(data) != 24:
             logger.info("Invalid data, expecting only 24 bit data")
             return
@@ -237,18 +239,19 @@ class SigfoxPayloadParserV2(SigfoxParser):
         return encoded_credentials
 
     @classmethod
-    def get_position_from_ubi(cls, data, device_id):
-        ubiscale_payload = data[4:24]
+    def get_position_from_ubi(cls, device_id, data, latitude, longitude):
         ubi_api_url = 'https://api.ubignss.com/position'
-        payload = {
-            "type": "ubiwifi",
+        ubiscale_payload = {
+            "network": "sigfox",
             "device": device_id,
-            "data": ubiscale_payload}
+            "data": data,
+            "time": "1461678551",
+            "lat": latitude,
+            "lng": longitude
+        }
         credentials = cls.get_ubi_credentials()
-
         headers = {'Content-Type': 'application/json', 'Authorization': f'Basic {credentials}'}
-        response = requests.post(url=ubi_api_url, headers=headers, json=payload)
-
+        response = requests.post(url=ubi_api_url, headers=headers, json=ubiscale_payload)
         if response.status_code != 200:
             logger.debug("Error when retrieving device position: ", response.text)
             return
@@ -273,8 +276,72 @@ class SigfoxPayloadParserV2(SigfoxParser):
         return mode_value, mode_display, components
 
     @classmethod
-    def parse(cls, data, device_id):
-        result = None
+    def cache_gps_data(cls, components, device_id, seq_no, key):
+        latitude = cls._parse_coordinate(components[5], components[6])
+        longitude = cls._parse_coordinate(components[7], components[8])
+        data = {'device_id': device_id, 'seq_no': seq_no, 'latitude': latitude, 'longitude': longitude}
+        cache.set(key, data, cls.cache_timeout)
+
+    @classmethod
+    def cache_ubi_data(cls, data, device_id, seq_no, key):
+        ubi_data = {'device_id': device_id, 'seq_no': seq_no, 'data': data}
+        cache.set(key, ubi_data, cls.cache_timeout)
+
+    @classmethod
+    def process_gpx_data(cls, device_id, seq_no, components, time, gpx_key, ubi_key):
+        cached_ubi = cache.get(ubi_key)
+        if cached_ubi:
+            data = cached_ubi.get('data')
+            latitude = cls._parse_coordinate(components[5], components[6])
+            longitude = cls._parse_coordinate(components[7], components[8])
+            position = cls.get_position_from_ubi(device_id, data, latitude, longitude)
+            return position
+        else:
+            cls.cache_gps_data(components, device_id, seq_no, gpx_key)
+
+    @classmethod
+    def process_ubi_data(cls, payload, device_id, seq_no, components, time, gpx_key, ubi_key):
+        cached_gpx = cache.get(gpx_key)
+        data = payload.get('data')[4:24]
+        if cached_gpx:
+            latitude = cached_gpx.get('latitude')
+            longitude = cached_gpx.get('longitude')
+            position = cls.get_position_from_ubi(device_id, data, latitude, longitude)
+            return position
+        else:
+            cls.cache_ubi_data(data, device_id, seq_no, ubi_key)
+
+    @classmethod
+    def cache_and_return_position(cls, payload, mode_value, mode_display, components):
+        device_id, device_position = payload.pop('deviceId'), None
+        seq_no = payload.pop('seqNumber')
+        time = payload.pop('time')
+        gpx_key = f'gpx_track_record:{device_id}-{seq_no}'
+        ubi_key = f'ubi_track_record:{device_id}-{seq_no}'
+
+        if mode_value == 1:
+            device_position = cls.process_gpx_data(device_id, seq_no, components, time, gpx_key, ubi_key)
+        elif mode_value == 2:
+            device_position = cls.process_ubi_data(payload, device_id, seq_no, components, time, gpx_key, ubi_key)
+        if device_position:
+            result = {
+                'batt_level': cls._parse_battery_volts(components[1], version=2),
+                'mode': mode_display,
+                'movement_it': cls._parse_movement_it(components[2]),
+                'gps_state': cls._parse_state(components[3]),
+                'gps_acq_time': cls._parse_gps_acq_time(components[4]),
+                'latitude': device_position.get('lat'),
+                'longitude': device_position.get('lng'),
+                'altitude': device_position.get('alt'),
+                'accuracy': device_position.get('accuracy')
+            }
+            return result
+        else:
+            logger.info('No position returned from UBI')
+
+    @classmethod
+    def parse(cls, payload):
+        data = payload.get('data')
         if len(data) == 2 or len(data) == 4:
             logger.info("skipping Boot/Reboot and Sigfox geolocation data")
             return
@@ -289,34 +356,7 @@ class SigfoxPayloadParserV2(SigfoxParser):
             return
 
         logger.info(f'sigfox version 2, mode: {mode_display}, parsed components: {components}')
-        if mode_value == 1:
-            # gps tracking -> Location provided
-            result = {
-                'batt_level': cls._parse_battery_volts(components[1], version=2),
-                'mode': mode_display,
-                'movement_it': cls._parse_movement_it(components[2]),
-                'gps_state': cls._parse_state(components[3]),
-                'gps_acq_time': cls._parse_gps_acq_time(components[4]),
-                'latitude': cls._parse_coordinate(components[5], components[6]),
-                'longitude': cls._parse_coordinate(components[7], components[8])
-            }
-        elif mode_value == 2:
-            # ubiscale tracking -> Get location from ubi api
-            device_position = cls.get_position_from_ubi(data, device_id)
-            if device_position:
-                result = {
-                    'batt_level': cls._parse_battery_volts(components[1], version=2),
-                    'mode': mode_display,
-                    'movement_it': cls._parse_movement_it(components[2]),
-                    'gps_state': cls._parse_state(components[3]),
-                    'gps_acq_time': cls._parse_gps_acq_time(components[4]),
-                    'latitude': device_position.get('lat'),
-                    'longitude': device_position.get('lng'),
-                    'altitude': device_position.get('alt'),
-                    'accuracy': device_position.get('accuracy')
-                }
-            else:
-                logger.info('No position returned from UBI')
+        result = cls.cache_and_return_position(payload, mode_value, mode_display, components)
         return result
 
     @staticmethod
