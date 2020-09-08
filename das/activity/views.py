@@ -55,6 +55,7 @@ from observations.models import Subject
 from utils.drf import StandardResultsSetPagination, \
     StandardResultsSetGeoJsonPagination
 from utils.json import parse_bool, loads, ExtendedGEOJSONRenderer
+from das_server.views import CustomSchema
 
 logger = logging.getLogger(__name__)
 
@@ -1097,8 +1098,22 @@ class PatrolTypeView(generics.RetrieveAPIView):
     queryset = PatrolType.objects.all()
 
 
+class PatrolSchema(CustomSchema):
+    def get_operation(self, path, method):
+        operation = super().get_operation(path, method)
+        if method == 'GET':
+            query_params = [
+                {
+                    'name': 'filter', 'in': 'query', 'required': False,
+                    'description': 'example: {\"date_range\":{...}}'}
+                ]
+            operation['parameters'].extend(query_params)
+        return operation
+
+
 class PatrolsView(generics.ListCreateAPIView):
     serializer_class = PatrolSerializer
+    schema = PatrolSchema()
 
     def get_queryset(self):
 

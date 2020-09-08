@@ -8,7 +8,7 @@ from rest_framework.fields import DateTimeField
 import activity.models
 import utils
 from activity.models import PATROL_STATE_CHOICES, PC_ACTIVE, PRI_NONE, PRIORITY_CHOICES
-from activity.models import Patrol
+from activity.models import Patrol, PatrolSegment
 from activity.serializers import PatrolTypeSerializer, AlertRuleSerializer, EventSourceSerializer
 from activity.serializers.base import BaseSerializer, RevisionMixin, TimestampMixin
 from activity.serializers.fields import choicefield_serializer, text_field
@@ -29,6 +29,13 @@ class PatrolFileSerializer(BaseSerializer, RevisionMixin):
     ordernum = serializers.CharField()
 
 
+class PatrolNoteSerializer(BaseSerializer, RevisionMixin):
+    text = text_field()
+    created_by_user = serializers.HiddenField(
+        default=serializers.CurrentUserDefault()
+    )
+
+
 class PatrolSerializer(BaseSerializer, TimestampMixin):
     """Serializer class for a Patrol"""
 
@@ -42,24 +49,12 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
     title = serializers.CharField(allow_blank=True, max_length=255)
     time_range = DateTimeRangeField(required=False)
 
-    files = serializers.SerializerMethodField()
-    notes = serializers.SerializerMethodField()
+    files = PatrolFileSerializer(many=True, required=False)
+    notes = PatrolNoteSerializer(many=True, required=False)
     patrol_segments = serializers.SerializerMethodField()
 
     def create(self, validated_data):
         return Patrol.objects.create(**validated_data)
-
-    def get_files(self, obj):
-        return [
-            PatrolFileSerializer(instance=x, excludes=["patrol"]).data
-            for x in obj.files.all()
-        ]
-
-    def get_notes(self, obj):
-        return [
-            PatrolNoteSerializer(instance=x, excludes=["patrol"]).data
-            for x in obj.notes.all()
-        ]
 
     def get_patrol_segments(self, obj):
         return [

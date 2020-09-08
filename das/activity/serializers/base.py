@@ -14,7 +14,7 @@ class BaseSerializer(serializers.Serializer):
     It contains fields common to all API resources in the app.
     """
 
-    id = serializers.CharField(read_only=True)
+    id = serializers.UUIDField(read_only=True)
 
     def __init__(self, *args, **kwargs):
         excludes = kwargs.pop('excludes', [])
