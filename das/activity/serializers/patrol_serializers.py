@@ -8,7 +8,7 @@ from rest_framework.fields import DateTimeField
 import activity.models
 import utils
 from activity.models import PATROL_STATE_CHOICES, PC_ACTIVE, PRI_NONE, PRIORITY_CHOICES
-from activity.models import Patrol, PatrolSegment
+from activity.models import Patrol
 from activity.serializers import PatrolTypeSerializer, AlertRuleSerializer, EventSourceSerializer
 from activity.serializers.base import BaseSerializer, RevisionMixin, TimestampMixin
 from activity.serializers.fields import choicefield_serializer, text_field
@@ -61,14 +61,6 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
             PatrolSegmentSerializer(instance=x, excludes=["patrol"]).data
             for x in obj.patrol_segments.all()
         ]
-
-
-class PatrolNoteSerializer(BaseSerializer, RevisionMixin):
-    text = text_field()
-    created_by_user = serializers.HiddenField(
-        default=serializers.CurrentUserDefault()
-    )
-    patrol = PatrolSerializer(excludes=["notes"])
 
 
 class PatrolSegmentSerializer(BaseSerializer):
