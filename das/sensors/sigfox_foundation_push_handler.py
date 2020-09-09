@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from observations.models import Observation, Source
 from observations.serializers import ObservationSerializer
 from django.core.cache import cache
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,6 @@ class SigfoxFoundationPushHandler:
                 return cls.process_data_uplink(validated_data, provider_key, parser)
             elif validated_data.get('computedLocation'):
                 return Response(data=dict(message='Message received'), status=status.HTTP_200_OK)
-
         return Response(data=sigfox_data.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @classmethod
@@ -173,7 +173,7 @@ class SigfoxPayloadParserV1(SigfoxParser):
     def parse(cls, payload):
         data = payload.pop('data')
         if len(data) != 24:
-            logger.info("Invalid data, expecting only 24 bit data")
+            logger.info("Invalid payload, processing enabled for only 24 bit data")
             return
         try:
             bin_string = cls._to_binary_string(data)
@@ -227,19 +227,18 @@ class SigfoxPayloadParserV1(SigfoxParser):
 class SigfoxPayloadParserV2(SigfoxParser):
     # Decoding described in parserTektos.docx attached in the below ticket
     # https://vulcan.atlassian.net/browse/DAS-5294
+    gps_track, ubi_track = False, False
 
     @classmethod
     def get_ubi_credentials(cls):
-        username = os.getenv('UBI_API_USERNAME', 'username')
-        password = os.getenv('UBI_API_PASSWORD', 'password')
-        credentials = f"{username}:{password}"
-
+        ubi_creds = settings.UBI_API_CREDENTIALS
+        credentials = f"{ubi_creds.get('username')}:{ubi_creds.get('password')}"
         encoded_credentials = str(b64encode(credentials.encode("utf-8")), "utf-8")
         return encoded_credentials
 
     @classmethod
     def get_position_from_ubi(cls, device_id, data, latitude, longitude):
-        ubi_api_url = 'https://api.ubignss.com/position'
+        ubi_api_url, response = settings.get('UBI_API_URL'), None
         ubiscale_payload = {
             "network": "sigfox",
             "device": device_id,
@@ -250,7 +249,12 @@ class SigfoxPayloadParserV2(SigfoxParser):
         }
         credentials = cls.get_ubi_credentials()
         headers = {'Content-Type': 'application/json', 'Authorization': f'Basic {credentials}'}
-        response = requests.post(url=ubi_api_url, headers=headers, json=ubiscale_payload)
+        try:
+            response = requests.post(url=ubi_api_url, headers=headers, json=ubiscale_payload)
+        except requests.exceptions.RequestException as e:
+            logger.exception(e)
+            return
+
         if response.status_code != 200:
             logger.debug("Error when retrieving device position: ", response.text)
             return
@@ -263,12 +267,10 @@ class SigfoxPayloadParserV2(SigfoxParser):
         try:
             bin_string = cls._to_binary_string(data)
             mode_value, mode_display = cls._parse_mode(bin_string[:3])
-            if mode_value == 1:
-                pattern = '(.{3})(.{5})(.)(.)(.{6})(.)(.{31})(.)(.{31})'  # gps
-            elif mode_value == 2:
-                pattern = '(.{3})(.{5})(.)(.)(.{6})(.{20})'  # ubiscale
-            else:
-                logger.debug("skipping setup, Tracking GPS and unknown modes")
+            if cls.gps_track:
+                pattern = '(.{3})(.{5})(.)(.)(.{6})(.)(.{31})(.)(.{31})'
+            elif cls.ubi_track:
+                pattern = '(.{3})(.{5})(.)(.)(.{6})(.{20})'
             components = cls._get_components(bin_string, pattern) if pattern else None
         except Exception as exc:
             logger.exception(exc)
@@ -318,10 +320,13 @@ class SigfoxPayloadParserV2(SigfoxParser):
         gpx_key = f'gpx_track_record:{device_id}-{seq_no}'
         ubi_key = f'ubi_track_record:{device_id}-{seq_no}'
 
-        if mode_value == 1:
+        if cls.gps_track:
             device_position = cls.process_gpx_data(device_id, seq_no, components, time, gpx_key, ubi_key)
-        elif mode_value == 2:
+        elif cls.ubi_track:
             device_position = cls.process_ubi_data(payload, device_id, seq_no, components, time, gpx_key, ubi_key)
+        else:
+            return
+
         if device_position:
             result = {
                 'batt_level': cls._parse_battery_volts(components[1], version=2),
@@ -363,20 +368,20 @@ class SigfoxPayloadParserV2(SigfoxParser):
         movement_it = False if bit == 0 else True
         return movement_it
 
-
     @staticmethod
     def _parse_state(bit):
         state = 'Acquisition GPS successful' if bit == 0 else 'Acquisition GPS failed'
         return state
 
-    @staticmethod
-    def _parse_mode(bits):
-
+    @classmethod
+    def _parse_mode(cls, bits):
         value, display = int(bits, 2), None
         if value == 1:
-            display = 'Tracking GPS'
+            cls.gps_track = True  # Tracking GPS Mode
         elif value == 2:
-            display = 'Tracking Ubiscale'
+            cls.ubi_track = True  # Tracking Ubiscale Mode
+        else:
+            logger.debug("skipping setup, boot/reboot and unknown modes")
         return value, display
 
 
