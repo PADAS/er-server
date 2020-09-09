@@ -102,7 +102,7 @@ class SigfoxFoundationPushHandler:
 class SigfoxParser:
     BYTE_PATTERN = '.{1,2}'
     byte_re = re.compile(BYTE_PATTERN)
-    cache_timeout = 3000  # 5 minutes
+    cache_timeout = 300  # 5 minutes
 
     @classmethod
     def _to_binary_string(cls, payload):
@@ -296,7 +296,7 @@ class SigfoxPayloadParserV2(SigfoxParser):
             latitude = cls._parse_coordinate(components[5], components[6])
             longitude = cls._parse_coordinate(components[7], components[8])
             position = cls.get_position_from_ubi(device_id, data, latitude, longitude, time)
-            cache.set(ubi_key, None, cls.cache_timeout)
+            cache.set(ubi_key, None)
             return position
         else:
             cls.cache_gps_data(components, device_id, seq_no, gps_key)
@@ -309,7 +309,7 @@ class SigfoxPayloadParserV2(SigfoxParser):
             latitude = cached_gps.get('latitude')
             longitude = cached_gps.get('longitude')
             position = cls.get_position_from_ubi(device_id, data, latitude, longitude, time)
-            cache.set(gps_key, None, cls.cache_timeout)
+            cache.set(gps_key, None)
             return position
         else:
             cls.cache_ubi_data(data, device_id, seq_no, ubi_key)
