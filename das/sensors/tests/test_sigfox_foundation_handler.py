@@ -46,11 +46,12 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
         for test_data in V2_DATA_PAIRS:
             device_id = test_data['deviceId']
             rsp = self._post_data(json.dumps(test_data), version=2)
-            # self.assertIsNotNone(rsp)
-            # self.assertEqual(rsp.status_code, status.HTTP_201_CREATED)
-            # source = Source.objects.get(manufacturer_id=device_id)
-            # observation = Observation.objects.get(source=source)
-            # self._verify_data_uplink_rsp(observation, test_data, SigfoxPayloadParserV2)
+        
+        # self.assertIsNotNone(rsp)
+        # self.assertEqual(rsp.status_code, status.HTTP_201_CREATED)
+        # source = Source.objects.get(manufacturer_id=device_id)
+        # observation = Observation.objects.get(source=source)
+        # self._verify_data_uplink_rsp(observation, test_data, SigfoxPayloadParserV2)
 
     def test_all_data_advanced_msgs_ignored(self):
         for (_, data_advanced) in DATA_PAIRS:
