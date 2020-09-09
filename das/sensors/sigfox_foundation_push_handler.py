@@ -237,13 +237,13 @@ class SigfoxPayloadParserV2(SigfoxParser):
         return encoded_credentials
 
     @classmethod
-    def get_position_from_ubi(cls, device_id, data, latitude, longitude):
-        ubi_api_url, response = settings.get('UBI_API_URL'), None
+    def get_position_from_ubi(cls, device_id, data, latitude, longitude, time):
+        ubi_api_url = settings.UBI_API_URL
         ubiscale_payload = {
             "network": "sigfox",
             "device": device_id,
             "data": data,
-            "time": "1461678551",
+            "time": time,
             "lat": latitude,
             "lng": longitude
         }
@@ -289,25 +289,27 @@ class SigfoxPayloadParserV2(SigfoxParser):
         cache.set(key, ubi_data, cls.cache_timeout)
 
     @classmethod
-    def process_gpx_data(cls, device_id, seq_no, components, time, gpx_key, ubi_key):
+    def process_gps_data(cls, device_id, seq_no, components, time, gps_key, ubi_key):
         cached_ubi = cache.get(ubi_key)
         if cached_ubi:
             data = cached_ubi.get('data')
             latitude = cls._parse_coordinate(components[5], components[6])
             longitude = cls._parse_coordinate(components[7], components[8])
-            position = cls.get_position_from_ubi(device_id, data, latitude, longitude)
+            position = cls.get_position_from_ubi(device_id, data, latitude, longitude, time)
+            cache.set(ubi_key, None)
             return position
         else:
-            cls.cache_gps_data(components, device_id, seq_no, gpx_key)
+            cls.cache_gps_data(components, device_id, seq_no, gps_key)
 
     @classmethod
-    def process_ubi_data(cls, payload, device_id, seq_no, components, time, gpx_key, ubi_key):
-        cached_gpx = cache.get(gpx_key)
+    def process_ubi_data(cls, payload, device_id, seq_no, components, time, gps_key, ubi_key):
+        cached_gps = cache.get(gps_key)
         data = payload.get('data')[4:24]
-        if cached_gpx:
-            latitude = cached_gpx.get('latitude')
-            longitude = cached_gpx.get('longitude')
-            position = cls.get_position_from_ubi(device_id, data, latitude, longitude)
+        if cached_gps:
+            latitude = cached_gps.get('latitude')
+            longitude = cached_gps.get('longitude')
+            position = cls.get_position_from_ubi(device_id, data, latitude, longitude, time)
+            cache.set(gps_key, None)
             return position
         else:
             cls.cache_ubi_data(data, device_id, seq_no, ubi_key)
@@ -317,13 +319,13 @@ class SigfoxPayloadParserV2(SigfoxParser):
         device_id, device_position = payload.pop('deviceId'), None
         seq_no = payload.pop('seqNumber')
         time = payload.pop('time')
-        gpx_key = f'gpx_track_record:{device_id}-{seq_no}'
+        gps_key = f'gps_track_record:{device_id}-{seq_no}'
         ubi_key = f'ubi_track_record:{device_id}-{seq_no}'
 
         if cls.gps_track:
-            device_position = cls.process_gpx_data(device_id, seq_no, components, time, gpx_key, ubi_key)
+            device_position = cls.process_gps_data(device_id, seq_no, components, time, gps_key, ubi_key)
         elif cls.ubi_track:
-            device_position = cls.process_ubi_data(payload, device_id, seq_no, components, time, gpx_key, ubi_key)
+            device_position = cls.process_ubi_data(payload, device_id, seq_no, components, time, gps_key, ubi_key)
         else:
             return
 
@@ -375,7 +377,7 @@ class SigfoxPayloadParserV2(SigfoxParser):
 
     @classmethod
     def _parse_mode(cls, bits):
-        value, display = int(bits, 2), None
+        value, display, cls.gps_track,  cls.ubi_track = int(bits, 2), None, False, False
         if value == 1:
             cls.gps_track = True  # Tracking GPS Mode
         elif value == 2:
