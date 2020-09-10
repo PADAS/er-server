@@ -72,8 +72,8 @@ class _RangeField(RangeField):
             return {'empty': True}
         lower = self.child.to_representation(value.lower) if value.lower is not None else None
         upper = self.child.to_representation(value.upper) if value.upper is not None else None
-        return {'lower': lower,
-                'upper': upper
+        return {'start_time': lower,
+                'end_time': upper
                 }
 
 
