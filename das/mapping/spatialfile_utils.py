@@ -4,11 +4,13 @@ import tempfile
 import zipfile
 
 from django.contrib.gis.gdal import DataSource
+from django.db import transaction
 from mapping.utils import import_feature_types, import_layer
 
 logger = logging.getLogger(__name__)
 
 
+@transaction.atomic
 def process_spatialfile(spatial_file):
 
     if getattr(spatial_file, 'feature_types_file', None):

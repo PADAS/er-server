@@ -107,3 +107,37 @@ class TestSpatialFile(BaseAPITest):
             self.admin.save_model(self.request, spatialfile, form, True)
             self.assertEquals(SpatialFeature.objects.count(), 6)
 
+    def test_geojson_file_upload_with_null_geometry(self):
+        # test that spatial data with missing geometry is ignored.
+        feature_type = SpatialFeatureType.objects.create(name='road')
+
+        data = File(open(os.path.join(TESTS_PATH, 'testdata/with_null_geometry.geojson'), 'rb'))  # Has 3 spatial data
+        spatialfile = SpatialFeatureFile.objects.create(data=data, feature_type=feature_type)
+        process_spatialfile(spatialfile)
+        spfeatures = SpatialFeature.objects.all().count()
+        self.assertEqual(spfeatures, 2)
+
+    def test_rollback_imported_spatialfeature(self):
+        feature_type = SpatialFeatureType.objects.create(name='Road')
+
+        data = File(open(os.path.join(TESTS_PATH, 'testdata/road_edited.geojson'), 'rb'))  # contains 3 spatial data.
+        spatialfile = SpatialFeatureFile.objects.create(data=data, feature_type=feature_type)
+        try:
+            process_spatialfile(spatialfile)
+        except Exception as exc:
+            pass
+        spfeature = SpatialFeature.objects.all().count()
+        self.assertEqual(spfeature, 0)
+
+    def test_zip_file_with_invalid_spatial_data(self):
+        feature_type = SpatialFeatureType.objects.create(name='rroad')
+
+        data = File(open(os.path.join(TESTS_PATH, 'testdata/class_1_roads.zip'), 'rb'))  # contains 3 spatial data.
+        spatialfile = SpatialFeatureFile.objects.create(data=data, feature_type=feature_type)
+        try:
+            process_spatialfile(spatialfile)
+        except Exception as exc:
+            pass
+        spfeature = SpatialFeature.objects.all().count()
+        self.assertEqual(spfeature, 0)
+
