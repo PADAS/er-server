@@ -68,7 +68,7 @@ class TestPatrol(BaseAPITest):
 
     def test_create_patrolsegment(self):
         patrolsgm_data = dict(scheduled_start='2020-08-05 02:00:00+00',
-                              time_range={"lower": "2020-08-05 02:00:00+00", "upper": "2020-08-06 04:00:00+00"},
+                              time_range={"start_time": "2020-08-05 02:00:00+00", "end_time": "2020-08-06 04:00:00+00"},
                               start_location={'latitude': '-122.334', 'longitude': '47.598'},
                               end_location={'latitude': '-124.54', 'longitude': '38.98'},
                               state='active'

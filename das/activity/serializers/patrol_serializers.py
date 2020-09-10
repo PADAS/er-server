@@ -1,6 +1,3 @@
-from abc import ABC
-
-from drf_extra_fields.fields import DateTimeRangeField
 from drf_extra_fields.geo_fields import PointField
 from rest_framework import serializers, validators
 from rest_framework.fields import DateTimeField
@@ -10,6 +7,7 @@ import utils
 from activity.models import PATROL_STATE_CHOICES, PC_ACTIVE, PRI_NONE, PRIORITY_CHOICES
 from activity.models import Patrol
 from activity.serializers import PatrolTypeSerializer, AlertRuleSerializer, EventSourceSerializer
+from activity.serializers import fields
 from activity.serializers.base import BaseSerializer, RevisionMixin, TimestampMixin
 from activity.serializers.fields import choicefield_serializer, text_field, SerializerMethodField
 from observations.serializers import SourceSerializer
@@ -71,7 +69,7 @@ class PatrolSegmentSerializer(BaseSerializer):
     state = state_choices_serializer
     sources = SourceSerializer(required=False, allow_null=True)
     scheduled_start = DateTimeField(required=False)
-    time_range = DateTimeRangeField(required=False)
+    time_range = fields.DateTimeRangeField(required=False)
     start_location = PointField(required=False, allow_null=True,
                                 validators=[PointValidator()])
     end_location = PointField(required=False, allow_null=True,
