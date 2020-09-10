@@ -40,3 +40,11 @@ def choicefield_serializer(choices, default=empty, **kwargs):
 def text_field(**kwargs):
     style = kwargs.pop('style', {'base_template': 'textarea.html'})
     return serializers.CharField(style=style, **kwargs)
+
+
+class SerializerMethodField(serializers.SerializerMethodField):
+    def __init__(self, method_name=None, many=False, excludes=[], serializer=None, **kwargs):
+        self.many = many
+        self.excludes = excludes
+        self.serializer = serializer
+        super().__init__(method_name, **kwargs)

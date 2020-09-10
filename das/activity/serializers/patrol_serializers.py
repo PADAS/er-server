@@ -11,13 +11,13 @@ from activity.models import PATROL_STATE_CHOICES, PC_ACTIVE, PRI_NONE, PRIORITY_
 from activity.models import Patrol
 from activity.serializers import PatrolTypeSerializer, AlertRuleSerializer, EventSourceSerializer
 from activity.serializers.base import BaseSerializer, RevisionMixin, TimestampMixin
-from activity.serializers.fields import choicefield_serializer, text_field
+from activity.serializers.fields import choicefield_serializer, text_field, SerializerMethodField
 from observations.serializers import SourceSerializer
 from utils.drf import PointValidator
-
 priority_choices_serializer = choicefield_serializer(PRIORITY_CHOICES, default=PRI_NONE)
 state_choices_serializer = choicefield_serializer(PATROL_STATE_CHOICES, default=PC_ACTIVE)
 
+serializers_path = 'activity.serializers.patrol_serializers'
 
 class PatrolFileSerializer(BaseSerializer, RevisionMixin):
     """Serializer class for a PatrolFile"""
@@ -35,23 +35,24 @@ class PatrolNoteSerializer(BaseSerializer, RevisionMixin):
         default=serializers.CurrentUserDefault()
     )
 
-
 class PatrolSerializer(BaseSerializer, TimestampMixin):
     """Serializer class for a Patrol"""
 
-    objective = text_field(allow_blank=True)
+    objective = text_field(required=False)
     priority = priority_choices_serializer
     serial_number = serializers.IntegerField(
         allow_null=True, required=False,
         validators=[validators.UniqueValidator(queryset=Patrol.objects.all())]
     )
     state = state_choices_serializer
-    title = serializers.CharField(allow_blank=True, max_length=255)
+    title = serializers.CharField(required=False, max_length=255)
     time_range = DateTimeRangeField(required=False)
 
     files = PatrolFileSerializer(many=True, required=False)
     notes = PatrolNoteSerializer(many=True, required=False)
-    patrol_segments = serializers.SerializerMethodField()
+    patrol_segments = SerializerMethodField(
+        method_name='get_patrol_segments', many=True, excludes=["patrol"],
+        serializer=f'{serializers_path}.PatrolSegmentSerializer')
 
     def create(self, validated_data):
         return Patrol.objects.create(**validated_data)

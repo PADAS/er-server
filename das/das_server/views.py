@@ -1,24 +1,22 @@
 import copy
+from pydoc import locate
 
-from django.shortcuts import render_to_response
+import rest_framework.serializers
 from django.conf import settings
 from django.db import connection
-from django.utils import timezone
+from django.shortcuts import render_to_response
 from django.template import RequestContext
-from rest_framework import generics
+from django.utils import timezone
+from rest_framework import generics, serializers
 from rest_framework.permissions import AllowAny, DjangoObjectPermissions
-import rest_framework.serializers
 from rest_framework.schemas.openapi import AutoSchema
-from das_server import __version__
 
 from activity.alerts import has_alerts_permissionset
-
+from core.utils import get_site_name
 # This import ensures we register user-login receivers.
-from das_server import metrics
-
+from das_server import __version__, metrics
 from observations import servicesutils
 from utils.json import parse_bool
-from core.utils import get_site_name
 
 
 def index(request):
@@ -39,6 +37,20 @@ class CustomSchema(AutoSchema):
             return self.view.serializer_class
         else:
             return self.view.__class__
+
+    def _map_field(self, field):
+        if isinstance(field, serializers.SerializerMethodField):
+            attrs = field._kwargs
+            serializer, many = attrs.get('serializer'), attrs.get('many')
+            if serializer:
+                data = self._map_serializer(locate(serializer)())
+                data = [data.get('properties').pop(property, 0) for property in attrs.get('excludes')]
+                if many:
+                    return {'type': 'array', 'items': data}
+                else:
+                    data['type'] = 'object'
+                    return data
+        return super()._map_field(field)
 
     def _get_operation_id(self, path, method):
         # Patch get_serializer_class to use views class if no serializer class is defined
