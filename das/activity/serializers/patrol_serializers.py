@@ -43,8 +43,8 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
         validators=[validators.UniqueValidator(queryset=Patrol.objects.all())]
     )
     state = state_choices_serializer
-    title = serializers.CharField(required=False, max_length=255)
-    time_range = DateTimeRangeField(required=False)
+    title = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    time_range = fields.DateTimeRangeField(required=False)
 
     files = PatrolFileSerializer(many=True, required=False)
     notes = PatrolNoteSerializer(many=True, required=False)
