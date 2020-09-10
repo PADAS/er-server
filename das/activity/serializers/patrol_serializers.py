@@ -38,14 +38,14 @@ class PatrolNoteSerializer(BaseSerializer, RevisionMixin):
 class PatrolSerializer(BaseSerializer, TimestampMixin):
     """Serializer class for a Patrol"""
 
-    objective = text_field(allow_blank=True)
+    objective = text_field(required=False)
     priority = priority_choices_serializer
     serial_number = serializers.IntegerField(
         allow_null=True, required=False,
         validators=[validators.UniqueValidator(queryset=Patrol.objects.all())]
     )
     state = state_choices_serializer
-    title = serializers.CharField(allow_blank=True, max_length=255)
+    title = serializers.CharField(required=False, max_length=255)
     time_range = DateTimeRangeField(required=False)
 
     files = PatrolFileSerializer(many=True, required=False)
