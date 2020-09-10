@@ -2780,6 +2780,7 @@ class TestEventView(BaseAPITest):
                     "type": "fieldset",
                     "htmlClass": "col-lg-6",
                     "items": [
+                      "reportlocationarea",
                       {
                         "key": "animal_species",
                         "type": "checkboxes",
@@ -2817,7 +2818,8 @@ class TestEventView(BaseAPITest):
         species_display = [display_prop  for display_prop in response.data['definition'] if display_prop.get('key', '')=='species'][0]
         assert "inactive_titleMap" in species_display
 
-        species_display = [display_prop  for display_prop in response.data['definition'][0]['items'] if display_prop.get('key', '')=='animal_species'][0]
+        species_display = [display_prop for display_prop in response.data['definition'][0]['items']
+                           if isinstance(display_prop, dict) and display_prop.get('key', '') == 'animal_species'][0]
         assert "inactive_titleMap" in species_display
 
 

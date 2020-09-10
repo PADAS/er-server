@@ -256,23 +256,25 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
             for o in obj:
                 inactive_choices.append(o.value)
             if inactive_choices:
-                index = 0
+
                 for key in schema['definition']:
                     if isinstance(key, OrderedDict):
                         items = key.get('items')
-                        tmap_values = schema_utils.get_values_items(items, 'titleMap') if items else None
-                        incr = 0
+
+                        tmap_values = [ (i, i['titleMap']) for i in items if isinstance(i, OrderedDict)
+                                        and i.get('titleMap')] if items else None
+
+                        # TODO: Consider the truthiness of tmap_values here, for the case where it is set to [].
                         if tmap_values:
-                            for tmap in tmap_values:
+                            for item, tmap in tmap_values:
                                 for tm in tmap:
                                     if tm.get('value') in inactive_choices:
-                                        schema['definition'][index]['items'][incr]['inactive_titleMap'] = inactive_choices
-                                incr += 1
+                                        item['inactive_titleMap'] = inactive_choices
+
                         elif key.get('titleMap'):
-                            for _ in key.get('titleMap'):
-                                if _.get('value') in inactive_choices:
-                                    schema['definition'][index]['inactive_titleMap'] = inactive_choices
-                    index += 1
+                            for title_map_elem in key.get('titleMap'):
+                                if title_map_elem.get('value') in inactive_choices:
+                                    key['inactive_titleMap'] = inactive_choices
 
         for key, value in field_schema.items():
             for o, vals in enumImages_vals.items():
