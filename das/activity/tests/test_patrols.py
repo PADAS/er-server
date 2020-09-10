@@ -1,10 +1,16 @@
+import datetime
+import json
 import os
+from urllib.parse import urlencode
+
 import django.contrib.auth
 from django.core.management import call_command
 from django.urls import reverse
-from core.tests import BaseAPITest
-from activity.models import PatrolType, Patrol, PatrolSegment
+
 from activity import views
+from activity.models import Patrol, PatrolSegment, PatrolType
+from core.tests import BaseAPITest
+
 User = django.contrib.auth.get_user_model()
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tests')
 
@@ -91,3 +97,27 @@ class TestPatrol(BaseAPITest):
         self.force_authenticate(request, self.user)
         response = views.PatrolsegmentView.as_view()(request, id=patrolsgm_id)
         self.assertEqual(response.status_code, 200)
+
+    def test_patrol_filter(self):
+        patrol_data = dict(
+            title='Test Patrol',
+            objective='Test Objective',
+            time_range={"lower": "2020-08-01 02:00:00+00", "upper": "2020-08-02 04:00:00+00"}
+        )
+        self._create_patrol(patrol_data)
+        query = {'filter': json.dumps({"date_range": {"lower": "2020-08-01T00:00:00.000Z"}})}
+        url = reverse('patrols')
+        url += f'?{urlencode(query)}'
+        request = self.factory.get(self.api_base + url)
+        self.force_authenticate(request, self.user)
+        response = views.PatrolsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0].get('title'), patrol_data.get('title'))
+
+    def _create_patrol(self, patrol_data):
+        url = reverse('patrols')
+        request = self.factory.post(url, data=patrol_data)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)

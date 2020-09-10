@@ -1444,7 +1444,27 @@ class TeamMembership(TimestampedModel):
         ordering = ['type', 'ordernum', ]
 
 
+class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
+    def by_patrol_filter(self, filter):
+        queryset = self
+        filter_param_and_funcs = {'date_range': 'by_date_range'}
+        for param, func in filter_param_and_funcs.items():
+            if param in filter:
+                queryset = getattr(queryset, func)(filter.get(param))
+        return queryset.distinct()
+
+    def by_date_range(self, filter_param):
+        queryset = self
+        lower, upper = parse_date_range(filter_param)
+        if lower:
+            queryset = queryset.filter(time_range__startswith__gt=lower)
+        if upper:
+            queryset = queryset.filter(time_range__endswith__lt=upper)
+        return queryset
+
+
 class Patrol(TimestampedModel, RevisionMixin):
+    objects = models.Manager.from_queryset(PatrolFilteringQuerySet)()
 
     PRIORITY_CHOICES = PRIORITY_CHOICES
 

@@ -29,6 +29,13 @@ class PatrolFileSerializer(BaseSerializer, RevisionMixin):
     ordernum = serializers.CharField()
 
 
+class PatrolNoteSerializer(BaseSerializer, RevisionMixin):
+    text = text_field()
+    created_by_user = serializers.HiddenField(
+        default=serializers.CurrentUserDefault()
+    )
+
+
 class PatrolSerializer(BaseSerializer, TimestampMixin):
     """Serializer class for a Patrol"""
 
@@ -40,39 +47,20 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
     )
     state = state_choices_serializer
     title = serializers.CharField(allow_blank=True, max_length=255)
+    time_range = DateTimeRangeField(required=False)
 
-    files = serializers.SerializerMethodField()
-    notes = serializers.SerializerMethodField()
+    files = PatrolFileSerializer(many=True, required=False)
+    notes = PatrolNoteSerializer(many=True, required=False)
     patrol_segments = serializers.SerializerMethodField()
 
     def create(self, validated_data):
         return Patrol.objects.create(**validated_data)
-
-    def get_files(self, obj):
-        return [
-            PatrolFileSerializer(instance=x, excludes=["patrol"]).data
-            for x in obj.files.all()
-        ]
-
-    def get_notes(self, obj):
-        return [
-            PatrolNoteSerializer(instance=x, excludes=["patrol"]).data
-            for x in obj.notes.all()
-        ]
 
     def get_patrol_segments(self, obj):
         return [
             PatrolSegmentSerializer(instance=x, excludes=["patrol"]).data
             for x in obj.patrol_segments.all()
         ]
-
-
-class PatrolNoteSerializer(BaseSerializer, RevisionMixin):
-    text = text_field()
-    created_by_user = serializers.HiddenField(
-        default=serializers.CurrentUserDefault()
-    )
-    patrol = PatrolSerializer(excludes=["notes"])
 
 
 class PatrolSegmentSerializer(BaseSerializer):
