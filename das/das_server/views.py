@@ -76,6 +76,24 @@ class CustomSchema(AutoSchema):
                 result['required'] = []
         return result
 
+    def _map_field(self, field):
+        from drf_extra_fields.geo_fields import PointField
+        from activity.serializers.fields import DateTimeRangeField
+
+        if isinstance(field, PointField):
+            return {
+                'type': 'object',
+                'properties': {'latitude': {'type': 'string'},
+                               'longitude': {'type': 'string'}}
+            }
+        if isinstance(field, DateTimeRangeField):
+            return {
+                'type': 'object',
+                'properties': {'start_time': {'type': 'string', 'format': 'date-time'},
+                               'end_time': {'type': 'string', 'format': 'date-time'}}
+            }
+        return super()._map_field(field)
+
 
 class VersionSerializer(rest_framework.serializers.Serializer):
     version = rest_framework.serializers.CharField(read_only=True)
