@@ -642,10 +642,6 @@ def get_values_titlemap(schema):
     return values
 
 
-def get_values_items(items, key):
-    return [i.get(key) for i in items if isinstance(i, OrderedDict) and i.get(key)]
-
-
 def map_schema(schema, load_schema):
     lookups = []
     keys = load_schema['schema']['properties'].keys()
