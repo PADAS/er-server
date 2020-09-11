@@ -1783,6 +1783,7 @@ class AlertRuleSerializer(rest_framework.serializers.ModelSerializer):
 
 
 class PatrolTypeSerializer(rest_framework.serializers.ModelSerializer):
+    display = rest_framework.serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
         model = activity.models.PatrolType

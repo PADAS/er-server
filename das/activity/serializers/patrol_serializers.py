@@ -99,6 +99,23 @@ class PatrolSegmentSerializer(BaseSerializer):
         return rep
 
     def create(self, validated_data):
+        patrol = validated_data.get('patrol')
+        patrol_type = validated_data.get('patrol_type')
+
+        if patrol:
+            patrol_o = Patrol.objects.create(**patrol)
+            validated_data['patrol_id'] = patrol_o.id
+            validated_data.pop('patrol')
+
+        if patrol_type:
+            value = patrol_type.get('value')
+            if activity.models.PatrolType.objects.filter(value=value).exists():
+                raise serializers.ValidationError('IntegrityError: duplicate key value violates unique constraint.')
+
+            patroltype_o = activity.models.PatrolType.objects.create(**patrol_type)
+            validated_data['patrol_type_id'] = patroltype_o.id
+            validated_data.pop('patrol_type')
+
         return activity.models.PatrolSegment.objects.create(**validated_data)
 
 
