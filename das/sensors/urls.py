@@ -25,7 +25,7 @@ urlpatterns = [
     url(rf'^sf-animal-tracker/{url_suffix}', views.SigFoxHandlerView.as_view()),
     url(rf'^gfw-alert/{url_suffix}', views.GFWAlertHandlerView.as_view(), name='gfahandler-view'),
     url(rf'^sff-tracker/{url_suffix}', views.SigfoxFoundationHandlerView.as_view(), name='sigfox-v1-view'),
-    url(rf'^sff-tracker-v2/{url_suffix}', views.SigfoxFoundationHandlerView.as_view(), name='sigfox-v2-view'),
+    url(rf'^sff-tracker-v2/{url_suffix}', views.SigfoxV2FoundationHandlerView.as_view(), name='sigfox-v2-view'),
     url(rf'^gate/{url_suffix}', views.GateHandlerView.as_view()),
     url(rf'^test/{url_suffix}', views.TestHandlerView.as_view()),
     url(rf'^capturs-tracker/{url_suffix}', views.CaptursHandlerView.as_view()),
