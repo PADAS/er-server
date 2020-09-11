@@ -1,22 +1,22 @@
+import copy
 from drf_extra_fields.geo_fields import PointField
 from rest_framework import serializers, validators
 from rest_framework.fields import DateTimeField
 from collections import OrderedDict
-
 import activity.models
 import utils
 from activity.models import PATROL_STATE_CHOICES, PC_ACTIVE, PRI_NONE, PRIORITY_CHOICES
-from activity.models import Patrol
-from activity.serializers import PatrolTypeSerializer, AlertRuleSerializer, EventSourceSerializer
+from activity.models import Patrol, PatrolNote
+from activity.serializers import AlertRuleSerializer, EventSourceSerializer
 from activity.serializers import fields, ReportedByRelatedField
 from activity.serializers.base import BaseSerializer, RevisionMixin, TimestampMixin
 from activity.serializers.fields import choicefield_serializer, text_field, SerializerMethodField
-from observations.serializers import SourceSerializer
 from utils.drf import PointValidator
 priority_choices_serializer = choicefield_serializer(PRIORITY_CHOICES, default=PRI_NONE)
 state_choices_serializer = choicefield_serializer(PATROL_STATE_CHOICES, default=PC_ACTIVE)
 
 serializers_path = 'activity.serializers.patrol_serializers'
+
 
 class PatrolFileSerializer(BaseSerializer, RevisionMixin):
     """Serializer class for a PatrolFile"""
@@ -28,11 +28,10 @@ class PatrolFileSerializer(BaseSerializer, RevisionMixin):
     ordernum = serializers.CharField()
 
 
-class PatrolNoteSerializer(BaseSerializer, RevisionMixin):
+class PatrolNoteSerializer(BaseSerializer):
     text = text_field()
-    created_by_user = serializers.HiddenField(
-        default=serializers.CurrentUserDefault()
-    )
+    created_by_user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
 
 class PatrolSerializer(BaseSerializer, TimestampMixin):
     """Serializer class for a Patrol"""
@@ -48,13 +47,19 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
     time_range = fields.DateTimeRangeField(required=False)
 
     files = PatrolFileSerializer(many=True, required=False, read_only=True)
-    notes = PatrolNoteSerializer(many=True, required=False, read_only=True)
+    notes = PatrolNoteSerializer(many=True, required=False)
     patrol_segments = SerializerMethodField(
         method_name='get_patrol_segments', many=True, excludes=["patrol"],
         serializer=f'{serializers_path}.PatrolSegmentSerializer')
 
     def create(self, validated_data):
-        return Patrol.objects.create(**validated_data)
+        patrol_notes = validated_data.pop('notes', [])
+        new_patrol = Patrol.objects.create(**validated_data)
+        for note in patrol_notes:
+            note = copy.deepcopy(note)
+            note['patrol_id'] = new_patrol.id
+            PatrolNote.objects.create(**note)
+        return Patrol.objects.get(id=new_patrol.id)
 
     def get_patrol_segments(self, obj):
         return [
@@ -85,7 +90,7 @@ class PatrolTypeRelatedField(serializers.RelatedField):
         if data:
             try:
                 return activity.models.PatrolType.objects.get_by_value(data)
-            except activity.models.EventType.DoesNotExist:
+            except activity.models.PatrolType.DoesNotExist:
                 raise serializers.ValidationError(f'patrol_type: {data} does not exist')
 
     @property
