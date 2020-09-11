@@ -1786,5 +1786,5 @@ class PatrolTypeSerializer(rest_framework.serializers.ModelSerializer):
 
     class Meta:
         model = activity.models.PatrolType
-        read_only_fields = ('id', 'value', 'display', 'ordernum', 'icon_id', 'default_priority',)
+        read_only_fields = ('id', 'value', 'display', 'ordernum', 'icon_id', 'default_priority', 'is_active')
         fields = read_only_fields
