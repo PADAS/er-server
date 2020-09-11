@@ -1521,6 +1521,14 @@ class PatrolFile(TimestampedModel, RevisionMixin):
     revision = Revision()
 
 
+class PatrolTypeManager(EventBaseManager):
+    def create_type(self, **values):
+        return self.create(**values)
+
+    def get_by_natural_key(self, value):
+        return self.get(value=value)
+
+
 class PatrolType(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(max_length=50, unique=True)
@@ -1529,6 +1537,8 @@ class PatrolType(TimestampedModel):
     icon = models.CharField(max_length=100, blank=True)
     default_priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
     is_active = models.BooleanField(default=True)
+
+    objects = PatrolTypeManager()
 
     # schema_template = JSONField('additional', default=dict, blank=False, null=True)
     # form_definition = JSONField('form_definition', default=dict, blank=False, null=True)

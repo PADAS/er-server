@@ -1,6 +1,7 @@
 from drf_extra_fields.geo_fields import PointField
 from rest_framework import serializers, validators
 from rest_framework.fields import DateTimeField
+from collections import OrderedDict
 
 import activity.models
 import utils
@@ -72,10 +73,31 @@ class LeaderRelatedField(ReportedByRelatedField):
                 yield provenance, values
 
 
+class PatrolTypeRelatedField(serializers.RelatedField):
+
+    def get_queryset(self):
+        return activity.models.PatrolType.objects.all_sort()
+
+    def to_representation(self, value):
+        return value.value if value else None
+
+    def to_internal_value(self, data):
+        if data:
+            try:
+                return activity.models.PatrolType.objects.get_by_value(data)
+            except activity.models.EventType.DoesNotExist:
+                raise serializers.ValidationError(f'patrol_type: {data} does not exist')
+
+    @property
+    def choices(self):
+        return OrderedDict(((row.value, row.display)
+                            for row in self.get_queryset()))
+
+
 class PatrolSegmentSerializer(BaseSerializer):
     patrol = PatrolSerializer(required=False, excludes=['patrol_segments', 'files', 'notes', 'serial_number',
                                                         'updates', 'objective', 'created_at', 'updated_at'])
-    patrol_type = PatrolTypeSerializer(required=False)
+    patrol_type = PatrolTypeRelatedField(required=False)
     state = state_choices_serializer
     leader = LeaderRelatedField(required=False, allow_null=True)
     scheduled_start = DateTimeField(required=False)
@@ -100,21 +122,11 @@ class PatrolSegmentSerializer(BaseSerializer):
 
     def create(self, validated_data):
         patrol = validated_data.get('patrol')
-        patrol_type = validated_data.get('patrol_type')
 
         if patrol:
             patrol_o = Patrol.objects.create(**patrol)
             validated_data['patrol_id'] = patrol_o.id
             validated_data.pop('patrol')
-
-        if patrol_type:
-            value = patrol_type.get('value')
-            if activity.models.PatrolType.objects.filter(value=value).exists():
-                raise serializers.ValidationError('IntegrityError: duplicate key value violates unique constraint.')
-
-            patroltype_o = activity.models.PatrolType.objects.create(**patrol_type)
-            validated_data['patrol_type_id'] = patroltype_o.id
-            validated_data.pop('patrol_type')
 
         return activity.models.PatrolSegment.objects.create(**validated_data)
 
