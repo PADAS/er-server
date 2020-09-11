@@ -1,13 +1,17 @@
 import logging
+import math
+import re
+from base64 import b64encode
 from datetime import datetime, timezone
 
+import requests
+from django.conf import settings
+from django.core.cache import cache
 from rest_framework import serializers, status
 from rest_framework.response import Response
 
 from observations.models import Observation, Source
 from observations.serializers import ObservationSerializer
-
-from .sigfox_utils import SigfoxParser, SigfoxV2
 
 logger = logging.getLogger(__name__)
 
@@ -31,30 +35,40 @@ class PayloadValidator(serializers.Serializer):
 
 
 class SigfoxFoundationPushHandler:
-    SENSOR_TYPE = 'sff-tracker'
-    SENSOR_TYPE_V2 = 'sff-tracker-v2'
-    DEFAULT_SUBJECT_SUBTYPE = 'wildlife'
     serializer_class = PayloadValidator
+    DEFAULT_SUBJECT_SUBTYPE = 'wildlife'
+
+    BYTE_PATTERN = '.{1,2}'
+    byte_re = re.compile(BYTE_PATTERN)
+    cache_timeout = 300  # 5 minutes
 
     @classmethod
-    def post(cls, request, provider_key, version):
-        sigfox_data = PayloadValidator(data=request.data)
-        if sigfox_data.is_valid():
-            validated_data = sigfox_data.validated_data
-            if validated_data.get('data'):
-                return cls.process_data_uplink(validated_data, provider_key, version)
-            elif validated_data.get('computedLocation'):
-                return Response(data=dict(message='Message received'), status=status.HTTP_200_OK)
-        return Response(data=sigfox_data.errors, status=status.HTTP_400_BAD_REQUEST)
+    def _to_binary_string(cls, payload):
+        payload_bytes = cls.byte_re.findall(payload)
 
-    @classmethod
-    def process_data_uplink(cls, payload, provider_key, version):
-        device_id = payload.get('deviceId')
-        if version == 1:
-            parsed_data = SigfoxPayloadParserV1.parse(payload)
+        if payload_bytes:
+            payload_binary_string = ''
+            for each_byte in payload_bytes:
+                try:
+                    as_hex = int(each_byte, 16)
+                except ValueError:
+                    raise ParseException(f'Illegal hex value: {each_byte}')
+                else:
+                    # logger.debug('%x ' % as_hex)
+                    as_binary = bin(as_hex).replace('0b', '')
+                    while len(as_binary) < 8:
+                        as_binary = '0' + as_binary
+
+                    # logger.debug(as_binary)
+                    payload_binary_string += as_binary
+            # logger.debug(payload_binary_string)
+            return payload_binary_string
         else:
-            components, mode_display, device_position = SigfoxV2.process_sigfox_tracks(payload)
-            parsed_data = SigfoxPayloadParserV2.parse(components, mode_display, device_position)
+            raise ParseException('byte_re did not find any bytes')
+
+    @classmethod
+    def process_data_uplink(cls, payload, provider_key, parsed_data):
+        device_id = payload.get('deviceId')
         if parsed_data:
             src = Source.objects.ensure_source(provider=provider_key,
                                                manufacturer_id=device_id,
@@ -97,26 +111,238 @@ class SigfoxFoundationPushHandler:
         return Response(data=dict(message='Unable to parse data'), status=status.HTTP_400_BAD_REQUEST)
 
 
+    @classmethod
+    def _get_components(cls, binary_string, sigfox_payload_re):
+        parsed_payload = sigfox_payload_re.findall(binary_string)
+        if parsed_payload:
+            return parsed_payload[0]
+        else:
+            raise ParseException('sigfox_payload_re did not find any sigfox components in binary string')
+
+
+class SigfoxV1Handler(SigfoxFoundationPushHandler):
+    SENSOR_TYPE = 'sff-tracker'
+    SIGFOX_PAYLOAD_PATTERN = '(.)(.{31})(.)(.{31})(.{2})(.{2})(.{4})(.{4})(.{4})(.{8})(.{8})'
+    sigfox_payload_re = re.compile(SIGFOX_PAYLOAD_PATTERN)
+
+    @classmethod
+    def post(cls, request, provider_key):
+        sigfox_data = PayloadValidator(data=request.data)
+        if sigfox_data.is_valid():
+            validated_data = sigfox_data.validated_data
+            if validated_data.get('data'):
+                components = cls.process_sigfox_tracks(validated_data)
+                parsed_data = SigfoxPayloadParserV1.parse(components)
+                return cls.process_data_uplink(validated_data, provider_key, parsed_data)
+            elif validated_data.get('computedLocation'):
+                return Response(data=dict(message='Message received'), status=status.HTTP_200_OK)
+        return Response(data=sigfox_data.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @classmethod
+    def process_sigfox_tracks(cls, payload):
+        data = payload.pop('data')
+        if len(data) != 24:
+            logger.info("Invalid payload, processing enabled for only 24 bit data")
+        try:
+            bin_string = cls._to_binary_string(data)
+            components = cls._get_components(bin_string, cls.sigfox_payload_re)
+            return components
+        except Exception as ex:
+            logger.exception(ex)
+
+
+class SigfoxV2Handler(SigfoxFoundationPushHandler):
+    SENSOR_TYPE = 'sff-tracker-v2'
+    GPS_TRACK, UBI_TRACK = 1, 2
+
+    GPS_PATTERN = '(.{3})(.{5})(.)(.)(.{6})(.)(.{31})(.)(.{31})'
+    UBI_PATTERN = '(.{3})(.{5})(.)(.)(.{6})(.{20})'
+
+    gps_payload_re = re.compile(GPS_PATTERN)
+    ubi_payload_re = re.compile(UBI_PATTERN)
+
+    @classmethod
+    def post(cls, request, provider_key):
+        sigfox_data = PayloadValidator(data=request.data)
+        if sigfox_data.is_valid():
+            validated_data = sigfox_data.validated_data
+            if validated_data.get('data'):
+                components, mode_display, device_position = cls.process_sigfox_tracks(validated_data)
+                parsed_data = SigfoxPayloadParserV2.parse(components, mode_display, device_position)
+                return cls.process_data_uplink(validated_data, provider_key, parsed_data)
+        return Response(data=sigfox_data.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+    @classmethod
+    def get_ubi_credentials(cls):
+        ubi_creds = settings.UBI_API_CREDENTIALS
+        credentials = f"{ubi_creds.get('username')}:{ubi_creds.get('password')}"
+        encoded_credentials = str(b64encode(credentials.encode("utf-8")), "utf-8")
+        return encoded_credentials
+
+    @classmethod
+    def get_position_from_ubi(cls, device_id, data, latitude, longitude, time):
+        ubi_api_url = settings.UBI_API_URL
+        ubiscale_payload = {
+            "network": "sigfox",
+            "device": device_id,
+            "data": data,
+            "time": time,
+            "lat": latitude,
+            "lng": longitude
+        }
+        credentials = cls.get_ubi_credentials()
+        headers = {'Content-Type': 'application/json', 'Authorization': f'Basic {credentials}'}
+        try:
+            response = requests.post(url=ubi_api_url, headers=headers, json=ubiscale_payload)
+        except requests.exceptions.RequestException as e:
+            logger.exception(e)
+            return
+
+        if response.status_code != 200:
+            logger.warning("Error when retrieving device position: ", response.text)
+            return
+        else:
+            return response.json()
+
+    @classmethod
+    def prepare_data(cls, data):
+        mode, mode_display, components, payload_re = None, None, None, None
+        try:
+            bin_string = cls._to_binary_string(data)
+            mode, mode_display = cls.evaluate_mode(bin_string[:3])
+            if mode == cls.GPS_TRACK:
+                payload_re = cls.gps_payload_re
+            elif mode == cls.UBI_TRACK:
+                payload_re = cls.ubi_payload_re
+            components = cls._get_components(bin_string, payload_re) if payload_re else None
+        except Exception as exc:
+            logger.exception(exc)
+
+        return mode, mode_display, components
+
+    @classmethod
+    def cache_gps_data(cls, components, device_id, seq_no, key):
+        latitude = SigfoxParser._parse_coordinate(components[5], components[6])
+        longitude = SigfoxParser._parse_coordinate(components[7], components[8])
+        data = {'device_id': device_id, 'seq_no': seq_no, 'latitude': latitude, 'longitude': longitude}
+        cache.set(key, data, cls.cache_timeout)
+
+    @classmethod
+    def cache_ubi_data(cls, data, device_id, seq_no, key):
+        ubi_data = {'device_id': device_id, 'seq_no': seq_no, 'data': data}
+        cache.set(key, ubi_data, cls.cache_timeout)
+
+    @classmethod
+    def process_gps_data(cls, device_id, seq_no, components, time, gps_key, ubi_key):
+        cached_ubi = cache.get(ubi_key)
+        if cached_ubi:
+            data = cached_ubi.get('data')
+            latitude = SigfoxParser._parse_coordinate(components[5], components[6])
+            longitude = SigfoxParser._parse_coordinate(components[7], components[8])
+            position = cls.get_position_from_ubi(device_id, data, latitude, longitude, time)
+            cache.set(ubi_key, None)
+            return position
+        else:
+            cls.cache_gps_data(components, device_id, seq_no, gps_key)
+
+    @classmethod
+    def process_ubi_data(cls, payload, device_id, seq_no, components, time, gps_key, ubi_key):
+        cached_gps = cache.get(gps_key)
+        data = payload.get('data')[4:24]
+        if cached_gps:
+            latitude = cached_gps.get('latitude')
+            longitude = cached_gps.get('longitude')
+            position = cls.get_position_from_ubi(device_id, data, latitude, longitude, time)
+            cache.set(gps_key, None)
+            return position
+        else:
+            cls.cache_ubi_data(data, device_id, seq_no, ubi_key)
+
+    @classmethod
+    def cache_and_process_position(cls, payload, components, mode):
+        device_id, device_position = payload.pop('deviceId'), None
+        seq_no = payload.pop('seqNumber')
+        time = payload.pop('time')
+        gps_key = f'gps_track_record:{device_id}-{seq_no}'
+        ubi_key = f'ubi_track_record:{device_id}-{seq_no}'
+
+        if mode == cls.GPS_TRACK:
+            device_position = cls.process_gps_data(device_id, seq_no, components, time, gps_key, ubi_key)
+        elif mode == cls.UBI_TRACK:
+            device_position = cls.process_ubi_data(payload, device_id, seq_no, components, time, gps_key, ubi_key)
+        if not device_position:
+            logger.info('No position returned from UBI')
+        return device_position
+
+
+    @classmethod
+    def evaluate_mode(cls, bits):
+        value, display = int(bits, 2), None
+        if value == cls.GPS_TRACK:
+            display = 'Tracking GPS'
+        elif value == cls.UBI_TRACK:
+            display = 'Tracking Ubiscale'
+        else:
+            logger.debug("skipping setup, boot/reboot and unknown modes")
+        return value, display
+
+    @classmethod
+    def get_mode_and_components(cls, payload):
+        data = payload.get('data')
+        if len(data) == 2 or len(data) == 4:
+            logger.info("skipping Boot/Reboot and Sigfox geolocation data")
+            return
+        mode_value, mode_display, components = cls.prepare_data(data)
+        if not mode_value:
+            logger.info("Error when preparing data, only gps and ubiscale modes allowed")
+
+        if not components:
+            logger.info("Error when preparing data, Missing components in binary string ")
+
+        logger.info(f'sigfox version 2, mode: {mode_display}, parsed components: {components}')
+        return components, mode_value, mode_display
+
+    @classmethod
+    def process_sigfox_tracks(cls, payload):
+        components, mode, mode_display = cls.get_mode_and_components(payload)
+        device_position = cls.cache_and_process_position(payload, components, mode)
+        return components, mode_display, device_position
+
+
+class SigfoxParser:
+    @classmethod
+    def _parse_coordinate(cls, sign_bit, coordinate_bits):
+        multiplier = -1 if sign_bit == '1' else 1
+        return multiplier * cls.get_decimal_coordinate(int(coordinate_bits, 2) / math.pow(10, 6))
+
+    @staticmethod
+    def get_decimal_coordinate(payload_component):
+        degrees = math.floor(payload_component)
+        minutes = payload_component % 1 / 60 * 100
+        minutes = round(minutes * 1000000) / 1000000
+        return degrees + minutes
+
+    @staticmethod
+    def _parse_gps_acq_time(bits):
+        return int(bits, 2) * 5
+
+    @staticmethod
+    def _parse_battery_volts(bits, version=1):
+        if version == 1:
+            battery = int(bits, 2) * 15 / 1000
+        else:  # version 2
+            battery = (int(bits, 2) * 75 + 2000) / 1000
+        return battery
+
+
 class SigfoxPayloadParserV1(SigfoxParser):
 
     # look at the rhinosparser.txt linked in the JIRA ticket for a javascript example
     # https://vulcan.atlassian.net/browse/DAS-4392
-
-    SIGFOX_PAYLOAD_PATTERN = '(.)(.{31})(.)(.{31})(.{2})(.{2})(.{4})(.{4})(.{4})(.{8})(.{8})'
-
     @classmethod
-    def parse(cls, payload):
-        data = payload.pop('data')
-        if len(data) != 24:
-            logger.info("Invalid payload, processing enabled for only 24 bit data")
-            return
-        try:
-            bin_string = cls._to_binary_string(data)
-            components = cls._get_components(bin_string, cls.SIGFOX_PAYLOAD_PATTERN)
-        except Exception as ex:
-            logger.exception(ex)
-            return
-        else:
+    def parse(cls, components):
+        if components:
             logger.debug('parsed components', components)
             return {
                 'latitude': cls._parse_coordinate(components[0], components[1]),
@@ -158,6 +384,7 @@ class SigfoxPayloadParserV1(SigfoxParser):
     def _parse_alert(bits):
         return int(bits, 2)
 
+
 class SigfoxPayloadParserV2(SigfoxParser):
     # Decoding described in parserTektos.docx attached in the below ticket
     # https://vulcan.atlassian.net/browse/DAS-5294
@@ -186,3 +413,7 @@ class SigfoxPayloadParserV2(SigfoxParser):
     def _parse_state(bit):
         state = 'Acquisition GPS successful' if bit == 0 else 'Acquisition GPS failed'
         return state
+
+
+class ParseException(Exception):
+    pass

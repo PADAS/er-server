@@ -14,7 +14,7 @@ from sensors.handlers import (DasRadioAgentHandler, EzyTrackHandler,
                               GsatHandler, InreachPushHandler,
                               SigFoxPushHandler, SkylineVehicleTrackerHandler,
                               TestHandler, TractVehicleHandler)
-from sensors.sigfox_foundation_push_handler import SigfoxFoundationPushHandler
+from sensors.sigfox_foundation_push_handler import SigfoxV1Handler, SigfoxV2Handler
 from utils.drf import AllowAnyGet
 from utils.json import JSONTextParser
 from utils.stats import increment
@@ -122,12 +122,19 @@ class GFWAlertHandlerView(BaseSensorsView):
 
 
 class SigfoxFoundationHandlerView(BaseSensorsView):
-    serializer_class = SigfoxFoundationPushHandler.serializer_class
+    serializer_class = SigfoxV1Handler.serializer_class
 
     def post(self, request, provider_key=None):
         """ Add Sigfox Foundation Observations """
-        version = 2 if 'sff-tracker-v2' in request.path else 1
-        return SigfoxFoundationPushHandler.post(request, provider_key, version)
+        return SigfoxV1Handler.post(request, provider_key)
+
+
+class SigfoxV2FoundationHandlerView(BaseSensorsView):
+    serializer_class = SigfoxV2Handler.serializer_class
+
+    def post(self, request, provider_key=None):
+        """ Add Sigfox V2 Foundation Observations """
+        return SigfoxV2Handler.post(request, provider_key)
 
 class GateHandlerView(BaseSensorsView):
     serializer_class = None
