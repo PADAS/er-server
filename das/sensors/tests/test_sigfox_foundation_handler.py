@@ -118,7 +118,7 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
 
     def _verify_data_uplink_rsp(self, observation, test_data, parser=SigfoxPayloadParserV1):
         self.assertIsNotNone(observation)
-        components = SigfoxV1Handler.process_sigfox_tracks(test_data)
+        components = SigfoxV1Handler.process_sigfoxv1_data(test_data)
         parsed_data = SigfoxPayloadParserV1.parse(components)
         self.assertIsNotNone(parsed_data)
         location = Point(parsed_data['longitude'], parsed_data['latitude'])

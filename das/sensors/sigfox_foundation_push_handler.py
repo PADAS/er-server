@@ -122,6 +122,7 @@ class SigfoxFoundationPushHandler:
 
 class SigfoxV1Handler(SigfoxFoundationPushHandler):
     SENSOR_TYPE = 'sff-tracker'
+    V1_UPLINK_PAYLOAD_LENGTH = 24
     SIGFOX_PAYLOAD_PATTERN = '(.)(.{31})(.)(.{31})(.{2})(.{2})(.{4})(.{4})(.{4})(.{8})(.{8})'
     sigfox_payload_re = re.compile(SIGFOX_PAYLOAD_PATTERN)
 
@@ -131,18 +132,22 @@ class SigfoxV1Handler(SigfoxFoundationPushHandler):
         if sigfox_data.is_valid():
             validated_data = sigfox_data.validated_data
             if validated_data.get('data'):
-                components = cls.process_sigfox_tracks(validated_data)
+                components = cls.process_sigfoxv1_data(validated_data)
                 parsed_data = SigfoxPayloadParserV1.parse(components)
                 return cls.process_data_uplink(validated_data, provider_key, parsed_data)
             elif validated_data.get('computedLocation'):
+                logger.info('Ignoring data advanced payload')
                 return Response(data=dict(message='Message received'), status=status.HTTP_200_OK)
+
+            logger.warning(f"SigfoxV1Handler bad request: {request.data}")
         return Response(data=sigfox_data.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @classmethod
-    def process_sigfox_tracks(cls, payload):
-        data = payload.pop('data')
-        if len(data) != 24:
-            logger.info("Invalid payload, processing enabled for only 24 bit data")
+    def process_sigfoxv1_data(cls, validated_data):
+        data = validated_data.pop('data')
+        if len(data) != V1_UPLINK_PAYLOAD_LENGTH:
+            logger.info(f"SigfoxV1Handler ignoring payload {data} of length {len(data)}")
+            return
         try:
             bin_string = cls._to_binary_string(data)
             components = cls._get_components(bin_string, cls.sigfox_payload_re)
@@ -170,6 +175,8 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
                 components, mode_display, device_position = cls.process_sigfox_tracks(validated_data)
                 parsed_data = SigfoxPayloadParserV2.parse(components, mode_display, device_position)
                 return cls.process_data_uplink(validated_data, provider_key, parsed_data)
+
+            logger.warning(f"SigfoxV2Handler bad request: {request.data}")
         return Response(data=sigfox_data.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
