@@ -38,19 +38,6 @@ class CustomSchema(AutoSchema):
         else:
             return self.view.__class__
 
-    def _map_field(self, field):
-        if isinstance(field, serializers.SerializerMethodField):
-            attrs = field._kwargs
-            serializer, many = attrs.get('serializer'), attrs.get('many')
-            if serializer:
-                data = self._map_serializer(locate(serializer)())
-                data = [data.get('properties').pop(property, 0) for property in attrs.get('excludes')]
-                if many:
-                    return {'type': 'array', 'items': data}
-                else:
-                    data['type'] = 'object'
-                    return data
-        return super()._map_field(field)
 
     def _get_operation_id(self, path, method):
         # Patch get_serializer_class to use views class if no serializer class is defined
@@ -92,6 +79,19 @@ class CustomSchema(AutoSchema):
                 'properties': {'start_time': {'type': 'string', 'format': 'date-time'},
                                'end_time': {'type': 'string', 'format': 'date-time'}}
             }
+
+        if isinstance(field, serializers.SerializerMethodField):
+            attrs = field._kwargs
+            serializer, many = attrs.get('serializer'), attrs.get('many')
+            if serializer:
+                data = self._map_serializer(locate(serializer)())
+                for item in attrs.get('excludes'):
+                    data.get('properties').pop(item)
+                if many:
+                    return {'type': 'array', 'items': data}
+                else:
+                    data['type'] = 'object'
+                    return data
         return super()._map_field(field)
 
 
