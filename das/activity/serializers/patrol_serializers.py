@@ -7,7 +7,7 @@ import utils
 from activity.models import PATROL_STATE_CHOICES, PC_ACTIVE, PRI_NONE, PRIORITY_CHOICES
 from activity.models import Patrol
 from activity.serializers import PatrolTypeSerializer, AlertRuleSerializer, EventSourceSerializer
-from activity.serializers import fields
+from activity.serializers import fields, ReportedByRelatedField
 from activity.serializers.base import BaseSerializer, RevisionMixin, TimestampMixin
 from activity.serializers.fields import choicefield_serializer, text_field, SerializerMethodField
 from observations.serializers import SourceSerializer
@@ -44,7 +44,7 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
     )
     state = state_choices_serializer
     title = serializers.CharField(required=False, allow_blank=True, max_length=255)
-    time_range = fields.DateTimeRangeField(required=False, allow_null=True)
+    time_range = fields.DateTimeRangeField(required=False)
 
     files = PatrolFileSerializer(many=True, required=False, read_only=True)
     notes = PatrolNoteSerializer(many=True, required=False, read_only=True)
@@ -62,12 +62,22 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
         ]
 
 
+class LeaderRelatedField(ReportedByRelatedField):
+    def get_object_queryset(self):
+        for p in activity.models.PROVENANCE_CHOICES:
+            provenance = p[0]
+            values = list(
+                activity.models.PatrolSegment.objects.get_leader_for_provenance(provenance))
+            if values:
+                yield provenance, values
+
+
 class PatrolSegmentSerializer(BaseSerializer):
     patrol = PatrolSerializer(required=False, excludes=['patrol_segments', 'files', 'notes', 'serial_number',
                                                         'updates', 'objective', 'created_at', 'updated_at'])
     patrol_type = PatrolTypeSerializer(required=False)
     state = state_choices_serializer
-    sources = SourceSerializer(required=False, allow_null=True)
+    leader = LeaderRelatedField(required=False, allow_null=True)
     scheduled_start = DateTimeField(required=False)
     time_range = fields.DateTimeRangeField(required=False)
     start_location = PointField(required=False, allow_null=True,
