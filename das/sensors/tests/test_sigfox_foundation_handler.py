@@ -6,9 +6,9 @@ from django.contrib.gis.geos import Point
 
 from core.tests import BaseAPITest
 from observations.models import Observation, Source, Subject
-from sensors.sigfox_foundation_push_handler import SigfoxFoundationPushHandler, SigfoxPayloadParserV1, SigfoxPayloadParserV2
+from sensors.sigfox_foundation_push_handler import SigfoxFoundationPushHandler, SigfoxPayloadParserV1, SigfoxPayloadParserV2, SigfoxV1Handler
 from sensors.tests.sigfox_foundation_test_data import DATA_PAIRS, V2_DATA_PAIRS
-from sensors.views import SigfoxFoundationHandlerView
+from sensors.views import SigfoxFoundationHandlerView, SigfoxV2FoundationHandlerView
 from django.urls import reverse
 
 class SigfoxFoundationHandlerTest(BaseAPITest):
@@ -43,9 +43,9 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
             self._verify_data_uplink_rsp(observation, data_uplink)
 
     def test_sigfox_data_upload_v2_with_gpx_and_ubiscale_payload(self):
-        for test_data in V2_DATA_PAIRS:
-            device_id = test_data['deviceId']
-            rsp = self._post_data(json.dumps(test_data), version=2)
+        for data_uplink in V2_DATA_PAIRS:
+            device_id = data_uplink['deviceId']
+            rsp = self._post_data(json.dumps(data_uplink), self.api_path_v2, SigfoxV2FoundationHandlerView)
         
         # self.assertIsNotNone(rsp)
         # self.assertEqual(rsp.status_code, status.HTTP_201_CREATED)
@@ -118,7 +118,8 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
 
     def _verify_data_uplink_rsp(self, observation, test_data, parser=SigfoxPayloadParserV1):
         self.assertIsNotNone(observation)
-        parsed_data = parser.parse(test_data['data'], test_data['deviceId'])
+        components = SigfoxV1Handler.process_sigfox_tracks(test_data)
+        parsed_data = SigfoxPayloadParserV1.parse(components)
         self.assertIsNotNone(parsed_data)
         location = Point(parsed_data['longitude'], parsed_data['latitude'])
         self.assertEqual(observation.source.manufacturer_id, test_data['deviceId'])
@@ -126,9 +127,9 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
         self.assertEqual(observation.additional['reception'], test_data['reception'])
         self.assertEqual(observation.additional['seqNumber'], test_data['seqNumber'])
 
-    def _post_data(self, payload, version=1):
-        url = self.api_path if version == 1 else self.api_path_v2
+    def _post_data(self, payload, path=None, view=SigfoxFoundationHandlerView):
+        url = path if path else self.api_path
         request = self.factory.post(url, data=payload, content_type='application/json')
         self.force_authenticate(request, self.app_user)
-        response = SigfoxFoundationHandlerView.as_view()(request, self.PROVIDER_KEY)
+        response = view.as_view()(request, self.PROVIDER_KEY)
         return response
