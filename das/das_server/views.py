@@ -38,7 +38,6 @@ class CustomSchema(AutoSchema):
         else:
             return self.view.__class__
 
-
     def _get_operation_id(self, path, method):
         # Patch get_serializer_class to use views class if no serializer class is defined
         if hasattr(self.view, 'get_serializer_class'):
@@ -66,6 +65,7 @@ class CustomSchema(AutoSchema):
     def _map_field(self, field):
         from drf_extra_fields.geo_fields import PointField
         from activity.serializers.fields import DateTimeRangeField
+        from activity.serializers.patrol_serializers import PatrolList
 
         if isinstance(field, PointField):
             return {
@@ -80,18 +80,14 @@ class CustomSchema(AutoSchema):
                                'end_time': {'type': 'string', 'format': 'date-time'}}
             }
 
-        if isinstance(field, serializers.SerializerMethodField):
-            attrs = field._kwargs
-            serializer, many = attrs.get('serializer'), attrs.get('many')
-            if serializer:
-                data = self._map_serializer(locate(serializer)())
-                for item in attrs.get('excludes'):
-                    data.get('properties').pop(item)
-                if many:
-                    return {'type': 'array', 'items': data}
-                else:
-                    data['type'] = 'object'
-                    return data
+        if isinstance(field, PatrolList):
+            return {
+                'type': 'object',
+                "properties": {
+                    "id": {"type": "string", "format": "uuid", "readOnly": True},
+                    "title": {"type": "string", "maxLength": 255}
+                }
+            }
         return super()._map_field(field)
 
 
@@ -154,7 +150,7 @@ class StatusView(generics.RetrieveAPIView):
         resp['site_name'] = get_site_name()
         resp['eula_enabled'] = settings.ACCEPT_EULA
         resp['patrol_enabled'] = settings.PATROL_ENABLED
-        
+
         if self.get_support_settings():
             resp['eus_settings'] = self.get_support_settings()
 
