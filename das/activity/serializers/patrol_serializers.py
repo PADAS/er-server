@@ -6,7 +6,7 @@ from collections import OrderedDict
 import activity.models
 import utils
 from activity.models import PATROL_STATE_CHOICES, PC_ACTIVE, PRI_NONE, PRIORITY_CHOICES
-from activity.models import Patrol, PatrolNote
+from activity.models import Patrol, PatrolNote, PatrolSegment
 from activity.serializers import AlertRuleSerializer, EventSourceSerializer
 from activity.serializers import fields, ReportedByRelatedField
 from activity.serializers.base import BaseSerializer, RevisionMixin, TimestampMixin
@@ -32,40 +32,6 @@ class PatrolNoteSerializer(BaseSerializer):
     text = text_field()
     created_by_user = serializers.HiddenField(default=serializers.CurrentUserDefault())
 
-
-class PatrolSerializer(BaseSerializer, TimestampMixin):
-    """Serializer class for a Patrol"""
-
-    objective = text_field(required=False, allow_blank=True)
-    priority = priority_choices_serializer
-    serial_number = serializers.IntegerField(
-        allow_null=True, required=False,
-        validators=[validators.UniqueValidator(queryset=Patrol.objects.all())]
-    )
-    state = state_choices_serializer
-    title = serializers.CharField(required=False, allow_blank=True, max_length=255)
-    time_range = fields.DateTimeRangeField(required=False)
-
-    files = PatrolFileSerializer(many=True, required=False, read_only=True)
-    notes = PatrolNoteSerializer(many=True, required=False)
-    patrol_segments = SerializerMethodField(
-        method_name='get_patrol_segments', many=True, excludes=["patrol"],
-        serializer=f'{serializers_path}.PatrolSegmentSerializer')
-
-    def create(self, validated_data):
-        patrol_notes = validated_data.pop('notes', [])
-        new_patrol = Patrol.objects.create(**validated_data)
-        for note in patrol_notes:
-            note = copy.deepcopy(note)
-            note['patrol_id'] = new_patrol.id
-            PatrolNote.objects.create(**note)
-        return Patrol.objects.get(id=new_patrol.id)
-
-    def get_patrol_segments(self, obj):
-        return [
-            PatrolSegmentSerializer(instance=x, excludes=["patrol"]).data
-            for x in obj.patrol_segments.all()
-        ]
 
 
 class LeaderRelatedField(ReportedByRelatedField):
@@ -100,8 +66,6 @@ class PatrolTypeRelatedField(serializers.RelatedField):
 
 
 class PatrolSegmentSerializer(BaseSerializer):
-    patrol = PatrolSerializer(required=False, excludes=['patrol_segments', 'files', 'notes', 'serial_number',
-                                                        'updates', 'objective', 'created_at', 'updated_at'])
     patrol_type = PatrolTypeRelatedField(required=False)
     state = state_choices_serializer
     leader = LeaderRelatedField(required=False, allow_null=True)
@@ -123,6 +87,14 @@ class PatrolSegmentSerializer(BaseSerializer):
             image_url = self.resolve_image_url(instance)
             rep['image_url'] = utils.add_base_url(request, image_url)
         rep['patrol_type'] = str(instance.patrol_type.id) if instance.patrol_type else None
+        if instance.patrol:
+            rep['patrol'] = PatrolSerializer(
+                instance=instance.patrol,
+                excludes=[
+                    'patrol', 'patrol_segments', 'files', 'notes', 'serial_number',
+                    'updates', 'objective', 'created_at', 'updated_at']).data
+        else:
+            rep['patrol'] = None
         return rep
 
     def create(self, validated_data):
@@ -135,6 +107,42 @@ class PatrolSegmentSerializer(BaseSerializer):
 
         return activity.models.PatrolSegment.objects.create(**validated_data)
 
+
+class PatrolSerializer(BaseSerializer, TimestampMixin):
+    """Serializer class for a Patrol"""
+
+    objective = text_field(required=False, allow_blank=True)
+    priority = priority_choices_serializer
+    serial_number = serializers.IntegerField(
+        allow_null=True, required=False,
+        validators=[validators.UniqueValidator(queryset=Patrol.objects.all())]
+    )
+    state = state_choices_serializer
+    title = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    time_range = fields.DateTimeRangeField(required=False)
+
+    files = PatrolFileSerializer(many=True, required=False, read_only=True)
+    notes = PatrolNoteSerializer(many=True, required=False)
+    patrol_segments = PatrolSegmentSerializer(many=True, required=False, excludes='patrol')
+
+    def create(self, validated_data):
+        patrol_notes = validated_data.pop('notes', [])
+        patrol_segments = validated_data.pop('patrol_segments', [])
+        new_patrol = Patrol.objects.create(**validated_data)
+        for note in patrol_notes:
+            note = copy.deepcopy(note)
+            note['patrol_id'] = new_patrol.id
+            PatrolNote.objects.create(**note)
+
+        for segment in patrol_segments:
+            segment = copy.deepcopy(segment)
+            segment['patrol_id'] = new_patrol.id
+            PatrolSegment.objects.create(**segment)
+
+        return Patrol.objects.get(id=new_patrol.id)
+
+    def get_patrol_segments(self, obj):
+        return 'kezzy'
 
 class PatrolTemplateSerializer(BaseSerializer):
     title = serializers.CharField()
