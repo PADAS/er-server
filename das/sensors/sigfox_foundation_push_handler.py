@@ -30,7 +30,7 @@ class PayloadValidator(serializers.Serializer):
     seqNumber = serializers.IntegerField()
     data = serializers.CharField(min_length=2, required=False)
     computedLocation = ComputedLocation(required=False)
-    duplicate = serializers.BooleanField(required=False)
+    duplicate = serializers.NullBooleanField(required=False)
     reception = serializers.ListField(required=False)
 
 

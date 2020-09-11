@@ -18,7 +18,6 @@ from utils.spatial import GeometryMapper
 geometry_mapper = GeometryMapper()
 
 logger = logging.getLogger(__name__)
-MAPPING_FEATURES_V2 = getattr(settings, 'MAPPING_FEATURES_V2', False)
 SPATIAL_FILES_FOLDER = getattr(settings, 'SPATIAL_FILES_FOLDER', 'mapping/spatialfiles')
 
 
@@ -264,7 +263,10 @@ def import_layer(layer, spatialfile):
 
     has_unique_keys = contains_unique_keys_in_layer(spatialfile.id_field, spatialfile.name_field, layer)
     for i, feature in enumerate(layer):
-        load_layer(layer, feature, i, spatialfile, has_unique_keys)
+        if feature.geom.empty:
+            continue
+        else:
+            load_layer(layer, feature, i, spatialfile, has_unique_keys)
 
 
 def load_layer(layer, feature, i, spatialfile, has_unique_keys):

@@ -2,7 +2,6 @@ import logging
 import json
 
 from django.conf import settings
-settings.MAPPING_FEATURES_V2 = True
 
 from django.contrib.gis.geos import Point
 from faker import Faker

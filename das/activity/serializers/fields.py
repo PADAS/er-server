@@ -1,6 +1,9 @@
 import jsonschema
 from rest_framework import serializers
-from rest_framework.fields import empty
+from rest_framework.fields import empty, DateTimeField
+from rest_framework.utils import html
+from drf_extra_fields.compat import DateTimeTZRange
+from drf_extra_fields.fields import RangeField
 
 
 class CoordinateField(serializers.Field):
@@ -40,3 +43,40 @@ def choicefield_serializer(choices, default=empty, **kwargs):
 def text_field(**kwargs):
     style = kwargs.pop('style', {'base_template': 'textarea.html'})
     return serializers.CharField(style=style, **kwargs)
+
+
+class SerializerMethodField(serializers.SerializerMethodField):
+    def __init__(self, method_name=None, many=False, excludes=[], serializer=None, **kwargs):
+        self.many = many
+        self.excludes = excludes
+        self.serializer = serializer
+        super().__init__(method_name, **kwargs)
+        
+class _RangeField(RangeField):
+
+    def to_internal_value(self, data):
+        if html.is_html_input(data):
+            data = html.parse_html_dict(data)
+        if not isinstance(data, dict):
+            self.fail('not_a_dict', input_type=type(data).__name__)
+
+        lower, upper = data.get('start_time'), data.get('end_time')
+        data = {'lower': lower, 'upper': upper}
+        return super().to_internal_value(data)
+
+    def to_representation(self, value):
+        """
+        Range instances -> dicts of primitive datatypes.
+        """
+        if value.isempty:
+            return {'empty': True}
+        lower = self.child.to_representation(value.lower) if value.lower is not None else None
+        upper = self.child.to_representation(value.upper) if value.upper is not None else None
+        return {'start_time': lower,
+                'end_time': upper
+                }
+
+
+class DateTimeRangeField(_RangeField):
+    child = DateTimeField()
+    range_type = DateTimeTZRange

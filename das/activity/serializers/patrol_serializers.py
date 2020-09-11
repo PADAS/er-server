@@ -1,6 +1,3 @@
-from abc import ABC
-
-from drf_extra_fields.fields import DateTimeRangeField
 from drf_extra_fields.geo_fields import PointField
 from rest_framework import serializers, validators
 from rest_framework.fields import DateTimeField
@@ -10,14 +7,15 @@ import utils
 from activity.models import PATROL_STATE_CHOICES, PC_ACTIVE, PRI_NONE, PRIORITY_CHOICES
 from activity.models import Patrol
 from activity.serializers import PatrolTypeSerializer, AlertRuleSerializer, EventSourceSerializer
+from activity.serializers import fields
 from activity.serializers.base import BaseSerializer, RevisionMixin, TimestampMixin
-from activity.serializers.fields import choicefield_serializer, text_field
+from activity.serializers.fields import choicefield_serializer, text_field, SerializerMethodField
 from observations.serializers import SourceSerializer
 from utils.drf import PointValidator
-
 priority_choices_serializer = choicefield_serializer(PRIORITY_CHOICES, default=PRI_NONE)
 state_choices_serializer = choicefield_serializer(PATROL_STATE_CHOICES, default=PC_ACTIVE)
 
+serializers_path = 'activity.serializers.patrol_serializers'
 
 class PatrolFileSerializer(BaseSerializer, RevisionMixin):
     """Serializer class for a PatrolFile"""
@@ -29,50 +27,39 @@ class PatrolFileSerializer(BaseSerializer, RevisionMixin):
     ordernum = serializers.CharField()
 
 
+class PatrolNoteSerializer(BaseSerializer, RevisionMixin):
+    text = text_field()
+    created_by_user = serializers.HiddenField(
+        default=serializers.CurrentUserDefault()
+    )
+
 class PatrolSerializer(BaseSerializer, TimestampMixin):
     """Serializer class for a Patrol"""
 
-    objective = text_field(allow_blank=True)
+    objective = text_field(required=False)
     priority = priority_choices_serializer
     serial_number = serializers.IntegerField(
         allow_null=True, required=False,
         validators=[validators.UniqueValidator(queryset=Patrol.objects.all())]
     )
     state = state_choices_serializer
-    title = serializers.CharField(allow_blank=True, max_length=255)
+    title = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    time_range = fields.DateTimeRangeField(required=False)
 
-    files = serializers.SerializerMethodField()
-    notes = serializers.SerializerMethodField()
-    patrol_segments = serializers.SerializerMethodField()
+    files = PatrolFileSerializer(many=True, required=False)
+    notes = PatrolNoteSerializer(many=True, required=False)
+    patrol_segments = SerializerMethodField(
+        method_name='get_patrol_segments', many=True, excludes=["patrol"],
+        serializer=f'{serializers_path}.PatrolSegmentSerializer')
 
     def create(self, validated_data):
         return Patrol.objects.create(**validated_data)
-
-    def get_files(self, obj):
-        return [
-            PatrolFileSerializer(instance=x, excludes=["patrol"]).data
-            for x in obj.files.all()
-        ]
-
-    def get_notes(self, obj):
-        return [
-            PatrolNoteSerializer(instance=x, excludes=["patrol"]).data
-            for x in obj.notes.all()
-        ]
 
     def get_patrol_segments(self, obj):
         return [
             PatrolSegmentSerializer(instance=x, excludes=["patrol"]).data
             for x in obj.patrol_segments.all()
         ]
-
-
-class PatrolNoteSerializer(BaseSerializer, RevisionMixin):
-    text = text_field()
-    created_by_user = serializers.HiddenField(
-        default=serializers.CurrentUserDefault()
-    )
-    patrol = PatrolSerializer(excludes=["notes"])
 
 
 class PatrolSegmentSerializer(BaseSerializer):
@@ -82,7 +69,7 @@ class PatrolSegmentSerializer(BaseSerializer):
     state = state_choices_serializer
     sources = SourceSerializer(required=False, allow_null=True)
     scheduled_start = DateTimeField(required=False)
-    time_range = DateTimeRangeField(required=False)
+    time_range = fields.DateTimeRangeField(required=False)
     start_location = PointField(required=False, allow_null=True,
                                 validators=[PointValidator()])
     end_location = PointField(required=False, allow_null=True,

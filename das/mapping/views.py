@@ -22,7 +22,6 @@ from mapping.models import PolygonFeature, LineFeature, PointFeature, FeatureSet
 from utils.json import parse_bool
 
 logger = logging.getLogger(__name__)
-MAPPING_FEATURES_V2 = getattr(settings, 'MAPPING_FEATURES_V2', False)
 
 
 class FeatureListJsonView(APIView):
@@ -33,18 +32,12 @@ class FeatureListJsonView(APIView):
     def get(self, request):
         # todo:  add api docs
         response_data = {'features': []}
-        if MAPPING_FEATURES_V2:
-            include_hidden = parse_bool(request.GET.get('include_hidden', False))
-            features = SpatialFeature.objects.all() if include_hidden else SpatialFeature.objects.filter(
-                feature_type__is_visible=True)
-        else:
-            features = list(chain(PolygonFeature.objects.all(),
-                            LineFeature.objects.all(),
-                            PointFeature.objects.all()))
+        include_hidden = parse_bool(request.GET.get('include_hidden', False))
+        features = SpatialFeature.objects.all() if include_hidden else SpatialFeature.objects.filter(
+            feature_type__is_visible=True)
 
         for feature in features:
-            type_dict = dict(name=feature.feature_type.name, id=str(feature.feature_type.id)) if MAPPING_FEATURES_V2 \
-                else dict(name=feature.type.name, id=str(feature.type.id))
+            type_dict = dict(name=feature.feature_type.name, id=str(feature.feature_type.id))
 
             response_data['features'].append({
                 'name': feature.name,
@@ -57,14 +50,9 @@ class FeatureListJsonView(APIView):
 
 class FeatureGeoJsonView(APIView):
     def get(self, request, id):
-        if MAPPING_FEATURES_V2:
-            include_hidden = parse_bool(request.GET.get('include_hidden', False))
-            selected_feature = SpatialFeature.objects.filter(id=id) if include_hidden \
-                else SpatialFeature.objects.filter(id=id).filter(feature_type__is_visible=True)
-        else:
-            selected_feature = list(chain(PolygonFeature.objects.filter(id=id),
-                                          LineFeature.objects.filter(id=id),
-                                          PointFeature.objects.filter(id=id)))
+        include_hidden = parse_bool(request.GET.get('include_hidden', False))
+        selected_feature = SpatialFeature.objects.filter(id=id) if include_hidden \
+            else SpatialFeature.objects.filter(id=id).filter(feature_type__is_visible=True)
 
         feature = serialize('geojson',
                             selected_feature,
@@ -82,18 +70,15 @@ class FeatureSetListJsonView(APIView):
 
     def get(self, request):
         def feature_types(featureset, include_hidden):
-            if MAPPING_FEATURES_V2:
-                feature_types_qs = featureset.spatialfeaturetype_set.all() if include_hidden\
-                    else featureset.spatialfeaturetype_set.filter(is_visible=True)
-            else:
-                feature_types_qs = featureset.types.all()
+            feature_types_qs = featureset.spatialfeaturetype_set.all() if include_hidden\
+                else featureset.spatialfeaturetype_set.filter(is_visible=True)
 
             for t in feature_types_qs:
                 yield dict(name=t.name, id=str(t.id), feature_count=t.feature_count)
 
         include_hidden = parse_bool(request.GET.get('include_hidden', False))
         response_data = {'features': []}
-        featuresets = DisplayCategory.objects.all() if MAPPING_FEATURES_V2 else FeatureSet.objects.all()
+        featuresets = DisplayCategory.objects.all()
 
         for featureset in featuresets:
             response_data['features'].append({
@@ -108,24 +93,16 @@ class FeatureSetListJsonView(APIView):
 
 def calculate_featureset_etag(view_instance, view_method, request, args, kwargs):
 
-    if MAPPING_FEATURES_V2:
-        include_hidden = parse_bool(request.GET.get('include_hidden', False))
-        featureset = DisplayCategory.objects.get(id=kwargs['id'])
-        field_list = ('updated_at', 'feature_type__updated_at')
-        qs = SpatialFeature.objects.filter(
-            feature_type__display_category=featureset) if include_hidden else SpatialFeature.objects.filter(
-            feature_type__display_category=featureset).filter(feature_type__is_visible=True)
-        objects = qs.values(*field_list)
-        etag = ','.join((str(f['updated_at']) + str(f['feature_type__updated_at'])
-                         for f in objects))
-    else:
-        featureset = FeatureSet.objects.get(id=kwargs['id'])
-        field_list = ('updated_at', 'type__updated_at')
-        objects = chain(PolygonFeature.objects.filter(featureset=featureset).values(*field_list),
-                        LineFeature.objects.filter(featureset=featureset).values(*field_list),
-                        PointFeature.objects.filter(featureset=featureset).values(*field_list))
-        etag = ','.join((str(f['updated_at']) + str(f['type__updated_at'])
-                         for f in objects))
+    include_hidden = parse_bool(request.GET.get('include_hidden', False))
+    featureset = DisplayCategory.objects.get(id=kwargs['id'])
+    field_list = ('updated_at', 'feature_type__updated_at')
+    qs = SpatialFeature.objects.filter(
+        feature_type__display_category=featureset) if include_hidden else SpatialFeature.objects.filter(
+        feature_type__display_category=featureset).filter(feature_type__is_visible=True)
+    objects = qs.values(*field_list)
+    etag = ','.join((str(f['updated_at']) + str(f['feature_type__updated_at'])
+                     for f in objects))
+
     etag += str(featureset.updated_at)
     return hashlib.md5(etag.encode('utf-8')).hexdigest()
 
@@ -137,23 +114,14 @@ class FeatureSetGeoJsonView(APIView):
     @etag(etag_func=calculate_featureset_etag)
     def get(self, request, **kwargs):
         # todo:  better 404 handling, what to do with empty featureset
-        if MAPPING_FEATURES_V2:
-            featureset = DisplayCategory.objects.get(id=kwargs['id'])
-            include_hidden = parse_bool(request.GET.get('include_hidden', False))
-            querysets = SpatialFeature.objects.filter(
-                feature_type__display_category=featureset) if include_hidden else SpatialFeature.objects.filter(
-                feature_type__display_category=featureset).filter(feature_type__is_visible=True)
-            # So type-name can appear in geojson properties.
-            querysets = (querysets.prefetch_related('feature_type').annotate(
-                type_name=F('feature_type__name')),)
-        else:
-            featureset = FeatureSet.objects.get(id=kwargs['id'])
-            querysets = (PolygonFeature.objects.filter(featureset=featureset),
-                         LineFeature.objects.filter(featureset=featureset),
-                         PointFeature.objects.filter(featureset=featureset))
-            # So type-name can appear in geojson properties.
-            querysets = (q.prefetch_related('type').annotate(
-                type_name=F('type__name')) for q in querysets)
+        featureset = DisplayCategory.objects.get(id=kwargs['id'])
+        include_hidden = parse_bool(request.GET.get('include_hidden', False))
+        querysets = SpatialFeature.objects.filter(
+            feature_type__display_category=featureset) if include_hidden else SpatialFeature.objects.filter(
+            feature_type__display_category=featureset).filter(feature_type__is_visible=True)
+        # So type-name can appear in geojson properties.
+        querysets = (querysets.prefetch_related('feature_type').annotate(
+            type_name=F('feature_type__name')),)
 
         feature = serialize('geojson',
                             list(chain(*querysets)),

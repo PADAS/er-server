@@ -89,8 +89,9 @@ def _event_handler(event_id, type):
                     user=user, http_method='GET', query_parameters={})
                 queryset = Event.objects.filter(id=event_id)
                 event = queryset.first()
-
+                
                 if event:
+                    event_count = 1
                     try:
                         event_view.check_object_permissions(
                             request=request, obj=event)
@@ -106,6 +107,11 @@ def _event_handler(event_id, type):
                             queryset = get_filtered_events(
                                 socket_client.event_filter, queryset)
                             matches_current_filter = queryset.exists()
+
+                            full_queryset = Event.objects.all()
+                            full_queryset = get_filtered_events(
+                                socket_client.event_filter, full_queryset)
+                            event_count = full_queryset.count()
                         except SocketClient.DoesNotExist:
                             logger.debug(f'SocketClient does not exist for sid={sid}')
                         
@@ -119,7 +125,7 @@ def _event_handler(event_id, type):
                                 'type': type,
                                 'sid': sid,
                                 'object_id': event_id,
-                                'data': {'type': type, 'event_id': event_id, 'matches_current_filter': matches_current_filter, 'event_data': data}
+                                'data': {'type': type, 'event_id': event_id, 'matches_current_filter': matches_current_filter, 'event_data': data, 'count': event_count}
                             }
 
                             logger.debug(

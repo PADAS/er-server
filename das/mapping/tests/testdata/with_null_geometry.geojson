@@ -1,0 +1,10 @@
+{
+"type": "FeatureCollection",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+
+"features": [
+{ "type": "Feature", "properties": { "zone": "37N", "mgrs_zone": "CA", "mgrs_easting": 90344, "mgrs_northing": 91736, "feature": "permanent water source", "utm_zone": "37N", "easting": 390344, "northing": 91736, "Name": "Losesia" }, "geometry": { "type": "Point", "coordinates": [ 38.014495439835407, 0.82984020681564 ] } },
+{ "type": "Feature", "properties": { "zone": "37N", "mgrs_zone": "CB", "mgrs_easting": 76616, "mgrs_northing": 27919, "feature": "permanent water source", "utm_zone": "37N", "easting": 376616, "northing": 127919, "Name": "Moto" }, "geometry": { "type": "Point", "coordinates": [ 37.891024159659949, 1.157103563998405 ] } },
+{ "type": "Feature", "properties": { "zone": "37N", "mgrs_zone": "CB", "mgrs_easting": 59608, "mgrs_northing": 30156, "feature": "permanent water source", "utm_zone": "37N", "easting": 359608, "northing": 130156, "Name": "Ntumot" }, "geometry": { "type": "MultiLineString", "coordinates": [ ] } }
+]
+}

@@ -29,7 +29,7 @@ from mapping.forms import (ArcgisConfigurationForm, DisplayCategoryForm,
                            SpatialFeatureGroupStaticForm,
                            SpatialFeatureTypeForm, TileLayerFormWithAttributes)
 from mapping.tasks import load_spatial_features_from_files
-from mapping.utils import MAPPING_FEATURES_V2, clear_features
+from mapping.utils import clear_features
 
 logger = logging.getLogger(__name__)
 
@@ -103,36 +103,6 @@ class SpatialFeaturesInline(admin.TabularInline):
 class DisplayCategoryAdmin(admin.ModelAdmin):
     ordering = ('name',)
     form = DisplayCategoryForm
-    
-if MAPPING_FEATURES_V2:
-    pass
-else:
-    @admin.register(models.FeatureSet)
-    class FeatureSetAdmin(admin.ModelAdmin):
-        filter_horizontal = ('types',)
-
-    @admin.register(models.PolygonFeature)
-    class PolygonFeatureAdmin(BaseFeatureAdmin):
-        pass
-
-    @admin.register(models.LineFeature)
-    class LineFeatureAdmin(BaseFeatureAdmin):
-        pass
-
-    @admin.register(models.PointFeature)
-    class PointFeatureAdmin(BaseFeatureAdmin):
-        pass
-
-    @admin.register(models.FeatureType)
-    class FeatureTypeAdmin(admin.ModelAdmin):
-        form = FeatureTypeForm
-        ordering = ('name',)
-        list_display = ('name',)
-
-    @admin.register(models.SpatialFeatureGroup)
-    class SpatialFeatureGroupAdmin(admin.ModelAdmin):
-        search_fields = ('name',)
-        ordering = ('name', )
 
 
 @admin.register(models.SpatialFeatureGroupStatic)
@@ -223,18 +193,9 @@ def delete_selected_spatialfiles(modeladmin, request, queryset):
     deletable_objects, model_count, perms_needed, protected = get_deleted_objects(
         queryset, request, modeladmin.admin_site)
 
-    if MAPPING_FEATURES_V2:
-        spatial_features = models.SpatialFeature.objects.filter(
-            reduce(lambda x, y: x | y, [Q(spatialfile=spatialfile) for spatialfile in queryset]))
-        model_count['spatial features'] = spatial_features.count()
-    else:
-        line_features = models.LineFeature.objects.filter(reduce(lambda x, y: x | y, [Q(spatialfile=spatialfile) for spatialfile in queryset]))
-        point_features = models.PointFeature.objects.filter(reduce(lambda x, y: x | y, [Q(spatialfile=spatialfile) for spatialfile in queryset]))
-        polygon_features = models.PolygonFeature.objects.filter(reduce(lambda x, y: x | y, [Q(spatialfile=spatialfile) for spatialfile in queryset]))
-
-        model_count['line features'] = line_features.count()
-        model_count['point features'] = point_features.count()
-        model_count['polygon features'] = polygon_features.count()
+    spatial_features = models.SpatialFeature.objects.filter(
+        reduce(lambda x, y: x | y, [Q(spatialfile=spatialfile) for spatialfile in queryset]))
+    model_count['spatial features'] = spatial_features.count()
 
     # The user has already confirmed the deletion.
     # Do the deletion and return None to display the change list view again.
@@ -249,12 +210,7 @@ def delete_selected_spatialfiles(modeladmin, request, queryset):
                 modeladmin.log_deletion(request, obj, obj_display)
 
             if 'delete_associated_features' in request.POST:
-                if MAPPING_FEATURES_V2:
-                    spatial_features.delete()
-                else:
-                    line_features.delete()
-                    point_features.delete()
-                    polygon_features.delete()
+                spatial_features.delete()
 
             queryset.delete()
 
@@ -349,17 +305,8 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
             [obj], request, self.admin_site)
 
         # get related features
-        if MAPPING_FEATURES_V2:
-            spatial_features = models.SpatialFeature.objects.filter(spatialfile=obj)
-            model_count['spatial features'] = spatial_features.count()
-        else:
-            line_features = models.LineFeature.objects.filter(spatialfile=obj)
-            point_features = models.PointFeature.objects.filter(spatialfile=obj)
-            polygon_features = models.PolygonFeature.objects.filter(spatialfile=obj)
-
-            model_count['line features'] = line_features.count()
-            model_count['point features'] = point_features.count()
-            model_count['polygon features'] = polygon_features.count()
+        spatial_features = models.SpatialFeature.objects.filter(spatialfile=obj)
+        model_count['spatial features'] = spatial_features.count()
 
         if request.POST and not protected:  # The user has confirmed the deletion.
             if perms_needed:
@@ -371,12 +318,7 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
             self.log_deletion(request, obj, obj_display)
 
             if 'delete_associated_features' in request.POST:
-                if MAPPING_FEATURES_V2:
-                    spatial_features.delete()
-                else:
-                    line_features.delete()
-                    point_features.delete()
-                    polygon_features.delete()
+                spatial_features.delete()
 
             self.delete_model(request, obj)
 
@@ -423,129 +365,113 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
         return self.readonly_fields
 
 
+@admin.register(models.SpatialFeatureFile)
+class SpatialFeatureFileAdmin(BaseSpatialFileAdmin):
+    list_display = ('id', 'name', 'file_type', 'description', 'feature_type')
+    ordering = list_display
+    list_filter = ('name',)
+    fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('file_type', 'id', 'name', 'description', 'data', 'feature_type', 'name_field', 'id_field',
+                       'status')
+        }),
+        ('Shapefile Optional Attributes', {
+            'classes': ('wide', 'shapefile',),
+            'fields': ('layer_number',)
+        }
+         ),
+        ('GeoJSON Optional Attributes', {
+            'classes': ('wide', 'geojson',),
+            'fields': ('feature_types_file',)
+        }
+         ),)
+    readonly_fields = ('id', 'status',)
 
-if MAPPING_FEATURES_V2:
-    @admin.register(models.SpatialFeatureFile)
-    class SpatialFeatureFileAdmin(BaseSpatialFileAdmin):
-        list_display = ('id', 'name', 'file_type', 'description', 'feature_type')
-        ordering = list_display
-        list_filter = ('name',)
-        fieldsets = (
-            (None, {
-                'classes': ('wide',),
-                'fields': ('file_type', 'id', 'name', 'description', 'data', 'feature_type', 'name_field', 'id_field',
-                           'status')
-            }),
-            ('Shapefile Optional Attributes', {
-                'classes': ('wide', 'shapefile',),
-                'fields': ('layer_number',)
+    class Media:
+        js = ["admin/js/jquery.init.js", "base.js"]
+
+    def response_add(self, request, obj, post_url_continue=None):
+        if '_save' in request.POST:
+            self.add_background_download_message(obj, request, 'added')
+            return self.response_post_save_add(request, obj)
+        else:
+            return super().response_add(request, obj, post_url_continue)
+
+    def response_change(self, request, obj):
+        if '_save' in request.POST:
+            self.add_background_download_message(obj, request, 'changed')
+            return self.response_post_save_change(request, obj)
+        else:
+            return super().response_change(request, obj)
+
+    def add_background_download_message(self, obj, request, action):
+        msg_dict = {
+                'obj': format_html(f'<a href="{reverse("admin:mapping_spatialfeaturefile_change", args=(obj.id,))}">{obj}</a>'),
+                'features': format_html(f'<a href="{reverse("admin:mapping_spatialfeature_changelist")}">features</a>'),
+                'action': action
             }
-             ),
-            ('GeoJSON Optional Attributes', {
-                'classes': ('wide', 'geojson',),
-                'fields': ('feature_types_file',)
-            }
-             ),)
-        readonly_fields = ('id', 'status',)
-
-        class Media:
-            js = ["admin/js/jquery.init.js", "base.js"]
-
-        def response_add(self, request, obj, post_url_continue=None):
-            if '_save' in request.POST:
-                self.add_background_download_message(obj, request, 'added')
-                return self.response_post_save_add(request, obj)
-            else:
-                return super().response_add(request, obj, post_url_continue)
-
-        def response_change(self, request, obj):
-            if '_save' in request.POST:
-                self.add_background_download_message(obj, request, 'changed')
-                return self.response_post_save_change(request, obj)
-            else:
-                return super().response_change(request, obj)
-
-        def add_background_download_message(self, obj, request, action):
-            msg_dict = {
-                    'obj': format_html(f'<a href="{reverse("admin:mapping_spatialfeaturefile_change", args=(obj.id,))}">{obj}</a>'),
-                    'features': format_html(f'<a href="{reverse("admin:mapping_spatialfeature_changelist")}">features</a>'),
-                    'action': action
-                }
-            msg = format_html(_('The Feature Import File "{obj}" {action} successfully. Feature download in progress, check loaded {features} after a few minutes'),**msg_dict)
-            self.message_user(request, msg, messages.SUCCESS)
+        msg = format_html(_('The Feature Import File "{obj}" {action} successfully. Feature download in progress, check loaded {features} after a few minutes'),**msg_dict)
+        self.message_user(request, msg, messages.SUCCESS)
 
 
-    @admin.register(models.ArcgisConfiguration)
-    class ArcgisConfigurationAdmin(admin.ModelAdmin):
-        list_display = ('config_name', 'username', )
-        fieldsets = (
-            (None, {
-                'classes': ('wide',),
-                'fields': ('last_download_time', 'config_name', 'username', 'password', 'search_text')
-            }),
-            ('ArcGIS Group', {
-                'classes': ('wide', 'groups'),
-                'fields': ('groups',)
-            }),
-            ('Optional Attributes', {
-                'classes': ('collapse',),
-                'fields': ('service_url', 'source', 'type_label', 'id_field','name_field',)
-            }
-            ),)
-        readonly_fields = ('last_download_time',)
-        form = ArcgisConfigurationForm
+@admin.register(models.ArcgisConfiguration)
+class ArcgisConfigurationAdmin(admin.ModelAdmin):
+    list_display = ('config_name', 'username', )
+    fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('last_download_time', 'config_name', 'username', 'password', 'search_text')
+        }),
+        ('ArcGIS Group', {
+            'classes': ('wide', 'groups'),
+            'fields': ('groups',)
+        }),
+        ('Optional Attributes', {
+            'classes': ('collapse',),
+            'fields': ('service_url', 'source', 'type_label', 'id_field','name_field',)
+        }
+        ),)
+    readonly_fields = ('last_download_time',)
+    form = ArcgisConfigurationForm
 
-        def get_fieldsets(self, request, obj=None):
-            if self.fieldsets:
-                fieldsets = list(self.fieldsets)
-                for item in fieldsets:
-                    if not obj and 'ArcGIS Group' in item:
-                        fieldsets.pop(fieldsets.index(item))
-                return tuple(fieldsets)
-            return [(None, {'fields': self.get_fields(request, obj)})]
+    def get_fieldsets(self, request, obj=None):
+        if self.fieldsets:
+            fieldsets = list(self.fieldsets)
+            for item in fieldsets:
+                if not obj and 'ArcGIS Group' in item:
+                    fieldsets.pop(fieldsets.index(item))
+            return tuple(fieldsets)
+        return [(None, {'fields': self.get_fields(request, obj)})]
 
-        def response_add(self, request, obj, post_url_continue=None):
-            groups_found = arcgis_integration(request, obj)
-            if self.arcgis_config(request) or not groups_found:
-                return HttpResponseRedirect(request.path_info)
-            else:
-                obj.save()
-                update_db_groups(groups_found, obj)
-                return super().response_add(request, obj, post_url_continue=None)
+    def response_add(self, request, obj, post_url_continue=None):
+        groups_found = arcgis_integration(request, obj)
+        if self.arcgis_config(request) or not groups_found:
+            return HttpResponseRedirect(request.path_info)
+        else:
+            obj.save()
+            update_db_groups(groups_found, obj)
+            return super().response_add(request, obj, post_url_continue=None)
 
-        def response_change(self, request, obj):
-            groups_found = arcgis_integration(request, obj)
-            if self.arcgis_config(request) or not groups_found:
-                return HttpResponseRedirect(request.path_info)
-            else:
-                obj.save()
-                update_db_groups(groups_found, obj)
-                return super().response_change(request, obj)
+    def response_change(self, request, obj):
+        groups_found = arcgis_integration(request, obj)
+        if self.arcgis_config(request) or not groups_found:
+            return HttpResponseRedirect(request.path_info)
+        else:
+            obj.save()
+            update_db_groups(groups_found, obj)
+            return super().response_change(request, obj)
 
-        def save_model(self, request, obj, form, change):
-            pass
+    def save_model(self, request, obj, form, change):
+        pass
 
-        def arcgis_config(self, request):
-            return any(x in request.POST for x in ["_testconnection", "_downloadfeatures"])
+    def arcgis_config(self, request):
+        return any(x in request.POST for x in ["_testconnection", "_downloadfeatures"])
 
-        def formfield_for_foreignkey(self, db_field, request, **kwargs):
-            if db_field.name == 'groups':
-                object_id = request.resolver_match.kwargs.get('object_id')
-                if object_id:
-                    obj = self.model.objects.get(id=int(object_id))
-                    kwargs['queryset'] = models.ArcgisGroup.objects.filter(config_id=obj.id)
-            return super().formfield_for_foreignkey(db_field, request, **kwargs)
-
-else:
-    @admin.register(models.SpatialFile)
-    class SpatialFileAdmin(BaseSpatialFileAdmin):
-        list_display = ('id', 'name', 'description', 'feature_set', 'feature_type',
-                        'layer_number')
-        ordering = ('name', 'description', 'feature_set', 'feature_type', 'layer_number', 'id')
-        list_filter = ('feature_set', 'feature_type')
-        fieldsets = (
-            (None, {
-                'classes': ('wide',),
-                'fields': ('id', 'name', 'description', 'data', 'layer_number', 'name_field', 'id_field', 'status', 'feature_set', 'feature_type'),
-            }),)
-        readonly_fields = ('id', 'status',)
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == 'groups':
+            object_id = request.resolver_match.kwargs.get('object_id')
+            if object_id:
+                obj = self.model.objects.get(id=int(object_id))
+                kwargs['queryset'] = models.ArcgisGroup.objects.filter(config_id=obj.id)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)

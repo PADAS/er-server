@@ -2,6 +2,7 @@ from django.conf import settings
 from rest_framework import generics
 from rest_framework.parsers import (FileUploadParser, FormParser, JSONParser,
                                     MultiPartParser)
+from rest_framework.permissions import AllowAny
 
 from das_server.views import CustomSchema
 from observations.serializers import ObservationSerializer
@@ -145,6 +146,7 @@ class GateHandlerView(BaseSensorsView):
 
 class TestHandlerView(BaseSensorsView):
     serializer_class = None
+    permission_classes = (AllowAny,)
 
     def post(self, request, provider_key=None):
         """ Add Test Sensor Observations """
