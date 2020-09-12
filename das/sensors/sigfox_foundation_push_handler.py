@@ -182,8 +182,7 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
 
     @classmethod
     def get_ubi_credentials(cls):
-        ubi_creds = settings.UBI_API_CREDENTIALS
-        credentials = f"{ubi_creds.get('username')}:{ubi_creds.get('password')}"
+        credentials = f"{settings.UBI_API_USERNAME}:{settings.UBI_API_PASSWORD}"
         encoded_credentials = str(b64encode(credentials.encode("utf-8")), "utf-8")
         return encoded_credentials
 

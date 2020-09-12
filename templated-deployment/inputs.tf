@@ -182,3 +182,13 @@ variable "subject_region_enabled" {
   default = "False"
 }
 
+variable "ubi_api_username" {
+  type    = string
+  default = "username"
+}
+
+variable "ubi_api_password" {
+  type    = string
+  default = "password"
+}
+
