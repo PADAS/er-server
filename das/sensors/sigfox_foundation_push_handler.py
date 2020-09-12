@@ -77,7 +77,7 @@ class SigfoxFoundationPushHandler:
                                                    'name': device_id
                                                })
 
-            recorded_at = datetime.fromtimestamp(payload.pop('time'), timezone.utc).isoformat()
+            recorded_at = datetime.fromtimestamp(int(payload.pop('time')), timezone.utc).isoformat()
             # for data_uplink this test is sufficient for dups...
             if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
                 logger.info('Ignoring duplicate observation from %s', src)
@@ -134,7 +134,7 @@ class SigfoxV1Handler(SigfoxFoundationPushHandler):
             if validated_data.get('data'):
                 components = cls.process_sigfoxv1_data(validated_data)
                 parsed_data = SigfoxPayloadParserV1.parse(components)
-                return cls.process_data_uplink(validated_data, provider_key, parsed_data)
+                return cls.process_data_uplink(request.data, provider_key, parsed_data)
             elif validated_data.get('computedLocation'):
                 logger.info('Ignoring data advanced payload')
                 return Response(data=dict(message='Message received'), status=status.HTTP_200_OK)
@@ -144,8 +144,8 @@ class SigfoxV1Handler(SigfoxFoundationPushHandler):
 
     @classmethod
     def process_sigfoxv1_data(cls, validated_data):
-        data = validated_data.pop('data')
-        if len(data) != V1_UPLINK_PAYLOAD_LENGTH:
+        data = validated_data.get('data')
+        if len(data) != cls.V1_UPLINK_PAYLOAD_LENGTH:
             logger.info(f"SigfoxV1Handler ignoring payload {data} of length {len(data)}")
             return
         try:
@@ -174,7 +174,7 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
             if validated_data.get('data'):
                 components, mode_display, device_position = cls.process_sigfox_tracks(validated_data)
                 parsed_data = SigfoxPayloadParserV2.parse(components, mode_display, device_position)
-                return cls.process_data_uplink(validated_data, provider_key, parsed_data)
+                return cls.process_data_uplink(request.data, provider_key, parsed_data)
 
             logger.warning(f"SigfoxV2Handler bad request: {request.data}")
         return Response(data=sigfox_data.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -207,7 +207,7 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
             return
 
         if response.status_code != 200:
-            logger.warning("Error when retrieving device position: ", response.text)
+            logger.warning("Error when retrieving device position: %s", response.text)
             return
         else:
             return response.json()

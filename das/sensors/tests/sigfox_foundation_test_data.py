@@ -1,22 +1,3 @@
-V2_DATA_PAIRS = [
-    {
-        # gps mode
-        "deviceId": "0",
-        "time": "1461678551",
-        "seqNumber": 1,
-        "data": "331c81457bec33c262ee00",
-        "reception": [{"id": "4F87", "RSSI": -130.0, "SNR": 21.44}]
-    },
-    {
-        # ubi mode
-        "deviceId": "0",
-        "time": "1461678551",
-        "seqNumber": 1,
-        "data": "530840F85B94F15CC31B9D52",
-        "reception": [{"id": "4F8A", "RSSI": -142.0, "SNR": 7.41}]}
-
-]
-
 DATA_PAIRS = [
     ({
          "deviceId": "CDBB84",
@@ -139,4 +120,24 @@ DATA_PAIRS = [
              "status": 1
          }
      }),
+]
+
+
+V2_DATA_PAIRS = [
+    {
+        # gps mode
+        "deviceId": "0",
+        "time": "1461678551",
+        "seqNumber": 1,
+        "data": "331c81457bec33c262ee00",
+        "reception": [{"id": "4F87", "RSSI": -130.0, "SNR": 21.44}]
+    },
+    {
+        # ubi mode
+        "deviceId": "0",
+        "time": "1461678551",
+        "seqNumber": 1,
+        "data": "530840F85B94F15CC31B9D52",
+        "reception": [{"id": "4F8A", "RSSI": -142.0, "SNR": 7.41}]}
+
 ]

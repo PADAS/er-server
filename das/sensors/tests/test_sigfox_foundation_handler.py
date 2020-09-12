@@ -10,6 +10,17 @@ from sensors.sigfox_foundation_push_handler import SigfoxFoundationPushHandler, 
 from sensors.tests.sigfox_foundation_test_data import DATA_PAIRS, V2_DATA_PAIRS
 from sensors.views import SigfoxFoundationHandlerView, SigfoxV2FoundationHandlerView
 from django.urls import reverse
+from unittest.mock import patch
+
+def MockUbi(device_id, data, latitude, longitude, time):
+    res = {
+        "lat": 48.127702668164275,
+        "lng": -1.6279502140630846,
+        "alt": 110.59460771083832,
+        "accuracy": 35.751512683281305
+    }
+    return res
+
 
 class SigfoxFoundationHandlerTest(BaseAPITest):
     PROVIDER_KEY = 'sff-provider'
@@ -42,16 +53,18 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
             observation = Observation.objects.get(source=source)
             self._verify_data_uplink_rsp(observation, data_uplink)
 
+    @patch('sensors.sigfox_foundation_push_handler.SigfoxV2Handler.get_position_from_ubi', MockUbi)
     def test_sigfox_data_upload_v2_with_gpx_and_ubiscale_payload(self):
         for data_uplink in V2_DATA_PAIRS:
             device_id = data_uplink['deviceId']
             rsp = self._post_data(json.dumps(data_uplink), self.api_path_v2, SigfoxV2FoundationHandlerView)
-        
-        # self.assertIsNotNone(rsp)
-        # self.assertEqual(rsp.status_code, status.HTTP_201_CREATED)
-        # source = Source.objects.get(manufacturer_id=device_id)
-        # observation = Observation.objects.get(source=source)
-        # self._verify_data_uplink_rsp(observation, test_data, SigfoxPayloadParserV2)
+        self.assertIsNotNone(rsp)
+        self.assertEqual(rsp.status_code, status.HTTP_201_CREATED)
+        source = Source.objects.get(manufacturer_id=device_id)
+        observation = Observation.objects.get(source=source)
+        # one observation created from the two records
+        self.assertIsNotNone(observation)
+
 
     def test_all_data_advanced_msgs_ignored(self):
         for (_, data_advanced) in DATA_PAIRS:
