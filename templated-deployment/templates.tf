@@ -60,5 +60,7 @@ resource "template_dir" "deployments" {
     SENDSMS_TWILIO_FROM_NUMBER      = "+14254904368"
     PATROL_ENABLED                  = var.patrol_enabled
     SUBJECT_REGION_ENABLED          = var.subject_region_enabled
+    UBI_API_USERNAME                = var.ubi_api_username
+    UBI_API_PASSWORD                = var.ubi_api_password
   }
 }
