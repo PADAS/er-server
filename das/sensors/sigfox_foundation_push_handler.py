@@ -229,9 +229,7 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
         return mode, mode_display, components
 
     @classmethod
-    def cache_gps_data(cls, components, device_id, seq_no, key):
-        latitude = SigfoxParser._parse_coordinate(components[5], components[6])
-        longitude = SigfoxParser._parse_coordinate(components[7], components[8])
+    def cache_gps_data(cls, components, device_id, seq_no, key, latitude, longitude):
         data = {'device_id': device_id, 'seq_no': seq_no, 'latitude': latitude, 'longitude': longitude}
         cache.set(key, data, cls.cache_timeout)
 
@@ -243,15 +241,15 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
     @classmethod
     def process_gps_data(cls, device_id, seq_no, components, time, gps_key, ubi_key):
         cached_ubi = cache.get(ubi_key)
+        latitude = SigfoxParser._parse_coordinate(components[5], components[6])
+        longitude = SigfoxParser._parse_coordinate(components[7], components[8])
         if cached_ubi:
             data = cached_ubi.get('data')
-            latitude = SigfoxParser._parse_coordinate(components[5], components[6])
-            longitude = SigfoxParser._parse_coordinate(components[7], components[8])
             position = cls.get_position_from_ubi(device_id, data, latitude, longitude, time)
             cache.set(ubi_key, None)
             return position
         else:
-            cls.cache_gps_data(components, device_id, seq_no, gps_key)
+            cls.cache_gps_data(components, device_id, seq_no, gps_key, latitude, longitude)
 
     @classmethod
     def process_ubi_data(cls, payload, device_id, seq_no, components, time, gps_key, ubi_key):
@@ -279,33 +277,34 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
         elif mode == cls.UBI_TRACK:
             device_position = cls.process_ubi_data(payload, device_id, seq_no, components, time, gps_key, ubi_key)
         if not device_position:
-            logger.info('No position returned from UBI')
+            logger.info(f'No device position found for device: {device_id}')
         return device_position
 
 
     @classmethod
     def evaluate_mode(cls, bits):
-        value, display = int(bits, 2), None
-        if value == cls.GPS_TRACK:
+        value, display, invalid_mode = int(bits, 2), None, None
+        if value == 0:
+            invalid_mode = 'Setup'
+        elif value == cls.GPS_TRACK:
             display = 'Tracking GPS'
         elif value == cls.UBI_TRACK:
             display = 'Tracking Ubiscale'
         else:
-            logger.debug("skipping setup, boot/reboot and unknown modes")
+            invalid_mode = 'Unknown'
+        if invalid_mode or not display:
+            logger.warning(f"Invalid data mode: {invalid_mode}. Only GPS and Ubiscale modes allowed.")
         return value, display
 
     @classmethod
     def get_mode_and_components(cls, payload):
         data = payload.get('data')
         if len(data) == 2 or len(data) == 4:
-            logger.info("skipping Boot/Reboot and Sigfox geolocation data")
+            logger.info(f"skipping Boot/Reboot and Sigfox geolocation records. Data: {data}")
             return
         mode_value, mode_display, components = cls.prepare_data(data)
-        if not mode_value:
-            logger.info("Error when preparing data, only gps and ubiscale modes allowed")
-
         if not components:
-            logger.info("Error when preparing data, Missing components in binary string ")
+            logger.warning("Error when preparing data, Missing components in binary string ")
 
         logger.info(f'sigfox version 2, mode: {mode_display}, parsed components: {components}')
         return components, mode_value, mode_display
