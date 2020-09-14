@@ -1395,6 +1395,20 @@ PATROL_STATE_CHOICES = (
     (PC_PAST, 'Past'),
 )
 
+PC_SYSTEM = 'system'
+PC_SENSOR = 'sensor'
+PC_ANALYZER = 'analyzer'
+PC_COMMUNITY = 'community'
+PC_STAFF = 'staff'
+
+PROVENANCE_CHOICES = (
+    (PC_STAFF, 'Staff'),
+    (PC_SYSTEM, 'System Process'),
+    (PC_SENSOR, 'Sensor'),
+    (PC_ANALYZER, 'Analyzer'),
+    (PC_COMMUNITY, 'Community'),
+)
+
 
 class PersonManager(models.Manager):
 
@@ -1507,6 +1521,14 @@ class PatrolFile(TimestampedModel, RevisionMixin):
     revision = Revision()
 
 
+class PatrolTypeManager(EventBaseManager):
+    def create_type(self, **values):
+        return self.create(**values)
+
+    def get_by_natural_key(self, value):
+        return self.get(value=value)
+
+
 class PatrolType(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(max_length=50, unique=True)
@@ -1515,6 +1537,8 @@ class PatrolType(TimestampedModel):
     icon = models.CharField(max_length=100, blank=True)
     default_priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
     is_active = models.BooleanField(default=True)
+
+    objects = PatrolTypeManager()
 
     # schema_template = JSONField('additional', default=dict, blank=False, null=True)
     # form_definition = JSONField('form_definition', default=dict, blank=False, null=True)
@@ -1558,23 +1582,65 @@ class PatrolSegmentMembership(TimestampedModel):
         ordering = ['type', 'ordernum', ]
 
 
+class PatrolSegmentManager(models.Manager):
+    def get_leader_for_provenance(self, provenance):
+        if PC_STAFF == provenance:
+            def get_staff():
+                # First get all user accounts in the reported by permission
+                # set, if it exists in the settings and the db
+                try:
+                    reported_by_users = PermissionSet.objects.get(
+                        id=settings.REPORTED_BY_PERMISSION_SET).user_set
+                    for obj in reported_by_users.filter(is_active=True):
+                        yield obj.get_full_name().lower(), obj
+                except PermissionSet.DoesNotExist:
+                    logger.warning(
+                        'Someone has deleted the reported_by permission set')
+                except AttributeError:
+                    logger.warning(
+                        'Reported by permission set not specified in settings')
+
+                # We also want subjects who are staff (rangers are tracked as
+                # subjects via their radio, but can report events
+                for obj in Subject.objects.all().get_staff().by_is_active():
+                    yield obj.name.lower(), obj
+            for staff in sorted(get_staff(), key=itemgetter(0)):
+                yield staff[1]
+
+        elif PC_COMMUNITY == provenance:
+            for community in sorted(Community.objects.all(),
+                                    key=attrgetter('name')):
+                yield community
+
+
 class PatrolSegment(TimestampedModel, RevisionMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     patrol = models.ForeignKey(Patrol,
                                on_delete=models.SET_NULL,
                                blank=True, null=True, related_name='patrol_segments',
                                related_query_name='patrol_segment')
-    source = models.ForeignKey(Source, on_delete=models.CASCADE, blank=True,
-                               null=True,
-                               related_name='sources',
-                               related_query_name='source')
     patrol_type = models.ForeignKey(PatrolType, on_delete=models.SET_NULL, blank=True, null=True)
     scheduled_start = models.DateTimeField(blank=True, null=True)
     time_range = DateTimeRangeField(null=True, blank=True)
     start_location = models.PointField(srid=4326, blank=True, null=True)
     end_location = models.PointField(srid=4326, blank=True, null=True)
     state = models.CharField(choices=PATROL_STATE_CHOICES, default=PC_ACTIVE, max_length=25)
+
+    _usermodel = settings.AUTH_USER_MODEL.lower().split('.')
+
+    leader_limits = models.Q(app_label='observations', model='subject')\
+        | models.Q(app_label=_usermodel[0], model=_usermodel[1])
+
+    leader_content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.CASCADE,
+        limit_choices_to=leader_limits,
+        null=True, blank=True)
+    leader_id = models.UUIDField(null=True, blank=True, default=None)
+    leader = GenericForeignKey('leader_content_type', 'leader_id')
     revision = Revision()
+
+    objects = PatrolSegmentManager()
 
 
 # class PatrolTemplate(models.Model):

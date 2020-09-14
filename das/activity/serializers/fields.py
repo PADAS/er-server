@@ -45,13 +45,6 @@ def text_field(**kwargs):
     return serializers.CharField(style=style, **kwargs)
 
 
-class SerializerMethodField(serializers.SerializerMethodField):
-    def __init__(self, method_name=None, many=False, excludes=[], serializer=None, **kwargs):
-        self.many = many
-        self.excludes = excludes
-        self.serializer = serializer
-        super().__init__(method_name, **kwargs)
-        
 class _RangeField(RangeField):
 
     def to_internal_value(self, data):
