@@ -82,13 +82,13 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
         }
         rsp = self._post_data(json.dumps(test_data), self.api_path_v2, SigfoxV2FoundationHandlerView)
         self.assertEqual(rsp.status_code, status.HTTP_200_OK)
-        self.assertEqual(rsp.data, {'message': 'Boot/reboot, geolocation, setup and unknown track modes not processed'})
+        self.assertEqual(rsp.data, {'message': 'Ignoring Boot/reboot, geolocation, and unknown record types. Data: 8768'})
 
     def test_sigfox_v2_invalid_records(self):
         test_data = {
-            "deviceId": "1",
             "time": "1461678551",
-            "seqNumber": 1
+            "seqNumber": 1,
+            "data": "80aed31501e97f8d3470e200"
         }
         rsp = self._post_data(json.dumps(test_data), self.api_path_v2, SigfoxV2FoundationHandlerView)
         self.assertEqual(rsp.status_code, status.HTTP_400_BAD_REQUEST)

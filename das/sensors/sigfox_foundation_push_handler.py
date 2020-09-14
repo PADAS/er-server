@@ -132,7 +132,8 @@ class SigfoxV1Handler(SigfoxFoundationPushHandler):
         sigfox_data = PayloadValidator(data=request.data)
         if sigfox_data.is_valid():
             validated_data = sigfox_data.validated_data
-            if validated_data.get('data') and len(validated_data.get('data')) == cls.V1_UPLINK_PAYLOAD_LENGTH:
+            data = validated_data.get('data')
+            if data and len(data) == cls.V1_UPLINK_PAYLOAD_LENGTH:
                 components = cls.process_sigfoxv1_data(validated_data)
                 parsed_data = SigfoxPayloadParserV1.parse(components)
                 return cls.process_data_uplink(request.data, provider_key, parsed_data)
@@ -156,6 +157,7 @@ class SigfoxV1Handler(SigfoxFoundationPushHandler):
 class SigfoxV2Handler(SigfoxFoundationPushHandler):
     SENSOR_TYPE = 'sff-tracker-v2'
     GPS_TRACK, UBI_TRACK = 1, 2
+    V2_UPLINK_PAYLOAD_LENGTH = 22
 
     GPS_PATTERN = '(.{3})(.{5})(.)(.)(.{6})(.)(.{31})(.)(.{31})'
     UBI_PATTERN = '(.{3})(.{5})(.)(.)(.{6})(.{20})'
@@ -168,27 +170,33 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
         sigfox_data = PayloadValidator(data=request.data)
         if sigfox_data.is_valid():
             validated_data = sigfox_data.validated_data
+            data = validated_data.get('data')
             device = validated_data.get("deviceId")
-            if validated_data.get('data'):
+            if data and len(data) >= cls.V2_UPLINK_PAYLOAD_LENGTH:
                 tracks = cls.process_sigfox_tracks(validated_data)
-                validation_msg = cls.validate_tracks_before_parsing(tracks, device)
+                validation_msg = cls.validate_tracks_before_parsing(device, data, tracks)
                 if validation_msg:
                     return Response(data=dict(message=validation_msg), status=status.HTTP_200_OK)
                 parsed_data = SigfoxPayloadParserV2.parse(tracks)
                 return cls.process_data_uplink(request.data, provider_key, parsed_data)
+            else:
+                message = f"Ignoring Boot/reboot, geolocation, and unknown record types. Data: {data}"
+                logger.info(message)
+                return Response(data=dict(message=message), status=status.HTTP_200_OK)
+
         logger.warning(f"SigfoxV2Handler bad request: {request.data}")
         return Response(data=sigfox_data.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @classmethod
-    def validate_tracks_before_parsing(cls, tracks, device):
+    def validate_tracks_before_parsing(cls, device, data, tracks):
         message = None
         if not tracks or not tracks.get('mode'):
-            message = "Boot/reboot, geolocation, setup and unknown track modes not processed"
+            message = f'Ignoring setup and unknown track modes, data: {data}'
         elif not tracks.get('device_position'):
             message = f'No position found for device: {device}'
-            logger.info(message)
         elif 'cached' in tracks.get('device_position'):
             message = f'First payload successfully cached for device: {device}'
+        logger.info(message)
         return message
 
     @classmethod
@@ -315,9 +323,6 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
     @classmethod
     def process_sigfox_tracks(cls, payload):
         data = payload.get('data')
-        if len(data) == 2 or len(data) == 4:
-            logger.info(f"skipping Boot/Reboot and Sigfox geolocation records. Data: {data}")
-            return
         components, mode, mode_display = cls.get_mode_and_components(data)
         position = cls.cache_and_process_position(payload, components, mode)
         res = {'components': components, 'mode': mode_display, 'device_position': position}
