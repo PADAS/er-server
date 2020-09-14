@@ -103,13 +103,6 @@ class PatrolSegmentSerializer(BaseSerializer):
                 'updates', 'objective', 'created_at', 'updated_at']).data
 
     def create(self, validated_data):
-        patrol = validated_data.get('patrol')
-
-        if patrol:
-            patrol_o = Patrol.objects.create(**patrol)
-            validated_data['patrol_id'] = patrol_o.id
-            validated_data.pop('patrol')
-
         return activity.models.PatrolSegment.objects.create(**validated_data)
 
 
