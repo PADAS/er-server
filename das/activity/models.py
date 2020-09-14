@@ -1629,8 +1629,6 @@ class PatrolSegment(TimestampedModel, RevisionMixin):
     _usermodel = settings.AUTH_USER_MODEL.lower().split('.')
 
     leader_limits = models.Q(app_label='observations', model='subject')\
-        | models.Q(app_label='observations', model='source') \
-        | models.Q(app_label='activity', model='community') \
         | models.Q(app_label=_usermodel[0], model=_usermodel[1])
 
     leader_content_type = models.ForeignKey(
