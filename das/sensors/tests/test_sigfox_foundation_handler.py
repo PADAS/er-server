@@ -12,6 +12,7 @@ from sensors.views import SigfoxFoundationHandlerView, SigfoxV2FoundationHandler
 from django.urls import reverse
 from unittest.mock import patch
 
+
 def MockUbi(device_id, data, latitude, longitude, time):
     res = {
         "lat": 48.127702668164275,
@@ -55,16 +56,42 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
 
     @patch('sensors.sigfox_foundation_push_handler.SigfoxV2Handler.get_position_from_ubi', MockUbi)
     def test_sigfox_data_upload_v2_with_gpx_and_ubiscale_payload(self):
+        count = 0
         for data_uplink in V2_DATA_PAIRS:
             device_id = data_uplink['deviceId']
             rsp = self._post_data(json.dumps(data_uplink), self.api_path_v2, SigfoxV2FoundationHandlerView)
-        self.assertIsNotNone(rsp)
-        self.assertEqual(rsp.status_code, status.HTTP_201_CREATED)
-        source = Source.objects.get(manufacturer_id=device_id)
-        observation = Observation.objects.get(source=source)
-        # one observation created from the two records
-        self.assertIsNotNone(observation)
+            if count == 0:  # First iteration, cached
+                self.assertEqual(rsp.status_code, status.HTTP_200_OK)
+                self.assertEqual(rsp.data, {'message': 'First payload successfully cached for device: 0'})
 
+            elif count == 1:  # second payload, postion returned
+                self.assertIsNotNone(rsp)
+                self.assertEqual(rsp.status_code, status.HTTP_201_CREATED)
+                source = Source.objects.get(manufacturer_id=device_id)
+                observation = Observation.objects.get(source=source)
+                # one observation created from the two records
+                self.assertIsNotNone(observation)
+            count += 1
+
+    def test_sigfox_v2_setup_and_unknown_data_modes_not_processed(self):
+        test_data = {
+            "deviceId": "1",
+            "time": "1461678551",
+            "seqNumber": 1,
+            "data": "8768"
+        }
+        rsp = self._post_data(json.dumps(test_data), self.api_path_v2, SigfoxV2FoundationHandlerView)
+        self.assertEqual(rsp.status_code, status.HTTP_200_OK)
+        self.assertEqual(rsp.data, {'message': 'Boot/reboot, geolocation, setup and unknown track modes not processed'})
+
+    def test_sigfox_v2_invalid_records(self):
+        test_data = {
+            "deviceId": "1",
+            "time": "1461678551",
+            "seqNumber": 1
+        }
+        rsp = self._post_data(json.dumps(test_data), self.api_path_v2, SigfoxV2FoundationHandlerView)
+        self.assertEqual(rsp.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_all_data_advanced_msgs_ignored(self):
         for (_, data_advanced) in DATA_PAIRS:
@@ -106,19 +133,13 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
         self.assertEqual(rsp.status_code, status.HTTP_400_BAD_REQUEST)
 
         bad_msg = copy.deepcopy(uplink)
-        bad_msg.pop('data')
+        bad_msg['data'] = '8'  # data len < 2
         rsp = self._post_data(json.dumps(bad_msg))
         self.assertIsNotNone(rsp)
         self.assertEqual(rsp.status_code, status.HTTP_400_BAD_REQUEST)
 
         bad_msg = copy.deepcopy(uplink)
-        bad_msg['data'] = '80aed31501e97f8d3470e2'
-        rsp = self._post_data(json.dumps(bad_msg))
-        self.assertIsNotNone(rsp)
-        self.assertEqual(rsp.status_code, status.HTTP_400_BAD_REQUEST)
-
-        bad_msg = copy.deepcopy(uplink)
-        bad_msg['data'] = '80aed31501e97f8d3470e2rt'
+        bad_msg['data'] = '80aed31501e97f8d3470e2rt'  # bad hex data
         rsp = self._post_data(json.dumps(bad_msg))
         self.assertIsNotNone(rsp)
         self.assertEqual(rsp.status_code, status.HTTP_400_BAD_REQUEST)
@@ -128,6 +149,21 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
         rsp = self._post_data(json.dumps(bad_msg))
         self.assertIsNotNone(rsp)
         self.assertEqual(rsp.status_code, status.HTTP_201_CREATED)
+
+    def test_ignored_msgs(self):
+        uplink, _ = DATA_PAIRS[0]
+
+        ignored_msg = copy.deepcopy(uplink)
+        ignored_msg.pop('data')
+        rsp = self._post_data(json.dumps(ignored_msg))
+        self.assertIsNotNone(rsp)
+        self.assertEqual(rsp.status_code, status.HTTP_200_OK)
+
+        ignored_msg = copy.deepcopy(uplink)
+        ignored_msg['data'] = '80aed31501e97f8d'  # data len != 24
+        rsp = self._post_data(json.dumps(ignored_msg))
+        self.assertIsNotNone(rsp)
+        self.assertEqual(rsp.status_code, status.HTTP_200_OK)
 
     def _verify_data_uplink_rsp(self, observation, test_data, parser=SigfoxPayloadParserV1):
         self.assertIsNotNone(observation)

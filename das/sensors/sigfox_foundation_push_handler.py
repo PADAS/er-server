@@ -25,7 +25,7 @@ class ComputedLocation(serializers.Serializer):
 
 
 class PayloadValidator(serializers.Serializer):
-    deviceId = serializers.CharField()
+    deviceId = serializers.CharField(required=True)
     time = serializers.IntegerField()
     seqNumber = serializers.IntegerField()
     data = serializers.CharField(min_length=2, required=False)
@@ -106,9 +106,10 @@ class SigfoxFoundationPushHandler:
                 return Response(data=validator.data.get('id'), status=status.HTTP_201_CREATED)
             else:
                 logger.error('Invalid observation %s', observation)
-                return Response(data=validator.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        return Response(data=dict(message='Unable to parse data'), status=status.HTTP_400_BAD_REQUEST)
+                err_message = validator.errors
+        else:
+            err_message = dict(message='Unable to parse data')
+        return Response(data=err_message, status=status.HTTP_400_BAD_REQUEST)
 
 
     @classmethod
@@ -131,25 +132,21 @@ class SigfoxV1Handler(SigfoxFoundationPushHandler):
         sigfox_data = PayloadValidator(data=request.data)
         if sigfox_data.is_valid():
             validated_data = sigfox_data.validated_data
-            if validated_data.get('data'):
+            if validated_data.get('data') and len(validated_data.get('data')) == cls.V1_UPLINK_PAYLOAD_LENGTH:
                 components = cls.process_sigfoxv1_data(validated_data)
                 parsed_data = SigfoxPayloadParserV1.parse(components)
                 return cls.process_data_uplink(request.data, provider_key, parsed_data)
-            elif validated_data.get('computedLocation'):
-                logger.info('Ignoring data advanced payload')
+            else:
+                logger.warning(f'SigfoxV1Handler ignoring request: {request.data}')
                 return Response(data=dict(message='Message received'), status=status.HTTP_200_OK)
-
+        else:
             logger.warning(f"SigfoxV1Handler bad request: {request.data}")
-        return Response(data=sigfox_data.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(data=sigfox_data.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @classmethod
     def process_sigfoxv1_data(cls, validated_data):
-        data = validated_data.get('data')
-        if len(data) != cls.V1_UPLINK_PAYLOAD_LENGTH:
-            logger.info(f"SigfoxV1Handler ignoring payload {data} of length {len(data)}")
-            return
         try:
-            bin_string = cls._to_binary_string(data)
+            bin_string = cls._to_binary_string(validated_data.get('data'))
             components = cls._get_components(bin_string, cls.sigfox_payload_re)
             return components
         except Exception as ex:
@@ -171,14 +168,28 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
         sigfox_data = PayloadValidator(data=request.data)
         if sigfox_data.is_valid():
             validated_data = sigfox_data.validated_data
+            device = validated_data.get("deviceId")
             if validated_data.get('data'):
-                components, mode_display, device_position = cls.process_sigfox_tracks(validated_data)
-                parsed_data = SigfoxPayloadParserV2.parse(components, mode_display, device_position)
+                tracks = cls.process_sigfox_tracks(validated_data)
+                validation_msg = cls.validate_tracks_before_parsing(tracks, device)
+                if validation_msg:
+                    return Response(data=dict(message=validation_msg), status=status.HTTP_200_OK)
+                parsed_data = SigfoxPayloadParserV2.parse(tracks)
                 return cls.process_data_uplink(request.data, provider_key, parsed_data)
-
-            logger.warning(f"SigfoxV2Handler bad request: {request.data}")
+        logger.warning(f"SigfoxV2Handler bad request: {request.data}")
         return Response(data=sigfox_data.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @classmethod
+    def validate_tracks_before_parsing(cls, tracks, device):
+        message = None
+        if not tracks or not tracks.get('mode'):
+            message = "Boot/reboot, geolocation, setup and unknown track modes not processed"
+        elif not tracks.get('device_position'):
+            message = f'No position found for device: {device}'
+            logger.info(message)
+        elif 'cached' in tracks.get('device_position'):
+            message = f'First payload successfully cached for device: {device}'
+        return message
 
     @classmethod
     def get_ubi_credentials(cls):
@@ -228,7 +239,7 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
         return mode, mode_display, components
 
     @classmethod
-    def cache_gps_data(cls, components, device_id, seq_no, key, latitude, longitude):
+    def cache_gps_data(cls, device_id, seq_no, key, latitude, longitude):
         data = {'device_id': device_id, 'seq_no': seq_no, 'latitude': latitude, 'longitude': longitude}
         cache.set(key, data, cls.cache_timeout)
 
@@ -248,7 +259,8 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
             cache.set(ubi_key, None)
             return position
         else:
-            cls.cache_gps_data(components, device_id, seq_no, gps_key, latitude, longitude)
+            cls.cache_gps_data(device_id, seq_no, gps_key, latitude, longitude)
+            return 'cached gps data'
 
     @classmethod
     def process_ubi_data(cls, payload, device_id, seq_no, components, time, gps_key, ubi_key):
@@ -262,6 +274,7 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
             return position
         else:
             cls.cache_ubi_data(data, device_id, seq_no, ubi_key)
+            return 'cached ubi data'
 
     @classmethod
     def cache_and_process_position(cls, payload, components, mode):
@@ -275,8 +288,6 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
             device_position = cls.process_gps_data(device_id, seq_no, components, time, gps_key, ubi_key)
         elif mode == cls.UBI_TRACK:
             device_position = cls.process_ubi_data(payload, device_id, seq_no, components, time, gps_key, ubi_key)
-        if not device_position:
-            logger.info(f'No device position found for device: {device_id}')
         return device_position
 
 
@@ -296,23 +307,21 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
         return value, display
 
     @classmethod
-    def get_mode_and_components(cls, payload):
-        data = payload.get('data')
-        if len(data) == 2 or len(data) == 4:
-            logger.info(f"skipping Boot/Reboot and Sigfox geolocation records. Data: {data}")
-            return
+    def get_mode_and_components(cls, data):
         mode_value, mode_display, components = cls.prepare_data(data)
-        if not components:
-            logger.warning("Error when preparing data, Missing components in binary string ")
-
         logger.info(f'sigfox version 2, mode: {mode_display}, parsed components: {components}')
         return components, mode_value, mode_display
 
     @classmethod
     def process_sigfox_tracks(cls, payload):
-        components, mode, mode_display = cls.get_mode_and_components(payload)
-        device_position = cls.cache_and_process_position(payload, components, mode)
-        return components, mode_display, device_position
+        data = payload.get('data')
+        if len(data) == 2 or len(data) == 4:
+            logger.info(f"skipping Boot/Reboot and Sigfox geolocation records. Data: {data}")
+            return
+        components, mode, mode_display = cls.get_mode_and_components(data)
+        position = cls.cache_and_process_position(payload, components, mode)
+        res = {'components': components, 'mode': mode_display, 'device_position': position}
+        return res
 
 
 class SigfoxParser:
@@ -395,11 +404,13 @@ class SigfoxPayloadParserV2(SigfoxParser):
     # https://vulcan.atlassian.net/browse/DAS-5294
 
     @classmethod
-    def parse(cls, components, mode_display, device_position):
-        if components and device_position:
+    def parse(cls, tracks):
+        components = tracks.get('components')
+        device_position = tracks.get('device_position')
+        if components:
             return {
                 'batt_level': cls._parse_battery_volts(components[1], version=2),
-                'mode': mode_display,
+                'mode': tracks.get('mode'),
                 'movement_it': cls._parse_movement_it(components[2]),
                 'gps_state': cls._parse_state(components[3]),
                 'gps_acq_time': cls._parse_gps_acq_time(components[4]),
