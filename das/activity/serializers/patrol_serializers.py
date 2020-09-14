@@ -92,7 +92,11 @@ class PatrolSegmentSerializer(BaseSerializer):
             image_url = self.resolve_image_url(instance)
             rep['image_url'] = utils.add_base_url(request, image_url)
         rep['patrol_type'] = str(instance.patrol_type.id) if instance.patrol_type else None
-        rep['patrol'] = self.get_patrol(instance.patrol) if instance.patrol else None
+
+        if 'patrol' in self._kwargs.get('excludes', ''):
+            rep.pop('patrol')
+        else:
+            rep['patrol'] = self.get_patrol(instance.patrol) if instance.patrol else None
         return rep
 
     def get_patrol(self, patrol):
@@ -111,14 +115,9 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
 
     objective = text_field(required=False, allow_blank=True)
     priority = priority_choices_serializer
-    serial_number = serializers.IntegerField(
-        allow_null=True, required=False,
-        validators=[validators.UniqueValidator(queryset=Patrol.objects.all())]
-    )
+    serial_number = serializers.IntegerField(read_only=True)
     state = state_choices_serializer
     title = serializers.CharField(required=False, allow_blank=True, max_length=255)
-    time_range = fields.DateTimeRangeField(required=False)
-
     files = PatrolFileSerializer(many=True, required=False, read_only=True)
     notes = PatrolNoteSerializer(many=True, required=False)
     patrol_segments = PatrolSegmentSerializer(many=True, required=False, excludes='patrol')
