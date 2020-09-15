@@ -1468,16 +1468,13 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         return queryset.distinct()
 
     def by_date_range(self, filter_param):
-        segments = PatrolSegment.objects.all()
-        empty_qs = PatrolSegment.objects.none()
-        q1, q2 = empty_qs, empty_qs
+        queryset = self
         lower, upper = parse_date_range(filter_param)
         if lower:
-            q1 = segments.filter(time_range__startswith__gt=lower).values('patrol')
+            queryset = queryset.filter(patrol_segment__time_range__startswith__gt=lower)
         if upper:
-            q2 = segments.filter(time_range__endswith__lt=upper).values('patrol')
-        patrol_ids = [item.get('patrol') for item in q1.union(q2).distinct()]
-        return Patrol.objects.filter(id__in=patrol_ids)
+            queryset = queryset.filter(patrol_segment__time_range__endswith__lt=upper)
+        return queryset
 
 
 def serial_next_increment():
