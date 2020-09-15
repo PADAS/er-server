@@ -92,19 +92,13 @@ class PatrolSegmentSerializer(BaseSerializer):
             image_url = self.resolve_image_url(instance)
             rep['image_url'] = utils.add_base_url(request, image_url)
         rep['patrol_type'] = str(instance.patrol_type.id) if instance.patrol_type else None
-
-        if 'patrol' in self._kwargs.get('excludes', ''):
-            rep.pop('patrol')
-        else:
-            rep['patrol'] = self.get_patrol(instance.patrol) if instance.patrol else None
+        rep['patrol'] = self.get_patrol(instance.patrol) if instance.patrol else None
         return rep
 
     def get_patrol(self, patrol):
         return PatrolSerializer(
             instance=patrol,
-            excludes=[
-                'patrol_segments', 'files', 'notes', 'serial_number',
-                'updates', 'objective', 'created_at', 'updated_at']).data
+            includes=['id', 'patrol_type', 'priority', 'state', 'title']).data
 
     def create(self, validated_data):
         return activity.models.PatrolSegment.objects.create(**validated_data)
@@ -120,7 +114,14 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
     title = serializers.CharField(required=False, allow_blank=True, max_length=255)
     files = PatrolFileSerializer(many=True, required=False, read_only=True)
     notes = PatrolNoteSerializer(many=True, required=False)
-    patrol_segments = PatrolSegmentSerializer(many=True, required=False, excludes='patrol')
+    patrol_segments = PatrolSegmentSerializer(many=True, required=False, excludes=['patrol'])
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        for seg in rep.get('patrol_segments', []):
+            seg.pop('patrol', 0)
+        return rep
+
 
     def create(self, validated_data):
         patrol_notes = validated_data.pop('notes', [])

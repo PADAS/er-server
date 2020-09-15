@@ -6,31 +6,47 @@ from accounts.serializers import (
 )
 from activity.serializers.helpers import get_update_type
 from revision.manager import AC_UPDATED
+from collections import OrderedDict
+import copy
 
 
 class BaseSerializer(serializers.Serializer):
     """This serves as the base class from which all other serializers extend.
-
     It contains fields common to all API resources in the app.
     """
 
     id = serializers.UUIDField(read_only=True)
 
     def __init__(self, *args, **kwargs):
-        excludes = kwargs.pop('excludes', [])
-
-        self.clear_excludes(excludes)
+        self.excludes = kwargs.pop('excludes', [])
+        self.includes = kwargs.pop('includes', [])
 
         super().__init__(*args, **kwargs)
 
-    # TODO Leverage on metaclass
-    def clear_excludes(self, excludes):
-        list(
-            map(
-                lambda x: self.fields.pop(x, None),
-                excludes
-            )
-        )
+    def get_fields(self):
+        """
+        Returns a dictionary of {field_name: field_instance}.
+        """
+        fields = OrderedDict()
+        declared_fields = copy.deepcopy(self._declared_fields)
+
+        if self.includes:
+            for field_name in self.includes:
+
+                if field_name in declared_fields:
+                    fields[field_name] = declared_fields[field_name]
+
+            return fields
+
+        elif self.excludes:
+            for field_name in declared_fields:
+
+                if field_name not in self.excludes:
+                    fields[field_name] = declared_fields[field_name]
+
+            return fields
+        else:
+            return declared_fields
 
 
 class RevisionMixin(serializers.Serializer):
