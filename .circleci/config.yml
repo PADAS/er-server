@@ -293,11 +293,6 @@ workflows:
                 - 'develop'
                 - /release*/
       - run_api_unittests:
-          filters:
-            branches:
-              only:
-                - /das-[0-9]+/
-                - /[0-9]+\.[0-9]+\.[0-9]+/
           requires:
             - 'docker_build_image'
       - terraform_plan_dev:
