@@ -41,7 +41,9 @@ source_parsers = {
 # ones.
 extensions = ['sphinxcontrib.httpdomain',
               'sphinx.ext.autodoc',
-              'pygsonsetup']
+              'pygsonsetup',
+              'recommonmark'
+              ]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

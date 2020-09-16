@@ -5,7 +5,7 @@ EarthRanger documentation
 Contents:
 
 * :ref:`Overview`
-* `Documentation <interactive/>`__
+* `Interactive API Documentation <interactive/>`__
 * :ref:`API`
 
 .. _overview:

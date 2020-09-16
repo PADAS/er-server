@@ -7,7 +7,7 @@ ER supports displaying basemaps provided by major map creators using Mapbox Tech
 Popular map providers support serving maps using what is known as a raster tile service. There is a url pattern to their offering that supports an XYZ pattern. This is used by the ER UI to ask for a map tile for a specific lon/lat/zoom level.
 For example here is what an OpenStreetmap tile server url looks like: https://a.tile.openstreetmap.org/${z}/${x}/${y}.png
 
-Basemaps are configured in ER [here](admin/mapping/tilelayer/)
+Basemaps are configured in ER [here](/admin/mapping/tilelayer/)
 All basemaps the are added then in turn get displayed in the ER UI. Review them to see the basic configurations we provide out of the box.
 
 We said earlier we support raster tileservers. Specifically in ER we can configure a standard tile server as well as an advanced Mapbox Studio authored tileserver and style.
