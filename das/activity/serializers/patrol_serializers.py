@@ -29,9 +29,13 @@ class PatrolFileSerializer(BaseSerializer, RevisionMixin):
 
 
 class PatrolNoteSerializer(BaseSerializer):
+    id = serializers.UUIDField(required=False, read_only=False)
     text = text_field()
     created_by_user = serializers.HiddenField(default=serializers.CurrentUserDefault())
 
+    def create(self, validated_data):
+        validated_data['patrol'] = self._kwargs.get('data').get('patrol')
+        return activity.models.PatrolNote.objects.create(**validated_data)
 
 
 class LeaderRelatedField(ReportedByRelatedField):
@@ -101,6 +105,7 @@ class PatrolSegmentSerializer(BaseSerializer):
             includes=['id', 'patrol_type', 'priority', 'state', 'title']).data
 
     def create(self, validated_data):
+        validated_data['patrol'] = self._kwargs.get('data').get('patrol')
         return activity.models.PatrolSegment.objects.create(**validated_data)
 
 
@@ -138,6 +143,38 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
             PatrolSegment.objects.create(**segment)
 
         return Patrol.objects.get(id=new_patrol.id)
+
+    def _ser_create(self, instance, update_items, items_serializer):
+        for item in update_items:
+            update_item = copy.deepcopy(item)
+            update_item['patrol'] = instance
+            update_item_id = update_item.pop('id', None)
+            serializer = items_serializer(data=update_item, context=self.context)
+            serializer.is_valid(raise_exception=True)
+
+            if update_item_id:
+                note_instance = activity.models.PatrolNote.objects.get(id=update_item_id)
+                serializer.update(note_instance, serializer.validated_data)
+            else:
+                serializer.create(serializer.validated_data)
+
+    def update(self, instance, validated_data):
+        update_fields = []
+        for k, v in validated_data.items():
+            if k == 'notes':
+                self._ser_create(instance, v, PatrolNoteSerializer)
+                continue
+            if k == 'patrol_segments':
+                self._ser_create(instance, v, PatrolSegmentSerializer)
+                continue
+            if getattr(instance, k) != v:
+                setattr(instance, k, v)
+                if k not in ('id',):
+                    update_fields.append(k)
+        if update_fields:
+            instance.save()
+        return instance
+
 
 
 class PatrolTemplateSerializer(BaseSerializer):

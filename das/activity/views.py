@@ -1133,7 +1133,7 @@ class PatrolsView(generics.ListCreateAPIView):
         return queryset
 
 
-class PatrolView(generics.RetrieveAPIView):
+class PatrolView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
     serializer_class = PatrolSerializer
     queryset = Patrol.objects.all()
@@ -1144,7 +1144,7 @@ class PatrolsegmentsView(generics.ListCreateAPIView):
     queryset = PatrolSegment.objects.all()
 
 
-class PatrolsegmentView(generics.RetrieveAPIView):
+class PatrolsegmentView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
     serializer_class = PatrolSegmentSerializer
     queryset = PatrolSegment.objects.all()

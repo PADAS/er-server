@@ -48,6 +48,19 @@ class BaseSerializer(serializers.Serializer):
         else:
             return declared_fields
 
+    def update(self, instance, validated_data):
+        # Default update
+        update_fields = []
+        for k, v in validated_data.items():
+            if getattr(instance, k) != v:
+                setattr(instance, k, v)
+                if k not in ('id',):
+                    update_fields.append(k)
+
+        if update_fields:
+            instance.save()
+        return instance
+
 
 class RevisionMixin(serializers.Serializer):
     updates = serializers.SerializerMethodField()
