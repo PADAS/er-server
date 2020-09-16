@@ -72,10 +72,14 @@ FIRMS_FTP_REGIONS = zip(FIRMS_FTP_REGIONS, FIRMS_FTP_REGIONS)
 
 class FirmsClient:
 
+    host = 'nrt3.modaps.eosdis.nasa.gov'
+    data_type_and_name = 'VNP14IMGTDL_NRT'
+    filename_prefix = 'SUOMI_VIIRS_C2'
+    firms_data_folder = 'suomi-npp-viirs-c2'
+
     def __init__(self, auth_token=None, region=None):
         self.auth_token = auth_token
         self.region = region
-        self.host = 'nrt4.modaps.eosdis.nasa.gov'
         self.api = f'https://{self.host}/api/v2'
         self.last_storable_headers = None
 
@@ -95,7 +99,7 @@ class FirmsClient:
                 try:
                     elem = elem.strip(' ')
                     if elem.startswith('filename='):
-                        previous_filename = elem.split('=')
+                        _, previous_filename = elem.split('=', maxsplit=1)
                         last_dateindex = previous_filename.split('.', maxsplit=1)[0].split('_')[-1]
                         last_dateindex = int(last_dateindex)
                         return last_dateindex
@@ -126,7 +130,6 @@ class FirmsClient:
                 (todays_index, None)
             ]
 
-
     def fetch_data(self, stored_headers=None):
         '''
         If stored_headers is a dictionary, this function will evaluate it and
@@ -147,14 +150,14 @@ class FirmsClient:
         stored_headers = stored_headers or {}
 
         # The filename is a pattern that includes the "region" and a "date index".
-        calculated_filename = f'VIIRS_I_{self.region}_VNP14IMGTDL_NRT_{date_index}.txt'
+        calculated_filename = f'{self.filename_prefix}_{self.region}_{self.data_type_and_name}_{date_index}.txt'
 
         resolved_filename = calculated_filename
 
         if self.region not in resolved_filename:
             raise ValueError('Logic Error: Region does not match filename')
 
-        url = f'{self.api}/content/archives/FIRMS/viirs/{self.region}/{resolved_filename}'
+        url = f'{self.api}/content/archives/FIRMS/{self.firms_data_folder}/{self.region}/{resolved_filename}'
 
         request_headers = {}
         if 'etag' in stored_headers:
@@ -222,7 +225,7 @@ class FirmsPlugin(TrackingPlugin):
     DEFAULT_REPORT_INTERVAL = timedelta(minutes=120)
     SOURCE_TYPE = 'firms'
     DEFAULT_CONFIDENCE_ALERT_LEVELS = ['nominal', 'high', ]
-    DEFAULT_ALERT_WINDOW = timedelta(hours=12)
+    DEFAULT_ALERT_WINDOW = timedelta(hours=24)
 
     app_key_help_text = '''You'll need an App Key in order to get data from NASA's EarthData website. 
     Visit https://nrt4.modaps.eosdis.nasa.gov/, create a Profile, and generate an App Key (available in the Profile menu).'''
@@ -288,9 +291,19 @@ class FirmsPlugin(TrackingPlugin):
         if self.spatial_feature_group:
             features = self.spatial_feature_group.features.all()
 
-            self._geo_filter = MultiPolygon(
-                [f.feature_geometry for f in features]
-            )
+            # self._geo_filter = MultiPolygon(
+            #     [f.feature_geometry for f in features]
+            # )
+
+            geometries = [f.feature_geometry for f in features]
+            polyunion = geometries[0]
+            for geom in geometries[1:]:
+                polyunion = polyunion.union(geom)
+
+            self._geo_filter = polyunion
+
+            logger.debug('Geometry union = %s', self._geo_filter)
+
         else:
             raise ValueError(
                 'Stubbornly refusing to allow no geo filter on FIRMS data ingestion.')
