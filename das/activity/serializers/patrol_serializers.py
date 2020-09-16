@@ -32,6 +32,8 @@ class PatrolNoteSerializer(BaseSerializer):
     id = serializers.UUIDField(required=False, read_only=False)
     text = text_field()
     created_by_user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    created_at = DateTimeField(read_only=True)
+    updated_at = DateTimeField(read_only=True)
 
     def create(self, validated_data):
         validated_data['patrol'] = self._kwargs.get('data').get('patrol')
