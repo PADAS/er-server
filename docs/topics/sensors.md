@@ -1,4 +1,4 @@
-# Collars and Sensors integrated with DAS
+# Collars and Sensors integrated with ER
 
 ## Radios
 
@@ -7,7 +7,7 @@
 
 ### Garmin inReach
 [Garmin inReach](https://explore.garmin.com/en-US/inreach/) Previously owned by Delorme, the inReach is a satellite based tracking devices with SMS text messaging.
-A device under an enterprise subscription plan allows DAS to communicate with the inReach API to access the devices location.
+A device under an enterprise subscription plan allows ER to communicate with the inReach API to access the devices location.
 
 ### GSAT
 [GSAT](http://www.gsat.us/)
@@ -17,8 +17,8 @@ A callback from their web service communicates with our API to send location upd
 
 ## Vehicle Tracking
 
-### ShadowView
-Using a LoRa network, [ShadowView](https://www.theinternetoflife.com/) has pioneered several different types of low data devices. The first being a tracking device. GPS points are carried to their central hub which in turn sends location updates to DAS through the DAS API.
+### Smart Parks
+Using a LoRa network, [Smart Parks](https://www.theinternetoflife.com/) has pioneered several different types of low data devices. The first being a tracking device. GPS points are carried to their central hub which in turn sends location updates to ER through the ER API.
 The first tracking devices were used on vehicles, secondly they have designed one to be implanted in a Rhino horn.
 
 ### Spider Tracks
@@ -53,22 +53,22 @@ Somewhat experimental system using RFID dots and RFID sensors in the field to tr
 
 [CWS-I](http://cws-i.com/)
 
-TAACP posts observation updates to the DAS API.
+TAACP posts observation updates to the ER API.
 
 
 ### Vectronics
-[Vectronics](http://www.vectronic-aerospace.com/wildlife-monitoring/vectronic-wildlife/) satellite collar tracking company. A windows based application downloads the track data into a PostgreSQL database. DAS directly accesses the vectronics db to move track data into DAS.
+[Vectronics](http://www.vectronic-aerospace.com/wildlife-monitoring/vectronic-wildlife/) satellite collar tracking company. A windows based application downloads the track data into a PostgreSQL database. ER directly accesses the vectronics db to move track data into ER.
 
-To support DAS, we run the GPS Plus X collar manager software on a windows platform hosted by the same cloud provider as DAS itself. We configure the GPS Plus machine to communicate with the same PostgreSQL database server as DAS to reduce cost. As long as DAS can reach the GPS Plus PostgreSQL db, then DAS can download track data.
+To support ER, we run the GPS Plus X collar manager software on a windows platform hosted by the same cloud provider as ER itself. We configure the GPS Plus machine to communicate with the same PostgreSQL database server as ER to reduce cost. As long as ER can reach the GPS Plus PostgreSQL db, then ER can download track data.
 
 ## Camera Traps
 
 ### Panthera Camera Trap
 Panthera produces a custom camera trap that works in daylight and nighttime conditions.
-Pictures are sent back to their server over a GSM network. Their server than posts the picture to the DAS API and appears in DAS as a new Camera Trap Report.
+Pictures are sent back to their server over a GSM network. Their server than posts the picture to the ER API and appears in ER as a new Camera Trap Report.
 
 ### TrailGuard Camera Trap
-TrailGuard by Resolve is custom camera trap vendor. Simialar to Panthera, images captured are posted to the DAS API and appear in DAS as a new Camera Trap Report.
+TrailGuard by Resolve is custom camera trap vendor. Simialar to Panthera, images captured are posted to the ER API and appear in ER as a new Camera Trap Report.
 
 [Wildland Security](http://wildlandsecurity.org/)
 [TrailGuard](https://www.leonardodicaprio.org/resolve-trailguard-ground-sensors-for-advanced-conservation-monitoring/)

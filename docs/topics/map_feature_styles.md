@@ -1,4 +1,4 @@
-# DAS map features - simple-style spec definitions 
+# ER map features - simple-style spec definitions 
 
 ## Boundaries
 - National Park: {"fill": "#555555", "fill-opacity": 0, "stroke": "#00FFFF", "stroke-opacity": 0.7, "stroke-width": 3}

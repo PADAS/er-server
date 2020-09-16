@@ -1,5 +1,5 @@
 ======================================
-DAS documentation
+EarthRanger documentation
 ======================================
 
 Contents:
@@ -26,7 +26,7 @@ Contents:
     
    faq
    topics/browser-and-os-support
-   topics/map_feature_styles
+   topics/maps
    topics/sensors
    writers
    glossary
