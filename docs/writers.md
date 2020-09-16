@@ -1,4 +1,5 @@
-# Writing documentation for DAS
+Writing documentation for DAS
+=============================================================
 
 ## Markdown
 Markdown is of John Gruber's invention to provide a syntax to format text

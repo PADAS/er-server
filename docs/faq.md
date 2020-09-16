@@ -1,4 +1,5 @@
-# ER FAQ
+ER FAQ
+========================
 ## General
 
 ## API

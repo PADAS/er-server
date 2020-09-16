@@ -1,5 +1,5 @@
-# ER map features - simple-style spec definitions 
-
+ER map features - simple-style spec definitions 
+==========================================================
 ## Boundaries
 - National Park: {"fill": "#555555", "fill-opacity": 0, "stroke": "#00FFFF", "stroke-opacity": 0.7, "stroke-width": 3}
 - National Reserve: {"fill": "#7CB74B", "fill-opacity": 0.2, "stroke": "#4E633C", "stroke-opacity": 0.5, "stroke-width": 2}

@@ -1,4 +1,5 @@
-# EarthRanger Maps
+EarthRanger Maps
+=======================================================
 
 ## Basemaps
 ER supports displaying basemaps provided by major map creators using Mapbox Technology. We will describe the most commonly supported basemap types, but if you don't find your answer here, contact ER Tech Support with further questions.

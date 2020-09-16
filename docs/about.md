@@ -1,3 +1,4 @@
-# About ER - EarthRanger
+About ER - EarthRanger
+===========================
 
 See [EarthRanger](https://earthranger.com)
