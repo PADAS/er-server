@@ -15,9 +15,7 @@ Contents:
    :caption: Overview
 
    about
-   releases
-
-
+   
 .. _documentation:
 
 .. toctree::
