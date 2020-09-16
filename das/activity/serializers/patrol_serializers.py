@@ -98,9 +98,7 @@ class PatrolSegmentSerializer(BaseSerializer):
     def get_patrol(self, patrol):
         return PatrolSerializer(
             instance=patrol,
-            excludes=[
-                'patrol_segments', 'files', 'notes', 'serial_number',
-                'updates', 'objective', 'created_at', 'updated_at']).data
+            includes=['id', 'patrol_type', 'priority', 'state', 'title']).data
 
     def create(self, validated_data):
         return activity.models.PatrolSegment.objects.create(**validated_data)
@@ -111,17 +109,19 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
 
     objective = text_field(required=False, allow_blank=True)
     priority = priority_choices_serializer
-    serial_number = serializers.IntegerField(
-        allow_null=True, required=False,
-        validators=[validators.UniqueValidator(queryset=Patrol.objects.all())]
-    )
+    serial_number = serializers.IntegerField(read_only=True)
     state = state_choices_serializer
     title = serializers.CharField(required=False, allow_blank=True, max_length=255)
-    time_range = fields.DateTimeRangeField(required=False)
-
     files = PatrolFileSerializer(many=True, required=False, read_only=True)
     notes = PatrolNoteSerializer(many=True, required=False)
-    patrol_segments = PatrolSegmentSerializer(many=True, required=False, excludes='patrol')
+    patrol_segments = PatrolSegmentSerializer(many=True, required=False, excludes=['patrol'])
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        for seg in rep.get('patrol_segments', []):
+            seg.pop('patrol', 0)
+        return rep
+
 
     def create(self, validated_data):
         patrol_notes = validated_data.pop('notes', [])

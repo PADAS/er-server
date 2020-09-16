@@ -85,7 +85,9 @@ class CustomSchema(AutoSchema):
                 'type': 'object',
                 "properties": {
                     "id": {"type": "string", "format": "uuid", "readOnly": True},
-                    "title": {"type": "string", "maxLength": 255}
+                    "title": {"type": "string", "maxLength": 255},
+                    'priority': {"type": "integer"},
+                    'state': {"type": "string", "maxLength": 255},
                 }
             }
         return super()._map_field(field)

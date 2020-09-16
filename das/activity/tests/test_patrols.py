@@ -26,8 +26,8 @@ class TestPatrol(BaseAPITest):
                                              is_staff=True, **user_const)
         Patrol.objects.bulk_create(
             [
-                Patrol(id="b14bc72f-96d6-4248-9fea-7dd0bbc8c196", serial_number=1, title='Test Patrol', objective='Test Objective'),
-                Patrol(serial_number=2, title='Test Patrol 2', objective='Test Objective 2')
+                Patrol(id="b14bc72f-96d6-4248-9fea-7dd0bbc8c196", title='Test Patrol', objective='Test Objective'),
+                Patrol(title='Test Patrol 2', objective='Test Objective 2')
             ])
         PatrolSegment.objects.create(patrol_type=PatrolType.objects.first())
 
@@ -103,9 +103,8 @@ class TestPatrol(BaseAPITest):
         patrol_data = dict(
             title='Test Patrol',
             objective='Test Objective',
-            time_range={"start_time": "2020-08-01 02:00:00+00", "end_time": "2020-08-02 04:00:00+00"},
             notes=[{"text": "Notes test 1"}],
-            patrol_segments=[{"state": "active"}]
+            patrol_segments=[{'time_range': {"start_time": "2020-08-05 02:00:00+00", "end_time": "2020-08-06 04:00:00+00"},"state": "active"}]
         )
         self._create_patrol(patrol_data)
         query = {'filter': json.dumps({"date_range": {"lower": "2020-08-01T00:00:00.000Z"}})}

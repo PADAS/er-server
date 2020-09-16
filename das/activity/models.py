@@ -15,7 +15,7 @@ from django.contrib.gis.db import models
 from django.contrib.gis.geos import Polygon
 from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import transaction, connection
 from django.db.models import Q, F, Func
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -1471,10 +1471,17 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         queryset = self
         lower, upper = parse_date_range(filter_param)
         if lower:
-            queryset = queryset.filter(time_range__startswith__gt=lower)
+            queryset = queryset.filter(patrol_segment__time_range__startswith__gt=lower)
         if upper:
-            queryset = queryset.filter(time_range__endswith__lt=upper)
+            queryset = queryset.filter(patrol_segment__time_range__endswith__lt=upper)
         return queryset
+
+
+def serial_next_increment():
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT nextval('activity_patrol_unique_serial')")
+        result = cursor.fetchone()
+        return result[0]
 
 
 class Patrol(TimestampedModel, RevisionMixin):
@@ -1483,12 +1490,11 @@ class Patrol(TimestampedModel, RevisionMixin):
     PRIORITY_CHOICES = PRIORITY_CHOICES
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    serial_number = models.BigIntegerField(verbose_name='Serial Number', unique=True, blank=True, null=True)
+    serial_number = models.BigIntegerField(verbose_name='Serial Number', unique=True, blank=True, null=True, default=serial_next_increment)
     priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
     state = models.CharField(choices=PATROL_STATE_CHOICES, default=PC_ACTIVE, max_length=25)
     title = models.CharField(max_length=255, blank=True)
     objective = models.TextField(blank=True)
-    time_range = DateTimeRangeField(blank=True, null=True)
     revision = Revision()
 
 
