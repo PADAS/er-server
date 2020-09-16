@@ -80,6 +80,47 @@ class TestPatrol(BaseAPITest):
         response = views.PatrolsegmentsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
+    def test_update_patrol(self):
+        patrol_update_data = dict(
+            title="New updated title",
+            notes=[{"text": "New first note"}, {"text": "New second Note"}],
+            patrol_segments=[{"state": "active"}]
+        )
+        patrol = Patrol.objects.first()
+        self.assertEqual(len(patrol.notes.all()), 0)
+        self.assertEqual(len(patrol.patrol_segments.all()), 0)
+
+        url = reverse('patrol', kwargs={'id': patrol.id})
+        request = self.factory.patch(url, data=patrol_update_data)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolView.as_view()(request, id=patrol.id)
+
+        self.assertEqual(len(response.data.get('notes')), 2)
+        self.assertEqual(len(response.data.get('patrol_segments')), 1)
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_update_patrolsegment(self):
+        segment_update_data = dict(
+            state="upcoming",
+            patrol_type="dog_patrol"
+        )
+        segment = PatrolSegment.objects.first()
+        self.assertEqual(segment.patrol_type.display, "Routine Patrol")
+        self.assertEqual(segment.state, 'active')
+
+        url = reverse('patrol-segment', kwargs={'id': segment.id})
+        request = self.factory.patch(url, data=segment_update_data)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsegmentView.as_view()(request, id=segment.id)
+
+        patrol_type_id = response.data.get('patrol_type')
+        patrol_type = PatrolType.objects.get(id=patrol_type_id)
+        self.assertEqual(patrol_type.value, segment_update_data.get('patrol_type'))  # dog_patrol
+        self.assertEqual(response.data.get('state'), segment_update_data.get('state'))  # upcoming
+        self.assertEqual(response.status_code, 200)
+
+
     def test_get_all_patrolsegments(self):
         url = reverse('patrol-segments')
         request = self.factory.get(url)
