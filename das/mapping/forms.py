@@ -206,4 +206,4 @@ class ArcgisConfigurationForm(forms.ModelForm):
 
     class Meta:
         model = ArcgisConfiguration
-        exclude = []
+        fields = '__all__'
