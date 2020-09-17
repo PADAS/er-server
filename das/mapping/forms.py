@@ -195,7 +195,14 @@ class DisplayCategoryForm(forms.ModelForm):
 
 class ArcgisConfigurationForm(forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput(render_value=True))
+    disable_import_feature_classes = forms.BooleanField(
+        widget=forms.CheckboxInput(),
+        help_text=(
+            'Check to pause the importing of Feature Classes.  '
+            'Note, this will not affect the importing of Features.'
+        )
+    )
 
     class Meta:
         model = ArcgisConfiguration
-        fields = '__all__'
+        exclude = []
