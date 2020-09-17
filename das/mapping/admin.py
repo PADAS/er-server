@@ -444,13 +444,13 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
             return tuple(fieldsets)
         return [(None, {'fields': self.get_fields(request, obj)})]
 
+    def to_disable_import_feature_classes(self, request):
+        return request.POST.get('disable_import_feature_classes') == 'on'
+
     def response_add(self, request, obj, post_url_continue=None):
-        to_disable_import_feature_classes = (
-            request.POST['disable_import_feature_classes'][0] == 'on'
-        )
 
         groups_found = (
-            None if to_disable_import_feature_classes
+            None if self.to_disable_import_feature_classes(request)
             else arcgis_integration(request, obj)
         )
         if self.arcgis_config(request) or not groups_found:
@@ -461,12 +461,9 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
             return super().response_add(request, obj, post_url_continue=None)
 
     def response_change(self, request, obj):
-        to_disable_import_feature_classes = (
-            request.POST['disable_import_feature_classes'][0] == 'on'
-        )
 
         groups_found = (
-            None if to_disable_import_feature_classes
+            None if self.to_disable_import_feature_classes(request)
             else arcgis_integration(request, obj)
         )
         if self.arcgis_config(request) or not groups_found:

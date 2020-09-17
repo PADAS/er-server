@@ -200,7 +200,8 @@ class ArcgisConfigurationForm(forms.ModelForm):
         help_text=(
             'Check to pause the importing of Feature Classes.  '
             'Note, this will not affect the importing of Features.'
-        )
+        ),
+        required=False
     )
 
     class Meta:
