@@ -2899,8 +2899,6 @@ class TestEventView(BaseAPITest):
         assert inactive_enum == ['oh yeah!']
 
 
-
-
 class TestParsing(TestCase):
 
     def test_dates(self):
