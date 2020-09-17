@@ -2823,7 +2823,6 @@ class TestEventView(BaseAPITest):
                            if isinstance(display_prop, dict) and display_prop.get('key', '') == 'animal_species'][0]
         assert "inactive_titleMap" in species_display
 
-
     def test_schema_with_same_inactive_choices(self):
         Choice.objects.all().delete()
 
