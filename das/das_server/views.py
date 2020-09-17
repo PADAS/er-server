@@ -65,7 +65,8 @@ class CustomSchema(AutoSchema):
     def _map_field(self, field):
         from drf_extra_fields.geo_fields import PointField
         from activity.serializers.fields import DateTimeRangeField
-        from activity.serializers.patrol_serializers import PatrolList
+        from activity.serializers.patrol_serializers import PatrolList, LeaderRelatedField
+        from rest_framework.serializers import ChoiceField
 
         if isinstance(field, PointField):
             return {
@@ -79,6 +80,12 @@ class CustomSchema(AutoSchema):
                 'properties': {'start_time': {'type': 'string', 'format': 'date-time'},
                                'end_time': {'type': 'string', 'format': 'date-time'}}
             }
+
+        if isinstance(field, ChoiceField):
+            return {'type': 'integer' if isinstance(field.default, int) else 'string' }
+
+        if isinstance(field, LeaderRelatedField):
+            return {'type': 'object', 'properties': {}}
 
         if isinstance(field, PatrolList):
             return {

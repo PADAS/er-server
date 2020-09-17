@@ -28,12 +28,10 @@ class PatrolFileSerializer(BaseSerializer, RevisionMixin):
     ordernum = serializers.CharField()
 
 
-class PatrolNoteSerializer(BaseSerializer):
+class PatrolNoteSerializer(BaseSerializer, TimestampMixin):
     id = serializers.UUIDField(required=False, read_only=False)
     text = text_field()
     created_by_user = serializers.HiddenField(default=serializers.CurrentUserDefault())
-    created_at = DateTimeField(read_only=True)
-    updated_at = DateTimeField(read_only=True)
 
     def create(self, validated_data):
         validated_data['patrol'] = self._kwargs.get('data').get('patrol')
@@ -86,6 +84,8 @@ class PatrolSegmentSerializer(BaseSerializer):
                                 validators=[PointValidator()])
     end_location = PointField(required=False, allow_null=True,
                               validators=[PointValidator()])
+    image_url = serializers.CharField(read_only=True, required=False)
+    icon_id = serializers.CharField(read_only=True, required=False)
 
     @staticmethod
     def resolve_image_url(patrolsegment):
@@ -98,6 +98,7 @@ class PatrolSegmentSerializer(BaseSerializer):
             image_url = self.resolve_image_url(instance)
             rep['image_url'] = utils.add_base_url(request, image_url)
         rep['patrol_type'] = str(instance.patrol_type.id) if instance.patrol_type else None
+        rep['icon_id'] = str(instance.patrol_type.icon_id) if instance.patrol_type else None
         rep['patrol'] = self.get_patrol(instance.patrol) if instance.patrol else None
         return rep
 
