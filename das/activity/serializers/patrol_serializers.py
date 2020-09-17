@@ -97,6 +97,10 @@ class PatrolSegmentSerializer(BaseSerializer):
         if request:
             image_url = self.resolve_image_url(instance)
             rep['image_url'] = utils.add_base_url(request, image_url)
+
+        if rep.get('time_range') is None:
+            rep['time_range'] = self.empty_timerange()
+
         rep['patrol_type'] = str(instance.patrol_type.id) if instance.patrol_type else None
         rep['icon_id'] = str(instance.patrol_type.icon_id) if instance.patrol_type else None
         rep['patrol'] = self.get_patrol(instance.patrol) if instance.patrol else None
@@ -106,6 +110,10 @@ class PatrolSegmentSerializer(BaseSerializer):
         return PatrolSerializer(
             instance=patrol,
             includes=['id', 'patrol_type', 'priority', 'state', 'title']).data
+
+    @staticmethod
+    def empty_timerange():
+        return {"start_time": None, "end_time": None}
 
     def create(self, validated_data):
         validated_data['patrol'] = self._kwargs.get('data').get('patrol')
