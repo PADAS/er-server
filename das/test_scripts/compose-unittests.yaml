@@ -3,7 +3,7 @@ version: "3.2"
 services:
 
   api:
-    image: gcr.io/padas-app/circleci/das-server/${CIRCLE_BRANCH:-develop}:${CIRCLE_WORKFLOW_ID:-latest}
+    image: gcr.io/padas-app/circleci/das-server/${SANITIZED_CIRCLE_BRANCH}:${CIRCLE_WORKFLOW_ID:-latest}
     container_name: api
     environment:
       - DB_HOST=dbserver
