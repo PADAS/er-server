@@ -101,54 +101,67 @@ def arcgis_authentication(request, obj):
         message(request, messages.ERROR, error) if request else logger.exception(error)
 
 
-def extract_gis_data(obj, member, title, errored_files, success_files, arcgis_item_id):
-    data = None
-    simple_presentation = None
-    try:
-        # Not handling multiple layers just yet.
-        simple_presentation = import_featuretype_presentation(member.layers[0].properties.drawingInfo.renderer)
-        # set the spatial reference to 4326 in the query
-        data = member.layers[0].query(out_sr=4326).to_geojson
-    except KeyError:
-        logger.debug('to_geojson failed, trying to_json')
-        data = arcgis2geojson(member.layers[0].query().to_json)
-    except Exception as error:
-        logger.info(f'Error reading from {member.title}', error)
-        errored_files.append(member.title)
-    if data:
-        # TODO: validate that we have valid, non-empty content in data, else gdal barfs later
-        success_files = extract_features(obj, member, title, data, success_files, simple_presentation, arcgis_item_id)
-        return success_files, errored_files
+def extract_gis_data(obj, member, errored_files, success_files, arcgis_item_id):
+    imported_global_ids, layer_num, all_layers_count = [], 0, len(member.layers)
+    arc_item = models.ArcgisItem.objects.get(id=arcgis_item_id)
+
+    while layer_num < all_layers_count:
+        data = None
+        simple_presentation = None
+        try:
+            simple_presentation = import_featuretype_presentation(member.layers[layer_num].properties.drawingInfo.renderer)
+            # set the spatial reference to 4326 in the query
+            data = member.layers[layer_num].query(out_sr=4326).to_geojson
+        except KeyError:
+            logger.debug('to_geojson failed, trying to_json')
+            data = arcgis2geojson(member.layers[layer_num].query().to_json)
+        except Exception as error:
+            logger.info(f'Error reading from {member.title}', error)
+            if member.title not in errored_files:
+                errored_files.append(member.title)
+        if data:
+            # TODO: validate that we have valid, non-empty content in data, else gdal barfs later
+            success_files, imported_global_ids = extract_features(
+                imported_global_ids, obj, member, layer_num, all_layers_count, data, success_files, simple_presentation, arc_item)
+        layer_num += 1
+
+    return success_files, errored_files
 
 
-def extract_features(obj, member, title, data, success_files, simple_presentation, arcgis_item_id):
+def extract_features(global_ids, obj, member, layer_num, all_layers_count, data, success_files, simple_presentation, arc_item):
     with tempfile.NamedTemporaryFile() as data_file:
         data_file.write(data.encode())
         data_file.flush()
         data_file.seek(0)
-        import_features_from_esri(tmp_filename=data_file.name, arcgis_item_id=arcgis_item_id,
-                                  external_sourcename=obj.source, type_field=obj.type_label, id_field=obj.id_field,
-                                  name_field=obj.name_field, simple_presentation=simple_presentation, )
-        success_files.append(member.title)
-        return success_files
+        imported_global_ids = import_features_from_esri(
+            obj, global_ids, layer_num, all_layers_count, tmp_filename=data_file.name,
+            arcgis_item=arc_item, simple_presentation=simple_presentation)
+        if member.title not in success_files:
+            success_files.append(member.title)
+        return success_files, imported_global_ids
 
 
-def import_features_from_esri(tmp_filename, arcgis_item_id, external_sourcename, type_field, id_field, name_field,
-                              simple_presentation):
-    logger.info('Importing esri features for itemid %s from temp file: %s', arcgis_item_id, tmp_filename)
+def import_features_from_esri(obj, global_ids, layer_num, all_layers_count, tmp_filename, arcgis_item, simple_presentation):
+    external_sourcename = obj.source
+    type_field = obj.type_label
+    id_field = obj.id_field
+    name_field = obj.name_field
+
+    logger.info('Importing esri features for itemid %s from temp file: %s', arcgis_item.id, tmp_filename)
     # comeback cleanup
     try:
-        datasource, layer_num = get_datasource_and_layer_num(filename=tmp_filename)
-        layer = datasource[layer_num]
+        datasource, datasource_layer_num = get_datasource_and_layer_num(filename=tmp_filename)
+        layer = datasource[datasource_layer_num]
 
-        arc_item = models.ArcgisItem.objects.get(id=arcgis_item_id)
         # TODO: bail if arc_item is null
 
         # TODO: revisit and handle case where layer/features do not have a GlobalID
-        received_global_ids = [make_external_id(layer, f, id_field, name_field, arc_item.id) for f in layer]
-        delete_result = models.SpatialFeature.objects.filter(arcgis_item=arc_item).exclude(
-            external_id__in=received_global_ids).delete()
-        logger.info(f'deleted features {delete_result}')
+        global_ids.extend([make_external_id(layer_num, f, id_field, name_field, arcgis_item.id) for f in layer])
+
+        if layer_num == all_layers_count-1:  # Final Iteration
+            delete_result = models.SpatialFeature.objects.filter(arcgis_item=arcgis_item).exclude(
+                external_id__in=global_ids).delete()
+            logger.info(f'deleted features {delete_result}')
 
         has_unique_keys = contains_unique_keys_in_layer(id_field, name_field, layer)
         for i, feature in enumerate(layer):
@@ -163,21 +176,15 @@ def import_features_from_esri(tmp_filename, arcgis_item_id, external_sourcename,
                 spatial_feature_type.save()
 
             # linked to above to revisit if don't have a GlobalID
-            external_id = make_external_id(layer, feature, id_field, name_field, arc_item.id)
+            external_id = make_external_id(layer_num, feature, id_field, name_field, arcgis_item.id)
             if not has_unique_keys:
                 external_id = external_id + '-' + str(i)
 
-            # can optionally filter features based on Park attribute.
-            # e.g., AP has features for multiple parks in the same feature layer
-            # TODO: make configurable, move out filter key (e.g., Park below) & filter value (ui_site_url)
-            #  to the admin UI.
-            if hasattr(settings, 'UI_SITE_URL') and 'Park' in feature.fields:
-                if feature['Park'].value.lower() in settings.UI_SITE_URL.lower():
-                    save_esri_feature(feature, external_sourcename, external_id, type_field, name_field, arc_item, i)
-            else:
-                save_esri_feature(feature, external_sourcename, external_id, type_field, name_field, arc_item, i)
+            save_esri_feature(feature, external_sourcename, external_id, type_field, name_field, arcgis_item, i)
     finally:
         datasource = None
+
+    return global_ids
 
 
 def db_feature_needs_update(feature_record, feature):
