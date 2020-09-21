@@ -121,27 +121,30 @@ def extract_gis_data(obj, member, errored_files, success_files, arcgis_item_id):
                 errored_files.append(member.title)
         if data:
             # TODO: validate that we have valid, non-empty content in data, else gdal barfs later
-            success_files, imported_global_ids = extract_features(
-                imported_global_ids, obj, member, layer_num, all_layers_count, data, success_files, simple_presentation, arc_item)
+            success_files, global_ids = extract_features(
+                obj, member, layer_num, data, success_files, simple_presentation, arc_item)
+            imported_global_ids.extend(global_ids)
         layer_num += 1
+
+    delete_result = models.SpatialFeature.objects.filter(arcgis_item=arc_item).exclude(
+        external_id__in=imported_global_ids).delete()
+    logger.info(f'deleted features {delete_result}')
 
     return success_files, errored_files
 
 
-def extract_features(global_ids, obj, member, layer_num, all_layers_count, data, success_files, simple_presentation, arc_item):
+def extract_features(obj, member, layer_num, data, success_files, simple_presentation, arc_item):
     with tempfile.NamedTemporaryFile() as data_file:
         data_file.write(data.encode())
         data_file.flush()
         data_file.seek(0)
-        imported_global_ids = import_features_from_esri(
-            obj, global_ids, layer_num, all_layers_count, tmp_filename=data_file.name,
-            arcgis_item=arc_item, simple_presentation=simple_presentation)
+        imported_global_ids = import_features_from_esri(obj, layer_num, data_file.name, arc_item, simple_presentation)
         if member.title not in success_files:
             success_files.append(member.title)
         return success_files, imported_global_ids
 
 
-def import_features_from_esri(obj, global_ids, layer_num, all_layers_count, tmp_filename, arcgis_item, simple_presentation):
+def import_features_from_esri(obj, layer_num, tmp_filename, arcgis_item, simple_presentation):
     external_sourcename = obj.source
     type_field = obj.type_label
     id_field = obj.id_field
@@ -151,18 +154,11 @@ def import_features_from_esri(obj, global_ids, layer_num, all_layers_count, tmp_
     # comeback cleanup
     try:
         datasource, datasource_layer_num = get_datasource_and_layer_num(filename=tmp_filename)
-        layer = datasource[datasource_layer_num]
+        layer, external_ids = datasource[datasource_layer_num], []
 
         # TODO: bail if arc_item is null
 
         # TODO: revisit and handle case where layer/features do not have a GlobalID
-        global_ids.extend([make_external_id(layer_num, f, id_field, name_field, arcgis_item.id) for f in layer])
-
-        if layer_num == all_layers_count-1:  # Final Iteration
-            delete_result = models.SpatialFeature.objects.filter(arcgis_item=arcgis_item).exclude(
-                external_id__in=global_ids).delete()
-            logger.info(f'deleted features {delete_result}')
-
         has_unique_keys = contains_unique_keys_in_layer(id_field, name_field, layer)
         for i, feature in enumerate(layer):
 
@@ -177,6 +173,7 @@ def import_features_from_esri(obj, global_ids, layer_num, all_layers_count, tmp_
 
             # linked to above to revisit if don't have a GlobalID
             external_id = make_external_id(layer_num, feature, id_field, name_field, arcgis_item.id)
+            external_ids.append(external_id)
             if not has_unique_keys:
                 external_id = external_id + '-' + str(i)
 
@@ -184,7 +181,7 @@ def import_features_from_esri(obj, global_ids, layer_num, all_layers_count, tmp_
     finally:
         datasource = None
 
-    return global_ids
+    return external_ids
 
 
 def db_feature_needs_update(feature_record, feature):

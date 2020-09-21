@@ -150,7 +150,7 @@ class TestArcGisIntegration(BaseAPITest):
     def load_features(self):
         with open(os.path.join(TESTS_PATH, 'testdata/Built_point.geojson'), 'rb') as geojson_file:
             data = geojson_file.read().decode("utf-8")
-            extract_features([], self.test_config, self.gis_group, 0, 1, data, [], None, self.arcgis_item)
+            extract_features(self.test_config, self.gis_group, 0, data, [], None, self.arcgis_item)
 
     @patch('arcgis.gis.GIS', MockGIS)
     def test_groups_loaded_without_search_text(self):
@@ -207,7 +207,7 @@ class TestArcGisIntegration(BaseAPITest):
             data = json.load(f)
             # 2 features deleted from the online groups feature
             data['features'] = data['features'][:-2]
-            extract_features([], self.test_config, self.gis_group, 0, 1, json.dumps(data), [], None, self.arcgis_item)
+            extract_features(self.test_config, self.gis_group, 0, json.dumps(data), [], None, self.arcgis_item)
 
         after_features_deletion = SpatialFeature.objects.all().count()
         self.assertEqual(after_features_deletion, 212)
@@ -225,7 +225,7 @@ class TestArcGisIntegration(BaseAPITest):
                     # Update feature geometry
                     feature["geometry"]["coordinates"] = [34.54, -15.77]
                     break
-            extract_features([], self.test_config, self.gis_group, 0, 1, json.dumps(data), [], None, self.arcgis_item)
+            extract_features(self.test_config, self.gis_group, 0, json.dumps(data), [], None, self.arcgis_item)
 
         updated_mponda = SpatialFeature.objects.get(name='Mponda')
         new_mponda_coordinates = [coord for coord in updated_mponda.feature_geometry.coords]
