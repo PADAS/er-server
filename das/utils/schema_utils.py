@@ -650,25 +650,16 @@ def map_schema(schema, load_schema):
             lookups.append(key)
 
     fields = []
-    index = 0
     template = Template(schema)
     for node in template.nodelist:
         if type(node) is VariableNode:
             field_tag = node.token.contents
             field_details = field_tag.split('___')
 
-            if len(fields) == 0:
+            if field_details[2] == 'values':
                 fields.append({
                     'field_name': field_details[1],
                     'lookup': field_details[0]
                 })
-            else:
-
-                if fields[index]['field_name'] != field_details[1]:
-                    fields.append({
-                        'field_name': field_details[1],
-                        'lookup': field_details[0]
-                    })
-                    index += 1
 
     return dict(zip(lookups, fields))
