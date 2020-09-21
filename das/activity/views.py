@@ -1090,7 +1090,7 @@ class EventAlertTargetsListView(generics.ListAPIView):
 # Patrol Management API Views
 
 class PatrolTypesView(generics.ListAPIView):
-    # pagination_class = StandardResultsSetPagination
+    pagination_class = StandardResultsSetPagination
     serializer_class = PatrolTypeSerializer
     queryset = PatrolType.objects.all()
 
