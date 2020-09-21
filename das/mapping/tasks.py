@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 @celery.app.task(base=QueueOnce, once={'graceful': True})
 def automate_download_features_from_wfs():
     feature_services = models.ArcgisConfiguration.objects.filter(
-        groups__isnull=False)
+        groups__isnull=False).exclude(disable_import_feature_classes=True)
+
     for obj in feature_services:
         load_features_from_wfs.apply_async(args=(obj.id, obj.groups.group_id))
 
