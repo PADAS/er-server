@@ -71,5 +71,5 @@ class _RangeField(RangeField):
 
 
 class DateTimeRangeField(_RangeField):
-    child = DateTimeField()
+    child = DateTimeField(allow_null=True)
     range_type = DateTimeTZRange
