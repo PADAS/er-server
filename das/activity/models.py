@@ -1493,8 +1493,8 @@ class Patrol(TimestampedModel, RevisionMixin):
     serial_number = models.BigIntegerField(verbose_name='Serial Number', unique=True, blank=True, null=True, default=serial_next_increment)
     priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
     state = models.CharField(choices=PATROL_STATE_CHOICES, default=PC_ACTIVE, max_length=25)
-    title = models.CharField(max_length=255, blank=True)
-    objective = models.TextField(blank=True)
+    title = models.CharField(max_length=255, blank=True, null=True)
+    objective = models.TextField(blank=True, null=True)
     revision = Revision()
 
 

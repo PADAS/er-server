@@ -123,11 +123,11 @@ class PatrolSegmentSerializer(BaseSerializer):
 class PatrolSerializer(BaseSerializer, TimestampMixin):
     """Serializer class for a Patrol"""
 
-    objective = text_field(required=False, allow_blank=True)
+    objective = text_field(required=False, allow_blank=True, allow_null=True)
     priority = priority_choices_serializer
     serial_number = serializers.IntegerField(read_only=True)
     state = state_choices_serializer
-    title = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    title = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=255)
     files = PatrolFileSerializer(many=True, required=False, read_only=True)
     notes = PatrolNoteSerializer(many=True, required=False)
     patrol_segments = PatrolSegmentSerializer(many=True, required=False, excludes=['patrol'])
