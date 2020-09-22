@@ -55,7 +55,7 @@ class TestPatrol(BaseAPITest):
         self.force_authenticate(request, self.app_user)
         response = views.PatrolsView.as_view()(request)
         assert response.status_code == 200
-        assert len(response.data) == 2
+        assert response.data.get('count') == 2
 
     def test_get_one_patrol_by_id(self):
         patrol_id = 'b14bc72f-96d6-4248-9fea-7dd0bbc8c196'
@@ -128,7 +128,7 @@ class TestPatrol(BaseAPITest):
         self.force_authenticate(request, self.app_user)
         response = views.PatrolsegmentsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), patrolsgm)
+        self.assertEqual(response.data.get('count'), patrolsgm)
 
     def test_get_one_patrolsegment_by_id(self):
         patrolsgm = PatrolSegment.objects.first()
@@ -155,8 +155,8 @@ class TestPatrol(BaseAPITest):
         self.force_authenticate(request, self.user)
         response = views.PatrolsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0].get('title'), patrol_data.get('title'))
+        self.assertEqual(response.data.get('count'), 1)
+        self.assertEqual(response.data.get('results')[0].get('title'), patrol_data.get('title'))
 
     def _create_patrol(self, patrol_data):
         url = reverse('patrols')

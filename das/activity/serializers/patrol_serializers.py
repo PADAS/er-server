@@ -78,8 +78,8 @@ class PatrolSegmentSerializer(BaseSerializer):
     patrol_type = PatrolTypeRelatedField(required=False)
     state = state_choices_serializer
     leader = LeaderRelatedField(required=False, allow_null=True)
-    scheduled_start = DateTimeField(required=False)
-    time_range = fields.DateTimeRangeField(required=False)
+    scheduled_start = DateTimeField(required=False, allow_null=True)
+    time_range = fields.DateTimeRangeField(required=False, allow_null=True)
     start_location = PointField(required=False, allow_null=True,
                                 validators=[PointValidator()])
     end_location = PointField(required=False, allow_null=True,
