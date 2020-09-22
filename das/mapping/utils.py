@@ -154,9 +154,15 @@ def get_spatial_feature_type(feature, type_label=None):
             logger.warning('%s missing featuretype', str(feature))
             return
 
+    configuration = feature.arcgis_item.arcgis_config
+    is_import_disabled = configuration.disable_import_feature_classes
     if type_name:
         try:
-            return models.SpatialFeatureType.objects.get_or_create(name=type_name)[0]
+            return (
+                models.SpatialFeatureType.objects.get_or_create(name=type_name)[0]
+                if not is_import_disabled
+                else models.SpatialFeatureType.objects.get(name=type_name)
+            )
         except IntegrityError as ie:
             logger.warning(ie)
             return

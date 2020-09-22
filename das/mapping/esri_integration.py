@@ -54,8 +54,6 @@ def arcgis_integration(request, obj):
         if "_testconnection" in request.POST:
             message(request, messages.INFO, f'Successful Configuration')
         elif "_downloadfeatures" in request.POST:
-            if request.POST.get('disable_import_feature_classes') == 'on':
-                return acrgis_groups_found
             # set to a background task
             if obj.groups:
                 task_started_msg = "Features download in progress, checkout loaded <a href='/admin/mapping/spatialfeature/'>spatialfeatures</a> after a few minutes"
