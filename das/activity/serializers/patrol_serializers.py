@@ -101,7 +101,7 @@ class PatrolSegmentSerializer(BaseSerializer):
         if rep.get('time_range') is None:
             rep['time_range'] = self.empty_timerange()
 
-        rep['patrol_type'] = str(instance.patrol_type.id) if instance.patrol_type else None
+        rep['patrol_type'] = str(instance.patrol_type.value) if instance.patrol_type else None
         rep['icon_id'] = str(instance.patrol_type.icon_id) if instance.patrol_type else None
         rep['patrol'] = self.get_patrol(instance.patrol) if instance.patrol else None
         return rep
