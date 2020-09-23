@@ -5,7 +5,7 @@ import os
 from unittest.mock import patch
 
 from core.tests import BaseAPITest
-from mapping.esri_integration import (arcgis_authentication, extract_features, extract_gis_data,
+from mapping.esri_integration import (arcgis_authentication, extract_features,
                                       import_featuretype_presentation, search_groups)
 from mapping.models import (ArcgisConfiguration, SpatialFeature, ArcgisItem,
                             SpatialFeatureType)
@@ -147,10 +147,16 @@ class TestArcGisIntegration(BaseAPITest):
         gis = arcgis_authentication(None, self.test_config)
         self.assertTrue(gis)
 
+    def extract_wfs_features(self, data):
+        _, extracted_ids = extract_features(
+            self.test_config, self.gis_group, 0, json.dumps(data), [], None, self.arcgis_item)
+        SpatialFeature.objects.filter(
+            arcgis_item=self.arcgis_item).exclude(external_id__in=extracted_ids).delete()
+
     def load_features(self):
         with open(os.path.join(TESTS_PATH, 'testdata/Built_point.geojson'), 'rb') as geojson_file:
             data = geojson_file.read().decode("utf-8")
-            extract_features(self.test_config, self.gis_group, 0, data, [], None, self.arcgis_item)
+            self.extract_wfs_features(json.loads(data))
 
     @patch('arcgis.gis.GIS', MockGIS)
     def test_groups_loaded_without_search_text(self):
@@ -207,8 +213,7 @@ class TestArcGisIntegration(BaseAPITest):
             data = json.load(f)
             # 2 features deleted from the online groups feature
             data['features'] = data['features'][:-2]
-            extract_features(self.test_config, self.gis_group, 0, json.dumps(data), [], None, self.arcgis_item)
-
+            self.extract_wfs_features(data)
         after_features_deletion = SpatialFeature.objects.all().count()
         self.assertEqual(after_features_deletion, 212)
 
@@ -225,7 +230,7 @@ class TestArcGisIntegration(BaseAPITest):
                     # Update feature geometry
                     feature["geometry"]["coordinates"] = [34.54, -15.77]
                     break
-            extract_features(self.test_config, self.gis_group, 0, json.dumps(data), [], None, self.arcgis_item)
+            self.extract_wfs_features(data)
 
         updated_mponda = SpatialFeature.objects.get(name='Mponda')
         new_mponda_coordinates = [coord for coord in updated_mponda.feature_geometry.coords]

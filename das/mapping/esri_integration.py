@@ -59,7 +59,6 @@ def arcgis_integration(request, obj):
                 task_started_msg = "Features download in progress, checkout loaded <a href='/admin/mapping/spatialfeature/'>spatialfeatures</a> after a few minutes"
                 message(request, messages.INFO, mark_safe(task_started_msg))
                 load_features_from_wfs.apply_async(args=(obj.id, obj.groups.group_id))
-                # load_features_from_wfs(obj.id, obj.groups.group_id)
             else:
                 error_msg = "Select a group to enable features download"
                 message(request, messages.ERROR, error_msg) if request else logger.debug(error_msg)
@@ -102,19 +101,19 @@ def arcgis_authentication(request, obj):
 
 
 def extract_gis_data(obj, member, errored_files, success_files, arcgis_item_id):
-    imported_global_ids, layer_num, all_layers_count = [], 0, len(member.layers)
+    imported_global_ids = []
     arc_item = models.ArcgisItem.objects.get(id=arcgis_item_id)
 
-    while layer_num < all_layers_count:
+    for layer_num, layer in enumerate(member.layers):
         data = None
         simple_presentation = None
         try:
-            simple_presentation = import_featuretype_presentation(member.layers[layer_num].properties.drawingInfo.renderer)
+            simple_presentation = import_featuretype_presentation(layer.properties.drawingInfo.renderer)
             # set the spatial reference to 4326 in the query
-            data = member.layers[layer_num].query(out_sr=4326).to_geojson
+            data = layer.query(out_sr=4326).to_geojson
         except KeyError:
             logger.debug('to_geojson failed, trying to_json')
-            data = arcgis2geojson(member.layers[layer_num].query().to_json)
+            data = arcgis2geojson(layer.query().to_json)
         except Exception as error:
             logger.info(f'Error reading from {member.title}', error)
             if member.title not in errored_files:
@@ -124,7 +123,6 @@ def extract_gis_data(obj, member, errored_files, success_files, arcgis_item_id):
             success_files, global_ids = extract_features(
                 obj, member, layer_num, data, success_files, simple_presentation, arc_item)
             imported_global_ids.extend(global_ids)
-        layer_num += 1
 
     delete_result = models.SpatialFeature.objects.filter(arcgis_item=arc_item).exclude(
         external_id__in=imported_global_ids).delete()
@@ -173,10 +171,9 @@ def import_features_from_esri(obj, layer_num, tmp_filename, arcgis_item, simple_
 
             # linked to above to revisit if don't have a GlobalID
             external_id = make_external_id(layer_num, feature, id_field, name_field, arcgis_item.id)
-            external_ids.append(external_id)
             if not has_unique_keys:
                 external_id = external_id + '-' + str(i)
-
+            external_ids.append(external_id)
             save_esri_feature(feature, external_sourcename, external_id, type_field, name_field, arcgis_item, i)
     finally:
         datasource = None
