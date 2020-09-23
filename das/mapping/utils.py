@@ -6,6 +6,7 @@ import tempfile
 import zipfile
 
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.gis.gdal import DataSource
 from django.core.exceptions import ValidationError
 from django.db.utils import IntegrityError
@@ -168,6 +169,8 @@ def get_spatial_feature_type(feature, type_label=None, arcgis_item=None):
             )
         except IntegrityError as ie:
             logger.warning(ie)
+            return
+        except ObjectDoesNotExist:
             return
 
 

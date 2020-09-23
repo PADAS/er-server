@@ -3,10 +3,10 @@ import logging
 import tempfile
 
 import arcgis
+from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.gis.gdal import GDALException
-from django.core import management
 from django.utils.safestring import mark_safe
 
 from arcgis2geojson import arcgis2geojson
@@ -106,7 +106,8 @@ def extract_gis_data(obj, member, title, errored_files, success_files, arcgis_it
     simple_presentation = None
     try:
         # Not handling multiple layers just yet.
-        simple_presentation = import_featuretype_presentation(member.layers[0].properties.drawingInfo.renderer)
+        arcgis_item = models.ArcgisItem.objects.get(id=arcgis_item_id)
+        simple_presentation = import_featuretype_presentation(member.layers[0].properties.drawingInfo.renderer, arcgis_item)
         # set the spatial reference to 4326 in the query
         data = member.layers[0].query(out_sr=4326).to_geojson
     except KeyError:
@@ -237,14 +238,30 @@ def wfs_download_return_messages(request, errored_files, success_files):
     logger.info('Returning from download_features')
 
 
-def import_featuretype_presentation(renderer):
+def import_featuretype_presentation(renderer, arcgis_item=None):
+    configuration = arcgis_item.arcgis_config if arcgis_item else None
+    is_import_disabled = (
+        configuration.disable_import_feature_classes if configuration else
+        False
+    )
     if renderer.type == RENDERER_TYPE_UNIQUE_VALUE:
         for unique_val in renderer.uniqueValueInfos:
             feature_type_name = unique_val.value
             presentation = get_mb_style(unique_val.symbol)
             logger.debug(f'{feature_type_name}: {presentation}')
             if presentation:
-                feature_type, created = models.SpatialFeatureType.objects.get_or_create(name=feature_type_name)
+                try:
+                    feature_type, created = (
+                        (models.SpatialFeatureType.objects.get(name=feature_type_name), None)
+                        if is_import_disabled else
+                        models.SpatialFeatureType.objects.get_or_create(name=feature_type_name)
+                    )
+                except ObjectDoesNotExist:
+                    feature_type = None
+
+                if not feature_type:
+                    return
+
                 feature_type.presentation = presentation
                 feature_type.save()
     elif renderer.type == 'simple':
