@@ -4,6 +4,10 @@ metadata:
   namespace: "${KUBERNETES_NAMESPACE}"
   name: worker-rt
 spec:
+  selector:
+    matchLabels:
+      das.component: worker-rt
+      das.configuration: server
   template:
     metadata:
       labels:

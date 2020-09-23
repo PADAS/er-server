@@ -4,6 +4,9 @@ metadata:
   namespace: "${KUBERNETES_NAMESPACE}"
   name: nginx
 spec:
+  selector:
+    matchLabels:
+      das.component: nginx
   template:
     metadata:
       labels:

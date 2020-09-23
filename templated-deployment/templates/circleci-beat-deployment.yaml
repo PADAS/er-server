@@ -4,6 +4,10 @@ metadata:
   namespace: "${KUBERNETES_NAMESPACE}"
   name: beat
 spec:
+  selector:
+    matchLabels:
+      das.component: beat
+      das.configuration: server
   template:
     metadata:
       labels:
