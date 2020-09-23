@@ -154,7 +154,8 @@ def import_features_from_esri(tmp_filename, arcgis_item_id, external_sourcename,
         for i, feature in enumerate(layer):
 
             if simple_presentation:
-                spatial_feature_type = get_spatial_feature_type(feature, type_field)
+                spatial_feature_type = get_spatial_feature_type(
+                    feature, type_field, arc_item)
                 if not spatial_feature_type:
                     logger.warning('Did not get or create spatialfeaturetype for %s. Skipping', str(feature))
                     continue
