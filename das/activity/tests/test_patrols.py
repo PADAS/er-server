@@ -114,8 +114,8 @@ class TestPatrol(BaseAPITest):
         self.force_authenticate(request, self.app_user)
         response = views.PatrolsegmentView.as_view()(request, id=segment.id)
 
-        patrol_type_id = response.data.get('patrol_type')
-        patrol_type = PatrolType.objects.get(id=patrol_type_id)
+        patrol_type_value = response.data.get('patrol_type')
+        patrol_type = PatrolType.objects.get(value=patrol_type_value)
         self.assertEqual(patrol_type.value, segment_update_data.get('patrol_type'))  # dog_patrol
         self.assertEqual(response.data.get('state'), segment_update_data.get('state'))  # upcoming
         self.assertEqual(response.status_code, 200)
