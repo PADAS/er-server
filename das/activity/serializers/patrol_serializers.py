@@ -167,11 +167,12 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
 
     def update(self, instance, validated_data):
 
+        patrol_id = instance.id
         patrol_notes = validated_data.get('notes')
         patrol_segments = validated_data.get('patrol_segments')
 
-        self.create_update(patrol_notes, activity.models.PatrolNote)
-        self.create_update(patrol_segments, activity.models.PatrolSegment)
+        self.create_update(patrol_id, patrol_notes, activity.models.PatrolNote)
+        self.create_update(patrol_id, patrol_segments, activity.models.PatrolSegment)
 
         instance.priority = validated_data.get('priority', instance.priority)
         instance.state = validated_data.get('state', instance.state)
@@ -181,15 +182,14 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
         instance.save()
         return instance
 
-    def create_update(self, validated_data, model):
-        data_id = validated_data.get('id')
-
+    def create_update(self, patrol_id, validated_data, model):
         for data in validated_data:
+            data_id = data.get('id')
             if data_id:
                 instance = model.objects.get(id=data_id)
                 super().update(instance, data)
             else:
-                model.objects.create(**data)
+                model.objects.create(patrol_id=patrol_id, **data)
 
 
 class PatrolTemplateSerializer(BaseSerializer):
