@@ -84,7 +84,7 @@ class TestPatrol(BaseAPITest):
         patrol_update_data = dict(
             title="New updated title",
             notes=[{"text": "New first note"}, {"text": "New second Note"}],
-            patrol_segments=[{"state": "active"}]
+            patrol_segments=[{"state": "upcoming"}]
         )
         patrol = Patrol.objects.first()
         self.assertEqual(len(patrol.notes.all()), 0)
@@ -95,10 +95,31 @@ class TestPatrol(BaseAPITest):
         self.force_authenticate(request, self.app_user)
         response = views.PatrolView.as_view()(request, id=patrol.id)
 
+        self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data.get('notes')), 2)
         self.assertEqual(len(response.data.get('patrol_segments')), 1)
 
+        patrol_update_data = dict(
+            title="New updated title",
+            notes=[{"text": "New third note"}, {"text": "Update first note", "id": response.data.get('notes')[0]['id']}],
+            patrol_segments=[{
+                "id": response.data.get('patrol_segments')[0]['id'],
+                "state": "active",
+                "patrol_type": "dog_patrol",
+                "time_range": {
+				    "start_time": "2020-09-24T02:15:54.312000+03:00",
+				    "end_time": "2020-09-25T07:00:00.000Z"
+			    },
+             }]
+        )
+
+        request = self.factory.patch(url, data=patrol_update_data)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolView.as_view()(request, id=patrol.id)
+
         self.assertEqual(response.status_code, 200)
+
+        
 
     def test_update_patrolsegment(self):
         segment_update_data = dict(

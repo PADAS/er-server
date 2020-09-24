@@ -58,6 +58,7 @@ class PatrolTypeRelatedField(serializers.RelatedField):
 
     def to_internal_value(self, data):
         if data:
+            data = data if isinstance(data, str) else data.value
             try:
                 return activity.models.PatrolType.objects.get_by_value(data)
             except activity.models.PatrolType.DoesNotExist:
@@ -74,6 +75,7 @@ class PatrolList(serializers.Serializer):
 
 
 class PatrolSegmentSerializer(BaseSerializer):
+    id = serializers.UUIDField(required=False, read_only=False)
     patrol = PatrolList(required=False, read_only=True)
     patrol_type = PatrolTypeRelatedField(required=False)
     state = state_choices_serializer
@@ -138,7 +140,6 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
             seg.pop('patrol', 0)
         return rep
 
-
     def create(self, validated_data):
         patrol_notes = validated_data.pop('notes', [])
         patrol_segments = validated_data.pop('patrol_segments', [])
@@ -155,7 +156,7 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
 
         return Patrol.objects.get(id=new_patrol.id)
 
-    def _ser_create(self, instance, update_items, items_serializer):
+    def _ser_create(self, instance, update_items, items_serializer, item_model):
         for item in update_items:
             update_item = copy.deepcopy(item)
             update_item['patrol'] = instance
@@ -164,19 +165,19 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
             serializer.is_valid(raise_exception=True)
 
             if update_item_id:
-                note_instance = activity.models.PatrolNote.objects.get(id=update_item_id)
-                serializer.update(note_instance, serializer.validated_data)
+                item_instance = item_model.objects.get(id=update_item_id)
+                serializer.update(item_instance, update_item)
             else:
-                serializer.create(serializer.validated_data)
+                serializer.create(update_item)
 
     def update(self, instance, validated_data):
         update_fields = []
         for k, v in validated_data.items():
             if k == 'notes':
-                self._ser_create(instance, v, PatrolNoteSerializer)
+                self._ser_create(instance, v, PatrolNoteSerializer, activity.models.PatrolNote)
                 continue
             if k == 'patrol_segments':
-                self._ser_create(instance, v, PatrolSegmentSerializer)
+                self._ser_create(instance, v, PatrolSegmentSerializer, activity.models.PatrolSegment)
                 continue
             if getattr(instance, k) != v:
                 setattr(instance, k, v)
