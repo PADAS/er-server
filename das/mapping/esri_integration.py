@@ -155,14 +155,15 @@ def import_features_from_esri(tmp_filename, arcgis_item_id, external_sourcename,
         for i, feature in enumerate(layer):
 
             if simple_presentation:
-                spatial_feature_type = get_spatial_feature_type(
-                    feature, type_field, arc_item)
+                spatial_feature_type = get_spatial_feature_type(feature, type_field)
                 if not spatial_feature_type:
                     logger.warning('Did not get or create spatialfeaturetype for %s. Skipping', str(feature))
                     continue
-                spatial_feature_type.presentation = simple_presentation
-                # TODO: does a write in each iteration. Optimize.
-                spatial_feature_type.save()
+
+                if not arc_item.arcgis_config.disable_import_feature_classes:
+                    spatial_feature_type.presentation = simple_presentation
+                    # TODO: does a write in each iteration. Optimize.
+                    spatial_feature_type.save()
 
             # linked to above to revisit if don't have a GlobalID
             external_id = make_external_id(layer, feature, id_field, name_field, arc_item.id)
@@ -250,20 +251,16 @@ def import_featuretype_presentation(renderer, arcgis_item=None):
             presentation = get_mb_style(unique_val.symbol)
             logger.debug(f'{feature_type_name}: {presentation}')
             if presentation:
-                try:
-                    feature_type, created = (
-                        (models.SpatialFeatureType.objects.get(name=feature_type_name), None)
-                        if is_import_disabled else
-                        models.SpatialFeatureType.objects.get_or_create(name=feature_type_name)
-                    )
-                except ObjectDoesNotExist:
-                    feature_type = None
+                feature_type, created = (
+                    models.SpatialFeatureType.objects.get_or_create(name=feature_type_name)
+                )
 
                 if not feature_type:
                     return
 
-                feature_type.presentation = presentation
-                feature_type.save()
+                if not is_import_disabled:
+                    feature_type.presentation = presentation
+                    feature_type.save()
     elif renderer.type == 'simple':
         simple_presentation = get_mb_style(renderer.symbol)
         # logger.info(simple_presentation)

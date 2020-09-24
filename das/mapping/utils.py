@@ -6,7 +6,6 @@ import tempfile
 import zipfile
 
 from django.conf import settings
-from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.gis.gdal import DataSource
 from django.core.exceptions import ValidationError
 from django.db.utils import IntegrityError
@@ -137,7 +136,7 @@ def reduce_json(document):
     return reduced
 
 
-def get_spatial_feature_type(feature, type_label=None, arcgis_item=None):
+def get_spatial_feature_type(feature, type_label=None):
     # get wfs type from given type label
     type_name = None
     if type_label:
@@ -155,22 +154,11 @@ def get_spatial_feature_type(feature, type_label=None, arcgis_item=None):
             logger.warning('%s missing featuretype', str(feature))
             return
 
-    configuration = arcgis_item.arcgis_config if arcgis_item else None
-    is_import_disabled = (
-        configuration.disable_import_feature_classes if configuration else
-        False
-    )
     if type_name:
         try:
-            return (
-                models.SpatialFeatureType.objects.get(name=type_name)
-                if is_import_disabled
-                else models.SpatialFeatureType.objects.get_or_create(name=type_name)[0]
-            )
+            return models.SpatialFeatureType.objects.get_or_create(name=type_name)[0]
         except IntegrityError as ie:
             logger.warning(ie)
-            return
-        except ObjectDoesNotExist:
             return
 
 
