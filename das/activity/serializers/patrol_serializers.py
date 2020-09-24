@@ -1,4 +1,5 @@
 import copy
+from django.contrib.gis.geos.point import Point
 from drf_extra_fields.geo_fields import PointField
 from rest_framework import serializers, validators
 from rest_framework.fields import DateTimeField
@@ -120,6 +121,14 @@ class PatrolSegmentSerializer(BaseSerializer):
     def create(self, validated_data):
         validated_data['patrol'] = self._kwargs.get('data').get('patrol')
         return activity.models.PatrolSegment.objects.create(**validated_data)
+
+    def to_internal_value(self, data):
+        data_updated = copy.copy(data)
+        for field_name in ('end_location', 'start_location'):
+            if field_name in data and isinstance(data[field_name], Point):
+                data_updated[field_name] = {'latitude': data[field_name].y, 'longitude': data[field_name].x}
+
+        return super().to_internal_value(data_updated)
 
 
 class PatrolSerializer(BaseSerializer, TimestampMixin):

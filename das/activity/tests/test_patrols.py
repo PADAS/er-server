@@ -10,6 +10,7 @@ from django.urls import reverse
 from activity import views
 from activity.models import Patrol, PatrolSegment, PatrolType
 from core.tests import BaseAPITest
+from observations.models import Subject
 
 User = django.contrib.auth.get_user_model()
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tests')
@@ -107,19 +108,63 @@ class TestPatrol(BaseAPITest):
                 "state": "active",
                 "patrol_type": "dog_patrol",
                 "time_range": {
-				    "start_time": "2020-09-24T02:15:54.312000+03:00",
-				    "end_time": "2020-09-25T07:00:00.000Z"
-			    },
-             }]
+                    "start_time": "2020-09-24T02:15:54.312000+03:00",
+                    "end_time": "2020-09-25T07:00:00.000Z"
+                },
+            }]
         )
 
         request = self.factory.patch(url, data=patrol_update_data)
         self.force_authenticate(request, self.app_user)
         response = views.PatrolView.as_view()(request, id=patrol.id)
+        self.assertEqual(response.status_code, 200)
+
+        subj = Subject.objects.create(name='Heritage', subject_subtype_id='elephant')
+
+        patrol_update_data2 = dict(
+            prioity=0,
+            state="active",
+            serial_number=69,
+            files=[],
+            notes=[],
+            patrol_segments=[{
+                "id": response.data.get('patrol_segments')[0]['id'],
+                "patrol_type": "routine_patrol",
+                "leader": {
+                    "content_type": "observations.subject",
+                    "id": subj.id,
+                    "name": "The Don Galaxy 5",
+                    "subject_type": "wildlife",
+                    "subject_subtype": "elephant",
+                    "additional": {
+                    },
+                    "created_at": "2020-08-05T01:31:42.474284+03:00",
+                    "updated_at": "2020-08-05T01:31:42.474315+03:00",
+                    "is_active": True,
+                    "tracks_available": False,
+                    "image_url": "/static/elephant-black.svg"
+                },
+                "scheduled_start": None,
+                "time_range": {
+                    "start_time": "2020-09-24T07:08:16.711000+03:00",
+                    "end_time": None
+                },
+                "start_location": None,
+                "end_location": {
+                    "longitude": -122.3607072,
+                    "latitude": 47.681731199999994
+                },
+                "image_url": "https://develop.pamdas.org/static/generic-black.svg",
+                "icon_id": "routine_patrol"
+            }]
+        )
+
+        request = self.factory.patch(url, data=patrol_update_data2)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolView.as_view()(request, id=patrol.id)
 
         self.assertEqual(response.status_code, 200)
 
-        
 
     def test_update_patrolsegment(self):
         segment_update_data = dict(

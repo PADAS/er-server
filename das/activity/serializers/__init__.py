@@ -314,8 +314,14 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
         return mapping['serializer']().to_representation(value)
 
     def to_internal_value(self, data):
+        if isinstance(data, dict):
+            content_type_value = data['content_type']
+        else:
+            content_type_value = data._meta.label_lower
+            data = {"id": data.id, "content_type": content_type_value}
+
         mapping = REPORTED_SERIALIZER_MAPPING.get(
-            data['content_type'], None)
+            content_type_value, None)
         if not mapping:
             raise Exception(
                 'Unexpected ReportedBy Type {0}'.format(data))
