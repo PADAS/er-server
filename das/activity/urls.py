@@ -87,7 +87,7 @@ urlpatterns = [
     url(
         r'^patrols/types/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.PatrolTypeView.as_view(), name='patrol-type'),
     url(r'^patrols/?$', views.PatrolsView.as_view(), name='patrols'),
-    url(r'^patrol/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.PatrolView.as_view(), name='patrol'),
+    url(r'^patrols/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.PatrolView.as_view(), name='patrol'),
     url(
         r'^patrols/segments/?$', views.PatrolsegmentsView.as_view(), name='patrol-segments'),
     url(
