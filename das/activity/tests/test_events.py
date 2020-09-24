@@ -2117,7 +2117,7 @@ class TestEventView(BaseAPITest):
         security.is_active = False
         security.save()
 
-        event_type_value = "Security Type"
+        event_type_value = "SecurityType"
 
         EventType.objects.create(value=event_type_value, category=security)
         response = views.EventTypesView.as_view()(request)
@@ -2823,6 +2823,18 @@ class TestEventView(BaseAPITest):
                            if isinstance(display_prop, dict) and display_prop.get('key', '') == 'animal_species'][0]
         assert "inactive_titleMap" in species_display
 
+    def test_case_insensitive_eventtype(self):
+        eventtype_value='Smart_rhino_sighting'
+        event_category = EventCategory.objects.create(
+            value='test_category', display='Test Category')
+        event_type = EventType.objects.create(
+            value=eventtype_value,
+            display='Smart Rhino Sighting', category=event_category)
+        url = self.api_base + f'/events/schema/eventtype/'
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventTypeSchemaView.as_view()(request, eventtype=eventtype_value)
+        assert response.status_code == 200
 
     def test_schema_with_same_inactive_choices(self):
         Choice.objects.all().delete()

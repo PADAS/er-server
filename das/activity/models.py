@@ -15,6 +15,7 @@ from django.contrib.gis.db import models
 from django.contrib.gis.geos import Polygon
 from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 from django.db import transaction, connection
 from django.db.models import Q, F, Func
 from django.db.models.signals import post_save
@@ -226,7 +227,10 @@ class EventTypeManager(EventBaseManager):
 
 class EventType(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    value = models.CharField(max_length=40, unique=True)
+    value = models.CharField(max_length=40, unique=True, validators=[RegexValidator(
+        regex="^[A-Za-z0-9-_]*$",
+        message='''An invalid character was detected in the Event type Value field.
+        Supported characters are: Letters a-z (lowercase), Numbers 0-9 and Underscore''')])
     display = models.CharField(max_length=100, blank=True)
     category = models.ForeignKey(EventCategory, null=True,
                                  on_delete=models.PROTECT)
@@ -255,6 +259,11 @@ class EventType(TimestampedModel):
     is_collection = models.BooleanField(default=False)
 
     objects = EventTypeManager.from_queryset(EventTypeFilteringQuerySet)()
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        self.value = self.value.lower()
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return self.display
