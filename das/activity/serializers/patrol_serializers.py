@@ -176,12 +176,13 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
 
     def create_update(self, patrol_id, validated_data, model):
         for data in validated_data:
+            data['patrol_id'] = patrol_id
             data_id = data.get('id')
             if data_id:
                 instance = model.objects.get(id=data_id)
                 super().update(instance, data)
             else:
-                model.objects.create(patrol_id=patrol_id, **data)
+                model.objects.create(**data)
 
 
 class PatrolTemplateSerializer(BaseSerializer):
