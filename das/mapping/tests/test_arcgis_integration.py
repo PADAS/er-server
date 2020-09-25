@@ -6,7 +6,8 @@ from unittest.mock import patch
 
 from core.tests import BaseAPITest
 from mapping.esri_integration import (arcgis_authentication, extract_features,
-                                      import_featuretype_presentation, search_groups)
+                                      import_featuretype_presentation, search_groups,
+                                      get_mb_style)
 from mapping.models import (ArcgisConfiguration, SpatialFeature, ArcgisItem,
                             SpatialFeatureType)
 
@@ -111,6 +112,36 @@ class TestArcGisIntegration(BaseAPITest):
             keys = t.presentation.keys()
             self.assertTrue('fill' in keys)
             self.assertTrue('fill-opacity' in keys)
+
+    def test_import_featuretype_presentation(self):
+        json_dict = self._read_test_data(
+            os.path.join(TESTS_PATH, 'testdata/polygon-renderer.json'))
+
+        self.test_config.disable_import_feature_classes = True
+        self.test_config.save()
+
+        renderer = Renderer(json_dict=json_dict['renderer'])
+
+        import_featuretype_presentation(renderer, self.arcgis_item)
+
+        for unique_val in renderer.uniqueValueInfos:
+            feature_type_name = unique_val.value
+            presentation = get_mb_style(unique_val.symbol)
+
+            feature_type = SpatialFeatureType.objects.get(name=feature_type_name)
+            self.assertNotEqual(feature_type.presentation, presentation)
+
+        self.test_config.disable_import_feature_classes = False
+        self.test_config.save()
+
+        import_featuretype_presentation(renderer, self.arcgis_item)
+
+        for unique_val in renderer.uniqueValueInfos:
+            feature_type_name = unique_val.value
+            presentation = get_mb_style(unique_val.symbol)
+
+            feature_type = SpatialFeatureType.objects.get(name=feature_type_name)
+            self.assertEqual(feature_type.presentation, presentation)
 
     def test_unique_value_renderer_point(self):
         json_dict = self._read_test_data(os.path.join(TESTS_PATH, 'testdata/point-renderer.json'))
