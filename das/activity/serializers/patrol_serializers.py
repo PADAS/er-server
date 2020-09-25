@@ -160,8 +160,8 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
     def update(self, instance, validated_data):
 
         patrol_id = instance.id
-        patrol_notes = validated_data.get('notes')
-        patrol_segments = validated_data.get('patrol_segments')
+        patrol_notes = validated_data.get('notes', [])
+        patrol_segments = validated_data.get('patrol_segments', [])
 
         self.create_update(patrol_id, patrol_notes, activity.models.PatrolNote)
         self.create_update(patrol_id, patrol_segments, activity.models.PatrolSegment)
