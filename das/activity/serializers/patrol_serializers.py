@@ -122,14 +122,6 @@ class PatrolSegmentSerializer(BaseSerializer):
         validated_data['patrol'] = self._kwargs.get('data').get('patrol')
         return activity.models.PatrolSegment.objects.create(**validated_data)
 
-    def to_internal_value(self, data):
-        data_updated = copy.copy(data)
-        for field_name in ('end_location', 'start_location'):
-            if field_name in data and isinstance(data[field_name], Point):
-                data_updated[field_name] = {'latitude': data[field_name].y, 'longitude': data[field_name].x}
-
-        return super().to_internal_value(data_updated)
-
 
 class PatrolSerializer(BaseSerializer, TimestampMixin):
     """Serializer class for a Patrol"""
