@@ -68,9 +68,25 @@ class TestPatrol(BaseAPITest):
         assert response.status_code == 200
 
     def test_create_patrolsegment(self):
+        subj = Subject.objects.create(name='Heritage', subject_subtype_id='elephant')
+
         patrolsgm_data = dict(scheduled_start='2020-08-05 02:00:00+00',
                               time_range={"start_time": "2020-08-05 02:00:00+00", "end_time": "2020-08-06 04:00:00+00"},
                               patrol_type='unique_fence_patrol',
+                              leader={
+                                  "content_type": "observations.subject",
+                                  "id": subj.id,
+                                  "name": "The Don Galaxy 5",
+                                  "subject_type": "wildlife",
+                                  "subject_subtype": "elephant",
+                                  "additional": {
+                                  },
+                                  "created_at": "2020-08-05T01:31:42.474284+03:00",
+                                  "updated_at": "2020-08-05T01:31:42.474315+03:00",
+                                  "is_active": True,
+                                  "tracks_available": False,
+                                  "image_url": "/static/elephant-black.svg"
+                              },
                               start_location={'latitude': '-122.334', 'longitude': '47.598'},
                               end_location={'latitude': '-124.54', 'longitude': '38.98'},
                               state='active'
@@ -79,6 +95,86 @@ class TestPatrol(BaseAPITest):
         request = self.factory.post(url, data=patrolsgm_data)
         self.force_authenticate(request, self.app_user)
         response = views.PatrolsegmentsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+    def test_create_patrol_patrolsegment_with_no_leader(self):
+        patrol_patrolsg = dict(
+            prioity=0,
+            state="active",
+            serial_number=69,
+            files=[],
+            notes=[],
+            patrol_segments=[{
+                "patrol_type": "routine_patrol",
+                "leader": {},
+                "scheduled_start": "2020-08-05 02:00:00+00",
+                "time_range": {
+                    "start_time": "2020-09-24T07:08:16.711000+03:00",
+                    "end_time": "2020-09-26T07:08:16.711000+03:00"
+                },
+                "start_location": {
+                    "longitude": -122.3607072,
+                    "latitude": 47.681731199999994
+                },
+                "end_location": {
+                    "longitude": -124.3607072,
+                    "latitude": 49.681731199999994
+                },
+            }]
+        )
+
+        url = reverse('patrols')
+        request = self.factory.post(url, data=patrol_patrolsg)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+    def test_create_patrol_with_all_properties(self):
+        subj = Subject.objects.create(name='Heritage', subject_subtype_id='elephant')
+
+        patrol_patrolsg = dict(
+            objective="Patrol Management",
+            prioity=0,
+            title="Patrol",
+            state="active",
+            notes=[{'text': 'New Note..'}],
+            patrol_segments=[{
+                "state": "active",
+                "patrol_type": "routine_patrol",
+                "leader": {
+                    "content_type": "observations.subject",
+                    "id": subj.id,
+                    "name": "The Don Galaxy 5",
+                    "subject_type": "wildlife",
+                    "subject_subtype": "elephant",
+                    "additional": {
+                    },
+                    "created_at": "2020-08-05T01:31:42.474284+03:00",
+                    "updated_at": "2020-08-05T01:31:42.474315+03:00",
+                    "is_active": True,
+                    "tracks_available": False,
+                    "image_url": "/static/elephant-black.svg"
+                },
+                "scheduled_start": "2020-08-05 02:00:00+00",
+                "time_range": {
+                    "start_time": "2020-09-24T07:08:16.711000+03:00",
+                    "end_time": "2020-09-26T07:08:16.711000+03:00"
+                },
+                "start_location": {
+                    "longitude": -122.3607072,
+                    "latitude": 47.681731199999994
+                },
+                "end_location": {
+                    "longitude": -124.3607072,
+                    "latitude": 49.681731199999994
+                },
+            }]
+        )
+
+        url = reverse('patrols')
+        request = self.factory.post(url, data=patrol_patrolsg)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
     def test_update_patrol(self):
@@ -165,7 +261,6 @@ class TestPatrol(BaseAPITest):
 
         self.assertEqual(response.status_code, 200)
 
-
     def test_update_patrolsegment(self):
         segment_update_data = dict(
             state="upcoming",
@@ -186,6 +281,37 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.data.get('state'), segment_update_data.get('state'))  # upcoming
         self.assertEqual(response.status_code, 200)
 
+    def test_update_patrol_with_new_patrolsegment(self):
+        patrol = dict(state="active")
+        patrolsg = dict(state="active")
+
+        # Create a patrol with no patrolsegment
+        url = reverse('patrols')
+        request = self.factory.post(url, data=patrol)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(len(response.data.get('patrol_segments')), 0)
+        patrol_id = response.data.get('id')
+
+        # create patrolsegment with no patrol
+        url = reverse('patrol-segments')
+        request = self.factory.post(url, data=patrolsg)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsegmentsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data.get('patrol'), None)
+
+        patrolsg_id = response.data.get('id')
+
+        # update patrol with new patrolsegment
+        data = {"patrol_segments": [{"id": patrolsg_id}]}
+        url = reverse('patrol', kwargs={'id': patrol_id})
+        request = self.factory.patch(url, data=data)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolView.as_view()(request, id=patrol_id)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data.get('patrol_segments')), 1)
 
     def test_get_all_patrolsegments(self):
         url = reverse('patrol-segments')
