@@ -177,6 +177,111 @@ class TestPatrol(BaseAPITest):
         response = views.PatrolsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
+    def test_update_all_patrol_patrolsegment_properties(self):
+        su = Subject.objects.create(name='Horton', subject_subtype_id='elephant')
+
+        patrol_patrolsegment = dict(
+            objective="Patrol Management",
+            prioity=0,
+            title="Patrol XYZ",
+            state="active",
+            notes=[{'text': 'New Note..'}],
+            patrol_segments=[{
+                "state": "active",
+                "patrol_type": "routine_patrol",
+                "leader": {
+                    "content_type": "observations.subject",
+                    "id": su.id,
+                    "name": "The Don Galaxy 5",
+                    "subject_type": "wildlife",
+                    "subject_subtype": "elephant",
+                    "additional": {
+                    },
+                    "created_at": "2020-08-05T01:31:42.474284+03:00",
+                    "updated_at": "2020-08-05T01:31:42.474315+03:00",
+                    "is_active": True,
+                    "tracks_available": False,
+                    "image_url": "/static/elephant-black.svg"
+                },
+                "scheduled_start": "2020-08-05 02:00:00+00",
+                "time_range": {
+                    "start_time": "2020-09-24T07:08:16.711000+03:00",
+                    "end_time": "2020-09-26T07:08:16.711000+03:00"
+                },
+                "start_location": {
+                    "longitude": -122.3607072,
+                    "latitude": 47.681731199999994
+                },
+                "end_location": {
+                    "longitude": -129.3607072,
+                    "latitude": 49.681731199999994
+                },
+            }]
+        )
+
+        url = reverse('patrols')
+        request = self.factory.post(url, data=patrol_patrolsegment)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        notes = response.data.get('notes')
+        note_id = notes[0].get('id')
+
+        patrol_sgs = response.data.get('patrol_segments')
+        patrol_sgs_id = patrol_sgs[0].get('id')
+
+        # update all properties
+        subject = Subject.objects.create(name='Fatu', subject_subtype_id='rhino')
+
+        updated_patrol_patrolsg = dict(
+            objective= "Lorem Ipsum is simply dummy text of the printing and typesetting industry",
+            priority=200,
+            title="Dog Patrol",
+            state="upcoming",
+            notes=[{'id': note_id, 'text': 'New Note2..'}],
+            patrol_segments=[{
+                "id": patrol_sgs_id,
+                "state": "upcoming",
+                "patrol_type": "dog_patrol",
+                "leader": {
+                    "content_type": "observations.subject",
+                    "id": subject.id,
+                    "name": "IRI2016-3387",
+                    "subject_type": "person",
+                    "subject_subtype": "ranger",
+                    "additional": {},
+                    "created_at": "2020-09-16T10:31:07.220892+03:00",
+                    "updated_at": "2020-09-16T10:31:07.220909+03:00",
+                    "is_active": True,
+                    "tracks_available": False,
+                    "image_url": "/static/ranger-black.svg"
+                },
+                "scheduled_start": "2020-09-26T01:14:34.196502+03:00",
+                "time_range": {
+                    "start_time": "2020-09-29T07:09:16.711000+03:00",
+                    "end_time": "2020-09-30T07:10:16.711000+03:00"
+                },
+                "start_location": {
+                    "longitude": 37.440896005591924,
+                    "latitude": 0.23907934715522572
+                },
+                "end_location": {
+                    "longitude": 37.41343018527925,
+                    "latitude": 0.17796830457972135
+                },
+            }]
+        )
+        p = Patrol.objects.get(title='Patrol XYZ')
+
+        url = reverse('patrol', kwargs={'id': p.id})
+        request = self.factory.patch(url, data=updated_patrol_patrolsg)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolView.as_view()(request, id=p.id)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data.get('patrol_segments')), 1)
+        self.assertEqual(len(response.data.get('notes')), 1)
+
     def test_update_patrol(self):
         patrol_update_data = dict(
             title="New updated title",
