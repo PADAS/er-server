@@ -46,7 +46,7 @@ def load_features_from_wfs(obj_id, group_id):
                     )
                     # timestamps seem broken in arcgis
                     # if created or last_modified > arcgis_item.updated_at:
-                    extract_gis_data(arc_config, member, title, errored_files, success_files, arcgis_item.id)
+                    extract_gis_data(arc_config, member, errored_files, success_files, arcgis_item.id)
                     # arcgis_item.save()  # update model's updated_at field
 
         except Exception as ex:

@@ -38,6 +38,7 @@ from django.contrib.gis.db import models as dbmodels
 
 from tracking.pubsub_registry import notify_new_tracks, notify_subjectstatus_update
 from django.utils.functional import cached_property
+from django.db.models.constraints import UniqueConstraint
 
 from utils.json import zeroout_microseconds
 from das_server import settings
@@ -653,13 +654,12 @@ class SubjectTrackSegmentFilter(TimestampedModel):
     objects = SubjectTrackSegmentFilterManager()
 
 
-DEFAULT_SUBJECT_GROUP_ID = 'b4c8e9f6-1ccb-4e3f-8c07-3b727b9ec057'
 DEFAULT_SOURCE_GROUP_ID = '654e592c-fc5a-436d-98dd-fd1b36436a85'
 
 
 class SubjectGroupManager(HierarchyManager):
     def get_default(self):
-        return self.get(id=DEFAULT_SUBJECT_GROUP_ID)
+        return self.get(is_default=True)
 
     def get_by_natural_key(self, name):
         return self.get(**{'name': name})
@@ -700,6 +700,14 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
             'This Subject group is visible in visualizations.'
         ),
     )
+
+    is_default = models.BooleanField(
+        _('default subject group'),
+         default=False,
+         help_text=_(
+            'This Subject group is the default for new subjects.'
+        ),)
+
     objects = SubjectGroupManager()
 
     def get_all_subjects(self, user=None, active=None, include_from_subgroups=True, mou_expiry_date=None):
@@ -728,6 +736,8 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
     class Meta:
         verbose_name = _('subject group')
         verbose_name_plural = _('subject groups')
+        constraints = [UniqueConstraint(fields=['is_default'],
+                                        condition=Q(is_default=True), name='default_subject_group')]
 
     def __str__(self):
         return self.name

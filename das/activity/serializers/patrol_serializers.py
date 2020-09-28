@@ -1,4 +1,5 @@
 import copy
+from django.contrib.gis.geos.point import Point
 from drf_extra_fields.geo_fields import PointField
 from rest_framework import serializers, validators
 from rest_framework.fields import DateTimeField
@@ -58,6 +59,7 @@ class PatrolTypeRelatedField(serializers.RelatedField):
 
     def to_internal_value(self, data):
         if data:
+            data = data if isinstance(data, str) else data.value
             try:
                 return activity.models.PatrolType.objects.get_by_value(data)
             except activity.models.PatrolType.DoesNotExist:
@@ -74,12 +76,13 @@ class PatrolList(serializers.Serializer):
 
 
 class PatrolSegmentSerializer(BaseSerializer):
+    id = serializers.UUIDField(required=False, read_only=False)
     patrol = PatrolList(required=False, read_only=True)
     patrol_type = PatrolTypeRelatedField(required=False)
     state = state_choices_serializer
     leader = LeaderRelatedField(required=False, allow_null=True)
-    scheduled_start = DateTimeField(required=False)
-    time_range = fields.DateTimeRangeField(required=False)
+    scheduled_start = DateTimeField(required=False, allow_null=True)
+    time_range = fields.DateTimeRangeField(required=False, allow_null=True)
     start_location = PointField(required=False, allow_null=True,
                                 validators=[PointValidator()])
     end_location = PointField(required=False, allow_null=True,
@@ -97,7 +100,11 @@ class PatrolSegmentSerializer(BaseSerializer):
         if request:
             image_url = self.resolve_image_url(instance)
             rep['image_url'] = utils.add_base_url(request, image_url)
-        rep['patrol_type'] = str(instance.patrol_type.id) if instance.patrol_type else None
+
+        if rep.get('time_range') is None:
+            rep['time_range'] = self.empty_timerange()
+
+        rep['patrol_type'] = str(instance.patrol_type.value) if instance.patrol_type else None
         rep['icon_id'] = str(instance.patrol_type.icon_id) if instance.patrol_type else None
         rep['patrol'] = self.get_patrol(instance.patrol) if instance.patrol else None
         return rep
@@ -107,19 +114,31 @@ class PatrolSegmentSerializer(BaseSerializer):
             instance=patrol,
             includes=['id', 'patrol_type', 'priority', 'state', 'title']).data
 
+    @staticmethod
+    def empty_timerange():
+        return {"start_time": None, "end_time": None}
+
     def create(self, validated_data):
         validated_data['patrol'] = self._kwargs.get('data').get('patrol')
         return activity.models.PatrolSegment.objects.create(**validated_data)
+
+    def to_internal_value(self, data):
+        data_updated = copy.copy(data)
+        for field_name in ('end_location', 'start_location'):
+            if field_name in data and isinstance(data[field_name], Point):
+                data_updated[field_name] = {'latitude': data[field_name].y, 'longitude': data[field_name].x}
+
+        return super().to_internal_value(data_updated)
 
 
 class PatrolSerializer(BaseSerializer, TimestampMixin):
     """Serializer class for a Patrol"""
 
-    objective = text_field(required=False, allow_blank=True)
+    objective = text_field(required=False, allow_blank=True, allow_null=True)
     priority = priority_choices_serializer
     serial_number = serializers.IntegerField(read_only=True)
     state = state_choices_serializer
-    title = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    title = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=255)
     files = PatrolFileSerializer(many=True, required=False, read_only=True)
     notes = PatrolNoteSerializer(many=True, required=False)
     patrol_segments = PatrolSegmentSerializer(many=True, required=False, excludes=['patrol'])
@@ -129,7 +148,6 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
         for seg in rep.get('patrol_segments', []):
             seg.pop('patrol', 0)
         return rep
-
 
     def create(self, validated_data):
         patrol_notes = validated_data.pop('notes', [])
@@ -147,7 +165,7 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
 
         return Patrol.objects.get(id=new_patrol.id)
 
-    def _ser_create(self, instance, update_items, items_serializer):
+    def _ser_create(self, instance, update_items, items_serializer, item_model):
         for item in update_items:
             update_item = copy.deepcopy(item)
             update_item['patrol'] = instance
@@ -156,19 +174,19 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
             serializer.is_valid(raise_exception=True)
 
             if update_item_id:
-                note_instance = activity.models.PatrolNote.objects.get(id=update_item_id)
-                serializer.update(note_instance, serializer.validated_data)
+                item_instance = item_model.objects.get(id=update_item_id)
+                serializer.update(item_instance, update_item)
             else:
-                serializer.create(serializer.validated_data)
+                serializer.create(update_item)
 
     def update(self, instance, validated_data):
         update_fields = []
         for k, v in validated_data.items():
             if k == 'notes':
-                self._ser_create(instance, v, PatrolNoteSerializer)
+                self._ser_create(instance, v, PatrolNoteSerializer, activity.models.PatrolNote)
                 continue
             if k == 'patrol_segments':
-                self._ser_create(instance, v, PatrolSegmentSerializer)
+                self._ser_create(instance, v, PatrolSegmentSerializer, activity.models.PatrolSegment)
                 continue
             if getattr(instance, k) != v:
                 setattr(instance, k, v)

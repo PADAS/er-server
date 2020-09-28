@@ -1,6 +1,7 @@
 from uuid import uuid4
 from unittest import mock
 from django.db import transaction
+from django.db.utils import IntegrityError
 
 from django.contrib.auth.models import Permission
 from django.test import TestCase
@@ -113,6 +114,15 @@ class SubjectGroupTest(BaseAPITest):
         self.force_authenticate(request, self.user)
         response = SubjectGroupView.as_view()(request, id=str(sgrp1_pk))
         self.assertEqual(response.status_code, 404)
+
+    def test_there_is_default_subject_group(self):
+        sg = SubjectGroup.objects.filter(is_default=True)
+        self.assertTrue(sg.exists())
+
+    def test_cant_have_two_default_subject_group(self):
+        with self.assertRaises(Exception) as raised:
+            SubjectGroup.objects.create(name=1, is_default=True)
+        self.assertEqual(IntegrityError, type(raised.exception))
 
 
 class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):

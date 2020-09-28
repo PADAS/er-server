@@ -17,6 +17,7 @@ from django.db import transaction
 from django.db.models import CharField, Value
 from django.db.models import Prefetch, F, Count
 from django.db.models.functions import Concat, Cast
+from django.http import Http404
 from django.http.response import HttpResponse
 from django.template import Template, Context
 from django.urls import reverse
@@ -199,7 +200,8 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
 
     def get(self, request, *args, **kwargs):
         eventtype = generics.get_object_or_404(EventType.objects.all(),
-                                               value=self.kwargs['eventtype'])
+                                               value__iexact=self.kwargs['eventtype'])
+
         if not eventtype.schema:
             return generics.views.Response(None)
 
@@ -1114,6 +1116,7 @@ class PatrolSchema(CustomSchema):
 
 
 class PatrolsView(generics.ListCreateAPIView):
+    pagination_class = StandardResultsSetPagination
     serializer_class = PatrolSerializer
     schema = PatrolSchema()
 
@@ -1140,6 +1143,7 @@ class PatrolView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class PatrolsegmentsView(generics.ListCreateAPIView):
+    pagination_class = StandardResultsSetPagination
     serializer_class = PatrolSegmentSerializer
     queryset = PatrolSegment.objects.all()
 

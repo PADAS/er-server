@@ -178,10 +178,16 @@ class TestArcGisIntegration(BaseAPITest):
         gis = arcgis_authentication(None, self.test_config)
         self.assertTrue(gis)
 
+    def extract_wfs_features(self, data):
+        _, extracted_ids = extract_features(
+            self.test_config, self.gis_group, 0, json.dumps(data), [], None, self.arcgis_item)
+        SpatialFeature.objects.filter(
+            arcgis_item=self.arcgis_item).exclude(external_id__in=extracted_ids).delete()
+
     def load_features(self):
         with open(os.path.join(TESTS_PATH, 'testdata/Built_point.geojson'), 'rb') as geojson_file:
-            extract_features(self.test_config, self.gis_group,
-                             self.gis_group.title, geojson_file.read().decode("utf-8"), [], [], self.arcgis_item.id)
+            data = geojson_file.read().decode("utf-8")
+            self.extract_wfs_features(json.loads(data))
 
     @patch('arcgis.gis.GIS', MockGIS)
     def test_groups_loaded_without_search_text(self):
@@ -229,46 +235,39 @@ class TestArcGisIntegration(BaseAPITest):
     #         self.assertEqual(feature_types_after_config, 7)
 
     def test_deleted_feature_from_esri(self):
-        with self.settings(UI_SITE_URL='http://www.liwonde.com'):
-            self.load_features()
+        self.load_features()
 
-            features_originally = SpatialFeature.objects.all().count()
-            self.assertEqual(features_originally, 41)
+        features_originally = SpatialFeature.objects.all().count()
+        self.assertEqual(features_originally, 214)
 
-            with open(os.path.join(TESTS_PATH, 'testdata/Built_point.geojson'), 'r') as f:
-                data = json.load(f)
-
-                # 2 features deleted from the online groups feature
-                data['features'] = data['features'][:-2]
-                extract_features(self.test_config, self.gis_group,
-                                    self.gis_group.title, json.dumps(data), [], [], self.arcgis_item.id)
-
-            after_features_deletion = SpatialFeature.objects.all().count()
-            self.assertEqual(after_features_deletion, 39)
+        with open(os.path.join(TESTS_PATH, 'testdata/Built_point.geojson'), 'r') as f:
+            data = json.load(f)
+            # 2 features deleted from the online groups feature
+            data['features'] = data['features'][:-2]
+            self.extract_wfs_features(data)
+        after_features_deletion = SpatialFeature.objects.all().count()
+        self.assertEqual(after_features_deletion, 212)
 
     def test_updated_feature_update_from_esri(self):
-        with self.settings(UI_SITE_URL='http://www.liwonde.com'):
-            self.load_features()
+        self.load_features()
+        initial_mponda = SpatialFeature.objects.get(name='Mponda')
+        prev_mponda_coordinates = [coord for coord in initial_mponda.feature_geometry.coords]
 
-            initial_mponda = SpatialFeature.objects.get(name='Mponda')
-            prev_mponda_coordinates = [coord for coord in initial_mponda.feature_geometry.coords]
+        self.assertEqual(prev_mponda_coordinates[0], (35.2432244949146, -14.457755073238))
+        with open(os.path.join(TESTS_PATH, 'testdata/Built_point.geojson'), 'r') as f:
+            data = json.load(f)
+            for feature in data['features']:
+                if feature["properties"]["Name"] == initial_mponda.name:
+                    # Update feature geometry
+                    feature["geometry"]["coordinates"] = [34.54, -15.77]
+                    break
+            self.extract_wfs_features(data)
 
-            self.assertEqual(prev_mponda_coordinates[0], (35.2432244949146, -14.457755073238))
-            with open(os.path.join(TESTS_PATH, 'testdata/Built_point.geojson'), 'r') as f:
-                data = json.load(f)
-                for feature in data['features']:
-                    if feature["properties"]["Name"] == initial_mponda.name:
-                        # Update feature geometry
-                        feature["geometry"]["coordinates"] = [34.54, -15.77]
-                        break
-                extract_features(self.test_config, self.gis_group,
-                                 self.gis_group.title, json.dumps(data), [], [], self.arcgis_item.id)
+        updated_mponda = SpatialFeature.objects.get(name='Mponda')
+        new_mponda_coordinates = [coord for coord in updated_mponda.feature_geometry.coords]
 
-            updated_mponda = SpatialFeature.objects.get(name='Mponda')
-            new_mponda_coordinates = [coord for coord in updated_mponda.feature_geometry.coords]
-            
-            self.assertEqual(new_mponda_coordinates[0], (34.54, -15.77))
-            self.assertTrue(prev_mponda_coordinates != new_mponda_coordinates)
+        self.assertEqual(new_mponda_coordinates[0], (34.54, -15.77))
+        self.assertTrue(prev_mponda_coordinates != new_mponda_coordinates)
 
 
 class Renderer:

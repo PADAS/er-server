@@ -35,6 +35,10 @@ from django.contrib.admin.utils import quote
 from urllib.parse import quote as urlquote
 from django.contrib import messages
 from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
+from django.contrib.auth import get_permission_codename
+from django.forms import modelformset_factory, BaseModelFormSet
+from django.db.utils import IntegrityError
+
 
 import observations.models as models
 from tracking.models import SourcePlugin
@@ -51,6 +55,7 @@ from .models import SOURCE_TYPES
 from observations.daterange_filter import DateRangeFilter
 from bitfield import BitField
 from bitfield.forms import BitFieldCheckboxSelectMultiple
+from functools import partial
 
 site_title = _('EarthRanger Administration (advanced view)')
 admin.site.site_title = site_title
@@ -1234,9 +1239,28 @@ class SubjectGroupChangeForm(forms.ModelForm):
         return groups
 
 
+class ModelFormSet(BaseModelFormSet):
 
-from django.contrib.auth import get_permission_codename
-from accounts.models import PermissionSet
+    def __getitem__(self, index):
+        return self.forms[index]
+
+    @cached_property
+    def forms(self):
+        """Instantiate forms at first property access."""
+        f = [self._construct_form(i, **self.get_form_kwargs(i))
+             for i in range(self.total_form_count())]
+
+        for index, fm in enumerate(f):
+            if fm.instance.is_default and fm.has_changed():
+                f[0], f[index] = fm, f[0]
+        return f
+
+
+class SubjectGroupException(Exception):
+    pass
+
+class DeleteDefaultSubjectGroupException(SubjectGroupException):
+    pass
 
 
 @admin.register(models.SubjectGroup)
@@ -1246,6 +1270,7 @@ class SubjectGroupAdmin(HierarchyModelAdmin):
     ordering = ('name',)
     fieldsets = (
         (None, {'fields': ('name', 'id', 'is_visible')}),
+        (None, {'fields': ('is_default',)}),
         ('Subjects', {
             'fields': ('active_subjects',)
         }),
@@ -1257,18 +1282,88 @@ class SubjectGroupAdmin(HierarchyModelAdmin):
             'fields': ('children',)
         }),
         (_('Permissions'), {'fields': ('permission_sets',)}),
-
+        
     )
-    list_display = ('name', 'is_visible')
-    list_editable = ('is_visible',)
+    list_display = ('name', 'is_visible', 'is_default')
+    readonly_fields = ('is_default',)
+    list_editable = ('is_visible', 'is_default')
     list_filter = ('is_visible',)
     filter_horizontal = ('children', 'permission_sets', 'subjects')
-
 
     def formfield_for_dbfield(self, db_field, **kwargs):
         if db_field.name == 'children':
             db_field.verbose_name = 'groups'
         return super().formfield_for_dbfield(db_field, **kwargs)
+
+    def default_subjectgroup(self):
+        return self.model.objects.filter(is_default=True).exists()
+
+    def get_deleted_objects(self, objs, request):
+        """
+        Hook for customizing the delete process for the delete view and the  "delete selected" action.
+        """
+        if isinstance(objs, list):
+            if objs[0].is_default:
+                raise DeleteDefaultSubjectGroupException()
+            return super().get_deleted_objects(objs, request)
+
+        if objs.filter(is_default=True).exists():
+            raise DeleteDefaultSubjectGroupException()
+        return super().get_deleted_objects(objs, request)
+
+    def get_changelist_formset(self, request, **kwargs):
+        if request.method == 'POST':
+            defaults = {
+                'formfield_callback': partial(self.formfield_for_dbfield, request=request),
+                **kwargs,
+            }
+            return modelformset_factory(
+                self.model, self.get_changelist_form(request), formset=ModelFormSet,  extra=0,
+                fields=self.list_editable, **defaults)
+        return super(SubjectGroupAdmin, self).get_changelist_formset(request, **kwargs)
+
+    @staticmethod
+    def clear_existing_message(request):
+        storage = messages.get_messages(request)
+        for _ in storage:
+            pass
+
+    @transaction.atomic
+    def changelist_view(self, request, extra_context=None):
+        url_path = request.get_full_path()
+        try:
+            response = super(SubjectGroupAdmin, self).changelist_view(request, extra_context)
+        except IntegrityError:
+            msg = _("Warning: A default subject group has already been set.")
+            self.message_user(request, msg, level=messages.WARNING)
+            return HttpResponseRedirect(url_path)
+        except DeleteDefaultSubjectGroupException:
+            msg = _("Warning: Cannot delete the default subject group.")
+            self.message_user(request, msg, level=messages.WARNING)
+            return HttpResponseRedirect(url_path)
+        except SubjectGroupException:
+            msg = _("Warning: A default subject group is required.")
+            self.message_user(request, msg, level=messages.WARNING)
+            return HttpResponseRedirect(url_path)
+        else:
+            if request.method == 'POST' and not self.default_subjectgroup():
+                transaction.set_rollback(True)
+                self.clear_existing_message(request)
+                msg = _("Warning: A default subject group is required.")
+                self.message_user(request, msg, level=messages.WARNING)
+                return HttpResponseRedirect(url_path)
+            return response
+
+    def delete_view(self, request, object_id, extra_context=None):
+        try:
+            template_response = super()._delete_view(request, object_id, extra_context=None)
+        except SubjectGroupException:
+            url_path = reverse('admin:observations_subjectgroup_change', kwargs={'object_id': object_id})
+            msg = _("Warning: Cannot delete the default subject group.")
+            self.message_user(request, msg, level=messages.WARNING)
+            return HttpResponseRedirect(url_path)
+        else:
+            return template_response
 
 
 @admin.register(models.SourceGroup)
