@@ -166,7 +166,7 @@ def import_features_from_esri(obj, layer_num, tmp_filename, arcgis_item, simple_
                     logger.warning('Did not get or create spatialfeaturetype for %s. Skipping', str(feature))
                     continue
 
-                if not arc_item.arcgis_config.disable_import_feature_classes:
+                if not arcgis_item.arcgis_config.disable_import_feature_classes:
                     spatial_feature_type.presentation = simple_presentation
                     # TODO: does a write in each iteration. Optimize.
                     spatial_feature_type.save()
