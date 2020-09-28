@@ -421,7 +421,7 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('last_download_time', 'config_name', 'username', 'password', 'search_text')
+            'fields': ('last_download_time', 'config_name', 'username', 'password', 'search_text', 'disable_import_feature_classes')
         }),
         ('ArcGIS Group', {
             'classes': ('wide', 'groups'),
@@ -445,6 +445,7 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
         return [(None, {'fields': self.get_fields(request, obj)})]
 
     def response_add(self, request, obj, post_url_continue=None):
+
         groups_found = arcgis_integration(request, obj)
         if self.arcgis_config(request) or not groups_found:
             return HttpResponseRedirect(request.path_info)
@@ -454,6 +455,7 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
             return super().response_add(request, obj, post_url_continue=None)
 
     def response_change(self, request, obj):
+
         groups_found = arcgis_integration(request, obj)
         if self.arcgis_config(request) or not groups_found:
             return HttpResponseRedirect(request.path_info)

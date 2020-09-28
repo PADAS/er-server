@@ -3,10 +3,10 @@ import logging
 import tempfile
 
 import arcgis
+from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.gis.gdal import GDALException
-from django.core import management
 from django.utils.safestring import mark_safe
 
 from arcgis2geojson import arcgis2geojson
@@ -165,9 +165,11 @@ def import_features_from_esri(obj, layer_num, tmp_filename, arcgis_item, simple_
                 if not spatial_feature_type:
                     logger.warning('Did not get or create spatialfeaturetype for %s. Skipping', str(feature))
                     continue
-                spatial_feature_type.presentation = simple_presentation
-                # TODO: does a write in each iteration. Optimize.
-                spatial_feature_type.save()
+
+                if not arc_item.arcgis_config.disable_import_feature_classes:
+                    spatial_feature_type.presentation = simple_presentation
+                    # TODO: does a write in each iteration. Optimize.
+                    spatial_feature_type.save()
 
             # linked to above to revisit if don't have a GlobalID
             external_id = make_external_id(layer_num, feature, id_field, name_field, arcgis_item.id)
@@ -237,16 +239,28 @@ def wfs_download_return_messages(request, errored_files, success_files):
     logger.info('Returning from download_features')
 
 
-def import_featuretype_presentation(renderer):
+def import_featuretype_presentation(renderer, arcgis_item=None):
+    configuration = arcgis_item.arcgis_config if arcgis_item else None
+    is_import_disabled = (
+        configuration.disable_import_feature_classes if configuration else
+        False
+    )
     if renderer.type == RENDERER_TYPE_UNIQUE_VALUE:
         for unique_val in renderer.uniqueValueInfos:
             feature_type_name = unique_val.value
             presentation = get_mb_style(unique_val.symbol)
             logger.debug(f'{feature_type_name}: {presentation}')
             if presentation:
-                feature_type, created = models.SpatialFeatureType.objects.get_or_create(name=feature_type_name)
-                feature_type.presentation = presentation
-                feature_type.save()
+                feature_type, created = (
+                    models.SpatialFeatureType.objects.get_or_create(name=feature_type_name)
+                )
+
+                if not feature_type:
+                    return
+
+                if not is_import_disabled:
+                    feature_type.presentation = presentation
+                    feature_type.save()
     elif renderer.type == 'simple':
         simple_presentation = get_mb_style(renderer.symbol)
         # logger.info(simple_presentation)
