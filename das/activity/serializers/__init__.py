@@ -334,9 +334,7 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
 
     def run_validation(self, data=empty):
         # We force empty strings & empty dictionary to None values for relational fields.
-        if data == '':
-            data = None
-        if data == {}:
+        if data == '' or data == {}:
             data = None
         return super().run_validation(data)
 
