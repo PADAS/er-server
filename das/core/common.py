@@ -5,6 +5,7 @@ from django.contrib.admin.templatetags.admin_modify import \
 from django.contrib.admin.sites import site as default_site
 from django.contrib.admin import ModelAdmin
 from django.conf import settings
+from datetime import datetime
 
 
 
@@ -26,6 +27,11 @@ def submit_row(context):
     if ctx['opts'].model_name == 'choice':
         ctx.update({'addchoices': True})
     return ctx
+
+
+def get_midnight_datetime():
+    today = datetime.today()
+    return datetime.combine(today, datetime.max.time())
 
 
 class AdminFeatureFlag:
