@@ -123,21 +123,26 @@ DATA_PAIRS = [
 ]
 
 
+
 V2_DATA_PAIRS = [
+    # gps data
     {
-        # gps mode
-        "deviceId": "0",
-        "time": "1461678551",
-        "seqNumber": 1,
-        "data": "331c81457bec33c262ee00",
-        "reception": [{"id": "4F87", "RSSI": -130.0, "SNR": 21.44}]
+        "deviceId": "14159EB",
+        "time": 1600972039,
+        "seqNumber": 49,
+        "data": "5506aacfdc12882347aef495",
+        "reception": [{"id": "4F8A", "RSSI": -131.0, "SNR": 16.31}]
     },
     {
-        # ubi mode
-        "deviceId": "0",
-        "time": "1461678551",
-        "seqNumber": 1,
-        "data": "530840F85B94F15CC31B9D52",
-        "reception": [{"id": "4F8A", "RSSI": -142.0, "SNR": 7.41}]}
+        "deviceId": "14159EB",
+        "time": 1600972039,
+        "seqNumber": 49,
+        "computedLocation": {"lat": -21.55287537222924, "lng": 30.100633074067208, "radius": 22200, "source": 2, "status": 1}
+    }
+
+    # ubi data
+
+    {'deviceId': '14159EB', 'time': 1601024898, 'seqNumber': 60, 'data': '5506aacfdc12882347aef495', 'reception': [{'id': '4F8A', 'RSSI': -144.0, 'SNR': 6.67}]}
+    {'deviceId': '14159EB', 'time': 1601024898, 'seqNumber': 60, 'computedLocation': {'lat': -21.54995963636364, 'lng': 29.91042409090909, 'radius': 23200, 'source': 2, 'status': 1}}
 
 ]

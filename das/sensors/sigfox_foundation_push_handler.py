@@ -170,22 +170,144 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
         sigfox_data = PayloadValidator(data=request.data)
         if sigfox_data.is_valid():
             validated_data = sigfox_data.validated_data
-            data = validated_data.get('data')
-            device = validated_data.get("deviceId")
-            if data and len(data) >= cls.V2_UPLINK_PAYLOAD_LENGTH:
-                tracks = cls.process_sigfox_tracks(validated_data)
-                validation_msg = cls.validate_tracks_before_parsing(device, data, tracks)
-                if validation_msg:
-                    return Response(data=dict(message=validation_msg), status=status.HTTP_200_OK)
-                parsed_data = SigfoxPayloadParserV2.parse(tracks)
-                return cls.process_data_uplink(request.data, provider_key, parsed_data)
+            uplink_data = validated_data.get('data')
+            computed_location = validated_data.get('computedLocation')
+
+            if uplink_data and len(uplink_data) >= cls.V2_UPLINK_PAYLOAD_LENGTH:
+                decode_response = cls.decode_and_cache_uplink_data(validated_data)
+                return Response(data=dict(message=decode_response), status=status.HTTP_200_OK)
+
+            elif computed_location:
+                parsed_data = cls.process_computed_location(validated_data, computed_location)
+                return cls.process_uplink_data(request.data, provider_key, parsed_data)
+
             else:
-                message = f"Ignoring Boot/reboot, geolocation, and unknown record types. Data: {data}"
+                message = f"Ignoring Boot/reboot, geolocation, and unknown record types. Data: {uplink_data}"
                 logger.info(message)
                 return Response(data=dict(message=message), status=status.HTTP_200_OK)
 
         logger.warning(f"SigfoxV2Handler bad request: {request.data}")
         return Response(data=sigfox_data.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @classmethod
+    def process_uplink_data(cls, payload, provider_key, parsed_data):
+        if parsed_data:
+            device_id = payload.pop('deviceId')
+            src = Source.objects.ensure_source(provider=provider_key,
+                                               manufacturer_id=device_id,
+                                               subject={
+                                                   'subject_subtype_id': cls.DEFAULT_SUBJECT_SUBTYPE,
+                                                   'name': device_id
+                                               })
+
+            recorded_at = datetime.fromtimestamp(payload.pop('time'), timezone.utc).isoformat()
+            # for data_uplink this test is sufficient for dups...
+            if Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
+                logger.info('Ignoring duplicate observation from %s', src)
+                return Response(data=dict(message='Ignored duplicate message'), status=status.HTTP_200_OK)
+
+            lat = parsed_data.pop('latitude')
+            lon = parsed_data.pop('longitude')
+
+            observation = {
+                'location': {
+                    'latitude': lat,
+                    'longitude': lon
+                },
+                'recorded_at': recorded_at,
+                'source': str(src.id),
+                'additional': {
+                    **payload,
+                    **parsed_data
+                }
+            }
+            logger.debug('data_uplink', observation)
+
+            validator = ObservationSerializer(data=observation)
+            if validator.is_valid():
+                validator.save()
+                return Response(data=validator.data.get('id'), status=status.HTTP_201_CREATED)
+            else:
+                logger.error('Invalid observation %s', observation)
+                return Response(data=validator.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(data=dict(message='Unable to parse data'), status=status.HTTP_400_BAD_REQUEST)
+
+    @classmethod
+    def decode_and_cache_uplink_data(cls, payload):
+        data = payload.get('data')
+        components, mode, mode_display = cls.get_mode_and_components(data)
+        response = cls.cache_uplink_data(payload, components, mode)
+        if not mode_display:
+            response = f'Ignoring setup and unknown track modes, data: {payload}'
+        return response
+
+    @classmethod
+    def cache_uplink_data(cls, payload, components, mode):
+        device_id = payload.pop('deviceId')
+        seq_no = payload.pop('seqNumber')
+        time = payload.pop('time')
+        key = f'{device_id}-{seq_no}'
+
+        if mode == cls.GPS_TRACK:
+            cls.cache_gps_data(device_id, seq_no, key, time, components)
+        elif mode == cls.UBI_TRACK:
+            cls.cache_ubi_data(device_id, seq_no, key, payload, time, components)
+        msg = f'Uplink payload successfully cached for device: {device_id}'
+        return msg
+
+    @classmethod
+    def cache_gps_data(cls, device_id, seq_no, key, time, components):
+        gps_data = {'device_id': device_id, 'seq_no': seq_no, 'time': time, 'components': components}
+        cache.set(key, gps_data, cls.cache_timeout)
+
+    @classmethod
+    def cache_ubi_data(cls, device_id, seq_no, key, payload, time, components):
+        data = payload.get('data')[4:24]
+        ubi_data = {'device_id': device_id, 'seq_no': seq_no, 'time': time, 'components':components, 'ubiscale_data': data}
+        cache.set(key, ubi_data, cls.cache_timeout)
+
+
+    @classmethod
+    def process_computed_location(cls, validated_data, computed_location):
+        device_id = validated_data.get("deviceId")
+        seq_no = validated_data.pop('seqNumber')
+        time = computed_location.get('time')
+        parsed_data = None
+
+        uplink_key = f'{device_id}-{seq_no}'
+        cached = cache.get(uplink_key)
+        if cached:
+            components = cached.get('components')
+            if cached.get('ubiscale_data'):
+                position = cls.process_ubi_data(computed_location, cached, device_id, time)
+            else:
+                position = cls.process_gps_data(cached, device_id, time)
+            cache.set(uplink_key, None)
+            parsed_data = SigfoxPayloadParserV2.parse(position, components)
+        return parsed_data
+
+
+    @classmethod
+    def process_gps_data(cls, cached):
+        components = cached.get('components')
+        position = {'latitude': SigfoxParser._parse_coordinate(components[5], components[6]),
+               'longitude': SigfoxParser._parse_coordinate(components[7], components[8])}
+        return position
+
+    @classmethod
+    def process_ubi_data(cls, computed_location, cached, device_id, time):
+        data = cached.get('ubiscale_data')
+        lat = computed_location.get('lat')
+        lng = computed_location.get('lng')
+        ubi_position = cls.get_position_from_ubi(device_id, data, lat, lng, time)
+        position = {
+            'latitude': ubi_position.get('lat'),
+            'longitude': ubi_position.get('lng'),
+            'altitude': ubi_position.get('alt'),
+            'accuracy': ubi_position.get('accuracy')
+               }
+        return position
 
     @classmethod
     def validate_tracks_before_parsing(cls, device, data, tracks):
@@ -246,43 +368,6 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
 
         return mode, mode_display, components
 
-    @classmethod
-    def cache_gps_data(cls, device_id, seq_no, key, latitude, longitude):
-        data = {'device_id': device_id, 'seq_no': seq_no, 'latitude': latitude, 'longitude': longitude}
-        cache.set(key, data, cls.cache_timeout)
-
-    @classmethod
-    def cache_ubi_data(cls, data, device_id, seq_no, key):
-        ubi_data = {'device_id': device_id, 'seq_no': seq_no, 'data': data}
-        cache.set(key, ubi_data, cls.cache_timeout)
-
-    @classmethod
-    def process_gps_data(cls, device_id, seq_no, components, time, gps_key, ubi_key):
-        cached_ubi = cache.get(ubi_key)
-        latitude = SigfoxParser._parse_coordinate(components[5], components[6])
-        longitude = SigfoxParser._parse_coordinate(components[7], components[8])
-        if cached_ubi:
-            data = cached_ubi.get('data')
-            position = cls.get_position_from_ubi(device_id, data, latitude, longitude, time)
-            cache.set(ubi_key, None)
-            return position
-        else:
-            cls.cache_gps_data(device_id, seq_no, gps_key, latitude, longitude)
-            return 'cached gps data'
-
-    @classmethod
-    def process_ubi_data(cls, payload, device_id, seq_no, components, time, gps_key, ubi_key):
-        cached_gps = cache.get(gps_key)
-        data = payload.get('data')[4:24]
-        if cached_gps:
-            latitude = cached_gps.get('latitude')
-            longitude = cached_gps.get('longitude')
-            position = cls.get_position_from_ubi(device_id, data, latitude, longitude, time)
-            cache.set(gps_key, None)
-            return position
-        else:
-            cls.cache_ubi_data(data, device_id, seq_no, ubi_key)
-            return 'cached ubi data'
 
     @classmethod
     def cache_and_process_position(cls, payload, components, mode):
@@ -409,21 +494,17 @@ class SigfoxPayloadParserV2(SigfoxParser):
     # https://vulcan.atlassian.net/browse/DAS-5294
 
     @classmethod
-    def parse(cls, tracks):
-        components = tracks.get('components')
-        device_position = tracks.get('device_position')
+    def parse(cls, position, components):
         if components:
             return {
                 'batt_level': cls._parse_battery_volts(components[1], version=2),
-                'mode': tracks.get('mode'),
+                # 'mode': tracks.get('mode'),
                 'movement_it': cls._parse_movement_it(components[2]),
                 'gps_state': cls._parse_state(components[3]),
                 'gps_acq_time': cls._parse_gps_acq_time(components[4]),
-                'latitude': device_position.get('lat'),
-                'longitude': device_position.get('lng'),
-                'altitude': device_position.get('alt'),
-                'accuracy': device_position.get('accuracy')
+                **position
             }
+
 
     @staticmethod
     def _parse_movement_it(bit):

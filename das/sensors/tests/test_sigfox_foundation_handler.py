@@ -62,10 +62,11 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
             rsp = self._post_data(json.dumps(data_uplink), self.api_path_v2, SigfoxV2FoundationHandlerView)
             if count == 0:  # First iteration, cached
                 self.assertEqual(rsp.status_code, status.HTTP_200_OK)
-                self.assertEqual(rsp.data, {'message': 'First payload successfully cached for device: 0'})
+                self.assertEqual(rsp.data, {'message': 'Uplink payload successfully cached for device: 14159EB'})
 
             elif count == 1:  # second payload, postion returned
                 self.assertIsNotNone(rsp)
+                print("********", rsp)
                 self.assertEqual(rsp.status_code, status.HTTP_201_CREATED)
                 source = Source.objects.get(manufacturer_id=device_id)
                 observation = Observation.objects.get(source=source)
