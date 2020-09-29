@@ -1376,10 +1376,24 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                 else recorded_at.isoformat(),
                 dloadtime_label: created_at.strftime('%m/%d/%Y %H:%M:%S') if result_format == 'csv'
                 else created_at.isoformat(),
-                'temp': item['additional'].get('temp', item['additional'].get('temperature', 0)),
-                'voltage': item['additional'].get('voltage', item['additional'].get('battery', item['additional'].get('batt', 0))),
+                'temp': self.get_temperature(item),
+                'voltage': self.get_voltage(item),
                 }
         return data
+
+    @staticmethod
+    def get_temperature(item):
+        additional = item.get('additional')
+        if additional:
+            return additional.get('temp') or additional.get('temperature', 0)
+        return 0
+
+    @staticmethod
+    def get_voltage(item):
+        additional = item.get('additional')
+        if additional:
+            return additional.get('voltage') or additional.get('battery') or additional.get('batt', 0)
+        return 0
 
     def get_subject_trackdata_queryset(self, filter_flag, lower, subject, upper, max_records):
         qs = models.Observation.objects.get_subject_observations(subject, lower, upper, max_records, filter_flag=filter_flag, order_by='recorded_at')

@@ -405,5 +405,17 @@
       "recorded_at": "2018-09-05T06:01:40+00:00",
       "exclusion_flags": 1
     }
+  },
+    {
+    "pk": "ddc3777c-0230-11eb-adc1-0242ac120002",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(38.791526330116 -14.28439367309)",
+      "created_at": "2020-09-05T00:00:34.324536+00:00",
+      "source": "550599f6-e0e1-4197-ac5b-76d24493a338",
+      "additional": null,
+      "recorded_at": "2020-09-05T06:01:40+00:00",
+      "exclusion_flags": 0
+    }
   }
 ]
