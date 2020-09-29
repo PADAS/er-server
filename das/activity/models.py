@@ -1480,10 +1480,19 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         queryset = self
         lower, upper = parse_date_range(filter_param)
         if lower:
-            queryset = queryset.filter(patrol_segment__time_range__startswith__gt=lower)
-        if upper:
-            queryset = queryset.filter(patrol_segment__time_range__endswith__lt=upper)
-        return queryset
+            upper = upper if upper else lower
+            # Active patrols within given dates
+            q1 = queryset.filter(
+                patrol_segment__time_range__startswith__date__lte=lower,
+                patrol_segment__time_range__endswith__date__gte=upper)
+
+            # End_date past but patrol still active
+            q2 = queryset.filter(
+                patrol_segment__time_range__endswith__date__lte=upper,
+                state="active")
+            queryset = q1 | q2
+
+        return queryset.distinct()
 
 
 def serial_next_increment():

@@ -211,7 +211,7 @@ class TestPatrol(BaseAPITest):
             title='Test Patrol',
             objective='Test Objective',
             notes=[{"text": "Notes test 1"}],
-            patrol_segments=[{'time_range': {"start_time": "2020-08-05 02:00:00+00", "end_time": "2020-08-06 04:00:00+00"},"state": "active"}]
+            patrol_segments=[{'time_range': {"start_time": "2020-07-30 02:00:00+00", "end_time": "2020-08-06 04:00:00+00"},"state": "active"}]
         )
         self._create_patrol(patrol_data)
         query = {'filter': json.dumps({"date_range": {"lower": "2020-08-01T00:00:00.000Z"}})}
