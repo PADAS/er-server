@@ -60,18 +60,30 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
         for data_uplink in V2_DATA_PAIRS:
             device_id = data_uplink['deviceId']
             rsp = self._post_data(json.dumps(data_uplink), self.api_path_v2, SigfoxV2FoundationHandlerView)
-            if count == 0:  # First iteration, cached
+            if count == 0:  # First iteration, ubi payload cached
                 self.assertEqual(rsp.status_code, status.HTTP_200_OK)
-                self.assertEqual(rsp.data, {'message': 'Uplink payload successfully cached for device: 14159EB'})
+                self.assertEqual(rsp.data, {'message': 'Uplink, Tracking Ubiscale payload, successfully cached for device: 14159EB'})
 
             elif count == 1:  # second payload, postion returned
                 self.assertIsNotNone(rsp)
-                print("********", rsp)
                 self.assertEqual(rsp.status_code, status.HTTP_201_CREATED)
                 source = Source.objects.get(manufacturer_id=device_id)
-                observation = Observation.objects.get(source=source)
-                # one observation created from the two records
-                self.assertIsNotNone(observation)
+                observations = Observation.objects.count()
+                assert (observations, 1)
+
+            elif count == 2:  # gps payload cached
+                self.assertEqual(rsp.status_code, status.HTTP_200_OK)
+                self.assertEqual(rsp.data, {'message': 'Uplink, Tracking GPS payload, successfully cached for device: 14159ED'})
+
+            elif count == 3:  # second payload, postion returned
+                self.assertIsNotNone(rsp)
+                self.assertEqual(rsp.status_code, status.HTTP_201_CREATED)
+                source = Source.objects.get(manufacturer_id=device_id)
+                observations = Observation.objects.count()
+                # one more observation added
+
+                print("*********", [o.additional for o in Observation.objects.all()])
+                assert (observations, 2)
             count += 1
 
     def test_sigfox_v2_setup_and_unknown_data_modes_not_processed(self):

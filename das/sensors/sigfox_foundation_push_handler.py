@@ -171,7 +171,7 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
         if sigfox_data.is_valid():
             validated_data = sigfox_data.validated_data
             uplink_data = validated_data.get('data')
-            computed_location = validated_data.get('computedLocation')
+            computed_location = validated_data.pop('computedLocation', None)
 
             if uplink_data and len(uplink_data) >= cls.V2_UPLINK_PAYLOAD_LENGTH:
                 decode_response = cls.decode_and_cache_uplink_data(validated_data)
@@ -179,7 +179,7 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
 
             elif computed_location:
                 parsed_data = cls.process_computed_location(validated_data, computed_location)
-                return cls.process_uplink_data(request.data, provider_key, parsed_data)
+                return cls.process_uplink_data(validated_data, provider_key, parsed_data)
 
             else:
                 message = f"Ignoring Boot/reboot, geolocation, and unknown record types. Data: {uplink_data}"
@@ -237,34 +237,34 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
     def decode_and_cache_uplink_data(cls, payload):
         data = payload.get('data')
         components, mode, mode_display = cls.get_mode_and_components(data)
-        response = cls.cache_uplink_data(payload, components, mode)
+        response = cls.cache_uplink_data(payload, components, mode, mode_display)
         if not mode_display:
             response = f'Ignoring setup and unknown track modes, data: {payload}'
         return response
 
     @classmethod
-    def cache_uplink_data(cls, payload, components, mode):
+    def cache_uplink_data(cls, payload, components, mode, mode_display):
         device_id = payload.pop('deviceId')
         seq_no = payload.pop('seqNumber')
         time = payload.pop('time')
         key = f'{device_id}-{seq_no}'
 
         if mode == cls.GPS_TRACK:
-            cls.cache_gps_data(device_id, seq_no, key, time, components)
+            cls.cache_gps_data(device_id, seq_no, key, time, components, mode_display)
         elif mode == cls.UBI_TRACK:
-            cls.cache_ubi_data(device_id, seq_no, key, payload, time, components)
-        msg = f'Uplink payload successfully cached for device: {device_id}'
+            cls.cache_ubi_data(device_id, seq_no, key, payload, time, components, mode_display)
+        msg = f'Uplink, {mode_display} payload, successfully cached for device: {device_id}'
         return msg
 
     @classmethod
-    def cache_gps_data(cls, device_id, seq_no, key, time, components):
-        gps_data = {'device_id': device_id, 'seq_no': seq_no, 'time': time, 'components': components}
+    def cache_gps_data(cls, device_id, seq_no, key, time, components, mode):
+        gps_data = {'mode': mode, 'device_id': device_id, 'seq_no': seq_no, 'time': time, 'components': components}
         cache.set(key, gps_data, cls.cache_timeout)
 
     @classmethod
-    def cache_ubi_data(cls, device_id, seq_no, key, payload, time, components):
+    def cache_ubi_data(cls, device_id, seq_no, key, payload, time, components, mode):
         data = payload.get('data')[4:24]
-        ubi_data = {'device_id': device_id, 'seq_no': seq_no, 'time': time, 'components':components, 'ubiscale_data': data}
+        ubi_data = {'mode': mode, 'device_id': device_id, 'seq_no': seq_no, 'time': time, 'components': components, 'ubiscale_data': data}
         cache.set(key, ubi_data, cls.cache_timeout)
 
 
@@ -272,54 +272,44 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
     def process_computed_location(cls, validated_data, computed_location):
         device_id = validated_data.get("deviceId")
         seq_no = validated_data.pop('seqNumber')
-        time = computed_location.get('time')
-        parsed_data = None
 
         uplink_key = f'{device_id}-{seq_no}'
         cached = cache.get(uplink_key)
         if cached:
             components = cached.get('components')
+            mode = cached.get('mode')
             if cached.get('ubiscale_data'):
-                position = cls.process_ubi_data(computed_location, cached, device_id, time)
+                position = cls.get_ubi_position(computed_location, cached, device_id)
             else:
-                position = cls.process_gps_data(cached, device_id, time)
+                position = cls.get_gps_position(computed_location)
             cache.set(uplink_key, None)
-            parsed_data = SigfoxPayloadParserV2.parse(position, components)
-        return parsed_data
+
+            if position:
+                parsed_data = SigfoxPayloadParserV2.parse(position, components, mode)
+                return parsed_data
 
 
     @classmethod
-    def process_gps_data(cls, cached):
-        components = cached.get('components')
-        position = {'latitude': SigfoxParser._parse_coordinate(components[5], components[6]),
-               'longitude': SigfoxParser._parse_coordinate(components[7], components[8])}
-        return position
+    def get_gps_position(cls, computed_location):
+        return {'latitude': computed_location.get('lat'), 'longitude': computed_location.get('lng')}
 
     @classmethod
-    def process_ubi_data(cls, computed_location, cached, device_id, time):
+    def get_ubi_position(cls, computed_location, cached, device_id):
         data = cached.get('ubiscale_data')
         lat = computed_location.get('lat')
         lng = computed_location.get('lng')
-        ubi_position = cls.get_position_from_ubi(device_id, data, lat, lng, time)
-        position = {
-            'latitude': ubi_position.get('lat'),
-            'longitude': ubi_position.get('lng'),
-            'altitude': ubi_position.get('alt'),
-            'accuracy': ubi_position.get('accuracy')
-               }
-        return position
+        time = cached.get('time')
 
-    @classmethod
-    def validate_tracks_before_parsing(cls, device, data, tracks):
-        message = None
-        if not tracks or not tracks.get('mode'):
-            message = f'Ignoring setup and unknown track modes, data: {data}'
-        elif not tracks.get('device_position'):
-            message = f'No position found for device: {device}'
-        elif 'cached' in tracks.get('device_position'):
-            message = f'First payload successfully cached for device: {device}'
-        logger.info(message)
-        return message
+        ubi_position = cls.get_position_from_ubi(device_id, data, lat, lng, time)
+        if ubi_position:
+            position = {
+                'latitude': ubi_position.get('lat'),
+                'longitude': ubi_position.get('lng'),
+                'altitude': ubi_position.get('alt'),
+                'accuracy': ubi_position.get('accuracy')
+                   }
+            return position
+
 
     @classmethod
     def get_ubi_credentials(cls):
@@ -494,11 +484,11 @@ class SigfoxPayloadParserV2(SigfoxParser):
     # https://vulcan.atlassian.net/browse/DAS-5294
 
     @classmethod
-    def parse(cls, position, components):
+    def parse(cls, position, components, mode):
         if components:
             return {
                 'batt_level': cls._parse_battery_volts(components[1], version=2),
-                # 'mode': tracks.get('mode'),
+                'mode': mode,
                 'movement_it': cls._parse_movement_it(components[2]),
                 'gps_state': cls._parse_state(components[3]),
                 'gps_acq_time': cls._parse_gps_acq_time(components[4]),
