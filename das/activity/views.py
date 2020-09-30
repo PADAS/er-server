@@ -205,6 +205,9 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
         if not eventtype.schema:
             return generics.views.Response(None)
 
+        definition_format = self.request.query_params.get(
+            'definition', None)
+
         schema_fields = schema_utils.get_replacement_fields_in_schema(
             eventtype.schema)
 
@@ -282,6 +285,12 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
             for o, vals in enumImages_vals.items():
                 if value['field_name'] == o:
                     schema['schema']['properties'][key]['enumImages'] = vals
+
+        # Apply definition filter
+        try:
+            schema = schema_utils.filter_schema_definition(schema, definition_format)
+        except ValueError as ex:
+            return Response(str(ex), status=status.HTTP_400_BAD_REQUEST)
 
         return generics.views.Response(schema)
 
