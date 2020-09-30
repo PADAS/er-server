@@ -212,7 +212,7 @@ class EventForm(forms.ModelForm):
 
 
 class PatrolForm(forms.ModelForm):
-    title = forms.CharField(required=False,)
+    title = forms.CharField(required=True,)
 
     class Meta:
         model = Patrol
