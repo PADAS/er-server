@@ -10,7 +10,7 @@ from django.http import HttpResponseRedirect
 from django.contrib import messages
 
 import activity.models as models
-from activity.forms import EventTypeForm, EventForm, PatrolTypeForm
+from activity.forms import EventTypeForm, EventForm, PatrolTypeForm, PatrolForm
 from core.admin import InlineExtraDynamicMixin
 from activity.forms import EventProviderForm, AlertRuleForm
 from core.openlayers import OSMGeoExtendedAdmin
@@ -392,3 +392,47 @@ class PatrolTypeAdmin(admin.ModelAdmin):
         return mark_safe(
             f'<img src="{url}" style="height:2.5em; filter:opacity(0.8)" />')
     _icon_display.short_description = 'Icon'
+
+
+@admin.register(models.Patrol)
+class PatrolAdmin(admin.ModelAdmin):
+
+    form = PatrolForm
+    readonly_fields = ('id',)
+    list_display = [
+        'serial_number', 'title', 'patrol_type', 'tracked_subject_name',
+        'scheduled_date', 'start_date', 'start_location', 'end_date',
+        'end_location'
+    ]
+    list_per_page = 100
+    search_fields = ('title', 'patrol_type')
+
+    def patrol_segment(self, obj):
+        return obj.patrol_segments.first()
+
+    def patrol_type(self, obj):
+        patrol_segment = self.patrol_segment(obj)
+        return patrol_segment.patrol_type.display if patrol_segment else None
+
+    def tracked_subject_name(self, obj):
+        return 'N/A'
+
+    def scheduled_date(self, obj):
+        patrol_segment = self.patrol_segment(obj)
+        return patrol_segment.scheduled_start if patrol_segment else None
+
+    def start_date(self, obj):
+        patrol_segment = self.patrol_segment(obj)
+        return patrol_segment.time_range.lower if patrol_segment else None
+
+    def start_location(self, obj):
+        patrol_segment = self.patrol_segment(obj)
+        return patrol_segment.start_location.coords if patrol_segment else None
+
+    def end_date(self, obj):
+        patrol_segment = self.patrol_segment(obj)
+        return patrol_segment.time_range.upper if patrol_segment else None
+
+    def end_location(self, obj):
+        patrol_segment = self.patrol_segment(obj)
+        return patrol_segment.end_location.coords if patrol_segment else None
