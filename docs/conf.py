@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# DAS documentation build configuration file, created by
+# ER documentation build configuration file, created by
 # sphinx-quickstart on Fri Jun 27 08:59:39 2014.
 #
 # This file is execfile()d with the current directory set to its
@@ -41,7 +41,9 @@ source_parsers = {
 # ones.
 extensions = ['sphinxcontrib.httpdomain',
               'sphinx.ext.autodoc',
-              'pygsonsetup']
+              'pygsonsetup',
+              'recommonmark'
+              ]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -56,7 +58,7 @@ source_suffix = ['.rst', '.md']
 master_doc = 'index'
 
 # General information about the project.
-project = u'DAS'
+project = u'EarthRanger'
 copyright = u'2015, Vulcan Inc'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -189,7 +191,7 @@ html_static_path = ['_static']
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'DASdoc'
+htmlhelp_basename = 'ERdoc'
 
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -209,7 +211,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    ('index', 'DAS.tex', u'DAS Documentation',
+    ('index', 'ER.tex', u'ER Documentation',
      u'Vulcan Inc', 'manual'),
 ]
 
@@ -239,7 +241,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'das', u'DAS Documentation',
+    ('index', 'er', u'ER Documentation',
      [u'Vulcan Inc'], 1)
 ]
 
@@ -253,8 +255,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    ('index', 'DAS', u'DAS Documentation',
-     u'Vulcan Inc', 'DAS', 'One line description of project.',
+    ('index', 'ER', u'ER Documentation',
+     u'Vulcan Inc', 'ER', 'One line description of project.',
      'Miscellaneous'),
 ]
 

@@ -42,6 +42,7 @@ from observations.models import Subject, SubjectType, SubjectSubType
 from accounts.serializers import UserDisplaySerializer
 from observations.serializers import SubjectSerializer
 from utils.html import clean_user_text
+from activity.tests import schema_examples
 from utils.schema_utils import format_key_for_title
 
 logger = logging.getLogger(__name__)
@@ -2116,7 +2117,7 @@ class TestEventView(BaseAPITest):
         security.is_active = False
         security.save()
 
-        event_type_value = "Security Type"
+        event_type_value = "SecurityType"
 
         EventType.objects.create(value=event_type_value, category=security)
         response = views.EventTypesView.as_view()(request)
@@ -2822,7 +2823,160 @@ class TestEventView(BaseAPITest):
                            if isinstance(display_prop, dict) and display_prop.get('key', '') == 'animal_species'][0]
         assert "inactive_titleMap" in species_display
 
+    def test_case_insensitive_eventtype(self):
+        eventtype_value='Smart_rhino_sighting'
+        event_category = EventCategory.objects.create(
+            value='test_category', display='Test Category')
+        event_type = EventType.objects.create(
+            value=eventtype_value,
+            display='Smart Rhino Sighting', category=event_category)
+        url = self.api_base + f'/events/schema/eventtype/'
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventTypeSchemaView.as_view()(request, eventtype=eventtype_value)
+        assert response.status_code == 200
 
+    def test_schema_with_same_inactive_choices(self):
+        Choice.objects.all().delete()
+
+        [Choice.objects.create(model=Choice.Field_Reports,
+                               field='behavior',
+                               value=f'ac{i}',
+                               display=f'AC{i}') for i in range(0, 2)]
+
+        [Choice.objects.create(model=Choice.Field_Reports,
+                               field='behavior',
+                               value=f'di{i}',
+                               display=f'DI{i}',
+                               is_active=False) for i in range(3, 5)]
+
+        et_schema = schema_examples.ET_SCHEMA
+        event_type = self.sample_event.event_type
+        event_type.schema = et_schema
+        event_type.save()
+
+        properties_with_enum = ['repCountry', 'HopAppearance', 'HopBehaviour',
+                                'HopDensity', 'HopDensityUnit', 'HopStageDom',
+                                'HopActivity', 'HopStage', 'HopColour']
+
+        url = reverse('event-schema-eventtype',  kwargs={'eventtype': event_type.value})
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventTypeSchemaView.as_view()(request, eventtype=event_type.value)
+        assert response.status_code == 200
+
+        properties = response.data['schema']['properties']
+
+        for o in properties_with_enum:
+            data = properties.get(o)
+            inactive_enum = data.get('inactive_enum')
+            assert inactive_enum == ['di3', 'di4']
+
+    def test_flat_definition(self):
+        choice = Choice.objects.create(
+            model='activity.event',
+            field='wildlifesighting_species',
+            value='elephant',
+            display='Elephant',
+        )
+
+        et_schema = """{
+            "schema":
+            {
+                "properties":
+                    {"species": {"title" : "Test checkbox with enum"},
+                    "animal_species": {"title" : "Test animal checkbox with enum"},
+                    "reportlocationarea": {"type": "string", "title": "Location / Area TEST String"},
+                    "reportreportername": {"type": "string", "title": "Reporter Name"}
+                    }
+            },
+            "definition": [
+                {
+                    "type": "fieldset",
+                    "htmlClass": "col-lg-6",
+                    "items": [
+                      "reportlocationarea",
+                      {
+                        "key": "animal_species",
+                        "type": "checkboxes",
+                        "title": "Test animal checkbox with enum",
+                        "titleMap": {{enum___wildlifesighting_species___map}}
+                       }
+                    ]
+                },
+                {
+                    "type": "fieldset",
+                    "htmlClass": "col-lg-6",
+                    "items": [
+                        "reportlocationarea",
+                        "reportreportername"
+                    ]
+                },
+                {
+                    "key": "species",
+                    "type": "checkboxes",
+                    "title": "Test checkbox with enum",
+                    "titleMap": {{enum___wildlifesighting_species___map}}
+                }
+            ]
+            }"""
+        event_type = self.sample_event.event_type
+        event_type.schema = et_schema
+        event_type.save()
+
+        url = self.api_base + f'/events/schema/eventtype/?definition=flat'
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventTypeSchemaView.as_view()(request, eventtype=event_type.value)
+        assert response.status_code == 200
+
+        assert len([display_prop for display_prop in response.data['definition'] if isinstance(display_prop, dict) and display_prop.get('type') == 'fieldset' ]) == 0
+        assert len([display_prop for display_prop in response.data['definition'] if isinstance(display_prop, str) and display_prop in ('reportlocationarea', 'reportreportername') ]) == 3
+
+        url = self.api_base + f'/events/schema/eventtype/?definition=invalid'
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventTypeSchemaView.as_view()(request, eventtype=event_type.value)
+        assert response.status_code == 400
+    
+
+    def test_schema_with_different_inactive_choices(self):
+
+        Choice.objects.all().delete()
+
+        [Choice.objects.create(model=Choice.Field_Reports,
+                               field='wildlifesightingrep_species',
+                               value=c,
+                               display=c.title()) for c in ['asiatic lion', 'asiatic cheetah', 'siberian tiger']]
+
+        [Choice.objects.create(model=Choice.Field_Reports,
+                               field='yesno',
+                               value=i,
+                               display=i.title()) for i in ['oh yeah!', 'yes', 'no']]
+
+        Choice.objects.filter(value='asiatic cheetah').update(is_active=False)
+        Choice.objects.filter(value='oh yeah!').update(is_active=False)
+
+        et_schema = schema_examples.WILDLIFE_SCHEMA
+        event_type = self.sample_event.event_type
+        event_type.schema = et_schema
+        event_type.save()
+
+        url = reverse('event-schema-eventtype',  kwargs={'eventtype': event_type.value})
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventTypeSchemaView.as_view()(request, eventtype=event_type.value)
+        assert response.status_code == 200
+
+        properties = response.data['schema']['properties']
+
+        species = properties.get('wildlifesightingrep_species')
+        inactive_enum = species.get('inactive_enum')
+        assert inactive_enum == ['asiatic cheetah']
+
+        state = properties.get('wildlifesightingrep_collared')
+        inactive_enum = state.get('inactive_enum')
+        assert inactive_enum == ['oh yeah!']
 
 
 class TestParsing(TestCase):

@@ -36,6 +36,7 @@ var/
 .env.local
 .vscode
 .venv
+.venvdocs
 .docsvenv
 .vs/*
 

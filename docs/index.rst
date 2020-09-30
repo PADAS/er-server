@@ -1,11 +1,11 @@
 ======================================
-DAS documentation
+EarthRanger documentation
 ======================================
 
 Contents:
 
 * :ref:`Overview`
-* `Documentation <interactive/>`__
+* `Interactive API Documentation <interactive/>`__
 * :ref:`API`
 
 .. _overview:
@@ -15,9 +15,7 @@ Contents:
    :caption: Overview
 
    about
-   releases
-
-
+   
 .. _documentation:
 
 .. toctree::
@@ -26,7 +24,7 @@ Contents:
     
    faq
    topics/browser-and-os-support
-   topics/map_feature_styles
+   topics/maps
    topics/sensors
    writers
    glossary

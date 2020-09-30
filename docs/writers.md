@@ -1,6 +1,7 @@
 # Writing documentation for DAS
 
 ## Markdown
+
 Markdown is of John Gruber's invention to provide a syntax to format text
 that would be understandable in it's raw syntax and better when rendered
 to HTML. Here is the original [spec](https://daringfireball.net/projects/markdown/syntax).

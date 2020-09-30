@@ -1,5 +1,7 @@
-# Supported Web Browsers and Operating Systems
+Supported Web Browsers and Operating Systems
+==================================================
 The following Web Browsers and OSs are supported at the most recent major version.
+
 ## Web Browsers
 * Chrome - The two latest, released versions
 

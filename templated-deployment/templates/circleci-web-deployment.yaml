@@ -1,9 +1,12 @@
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   namespace: "${KUBERNETES_NAMESPACE}"
   name: web
 spec:
+  selector:
+    matchLabels:
+      das.component: web
   template:
     metadata:
       labels:

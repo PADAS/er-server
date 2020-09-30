@@ -1,9 +1,13 @@
-apiVersion: apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   namespace: "${KUBERNETES_NAMESPACE}"
   name: mql
 spec:
+  selector:
+    matchLabels:
+      das.component: mql
+      das.configuration: server
   template:
     metadata:
       labels:

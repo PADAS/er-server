@@ -6,7 +6,8 @@ from unittest.mock import patch
 
 from core.tests import BaseAPITest
 from mapping.esri_integration import (arcgis_authentication, extract_features,
-                                      import_featuretype_presentation, search_groups)
+                                      import_featuretype_presentation, search_groups,
+                                      get_mb_style)
 from mapping.models import (ArcgisConfiguration, SpatialFeature, ArcgisItem,
                             SpatialFeatureType)
 
@@ -112,6 +113,36 @@ class TestArcGisIntegration(BaseAPITest):
             self.assertTrue('fill' in keys)
             self.assertTrue('fill-opacity' in keys)
 
+    def test_import_featuretype_presentation(self):
+        json_dict = self._read_test_data(
+            os.path.join(TESTS_PATH, 'testdata/polygon-renderer.json'))
+
+        self.test_config.disable_import_feature_classes = True
+        self.test_config.save()
+
+        renderer = Renderer(json_dict=json_dict['renderer'])
+
+        import_featuretype_presentation(renderer, self.arcgis_item)
+
+        for unique_val in renderer.uniqueValueInfos:
+            feature_type_name = unique_val.value
+            presentation = get_mb_style(unique_val.symbol)
+
+            feature_type = SpatialFeatureType.objects.get(name=feature_type_name)
+            self.assertNotEqual(feature_type.presentation, presentation)
+
+        self.test_config.disable_import_feature_classes = False
+        self.test_config.save()
+
+        import_featuretype_presentation(renderer, self.arcgis_item)
+
+        for unique_val in renderer.uniqueValueInfos:
+            feature_type_name = unique_val.value
+            presentation = get_mb_style(unique_val.symbol)
+
+            feature_type = SpatialFeatureType.objects.get(name=feature_type_name)
+            self.assertEqual(feature_type.presentation, presentation)
+
     def test_unique_value_renderer_point(self):
         json_dict = self._read_test_data(os.path.join(TESTS_PATH, 'testdata/point-renderer.json'))
         self._verify_types(json_dict)
@@ -147,10 +178,16 @@ class TestArcGisIntegration(BaseAPITest):
         gis = arcgis_authentication(None, self.test_config)
         self.assertTrue(gis)
 
+    def extract_wfs_features(self, data):
+        _, extracted_ids = extract_features(
+            self.test_config, self.gis_group, 0, json.dumps(data), [], None, self.arcgis_item)
+        SpatialFeature.objects.filter(
+            arcgis_item=self.arcgis_item).exclude(external_id__in=extracted_ids).delete()
+
     def load_features(self):
         with open(os.path.join(TESTS_PATH, 'testdata/Built_point.geojson'), 'rb') as geojson_file:
-            extract_features(self.test_config, self.gis_group,
-                             self.gis_group.title, geojson_file.read().decode("utf-8"), [], [], self.arcgis_item.id)
+            data = geojson_file.read().decode("utf-8")
+            self.extract_wfs_features(json.loads(data))
 
     @patch('arcgis.gis.GIS', MockGIS)
     def test_groups_loaded_without_search_text(self):
@@ -198,46 +235,39 @@ class TestArcGisIntegration(BaseAPITest):
     #         self.assertEqual(feature_types_after_config, 7)
 
     def test_deleted_feature_from_esri(self):
-        with self.settings(UI_SITE_URL='http://www.liwonde.com'):
-            self.load_features()
+        self.load_features()
 
-            features_originally = SpatialFeature.objects.all().count()
-            self.assertEqual(features_originally, 41)
+        features_originally = SpatialFeature.objects.all().count()
+        self.assertEqual(features_originally, 214)
 
-            with open(os.path.join(TESTS_PATH, 'testdata/Built_point.geojson'), 'r') as f:
-                data = json.load(f)
-
-                # 2 features deleted from the online groups feature
-                data['features'] = data['features'][:-2]
-                extract_features(self.test_config, self.gis_group,
-                                    self.gis_group.title, json.dumps(data), [], [], self.arcgis_item.id)
-
-            after_features_deletion = SpatialFeature.objects.all().count()
-            self.assertEqual(after_features_deletion, 39)
+        with open(os.path.join(TESTS_PATH, 'testdata/Built_point.geojson'), 'r') as f:
+            data = json.load(f)
+            # 2 features deleted from the online groups feature
+            data['features'] = data['features'][:-2]
+            self.extract_wfs_features(data)
+        after_features_deletion = SpatialFeature.objects.all().count()
+        self.assertEqual(after_features_deletion, 212)
 
     def test_updated_feature_update_from_esri(self):
-        with self.settings(UI_SITE_URL='http://www.liwonde.com'):
-            self.load_features()
+        self.load_features()
+        initial_mponda = SpatialFeature.objects.get(name='Mponda')
+        prev_mponda_coordinates = [coord for coord in initial_mponda.feature_geometry.coords]
 
-            initial_mponda = SpatialFeature.objects.get(name='Mponda')
-            prev_mponda_coordinates = [coord for coord in initial_mponda.feature_geometry.coords]
+        self.assertEqual(prev_mponda_coordinates[0], (35.2432244949146, -14.457755073238))
+        with open(os.path.join(TESTS_PATH, 'testdata/Built_point.geojson'), 'r') as f:
+            data = json.load(f)
+            for feature in data['features']:
+                if feature["properties"]["Name"] == initial_mponda.name:
+                    # Update feature geometry
+                    feature["geometry"]["coordinates"] = [34.54, -15.77]
+                    break
+            self.extract_wfs_features(data)
 
-            self.assertEqual(prev_mponda_coordinates[0], (35.2432244949146, -14.457755073238))
-            with open(os.path.join(TESTS_PATH, 'testdata/Built_point.geojson'), 'r') as f:
-                data = json.load(f)
-                for feature in data['features']:
-                    if feature["properties"]["Name"] == initial_mponda.name:
-                        # Update feature geometry
-                        feature["geometry"]["coordinates"] = [34.54, -15.77]
-                        break
-                extract_features(self.test_config, self.gis_group,
-                                 self.gis_group.title, json.dumps(data), [], [], self.arcgis_item.id)
+        updated_mponda = SpatialFeature.objects.get(name='Mponda')
+        new_mponda_coordinates = [coord for coord in updated_mponda.feature_geometry.coords]
 
-            updated_mponda = SpatialFeature.objects.get(name='Mponda')
-            new_mponda_coordinates = [coord for coord in updated_mponda.feature_geometry.coords]
-            
-            self.assertEqual(new_mponda_coordinates[0], (34.54, -15.77))
-            self.assertTrue(prev_mponda_coordinates != new_mponda_coordinates)
+        self.assertEqual(new_mponda_coordinates[0], (34.54, -15.77))
+        self.assertTrue(prev_mponda_coordinates != new_mponda_coordinates)
 
 
 class Renderer:

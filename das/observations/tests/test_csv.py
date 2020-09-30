@@ -270,6 +270,13 @@ class TrackingDataCsvViewTest(BaseAPITest):
 
         self.assertTrue(len(unique_chrono_files) > 1)
 
+    def test_csv_export_with_observation_addition_null(self):
+        self.request = self.factory.get(API_BASE + '/trackingdata/export/')
+        self.force_authenticate(self.request, self.superuser)
+        response = TrackingDataCsvView.as_view()(self.request)
+        self.assertEqual(response.status_code, 200)
+
+
     def test_tracking_data_for_specific_subject(self):
         observations = self.exportrecords('/trackingdata/export/?subject_id=0fa8ec9a-7e92-4575-9575-df202d5dde25')
 

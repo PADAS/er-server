@@ -4,6 +4,7 @@ import jsonschema
 import logging
 import re
 import uuid
+import copy
 
 from collections import OrderedDict
 from django.apps import apps
@@ -348,6 +349,23 @@ def flatten_definition_items(definition: list = list):
                 yield elem
 
 
+def filter_schema_definition(schema: dict, definition_format: str):
+    """Change the definition format depending on the type
+
+    Args:
+        schema ([dict]): the event type schema, already expanding into a dictionary
+        definition_format ([str]): presentation format, [standard, flat]. Flat calls for no fieldsets.
+    """
+    if definition_format in [None, 'standard']:
+        return schema
+    elif definition_format == 'flat':
+        schema = copy.deepcopy(schema)
+        if 'definition' in schema:
+            schema['definition'] = list(flatten_definition_items(schema['definition']))
+        return schema
+    raise ValueError(f"Unsupported definition presentation type: {definition_format}")
+
+
 def definition_key_order_as_dict(schema):
     return OrderedDict(definition_keys(schema.get('definition', [])))
 
@@ -650,25 +668,16 @@ def map_schema(schema, load_schema):
             lookups.append(key)
 
     fields = []
-    index = 0
     template = Template(schema)
     for node in template.nodelist:
         if type(node) is VariableNode:
             field_tag = node.token.contents
             field_details = field_tag.split('___')
 
-            if len(fields) == 0:
+            if field_details[2] == 'values':
                 fields.append({
                     'field_name': field_details[1],
                     'lookup': field_details[0]
                 })
-            else:
-
-                if fields[index]['field_name'] != field_details[1]:
-                    fields.append({
-                        'field_name': field_details[1],
-                        'lookup': field_details[0]
-                    })
-                    index += 1
 
     return dict(zip(lookups, fields))

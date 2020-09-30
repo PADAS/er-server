@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 def automate_download_features_from_wfs():
     feature_services = models.ArcgisConfiguration.objects.filter(
         groups__isnull=False)
+
     for obj in feature_services:
         load_features_from_wfs.apply_async(args=(obj.id, obj.groups.group_id))
 
@@ -45,7 +46,7 @@ def load_features_from_wfs(obj_id, group_id):
                     )
                     # timestamps seem broken in arcgis
                     # if created or last_modified > arcgis_item.updated_at:
-                    extract_gis_data(arc_config, member, title, errored_files, success_files, arcgis_item.id)
+                    extract_gis_data(arc_config, member, errored_files, success_files, arcgis_item.id)
                     # arcgis_item.save()  # update model's updated_at field
 
         except Exception as ex:

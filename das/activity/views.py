@@ -17,6 +17,7 @@ from django.db import transaction
 from django.db.models import CharField, Value
 from django.db.models import Prefetch, F, Count
 from django.db.models.functions import Concat, Cast
+from django.http import Http404
 from django.http.response import HttpResponse
 from django.template import Template, Context
 from django.urls import reverse
@@ -199,9 +200,13 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
 
     def get(self, request, *args, **kwargs):
         eventtype = generics.get_object_or_404(EventType.objects.all(),
-                                               value=self.kwargs['eventtype'])
+                                               value__iexact=self.kwargs['eventtype'])
+
         if not eventtype.schema:
             return generics.views.Response(None)
+
+        definition_format = self.request.query_params.get(
+            'definition', None)
 
         schema_fields = schema_utils.get_replacement_fields_in_schema(
             eventtype.schema)
@@ -280,6 +285,12 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
             for o, vals in enumImages_vals.items():
                 if value['field_name'] == o:
                     schema['schema']['properties'][key]['enumImages'] = vals
+
+        # Apply definition filter
+        try:
+            schema = schema_utils.filter_schema_definition(schema, definition_format)
+        except ValueError as ex:
+            return Response(str(ex), status=status.HTTP_400_BAD_REQUEST)
 
         return generics.views.Response(schema)
 
@@ -1114,6 +1125,7 @@ class PatrolSchema(CustomSchema):
 
 
 class PatrolsView(generics.ListCreateAPIView):
+    pagination_class = StandardResultsSetPagination
     serializer_class = PatrolSerializer
     schema = PatrolSchema()
 
@@ -1133,18 +1145,19 @@ class PatrolsView(generics.ListCreateAPIView):
         return queryset
 
 
-class PatrolView(generics.RetrieveAPIView):
+class PatrolView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
     serializer_class = PatrolSerializer
     queryset = Patrol.objects.all()
 
 
 class PatrolsegmentsView(generics.ListCreateAPIView):
+    pagination_class = StandardResultsSetPagination
     serializer_class = PatrolSegmentSerializer
     queryset = PatrolSegment.objects.all()
 
 
-class PatrolsegmentView(generics.RetrieveAPIView):
+class PatrolsegmentView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
     serializer_class = PatrolSegmentSerializer
     queryset = PatrolSegment.objects.all()

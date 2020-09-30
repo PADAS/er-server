@@ -45,22 +45,18 @@ def text_field(**kwargs):
     return serializers.CharField(style=style, **kwargs)
 
 
-class SerializerMethodField(serializers.SerializerMethodField):
-    def __init__(self, method_name=None, many=False, excludes=[], serializer=None, **kwargs):
-        self.many = many
-        self.excludes = excludes
-        self.serializer = serializer
-        super().__init__(method_name, **kwargs)
-        
 class _RangeField(RangeField):
 
     def to_internal_value(self, data):
         if html.is_html_input(data):
             data = html.parse_html_dict(data)
         if not isinstance(data, dict):
-            self.fail('not_a_dict', input_type=type(data).__name__)
-
-        lower, upper = data.get('start_time'), data.get('end_time')
+            try:
+                lower, upper = data.lower, data.upper
+            except AttributeError:
+                self.fail('not_a_dict', input_type=type(data).__name__)
+        else:
+            lower, upper = data.get('start_time'), data.get('end_time')
         data = {'lower': lower, 'upper': upper}
         return super().to_internal_value(data)
 
@@ -78,5 +74,5 @@ class _RangeField(RangeField):
 
 
 class DateTimeRangeField(_RangeField):
-    child = DateTimeField()
+    child = DateTimeField(allow_null=True)
     range_type = DateTimeTZRange
