@@ -31,6 +31,10 @@ class TestPatrol(BaseAPITest):
                 Patrol(title='Test Patrol 2', objective='Test Objective 2')
             ])
         PatrolSegment.objects.create(patrol_type=PatrolType.objects.first())
+        self.sample_patrol_filter = {
+            'filter': json.dumps(
+                {"date_range": {
+                    "lower": "2020-09-30 00:00:00+00", "upper": "2020-09-30 23:59:00+00"}})}
 
     def test_get_all_patroltypes(self):
         patrol_types = PatrolType.objects.all()
@@ -209,20 +213,78 @@ class TestPatrol(BaseAPITest):
     def test_patrol_filter(self):
         patrol_data = dict(
             title='Test Patrol',
-            objective='Test Objective',
-            notes=[{"text": "Notes test 1"}],
-            patrol_segments=[{'time_range': {"start_time": "2020-07-30 02:00:00+00", "end_time": "2020-08-06 04:00:00+00"},"state": "active"}]
+            patrol_segments=[
+                {"state": "active", 'time_range': {"start_time": "2020-09-30 02:00:00+00", "end_time": "2020-10-30 03:00:00+00"}}]
         )
         self._create_patrol(patrol_data)
-        query = {'filter': json.dumps({"date_range": {"lower": "2020-08-01T00:00:00.000Z"}})}
+        response = self._filter_patrol(self.sample_patrol_filter)
+        self.assertEqual(response.data.get('count'), 1)
+        self.assertEqual(response.data.get('results')[0].get('title'), patrol_data.get('title'))
+
+        # filter by only lower
+        filter_query = {'filter': json.dumps({"date_range": {"lower": "2020-09-30 00:00:00+00"}})}
+        response = self._filter_patrol(filter_query)
+        self.assertEqual(response.data.get('count'), 1)
+        self.assertEqual(response.data.get('results')[0].get('title'), patrol_data.get('title'))
+
+        # filter by only upper
+        filter_query = {'filter': json.dumps({"date_range": {"upper": "2020-09-30 00:00:00+00"}})}
+        response = self._filter_patrol(filter_query)
+        self.assertEqual(response.data.get('count'), 0)
+
+    def test_patrol_filter_with_null_end_time(self):
+        patrol_data = dict(
+            title='Test Patrol',
+            patrol_segments=[{"state": "active", 'time_range': {"start_time": "2020-07-30 02:00:00+00"}}]
+        )
+        self._create_patrol(patrol_data)
+        response = self._filter_patrol(self.sample_patrol_filter)
+
+        # patrol is still current since it doesnt have an end date
+        self.assertEqual(response.data.get('count'), 1)
+        self.assertEqual(response.data.get('results')[0].get('title'), patrol_data.get('title'))
+
+    def test_patrol_filter_with_past_end_time_but_patrol_not_completed(self):
+        patrol_data = dict(
+            title='Test Patrol',
+            patrol_segments=[{"state": "active", 'time_range': {"start_time": "2020-09-21 02:00:00+00", "end_time": "2020-09-25 03:00:00+00"}}]
+        )
+        # "lower": "2020-09-30 00:00:00+00", "upper": "2020-09-30 23:59:00+00"
+        self._create_patrol(patrol_data)
+        response = self._filter_patrol(self.sample_patrol_filter)
+
+        # patrol is still displayed as current since its not marked as done or complete
+        self.assertEqual(response.data.get('count'), 1)
+        result = response.data.get('results')[0]
+        self.assertEqual(result.get('title'), patrol_data.get('title'))
+
+        # update the patrol to completed
+        patrol_id = result.get('id')
+        url = reverse('patrol', kwargs={'id': patrol_id})
+        patrol_update_data = dict(
+            patrol_segments=[{
+                "id": result.get('patrol_segments')[0]['id'],
+                "state": "completed"
+            }]
+        )
+        request = self.factory.patch(url, data=patrol_update_data)
+        self.force_authenticate(request, self.app_user)
+        views.PatrolView.as_view()(request, id=patrol_id)
+        response = self._filter_patrol(self.sample_patrol_filter)
+
+        # patrol nolonger returned, completed
+        self.assertEqual(response.data.get('count'), 0)
+
+
+    def _filter_patrol(self, filter_query):
         url = reverse('patrols')
-        url += f'?{urlencode(query)}'
+        url += f'?{urlencode(filter_query)}'
         request = self.factory.get(self.api_base + url)
         self.force_authenticate(request, self.user)
         response = views.PatrolsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data.get('count'), 1)
-        self.assertEqual(response.data.get('results')[0].get('title'), patrol_data.get('title'))
+        return response
+
 
     def _create_patrol(self, patrol_data):
         url = reverse('patrols')

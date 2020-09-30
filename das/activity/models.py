@@ -30,10 +30,10 @@ from django.contrib.postgres.fields import DateTimeRangeField
 from accounts.models.permissionset import PermissionSet
 from core.models import TimestampedModel
 from core.utils import static_image_finder
-from core.common import get_midnight_datetime
 from observations.models import Subject, Source
 from revision.manager import Revision, RevisionMixin
 from utils.html import clean_user_text
+from psycopg2.extras import DateTimeTZRange
 
 logger = logging.getLogger(__name__)
 
@@ -1398,11 +1398,15 @@ class TSVectorModel(models.Model):
 PC_UPCOMING = 'upcoming'
 PC_ACTIVE = 'active'
 PC_PAST = 'past'
+PC_DONE = 'done'
+PC_COMPLETED = 'completed'
 
 PATROL_STATE_CHOICES = (
     (PC_UPCOMING, 'Upcoming'),
     (PC_ACTIVE, 'Active'),
     (PC_PAST, 'Past'),
+    (PC_DONE, 'Done'),
+    (PC_COMPLETED, 'Completed'),
 )
 
 PC_SYSTEM = 'system'
@@ -1480,21 +1484,22 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_date_range(self, filter_param):
         queryset = self
         lower, upper = parse_date_range(filter_param)
-        upper = upper if upper else get_midnight_datetime()
-        if lower:
-            if lower > upper:
-                queryset.filter(patrol_segment__time_range__startswith__gte=lower)
-            else:
-                # Active patrols within given dates
-                end_time_filter = Q(patrol_segment__time_range__endswith__gte=upper) | Q(patrol_segment__time_range__endswith__isnull=True)
-                q1 = queryset.filter(end_time_filter, patrol_segment__time_range__startswith__lte=lower)
+        if lower and upper:
+            # Active patrols within given dates
+            end_time_filter = Q(patrol_segment__time_range__endswith__gte=lower) | \
+                              Q(patrol_segment__time_range__endswith__isnull=True)
+            q1 = queryset.filter(end_time_filter, patrol_segment__time_range__startswith__lte=upper)
 
-                # End_date past but patrol still active
-                q2 = queryset.filter(
-                    patrol_segment__time_range__endswith__lte=lower, state__in=["done", "completed"])
-                queryset = q1.union(q2)
-        else:
-            queryset.filter(patrol_segment__time_range__endswith__lte=upper)
+            # End_date past but patrol still active
+            q2 = queryset.filter(
+                patrol_segment__time_range__endswith__lte=datetime.datetime.today()) \
+                .exclude(patrol_segment__state__in=["done", "completed"])
+            queryset = q1.union(q2)
+
+        elif lower:
+            queryset = queryset.filter(patrol_segment__time_range__startswith__gte=lower)
+        elif upper:
+            queryset = queryset.filter(patrol_segment__time_range__endswith__lte=upper)
 
         return queryset
 
