@@ -71,7 +71,7 @@ def generate_subject_records(report_hours=24):
                 len(latest_observations), trajectory_length)
 
             result['voltage'] = latest_observation.additional.get(
-                'voltage', '')
+                'voltage', '') if latest_observation.additional else ''
 
             result['analyzers'] = alert_accumulator
             result['analyzers_summary'] = ', '.join(
