@@ -122,14 +122,6 @@ class PatrolSegmentSerializer(BaseSerializer):
         validated_data['patrol'] = self._kwargs.get('data').get('patrol')
         return activity.models.PatrolSegment.objects.create(**validated_data)
 
-    def to_internal_value(self, data):
-        data_updated = copy.copy(data)
-        for field_name in ('end_location', 'start_location'):
-            if field_name in data and isinstance(data[field_name], Point):
-                data_updated[field_name] = {'latitude': data[field_name].y, 'longitude': data[field_name].x}
-
-        return super().to_internal_value(data_updated)
-
 
 class PatrolSerializer(BaseSerializer, TimestampMixin):
     """Serializer class for a Patrol"""
@@ -165,37 +157,32 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
 
         return Patrol.objects.get(id=new_patrol.id)
 
-    def _ser_create(self, instance, update_items, items_serializer, item_model):
-        for item in update_items:
-            update_item = copy.deepcopy(item)
-            update_item['patrol'] = instance
-            update_item_id = update_item.pop('id', None)
-            serializer = items_serializer(data=update_item, context=self.context)
-            serializer.is_valid(raise_exception=True)
-
-            if update_item_id:
-                item_instance = item_model.objects.get(id=update_item_id)
-                serializer.update(item_instance, update_item)
-            else:
-                serializer.create(update_item)
-
     def update(self, instance, validated_data):
-        update_fields = []
-        for k, v in validated_data.items():
-            if k == 'notes':
-                self._ser_create(instance, v, PatrolNoteSerializer, activity.models.PatrolNote)
-                continue
-            if k == 'patrol_segments':
-                self._ser_create(instance, v, PatrolSegmentSerializer, activity.models.PatrolSegment)
-                continue
-            if getattr(instance, k) != v:
-                setattr(instance, k, v)
-                if k not in ('id',):
-                    update_fields.append(k)
-        if update_fields:
-            instance.save()
+
+        patrol_id = instance.id
+        patrol_notes = validated_data.get('notes', [])
+        patrol_segments = validated_data.get('patrol_segments', [])
+
+        self.create_update(patrol_id, patrol_notes, activity.models.PatrolNote)
+        self.create_update(patrol_id, patrol_segments, activity.models.PatrolSegment)
+
+        instance.priority = validated_data.get('priority', instance.priority)
+        instance.state = validated_data.get('state', instance.state)
+        instance.title = validated_data.get('title', instance.title)
+        instance.objective = validated_data.get('objective', instance.objective)
+
+        instance.save()
         return instance
 
+    def create_update(self, patrol_id, validated_data, model):
+        for data in validated_data:
+            data['patrol_id'] = patrol_id
+            data_id = data.get('id')
+            if data_id:
+                instance = model.objects.get(id=data_id)
+                super().update(instance, data)
+            else:
+                model.objects.create(**data)
 
 
 class PatrolTemplateSerializer(BaseSerializer):
