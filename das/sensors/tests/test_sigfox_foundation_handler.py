@@ -69,7 +69,7 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
                 self.assertEqual(rsp.status_code, status.HTTP_201_CREATED)
                 source = Source.objects.get(manufacturer_id=device_id)
                 observations = Observation.objects.count()
-                assert (observations, 1)
+                self.assertEqual(observations, 1)
 
             elif count == 2:  # gps payload saved
                 self.assertIsNotNone(rsp)
@@ -77,7 +77,7 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
                 source = Source.objects.get(manufacturer_id=device_id)
                 observations = Observation.objects.count()
                 # one more observation added
-                assert (observations, 2)
+                self.assertEqual(observations, 2)
 
             elif count == 3:  # gps computed location ignored
                 self.assertEqual(rsp.status_code, status.HTTP_200_OK)
