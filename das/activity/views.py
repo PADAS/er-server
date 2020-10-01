@@ -1118,7 +1118,7 @@ class PatrolSchema(CustomSchema):
             query_params = [
                 {
                     'name': 'filter', 'in': 'query', 'required': False,
-                    'description': 'example: {\"date_range\":{...}}'}
+                    'description': 'example: {\"date_range\":{\"lower\":\"2020-09-16T00:00:00.000Z\"}}'}
                 ]
             operation['parameters'].extend(query_params)
         return operation

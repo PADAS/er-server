@@ -1397,11 +1397,15 @@ class TSVectorModel(models.Model):
 PC_UPCOMING = 'upcoming'
 PC_ACTIVE = 'active'
 PC_PAST = 'past'
+PC_DONE = 'done'
+PC_CANCELLED = 'cancelled'
 
 PATROL_STATE_CHOICES = (
     (PC_UPCOMING, 'Upcoming'),
     (PC_ACTIVE, 'Active'),
     (PC_PAST, 'Past'),
+    (PC_DONE, 'Done'),
+    (PC_CANCELLED, 'Cancelled'),
 )
 
 PC_SYSTEM = 'system'
@@ -1479,10 +1483,23 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_date_range(self, filter_param):
         queryset = self
         lower, upper = parse_date_range(filter_param)
-        if lower:
-            queryset = queryset.filter(patrol_segment__time_range__startswith__gt=lower)
-        if upper:
-            queryset = queryset.filter(patrol_segment__time_range__endswith__lt=upper)
+        if lower and upper:
+            # Active patrols within given dates
+            end_time_filter = Q(patrol_segment__time_range__endswith__gte=lower) | \
+                              Q(patrol_segment__time_range__endswith__isnull=True)
+            q1 = queryset.filter(end_time_filter, patrol_segment__time_range__startswith__lte=upper)
+
+            # End_date past but patrol still active
+            q2 = queryset.filter(
+                patrol_segment__time_range__endswith__lte=datetime.datetime.today()) \
+                .exclude(patrol_segment__state__in=["done", "cancelled"])
+            queryset = q1.union(q2)
+
+        elif lower:
+            queryset = queryset.filter(patrol_segment__time_range__startswith__gte=lower)
+        elif upper:
+            queryset = queryset.filter(patrol_segment__time_range__endswith__lte=upper)
+
         return queryset
 
 
