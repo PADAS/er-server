@@ -540,5 +540,5 @@ PATROL_ENABLED = False
 # Has to be a multiple of 256
 GS_BLOB_CHUNK_SIZE = 10485760
 UBI_API_URL = 'https://api.ubignss.com/position'
-UBI_API_USERNAME = os.getenv('UBI_API_USERNAME', 'username'),
+UBI_API_USERNAME = os.getenv('UBI_API_USERNAME', 'username')
 UBI_API_PASSWORD = os.getenv('UBI_API_PASSWORD', 'password')
