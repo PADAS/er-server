@@ -264,7 +264,7 @@ class TestPatrol(BaseAPITest):
         patrol_update_data = dict(
             patrol_segments=[{
                 "id": result.get('patrol_segments')[0]['id'],
-                "state": "completed"
+                "state": "cancelled"
             }]
         )
         request = self.factory.patch(url, data=patrol_update_data)

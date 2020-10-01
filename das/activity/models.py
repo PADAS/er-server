@@ -33,7 +33,6 @@ from core.utils import static_image_finder
 from observations.models import Subject, Source
 from revision.manager import Revision, RevisionMixin
 from utils.html import clean_user_text
-from psycopg2.extras import DateTimeTZRange
 
 logger = logging.getLogger(__name__)
 
@@ -1399,14 +1398,14 @@ PC_UPCOMING = 'upcoming'
 PC_ACTIVE = 'active'
 PC_PAST = 'past'
 PC_DONE = 'done'
-PC_COMPLETED = 'completed'
+PC_CANCELLED = 'cancelled'
 
 PATROL_STATE_CHOICES = (
     (PC_UPCOMING, 'Upcoming'),
     (PC_ACTIVE, 'Active'),
     (PC_PAST, 'Past'),
     (PC_DONE, 'Done'),
-    (PC_COMPLETED, 'Completed'),
+    (PC_CANCELLED, 'Cancelled'),
 )
 
 PC_SYSTEM = 'system'
@@ -1493,7 +1492,7 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             # End_date past but patrol still active
             q2 = queryset.filter(
                 patrol_segment__time_range__endswith__lte=datetime.datetime.today()) \
-                .exclude(patrol_segment__state__in=["done", "completed"])
+                .exclude(patrol_segment__state__in=["done", "cancelled"])
             queryset = q1.union(q2)
 
         elif lower:
