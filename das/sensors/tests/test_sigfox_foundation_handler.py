@@ -62,7 +62,7 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
             rsp = self._post_data(json.dumps(data_uplink), self.api_path_v2, SigfoxV2FoundationHandlerView)
             if count == 0:  # First iteration, ubi payload cached
                 self.assertEqual(rsp.status_code, status.HTTP_200_OK)
-                self.assertEqual(rsp.data, {'message': 'Uplink, Tracking Ubiscale payload, successfully cached for device: 14159EB'})
+                self.assertEqual(rsp.data, {'message': 'Uplink ubi payload, successfully cached for device: 14159EB'})
 
             elif count == 1:  # second payload, postion returned
                 self.assertIsNotNone(rsp)
@@ -71,19 +71,18 @@ class SigfoxFoundationHandlerTest(BaseAPITest):
                 observations = Observation.objects.count()
                 assert (observations, 1)
 
-            elif count == 2:  # gps payload cached
-                self.assertEqual(rsp.status_code, status.HTTP_200_OK)
-                self.assertEqual(rsp.data, {'message': 'Uplink, Tracking GPS payload, successfully cached for device: 14159ED'})
-
-            elif count == 3:  # second payload, postion returned
+            elif count == 2:  # gps payload saved
                 self.assertIsNotNone(rsp)
                 self.assertEqual(rsp.status_code, status.HTTP_201_CREATED)
                 source = Source.objects.get(manufacturer_id=device_id)
                 observations = Observation.objects.count()
                 # one more observation added
-
-                print("*********", [o.additional for o in Observation.objects.all()])
                 assert (observations, 2)
+
+            elif count == 3:  # gps computed location ignored
+                self.assertEqual(rsp.status_code, status.HTTP_200_OK)
+                self.assertEqual(rsp.data,{})
+
             count += 1
 
     def test_sigfox_v2_setup_and_unknown_data_modes_not_processed(self):
