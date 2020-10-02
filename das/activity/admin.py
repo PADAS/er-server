@@ -416,7 +416,8 @@ class PatrolAdmin(admin.ModelAdmin):
             patrol_segment else None
 
     def tracked_subject_name(self, obj):
-        return 'N/A'
+        patrol_segment = self.patrol_segment(obj)
+        return str(patrol_segment.leader) if patrol_segment else None
 
     def scheduled_date(self, obj):
         patrol_segment = self.patrol_segment(obj)
