@@ -74,3 +74,15 @@ resource "kubernetes_secret" "twilio_account_settings" {
     whatsapp_from_number = data.vault_generic_secret.twilio_account_settings.data.whatsapp_from_number
   }
 }
+
+resource "kubernetes_secret" "ubi_api_credentials" {
+  metadata {
+    name      = "ubi-api-credentials"
+    namespace = kubernetes_namespace.this.metadata.0.name
+  }
+
+  data = {
+    ubi_username = data.vault_generic_secret.ubi_api_credentials.data.username
+    ubi_password = data.vault_generic_secret.ubi_api_credentials.data.password
+  }
+}

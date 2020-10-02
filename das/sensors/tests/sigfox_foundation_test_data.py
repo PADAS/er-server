@@ -121,3 +121,38 @@ DATA_PAIRS = [
          }
      }),
 ]
+
+
+
+V2_DATA_PAIRS = [
+    # ubi payload
+    {
+        'deviceId': '14159EB',
+        'time': 1601024898,
+        'seqNumber': 60,
+        'data': '5506aacfdc12882347aef495',
+        'reception': [{'id': '4F8A', 'RSSI': -144.0, 'SNR': 6.67}]
+    },
+    {
+        'deviceId': '14159EB',
+        'time': 1601024898,
+        'seqNumber': 60,
+        'computedLocation': {'lat': -21.54995963636364, 'lng': 29.91042409090909, 'radius': 23200, 'source': 2, 'status': 1}
+    },
+
+    # gps payload
+    {
+        'deviceId': '14159ED',
+        'time': 1600971934,
+        'seqNumber': 46,
+        'data': '3588814542e701ca6d3f00',
+        'reception': [{'id': '4F8A', 'RSSI': -127.0, 'SNR': 21.74}]
+    },
+    {
+        'deviceId': '14159ED',
+        'time': 1600971934,
+        'seqNumber': 46,
+        'computedLocation': {'lat': -21.552546121634077, 'lng': 30.101595780208857, 'radius': 21100, 'source': 2, 'status': 1}
+    }
+
+]
