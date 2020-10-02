@@ -2872,6 +2872,74 @@ class TestEventView(BaseAPITest):
             inactive_enum = data.get('inactive_enum')
             assert inactive_enum == ['di3', 'di4']
 
+    def test_flat_definition(self):
+        choice = Choice.objects.create(
+            model='activity.event',
+            field='wildlifesighting_species',
+            value='elephant',
+            display='Elephant',
+        )
+
+        et_schema = """{
+            "schema":
+            {
+                "properties":
+                    {"species": {"title" : "Test checkbox with enum"},
+                    "animal_species": {"title" : "Test animal checkbox with enum"},
+                    "reportlocationarea": {"type": "string", "title": "Location / Area TEST String"},
+                    "reportreportername": {"type": "string", "title": "Reporter Name"}
+                    }
+            },
+            "definition": [
+                {
+                    "type": "fieldset",
+                    "htmlClass": "col-lg-6",
+                    "items": [
+                      "reportlocationarea",
+                      {
+                        "key": "animal_species",
+                        "type": "checkboxes",
+                        "title": "Test animal checkbox with enum",
+                        "titleMap": {{enum___wildlifesighting_species___map}}
+                       }
+                    ]
+                },
+                {
+                    "type": "fieldset",
+                    "htmlClass": "col-lg-6",
+                    "items": [
+                        "reportlocationarea",
+                        "reportreportername"
+                    ]
+                },
+                {
+                    "key": "species",
+                    "type": "checkboxes",
+                    "title": "Test checkbox with enum",
+                    "titleMap": {{enum___wildlifesighting_species___map}}
+                }
+            ]
+            }"""
+        event_type = self.sample_event.event_type
+        event_type.schema = et_schema
+        event_type.save()
+
+        url = self.api_base + f'/events/schema/eventtype/?definition=flat'
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventTypeSchemaView.as_view()(request, eventtype=event_type.value)
+        assert response.status_code == 200
+
+        assert len([display_prop for display_prop in response.data['definition'] if isinstance(display_prop, dict) and display_prop.get('type') == 'fieldset' ]) == 0
+        assert len([display_prop for display_prop in response.data['definition'] if isinstance(display_prop, str) and display_prop in ('reportlocationarea', 'reportreportername') ]) == 3
+
+        url = self.api_base + f'/events/schema/eventtype/?definition=invalid'
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventTypeSchemaView.as_view()(request, eventtype=event_type.value)
+        assert response.status_code == 400
+    
+
     def test_schema_with_different_inactive_choices(self):
 
         Choice.objects.all().delete()

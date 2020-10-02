@@ -79,6 +79,7 @@ locals {
     "serengeti"              = "prod1"
     "snowleopardtrust"       = "prod-asia"
     "socp"                   = "prod-asia"
+    "somkhanda"              = "prod1"
     "spaceforgiants"         = "prod1"
     "ste"                    = "prod1"
     "thabatholo"             = "prod1"
@@ -120,6 +121,7 @@ locals {
     "loisaba"          = 1
     "apr"              = 1
     "ste"              = 1
+    "somkhanda"        = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)

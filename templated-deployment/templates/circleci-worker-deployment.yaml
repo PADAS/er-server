@@ -97,6 +97,16 @@ spec:
             secretKeyRef:
               name: twilio-account-settings
               key: whatsapp_from_number
+        - name: UBI_API_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: ubi-api-credentials
+              key: ubi_username
+        - name: UBI_API_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ubi-api-credentials
+              key: ubi_password
         envFrom:
           - configMapRef:
               name: server-configmap

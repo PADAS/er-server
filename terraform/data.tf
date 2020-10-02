@@ -26,3 +26,7 @@ data "vault_generic_secret" "ssl_certificate_chain" {
 data "vault_generic_secret" "twilio_account_settings" {
   path = "${local.legacy_vault_path}/earthranger/twilio/default"
 }
+
+data "vault_generic_secret" "ubi_api_credentials" {
+  path = "${local.legacy_vault_path}/earthranger/ubi-api-credentials"
+}

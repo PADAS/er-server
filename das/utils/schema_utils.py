@@ -4,6 +4,7 @@ import jsonschema
 import logging
 import re
 import uuid
+import copy
 
 from collections import OrderedDict
 from django.apps import apps
@@ -346,6 +347,23 @@ def flatten_definition_items(definition: list = list):
                 yield from flatten_definition_items(elem['items'])
             else:
                 yield elem
+
+
+def filter_schema_definition(schema: dict, definition_format: str):
+    """Change the definition format depending on the type
+
+    Args:
+        schema ([dict]): the event type schema, already expanding into a dictionary
+        definition_format ([str]): presentation format, [standard, flat]. Flat calls for no fieldsets.
+    """
+    if definition_format in [None, 'standard']:
+        return schema
+    elif definition_format == 'flat':
+        schema = copy.deepcopy(schema)
+        if 'definition' in schema:
+            schema['definition'] = list(flatten_definition_items(schema['definition']))
+        return schema
+    raise ValueError(f"Unsupported definition presentation type: {definition_format}")
 
 
 def definition_key_order_as_dict(schema):

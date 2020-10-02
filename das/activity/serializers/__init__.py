@@ -23,6 +23,7 @@ from drf_extra_fields.geo_fields import PointField
 from rest_framework.exceptions import ValidationError, APIException
 from rest_framework.fields import DateTimeField
 from rest_framework.metadata import BaseMetadata
+from rest_framework.fields import empty
 from rest_framework.request import clone_request
 from rest_framework.utils.field_mapping import ClassLookupDict
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
@@ -330,6 +331,12 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
 
     def get_queryset(self):
         return activity.models.Community.objects.all()
+
+    def run_validation(self, data=empty):
+        # We force empty strings & empty dictionary to None values for relational fields.
+        if data == '' or data == {}:
+            data = None
+        return super().run_validation(data)
 
     def check_has_event_category_permission(self):
         # Checks if the user has any event-category permission.
