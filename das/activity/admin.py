@@ -412,7 +412,8 @@ class PatrolAdmin(admin.ModelAdmin):
 
     def patrol_type(self, obj):
         patrol_segment = self.patrol_segment(obj)
-        return patrol_segment.patrol_type.display if patrol_segment else None
+        return getattr(patrol_segment.patrol_type, 'display', None) if \
+            patrol_segment else None
 
     def tracked_subject_name(self, obj):
         return 'N/A'
