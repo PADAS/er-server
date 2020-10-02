@@ -398,7 +398,7 @@ class PatrolTypeAdmin(admin.ModelAdmin):
 class PatrolAdmin(admin.ModelAdmin):
 
     form = PatrolForm
-    readonly_fields = ('id',)
+    readonly_fields = ('id', 'serial_number')
     list_display = [
         'serial_number', 'title', 'patrol_type', 'tracked_subject_name',
         'scheduled_date', 'start_date', 'start_location', 'end_date',
