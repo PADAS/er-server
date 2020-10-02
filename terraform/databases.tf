@@ -4,12 +4,12 @@ locals {
     {
       db_instance            = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name,
       db_instance_private_ip = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_private_ip,
-      db_password_path       = "padas-app/main/earthranger-app-infra-postgres-server-${local.db_secret_path}"
+      db_password_path       = "${local.legacy_vault_path}/earthranger-app-infra-postgres-server-${local.db_secret_path}"
     },
     {
       db_instance            = data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_name,
       db_instance_private_ip = data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_private_ip,
-      db_password_path       = "padas-app/main/earthranger-app-infra-postgres-server2-${local.db_secret_path}"
+      db_password_path       = "${local.legacy_vault_path}/earthranger-app-infra-postgres-server2-${local.db_secret_path}"
     }
   ]
 
@@ -42,7 +42,7 @@ data "vault_generic_secret" "db_password" {
 
 
 data "vault_generic_secret" "secret_manager_key" {
-  path = "padas-app/main/earthranger/secret-manager-key"
+  path = "${local.legacy_vault_path}/earthranger/secret-manager-key"
 }
 
 resource "google_sql_database" "database" {
