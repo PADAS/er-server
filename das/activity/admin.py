@@ -430,7 +430,8 @@ class PatrolAdmin(admin.ModelAdmin):
 
     def start_location(self, obj):
         patrol_segment = self.patrol_segment(obj)
-        return patrol_segment.start_location.coords if patrol_segment else None
+        return getattr(patrol_segment.start_location, 'coords', None) if \
+            patrol_segment else None
 
     def end_date(self, obj):
         patrol_segment = self.patrol_segment(obj)
@@ -439,4 +440,5 @@ class PatrolAdmin(admin.ModelAdmin):
 
     def end_location(self, obj):
         patrol_segment = self.patrol_segment(obj)
-        return patrol_segment.end_location.coords if patrol_segment else None
+        return getattr(patrol_segment.end_location, 'coords', None) if \
+            patrol_segment else None
