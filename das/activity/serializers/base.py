@@ -1,11 +1,5 @@
 from rest_framework import serializers
-
-from accounts.serializers import (
-    get_user_display,
-    UserDisplaySerializer
-)
-from activity.serializers.helpers import get_update_type
-from revision.manager import AC_UPDATED
+from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 from collections import OrderedDict
 import copy
 
@@ -63,32 +57,57 @@ class BaseSerializer(serializers.Serializer):
 
 
 class RevisionMixin(serializers.Serializer):
-    updates = serializers.SerializerMethodField()
+    def get_action(self, revision):
+        if revision.action == AC_UPDATED:
+            field_mapping = {
+                'state': 'State is {0}',
+                'priority': 'Priority is {0}',
+                'title': 'Title',
+                'objective': 'Objective',
 
-    def get_updates(self, obj):
-        def get_action(revision):
-            if revision.action == AC_UPDATED:
-                field_mapping = {'text': 'Note Text'}
-                fieldnames = [field_mapping[k] for k in revision.data.keys() if
-                              k in field_mapping]
-                return '{0} fields: {1}'.format(revision.get_action_display(),
-                                                ', '.join(fieldnames))
+                # note Mappings
+                'text': 'Note Text',
 
-            return revision.get_action_display()
+                # segment Mappings
+                'scheduled_start': 'Scheduled Start',
+                'time_range': 'Time_range',
+                'leader_id': 'Leader id',
+                'provenance': 'Leader',
+                'patrol_type': 'Patrol Type is {0}',
+                'start_location': 'Start Location',
+                'end_location': 'End Location'
+            }
+            fieldnames = [field_mapping[k].format(v) for k, v in revision.data.items() if k in field_mapping]
+            return '{0} fields: {1}'.format(revision.get_action_display(), ', '.join(fieldnames))
+        elif revision.action == AC_RELATION_DELETED:
+            field_mapping = {'message': 'Description',
+                             'related_query_name': '{}'
+                             }
+            fieldnames = [field_mapping[k].format(revision.data[k]) for k, v in revision.data.items() if
+                          k in field_mapping]
+            return '{0} fields: {1}'.format(revision.get_action_display(), ', '.join(fieldnames))
 
-        return [
-            dict(
-                message='Note {action}'.format(
-                    action=get_action(revision),
-                    user=get_user_display(revision.user)
-                ),
-                time=revision.revision_at.isoformat(),
-                text=revision.data.get('text', ''),
-                user=UserDisplaySerializer().to_representation(revision.user),
-                type=get_update_type(revision),
-            )
-            for revision in obj.revision.all_user()
-        ]
+        return revision.get_action_display()
+
+    def get_patrol_update_type(self, revision, item='patrol'):
+        field_keys = ('title', 'objective', 'state', 'priority',
+                      # Note keys
+                      'text',
+                      # Segment keys
+                      'scheduled_start', 'time_range', 'leader_id', 'provenance', 'patrol_type', 'start_location',
+                      'end_location')
+        field_mapping = ((k, f'update_{item}_{k}') for k in field_keys)
+        model_name = revision._meta.model_name
+        action = revision.action
+        data = revision.data
+        if action == 'added':
+            return 'add_{0}'.format(model_name.replace('revision', ''))
+        elif action == 'updated':
+            for k, v in field_mapping:
+                if k in data:
+                    return v
+            return 'update_patrol'
+        return 'other'
 
 
 class TimestampMixin(serializers.Serializer):
