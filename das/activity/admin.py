@@ -394,6 +394,7 @@ class PatrolTypeAdmin(admin.ModelAdmin):
     _icon_display.short_description = 'Icon'
 
 
+@AdminFeatureFlag(models.Patrol, flag='PATROL_ENABLED')
 @admin.register(models.Patrol)
 class PatrolAdmin(admin.ModelAdmin):
 
@@ -404,8 +405,7 @@ class PatrolAdmin(admin.ModelAdmin):
         'scheduled_date', 'start_date', 'start_location', 'end_date',
         'end_location'
     ]
-    list_per_page = 100
-    search_fields = ('title', 'patrol_type')
+    search_fields = ('title', 'patrol_segment__patrol_type__display')
 
     def patrol_segment(self, obj):
         return obj.patrol_segments.first()
