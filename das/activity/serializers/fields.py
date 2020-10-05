@@ -54,6 +54,8 @@ class _RangeField(RangeField):
         if not isinstance(data, dict):
             self.fail('not_a_dict', input_type=type(data).__name__)
         lower, upper = data.get('start_time'), data.get('end_time')
+        if lower > upper:
+            raise ValidationError('Start_time must be earlier than the end_time')
         data = {'lower': lower, 'upper': upper}
         return super().to_internal_value(data)
 
