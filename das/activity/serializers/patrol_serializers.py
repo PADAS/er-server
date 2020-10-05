@@ -45,7 +45,7 @@ class PatrolNoteSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
         return rep
 
     def render_updates(self, note):
-        return [
+        result = [
             dict(message='Note {action}'.format(
                 action=self.get_action(revision),
                 user=get_user_display(revision.user)),
@@ -56,6 +56,7 @@ class PatrolNoteSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
             )
             for revision in note.revision.all_user()
         ]
+        return sorted(result, key=lambda u: u['time'], reverse=True)
 
 
 class LeaderRelatedField(ReportedByRelatedField):
@@ -148,26 +149,15 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
             dict(
                 message='{action}'.format(
                     action=self.get_action(revision),
-                    user=self.get_user_display(revision.user, segment)
+                    user=get_user_display(revision.user)
                 ),
                 time=revision.revision_at.isoformat(),
-                user=self.get_revision_user(revision.user, segment),
-                type=self.get_patrol_update_type(revision))
+                user=UserDisplaySerializer().to_representation(revision.user),
+                type=self.get_patrol_update_type(revision, 'segment'))
             for revision in revisions
         ]
-        return result
+        return sorted(result, key=lambda u: u['time'], reverse=True)
 
-    def get_user_display(self, user, segment):
-        if user:
-            return get_user_display(user)
-        return segment.get_provenance_display()
-
-    def get_revision_user(self, user, segment):
-        if user:
-            return UserDisplaySerializer().to_representation(user)
-        return {'first_name': segment.get_provenance_display(),
-                'last_name': '',
-                'username': segment.provenance}
 
 class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
     """Serializer class for a Patrol"""
