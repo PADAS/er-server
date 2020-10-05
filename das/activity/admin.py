@@ -425,7 +425,8 @@ class PatrolAdmin(admin.ModelAdmin):
 
     def start_date(self, obj):
         patrol_segment = self.patrol_segment(obj)
-        return patrol_segment.time_range.lower if patrol_segment else None
+        return getattr(patrol_segment.time_range, 'lower', None) if \
+            patrol_segment else None
 
     def start_location(self, obj):
         patrol_segment = self.patrol_segment(obj)
@@ -433,7 +434,8 @@ class PatrolAdmin(admin.ModelAdmin):
 
     def end_date(self, obj):
         patrol_segment = self.patrol_segment(obj)
-        return patrol_segment.time_range.upper if patrol_segment else None
+        return getattr(patrol_segment.time_range, 'upper', None) if \
+            patrol_segment else None
 
     def end_location(self, obj):
         patrol_segment = self.patrol_segment(obj)
