@@ -2,6 +2,7 @@ import jsonschema
 from rest_framework import serializers
 from rest_framework.fields import empty, DateTimeField
 from rest_framework.utils import html
+from django.core.exceptions import ValidationError
 from drf_extra_fields.compat import DateTimeTZRange
 from drf_extra_fields.fields import RangeField
 
@@ -53,6 +54,8 @@ class _RangeField(RangeField):
         if not isinstance(data, dict):
             self.fail('not_a_dict', input_type=type(data).__name__)
         lower, upper = data.get('start_time'), data.get('end_time')
+        if lower > upper:
+            raise ValidationError('Start_time must be earlier than the end_time')
         data = {'lower': lower, 'upper': upper}
         return super().to_internal_value(data)
 
