@@ -7,7 +7,7 @@ from collections import OrderedDict
 import activity.models
 import utils
 from accounts.serializers import UserDisplaySerializer, get_user_display
-from activity.models import PATROL_STATE_CHOICES, PC_ACTIVE, PRI_NONE, PRIORITY_CHOICES
+from activity.models import PATROL_STATE_CHOICES, PC_OPEN, PRI_NONE, PRIORITY_CHOICES
 from activity.models import Patrol, PatrolNote, PatrolSegment
 from activity.serializers import AlertRuleSerializer, EventSourceSerializer
 from activity.serializers import fields, ReportedByRelatedField
@@ -15,7 +15,7 @@ from activity.serializers.base import BaseSerializer, RevisionMixin, TimestampMi
 from activity.serializers.fields import choicefield_serializer, text_field
 from utils.drf import PointValidator
 priority_choices_serializer = choicefield_serializer(PRIORITY_CHOICES, default=PRI_NONE)
-state_choices_serializer = choicefield_serializer(PATROL_STATE_CHOICES, default=PC_ACTIVE)
+state_choices_serializer = choicefield_serializer(PATROL_STATE_CHOICES, default=PC_OPEN)
 
 serializers_path = 'activity.serializers.patrol_serializers'
 
@@ -99,7 +99,6 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
     id = serializers.UUIDField(required=False, read_only=False)
     patrol = PatrolList(required=False, read_only=True)
     patrol_type = PatrolTypeRelatedField(required=False)
-    state = state_choices_serializer
     leader = LeaderRelatedField(required=False, allow_null=True)
     scheduled_start = DateTimeField(required=False, allow_null=True)
     time_range = fields.DateTimeRangeField(required=False, allow_null=True)

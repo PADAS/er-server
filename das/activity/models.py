@@ -1394,16 +1394,12 @@ class TSVectorModel(models.Model):
 # Patrol Management.
 
 
-PC_UPCOMING = 'upcoming'
-PC_ACTIVE = 'active'
-PC_PAST = 'past'
+PC_OPEN = 'open'
 PC_DONE = 'done'
 PC_CANCELLED = 'cancelled'
 
 PATROL_STATE_CHOICES = (
-    (PC_UPCOMING, 'Upcoming'),
-    (PC_ACTIVE, 'Active'),
-    (PC_PAST, 'Past'),
+    (PC_OPEN, 'Open'),
     (PC_DONE, 'Done'),
     (PC_CANCELLED, 'Cancelled'),
 )
@@ -1492,7 +1488,7 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             # End_date past but patrol still active
             q2 = queryset.filter(
                 patrol_segment__time_range__endswith__lte=datetime.datetime.today()) \
-                .exclude(patrol_segment__state__in=["done", "cancelled"])
+                .exclude(state__in=["done", "cancelled"])
             queryset = q1.union(q2)
 
         elif lower:
@@ -1518,7 +1514,7 @@ class Patrol(TimestampedModel, RevisionMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     serial_number = models.BigIntegerField(verbose_name='Serial Number', unique=True, blank=True, null=True, default=serial_next_increment)
     priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
-    state = models.CharField(choices=PATROL_STATE_CHOICES, default=PC_ACTIVE, max_length=25)
+    state = models.CharField(choices=PATROL_STATE_CHOICES, default=PC_OPEN, max_length=25)
     title = models.CharField(max_length=255, blank=True, null=True)
     objective = models.TextField(blank=True, null=True)
     revision = Revision()
@@ -1656,7 +1652,6 @@ class PatrolSegment(TimestampedModel, RevisionMixin):
     time_range = DateTimeRangeField(null=True, blank=True)
     start_location = models.PointField(srid=4326, blank=True, null=True)
     end_location = models.PointField(srid=4326, blank=True, null=True)
-    state = models.CharField(choices=PATROL_STATE_CHOICES, default=PC_ACTIVE, max_length=25)
 
     _usermodel = settings.AUTH_USER_MODEL.lower().split('.')
 

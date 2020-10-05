@@ -60,16 +60,14 @@ class RevisionMixin(serializers.Serializer):
     def get_action(self, revision):
         if revision.action == AC_UPDATED:
             field_mapping = {
-                'state': 'State is {0}',
+                'state': 'State is {0}',  # Patrol Mappings
                 'priority': 'Priority is {0}',
                 'title': 'Title',
                 'objective': 'Objective',
 
-                # note Mappings
-                'text': 'Note Text',
+                'text': 'Note Text',  # Note Mappings
 
-                # segment Mappings
-                'scheduled_start': 'Scheduled Start',
+                'scheduled_start': 'Scheduled Start',  # Segment Mappings
                 'time_range': 'Time_range',
                 'leader_id': 'Leader id',
                 'provenance': 'Leader',
@@ -90,12 +88,10 @@ class RevisionMixin(serializers.Serializer):
         return revision.get_action_display()
 
     def get_patrol_update_type(self, revision, item='patrol'):
-        field_keys = ('title', 'objective', 'state', 'priority',
-                      # Note keys
-                      'text',
-                      # Segment keys
-                      'scheduled_start', 'time_range', 'leader_id', 'provenance', 'patrol_type', 'start_location',
-                      'end_location')
+        field_keys = ('title', 'objective', 'state', 'priority',  # Patrol keys
+                      'text',  # Note keys
+                      'scheduled_start',  # Segment keys
+                      'time_range', 'leader_id', 'provenance', 'patrol_type', 'start_location', 'end_location')
         field_mapping = ((k, f'update_{item}_{k}') for k in field_keys)
         model_name = revision._meta.model_name
         action = revision.action
