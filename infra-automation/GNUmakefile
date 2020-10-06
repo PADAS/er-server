@@ -92,10 +92,8 @@ tf_output: ## terraform output | [output_name="NAME"]
 tf_version: ## show terraform version
 	@ $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_version
 
-get_vault_token_for_ci: ## AppRole login
-	@ export VAULT_ADDRESS="$(vault_address)"; \
-		if [ \( -z "$$VAULT_SECRET_ID" \) -o \( -z "$$VAULT_ROLE_ID" \) ]; then { printf "%s\n" "You must provide a Vault role and secret id pair via the environment variables 'VAULT_ROLE_ID' and 'VAULT_SECRET_ID'" >&2; exit 1; }; fi; \
-				CLIENT_TOKEN="$$(./get_vault_client_token.py)"; echo "$$CLIENT_TOKEN";
+get_vault_token_for_ci: ## AppRole login (pass through to vault makefile.
+	@ $(MAKE) --no-print-directory --file $(vault_makefile) $@
 
 .PHONY: render_templates
 render_templates: tfvars_environment ?= no_overrides
