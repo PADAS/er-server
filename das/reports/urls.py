@@ -28,6 +28,8 @@ urlpatterns = [
     #     template_engine='jinja2',
     #     template_name='lewa_sitrep_template.html')),
     # url(r'^(?P<report_key>[a-z0-9-]+)/?$', views.ReportView.as_view()),
+
+    url(r'^tableau-ticket/?$', views.TableauView.as_view())
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

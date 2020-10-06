@@ -1,4 +1,5 @@
 import pytz
+import requests
 import datetime
 from collections import Counter
 
@@ -59,3 +60,39 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
     def get_context_data(self, since, before, **kwargs):
         return get_daily_report_data(since, before, **kwargs)
+
+
+class IsSuperAdminUser(permissions.BasePermission):
+    """
+    Allows access only to super admin users.
+    """
+
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_superuser)
+
+
+TABLEAU_SERVER = 'https://tableau.pamdas.org/trusted'
+
+
+class TableauView(views.APIView):
+    permission_classes = (IsSuperAdminUser,)
+
+    def get(self, request, *args, **kwargs):
+        ticket = self.get_ticket()
+        if ticket == '-1':
+            data = {'ticket': -1, 'status': 'failed to retrieve tableau ticket'}
+            return Response(data)
+        else:
+            view = 'EventReportsGeo'
+            url = f'{TABLEAU_SERVER}/{ticket}/views/EarthRangerEventReportsandSubjectWorkbookJUNE2020_TRAINING/{view}'
+            data = {'ticket': ticket,
+                    'display_url': url,
+                    'status': 'Successfully retrieve the tableau ticket'}
+            return Response(data)
+
+    @staticmethod
+    def get_ticket():
+        data = {'username': 'tableau_connector'}
+        response = requests.post(url=TABLEAU_SERVER, data=data)
+        return response.text
+
