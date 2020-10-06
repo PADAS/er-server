@@ -1507,7 +1507,7 @@ def serial_next_increment():
     with connection.cursor() as cursor:
         cursor.execute("SELECT MAX(serial_number) FROM activity_patrol")
         result = cursor.fetchone()
-        return result[0] + 1
+        return (result[0] or 0) + 1
 
 
 class Patrol(TimestampedModel, RevisionMixin):
