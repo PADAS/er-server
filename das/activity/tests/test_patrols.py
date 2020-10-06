@@ -100,6 +100,16 @@ class TestPatrol(BaseAPITest):
         response = views.PatrolsegmentsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
+    def test_create_patrol_segment_with_invalid_time_range(self):
+        segment_data = dict(time_range={"start_time": "2030-08-05 02:00:00+00", "end_time": "2020-08-06 04:00:00+00"})
+        url = reverse('patrol-segments')
+        request = self.factory.post(url, data=segment_data)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsegmentsView.as_view()(request)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('start_time must be an earlier date than the end_time', response.data.get('time_range'))
+
+
     def test_create_patrol_patrolsegment_with_no_leader(self):
         patrol_patrolsg = dict(
             prioity=0,
