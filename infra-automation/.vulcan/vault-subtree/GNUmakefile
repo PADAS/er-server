@@ -25,8 +25,8 @@ vault_zip := $(vault_path)/vault_$(vault_version)_$(uname_s)_amd64.zip
 vault_token_filename := .vault-token
 vault_okta_token := $(HOME)/$(vault_token_filename)
 
-vault_address := https://vault.vulcancloud.io:8200
-vault_tls_skip_verify := true
+vault_address := https://vault-prod.erboh.cloud
+vault_tls_skip_verify := false
 
 .PHONY: help
 help:
@@ -48,6 +48,14 @@ vault_okta_login: purge_expired_vault_token $(vault_okta_token)
 vault_approle_login:
 	@ printf "in the future, vault_approle_login will actually do an approle login\n" >&2
 
+.PHONY: get_vault_token_for_ci
+get_vault_token_for_ci: ## AppRole login (pass-thru to helper script)
+	@ export VAULT_ADDRESS="$(vault_address)"; \
+		if [ \( -z "$$VAULT_SECRET_ID" \) -o \( -z "$$VAULT_ROLE_ID" \) ]; then \
+		 { printf "%s\n" "You must provide a Vault role and secret id pair via the environment variables 'VAULT_ROLE_ID' and 'VAULT_SECRET_ID'" >&2; exit 1; }; \
+		 fi; \
+		$(dir $(lastword $(MAKEFILE_LIST)))/helpers/$@.py
+
 .PHONY: purge_expired_vault_token
 purge_expired_vault_token:
 	@ find $(HOME) -maxdepth 1 -type f -name "$(vault_token_filename)" -mmin +1380 -exec rm {} \;
@@ -63,3 +71,4 @@ $(vault_okta_token): $(vault_binary)
 $(vault_binary): $(vault_zip)
 	@ if command -p -V unzip; then unzip -o -DD $(vault_zip) -d $(vault_path); \
 		else gunzip --stdout <$(vault_zip) > $(vault_binary) && chmod +x $(vault_binary); fi
+
