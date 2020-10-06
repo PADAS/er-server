@@ -49,11 +49,8 @@ vault_approle_login:
 	@ printf "in the future, vault_approle_login will actually do an approle login\n" >&2
 
 .PHONY: get_vault_token_for_ci
-get_vault_token_for_ci: ## AppRole login
-	@ export VAULT_ADDRESS="$(vault_address)"; \
-		if [ \( -z "$$VAULT_SECRET_ID" \) -o \( -z "$$VAULT_ROLE_ID" \) ]; then { printf "%s\n" "You must provide a Vault role and secret id pair via the environment variables 'VAULT_ROLE_ID' and 'VAULT_SECRET_ID'" >&2; exit 1; }; fi; \
-				LOGIN_RESPONSE="$$(wget --no-verbose --output-document - --method "POST" --body-data "{\"role_id\":\"$$VAULT_ROLE_ID\",\"secret_id\":\"$$VAULT_SECRET_ID\"}" "$$VAULT_ADDRESS/v1/auth/approle/login")"; \
-				echo "$$LOGIN_RESPONSE" | jq --exit-status --raw-output '.auth.client_token';
+get_vault_token_for_ci: ## AppRole login (pass-thru to helper script)
+	@ $(dir $(lastword $(MAKEFILE_LIST)))/helpers/$@.py
 
 .PHONY: purge_expired_vault_token
 purge_expired_vault_token:
@@ -70,3 +67,4 @@ $(vault_okta_token): $(vault_binary)
 $(vault_binary): $(vault_zip)
 	@ if command -p -V unzip; then unzip -o -DD $(vault_zip) -d $(vault_path); \
 		else gunzip --stdout <$(vault_zip) > $(vault_binary) && chmod +x $(vault_binary); fi
+
