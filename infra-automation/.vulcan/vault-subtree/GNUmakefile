@@ -52,9 +52,8 @@ vault_approle_login:
 get_vault_token_for_ci: ## AppRole login (pass-thru to helper script)
 	@ export VAULT_ADDRESS="$(vault_address)"; \
 		if [ \( -z "$$VAULT_SECRET_ID" \) -o \( -z "$$VAULT_ROLE_ID" \) ]; then \
-		 { printf "%s\n" "You must provide a Vault role and secret id pair via the environment variables 'VAULT_ROLE_ID' and 'VAULT_SECRET_ID'" >&2; exit 1; };
+		 { printf "%s\n" "You must provide a Vault role and secret id pair via the environment variables 'VAULT_ROLE_ID' and 'VAULT_SECRET_ID'" >&2; exit 1; }; \
 		 fi; 
-
 	@ $(dir $(lastword $(MAKEFILE_LIST)))/helpers/$@.py
 
 .PHONY: purge_expired_vault_token
