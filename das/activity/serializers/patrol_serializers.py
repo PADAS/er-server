@@ -6,7 +6,8 @@ from rest_framework.fields import DateTimeField
 from collections import OrderedDict
 import activity.models
 import utils
-from activity.models import PATROL_STATE_CHOICES, PC_ACTIVE, PRI_NONE, PRIORITY_CHOICES
+from accounts.serializers import UserDisplaySerializer, get_user_display
+from activity.models import PATROL_STATE_CHOICES, PC_OPEN, PRI_NONE, PRIORITY_CHOICES
 from activity.models import Patrol, PatrolNote, PatrolSegment
 from activity.serializers import AlertRuleSerializer, EventSourceSerializer
 from activity.serializers import fields, ReportedByRelatedField
@@ -14,7 +15,7 @@ from activity.serializers.base import BaseSerializer, RevisionMixin, TimestampMi
 from activity.serializers.fields import choicefield_serializer, text_field
 from utils.drf import PointValidator
 priority_choices_serializer = choicefield_serializer(PRIORITY_CHOICES, default=PRI_NONE)
-state_choices_serializer = choicefield_serializer(PATROL_STATE_CHOICES, default=PC_ACTIVE)
+state_choices_serializer = choicefield_serializer(PATROL_STATE_CHOICES, default=PC_OPEN)
 
 serializers_path = 'activity.serializers.patrol_serializers'
 
@@ -29,7 +30,7 @@ class PatrolFileSerializer(BaseSerializer, RevisionMixin):
     ordernum = serializers.CharField()
 
 
-class PatrolNoteSerializer(BaseSerializer, TimestampMixin):
+class PatrolNoteSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
     id = serializers.UUIDField(required=False, read_only=False)
     text = text_field()
     created_by_user = serializers.HiddenField(default=serializers.CurrentUserDefault())
@@ -37,6 +38,25 @@ class PatrolNoteSerializer(BaseSerializer, TimestampMixin):
     def create(self, validated_data):
         validated_data['patrol'] = self._kwargs.get('data').get('patrol')
         return activity.models.PatrolNote.objects.create(**validated_data)
+
+    def to_representation(self, note):
+        rep = super().to_representation(note)
+        rep['updates'] = self.render_updates(note)
+        return rep
+
+    def render_updates(self, note):
+        result = [
+            dict(message='Note {action}'.format(
+                action=self.get_action(revision),
+                user=get_user_display(revision.user)),
+                time=revision.revision_at.isoformat(),
+                text=revision.data.get('text', ''),
+                user=UserDisplaySerializer().to_representation(revision.user),
+                type=self.get_patrol_update_type(revision, 'note'),
+            )
+            for revision in note.revision.all_user()
+        ]
+        return sorted(result, key=lambda u: u['time'], reverse=True)
 
 
 class LeaderRelatedField(ReportedByRelatedField):
@@ -75,11 +95,10 @@ class PatrolList(serializers.Serializer):
     pass
 
 
-class PatrolSegmentSerializer(BaseSerializer):
+class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
     id = serializers.UUIDField(required=False, read_only=False)
     patrol = PatrolList(required=False, read_only=True)
     patrol_type = PatrolTypeRelatedField(required=False)
-    state = state_choices_serializer
     leader = LeaderRelatedField(required=False, allow_null=True)
     scheduled_start = DateTimeField(required=False, allow_null=True)
     time_range = fields.DateTimeRangeField(required=False, allow_null=True)
@@ -107,6 +126,7 @@ class PatrolSegmentSerializer(BaseSerializer):
         rep['patrol_type'] = str(instance.patrol_type.value) if instance.patrol_type else None
         rep['icon_id'] = str(instance.patrol_type.icon_id) if instance.patrol_type else None
         rep['patrol'] = self.get_patrol(instance.patrol) if instance.patrol else None
+        rep['updates'] = self.render_updates(instance)
         return rep
 
     def get_patrol(self, patrol):
@@ -122,8 +142,23 @@ class PatrolSegmentSerializer(BaseSerializer):
         validated_data['patrol'] = self._kwargs.get('data').get('patrol')
         return activity.models.PatrolSegment.objects.create(**validated_data)
 
+    def render_updates(self, segment):
+        revisions = list(iter(segment.revision.all_user().order_by('sequence')))
+        result = [
+            dict(
+                message='{action}'.format(
+                    action=self.get_action(revision),
+                    user=get_user_display(revision.user)
+                ),
+                time=revision.revision_at.isoformat(),
+                user=UserDisplaySerializer().to_representation(revision.user),
+                type=self.get_patrol_update_type(revision, 'segment'))
+            for revision in revisions
+        ]
+        return sorted(result, key=lambda u: u['time'], reverse=True)
 
-class PatrolSerializer(BaseSerializer, TimestampMixin):
+
+class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
     """Serializer class for a Patrol"""
 
     objective = text_field(required=False, allow_blank=True, allow_null=True)
@@ -139,6 +174,14 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
         rep = super().to_representation(instance)
         for seg in rep.get('patrol_segments', []):
             seg.pop('patrol', 0)
+        if self.context.get('include_updates', True):
+            updates = self.render_updates(instance)
+            for note in rep.get('notes', []):
+                updates.extend(note['updates'])
+            for f in rep.get('patrol_segments', []):
+                updates.extend(f['updates'])
+            rep['updates'] = sorted(updates, key=lambda u: u['time'], reverse=True)
+
         return rep
 
     def create(self, validated_data):
@@ -183,6 +226,20 @@ class PatrolSerializer(BaseSerializer, TimestampMixin):
                 super().update(instance, data)
             else:
                 model.objects.create(**data)
+
+    def render_updates(self, patrol):
+        revisions = list(iter(patrol.revision.all_user().order_by('sequence')))
+        result = [
+            dict(
+                message='{action}'.format(
+                    action=self.get_action(revision),
+                    user=get_user_display(revision.user)
+                ),
+                time=revision.revision_at.isoformat(),
+                user=UserDisplaySerializer().to_representation(revision.user),
+                type=self.get_patrol_update_type(revision)) for revision in revisions
+        ]
+        return result
 
 
 class PatrolTemplateSerializer(BaseSerializer):
