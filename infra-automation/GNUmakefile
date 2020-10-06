@@ -17,7 +17,6 @@ SHELL := /bin/sh
 vulcan_path := $(CURDIR)/.vulcan
 terraform_makefile := $(vulcan_path)/terraform-subtree/GNUmakefile
 vault_makefile := $(vulcan_path)/vault-subtree/GNUmakefile
-vault_address := https://vault-prod.erboh.cloud
 
 terraform_path := $(CURDIR)/../terraform
 template_path := $(CURDIR)/../templated-deployment
@@ -92,7 +91,7 @@ tf_output: ## terraform output | [output_name="NAME"]
 tf_version: ## show terraform version
 	@ $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_version
 
-get_vault_token_for_ci: ## AppRole login (pass through to vault makefile.
+get_vault_token_for_ci: ## AppRole login (pass through to vault makefile).
 	@ $(MAKE) --no-print-directory --file $(vault_makefile) $@
 
 .PHONY: render_templates
