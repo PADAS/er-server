@@ -405,6 +405,7 @@ class PatrolAdmin(admin.ModelAdmin):
         'scheduled_date', 'start_date', 'start_location', 'end_date',
         'end_location'
     ]
+    list_display_links = ('serial_number', 'title')
     search_fields = ('title', 'patrol_segment__patrol_type__display')
 
     def patrol_segment(self, obj):
