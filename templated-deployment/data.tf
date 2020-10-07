@@ -1,5 +1,5 @@
 locals {
-  legacy_vault_path = "padas-app/main"
+  legacy_vault_path = "secret/earthranger/migrated"
 }
 
 data "vault_generic_secret" "aws_metrics_credentials" {

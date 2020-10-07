@@ -93,7 +93,6 @@ class TestPatrol(BaseAPITest):
                               },
                               start_location={'latitude': '-122.334', 'longitude': '47.598'},
                               end_location={'latitude': '-124.54', 'longitude': '38.98'},
-                              state='active'
                               )
         url = reverse('patrol-segments')
         request = self.factory.post(url, data=patrolsgm_data)
@@ -101,10 +100,20 @@ class TestPatrol(BaseAPITest):
         response = views.PatrolsegmentsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
+    def test_create_patrol_segment_with_invalid_time_range(self):
+        segment_data = dict(time_range={"start_time": "2030-08-05 02:00:00+00", "end_time": "2020-08-06 04:00:00+00"})
+        url = reverse('patrol-segments')
+        request = self.factory.post(url, data=segment_data)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsegmentsView.as_view()(request)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('start_time must be an earlier date than the end_time', response.data.get('time_range'))
+
+
     def test_create_patrol_patrolsegment_with_no_leader(self):
         patrol_patrolsg = dict(
             prioity=0,
-            state="active",
+            state="open",
             serial_number=69,
             files=[],
             notes=[],
@@ -140,10 +149,9 @@ class TestPatrol(BaseAPITest):
             objective="Patrol Management",
             prioity=0,
             title="Patrol",
-            state="active",
+            state="open",
             notes=[{'text': 'New Note..'}],
             patrol_segments=[{
-                "state": "active",
                 "patrol_type": "routine_patrol",
                 "leader": {
                     "content_type": "observations.subject",
@@ -188,10 +196,9 @@ class TestPatrol(BaseAPITest):
             objective="Patrol Management",
             prioity=0,
             title="Patrol XYZ",
-            state="active",
+            state="open",
             notes=[{'text': 'New Note..'}],
             patrol_segments=[{
-                "state": "active",
                 "patrol_type": "routine_patrol",
                 "leader": {
                     "content_type": "observations.subject",
@@ -242,11 +249,10 @@ class TestPatrol(BaseAPITest):
             objective= "Lorem Ipsum is simply dummy text of the printing and typesetting industry",
             priority=200,
             title="Dog Patrol",
-            state="upcoming",
+            state="open",
             notes=[{'id': note_id, 'text': 'New Note2..'}],
             patrol_segments=[{
                 "id": patrol_sgs_id,
-                "state": "upcoming",
                 "patrol_type": "dog_patrol",
                 "leader": {
                     "content_type": "observations.subject",
@@ -290,7 +296,7 @@ class TestPatrol(BaseAPITest):
         patrol_update_data = dict(
             title="New updated title",
             notes=[{"text": "New first note"}, {"text": "New second Note"}],
-            patrol_segments=[{"state": "upcoming"}]
+            patrol_segments=[{"patrol_type": "dog_patrol"}]
         )
         patrol = Patrol.objects.first()
         self.assertEqual(len(patrol.notes.all()), 0)
@@ -310,7 +316,6 @@ class TestPatrol(BaseAPITest):
             notes=[{"text": "New third note"}, {"text": "Update first note", "id": response.data.get('notes')[0]['id']}],
             patrol_segments=[{
                 "id": response.data.get('patrol_segments')[0]['id'],
-                "state": "active",
                 "patrol_type": "dog_patrol",
                 "time_range": {
                     "start_time": "2020-09-24T02:15:54.312000+03:00",
@@ -328,7 +333,7 @@ class TestPatrol(BaseAPITest):
 
         patrol_update_data2 = dict(
             prioity=0,
-            state="active",
+            state="open",
             serial_number=69,
             files=[],
             notes=[],
@@ -372,12 +377,10 @@ class TestPatrol(BaseAPITest):
 
     def test_update_patrolsegment(self):
         segment_update_data = dict(
-            state="upcoming",
             patrol_type="dog_patrol"
         )
         segment = PatrolSegment.objects.first()
         self.assertEqual(segment.patrol_type.display, "Routine Patrol")
-        self.assertEqual(segment.state, 'active')
 
         url = reverse('patrol-segment', kwargs={'id': segment.id})
         request = self.factory.patch(url, data=segment_update_data)
@@ -387,12 +390,11 @@ class TestPatrol(BaseAPITest):
         patrol_type_value = response.data.get('patrol_type')
         patrol_type = PatrolType.objects.get(value=patrol_type_value)
         self.assertEqual(patrol_type.value, segment_update_data.get('patrol_type'))  # dog_patrol
-        self.assertEqual(response.data.get('state'), segment_update_data.get('state'))  # upcoming
         self.assertEqual(response.status_code, 200)
 
     def test_update_patrol_with_new_patrolsegment(self):
-        patrol = dict(state="active")
-        patrolsg = dict(state="active")
+        patrol = dict(state="open")
+        patrolsg = dict(patrol_type="dog_patrol")
 
         # Create a patrol with no patrolsegment
         url = reverse('patrols')
@@ -445,7 +447,7 @@ class TestPatrol(BaseAPITest):
         patrol_data = dict(
             title='Test Patrol',
             patrol_segments=[
-                {"state": "active", 'time_range': {"start_time": "2020-09-30 02:00:00+00", "end_time": "2020-10-30 03:00:00+00"}}]
+                {'time_range': {"start_time": "2020-09-30 02:00:00+00", "end_time": "2020-10-30 03:00:00+00"}}]
         )
         self._create_patrol(patrol_data)
         response = self._filter_patrol(self.sample_patrol_filter)
@@ -466,7 +468,7 @@ class TestPatrol(BaseAPITest):
     def test_patrol_filter_with_null_end_time(self):
         patrol_data = dict(
             title='Test Patrol',
-            patrol_segments=[{"state": "active", 'time_range': {"start_time": "2020-07-30 02:00:00+00"}}]
+            patrol_segments=[{'time_range': {"start_time": "2020-07-30 02:00:00+00"}}]
         )
         self._create_patrol(patrol_data)
         response = self._filter_patrol(self.sample_patrol_filter)
@@ -478,7 +480,7 @@ class TestPatrol(BaseAPITest):
     def test_patrol_filter_with_past_end_time_but_patrol_not_completed(self):
         patrol_data = dict(
             title='Test Patrol',
-            patrol_segments=[{"state": "active", 'time_range': {"start_time": "2020-09-21 02:00:00+00", "end_time": "2020-09-25 03:00:00+00"}}]
+            patrol_segments=[{'time_range': {"start_time": "2020-09-21 02:00:00+00", "end_time": "2020-09-25 03:00:00+00"}}]
         )
         # "lower": "2020-09-30 00:00:00+00", "upper": "2020-09-30 23:59:00+00"
         self._create_patrol(patrol_data)
@@ -493,9 +495,9 @@ class TestPatrol(BaseAPITest):
         patrol_id = result.get('id')
         url = reverse('patrol', kwargs={'id': patrol_id})
         patrol_update_data = dict(
+            state="done",
             patrol_segments=[{
-                "id": result.get('patrol_segments')[0]['id'],
-                "state": "cancelled"
+                "id": result.get('patrol_segments')[0]['id']
             }]
         )
         request = self.factory.patch(url, data=patrol_update_data)

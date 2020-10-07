@@ -2,8 +2,10 @@ import jsonschema
 from rest_framework import serializers
 from rest_framework.fields import empty, DateTimeField
 from rest_framework.utils import html
+from django.core.exceptions import ValidationError
 from drf_extra_fields.compat import DateTimeTZRange
 from drf_extra_fields.fields import RangeField
+from dateutil.parser import parse as parse_date
 
 
 class CoordinateField(serializers.Field):
@@ -53,8 +55,13 @@ class _RangeField(RangeField):
         if not isinstance(data, dict):
             self.fail('not_a_dict', input_type=type(data).__name__)
         lower, upper = data.get('start_time'), data.get('end_time')
+        self.validate_time_range(lower, upper)
         data = {'lower': lower, 'upper': upper}
         return super().to_internal_value(data)
+
+    def validate_time_range(self, lower, upper):
+        if lower and upper and parse_date(lower) > parse_date(upper):
+            raise ValidationError('start_time must be an earlier date than the end_time')
 
     def to_representation(self, value):
         """

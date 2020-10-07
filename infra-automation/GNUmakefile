@@ -91,6 +91,9 @@ tf_output: ## terraform output | [output_name="NAME"]
 tf_version: ## show terraform version
 	@ $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_version
 
+get_vault_token_for_ci: ## AppRole login (pass through to vault makefile).
+	@ $(MAKE) --no-print-directory --file $(vault_makefile) $@
+
 .PHONY: render_templates
 render_templates: tfvars_environment ?= no_overrides
 render_templates: ## render templates (using Terraform) | [tfvars_environment="BRANCH_NAME"]
