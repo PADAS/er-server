@@ -187,7 +187,7 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
 
     @classmethod
     def decode_and_process_uplink_data(cls, payload, provider_key):
-        data = payload.get('data')
+        data = payload.pop('data')
         seq_no = payload.pop('seqNumber')
         device_id = payload.get('deviceId')
         time = payload.get('time')
@@ -195,22 +195,22 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
         components, mode, mode_display = cls.get_mode_and_components(data)
 
         if mode == cls.GPS_TRACK:
-            return cls.process_gps_data(device_id, payload, provider_key, components, mode)
+            return cls.process_gps_data(device_id, payload, provider_key, components, mode_display)
         elif mode == cls.UBI_TRACK:
-            cls.cache_ubi_data(device_id, seq_no, key, payload, time, components, mode_display)
+            cls.cache_ubi_data(device_id, seq_no, key, data, time, components, mode_display)
             message = f'Uplink ubi payload, successfully cached for device: {device_id}'
         else:
             message = f'Ignoring setup and unknown track modes, data: {payload}'
         return Response(data=dict(message=message), status=status.HTTP_200_OK)
 
     @classmethod
-    def process_gps_data(cls, device_id, payload, provider_key, components, mode):
+    def process_gps_data(cls, device_id, payload, provider_key, components, mode_display):
         position = {
             'latitude': SigfoxParser._parse_coordinate(components[5], components[6]),
             'longitude': SigfoxParser._parse_coordinate(components[7], components[8])
         }
         if position:
-            parsed_data = SigfoxPayloadParserV2.parse(position, components, mode)
+            parsed_data = SigfoxPayloadParserV2.parse(position, components, mode_display)
             return cls.process_parsed_data(payload, provider_key, parsed_data)
         else:
             message = f"No valid gps position for device: {device_id}"
@@ -218,8 +218,8 @@ class SigfoxV2Handler(SigfoxFoundationPushHandler):
 
 
     @classmethod
-    def cache_ubi_data(cls, device_id, seq_no, key, payload, time, components, mode):
-        data = payload.get('data')[4:24]
+    def cache_ubi_data(cls, device_id, seq_no, key, data, time, components, mode):
+        data = data[4:24]
         ubi_data = {'mode': mode, 'device_id': device_id, 'seq_no': seq_no, 'time': time, 'components': components, 'ubiscale_data': data}
         cache.set(key, ubi_data, cls.cache_timeout)
 
