@@ -83,7 +83,7 @@ def get_sitename():
 class TableauAPI:
 
     def __init__(self):
-        self.baseURL = 'https://tableau.pamdas.org/api/3.9'
+        self.baseURL = f'{settings.TABLEAU_SERVER}/api/3.9'
         self.username = os.getenv('TABLEAU_USERNAME')
         self.password = os.getenv('TABLEAU_PASSWORD')
         self.user_id = None
