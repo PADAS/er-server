@@ -1,5 +1,11 @@
-import activity.models
-from django.db import migrations, models
+from django.db import migrations, models, connection
+
+
+def serial_next_increment():
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT MAX(serial_number) FROM activity_patrol")
+        result = cursor.fetchone()
+        return (result[0] or 0) + 1
 
 
 class Migration(migrations.Migration):
@@ -21,7 +27,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='patrol',
             name='serial_number',
-            field=models.BigIntegerField(blank=True, default=activity.models.serial_next_increment, null=True,
+            field=models.BigIntegerField(blank=True, default=serial_next_increment, null=True,
                                          unique=True, verbose_name='Serial Number'),
         ),
     ]
