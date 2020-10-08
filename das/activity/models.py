@@ -16,7 +16,7 @@ from django.contrib.gis.geos import Polygon
 from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
-from django.db import transaction, connection
+from django.db import transaction
 from django.db.models import Q, F, Func
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -1499,20 +1499,16 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         return queryset
 
 
-def serial_next_increment():
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT nextval('activity_patrol_unique_serial')")
-        result = cursor.fetchone()
-        return result[0]
-
-
 class Patrol(TimestampedModel, RevisionMixin):
     objects = models.Manager.from_queryset(PatrolFilteringQuerySet)()
 
     PRIORITY_CHOICES = PRIORITY_CHOICES
 
+    class ReadonlyMeta:
+        readonly = ['serial_number', ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    serial_number = models.BigIntegerField(verbose_name='Serial Number', unique=True, blank=True, null=True, default=serial_next_increment)
+    serial_number = models.BigIntegerField(verbose_name='Serial Number', unique=True, blank=True, null=True)
     priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
     state = models.CharField(choices=PATROL_STATE_CHOICES, default=PC_OPEN, max_length=25)
     title = models.CharField(max_length=255, blank=True, null=True)
