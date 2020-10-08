@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('activity', '0103_serial_number_unique'),
+        ('activity', '0102_done_and_cancelled_states'),
     ]
 
     operations = [

@@ -1484,11 +1484,13 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             end_time_filter = Q(patrol_segment__time_range__endswith__gte=lower) | \
                               Q(patrol_segment__time_range__endswith__isnull=True)
             q1 = queryset.filter(end_time_filter, patrol_segment__time_range__startswith__lte=upper)
+            if upper > datetime.datetime.now(tz=pytz.utc):
+                q1 = q1.filter(state="open")
 
             # End_date past but patrol still active
             q2 = queryset.filter(
-                patrol_segment__time_range__endswith__lte=datetime.datetime.today()) \
-                .exclude(state__in=["done", "cancelled"])
+                patrol_segment__time_range__endswith__lte=datetime.datetime.today(), state="open")
+
             queryset = q1.union(q2)
 
         elif lower:
