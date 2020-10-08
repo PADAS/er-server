@@ -16,7 +16,7 @@ from django.contrib.gis.geos import Polygon
 from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
-from django.db import transaction, connection
+from django.db import transaction
 from django.db.models import Q, F, Func
 from django.db.models.signals import post_save
 from django.dispatch import receiver
