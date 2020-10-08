@@ -21,15 +21,6 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunSQL(
-            sql='''with generated as (select id, row_number() over (order by created_at) as rnum from activity_patrol)
-               update activity_patrol ae
-                  set serial_number = generated.rnum
-                 from generated
-                where ae.id = generated.id;
-                ''',
-            reverse_sql=migrations.RunSQL.noop
-        ),
-        migrations.RunSQL(
             sql='''CREATE SEQUENCE public.activity_patrol_serial_number_seq
                       INCREMENT 1
                       MINVALUE 1
