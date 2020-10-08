@@ -28,8 +28,9 @@ urlpatterns = [
     #     template_engine='jinja2',
     #     template_name='lewa_sitrep_template.html')),
     # url(r'^(?P<report_key>[a-z0-9-]+)/?$', views.ReportView.as_view()),
+    url(r'^tableau-views/?$', views.TableauAPIview.as_view()),
+    url(r'^tableau-views/access/(?P<view_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.TableauView.as_view())
 
-    url(r'^tableau-ticket/?$', views.TableauView.as_view())
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

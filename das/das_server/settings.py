@@ -546,3 +546,6 @@ UBI_API_PASSWORD = os.getenv('UBI_API_PASSWORD', 'password')
 
 # Kerlink.
 KERLINK_BASEURL = 'https://tanapa.wanesy.com/gms/application'
+
+# Tableau Server:
+TABLEAU_SERVER = 'https://tableau.pamdas.org'

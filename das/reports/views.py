@@ -1,10 +1,13 @@
+import os
 import pytz
 import requests
 import datetime
+import json
 from collections import Counter
 
 from django.utils import timezone
 from django.template.response import TemplateResponse
+from django.conf import settings
 from rest_framework import status
 from rest_framework.response import Response
 
@@ -71,28 +74,165 @@ class IsSuperAdminUser(permissions.BasePermission):
         return bool(request.user and request.user.is_superuser)
 
 
-TABLEAU_SERVER = 'https://tableau.pamdas.org/trusted'
+def get_sitename():
+    server_fqdn = settings.SERVER_FQDN
+    name_site = server_fqdn.split('.') if len(server_fqdn.split('.')) > 1 else ''
+    return name_site
+
+
+class TableauAPI:
+
+    def __init__(self):
+        self.baseURL = 'https://tableau.pamdas.org/api/3.9'
+        self.username = os.getenv('TABLEAU_USERNAME')
+        self.password = os.getenv('TABLEAU_PASSWORD')
+        self.user_id = None
+        self.site_id = None
+        self.token = None
+        self.contenturl = get_sitename() or 'training'
+        self.headers = {'content-type': 'application/json', 'accept': 'application/json'}
+        self.personal_access_token()
+
+    def personal_access_token(self):
+        """
+        POST /api/api-version/auth/signin
+        """
+        f'{self.baseURL}/auth/signin'
+        data = {
+            "credentials": {
+                "name": self.username,
+                "password": self.password,
+                "site": {
+                    'contentUrl': self.contenturl
+                }
+            }
+        }
+        response = requests.post(f'{self.baseURL}/auth/signin', json=data, headers=self.headers)
+        response = json.loads(response.text)
+
+        error = response.get('error')
+        credentials = response.get('credentials')
+        if error:
+            return False, error
+        elif credentials:
+            self.user_id = credentials['user'].get('id')
+            self.token = credentials['token']
+            self.site_id = credentials['site'].get('id')
+            return True, credentials
+        else:
+            return False, response
+
+    def make_get_request(self, path_component):
+        self.headers['X-Tableau-Auth'] = f'{self.token}'
+        url = f'{self.baseURL}/{path_component}'
+        response = requests.get(url, headers=self.headers)
+        return response
+
+    def get_sites(self):
+        """
+        Returns a list of the sites on the server that the caller of this method has access to.
+        GET /api/api-version/sites?pageSize=page-size&pageNumber=page-number
+        """
+        path = 'sites?pageSize=1000'
+        response = self.make_get_request(path_component=path)
+        return response.text
+
+    def get_views_workbook(self, site_id, workbook_id):
+        """
+        Returns all the views for the specified workbook.
+        GET /api/api-version/sites/site-id/workbooks/workbook-id/views
+        """
+        path = f'sites/{site_id}/workbooks/{workbook_id}/views'
+        response = self.make_get_request(path)
+        return response.text
+
+    def get_views_site(self, site_id):
+        """
+        Returns all the views for the specified site.
+        GET /api/api-version/sites/site-id/views?pageSize=page-size&pageNumber=page-number
+        """
+        path = f'sites/{site_id}/views?pageSize=1000'
+        response = self.make_get_request(path)
+        return response.text
+
+    def get_workbook(self, site_id, workbook_id):
+        """
+        Returns information about the specified workbook, including information about views and tags.
+        GET /api/api-version/sites/site-id/workbooks/workbook-id
+        """
+        path = f'sites/{site_id}/workbooks/{workbook_id}'
+        response = self.make_get_request(path)
+        return response.text
+
+    def get_view_specific_view(self, site_id, view_id):
+        """
+        Gets the details of a specific view.
+        GET /api/api-version/sites/site-id/views/view-id
+        """
+        path = f'sites/{site_id}/views/{view_id}'
+        response = self.make_get_request(path)
+        return response.text
+
+    def get_site(self, site_id):
+        """
+        Returns information about the specified site,
+        GET /api/api-version/sites/site-id
+        """
+        path = f'sites/{site_id}'
+        response = self.make_get_request(path)
+        return response.text
+
+
+def initialize_class(klass, **kwargs):
+    instance = klass(**kwargs)
+    return instance
 
 
 class TableauView(views.APIView):
     permission_classes = (IsSuperAdminUser,)
 
     def get(self, request, *args, **kwargs):
+        view_id = kwargs.get('view_id')
+        instance = initialize_class(TableauAPI)
+        site_id = instance.site_id
+
+        response = json.loads(instance.get_view_specific_view(site_id, view_id))
+
+        view = response.get('view')
+        if not view:
+            return Response(response)
+
+        workbook_id = view['workbook'].get('id')
+        view_urlname = view.get('viewUrlName') if view else None
+
+        response = json.loads(instance.get_workbook(site_id, workbook_id))
+        site_response = json.loads(instance.get_site(site_id))
+        site_name = site_response['site']['name']
+        workbook_contenturl = response['workbook']['contentUrl']
+
         ticket = self.get_ticket()
         if ticket == '-1':
-            data = {'ticket': -1, 'status': 'failed to retrieve tableau ticket'}
+            data = {'ticket': ticket, 'status': 'failed to retrieve tableau ticket'}
             return Response(data)
         else:
-            view = 'EventReportsGeo'
-            url = f'{TABLEAU_SERVER}/{ticket}/views/EarthRangerEventReportsandSubjectWorkbookJUNE2020_TRAINING/{view}'
-            data = {'ticket': ticket,
-                    'display_url': url,
-                    'status': 'Successfully retrieve the tableau ticket'}
-            return Response(data)
+            url = f'{settings.TABLEAU_SERVER}/trusted/{ticket}/t/{site_name}/views/{workbook_contenturl}/{view_urlname}'
+            response = {'ticket': ticket, 'display_url': url}
+
+        return Response(response)
 
     @staticmethod
     def get_ticket():
-        data = {'username': 'tableau_connector'}
-        response = requests.post(url=TABLEAU_SERVER, data=data)
+        data = {'username': os.getenv('TABLEAU_USERNAME'), 'target_site': 'training'}
+        response = requests.post(url=f'{settings.TABLEAU_SERVER}/trusted', data=data)
         return response.text
+
+
+class TableauAPIview(views.APIView):
+    permission_classes = (IsSuperAdminUser,)
+
+    def get(self, request, *args, **kwargs):
+        instance = initialize_class(TableauAPI)
+        site_id = instance.site_id
+        sites = json.loads(instance.get_views_site(site_id))
+        return Response(sites)
 
