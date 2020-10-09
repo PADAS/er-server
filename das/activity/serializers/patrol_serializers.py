@@ -41,7 +41,7 @@ class PatrolNoteSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
 
     def to_representation(self, note):
         rep = super().to_representation(note)
-        rep['updates'] = self.render_updates(note)
+        # rep['updates'] = self.render_updates(note)
         return rep
 
     def render_updates(self, note):
@@ -126,7 +126,7 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
         rep['patrol_type'] = str(instance.patrol_type.value) if instance.patrol_type else None
         rep['icon_id'] = str(instance.patrol_type.icon_id) if instance.patrol_type else None
         rep['patrol'] = self.get_patrol(instance.patrol) if instance.patrol else None
-        rep['updates'] = self.render_updates(instance)
+        # rep['updates'] = self.render_updates(instance)
         return rep
 
     def get_patrol(self, patrol):
@@ -176,10 +176,10 @@ class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
             seg.pop('patrol', 0)
         if self.context.get('include_updates', True):
             updates = self.render_updates(instance)
-            for note in rep.get('notes', []):
-                updates.extend(note['updates'])
-            for f in rep.get('patrol_segments', []):
-                updates.extend(f['updates'])
+            # for note in rep.get('notes', []):
+            #     updates.extend(note['updates'])
+            # for f in rep.get('patrol_segments', []):
+            #     updates.extend(f['updates'])
             rep['updates'] = sorted(updates, key=lambda u: u['time'], reverse=True)
 
         return rep
@@ -237,7 +237,8 @@ class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
                 ),
                 time=revision.revision_at.isoformat(),
                 user=UserDisplaySerializer().to_representation(revision.user),
-                type=self.get_patrol_update_type(revision)) for revision in revisions
+                type=self.get_patrol_update_type(revision))
+            for revision in revisions if 'state' in revision.data and revision.action == 'updated'
         ]
         return result
 
