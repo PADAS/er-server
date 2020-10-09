@@ -52,6 +52,8 @@ app.conf.task_routes = {
     'mapping.tasks.load_features_from_wfs': {'queue': 'maintenance'},
     # Queue analyzer tasks separately.
     'analyzers.tasks.*': {'queue': 'analyzers', },
+    'tracking.tasks.schedule_firms_plugins': {'queue': 'analyzers'},
+    'tracking.tasks.run_firms_plugin': {'queue': 'analyzers'},
 
     'das_server.tasks.celerybeat_pulse': {'queue': 'realtime_p1', },
 
