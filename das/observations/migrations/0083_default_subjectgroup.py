@@ -9,10 +9,11 @@ def default_subjectgroup(app_registry, schema_editor):
     db_alias = schema_editor.connection.alias
     subjectgroup = app_registry.get_model('observations', 'SubjectGroup')
 
-    sg = subjectgroup.objects.using(db_alias).filter(id=DEFAULT_SUBJECT_GROUP_ID)
-    if not sg.exists():
+    sg = subjectgroup.objects.using(db_alias).filter(id=DEFAULT_SUBJECT_GROUP_ID).first()
+    if not sg:
         sg = subjectgroup.objects.using(db_alias).order_by('name').first()
-    sg.update(is_default=True)
+    sg.is_default = True
+    sg.save()
 
 
 class Migration(migrations.Migration):
