@@ -20,8 +20,10 @@ locals {
     "birdshead"              = "prod-asia"
     "bomani"                 = "prod1"
     "bubyevalley"            = "prod1"
+    "chadreintroduction"     = "prod1"
     "chipinge"               = "prod1"
     "connected-conservation" = "prod1"
+    "csl"                    = "prod1"
     "damai"                  = "prod-asia"
     "degrees51"              = "prod1"
     "dwnp"                   = "prod1"
@@ -37,6 +39,7 @@ locals {
     "grumeti"                = "prod1"
     "hello-asia"             = "prod-asia"
     "karingani"              = "prod1"
+    "lewa"                   = "prod1"
     "lionalert"              = "prod1"
     "lionlandscapes"         = "prod1"
     "liuwa"                  = "prod1"
@@ -87,6 +90,7 @@ locals {
     "training"               = "prod1"
     "tswalu"                 = "prod1"
     "twiga"                  = "prod1"
+    "isiolo"                 = "prod1"
     "welgevonden"            = "prod1"
     "velebit"                = "prod1"
     "westernsiempang"        = "prod-asia"
@@ -105,23 +109,27 @@ locals {
 
   workspace_to_database_instance = {
     # if not here, the lookup has a default
-    "meru"             = 1
-    "aberdares"        = 1
-    "baminguibangoran" = 1
-    "serengeti"        = 1
-    "mapesu"           = 1
-    "niassawcs"        = 1
-    "northluangwa"     = 1
-    "ngorongoro"       = 1
-    "velebit"          = 1
-    "ndoki"            = 1
-    "grumeti"          = 1
-    "mep"              = 1
-    "pinelands"        = 1
-    "loisaba"          = 1
-    "apr"              = 1
-    "ste"              = 1
-    "somkhanda"        = 1
+    "meru"               = 1
+    "aberdares"          = 1
+    "baminguibangoran"   = 1
+    "serengeti"          = 1
+    "mapesu"             = 1
+    "niassawcs"          = 1
+    "northluangwa"       = 1
+    "ngorongoro"         = 1
+    "velebit"            = 1
+    "ndoki"              = 1
+    "grumeti"            = 1
+    "mep"                = 1
+    "pinelands"          = 1
+    "loisaba"            = 1
+    "apr"                = 1
+    "ste"                = 1
+    "somkhanda"          = 1
+    "isiolo"             = 1
+    "chadreintroduction" = 1
+    "csl"                = 1
+    "lewa"               = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
