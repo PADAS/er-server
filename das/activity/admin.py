@@ -424,10 +424,14 @@ class PatrolAdmin(admin.ModelAdmin):
         patrol_segment = self.patrol_segment(obj)
         return patrol_segment.scheduled_start if patrol_segment else None
 
+    scheduled_date.short_description = 'scheduled date %s' % TIMEZONE_USED
+
     def start_date(self, obj):
         patrol_segment = self.patrol_segment(obj)
         return getattr(patrol_segment.time_range, 'lower', None) if \
             patrol_segment else None
+
+    start_date.short_description = 'start date %s' % TIMEZONE_USED
 
     def start_location(self, obj):
         patrol_segment = self.patrol_segment(obj)
@@ -438,6 +442,8 @@ class PatrolAdmin(admin.ModelAdmin):
         patrol_segment = self.patrol_segment(obj)
         return getattr(patrol_segment.time_range, 'upper', None) if \
             patrol_segment else None
+
+    end_date.short_description = 'end date %s' % TIMEZONE_USED
 
     def end_location(self, obj):
         patrol_segment = self.patrol_segment(obj)
