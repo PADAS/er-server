@@ -1507,6 +1507,37 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
         return queryset
 
+    def by_patrol_type(self, patrol_type):
+        return self.filter_field('patrol_segment__patrol_type__value', patrol_type)
+
+    def by_state(self, states):
+        now = datetime.datetime.now(tz=pytz.utc)
+        q1 = q2 = q3 = q4 = q5 = self.none()
+
+        for state in states:
+            if state == 'scheduled':
+                st_filter = Q(patrol_segment__time_range__startswith__gt=now) | Q(patrol_segment__scheduled_start__gt=now)
+                q1 = self.filter(st_filter, state="open")
+
+            if state == 'active':
+                q2 = self.filter(Q(patrol_segment__time_range__startswith__lte=now), state="open")
+
+            if state == 'done':
+                q3 = self.filter(state="done")
+
+            if state == 'overdue':
+                supposed_start = now - datetime.timedelta(minutes=30)
+                st_filter = Q(patrol_segment__time_range__startswith__isnull=True) & Q(patrol_segment__scheduled_start__lte=supposed_start)
+                q4 = self.filter(st_filter, state="open")
+
+            if state == 'cancelled':
+                q5 = self.filter(state="cancelled")
+
+        return q1.union(q2, q3, q4, q5)
+
+    def by_subject(self, subject):
+        return self.filter_field('patrol_segment__leader_id', subject)
+
     def sort_patrols(self):
         return self.annotate(
             scheduled=Case(

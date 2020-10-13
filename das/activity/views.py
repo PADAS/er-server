@@ -1142,8 +1142,20 @@ class PatrolsView(generics.ListCreateAPIView):
                 logger.exception(
                     'Invalid filter expression. filter=%s', patrol_filter)
                 raise
-        return queryset.sort_patrols()
 
+        patrol_type = query_params.getlist('patrol_type', None)
+        if patrol_type:
+            queryset = queryset.by_patrol_type(patrol_type)
+
+        state = query_params.getlist('state', None)
+        if state:
+            queryset = queryset.by_state(state)
+
+        subject = query_params.getlist('subject', None)
+        if subject:
+            queryset = queryset.by_subject(subject)
+
+        return queryset.sort_patrols()
 
 class PatrolView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
