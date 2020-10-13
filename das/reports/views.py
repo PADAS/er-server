@@ -227,7 +227,7 @@ class TableauView(views.APIView):
         return response.text
 
 
-class TableauAPIview(views.APIView):
+class TableauAPIView(views.APIView):
     permission_classes = (IsSuperAdminUser,)
 
     def get(self, request, *args, **kwargs):
