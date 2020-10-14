@@ -39,6 +39,7 @@ locals {
     "grumeti"                = "prod1"
     "hello-asia"             = "prod-asia"
     "karingani"              = "prod1"
+    "kapama"                 = "prod1"
     "lewa"                   = "prod1"
     "lionalert"              = "prod1"
     "lionlandscapes"         = "prod1"
@@ -85,6 +86,7 @@ locals {
     "somkhanda"              = "prod1"
     "spaceforgiants"         = "prod1"
     "ste"                    = "prod1"
+    "tapirreserve"           = "prod1"
     "thabatholo"             = "prod1"
     "thornybush"             = "prod1"
     "training"               = "prod1"
@@ -130,6 +132,8 @@ locals {
     "chadreintroduction" = 1
     "csl"                = 1
     "lewa"               = 1
+    "kapama"             = 1
+    "tapirreserve"       = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
