@@ -128,24 +128,6 @@ class TableauAPI:
         response = requests.get(url, headers=self.headers)
         return response
 
-    def get_sites(self):
-        """
-        Returns a list of the sites on the server that the caller of this method has access to.
-        GET /api/api-version/sites?pageSize=page-size&pageNumber=page-number
-        """
-        path = 'sites?pageSize=1000'
-        response = self.make_get_request(path_component=path)
-        return response.text
-
-    def get_views_workbook(self, site_id, workbook_id):
-        """
-        Returns all the views for the specified workbook.
-        GET /api/api-version/sites/site-id/workbooks/workbook-id/views
-        """
-        path = f'sites/{site_id}/workbooks/{workbook_id}/views'
-        response = self.make_get_request(path)
-        return response.text
-
     def get_views_site(self, site_id):
         """
         Returns all the views for the specified site.
