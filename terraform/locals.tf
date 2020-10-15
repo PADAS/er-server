@@ -22,6 +22,7 @@ locals {
     "bubyevalley"            = "prod1"
     "chadreintroduction"     = "prod1"
     "chipinge"               = "prod1"
+    "chinko"                 = "prod1"
     "connected-conservation" = "prod1"
     "csl"                    = "prod1"
     "damai"                  = "prod-asia"
@@ -134,6 +135,7 @@ locals {
     "lewa"               = 1
     "kapama"             = 1
     "tapirreserve"       = 1
+    "chinko"             = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
