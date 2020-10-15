@@ -9,7 +9,7 @@ from django.core.management import call_command
 from django.urls import reverse
 
 from activity import views
-from activity.models import Patrol, PatrolSegment, PatrolType
+from activity.models import Patrol, PatrolSegment, PatrolType, StateFilters
 from core.tests import BaseAPITest
 from observations.models import Subject
 
@@ -508,9 +508,7 @@ class TestPatrol(BaseAPITest):
         for patrol in [scheduled_patrol, active_patrol, done_patrol, overdue_patrol, cancelled_patrol]:
             self._create_patrol(patrol)
 
-        state_filters = ["scheduled", "active", "done", "overdue", "cancelled"]
-
-        for st_filter in state_filters:
+        for st_filter in [e.value for e in StateFilters]:
             filter_param = {"state": st_filter}
             response = self._filter_patrol(filter_param)
             self.assertEqual(response.data.get('count'), 1)

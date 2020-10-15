@@ -6,6 +6,7 @@ from operator import itemgetter, attrgetter
 
 import django.utils
 import pytz
+from enum import Enum
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
@@ -1468,6 +1469,14 @@ class TeamMembership(TimestampedModel):
         ordering = ['type', 'ordernum', ]
 
 
+class StateFilters(Enum):
+    scheduled = 'scheduled'
+    active = 'active'
+    overdue = 'overdue'
+    done = PC_DONE
+    cancelled = PC_CANCELLED
+
+
 class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_patrol_filter(self, filter):
         queryset = self
@@ -1515,23 +1524,23 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         q1 = q2 = q3 = q4 = q5 = self.none()
 
         for state in states:
-            if state == 'scheduled':
+            if state == StateFilters.scheduled.value:
                 st_filter = Q(patrol_segment__time_range__startswith__gt=now) | Q(patrol_segment__scheduled_start__gt=now)
-                q1 = self.filter(st_filter, state="open")
+                q1 = self.filter(st_filter, state=PC_OPEN)
 
-            if state == 'active':
-                q2 = self.filter(Q(patrol_segment__time_range__startswith__lte=now), state="open")
+            if state == StateFilters.active.value:
+                q2 = self.filter(Q(patrol_segment__time_range__startswith__lte=now), state=PC_OPEN)
 
-            if state == 'done':
-                q3 = self.filter(state="done")
+            if state == PC_DONE:
+                q3 = self.filter(state=PC_DONE)
 
-            if state == 'overdue':
+            if state == StateFilters.overdue.value:
                 supposed_start = now - datetime.timedelta(minutes=30)
                 st_filter = Q(patrol_segment__time_range__startswith__isnull=True) & Q(patrol_segment__scheduled_start__lte=supposed_start)
-                q4 = self.filter(st_filter, state="open")
+                q4 = self.filter(st_filter, state=PC_OPEN)
 
-            if state == 'cancelled':
-                q5 = self.filter(state="cancelled")
+            if state == PC_CANCELLED:
+                q5 = self.filter(state=PC_CANCELLED)
 
         return q1.union(q2, q3, q4, q5)
 
