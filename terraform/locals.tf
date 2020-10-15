@@ -27,6 +27,7 @@ locals {
     "csl"                    = "prod1"
     "damai"                  = "prod-asia"
     "degrees51"              = "prod1"
+    "dinokeng"               = "prod1"
     "dwnp"                   = "prod1"
     "elephantsalive"         = "prod1"
     "ennedi"                 = "prod1"
@@ -135,6 +136,7 @@ locals {
     "lewa"               = 1
     "kapama"             = 1
     "tapirreserve"       = 1
+    "dinokeng"           = 1
     "chinko"             = 1
   }
 
