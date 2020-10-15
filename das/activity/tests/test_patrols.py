@@ -1,6 +1,7 @@
 import datetime
 import json
 import os
+import pytz
 from urllib.parse import urlencode
 
 import django.contrib.auth
@@ -31,10 +32,16 @@ class TestPatrol(BaseAPITest):
                 Patrol(title='Test Patrol 2', objective='Test Objective 2')
             ])
         PatrolSegment.objects.create(patrol_type=PatrolType.objects.first())
+
+        now = datetime.datetime.now(tz=pytz.utc)
+        self.start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        self.end_of_today = self.start_of_today + datetime.timedelta(hours=23, minutes=59, seconds=59)
+
         self.sample_patrol_filter = {
             'filter': json.dumps(
                 {"date_range": {
-                    "lower": "2020-09-30 00:00:00+00", "upper": "2020-09-30 23:59:00+00"}})}
+                    "lower": self.start_of_today.isoformat(), "upper": self.end_of_today.isoformat()}})}
+
 
     def test_get_all_patroltypes(self):
         patrol_types = PatrolType.objects.all()
@@ -444,31 +451,52 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
     def test_patrol_filter(self):
+        start = self.start_of_today + datetime.timedelta(hours=8)  # 8am
+        end = self.start_of_today + datetime.timedelta(hours=9)  # 9 am
         patrol_data = dict(
             title='Test Patrol',
             patrol_segments=[
-                {'time_range': {"start_time": "2020-09-30 02:00:00+00", "end_time": "2020-10-30 03:00:00+00"}}]
+                {'time_range': {"start_time": start.isoformat(), "end_time": end.isoformat()}}]
         )
         self._create_patrol(patrol_data)
-        response = self._filter_patrol(self.sample_patrol_filter)
+        response = self._filter_patrol(self.sample_patrol_filter)  # today's filter
         self.assertEqual(response.data.get('count'), 1)
         self.assertEqual(response.data.get('results')[0].get('title'), patrol_data.get('title'))
 
         # filter by only lower
-        filter_query = {'filter': json.dumps({"date_range": {"lower": "2020-09-30 00:00:00+00"}})}
+        filter_query = {'filter': json.dumps({"date_range": {"lower": self.start_of_today.isoformat()}})}
         response = self._filter_patrol(filter_query)
         self.assertEqual(response.data.get('count'), 1)
         self.assertEqual(response.data.get('results')[0].get('title'), patrol_data.get('title'))
 
         # filter by only upper
-        filter_query = {'filter': json.dumps({"date_range": {"upper": "2020-09-30 00:00:00+00"}})}
+        filter_query = {'filter': json.dumps({"date_range": {"upper": self.start_of_today.isoformat()}})}
         response = self._filter_patrol(filter_query)
         self.assertEqual(response.data.get('count'), 0)
 
+    def test_patrol_filter_only_scheduled_start_given(self):
+        start = self.start_of_today + datetime.timedelta(days=5)  # 5 days later
+        patrol_data = dict(
+            title='Sheduled Patrol',
+            patrol_segments=[
+                {'scheduled_start': start.isoformat()}]
+        )
+        self._create_patrol(patrol_data)
+        response = self._filter_patrol(self.sample_patrol_filter)  # today's filter
+        self.assertEqual(response.data.get('count'), 0)
+
+        lower = self.start_of_today + datetime.timedelta(days=3)  # 3 days from now
+        upper = self.start_of_today + datetime.timedelta(days=7)  # 7 days from now
+
+        patrol_filter = {'filter': json.dumps({"date_range": {"lower": lower.isoformat(), "upper": upper.isoformat()}})}
+        response = self._filter_patrol(patrol_filter)
+        self.assertEqual(response.data.get('count'), 1)
+
     def test_patrol_filter_with_null_end_time(self):
+        start = self.start_of_today - datetime.timedelta(days=3)  # 3 days ago
         patrol_data = dict(
             title='Test Patrol',
-            patrol_segments=[{'time_range': {"start_time": "2020-07-30 02:00:00+00"}}]
+            patrol_segments=[{'time_range': {"start_time": start.isoformat()}}]
         )
         self._create_patrol(patrol_data)
         response = self._filter_patrol(self.sample_patrol_filter)
@@ -478,11 +506,12 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.data.get('results')[0].get('title'), patrol_data.get('title'))
 
     def test_patrol_filter_with_past_end_time_but_patrol_not_completed(self):
+        start = self.start_of_today + datetime.timedelta(hours=8)  # 8am
+        end = self.start_of_today + datetime.timedelta(days=2, hours=9)  # 2 days later 9 am
         patrol_data = dict(
             title='Test Patrol',
-            patrol_segments=[{'time_range': {"start_time": "2020-09-21 02:00:00+00", "end_time": "2020-09-25 03:00:00+00"}}]
+            patrol_segments=[{'time_range': {"start_time": start.isoformat(), "end_time": end.isoformat()}}]
         )
-        # "lower": "2020-09-30 00:00:00+00", "upper": "2020-09-30 23:59:00+00"
         self._create_patrol(patrol_data)
         response = self._filter_patrol(self.sample_patrol_filter)
 
