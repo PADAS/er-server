@@ -1142,7 +1142,7 @@ class PatrolsView(generics.ListCreateAPIView):
                 logger.exception(
                     'Invalid filter expression. filter=%s', patrol_filter)
                 raise
-        return queryset
+        return queryset.sort_patrols()
 
 
 class PatrolView(generics.RetrieveUpdateDestroyAPIView):

@@ -554,3 +554,74 @@ class TestPatrol(BaseAPITest):
         self.force_authenticate(request, self.app_user)
         response = views.PatrolsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
+
+    def test_sort_overdue_patrol(self):
+        Patrol.objects.all().delete()
+
+        now = datetime.datetime.utcnow()
+        overdue_patrol = dict(title='A',
+                              patrol_segments=[{'scheduled_start': (now - datetime.timedelta(hours=1)).isoformat()}])
+
+        overdue_patrol2 = dict(title='C',
+                               patrol_segments=[{'scheduled_start': (now - datetime.timedelta(hours=2)).isoformat()}])
+
+        overdue_patrol3 = dict(title='B',
+                               patrol_segments=[{'scheduled_start': (now - datetime.timedelta(hours=2)).isoformat()}])
+
+        overdue_patrol4 = dict(title='D',
+                               patrol_segments=[{'scheduled_start': (now - datetime.timedelta(hours=0.75)).isoformat()}])
+
+        [self._create_patrol(patrol) for patrol in [overdue_patrol, overdue_patrol2, overdue_patrol3, overdue_patrol4]]
+
+        # expected behaviour: patrol3, patrol patrol2
+
+        request = self.factory.get(self.api_base + '/patrols/')
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        assert response.status_code == 200
+
+    def test_sort_patrols(self):
+        Patrol.objects.all().delete()
+        now = datetime.datetime.utcnow() - datetime.timedelta(minutes=10)
+        gx = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        active_patrol = dict(title='patrol_active',
+                             patrol_segments=[{'time_range': {'start_time': gx.isoformat()}}])
+
+        overdue_patrol = dict(title='patrol_overdue',
+                              patrol_segments=[{'scheduled_start': (now - datetime.timedelta(hours=2)).isoformat()}])
+
+        cancelled_patrol = dict(title='patrol_cancelled', state='cancelled')
+
+        done_patrol = dict(title='patrol_done', state='done')
+
+        [self._create_patrol(patrol) for patrol in [done_patrol, active_patrol,  cancelled_patrol, overdue_patrol]]
+
+        request = self.factory.get(self.api_base + '/patrols/')
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        assert response.status_code == 200
+
+        # expected order
+        expected = ['patrol_overdue', 'patrol_active', 'patrol_done', 'patrol_cancelled']
+        results = [p.get('title') for p in response.data['results']]
+        self.assertEqual(results, expected)
+
+    def test_sort_patrol_alphabetically(self):
+        Patrol.objects.all().delete()
+
+        patro1 = dict(title='S patrol', state='done')
+        patrol2 = dict(title='J patrol', state='done')
+        patrol3 = dict(title='F patrol', state='done')
+
+        [self._create_patrol(patrol) for patrol in [patro1, patrol2, patrol3]]
+
+        request = self.factory.get(self.api_base + '/patrols/')
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        assert response.status_code == 200
+
+        expected = ['F patrol', 'J patrol', 'S patrol']
+        results = [p.get('title') for p in response.data['results']]
+        self.assertEqual(results, expected)
+

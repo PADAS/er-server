@@ -17,7 +17,7 @@ from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import transaction
-from django.db.models import Q, F, Func
+from django.db.models import Q, F, Func, Case, When, Value
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import dateparse
@@ -1493,7 +1493,8 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             # End_date past but patrol still active
             q2 = queryset.filter(
                 patrol_segment__time_range__endswith__lte=datetime.datetime.today(), state="open")
-            queryset = q1.union(q2)
+
+            queryset = q1 | q2
 
         elif lower:
             queryset = queryset.filter(
@@ -1502,6 +1503,20 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             queryset = queryset.filter(patrol_segment__time_range__endswith__lte=upper)
 
         return queryset
+
+    def sort_patrols(self):
+        now = datetime.datetime.utcnow()
+        lookback = now - datetime.timedelta(minutes=30)
+
+        return self.filter(Q(patrol_segment__scheduled_start__lte=lookback, state='open') |
+                           Q(patrol_segment__time_range__startswith__lte=now, state='open') |
+                           Q(patrol_segment__time_range__startswith__isnull=True, state='open') |
+                           Q(state='done') |
+                           Q(state='cancelled')).order_by('patrol_segment__scheduled_start',
+                                                          Case(When(state="open", then=Value(1)),
+                                                               When(state="done", then=Value(2)),
+                                                               When(state="cancelled", then=Value(3)),
+                                                               default=Value(4)), 'title')
 
 
 class Patrol(TimestampedModel, RevisionMixin):
