@@ -1505,7 +1505,7 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         return queryset
 
     def sort_patrols(self):
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=pytz.utc)
         lookback = now - datetime.timedelta(minutes=30)
         lookahead = now + datetime.timedelta(minutes=30)
 

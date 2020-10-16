@@ -582,11 +582,12 @@ class TestPatrol(BaseAPITest):
 
     def test_sort_patrols(self):
         Patrol.objects.all().delete()
-        now = datetime.datetime.utcnow() - datetime.timedelta(minutes=10)
-        gx = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        now = datetime.datetime.now(tz=pytz.utc)
+        # now = datetime.datetime.utcnow() - datetime.timedelta(minutes=10)
+        # gx = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
         active_patrol = dict(title='patrol_active',
-                             patrol_segments=[{'time_range': {'start_time': gx.isoformat()}}])
+                             patrol_segments=[{'time_range': {'start_time': now.isoformat()}}])
 
         overdue_patrol = dict(title='patrol_overdue',
                               patrol_segments=[{'scheduled_start': (now - datetime.timedelta(hours=2)).isoformat()}])
@@ -625,3 +626,21 @@ class TestPatrol(BaseAPITest):
         results = [p.get('title') for p in response.data['results']]
         self.assertEqual(results, expected)
 
+
+    def test_overdue_readytostart(self):
+
+        ahead = datetime.datetime.now(tz=pytz.utc) + datetime.timedelta(minutes=28)
+        lookback = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(minutes=28)
+
+        overdue_patrol = dict(title='patrol_overdue',
+                              patrol_segments=[{'scheduled_start': lookback.isoformat()}])
+
+        readytostart = dict(title='patrol_readstart',
+                            patrol_segments=[{'scheduled_start': ahead.isoformat()}])
+
+        [self._create_patrol(patrol) for patrol in [overdue_patrol, readytostart]]
+
+        request = self.factory.get(self.api_base + '/patrols/')
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        assert response.status_code == 200
