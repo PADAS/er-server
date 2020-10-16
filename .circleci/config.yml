@@ -103,12 +103,21 @@ executors:
   default:
     docker:
       - image: 'google/cloud-sdk:269.0.0'
+        auth:
+              username: daumie
+              password: $DOCKERHUB_PASSWORD
   circleci_executor:
     docker:
       - image: 'circleci/buildpack-deps:stretch'
+        auth:
+              username: daumie
+              password: $DOCKERHUB_PASSWORD
   docs_executor:
     docker:
       - image: 'circleci/python:3.6.4'
+        auth:
+              username: daumie
+              password: $DOCKERHUB_PASSWORD
 jobs:
   check_for_abandoned_workspaces:
     executor: circleci_executor
