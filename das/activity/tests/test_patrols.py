@@ -555,31 +555,6 @@ class TestPatrol(BaseAPITest):
         response = views.PatrolsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
-    def test_sort_overdue_patrol(self):
-        Patrol.objects.all().delete()
-
-        now = datetime.datetime.utcnow()
-        overdue_patrol = dict(title='A',
-                              patrol_segments=[{'scheduled_start': (now - datetime.timedelta(hours=1)).isoformat()}])
-
-        overdue_patrol2 = dict(title='C',
-                               patrol_segments=[{'scheduled_start': (now - datetime.timedelta(hours=2)).isoformat()}])
-
-        overdue_patrol3 = dict(title='B',
-                               patrol_segments=[{'scheduled_start': (now - datetime.timedelta(hours=2)).isoformat()}])
-
-        overdue_patrol4 = dict(title='D',
-                               patrol_segments=[{'scheduled_start': (now - datetime.timedelta(hours=0.75)).isoformat()}])
-
-        [self._create_patrol(patrol) for patrol in [overdue_patrol, overdue_patrol2, overdue_patrol3, overdue_patrol4]]
-
-        # expected behaviour: patrol3, patrol patrol2
-
-        request = self.factory.get(self.api_base + '/patrols/')
-        self.force_authenticate(request, self.app_user)
-        response = views.PatrolsView.as_view()(request)
-        assert response.status_code == 200
-
     def test_sort_patrols(self):
         Patrol.objects.all().delete()
         now = datetime.datetime.now(tz=pytz.utc)
@@ -606,14 +581,16 @@ class TestPatrol(BaseAPITest):
         # expected order
         expected = ['patrol_overdue', 'patrol_active', 'patrol_done', 'patrol_cancelled']
         results = [p.get('title') for p in response.data['results']]
-        self.assertEqual(results, expected)
+
+        for exp, actual in zip(expected, results):
+            self.assertEqual(exp, actual)
 
     def test_sort_patrol_alphabetically(self):
         Patrol.objects.all().delete()
 
-        patro1 = dict(title='S patrol', state='done')
-        patrol2 = dict(title='J patrol', state='done')
-        patrol3 = dict(title='F patrol', state='done')
+        patro1 = dict(title='C patrol', state='done')
+        patrol2 = dict(title='B patrol', state='done')
+        patrol3 = dict(title='A patrol', state='done')
 
         [self._create_patrol(patrol) for patrol in [patro1, patrol2, patrol3]]
 
@@ -622,25 +599,63 @@ class TestPatrol(BaseAPITest):
         response = views.PatrolsView.as_view()(request)
         assert response.status_code == 200
 
-        expected = ['F patrol', 'J patrol', 'S patrol']
+        expected = ['A patrol', 'B patrol', 'C patrol']
         results = [p.get('title') for p in response.data['results']]
-        self.assertEqual(results, expected)
 
+        for exp, actual in zip(expected, results):
+            self.assertEqual(exp, actual)
+    #
 
     def test_overdue_readytostart(self):
+        Patrol.objects.all().delete()
 
         ahead = datetime.datetime.now(tz=pytz.utc) + datetime.timedelta(minutes=28)
         lookback = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(minutes=28)
 
-        overdue_patrol = dict(title='patrol_overdue',
+        overdue_patrol = dict(title='overdue',
                               patrol_segments=[{'scheduled_start': lookback.isoformat()}])
 
-        readytostart = dict(title='patrol_readstart',
+        readytostart = dict(title='readytostart',
                             patrol_segments=[{'scheduled_start': ahead.isoformat()}])
 
-        [self._create_patrol(patrol) for patrol in [overdue_patrol, readytostart]]
+        [self._create_patrol(patrol) for patrol in [readytostart, overdue_patrol]]
 
         request = self.factory.get(self.api_base + '/patrols/')
         self.force_authenticate(request, self.app_user)
         response = views.PatrolsView.as_view()(request)
         assert response.status_code == 200
+
+        expected = ['overdue', 'readytostart']
+        results = [p.get('title') for p in response.data['results']]
+
+        for exp, actual in zip(expected, results):
+            self.assertEqual(exp, actual)
+
+    def test_overdue_readytostart_active(self):
+        Patrol.objects.all().delete()
+
+        now = datetime.datetime.now(tz=pytz.utc)
+        ahead = now + datetime.timedelta(minutes=28)
+        lookback = now - datetime.timedelta(minutes=28)
+
+        overdue_patrol = dict(title='overdue',
+                              patrol_segments=[{'scheduled_start': lookback.isoformat()}])
+
+        readytostart = dict(title='readytostart',
+                            patrol_segments=[{'scheduled_start': ahead.isoformat()}])
+
+        active_patrol = dict(title='active',
+                             patrol_segments=[{'time_range': {'start_time': now.isoformat()}}])
+
+        [self._create_patrol(patrol) for patrol in [active_patrol, readytostart, overdue_patrol]]
+
+        request = self.factory.get(self.api_base + '/patrols/')
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        assert response.status_code == 200
+
+        expected = ['overdue', 'readytostart', 'active']
+        results = [p.get('title') for p in response.data['results']]
+
+        for exp, actual in zip(expected, results):
+            self.assertEqual(exp, actual)

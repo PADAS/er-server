@@ -1505,20 +1505,12 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         return queryset
 
     def sort_patrols(self):
-        now = datetime.datetime.now(tz=pytz.utc)
-        lookback = now - datetime.timedelta(minutes=30)
-        lookahead = now + datetime.timedelta(minutes=30)
-
-        return self.filter(Q(patrol_segment__scheduled_start__lte=lookback, state='open') |
-                           Q(patrol_segment__scheduled_start__range=(now, lookahead), state='open') |
-                           Q(patrol_segment__time_range__startswith__lte=now, state='open') |
-                           Q(patrol_segment__time_range__startswith__isnull=True, state='open') |
-                           Q(state='done') |
-                           Q(state='cancelled')).order_by('patrol_segment__scheduled_start',
-                                                          Case(When(state="open", then=Value(1)),
-                                                               When(state="done", then=Value(2)),
-                                                               When(state="cancelled", then=Value(3)),
-                                                               default=Value(4)), 'title')
+        return self.order_by('patrol_segment__scheduled_start',
+                             'patrol_segment__time_range__startswith',
+                             Case(When(state="open", then=Value(1)),
+                                  When(state="done", then=Value(2)),
+                                  When(state="cancelled", then=Value(3)),
+                                  default=Value(4)), 'title')
 
 
 class Patrol(TimestampedModel, RevisionMixin):
