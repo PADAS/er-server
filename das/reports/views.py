@@ -3,6 +3,7 @@ import pytz
 import requests
 import datetime
 import json
+import logging
 from collections import Counter
 
 from django.utils import timezone
@@ -15,6 +16,8 @@ from rest_framework import serializers, views, permissions
 from django.views.generic.base import TemplateResponseMixin, ContextMixin
 
 from reports.reports import get_daily_report_data
+
+logger = logging.getLogger(__name__)
 
 
 class ReportDateParameters(serializers.Serializer):
@@ -80,10 +83,13 @@ def get_sitename():
     return name_site
 
 
+TABLEAU_VERSION = 3.9
+
+
 class TableauAPI:
 
     def __init__(self):
-        self.baseURL = f'{settings.TABLEAU_SERVER}/api/3.9'
+        self.baseURL = f'{settings.TABLEAU_SERVER}/api/{TABLEAU_VERSION}'
         self.username = os.getenv('TABLEAU_USERNAME')
         self.password = os.getenv('TABLEAU_PASSWORD')
         self.user_id = None
@@ -113,14 +119,11 @@ class TableauAPI:
         error = response.get('error')
         credentials = response.get('credentials')
         if error:
-            return False, error
+            logger.info(f"Authentication failed with: {error}")
         elif credentials:
             self.user_id = credentials['user'].get('id')
             self.token = credentials['token']
             self.site_id = credentials['site'].get('id')
-            return True, credentials
-        else:
-            return False, response
 
     def make_get_request(self, path_component):
         self.headers['X-Tableau-Auth'] = f'{self.token}'
@@ -165,17 +168,12 @@ class TableauAPI:
         return response.text
 
 
-def initialize_class(klass, **kwargs):
-    instance = klass(**kwargs)
-    return instance
-
-
 class TableauView(views.APIView):
     permission_classes = (IsSuperAdminUser,)
 
     def get(self, request, *args, **kwargs):
         view_id = kwargs.get('view_id')
-        instance = initialize_class(TableauAPI)
+        instance = TableauAPI()
         site_id = instance.site_id
 
         response = json.loads(instance.get_view_specific_view(site_id, view_id))
@@ -204,7 +202,7 @@ class TableauView(views.APIView):
 
     @staticmethod
     def get_ticket():
-        data = {'username': os.getenv('TABLEAU_USERNAME'), 'target_site': 'training'}
+        data = {'username': os.getenv('TABLEAU_USERNAME'), 'target_site': get_sitename() or 'training'}
         response = requests.post(url=f'{settings.TABLEAU_SERVER}/trusted', data=data)
         return response.text
 
@@ -213,7 +211,7 @@ class TableauAPIView(views.APIView):
     permission_classes = (IsSuperAdminUser,)
 
     def get(self, request, *args, **kwargs):
-        instance = initialize_class(TableauAPI)
+        instance = TableauAPI()
         site_id = instance.site_id
         sites = json.loads(instance.get_views_site(site_id))
         return Response(sites)
