@@ -80,7 +80,7 @@ class IsSuperAdminUser(permissions.BasePermission):
 def get_sitename():
     server_fqdn = settings.SERVER_FQDN
     name_site = server_fqdn.split('.') if len(server_fqdn.split('.')) > 1 else ''
-    return name_site
+    return name_site[0]
 
 
 TABLEAU_VERSION = 3.9
