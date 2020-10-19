@@ -17,7 +17,9 @@ from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import transaction
-from django.db.models import Q, F, Func, Case, When, Value
+from django.db.models import Q, F, Func, Case, When, Value, CharField, IntegerField, DateTimeField, ExpressionWrapper
+from django.db.models.functions import Cast, Lower
+
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import dateparse
@@ -1505,12 +1507,16 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         return queryset
 
     def sort_patrols(self):
-        return self.order_by('patrol_segment__scheduled_start',
-                             'patrol_segment__time_range__startswith',
-                             Case(When(state="open", then=Value(1)),
-                                  When(state="done", then=Value(2)),
-                                  When(state="cancelled", then=Value(3)),
-                                  default=Value(4)), 'title')
+
+        return self.annotate(timerange=Cast('patrol_segment__time_range__startswith',
+                                            output_field=DateTimeRangeField()),
+                             scheduled=Case(When(
+                                 Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state='open'),
+                                 then=F('patrol_segment__scheduled_start')), default=None, output_field=DateTimeField())
+                             ).order_by(Case(When(state="open", then=Value(1)),
+                                             When(state="done", then=Value(2)),
+                                             When(state="cancelled", then=Value(3)),
+                                             default=Value(4)), 'scheduled', 'timerange', 'title')
 
 
 class Patrol(TimestampedModel, RevisionMixin):

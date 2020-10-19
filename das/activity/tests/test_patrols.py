@@ -631,7 +631,7 @@ class TestPatrol(BaseAPITest):
         for exp, actual in zip(expected, results):
             self.assertEqual(exp, actual)
 
-    def test_overdue_readytostart_active(self):
+    def test_sort_overdue_readytostart_active(self):
         Patrol.objects.all().delete()
 
         now = datetime.datetime.now(tz=pytz.utc)
@@ -655,6 +655,51 @@ class TestPatrol(BaseAPITest):
         assert response.status_code == 200
 
         expected = ['overdue', 'readytostart', 'active']
+        results = [p.get('title') for p in response.data['results']]
+
+        for exp, actual in zip(expected, results):
+            self.assertEqual(exp, actual)
+
+    def test_sort_by_state(self):
+        Patrol.objects.all().delete()
+
+        now = datetime.datetime.now(tz=pytz.utc)
+        ahead = now + datetime.timedelta(minutes=28)
+        lookback = now - datetime.timedelta(minutes=28)
+
+        overdue_control = lookback + datetime.timedelta(days=20)
+        active_control = now - datetime.timedelta(days=20)
+        cancelled_control = ahead - datetime.timedelta(days=20)
+
+        overdue_patrol = dict(title='overdue C',
+                              patrol_segments=[{'scheduled_start': lookback.isoformat()}])
+        overdue_patrol2 = dict(title='overdue A',
+                              patrol_segments=[{'scheduled_start': overdue_control.isoformat()}])
+
+        cancel_readytostart = dict(title='cancelled readytostart', state="cancelled",
+                                   patrol_segments=[{'scheduled_start': ahead.isoformat()}])
+        cancel_readytostart2 = dict(title='cancelled readytostart_control', state="cancelled",
+                                   patrol_segments=[{'scheduled_start': cancelled_control.isoformat()}])
+
+        active_patrol = dict(title='active',
+                             patrol_segments=[{'time_range': {'start_time': now.isoformat()}}])
+        active_patrol2 = dict(title='active_control',
+                             patrol_segments=[{'time_range': {'start_time': active_control.isoformat()}}])
+
+        done_patrol = dict(title='done A', state="done")
+        done_patrol2 = dict(title='done B', state="done")
+
+
+
+        [self._create_patrol(patrol) for patrol in [done_patrol2, cancel_readytostart, overdue_patrol2, overdue_patrol, active_patrol, done_patrol, cancel_readytostart2, active_patrol2]]
+
+        request = self.factory.get(self.api_base + '/patrols/')
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        assert response.status_code == 200
+
+        expected = ['overdue C', 'overdue A', 'active_control', 'active',
+                    'done A', 'done B', 'cancelled readytostart', 'cancelled readytostart_control']
         results = [p.get('title') for p in response.data['results']]
 
         for exp, actual in zip(expected, results):
