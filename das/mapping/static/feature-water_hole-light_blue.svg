@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="25"
+   height="12.315"
+   viewBox="0 0 25 12.315"
+   version="1.1"
+   id="svg46"
+   sodipodi:docname="feature-water_hole-light_blue.svg"
+   inkscape:version="1.0.1 (3bc2e813f5, 2020-09-07)">
+  <metadata
+     id="metadata52">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title>feature-waterhole</dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs50" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1920"
+     inkscape:window-height="1001"
+     id="namedview48"
+     showgrid="false"
+     inkscape:zoom="54.68"
+     inkscape:cx="12.5"
+     inkscape:cy="6.1574998"
+     inkscape:window-x="-9"
+     inkscape:window-y="-9"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="Layer_1-2"
+     inkscape:document-rotation="0" />
+  <title
+     id="title32">feature-waterhole</title>
+  <g
+     id="Layer_2"
+     data-name="Layer 2">
+    <g
+       id="Layer_1-2"
+       data-name="Layer 1">
+      <path
+         d="M11.9257,1.8072"
+         fill="#1a2026"
+         id="path34" />
+      <path
+         d="M9.9649,1.8072"
+         fill="#1a2026"
+         stroke="#1a2026"
+         stroke-miterlimit="10"
+         stroke-width="0.5"
+         id="path36" />
+      <path
+         d="M12.8609,3.0357a5.03,5.03,0,0,1-2.8952-.9249A5.0323,5.0323,0,0,1,7.07,3.0348,4.9788,4.9788,0,0,1,3.5242,1.57.9194.9194,0,0,1,4.8225.2678,3.182,3.182,0,0,0,9.3147.27a.9429.9429,0,0,1,1.3,0,3.1811,3.1811,0,0,0,4.4893.001L15.13.2449a.91.91,0,0,1,.6252-.2441h0a.9207.9207,0,0,1,.651.269,3.1837,3.1837,0,0,0,4.4893,0A.9194.9194,0,1,1,22.1967,1.569a4.9824,4.9824,0,0,1-3.5443,1.4658,5.0406,5.0406,0,0,1-2.8962-.9229A5.036,5.036,0,0,1,12.8609,3.0357Z"
+         fill="#1a2026"
+         id="path38"
+         style="fill:#00ffff" />
+      <path
+         d="M21.1857,7.346A5.0386,5.0386,0,0,1,18.29,6.4221a5.1333,5.1333,0,0,1-5.7914,0,5.1284,5.1284,0,0,1-5.79,0,5.0362,5.0362,0,0,1-2.8933.9229A4.9852,4.9852,0,0,1,.269,5.8792.9186.9186,0,0,1,.9172,4.311h.001a.9131.9131,0,0,1,.65.269,3.18,3.18,0,0,0,4.4912,0,.9391.9391,0,0,1,1.3,0,3.1788,3.1788,0,0,0,4.49,0,.9241.9241,0,0,1,1.3021.001A3.18,3.18,0,0,0,17.64,4.58a.8859.8859,0,0,1,.45-.2461.9238.9238,0,0,1,.8511.247,3.1811,3.1811,0,0,0,4.4893-.001.919.919,0,1,1,1.3,1.2992A4.98,4.98,0,0,1,21.1857,7.346Z"
+         fill="#1a2026"
+         id="path40"
+         style="fill:#00ffff" />
+      <path
+         d="M12.8609,12.315a5.0271,5.0271,0,0,1-2.8952-.9239A5.039,5.039,0,0,1,7.07,12.315a4.98,4.98,0,0,1-3.5453-1.4658.92.92,0,0,1-.001-1.3.9429.9429,0,0,1,1.3,0,3.1793,3.1793,0,0,0,4.4912,0,.9436.9436,0,0,1,1.2992-.001,3.18,3.18,0,0,0,4.4912.001.91.91,0,0,1,.65-.269h0a.9207.9207,0,0,1,.651.269l.045.045a3.1788,3.1788,0,0,0,4.4443-.045.92.92,0,0,1,1.3011,1.3,4.98,4.98,0,0,1-3.5443,1.4648,5.0361,5.0361,0,0,1-2.8962-.9229A5.0316,5.0316,0,0,1,12.8609,12.315Z"
+         fill="#1a2026"
+         id="path42"
+         style="fill:#00ffff" />
+    </g>
+  </g>
+</svg>
