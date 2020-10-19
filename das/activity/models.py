@@ -1508,15 +1508,15 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
     def sort_patrols(self):
 
-        return self.annotate(timerange=Cast('patrol_segment__time_range__startswith',
-                                            output_field=DateTimeRangeField()),
+        return self.annotate(start_time=Cast('patrol_segment__time_range__startswith',
+                                             output_field=DateTimeRangeField()),
                              scheduled=Case(When(
                                  Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state='open'),
                                  then=F('patrol_segment__scheduled_start')), default=None, output_field=DateTimeField())
                              ).order_by(Case(When(state="open", then=Value(1)),
                                              When(state="done", then=Value(2)),
                                              When(state="cancelled", then=Value(3)),
-                                             default=Value(4)), 'scheduled', 'timerange', 'title')
+                                             default=Value(4)), 'scheduled', 'start_time', 'title')
 
 
 class Patrol(TimestampedModel, RevisionMixin):

@@ -558,8 +558,6 @@ class TestPatrol(BaseAPITest):
     def test_sort_patrols(self):
         Patrol.objects.all().delete()
         now = datetime.datetime.now(tz=pytz.utc)
-        # now = datetime.datetime.utcnow() - datetime.timedelta(minutes=10)
-        # gx = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
         active_patrol = dict(title='patrol_active',
                              patrol_segments=[{'time_range': {'start_time': now.isoformat()}}])
@@ -604,7 +602,6 @@ class TestPatrol(BaseAPITest):
 
         for exp, actual in zip(expected, results):
             self.assertEqual(exp, actual)
-    #
 
     def test_overdue_readytostart(self):
         Patrol.objects.all().delete()
@@ -664,22 +661,25 @@ class TestPatrol(BaseAPITest):
         Patrol.objects.all().delete()
 
         now = datetime.datetime.now(tz=pytz.utc)
-        ahead = now + datetime.timedelta(minutes=28)
+
         lookback = now - datetime.timedelta(minutes=28)
+        future_scheduled = lookback + datetime.timedelta(days=20)
 
-        overdue_control = lookback + datetime.timedelta(days=20)
-        active_control = now - datetime.timedelta(days=20)
-        cancelled_control = ahead - datetime.timedelta(days=20)
+        now = datetime.datetime.now(tz=pytz.utc)
+        active_control = now - datetime.timedelta(days=2)
 
-        overdue_patrol = dict(title='overdue C',
+        ahead = now + datetime.timedelta(minutes=28)
+        ahead_control = ahead - datetime.timedelta(minutes=20)
+
+        overdue_patrol = dict(title='overdue patrol',
                               patrol_segments=[{'scheduled_start': lookback.isoformat()}])
-        overdue_patrol2 = dict(title='overdue A',
-                              patrol_segments=[{'scheduled_start': overdue_control.isoformat()}])
+        future_patrol = dict(title='future patrol',
+                               patrol_segments=[{'scheduled_start': future_scheduled.isoformat()}])
 
         cancel_readytostart = dict(title='cancelled readytostart', state="cancelled",
                                    patrol_segments=[{'scheduled_start': ahead.isoformat()}])
         cancel_readytostart2 = dict(title='cancelled readytostart_control', state="cancelled",
-                                   patrol_segments=[{'scheduled_start': cancelled_control.isoformat()}])
+                                   patrol_segments=[{'scheduled_start': ahead_control.isoformat()}])
 
         active_patrol = dict(title='active',
                              patrol_segments=[{'time_range': {'start_time': now.isoformat()}}])
@@ -691,14 +691,14 @@ class TestPatrol(BaseAPITest):
 
 
 
-        [self._create_patrol(patrol) for patrol in [done_patrol2, cancel_readytostart, overdue_patrol2, overdue_patrol, active_patrol, done_patrol, cancel_readytostart2, active_patrol2]]
+        [self._create_patrol(patrol) for patrol in [done_patrol2, cancel_readytostart, future_patrol, overdue_patrol, active_patrol, done_patrol, cancel_readytostart2, active_patrol2]]
 
         request = self.factory.get(self.api_base + '/patrols/')
         self.force_authenticate(request, self.app_user)
         response = views.PatrolsView.as_view()(request)
         assert response.status_code == 200
 
-        expected = ['overdue C', 'overdue A', 'active_control', 'active',
+        expected = ['overdue patrol', 'future patrol', 'active_control', 'active',
                     'done A', 'done B', 'cancelled readytostart', 'cancelled readytostart_control']
         results = [p.get('title') for p in response.data['results']]
 
