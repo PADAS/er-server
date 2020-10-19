@@ -1513,9 +1513,9 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
                              scheduled=Case(When(
                                  Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state='open'),
                                  then=F('patrol_segment__scheduled_start')), default=None, output_field=DateTimeField())
-                             ).order_by(Case(When(state="open", then=Value(1)),
-                                             When(state="done", then=Value(2)),
-                                             When(state="cancelled", then=Value(3)),
+                             ).order_by(Case(When(state=PC_OPEN, then=Value(1)),
+                                             When(state=PC_DONE, then=Value(2)),
+                                             When(state=PC_CANCELLED, then=Value(3)),
                                              default=Value(4)), 'scheduled', 'start_time', 'title')
 
 
