@@ -686,8 +686,10 @@ class TestPatrol(BaseAPITest):
         active_patrol2 = dict(title='active_control',
                              patrol_segments=[{'time_range': {'start_time': active_control.isoformat()}}])
 
-        done_patrol = dict(title='done A', state="done")
-        done_patrol2 = dict(title='done B', state="done")
+        done_patrol = dict(title='done A', state="done",
+                           patrol_segments=[{'time_range': {'start_time': now.isoformat()}}])
+        done_patrol2 = dict(title='done B', state="done",
+                            patrol_segments=[{'time_range': {'start_time': active_control.isoformat()}}])
 
 
 
