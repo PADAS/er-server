@@ -98,3 +98,15 @@ resource "kubernetes_secret" "kerlink_credentials" {
     kerlink_password = data.vault_generic_secret.kerlink_credentials.data.password
   }
 }
+
+resource "kubernetes_secret" "tableau_api_credentials" {
+  metadata {
+    name      = "tableau-api-credentials"
+    namespace = kubernetes_namespace.this.metadata.0.name
+  }
+
+  data = {
+    tableau_username = data.vault_generic_secret.tableau_api_credentials.data.username
+    tableau_password = data.vault_generic_secret.tableau_api_credentials.data.password
+  }
+}

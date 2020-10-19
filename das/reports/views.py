@@ -202,7 +202,9 @@ class TableauView(views.APIView):
 
     @staticmethod
     def get_ticket():
-        data = {'username': os.getenv('TABLEAU_USERNAME'), 'target_site': get_sitename() or 'training'}
+        site_name = get_sitename()
+        username = f'{site_name}_tableau_user'
+        data = {'username': username, 'target_site': get_sitename()}
         response = requests.post(url=f'{settings.TABLEAU_SERVER}/trusted', data=data)
         return response.text
 

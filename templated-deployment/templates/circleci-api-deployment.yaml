@@ -132,6 +132,16 @@ spec:
             secretKeyRef:
               name: kerlink-credentials
               key: kerlink_password
+        - name: TABLEAU_API_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: tableau-api-credentials
+              key: tableau_username
+        - name: TABLEAU_API_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: tableau-api-credentials
+              key: tableau_password
         envFrom:
           - configMapRef:
               name: server-configmap

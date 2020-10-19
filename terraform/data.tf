@@ -34,3 +34,8 @@ data "vault_generic_secret" "ubi_api_credentials" {
 data "vault_generic_secret" "kerlink_credentials" {
   path = "${local.legacy_vault_path}/earthranger/kerlink-credentials"
 }
+
+data "vault_generic_secret" "tableau_api_credentials" {
+  path = "${local.legacy_vault_path}/earthranger/tableau-api-credentials"
+}
+
