@@ -101,6 +101,7 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
     patrol_type = PatrolTypeRelatedField(required=False)
     leader = LeaderRelatedField(required=False, allow_null=True)
     scheduled_start = DateTimeField(required=False, allow_null=True)
+    scheduled_end = DateTimeField(required=False, allow_null=True)
     time_range = fields.DateTimeRangeField(required=False, allow_null=True)
     start_location = PointField(required=False, allow_null=True,
                                 validators=[PointValidator()])
@@ -108,6 +109,15 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
                               validators=[PointValidator()])
     image_url = serializers.CharField(read_only=True, required=False)
     icon_id = serializers.CharField(read_only=True, required=False)
+
+    def to_internal_value(self, data):
+        sch_start = data.get('scheduled_start')
+        sch_end = data.get('scheduled_end')
+
+        if sch_start and sch_end and sch_start > sch_end:
+            raise serializers.ValidationError('scheduled_start time has to be earlier than scheduled_end time')
+        return super().to_internal_value(data)
+
 
     @staticmethod
     def resolve_image_url(patrolsegment):
