@@ -90,8 +90,8 @@ class TableauAPI:
 
     def __init__(self):
         self.baseURL = f'{settings.TABLEAU_SERVER}/api/{TABLEAU_VERSION}'
-        self.username = os.getenv('TABLEAU_USERNAME')
-        self.password = os.getenv('TABLEAU_PASSWORD')
+        self.username = os.getenv('TABLEAU_API_USERNAME')
+        self.password = os.getenv('TABLEAU_API_PASSWORD')
         self.user_id = None
         self.site_id = None
         self.token = None
