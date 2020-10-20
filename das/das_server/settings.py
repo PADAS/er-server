@@ -542,3 +542,7 @@ GS_BLOB_CHUNK_SIZE = 10485760
 UBI_API_URL = 'https://api.ubignss.com/position'
 UBI_API_USERNAME = os.getenv('UBI_API_USERNAME', 'username')
 UBI_API_PASSWORD = os.getenv('UBI_API_PASSWORD', 'password')
+
+
+# Kerlink.
+KERLINK_BASEURL = 'https://tanapa.wanesy.com/gms/application'

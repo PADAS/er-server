@@ -15,6 +15,7 @@ from sensors.handlers import (DasRadioAgentHandler, EzyTrackHandler,
                               SigFoxPushHandler, SkylineVehicleTrackerHandler,
                               TestHandler, TractVehicleHandler)
 from sensors.sigfox_foundation_push_handler import SigfoxV1Handler, SigfoxV2Handler
+from sensors.kerlink_push_handler import KerlinkHandler
 from utils.drf import AllowAnyGet
 from utils.json import JSONTextParser
 from utils.stats import increment
@@ -175,3 +176,11 @@ class InreachHandlerView(BaseSensorsView):
     def post(self, request, provider_key=None):
         """ Add Inreach Track Observations """
         return InreachPushHandler.post(request, provider_key)
+
+
+class KerlinkHandlerView(BaseSensorsView):
+    serializer_class = KerlinkHandler.serializer_class
+
+    def post(self, request, provider_key=None):
+        return KerlinkHandler.post(request, provider_key)
+

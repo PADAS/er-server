@@ -86,3 +86,15 @@ resource "kubernetes_secret" "ubi_api_credentials" {
     ubi_password = data.vault_generic_secret.ubi_api_credentials.data.password
   }
 }
+
+resource "kubernetes_secret" "kerlink_credentials" {
+  metadata {
+    name      = "kerlink-credentials"
+    namespace = kubernetes_namespace.this.metadata.0.name
+  }
+
+  data = {
+    kerlink_username = data.vault_generic_secret.kerlink_credentials.data.username
+    kerlink_password = data.vault_generic_secret.kerlink_credentials.data.password
+  }
+}
