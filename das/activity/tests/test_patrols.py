@@ -506,8 +506,8 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.data.get('results')[0].get('title'), patrol_data.get('title'))
 
     def test_patrol_filter_with_past_end_time_but_patrol_not_completed(self):
-        start = self.start_of_today + datetime.timedelta(hours=8)  # 8am
-        end = self.start_of_today + datetime.timedelta(days=2, hours=9)  # 2 days later 9 am
+        start = self.start_of_today - datetime.timedelta(days=2, hours=10)
+        end = self.start_of_today - datetime.timedelta(days=2, hours=5)
         patrol_data = dict(
             title='Test Patrol',
             patrol_segments=[{'time_range': {"start_time": start.isoformat(), "end_time": end.isoformat()}}]
@@ -536,6 +536,29 @@ class TestPatrol(BaseAPITest):
 
         # patrol nolonger returned, completed
         self.assertEqual(response.data.get('count'), 0)
+
+    def test_patrol_filter_cancelled_current_patrols(self):
+        start = self.start_of_today + datetime.timedelta(hours=8)  # 8am
+        patrol_data = dict(
+            title='Patrol To be cancelled',
+            patrol_segments=[{'time_range': {"start_time": start.isoformat()}}]
+        )
+        self._create_patrol(patrol_data)
+
+        # update patrol, cancel
+        patrol = Patrol.objects.get(title=patrol_data['title'])
+        url = reverse('patrol', kwargs={'id': patrol.id})
+        patrol_update_data = dict(state="cancelled")
+
+        self.assertIsNone(patrol.patrol_segments.first().time_range.upper)
+        request = self.factory.patch(url, data=patrol_update_data)
+        self.force_authenticate(request, self.app_user)
+        views.PatrolView.as_view()(request, id=patrol.id)
+
+        response = self._filter_patrol(self.sample_patrol_filter)  # current patrols filter
+        self.assertEqual(response.data.get('count'), 1)
+        self.assertEqual(response.data.get('results')[0].get('title'), patrol_data.get('title'))
+
 
 
     def _filter_patrol(self, filter_query):

@@ -17,10 +17,14 @@ from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import transaction
+<<<<<<< HEAD
 from django.db.models import Q, F, Func, Case, When, Value, CharField, IntegerField, DateTimeField, ExpressionWrapper
 from django.contrib.postgres.fields.ranges import RangeStartsWith
 
 
+=======
+from django.db.models import Q, F, Func, Exists, OuterRef
+>>>>>>> develop
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import dateparse
@@ -1488,16 +1492,18 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
                 patrol_segment__time_range__endswith__isnull=True)
             start_filter = Q(patrol_segment__time_range__startswith__lte=upper) | Q(
                 patrol_segment__scheduled_start__lte=upper)
-            q1 = queryset.filter(start_filter, end_filter)
+            q1 = queryset.filter(start_filter, end_filter).exclude(state=PC_CANCELLED)
 
-            if upper > datetime.datetime.now(tz=pytz.utc):
-                q1 = q1.filter(state="open")
+            # Get patrols cancelled within given range
+            q2 = queryset.annotate(cancel_rev_exists=Exists(
+                Patrol.revision.model.objects.filter(
+                    data__state=PC_CANCELLED, object_id=OuterRef('id'),
+                    data__updated_at__range=(lower.isoformat(), upper.isoformat())))).filter(cancel_rev_exists=True)
 
             # End_date past but patrol still active
-            q2 = queryset.filter(
-                patrol_segment__time_range__endswith__lte=datetime.datetime.today(), state="open")
-
-            queryset = q1 | q2
+            q3 = queryset.filter(
+                patrol_segment__time_range__endswith__lte=datetime.datetime.today(), state=PC_OPEN)
+            queryset = (q1 | q2 | q3).distinct()
 
         elif lower:
             queryset = queryset.filter(
@@ -1667,6 +1673,7 @@ class PatrolSegment(TimestampedModel, RevisionMixin):
                                related_query_name='patrol_segment')
     patrol_type = models.ForeignKey(PatrolType, on_delete=models.SET_NULL, blank=True, null=True)
     scheduled_start = models.DateTimeField(blank=True, null=True)
+    scheduled_end = models.DateTimeField(blank=True, null=True)
     time_range = DateTimeRangeField(null=True, blank=True)
     start_location = models.PointField(srid=4326, blank=True, null=True)
     end_location = models.PointField(srid=4326, blank=True, null=True)

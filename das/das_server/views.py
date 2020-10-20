@@ -7,6 +7,7 @@ from django.db import connection
 from django.shortcuts import render_to_response
 from django.template import RequestContext
 from django.utils import timezone
+from django.db.migrations.recorder import MigrationRecorder
 from rest_framework import generics, serializers
 from rest_framework.permissions import AllowAny, DjangoObjectPermissions
 from rest_framework.schemas.openapi import AutoSchema
@@ -131,6 +132,8 @@ class VersionSerializer(rest_framework.serializers.Serializer):
     eula_enabled = rest_framework.serializers.BooleanField(read_only=True)
     patrol_enabled = rest_framework.serializers.BooleanField(read_only=True)
     site_name = rest_framework.serializers.CharField(read_only=True)
+    last_migration_app = rest_framework.serializers.CharField(read_only=True)
+    last_migration_name = rest_framework.serializers.CharField(read_only=True)
 
 
 class StatusView(generics.RetrieveAPIView):
@@ -165,6 +168,9 @@ class StatusView(generics.RetrieveAPIView):
 
         if parse_bool(self.request.query_params.get('db_connections')):
             resp['db_connection_count'] = self.get_used_db_connections()
+            last_migration = self.get_last_migration()
+            resp['last_migration_app'] = last_migration.app
+            resp['last_migration_name'] = last_migration.name
 
         if parse_bool(self.request.query_params.get('service_status')):
             resp['services'] = servicesutils.get_source_provider_statuses()
@@ -183,3 +189,6 @@ class StatusView(generics.RetrieveAPIView):
                 return copy.copy(settings.EUS_SETTINGS)
         except (KeyError, AttributeError):
             pass
+
+    def get_last_migration(self):
+        return MigrationRecorder.Migration.objects.latest('id')

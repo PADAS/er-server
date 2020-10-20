@@ -18,7 +18,7 @@ spec:
     spec:
       imagePullSecrets:
         - name: gcr-secret
-      # Mount secrets 
+      # Mount secrets
       volumes:
       - name: google-credentials
         secret:
@@ -47,7 +47,7 @@ spec:
         readinessProbe:
           httpGet:
             httpHeaders:
-            - name: Host 
+            - name: Host
               value: '${FQDN}'
             path: '/api/v1.0/status?db_connections=true'
             port: 8000
@@ -59,7 +59,7 @@ spec:
         livenessProbe:
           httpGet:
             httpHeaders:
-            - name: Host 
+            - name: Host
               value: '${FQDN}'
             path: '/api/v1.0/status?db_connections=true'
             port: 8000
@@ -122,6 +122,16 @@ spec:
             secretKeyRef:
               name: ubi-api-credentials
               key: ubi_password
+        - name: KERLINK_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: kerlink-credentials
+              key: kerlink_username
+        - name: KERLINK_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kerlink-credentials
+              key: kerlink_password
         envFrom:
           - configMapRef:
               name: server-configmap

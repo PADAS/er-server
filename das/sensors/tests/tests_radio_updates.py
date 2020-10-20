@@ -72,7 +72,6 @@ class RadioObservationTest(BaseAPITest):
 
         self.force_authenticate(request, self.testuser)
         response = RadioAgentHandlerView.as_view()(request, provider)
-
         self.assertEqual(response.status_code, 201)
 
     @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
@@ -129,3 +128,54 @@ class RadioObservationTest(BaseAPITest):
 
         track_properties = response.data['features'][0]['properties']
         self.assertEqual('online-gps', track_properties['radio_state'])
+
+    @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
+    def test_post_new_radio_for_inactive_subject(self):
+        provider = 'lewa-trbonet'
+        recorded_time = datetime.now(tz=pytz.utc)
+        subject_name = 'Sierra 12'
+
+        last_voice_call_start_at = recorded_time
+        location_requested_at = recorded_time - timedelta(minutes=10)
+
+        data = dict(message_key='observation',
+                    manufacturer_id='trbonet-000001',
+                    source_type='gps-radio',
+                    subject_name=subject_name,
+                    recorded_at=recorded_time,
+                    location={'lon': -122.4, 'lat': 47.6},
+                    additional={
+                        'event_action': 'device_location_changed',
+                        'radio_state': 'online-gps',
+                        'radio_state_at': datetime.now(tz=pytz.utc).isoformat(),
+                        'last_voice_call_start_at': last_voice_call_start_at.isoformat(),
+                        'location_requested_at': location_requested_at.isoformat()
+                    })
+
+        path = '/'.join([self.api_base, 'sensors', self.sensor_type, provider, 'status'])
+        request = self.factory.post(path, data=data)
+        self.force_authenticate(request, self.testuser)
+        response = RadioAgentHandlerView.as_view()(request, provider)
+        self.assertEqual(response.status_code, 201)
+
+        # mark the subject inactive.
+        Subject.objects.filter(name=subject_name).update(is_active=False)
+
+        recorded_time = datetime.now(tz=pytz.utc) + timedelta(minutes=5)
+        data['recorded_at'] = recorded_time
+        data['location'] = {'lon': -124.4, 'lat': 49.6}
+        data['radio_state_at'] = recorded_time
+        data['radio_state_at'] = 'online'
+        data['last_voice_call_start_at'] = recorded_time.isoformat()
+        data['location_requested_at'] = (recorded_time - timedelta(minutes=10)).isoformat()
+
+        request = self.factory.post(path, data=data)
+        self.force_authenticate(request, self.testuser)
+        response = RadioAgentHandlerView.as_view()(request, provider)
+        self.assertEqual(response.status_code, 201)
+
+        # subject-status is created/updated for inactive subject.
+        ss = SubjectStatus.objects.get(subject__name=subject_name, delay_hours=0)
+        self.assertEqual(set(ss.location.coords), set(data['location'].values()))
+        self.assertEqual(ss.recorded_at.isoformat(), data['recorded_at'].isoformat())
+
