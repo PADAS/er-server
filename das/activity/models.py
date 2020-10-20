@@ -17,14 +17,8 @@ from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import transaction
-<<<<<<< HEAD
-from django.db.models import Q, F, Func, Case, When, Value, CharField, IntegerField, DateTimeField, ExpressionWrapper
+from django.db.models import Q, F, Func, Exists, OuterRef, Case, When, Value, CharField, IntegerField, DateTimeField, ExpressionWrapper
 from django.contrib.postgres.fields.ranges import RangeStartsWith
-
-
-=======
-from django.db.models import Q, F, Func, Exists, OuterRef
->>>>>>> develop
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import dateparse
