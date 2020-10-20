@@ -42,8 +42,12 @@ def start(realtime_server):
                 subject_id = None
 
         if subject_id:
-            celery.app.send_task('rt_api.tasks.handle_new_subject_observation',
-                                 args=(subject_id,))
+            from observations.models import Subject
+            try:
+                if Subject.objects.get(id=subject_id).is_active:
+                    celery.app.send_task('rt_api.tasks.handle_new_subject_observation', args=(subject_id,))
+            except Subject.DoesNotExist:
+                pass
 
     def subjectstatus_update_handler(data, message):
         logger.debug('das.subjectstatus.update %s', data)
