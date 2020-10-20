@@ -79,8 +79,8 @@ class IsSuperAdminUser(permissions.BasePermission):
 
 def get_sitename():
     server_fqdn = settings.SERVER_FQDN
-    name_site = server_fqdn.split('.') if len(server_fqdn.split('.')) > 1 else ''
-    return name_site[0]
+    name_site = server_fqdn.split('.')[0] if len(server_fqdn.split('.')) > 1 else ''
+    return name_site
 
 
 TABLEAU_VERSION = 3.9
@@ -95,7 +95,7 @@ class TableauAPI:
         self.user_id = None
         self.site_id = None
         self.token = None
-        self.contenturl = get_sitename() or 'training'
+        self.contenturl = get_sitename()
         self.headers = {'content-type': 'application/json', 'accept': 'application/json'}
         self.personal_access_token()
 
@@ -103,7 +103,7 @@ class TableauAPI:
         """
         POST /api/api-version/auth/signin
         """
-        f'{self.baseURL}/auth/signin'
+        url = f'{self.baseURL}/auth/signin'
         data = {
             "credentials": {
                 "name": self.username,
@@ -113,23 +113,35 @@ class TableauAPI:
                 }
             }
         }
-        response = requests.post(f'{self.baseURL}/auth/signin', json=data, headers=self.headers)
-        response = json.loads(response.text)
+        try:
+            response = requests.post(url, json=data, headers=self.headers)
+        except requests.exceptions.ConnectionError as cn:
+            logger.exception(f"ConnectionFailure: {cn} occured for endpoint: {url}")
+        except requests.exceptions.RequestException as exc:
+            logger.exception(f"Exception raised: {exc} when processing request: {url}")
+        else:
+            response = json.loads(response.text)
 
-        error = response.get('error')
-        credentials = response.get('credentials')
-        if error:
-            logger.info(f"Authentication failed with: {error}")
-        elif credentials:
-            self.user_id = credentials['user'].get('id')
-            self.token = credentials['token']
-            self.site_id = credentials['site'].get('id')
+            error = response.get('error')
+            credentials = response.get('credentials')
+            if error:
+                logger.info(f"Authentication failed with error: {error}")
+            elif credentials:
+                self.user_id = credentials['user'].get('id')
+                self.token = credentials['token']
+                self.site_id = credentials['site'].get('id')
 
     def make_get_request(self, path_component):
         self.headers['X-Tableau-Auth'] = f'{self.token}'
         url = f'{self.baseURL}/{path_component}'
-        response = requests.get(url, headers=self.headers)
-        return response
+        try:
+            response = requests.get(url, headers=self.headers)
+        except requests.exceptions.ConnectionError as cn:
+            return json.dumps({'error': {'Summary': 'Connection Error', 'detail': f'{cn}'}})
+        except requests.exceptions.RequestException as exc:
+            return json.dumps({'error': {'Summary': 'RequestException Error', 'detail': f'{exc}'}})
+        else:
+            return response.text
 
     def get_views_site(self, site_id):
         """
@@ -138,7 +150,7 @@ class TableauAPI:
         """
         path = f'sites/{site_id}/views?pageSize=1000'
         response = self.make_get_request(path)
-        return response.text
+        return response
 
     def get_workbook(self, site_id, workbook_id):
         """
@@ -147,7 +159,7 @@ class TableauAPI:
         """
         path = f'sites/{site_id}/workbooks/{workbook_id}'
         response = self.make_get_request(path)
-        return response.text
+        return response
 
     def get_view_specific_view(self, site_id, view_id):
         """
@@ -156,7 +168,7 @@ class TableauAPI:
         """
         path = f'sites/{site_id}/views/{view_id}'
         response = self.make_get_request(path)
-        return response.text
+        return response
 
     def get_site(self, site_id):
         """
@@ -165,7 +177,7 @@ class TableauAPI:
         """
         path = f'sites/{site_id}'
         response = self.make_get_request(path)
-        return response.text
+        return response
 
 
 class TableauView(views.APIView):
@@ -186,7 +198,13 @@ class TableauView(views.APIView):
         view_urlname = view.get('viewUrlName') if view else None
 
         response = json.loads(instance.get_workbook(site_id, workbook_id))
+        if not response.get('workbook'):
+            return Response(response)
+
         site_response = json.loads(instance.get_site(site_id))
+        if not site_response.get('site'):
+            return Response(site_response)
+
         site_name = site_response['site']['name']
         workbook_contenturl = response['workbook']['contentUrl']
 
