@@ -40,6 +40,7 @@ locals {
     "gotcha"                 = "prod1"
     "grumeti"                = "prod1"
     "hello-asia"             = "prod-asia"
+    "kafueccigri"            = "prod1"
     "karingani"              = "prod1"
     "kapama"                 = "prod1"
     "lewa"                   = "prod1"
@@ -138,6 +139,7 @@ locals {
     "tapirreserve"       = 1
     "dinokeng"           = 1
     "chinko"             = 1
+    "kafueccigri"        = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
