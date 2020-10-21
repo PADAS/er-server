@@ -6,6 +6,7 @@ locals {
   this_workspaces_to_infra_workspaces = {
     # if not here, the lookup has a default
     "aberdares"              = "prod1"
+    "abokouamekro"           = "prod1"
     "africanparks"           = "prod1"
     "akagera"                = "prod1"
     "amakhala"               = "prod1"
@@ -144,6 +145,7 @@ locals {
     "kafueccigri"        = 1
     "owlrhinos"          = 1
     "greatercoa"         = 1
+    "abokouamekro"       = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
