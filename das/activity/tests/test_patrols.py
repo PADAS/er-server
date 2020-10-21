@@ -704,8 +704,13 @@ class TestPatrol(BaseAPITest):
         cancel_readytostart2 = dict(title='cancelled readytostart_control', state="cancelled",
                                    patrol_segments=[{'scheduled_start': ahead_control.isoformat()}])
 
+        active_patrol0 = dict(title='active B',
+                             patrol_segments=[{'time_range': {'start_time': now.isoformat()},
+                                               'scheduled_start': lookback.isoformat()}])
+
         active_patrol = dict(title='active',
                              patrol_segments=[{'time_range': {'start_time': now.isoformat()}}])
+
         active_patrol2 = dict(title='active_control',
                              patrol_segments=[{'time_range': {'start_time': active_control.isoformat()}}])
 
@@ -716,14 +721,14 @@ class TestPatrol(BaseAPITest):
 
 
 
-        [self._create_patrol(patrol) for patrol in [done_patrol2, cancel_readytostart, future_patrol, overdue_patrol, active_patrol, done_patrol, cancel_readytostart2, active_patrol2]]
+        [self._create_patrol(patrol) for patrol in [done_patrol2, cancel_readytostart, future_patrol, overdue_patrol, active_patrol, done_patrol, active_patrol0, cancel_readytostart2, active_patrol2]]
 
         request = self.factory.get(self.api_base + '/patrols/')
         self.force_authenticate(request, self.app_user)
         response = views.PatrolsView.as_view()(request)
         assert response.status_code == 200
 
-        expected = ['overdue patrol', 'future patrol', 'active_control', 'active',
+        expected = ['overdue patrol', 'future patrol', 'active_control', 'active', 'active B',
                     'done A', 'done B', 'cancelled readytostart', 'cancelled readytostart_control']
         results = [p.get('title') for p in response.data['results']]
 
