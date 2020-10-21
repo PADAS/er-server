@@ -1513,7 +1513,8 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
                 When(Q(patrol_segment__time_range__startswith=RangeStartsWith(F('patrol_segment__time_range')),
                        state=PC_OPEN), then=F('patrol_segment__time_range')), default=None, output_field=DateTimeField()),
             scheduled=Case(
-                When(Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state=PC_OPEN),
+                When(Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state=PC_OPEN) &
+                     Q(patrol_segment__time_range__startswith__isnull=True),
                      then=F('patrol_segment__scheduled_start')), default=None, output_field=DateTimeField())
         ).order_by(Case(When(state=PC_OPEN, then=Value(1)),
                         When(state=PC_DONE, then=Value(2)),
