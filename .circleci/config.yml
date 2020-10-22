@@ -116,7 +116,7 @@ executors:
     docker:
       - image: 'circleci/python:3.6.4'
         auth:
-              username: daumie
+              username: erdockerhub
               password: $DOCKERHUB_PASSWORD
 jobs:
   check_for_abandoned_workspaces:
