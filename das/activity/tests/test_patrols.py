@@ -721,14 +721,14 @@ class TestPatrol(BaseAPITest):
 
 
 
-        [self._create_patrol(patrol) for patrol in [done_patrol2, cancel_readytostart, future_patrol, overdue_patrol, active_patrol, done_patrol, active_patrol0, cancel_readytostart2, active_patrol2]]
+        [self._create_patrol(patrol) for patrol in [done_patrol2, cancel_readytostart, future_patrol, overdue_patrol, active_patrol0, active_patrol, done_patrol,  cancel_readytostart2, active_patrol2]]
 
         request = self.factory.get(self.api_base + '/patrols/')
         self.force_authenticate(request, self.app_user)
         response = views.PatrolsView.as_view()(request)
         assert response.status_code == 200
 
-        expected = ['overdue patrol', 'future patrol', 'active_control', 'active', 'active B',
+        expected = ['overdue patrol', 'future patrol', 'active',  'active B', 'active_control',
                     'done A', 'done B', 'cancelled readytostart', 'cancelled readytostart_control']
         results = [p.get('title') for p in response.data['results']]
 
