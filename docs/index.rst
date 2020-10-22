@@ -23,6 +23,7 @@ Contents:
    :caption: Documentation
     
    faq
+   topics/architecture
    topics/browser-and-os-support
    topics/maps
    topics/sensors
