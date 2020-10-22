@@ -104,13 +104,13 @@ executors:
     docker:
       - image: 'google/cloud-sdk:269.0.0'
         auth:
-              username: daumie
+              username: erdockerhub
               password: $DOCKERHUB_PASSWORD
   circleci_executor:
     docker:
       - image: 'circleci/buildpack-deps:stretch'
         auth:
-              username: daumie
+              username: erdockerhub
               password: $DOCKERHUB_PASSWORD
   docs_executor:
     docker:
