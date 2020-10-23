@@ -38,7 +38,7 @@ from accounts.models import User
 from activity.filters import EventObjectPermissionsFilter
 from activity.models import Event, EventNote, EventClass, \
     EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, \
-    EventFile, Community, \
+    EventFile, Community, StateFilters, \
     EventFilter, EventSource, EventProvider, PatrolType, Patrol, PatrolSegment
 from activity.permissions import EventCategoryPermissions, \
     EventNotesCategoryPermissions, IsOwner
@@ -1129,6 +1129,16 @@ class PatrolsView(generics.ListCreateAPIView):
     serializer_class = PatrolSerializer
     schema = PatrolSchema()
 
+    def get(self, request, *args, **kwargs):
+        state_filters = self.request.query_params.getlist('state', None)
+        if state_filters:
+            allowed_state_filters = [e.value for e in StateFilters]
+            if not (set(state_filters) <= set(allowed_state_filters)):
+                return Response(
+                    data={'error': f'Only states: {", ".join(allowed_state_filters)} allowed for filtering'},
+                    status=status.HTTP_400_BAD_REQUEST)
+        return super().get(request, *args, **kwargs)
+
     def get_queryset(self):
 
         queryset = Patrol.objects.all()
@@ -1142,8 +1152,20 @@ class PatrolsView(generics.ListCreateAPIView):
                 logger.exception(
                     'Invalid filter expression. filter=%s', patrol_filter)
                 raise
-        return queryset.sort_patrols()
 
+        patrol_type = query_params.getlist('patrol_type', None)
+        if patrol_type:
+            queryset = queryset.by_patrol_type(patrol_type)
+
+        state = query_params.getlist('state', None)
+        if state:
+            queryset = queryset.by_state(state)
+
+        subject = query_params.getlist('subject', None)
+        if subject:
+            queryset = queryset.by_subject(subject)
+
+        return queryset.sort_patrols()
 
 class PatrolView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
