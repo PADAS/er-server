@@ -68,7 +68,7 @@ def arcgis_integration(request, obj):
 def search_groups(gis, obj, request):
     # search for groups only within the user's org if serchtext blank/empty else search for groups outside
     # the user's org as well.
-    if not obj.search_text:
+    if obj.search_text:
         groups = gis.groups.search(query=obj.search_text, outside_org=True, max_groups=100)
         if not groups:
             error_message = "No matches could be found for the search text specified. Please try again."
