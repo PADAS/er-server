@@ -455,9 +455,7 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
 
             params = {'config_name': obj.config_name,
                       'search_text': obj.search_text,
-                      'username': obj.username,
-                      'password': obj.password,
-                      }
+                      'username': obj.username}
             redirect_url = construct_url_param(redirect_url, params)
             return HttpResponseRedirect(redirect_url)
         else:
