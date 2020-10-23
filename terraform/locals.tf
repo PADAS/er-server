@@ -6,6 +6,7 @@ locals {
   this_workspaces_to_infra_workspaces = {
     # if not here, the lookup has a default
     "aberdares"              = "prod1"
+    "abokouamekro"           = "prod1"
     "africanparks"           = "prod1"
     "akagera"                = "prod1"
     "amakhala"               = "prod1"
@@ -38,8 +39,10 @@ locals {
     "gonarezhou"             = "prod1"
     "gorongosa"              = "prod1"
     "gotcha"                 = "prod1"
+    "greatercoa"             = "prod1"
     "grumeti"                = "prod1"
     "hello-asia"             = "prod-asia"
+    "kafueccigri"            = "prod1"
     "karingani"              = "prod1"
     "kapama"                 = "prod1"
     "lewa"                   = "prod1"
@@ -73,6 +76,7 @@ locals {
     "odzala"                 = "prod1"
     "oljogi"                 = "prod1"
     "olpejeta"               = "prod1"
+    "owlrhinos"              = "prod1"
     "parcw"                  = "prod1"
     "pendjari"               = "prod1"
     "pinelands"              = "prod1"
@@ -86,6 +90,7 @@ locals {
     "snowleopardtrust"       = "prod-asia"
     "socp"                   = "prod-asia"
     "somkhanda"              = "prod1"
+    "southerncarpathians"    = "prod1"
     "spaceforgiants"         = "prod1"
     "ste"                    = "prod1"
     "tapirreserve"           = "prod1"
@@ -113,31 +118,36 @@ locals {
 
   workspace_to_database_instance = {
     # if not here, the lookup has a default
-    "meru"               = 1
-    "aberdares"          = 1
-    "baminguibangoran"   = 1
-    "serengeti"          = 1
-    "mapesu"             = 1
-    "niassawcs"          = 1
-    "northluangwa"       = 1
-    "ngorongoro"         = 1
-    "velebit"            = 1
-    "ndoki"              = 1
-    "grumeti"            = 1
-    "mep"                = 1
-    "pinelands"          = 1
-    "loisaba"            = 1
-    "apr"                = 1
-    "ste"                = 1
-    "somkhanda"          = 1
-    "isiolo"             = 1
-    "chadreintroduction" = 1
-    "csl"                = 1
-    "lewa"               = 1
-    "kapama"             = 1
-    "tapirreserve"       = 1
-    "dinokeng"           = 1
-    "chinko"             = 1
+    "meru"                = 1
+    "aberdares"           = 1
+    "baminguibangoran"    = 1
+    "serengeti"           = 1
+    "mapesu"              = 1
+    "niassawcs"           = 1
+    "northluangwa"        = 1
+    "ngorongoro"          = 1
+    "velebit"             = 1
+    "ndoki"               = 1
+    "grumeti"             = 1
+    "mep"                 = 1
+    "pinelands"           = 1
+    "loisaba"             = 1
+    "apr"                 = 1
+    "ste"                 = 1
+    "somkhanda"           = 1
+    "isiolo"              = 1
+    "chadreintroduction"  = 1
+    "csl"                 = 1
+    "lewa"                = 1
+    "kapama"              = 1
+    "tapirreserve"        = 1
+    "dinokeng"            = 1
+    "chinko"              = 1
+    "kafueccigri"         = 1
+    "owlrhinos"           = 1
+    "greatercoa"          = 1
+    "abokouamekro"        = 1
+    "southerncarpathians" = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
