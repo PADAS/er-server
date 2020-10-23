@@ -1542,7 +1542,7 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             if state == PC_CANCELLED:
                 q5 = self.filter(state=PC_CANCELLED)
 
-        return q1.union(q2, q3, q4, q5)
+        return (q1 | q2 | q3 | q4 | q5).distinct()
 
     def by_subject(self, subject):
         return self.filter_field('patrol_segment__leader_id', subject)
