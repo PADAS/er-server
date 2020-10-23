@@ -65,7 +65,7 @@ def arcgis_integration(request, obj):
         return acrgis_groups_found
 
 
-def search_groups(gis, obj, request):
+def search_groups(gis, obj, request=None):
     # search for groups only within the user's org if serchtext blank/empty else search for groups outside
     # the user's org as well.
     if obj.search_text:
