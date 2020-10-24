@@ -123,6 +123,8 @@ class VersionSerializer(rest_framework.serializers.Serializer):
 
     alerts_enabled = rest_framework.serializers.BooleanField(
         read_only=True)
+    tableau_enabled = rest_framework.serializers.BooleanField(
+        read_only=True)
 
     services = rest_framework.serializers.ListField(read_only=True)
 
@@ -156,6 +158,7 @@ class StatusView(generics.RetrieveAPIView):
         resp['daily_report_enabled'] = settings.DAILY_REPORT_ENABLED
 
         resp['alerts_enabled'] = settings.ALERTS_ENABLED and has_alerts_permissionset(self.request.user)
+        resp['tableau_enabled'] = self.request.user.is_superuser
 
         resp['server_timezone_name'] = timezone.get_current_timezone_name()
         resp['server_timezone'] = timezone.localtime().strftime('%Z')
