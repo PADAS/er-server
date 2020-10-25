@@ -108,5 +108,6 @@ resource "kubernetes_secret" "tableau_api_credentials" {
   data = {
     tableau_username = data.vault_generic_secret.tableau_api_credentials.data.username
     tableau_password = data.vault_generic_secret.tableau_api_credentials.data.password
+    tableau_token = data.vault_generic_secret.tableau_api_credentials.data.token
   }
 }

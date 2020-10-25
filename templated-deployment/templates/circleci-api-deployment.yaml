@@ -142,6 +142,11 @@ spec:
             secretKeyRef:
               name: tableau-api-credentials
               key: tableau_password
+        - name: TABLEAU_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: tableau-api-credentials
+              key: tableau_token
         envFrom:
           - configMapRef:
               name: server-configmap
