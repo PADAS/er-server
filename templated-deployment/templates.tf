@@ -61,5 +61,6 @@ resource "template_dir" "deployments" {
     PATROL_ENABLED                  = var.patrol_enabled
     SUBJECT_REGION_ENABLED          = var.subject_region_enabled
     TABLEAU_SITE_ID                 = var.tableau_site_id
+    TABLEAU_DEFAULT_DASHBOARD       = var.tableau_default_dashboard
   }
 }

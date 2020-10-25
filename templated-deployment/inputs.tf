@@ -186,3 +186,8 @@ variable "tableau_site_id" {
   type    = string
   default = ""
 }
+
+variable "tableau_default_dashboard" {
+  type     = string
+  default = "Dashboard1" 
+}
