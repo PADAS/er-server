@@ -20,14 +20,14 @@ environ.Env.read_env()
 
 # Let CACHES depend on settings.CELERY_ configuration.
 CACHES = {
-   'default': {
-      "BACKEND": "django_redis.cache.RedisCache",
-      "LOCATION": CELERY_BROKER_URL,
-      "OPTIONS": {
+    'default': {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": CELERY_BROKER_URL,
+        "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient"
-      },
-      "KEY_PREFIX": "django"
-   }
+        },
+        "KEY_PREFIX": "django"
+    }
 }
 
 MEDIA_ROOT = '/user-uploads'
@@ -42,14 +42,16 @@ TEMPLATE_DEBUG = env.bool('ENABLE_DEBUG', False)
 DEV = env.bool('ENABLE_DEV', False)
 
 SHOW_TRACK_DAYS = env.int('SHOW_TRACK_DAYS', 14)
-SHOW_STATIONARY_SUBJECTS_ON_MAP = env.bool('SHOW_STATIONARY_SUBJECTS_ON_MAP', False)
+SHOW_STATIONARY_SUBJECTS_ON_MAP = env.bool(
+    'SHOW_STATIONARY_SUBJECTS_ON_MAP', False)
 
 TIME_ZONE = env.str('TIME_ZONE', 'US/Pacific')
 
 SERVER_FQDN = env.str('FQDN', '')
 
 # Build a list to include legacy names for APN, FZS and WPS sites. This will be temporary
-# during a period when clients and users might still be browsing to our old partner sub-domains.
+# during a period when clients and users might still be browsing to our
+# old partner sub-domains.
 SERVER_NAMES = [
     SERVER_FQDN,
     SERVER_FQDN.replace('pamdas.org', 'apn.pamdas.org'),
@@ -66,7 +68,8 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_ALLOW_ALL = env.bool('CORS_ORIGIN_ALLOW_ALL', False)
 
 # Rest and realtime API allowed hosts.
-CORS_ORIGIN_WHITELIST = [f'{prefix}{servername}' for servername in SERVER_NAMES for prefix in ('', 'http://', 'https://')]
+CORS_ORIGIN_WHITELIST = [
+    f'{prefix}{servername}' for servername in SERVER_NAMES for prefix in ('', 'http://', 'https://')]
 
 
 CORS_REPLACE_HTTPS_REFERER = env.bool('CORS_REPLACE_HTTPS_REFERER', True)
@@ -100,10 +103,10 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
         'NAME': env.str('DB_NAME', 'das'),
-        'USER': env.str('DB_USER','das'),
+        'USER': env.str('DB_USER', 'das'),
         'HOST': env.str('DB_HOST', 'postgis'),
         'PORT': env.str('DB_PORT', '5432'),
-        'PASSWORD': env.str('DB_PASSWORD','password'),
+        'PASSWORD': env.str('DB_PASSWORD', 'password'),
     },
 }
 
@@ -139,7 +142,8 @@ if DEV:
     DEBUG_TOOLBAR_APP = 'debug_toolbar.middleware.DebugToolbarMiddleware'
     if 'debug_toolbar' in INSTALLED_APPS and DEBUG_TOOLBAR_APP not in MIDDLEWARE:
         DEBUG = DEV = True
-        atindex = MIDDLEWARE.index('django.contrib.sessions.middleware.SessionMiddleware') + 1
+        atindex = MIDDLEWARE.index(
+            'django.contrib.sessions.middleware.SessionMiddleware') + 1
         MIDDLEWARE = list(MIDDLEWARE)
         MIDDLEWARE.insert(atindex, DEBUG_TOOLBAR_APP)
         MIDDLEWARE = tuple(MIDDLEWARE)
@@ -157,3 +161,10 @@ WHATSAPP_FROM_NUMBER = env.str('WHATSAPP_FROM_NUMBER', None)
 SENDSMS_TWILIO_FROM_NUMBER = env.str('SENDSMS_TWILIO_FROM_NUMBER', None)
 if SENDSMS_TWILIO_FROM_NUMBER:
     SENDSMS_BACKEND = 'utils.smsbackend.TwilioSmsBackend'
+
+TABLEAU_API_USERNAME = env.str('TABLEAU_API_USERNAME', None)
+TABLEAU_API_PASSWORD = env.str('TABLEAU_API_PASSWORD', None)
+TABLEAU_API_TOKEN = env.str('TABLEAU_API_TOKEN', None)
+TABLEAU_DEFAULT_DASHBOARD = env.str('TABLEAU_DEFAULT_DASHBOARD', None)
+# allow to override for testing
+TABLEAU_SITE_ID = env.str('TABLEAU_SITE_ID', None)

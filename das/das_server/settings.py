@@ -292,8 +292,8 @@ SWAGGER_SETTINGS = {
 }
 
 OAUTH2_PROVIDER = {'ACCESS_TOKEN_EXPIRE_SECONDS': 3600 * 48,    # two days
-                   'REFRESH_TOKEN_EXPIRE_SECONDS': 31*24*3600,  # one month
-                  }
+                   'REFRESH_TOKEN_EXPIRE_SECONDS': 31 * 24 * 3600,  # one month
+                   }
 
 # RT API settings
 ASYNC_MODE = 'eventlet'
@@ -372,7 +372,8 @@ SENDSMS_FROM = None
 SENDSMS_AFRICAS_TALKING_USERNAME = ''
 SENDSMS_AFRICAS_TALKING_API_KEY = ''
 
-# use these when you don't want to send SMS from kenya or when you want to use WhatsApp
+# use these when you don't want to send SMS from kenya or when you want to
+# use WhatsApp
 TWILIO_ACCOUNT_SID = ''
 TWILIO_AUTH_TOKEN = ''
 WHATSAPP_FROM_NUMBER = ''
@@ -530,7 +531,7 @@ GFW_CREDENTIALS = {
     'username': 'support@pamdas.org',
     'password': 'ns2S#@Bh3V&W2eR17Ru8'
 }
-GFW_CLUSTER_RADIUS = 5 # kilometers
+GFW_CLUSTER_RADIUS = 5  # kilometers
 
 METRICS_BUCKET = "er-site-metrics"
 
@@ -549,3 +550,8 @@ KERLINK_BASEURL = 'https://tanapa.wanesy.com/gms/application'
 
 # Tableau Server:
 TABLEAU_SERVER = 'https://tableau.pamdas.org'
+TABLEAU_VERSION = 3.9
+TABLEAU_API_TOKEN = None
+TABLEAU_API_USERNAME = "ER Server"
+TABLEAU_API_PASSWORD = None
+TABLEAU_DEFAULT_DASHBOARD = "Dashboard1"
