@@ -88,7 +88,7 @@ def get_tableau_site_id():
         str: the tableau site id
     """
     try:
-        return settings.TABLEAU_SITEID if settings.TABLEAU_SITEID else get_site_name()
+        return settings.TABLEAU_SITE_ID if settings.TABLEAU_SITE_ID else get_site_name()
     except AttributeError:
         pass
     return get_site_name()
