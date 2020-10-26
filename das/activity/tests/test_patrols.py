@@ -806,3 +806,46 @@ class TestPatrol(BaseAPITest):
 
         for exp, actual in zip(expected, results):
             self.assertEqual(exp, actual)
+
+    def test_sort_overdue_readytostart_only_alphabetically(self):
+        Patrol.objects.all().delete()
+
+        now = datetime.datetime.now(tz=pytz.utc)
+
+        lookback = now - datetime.timedelta(minutes=35)
+        second_lookback = now - datetime.timedelta(minutes=40)
+        third_lookback = now - datetime.timedelta(minutes=50)
+
+        first_scheduled = now + datetime.timedelta(minutes=10)
+        second_scheduled = now + datetime.timedelta(hours=6)
+        third_scheduled = now + datetime.timedelta(days=1)
+
+        overdue_patrol = dict(title='C overdue',
+                              patrol_segments=[{'scheduled_start': lookback.isoformat()}])
+        overdue_patrol2 = dict(title='B overdue',
+                               patrol_segments=[{'scheduled_start': second_lookback.isoformat()}])
+        overdue_patrol3 = dict(title='A overdue',
+                               patrol_segments=[{'scheduled_start': third_lookback.isoformat()}])
+
+
+        ready_patrol = dict(title='C readytostart',
+                              patrol_segments=[{'scheduled_start': first_scheduled.isoformat()}])
+        ready_patrol2 = dict(title='B readytostart',
+                               patrol_segments=[{'scheduled_start': second_scheduled.isoformat()}])
+        ready_patrol3 = dict(title='A readytostart',
+                               patrol_segments=[{'scheduled_start': third_scheduled.isoformat()}])
+
+        [self._create_patrol(patrol) for patrol in [ready_patrol, ready_patrol2, ready_patrol3, overdue_patrol, overdue_patrol2, overdue_patrol3]]
+
+        request = self.factory.get(self.api_base + '/patrols/')
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        assert response.status_code == 200
+
+        expected = ['A overdue', 'B overdue', 'C overdue', 'A readytostart', 'B readytostart', 'C readytostart']
+        results = [p.get('title') for p in response.data['results']]
+        for exp, actual in zip(expected, results):
+            self.assertEqual(exp, actual)
+
+
+

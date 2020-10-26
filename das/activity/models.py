@@ -1548,18 +1548,18 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         return self.filter_field('patrol_segment__leader_id', subject)
 
     def sort_patrols(self):
-        now = datetime.datetime.now(tz=pytz.utc)
+        set_time = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(minutes=30)
         return self.annotate(
             start_overdue=Case(
                 When(Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state=PC_OPEN) &
                      Q(patrol_segment__time_range__startswith__isnull=True) &
-                     Q(patrol_segment__scheduled_start__lt=now),
-                     then=F('title')), default=None, output_field=DateTimeField()),
+                     Q(patrol_segment__scheduled_start__lt=set_time),
+                     then=F('title')), default=None),
             readyto_start=Case(
                 When(Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state=PC_OPEN) &
                      Q(patrol_segment__time_range__startswith__isnull=True) &
-                     Q(patrol_segment__scheduled_start__gte=now),
-                     then=F('title')), default=None, output_field=DateTimeField())
+                     Q(patrol_segment__scheduled_start__gte=set_time),
+                     then=F('title')), default=None)
         ).order_by(Case(When(state=PC_OPEN, then=Value(1)),
                         When(state=PC_DONE, then=Value(2)),
                         When(state=PC_CANCELLED, then=Value(3)),
