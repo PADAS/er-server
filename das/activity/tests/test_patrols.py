@@ -754,6 +754,8 @@ class TestPatrol(BaseAPITest):
         now = datetime.datetime.now(tz=pytz.utc)
 
         lookback = now - datetime.timedelta(minutes=28)
+        lookback2 = now - datetime.timedelta(minutes=10)
+
         future_scheduled = lookback + datetime.timedelta(days=20)
 
         now = datetime.datetime.now(tz=pytz.utc)
@@ -764,6 +766,8 @@ class TestPatrol(BaseAPITest):
 
         overdue_patrol = dict(title='overdue patrol',
                               patrol_segments=[{'scheduled_start': lookback.isoformat()}])
+        overdue_patrol2 = dict(title='my overdue patrol',
+                              patrol_segments=[{'scheduled_start': lookback2.isoformat()}])
         future_patrol = dict(title='future patrol',
                                patrol_segments=[{'scheduled_start': future_scheduled.isoformat()}])
 
@@ -789,14 +793,14 @@ class TestPatrol(BaseAPITest):
 
 
 
-        [self._create_patrol(patrol) for patrol in [done_patrol2, cancel_readytostart, future_patrol, overdue_patrol, active_patrol0, active_patrol, done_patrol,  cancel_readytostart2, active_patrol2]]
+        [self._create_patrol(patrol) for patrol in [done_patrol2, cancel_readytostart, future_patrol, overdue_patrol,  overdue_patrol2, active_patrol0, active_patrol, done_patrol,  cancel_readytostart2, active_patrol2]]
 
         request = self.factory.get(self.api_base + '/patrols/')
         self.force_authenticate(request, self.app_user)
         response = views.PatrolsView.as_view()(request)
         assert response.status_code == 200
 
-        expected = ['overdue patrol', 'future patrol', 'active',  'active B', 'active_control',
+        expected = ['my overdue patrol', 'overdue patrol', 'future patrol', 'active',  'active B', 'active_control',
                     'done A', 'done B', 'cancelled readytostart', 'cancelled readytostart_control']
         results = [p.get('title') for p in response.data['results']]
 

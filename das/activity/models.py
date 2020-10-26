@@ -1548,15 +1548,22 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         return self.filter_field('patrol_segment__leader_id', subject)
 
     def sort_patrols(self):
+        now = datetime.datetime.now(tz=pytz.utc)
         return self.annotate(
-            scheduled=Case(
+            start_overdue=Case(
                 When(Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state=PC_OPEN) &
-                     Q(patrol_segment__time_range__startswith__isnull=True),
-                     then=F('patrol_segment__scheduled_start')), default=None, output_field=DateTimeField())
+                     Q(patrol_segment__time_range__startswith__isnull=True) &
+                     Q(patrol_segment__scheduled_start__lt=now),
+                     then=F('title')), default=None, output_field=DateTimeField()),
+            readyto_start=Case(
+                When(Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state=PC_OPEN) &
+                     Q(patrol_segment__time_range__startswith__isnull=True) &
+                     Q(patrol_segment__scheduled_start__gte=now),
+                     then=F('title')), default=None, output_field=DateTimeField())
         ).order_by(Case(When(state=PC_OPEN, then=Value(1)),
                         When(state=PC_DONE, then=Value(2)),
                         When(state=PC_CANCELLED, then=Value(3)),
-                        default=Value(4)), 'scheduled', 'title')
+                        default=Value(4)), 'start_overdue', 'readyto_start', 'title')
 
 
 class Patrol(TimestampedModel, RevisionMixin):
