@@ -4,6 +4,8 @@ import os
 import shutil
 import tempfile
 import zipfile
+import urllib.parse as urlparse
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib.gis.gdal import DataSource
@@ -239,7 +241,7 @@ def mappingv2_save_spatial_data(feature, external_id, spatialfile, counter=0):
     for key, value in defaults.items():
         setattr(feature_record, key, value)
     set_feature_name(feature_record, feature, feature_type, spatialfile.name_field, counter)
-    feature_record.clean()    
+    feature_record.clean()
     feature_record.save()
 
 
@@ -415,3 +417,9 @@ def clear_features(obj):
             table.objects.filter(spatialfile=obj).delete()
         except Exception:
             pass
+
+
+def construct_url_param(redirect_url, params):
+    url_parts = list(urlparse.urlparse(redirect_url))
+    url_parts[4] = urlencode(params)
+    return urlparse.urlunparse(url_parts)

@@ -20,6 +20,7 @@ from django.urls import reverse
 from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
+from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
 
 import mapping.models as models
 from core.openlayers import OSMGeoExtendedAdmin
@@ -29,7 +30,7 @@ from mapping.forms import (ArcgisConfigurationForm, DisplayCategoryForm,
                            SpatialFeatureGroupStaticForm,
                            SpatialFeatureTypeForm, TileLayerFormWithAttributes)
 from mapping.tasks import load_spatial_features_from_files
-from mapping.utils import clear_features
+from mapping.utils import clear_features, construct_url_param
 
 logger = logging.getLogger(__name__)
 
@@ -448,7 +449,15 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
 
         groups_found = arcgis_integration(request, obj)
         if self.arcgis_config(request) or not groups_found:
-            return HttpResponseRedirect(request.path_info)
+            preserved_filters = self.get_preserved_filters(request)
+            redirect_url = add_preserved_filters({'preserved_filters': preserved_filters, 'opts': obj._meta},
+                                                 request.path)
+
+            params = {'config_name': obj.config_name,
+                      'search_text': obj.search_text,
+                      'username': obj.username}
+            redirect_url = construct_url_param(redirect_url, params)
+            return HttpResponseRedirect(redirect_url)
         else:
             obj.save()
             update_db_groups(groups_found, obj)
