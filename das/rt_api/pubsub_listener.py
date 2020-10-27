@@ -55,6 +55,40 @@ def start(realtime_server):
             celery.app.send_task('rt_api.tasks.handle_subjectstatus_update',
                                  args=(data['subject_id'],))
 
+    def new_patrol_handler(data, message):
+        logger.debug('new_patrol_handler. data=%s, message=%s', data, message)
+        celery.app.send_task('rt_api.tasks.handle_new_patrol',
+                             args=(data['patrol_id'],))
+
+    def update_patrol_handler(data, message):
+        logger.debug(
+            'update_patrol_handler. data=%s, message=%s', data, message)
+        celery.app.send_task('rt_api.tasks.handle_update_patrol',
+                             args=(data['patrol_id'],))
+
+    def delete_patrol_handler(data, message):
+        logger.debug(
+            'delete_patrol_handler. data=%s, message=%s', data, message)
+        celery.app.send_task('rt_api.tasks.handle_delete_patrol',
+                             args=(data['patrol_id'],))
+
+    def new_patrolsegment_handler(data, message):
+        logger.debug('new_patrolsegment_handler. data=%s, message=%s', data, message)
+        celery.app.send_task('rt_api.tasks.handle_new_patrolsegment',
+                             args=(data['patrolsegment_id'],))
+
+    def update_patrolsegment_handler(data, message):
+        logger.debug(
+            'update_patrolsegment_handler. data=%s, message=%s', data, message)
+        celery.app.send_task('rt_api.tasks.handle_update_patrolsegment',
+                             args=(data['patrolsegment_id'],))
+
+    def delete_patrolsegment_handler(data, message):
+        logger.debug(
+            'delete_patrolsegment_handler. data=%s, message=%s', data, message)
+        celery.app.send_task('rt_api.tasks.handle_delete_patrolsegment',
+                             args=(data['patrolsegment_id'],))
+
     def emit_handler(data, message):
         message_data = json.loads(data)
         realtime_server.send_realtime_message(message_data)
@@ -79,6 +113,24 @@ def start(realtime_server):
             {
                 'routing_key': 'das.event.delete',
                 'callback': delete_event_handler},
+            {
+                'routing_key': 'das.patrol.new',
+                'callback': new_patrol_handler},
+            {
+                'routing_key': 'das.patrol.update',
+                'callback': update_patrol_handler},
+            {
+                'routing_key': 'das.patrol.delete',
+                'callback': delete_patrol_handler},
+            {
+                'routing_key': 'das.patrolsegment.new',
+                'callback': new_patrolsegment_handler},
+            {
+                'routing_key': 'das.patrolsegment.update',
+                'callback': update_patrolsegment_handler},
+            {
+                'routing_key': 'das.patrolsegment.delete',
+                'callback': delete_patrolsegment_handler},
             {
                 'routing_key': 'das.realtime.emit',
                 'callback': emit_handler},
