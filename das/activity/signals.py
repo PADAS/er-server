@@ -4,7 +4,7 @@ from django.db import transaction
 from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 
-from activity.models import Event, EventPhoto, EventFile
+from activity.models import Event, EventPhoto, Patrol, PatrolSegment
 from das_server import celery, pubsub
 from usercontent.tasks import imagefile_rendered
 
@@ -52,4 +52,34 @@ def send_event_thumbnail_update(sender, usercontent_id, **kwargs):
         pubsub.publish(
             {'event_id': str(event.id)}, 'das.event.update')
 
+
 imagefile_rendered.connect(send_event_thumbnail_update)
+
+
+# Patrol signals
+@receiver(post_save, sender=Patrol)
+def patrol_post_save(sender, instance, created, **kwargs):
+    logger.info("saved patrol {}, created={}".format(instance.pk, str(created)))
+    patrol_action = 'das.patrol.new' if created else 'das.patrol.update'
+    transaction.on_commit(lambda: pubsub.publish({'patrol_id': str(instance.pk)}, patrol_action))
+
+
+@receiver(post_delete, sender=Patrol)
+def event_post_delete(sender, instance, **kwargs):
+    logger.info("deleted patrol {}".format(instance.pk))
+    pubsub.publish({'patrol_id': str(instance.pk)}, 'das.patrol.delete')
+
+
+@receiver(post_save, sender=PatrolSegment)
+def patrolsegment_post_save(sender, instance, created, **kwargs):
+    logger.info("saved patrol segment {}, created={}".format(instance.pk, str(created)))
+    if instance.patrol:
+        patrol_action = 'das.patrolsegment.new' if created else 'das.patrolsegment.update'
+        transaction.on_commit(lambda: pubsub.publish({'patrolsegment_id': str(instance.pk)}, patrol_action))
+
+
+@receiver(post_delete, sender=PatrolSegment)
+def patrolsegment_post_delete(sender, instance, **kwargs):
+    logger.info("deleted patrol segment {}".format(instance.pk))
+    if instance.patrol:
+        pubsub.publish({'patrolsegment_id': str(instance.pk)}, 'das.patrolsegment.delete')
