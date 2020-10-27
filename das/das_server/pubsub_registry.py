@@ -18,6 +18,22 @@ def update_event_handler(body, message):
     logger.info('Heard update-event for event_id: %s', event_id)
 
 
+def new_patrol_handler(body):
+    logger.info('Heard new-patrol for patrol_id: %s', body.get('patrol_id'))
+
+
+def update_patrol_handler(body):
+    logger.info('Heard update-patrol for patrol_id: %s', body.get('patrol_id'))
+
+
+def new_patrolsegment_handler(body):
+    logger.info('Heard new-patrolsegment for patrolsegment_id: %s', body.get('patrolsegment_id'))
+
+
+def update_patrolsegment_handler(body):
+    logger.info('Heard update-patrolsegment for patrolsegment_id: %s', body.get('patrolsegment_id'))
+
+
 # Define the mapping between routing_keys and callbacks
 # This will get picked up in pubsub.start_message_queue_listeners
 PUBSUB_SUBSCRIPTIONS = (
@@ -25,4 +41,15 @@ PUBSUB_SUBSCRIPTIONS = (
      'das_server.{0}'.format(new_event_handler.__name__)),
     ('das.event.update', update_event_handler,
      'das_server.{0}'.format(update_event_handler.__name__)),
+
+    # patrol subscriptions
+
+    ('das.patrol.new', new_patrol_handler,
+     'das_server.{0}'.format(new_patrol_handler.__name__)),
+    ('das.patrol.update', update_patrol_handler,
+     'das_server.{0}'.format(update_patrol_handler.__name__)),
+    ('das.patrolsegment.new', new_patrolsegment_handler,
+     'das_server.{0}'.format(new_patrolsegment_handler.__name__)),
+    ('das.patrolsegment.update', update_patrolsegment_handler,
+     'das_server.{0}'.format(update_patrolsegment_handler.__name__)),
 )
