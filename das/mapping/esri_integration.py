@@ -8,6 +8,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.gis.gdal import GDALException
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext as _
 
 from arcgis2geojson import arcgis2geojson
 from mapping import models
@@ -28,6 +29,8 @@ RENDERER_TYPE_SIMPLE = 'simple'
 RENDERER_TYPE_UNIQUE_VALUE = 'uniqueValue'
 DEFAULT_IMAGE_WIDTH = 20
 DEFAULT_IMAGE_HEIGHT = 20
+NETWORK_ERROR_MESSAGE = _('{}. Please try again. For further assistance contact Support.')
+
 
 DEFAULT_IMAGE = {
     "image": "/static/ranger_post-black.svg",
@@ -50,7 +53,7 @@ def arcgis_integration(request, obj):
     from mapping.tasks import load_features_from_wfs
     gis = arcgis_authentication(request, obj)
     if gis:
-        acrgis_groups_found = search_groups(gis, obj)
+        acrgis_groups_found = search_groups(gis, obj, request)
         if "_testconnection" in request.POST:
             message(request, messages.INFO, f'Successful Configuration')
         elif "_downloadfeatures" in request.POST:
@@ -65,12 +68,16 @@ def arcgis_integration(request, obj):
         return acrgis_groups_found
 
 
-def search_groups(gis, obj):
+def search_groups(gis, obj, request=None):
     # search for groups only within the user's org if serchtext blank/empty else search for groups outside
     # the user's org as well.
-    groups = gis.groups.search() if not obj.search_text \
-        else gis.groups.search(
-        query=obj.search_text, outside_org=True, max_groups=100)
+    if obj.search_text:
+        groups = gis.groups.search(query=obj.search_text, outside_org=True, max_groups=100)
+        if not groups:
+            error_message = NETWORK_ERROR_MESSAGE.format("No matches could be found for the search text specified.")
+            message(request, messages.ERROR,  error_message)
+    else:
+        groups = gis.groups.search()
     return groups
 
 
@@ -97,7 +104,7 @@ def arcgis_authentication(request, obj):
         gis = arcgis.gis.GIS(obj.service_url, username=obj.username, password=obj.password)
         return gis
     except Exception as error:
-        message(request, messages.ERROR, error) if request else logger.exception(error)
+        message(request, messages.ERROR, NETWORK_ERROR_MESSAGE.format("Invalid username or password")) if request else logger.exception(error)
 
 
 def extract_gis_data(obj, member, errored_files, success_files, arcgis_item_id):
