@@ -20,6 +20,7 @@ from django.core.validators import RegexValidator
 from django.db import transaction
 from django.db.models import Q, F, Func, Exists, OuterRef, Case, When, Value, Subquery
 from django.contrib.postgres.fields.ranges import RangeStartsWith
+from django.db.models.functions import Lower
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import dateparse
@@ -1573,11 +1574,15 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
                      then=Subquery(subject.values('name'))),
                 When(readyto_q & Q(patrol_segment__patrol_type__display=F('patrol_segment__patrol_type__display')),
                      then=F('patrol_segment__patrol_type__display')),
-                default=None)
+                default=None),
+            sort_title=Case(When(Q(title=F('title')), then=F('title')),
+                            When(Q(patrol_segment__leader_id=F('patrol_segment__leader_id')),
+                                 then=Subquery(subject.values('name'))),
+                            default=F('patrol_segment__patrol_type__display'))
         ).order_by(Case(When(state=PC_OPEN, then=Value(1)),
                         When(state=PC_DONE, then=Value(2)),
                         When(state=PC_CANCELLED, then=Value(3)),
-                        default=Value(4)), 'start_overdue', 'readyto_start', 'title')
+                        default=Value(4)), Lower('start_overdue'), Lower('readyto_start'), Lower('sort_title'))
 
 
 class Patrol(TimestampedModel, RevisionMixin):

@@ -791,9 +791,13 @@ class TestPatrol(BaseAPITest):
         done_patrol2 = dict(title='done B', state="done",
                             patrol_segments=[{'time_range': {'start_time': active_control.isoformat()}}])
 
+        done_patrol3 = dict(state="done",
+                            patrol_segments=[{'time_range': {'start_time': active_control.isoformat()},
+                                              "patrol_type": "routine_patrol"}])
 
 
-        [self._create_patrol(patrol) for patrol in [done_patrol2, cancel_readytostart, future_patrol, overdue_patrol,  overdue_patrol2, active_patrol0, active_patrol, done_patrol,  cancel_readytostart2, active_patrol2]]
+
+        [self._create_patrol(patrol) for patrol in [done_patrol3, done_patrol2, cancel_readytostart, future_patrol, overdue_patrol,  overdue_patrol2, active_patrol0, active_patrol, done_patrol,  cancel_readytostart2, active_patrol2]]
 
         request = self.factory.get(self.api_base + '/patrols/')
         self.force_authenticate(request, self.app_user)
@@ -801,8 +805,9 @@ class TestPatrol(BaseAPITest):
         assert response.status_code == 200
 
         expected = ['my overdue patrol', 'overdue patrol', 'future patrol', 'active',  'active B', 'active_control',
-                    'done A', 'done B', 'cancelled readytostart', 'cancelled readytostart_control']
+                    'done A', 'done B', 'routine_patrol', 'cancelled readytostart', 'cancelled readytostart_control']
         results = [p.get('title') for p in response.data['results']]
+        results[8] = response.data['results'][8]['patrol_segments'][0]['patrol_type']
 
         for exp, actual in zip(expected, results):
             self.assertEqual(exp, actual)
