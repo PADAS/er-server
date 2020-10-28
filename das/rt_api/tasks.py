@@ -8,8 +8,8 @@ import pytz
 from celery_once import QueueOnce
 
 from accounts.models.user import User
-from activity.models import Event
-from activity.views import EventView
+from activity.models import Event, Patrol, PatrolSegment
+from activity.views import EventView, PatrolView, PatrolsegmentView
 from das_server import celery, pubsub
 from django.conf import settings
 from django.db import close_old_connections
@@ -26,6 +26,7 @@ from rt_api import client
 from utils.stats import update_gauge
 
 from activity.serializers import EventSerializer
+from activity.serializers.patrol_serializers import PatrolSerializer, PatrolSegmentSerializer
 
 from observations.models import SocketClient
 
@@ -302,6 +303,103 @@ def handle_subjectstatus_update(subject_id):
         'Celery worker handling subjectstatus update.', extra={'subject_id': subject_id,
                                                                'rt.event': 'subjectstatus_update'})
     _subjectstatus_update_handler(subject_id)
+
+
+def _patrol_handler(item_id, label, type):
+    try:
+        logger.debug('Processing type=%s on %s=%s', type, label, item_id)
+        model, view, serializer = Patrol, PatrolView(), PatrolSerializer
+
+        if label == 'patrolsegment':
+            model, view, serializer = PatrolSegment, PatrolsegmentView, PatrolSegmentSerializer
+
+        user_sids_map = get_username_sids_map()
+        logger.debug('user_sids_map: %s', user_sids_map)
+
+        for username, user_sids in user_sids_map.items():
+
+            try:
+                user = User.objects.get(username=username)
+            except User.DoesNotExist:
+                logger.warning('patrol_handler found no username=%s.', username)
+                client.remove_clients(user_sids)
+                continue
+
+            logger.debug('Handling %s for user: %s', label, username)
+
+            for sid in user_sids:
+                request = DummyRequest(
+                    user=user, http_method='GET', query_parameters={})
+                queryset = model.objects.filter(id=item_id)
+                instance = queryset.first()
+
+                if instance:
+                    try:
+                        view.check_object_permissions(request=request, obj=instance)
+                    except PermissionDenied:
+                        logger.debug('Permission denied. user=%s, patrol=%s', username, instance.id)
+                    else:
+                        matches_current_filter = True  # To be regulated in the filters ticket
+                        data = serializer(instance, context={'request': request}).data
+
+                        emit_data = {
+                            'type': type,
+                            'sid': sid,
+                            'object_id': item_id,
+                            'data': {
+                                'type': type, f'{label}_id': item_id, f'{label}_data': data,
+                                'matches_current_filter': matches_current_filter
+                                }
+                        }
+
+                        logger.debug(
+                            'Publish das.realtime.emit.  data=%s', emit_data)
+                        pubsub.publish(json.dumps(
+                            emit_data, default=dumps_helper), 'das.realtime.emit')
+    finally:
+        close_old_connections()
+
+
+@celery.app.task()
+def handle_new_patrol(patrol_id):
+    logger.info('Celery worker handling new patrol_id: %s',
+                patrol_id, extra={'rt.patrol': 'new'})
+    _patrol_handler(patrol_id, 'patrol', 'new_patrol')
+
+
+@celery.app.task()
+def handle_update_patrol(patrol_id):
+    logger.info('Celery worker handling update patrol_id: %s',
+                patrol_id, extra={'rt.patrol': 'update'})
+    _patrol_handler(patrol_id, 'patrol', 'update_patrol')
+
+
+@celery.app.task()
+def handle_delete_patrolsegment(patrol_id):
+    logger.info('Celery worker handling delete patrol_id: %s',
+                patrol_id, extra={'rt.patrol': 'delete'})
+    _patrol_handler(patrol_id, 'patrol', 'delete_patrol')
+
+
+@celery.app.task()
+def handle_new_patrolsegment(patrolsegment_id):
+    logger.info('Celery worker handling new patrolsegment_id: %s',
+                patrolsegment_id, extra={'rt.patrolsegment': 'new'})
+    _patrol_handler(patrolsegment_id, 'patrolsegment', 'new_patrolsegment')
+
+
+@celery.app.task()
+def handle_update_patrolsegment(patrolsegment_id):
+    logger.info('Celery worker handling update patrolsegment_id: %s',
+                patrolsegment_id, extra={'rt.patrolsegment': 'update'})
+    _patrol_handler(patrolsegment_id, 'patrolsegment', 'update_patrolsegment')
+
+
+@celery.app.task()
+def handle_delete_patrolsegment(patrolsegment_id):
+    logger.info('Celery worker handling delete patrolsegment_id: %s',
+                patrolsegment_id, extra={'rt.patrolsegment': 'delete'})
+    _patrol_handler(patrolsegment_id, 'patrolsegment', 'delete_patrolsegment')
 
 
 @celery.app.task()
