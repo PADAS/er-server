@@ -753,8 +753,8 @@ class TestPatrol(BaseAPITest):
 
         now = datetime.datetime.now(tz=pytz.utc)
 
-        lookback = now - datetime.timedelta(minutes=28)
-        lookback2 = now - datetime.timedelta(minutes=10)
+        lookback = now - datetime.timedelta(minutes=48)
+        lookback2 = now - datetime.timedelta(minutes=35)
 
         future_scheduled = lookback + datetime.timedelta(days=20)
 
@@ -809,6 +809,7 @@ class TestPatrol(BaseAPITest):
 
     def test_sort_overdue_readytostart_only_alphabetically(self):
         Patrol.objects.all().delete()
+        subj = Subject.objects.create(name='Heritage', subject_subtype_id='elephant')
 
         now = datetime.datetime.now(tz=pytz.utc)
 
@@ -827,7 +828,23 @@ class TestPatrol(BaseAPITest):
         overdue_patrol3 = dict(title='A overdue',
                                patrol_segments=[{'scheduled_start': third_lookback.isoformat()}])
 
+        overdue_patrol4 = dict(patrol_segments=[{'scheduled_start': third_lookback.isoformat(),
+                                                 "patrol_type": "dog_patrol",
+                                                 "leader": {
+                                                     "content_type": "observations.subject",
+                                                     "id": subj.id,
+                                                     "name": "The Don Galaxy 5",
+                                                     "subject_type": "wildlife",
+                                                     "subject_subtype": "elephant",
+                                                     "additional": {
+                                                     },
+                                                     "created_at": "2020-08-05T01:31:42.474284+03:00",
+                                                     "updated_at": "2020-08-05T01:31:42.474315+03:00",
+                                                     "is_active": True,
+                                                     "tracks_available": False,
+                                                     "image_url": "/static/elephant-black.svg"
 
+                                                 }}])
         ready_patrol = dict(title='C readytostart',
                               patrol_segments=[{'scheduled_start': first_scheduled.isoformat()}])
         ready_patrol2 = dict(title='B readytostart',
@@ -835,15 +852,20 @@ class TestPatrol(BaseAPITest):
         ready_patrol3 = dict(title='A readytostart',
                                patrol_segments=[{'scheduled_start': third_scheduled.isoformat()}])
 
-        [self._create_patrol(patrol) for patrol in [ready_patrol, ready_patrol2, ready_patrol3, overdue_patrol, overdue_patrol2, overdue_patrol3]]
+        ready_patrol4 = dict(patrol_segments=[{'scheduled_start': third_scheduled.isoformat(),
+                                               "patrol_type": "dog_patrol"}])
+
+        [self._create_patrol(patrol) for patrol in [ready_patrol4, ready_patrol, ready_patrol2, ready_patrol3, overdue_patrol4, overdue_patrol, overdue_patrol2, overdue_patrol3]]
 
         request = self.factory.get(self.api_base + '/patrols/')
         self.force_authenticate(request, self.app_user)
         response = views.PatrolsView.as_view()(request)
         assert response.status_code == 200
 
-        expected = ['A overdue', 'B overdue', 'C overdue', 'A readytostart', 'B readytostart', 'C readytostart']
+        expected = ['A overdue', 'B overdue', 'C overdue', 'Heritage',  'A readytostart', 'B readytostart', 'C readytostart', 'dog_patrol']
         results = [p.get('title') for p in response.data['results']]
+        results[3] = response.data['results'][3]['patrol_segments'][0]['leader']['name']
+        results[7] = response.data['results'][7]['patrol_segments'][0]['patrol_type']
         for exp, actual in zip(expected, results):
             self.assertEqual(exp, actual)
 
