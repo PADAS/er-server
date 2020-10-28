@@ -1,6 +1,6 @@
 import json
 
-from activity.models import Event, EventType
+from activity.models import Event, EventType, EventCategory
 from core.tests import BaseAPITest
 from rt_api.tasks import get_filtered_events
 
@@ -8,14 +8,17 @@ from rt_api.tasks import get_filtered_events
 class EventsFilterTestCase(BaseAPITest):
     def setUp(self):
         super().setUp()
+        category = EventCategory.objects.create(value='test_category', display="test Category")
         self.event_type = EventType.objects.create(
             id="c9feb7e4-db81-4548-b8e3-29d4f14a3026",
             display="Test Type 1",
-            value="typetest1"
+            value="typetest1",
+            category=category
         )
         self.second_event_type = EventType.objects.create(
             display="Test Type 2",
-            value="typetest2"
+            value="typetest2",
+            category=category
         )
         self.event = Event.objects.create(
             title="test event",
