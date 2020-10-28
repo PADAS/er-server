@@ -18,8 +18,9 @@ from django.contrib.postgres.fields import JSONField
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import transaction
-from django.db.models import Q, F, Func, Exists, OuterRef, Case, When, Value, DateTimeField
+from django.db.models import Q, F, Func, Exists, OuterRef, Case, When, Value, Subquery
 from django.contrib.postgres.fields.ranges import RangeStartsWith
+from django.db.models.functions import Lower
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import dateparse
@@ -1548,15 +1549,40 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         return self.filter_field('patrol_segment__leader_id', subject)
 
     def sort_patrols(self):
+        set_time = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(minutes=30)
+        subject = Subject.objects.filter(id=OuterRef('patrol_segment__leader_id'))
+
+        overdue_q = Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state=PC_OPEN) & \
+                    Q(patrol_segment__time_range__startswith__isnull=True) & \
+                    Q(patrol_segment__scheduled_start__lt=set_time)
+
+        readyto_q = Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state=PC_OPEN) &  \
+                    Q(patrol_segment__time_range__startswith__isnull=True) &  \
+                    Q(patrol_segment__scheduled_start__gte=set_time)
+
         return self.annotate(
-            scheduled=Case(
-                When(Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state=PC_OPEN) &
-                     Q(patrol_segment__time_range__startswith__isnull=True),
-                     then=F('patrol_segment__scheduled_start')), default=None, output_field=DateTimeField())
+            start_overdue=Case(
+                When(overdue_q & Q(title=F('title')), then=F('title')),
+                When(overdue_q & Q(patrol_segment__leader_id=F('patrol_segment__leader_id')),
+                     then=Subquery(subject.values('name'))),
+                When(overdue_q & Q(patrol_segment__patrol_type__display=F('patrol_segment__patrol_type__display')),
+                     then=F('patrol_segment__patrol_type__display')),
+                default=None),
+            readyto_start=Case(
+                When(readyto_q & Q(title=F('title')), then=F('title')),
+                When(readyto_q & Q(patrol_segment__leader_id=F('patrol_segment__leader_id')),
+                     then=Subquery(subject.values('name'))),
+                When(readyto_q & Q(patrol_segment__patrol_type__display=F('patrol_segment__patrol_type__display')),
+                     then=F('patrol_segment__patrol_type__display')),
+                default=None),
+            sort_title=Case(When(Q(title=F('title')), then=F('title')),
+                            When(Q(patrol_segment__leader_id=F('patrol_segment__leader_id')),
+                                 then=Subquery(subject.values('name'))),
+                            default=F('patrol_segment__patrol_type__display'))
         ).order_by(Case(When(state=PC_OPEN, then=Value(1)),
                         When(state=PC_DONE, then=Value(2)),
                         When(state=PC_CANCELLED, then=Value(3)),
-                        default=Value(4)), 'scheduled', 'title')
+                        default=Value(4)), Lower('start_overdue'), Lower('readyto_start'), Lower('sort_title'))
 
 
 class Patrol(TimestampedModel, RevisionMixin):

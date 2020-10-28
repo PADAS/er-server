@@ -753,7 +753,9 @@ class TestPatrol(BaseAPITest):
 
         now = datetime.datetime.now(tz=pytz.utc)
 
-        lookback = now - datetime.timedelta(minutes=28)
+        lookback = now - datetime.timedelta(minutes=48)
+        lookback2 = now - datetime.timedelta(minutes=35)
+
         future_scheduled = lookback + datetime.timedelta(days=20)
 
         now = datetime.datetime.now(tz=pytz.utc)
@@ -764,6 +766,8 @@ class TestPatrol(BaseAPITest):
 
         overdue_patrol = dict(title='overdue patrol',
                               patrol_segments=[{'scheduled_start': lookback.isoformat()}])
+        overdue_patrol2 = dict(title='my overdue patrol',
+                              patrol_segments=[{'scheduled_start': lookback2.isoformat()}])
         future_patrol = dict(title='future patrol',
                                patrol_segments=[{'scheduled_start': future_scheduled.isoformat()}])
 
@@ -787,18 +791,88 @@ class TestPatrol(BaseAPITest):
         done_patrol2 = dict(title='done B', state="done",
                             patrol_segments=[{'time_range': {'start_time': active_control.isoformat()}}])
 
+        done_patrol3 = dict(state="done",
+                            patrol_segments=[{'time_range': {'start_time': active_control.isoformat()},
+                                              "patrol_type": "routine_patrol"}])
 
 
-        [self._create_patrol(patrol) for patrol in [done_patrol2, cancel_readytostart, future_patrol, overdue_patrol, active_patrol0, active_patrol, done_patrol,  cancel_readytostart2, active_patrol2]]
+
+        [self._create_patrol(patrol) for patrol in [done_patrol3, done_patrol2, cancel_readytostart, future_patrol, overdue_patrol,  overdue_patrol2, active_patrol0, active_patrol, done_patrol,  cancel_readytostart2, active_patrol2]]
 
         request = self.factory.get(self.api_base + '/patrols/')
         self.force_authenticate(request, self.app_user)
         response = views.PatrolsView.as_view()(request)
         assert response.status_code == 200
 
-        expected = ['overdue patrol', 'future patrol', 'active',  'active B', 'active_control',
-                    'done A', 'done B', 'cancelled readytostart', 'cancelled readytostart_control']
+        expected = ['my overdue patrol', 'overdue patrol', 'future patrol', 'active',  'active B', 'active_control',
+                    'done A', 'done B', 'routine_patrol', 'cancelled readytostart', 'cancelled readytostart_control']
         results = [p.get('title') for p in response.data['results']]
+        results[8] = response.data['results'][8]['patrol_segments'][0]['patrol_type']
 
         for exp, actual in zip(expected, results):
             self.assertEqual(exp, actual)
+
+    def test_sort_overdue_readytostart_only_alphabetically(self):
+        Patrol.objects.all().delete()
+        subj = Subject.objects.create(name='Heritage', subject_subtype_id='elephant')
+
+        now = datetime.datetime.now(tz=pytz.utc)
+
+        lookback = now - datetime.timedelta(minutes=35)
+        second_lookback = now - datetime.timedelta(minutes=40)
+        third_lookback = now - datetime.timedelta(minutes=50)
+
+        first_scheduled = now + datetime.timedelta(minutes=10)
+        second_scheduled = now + datetime.timedelta(hours=6)
+        third_scheduled = now + datetime.timedelta(days=1)
+
+        overdue_patrol = dict(title='C overdue',
+                              patrol_segments=[{'scheduled_start': lookback.isoformat()}])
+        overdue_patrol2 = dict(title='B overdue',
+                               patrol_segments=[{'scheduled_start': second_lookback.isoformat()}])
+        overdue_patrol3 = dict(title='A overdue',
+                               patrol_segments=[{'scheduled_start': third_lookback.isoformat()}])
+
+        overdue_patrol4 = dict(patrol_segments=[{'scheduled_start': third_lookback.isoformat(),
+                                                 "patrol_type": "dog_patrol",
+                                                 "leader": {
+                                                     "content_type": "observations.subject",
+                                                     "id": subj.id,
+                                                     "name": "The Don Galaxy 5",
+                                                     "subject_type": "wildlife",
+                                                     "subject_subtype": "elephant",
+                                                     "additional": {
+                                                     },
+                                                     "created_at": "2020-08-05T01:31:42.474284+03:00",
+                                                     "updated_at": "2020-08-05T01:31:42.474315+03:00",
+                                                     "is_active": True,
+                                                     "tracks_available": False,
+                                                     "image_url": "/static/elephant-black.svg"
+
+                                                 }}])
+        ready_patrol = dict(title='C readytostart',
+                              patrol_segments=[{'scheduled_start': first_scheduled.isoformat()}])
+        ready_patrol2 = dict(title='B readytostart',
+                               patrol_segments=[{'scheduled_start': second_scheduled.isoformat()}])
+        ready_patrol3 = dict(title='A readytostart',
+                               patrol_segments=[{'scheduled_start': third_scheduled.isoformat()}])
+
+        ready_patrol4 = dict(patrol_segments=[{'scheduled_start': third_scheduled.isoformat(),
+                                               "patrol_type": "dog_patrol"}])
+
+        [self._create_patrol(patrol) for patrol in [ready_patrol4, ready_patrol, ready_patrol2, ready_patrol3, overdue_patrol4, overdue_patrol, overdue_patrol2, overdue_patrol3]]
+
+        request = self.factory.get(self.api_base + '/patrols/')
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        assert response.status_code == 200
+
+        expected = ['A overdue', 'B overdue', 'C overdue', 'Heritage',  'A readytostart', 'B readytostart', 'C readytostart', 'dog_patrol']
+        results = [p.get('title') for p in response.data['results']]
+        results[3] = response.data['results'][3]['patrol_segments'][0]['leader']['name']
+        results[7] = response.data['results'][7]['patrol_segments'][0]['patrol_type']
+        for exp, actual in zip(expected, results):
+            self.assertEqual(exp, actual)
+
+
+
