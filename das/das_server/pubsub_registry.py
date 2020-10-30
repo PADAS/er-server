@@ -18,19 +18,19 @@ def update_event_handler(body, message):
     logger.info('Heard update-event for event_id: %s', event_id)
 
 
-def new_patrol_handler(body):
+def new_patrol_handler(body, message):
     logger.info('Heard new-patrol for patrol_id: %s', body.get('patrol_id'))
 
 
-def update_patrol_handler(body):
+def update_patrol_handler(body, message):
     logger.info('Heard update-patrol for patrol_id: %s', body.get('patrol_id'))
 
 
-def new_patrolsegment_handler(body):
+def new_patrolsegment_handler(body, message):
     logger.info('Heard new-patrolsegment for patrolsegment_id: %s', body.get('patrolsegment_id'))
 
 
-def update_patrolsegment_handler(body):
+def update_patrolsegment_handler(body, message):
     logger.info('Heard update-patrolsegment for patrolsegment_id: %s', body.get('patrolsegment_id'))
 
 
