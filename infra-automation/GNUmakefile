@@ -26,9 +26,9 @@ rendered_template_path := $(CURDIR)/../templated-deployment/rendered
 
 .PHONY: help
 help: ## show this help
-	@ printf "\033[36m%-20s\033[0m%-50s\033[93m%-35s\033[92m%s\033[0m\n" "target" "description" "arguments" "defaults" >&2
+	@ printf "\033[36m%-32s\033[0m%-50s\033[93m%-35s\033[92m%s\033[0m\n" "target" "description" "arguments" "defaults" >&2
 	@ printf "%s\n" "------------------------------------------------------------------------------------------------------------------------------------" >&2
-	@ grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk -F ":.*?## |[\|] " '{printf "\033[36m%-20s\033[0m%-50s\033[93m%-35s\033[92m%s\033[0m\n", $$1, $$2, $$3, $$4}' >&2
+	@ grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk -F ":.*?## |[\|] " '{printf "\033[36m%-32s\033[0m%-50s\033[93m%-35s\033[92m%s\033[0m\n", $$1, $$2, $$3, $$4}' >&2
 
 .PHONY: configure_dev
 configure_dev: ## configure your workstation for fun and profit
@@ -140,10 +140,15 @@ server_default_branch := develop
 server_gcr_path_default_branch := $(gcr_root)/$(server_default_branch)
 server_semver_file := $(CURDIR)/../SERVER_VERSION
 
-web_manifest_key := WEB_VERSION
-gcr_web_root := gcr.io/padas-app/circleci/das-web
-web_default_branch := develop
-web_gcr_path_default_branch := $(gcr_web_root)/$(web_default_branch)
+web_react_manifest_key := WEB_REACT_VERSION
+gcr_web_react_root := gcr.io/padas-app/circleci/das-web-react
+web_react_default_branch := develop
+web_react_gcr_path_default_branch := $(gcr_web_react_root)/$(web_react_default_branch)
+
+web_admin_manifest_key := WEB_ADMIN_VERSION
+gcr_web_admin_root := gcr.io/padas-app/circleci/das-react-admin
+web_admin_default_branch := master
+web_admin_gcr_path_default_branch := $(gcr_web_admin_root)/$(web_admin_default_branch)
 
 ingress_manifest_key := INGRESS_VERSION
 gcr_ingress_root := gcr.io/padas-app/circleci/das-ingress
@@ -152,7 +157,8 @@ ingress_gcr_path_default_branch := $(gcr_ingress_root)/$(ingress_default_branch)
 
 current_branch := $(shell echo "$$(git rev-parse --quiet --verify --abbrev-ref HEAD || exit 1)")
 descriptive_server_gcr_path := $(gcr_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
-descriptive_web_gcr_path := $(gcr_web_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
+descriptive_web_react_gcr_path := $(gcr_web_react_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
+descriptive_web_admin_gcr_path := $(gcr_web_admin_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
 descriptive_ingress_gcr_path := $(gcr_ingress_root)/$(shell echo $(current_branch) | sed 's/[^/A-Za-z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]' || exit 1)
 
 
@@ -194,11 +200,17 @@ $(manifest_file):
 	       	manifest_key="$(server_manifest_key)" > /dev/null 2>&1 || \
 		(printf "\e[31m\tFailed to find latest tagged image at '$(descriptive_server_gcr_path)'.\e[0m\n" >&2; exit 1)
 
-	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_web_gcr_path)" \
-	       	manifest_key="$(web_manifest_key)" > /dev/null 2>&1 \
-	       	|| $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(web_gcr_path_default_branch)" \
-	       	manifest_key="$(web_manifest_key)" > /dev/null 2>&1 || \
-		(printf "\e[31m\tFailed to find latest tagged image at '$(descriptive_web_gcr_path)'.\e[0m\n" >&2; exit 1)
+	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_web_react_gcr_path)" \
+	       	manifest_key="$(web_react_manifest_key)" > /dev/null 2>&1 \
+	       	|| $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(web_react_gcr_path_default_branch)" \
+	       	manifest_key="$(web_react_manifest_key)" > /dev/null 2>&1 || \
+		(printf "\e[31m\tFailed to find latest tagged image at '$(descriptive_web_react_gcr_path)'.\e[0m\n" >&2; exit 1)
+
+	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_web_admin_gcr_path)" \
+	       	manifest_key="$(web_admin_manifest_key)" > /dev/null 2>&1 \
+	       	|| $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(web_admin_gcr_path_default_branch)" \
+	       	manifest_key="$(web_admin_manifest_key)" > /dev/null 2>&1 || \
+		(printf "\e[31m\tFailed to find latest tagged image at '$(descriptive_web_admin_gcr_path)'.\e[0m\n" >&2; exit 1)
 
 	@ $(MAKE) --no-print-directory -f $(this_file) append_to_manifest gcr_path="$(descriptive_ingress_gcr_path)" \
 	       	manifest_key="$(ingress_manifest_key)" > /dev/null 2>&1 || \
