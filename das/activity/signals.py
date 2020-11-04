@@ -4,7 +4,7 @@ from django.db import transaction
 from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 
-from activity.models import Event, EventPhoto, Patrol, PatrolSegment
+from activity.models import Event, EventPhoto, Patrol, PatrolSegment, PatrolNote, PatrolFile
 from das_server import celery, pubsub
 from usercontent.tasks import imagefile_rendered
 
@@ -65,21 +65,28 @@ def patrol_post_save(sender, instance, created, **kwargs):
 
 
 @receiver(post_delete, sender=Patrol)
-def event_post_delete(sender, instance, **kwargs):
+def patrol_post_delete(sender, instance, **kwargs):
     logger.info("deleted patrol {}".format(instance.pk))
     pubsub.publish({'patrol_id': str(instance.pk)}, 'das.patrol.delete')
 
 
-@receiver(post_save, sender=PatrolSegment)
-def patrolsegment_post_save(sender, instance, created, **kwargs):
-    logger.info("saved patrol segment {}, created={}".format(instance.pk, str(created)))
+def verify_patrol_constituent_for_rt_messaging(instance):
     if instance.patrol:
-        patrol_action = 'das.patrolsegment.new' if created else 'das.patrolsegment.update'
-        transaction.on_commit(lambda: pubsub.publish({'patrolsegment_id': str(instance.pk)}, patrol_action))
+        patrol_action = 'das.patrol.update'
+        transaction.on_commit(lambda: pubsub.publish({'patrol_id': str(instance.patrol.pk)}, patrol_action))
+
+
+@receiver(post_save, sender=PatrolSegment)
+@receiver(post_save, sender=PatrolNote)
+@receiver(post_save, sender=PatrolFile)
+def patrol_item_post_save(sender, instance, created, **kwargs):
+    logger.info(f"saved {sender._meta.verbose_name} {instance.pk}, created={str(created)}")
+    verify_patrol_constituent_for_rt_messaging(sender, instance)
 
 
 @receiver(post_delete, sender=PatrolSegment)
-def patrolsegment_post_delete(sender, instance, **kwargs):
-    logger.info("deleted patrol segment {}".format(instance.pk))
-    if instance.patrol:
-        pubsub.publish({'patrolsegment_id': str(instance.pk)}, 'das.patrolsegment.delete')
+@receiver(post_delete, sender=PatrolNote)
+@receiver(post_delete, sender=PatrolFile)
+def patrol_item_post_delete(sender, instance, **kwargs):
+    logger.info(f"deleted {sender._meta.verbose_name} {instance.pk}")
+    verify_patrol_constituent_for_rt_messaging(instance)

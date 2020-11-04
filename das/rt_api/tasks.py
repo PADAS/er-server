@@ -8,8 +8,8 @@ import pytz
 from celery_once import QueueOnce
 
 from accounts.models.user import User
-from activity.models import Event, Patrol, PatrolSegment
-from activity.views import EventView, PatrolView, PatrolsegmentView
+from activity.models import Event, Patrol
+from activity.views import EventView, PatrolView
 from das_server import celery, pubsub
 from django.conf import settings
 from django.db import close_old_connections
@@ -26,7 +26,7 @@ from rt_api import client
 from utils.stats import update_gauge
 
 from activity.serializers import EventSerializer
-from activity.serializers.patrol_serializers import PatrolSerializer, PatrolSegmentSerializer
+from activity.serializers.patrol_serializers import PatrolSerializer
 
 from observations.models import SocketClient
 
@@ -305,14 +305,10 @@ def handle_subjectstatus_update(subject_id):
     _subjectstatus_update_handler(subject_id)
 
 
-def _patrol_handler(item_id, label, type):
+def _patrol_handler(item_id, type):
     try:
-        logger.debug('Processing type=%s on %s=%s', type, label, item_id)
+        logger.debug('Processing type=%s on patrol=%s', type, item_id)
         model, view, serializer = Patrol, PatrolView(), PatrolSerializer
-
-        if label == 'patrolsegment':
-            model, view, serializer = PatrolSegment, PatrolsegmentView, PatrolSegmentSerializer
-
         user_sids_map = get_username_sids_map()
         logger.debug('user_sids_map: %s', user_sids_map)
 
@@ -325,7 +321,7 @@ def _patrol_handler(item_id, label, type):
                 client.remove_clients(user_sids)
                 continue
 
-            logger.debug('Handling %s for user: %s', label, username)
+            logger.debug('Handling patrol for user: %s', username)
 
             for sid in user_sids:
                 request = DummyRequest(
@@ -347,7 +343,7 @@ def _patrol_handler(item_id, label, type):
                             'sid': sid,
                             'object_id': item_id,
                             'data': {
-                                'type': type, f'{label}_id': item_id, f'{label}_data': data,
+                                'type': type, f'patrol_id': item_id, f'patrol_data': data,
                                 'matches_current_filter': matches_current_filter
                                 }
                         }
@@ -375,31 +371,10 @@ def handle_update_patrol(patrol_id):
 
 
 @celery.app.task()
-def handle_delete_patrolsegment(patrol_id):
+def handle_delete_patrol(patrol_id):
     logger.info('Celery worker handling delete patrol_id: %s',
                 patrol_id, extra={'rt.patrol': 'delete'})
     _patrol_handler(patrol_id, 'patrol', 'delete_patrol')
-
-
-@celery.app.task()
-def handle_new_patrolsegment(patrolsegment_id):
-    logger.info('Celery worker handling new patrolsegment_id: %s',
-                patrolsegment_id, extra={'rt.patrolsegment': 'new'})
-    _patrol_handler(patrolsegment_id, 'patrolsegment', 'new_patrolsegment')
-
-
-@celery.app.task()
-def handle_update_patrolsegment(patrolsegment_id):
-    logger.info('Celery worker handling update patrolsegment_id: %s',
-                patrolsegment_id, extra={'rt.patrolsegment': 'update'})
-    _patrol_handler(patrolsegment_id, 'patrolsegment', 'update_patrolsegment')
-
-
-@celery.app.task()
-def handle_delete_patrolsegment(patrolsegment_id):
-    logger.info('Celery worker handling delete patrolsegment_id: %s',
-                patrolsegment_id, extra={'rt.patrolsegment': 'delete'})
-    _patrol_handler(patrolsegment_id, 'patrolsegment', 'delete_patrolsegment')
 
 
 @celery.app.task()
