@@ -360,21 +360,21 @@ def _patrol_handler(item_id, type):
 def handle_new_patrol(patrol_id):
     logger.info('Celery worker handling new patrol_id: %s',
                 patrol_id, extra={'rt.patrol': 'new'})
-    _patrol_handler(patrol_id, 'patrol', 'new_patrol')
+    _patrol_handler(patrol_id, 'new_patrol')
 
 
 @celery.app.task()
 def handle_update_patrol(patrol_id):
     logger.info('Celery worker handling update patrol_id: %s',
                 patrol_id, extra={'rt.patrol': 'update'})
-    _patrol_handler(patrol_id, 'patrol', 'update_patrol')
+    _patrol_handler(patrol_id, 'update_patrol')
 
 
 @celery.app.task()
 def handle_delete_patrol(patrol_id):
     logger.info('Celery worker handling delete patrol_id: %s',
                 patrol_id, extra={'rt.patrol': 'delete'})
-    _patrol_handler(patrol_id, 'patrol', 'delete_patrol')
+    _patrol_handler(patrol_id, 'delete_patrol')
 
 
 @celery.app.task()

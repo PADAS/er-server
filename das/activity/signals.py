@@ -81,7 +81,7 @@ def verify_patrol_constituent_for_rt_messaging(instance):
 @receiver(post_save, sender=PatrolFile)
 def patrol_item_post_save(sender, instance, created, **kwargs):
     logger.info(f"saved {sender._meta.verbose_name} {instance.pk}, created={str(created)}")
-    verify_patrol_constituent_for_rt_messaging(sender, instance)
+    verify_patrol_constituent_for_rt_messaging(sender)
 
 
 @receiver(post_delete, sender=PatrolSegment)
