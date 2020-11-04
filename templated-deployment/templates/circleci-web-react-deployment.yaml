@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   namespace: "${KUBERNETES_NAMESPACE}"
-  name: web
+  name: web-react
 spec:
   ports:
   - port: 80
@@ -14,7 +14,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   namespace: "${KUBERNETES_NAMESPACE}"
-  name: web
+  name: web-react
 spec:
   selector:
     matchLabels:
@@ -27,7 +27,7 @@ spec:
       imagePullSecrets:
         - name: gcr-secret
       containers:
-      - name: das-web
+      - name: web-react
         image: "${WEB_REACT_VERSION}"
         resources:
           requests:
