@@ -89,7 +89,6 @@ eventsource_user_permissions = [
 guest_user_permissions = ['logistics_read']
 
 reported_by_permission_set_id = 'b5057387-9f6c-4685-8ec1-46ad29684eea'
-  
 
 
 def fake_get_pool():
@@ -340,7 +339,8 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 201)
 
     def test_bad_request_with_empty_string_location(self):
-        event_data = dict(event_details={}, event_type=ET_OTHER, icon_id=ET_OTHER, is_collection=False, location="", priority=100, time="2020-06-11T18:57:12.629Z")
+        event_data = dict(event_details={}, event_type=ET_OTHER, icon_id=ET_OTHER,
+                          is_collection=False, location="", priority=100, time="2020-06-11T18:57:12.629Z")
 
         request = self.factory.post(self.api_base + '/events/', event_data)
         self.force_authenticate(request, self.all_perms_user)
@@ -553,12 +553,11 @@ class TestEventView(BaseAPITest):
 
             self.force_authenticate(request, self.all_perms_user)
             response = views.EventFilesView.as_view()(request, id=my_event_id)
-            logger.debug(response.data)
 
         # Make request for the new event and assert that it includes a new
         # document.
         path = '/'.join((self.api_base, 'activity', 'event', my_event_id))
-        request = self.factory.get(path, event_data)
+        request = self.factory.get(path)
         self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventView.as_view()(request, id=my_event_id)
@@ -591,7 +590,7 @@ class TestEventView(BaseAPITest):
             request, event_id=my_event_id, filecontent_id=event_file_id)
         self.assertEqual(response.status_code, 403)
 
-    def test_create_event_file_with_permissions(self):
+    def test_create_event_file_with_permissions_unauthorized(self):
         event_data = dict(priority=0,
                           event_type=ET_MONITORING,
                           message='',
@@ -1000,7 +999,8 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertTrue('Priority' in response.content.decode("utf-8"))
         self.assertTrue('Notes' in response.content.decode("utf-8"))
-        self.assertTrue(self.notes_line2_prefix in response.content.decode("utf-8"))
+        self.assertTrue(
+            self.notes_line2_prefix in response.content.decode("utf-8"))
 
     def test_export_csv_with_qparam_value_cols_true(self):
         carcass_data = json.loads(
@@ -1022,8 +1022,10 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertTrue('Priority' in response.content.decode("utf-8"))
         self.assertTrue('Notes' in response.content.decode("utf-8"))
-        self.assertTrue('carcassrep_species' in response.content.decode("utf-8"))
-        self.assertTrue(self.notes_line2_prefix in response.content.decode("utf-8"))
+        self.assertTrue(
+            'carcassrep_species' in response.content.decode("utf-8"))
+        self.assertTrue(
+            self.notes_line2_prefix in response.content.decode("utf-8"))
 
     def convert_rendered_csv_to_dict(self, content):
         reader = csv.DictReader(io.StringIO(content))
@@ -1111,7 +1113,7 @@ class TestEventView(BaseAPITest):
         response = views.EventsExportView.as_view()(request)
 
         self.assertEqual(response.status_code, 200)
-    
+
     def test_export_filter_on_incident_associated_reports(self):
         incident_data = copy.deepcopy(self.event_data)
         incident_data['event_type'] = 'incident_collection'
@@ -1249,7 +1251,8 @@ class TestEventView(BaseAPITest):
         event_type.save()
 
         EventDetails.objects.create(
-            data={"event_details": {"eLocust-key": "716c9a58ca0b9a7bf3351517d7393b49", "repObserver": "an observer"}},
+            data={"event_details": {
+                "eLocust-key": "716c9a58ca0b9a7bf3351517d7393b49", "repObserver": "an observer"}},
             event=self.sample_event)
 
         url = """/activity/events/export"""
@@ -1268,10 +1271,11 @@ class TestEventView(BaseAPITest):
         assert test_headers == set(report_headers) & test_headers
 
         # All hidden fields values returned in export content
-        self.assertTrue(all(x in rendered_content for x in ["716c9a58ca0b9a7bf3351517d7393b49", "an observer"]))
+        self.assertTrue(all(x in rendered_content for x in [
+                        "716c9a58ca0b9a7bf3351517d7393b49", "an observer"]))
 
     def test_export_includes_all_event_detail_fields_no_title(self):
-    
+
         event_data = copy.deepcopy(self.event_data)
         event_data['title'] = 'Event details No Title Test'
 
@@ -1368,7 +1372,7 @@ class TestEventView(BaseAPITest):
 
         details = EventDetails.objects.get(event_id=response.data['id'])
         details.data = {"event_details": {"eLocust-key": "e locust id key",
-                                    "repObserver": "an observer"}}
+                                          "repObserver": "an observer"}}
         details.save()
 
         url = """/activity/events/export"""
@@ -1383,13 +1387,16 @@ class TestEventView(BaseAPITest):
         report_headers = rendered_dict[0].keys()
 
         # All hidden fields returned indipendently in the export headers
-        test_headers = set([format_key_for_title("eLocust-key").replace(' ', '_'), "Report_Observer"])
+        test_headers = set([format_key_for_title(
+            "eLocust-key").replace(' ', '_'), "Report_Observer"])
         assert test_headers == set(report_headers) & test_headers
 
         # All hidden fields values returned in export content
-        row = [row for row in rendered_dict if row['Title'] == event_data['title']][0]
+        row = [row for row in rendered_dict if row['Title']
+               == event_data['title']][0]
         test_rendered_content = set(["e locust id key", "an observer"])
-        assert test_rendered_content == set(row.values()) & test_rendered_content
+        assert test_rendered_content == set(
+            row.values()) & test_rendered_content
 
     def test_export_csv_with_line_feed(self):
 
@@ -2239,9 +2246,11 @@ class TestEventView(BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        rendered_dict = self.convert_rendered_csv_to_dict(
+            response.content.decode("utf-8"))
 
-        self.assertIn('DWS Test', [i.get('Report_Type') for i in rendered_dict])
+        self.assertIn('DWS Test', [i.get('Report_Type')
+                                   for i in rendered_dict])
         target_row = {}
 
         for row in rendered_dict:
@@ -2268,7 +2277,8 @@ class TestEventView(BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        rendered_dict = self.convert_rendered_csv_to_dict(
+            response.content.decode("utf-8"))
 
         self.assertIn('DWS Test', [i.get('Report_Type')
                                    for i in rendered_dict])
@@ -2282,7 +2292,8 @@ class TestEventView(BaseAPITest):
         self.assertIn('Species', target_row.keys())
         self.assertIn('carcassrep_species', target_row.keys())
         self.assertEqual(target_row.get('Species'), 'Elephant;Eland')
-        self.assertEqual(target_row.get('carcassrep_species'), 'elephant;eland')
+        self.assertEqual(target_row.get(
+            'carcassrep_species'), 'elephant;eland')
 
     def test_exporting_array_events_to_csv(self):
         array_data = json.loads(
@@ -2300,7 +2311,8 @@ class TestEventView(BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        rendered_dict = self.convert_rendered_csv_to_dict(
+            response.content.decode("utf-8"))
 
         self.assertIn('4787-Array', [i.get('Report_Type')
                                      for i in rendered_dict])
@@ -2329,7 +2341,8 @@ class TestEventView(BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        rendered_dict = self.convert_rendered_csv_to_dict(
+            response.content.decode("utf-8"))
         self.assertIn('Sprint 88 Behavior',
                       [i.get('Report_Type') for i in rendered_dict])
         target_row = {}
@@ -2358,7 +2371,8 @@ class TestEventView(BaseAPITest):
 
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        rendered_dict = self.convert_rendered_csv_to_dict(
+            response.content.decode("utf-8"))
         self.assertIn('Sprint 88 Behavior',
                       [i.get('Report_Type') for i in rendered_dict])
         target_row = {}
@@ -2379,19 +2393,22 @@ class TestEventView(BaseAPITest):
         from django.db import connection
         cursor = connection.cursor()
 
-        cursor.execute('SELECT tsvector_event_note FROM activity_tsvectormodel WHERE event_id=%s', [uuid])
+        cursor.execute(
+            'SELECT tsvector_event_note FROM activity_tsvectormodel WHERE event_id=%s', [uuid])
         tsvector = cursor.fetchone()
         return tsvector
 
     def test_tsvector_column_is_created(self):
-        event = TSVectorModel.objects.raw('select * from activity_tsvectormodel')
+        event = TSVectorModel.objects.raw(
+            'select * from activity_tsvectormodel')
         columns = event.columns
         self.assertIn('tsvector_event', columns)
         self.assertIn('tsvector_event_note', columns)
 
     def test_trigger_when_event_is_created(self):
         """Test trigger works whenever event with eventdetails is created. Creates a normalized lexeme token"""
-        request = self.factory.post(self.api_base + '/events/', [self.event_data, self.event_data])
+        request = self.factory.post(
+            self.api_base + '/events/', [self.event_data, self.event_data])
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
@@ -2400,12 +2417,12 @@ class TestEventView(BaseAPITest):
         tsvector = self.get_ts_token(uuid)
         self.assertTrue(tsvector)
 
-
     def test_search_event_by_event_title(self):
         title_text = 'EventTitle'
         self.event_data['title'] = title_text
 
-        request = self.factory.post(self.api_base + '/events/', [self.event_data, self.event_data])
+        request = self.factory.post(
+            self.api_base + '/events/', [self.event_data, self.event_data])
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
@@ -2432,7 +2449,7 @@ class TestEventView(BaseAPITest):
 
         query = {'filter': json.dumps({'text': title_search_text}),
                  'event_ids': [event_id]}
-        
+
         request = self.factory.get(self.api_base + '/events', data=query)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
@@ -2448,7 +2465,8 @@ class TestEventView(BaseAPITest):
         event_data['title'] = title_text
         event_data_two['title'] = title_search_text
 
-        request = self.factory.post(self.api_base + '/events/', [event_data, event_data_two])
+        request = self.factory.post(
+            self.api_base + '/events/', [event_data, event_data_two])
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
@@ -2457,8 +2475,6 @@ class TestEventView(BaseAPITest):
         query = {'filter': json.dumps({'text': title_search_text}),
                  'event_ids': event_ids}
 
-
-        
         request = self.factory.get(self.api_base + '/events', data=query)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
@@ -2468,9 +2484,11 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
     def test_can_search_event_by_eventtype_schema_used(self):
-        # schema used has some of its titles named: conservancy, Name Of Ranger, Beginning of Incident etc.
+        # schema used has some of its titles named: conservancy, Name Of
+        # Ranger, Beginning of Incident etc.
 
-        request = self.factory.post(self.api_base + '/events/', [self.event_data, self.event_data])
+        request = self.factory.post(
+            self.api_base + '/events/', [self.event_data, self.event_data])
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
@@ -2486,7 +2504,8 @@ class TestEventView(BaseAPITest):
         self.assertTrue(response.data)
         self.assertEqual(response.status_code, 200)
 
-        request = self.factory.get(self.api_base + '/events', data={'filter': json.dumps({'text': searchtext_2})})
+        request = self.factory.get(
+            self.api_base + '/events', data={'filter': json.dumps({'text': searchtext_2})})
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
         self.assertTrue(response.data)
@@ -2495,7 +2514,8 @@ class TestEventView(BaseAPITest):
     def test_eventnote_generate_tsvector_doc(self):
         self.event_data['title'] = 'ETitle'
 
-        request = self.factory.post(self.api_base + '/events/', [self.event_data])
+        request = self.factory.post(
+            self.api_base + '/events/', [self.event_data])
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
@@ -2517,7 +2537,8 @@ class TestEventView(BaseAPITest):
 
     def test_event_note_text_search(self):
 
-        request = self.factory.post(self.api_base + '/events/', [self.event_data])
+        request = self.factory.post(
+            self.api_base + '/events/', [self.event_data])
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
@@ -2578,9 +2599,9 @@ class TestEventView(BaseAPITest):
             {
                 "properties":
                     {
-                            "rhinosightingrep_unknownpicklist": {
-                                "key": "rhinosightingrep_unknown"
-                            }
+                        "rhinosightingrep_unknownpicklist": {
+                            "key": "rhinosightingrep_unknown"
+                        }
                     }
             },
                 "definition": [
@@ -2600,7 +2621,8 @@ class TestEventView(BaseAPITest):
         event_type.save()
 
         EventDetails.objects.create(
-            data={"event_details": {"rhinosightingrep_unknownpicklist": ["unknown_rhino_1"]}},
+            data={"event_details": {
+                "rhinosightingrep_unknownpicklist": ["unknown_rhino_1"]}},
             event=self.sample_event)
 
         url = """/activity/events/export"""
@@ -2615,14 +2637,16 @@ class TestEventView(BaseAPITest):
     def test_export_on_checkbox_with_query_titlemaps(self):
         DynamicChoice.objects.create(
             id="queens",
-            model_name='observations.subject', 
+            model_name='observations.subject',
             criteria='[["subject_subtype", "queens"], ["additional__sex", "female"]]',
             value_col='id',
             display_col='name')
 
         subject_type = SubjectType.objects.create(value='Cats')
-        subject_subtype = SubjectSubType.objects.create(value='queens', subject_type=subject_type)
-        subject = Subject.objects.create(name='Katie Kitten', subject_subtype=subject_subtype, additional={'sex':'female'})
+        subject_subtype = SubjectSubType.objects.create(
+            value='queens', subject_type=subject_type)
+        subject = Subject.objects.create(
+            name='Katie Kitten', subject_subtype=subject_subtype, additional={'sex': 'female'})
 
         et_schema = """{
             "schema":
@@ -2653,7 +2677,6 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
 
-
         # title returned, not UUID
         self.assertTrue('Katie Kitten' in response.content.decode("utf-8"))
 
@@ -2675,15 +2698,20 @@ class TestEventView(BaseAPITest):
         traffic_et.schema = et_schema
         traffic_et.save()
 
-        event1 = Event.objects.create(title="test_event_1", event_type=et, created_by_user=self.all_perms_user)
-        event2 = Event.objects.create(title="test_event_2", event_type=et, created_by_user=self.all_perms_user)
+        event1 = Event.objects.create(
+            title="test_event_1", event_type=et, created_by_user=self.all_perms_user)
+        event2 = Event.objects.create(
+            title="test_event_2", event_type=et, created_by_user=self.all_perms_user)
 
         # Report from a different eventtype, similar property key
-        event3 = Event.objects.create(title="test_event_3", event_type=traffic_et, created_by_user=self.all_perms_user)
+        event3 = Event.objects.create(
+            title="test_event_3", event_type=traffic_et, created_by_user=self.all_perms_user)
 
         EventDetails.objects.bulk_create([
-            EventDetails(data={"event_details": {"eLocust-key": "one"}}, event=event1),
-            EventDetails(data={"event_details": {"eLocust-key": "two"}}, event=event2),
+            EventDetails(
+                data={"event_details": {"eLocust-key": "one"}}, event=event1),
+            EventDetails(
+                data={"event_details": {"eLocust-key": "two"}}, event=event2),
             EventDetails(data={"event_details": {"eLocust-key": "three"}}, event=event3)])
 
         url = """/activity/events/export"""
@@ -2719,17 +2747,20 @@ class TestEventView(BaseAPITest):
         response = views.EventTypesView.as_view()(request)
         expected_display = 'Logistics'
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(all(o.get('category').get('display') == expected_display for o in response.data))
+        self.assertTrue(all(o.get('category').get('display') ==
+                            expected_display for o in response.data))
 
     def test_no_schema_display(self):
-        # no event-schema is displayed for user with no even-category permission.
+        # no event-schema is displayed for user with no even-category
+        # permission.
         request = self.factory.get(
             self.api_base + '/events/schema')
         self.force_authenticate(request, self.no_perms_user)
 
         response = views.EventSchemaView.as_view()(request)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data.get('properties')['reported_by']['enum'], [])
+        self.assertEqual(response.data.get('properties')
+                         ['reported_by']['enum'], [])
 
     def test_schema_with_inactive_choices(self):
         for choice in Choice.objects.all():
@@ -2764,7 +2795,6 @@ class TestEventView(BaseAPITest):
         )
         choice.save()
         choices.append(choice)
-
 
         et_schema = """{
             "schema":
@@ -2813,10 +2843,12 @@ class TestEventView(BaseAPITest):
         url = self.api_base + f'/events/schema/eventtype/'
         request = self.factory.get(url)
         self.force_authenticate(request, self.all_perms_user)
-        response = views.EventTypeSchemaView.as_view()(request, eventtype=event_type.value)
+        response = views.EventTypeSchemaView.as_view()(
+            request, eventtype=event_type.value)
 
         assert response.status_code == 200
-        species_display = [display_prop  for display_prop in response.data['definition'] if display_prop.get('key', '')=='species'][0]
+        species_display = [display_prop for display_prop in response.data['definition']
+                           if display_prop.get('key', '') == 'species'][0]
         assert "inactive_titleMap" in species_display
 
         species_display = [display_prop for display_prop in response.data['definition'][0]['items']
@@ -2824,7 +2856,7 @@ class TestEventView(BaseAPITest):
         assert "inactive_titleMap" in species_display
 
     def test_case_insensitive_eventtype(self):
-        eventtype_value='Smart_rhino_sighting'
+        eventtype_value = 'Smart_rhino_sighting'
         event_category = EventCategory.objects.create(
             value='test_category', display='Test Category')
         event_type = EventType.objects.create(
@@ -2833,7 +2865,8 @@ class TestEventView(BaseAPITest):
         url = self.api_base + f'/events/schema/eventtype/'
         request = self.factory.get(url)
         self.force_authenticate(request, self.all_perms_user)
-        response = views.EventTypeSchemaView.as_view()(request, eventtype=eventtype_value)
+        response = views.EventTypeSchemaView.as_view()(
+            request, eventtype=eventtype_value)
         assert response.status_code == 200
 
     def test_schema_with_same_inactive_choices(self):
@@ -2859,10 +2892,12 @@ class TestEventView(BaseAPITest):
                                 'HopDensity', 'HopDensityUnit', 'HopStageDom',
                                 'HopActivity', 'HopStage', 'HopColour']
 
-        url = reverse('event-schema-eventtype',  kwargs={'eventtype': event_type.value})
+        url = reverse('event-schema-eventtype',
+                      kwargs={'eventtype': event_type.value})
         request = self.factory.get(url)
         self.force_authenticate(request, self.all_perms_user)
-        response = views.EventTypeSchemaView.as_view()(request, eventtype=event_type.value)
+        response = views.EventTypeSchemaView.as_view()(
+            request, eventtype=event_type.value)
         assert response.status_code == 200
 
         properties = response.data['schema']['properties']
@@ -2927,18 +2962,21 @@ class TestEventView(BaseAPITest):
         url = self.api_base + f'/events/schema/eventtype/?definition=flat'
         request = self.factory.get(url)
         self.force_authenticate(request, self.all_perms_user)
-        response = views.EventTypeSchemaView.as_view()(request, eventtype=event_type.value)
+        response = views.EventTypeSchemaView.as_view()(
+            request, eventtype=event_type.value)
         assert response.status_code == 200
 
-        assert len([display_prop for display_prop in response.data['definition'] if isinstance(display_prop, dict) and display_prop.get('type') == 'fieldset' ]) == 0
-        assert len([display_prop for display_prop in response.data['definition'] if isinstance(display_prop, str) and display_prop in ('reportlocationarea', 'reportreportername') ]) == 3
+        assert len([display_prop for display_prop in response.data['definition'] if isinstance(
+            display_prop, dict) and display_prop.get('type') == 'fieldset']) == 0
+        assert len([display_prop for display_prop in response.data['definition'] if isinstance(
+            display_prop, str) and display_prop in ('reportlocationarea', 'reportreportername')]) == 3
 
         url = self.api_base + f'/events/schema/eventtype/?definition=invalid'
         request = self.factory.get(url)
         self.force_authenticate(request, self.all_perms_user)
-        response = views.EventTypeSchemaView.as_view()(request, eventtype=event_type.value)
+        response = views.EventTypeSchemaView.as_view()(
+            request, eventtype=event_type.value)
         assert response.status_code == 400
-    
 
     def test_schema_with_different_inactive_choices(self):
 
@@ -2962,10 +3000,12 @@ class TestEventView(BaseAPITest):
         event_type.schema = et_schema
         event_type.save()
 
-        url = reverse('event-schema-eventtype',  kwargs={'eventtype': event_type.value})
+        url = reverse('event-schema-eventtype',
+                      kwargs={'eventtype': event_type.value})
         request = self.factory.get(url)
         self.force_authenticate(request, self.all_perms_user)
-        response = views.EventTypeSchemaView.as_view()(request, eventtype=event_type.value)
+        response = views.EventTypeSchemaView.as_view()(
+            request, eventtype=event_type.value)
         assert response.status_code == 200
 
         properties = response.data['schema']['properties']

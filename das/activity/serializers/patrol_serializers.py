@@ -1,39 +1,73 @@
 import copy
+
 from django.contrib.gis.geos.point import Point
+from django.contrib.contenttypes.models import ContentType
 from drf_extra_fields.geo_fields import PointField
 from rest_framework import serializers, validators
 from rest_framework.fields import DateTimeField
 from collections import OrderedDict
 import activity.models
+
+from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 import utils
+import usercontent.serializers
 from accounts.serializers import UserDisplaySerializer, get_user_display
 from activity.models import PATROL_STATE_CHOICES, PC_OPEN, PRI_NONE, PRIORITY_CHOICES
 from activity.models import Patrol, PatrolNote, PatrolSegment
 from activity.serializers import AlertRuleSerializer, EventSourceSerializer
 from activity.serializers import fields, ReportedByRelatedField
-from activity.serializers.base import BaseSerializer, RevisionMixin, TimestampMixin
+from activity.serializers.base import BaseSerializer, RevisionMixin, TimestampMixin, FileSerializerMixin
 from activity.serializers.fields import choicefield_serializer, text_field
 from utils.drf import PointValidator
-priority_choices_serializer = choicefield_serializer(PRIORITY_CHOICES, default=PRI_NONE)
-state_choices_serializer = choicefield_serializer(PATROL_STATE_CHOICES, default=PC_OPEN)
+priority_choices_serializer = choicefield_serializer(
+    PRIORITY_CHOICES, default=PRI_NONE)
+state_choices_serializer = choicefield_serializer(
+    PATROL_STATE_CHOICES, default=PC_OPEN)
 
 serializers_path = 'activity.serializers.patrol_serializers'
 
 
-class PatrolFileSerializer(BaseSerializer, RevisionMixin):
-    """Serializer class for a PatrolFile"""
+class PatrolList(serializers.Serializer):
+    pass
 
-    comment = serializers.CharField()
+
+class PatrolFileSerializer(FileSerializerMixin, BaseSerializer, RevisionMixin):
+    """Serializer class for a PatrolFile"""
+    usercontent_id = serializers.UUIDField(required=False)
+    usercontent_type = serializers.PrimaryKeyRelatedField(
+        required=False, queryset=ContentType.objects.all())
+
+    usercontent = usercontent.serializers.UserContentSerializer(required=False)
+
     created_by = serializers.HiddenField(
         default=serializers.CurrentUserDefault()
     )
-    ordernum = serializers.CharField()
+
+    comment = serializers.CharField(
+        allow_blank=True, required=False,)
+    ordernum = serializers.IntegerField(required=False, allow_null=True)
+
+    def create(self, validated_data):
+        validated_data['patrol'] = self._kwargs.get('data').get('patrol')
+        validated_data = self.pre_create(validated_data)
+        return activity.models.PatrolFile.objects.create(**validated_data)
+
+    @property
+    def parent_name(self):
+        return "patrol"
+
+    def get_instance_parent_id(self, instance):
+        return instance.patrol.id
+
+    def get_update_type(self, revision):
+        return self.get_patrol_update_type(revision)
 
 
 class PatrolNoteSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
     id = serializers.UUIDField(required=False, read_only=False)
     text = text_field()
-    created_by_user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    created_by_user = serializers.HiddenField(
+        default=serializers.CurrentUserDefault())
 
     def create(self, validated_data):
         validated_data['patrol'] = self._kwargs.get('data').get('patrol')
@@ -41,13 +75,22 @@ class PatrolNoteSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
 
     def to_representation(self, note):
         rep = super().to_representation(note)
-        # rep['updates'] = self.render_updates(note)
+        rep['updates'] = self.render_updates(note)
         return rep
 
     def render_updates(self, note):
+        def get_action(revision):
+            if revision.action == AC_UPDATED:
+                field_mapping = {'text': 'Note Text'}
+                fieldnames = [field_mapping[k] for k in revision.data.keys() if
+                              k in field_mapping]
+                return '{0} fields: {1}'.format(revision.get_action_display(),
+                                                ', '.join(fieldnames))
+
+            return revision.get_action_display()
         result = [
             dict(message='Note {action}'.format(
-                action=self.get_action(revision),
+                action=get_action(revision),
                 user=get_user_display(revision.user)),
                 time=revision.revision_at.isoformat(),
                 text=revision.data.get('text', ''),
@@ -83,16 +126,13 @@ class PatrolTypeRelatedField(serializers.RelatedField):
             try:
                 return activity.models.PatrolType.objects.get_by_value(data)
             except activity.models.PatrolType.DoesNotExist:
-                raise serializers.ValidationError(f'patrol_type: {data} does not exist')
+                raise serializers.ValidationError(
+                    f'patrol_type: {data} does not exist')
 
     @property
     def choices(self):
         return OrderedDict(((row.value, row.display)
                             for row in self.get_queryset()))
-
-
-class PatrolList(serializers.Serializer):
-    pass
 
 
 class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
@@ -115,9 +155,9 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
         sch_end = data.get('scheduled_end')
 
         if sch_start and sch_end and sch_start > sch_end:
-            raise serializers.ValidationError('scheduled_start time has to be earlier than scheduled_end time')
+            raise serializers.ValidationError(
+                'scheduled_start time has to be earlier than scheduled_end time')
         return super().to_internal_value(data)
-
 
     @staticmethod
     def resolve_image_url(patrolsegment):
@@ -133,9 +173,12 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
         if rep.get('time_range') is None:
             rep['time_range'] = self.empty_timerange()
 
-        rep['patrol_type'] = str(instance.patrol_type.value) if instance.patrol_type else None
-        rep['icon_id'] = str(instance.patrol_type.icon_id) if instance.patrol_type else None
-        rep['patrol'] = self.get_patrol(instance.patrol) if instance.patrol else None
+        rep['patrol_type'] = str(
+            instance.patrol_type.value) if instance.patrol_type else None
+        rep['icon_id'] = str(
+            instance.patrol_type.icon_id) if instance.patrol_type else None
+        rep['patrol'] = self.get_patrol(
+            instance.patrol) if instance.patrol else None
         # rep['updates'] = self.render_updates(instance)
         return rep
 
@@ -153,7 +196,8 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
         return activity.models.PatrolSegment.objects.create(**validated_data)
 
     def render_updates(self, segment):
-        revisions = list(iter(segment.revision.all_user().order_by('sequence')))
+        revisions = list(
+            iter(segment.revision.all_user().order_by('sequence')))
         result = [
             dict(
                 message='{action}'.format(
@@ -175,10 +219,12 @@ class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
     priority = priority_choices_serializer
     serial_number = serializers.IntegerField(read_only=True)
     state = state_choices_serializer
-    title = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=255)
+    title = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True, max_length=255)
     files = PatrolFileSerializer(many=True, required=False, read_only=True)
     notes = PatrolNoteSerializer(many=True, required=False)
-    patrol_segments = PatrolSegmentSerializer(many=True, required=False, excludes=['patrol'])
+    patrol_segments = PatrolSegmentSerializer(
+        many=True, required=False, excludes=['patrol'])
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
@@ -190,7 +236,8 @@ class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
             #     updates.extend(note['updates'])
             # for f in rep.get('patrol_segments', []):
             #     updates.extend(f['updates'])
-            rep['updates'] = sorted(updates, key=lambda u: u['time'], reverse=True)
+            rep['updates'] = sorted(
+                updates, key=lambda u: u['time'], reverse=True)
 
         return rep
 
@@ -217,12 +264,14 @@ class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
         patrol_segments = validated_data.get('patrol_segments', [])
 
         self.create_update(patrol_id, patrol_notes, activity.models.PatrolNote)
-        self.create_update(patrol_id, patrol_segments, activity.models.PatrolSegment)
+        self.create_update(patrol_id, patrol_segments,
+                           activity.models.PatrolSegment)
 
         instance.priority = validated_data.get('priority', instance.priority)
         instance.state = validated_data.get('state', instance.state)
         instance.title = validated_data.get('title', instance.title)
-        instance.objective = validated_data.get('objective', instance.objective)
+        instance.objective = validated_data.get(
+            'objective', instance.objective)
 
         instance.save()
         return instance
@@ -260,4 +309,3 @@ class PatrolTemplateSerializer(BaseSerializer):
     length = serializers.CharField()
     alert_rule = AlertRuleSerializer()
     source = EventSourceSerializer()
-

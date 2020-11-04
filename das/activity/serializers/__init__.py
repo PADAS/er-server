@@ -28,12 +28,10 @@ from rest_framework.request import clone_request
 from rest_framework.utils.field_mapping import ClassLookupDict
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from versatileimagefield.serializers import VersatileImageFieldSerializer
-# Make dictionaries from the IMAGE_SETS, to make lookups a little easier.
-from versatileimagefield.utils import IMAGE_SETS
 
 from choices.serializers import ChoiceField
 
-IMAGE_RENDITION_SETS = dict((k, dict(v)) for k, v in IMAGE_SETS.items())
+
 import jsonschema
 import jsonschema.exceptions
 import json
@@ -49,6 +47,7 @@ from observations.models import Subject
 from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 import utils.schema_utils as schema_utils
 import usercontent.serializers
+from activity.serializers.base import FileSerializerMixin, IMAGE_RENDITION_SETS
 
 from activity.alerting.conditions import Conditions
 
@@ -333,20 +332,23 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
         return activity.models.Community.objects.all()
 
     def run_validation(self, data=empty):
-        # We force empty strings & empty dictionary to None values for relational fields.
+        # We force empty strings & empty dictionary to None values for
+        # relational fields.
         if data == '' or data == {}:
             data = None
         return super().run_validation(data)
 
     def check_has_event_category_permission(self):
         # Checks if the user has any event-category permission.
-        event_categories = activity.models.EventCategory.objects.values_list('value').distinct()
+        event_categories = activity.models.EventCategory.objects.values_list(
+            'value').distinct()
         event_categories = [ec[0] for ec in event_categories]
         actions = ('create', 'update', 'read', 'delete')
         request = self.context.get('request')
 
         for event_category in event_categories:
-            permission_name = [f'activity.{event_category}_{action}' for action in actions]
+            permission_name = [
+                f'activity.{event_category}_{action}' for action in actions]
             for perm in permission_name:
                 if request.user.has_perm(perm):
                     return True
@@ -392,12 +394,14 @@ class EventTypeRelatedField(rest_framework.serializers.RelatedField):
     def get_queryset(self):
         queryset = activity.models.EventType.objects.all_sort()
         if self.context.get('view').get_view_name() == 'Event Schema':
-            event_categories = activity.models.EventCategory.objects.values_list('value').distinct()
+            event_categories = activity.models.EventCategory.objects.values_list(
+                'value').distinct()
             event_categories = [ec[0] for ec in event_categories]
             actions = ('create', 'update', 'read', 'delete')
             allowed_event_categories = []
             for event_category in event_categories:
-                permission_name = [f'activity.{event_category}_{action}' for action in actions]
+                permission_name = [
+                    f'activity.{event_category}_{action}' for action in actions]
                 if any([self.context.get('request').user.has_perm(perm) for perm in permission_name]):
                     allowed_event_categories.append(event_category)
 
@@ -657,8 +661,7 @@ class EventPhotoSerializer(rest_framework.serializers.ModelSerializer):
         ]
 
 
-class EventFileSerializer(rest_framework.serializers.ModelSerializer):
-
+class EventFileSerializer(FileSerializerMixin, rest_framework.serializers.ModelSerializer):
     usercontent_id = rest_framework.serializers.UUIDField(required=False)
     usercontent_type = rest_framework.serializers.PrimaryKeyRelatedField(
         required=False, queryset=ContentType.objects.all())
@@ -678,87 +681,15 @@ class EventFileSerializer(rest_framework.serializers.ModelSerializer):
         fields = ('id', 'event', 'comment', 'usercontent',
                   'usercontent_id', 'usercontent_type') + read_only_fields
 
-    def create(self, validated_data):
+    @property
+    def parent_name(self):
+        return "event"
 
-        # Get uploaded file from request.
-        ser = usercontent.serializers.UserContentSerializer(
-            data=dict(file=self.context['request'].data['filecontent.file'],
-                      ),
-            context={'request': self.context['request']})
+    def get_instance_parent_id(self, instance):
+        return instance.event.id
 
-        ser.is_valid(raise_exception=True)
-        filecontent = ser.create(ser.validated_data)
-
-        validated_data.pop('filecontent.file', None)
-
-        validated_data['usercontent'] = filecontent
-
-        return super().create(validated_data)
-
-    def to_representation(self, instance):
-        rep = super().to_representation(instance)
-
-        rep['updates'] = self.render_updates(instance)
-
-        if 'request' in self.context:
-            request = self.context['request']
-            rep['url'] = utils.add_base_url(request,
-                                            reverse('event-view-file',
-                                                    args=[instance.event.id, instance.id, ]))
-
-            # If attached usercontent is an ImageFileField, then render urls
-            # for renditions.
-            if isinstance(instance.usercontent.file, (versatileimagefield.files.VersatileImageFieldFile,)):
-
-                # Image Sizes
-                image_sizes = {}
-                # '('thumbnail', 'large'):
-                for size in IMAGE_RENDITION_SETS['default'].keys():
-                    image_sizes[size] = utils.add_base_url(request,
-                                                           reverse('event-view-file-size',
-                                                                   args=[instance.event.id, instance.id,
-                                                                         size, instance.usercontent.filename]))
-                if image_sizes:
-                    rep['images'] = image_sizes
-
-        # Promote some usercontent attributes.
-        rep['filename'] = rep['usercontent'].get('filename')
-        rep['file_type'] = rep['usercontent'].get('file_type')
-
-        try:
-            rep['icon_url'] = rep['images']['icon']
-        except KeyError:
-            rep['icon_url'] = rep['usercontent'].get('icon_url')
-
-        # Prune some unnecessary attributes.
-        for att in ('usercontent', 'event', 'usercontent_id', 'usercontent_type'):
-            rep.pop(att, default=None)
-
-        return rep
-
-    def render_updates(self, event_file):
-        def get_action(revision):
-            return revision.get_action_display()
-
-        return [
-            dict(message='File {action}'.format(
-                action=get_action(revision),
-                user=get_user_display(revision.user)),
-                time=revision.revision_at.isoformat(),
-                text=revision.data.get('text', ''),
-                user=UserDisplaySerializer().to_representation(revision.user),
-                type=get_update_type(revision),
-            )
-            for revision in event_file.revision.all_user()
-        ]
-
-    def is_valid(self, raise_exception=False):
-
-        try:
-            r = super().is_valid(raise_exception=raise_exception)
-        except Exception as e:
-            raise e
-        return r
+    def get_update_type(self, revision, previous_revisions=[]):
+        return get_update_type(revision, previous_revisions)
 
 
 class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
@@ -786,7 +717,8 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
         if not current_details:
             current_details = activity.models.EventDetails.objects.create(
                 event=instance, data=validated_data, update_parent_event=False)
-            logger.info(f'Event Details created successfully for event id: {instance.id}')
+            logger.info(
+                f'Event Details created successfully for event id: {instance.id}')
 
         elif current_details.data != validated_data:
             current_details.data = validated_data
@@ -867,7 +799,8 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
                         if isinstance(d, dict) and d['value'] == value:
                             matches.append(d)
                         elif value == d:
-                            matches.append({"name": parameters[k][value], "value": value})
+                            matches.append(
+                                {"name": parameters[k][value], "value": value})
 
                     if len(matches) > 0:
                         all_values.append(matches[0])
@@ -896,7 +829,8 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
             elif isinstance(v, dict) and 'value' in v.keys():
                 event_details[k] = v['value']
             elif isinstance(v, list):
-                values = [x['value'] if isinstance(x, dict) and 'value' in x.keys() else x for x in v]
+                values = [x['value'] if isinstance(
+                    x, dict) and 'value' in x.keys() else x for x in v]
                 event_details[k] = values
         return event_details
 
@@ -1459,7 +1393,7 @@ class EventGeoJsonSerializer(EventSerializer):
         return list_serializer_class(*args, **list_kwargs)
 
     def create(self, validated_data):
-        raise NotImplemented('Create Event using GeoJson not supported')
+        raise NotImplementedError('Create Event using GeoJson not supported')
 
     def to_representation(self, event):
         rep = super().to_representation(event)
@@ -1799,5 +1733,6 @@ class PatrolTypeSerializer(rest_framework.serializers.ModelSerializer):
 
     class Meta:
         model = activity.models.PatrolType
-        read_only_fields = ('id', 'value', 'display', 'ordernum', 'icon_id', 'default_priority', 'is_active')
+        read_only_fields = ('id', 'value', 'display', 'ordernum',
+                            'icon_id', 'default_priority', 'is_active')
         fields = read_only_fields

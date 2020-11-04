@@ -16,7 +16,8 @@ urlpatterns = [
     url(r'^events/classfactors/?$', views.EventClassFactorsView.as_view()),
     url(r'^events/alerts/targets/?$', views.EventAlertTargetsListView.as_view()),
 
-    url(r'^alerts/conditions/?$', alerts_views.EventAlertConditionsListView.as_view(), name='alerts-conditions-view'),
+    url(r'^alerts/conditions/?$', alerts_views.EventAlertConditionsListView.as_view(),
+        name='alerts-conditions-view'),
 
     url(r'^notificationmethods/?$',
         alerts_views.NotificationMethodListView.as_view(),
@@ -87,7 +88,23 @@ urlpatterns = [
     url(
         r'^patrols/types/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.PatrolTypeView.as_view(), name='patrol-type'),
     url(r'^patrols/?$', views.PatrolsView.as_view(), name='patrols'),
-    url(r'^patrols/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.PatrolView.as_view(), name='patrol'),
+    url(r'^patrols/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
+        views.PatrolView.as_view(), name='patrol'),
+    url(
+        r'^patrols/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/notes/?$',
+        views.PatrolNotesView.as_view(), name='patrol-view-notes'),
+    url(
+        r'^patrols/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/notes/(?P<note_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
+        views.PatrolNoteView.as_view(), name='patrol-view-note'),
+    url(
+        r'^patrols/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/files/?$',
+        views.PatrolFilesView.as_view(), name='patrol-view-files'),
+    url(
+        r'^patrols/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/files/(?P<filecontent_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/(?P<image_size>[a-zA-Z0-9]{1,20})/(?P<filename>.*)?$',
+        views.PatrolFileView.as_view(), name='patrol-view-file-size'),
+    url(
+        r'^patrols/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/file/(?P<filecontent_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/(?P<filename>.*)?$',
+        views.PatrolFileView.as_view(), name='patrol-view-file'),
     url(
         r'^patrols/segments/?$', views.PatrolsegmentsView.as_view(), name='patrol-segments'),
     url(

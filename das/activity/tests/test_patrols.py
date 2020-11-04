@@ -3,10 +3,13 @@ import json
 import os
 import pytz
 from urllib.parse import urlencode
+import tempfile
+import shutil
 
 import django.contrib.auth
 from django.core.management import call_command
 from django.urls import reverse
+from django.utils import lorem_ipsum
 
 from activity import views
 from activity.models import Patrol, PatrolSegment, PatrolType, StateFilters
@@ -15,6 +18,8 @@ from observations.models import Subject
 
 User = django.contrib.auth.get_user_model()
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tests')
+STATIC_IMAGE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                                 "mapping", 'static',)
 
 
 class TestPatrol(BaseAPITest):
@@ -26,22 +31,29 @@ class TestPatrol(BaseAPITest):
         user_const = dict(last_name='last', first_name='first')
         self.user = User.objects.create_user('user', 'user@test.com', 'all_perms_user', is_superuser=True,
                                              is_staff=True, **user_const)
+        self.sample_patrol_id = "b14bc72f-96d6-4248-9fea-7dd0bbc8c196"
         Patrol.objects.bulk_create(
             [
-                Patrol(id="b14bc72f-96d6-4248-9fea-7dd0bbc8c196", title='Test Patrol', objective='Test Objective'),
+                Patrol(id=self.sample_patrol_id, title='Test Patrol',
+                       objective='Test Objective'),
                 Patrol(title='Test Patrol 2', objective='Test Objective 2')
             ])
         PatrolSegment.objects.create(patrol_type=PatrolType.objects.first())
 
         self.now = datetime.datetime.now(tz=pytz.utc)
-        self.start_of_today = self.now.replace(hour=0, minute=0, second=0, microsecond=0)
-        self.end_of_today = self.start_of_today + datetime.timedelta(hours=23, minutes=59, seconds=59)
+        self.start_of_today = self.now.replace(
+            hour=0, minute=0, second=0, microsecond=0)
+        self.end_of_today = self.start_of_today + \
+            datetime.timedelta(hours=23, minutes=59, seconds=59)
 
         self.sample_patrol_filter = {
             'filter': json.dumps(
                 {"date_range": {
                     "lower": self.start_of_today.isoformat(), "upper": self.end_of_today.isoformat()}})}
+        self.temporary_folder = tempfile.mkdtemp()
 
+    def tearDown(self):
+        shutil.rmtree(self.temporary_folder)
 
     def test_get_all_patroltypes(self):
         patrol_types = PatrolType.objects.all()
@@ -79,10 +91,12 @@ class TestPatrol(BaseAPITest):
         assert response.status_code == 200
 
     def test_create_patrolsegment(self):
-        subj = Subject.objects.create(name='Heritage', subject_subtype_id='elephant')
+        subj = Subject.objects.create(
+            name='Heritage', subject_subtype_id='elephant')
 
         patrolsgm_data = dict(scheduled_start='2020-08-05 02:00:00+00',
-                              time_range={"start_time": "2020-08-05 02:00:00+00", "end_time": "2020-08-06 04:00:00+00"},
+                              time_range={
+                                  "start_time": "2020-08-05 02:00:00+00", "end_time": "2020-08-06 04:00:00+00"},
                               patrol_type='unique_fence_patrol',
                               leader={
                                   "content_type": "observations.subject",
@@ -98,8 +112,10 @@ class TestPatrol(BaseAPITest):
                                   "tracks_available": False,
                                   "image_url": "/static/elephant-black.svg"
                               },
-                              start_location={'latitude': '-122.334', 'longitude': '47.598'},
-                              end_location={'latitude': '-124.54', 'longitude': '38.98'},
+                              start_location={
+                                  'latitude': '-122.334', 'longitude': '47.598'},
+                              end_location={'latitude': '-124.54',
+                                            'longitude': '38.98'},
                               )
         url = reverse('patrol-segments')
         request = self.factory.post(url, data=patrolsgm_data)
@@ -108,18 +124,19 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.status_code, 201)
 
     def test_create_patrol_segment_with_invalid_time_range(self):
-        segment_data = dict(time_range={"start_time": "2030-08-05 02:00:00+00", "end_time": "2020-08-06 04:00:00+00"})
+        segment_data = dict(time_range={
+                            "start_time": "2030-08-05 02:00:00+00", "end_time": "2020-08-06 04:00:00+00"})
         url = reverse('patrol-segments')
         request = self.factory.post(url, data=segment_data)
         self.force_authenticate(request, self.app_user)
         response = views.PatrolsegmentsView.as_view()(request)
         self.assertEqual(response.status_code, 400)
-        self.assertIn('start_time must be an earlier date than the end_time', response.data.get('time_range'))
-
+        self.assertIn('start_time must be an earlier date than the end_time',
+                      response.data.get('time_range'))
 
     def test_create_patrol_patrolsegment_with_no_leader(self):
         patrol_patrolsg = dict(
-            prioity=0,
+            priority=0,
             state="open",
             serial_number=69,
             files=[],
@@ -150,11 +167,12 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.status_code, 201)
 
     def test_create_patrol_with_all_properties(self):
-        subj = Subject.objects.create(name='Heritage', subject_subtype_id='elephant')
+        subj = Subject.objects.create(
+            name='Heritage', subject_subtype_id='elephant')
 
         patrol_patrolsg = dict(
             objective="Patrol Management",
-            prioity=0,
+            priority=0,
             title="Patrol",
             state="open",
             notes=[{'text': 'New Note..'}],
@@ -196,12 +214,139 @@ class TestPatrol(BaseAPITest):
         response = views.PatrolsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
+    def test_add_note(self):
+        note_data = {'text': lorem_ipsum.paragraph()}
+        request = self.factory.post(self.api_base
+                                    + '/patrols/{0}/notes'.format(
+                                        self.sample_patrol_id),
+                                    note_data)
+        self.force_authenticate(request, self.app_user)
+
+        response = views.PatrolNotesView.as_view()(request,
+                                                   id=str(self.sample_patrol_id))
+        self.assertEqual(response.status_code, 201)
+        response_data = response.data
+        response_data = {k: response_data[k] for k in note_data.keys()}
+        self.assertDictEqual(response_data, note_data)
+
+        request = self.factory.get(self.api_base
+                                   + f'/patrols/{self.sample_patrol_id}/notes/{response.data["id"]}')
+        self.force_authenticate(request, self.app_user)
+
+        response = views.PatrolNotesView.as_view()(request,
+                                                   id=str(
+                                                       self.sample_patrol_id),
+                                                   note_id=str(response.data['id']))
+        self.assertEqual(response.status_code, 200)
+
+    def test_create_patrol_and_upload_document(self):
+        patrol_patrolsg = dict(
+            objective="Patrol Management",
+            priority=0,
+            title="Patrol",
+            state="open",
+            notes=[{'text': 'New Note..'}],
+        )
+
+        url = reverse('patrols')
+        request = self.factory.post(url, data=patrol_patrolsg)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        assert response.data['notes'][0]['updates']
+
+        my_patrol_id = response.data['id']
+
+        # Create a simple text file and add it to the patrol.
+        filename = os.path.join(self.temporary_folder, 'some-test-file.txt')
+        with open(filename, 'w') as f:
+            f.write('The quick brown fox jumps over the lazy dog.')
+
+        with open(filename, "rb") as f:
+            path = '/'.join((self.api_base, 'activity',
+                             'patrols', my_patrol_id, 'files'))
+            data = {'filecontent.file': f, "ordernum": 1}
+            request = self.factory.post(
+                path, data, format='multipart')
+
+            self.force_authenticate(request, self.app_user)
+            response = views.PatrolFilesView.as_view()(request, id=my_patrol_id)
+
+        path = '/'.join((self.api_base, 'activity', 'patrols', my_patrol_id))
+        request = self.factory.get(path)
+        self.force_authenticate(request, self.app_user)
+
+        response = views.PatrolView.as_view()(request, id=my_patrol_id)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(len(response.data['files']) == 1)
+        assert response.data['files'][0]['updates']
+
+        file_id = response.data['files'][0]['id']
+        file_name = "meta-data"  # response.data['files'][0]['id']
+        path = '/'.join((self.api_base, 'activity', 'patrols',
+                         my_patrol_id, 'files', file_id, file_name))
+        request = self.factory.get(path)
+        self.force_authenticate(request, self.app_user)
+
+        response = views.PatrolFileView.as_view()(
+            request, id=my_patrol_id, filecontent_id=file_id, filename=file_name)
+        self.assertEqual(response.status_code, 200)
+
+    def test_create_patrol_and_upload_image(self):
+        patrol_patrolsg = dict(
+            objective="Patrol Management",
+            priority=0,
+            title="Patrol",
+            state="open",
+            notes=[{'text': 'New Note..'}],
+        )
+
+        url = reverse('patrols')
+        request = self.factory.post(url, data=patrol_patrolsg)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        assert response.data['notes'][0]['updates']
+
+        my_patrol_id = response.data['id']
+
+        with open(os.path.join(STATIC_IMAGE_PATH, "easterisland.jpg"), "rb") as f:
+            path = '/'.join((self.api_base, 'activity',
+                             'patrols', my_patrol_id, 'files'))
+            data = {'filecontent.file': f, "ordernum": 1}
+            request = self.factory.post(
+                path, data, format='multipart')
+
+            self.force_authenticate(request, self.app_user)
+            response = views.PatrolFilesView.as_view()(request, id=my_patrol_id)
+
+        path = '/'.join((self.api_base, 'activity', 'patrols', my_patrol_id))
+        request = self.factory.get(path)
+        self.force_authenticate(request, self.app_user)
+
+        response = views.PatrolView.as_view()(request, id=my_patrol_id)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(len(response.data['files']) == 1)
+        assert response.data['files'][0]['updates']
+
+        file_id = response.data['files'][0]['id']
+        file_name = "meta-data"  # response.data['files'][0]['id']
+        path = '/'.join((self.api_base, 'activity', 'patrols',
+                         my_patrol_id, 'files', file_id, file_name))
+        request = self.factory.get(path)
+        self.force_authenticate(request, self.app_user)
+
+        response = views.PatrolFileView.as_view()(
+            request, id=my_patrol_id, filecontent_id=file_id, filename=file_name)
+        self.assertEqual(response.status_code, 200)
+
     def test_update_all_patrol_patrolsegment_properties(self):
-        su = Subject.objects.create(name='Horton', subject_subtype_id='elephant')
+        su = Subject.objects.create(
+            name='Horton', subject_subtype_id='elephant')
 
         patrol_patrolsegment = dict(
             objective="Patrol Management",
-            prioity=0,
+            priority=0,
             title="Patrol XYZ",
             state="open",
             notes=[{'text': 'New Note..'}],
@@ -250,10 +395,11 @@ class TestPatrol(BaseAPITest):
         patrol_sgs_id = patrol_sgs[0].get('id')
 
         # update all properties
-        subject = Subject.objects.create(name='Fatu', subject_subtype_id='rhino')
+        subject = Subject.objects.create(
+            name='Fatu', subject_subtype_id='rhino')
 
         updated_patrol_patrolsg = dict(
-            objective= "Lorem Ipsum is simply dummy text of the printing and typesetting industry",
+            objective="Lorem Ipsum is simply dummy text of the printing and typesetting industry",
             priority=200,
             title="Dog Patrol",
             state="open",
@@ -320,7 +466,8 @@ class TestPatrol(BaseAPITest):
 
         patrol_update_data = dict(
             title="New updated title",
-            notes=[{"text": "New third note"}, {"text": "Update first note", "id": response.data.get('notes')[0]['id']}],
+            notes=[{"text": "New third note"}, {
+                "text": "Update first note", "id": response.data.get('notes')[0]['id']}],
             patrol_segments=[{
                 "id": response.data.get('patrol_segments')[0]['id'],
                 "patrol_type": "dog_patrol",
@@ -336,10 +483,11 @@ class TestPatrol(BaseAPITest):
         response = views.PatrolView.as_view()(request, id=patrol.id)
         self.assertEqual(response.status_code, 200)
 
-        subj = Subject.objects.create(name='Heritage', subject_subtype_id='elephant')
+        subj = Subject.objects.create(
+            name='Heritage', subject_subtype_id='elephant')
 
         patrol_update_data2 = dict(
-            prioity=0,
+            priority=0,
             state="open",
             serial_number=69,
             files=[],
@@ -396,7 +544,8 @@ class TestPatrol(BaseAPITest):
 
         patrol_type_value = response.data.get('patrol_type')
         patrol_type = PatrolType.objects.get(value=patrol_type_value)
-        self.assertEqual(patrol_type.value, segment_update_data.get('patrol_type'))  # dog_patrol
+        self.assertEqual(patrol_type.value, segment_update_data.get(
+            'patrol_type'))  # dog_patrol
         self.assertEqual(response.status_code, 200)
 
     def test_update_patrol_with_new_patrolsegment(self):
@@ -459,41 +608,52 @@ class TestPatrol(BaseAPITest):
                 {'time_range': {"start_time": start.isoformat(), "end_time": end.isoformat()}}]
         )
         self._create_patrol(patrol_data)
-        response = self._filter_patrol(self.sample_patrol_filter)  # today's filter
+        response = self._filter_patrol(
+            self.sample_patrol_filter)  # today's filter
         self.assertEqual(response.data.get('count'), 1)
-        self.assertEqual(response.data.get('results')[0].get('title'), patrol_data.get('title'))
+        self.assertEqual(response.data.get('results')[
+                         0].get('title'), patrol_data.get('title'))
 
         # filter by only lower
-        filter_query = {'filter': json.dumps({"date_range": {"lower": self.start_of_today.isoformat()}})}
+        filter_query = {'filter': json.dumps(
+            {"date_range": {"lower": self.start_of_today.isoformat()}})}
         response = self._filter_patrol(filter_query)
         self.assertEqual(response.data.get('count'), 1)
-        self.assertEqual(response.data.get('results')[0].get('title'), patrol_data.get('title'))
+        self.assertEqual(response.data.get('results')[
+                         0].get('title'), patrol_data.get('title'))
 
         # filter by only upper
-        filter_query = {'filter': json.dumps({"date_range": {"upper": self.start_of_today.isoformat()}})}
+        filter_query = {'filter': json.dumps(
+            {"date_range": {"upper": self.start_of_today.isoformat()}})}
         response = self._filter_patrol(filter_query)
         self.assertEqual(response.data.get('count'), 0)
 
     def test_patrol_filter_only_scheduled_start_given(self):
-        start = self.start_of_today + datetime.timedelta(days=5)  # 5 days later
+        start = self.start_of_today + \
+            datetime.timedelta(days=5)  # 5 days later
         patrol_data = dict(
             title='Scheduled Patrol',
             patrol_segments=[
                 {'scheduled_start': start.isoformat()}]
         )
         self._create_patrol(patrol_data)
-        response = self._filter_patrol(self.sample_patrol_filter)  # today's filter
+        response = self._filter_patrol(
+            self.sample_patrol_filter)  # today's filter
         self.assertEqual(response.data.get('count'), 0)
 
-        lower = self.start_of_today + datetime.timedelta(days=3)  # 3 days from now
-        upper = self.start_of_today + datetime.timedelta(days=7)  # 7 days from now
+        lower = self.start_of_today + \
+            datetime.timedelta(days=3)  # 3 days from now
+        upper = self.start_of_today + \
+            datetime.timedelta(days=7)  # 7 days from now
 
-        patrol_filter = {'filter': json.dumps({"date_range": {"lower": lower.isoformat(), "upper": upper.isoformat()}})}
+        patrol_filter = {'filter': json.dumps(
+            {"date_range": {"lower": lower.isoformat(), "upper": upper.isoformat()}})}
         response = self._filter_patrol(patrol_filter)
         self.assertEqual(response.data.get('count'), 1)
 
     def test_patrol_filter_by_state(self):
-        start = self.start_of_today + datetime.timedelta(days=5)  # 5 days later
+        start = self.start_of_today + \
+            datetime.timedelta(days=5)  # 5 days later
         scheduled_patrol = dict(
             title='Scheduled Patrol', patrol_segments=[{'scheduled_start': start.isoformat()}])
         active_patrol = dict(
@@ -513,15 +673,16 @@ class TestPatrol(BaseAPITest):
             response = self._filter_patrol(filter_param)
             self.assertEqual(response.data.get('count'), 1)
 
-        url = reverse('patrols') + f'?state=scheduled&state=active&state=done&state=cancelled'
+        url = reverse('patrols') + \
+            f'?state=scheduled&state=active&state=done&state=cancelled'
         request = self.factory.get(self.api_base + url)
         self.force_authenticate(request, self.user)
         response = views.PatrolsView.as_view()(request)
         self.assertEqual(response.data.get('count'), 4)
 
-
     def test_patrol_filter_by_patrol_type(self):
-        patrol = dict(title='Test Patrol', patrol_segments=[{'patrol_type': 'dog_patrol'}])
+        patrol = dict(title='Test Patrol', patrol_segments=[
+                      {'patrol_type': 'dog_patrol'}])
         self._create_patrol(patrol)
 
         filter_param = {"patrol_type": "routine_patrol"}
@@ -533,7 +694,8 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.data.get('count'), 1)
 
     def test_patrol_filter_by_tracked_subject(self):
-        subj = Subject.objects.create(name='Heritage', subject_subtype_id='elephant')
+        subj = Subject.objects.create(
+            name='Heritage', subject_subtype_id='elephant')
         patrol_data = dict(
             title="Patrol with tracked subject",
             patrol_segments=[{
@@ -558,7 +720,8 @@ class TestPatrol(BaseAPITest):
         filter_param = {"subject": subj.id}
         response = self._filter_patrol(filter_param)
         self.assertEqual(response.data.get('count'), 1)
-        self.assertEqual(response.data.get('results')[0].get('title'), patrol_data.get('title'))
+        self.assertEqual(response.data.get('results')[
+                         0].get('title'), patrol_data.get('title'))
 
     def test_patrol_filter_with_null_end_time(self):
         start = self.start_of_today - datetime.timedelta(days=3)  # 3 days ago
@@ -571,19 +734,22 @@ class TestPatrol(BaseAPITest):
 
         # patrol is still current since it doesnt have an end date
         self.assertEqual(response.data.get('count'), 1)
-        self.assertEqual(response.data.get('results')[0].get('title'), patrol_data.get('title'))
+        self.assertEqual(response.data.get('results')[
+                         0].get('title'), patrol_data.get('title'))
 
     def test_patrol_filter_with_past_end_time_but_patrol_not_completed(self):
         start = self.start_of_today - datetime.timedelta(days=2, hours=10)
         end = self.start_of_today - datetime.timedelta(days=2, hours=5)
         patrol_data = dict(
             title='Test Patrol',
-            patrol_segments=[{'time_range': {"start_time": start.isoformat(), "end_time": end.isoformat()}}]
+            patrol_segments=[
+                {'time_range': {"start_time": start.isoformat(), "end_time": end.isoformat()}}]
         )
         self._create_patrol(patrol_data)
         response = self._filter_patrol(self.sample_patrol_filter)
 
-        # patrol is still displayed as current since its not marked as done or complete
+        # patrol is still displayed as current since its not marked as done or
+        # complete
         self.assertEqual(response.data.get('count'), 1)
         result = response.data.get('results')[0]
         self.assertEqual(result.get('title'), patrol_data.get('title'))
@@ -623,11 +789,11 @@ class TestPatrol(BaseAPITest):
         self.force_authenticate(request, self.app_user)
         views.PatrolView.as_view()(request, id=patrol.id)
 
-        response = self._filter_patrol(self.sample_patrol_filter)  # current patrols filter
+        response = self._filter_patrol(
+            self.sample_patrol_filter)  # current patrols filter
         self.assertEqual(response.data.get('count'), 1)
-        self.assertEqual(response.data.get('results')[0].get('title'), patrol_data.get('title'))
-
-
+        self.assertEqual(response.data.get('results')[
+                         0].get('title'), patrol_data.get('title'))
 
     def _filter_patrol(self, filter_query):
         url = reverse('patrols')
@@ -637,7 +803,6 @@ class TestPatrol(BaseAPITest):
         response = views.PatrolsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
         return response
-
 
     def _create_patrol(self, patrol_data):
         url = reverse('patrols')
@@ -660,7 +825,8 @@ class TestPatrol(BaseAPITest):
 
         done_patrol = dict(title='patrol_done', state='done')
 
-        [self._create_patrol(patrol) for patrol in [done_patrol, active_patrol,  cancelled_patrol, overdue_patrol]]
+        [self._create_patrol(patrol) for patrol in [
+            done_patrol, active_patrol,  cancelled_patrol, overdue_patrol]]
 
         request = self.factory.get(self.api_base + '/patrols/')
         self.force_authenticate(request, self.app_user)
@@ -668,7 +834,8 @@ class TestPatrol(BaseAPITest):
         assert response.status_code == 200
 
         # expected order
-        expected = ['patrol_overdue', 'patrol_active', 'patrol_done', 'patrol_cancelled']
+        expected = ['patrol_overdue', 'patrol_active',
+                    'patrol_done', 'patrol_cancelled']
         results = [p.get('title') for p in response.data['results']]
 
         for exp, actual in zip(expected, results):
@@ -697,8 +864,10 @@ class TestPatrol(BaseAPITest):
     def test_overdue_readytostart(self):
         Patrol.objects.all().delete()
 
-        ahead = datetime.datetime.now(tz=pytz.utc) + datetime.timedelta(minutes=28)
-        lookback = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(minutes=28)
+        ahead = datetime.datetime.now(
+            tz=pytz.utc) + datetime.timedelta(minutes=28)
+        lookback = datetime.datetime.now(
+            tz=pytz.utc) - datetime.timedelta(minutes=28)
 
         overdue_patrol = dict(title='overdue',
                               patrol_segments=[{'scheduled_start': lookback.isoformat()}])
@@ -706,7 +875,8 @@ class TestPatrol(BaseAPITest):
         readytostart = dict(title='readytostart',
                             patrol_segments=[{'scheduled_start': ahead.isoformat()}])
 
-        [self._create_patrol(patrol) for patrol in [readytostart, overdue_patrol]]
+        [self._create_patrol(patrol)
+         for patrol in [readytostart, overdue_patrol]]
 
         request = self.factory.get(self.api_base + '/patrols/')
         self.force_authenticate(request, self.app_user)
@@ -735,7 +905,8 @@ class TestPatrol(BaseAPITest):
         active_patrol = dict(title='active',
                              patrol_segments=[{'time_range': {'start_time': now.isoformat()}}])
 
-        [self._create_patrol(patrol) for patrol in [active_patrol, readytostart, overdue_patrol]]
+        [self._create_patrol(patrol) for patrol in [
+            active_patrol, readytostart, overdue_patrol]]
 
         request = self.factory.get(self.api_base + '/patrols/')
         self.force_authenticate(request, self.app_user)
@@ -767,24 +938,24 @@ class TestPatrol(BaseAPITest):
         overdue_patrol = dict(title='overdue patrol',
                               patrol_segments=[{'scheduled_start': lookback.isoformat()}])
         overdue_patrol2 = dict(title='my overdue patrol',
-                              patrol_segments=[{'scheduled_start': lookback2.isoformat()}])
+                               patrol_segments=[{'scheduled_start': lookback2.isoformat()}])
         future_patrol = dict(title='future patrol',
-                               patrol_segments=[{'scheduled_start': future_scheduled.isoformat()}])
+                             patrol_segments=[{'scheduled_start': future_scheduled.isoformat()}])
 
         cancel_readytostart = dict(title='cancelled readytostart', state="cancelled",
                                    patrol_segments=[{'scheduled_start': ahead.isoformat()}])
         cancel_readytostart2 = dict(title='cancelled readytostart_control', state="cancelled",
-                                   patrol_segments=[{'scheduled_start': ahead_control.isoformat()}])
+                                    patrol_segments=[{'scheduled_start': ahead_control.isoformat()}])
 
         active_patrol0 = dict(title='active B',
-                             patrol_segments=[{'time_range': {'start_time': now.isoformat()},
-                                               'scheduled_start': lookback.isoformat()}])
+                              patrol_segments=[{'time_range': {'start_time': now.isoformat()},
+                                                'scheduled_start': lookback.isoformat()}])
 
         active_patrol = dict(title='active',
                              patrol_segments=[{'time_range': {'start_time': now.isoformat()}}])
 
         active_patrol2 = dict(title='active_control',
-                             patrol_segments=[{'time_range': {'start_time': active_control.isoformat()}}])
+                              patrol_segments=[{'time_range': {'start_time': active_control.isoformat()}}])
 
         done_patrol = dict(title='done A', state="done",
                            patrol_segments=[{'time_range': {'start_time': now.isoformat()}}])
@@ -795,9 +966,8 @@ class TestPatrol(BaseAPITest):
                             patrol_segments=[{'time_range': {'start_time': active_control.isoformat()},
                                               "patrol_type": "routine_patrol"}])
 
-
-
-        [self._create_patrol(patrol) for patrol in [done_patrol3, done_patrol2, cancel_readytostart, future_patrol, overdue_patrol,  overdue_patrol2, active_patrol0, active_patrol, done_patrol,  cancel_readytostart2, active_patrol2]]
+        [self._create_patrol(patrol) for patrol in [done_patrol3, done_patrol2, cancel_readytostart, future_patrol, overdue_patrol,
+                                                    overdue_patrol2, active_patrol0, active_patrol, done_patrol,  cancel_readytostart2, active_patrol2]]
 
         request = self.factory.get(self.api_base + '/patrols/')
         self.force_authenticate(request, self.app_user)
@@ -814,7 +984,8 @@ class TestPatrol(BaseAPITest):
 
     def test_sort_overdue_readytostart_only_alphabetically(self):
         Patrol.objects.all().delete()
-        subj = Subject.objects.create(name='Heritage', subject_subtype_id='elephant')
+        subj = Subject.objects.create(
+            name='Heritage', subject_subtype_id='elephant')
 
         now = datetime.datetime.now(tz=pytz.utc)
 
@@ -849,30 +1020,29 @@ class TestPatrol(BaseAPITest):
                                                      "tracks_available": False,
                                                      "image_url": "/static/elephant-black.svg"
 
-                                                 }}])
+        }}])
         ready_patrol = dict(title='C readytostart',
-                              patrol_segments=[{'scheduled_start': first_scheduled.isoformat()}])
+                            patrol_segments=[{'scheduled_start': first_scheduled.isoformat()}])
         ready_patrol2 = dict(title='B readytostart',
-                               patrol_segments=[{'scheduled_start': second_scheduled.isoformat()}])
+                             patrol_segments=[{'scheduled_start': second_scheduled.isoformat()}])
         ready_patrol3 = dict(title='A readytostart',
-                               patrol_segments=[{'scheduled_start': third_scheduled.isoformat()}])
+                             patrol_segments=[{'scheduled_start': third_scheduled.isoformat()}])
 
         ready_patrol4 = dict(patrol_segments=[{'scheduled_start': third_scheduled.isoformat(),
                                                "patrol_type": "dog_patrol"}])
 
-        [self._create_patrol(patrol) for patrol in [ready_patrol4, ready_patrol, ready_patrol2, ready_patrol3, overdue_patrol4, overdue_patrol, overdue_patrol2, overdue_patrol3]]
+        [self._create_patrol(patrol) for patrol in [ready_patrol4, ready_patrol, ready_patrol2,
+                                                    ready_patrol3, overdue_patrol4, overdue_patrol, overdue_patrol2, overdue_patrol3]]
 
         request = self.factory.get(self.api_base + '/patrols/')
         self.force_authenticate(request, self.app_user)
         response = views.PatrolsView.as_view()(request)
         assert response.status_code == 200
 
-        expected = ['A overdue', 'B overdue', 'C overdue', 'Heritage',  'A readytostart', 'B readytostart', 'C readytostart', 'dog_patrol']
+        expected = ['A overdue', 'B overdue', 'C overdue', 'Heritage',
+                    'A readytostart', 'B readytostart', 'C readytostart', 'dog_patrol']
         results = [p.get('title') for p in response.data['results']]
         results[3] = response.data['results'][3]['patrol_segments'][0]['leader']['name']
         results[7] = response.data['results'][7]['patrol_segments'][0]['patrol_type']
         for exp, actual in zip(expected, results):
             self.assertEqual(exp, actual)
-
-
-

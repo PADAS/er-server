@@ -39,7 +39,7 @@ from activity.filters import EventObjectPermissionsFilter
 from activity.models import Event, EventNote, EventClass, \
     EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, \
     EventFile, Community, StateFilters, \
-    EventFilter, EventSource, EventProvider, PatrolType, Patrol, PatrolSegment
+    EventFilter, EventSource, EventProvider, PatrolType, Patrol, PatrolSegment, PatrolNote, PatrolFile
 from activity.permissions import EventCategoryPermissions, \
     EventNotesCategoryPermissions, IsOwner
 from activity.serializers import EventSerializer, EventNoteSerializer, \
@@ -50,7 +50,7 @@ from activity.serializers import EventSerializer, EventNoteSerializer, \
     EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, \
     EventGeoJsonSerializer, \
     PatrolTypeSerializer
-from activity.serializers.patrol_serializers import PatrolSerializer, PatrolSegmentSerializer
+from activity.serializers.patrol_serializers import PatrolSerializer, PatrolSegmentSerializer, PatrolNoteSerializer, PatrolFileSerializer
 from choices.models import Choice
 from observations.models import Subject
 from utils.drf import StandardResultsSetPagination, \
@@ -96,12 +96,14 @@ class EventTypesView(generics.ListAPIView):
             queryset = queryset.by_category(category)
         else:
             allowed_categories = []
-            event_categories = EventCategory.objects.values_list('value').distinct()
+            event_categories = EventCategory.objects.values_list(
+                'value').distinct()
             event_categories = [ec[0] for ec in event_categories]
             actions = ('create', 'update', 'read', 'delete')
 
             for event_category in event_categories:
-                permission_name = [f'activity.{event_category}_{action}' for action in actions]
+                permission_name = [
+                    f'activity.{event_category}_{action}' for action in actions]
                 if any([self.request.user.has_perm(perm) for perm in permission_name]):
                     allowed_categories.append(event_category)
 
@@ -125,7 +127,8 @@ class EventCategoriesView(generics.ListAPIView):
         queryset = queryset.filter(is_active=True)
         for q in queryset:
             actions = ('create', 'update', 'read', 'delete')
-            permission_name = [f'activity.{q.value}_{action}' for action in actions]
+            permission_name = [
+                f'activity.{q.value}_{action}' for action in actions]
             if not any([self.request.user.has_perm(perm) for perm in permission_name]):
                 queryset = queryset.exclude(id=q.id)
         return queryset
@@ -266,10 +269,11 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
                     if isinstance(key, OrderedDict):
                         items = key.get('items')
 
-                        tmap_values = [ (i, i['titleMap']) for i in items if isinstance(i, OrderedDict)
-                                        and i.get('titleMap')] if items else None
+                        tmap_values = [(i, i['titleMap']) for i in items if isinstance(i, OrderedDict)
+                                       and i.get('titleMap')] if items else None
 
-                        # TODO: Consider the truthiness of tmap_values here, for the case where it is set to [].
+                        # TODO: Consider the truthiness of tmap_values here,
+                        # for the case where it is set to [].
                         if tmap_values:
                             for item, tmap in tmap_values:
                                 for tm in tmap:
@@ -288,7 +292,8 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
 
         # Apply definition filter
         try:
-            schema = schema_utils.filter_schema_definition(schema, definition_format)
+            schema = schema_utils.filter_schema_definition(
+                schema, definition_format)
         except ValueError as ex:
             return Response(str(ex), status=status.HTTP_400_BAD_REQUEST)
 
@@ -492,7 +497,6 @@ class EventsExportView(views.APIView):
             else:
                 details = {}
 
-
             schema_data = OrderedDict()
             for key, order in current_schema_order.items():
                 item_display_name = schema_utils.get_display_value_header_for_key(
@@ -513,13 +517,13 @@ class EventsExportView(views.APIView):
                     event.get('priority', ""), ''),
                 "Priority_Internal_Value": event.get('priority', ''),
                 "Report_Status": "Resolved" if event[
-                                            'state'] == Event.SC_RESOLVED else 'Active',
+                    'state'] == Event.SC_RESOLVED else 'Active',
                 reported_at.replace(" ", "_"): event['event_time'].astimezone(
                     current_tz).strftime('%Y-%m-%d %H:%M'),
                 "Latitude": event['location'].y if event[
-                                                       'location'] is not None else '',
+                    'location'] is not None else '',
                 "Longitude": event['location'].x if event[
-                                                        'location'] is not None else '',
+                    'location'] is not None else '',
                 "Number_of_Notes": event.get('notes_count', ''),
                 "Notes": self.escape_string(event.get('full_notes', '')),
                 "Number_of_Related_Subjects": event.get('', ''),
@@ -717,7 +721,7 @@ class EventsView(generics.ListCreateAPIView):
         event_ids = query_params.get('event_ids', [])
         if event_ids:
             if isinstance(event_ids, str):
-                event_ids = [event_ids,]
+                event_ids = [event_ids, ]
             queryset = queryset.filter(id__in=event_ids)
 
         bbox = query_params.get('bbox', None)
@@ -972,6 +976,7 @@ class EventFileView(generics.RetrieveUpdateDestroyAPIView):
         filters = {'id': self.kwargs['filecontent_id']}
 
         obj = generics.get_object_or_404(queryset, **filters)
+        self.check_object_permissions(self.request, obj)
         return obj
 
     def get(self, request, *args, **kwargs):
@@ -1119,7 +1124,7 @@ class PatrolSchema(CustomSchema):
                 {
                     'name': 'filter', 'in': 'query', 'required': False,
                     'description': 'example: {\"date_range\":{\"lower\":\"2020-09-16T00:00:00.000Z\"}}'}
-                ]
+            ]
             operation['parameters'].extend(query_params)
         return operation
 
@@ -1135,7 +1140,8 @@ class PatrolsView(generics.ListCreateAPIView):
             allowed_state_filters = [e.value for e in StateFilters]
             if not (set(state_filters) <= set(allowed_state_filters)):
                 return Response(
-                    data={'error': f'Only states: {", ".join(allowed_state_filters)} allowed for filtering'},
+                    data={
+                        'error': f'Only states: {", ".join(allowed_state_filters)} allowed for filtering'},
                     status=status.HTTP_400_BAD_REQUEST)
         return super().get(request, *args, **kwargs)
 
@@ -1167,10 +1173,141 @@ class PatrolsView(generics.ListCreateAPIView):
 
         return queryset.sort_patrols()
 
+
 class PatrolView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
     serializer_class = PatrolSerializer
     queryset = Patrol.objects.all()
+
+
+class PatrolNotesView(generics.ListCreateAPIView):
+    # permission_classes = (PatrolNotesCategoryPermissions,)
+    serializer_class = PatrolNoteSerializer
+    pagination_class = StandardResultsSetPagination
+
+    def create(self, request, *args, **kwargs):
+        request.data['patrol'] = self.get_patrol()
+        return super().create(request, *args, **kwargs)
+
+    def get_queryset(self):
+        return PatrolNote.objects.all().filter(patrol=self.get_patrol())
+
+    def get_patrol(self):
+        return generics.get_object_or_404(Patrol.objects.all(),
+                                          pk=self.kwargs.get('id'))
+
+
+class PatrolNoteView(generics.RetrieveUpdateAPIView):
+    #permission_classes = (PatrolNotesCategoryPermissions,)
+    serializer_class = PatrolNoteSerializer
+
+    def get_queryset(self):
+        notes = PatrolNote.objects.all().filter(patrol=self.get_patrol())
+        return notes
+
+    def get_object(self):
+        queryset = self.get_queryset()
+        filters = {'id': self.kwargs['note_id']}
+
+        obj = generics.get_object_or_404(queryset, **filters)
+
+        return obj
+
+    def get_patrol(self):
+        return generics.get_object_or_404(Patrol.objects.all(),
+                                          pk=self.kwargs['id'])
+
+
+class PatrolFilesView(generics.ListCreateAPIView):
+    # permission_classes = (PatrolCategoryPermissions,)
+    serializer_class = PatrolFileSerializer
+    pagination_class = StandardResultsSetPagination
+
+    def create(self, request, *args, **kwargs):
+
+        patrol = self.get_patrol()
+
+        # TODO: This conditional is to handle the case where a file is uploaded
+        # via XHR. Figure out why.
+        if 'filecontent.file' not in request.data:
+            try:
+                # Ajax request.
+                request.data['filecontent.file'] = request.stream.FILES[
+                    'filecontent.file']
+            except KeyError:
+                return Response("filecontent.file not found", status=status.HTTP_400_BAD_REQUEST)
+
+        this_data = copy.copy(request.data)
+        this_data['patrol'] = patrol
+
+        this_data['usercontent.file'] = this_data['filecontent.file']
+
+        serializer = self.get_serializer(data=this_data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED,
+                        headers=headers)
+
+    def get_queryset(self):
+        return self.get_patrol().files.all()
+
+    def get_patrol(self):
+        return generics.get_object_or_404(Patrol.objects.all(),
+                                          pk=self.kwargs.get('id'))
+
+
+class PatrolFileView(generics.RetrieveUpdateDestroyAPIView):
+    # permission_classes = (PatrolCategoryPermissions,)
+    serializer_class = PatrolFileSerializer
+
+    def get_queryset(self):
+        return PatrolFile.objects.all().filter(patrol=generics.get_object_or_404(Patrol.objects.all(),
+                                                                                 pk=self.kwargs['id']))
+
+    def get_object(self):
+        queryset = self.get_queryset()
+        filters = {'id': self.kwargs['filecontent_id']}
+
+        obj = generics.get_object_or_404(queryset, **filters)
+        return obj
+
+    def get(self, request, *args, **kwargs):
+        if self.kwargs.get('filename', None) == 'meta-data':
+            return super().get(request, *args, **kwargs)
+
+        instance = self.get_object()
+
+        desired_image_size = self.kwargs.get('image_size', None)
+        content_type, encoding = mimetypes.guess_type(
+            instance.usercontent.filename)
+
+        if content_type in USERCONTENT_FORCE_DOWNLOAD:
+            content_type = 'application/octet-stream'
+
+        if isinstance(instance.usercontent.file,
+                      (versatileimagefield.files.VersatileImageFieldFile,)):
+            filename = get_stored_filename(instance.usercontent.file,
+                                           rendition_set='default',
+                                           rendition_key=desired_image_size)
+            try:
+                response_file = instance.usercontent.file.field.storage.open(
+                    filename)
+            except OSError:
+                logger.warning(
+                    'Failed attempt to open file %s. Will default to original file version.',
+                    filename)
+                response_file = instance.usercontent.file
+
+            response = HttpResponse(response_file, content_type=content_type)
+        else:
+            response = HttpResponse(
+                instance.usercontent.file, content_type=content_type)
+            response[
+                'Content-Disposition'] = 'attachment; filename=%s' % instance.usercontent.filename
+
+        return response
 
 
 class PatrolsegmentsView(generics.ListCreateAPIView):
@@ -1183,4 +1320,3 @@ class PatrolsegmentView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
     serializer_class = PatrolSegmentSerializer
     queryset = PatrolSegment.objects.all()
-
