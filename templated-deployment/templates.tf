@@ -43,6 +43,8 @@ resource "template_dir" "deployments" {
     GFW_CLUSTER_RADIUS              = var.gfw_cluster_radius
     GS_BUCKET_NAME                  = var.gs_bucket_name
     INGRESS_VERSION                 = var.INGRESS_VERSION
+    WEB_REACT_VERSION               = var.WEB_REACT_VERSION
+    WEB_ADMIN_VERSION               = var.WEB_ADMIN_VERSION
     KML_EXPORT                      = var.kml_export
     KUBERNETES_NAMESPACE            = var.kubernetes_namespace
     MAPPING_FEATURES_V2             = var.mapping_features_v2
@@ -56,7 +58,6 @@ resource "template_dir" "deployments" {
     TIME_ZONE                       = var.time_zone
     USE_AZURE_STORAGE               = var.use_azure_storage
     WEB_SERVICE_NAME                = var.web_service_name
-    WEB_VERSION                     = var.WEB_VERSION
     SENDSMS_TWILIO_FROM_NUMBER      = "+14254904368"
     PATROL_ENABLED                  = var.patrol_enabled
     SUBJECT_REGION_ENABLED          = var.subject_region_enabled

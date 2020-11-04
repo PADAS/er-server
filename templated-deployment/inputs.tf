@@ -27,7 +27,11 @@ variable "SERVER_VERSION" {
   type = string
 }
 
-variable "WEB_VERSION" {
+variable "WEB_REACT_VERSION" {
+  type = string
+}
+
+variable "WEB_ADMIN_VERSION" {
   type = string
 }
 
