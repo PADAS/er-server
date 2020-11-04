@@ -4,7 +4,7 @@ from django.db import transaction
 from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 
-from activity.models import Event, EventPhoto, EventFile
+from activity.models import Event, EventPhoto, Patrol, PatrolSegment, PatrolNote, PatrolFile
 from das_server import celery, pubsub
 from usercontent.tasks import imagefile_rendered
 
@@ -52,4 +52,41 @@ def send_event_thumbnail_update(sender, usercontent_id, **kwargs):
         pubsub.publish(
             {'event_id': str(event.id)}, 'das.event.update')
 
+
 imagefile_rendered.connect(send_event_thumbnail_update)
+
+
+# Patrol signals
+@receiver(post_save, sender=Patrol)
+def patrol_post_save(sender, instance, created, **kwargs):
+    logger.info("saved patrol {}, created={}".format(instance.pk, str(created)))
+    patrol_action = 'das.patrol.new' if created else 'das.patrol.update'
+    transaction.on_commit(lambda: pubsub.publish({'patrol_id': str(instance.pk)}, patrol_action))
+
+
+@receiver(post_delete, sender=Patrol)
+def patrol_post_delete(sender, instance, **kwargs):
+    logger.info("deleted patrol {}".format(instance.pk))
+    pubsub.publish({'patrol_id': str(instance.pk)}, 'das.patrol.delete')
+
+
+def verify_patrol_constituent_for_rt_messaging(instance):
+    if instance.patrol:
+        patrol_action = 'das.patrol.update'
+        transaction.on_commit(lambda: pubsub.publish({'patrol_id': str(instance.patrol.pk)}, patrol_action))
+
+
+@receiver(post_save, sender=PatrolSegment)
+@receiver(post_save, sender=PatrolNote)
+@receiver(post_save, sender=PatrolFile)
+def patrol_item_post_save(sender, instance, created, **kwargs):
+    logger.info(f"saved {sender._meta.verbose_name} {instance.pk}, created={str(created)}")
+    verify_patrol_constituent_for_rt_messaging(instance)
+
+
+@receiver(post_delete, sender=PatrolSegment)
+@receiver(post_delete, sender=PatrolNote)
+@receiver(post_delete, sender=PatrolFile)
+def patrol_item_post_delete(sender, instance, **kwargs):
+    logger.info(f"deleted {sender._meta.verbose_name} {instance.pk}")
+    verify_patrol_constituent_for_rt_messaging(instance)
