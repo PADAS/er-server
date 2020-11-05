@@ -85,54 +85,68 @@ def _event_handler(event_id, type):
             # TODO: update this logic to be a little more frugal with the per
             # user/event-filter query.
             for sid in user_sids:
+                emit_data = {}
+                matches_current_filter = False
 
-                request = DummyRequest(
-                    user=user, http_method='GET', query_parameters={})
-                queryset = Event.objects.filter(id=event_id)
-                event = queryset.first()
-                
-                if event:
-                    event_count = 1
-                    try:
-                        event_view.check_object_permissions(
-                            request=request, obj=event)
-                    except PermissionDenied:
-                        logger.debug(
-                            'Permission denied. user=%s, event=%s', username, event.id)
-                    else:
-                        matches_current_filter = True
-                        should_annotate = False
+                if type == 'delete_event':
+                    emit_data = {
+                        'type': type,
+                        'sid': sid,
+                        'object_id': item_id,
+                        'data': {
+                            'type': type, 'event_id': item_id,
+                            'event_data': None,
+                            'matches_current_filter': matches_current_filter
+                        }
+                    }
+                else:
+                    request = DummyRequest(
+                        user=user, http_method='GET', query_parameters={})
+                    queryset = Event.objects.filter(id=event_id)
+                    event = queryset.first()
+
+                    if event:
+                        event_count = 1
                         try:
-                            socket_client = SocketClient.objects.get(id=sid)
-                            should_annotate = should_annotate_filtered_events(socket_client.event_filter)
-                            queryset = get_filtered_events(
-                                socket_client.event_filter, queryset)
-                            matches_current_filter = queryset.exists()
-
-                            full_queryset = Event.objects.all()
-                            full_queryset = get_filtered_events(
-                                socket_client.event_filter, full_queryset)
-                            event_count = full_queryset.count()
-                        except SocketClient.DoesNotExist:
-                            logger.debug(f'SocketClient does not exist for sid={sid}')
-                        
-                        if should_annotate or matches_current_filter:
-                            data = EventSerializer(event,
-                                                context={'request': request,
-                                                            'include_related_events': True
-                                                            }).data
-
-                            emit_data = {
-                                'type': type,
-                                'sid': sid,
-                                'object_id': event_id,
-                                'data': {'type': type, 'event_id': event_id, 'matches_current_filter': matches_current_filter, 'event_data': data, 'count': event_count}
-                            }
-
+                            event_view.check_object_permissions(
+                                request=request, obj=event)
+                        except PermissionDenied:
                             logger.debug(
-                                'Publish das.realtime.emit.  data=%s', emit_data)
-                            pubsub.publish(json.dumps(
-                                emit_data, default=dumps_helper), 'das.realtime.emit')
+                                'Permission denied. user=%s, event=%s', username, event.id)
+                        else:
+                            matches_current_filter = True
+                            should_annotate = False
+                            try:
+                                socket_client = SocketClient.objects.get(
+                                    id=sid)
+                                should_annotate = should_annotate_filtered_events(
+                                    socket_client.event_filter)
+                                queryset = get_filtered_events(
+                                    socket_client.event_filter, queryset)
+                                matches_current_filter = queryset.exists()
+
+                            except SocketClient.DoesNotExist:
+                                logger.debug(
+                                    f'SocketClient does not exist for sid={sid}')
+
+                            if should_annotate or matches_current_filter:
+                                data = EventSerializer(event,
+                                                       context={'request': request,
+                                                                'include_related_events': True
+                                                                }).data
+
+                                emit_data = {
+                                    'type': type,
+                                    'sid': sid,
+                                    'object_id': event_id,
+                                    'data': {'type': type, 'event_id': event_id, 'matches_current_filter': matches_current_filter, 'event_data': data, 'count': event_count}
+                                }
+
+                if emit_data:
+                    logger.debug(
+                        'Publish das.realtime.emit.  data=%s', emit_data)
+                    pubsub.publish(json.dumps(
+                        emit_data, default=dumps_helper), 'das.realtime.emit')
 
     finally:
         close_old_connections()
@@ -257,7 +271,8 @@ def _observation_handler(subject_id):
 def get_subjectstatus_view(view, user, subject_id):
     # Create a dummy request with the user's info so we get the permission
     # enforcement for free
-    request = DummyRequest(uri=f'/subject/{str(subject_id)}/status', http_method='GET', user=user)
+    request = DummyRequest(
+        uri=f'/subject/{str(subject_id)}/status', http_method='GET', user=user)
 
     result = view(request, subject_id=subject_id,)
 
@@ -313,45 +328,59 @@ def _patrol_handler(item_id, type):
         logger.debug('user_sids_map: %s', user_sids_map)
 
         for username, user_sids in user_sids_map.items():
-
             try:
                 user = User.objects.get(username=username)
             except User.DoesNotExist:
-                logger.warning('patrol_handler found no username=%s.', username)
+                logger.warning(
+                    'patrol_handler found no username=%s.', username)
                 client.remove_clients(user_sids)
                 continue
 
             logger.debug('Handling patrol for user: %s', username)
 
             for sid in user_sids:
-                request = DummyRequest(
-                    user=user, http_method='GET', query_parameters={})
-                queryset = model.objects.filter(id=item_id)
-                instance = queryset.first()
-
-                if instance:
-                    try:
-                        view.check_object_permissions(request=request, obj=instance)
-                    except PermissionDenied:
-                        logger.debug('Permission denied. user=%s, patrol=%s', username, instance.id)
-                    else:
-                        matches_current_filter = True  # To be regulated in the filters ticket
-                        data = serializer(instance, context={'request': request}).data
-
-                        emit_data = {
-                            'type': type,
-                            'sid': sid,
-                            'object_id': item_id,
-                            'data': {
-                                'type': type, f'patrol_id': item_id, f'patrol_data': data,
-                                'matches_current_filter': matches_current_filter
-                                }
+                emit_data = {}
+                matches_current_filter = True  # To be regulated in the filters ticket
+                if type == 'delete_patrol':
+                    emit_data = {
+                        'type': type,
+                        'sid': sid,
+                        'object_id': item_id,
+                        'data': {
+                            'type': type, 'patrol_id': item_id,
+                            'matches_current_filter': matches_current_filter
                         }
+                    }
+                else:
+                    request = DummyRequest(
+                        user=user, http_method='GET', query_parameters={})
+                    queryset = model.objects.filter(id=item_id)
+                    instance = queryset.first()
+                    if instance:
+                        try:
+                            view.check_object_permissions(
+                                request=request, obj=instance)
+                        except PermissionDenied:
+                            logger.debug(
+                                'Permission denied. user=%s, patrol=%s', username, instance.id)
+                        else:
+                            data = serializer(instance, context={
+                                              'request': request}).data
+                            emit_data = {
+                                'type': type,
+                                'sid': sid,
+                                'object_id': item_id,
+                                'data': {
+                                    'type': type, 'patrol_id': item_id, 'patrol_data': data,
+                                    'matches_current_filter': matches_current_filter
+                                }
+                            }
 
-                        logger.debug(
-                            'Publish das.realtime.emit.  data=%s', emit_data)
-                        pubsub.publish(json.dumps(
-                            emit_data, default=dumps_helper), 'das.realtime.emit')
+                if emit_data:
+                    logger.debug(
+                        'Publish das.realtime.emit.  data=%s', emit_data)
+                    pubsub.publish(json.dumps(
+                        emit_data, default=dumps_helper), 'das.realtime.emit')
     finally:
         close_old_connections()
 
@@ -412,8 +441,8 @@ def check_redis_queues():
         ('realtime_p1_length', rt_p1),
         ('realtime_p2_length', rt_p2),
         ('realtime_p3_length', rt_p3),
-        ]:
-        update_gauge(metric=key, value=value, tags=['realtime',])
+    ]:
+        update_gauge(metric=key, value=value, tags=['realtime', ])
 
     memory_info = client.info('memory')
 
@@ -431,4 +460,3 @@ def check_redis_queues():
         'total_system_memory': memory_info.get('total_system_memory', -1),
         'memory_gauge': val,
     })
-

@@ -28,9 +28,9 @@ def event_post_save(sender, instance, created, **kwargs):
 @receiver(post_delete, sender=Event)
 def event_post_delete(sender, instance, **kwargs):
     logger.info("delete event {}".format(instance.pk))
-    pubsub.publish(
+    transaction.on_commit(lambda: pubsub.publish(
         {'event_id': str(instance.pk)},
-        'das.event.delete')
+        'das.event.delete'))
 
 
 @receiver(post_save, sender=EventPhoto)
@@ -59,28 +59,34 @@ imagefile_rendered.connect(send_event_thumbnail_update)
 # Patrol signals
 @receiver(post_save, sender=Patrol)
 def patrol_post_save(sender, instance, created, **kwargs):
-    logger.info("saved patrol {}, created={}".format(instance.pk, str(created)))
+    logger.info("saved patrol {}, created={}".format(
+        instance.pk, str(created)))
     patrol_action = 'das.patrol.new' if created else 'das.patrol.update'
-    transaction.on_commit(lambda: pubsub.publish({'patrol_id': str(instance.pk)}, patrol_action))
+    transaction.on_commit(lambda: pubsub.publish(
+        {'patrol_id': str(instance.pk)}, patrol_action))
 
 
 @receiver(post_delete, sender=Patrol)
 def patrol_post_delete(sender, instance, **kwargs):
     logger.info("deleted patrol {}".format(instance.pk))
-    pubsub.publish({'patrol_id': str(instance.pk)}, 'das.patrol.delete')
+    patrol_action = 'das.patrol.delete'
+    transaction.on_commit(lambda: pubsub.publish(
+        {'patrol_id': str(instance.pk)}, patrol_action))
 
 
 def verify_patrol_constituent_for_rt_messaging(instance):
     if instance.patrol:
         patrol_action = 'das.patrol.update'
-        transaction.on_commit(lambda: pubsub.publish({'patrol_id': str(instance.patrol.pk)}, patrol_action))
+        transaction.on_commit(lambda: pubsub.publish(
+            {'patrol_id': str(instance.patrol.pk)}, patrol_action))
 
 
 @receiver(post_save, sender=PatrolSegment)
 @receiver(post_save, sender=PatrolNote)
 @receiver(post_save, sender=PatrolFile)
 def patrol_item_post_save(sender, instance, created, **kwargs):
-    logger.info(f"saved {sender._meta.verbose_name} {instance.pk}, created={str(created)}")
+    logger.info(
+        f"saved {sender._meta.verbose_name} {instance.pk}, created={str(created)}")
     verify_patrol_constituent_for_rt_messaging(instance)
 
 
