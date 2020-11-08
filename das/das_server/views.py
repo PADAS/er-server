@@ -40,7 +40,8 @@ class CustomSchema(AutoSchema):
             return self.view.__class__
 
     def _get_operation_id(self, path, method):
-        # Patch get_serializer_class to use views class if no serializer class is defined
+        # Patch get_serializer_class to use views class if no serializer class
+        # is defined
         if hasattr(self.view, 'get_serializer_class'):
             self.view.get_serializer_class = self.get_serializer_class
 
@@ -57,7 +58,8 @@ class CustomSchema(AutoSchema):
                 except Exception:
                     pass
 
-        # add required field to result to fix the break when clearing the same field for a patch method in _get_request_body.
+        # add required field to result to fix the break when clearing the same
+        # field for a patch method in _get_request_body.
         for method in self._view.allowed_methods:
             if method == 'PATCH' and 'required' not in result:
                 result['required'] = []
@@ -83,7 +85,7 @@ class CustomSchema(AutoSchema):
             }
 
         if isinstance(field, ChoiceField):
-            return {'type': 'integer' if isinstance(field.default, int) else 'string' }
+            return {'type': 'integer' if isinstance(field.default, int) else 'string'}
 
         if isinstance(field, LeaderRelatedField):
             return {'type': 'object', 'properties': {}}
@@ -157,8 +159,9 @@ class StatusView(generics.RetrieveAPIView):
         resp['show_stationary_subjects_on_map'] = settings.SHOW_STATIONARY_SUBJECTS_ON_MAP
         resp['daily_report_enabled'] = settings.DAILY_REPORT_ENABLED
 
-        resp['alerts_enabled'] = settings.ALERTS_ENABLED and has_alerts_permissionset(self.request.user)
-        resp['tableau_enabled'] = self.request.user.is_superuser
+        resp['alerts_enabled'] = settings.ALERTS_ENABLED and has_alerts_permissionset(
+            self.request.user)
+        resp['tableau_enabled'] = self.request.user.is_superuser and settings.TABLEAU_ENABLED
 
         resp['server_timezone_name'] = timezone.get_current_timezone_name()
         resp['server_timezone'] = timezone.localtime().strftime('%Z')

@@ -549,6 +549,7 @@ UBI_API_PASSWORD = os.getenv('UBI_API_PASSWORD', 'password')
 KERLINK_BASEURL = 'https://tanapa.wanesy.com/gms/application'
 
 # Tableau Server:
+TABLEAU_ENABLED = False
 TABLEAU_SERVER = 'https://tableau.pamdas.org'
 TABLEAU_VERSION = 3.9
 TABLEAU_API_TOKEN = None

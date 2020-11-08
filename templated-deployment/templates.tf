@@ -61,6 +61,7 @@ resource "template_dir" "deployments" {
     SENDSMS_TWILIO_FROM_NUMBER      = "+14254904368"
     PATROL_ENABLED                  = var.patrol_enabled
     SUBJECT_REGION_ENABLED          = var.subject_region_enabled
+    TABLEAU_ENABLED                 = var.tableau_enabled
     TABLEAU_SITE_ID                 = var.tableau_site_id
     TABLEAU_DEFAULT_DASHBOARD       = var.tableau_default_dashboard
   }

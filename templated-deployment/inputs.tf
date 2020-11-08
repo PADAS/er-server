@@ -186,6 +186,11 @@ variable "subject_region_enabled" {
   default = "False"
 }
 
+variable "tableau_enabled" {
+  type    = string
+  default = "False"
+}
+
 variable "tableau_site_id" {
   type    = string
   default = ""
