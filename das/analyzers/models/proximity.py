@@ -2,6 +2,7 @@ from django.contrib.gis.db import models
 from django.utils.translation import ugettext as _
 from analyzers.models.base import SubjectAnalyzerConfig
 from mapping.models import SpatialFeatureGroupStatic
+from observations.models import SubjectGroup
 
 
 class ProximityAnalyzerConfig(SubjectAnalyzerConfig):
@@ -16,6 +17,13 @@ class ProximityAnalyzerConfig(SubjectAnalyzerConfig):
                      "<br/>A subject's path is drawn using a straight line between "
                      "reported positions.")  # 500 meters
 
+    analyzer_category = 'proximity'
+
+    class Meta(SubjectAnalyzerConfig.Meta):
+        abstract = True
+
+
+class FeatureProximityAnalyzerConfig(ProximityAnalyzerConfig):
     proximal_features = models.ForeignKey(
         to=SpatialFeatureGroupStatic,
         on_delete=models.CASCADE,
@@ -26,9 +34,17 @@ class ProximityAnalyzerConfig(SubjectAnalyzerConfig):
             'This analyzer applies to proximity features in this Feature Group.')
     )
 
-    analyzer_category = 'proximity'
 
-    class Meta(SubjectAnalyzerConfig.Meta):
-        abstract = False
-        verbose_name = _('Proximity Analyzer')
-        verbose_name_plural = _('Proximity Analyzers')
+class SubjectProximityAnalyzerConfig(ProximityAnalyzerConfig):
+    subject_group = models.ForeignKey(
+        to=SubjectGroup, on_delete=models.CASCADE,
+        verbose_name=_('Subject Group 1'),
+        related_name='subject_group_1',
+        help_text=_('This analyzer applies to subjects in this Subject Group.'))
+
+    second_subject_group = models.ForeignKey(
+        to=SubjectGroup,
+        on_delete=models.CASCADE,
+        verbose_name=_('Subject Group 2'),
+        related_name='subject_group_2',
+        help_text=_('This analyzer applies to subjects in this Subject Group.'))
