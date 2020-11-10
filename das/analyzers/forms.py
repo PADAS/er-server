@@ -132,9 +132,13 @@ class ImmobilityAnalyzerForm(BaseAnalyzerForm):
     BaseAnalyzerForm.Meta.model = models.ImmobilityAnalyzerConfig
 
 
-class ProximitySubjectAnalyzerForm(BaseAnalyzerForm):
-    BaseAnalyzerForm.Meta.model = models.ProximityAnalyzerConfig
+class ProximityFeatureAnalyzerForm(BaseAnalyzerForm):
+    BaseAnalyzerForm.Meta.model = models.FeatureProximityAnalyzerConfig
 
+
+class ProximitySubjectAnalyzerForm(BaseAnalyzerForm):
+    BaseAnalyzerForm.Meta.model = models.SubjectProximityAnalyzerConfig
+    threshold_dist_meters = forms.DecimalField(decimal_places=1)
 
 class LowSpeedWilcoxSubjectAnalyzerForm(BaseAnalyzerForm):
     BaseAnalyzerForm.Meta.model = models.LowSpeedWilcoxAnalyzerConfig

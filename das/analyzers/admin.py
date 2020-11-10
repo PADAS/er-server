@@ -84,8 +84,8 @@ class EnvironmentalSubjectAnalyzerAdmin(admin.ModelAdmin):
     form = EnvironmentalAnalyzerAdminForm
 
 
-@admin.register(models.ProximityAnalyzerConfig)
-class ProximitySubjectAnalyzerAdmin(admin.ModelAdmin):
+@admin.register(models.FeatureProximityAnalyzerConfig)
+class ProximityFeatureAnalyzerAdmin(admin.ModelAdmin):
     list_display = ('name', 'subject_group_name',)
     ordering = ('name', 'subject_group')
 
@@ -109,6 +109,36 @@ class ProximitySubjectAnalyzerAdmin(admin.ModelAdmin):
             'fields': (('proximal_features',))
         }
         ),
+        ('Advanced Analyzer Attributes', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('id', 'search_time_hours', 'notes',)
+        })
+    )
+
+
+@admin.register(models.SubjectProximityAnalyzerConfig)
+class ProximitySubjectAnalyzerAdmin(admin.ModelAdmin):
+    list_display = ('name', 'subject_group_1_name', 'subject_group_2_name')
+    ordering = ('name', 'subject_group', 'second_subject_group')
+
+    search_fields = ('first_subject_group__name', 'second_subject_group__name', )
+    readonly_fields = ('id',)
+    form = ProximitySubjectAnalyzerForm
+
+    def subject_group_1_name(self, o):
+        return o.subject_group.name
+    subject_group_1_name.admin_order_field = 'subject_group'
+
+    def subject_group_2_name(self, o):
+        return o.second_subject_group.name
+    subject_group_2_name.admin_order_field = 'second_subject_group'
+
+    fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': (('name', 'subject_group', 'second_subject_group', 'threshold_dist_meters',
+                        'is_active',))
+        }),
         ('Advanced Analyzer Attributes', {
             'classes': ('wide', 'collapse'),
             'fields': ('id', 'search_time_hours', 'notes',)
