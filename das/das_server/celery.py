@@ -123,7 +123,7 @@ app.conf.beat_schedule = {
 
     },
     'refresh-event-details-view': {
-        'task': 'activity.tasks.refresh_event_details_views_task',
+        'task': 'activity.tasks.refresh_event_details_view_task',
         'args': ('Celery',),
         'schedule': timedelta(hours=1)
     },
