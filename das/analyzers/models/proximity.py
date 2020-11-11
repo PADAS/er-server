@@ -48,3 +48,8 @@ class SubjectProximityAnalyzerConfig(ProximityAnalyzerConfig):
         verbose_name=_('Subject Group 2'),
         related_name='subject_group_2',
         help_text=_('This analyzer applies to subjects in this Subject Group.'))
+
+    proximal_time_frame = models.FloatField(
+        null=False, default=24.0,
+        verbose_name='Proximal time frame (hours)',
+        help_text=_('Report will be created only if the subjects are of close proximity distance within this time frame'))

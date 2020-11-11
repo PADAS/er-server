@@ -37,15 +37,12 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
         traj = pymet.base.Trajectory(relocs=pymet.base.Relocations(fixes=traj.relocs.get_fixes()[-2:],
                                                                    subject_id=traj.relocs.subject_id))
 
-        proximity_results = SubjectProximityAnalysis.calc_proximity_events(subject, proximity_analysis_params=analysis_params,
+        proximity_results = SubjectProximityAnalysis.calc_proximity_events(subject, self.config, proximity_analysis_params=analysis_params,
                                                                     trajectories=[traj])
 
         das_analyzer_results = []
         for prox in proximity_results.proximity_events:
             # Create a DAS Analyser result based on each proximity event within
-            # the threshold distance
-
-            # Check time difference too ::TODO
             if prox.proximity_distance_meters <= self.config.threshold_dist_meters:
 
                 subject_2_name = prox.subject_2_name[0] if prox.subject_2_name else ''
@@ -96,13 +93,21 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
 class SubjectProximityAnalysis:
 
     @classmethod
-    def get_subject_location(cls, subject):
+    def get_subject_latest_obs(cls, subject):
         if subject.observations:
             obs = subject.observations().latest('recorded_at')
-            return obs.location.coords
+            return obs
 
     @classmethod
-    def calc_proximity_events(cls, analysis_subject, proximity_analysis_params=None, trajectories=None):
+    def verify_proximal_tracks_time_frame(cls, config, sub1_track, sub2_track):
+
+        if sub1_track and sub2_track and \
+                abs(sub1_track.recorded_at - sub2_track.recorded_at) <= config.proximal_time_frame:
+            return True
+
+
+    @classmethod
+    def calc_proximity_events(cls, analysis_subject, config, proximity_analysis_params=None, trajectories=None):
         """
         :param proximity_analysis_params:
         :param trajectories:
@@ -116,7 +121,7 @@ class SubjectProximityAnalysis:
 
         # Set the start time of the analysis
         result.analysis_start = dt.datetime.utcnow()
-        analysis_subject_location = cls.get_subject_location(analysis_subject)
+        analysis_subject_track = cls.get_subject_latest_obs(analysis_subject)
 
         for traj in trajectories:
             assert type(traj) is pymet.base.Trajectory
@@ -135,30 +140,35 @@ class SubjectProximityAnalysis:
 
                     for subject_traj in [subject_trajectories]:
                         for seg2 in subject_traj.traj_segs:
-                            # Calculate the distance between the traj seg and the new segment
-                            proximity_dist = seg.ogr_geometry.Distance(seg2.ogr_geometry)
-                            sub2_location = cls.get_subject_location(subject)
 
-                            # Convert the distance from degrees to meters
-                            proximity_dist = pymet.utils.degrees_to_km(proximity_dist) * 1000.0
+                            sub2_last_track = cls.get_subject_latest_obs(subject)
+                            valid_proximal_time = cls.verify_proximal_tracks_time_rangeframe(
+                                config, analysis_subject_track, sub2_last_track)
 
-                            # Create the proximity event
-                            prox_event = SubjectProximityEvent(
-                                subject_1_name=analysis_subject.name,
-                                subject_1_speed=seg.speed_kmhr,
-                                subject_1_location=analysis_subject_location,
+                            if valid_proximal_time:
+                                # Calculate the distance between the traj seg and the new segment
+                                proximity_dist = seg.ogr_geometry.Distance(seg2.ogr_geometry)
 
-                                subject_2_name=subject.name,
-                                subject_2_speed=seg2.speed_kmhr,
-                                subject_2_location=sub2_location,
+                                # Convert the distance from degrees to meters
+                                proximity_dist = pymet.utils.degrees_to_km(proximity_dist) * 1000.0
 
-                                subject_1_travel_heading=seg.heading,
-                                subject_2_travel_heading=seg2.heading,
+                                # Create the proximity event
+                                prox_event = SubjectProximityEvent(
+                                    subject_1_name=analysis_subject.name,
+                                    subject_1_speed=seg.speed_kmhr,
+                                    subject_1_location=analysis_subject_track.location.coords,
 
-                                proximity_distance_meters=proximity_dist
-                            )
-                            # Add this given crossing to the result
-                            result.add_proximity_event(prox_event)
+                                    subject_2_name=subject.name,
+                                    subject_2_speed=seg2.speed_kmhr,
+                                    subject_2_location=sub2_last_track.location.coords,
+
+                                    subject_1_travel_heading=seg.heading,
+                                    subject_2_travel_heading=seg2.heading,
+
+                                    proximity_distance_meters=proximity_dist
+                                )
+                                # Add this given crossing to the result
+                                result.add_proximity_event(prox_event)
 
         # Set the end time of the analysis
         result.analysis_end = dt.datetime.utcnow()
