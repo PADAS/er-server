@@ -21,13 +21,8 @@ from reports import views
 urlpatterns = [
     url(r'^sitrep\.docx$', views.SituationReportView.as_view(
         content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        template_engine='docx_template',
-        template_name='daily_report_template.docx')),
-    # url(r'^sitrep\.html$', views.SituationReportView.as_view(
-    #     content_type='text/html',
-    #     template_engine='jinja2',
-    #     template_name='lewa_sitrep_template.html')),
-    # url(r'^(?P<report_key>[a-z0-9-]+)/?$', views.ReportView.as_view()),
+        template_engine='docx_template')),
+
     url(r'^tableau-dashboards/(?P<dashboard_id>default)/?$',
         views.TableauDashboard.as_view()),
     url(r'^tableau-views/?$', views.TableauAPIView.as_view()),
