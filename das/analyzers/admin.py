@@ -4,7 +4,7 @@ import django.contrib.gis.admin as gis_admin
 import analyzers.models as models
 from analyzers.forms import EnvironmentalAnalyzerAdminForm, GlobalForestWatchSubscriptionForm, \
     GeofenceSubjectAnalyzerForm, ImmobilityAnalyzerForm, LowSpeedPercentileSubjectAnalyzerForm, \
-    LowSpeedWilcoxSubjectAnalyzerForm, ProximitySubjectAnalyzerForm
+    LowSpeedWilcoxSubjectAnalyzerForm, SubjectProximityAnalyzerForm
 from core.openlayers import OSMGeoExtendedAdmin
 
 
@@ -85,13 +85,13 @@ class EnvironmentalSubjectAnalyzerAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.FeatureProximityAnalyzerConfig)
-class ProximityFeatureAnalyzerAdmin(admin.ModelAdmin):
+class FeatureProximityAnalyzerAdmin(admin.ModelAdmin):
     list_display = ('name', 'subject_group_name',)
     ordering = ('name', 'subject_group')
 
     search_fields = ('subject_group__name',)
     readonly_fields = ('id',)
-    form = ProximitySubjectAnalyzerForm
+    form = SubjectProximityAnalyzerForm
 
     def subject_group_name(self, o):
         return o.subject_group.name
@@ -117,13 +117,13 @@ class ProximityFeatureAnalyzerAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.SubjectProximityAnalyzerConfig)
-class ProximitySubjectAnalyzerAdmin(admin.ModelAdmin):
+class SubjectProximityAnalyzerAdmin(admin.ModelAdmin):
     list_display = ('name', 'subject_group_1_name', 'subject_group_2_name')
     ordering = ('name', 'subject_group', 'second_subject_group')
 
     search_fields = ('first_subject_group__name', 'second_subject_group__name', )
     readonly_fields = ('id',)
-    form = ProximitySubjectAnalyzerForm
+    form = SubjectProximityAnalyzerForm
 
     def subject_group_1_name(self, o):
         return o.subject_group.name
@@ -137,7 +137,7 @@ class ProximitySubjectAnalyzerAdmin(admin.ModelAdmin):
         (None, {
             'classes': ('wide',),
             'fields': (('name', 'subject_group', 'second_subject_group', 'threshold_dist_meters',
-                        'is_active',))
+                        'proximal_time_frame', 'is_active',))
         }),
         ('Advanced Analyzer Attributes', {
             'classes': ('wide', 'collapse'),

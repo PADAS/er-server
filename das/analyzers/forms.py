@@ -132,13 +132,18 @@ class ImmobilityAnalyzerForm(BaseAnalyzerForm):
     BaseAnalyzerForm.Meta.model = models.ImmobilityAnalyzerConfig
 
 
-class ProximityFeatureAnalyzerForm(BaseAnalyzerForm):
+class FeatureProximityAnalyzerForm(BaseAnalyzerForm):
     BaseAnalyzerForm.Meta.model = models.FeatureProximityAnalyzerConfig
 
 
-class ProximitySubjectAnalyzerForm(BaseAnalyzerForm):
-    BaseAnalyzerForm.Meta.model = models.SubjectProximityAnalyzerConfig
+class SubjectProximityAnalyzerForm(forms.ModelForm):
     threshold_dist_meters = forms.DecimalField(decimal_places=1)
+    search_time_hours = TimeFrameField(label='Analysis time frame')
+    proximal_time_frame = TimeFrameField(label='Proximal time frame')
+
+    class Meta:
+        fields = '__all__'
+        model = models.SubjectProximityAnalyzerConfig
 
 class LowSpeedWilcoxSubjectAnalyzerForm(BaseAnalyzerForm):
     BaseAnalyzerForm.Meta.model = models.LowSpeedWilcoxAnalyzerConfig

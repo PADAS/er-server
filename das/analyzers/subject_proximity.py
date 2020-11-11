@@ -84,10 +84,7 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
                 self.logger.info(result.message)
 
                 das_analyzer_results.append(result)
-        print(f"\n\n*** {das_analyzer_results}\n\n")
-
         return das_analyzer_results
-
 
 
 class SubjectProximityAnalysis:
@@ -109,6 +106,8 @@ class SubjectProximityAnalysis:
     @classmethod
     def calc_proximity_events(cls, analysis_subject, config, proximity_analysis_params=None, trajectories=None):
         """
+        :param analysis_subject:
+        :param configuration:
         :param proximity_analysis_params:
         :param trajectories:
         :return:
