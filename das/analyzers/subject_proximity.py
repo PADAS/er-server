@@ -1,0 +1,187 @@
+import datetime as dt
+import math
+
+import pymet
+from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
+from django.contrib.gis.geos import Point as DjangoPoint
+from django.utils.translation import ugettext_lazy as _
+from pymet.proximity import ProximityAnalysisResult
+
+from analyzers.models import (CRITICAL, SubjectAnalyzerResult,
+                              SubjectProximityAnalyzerConfig)
+from analyzers.proximity import ProximityAnalyzer
+
+
+class SubjectProximityAnalyzer(ProximityAnalyzer):
+
+    @classmethod
+    def get_subject_analyzers(cls, subject):
+        return cls.subject_analyzers(subject, SubjectProximityAnalyzerConfig)
+
+    def _create_proximity_analysis_params(self):
+        return [k for k in self.config.second_subject_group.subjects.all()]
+
+    def analyze_trajectory(self, traj=None):
+        """
+        A function to analyze the trajectory of a subject in relation to a set of other subjects to
+        determine where/when the subject was proximal to the other subject
+        """
+
+        if traj is None:
+            return
+
+        analysis_params = self._create_proximity_analysis_params()
+
+        # Subsample trajectory to the last two fixes
+        subject = traj.subject
+        traj = pymet.base.Trajectory(relocs=pymet.base.Relocations(fixes=traj.relocs.get_fixes()[-2:],
+                                                                   subject_id=traj.relocs.subject_id))
+
+        proximity_results = SubjectProximityAnalysis.calc_proximity_events(subject, proximity_analysis_params=analysis_params,
+                                                                    trajectories=[traj])
+
+        das_analyzer_results = []
+        for prox in proximity_results.proximity_events:
+            # Create a DAS Analyser result based on each proximity event within
+            # the threshold distance
+
+            # Check time difference too ::TODO
+            if prox.proximity_distance_meters <= self.config.threshold_dist_meters:
+
+                subject_2_name = prox.subject_2_name[0] if prox.subject_2_name else ''
+
+                # Create the analyzer result
+                result = SubjectAnalyzerResult(subject_analyzer=self.config,
+                                               title=self.subject.name + str(_(' proximal to ')) +
+                                               subject_2_name + '.',
+                                               level=CRITICAL,
+                                               message=self.subject.name + str(_(' proximal to ')) +
+                                               subject_2_name + '.',
+                                               analyzer_revision=1,
+                                               subject=self.subject)
+
+                # Define the latest fix as the estimated time
+                result.estimated_time = prox.proximal_fix.fixtime
+
+                # Define the geometry to be the latest fix geometry
+                result.geometry_collection = DjangoGeoColl(
+                    [DjangoPoint(prox.proximal_fix.geopoint.ogr_geometry.GetX(),
+                                 prox.proximal_fix.geopoint.ogr_geometry.GetY())])
+
+                result.values = {
+                    'subject_1_name': prox.subject_1_name,
+                    'subject_1_speed_kmhr': prox.subject_1_speed,
+                    'subject_1_heading': prox.subject_1_travel_heading,
+                    'subject_1_location': prox.subject_1_location,
+
+                    'subject_2_name': prox.subject_2_name,
+                    'subject_2_speed_kmhr': prox.subject_2_speed,
+                    'subject_2_heading': prox.subject_2_travel_heading,
+                    'subject_2_location': prox.subject_2_location,
+                    
+                    'proximity_dist_meters': prox.proximity_distance_meters,
+                    'total_fix_count': traj.relocs.fix_count,
+                    
+                }
+
+                self.logger.info(result.message)
+
+                das_analyzer_results.append(result)
+        print(f"\n\n*** {das_analyzer_results}\n\n")
+
+        return das_analyzer_results
+
+
+
+class SubjectProximityAnalysis:
+
+    @classmethod
+    def get_subject_location(cls, subject):
+        if subject.observations:
+            obs = subject.observations().latest('recorded_at')
+            return obs.location.coords
+
+    @classmethod
+    def calc_proximity_events(cls, analysis_subject, proximity_analysis_params=None, trajectories=None):
+        """
+        :param proximity_analysis_params:
+        :param trajectories:
+        :return:
+        """
+
+        trajectories = trajectories or []
+
+        # Create the output analysis result object
+        result = ProximityAnalysisResult()
+
+        # Set the start time of the analysis
+        result.analysis_start = dt.datetime.utcnow()
+        analysis_subject_location = cls.get_subject_location(analysis_subject)
+
+        for traj in trajectories:
+            assert type(traj) is pymet.base.Trajectory
+
+            for seg in traj.traj_segs:
+                for subject in proximity_analysis_params:
+                    # create_trajectory
+                    subject_traj = subject.create_trajectory(
+                        obs=subject.observations(),
+                        trajectory_filter_params=subject.default_trajectory_filter())
+
+                    # Subsample trajectory to the last two fixes
+                    subject_trajectories = pymet.base.Trajectory(
+                        relocs=pymet.base.Relocations(
+                            fixes=subject_traj.relocs.get_fixes()[-2:], subject_id=subject.id))
+
+                    for subject_traj in [subject_trajectories]:
+                        for seg2 in subject_traj.traj_segs:
+                            # Calculate the distance between the traj seg and the new segment
+                            proximity_dist = seg.ogr_geometry.Distance(seg2.ogr_geometry)
+                            sub2_location = cls.get_subject_location(subject)
+
+                            # Convert the distance from degrees to meters
+                            proximity_dist = pymet.utils.degrees_to_km(proximity_dist) * 1000.0
+
+                            # Create the proximity event
+                            prox_event = SubjectProximityEvent(
+                                subject_1_name=analysis_subject.name,
+                                subject_1_speed=seg.speed_kmhr,
+                                subject_1_location=analysis_subject_location,
+
+                                subject_2_name=subject.name,
+                                subject_2_speed=seg2.speed_kmhr,
+                                subject_2_location=sub2_location,
+
+                                subject_1_travel_heading=seg.heading,
+                                subject_2_travel_heading=seg2.heading,
+
+                                proximity_distance_meters=proximity_dist
+                            )
+                            # Add this given crossing to the result
+                            result.add_proximity_event(prox_event)
+
+        # Set the end time of the analysis
+        result.analysis_end = dt.datetime.utcnow()
+
+        return result
+
+
+class SubjectProximityEvent:
+
+    """ Class to store the result of a single proximity event"""
+
+    def __init__(self, subject_1_name, subject_1_speed, subject_1_location,
+                 subject_2_name, subject_2_speed, subject_2_location,
+                 subject_1_travel_heading=0.0, subject_2_travel_heading=0.0,
+                 proximity_distance_meters=math.inf):
+
+        self.subject_1_name = subject_1_name
+        self.subject_1_speed = subject_1_speed,
+        self.subject_1_location = subject_1_location,
+        self.subject_1_travel_heading = subject_1_travel_heading,
+
+        self.subject_2_name = subject_2_name,
+        self.subject_2_speed = subject_2_speed,
+        self.subject_2_location = subject_2_location,
+        self.subject_2_travel_heading = subject_2_travel_heading,
+        self.proximity_distance_meters = proximity_distance_meters

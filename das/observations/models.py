@@ -1077,7 +1077,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
             traj_filt = pymet.base.TrajSegFilter(
                 max_speed_kmhr=speed_threshold)
             traj.traj_seg_filter = traj_filt
-
+        setattr(traj, "subject", self)
         return traj
 
     @property
