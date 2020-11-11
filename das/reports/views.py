@@ -1,24 +1,20 @@
-import os
-import pytz
 import requests
 import datetime
 import json
 import logging
-from collections import Counter
 
-from django.utils import timezone
-from django.template.response import TemplateResponse
+import requests
 from django.conf import settings
-from rest_framework import generics
-from rest_framework import status
-from rest_framework.response import Response
-from rest_framework import serializers, views, permissions
+from django.template.response import TemplateResponse
+from django.utils import timezone
 from django.views.generic.base import TemplateResponseMixin, ContextMixin
+from rest_framework import generics
 from rest_framework import status, serializers
+from rest_framework import views, permissions
+from rest_framework.response import Response
 
 from core.utils import get_site_name
 from reports.reports import get_daily_report_data
-
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +32,15 @@ class ReportView(views.APIView):
 
 
 class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
+
+    def get_template_names(self):
+        '''
+        Favor a report template in a sub-folder named for the site's domain name.
+        Fall back to 'default'.
+        :return: a list of "template names".
+        '''
+        return [f'{folder}/daily_report_template.docx' for folder in
+                (settings.DAILY_REPORT_TEMPLATE_SUBFOLDER, 'default')]
 
     permission_classes = (permissions.IsAuthenticated,)
 

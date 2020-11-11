@@ -556,3 +556,9 @@ TABLEAU_API_TOKEN = None
 TABLEAU_API_USERNAME = "ER Server"
 TABLEAU_API_PASSWORD = None
 TABLEAU_DEFAULT_DASHBOARD = "Dashboard1"
+
+# Sensible default domain name.
+SERVER_FQDN = "tempuri.org"
+
+# Default to re-use the site's domain-name as a folder for daily-report template.
+DAILY_REPORT_TEMPLATE_SUBFOLDER = SERVER_FQDN

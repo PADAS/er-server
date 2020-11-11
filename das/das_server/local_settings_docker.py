@@ -49,6 +49,9 @@ TIME_ZONE = env.str('TIME_ZONE', 'US/Pacific')
 
 SERVER_FQDN = env.str('FQDN', '')
 
+# Re-use the server's domain-name as a folder for daily-report template.
+DAILY_REPORT_TEMPLATE_SUBFOLDER = SERVER_FQDN
+
 # Build a list to include legacy names for APN, FZS and WPS sites. This will be temporary
 # during a period when clients and users might still be browsing to our
 # old partner sub-domains.
