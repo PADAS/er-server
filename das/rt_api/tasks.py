@@ -92,9 +92,9 @@ def _event_handler(event_id, type):
                     emit_data = {
                         'type': type,
                         'sid': sid,
-                        'object_id': item_id,
+                        'object_id': event_id,
                         'data': {
-                            'type': type, 'event_id': item_id,
+                            'type': type, 'event_id': event_id,
                             'event_data': None,
                             'matches_current_filter': matches_current_filter
                         }
@@ -174,7 +174,7 @@ def _broadcast_service_status(service_status_data=None):
     service_status_data = service_status_data or servicesutils.get_source_provider_statuses()
 
     try:
-        all_connections = client.get_all_connections()
+        all_connections = client.get_all_connections_list()
 
         logger.info({'rt.conn.count': len(all_connections)})
         for sid, session_data in all_connections.items():
