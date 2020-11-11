@@ -89,10 +89,19 @@ variable "from_email" {
   default = null
 }
 
-
 variable "kml_export" {
   type    = string
   default = "true"
+}
+
+variable "kml_feed_title" {
+  type    = string
+  default = "EarthRanger KML Service"
+}
+
+variable "kml_overlay_image" {
+  type    = string
+  default = null
 }
 
 variable "storage_container" {
@@ -150,6 +159,11 @@ variable "sms_id" {
 variable "sms_token" {
   type    = string
   default = ""
+}
+
+variable "sendsms_twilio_from_number" {
+  type    = string
+  default = "+14254904368"
 }
 
 variable "daily_report_enabled" {

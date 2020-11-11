@@ -197,7 +197,8 @@ class SubjectGroupView(generics.RetrieveAPIView):
         return context
 
     def get_queryset(self):
-        queryset = models.SubjectGroup.objects.get_non_cyclic_subjectgroups(single_sg=True)
+        queryset = models.SubjectGroup.objects.get_non_cyclic_subjectgroups(
+            single_sg=True)
         queryset.order_by('name')
         return queryset
 
@@ -316,6 +317,7 @@ class SubjectsViewSchema(InactiveSubjectsViewSchema):
             operation['parameters'].extend(query_params)
         return operation
 
+
 class SubjectsView(generics.ListCreateAPIView):
     """
     get:
@@ -386,21 +388,27 @@ class SubjectsView(generics.ListCreateAPIView):
             source_groups = models.SourceGroup.objects.filter(
                 permission_sets__in=self.request.user.get_all_permission_sets())
 
-            subjects_via_source_groups = models.Subject.objects.filter(subjectsource__source__groups__in=source_groups)
-            subjects_via_source_groups = check_to_include_inactive_subjects(self.request, subjects_via_source_groups)
+            subjects_via_source_groups = models.Subject.objects.filter(
+                subjectsource__source__groups__in=source_groups)
+            subjects_via_source_groups = check_to_include_inactive_subjects(
+                self.request, subjects_via_source_groups)
             queryset = queryset.distinct() | subjects_via_source_groups.distinct()
 
             if not self.request.user.is_superuser:
                 # TODO: rather than this, can we get the latest & oldest observation for each subject? (needed in
                 #  serializer.to_representation)
                 subject_linked_sources = models.SubjectSource.objects.filter(source__groups__in=source_groups).annotate(
-                    latest_range=Window(expression=FirstValue(F('assigned_range')), **self.window_desc),
-                    latest_source=Window(expression=FirstValue(F('source_id')), **self.window_desc),
-                    oldest_range=Window(expression=FirstValue(F('assigned_range')), **self.window_asc),
+                    latest_range=Window(expression=FirstValue(
+                        F('assigned_range')), **self.window_desc),
+                    latest_source=Window(expression=FirstValue(
+                        F('source_id')), **self.window_desc),
+                    oldest_range=Window(expression=FirstValue(
+                        F('assigned_range')), **self.window_asc),
                     oldest_source=Window(expression=FirstValue(F('source_id')), **self.window_asc)).distinct(
                     'subject_id').values('subject_id', 'latest_range', 'oldest_range', 'latest_source', 'oldest_source')
 
-                self.subject_linked_sources = {ss['subject_id']: ss for ss in subject_linked_sources}
+                self.subject_linked_sources = {
+                    ss['subject_id']: ss for ss in subject_linked_sources}
 
         # Apply request query filters that have are compatible with any of the
         # criteria above.
@@ -673,7 +681,8 @@ class SubjectTracksView(generics.RetrieveAPIView):
 
         context['tracks_since'] = self.request.query_params.get('since', None)
         context['tracks_until'] = self.request.query_params.get('until', None)
-        context['subject_linked_sources'] = getattr(self, 'subject_linked_sources', None)
+        context['subject_linked_sources'] = getattr(
+            self, 'subject_linked_sources', None)
 
         for key in ('tracks_since', 'tracks_until'):
             context[key] = dateparse(context[key]) if context[key] else None
@@ -802,15 +811,22 @@ class ObservationsViewSchema(CustomSchema):
         operation = super().get_operation(path, method)
         if method == "GET":
             query_params = [
-                {'name': 'subject_id', 'in': 'query', 'description': 'filter to a single subject'},
-                {'name': 'source_id', 'in': 'query', 'description': 'filter to a single source'},
-                {'name': 'since', 'in': 'query', 'description': 'get observations after this ISO8061 date, include timezone'},
-                {'name': 'until', 'in': 'query', 'description': 'get observations up to this ISO8061 date, include timezone'},
-                {'name': 'filter', 'in': 'query', 'description': 'filter using exclusion_flags for an observation. one of [null, 0, 1, 2  or 3].'},
-                {'name': 'include_details', 'in': 'query', 'description': ' one of [true,false], default is false. This brings back the observation additional field'},
+                {'name': 'subject_id', 'in': 'query',
+                    'description': 'filter to a single subject'},
+                {'name': 'source_id', 'in': 'query',
+                    'description': 'filter to a single source'},
+                {'name': 'since', 'in': 'query',
+                    'description': 'get observations after this ISO8061 date, include timezone'},
+                {'name': 'until', 'in': 'query',
+                    'description': 'get observations up to this ISO8061 date, include timezone'},
+                {'name': 'filter', 'in': 'query',
+                    'description': 'filter using exclusion_flags for an observation. one of [null, 0, 1, 2  or 3].'},
+                {'name': 'include_details', 'in': 'query',
+                    'description': ' one of [true,false], default is false. This brings back the observation additional field'},
             ]
             operation['parameters'].extend(query_params)
         return operation
+
 
 class ObservationsView(generics.ListCreateAPIView):
 
@@ -829,8 +845,10 @@ class ObservationsView(generics.ListCreateAPIView):
         query_params = self.request.query_params
         since = query_params.get('since', None)
         until = query_params.get('until', None)
-        recorded_since_is_valid, recorded_since = check_valid_date_string(since, 'recorded_since')
-        recorded_until_is_valid, recorded_until = check_valid_date_string(until, 'recorded_until')
+        recorded_since_is_valid, recorded_since = check_valid_date_string(
+            since, 'recorded_since')
+        recorded_until_is_valid, recorded_until = check_valid_date_string(
+            until, 'recorded_until')
         subject_id = query_params.get('subject_id', None)
         source_id = query_params.get('source_id', None)
         filter_flag = 0
@@ -849,7 +867,8 @@ class ObservationsView(generics.ListCreateAPIView):
             queryset = models.Observation.objects.get_source_observations(
                 source_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag, order_by='recorded_at')
         else:
-            queryset = models.Observation.objects.by_since_until(recorded_since, recorded_until)
+            queryset = models.Observation.objects.by_since_until(
+                recorded_since, recorded_until)
             queryset = queryset.order_by('recorded_at')
             queryset = queryset.by_exclusion_flags(filter_flag)
 
@@ -880,8 +899,10 @@ class ObservationsView(generics.ListCreateAPIView):
     def get_serializer_context(self):
         context = super(ObservationsView, self).get_serializer_context()
 
-        # Check request before accessing params since self.request is None when generating docs schema
-        context['include_details'] = parse_bool(self.request.query_params.get('include_details', False)) if self.request else False
+        # Check request before accessing params since self.request is None when
+        # generating docs schema
+        context['include_details'] = parse_bool(self.request.query_params.get(
+            'include_details', False)) if self.request else False
         return context
 
 
@@ -1152,9 +1173,12 @@ class KmlSubjectView(generics.RetrieveAPIView):
             'last_position_color': color,
             'subject_icon': utils.add_base_url(request, subject.kml_image_url),
             'kml_overlay_image': utils.add_base_url(request, kml_overlay_image) if kml_overlay_image else None,
+            'timezone_name': current_tz_name,
+            'timezone': current_tz
         }
         result = render_to_string('kml/subject_track.xml', context)
         return kmlutils.render_to_kmz(result, filename)
+
 
 class TrackingDataViewSchema(InactiveSubjectsViewSchema):
     def get_operation(self, path, method):
@@ -1215,7 +1239,7 @@ class TrackingDataViewSchema(InactiveSubjectsViewSchema):
                     'description': 'Maximum number of records to return',
                     'schema': {'type': 'integer'}
                 },
-                ]
+            ]
 
             operation['parameters'].extend(query_params)
         return operation
@@ -1306,7 +1330,8 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         cur_record_serial = record_serial_base
         if get_current:
             # all the current status objects for the allowed subjects
-            items = self.get_subject_status_queryset(max_records, request_subject_id, request_subject_chronofile)
+            items = self.get_subject_status_queryset(
+                max_records, request_subject_id, request_subject_chronofile)
             if items:
                 for item in items:
                     cur_record_serial += 1
@@ -1320,7 +1345,7 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
                 for subject in subjects:
                     # all the relevant observations for the subject
                     for item in self.get_subject_trackdata_queryset(
-                        filter_flag, lower, subject, upper, max_records).values():
+                            filter_flag, lower, subject, upper, max_records).values():
                         cur_record_serial += 1
                         data = self.get_csv_observation_data(cur_record_serial, dloadtime_label, fixtime_label, result_format,
                                                              item, subject.id if request_subject_id else None, None)
@@ -1396,7 +1421,8 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         return 0
 
     def get_subject_trackdata_queryset(self, filter_flag, lower, subject, upper, max_records):
-        qs = models.Observation.objects.get_subject_observations(subject, lower, upper, max_records, filter_flag=filter_flag, order_by='recorded_at')
+        qs = models.Observation.objects.get_subject_observations(
+            subject, lower, upper, max_records, filter_flag=filter_flag, order_by='recorded_at')
         qs = qs.annotate(subjectsource_additional=F('source__subjectsource__additional'),
                          collar_id=F('source__manufacturer_id'))
         return qs
@@ -1404,7 +1430,7 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
     def get_subject_status_queryset(self, max_records, subject_id=None, chronofile=None):
         now = datetime.datetime.now(tz=datetime.timezone.utc)
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
-        
+
         qs = models.SubjectStatus.objects.filter(delay_hours=min_age_days * 24)\
             .filter(subject__subjectsource__assigned_range__contains=now)
         if subject_id:
@@ -1413,10 +1439,11 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
             qs = qs.filter(
                 subject__subjectsource__additional__chronofile=int(chronofile))
         else:
-            qs = qs.filter(subject__subjectsource__additional__chronofile__isnull=False)
+            qs = qs.filter(
+                subject__subjectsource__additional__chronofile__isnull=False)
 
         qs = qs.annotate(subjectsource_additional=F('subject__subjectsource__additional'),
-                      collar_id=F('subject__subjectsource__source__manufacturer_id')).values()
+                         collar_id=F('subject__subjectsource__source__manufacturer_id')).values()
         if max_records > 0:
             qs = qs[:max_records]
         return qs.values()
@@ -1478,8 +1505,8 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                     'country': subject.additional.get('country', ''),
                     'subtype': subject.subject_subtype.display,
                     'groups': subject_groups,
-                    'subject_id': subject.id,                  
-                    })
+                    'subject_id': subject.id,
+                })
 
                 if subject.source_additional is not None:
                     # Collect Source details.
@@ -1587,7 +1614,8 @@ class GPXFileUploadView(generics.CreateAPIView):
         inmemory_file = validated_data.get('gpx_file')
         filename = self.save_in_defaultstorage(inmemory_file)
         async_result = self.get_async_result(filename, source_id)
-        data = self.create_data(request, inmemory_file, source_id, async_result)
+        data = self.create_data(request, inmemory_file,
+                                source_id, async_result)
         return Response(data, status=status.HTTP_201_CREATED)
 
     @staticmethod
@@ -1598,7 +1626,8 @@ class GPXFileUploadView(generics.CreateAPIView):
     @staticmethod
     def get_async_result(file, source_id):
         try:
-            async_result = process_gpxdata_api.apply_async(args=(file, source_id))
+            async_result = process_gpxdata_api.apply_async(
+                args=(file, source_id))
         except exceptions.OperationalError as exc:
             raise ValidationError({'error_message': exc})
         else:
@@ -1606,7 +1635,8 @@ class GPXFileUploadView(generics.CreateAPIView):
 
     @staticmethod
     def create_data(request, file, source_id, async_result):
-        status_url = add_base_url(request, reverse('gpx-status', kwargs={'id': source_id, 'task_id': async_result.id}))
+        status_url = add_base_url(request, reverse(
+            'gpx-status', kwargs={'id': source_id, 'task_id': async_result.id}))
         data = dict(source_id=source_id,
                     filename=file.name,
                     filesize_bytes=file.size,
@@ -1635,5 +1665,6 @@ class GPXTaskStatusView(generics.ListAPIView):
                     task_failed=asyncResult.failed()
                     )
         if asyncResult.status != 'STARTED':
-            asyncResult.forget()    # Release the resources whenever AsyncResult instance is called.
+            # Release the resources whenever AsyncResult instance is called.
+            asyncResult.forget()
         return Response(data, status=status.HTTP_200_OK)

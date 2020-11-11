@@ -8,7 +8,7 @@
 
       <Document>
 
-          <name>{{ name }} ({{ observations[0].recorded_at.strftime('%Y-%m-%d %H:%M:%SZ') }})</name>
+          <name>{{ name }} ({{ observations[0].recorded_at.astimezone(timezone).strftime('%Y-%m-%d %H:%M:%S') }} {{timezone_name}})</name>
           <visibility>1</visibility>
           <Style id="p-style">
               <IconStyle>
@@ -74,19 +74,19 @@
 
           <Placemark id="">
             <Snippet/>
-            <name>Last Position: {{observations[0].recorded_at}}</name>
+            <name>Last Position: {{observations[0].recorded_at.astimezone(timezone).strftime('%Y-%m-%d %H:%M:%S')}} {{timezone_name}} </name>
             <description><![CDATA[
                 <div style="width:275px;font-family:Verdana,Tahoma,Helvetica,Arial;padding:0px;">
                     <div style="padding:5px 0px">
                     <img src="{{subject_icon}}" align='bottom' style="background-color: gray; padding:2px 5px; height:1.2em;" border='0'/>
                     <strong style="font-size:1.2em;">{{ name }}</strong>
                     </div>
-                    <div style="padding:5px 0px">{{observations[0].recorded_at }}</div>
+                    <div style="padding:5px 0px">{{observations[0].recorded_at.astimezone(timezone).strftime('%Y-%m-%d %H:%M:%S')}} {{timezone_name}}</div>
                     <div style="padding:5px 0px">{{observations[0].location.x}}, {{observations[0].location.y}}</div>
                 </div>]]>
             </description>
             <TimeStamp>
-              <when>{{observations[0].recorded_at}}</when>
+              <when>{{observations[0].recorded_at.isoformat()}}</when>
             </TimeStamp>
             <styleUrl>#finalpoint-stylemap</styleUrl>
             <Point>
@@ -98,13 +98,13 @@
 
           {% for observation in observations | sort(attribute='recorded_at') %}
           <Placemark id="p-{{ loop.index }}">
-            <Snippet>{{observation.recorded_at.strftime('%Y-%m-%d %H:%M:%SZ') }}</Snippet>
+            <Snippet>{{observation.recorded_at.astimezone(timezone).strftime('%Y-%m-%d %H:%M:%S')}} {{timezone_name}}</Snippet>
             <name>{{observation.location.x }}, {{ observation.location.y }}</name>
-            <description>{{ observation.recorded_at.strftime('%Y-%m-%d %H:%M:%SZ') }}</description>
+            <description>{{ observation.recorded_at.astimezone(timezone).strftime('%Y-%m-%d %H:%M:%S') }} {{timezone_name}}</description>
             <TimeStamp>
-              <when>{{observation.recorded_at.strftime('%Y-%m-%d %H:%M:%SZ')}}</when>
+              <when>{{observation.recorded_at.isoformat()}}</when>
             </TimeStamp>
-            <styleUrl>p-style</styleUrl>
+            <styleUrl>#p-style</styleUrl>
 
             <MultiGeometry>
                 <Point>

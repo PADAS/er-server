@@ -46,8 +46,12 @@ resource "template_dir" "deployments" {
     WEB_REACT_VERSION               = var.WEB_REACT_VERSION
     WEB_ADMIN_VERSION               = var.WEB_ADMIN_VERSION
     KML_EXPORT                      = var.kml_export
+    KML_OVERLAY_IMAGE               = var.kml_overlay_image
+    KML_FEED_TITLE                  = var.kml_feed_title
     KUBERNETES_NAMESPACE            = var.kubernetes_namespace
     MAPPING_FEATURES_V2             = var.mapping_features_v2
+    PATROL_ENABLED                  = var.patrol_enabled
+    SENDSMS_TWILIO_FROM_NUMBER      = var.sendsms_twilio_from_number
     SERVER_VERSION                  = var.SERVER_VERSION
     SHOW_STATIONARY_SUBJECTS_ON_MAP = var.show_stationary_subjects_on_map
     SHOW_TRACK_DAYS                 = var.show_track_days
@@ -55,14 +59,13 @@ resource "template_dir" "deployments" {
     SMS_ID                          = var.sms_id
     SMS_TOKEN                       = var.sms_token
     STORAGE_CONTAINER               = var.storage_container
+    SUBJECT_REGION_ENABLED          = var.subject_region_enabled
+    TABLEAU_DEFAULT_DASHBOARD       = var.tableau_default_dashboard
+    TABLEAU_ENABLED                 = var.tableau_enabled
+    TABLEAU_SITE_ID                 = var.tableau_site_id
     TIME_ZONE                       = var.time_zone
     USE_AZURE_STORAGE               = var.use_azure_storage
     WEB_SERVICE_NAME                = var.web_service_name
-    SENDSMS_TWILIO_FROM_NUMBER      = "+14254904368"
-    PATROL_ENABLED                  = var.patrol_enabled
-    SUBJECT_REGION_ENABLED          = var.subject_region_enabled
-    TABLEAU_ENABLED                 = var.tableau_enabled
-    TABLEAU_SITE_ID                 = var.tableau_site_id
-    TABLEAU_DEFAULT_DASHBOARD       = var.tableau_default_dashboard
+
   }
 }
