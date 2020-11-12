@@ -84,6 +84,7 @@ locals {
     "preylang"               = "prod-asia"
     "queenelizabeth"         = "prod1"
     "rcb"                    = "prod1"
+    "rfcx"                   = "prod1"
     "sabiegamereserve"       = "prod1"
     "sabisands"              = "prod1"
     "sawc"                   = "prod1"
@@ -152,6 +153,7 @@ locals {
     "southerncarpathians" = 1
     "upemba"              = 1
     "eruc2020"            = 1
+    "rfcx"                = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
