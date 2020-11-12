@@ -21,6 +21,12 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
     def _create_proximity_analysis_params(self):
         return [k for k in self.config.second_subject_group.subjects.all()]
 
+    def default_observations(self):
+        if self.config.analysis_search_time_hours <= 0:
+            return list(self.subject.observations())
+        else:
+            return list(self.subject.observations(last_hours=self.config.analysis_search_time_hours))
+
     def analyze_trajectory(self, traj=None):
         """
         A function to analyze the trajectory of a subject in relation to a set of other subjects to
@@ -97,9 +103,8 @@ class SubjectProximityAnalysis:
 
     @classmethod
     def verify_proximal_tracks_time_frame(cls, config, sub1_track, sub2_track):
-
         if sub1_track and sub2_track and \
-                abs(sub1_track.recorded_at - sub2_track.recorded_at) <= config.proximal_time_frame:
+                abs(sub1_track.recorded_at - sub2_track.recorded_at).total_seconds() <= config.proximity_time * 3600:
             return True
 
 
@@ -141,7 +146,7 @@ class SubjectProximityAnalysis:
                         for seg2 in subject_traj.traj_segs:
 
                             sub2_last_track = cls.get_subject_latest_obs(subject)
-                            valid_proximal_time = cls.verify_proximal_tracks_time_rangeframe(
+                            valid_proximal_time = cls.verify_proximal_tracks_time_frame(
                                 config, analysis_subject_track, sub2_last_track)
 
                             if valid_proximal_time:
@@ -154,16 +159,17 @@ class SubjectProximityAnalysis:
                                 # Create the proximity event
                                 prox_event = SubjectProximityEvent(
                                     subject_1_name=analysis_subject.name,
-                                    subject_1_speed=seg.speed_kmhr,
+                                    subject_1_speed=round(seg.speed_kmhr, 2),
                                     subject_1_location=analysis_subject_track.location.coords,
 
                                     subject_2_name=subject.name,
-                                    subject_2_speed=seg2.speed_kmhr,
+                                    subject_2_speed=round(seg2.speed_kmhr, 2),
                                     subject_2_location=sub2_last_track.location.coords,
 
-                                    subject_1_travel_heading=seg.heading,
-                                    subject_2_travel_heading=seg2.heading,
+                                    subject_1_travel_heading=round(seg.heading, 2),
+                                    subject_2_travel_heading=round(seg2.heading, 2),
 
+                                    proximal_fix=seg.start_fix,
                                     proximity_distance_meters=proximity_dist
                                 )
                                 # Add this given crossing to the result
@@ -182,7 +188,7 @@ class SubjectProximityEvent:
     def __init__(self, subject_1_name, subject_1_speed, subject_1_location,
                  subject_2_name, subject_2_speed, subject_2_location,
                  subject_1_travel_heading=0.0, subject_2_travel_heading=0.0,
-                 proximity_distance_meters=math.inf):
+                 proximal_fix=None, proximity_distance_meters=math.inf):
 
         self.subject_1_name = subject_1_name
         self.subject_1_speed = subject_1_speed,
@@ -193,4 +199,5 @@ class SubjectProximityEvent:
         self.subject_2_speed = subject_2_speed,
         self.subject_2_location = subject_2_location,
         self.subject_2_travel_heading = subject_2_travel_heading,
+        self.proximal_fix = proximal_fix
         self.proximity_distance_meters = proximity_distance_meters

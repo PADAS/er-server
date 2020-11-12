@@ -21,6 +21,8 @@ class TimeFrameWidget(forms.MultiWidget):
         forms.MultiWidget.__init__(self, widgets, attrs)
 
     def get_context(self, name, value, attrs):
+        if name in ['analysis_search_time_hours', 'proximity_time']:
+            value = 1.0
         context = super().get_context(name, value, attrs)
         context['hour_label'] = _('Hours:')
         context['min_label'] = _('Minutes:')
@@ -138,8 +140,9 @@ class FeatureProximityAnalyzerForm(BaseAnalyzerForm):
 
 class SubjectProximityAnalyzerForm(forms.ModelForm):
     threshold_dist_meters = forms.DecimalField(decimal_places=1)
-    search_time_hours = TimeFrameField(label='Analysis time frame')
-    proximal_time_frame = TimeFrameField(label='Proximal time frame')
+    analysis_search_time_hours = TimeFrameField(label='Analysis time frame')
+    proximity_time = TimeFrameField()
+    threshold_dist_meters = forms.FloatField(initial=100.0)
 
     class Meta:
         fields = '__all__'

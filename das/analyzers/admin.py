@@ -137,11 +137,11 @@ class SubjectProximityAnalyzerAdmin(admin.ModelAdmin):
         (None, {
             'classes': ('wide',),
             'fields': (('name', 'subject_group', 'second_subject_group', 'threshold_dist_meters',
-                        'proximal_time_frame', 'is_active',))
+                        'proximity_time', 'is_active',))
         }),
         ('Advanced Analyzer Attributes', {
             'classes': ('wide', 'collapse'),
-            'fields': ('id', 'search_time_hours', 'notes',)
+            'fields': ('id', 'analysis_search_time_hours', 'notes',)
         })
     )
 

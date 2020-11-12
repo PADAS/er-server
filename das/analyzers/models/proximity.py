@@ -36,6 +36,12 @@ class FeatureProximityAnalyzerConfig(ProximityAnalyzerConfig):
 
 
 class SubjectProximityAnalyzerConfig(ProximityAnalyzerConfig):
+    search_time_hours = None
+    analysis_search_time_hours = models.FloatField(
+        null=False, default=1.0,
+        verbose_name='Analysis time frame (hours)',
+        help_text=_('Analysis will be performed on recent data within this time frame.'))
+
     subject_group = models.ForeignKey(
         to=SubjectGroup, on_delete=models.CASCADE,
         verbose_name=_('Subject Group 1'),
@@ -49,7 +55,7 @@ class SubjectProximityAnalyzerConfig(ProximityAnalyzerConfig):
         related_name='subject_group_2',
         help_text=_('This analyzer applies to subjects in this Subject Group.'))
 
-    proximal_time_frame = models.FloatField(
-        null=False, default=24.0,
-        verbose_name='Proximal time frame (hours)',
-        help_text=_('Report will be created only if the subjects are of close proximity distance within this time frame'))
+    proximity_time = models.FloatField(
+        null=False, default=1.0,
+        verbose_name='Proximity Time',
+        help_text=_("A proximity event will only occur when the two subject's position points occur within this time."))
