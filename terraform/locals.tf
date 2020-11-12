@@ -21,6 +21,7 @@ locals {
     "birdshead"              = "prod-asia"
     "bomani"                 = "prod1"
     "bubyevalley"            = "prod1"
+    "centralrift"            = "prod1"
     "chadreintroduction"     = "prod1"
     "chipinge"               = "prod1"
     "chinko"                 = "prod1"
@@ -154,6 +155,7 @@ locals {
     "upemba"              = 1
     "eruc2020"            = 1
     "rfcx"                = 1
+    "centralrift"         = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
