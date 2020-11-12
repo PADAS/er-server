@@ -120,6 +120,7 @@ class EzytrackObservation(serializers.Serializer):
             "longitude": "{Event.Longitude}",
             "dateReceived": "{Event.DateReceivedUtc}",
             "speed": "{Event.SpeedKmH}",
+            "name": "{Asset.Name}"
         }
     }
     """
@@ -130,6 +131,7 @@ class EzytrackObservation(serializers.Serializer):
     longitude = serializers.FloatField()
     dateReceived = serializers.DateTimeField()
     speed = serializers.IntegerField(allow_null=True, required=False)
+    name = serializers.CharField(allow_null=True, required=False)
 
 
 class DasObservation(NamedTuple):
@@ -194,7 +196,7 @@ class SkylineAdapter:
             source_type=DAS_SOURCE_TYPE,
             additional={}
         )
-        logger.info("Creeated DAS observation %s",
+        logger.info("Created DAS observation %s",
                         das_obs, extra={'das.obs': das_obs})
         return das_obs
 
@@ -206,15 +208,18 @@ class EzyTrackAdapter:
         longitude = ezytrack_observation.get('longitude')
         speed = ezytrack_observation.get('speed')
         time = ezytrack_observation.get('dateReceived')
+        device_type = ezytrack_observation.get('device_type')
+        device_serial = ezytrack_observation.get('device')
+        device_name = ezytrack_observation.get('name')
 
         das_observation = DasObservation(
             location={'latitude': latitude, 'longitude': longitude},
             recorded_at=parse(time),
-            manufacturer_id=ezytrack_observation.get('device_type'),
-            subject_name=ezytrack_observation.get('device'),
+            manufacturer_id=device_serial,
+            subject_name=device_name or device_serial,
             subject_type=DAS_SUBJECT,
             subject_subtype=DAS_DEF_VEHICLE_TYPE,
-            model_name=DAS_MODEL_NAME,
+            model_name=device_type or DAS_MODEL_NAME,
             source_type=DAS_SOURCE_TYPE,
             additional=dict(speed=speed)
         )
