@@ -43,7 +43,7 @@ class CeleryConfigurationTests(TestCase):
                 task_names.append(name)
         return task_names
 
-    def test_importing_all_task(self):
+    def test_task_name_used_are_registered_task(self):
         from rt_api.pubsub_listener import start
         from analyzers.pubsub_registry import new_observations_callback
         from analyzers.gfw_inbound import process_alert_for_subscription
