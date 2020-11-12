@@ -63,5 +63,5 @@ class CeleryConfigurationTests(TestCase):
                 registered_tasks[i]
             except KeyError:
                 bad_reference.append(i)
-        self.assertTrue(len(bad_reference) == 0, msg=f'The following are unregistered task name: {bad_reference}')
+        self.assertTrue(len(bad_reference) == 0, msg=f'The following are unregistered task names: {bad_reference}')
 
