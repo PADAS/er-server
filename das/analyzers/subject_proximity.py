@@ -169,7 +169,8 @@ class SubjectProximityAnalysis:
                                     subject_1_travel_heading=round(seg.heading, 2),
                                     subject_2_travel_heading=round(seg2.heading, 2),
 
-                                    proximal_fix=seg.start_fix,
+                                    subject_1_total_fix_count=seg.start_fix,
+                                    subject_2_total_fix_count=seg2.start_fix,
                                     proximity_distance_meters=proximity_dist
                                 )
                                 # Add this given crossing to the result
@@ -188,7 +189,8 @@ class SubjectProximityEvent:
     def __init__(self, subject_1_name, subject_1_speed, subject_1_location,
                  subject_2_name, subject_2_speed, subject_2_location,
                  subject_1_travel_heading=0.0, subject_2_travel_heading=0.0,
-                 proximal_fix=None, proximity_distance_meters=math.inf):
+                 subject_1_total_fix_count=None, subject_2_total_fix_count=None,
+                 proximity_distance_meters=math.inf):
 
         self.subject_1_name = subject_1_name
         self.subject_1_speed = subject_1_speed,
@@ -199,5 +201,96 @@ class SubjectProximityEvent:
         self.subject_2_speed = subject_2_speed,
         self.subject_2_location = subject_2_location,
         self.subject_2_travel_heading = subject_2_travel_heading,
-        self.proximal_fix = proximal_fix
+
+        self.proximal_fix = subject_1_total_fix_count
+        self.subject_2_proximal_fix = subject_2_total_fix_count
         self.proximity_distance_meters = proximity_distance_meters
+
+
+SUBJECT_PROXIMITY_SCHEMA = {
+
+  "schema": {
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "title": "Subject Proximity Schema",
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "title": "Name"
+      },
+      "subject_1_name": {
+        "type": "string",
+        "title": "Subject 1 Name"
+      },
+      "subject_1_speed_kmhr": {
+        "type": "string",
+        "title": "Subject 1 Speed Kmhr"
+      },
+      "subject_1_heading": {
+        "type": "string",
+        "title": "Subject 1 Heading"
+      },
+      "subject_1_location": {
+        "type": "string",
+        "title": "Subject 1 Location"
+      },
+      "subject_2_name": {
+        "type": "string",
+        "title": "Subject 2 Name"
+      },
+      "subject_2_speed_kmhr": {
+        "type": "string",
+        "title": "Subject 2 Speed Kmhr"
+      },
+      "subject_2_heading": {
+        "type": "string",
+        "title": "Subject 2 Heading"
+      },
+      "subject_2_location": {
+        "type": "string",
+        "title": "Subject 2 Location"
+      },
+      "proximity_dist_meters": {
+        "type": "number",
+        "title": "Proximity Dist Meters"
+      },
+      "total_fix_count": {
+        "type": "number",
+        "title": "Total Fix Count"
+      }
+    }
+  },
+  "definition": [
+    "name",
+    {
+      "type": "fieldset",
+      "title": "Analyzer Details",
+      "htmlClass": "col-lg-12",
+      "items": []
+    },
+    {
+      "type": "fieldset",
+      "htmlClass": "col-lg-6",
+      "items": [
+        "subject_1_name",
+        "subject_1_location",
+        "subject_1_speed_kmhr",
+        "subject_1_heading",
+        "proximal_fix"
+      ]
+    },
+    {
+      "type": "fieldset",
+      "htmlClass": "col-lg-6",
+      "items": [
+          "subject_2_name",
+          "subject_2_location",
+          "subject_2_speed_kmhr",
+          "subject_2_heading",
+          "subject_2_proximal_fix"
+      ]
+    },
+    "proximity_dist_meters",
+    "total_fix_count"
+  ]
+}

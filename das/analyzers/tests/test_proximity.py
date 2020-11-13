@@ -169,11 +169,6 @@ class TestProximityAnalyzer(TestCase):
         sg.subjects.add(sub)
         sg.save()
 
-        # parse recorded_at (from string to datetime).
-        test_observations = [parse_recorded_at(x) for x in OLCHODA_TRACK]
-        relocs_len = len(test_observations)
-        test_observations = list(generate_observations(test_observations))
-
         # counter subject group info
         source2 = Source.objects.create(manufacturer_id='fatu-008')
         sub2 = Subject.objects.create(
@@ -189,16 +184,16 @@ class TestProximityAnalyzer(TestCase):
         sg2.subjects.add(sub2)
         sg2.save()
 
-        # Create observations for subject2.
+        # Create test observations
         test_observations = [x for x in generate_random_positions()]
         for item in test_observations:
             recorded_at = item[0]
             location = item[1]
             models.Observation.objects.create(
-                recorded_at=recorded_at,
-                location=location,
-                source=source2, additional={})
+                recorded_at=recorded_at, location=location, source=source, additional={})
 
+            models.Observation.objects.create(
+                recorded_at=recorded_at, location=location, source=source2, additional={})
         # Create the Proximty Analyzer Config object
         config = SubjectProximityAnalyzerConfig.objects.create(
             subject_group=sg,
@@ -209,11 +204,8 @@ class TestProximityAnalyzer(TestCase):
 
         # Iterate through the observations adding another point to the
         # trajectory on each loop
-        for i in range(2, relocs_len):
-            try:
-                analyzer.analyze(observations=test_observations[i - 2:i])
-            except InsufficientDataAnalyzerException:
-                break
+        from observations.models import Observation
+        analyzer.analyze(observations=Observation.objects.filter(source=source))
 
         # There should be a bunch of proximity results fom this analysis.
         results = SubjectAnalyzerResult.objects.filter(subject=sub)

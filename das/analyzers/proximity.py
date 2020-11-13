@@ -1,7 +1,7 @@
 import logging
 
 import pymet
-from activity.models import Event
+from activity.models import Event, EventType, EventCategory
 from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
 from django.contrib.gis.geos import Point as DjangoPoint
 from django.utils.translation import ugettext_lazy as _
@@ -15,6 +15,7 @@ from analyzers.models import (CRITICAL, WARNING,
                               SubjectAnalyzerResult)
 from analyzers.models.base import EVENT_PRIORITY_MAP
 from analyzers.utils import save_analyzer_event
+import json
 
 
 class ProximityAnalyzer(SubjectAnalyzer):
@@ -25,7 +26,8 @@ class ProximityAnalyzer(SubjectAnalyzer):
 
     @classmethod
     def subject_analyzers(cls, subject, analyzer_class):
-        subject_groups = subject.get_ancestor_subject_groups()
+        from observations.models import SubjectGroup
+        subject_groups = SubjectGroup.objects.filter(subjects=subject)
         for ac in analyzer_class.objects.filter(subject_group__in=subject_groups, is_active=True):
             yield cls(subject=subject, config=ac)
 
@@ -47,6 +49,20 @@ class ProximityAnalyzer(SubjectAnalyzer):
             if this_result.level in (CRITICAL, WARNING):
                 this_result.save()
 
+    def verify_event_type(self, this_result):
+        from analyzers.subject_proximity import SubjectProximityAnalyzerConfig, SUBJECT_PROXIMITY_SCHEMA
+        event_type = 'proximity'
+
+        if isinstance(this_result.subject_analyzer, SubjectProximityAnalyzerConfig):
+            event_type = 'subject_proximity'
+            ec, created = EventCategory.objects.get_or_create(
+                value='analyzer_event', defaults=dict(display='Analyzer Events'))
+            EventType.objects.get_or_create(
+                value=event_type, category=ec,
+                defaults=dict(display='Subject Proximity',
+                              schema=json.dumps(SUBJECT_PROXIMITY_SCHEMA, indent=2, default=str)))
+        return event_type
+
     def create_analyzer_event(self, last_result=None, this_result=None):
 
         # no data to create an event so exit
@@ -64,13 +80,15 @@ class ProximityAnalyzer(SubjectAnalyzer):
             'latitude': this_result.geometry_collection[0].y
         }
 
+        event_type = self.verify_event_type(this_result)
+
         # Notify if result is critical or warning
         if this_result.level in (CRITICAL, WARNING):
             event_data = dict(
                 title=this_result.title,
                 time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
-                event_type='proximity',
+                event_type=event_type,
                 priority=EVENT_PRIORITY_MAP.get(
                     this_result.level, Event.PRI_URGENT),
                 location=event_location_value,
