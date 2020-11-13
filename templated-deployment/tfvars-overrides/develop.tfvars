@@ -1,5 +1,5 @@
 daily_report_enabled = "True"
-time_zone            = "Africa/Nairobi"
+time_zone            = "US/Pacific"
 show_track_days      = "365"
 patrol_enabled       = "True"
 tableau_enabled      = "True"
