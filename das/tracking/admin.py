@@ -9,6 +9,7 @@ from django.utils.translation import ugettext_lazy as _
 import observations.models
 import tracking.models as models
 from tracking.forms import SourcePluginForm
+from django.forms import CheckboxSelectMultiple
 
 
 def _get_plugin_class_search_fields():
@@ -154,7 +155,9 @@ class AwtAdmin(admin.ModelAdmin):
 @admin.register(models.TrackConfiguration)
 class TrackConfigurationAdmin(admin.ModelAdmin):
     list_display = ('id', 'new_subject_config', 'name_change_config')
-    filter_horizontal = ('new_subject_excluded_subject_types', 'name_change_excluded_subject_types')
+    formfield_overrides = {
+        django.db.models.ManyToManyField: {'widget': CheckboxSelectMultiple},
+    }
     fieldsets = (
         ('New device subject handling', {
             'classes': ('wide',),
