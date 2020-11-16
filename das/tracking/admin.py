@@ -149,3 +149,34 @@ class VectronicsAdmin(admin.ModelAdmin):
 @admin.register(models.AwtPlugin)
 class AwtAdmin(admin.ModelAdmin):
     list_display = ('name', 'username', 'host')
+
+
+@admin.register(models.TrackConfiguration)
+class TrackConfigurationAdmin(admin.ModelAdmin):
+    list_display = ('id', 'new_subject_config', 'name_change_config')
+    filter_horizontal = ('new_subject_excluded_subject_types', 'name_change_excluded_subject_types')
+    fieldsets = (
+        ('New device subject handling', {
+            'classes': ('wide',),
+            'fields': ('new_subject_config',)
+        }
+         ),
+        (None, {
+            'classes': ('new_subject_types',),
+            'fields': ('new_subject_excluded_subject_types',)
+        }
+         ),
+        ('Device name change handling', {
+            'classes': ('wide',),
+            'fields': ('name_change_config',)
+        }
+         ),
+        (None, {
+            'classes': ('name_change_types',),
+            'fields': ('name_change_excluded_subject_types',)
+        }
+         ),
+    )
+
+    class Media:
+        js = ['admin/js/toggle_subject_types.js',]
