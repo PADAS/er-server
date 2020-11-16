@@ -21,7 +21,7 @@ class TimeFrameWidget(forms.MultiWidget):
         forms.MultiWidget.__init__(self, widgets, attrs)
 
     def get_context(self, name, value, attrs):
-        if name in ['analysis_search_time_hours', 'proximity_time']:
+        if not value and name in ['analysis_search_time_hours', 'proximity_time']:
             value = 1.0
         context = super().get_context(name, value, attrs)
         context['hour_label'] = _('Hours:')

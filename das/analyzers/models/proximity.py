@@ -34,6 +34,9 @@ class FeatureProximityAnalyzerConfig(ProximityAnalyzerConfig):
             'This analyzer applies to proximity features in this Feature Group.')
     )
 
+    class Meta:
+        verbose_name = 'Feature Proximity Analyzer'
+
 
 class SubjectProximityAnalyzerConfig(ProximityAnalyzerConfig):
     search_time_hours = None
@@ -59,3 +62,7 @@ class SubjectProximityAnalyzerConfig(ProximityAnalyzerConfig):
         null=False, default=1.0,
         verbose_name='Proximity Time',
         help_text=_("A proximity event will only occur when the two subject's position points occur within this time."))
+
+
+    class Meta:
+        verbose_name = 'Subject Proximity Analyzer'
