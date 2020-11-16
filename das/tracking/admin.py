@@ -183,3 +183,9 @@ class TrackConfigurationAdmin(admin.ModelAdmin):
 
     class Media:
         js = ['admin/js/toggle_subject_types.js',]
+
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        form = super(TrackConfigurationAdmin, self).get_form(request, obj, change, **kwargs)
+        form.base_fields['new_subject_excluded_subject_types'].widget.can_add_related = False
+        form.base_fields['name_change_excluded_subject_types'].widget.can_add_related = False
+        return form
