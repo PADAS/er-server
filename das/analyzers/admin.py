@@ -4,7 +4,7 @@ import django.contrib.gis.admin as gis_admin
 import analyzers.models as models
 from analyzers.forms import EnvironmentalAnalyzerAdminForm, GlobalForestWatchSubscriptionForm, \
     GeofenceSubjectAnalyzerForm, ImmobilityAnalyzerForm, LowSpeedPercentileSubjectAnalyzerForm, \
-    LowSpeedWilcoxSubjectAnalyzerForm, SubjectProximityAnalyzerForm
+    LowSpeedWilcoxSubjectAnalyzerForm, SubjectProximityAnalyzerForm, FeatureProximityAnalyzerForm
 from core.openlayers import OSMGeoExtendedAdmin
 
 
@@ -91,7 +91,7 @@ class FeatureProximityAnalyzerAdmin(admin.ModelAdmin):
 
     search_fields = ('subject_group__name',)
     readonly_fields = ('id',)
-    form = SubjectProximityAnalyzerForm
+    form = FeatureProximityAnalyzerForm
 
     def subject_group_name(self, o):
         return o.subject_group.name
