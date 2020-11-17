@@ -1,12 +1,17 @@
+import datetime
+
 from django.test import TestCase
 from django.contrib.auth.models import Permission
+from django.core.management import call_command
+from django.http.request import HttpRequest
+
+
+import utils.schema_utils as schema_utils
+from activity.serializers import EventSerializer
 from accounts.models import PermissionSet, User
 from observations.models import SubjectGroup, Subject
 from activity.models import *
-from django.core.management import call_command
-import utils.schema_utils as schema_utils
-from activity.serializers import EventSerializer
-from django.http.request import HttpRequest
+from reports.reports import get_daily_report_data, get_conservancies
 
 
 class TestReportUtils(TestCase):
@@ -16,9 +21,10 @@ class TestReportUtils(TestCase):
         call_command('loaddata', 'initial_eventdata')
         call_command('loaddata', 'event_data_model')
         call_command('loaddata', 'test_events_schema')
+        call_command('loaddata', 'test_daily_reports')
 
-        User.objects.create(username='reportuser', first_name='Report', last_name='User', email='reportuser@tempuri.org',
-                            password='Sko2901!kd219')
+        self.user = User.objects.create(username='reportuser', first_name='Report', last_name='User', email='reportuser@tempuri.org',
+                                        password='Sko2901!kd219')
 
     def test_report_foo(self):
         self.assertTrue(EventType.objects.filter(value='carcass_rep').exists())
@@ -54,3 +60,10 @@ class TestReportUtils(TestCase):
         schema_utils.validate(e, schema=schema, raise_exception=True)
         for item in schema_utils.generate_details(e, schema):
             logger.debug('Event details rendered: %s', item)
+
+    def test_daily_report_context(self):
+        today = datetime.datetime.now(tz=datetime.timezone.utc)
+        context = get_daily_report_data(
+            today - datetime.timedelta(days=1),         today, username=self.user.username)
+
+        assert "unknown" in get_conservancies()

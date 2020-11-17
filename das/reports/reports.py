@@ -1,12 +1,12 @@
 import platform
 from datetime import datetime, timedelta
-import pytz
-import json
+
 import html
 from django.utils import timezone
 from django.db.models import *
+
 from activity.models import Event
-from choices.models import Conservancy
+from choices.models import Choice
 from observations.models import Subject
 
 from django.utils.html import escape
@@ -14,15 +14,40 @@ from django.utils.html import escape
 from reports.accumulator import accumulator, broadcast
 
 import utils.schema_utils as schema_utils
+from utils.memoize import memoize
 
 
-def safe_get(val, keys, default=None):
+HWC_REPORT_TYPES = ('human_wildlife_conflict', 'hwc_crp',
+                    'hwc_human', 'hwc_prd', 'hwc_pd', 'hwc_retaliation')
+
+
+@memoize
+def get_choices(field):
+    return {c.value: c.display for c in Choice.objects.get_choices(model=Choice.Field_Reports,
+                                                                   field=field)}
+
+
+@memoize
+def get_dynamic_choices(field):
+    field_details = dict(field=field, type='names')
+    choices = schema_utils._get_dynamic_choices(field_details)
+    return choices
+
+
+def safe_get_choice(val, key, choice_field, default=None, is_dynamic=False):
+    if is_dynamic:
+        choices = get_dynamic_choices(choice_field)
+    else:
+        choices = get_choices(choice_field)
 
     try:
-        for k in keys:
-            val = val[k]
+        val = val[key]
+        if isinstance(val, dict):
+            # With the old choice tables, we stored a dict of "name", "value"
+            # pairs
+            val = val['value']
         if isinstance(val, str):
-            return escape(val)
+            return escape(choices[val])
     except (KeyError, TypeError):
         pass
     return default
@@ -32,7 +57,7 @@ def _listify(o):
 
     if o is None:
         return []
-    if isinstance(o, dict):
+    if isinstance(o, (dict, str)):
         return [o, ]
     if isinstance(o, list):
         return o
@@ -49,7 +74,7 @@ def get_events(start, end):
 
 
 def get_conservancies():
-    return Conservancy.objects.all().values()
+    return get_choices('conservancy')
 
 
 def get_rhino_sightings(start, end):
@@ -93,13 +118,13 @@ def get_daily_report_data(since, before, **kwargs):
         ed = event.event_details.all().order_by('-created_at').first()
         if ed:
             try:
-                return ed.data['event_details']['conservancy']['name']
+                return safe_get_choice(ed.data['event_details'], 'conservancy', 'conservancy', CONSERVANCY_UNSPECIFIED)
             except Exception as e:
                 pass
         return CONSERVANCY_UNSPECIFIED
 
-    conservancy_census = [('--Lewa--', 62, 66), ('--Borana--', 21, 0),
-                          ('--Sera--', 10, 0), (CONSERVANCY_UNSPECIFIED, 0, 0)]
+    conservancy_census = [('--Lewa--', 62, 66), ('Lewa', 62, 66), ('Borana', 21, 0),
+                          ('Sera', 10, 0), (CONSERVANCY_UNSPECIFIED, 0, 0)]
     conservancy_census = dict(
         (k.lower(), {'conservancy': k,
                      'total_rhino_black': b,
@@ -165,9 +190,9 @@ def get_daily_report_data(since, before, **kwargs):
         ed = ed.data['event_details']
 
         new_birth = {'conservancy': conservancy,
-                     'color': safe_get(ed, ('color', 'name'), 'unspecified'),
-                     'mother': safe_get(ed, ('femaleRhinos', 'name'), 'unspecified'),
-                     'health': safe_get(ed, ('health', 'name'), 'unspecified'),
+                     'color': safe_get_choice(ed, 'color', 'color', 'unspecified'),
+                     'mother': safe_get_choice(ed, 'femaleRhinos', 'femaleRhinos', 'unspecified', is_dynamic=True),
+                     'health': safe_get_choice(ed, 'health', 'health', 'unspecified'),
                      }
         accum.append(new_birth)
     rhino_births = accumulator([], rhino_births)
@@ -183,15 +208,15 @@ def get_daily_report_data(since, before, **kwargs):
             return
         ed = ed.data['event_details']
 
-        rhino_names = ', '.join([_['name']
+        rhino_names = ', '.join([safe_get_choice(dict(rhino=_), 'rhino', 'rhinos', 'unspecified', is_dynamic=True)
                                  for _ in _listify(ed.get('rhino'))])
         accum.append(
             {'conservancy': conservancy,
-             'color': safe_get(ed, ('color', 'name'), 'unspecified'),
+             'color': safe_get_choice(ed, 'color', 'color', 'unspecified'),
              'rhinos': escape(rhino_names),
-             'health': safe_get(ed, ('health', 'name'), 'unspecified'),
-             'station': safe_get(ed, ('station', 'name'), 'unspecified'),
-             'behavior': safe_get(ed, ('behavior', 'name'), 'unspecified'),
+             'health': safe_get_choice(ed, 'health', 'health', 'unspecified'),
+             'station': safe_get_choice(ed, 'station', 'station', 'unspecified'),
+             'behavior': safe_get_choice(ed, 'behavior', 'behavior', 'unspecified'),
              })
 
     rhino_territorial_movement = accumulator(
@@ -212,7 +237,7 @@ def get_daily_report_data(since, before, **kwargs):
             return
         ed = ed.data['event_details']
 
-        species = safe_get(ed, ('species', 'name'), None)
+        species = safe_get_choice(ed, 'species', 'species', None)
         if not species:
             return
 
@@ -237,10 +262,10 @@ def get_daily_report_data(since, before, **kwargs):
         ed = ed.data['event_details']
 
         accum.append(
-            {'conservancy': safe_get(ed, ('conservancy', 'name'), 'unspecified'),
-             'species': safe_get(ed, ('species', 'name'), 'unspecified'),
-             'cause_of_death': safe_get(ed, ('causeOfDeath', 'name'), 'unspecified'),
-             'section_area': safe_get(ed, ('sectionArea', 'name'), 'unspecified'),
+            {'conservancy': safe_get_choice(ed, 'conservancy', 'conservancy', 'unspecified'),
+             'species': safe_get_choice(ed, 'species', 'species', 'unspecified'),
+             'cause_of_death': safe_get_choice(ed, 'causeOfDeath', 'causeofdeath', 'unspecified'),
+             'section_area': safe_get_choice(ed, 'sectionarea', 'sectionarea', 'unspecified'),
              'number_animals': ed.get('number_animals', 0),
              })
 
@@ -256,8 +281,8 @@ def get_daily_report_data(since, before, **kwargs):
             return
         ed = ed.data['event_details']
 
-        gap = safe_get(ed, ('wildlifeGap', 'name'), None)
-        species = safe_get(ed, ('species', 'name'), 'unspecified')
+        gap = safe_get_choice(ed, 'wildlifeGap', 'wildlifegap', None)
+        species = safe_get_choice(ed, 'species', 'species', 'unspecified')
         if not gap:
             return
 
@@ -285,8 +310,9 @@ def get_daily_report_data(since, before, **kwargs):
             return
         ed = ed.data['event_details']
 
-        conservancy = safe_get(ed, ('conservancy', 'name'), 'unspecified')
-        station = safe_get(ed, ('station', 'name'), 'unspecified')
+        conservancy = safe_get_choice(
+            ed, 'conservancy', 'conservancy', 'unspecified')
+        station = safe_get_choice(ed, 'station', 'station', 'unspecified')
         mm = ed.get('number_rainfall', 0)
 
         c = accum.setdefault(conservancy, {'conservancy': conservancy,
@@ -314,11 +340,11 @@ def get_daily_report_data(since, before, **kwargs):
         etime = event.event_time.astimezone(
             timezone.get_current_timezone())
         b = {'time': etime.strftime(EVENT_LIST_TIMESTAMP_FORMAT),
-             'section': safe_get(ed, ('fenceSection', 'name'), 'unspecified'),
-             'species': safe_get(ed, ('species', 'name'), 'unspecified'),
-             'animal_name': escape(ed.get('animal_name', '')),
-             'reported_by': escape(ed.get('reported_by', '')),
-             'action': safe_get(ed, ('actionTaken', 'name'), 'unspecified'),
+             'section': safe_get_choice(ed, 'fenceSection', 'fencesection', 'unspecified'),
+             'species': safe_get_choice(ed, 'species', 'species', 'unspecified'),
+             'animal_name': safe_get_choice(ed, 'animal_name', 'fencebreak_animalname', 'unspecified'),
+             'reported_by': safe_get_choice(ed, 'reported_by', 'fencebreak_reportedby', 'unspecified'),
+             'action': safe_get_choice(ed, 'actionTaken', 'fencebreak_actiontaken', 'unspecified'),
              'feedback': escape(ed.get('feedback', ''))
              }
 
@@ -333,7 +359,7 @@ def get_daily_report_data(since, before, **kwargs):
 
         # Special case: exclude human_wildlife_conflict events which are to be included in another section of
         #               this report.
-        if event.event_type.value == 'human_wildlife_conflict':
+        if event.event_type.value in HWC_REPORT_TYPES:
             return
 
         event_details = schema_utils.generate_details(
@@ -357,7 +383,7 @@ def get_daily_report_data(since, before, **kwargs):
 
     # Accumulator for 'human wildlife conflict'
     def human_wildlife_conflict(accum, event):
-        if event.event_type.value != 'human_wildlife_conflict':
+        if event.event_type.value not in HWC_REPORT_TYPES:
             return
         # ed = event.event_details.first()
         # if not ed or not ed.data or 'event_details' not in ed.data:
@@ -418,7 +444,8 @@ def get_daily_report_data(since, before, **kwargs):
 
         rhinos_in_event = _listify(
             ed.get('blackRhinos')) + _listify(ed.get('whiteRhinos'))
-        rhino_ids_in_event = [_.get('value') for _ in rhinos_in_event]
+        rhino_ids_in_event = [_.get('value') if isinstance(
+            _, dict) else _ for _ in rhinos_in_event]
 
         for rhino_id in rhino_ids_in_event:
             if rhino_id:
