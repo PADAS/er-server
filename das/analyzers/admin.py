@@ -121,17 +121,9 @@ class SubjectProximityAnalyzerAdmin(admin.ModelAdmin):
     list_display = ('name', 'subject_group_1_name', 'subject_group_2_name')
     ordering = ('name', 'subject_group', 'second_subject_group')
 
-    search_fields = ('first_subject_group__name', 'second_subject_group__name', )
+    search_fields = ('subject_group__name', 'second_subject_group__name', )
     readonly_fields = ('id',)
     form = SubjectProximityAnalyzerForm
-
-    def subject_group_1_name(self, o):
-        return o.subject_group.name
-    subject_group_1_name.admin_order_field = 'subject_group'
-
-    def subject_group_2_name(self, o):
-        return o.second_subject_group.name
-    subject_group_2_name.admin_order_field = 'second_subject_group'
 
     fieldsets = (
         (None, {
@@ -144,6 +136,14 @@ class SubjectProximityAnalyzerAdmin(admin.ModelAdmin):
             'fields': ('id', 'analysis_search_time_hours', 'notes',)
         })
     )
+
+    def subject_group_1_name(self, o):
+        return o.subject_group.name
+    subject_group_1_name.admin_order_field = 'subject_group'
+
+    def subject_group_2_name(self, o):
+        return o.second_subject_group.name
+    subject_group_2_name.admin_order_field = 'second_subject_group'
 
 
 @admin.register(models.GeofenceAnalyzerConfig)

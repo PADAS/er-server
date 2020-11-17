@@ -5,10 +5,8 @@ from mapping.models import SpatialFeatureGroupStatic
 from observations.models import SubjectGroup
 
 
-class ProximityAnalyzerConfig(SubjectAnalyzerConfig):
-
+class FeatureProximityAnalyzerConfig(SubjectAnalyzerConfig):
     threshold_time = models.IntegerField(null=False, default=86400)  # 24 hours
-
     threshold_dist_meters = models.FloatField(
         null=False, default=500.0,
         verbose_name='Proximity Distance (meters)',
@@ -17,13 +15,7 @@ class ProximityAnalyzerConfig(SubjectAnalyzerConfig):
                      "<br/>A subject's path is drawn using a straight line between "
                      "reported positions.")  # 500 meters
 
-    analyzer_category = 'proximity'
-
-    class Meta(SubjectAnalyzerConfig.Meta):
-        abstract = True
-
-
-class FeatureProximityAnalyzerConfig(ProximityAnalyzerConfig):
+    analyzer_category = 'feature_proximity'
     proximal_features = models.ForeignKey(
         to=SpatialFeatureGroupStatic,
         on_delete=models.CASCADE,
@@ -38,8 +30,16 @@ class FeatureProximityAnalyzerConfig(ProximityAnalyzerConfig):
         verbose_name = 'Feature Proximity Analyzer'
 
 
-class SubjectProximityAnalyzerConfig(ProximityAnalyzerConfig):
+class SubjectProximityAnalyzerConfig(SubjectAnalyzerConfig):
     search_time_hours = None
+    threshold_time = models.IntegerField(null=False, default=86400)  # 24 hours
+    threshold_dist_meters = models.FloatField(
+        null=False, default=100.0,
+        verbose_name='Proximity Distance (meters)',
+        help_text="A proximity event will only occur when either subject's path passes "
+                  "within this distance of the other subject. A subject's path "
+                  "is drawn using a straight line between reported positions.")
+    analyzer_category = 'subject_proximity'
     analysis_search_time_hours = models.FloatField(
         null=False, default=1.0,
         verbose_name='Analysis time frame (hours)',
@@ -62,7 +62,6 @@ class SubjectProximityAnalyzerConfig(ProximityAnalyzerConfig):
         null=False, default=1.0,
         verbose_name='Proximity Time',
         help_text=_("A proximity event will only occur when the two subject's position points occur within this time."))
-
 
     class Meta:
         verbose_name = 'Subject Proximity Analyzer'

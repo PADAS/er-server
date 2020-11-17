@@ -18,8 +18,11 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
     def get_subject_analyzers(cls, subject):
         return cls.subject_analyzers(subject, SubjectProximityAnalyzerConfig)
 
-    def _create_proximity_analysis_params(self):
-        return [k for k in self.config.second_subject_group.subjects.all()]
+    def _create_proximity_analysis_params(self, analysis_subject):
+        second_group_subjects = self.config.second_subject_group.subjects.all()
+        if analysis_subject in second_group_subjects:
+            second_group_subjects = second_group_subjects.exclude(name=analysis_subject.name)
+        return [k for k in second_group_subjects]
 
     def default_observations(self):
         if self.config.analysis_search_time_hours <= 0:
@@ -36,14 +39,13 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
         if traj is None:
             return
 
-        analysis_params = self._create_proximity_analysis_params()
+        analysis_params = self._create_proximity_analysis_params(self.subject)
 
         # Subsample trajectory to the last two fixes
-        subject = traj.subject
         traj = pymet.base.Trajectory(relocs=pymet.base.Relocations(fixes=traj.relocs.get_fixes()[-2:],
                                                                    subject_id=traj.relocs.subject_id))
 
-        proximity_results = SubjectProximityAnalysis.calc_proximity_events(subject, self.config, proximity_analysis_params=analysis_params,
+        proximity_results = SubjectProximityAnalysis.calc_proximity_events(self.subject, self.config, proximity_analysis_params=analysis_params,
                                                                     trajectories=[traj])
 
         das_analyzer_results = []
@@ -169,8 +171,7 @@ class SubjectProximityAnalysis:
                                     subject_1_travel_heading=round(seg.heading, 2),
                                     subject_2_travel_heading=round(seg2.heading, 2),
 
-                                    subject_1_total_fix_count=seg.start_fix,
-                                    subject_2_total_fix_count=seg2.start_fix,
+                                    proximal_fix=seg.start_fix,
                                     proximity_distance_meters=proximity_dist
                                 )
                                 # Add this given crossing to the result
@@ -189,8 +190,7 @@ class SubjectProximityEvent:
     def __init__(self, subject_1_name, subject_1_speed, subject_1_location,
                  subject_2_name, subject_2_speed, subject_2_location,
                  subject_1_travel_heading=0.0, subject_2_travel_heading=0.0,
-                 subject_1_total_fix_count=None, subject_2_total_fix_count=None,
-                 proximity_distance_meters=math.inf):
+                 proximal_fix=None, proximity_distance_meters=math.inf):
 
         self.subject_1_name = subject_1_name
         self.subject_1_speed = subject_1_speed,
@@ -202,8 +202,7 @@ class SubjectProximityEvent:
         self.subject_2_location = subject_2_location,
         self.subject_2_travel_heading = subject_2_travel_heading,
 
-        self.proximal_fix = subject_1_total_fix_count
-        self.subject_2_proximal_fix = subject_2_total_fix_count
+        self.proximal_fix = proximal_fix
         self.proximity_distance_meters = proximity_distance_meters
 
 
@@ -275,8 +274,7 @@ SUBJECT_PROXIMITY_SCHEMA = {
         "subject_1_name",
         "subject_1_location",
         "subject_1_speed_kmhr",
-        "subject_1_heading",
-        "proximal_fix"
+        "subject_1_heading"
       ]
     },
     {
@@ -286,8 +284,7 @@ SUBJECT_PROXIMITY_SCHEMA = {
           "subject_2_name",
           "subject_2_location",
           "subject_2_speed_kmhr",
-          "subject_2_heading",
-          "subject_2_proximal_fix"
+          "subject_2_heading"
       ]
     },
     "proximity_dist_meters",

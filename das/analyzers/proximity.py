@@ -26,9 +26,9 @@ class ProximityAnalyzer(SubjectAnalyzer):
 
     @classmethod
     def subject_analyzers(cls, subject, analyzer_class):
-        from observations.models import SubjectGroup
-        subject_groups = SubjectGroup.objects.filter(subjects=subject)
-        for ac in analyzer_class.objects.filter(subject_group__in=subject_groups, is_active=True):
+        subject_groups = subject.get_ancestor_subject_groups()
+        for ac in analyzer_class.objects.filter(
+                subject_group__in=subject_groups, is_active=True):
             yield cls(subject=subject, config=ac)
 
     def default_observations(self):
@@ -49,19 +49,24 @@ class ProximityAnalyzer(SubjectAnalyzer):
             if this_result.level in (CRITICAL, WARNING):
                 this_result.save()
 
+    def value_to_display(self, value):
+        return ' '.join(x.capitalize() or '_' for x in value.split('_'))
+
     def verify_event_type(self, this_result):
         from analyzers.subject_proximity import SubjectProximityAnalyzerConfig, SUBJECT_PROXIMITY_SCHEMA
-        event_type = 'proximity'
+        et_value = this_result.subject_analyzer.analyzer_category
+        et_display = self.value_to_display(et_value)
+        et_defaults_dict = dict(display=et_display)
 
         if isinstance(this_result.subject_analyzer, SubjectProximityAnalyzerConfig):
-            event_type = 'subject_proximity'
-            ec, created = EventCategory.objects.get_or_create(
-                value='analyzer_event', defaults=dict(display='Analyzer Events'))
-            EventType.objects.get_or_create(
-                value=event_type, category=ec,
-                defaults=dict(display='Subject Proximity',
-                              schema=json.dumps(SUBJECT_PROXIMITY_SCHEMA, indent=2, default=str)))
-        return event_type
+            et_defaults_dict['schema'] = json.dumps(SUBJECT_PROXIMITY_SCHEMA, indent=2, default=str)
+
+        ec, created = EventCategory.objects.get_or_create(
+            value='analyzer_event', defaults=dict(display='Analyzer Events'))
+        EventType.objects.get_or_create(
+            value=et_value, category=ec,
+            defaults=et_defaults_dict)
+        return et_value
 
     def create_analyzer_event(self, last_result=None, this_result=None):
 

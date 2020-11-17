@@ -137,9 +137,13 @@ class FeatureProximityAnalyzerForm(BaseAnalyzerForm):
 
 
 class SubjectProximityAnalyzerForm(forms.ModelForm):
-    threshold_dist_meters = forms.DecimalField(decimal_places=1, initial=100.0)
-    analysis_search_time_hours = TimeFrameField(label='Analysis time frame', initial=1)
-    proximity_time = TimeFrameField(initial=1)
+    analysis_search_time_hours = TimeFrameField(
+        label='Analysis time frame', initial=1,
+        help_text=_('Analysis will be performed on recent data within this time frame.')
+                                                )
+    proximity_time = TimeFrameField(
+        initial=1, label='Proximity Time',
+        help_text=_("A proximity event will only occur when the two subject's position points occur within this time."))
 
     class Meta:
         fields = '__all__'
