@@ -1,4 +1,5 @@
 import logging
+import uuid
 
 import pymet
 from activity.models import Event, EventType, EventCategory
@@ -86,6 +87,10 @@ class ProximityAnalyzer(SubjectAnalyzer):
         }
 
         event_type = self.verify_event_type(this_result)
+        relate_subjects = [{'id': self.subject.id}]
+
+        if this_result.values.get('subject_2_id'):
+            relate_subjects.append({'id': uuid.UUID(this_result.values.get('subject_2_id')[0])})
 
         # Notify if result is critical or warning
         if this_result.level in (CRITICAL, WARNING):
@@ -98,7 +103,7 @@ class ProximityAnalyzer(SubjectAnalyzer):
                     this_result.level, Event.PRI_URGENT),
                 location=event_location_value,
                 event_details=event_details,
-                related_subjects=[{'id': self.subject.id}, ],
+                related_subjects=relate_subjects,
             )
 
         if event_data:

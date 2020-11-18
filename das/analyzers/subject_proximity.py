@@ -78,11 +78,13 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
                                  prox.proximal_fix.geopoint.ogr_geometry.GetY())])
 
                 result.values = {
+                    'subject_1_id': prox.subject_1_id,
                     'subject_1_name': prox.subject_1_name,
                     'subject_1_speed_kmhr': prox.subject_1_speed[0],
                     'subject_1_heading': prox.subject_1_travel_heading[0],
                     'subject_1_location': self.get_location_url_on_er(prox.subject_1_location[0]),
 
+                    'subject_2_id': prox.subject_2_id,
                     'subject_2_name': prox.subject_2_name[0],
                     'subject_2_speed_kmhr': prox.subject_2_speed[0],
                     'subject_2_heading': prox.subject_2_travel_heading[0],
@@ -163,10 +165,12 @@ class SubjectProximityAnalysis:
 
                                 # Create the proximity event
                                 prox_event = SubjectProximityEvent(
+                                    subject_1_id=str(analysis_subject.id),
                                     subject_1_name=analysis_subject.name,
                                     subject_1_speed=round(seg.speed_kmhr, 2),
                                     subject_1_location=analysis_subject_track.location.coords,
 
+                                    subject_2_id=str(subject.id),
                                     subject_2_name=subject.name,
                                     subject_2_speed=round(seg2.speed_kmhr, 2),
                                     subject_2_location=sub2_last_track.location.coords,
@@ -190,16 +194,18 @@ class SubjectProximityEvent:
 
     """ Class to store the result of a single proximity event"""
 
-    def __init__(self, subject_1_name, subject_1_speed, subject_1_location,
-                 subject_2_name, subject_2_speed, subject_2_location,
+    def __init__(self, subject_1_id, subject_1_name, subject_1_speed, subject_1_location,
+                 subject_2_id, subject_2_name, subject_2_speed, subject_2_location,
                  subject_1_travel_heading=0.0, subject_2_travel_heading=0.0,
                  proximal_fix=None, proximity_distance_meters=math.inf):
 
-        self.subject_1_name = subject_1_name
+        self.subject_1_id = subject_1_id,
+        self.subject_1_name = subject_1_name,
         self.subject_1_speed = subject_1_speed,
         self.subject_1_location = subject_1_location,
         self.subject_1_travel_heading = subject_1_travel_heading,
 
+        self.subject_2_id = subject_2_id,
         self.subject_2_name = subject_2_name,
         self.subject_2_speed = subject_2_speed,
         self.subject_2_location = subject_2_location,
