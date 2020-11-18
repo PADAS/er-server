@@ -32,6 +32,7 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
             return list(self.subject.observations(last_hours=self.config.analysis_search_time_hours))
 
     def get_location_url_on_er(self, location):
+        location = self.evaluate_return_value(location)
         return f'{settings.SERVER_FQDN}?lnglat={location[1]:.4f},{location[0]:.4f}'
 
     def analyze_trajectory(self, traj=None):
@@ -57,7 +58,7 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
             # Create a DAS Analyser result based on each proximity event within
             if prox.proximity_distance_meters <= self.config.threshold_dist_meters:
 
-                subject_2_name = prox.subject_2_name[0] if prox.subject_2_name else ''
+                subject_2_name = self.evaluate_return_value(prox.subject_2_name) if prox.subject_2_name else ''
 
                 # Create the analyzer result
                 result = SubjectAnalyzerResult(subject_analyzer=self.config,
@@ -79,16 +80,16 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
 
                 result.values = {
                     'subject_1_id': prox.subject_1_id,
-                    'subject_1_name': prox.subject_1_name,
-                    'subject_1_speed_kmhr': prox.subject_1_speed[0],
-                    'subject_1_heading': prox.subject_1_travel_heading[0],
-                    'subject_1_location': self.get_location_url_on_er(prox.subject_1_location[0]),
+                    'subject_1_name': self.evaluate_return_value(prox.subject_1_name),
+                    'subject_1_speed_kmhr': self.evaluate_return_value(prox.subject_1_speed),
+                    'subject_1_heading': self.evaluate_return_value(prox.subject_1_travel_heading),
+                    'subject_1_location': self.get_location_url_on_er(prox.subject_1_location),
 
                     'subject_2_id': prox.subject_2_id,
-                    'subject_2_name': prox.subject_2_name[0],
-                    'subject_2_speed_kmhr': prox.subject_2_speed[0],
-                    'subject_2_heading': prox.subject_2_travel_heading[0],
-                    'subject_2_location': self.get_location_url_on_er(prox.subject_2_location[0]),
+                    'subject_2_name': self.evaluate_return_value(prox.subject_2_name),
+                    'subject_2_speed_kmhr': self.evaluate_return_value(prox.subject_2_speed),
+                    'subject_2_heading': self.evaluate_return_value(prox.subject_2_travel_heading),
+                    'subject_2_location': self.get_location_url_on_er(prox.subject_2_location),
 
                     'proximity_dist_meters': prox.proximity_distance_meters,
                     'total_fix_count': traj.relocs.fix_count

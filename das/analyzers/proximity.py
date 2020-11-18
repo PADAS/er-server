@@ -53,6 +53,11 @@ class ProximityAnalyzer(SubjectAnalyzer):
     def value_to_display(self, value):
         return ' '.join(x.capitalize() or '_' for x in value.split('_'))
 
+    def evaluate_return_value(self, value):
+        if not isinstance(value, str):
+            value = value[0]
+        return value
+
     def verify_event_type(self, this_result):
         from analyzers.subject_proximity import SubjectProximityAnalyzerConfig, SUBJECT_PROXIMITY_SCHEMA
         et_value = this_result.subject_analyzer.analyzer_category
@@ -90,7 +95,8 @@ class ProximityAnalyzer(SubjectAnalyzer):
         relate_subjects = [{'id': self.subject.id}]
 
         if this_result.values.get('subject_2_id'):
-            relate_subjects.append({'id': uuid.UUID(this_result.values.get('subject_2_id')[0])})
+            subject_2_id = self.evaluate_return_value(this_result.values.get('subject_2_id'))
+            relate_subjects.append({'id': uuid.UUID(subject_2_id)})
 
         # Notify if result is critical or warning
         if this_result.level in (CRITICAL, WARNING):
