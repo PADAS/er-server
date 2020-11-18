@@ -10,6 +10,7 @@ from pymet.proximity import ProximityAnalysisResult
 from analyzers.models import (CRITICAL, SubjectAnalyzerResult,
                               SubjectProximityAnalyzerConfig)
 from analyzers.proximity import ProximityAnalyzer
+from django.conf import settings
 
 
 class SubjectProximityAnalyzer(ProximityAnalyzer):
@@ -29,6 +30,9 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
             return list(self.subject.observations())
         else:
             return list(self.subject.observations(last_hours=self.config.analysis_search_time_hours))
+
+    def get_location_url_on_er(self, location):
+        return f'{settings.SERVER_FQDN}?lnglat={location[1]:.4f},{location[0]:.4f}'
 
     def analyze_trajectory(self, traj=None):
         """
@@ -75,18 +79,17 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
 
                 result.values = {
                     'subject_1_name': prox.subject_1_name,
-                    'subject_1_speed_kmhr': prox.subject_1_speed,
-                    'subject_1_heading': prox.subject_1_travel_heading,
-                    'subject_1_location': prox.subject_1_location,
+                    'subject_1_speed_kmhr': prox.subject_1_speed[0],
+                    'subject_1_heading': prox.subject_1_travel_heading[0],
+                    'subject_1_location': self.get_location_url_on_er(prox.subject_1_location[0]),
 
-                    'subject_2_name': prox.subject_2_name,
-                    'subject_2_speed_kmhr': prox.subject_2_speed,
-                    'subject_2_heading': prox.subject_2_travel_heading,
-                    'subject_2_location': prox.subject_2_location,
-                    
+                    'subject_2_name': prox.subject_2_name[0],
+                    'subject_2_speed_kmhr': prox.subject_2_speed[0],
+                    'subject_2_heading': prox.subject_2_travel_heading[0],
+                    'subject_2_location': self.get_location_url_on_er(prox.subject_2_location[0]),
+
                     'proximity_dist_meters': prox.proximity_distance_meters,
-                    'total_fix_count': traj.relocs.fix_count,
-                    
+                    'total_fix_count': traj.relocs.fix_count
                 }
 
                 self.logger.info(result.message)
@@ -213,54 +216,21 @@ SUBJECT_PROXIMITY_SCHEMA = {
     "title": "Subject Proximity Schema",
     "type": "object",
     "properties": {
-      "name": {
-        "type": "string",
-        "title": "Name"
-      },
-      "subject_1_name": {
-        "type": "string",
-        "title": "Subject 1 Name"
-      },
-      "subject_1_speed_kmhr": {
-        "type": "string",
-        "title": "Subject 1 Speed Kmhr"
-      },
-      "subject_1_heading": {
-        "type": "string",
-        "title": "Subject 1 Heading"
-      },
-      "subject_1_location": {
-        "type": "string",
-        "title": "Subject 1 Location"
-      },
-      "subject_2_name": {
-        "type": "string",
-        "title": "Subject 2 Name"
-      },
-      "subject_2_speed_kmhr": {
-        "type": "string",
-        "title": "Subject 2 Speed Kmhr"
-      },
-      "subject_2_heading": {
-        "type": "string",
-        "title": "Subject 2 Heading"
-      },
-      "subject_2_location": {
-        "type": "string",
-        "title": "Subject 2 Location"
-      },
-      "proximity_dist_meters": {
-        "type": "number",
-        "title": "Proximity Dist Meters"
-      },
-      "total_fix_count": {
-        "type": "number",
-        "title": "Total Fix Count"
-      }
+        "subject_1_name": {"type": "string", "title": "Subject 1 Name"},
+        "subject_1_speed_kmhr": {"type": "number", "title": "Subject 1 Speed Kmhr"},
+        "subject_1_heading": {"type": "number", "title": "Subject 1 Heading"},
+        "subject_1_location": {"type": "string", "title": "Subject 1 location on map", "format": "uri"},
+
+        "subject_2_name": {"type": "string", "title": "Subject 2 Name"},
+        "subject_2_speed_kmhr": {"type": "number", "title": "Subject 2 Speed Kmhr"},
+        "subject_2_heading": {"type": "number", "title": "Subject 2 Heading"},
+        "subject_2_location": {"type": "string", "title": "Subject 2 location on map", "format": "uri"},
+
+        "proximity_dist_meters": {"type": "number", "title": "Proximity Dist Meters"},
+        "total_fix_count": {"type": "number", "title": "Total Fix Count"}
     }
-  },
+    },
   "definition": [
-    "name",
     {
       "type": "fieldset",
       "title": "Analyzer Details",
