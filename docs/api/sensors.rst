@@ -7,8 +7,7 @@ GPS Radio API
 -----------------------------
 
 The GPS Radio API, also known as the Generic API, is the preferred method for posting track data. The pieces of information submitted identify the radio
-to the system. To do this need the unique name for the radio, which appears in the UI. The person/animal type being tracked by this radio for instance
-if its an elephant. The radio type, whether its a vehicle tracking or ranger radio. The unique device id, preferably the device serial number or unique number coming from TRBOnet.
+to the system. To do this we need a unique name for the radio, which appears in the UI. Also, we can specify the person/animal type being tracked by this radio. The radio type, whether its a vehicle tracking or ranger radio. The unique device id, preferably the device serial number or unique number coming from TRBOnet.
 Any additional data to be stored with the observation. For example some collars record the ambient temperature which we do not have a discrete field to store this value.
 
 * A unique name for the device (which appears in the UI to identify the tracked asset).
@@ -109,10 +108,10 @@ Status API
 
 DAS Radio Agent API
 ---------------------------
-.. http:post:: /sensors/dasradioagent/(string:provider_key)/status
+Similar to the gps-radio API, this interface supports the unique attributes of a more sophisticated handheld radio system software.
+This includes GPS recording and general radio status.
 
-   Similar to the gps-radio API, this interface supports the unique attributes of a more sophisticated handheld radio system software.
-   This includes GPS recording and general radio status.
+.. http:post:: /sensors/dasradioagent/(string:provider_key)/status
 
    The dasradioagent api supports the gps-radio json parameters discussed earlier, plus the ability to send overall integration and base station status.
    We do this by adding a "message_key" field that defines the status message type. Two types of status messages are then supported. The first "observation" is our augmented observation message we have
@@ -124,6 +123,8 @@ Observation message_key
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The standard observation fields found in the GPS Radio API apply. Additionally, we add a few fields to the "additional" key to describe the state of the handheld or basestation radio.
 The following are fields found in the "additional" obj field for an 'observation' message:
+
+.. http:post:: /sensors/dasradioagent/(string:provider_key)/status
 
    :reqjson string event_action: default is unknown. This is a hint to desccribe the reason for the status, whether it was a location change or if it was a radio state change [unknown, device_location_changed, device_state_changed]
    :reqjson string radio_state: default is offline. [offline, online-gps, online, alarm]. This translates to the following radio icon colors displayed in DAS: offline:Gray, online-gps:Green, online:Blue, alarm:Red.
@@ -149,6 +150,8 @@ The following are fields found in the "additional" obj field for an 'observation
 Heartbeat message_key
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
    Using the "hea posting system status information as a "heartbeat".
+   
+.. http:post:: /sensors/dasradioagent/(string:provider_key)/status
 
    To post a heartbeat, include the following attributes:
 
