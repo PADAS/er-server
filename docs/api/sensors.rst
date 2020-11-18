@@ -17,7 +17,7 @@ Any additional data to be stored with the observation. For example some collars 
 
 Provider_key
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-A provider_key is included in the POST url. This is authored with DAS's administration UI in the "Source Providers" area. This must be created before posting observations to this API. *See above for an example of adding a Source provider in the Django admin.*
+A provider_key is included in the POST url. This is authored with DAS's administration UI in the "Source Providers" area. It the provider does not previously exist in ER, it will be created automatically when posting status.
 
 .. figure:: ../images/source_provider_add.png
    :scale: 50 %
@@ -137,6 +137,7 @@ The following are fields found in the "additional" obj field for an 'observation
    .. code-block:: json
 
         {
+            "message_key": "observation",
             "location": {"lat": 31, "lon": 2},
             "recorded_at": "2019-01-04T16:18:44.056439Z",
             "manufacturer_id": "radio_sn_1",
@@ -149,8 +150,8 @@ The following are fields found in the "additional" obj field for an 'observation
 
 Heartbeat message_key
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   Using the "hea posting system status information as a "heartbeat".
-   
+   When we set the message_key to "heartbeat", we are posting system status information.
+
 .. http:post:: /sensors/dasradioagent/(string:provider_key)/status
 
    To post a heartbeat, include the following attributes:
