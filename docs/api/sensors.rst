@@ -6,14 +6,19 @@ Sensors
 GPS Radio API
 -----------------------------
 
-The GPS Radio API is the preferred method for posting track data. The pieces of information submitted identify the radio
+The GPS Radio API, also known as the Generic API, is the preferred method for posting track data. The pieces of information submitted identify the radio
 to the system. To do this need the unique name for the radio, which appears in the UI. The person/animal type being tracked by this radio for instance
 if its an elephant. The radio type, whether its a vehicle tracking or ranger radio. The unique device id, preferably the device serial number or unique number coming from TRBOnet.
 Any additional data to be stored with the observation. For example some collars record the ambient temperature which we do not have a discrete field to store this value.
 
+* A unique name for the device (which appears in the UI to identify the tracked asset).
+* The radio type, to indicate whether it is a `gps-radio` or other `tracking-device`.
+* A unique device ID, preferably a serial number or other unique external identifier.
+* Note on ISO dates. When submitting an ISO date, be sure to include a timezone marker, even if it's just "Z" for UTC. Otherwise, without the timezone setting, the ER server assumes the timezone is the configured ER Server timezone. This is typically the timezone of the site.
+
 Provider_key
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-In the URL of the api, is referenced a provider_key. This is authored in the "Source providers" table prior to posting to the API.
+A provider_key is included in the POST url. This is authored with DAS's administration UI in the "Source Providers" area. This must be created before posting observations to this API. *See above for an example of adding a Source provider in the Django admin.*
 
 .. figure:: ../images/source_provider_add.png
    :scale: 50 %
@@ -21,9 +26,13 @@ In the URL of the api, is referenced a provider_key. This is authored in the "So
 
    Example of adding a Source provider in the Django admin. Here we are adding a Hytera radio source provider.
 
+Status API
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
 .. http:post:: /sensors/gps-radio/(string:provider_key)/status
 
-    Post lat/lon positional data from a GPS tracking device. This is a generic API for posting positional data.
+    Post lat/lon positional data from a GPS tracking device.
     Include the unique device id in the data.
 
     :param provider_key: this maps to the provider name
@@ -51,45 +60,6 @@ In the URL of the api, is referenced a provider_key. This is authored in the "So
             "subject_subtype": "ranger",
             "model_name": "Radio Model 1",
             "source_type": "gps-radio",
-            "additional": {"gps_error": ".05"}
-        }
-
-
-
-Generic Sensor API
------------------------------
-
-The Generic Sensor API supports a basic method for posting observation data. To do this requires the following:
-
-* A unique name for the device (which appears in the UI to identify the tracked asset).
-* The radio type, to indicate whether it is a `gps-radio` or other `tracking-device`.
-* A unique device ID, preferably a serial number or other unique external identifier.
-
-Any additional data to be stored with the observation may be sent as well. For example some devices record the ambient temperature which we do not have a discrete field to store this value.
-
-Provider_key
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-A provider_key is included in the POST url. This is authored with DAS's administration UI in the "Source Providers" area. This must be created before posting observations to this API. *See above for an example of adding a Source provider in the Django admin.*
-
-.. http:post:: /sensors/generic/(string:provider_key)/status
-
-   Post lat/lon positional data from a GPS tracking device. This is a generic API for posting positional data.
-   Include the unique device id in the data.
-
-   **Example Post**:
-
-   Post a single Observation.
-
-   .. code-block:: json
-
-        {
-            "location": {"lat": 31, "lon": 2},
-            "recorded_at": "2019-01-04T16:18:44.056439",
-            "manufacturer_id": "radio_sn_1",
-            "subject_name": "Ranger Alpha",
-            "subject_subtype": "ranger",
-            "model_name": "Radio Model 1",
-            "source_type": "tracking-device",
             "additional": {"gps_error": ".05"}
         }
 
@@ -138,25 +108,47 @@ A provider_key is included in the POST url. This is authored with DAS's administ
 
 
 DAS Radio Agent API
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------
 .. http:post:: /sensors/dasradioagent/(string:provider_key)/status
 
-   Similar to the gps-radio API, this interface supports the unique attributes of the TRBOnet radio software.
+   Similar to the gps-radio API, this interface supports the unique attributes of a more sophisticated handheld radio system software.
    This includes GPS recording and general radio status.
 
-   This api supports the gps-radio json parameters plus:
+   The dasradioagent api supports the gps-radio json parameters discussed earlier, plus the ability to send overall integration and base station status.
+   We do this by adding a "message_key" field that defines the status message type. Two types of status messages are then supported. The first "observation" is our augmented observation message we have
+   been using previously. The second is the "heartbeat" message to inform us of the general radio system status, with a completely new set of parameters.
 
-   :reqjson string message_key: if heartbeat, this is a heartbeat message describing the sensor handlers operational status default is observation. For instance is the TRBOnet server running. [observation, heartbeat]
+   :reqjson string message_key: if "observation", this is our augmented observation message, otherwise if it's a "heartbeat" message there are a different set of data fields submitted see below. [observation, heartbeat]
 
-   The following are fields found in the "additional" obj field for an 'observation' message:
+Observation message_key
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The standard observation fields found in the GPS Radio API apply. Additionally, we add a few fields to the "additional" key to describe the state of the handheld or basestation radio.
+The following are fields found in the "additional" obj field for an 'observation' message:
 
-   :reqjson string event_action: default is unknown. [unknown, device_location_changed, device_state_changed]
+   :reqjson string event_action: default is unknown. This is a hint to desccribe the reason for the status, whether it was a location change or if it was a radio state change [unknown, device_location_changed, device_state_changed]
    :reqjson string radio_state: default is offline. [offline, online-gps, online, alarm]. This translates to the following radio icon colors displayed in DAS: offline:Gray, online-gps:Green, online:Blue, alarm:Red.
    :reqjson string radio_state_at: iso date of radio state change time
    :reqjson string last_voice_call_start_at: iso date of last mic key, the last time the user initiated a voice call.
-   :reqjson string location_requested_at: iso date of...
+   :reqjson string location_requested_at: iso date of when the last time the location was requested. This is a TRBOnet specific feature, where we proactively request the location of the device when we observe the radio's mic key has been pressed.
 
-   This API also allows posting system status information as a "heartbeat".
+   **Example Sensor Post**:
+
+   .. code-block:: json
+
+        {
+            "location": {"lat": 31, "lon": 2},
+            "recorded_at": "2019-01-04T16:18:44.056439Z",
+            "manufacturer_id": "radio_sn_1",
+            "subject_name": "Ranger Alpha",
+            "subject_subtype": "ranger",
+            "model_name": "Radio Model 1",
+            "source_type": "gps-radio",
+            "additional": {"gps_error": ".05", "event_action": "device_state_changed", "radio_state": "online-gps", "radio_state_at": "2019-01-04T16:18:44.056439Z"}
+        }
+
+Heartbeat message_key
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   Using the "hea posting system status information as a "heartbeat".
 
    To post a heartbeat, include the following attributes:
 
@@ -169,17 +161,17 @@ DAS Radio Agent API
    Within "heartbeat", include these:
 
    :reqjson string title: "System Activity" <-- This will display in EarthRanger's status list.
-   :reqjson int interval: This indicates the expected heartbeat interval.
+   :reqjson int interval: This indicates the expected heartbeat interval. This is in seconds. Standard is 15 seconds.
    :reqjson string latest_at: Current time in ISO format (see example below)
-   :reqjson string started_at: The time your process last started
-   :reqjson string uptime: optional A description indicating how long the service has been running.
+   :reqjson string started_at: The time your process last started. The time the integrations started.
+   :reqjson string uptime: optional A description indicating how long the service has been running. An example "6 days"
 
    Within "datasource", include these:
 
-   :reqjson string title: A string to indicate the the activity that the system is providing
-   :reqjson boolean connected: Indicate whether the datasource is connected
-   :reqjson string connection_changed_at: An ISO datetime to indicate that last time the connection state changed
-   :reqjson string latest_at: An ISO datetime to indicate the latest time of data activity.
+   :reqjson string title: A string to indicate the activity that the system is providing. An example: "Radio Activity"
+   :reqjson boolean connected: Indicate whether the datasource is connected. [true, false]
+   :reqjson string connection_changed_at: An ISO datetime to indicate that last time the connection state changed. When the integration successfully connected to the radio base station. For example if the base station restarted, this would update upon successful re-connection to the basestation.
+   :reqjson string latest_at: An ISO datetime to indicate the latest time of data activity. For example: radio location or state change
 
    .. code-block:: json
 
