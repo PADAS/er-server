@@ -1,5 +1,6 @@
 import datetime
 import random
+import json
 from urllib.parse import urlencode
 
 import pytz
@@ -381,6 +382,8 @@ class ObservationViewTestCase(BaseAPITest):
 
     def setUp(self):
         super().setUp()
+        user_const = dict(last_name='last', first_name='first')
+
         self.user = User.objects.create_user(
             'user', 'das_user@vulcan.com', 'user', is_superuser=True, is_staff=True, **self.user_const)
         self.elephant = Subject.objects.create_subject(
@@ -394,10 +397,10 @@ class ObservationViewTestCase(BaseAPITest):
         }
         self.collar = Source.objects.ensure_source(**source_args)
 
-        fixed_latitude = float(random.randint(3000, 3000)) / 100
-        fixed_longitude = float(random.randint(2800, 4000)) / 100
+        self.fixed_latitude = float(random.randint(3000, 3000)) / 100
+        self.fixed_longitude = float(random.randint(2800, 4000)) / 100
 
-        location = Point(x=fixed_longitude, y=fixed_latitude)
+        location = Point(x=self.fixed_longitude, y=self.fixed_latitude)
         self.additional = {"Name": "Name"}
         self.observation_time = pytz.UTC.localize(datetime.datetime.now())
         self.observation_data = {
@@ -405,6 +408,16 @@ class ObservationViewTestCase(BaseAPITest):
             'location': location,
             'source': self.collar,
             'additional': self.additional
+        }
+
+        self.observation_post_data = {
+            "location": {
+                "latitude": self.fixed_latitude,
+                "longitude": self.fixed_longitude
+            },
+            "recorded_at": "2020-11-19T04:26:02.968Z",
+            "additional": {},
+            "source": str(self.collar.id)
         }
 
         self.observation = Observation.objects.create(**self.observation_data)
@@ -418,6 +431,33 @@ class ObservationViewTestCase(BaseAPITest):
             source=self.collar,
             subject=self.elephant,
             additional={})
+
+        self.ele_group = SubjectGroup.objects.create(name='ele_group')
+        self.elephant.groups.add(self.ele_group)
+
+        self.observations_readonly_user = User.objects.create_user(
+            'observations_readonly_user', None, 'observations_readonly_user', is_superuser=False, is_staff=False, **user_const)
+
+        self.observations_readwrite_user = User.objects.create_user(
+            'observations_readwrite_user', 'readwrite@test.com', 'observations_readwrite_user', is_superuser=False, is_staff=False, **user_const)
+
+        self.observation_view_set = PermissionSet.objects.create(
+            name='observation_view_set')
+        self.observation_view_set.permissions.add(
+            Permission.objects.get(codename='view_observation'))
+        self.observations_readonly_user.permission_sets.add(
+            self.observation_view_set)
+
+        self.observation_readwrite_set = PermissionSet.objects.create(
+            name='observation_readwrite_set')
+        self.observation_readwrite_set.permissions.add(
+            Permission.objects.get(codename='add_observation'))
+        self.observation_readwrite_set.permissions.add(
+            Permission.objects.get(codename='view_observation'))
+        self.observations_readwrite_user.permission_sets.add(
+            self.observation_readwrite_set)
+
+        self.ele_group.permission_sets.add(self.observation_readwrite_set)
 
     def test_include_details_false(self):
         url = reverse('observations-list-view')
@@ -469,20 +509,22 @@ class ObservationViewTestCase(BaseAPITest):
         response = self.make_observations_filter_request(filter_params)
 
         # all records are of the given subject
-        self.assertTrue(self.elephant.observations().count(), response.data.get('count'))
+        self.assertTrue(self.elephant.observations().count(),
+                        response.data.get('count'))
 
     def test_filter_observations_by_source_id(self):
         filter_params = {'source_id': self.collar.id}
         response = self.make_observations_filter_request(filter_params)
 
         # all records are of the given source
-        self.assertTrue(all(k.get('source') == self.collar.id for k in response.data.get('results')))
+        self.assertTrue(
+            all(k.get('source') == self.collar.id for k in response.data.get('results')))
 
     def test_filter_observations_by_recorded_since(self):
         filter_params = {'since': self.observation_time + timedelta(days=1)}
         response = self.make_observations_filter_request(filter_params)
 
-        # no records 1 days from last observations creation date        
+        # no records 1 days from last observations creation date
         self.assertEquals(response.data.get('count'), 0)
 
     def test_filter_observations_by_recorded_until(self):
@@ -492,7 +534,8 @@ class ObservationViewTestCase(BaseAPITest):
         self.assertEquals(response.data.get('count'), 1)
 
     def test_filter_observations_by_date_range(self):
-        self.observation_data['recorded_at'] = self.observation_time + timedelta(days=4)
+        self.observation_data['recorded_at'] = self.observation_time + \
+            timedelta(days=4)
         self.observation2 = Observation.objects.create(**self.observation_data)
 
         filter_params = {
@@ -512,3 +555,23 @@ class ObservationViewTestCase(BaseAPITest):
         response = views.ObservationsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
         return response
+
+    def test_observation_readonly_cannot_add(self):
+        url = reverse('observations-list-view')
+
+        request = self.factory.post(
+            self.api_base + url, self.observation_post_data)
+        self.force_authenticate(request, self.observations_readonly_user)
+
+        response = views.ObservationsView.as_view()(request)
+        self.assertEqual(response.status_code, 403)
+
+    def test_observation_can_add(self):
+        url = reverse('observations-list-view')
+
+        request = self.factory.post(
+            self.api_base + url, self.observation_post_data)
+        self.force_authenticate(request, self.observations_readwrite_user)
+
+        response = views.ObservationsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
