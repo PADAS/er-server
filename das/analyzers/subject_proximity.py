@@ -33,7 +33,7 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
 
     def get_location_url_on_er(self, location):
         location = self.evaluate_return_value(location)
-        return f'{settings.SERVER_FQDN}?lnglat={location[1]:.4f},{location[0]:.4f}'
+        return f'https://{settings.SERVER_FQDN}?lnglat={location[1]:.4f},{location[0]:.4f}'
 
     def analyze_trajectory(self, traj=None):
         """
