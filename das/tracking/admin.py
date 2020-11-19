@@ -154,14 +154,14 @@ class AwtAdmin(admin.ModelAdmin):
 
 @admin.register(models.TrackConfiguration)
 class TrackConfigurationAdmin(admin.ModelAdmin):
-    list_display = ('id', 'new_subject_config', 'name_change_config')
+    list_display = ('id', 'new_device_config', 'name_change_config')
     formfield_overrides = {
         django.db.models.ManyToManyField: {'widget': CheckboxSelectMultiple},
     }
     fieldsets = (
         ('New device subject handling', {
             'classes': ('wide',),
-            'fields': ('new_subject_config',)
+            'fields': ('new_device_config',)
         }
          ),
         (None, {

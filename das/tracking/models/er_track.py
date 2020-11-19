@@ -21,7 +21,7 @@ NAME_CHANGE_CONFIG_CHOICES = (
 class TrackConfiguration(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    new_subject_config = models.CharField(
+    new_device_config = models.CharField(
         choices=NEW_SUBJECT_CONFIG_CHOICES, default=USE_EXISTING,
         max_length=50, verbose_name="New device setting",
         help_text=_('Specifies whether to create a new subject or use an existing one when setting up a new device.'))
