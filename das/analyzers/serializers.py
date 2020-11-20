@@ -69,7 +69,7 @@ class GeofenceAnalyzerConfigSerializer(SpatialAnalyzerConfigSerializer):
         return rep
 
 
-class ProximityAnalyzerConfigSerializer(SpatialAnalyzerConfigSerializer):
+class FeatureProximityAnalyzerSerializer(SpatialAnalyzerConfigSerializer):
 
     proximal_features = rest_framework.serializers.HyperlinkedRelatedField(
         read_only=True, view_name='mapping:spatialfeaturegroup-view', lookup_field='id')
@@ -86,7 +86,25 @@ class ProximityAnalyzerConfigSerializer(SpatialAnalyzerConfigSerializer):
 
         if 'request' in self.context:
             rep['admin_href'] = utils.add_base_url(self.context['request'],
-                                                   reverse("admin:analyzers_proximityanalyzerconfig_change",
+                                                   reverse("admin:analyzers_featureproximityanalyzerconfig_change",
+                                                           args=(instance.pk,)))
+
+        return rep
+
+
+class SubjectProximityAnalyzerSerializer(SpatialAnalyzerConfigSerializer):
+    second_subject_group = SubjectGroupSerializer()
+    threshold_seconds = rest_framework.serializers.IntegerField(
+        source='threshold_time')
+    threshold_dist_meters = rest_framework.serializers.FloatField()
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        rep['second_subject_group'] = rep.pop('second_subject_group')
+
+        if 'request' in self.context:
+            rep['admin_href'] = utils.add_base_url(self.context['request'],
+                                                   reverse("admin:analyzers_subjectproximityanalyzerconfig_change",
                                                            args=(instance.pk,)))
 
         return rep

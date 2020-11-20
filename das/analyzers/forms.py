@@ -132,9 +132,22 @@ class ImmobilityAnalyzerForm(BaseAnalyzerForm):
     BaseAnalyzerForm.Meta.model = models.ImmobilityAnalyzerConfig
 
 
-class ProximitySubjectAnalyzerForm(BaseAnalyzerForm):
-    BaseAnalyzerForm.Meta.model = models.ProximityAnalyzerConfig
+class FeatureProximityAnalyzerForm(BaseAnalyzerForm):
+    BaseAnalyzerForm.Meta.model = models.FeatureProximityAnalyzerConfig
 
+
+class SubjectProximityAnalyzerForm(forms.ModelForm):
+    analysis_search_time_hours = TimeFrameField(
+        label='Analysis time frame', initial=1,
+        help_text=_('Analysis will be performed on recent data within this time frame.')
+                                                )
+    proximity_time = TimeFrameField(
+        initial=1, label='Proximity Time',
+        help_text=_("A proximity event will only occur when the two subject's position points occur within this time."))
+
+    class Meta:
+        fields = '__all__'
+        model = models.SubjectProximityAnalyzerConfig
 
 class LowSpeedWilcoxSubjectAnalyzerForm(BaseAnalyzerForm):
     BaseAnalyzerForm.Meta.model = models.LowSpeedWilcoxAnalyzerConfig

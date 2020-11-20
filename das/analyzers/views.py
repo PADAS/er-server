@@ -4,19 +4,15 @@ from rest_framework import generics, status, response
 from rest_framework.response import Response
 
 from utils.drf import StandardResultsSetPagination
-from analyzers.models import GeofenceAnalyzerConfig, ProximityAnalyzerConfig
-from analyzers.serializers import GeofenceAnalyzerConfigSerializer, ProximityAnalyzerConfigSerializer
+from analyzers.models import GeofenceAnalyzerConfig, FeatureProximityAnalyzerConfig, SubjectProximityAnalyzerConfig
+from analyzers.serializers import GeofenceAnalyzerConfigSerializer, FeatureProximityAnalyzerSerializer, SubjectProximityAnalyzerSerializer
 from analyzers.permissions import ModelPermissions
 
 from utils.json import parse_bool
 
-
-class SpatialAnalyzerListView(generics.ListAPIView):
+class AnalyzerListView(generics.ListAPIView):
     # permission_classes = (ModelPermissions,)
-    #pagination_class = StandardResultsSetPagination
-
-    MODEL_TO_SERIALIZER = ((GeofenceAnalyzerConfig, GeofenceAnalyzerConfigSerializer),
-                           (ProximityAnalyzerConfig, ProximityAnalyzerConfigSerializer))
+    # pagination_class = StandardResultsSetPagination
 
     def list(self, request, *args, **kwargs):
 
@@ -40,3 +36,13 @@ class SpatialAnalyzerListView(generics.ListAPIView):
                     results.append(serializer.data)
 
         return Response(results)
+
+
+class SpatialAnalyzerListView(AnalyzerListView):
+
+    MODEL_TO_SERIALIZER = ((GeofenceAnalyzerConfig, GeofenceAnalyzerConfigSerializer),
+                           (FeatureProximityAnalyzerConfig, FeatureProximityAnalyzerSerializer),)
+
+
+class SubjectAnalyzerListView(AnalyzerListView):
+    MODEL_TO_SERIALIZER = ((SubjectProximityAnalyzerConfig, SubjectProximityAnalyzerSerializer),)

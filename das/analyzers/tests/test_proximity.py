@@ -11,8 +11,9 @@ from django.test import TestCase
 
 from activity.models import Event, EventCategory, EventType
 from analyzers.exceptions import InsufficientDataAnalyzerException
-from analyzers.models import ProximityAnalyzerConfig, SubjectAnalyzerResult
-from analyzers.proximity import ProximityAnalyzer
+from analyzers.models import FeatureProximityAnalyzerConfig, SubjectAnalyzerResult, SubjectProximityAnalyzerConfig
+from analyzers.proximity import FeatureProximityAnalyzer
+from analyzers.subject_proximity import SubjectProximityAnalyzer
 from mapping.models import (SpatialFeature, SpatialFeatureFile,
                             SpatialFeatureGroupStatic)
 from mapping.spatialfile_utils import process_spatialfile
@@ -88,7 +89,7 @@ class TestProximityAnalyzer(TestCase):
             category=ec,
             defaults=dict(display='Proximity Analyzer', schema=self.event_schema_json()))
 
-    def test_proximity_analyzer_logic(self):
+    def test_feature_proximity_analyzer_logic(self):
         """ Test the functioning of the proximity analyzer"""
 
         # Create models (Subject, SubjectSource and Source)
@@ -123,11 +124,11 @@ class TestProximityAnalyzer(TestCase):
         sf_grp.save()
 
         # Create the Proximty Analyzer Config object
-        config = ProximityAnalyzerConfig.objects.create(
+        config = FeatureProximityAnalyzerConfig.objects.create(
             subject_group=sg, threshold_dist_meters=200, proximal_features=sf_grp)
 
         # Create the analyzer
-        analyzer = ProximityAnalyzer(config=config, subject=sub)
+        analyzer = FeatureProximityAnalyzer(config=config, subject=sub)
 
         # Iterate through the observations adding another point to the
         # trajectory on each loop
@@ -136,6 +137,75 @@ class TestProximityAnalyzer(TestCase):
                 analyzer.analyze(observations=test_observations[i - 2:i])
             except InsufficientDataAnalyzerException:
                 break
+
+        # There should be a bunch of proximity results fom this analysis.
+        results = SubjectAnalyzerResult.objects.filter(subject=sub)
+        self.assertTrue(len(results) > 0)
+        for result in results:
+            print('Proximity Result: %s' % result)
+
+        for e in Event.objects.all():
+            self.assertTrue(e.event_details.all().exists())
+
+        for e in Event.objects.all():
+            for ed in e.event_details.all():
+                print('Event Details: %s' % ed.data)
+
+    def test_subject_proximity_analyzer_logic(self):
+        """ Test the functioning of the proximity analyzer"""
+
+        # Create models (Subject, SubjectSource and Source)
+
+        # Analysis subject info
+        sub = Subject.objects.create(
+            name='Olchoda', subject_subtype_id='elephant')
+        source = Source.objects.create(manufacturer_id='008')
+        SubjectSource.objects.create(
+            subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
+        SubjectTrackSegmentFilter.objects.create(
+            subject_subtype_id='elephant', speed_KmHr=7.0)
+        sg = SubjectGroup.objects.create(
+            name='elephants', )
+        sg.subjects.add(sub)
+        sg.save()
+
+        # counter subject group info
+        source2 = Source.objects.create(manufacturer_id='fatu-008')
+        sub2 = Subject.objects.create(
+            name='Fatu', subject_subtype_id='rhino')
+        SubjectSource.objects.create(
+            subject=sub2, source=source2, assigned_range=DEFAULT_ASSIGNED_RANGE)
+        # Create a SubjectTrackSegmentFilter
+        SubjectTrackSegmentFilter.objects.create(
+            subject_subtype_id='rhino', speed_KmHr=8.0)
+
+        sg2 = SubjectGroup.objects.create(
+            name='rhinos', )
+        sg2.subjects.add(sub2)
+        sg2.save()
+
+        # Create test observations
+        test_observations = [x for x in generate_random_positions()]
+        for item in test_observations:
+            recorded_at = item[0]
+            location = item[1]
+            models.Observation.objects.create(
+                recorded_at=recorded_at, location=location, source=source, additional={})
+
+            models.Observation.objects.create(
+                recorded_at=recorded_at, location=location, source=source2, additional={})
+        # Create the Proximty Analyzer Config object
+        config = SubjectProximityAnalyzerConfig.objects.create(
+            subject_group=sg,
+            second_subject_group=sg2,
+            threshold_dist_meters=200
+        )
+        analyzer = SubjectProximityAnalyzer(config=config, subject=sub)
+
+        # Iterate through the observations adding another point to the
+        # trajectory on each loop
+        from observations.models import Observation
+        analyzer.analyze(observations=Observation.objects.filter(source=source))
 
         # There should be a bunch of proximity results fom this analysis.
         results = SubjectAnalyzerResult.objects.filter(subject=sub)
