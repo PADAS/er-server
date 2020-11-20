@@ -172,7 +172,7 @@ class GenericSensorHandler:
                 # Create a subject-subtype on demand if necessary.
                 subject_subtype_id = subject_info.get('subject_subtype_id')
                 subject_name = observation.get('subject_name')
-                subject_id = subject_info.pop('id')
+                subject_id = subject_info.get('id')
 
                 if isinstance(subject_subtype_id, str):
                     default_display = subject_subtype_id[:100].title()
@@ -183,6 +183,8 @@ class GenericSensorHandler:
                 else:
                     subject_model = cls.handle_device_name_change(track_config, user_subjects, subject_name, subject_id)
                 if not subject_model:
+                    if Subject.objects.filter(id=subject_id):
+                        subject_info.pop('id')
                     subject_model = Subject.objects.create_subject(**subject_info)
             else:
                 subject_model = Subject.objects.create_subject(

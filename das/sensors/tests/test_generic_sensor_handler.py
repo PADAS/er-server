@@ -68,8 +68,7 @@ class GenericSensorHandlerTest(BaseAPITest):
     def setUp(self):
         super().setUp()
 
-        # setup db: create subject, source, provider
-        # self.test_subject = Subject.objects.create(name="test_subject")
+        # setup db: create source, provider
         self.test_sourceprovider = SourceProvider.objects.create(
             display_name=self.provider, provider_key=self.provider)
         self.test_source = Source.objects.create(
@@ -79,10 +78,9 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.api_path = '/'.join((self.api_base, 'sensors',
                                   self.sensor_type, self.provider, 'status'))
         TrackConfiguration.objects.create()
-        user_const = dict(last_name='superlast', first_name='superfirst')
-        self.super_user = User.objects.create_user('super-user', 'super@gmail.com',
-                                                 'super', is_superuser=True,
-                                                 is_staff=True, **user_const)
+        self.super_user = User.objects.create_superuser(username="superuser",
+                                                        password="adfsfds32423",
+                                                        email="super@user.com")
 
     @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def run_transaction_hooks(self):
@@ -377,24 +375,21 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertEqual(Subject.objects.count(), 1)  # New subject created
 
     def test_post_new_device_handling_with_use_existing_config(self):
-        config = TrackConfiguration.objects.first()
-        config.new_device_config = USE_EXISTING
-        config.save()
-
         subject_type = SubjectType.objects.create(value='Cats')
         subject_subtype = SubjectSubType.objects.create(value='queens', subject_type=subject_type)
         matching_subject = Subject.objects.create(
             name='Katie Kitten', subject_subtype=subject_subtype,
             additional={'sex': 'female'})
         SubjectSource.objects.create(subject=matching_subject, source=self.test_source)
-        self.one_observation['subject_name'] = 'Katie Kitten'
-        self.one_observation['manufacturer_id'] = "new_source"
+        obs_copy = copy.deepcopy(self.one_observation)
+        obs_copy['subject_name'] = 'Katie Kitten'
+        obs_copy['manufacturer_id'] = 'new_source'
 
         self.assertEqual(Subject.objects.count(), 1)
         self.assertEqual(len(Subject.objects.get(name='Katie Kitten').observations()), 0)
 
         self.assertEqual(1, SubjectSource.objects.filter(subject=matching_subject, source=self.test_source).count())
-        response = self._post_data(json.dumps(self.one_observation), user=self.super_user)
+        response = self._post_data(json.dumps(obs_copy), user=self.super_user)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         # No new subject created
