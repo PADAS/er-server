@@ -13,8 +13,9 @@ from django.utils import lorem_ipsum
 
 from core.tests import BaseAPITest, fake_get_pool
 from sensors.views import GenericSensorHandlerView
-from observations.models import Subject, SourceProvider, Source, Observation, SubjectGroup, SubjectSubType
-
+from observations.models import Subject, SourceProvider, Source, SubjectSource, Observation, SubjectGroup, SubjectSubType, SubjectType
+from tracking.models.er_track import TrackConfiguration, CREATE_NEW, USE_EXISTING, UPDATE_NAME
+from accounts.models import User
 
 class GenericSensorHandlerTest(BaseAPITest):
     source_type = 'tracking-collar'
@@ -68,7 +69,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         super().setUp()
 
         # setup db: create subject, source, provider
-        Subject.objects.create(name="test_subject")
+        # self.test_subject = Subject.objects.create(name="test_subject")
         self.test_sourceprovider = SourceProvider.objects.create(
             display_name=self.provider, provider_key=self.provider)
         self.test_source = Source.objects.create(
@@ -77,6 +78,11 @@ class GenericSensorHandlerTest(BaseAPITest):
 
         self.api_path = '/'.join((self.api_base, 'sensors',
                                   self.sensor_type, self.provider, 'status'))
+        TrackConfiguration.objects.create()
+        user_const = dict(last_name='superlast', first_name='superfirst')
+        self.super_user = User.objects.create_user('super-user', 'super@gmail.com',
+                                                 'super', is_superuser=True,
+                                                 is_staff=True, **user_const)
 
     @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def run_transaction_hooks(self):
@@ -310,11 +316,10 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertIsNotNone(Subject.objects.get(pk=uuid))
 
     def test_multiple_obs_with_new_subject_id_and_source(self):
-        uuid = uuid4()
         new_source_id = 'new_src_id'
         obs_list = [x for x in self._generate_observations(distinct=True)]
         for o in obs_list:
-            o['subject_id'] = uuid.hex
+            o['subject_id'] = uuid4().hex
             o['manufacturer_id'] = new_source_id
         response = self._post_data(json.dumps(obs_list))
         new_source = Source.objects.get(manufacturer_id=new_source_id)
@@ -323,7 +328,6 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertIsNotNone(new_source)
         self.assertEqual(len(obs_list), Observation.objects.filter(
             source=new_source).count())
-        self.assertIsNotNone(Subject.objects.get(pk=uuid))
 
     def test_with_multiple_subject_ids_new_source(self):
         uuids = [uuid4() for i in range(5)]
@@ -360,6 +364,79 @@ class GenericSensorHandlerTest(BaseAPITest):
             source=new_source).count())
         self.assertIsNotNone(SubjectSubType.objects.get(value=subject_subtype))
 
+    def test_post_new_device_handling_with_create_new_config(self):
+        config = TrackConfiguration.objects.first()
+        config.new_device_config = CREATE_NEW
+        config.save()
+
+        self.assertEqual(Subject.objects.count(), 0)
+        response = self._post_data(json.dumps(self.one_observation))
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(1, Observation.objects.filter(
+            source=self.test_source).count())
+        self.assertEqual(Subject.objects.count(), 1)  # New subject created
+
+    def test_post_new_device_handling_with_use_existing_config(self):
+        config = TrackConfiguration.objects.first()
+        config.new_device_config = USE_EXISTING
+        config.save()
+
+        subject_type = SubjectType.objects.create(value='Cats')
+        subject_subtype = SubjectSubType.objects.create(value='queens', subject_type=subject_type)
+        matching_subject = Subject.objects.create(
+            name='Katie Kitten', subject_subtype=subject_subtype,
+            additional={'sex': 'female'})
+        SubjectSource.objects.create(subject=matching_subject, source=self.test_source)
+        self.one_observation['subject_name'] = 'Katie Kitten'
+        self.one_observation['manufacturer_id'] = "new_source"
+
+        self.assertEqual(Subject.objects.count(), 1)
+        self.assertEqual(len(Subject.objects.get(name='Katie Kitten').observations()), 0)
+
+        self.assertEqual(1, SubjectSource.objects.filter(subject=matching_subject, source=self.test_source).count())
+        response = self._post_data(json.dumps(self.one_observation), user=self.super_user)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # No new subject created
+        self.assertEqual(Subject.objects.count(), 1)
+
+        # Observation added to matching Subject
+        self.assertEqual(len(Subject.objects.get(name='Katie Kitten').observations()), 1)
+
+        # Former subject source assignment terminated
+        self.assertEqual(0, SubjectSource.objects.filter(subject=matching_subject, source=self.test_source).count())
+        new_assignment = SubjectSource.objects.filter(subject=matching_subject).first()
+        self.assertEqual(new_assignment.source.manufacturer_id, 'new_source')
+
+    def test_device_handling_with_name_update_config(self):
+        self.one_observation['subject_name'] = 'Fatu'
+        response = self._post_data(json.dumps(self.one_observation))
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(1, Observation.objects.filter(
+            source=self.test_source).count())
+
+        subject = Subject.objects.first()
+        self.assertEqual(Subject.objects.count(), 1)
+        self.assertEqual(subject.name, 'Fatu')
+
+        config = TrackConfiguration.objects.first()
+        config.name_change_config = UPDATE_NAME
+        config.save()
+
+        self.one_observation['subject_name'] = 'Najin'
+        self.one_observation['recorded_at'] = "2019-04-10T12:01:00"
+        self.one_observation['subject_id'] = subject.id.hex
+
+        response = self._post_data(json.dumps(self.one_observation), user=self.super_user)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        # Renamed subject
+        self.assertEqual(Subject.objects.count(), 1)
+        self.assertEqual(Subject.objects.first().name, 'Najin')
+
+        # Observation added to given subject
+        self.assertEqual(2, len(Subject.objects.get(name='Najin').observations()))
+        self.assertEqual(2, Observation.objects.filter(source=self.test_source).count())
+
     def _generate_observations(self, n=10, distinct=False):
         for i in range(n):
             obs = dict(self.one_observation)
@@ -371,13 +448,13 @@ class GenericSensorHandlerTest(BaseAPITest):
             yield obs
 
     @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
-    def _post_data(self, payload, provider=None):
+    def _post_data(self, payload, provider=None, user=None):
         if not provider:
             provider = self.provider
 
         request = self.factory.post(
             self.api_path, data=payload, content_type='application/json')
-        self.force_authenticate(request, self.app_user)
+        self.force_authenticate(request, user or self.app_user)
         response = GenericSensorHandlerView.as_view()(
             request, sensor_type=self.sensor_type, provider_key=provider)
         return response
