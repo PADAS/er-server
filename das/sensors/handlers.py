@@ -8,11 +8,13 @@ from rest_framework import status, serializers
 from rest_framework.response import Response
 
 from django.db import transaction
+from django.db.models import Q
 
-from observations.models import SubjectSource, Source, Observation
+from observations.models import SubjectSource, Source, Observation, Subject, SourceProvider, SubjectSubType
 from observations.serializers import ObservationSerializer
 from observations import servicesutils
 from observations.models import update_subject_status_from_post
+from tracking.models.er_track import UPDATE_NAME, USE_EXISTING, TrackConfiguration
 from tracking.pubsub_registry import notify_new_tracks
 from sensors.vehicle_tracker import SkylineObservations, SkylineAdapter, \
     FollowltObservation, TractAdapter, TractVehicleData, EzytrackObservation, \
@@ -56,10 +58,10 @@ class GenericSensorHandler:
         if not params.is_valid():
             return Response(data=params.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        return cls.process_observations(params.validated_data, provider_key, sensor_type)
+        return cls.process_observations(params.validated_data, provider_key, sensor_type, request.user)
 
     @classmethod
-    def process_observations(cls, observations_json, provider_key, sensor_type, batch_size=128):
+    def process_observations(cls, observations_json, provider_key, sensor_type, user=None, batch_size=128):
 
         obs_to_persist, errors, obs_cache = [], [], set()
 
@@ -76,7 +78,7 @@ class GenericSensorHandler:
         for batch in generate_batches():
             for an_observation in batch:
                 cls.process_one_observation(
-                    an_observation, provider_key, sensor_type, obs_to_persist, obs_cache, errors)
+                    an_observation, provider_key, sensor_type, obs_to_persist, obs_cache, errors, user)
 
         # save and notify only if there are new, non-dup observations
         if obs_to_persist:
@@ -86,7 +88,6 @@ class GenericSensorHandler:
                 bulk_serializer.save()
             else:
                 errors.append(bulk_serializer.errors)
-
             transaction.on_commit(notify_tracks_listeners)
 
         for error in errors:
@@ -96,7 +97,102 @@ class GenericSensorHandler:
         return Response({}, status=status.HTTP_201_CREATED)
 
     @classmethod
-    def process_one_observation(cls, an_observation, provider_key, sensor_type, obs_to_persist, obs_cache, errors):
+    def get_existing_matching_subject(cls, user_subjects, subject_name, excluded_subtypes):
+        qs_person = user_subjects.filter(
+            name=subject_name,
+            subject_subtype__subject_type__value__iexact='person')
+        if qs_person:
+            return cls.clean_subject(qs_person.first())
+        else:
+            qs_other = user_subjects.filter(name=subject_name).exclude(
+                Q(subject_subtype__subject_type__value__in=excluded_subtypes)) if user_subjects else []
+
+            if len(qs_other) == 1:
+                return cls.clean_subject(qs_other.first())
+
+    @classmethod
+    def clean_subject(cls, matching_subject):
+        # Terminate pre existing subject source assignment
+        SubjectSource.objects.filter(subject=matching_subject).delete()
+        return matching_subject
+
+    @classmethod
+    def handle_new_device(cls, track_config, user_subjects, subject_name):
+        config = track_config.new_device_config
+        if config == USE_EXISTING:
+            excluded_subtypes = [k.value for k in track_config.new_subject_excluded_subject_types.all()]
+            return cls.get_existing_matching_subject(user_subjects, subject_name, excluded_subtypes)
+
+    @classmethod
+    def handle_device_name_change(cls, track_config, user_subjects, subject_name, subject_id):
+        config = track_config.name_change_config
+
+        if config == USE_EXISTING:
+            excluded_subtypes = [k.value for k in track_config.name_change_excluded_subject_types.all()]
+            return cls.get_existing_matching_subject(user_subjects, subject_name, excluded_subtypes)
+
+        elif config == UPDATE_NAME:
+            if subject_id:
+                try:
+                    subject_model = Subject.objects.get(id=subject_id)
+                except Subject.DoesNotExist:
+                    pass
+                else:
+                    if subject_model.name != subject_name:
+                        subject_model.name = subject_name
+                        subject_model.save()
+                        return subject_model
+
+    @classmethod
+    def ensure_source(cls, *args, **kwargs):
+        additional = kwargs.get('additional', {})
+        subject_info = kwargs.get('subject')
+        user = kwargs.get('user')
+        observation = kwargs.get('observation')
+        track_config = TrackConfiguration.objects.first()
+        user_subjects = Subject.objects.all().by_user_subjects(user)
+
+        with transaction.atomic():
+
+            provider, created = SourceProvider.objects.get_or_create(
+                provider_key=kwargs.get('provider'))
+
+            searchkey = dict(
+                manufacturer_id=kwargs['manufacturer_id'], provider=provider)
+            defaults = {
+                'source_type': kwargs.get('source_type'),
+                'model_name': kwargs.get('model_name'),
+                'additional': additional
+            }
+
+            source, source_created = Source.objects.get_or_create(
+                defaults=defaults, **searchkey)
+
+            if subject_info:
+                # Create a subject-subtype on demand if necessary.
+                subject_subtype_id = subject_info.get('subject_subtype_id')
+                subject_name = observation.get('subject_name')
+                subject_id = subject_info.pop('id')
+
+                if isinstance(subject_subtype_id, str):
+                    default_display = subject_subtype_id[:100].title()
+                    SubjectSubType.objects.get_or_create(value=subject_subtype_id,
+                                                         defaults={'display': default_display})
+                if source_created:
+                    subject_model = cls.handle_new_device(track_config, user_subjects, subject_name)
+                else:
+                    subject_model = cls.handle_device_name_change(track_config, user_subjects, subject_name, subject_id)
+                if not subject_model:
+                    subject_model = Subject.objects.create_subject(**subject_info)
+            else:
+                subject_model = Subject.objects.create_subject(
+                    **{'name': source.manufacturer_id})
+            if not SubjectSource.objects.filter(source=source, subject=subject_model):
+                SubjectSource.objects.create(source=source, subject=subject_model)
+            return source
+
+    @classmethod
+    def process_one_observation(cls, an_observation, provider_key, sensor_type, obs_to_persist, obs_cache, errors, user):
         manufacturer_id = an_observation['manufacturer_id']
         location = an_observation['location']
         lat = location.get('lat', None)
@@ -105,23 +201,26 @@ class GenericSensorHandler:
         location = {'latitude': float(lat), 'longitude': float(lon)}
         subject_subtype = an_observation.get(
             'subject_subtype') or cls.DEFAULT_SUBJECT_SUBTYPE
-        source_type = an_observation.get('source_type', provider_key)
+        source_type = an_observation.get('source_type', provider_key) or provider_key
         model_name = an_observation.get('model_name', None) or '{}:{}'.format(
             sensor_type, provider_key)
         subject_name = an_observation.get('subject_name') or manufacturer_id
 
-        src = Source.objects.ensure_source(source_type,
-                                           provider=provider_key,
-                                           manufacturer_id=manufacturer_id,
-                                           model_name=model_name,
-                                           subject={
-                                               'subject_subtype_id': subject_subtype,
-                                               'name': subject_name,
-                                               'subject_groups': clean_subjectgroups(an_observation.get('subject_groups')),
-                                               'id': an_observation.get('subject_id')
-                                           },
-                                           additional=an_observation.get('source_additional')
-                                           )
+        src = cls.ensure_source(
+            observation=an_observation,
+            user=user,
+            source_type=source_type,
+            provider=provider_key,
+            manufacturer_id=manufacturer_id,
+            model_name=model_name,
+            subject={
+               'subject_subtype_id': subject_subtype,
+               'name': subject_name,
+               'subject_groups': clean_subjectgroups(an_observation.get('subject_groups')),
+               'id': an_observation.get('subject_id')
+            },
+            additional=an_observation.get('source_additional'))
+
         recorded_at = an_observation.get('recorded_at')
         additional = an_observation.get('additional', {})
         observation = {
