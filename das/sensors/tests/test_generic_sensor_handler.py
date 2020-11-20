@@ -67,7 +67,6 @@ class GenericSensorHandlerTest(BaseAPITest):
 
     def setUp(self):
         super().setUp()
-
         # setup db: create source, provider
         self.test_sourceprovider = SourceProvider.objects.create(
             display_name=self.provider, provider_key=self.provider)
