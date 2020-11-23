@@ -9,6 +9,7 @@ from django.utils.translation import ugettext_lazy as _
 import observations.models
 import tracking.models as models
 from tracking.forms import SourcePluginForm
+from django.forms import CheckboxSelectMultiple
 
 
 def _get_plugin_class_search_fields():
@@ -149,3 +150,42 @@ class VectronicsAdmin(admin.ModelAdmin):
 @admin.register(models.AwtPlugin)
 class AwtAdmin(admin.ModelAdmin):
     list_display = ('name', 'username', 'host')
+
+
+@admin.register(models.TrackConfiguration)
+class TrackConfigurationAdmin(admin.ModelAdmin):
+    list_display = ('id', 'new_device_config', 'name_change_config')
+    formfield_overrides = {
+        django.db.models.ManyToManyField: {'widget': CheckboxSelectMultiple},
+    }
+    fieldsets = (
+        ('New device subject handling', {
+            'classes': ('wide',),
+            'fields': ('new_device_config',)
+        }
+         ),
+        (None, {
+            'classes': ('new_subject_types',),
+            'fields': ('new_subject_excluded_subject_types',)
+        }
+         ),
+        ('Device name change handling', {
+            'classes': ('wide',),
+            'fields': ('name_change_config',)
+        }
+         ),
+        (None, {
+            'classes': ('name_change_types',),
+            'fields': ('name_change_excluded_subject_types',)
+        }
+         ),
+    )
+
+    class Media:
+        js = ['admin/js/toggle_subject_types.js',]
+
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        form = super(TrackConfigurationAdmin, self).get_form(request, obj, change, **kwargs)
+        form.base_fields['new_subject_excluded_subject_types'].widget.can_add_related = False
+        form.base_fields['name_change_excluded_subject_types'].widget.can_add_related = False
+        return form
