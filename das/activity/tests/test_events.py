@@ -62,7 +62,8 @@ all_permissions = [
     'monitoring_create', 'monitoring_read', 'monitoring_update',
     'monitoring_delete',
     'logistics_create', 'logistics_read', 'logistics_update',
-    'logistics_delete']
+    'logistics_delete',
+]
 # Power user has all access to logistics and monitoring events, but can only
 # read security events
 power_user_permissions = [
@@ -70,7 +71,9 @@ power_user_permissions = [
     'monitoring_create', 'monitoring_read', 'monitoring_update',
     'monitoring_delete',
     'logistics_create', 'logistics_read', 'logistics_update',
-    'logistics_delete']
+    'logistics_delete',
+
+]
 # Radio room users can create any type of event, view/update monitoring and
 # logistics events, and delete nothing
 radio_room_user_permissions = [
@@ -391,6 +394,41 @@ class TestEventView(BaseAPITest):
         response_data = response.data
         response_data = {k: response_data[k] for k in note_data.keys()}
         self.assertDictEqual(response_data, note_data)
+
+        note_data['id'] = response.data["id"]
+
+        # now we delete the note
+        request = self.factory.delete(
+            self.api_base + f'/event/{str(self.sample_event.id)}/note/{note_data["id"]}')
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventNoteView.as_view()(
+            request, id=str(self.sample_event.id), note_id=note_data["id"])
+        assert response.status_code == 204
+
+    def test_add_note_but_not_delete(self):
+        note_data = {'text': lorem_ipsum.paragraph()}
+        request = self.factory.post(self.api_base
+                                    + '/event/{0}/notes'.format(
+                                        self.sample_event.id),
+                                    note_data)
+        self.force_authenticate(request, self.radio_room_user)
+
+        response = views.EventNotesView.as_view()(request,
+                                                  id=str(self.sample_event.id))
+        self.assertEqual(response.status_code, 201)
+        response_data = response.data
+        response_data = {k: response_data[k] for k in note_data.keys()}
+        self.assertDictEqual(response_data, note_data)
+
+        note_data['id'] = response.data["id"]
+
+        # now we delete the note
+        request = self.factory.delete(
+            self.api_base + f'/event/{str(self.sample_event.id)}/note/{note_data["id"]}')
+        self.force_authenticate(request, self.radio_room_user)
+        response = views.EventNoteView.as_view()(
+            request, id=str(self.sample_event.id), note_id=note_data["id"])
+        assert response.status_code == 403
 
     def test_add_note_view_permission(self):
         note_data = {'text': lorem_ipsum.paragraph()}
@@ -1515,6 +1553,7 @@ class TestEventView(BaseAPITest):
         event_data['reported_by'] = self.user_rep
         event_data['provenance'] = Event.PC_STAFF
         event_data['event_type'] = event_type
+        event_note_data = dict(text=lorem_ipsum.paragraph())
 
         # Attempt to create a new logistics event
         request = self.factory.post(

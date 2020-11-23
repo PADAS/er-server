@@ -885,7 +885,7 @@ class EventNotesView(generics.ListCreateAPIView):
         return event
 
 
-class EventNoteView(generics.RetrieveUpdateAPIView):
+class EventNoteView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (EventNotesCategoryPermissions,)
     serializer_class = EventNoteSerializer
 
