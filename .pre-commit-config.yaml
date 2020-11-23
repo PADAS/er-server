@@ -1,4 +1,12 @@
+repos:
 -   repo: git://github.com/pre-commit/mirrors-autopep8
-    sha: 'v1.3.1'  # Use the sha / tag you want to point at
+    rev: 'v1.5.4'  # Use the sha / tag you want to point at
     hooks:
     -   id: autopep8
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.3.0  # Use the ref you want to point at
+    hooks:
+    -   id: check-added-large-files
+    -   id: check-merge-conflict
+    -   id: debug-statements
+    -   id: end-of-file-fixer
