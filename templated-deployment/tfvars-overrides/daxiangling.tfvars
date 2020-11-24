@@ -1,1 +1,1 @@
-time_zone           = "Etc/GMT+8"
+time_zone           = "Asia/Shanghai"
