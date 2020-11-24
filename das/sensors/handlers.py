@@ -149,7 +149,7 @@ class GenericSensorHandler:
         subject_info = kwargs.get('subject')
         user = kwargs.get('user')
         observation = kwargs.get('observation')
-        track_config = TrackConfiguration.objects.first()
+        track_config = TrackConfiguration.objects.filter(is_default=True).first()
         user_subjects = Subject.objects.all().by_user_subjects(user)
 
         with transaction.atomic():

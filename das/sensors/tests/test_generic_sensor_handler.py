@@ -365,7 +365,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertIsNotNone(SubjectSubType.objects.get(value=subject_subtype))
 
     def test_post_new_device_handling_with_create_new_config(self):
-        config = TrackConfiguration.objects.first()
+        config = TrackConfiguration.objects.filter(is_default=True).first()
         config.new_device_config = CREATE_NEW
         config.save()
 
@@ -416,7 +416,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertEqual(Subject.objects.count(), 1)
         self.assertEqual(subject.name, 'Fatu')
 
-        config = TrackConfiguration.objects.first()
+        config = TrackConfiguration.objects.filter(is_default=True).first()
         config.name_change_config = UPDATE_NAME
         config.save()
 

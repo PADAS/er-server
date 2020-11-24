@@ -1,8 +1,11 @@
 from django.contrib.gis.db import models
+from django.db.models import Q
 from core.models import TimestampedModel
 from django.utils.translation import ugettext_lazy as _
 from observations.models import SubjectType
 import uuid
+from django.db.models.constraints import UniqueConstraint
+from django.db import transaction
 
 CREATE_NEW = 'create_new'
 USE_EXISTING = 'use_existing'
@@ -36,8 +39,21 @@ class TrackConfiguration(TimestampedModel):
         default='wildlife', blank=True, verbose_name='')
 
     name_change_excluded_subject_types = models.ManyToManyField(
-        SubjectType, related_name='name_change_excluded_subject_types',
-        default='wildlife', blank=True, verbose_name='')
+        SubjectType, related_name='name_change_excluded_subject_types', default='wildlife',
+        help_text=_('Select any Subject Types to exclude from matching'))
+    is_default = models.BooleanField(
+        _('default configuration'), default=False,
+        help_text=_('Set as the default configuration.'),)
 
     class Meta:
         verbose_name = 'EarthRanger Track Configuration'
+        constraints = [UniqueConstraint(fields=['is_default'],
+                                        condition=Q(is_default=True), name='default_track_config')]
+
+    def save(self, *args, **kwargs):
+        # Ensure we have only one configuration
+
+        self.is_default = True
+        if TrackConfiguration.objects.count():
+            TrackConfiguration.objects.all().delete()
+        return super(TrackConfiguration, self).save(*args, **kwargs)
