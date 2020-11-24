@@ -171,6 +171,8 @@ class GenericSensorHandler:
         user = kwargs.get('user')
         observation = kwargs.get('observation')
         provider = SourceProvider.objects.filter(provider_key=kwargs.get('provider')).first()
+        track_config = TrackConfiguration.objects.filter(is_default=True).first()
+        user_subjects = Subject.objects.all().by_user_subjects(user)
 
         track_config = TrackConfiguration.objects.filter(
             Q(source_provider=provider) | Q(is_default=True)).first()
