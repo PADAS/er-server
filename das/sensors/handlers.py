@@ -154,7 +154,7 @@ class GenericSensorHandler:
 
         with transaction.atomic():
 
-            provider, created = SourceProvider.objects.get_or_create(
+            provider = SourceProvider.objects.create_provider(
                 provider_key=kwargs.get('provider'))
 
             searchkey = dict(
@@ -176,8 +176,11 @@ class GenericSensorHandler:
 
                 if isinstance(subject_subtype_id, str):
                     default_display = subject_subtype_id[:100].title()
-                    SubjectSubType.objects.get_or_create(value=subject_subtype_id,
-                                                         defaults={'display': default_display})
+                    try:
+                        SubjectSubType.objects.get(
+                            value=subject_subtype_id, display=default_display)
+                    except SubjectSubType.DoesNotExist:
+                        logger.info(f'SubjectSubType: value - {subject_subtype_id} display - {default_display} does not exist.')
                 if source_created:
                     subject_model = cls.handle_new_device(track_config, user_subjects, subject_name)
                 else:

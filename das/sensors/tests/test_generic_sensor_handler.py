@@ -348,6 +348,8 @@ class GenericSensorHandlerTest(BaseAPITest):
 
     def test_with_subject_subtype(self):
         subject_subtype = 'animal-awesome'
+        subject_type = SubjectType.objects.create(value='Awesome')
+        SubjectSubType.objects.create(value=subject_subtype, subject_type=subject_type)
         new_source_id = 'new_src_id'
         obs_copy = copy.deepcopy(self.one_observation)
         obs_copy['subject_subtype'] = subject_subtype
