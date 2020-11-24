@@ -165,7 +165,8 @@ class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
         response = SubjectGroupsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
 
-        self.assertIn(str(self.child_grp_1.id), [subjectgroup.get('id') for subjectgroup in response.data])
+        self.assertIn(str(self.child_grp_1.id), [
+                      subjectgroup.get('id') for subjectgroup in response.data])
         subject_group_ids = []
         for subject_group in response.data:
             subject_group_ids.append(subject_group.get('id'))
@@ -196,7 +197,8 @@ class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
             for subgroup in subject_group.get('subgroups'):
                 subgroups_ids.append(subgroup.get('id'))
 
-        self.assertEqual(str(self.parent_group.id), top_level_subject_groups_ids[0])
+        self.assertEqual(str(self.parent_group.id),
+                         top_level_subject_groups_ids[0])
         self.assertIn(str(self.child_grp_1.id), subgroups_ids)
         self.assertIn(str(self.child_grp_2.id), subgroups_ids)
 
@@ -260,8 +262,10 @@ class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
                 subgroups_ids.append(subgroup.get('id'))
 
         self.assertIn(str(self.parent_group.id), top_level_subject_groups_ids)
-        self.assertNotIn(str(self.child_grp_1.id), top_level_subject_groups_ids)
-        self.assertNotIn(str(self.child_grp_2.id), top_level_subject_groups_ids)
+        self.assertNotIn(str(self.child_grp_1.id),
+                         top_level_subject_groups_ids)
+        self.assertNotIn(str(self.child_grp_2.id),
+                         top_level_subject_groups_ids)
         self.assertIn(str(self.child_grp_1.id), subgroups_ids)
         self.assertIn(str(self.child_grp_2.id), subgroups_ids)
         self.assertNotIn(str(self.parent_group.id), subgroups_ids)
@@ -295,9 +299,11 @@ class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
             for subgroup in subject_group.get('subgroups'):
                 subgroups_ids.append(subgroup.get('id'))
 
-        self.assertNotIn(str(self.parent_group.id), top_level_subject_groups_ids)
+        self.assertNotIn(str(self.parent_group.id),
+                         top_level_subject_groups_ids)
         self.assertIn(str(self.child_grp_1.id), top_level_subject_groups_ids)
-        self.assertNotIn(str(self.child_grp_2.id), top_level_subject_groups_ids)
+        self.assertNotIn(str(self.child_grp_2.id),
+                         top_level_subject_groups_ids)
         self.assertNotIn(str(self.child_grp_1.id), subgroups_ids)
         self.assertNotIn(str(self.child_grp_2.id), subgroups_ids)
         self.assertNotIn(str(self.parent_group.id), subgroups_ids)
@@ -336,8 +342,10 @@ class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
                 subgroups_ids.append(subgroup.get('id'))
 
         self.assertIn(str(self.parent_group.id), top_level_subject_groups_ids)
-        self.assertNotIn(str(self.child_grp_1.id), top_level_subject_groups_ids)
-        self.assertNotIn(str(self.child_grp_2.id), top_level_subject_groups_ids)
+        self.assertNotIn(str(self.child_grp_1.id),
+                         top_level_subject_groups_ids)
+        self.assertNotIn(str(self.child_grp_2.id),
+                         top_level_subject_groups_ids)
         self.assertIn(str(self.child_grp_1.id), subgroups_ids)
         self.assertIn(str(self.child_grp_2.id), subgroups_ids)
         self.assertNotIn(str(self.parent_group.id), subgroups_ids)
@@ -367,7 +375,8 @@ class SubjectGroupSubGroupsPermissionsTest(BaseAPITest):
             for subgroup in subject_group.get('subgroups'):
                 subgroups_ids.append(subgroup.get('id'))
 
-        self.assertNotIn(str(self.parent_group.id), top_level_subject_groups_ids)
+        self.assertNotIn(str(self.parent_group.id),
+                         top_level_subject_groups_ids)
         self.assertIn(str(self.child_grp_1.id), top_level_subject_groups_ids)
         self.assertIn(str(self.child_grp_2.id), top_level_subject_groups_ids)
         self.assertNotIn(str(self.child_grp_1.id), subgroups_ids)
@@ -384,7 +393,8 @@ class ThreeLevelSubjectGroupHierarchyPermissionsTest(BaseAPITest):
         self.child_grp_1 = SubjectGroup.objects.create(name='Child Group 1')
         self.child_grp_2 = SubjectGroup.objects.create(name='Child Group 2')
         self.parent_group = SubjectGroup.objects.create(name='Parent Group')
-        self.grandparent_group = SubjectGroup.objects.create(name='Grandparent Group')
+        self.grandparent_group = SubjectGroup.objects.create(
+            name='Grandparent Group')
 
         self.user = User.objects.create_user(username='active_user',
                                              email='active_user@test.com',
@@ -400,7 +410,6 @@ class ThreeLevelSubjectGroupHierarchyPermissionsTest(BaseAPITest):
 
         self.user.permission_sets.add(self.perm_set)
         self.user.save()
-
 
     def test_user_has_permissions_to_view_grandparent(self):
         """
@@ -551,10 +560,16 @@ class ThreeLevelSubjectGroupHierarchyPermissionsTest(BaseAPITest):
 
 
 class TestSubjectGroupsVisibility(BaseAPITest):
+    fixtures = [
+        'accounts_choices.json',
+        'initial_admin.yaml',
+        'iOS_user.yaml',
+    ]
     user_const = dict(last_name='last', first_name='first')
 
     def setUp(self):
         super().setUp()
+        self.superuser = User.objects.get(username='admin')
         self.view_subject_group_perm_name = 'view_subjectgroup'
         self.child_grp = SubjectGroup.objects.create(name='Child Group')
         self.parent_group = SubjectGroup.objects.create(name='Parent Group')
@@ -573,6 +588,30 @@ class TestSubjectGroupsVisibility(BaseAPITest):
 
         self.user.permission_sets.add(self.perm_set)
         self.user.save()
+
+    def test_view_parent_is_not_visible_but_include_hidden(self):
+        """
+        Parent group is_visible=False
+        Return parent group because user passed in include_hidden
+
+        """
+        self.parent_group.permission_sets.add(self.perm_set)
+        self.parent_group.is_visible = False
+        self.parent_group.save()
+
+        request = self.factory.get(
+            API_BASE + '/subjectgroups?include_hidden=true')
+        self.force_authenticate(request, self.user)
+
+        response = SubjectGroupsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+
+        top_level_subject_groups_ids = []
+
+        for subject_group in response.data:
+            top_level_subject_groups_ids.append(subject_group.get('id'))
+
+        self.assertIn(str(self.parent_group.id), top_level_subject_groups_ids)
 
     def test_view_child_groups_if_parent_is_not_visible(self):
         """
@@ -600,15 +639,47 @@ class TestSubjectGroupsVisibility(BaseAPITest):
             top_level_subject_groups_ids.append(subject_group.get('id'))
 
         self.assertIn(str(self.child_grp.id), top_level_subject_groups_ids)
-        self.assertNotIn(str(self.parent_group.id), top_level_subject_groups_ids)
+        self.assertNotIn(str(self.parent_group.id),
+                         top_level_subject_groups_ids)
+
+    def test_view_child_groups_if_parent_is_not_visible_superuser(self):
+        """
+        Parent group is_visible=False
+        User given rights to see Child group directly
+
+        Result: Child group should be returned
+        """
+        self.parent_group.permission_sets.add(self.perm_set)
+        self.parent_group.is_visible = False
+        self.parent_group.save()
+
+        self.parent_group.children.add(self.child_grp)
+        self.parent_group.save()
+
+        request = self.factory.get(API_BASE + '/subjectgroups')
+        self.force_authenticate(request, self.superuser)
+
+        response = SubjectGroupsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+
+        top_level_subject_groups_ids = []
+
+        for subject_group in response.data:
+            top_level_subject_groups_ids.append(subject_group.get('id'))
+
+        self.assertIn(str(self.child_grp.id), top_level_subject_groups_ids)
+        self.assertNotIn(str(self.parent_group.id),
+                         top_level_subject_groups_ids)
 
 
 class TestSubjectGroupAutoCreatedViewPerm(TestCase):
     def create_subject_group(self):
         subject_group = SubjectGroup.objects.create(name='Elephant')
         transaction.get_connection().run_and_clear_commit_hooks()
-        permission_set = subject_group.permission_sets.get(name=subject_group.auto_permissionset_name)
-        self.assertEqual(permission_set.name, subject_group.auto_permissionset_name)
+        permission_set = subject_group.permission_sets.get(
+            name=subject_group.auto_permissionset_name)
+        self.assertEqual(permission_set.name,
+                         subject_group.auto_permissionset_name)
         return subject_group, permission_set
 
     def test_auto_created_unique_perm_view_subjectgroup(self):
@@ -622,18 +693,22 @@ class TestSubjectGroupAutoCreatedViewPerm(TestCase):
             }
             subject_group, permission_set = self.create_subject_group()
             with self.assertRaisesMessage(Exception, 'PermissionSet matching query does not exist.'):
-                subject_group.permission_sets.get(name='view elephant subjectgroup')
-            perms_in_permission_set = {perm.codename for perm in permission_set.permissions.all()}
+                subject_group.permission_sets.get(
+                    name='view elephant subjectgroup')
+            perms_in_permission_set = {
+                perm.codename for perm in permission_set.permissions.all()}
 
             subject_group_has_permission_set = \
-                subject_group.permission_sets.filter(name=subject_group.auto_permissionset_name).exists()
+                subject_group.permission_sets.filter(
+                    name=subject_group.auto_permissionset_name).exists()
             self.assertTrue(subject_group_has_permission_set)
             self.assertTrue(all_perms == perms_in_permission_set)
 
     def test_view_perm_deleted_when_subject_group_is_deleted(self):
         with mock.patch('django.db.backends.base.base.BaseDatabaseWrapper.validate_no_atomic_block',
-                            lambda a: False):
+                        lambda a: False):
             subject_group, permission_set = self.create_subject_group()
             subject_group.delete()
-            permission_set = PermissionSet.objects.filter(name=subject_group.auto_permissionset_name)
+            permission_set = PermissionSet.objects.filter(
+                name=subject_group.auto_permissionset_name)
             self.assertEqual(len(permission_set), 0)

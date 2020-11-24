@@ -376,6 +376,14 @@ class SourceGroupViewTest(BasePermissionTest):
         response = views.SourceGroupsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
 
+    def test_user_return_source_groups_no_view_permission(self):
+        request = self.factory.get(
+            API_BASE + '/sourcegroups')
+        self.force_authenticate(request, self.no_view_user)
+
+        response = views.SourceGroupsView.as_view()(request)
+        self.assertEqual(response.status_code, 403)
+
 
 class ObservationViewTestCase(BaseAPITest):
     user_const = dict(last_name='last', first_name='first')
@@ -555,6 +563,16 @@ class ObservationViewTestCase(BaseAPITest):
         response = views.ObservationsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
         return response
+
+    def test_observation_readonly_can_view(self):
+        url = reverse('observations-list-view')
+
+        request = self.factory.get(
+            self.api_base + url)
+        self.force_authenticate(request, self.observations_readonly_user)
+
+        response = views.ObservationsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
 
     def test_observation_readonly_cannot_add(self):
         url = reverse('observations-list-view')

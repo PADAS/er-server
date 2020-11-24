@@ -52,7 +52,8 @@ from bitfield import BitField
 
 
 logger = logging.getLogger(__name__)
-GPX_FILES_FOLDER = getattr(settings, 'GPX_FILES_FOLDER', 'observations/gpxfile')
+GPX_FILES_FOLDER = getattr(
+    settings, 'GPX_FILES_FOLDER', 'observations/gpxfile')
 
 
 SOURCE_TYPES = sorted((
@@ -115,6 +116,15 @@ class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin)
             for group in subgroups:
                 sources.update(iter(group.sources.all()))
         return list(sources)
+
+    @property
+    def is_visible(self):
+        """should the group be displayed in a UI
+            symmetry with SubjectGroup, return True
+        Returns:
+            [bool]: is visible
+        """
+        return True
 
     def natural_key(self):
         return (self.name,)
@@ -279,11 +289,13 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
         """Works with more than one filter flag, for example 3 which is manual and automatic exclusion"""
         if filter_flag is not None:
             if filter_flag > 0:
-                qs = self.annotate(exclusion_filter=F('exclusion_flags').bitand(filter_flag)).filter(exclusion_filter__gt=0)
+                qs = self.annotate(exclusion_filter=F('exclusion_flags').bitand(
+                    filter_flag)).filter(exclusion_filter__gt=0)
             else:
                 qs = self.filter(exclusion_flags=filter_flag)
             return qs.exclude(location=EMPTY_POINT)
         return self
+
 
 class ObservationManager(models.Manager):
     def get_source_observations(
@@ -316,7 +328,7 @@ class ObservationManager(models.Manager):
         queryset = queryset.by_exclusion_flags(filter_flag)
 
         queryset = queryset.by_since_until(since, until)
-        
+
         if order_by:
             queryset = queryset.order_by(order_by)
 
@@ -703,8 +715,8 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
 
     is_default = models.BooleanField(
         _('default subject group'),
-         default=False,
-         help_text=_(
+        default=False,
+        help_text=_(
             'This Subject group is the default for new subjects.'
         ),)
 
@@ -965,7 +977,8 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
     subject_subtype = models.ForeignKey(
         SubjectSubType, default=get_default_subject_subtype, on_delete=models.PROTECT)
-    import_gpx_data = models.ForeignKey('GPXTrackFile', on_delete=models.SET_NULL, null=True, blank=True)
+    import_gpx_data = models.ForeignKey(
+        'GPXTrackFile', on_delete=models.SET_NULL, null=True, blank=True)
 
     @property
     def subject_type(self):
@@ -1004,7 +1017,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     def source(self):
         subject_source = SubjectSource \
             .objects \
-            .select_related('source','source__provider') \
+            .select_related('source', 'source__provider') \
             .filter(subject_id=self.pk) \
             .order_by('-assigned_range') \
             .first()
@@ -1217,10 +1230,12 @@ class SubjectStatusManager(models.Manager):
 
         :param deleted_observation: Observation instance that was deleted.
         '''
-        latest_observation = Observation.objects.get_last_source_observation(deleted_observation.source)
+        latest_observation = Observation.objects.get_last_source_observation(
+            deleted_observation.source)
 
         if latest_observation and latest_observation.recorded_at < deleted_observation.recorded_at:
-            update_subject_status_from_observation(latest_observation, force=True)
+            update_subject_status_from_observation(
+                latest_observation, force=True)
 
     def update_current(self, subject):
         for subjectsource in SubjectSource.objects.filter(subject=subject, assigned_range__contains=datetime.now(tz=pytz.utc)):
@@ -1301,9 +1316,9 @@ def build_updates(recorded_at, location, radio_state=None, radio_state_at=None,
     conditional_updates = {
         'recorded_at': Value(recorded_at) if force else Greatest(F('recorded_at'), Value(recorded_at)),
         'location': location if force else Case(
-                When(recorded_at__lte=Value(recorded_at), then=Value(str(location))),
-                default=F('location')
-            ),
+            When(recorded_at__lte=Value(recorded_at), then=Value(str(location))),
+            default=F('location')
+        ),
     }
 
     if radio_state_at and radio_state:
@@ -1317,12 +1332,14 @@ def build_updates(recorded_at, location, radio_state=None, radio_state_at=None,
 
     if last_voice_call_start_at:
         conditional_updates['last_voice_call_start_at'] = Greatest(F('last_voice_call_start_at'),
-                                                                   Value(last_voice_call_start_at),
+                                                                   Value(
+                                                                       last_voice_call_start_at),
                                                                    output_field=dbmodels.DateTimeField())
 
     if location_requested_at:
         conditional_updates['location_requested_at'] = Greatest(F('location_requested_at'),
-                                                                Value(location_requested_at),
+                                                                Value(
+                                                                    location_requested_at),
                                                                 output_field=dbmodels.DateTimeField())
 
     return conditional_updates
@@ -1403,8 +1420,10 @@ def update_subject_status_from_observation(observation, delay_hours=0, force=Fal
     # trigger a notify. In the case of force, it is likely we're handling
     # an Observation.delete.
     if force:
-        logger.debug('Notifying for subject status update source: %s, recorded_at: %s', source, recorded_at)
-        transaction.on_commit(lambda: notify_all_subjectstatus_updates(source, recorded_at))
+        logger.debug(
+            'Notifying for subject status update source: %s, recorded_at: %s', source, recorded_at)
+        transaction.on_commit(
+            lambda: notify_all_subjectstatus_updates(source, recorded_at))
 
 
 def update_subject_status_from_post(source, recorded_at, location, additional):
@@ -1441,7 +1460,8 @@ def update_subject_status_from_post(source, recorded_at, location, additional):
                           radio_state_at=radio_state_at,
                           reported_subject_name=reported_subject_name)
 
-    transaction.on_commit(lambda: notify_all_subjectstatus_updates(source, recorded_at))
+    transaction.on_commit(
+        lambda: notify_all_subjectstatus_updates(source, recorded_at))
 
 
 def notify_all_subjectstatus_updates(source, recorded_at):
@@ -1595,8 +1615,10 @@ class GPXLogRecord(models.Model):
     file_size = models.IntegerField(null=True, blank=True)
     processed_date = models.DateTimeField(auto_now_add=True)
     points_imported = models.CharField(max_length=225, null=True, blank=True)
-    processed_status = models.CharField(choices=PROCESSED_STATUS_CHOICES, max_length=255, null=False, blank=False)
-    status_description = models.CharField(max_length=225, null=True, blank=True)
+    processed_status = models.CharField(
+        choices=PROCESSED_STATUS_CHOICES, max_length=255, null=False, blank=False)
+    status_description = models.CharField(
+        max_length=225, null=True, blank=True)
 
     class Meta:
         abstract = True
@@ -1611,7 +1633,8 @@ class GPXManager(models.Manager):
         return gpx.data, gpx.file_name
 
     def get_source_id(self, gpx_id):
-        src_id = self.filter(id=gpx_id).annotate(source_id=F('source_assignment__source__id')).values('source_id')
+        src_id = self.filter(id=gpx_id).annotate(source_id=F(
+            'source_assignment__source__id')).values('source_id')
         return src_id[0].get('source_id')
 
 
@@ -1624,7 +1647,8 @@ def upload_to(instance, filename):
 
 class GPXTrackFile(GPXLogRecord):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    source_assignment = models.ForeignKey('SubjectSource', on_delete=models.PROTECT)
+    source_assignment = models.ForeignKey(
+        'SubjectSource', on_delete=models.PROTECT)
     description = models.CharField(max_length=255, null=True, blank=True)
     data = models.FileField(upload_to=upload_to, null=True, blank=True)
 
@@ -1633,5 +1657,3 @@ class GPXTrackFile(GPXLogRecord):
     class Meta:
         verbose_name_plural = 'GPX track file'
         ordering = ('processed_date',)
-
-

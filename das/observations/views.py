@@ -132,6 +132,27 @@ class RegionsView(generics.ListAPIView):
     serializer_class = serializers.RegionSerializer
 
 
+class SubjectGroupsViewSchema(CustomSchema):
+    def get_operation(self, path, method):
+        operation = super().get_operation(path, method)
+        if method == 'GET':
+            query_params = [{
+                'name': 'include_hidden',
+                'in': 'query',
+                'description': 'If true, return all subject groups including hidden groups. Default is false.'},
+                {
+                'name': 'isvisible',
+                'in': 'query',
+                'description': 'Return only visible groups by default. If isvisible=false then return only hidden groups. see include_hidden'},
+                {
+                'name': 'include_inactive',
+                'in': 'query',
+                'description': 'Include inactive subjects in subject group list.'}
+            ]
+            operation['parameters'].extend(query_params)
+        return operation
+
+
 class InactiveSubjectsViewSchema(CustomSchema):
     def get_operation(self, path, method):
         operation = super().get_operation(path, method)
@@ -161,7 +182,7 @@ class SubjectGroupsView(generics.ListAPIView):
     filter_backends = (create_gp_filter_class('subjectgf',
                                               ('observations.view_subjectgroup',),
                                               models.SubjectGroup),)
-    schema = InactiveSubjectsViewSchema()
+    schema = SubjectGroupsViewSchema()
 
     def get_queryset(self):
         if not self.request.user.has_any_perms(VIEW_SUBJECTGROUP_PERMS):
