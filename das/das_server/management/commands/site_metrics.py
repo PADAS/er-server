@@ -13,7 +13,7 @@ from core.utils import get_site_name
 import utils.schema_utils as schema_utils
 from activity.models import Event
 from activity.views import generate_event_type_cache
-from observations.models import Source, SourceProvider
+from observations.models import Source, SourceProvider, UserSession
 from tracking.models.plugin_base import SourcePlugin
 from accounts.models.eula import UserAgreement
 
@@ -28,6 +28,7 @@ class SiteMetrics(NamedTuple):
     end_interval: datetime.datetime  # end date for the range of data
     sensors: list  # sensor summary
     eula: list # eula compliance user list
+    user_sessions: list  # er web sessions
 
 
 REPORT_TYPE = "daily_aggregate"
@@ -62,8 +63,9 @@ class Command(BaseCommand):
         reports = extracter.run()
         devices = sumarize_sources()
         eula = get_eula_compliance_list()
+        user_session = get_user_session_time(start, end)
         wrapper = SiteMetrics(REPORT_TYPE, REPORT_VERSION,
-                              reports, site_name, now, start, end, devices, eula)
+                              reports, site_name, now, start, end, devices, eula, user_session)
         result = json.dumps(wrapper)
         if options['console']:
             print(result)
@@ -258,6 +260,20 @@ def sumarize_sources():
                 provider["disabled_count"] += 1
 
     return [SourceProviderMetric(**summary) for summary in providers.values()]
+
+
+def get_total_seconds(time_range):
+    if time_range.upper and time_range.lower:
+        return (time_range.upper - time_range.lower).total_seconds()
+
+
+def get_user_session_time(starttime, endtime):
+    qs = UserSession.objects.filter(time_range__endswith__range=(starttime, endtime))
+    return [dict(start_time=s.time_range.lower,
+                 end_time=s.time_range.upper,
+                 duration=get_total_seconds(s.time_range),
+                 sid=s.id)
+            for s in qs]
 
 
 def get_eula_compliance_list():

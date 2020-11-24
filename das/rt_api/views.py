@@ -191,6 +191,7 @@ def create_realtime_handler(sios):
             extra = dict(sid=sid)
             logger.info('Client disconnect %s', sid, extra=extra)
             client.remove_client(sid)
+            client.update_user_session(sid)
 
         @sios.on('authorization', namespace='/das')
         def on_authenticate(sid, data):
@@ -234,6 +235,8 @@ def create_realtime_handler(sios):
                                'status': {'code': 200, 'message': 'OK'}},
                               room=str(sid),
                               namespace='/das')
+
+                    client.create_update_user_session(sid)
 
                 else:
                     extra = dict(sid=sid)

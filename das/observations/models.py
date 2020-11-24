@@ -1587,6 +1587,11 @@ class SocketClient(TimestampedModel):
     event_filter = JSONField('Event filter', default=dict)
 
 
+class UserSession(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_column="sid")
+    time_range = DateTimeRangeField("user session time", null=True, blank=True)
+
+
 import observations.signals
 from analyzers.models import ObservationAnnotator
 
