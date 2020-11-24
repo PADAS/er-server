@@ -486,6 +486,15 @@ class SubjectsView(generics.ListCreateAPIView):
                     t, None)) if request.query_params.get(t, None) else None
         return context
 
+    def create(self, request, *args, **kwargs):
+        many = True if isinstance(request.data, list) else False
+
+        serializer = self.get_serializer(data=request.data, many=many)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
 
 class SubjectsGeoJsonView(SubjectsView):
     serializer_class = serializers.SubjectGeoJsonSerializer

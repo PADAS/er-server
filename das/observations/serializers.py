@@ -83,6 +83,42 @@ def get_subject_display(subject):
     return subject.name
 
 
+class SubjectTypeRelatedField(rest_framework.serializers.RelatedField):
+
+    def get_queryset(self):
+        return models.SubjectType.objects.all()
+
+    def to_representation(self, value):
+        return value.value if value else None
+
+    def to_internal_value(self, data):
+        if data:
+            data = data if isinstance(data, str) else data.value
+            try:
+                return models.SubjectType.objects.get(value=data)
+            except models.SubjectType.DoesNotExist:
+                raise serializers.ValidationError(
+                    f'subject_type : {data} does not exist')
+
+
+class SubjectSubTypeRelatedField(rest_framework.serializers.RelatedField):
+
+    def get_queryset(self):
+        return models.SubjectSubType.objects.all()
+
+    def to_representation(self, value):
+        return value.value if value else None
+
+    def to_internal_value(self, data):
+        if data:
+            data = data if isinstance(data, str) else data.value
+            try:
+                return models.SubjectSubType.objects.get(value=data)
+            except models.SubjectSubType.DoesNotExist:
+                raise serializers.ValidationError(
+                    f'subject_subtype : {data} does not exist')
+
+
 class SubjectSourceSerializer(rest_framework.serializers.ModelSerializer):
 
     assigned_range = DateTimeRangeField()
@@ -105,9 +141,8 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
     id = rest_framework.serializers.UUIDField(required=False,)
     name = rest_framework.serializers.CharField(max_length=100)
     subject_type = rest_framework.serializers.CharField(
-        max_length=100, required=False)
-    subject_subtype = rest_framework.serializers.CharField(
-        max_length=100, required=False)
+        max_length=100, required=False, read_only=True)
+    subject_subtype = SubjectSubTypeRelatedField()
     additional = rest_framework.serializers.JSONField(
         label='Additional data', required=False)
     created_at = rest_framework.serializers.DateTimeField(read_only=True)
@@ -119,9 +154,10 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
 
     class Meta:
         model = models.Subject
-        read_only_fields = ('image_url', 'color', 'content_type')
-        fields = ('id', 'name', 'subject_type', 'subject_subtype',
-                  'additional','is_active',) + read_only_fields
+        read_only_fields = ('image_url', 'color',
+                            'content_type', 'subject_type')
+        fields = ('id', 'name', 'subject_subtype',
+                  'additional', 'is_active',) + read_only_fields
 
     def to_internal_value(self, data):
         if 'id' in data:
@@ -149,7 +185,8 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
             mou_expiry_date = user.mou_expiry_date
 
             if mou_expiry_date is not None:
-                mou_expiry_age = datetime.now(tz=pytz.utc) - mou_expiry_date.replace(tzinfo=pytz.utc)
+                mou_expiry_age = datetime.now(
+                    tz=pytz.utc) - mou_expiry_date.replace(tzinfo=pytz.utc)
 
                 minimum_allowed_age = max(
                     mou_expiry_age.days, minimum_allowed_age)
@@ -170,8 +207,10 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                 if linked_sources:
                     # Fetch latest & oldest Observations available to plot
                     # latest_position & tracks_range.
-                    latest_source, latest_range = linked_sources['latest_source'], linked_sources['latest_range']
-                    oldest_source, oldest_range = linked_sources['oldest_source'], linked_sources['oldest_range']
+                    latest_source, latest_range = linked_sources[
+                        'latest_source'], linked_sources['latest_range']
+                    oldest_source, oldest_range = linked_sources[
+                        'oldest_source'], linked_sources['oldest_range']
 
                     if latest_range and oldest_range:
                         latest_observation = models.Observation.objects.filter(
@@ -218,13 +257,13 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                     request = self.context.get('request')
                     if mou_expiry_date and (mou_expiry_date.replace(tzinfo=pytz.utc) <= datetime.now(tz=pytz.utc)) \
                             and request.method == 'GET':
-                        observation = get_observation_location(instance, mou_expiry_date)
+                        observation = get_observation_location(
+                            instance, mou_expiry_date)
                         location = observation.location if observation else get_null_point()
                         recorded_at = observation.recorded_at if observation else None
                     else:
                         location = statusvalues.location if statusvalues.location else get_null_point()
                         recorded_at = statusvalues.recorded_at
-
 
                     # TODO: These values might be more appropriate in the
                     # geeojson properties.
@@ -316,6 +355,7 @@ def get_observation_location(subject, mou_date):
     observation = models.Observation.objects.filter(source__subjectsource__subject=subject,
                                                     recorded_at__lte=mou_date).order_by('-recorded_at').first()
     return observation
+
 
 class SourceProviderRelatedField(rest_framework.serializers.RelatedField):
     def get_queryset(self):
@@ -617,5 +657,6 @@ class GPXTrackFileUploadSerializer(rest_framework.serializers.Serializer):
         file = data.get('gpx_file')
         file_name = file.name
         if not file_name.lower().endswith('.gpx'):
-            raise rest_framework.serializers.ValidationError({'data': 'Only .gpx files can be imported.'})
+            raise rest_framework.serializers.ValidationError(
+                {'data': 'Only .gpx files can be imported.'})
         return data

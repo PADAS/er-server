@@ -7,6 +7,7 @@ import socket
 import signal
 
 from django.contrib.gis.geos import Polygon, MultiPolygon
+from psycopg2.extras import DateTimeTZRange
 
 from django.conf import settings
 from utils import json
@@ -74,6 +75,14 @@ def update_client(sid, bbox=None, event_filter=None):
             update_values['username'] = client_data.username
             socket_client, created = SocketClient.objects.update_or_create(
                 id=sid, defaults=update_values)
+
+
+def create_update_user_session(sid):
+    from observations.models import UserSession
+    socket_client, created = UserSession.objects.update_or_create(id=sid)
+    if created:
+        socket_client.time_range = DateTimeTZRange(lower=datetime.datetime.now(tz=pytz.utc))
+        socket_client.save()
 
 
 def get_all_connections():
@@ -182,6 +191,18 @@ def remove_clients(*sids):
         SocketClient.objects.filter(id__in=sids).delete()
     except ValueError:
         logger.exception('Failed to remove SocketClients for sids: %s', sids)
+
+
+def update_user_session(sid):
+    from observations.models import UserSession
+    try:
+        socket_client = UserSession.objects.get(id=sid)
+    except UserSession.DoesNotExist:
+        logger.info(f"sid {sid} not found in UserSession")
+    else:
+        socket_client.time_range = DateTimeTZRange(upper=datetime.datetime.now(pytz.utc),
+                                                   lower=socket_client.time_range.lower)
+        socket_client.save()
 
 
 def get_rt_service_list():

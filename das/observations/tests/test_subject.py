@@ -29,7 +29,8 @@ from observations.tasks import process_trackpoints
 
 User = django.contrib.auth.get_user_model()
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                            'tests')
+                          'tests')
+
 
 class SubjectTestCase(BaseAPITest):
     fixtures = [
@@ -52,7 +53,6 @@ class SubjectTestCase(BaseAPITest):
         self.request = RequestFactory()
         self.admin = GPXAdmin(model=GPXTrackFile, admin_site=self.site)
 
-
     def test_subject_observations(self):
         subject = Subject.objects.get(name='Topsy')
         actual = len(subject.observations())
@@ -71,15 +71,14 @@ class SubjectTestCase(BaseAPITest):
             location=point,
             recorded_at=t1,
             additional={}
-            )
+        )
 
         Observation.objects.create(
             source=subject.source,
             location=point,
             recorded_at=t2,
             additional={}
-            )
-
+        )
 
         actual = len(subject.observations(last_hours=3*24))
         expected = 1
@@ -90,6 +89,21 @@ class SubjectTestCase(BaseAPITest):
         expected = 2
 
         self.assertEqual(actual, expected)
+
+    def test_add_subject(self):
+        data = {
+            "name": "testCheetah",
+            "subject_type": "wildlife",
+            "subject_subtype": "cheetah",
+            "additional": {},
+            "is_active": True
+        }
+        url = reverse('subjects-list-view')
+        request = self.factory.post(url, data)
+
+        self.force_authenticate(request, self.user)
+        response = SubjectsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
 
     def test_call_subject_api(self):
         url = reverse('subjects-list-view')
@@ -143,7 +157,7 @@ class SubjectTestCase(BaseAPITest):
             location=point,
             recorded_at=t1,
             additional={}
-            )
+        )
 
         Observation.objects.create(
             source=subject2.source,
@@ -164,16 +178,21 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(actual, expected)
 
-        last_positon_date_subject = json.loads(response.render().content.decode())['data'][0]['last_position_date']
-        last_positon_date_subject2 = json.loads(response.render().content.decode())['data'][1]['last_position_date']
+        last_positon_date_subject = json.loads(response.render().content.decode())[
+            'data'][0]['last_position_date']
+        last_positon_date_subject2 = json.loads(response.render().content.decode())[
+            'data'][1]['last_position_date']
 
-        last_positon_date_subject = dateparser.parse(last_positon_date_subject).date().isoformat()
-        last_positon_date_subject2 = dateparser.parse(last_positon_date_subject2).date().isoformat()
+        last_positon_date_subject = dateparser.parse(
+            last_positon_date_subject).date().isoformat()
+        last_positon_date_subject2 = dateparser.parse(
+            last_positon_date_subject2).date().isoformat()
 
         t1 = updated_since
         t2 = updated_until
 
-        self.assertEqual({t1, t2}, {last_positon_date_subject, last_positon_date_subject2})
+        self.assertEqual(
+            {t1, t2}, {last_positon_date_subject, last_positon_date_subject2})
 
         # Use url above together with bbox param
         # the 'point' lies within this bbox.
@@ -203,7 +222,7 @@ class SubjectTestCase(BaseAPITest):
             location=point,
             recorded_at=t1,
             additional={}
-            )
+        )
 
         Observation.objects.create(
             source=subject2.source,
@@ -230,7 +249,8 @@ class SubjectTestCase(BaseAPITest):
 
     @property
     def additional_data_for_user(self):
-        expiry_date = (datetime.now(tz=UTC) + timedelta(days=5)).date().isoformat()
+        expiry_date = (datetime.now(tz=UTC) +
+                       timedelta(days=5)).date().isoformat()
         mou_datesigned = datetime.now(tz=UTC).date().isoformat()
         additional_data = {
             'notes': 'Testing Notes',
@@ -258,19 +278,17 @@ class SubjectTestCase(BaseAPITest):
         subject2 = Subject.objects.get(name='Turvey')
         subject3 = Subject.objects.get(name='StatusGuy')
 
-
         point = Point((-122.334, 47.598))
         t1 = datetime.now(tz=UTC)
         t2 = datetime.now(tz=UTC) + timedelta(days=3)
         t3 = datetime.now(tz=UTC) + timedelta(days=5)
-
 
         Observation.objects.create(
             source=subject.source,
             location=point,
             recorded_at=t1,
             additional={}
-            )
+        )
 
         Observation.objects.create(
             source=subject2.source,
@@ -301,13 +319,16 @@ class SubjectTestCase(BaseAPITest):
                 extracted_data['subject3_last_position'] = o['last_position_date']
 
         # subject1 and subject2 are within MOU expiry date.
-        subject_last_position = dateparser.parse(extracted_data.get('subject_last_position')).date().isoformat()
-        subject2_last_postion = dateparser.parse(extracted_data.get('subject2_last_position')).date().isoformat()
+        subject_last_position = dateparser.parse(
+            extracted_data.get('subject_last_position')).date().isoformat()
+        subject2_last_postion = dateparser.parse(
+            extracted_data.get('subject2_last_position')).date().isoformat()
         self.assertEqual(t1.date().isoformat(), subject_last_position)
         self.assertEqual(t2.date().isoformat(), subject2_last_postion)
 
         # Past MOU expiry date, should not retrieve observation past mou expiry date.
-        subject3_last_position = extracted_data.get('subject3_last_position')  # return None
+        subject3_last_position = extracted_data.get(
+            'subject3_last_position')  # return None
         self.assertNotEqual(t3.date().isoformat(), subject3_last_position)
         self.assertEqual(response.status_code, 200)
 
@@ -352,8 +373,10 @@ class SubjectTestCase(BaseAPITest):
 
         subject = Subject.objects.get(name='Topsy')
         subject_source = SubjectSource.objects.get(subject=subject)
-        data = File(open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
-        GPXTrackFile.objects.create(data=data, source_assignment=subject_source)
+        data = File(
+            open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
+        GPXTrackFile.objects.create(
+            data=data, source_assignment=subject_source)
 
         self.assertEqual(GPXTrackFile.objects.count(), 1)
 
@@ -362,11 +385,13 @@ class SubjectTestCase(BaseAPITest):
 
         subject = Subject.objects.get(name='Topsy')
         subject_source = SubjectSource.objects.get(subject=subject)
-        data = File(open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
+        data = File(
+            open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
 
         url = reverse('admin:observations_gpxtrackfile_add')
         url += f'?subject_id={subject.id}'
-        request = self.factory.post(url, data={'source_assignment': subject_source.id, '_save': 'Save'})
+        request = self.factory.post(
+            url, data={'source_assignment': subject_source.id, '_save': 'Save'})
 
         self.force_authenticate(request, self.user)
         query_dict = QueryDict('', mutable=True)
@@ -393,9 +418,11 @@ class SubjectTestCase(BaseAPITest):
             gpx_object = GPXTrackFile.objects.all()
             processed_status = gpx_object.values('processed_status')
             self.assertEqual(template_response.status_code, 302)
-            self.assertTrue("was successfully uploaded for processing" in messages._queued_messages[0].message)
+            self.assertTrue(
+                "was successfully uploaded for processing" in messages._queued_messages[0].message)
             self.assertEqual(gpx_object.count(), 1)
-            self.assertEqual(processed_status[0].get('processed_status'), 'success')
+            self.assertEqual(processed_status[0].get(
+                'processed_status'), 'success')
 
             # This is an example of trackpoint that we expect to be saved in the observation table.
             # <trkpt lat="-2.573374444618821" lon="37.896002875640988">
@@ -408,7 +435,8 @@ class SubjectTestCase(BaseAPITest):
             trkpoint_time = dateparser.parse('2020-06-06T05:17:26Z')
 
             # trackpoint saved in observation table.
-            trkpoint_obs = Observation.objects.filter(recorded_at=trkpoint_time, source__id=subject_source.source_id)
+            trkpoint_obs = Observation.objects.filter(
+                recorded_at=trkpoint_time, source__id=subject_source.source_id)
             self.assertTrue(trkpoint_obs.exists())
 
             obs_latitude = trkpoint_obs[0].location.y
@@ -419,10 +447,12 @@ class SubjectTestCase(BaseAPITest):
     def test_gpx_upload_fails(self):
         subject = Subject.objects.get(name='Topsy')
         subject_source = SubjectSource.objects.get(subject=subject)
-        data = File(open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
+        data = File(
+            open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
 
         url = reverse('admin:observations_gpxtrackfile_add')
-        request = self.factory.post(url, data={'source_assignment': subject_source.id, '_save': 'Save'})
+        request = self.factory.post(
+            url, data={'source_assignment': subject_source.id, '_save': 'Save'})
         self.force_authenticate(request, self.user)
         query_ = QueryDict('', mutable=True)
         post_data = {'source_assignment': subject_source.id, '_save': 'Save',
@@ -442,13 +472,16 @@ class SubjectTestCase(BaseAPITest):
         processed_status = gpx_object.values('processed_status')
         template_response = self.admin.changeform_view(request)
         self.assertEqual(template_response.status_code, 302)
-        self.assertTrue("failed to be processed" in messages._queued_messages[0].message)
-        self.assertEqual(processed_status[0].get('processed_status'), 'failure')
+        self.assertTrue(
+            "failed to be processed" in messages._queued_messages[0].message)
+        self.assertEqual(processed_status[0].get(
+            'processed_status'), 'failure')
 
     def test_calculate_track_range_fn(self):
         user = self.user
         t1 = datetime.now(tz=UTC) - timedelta(days=3, hours=2, minutes=30)
-        since, until, limit = calculate_track_range(user=user, since=t1, until=None, limit=None)
+        since, until, limit = calculate_track_range(
+            user=user, since=t1, until=None, limit=None)
 
         expected_since = t1.replace(microsecond=0, second=0).isoformat()
         returned_since = since.replace(microsecond=0, second=0).isoformat()
@@ -456,22 +489,27 @@ class SubjectTestCase(BaseAPITest):
 
         # when since greater than today
         t2 = datetime.now(tz=UTC) + timedelta(days=3, hours=7, minutes=30)
-        since, until, limit = calculate_track_range(user=user, since=t2, until=None, limit=None)
+        since, until, limit = calculate_track_range(
+            user=user, since=t2, until=None, limit=None)
 
         expected_since = t2.replace(microsecond=0, second=0).isoformat()
         returned_since = since.replace(microsecond=0, second=0).isoformat()
         self.assertEqual(returned_since, expected_since)
 
     def test_calculate_track_range_fn_today(self):
-        t1 = datetime.combine(datetime.today(), datetime.min.time()).replace(tzinfo=UTC) # midnight
-        since, until, limit = calculate_track_range(user=self.user, since=t1, until=None, limit=None)
+        t1 = datetime.combine(datetime.today(), datetime.min.time()).replace(
+            tzinfo=UTC)  # midnight
+        since, until, limit = calculate_track_range(
+            user=self.user, since=t1, until=None, limit=None)
 
         expected_since = t1.replace(microsecond=0, second=0).isoformat()
         returned_since = since.replace(microsecond=0).isoformat()
         self.assertEqual(returned_since, expected_since)
 
-        t2 = t1.replace(hour=5, minute=45, second=0, microsecond=0)  # past midnight
-        since, until, limit = calculate_track_range(user=self.user, since=t2, until=None, limit=None)
+        t2 = t1.replace(hour=5, minute=45, second=0,
+                        microsecond=0)  # past midnight
+        since, until, limit = calculate_track_range(
+            user=self.user, since=t2, until=None, limit=None)
 
         expected_since = t2.isoformat()
         returned_since = since.replace(microsecond=0, second=0).isoformat()
@@ -481,15 +519,18 @@ class SubjectTestCase(BaseAPITest):
     def test_process_gpx_file_upload_via_api(self):
         subject = Subject.objects.get(name='Topsy')
         subject_source = SubjectSource.objects.get(subject=subject)
-        file = File(open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
+        file = File(
+            open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
 
         data = dict(gpx_file=file)
 
-        url = reverse('gpx-upload', kwargs={'id': str(subject_source.source_id)})
+        url = reverse(
+            'gpx-upload', kwargs={'id': str(subject_source.source_id)})
         request = self.factory.post(url, data, format='multipart')
         self.force_authenticate(request, self.user)
 
-        response = GPXFileUploadView.as_view()(request, id=str(subject_source.source_id))
+        response = GPXFileUploadView.as_view()(
+            request, id=str(subject_source.source_id))
         self.assertEqual(response.status_code, 201)
 
         # This is an example of trackpoint that we expect to be saved in the observation table.
@@ -503,7 +544,8 @@ class SubjectTestCase(BaseAPITest):
         trkpoint_time = dateparser.parse('2020-06-06T05:17:26Z')
 
         # trackpoint saved in observation table.
-        trkpoint_obs = Observation.objects.filter(recorded_at=trkpoint_time, source__id=subject_source.source_id)
+        trkpoint_obs = Observation.objects.filter(
+            recorded_at=trkpoint_time, source__id=subject_source.source_id)
         self.assertTrue(trkpoint_obs.exists())
 
         obs_latitude = trkpoint_obs[0].location.y
@@ -514,10 +556,12 @@ class SubjectTestCase(BaseAPITest):
     def test_process_gpx_file_upload_with_no_trackpoints_time(self):
         source = Source.objects.first()
         trkpoints = [
-            {'@lat': '-2.86950624063618', '@lon': '38.968550268933178', 'ele': '506.110000000000018', 'time': '2020-06-06T04:17:28Z'},
-            {'@lat': '-2.76951453872028', '@lon': '38.268555130437018', 'ele': '503.029999999999978'}] # No trackpoints time
+            {'@lat': '-2.86950624063618', '@lon': '38.968550268933178',
+                'ele': '506.110000000000018', 'time': '2020-06-06T04:17:28Z'},
+            {'@lat': '-2.76951453872028', '@lon': '38.268555130437018', 'ele': '503.029999999999978'}]  # No trackpoints time
         file_name = "test_file.gpx"
-        _, obs_errors = process_trackpoints(source, source.id, trkpoints, file_name)
+        _, obs_errors = process_trackpoints(
+            source, source.id, trkpoints, file_name)
         assert obs_errors == 'Points are missing timestamps in GPX file test_file.gpx'
 
     def test_process_gpx_upload_nopermission(self):
@@ -525,15 +569,18 @@ class SubjectTestCase(BaseAPITest):
         # cant import gpx file.
         subject = Subject.objects.get(name='Topsy')
         subject_source = SubjectSource.objects.get(subject=subject)
-        file = File(open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
+        file = File(
+            open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
 
         data = dict(gpx_file=file)
 
-        url = reverse('gpx-upload', kwargs={'id': str(subject_source.source_id)})
+        url = reverse(
+            'gpx-upload', kwargs={'id': str(subject_source.source_id)})
         request = self.factory.post(url, data, format='multipart')
 
         self.force_authenticate(request, self.no_perms_user)
-        response = GPXFileUploadView.as_view()(request, id=str(subject_source.source_id))
+        response = GPXFileUploadView.as_view()(
+            request, id=str(subject_source.source_id))
         self.assertEqual(response.status_code, 403)
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
@@ -541,7 +588,8 @@ class SubjectTestCase(BaseAPITest):
         # give user with no permission, permission to create observation.
         subject = Subject.objects.get(name='Topsy')
         subject_source = SubjectSource.objects.get(subject=subject)
-        file = File(open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
+        file = File(
+            open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
         data = dict(gpx_file=file)
 
         observation_permission = ('add_observation',)
@@ -550,12 +598,13 @@ class SubjectTestCase(BaseAPITest):
             permset.permissions.add(Permission.objects.get(codename=perm))
         self.no_perms_user.permission_sets.add(permset)
 
-        url = reverse('gpx-upload', kwargs={'id': str(subject_source.source_id)})
+        url = reverse(
+            'gpx-upload', kwargs={'id': str(subject_source.source_id)})
         request = self.factory.post(url, data, format='multipart')
 
         self.force_authenticate(request, self.no_perms_user)
-        response = GPXFileUploadView.as_view()(request, id=str(subject_source.source_id))
-        self.assertTrue(self.no_perms_user.has_perm('observations.add_observation'))
+        response = GPXFileUploadView.as_view()(
+            request, id=str(subject_source.source_id))
+        self.assertTrue(self.no_perms_user.has_perm(
+            'observations.add_observation'))
         self.assertEqual(response.status_code, 201)
-
-

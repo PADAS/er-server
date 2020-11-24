@@ -15,6 +15,8 @@ from mapping.models import (FeatureSet, FeatureType, PointFeature,
                             SpatialFeatureType, SpatialFile)
 from mapping.spatialfile_utils import process_spatialfile
 from mapping.tasks import load_spatial_features
+from django.db.utils import IntegrityError
+
 logger = logging.getLogger(__name__)
 
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),
@@ -141,3 +143,8 @@ class TestSpatialFile(BaseAPITest):
         spfeature = SpatialFeature.objects.all().count()
         self.assertEqual(spfeature, 0)
 
+    def test_unique_constraint_name_spatialfeaturetype(self):
+        SpatialFeatureType.objects.create(name='road')
+        with self.assertRaises(Exception) as raised:
+            SpatialFeatureType.objects.create(name='road')
+        self.assertEqual(IntegrityError, type(raised.exception))
