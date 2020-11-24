@@ -28,6 +28,7 @@ locals {
     "connected-conservation" = "prod1"
     "csl"                    = "prod1"
     "damai"                  = "prod-asia"
+    "daxiangling"            = "prod-asia"
     "degrees51"              = "prod1"
     "dinokeng"               = "prod1"
     "dwnp"                   = "prod1"
