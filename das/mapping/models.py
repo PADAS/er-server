@@ -585,7 +585,7 @@ class SpatialFeatureType(TimestampedModel):
     objects = SpatialFeatureTypeManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, unique=True)
     # JSON field for storing the json schema for each unique feature type
     attribute_schema = JSONField(default=dict, blank=True)
     # Tags will allow categorization according to different views (e.g., HF)
