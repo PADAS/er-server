@@ -169,18 +169,15 @@ class GenericSensorHandler:
                 defaults=defaults, **searchkey)
 
             if subject_info:
-                # Create a subject-subtype on demand if necessary.
                 subject_subtype_id = subject_info.get('subject_subtype_id')
                 subject_name = observation.get('subject_name')
                 subject_id = subject_info.get('id')
 
                 if isinstance(subject_subtype_id, str):
-                    default_display = subject_subtype_id[:100].title()
                     try:
-                        SubjectSubType.objects.get(
-                            value=subject_subtype_id, display=default_display)
+                        SubjectSubType.objects.get(value=subject_subtype_id)
                     except SubjectSubType.DoesNotExist:
-                        logger.info(f'SubjectSubType: value - {subject_subtype_id} display - {default_display} does not exist.')
+                        logger.info(f'SubjectSubType: {subject_subtype_id} does not exist.')
                 if source_created:
                     subject_model = cls.handle_new_device(track_config, user_subjects, subject_name)
                 else:
