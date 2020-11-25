@@ -81,7 +81,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.super_user = User.objects.create_superuser(username="superuser",
                                                         password="adfsfds32423",
                                                         email="super@user.com")
-        self.config = TrackConfiguration.objects.filter(config_type=DEFAULT_CONFIG).first()
+        self.config = TrackConfiguration.objects.filter(configuration_type=DEFAULT_CONFIG).first()
 
     @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def run_transaction_hooks(self):

@@ -13,7 +13,7 @@ from django.db.models import Q
 from observations.models import SubjectSource, Source, Observation, Subject, SourceProvider, SubjectSubType
 from observations.serializers import ObservationSerializer
 from observations import servicesutils
-from observations.models import update_subject_status_from_post
+from observations.models import update_subject_status_from_post, SourceGroup
 from tracking.models.er_track import UPDATE_NAME, USE_EXISTING, TrackConfiguration, DEFAULT_CONFIG
 from tracking.pubsub_registry import notify_new_tracks
 from sensors.vehicle_tracker import SkylineObservations, SkylineAdapter, \
@@ -117,7 +117,8 @@ class GenericSensorHandler:
         return matching_subject
 
     @classmethod
-    def handle_new_device(cls, track_config, user_subjects, subject_name):
+    def handle_new_device(cls, track_config, user_subjects, subject_name, source):
+        source.groups.set((SourceGroup.objects.get_default(),))
         config = track_config.new_device_config
         if config == USE_EXISTING:
             excluded_subtypes = [k.value for k in track_config.new_subject_excluded_subject_types.all()]
@@ -148,7 +149,7 @@ class GenericSensorHandler:
         subject_info = kwargs.get('subject')
         user = kwargs.get('user')
         observation = kwargs.get('observation')
-        track_config = TrackConfiguration.objects.filter(config_type=DEFAULT_CONFIG).first()
+        track_config = TrackConfiguration.objects.filter(configuration_type=DEFAULT_CONFIG).first()
         user_subjects = Subject.objects.all().by_user_subjects(user)
 
         with transaction.atomic():
@@ -159,7 +160,7 @@ class GenericSensorHandler:
                 subject_id = subject_info.get('id')
 
                 if source_created:
-                    subject_model = cls.handle_new_device(track_config, user_subjects, subject_name)
+                    subject_model = cls.handle_new_device(track_config, user_subjects, subject_name, source)
                 else:
                     subject_model = cls.handle_device_name_change(track_config, user_subjects, subject_name, subject_id)
                 if not subject_model:
