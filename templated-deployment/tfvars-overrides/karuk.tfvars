@@ -1,1 +1,1 @@
-time_zone = "America/Los_Angeles"
+time_zone = "America/Vancouver"
