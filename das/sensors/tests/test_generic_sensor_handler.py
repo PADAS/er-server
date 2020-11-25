@@ -14,7 +14,7 @@ from django.utils import lorem_ipsum
 from core.tests import BaseAPITest, fake_get_pool
 from sensors.views import GenericSensorHandlerView
 from observations.models import Subject, SourceProvider, Source, SubjectSource, Observation, SubjectGroup, SubjectSubType, SubjectType
-from tracking.models.er_track import TrackConfiguration, CREATE_NEW, USE_EXISTING, UPDATE_NAME
+from tracking.models.er_track import TrackConfiguration, CREATE_NEW, UPDATE_NAME, DEFAULT_CONFIG
 from accounts.models import User
 
 class GenericSensorHandlerTest(BaseAPITest):
@@ -81,6 +81,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.super_user = User.objects.create_superuser(username="superuser",
                                                         password="adfsfds32423",
                                                         email="super@user.com")
+        self.config = TrackConfiguration.objects.filter(config_type=DEFAULT_CONFIG).first()
 
     @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def run_transaction_hooks(self):
@@ -365,7 +366,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertIsNotNone(SubjectSubType.objects.get(value=subject_subtype))
 
     def test_post_new_device_handling_with_create_new_config(self):
-        config = TrackConfiguration.objects.filter(is_default=True).first()
+        config = self.config
         config.new_device_config = CREATE_NEW
         config.save()
 
@@ -416,7 +417,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertEqual(Subject.objects.count(), 1)
         self.assertEqual(subject.name, 'Fatu')
 
-        config = TrackConfiguration.objects.filter(is_default=True).first()
+        config = self.config
         config.name_change_config = UPDATE_NAME
         config.save()
 

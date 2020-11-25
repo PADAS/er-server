@@ -14,7 +14,7 @@ from observations.models import SubjectSource, Source, Observation, Subject, Sou
 from observations.serializers import ObservationSerializer
 from observations import servicesutils
 from observations.models import update_subject_status_from_post
-from tracking.models.er_track import UPDATE_NAME, USE_EXISTING, TrackConfiguration
+from tracking.models.er_track import UPDATE_NAME, USE_EXISTING, TrackConfiguration, DEFAULT_CONFIG
 from tracking.pubsub_registry import notify_new_tracks
 from sensors.vehicle_tracker import SkylineObservations, SkylineAdapter, \
     FollowltObservation, TractAdapter, TractVehicleData, EzytrackObservation, \
@@ -149,7 +149,7 @@ class GenericSensorHandler:
         subject_info = kwargs.get('subject')
         user = kwargs.get('user')
         observation = kwargs.get('observation')
-        track_config = TrackConfiguration.objects.filter(is_default=True).first()
+        track_config = TrackConfiguration.objects.filter(config_type=DEFAULT_CONFIG).first()
         user_subjects = Subject.objects.all().by_user_subjects(user)
 
         with transaction.atomic():

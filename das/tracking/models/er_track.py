@@ -20,6 +20,11 @@ NAME_CHANGE_CONFIG_CHOICES = (
     (USE_EXISTING, 'Use existing matching subject'),
     (UPDATE_NAME, 'Update the name of the existing subject'))
 
+DEFAULT_CONFIG = 'default_config'
+TRACT_CONFIGURATION_CHOICES = (
+    (DEFAULT_CONFIG, 'Default Configuration'),
+)
+
 
 class TrackConfiguration(TimestampedModel):
 
@@ -41,19 +46,11 @@ class TrackConfiguration(TimestampedModel):
     name_change_excluded_subject_types = models.ManyToManyField(
         SubjectType, related_name='name_change_excluded_subject_types', default='wildlife',
         help_text=_('Select any Subject Types to exclude from matching'))
-    is_default = models.BooleanField(
-        _('default configuration'), default=False,
-        help_text=_('Set as the default configuration.'),)
+    config_type = models.CharField(
+        default=DEFAULT_CONFIG, choices=TRACT_CONFIGURATION_CHOICES, max_length=50)
 
     class Meta:
         verbose_name = 'EarthRanger Track Configuration'
-        constraints = [UniqueConstraint(fields=['is_default'],
-                                        condition=Q(is_default=True), name='default_track_config')]
+        constraints = [UniqueConstraint(fields=['config_type'],
+                                        condition=Q(config_type=DEFAULT_CONFIG), name='default_track_config')]
 
-    def save(self, *args, **kwargs):
-        # Ensure we have only one configuration
-
-        self.is_default = True
-        if TrackConfiguration.objects.count():
-            TrackConfiguration.objects.all().delete()
-        return super(TrackConfiguration, self).save(*args, **kwargs)
