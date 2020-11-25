@@ -141,26 +141,10 @@ class SourceManager(models.Manager):
 
     # Helper functions for hydrating Source and Subject for the given message.
     def ensure_source(self, *args, **kwargs):
-
-        additional = kwargs.get('additional', {})
         subject_info = kwargs.get('subject')
 
         with transaction.atomic():
-
-            provider = SourceProvider.objects.create_provider(
-                provider_key=kwargs.get('provider'))
-
-            searchkey = dict(
-                manufacturer_id=kwargs['manufacturer_id'], provider=provider)
-            defaults = {
-                'source_type': kwargs.get('source_type'),
-                'model_name': kwargs.get('model_name'),
-                'additional': additional
-            }
-
-            source, source_created = Source.objects.get_or_create(
-                defaults=defaults, **searchkey)
-
+            source, source_created = self.get_source(**kwargs)
             if source_created:
 
                 # Getting here means we've created a source.
@@ -194,6 +178,22 @@ class SourceManager(models.Manager):
                         source=source, subject=subject_model)
 
             return source
+
+    def get_source(self, **kwargs):
+        additional = kwargs.get('additional', {})
+        provider = SourceProvider.objects.create_provider(
+            provider_key=kwargs.get('provider'))
+
+        searchkey = dict(
+            manufacturer_id=kwargs['manufacturer_id'], provider=provider)
+        defaults = {
+            'source_type': kwargs.get('source_type'),
+            'model_name': kwargs.get('model_name'),
+            'additional': additional
+        }
+
+        return Source.objects.get_or_create(
+            defaults=defaults, **searchkey)
 
 
 class SourceProviderManager(models.Manager):

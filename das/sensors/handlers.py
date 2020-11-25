@@ -145,7 +145,6 @@ class GenericSensorHandler:
 
     @classmethod
     def ensure_source(cls, *args, **kwargs):
-        additional = kwargs.get('additional', {})
         subject_info = kwargs.get('subject')
         user = kwargs.get('user')
         observation = kwargs.get('observation')
@@ -153,31 +152,12 @@ class GenericSensorHandler:
         user_subjects = Subject.objects.all().by_user_subjects(user)
 
         with transaction.atomic():
-
-            provider = SourceProvider.objects.create_provider(
-                provider_key=kwargs.get('provider'))
-
-            searchkey = dict(
-                manufacturer_id=kwargs['manufacturer_id'], provider=provider)
-            defaults = {
-                'source_type': kwargs.get('source_type'),
-                'model_name': kwargs.get('model_name'),
-                'additional': additional
-            }
-
-            source, source_created = Source.objects.get_or_create(
-                defaults=defaults, **searchkey)
+            source, source_created = Source.objects.get_source(**kwargs)
 
             if subject_info:
-                subject_subtype_id = subject_info.get('subject_subtype_id')
                 subject_name = observation.get('subject_name')
                 subject_id = subject_info.get('id')
 
-                if isinstance(subject_subtype_id, str):
-                    try:
-                        SubjectSubType.objects.get(value=subject_subtype_id)
-                    except SubjectSubType.DoesNotExist:
-                        logger.info(f'SubjectSubType: {subject_subtype_id} does not exist.')
                 if source_created:
                     subject_model = cls.handle_new_device(track_config, user_subjects, subject_name)
                 else:
@@ -189,8 +169,7 @@ class GenericSensorHandler:
             else:
                 subject_model = Subject.objects.create_subject(
                     **{'name': source.manufacturer_id})
-            if not SubjectSource.objects.filter(source=source, subject=subject_model):
-                SubjectSource.objects.create(source=source, subject=subject_model)
+            SubjectSource.objects.get_or_create(source=source, subject=subject_model)
             return source
 
     @classmethod
