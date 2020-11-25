@@ -46,6 +46,7 @@ locals {
     "hello-asia"             = "prod-asia"
     "kafueccigri"            = "prod1"
     "karingani"              = "prod1"
+    "karuk"                  = "prod1"
     "kapama"                 = "prod1"
     "lewa"                   = "prod1"
     "lionalert"              = "prod1"
@@ -156,6 +157,7 @@ locals {
     "eruc2020"            = 1
     "rfcx"                = 1
     "centralrift"         = 1
+    "karuk"               = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
