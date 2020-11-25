@@ -154,7 +154,7 @@ class AwtAdmin(admin.ModelAdmin):
 
 @admin.register(models.TrackConfiguration)
 class TrackConfigurationAdmin(admin.ModelAdmin):
-    list_display = ('id', 'new_device_config', 'name_change_config', 'is_default', )
+    list_display = ('id', 'new_device_config', 'name_change_config', )
     formfield_overrides = {
         django.db.models.ManyToManyField: {'widget': CheckboxSelectMultiple},
     }
@@ -177,7 +177,7 @@ class TrackConfigurationAdmin(admin.ModelAdmin):
             'fields': ('name_change_excluded_subject_types',)
         }
          ),
-        (None, {'fields': ('is_default',)})
+        (None, {'fields': ('config_type',)})
     )
 
     def has_add_permission(self, request):
