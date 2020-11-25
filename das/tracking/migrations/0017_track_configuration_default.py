@@ -24,6 +24,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='trackconfiguration',
-            constraint=models.UniqueConstraint(condition=models.Q(config_type='default_config'), fields=('config_type',), name='default_track_config'),
+            constraint=models.UniqueConstraint(condition=models.Q(configuration_type='default_config'), fields=('configuration_type',), name='default_track_configuration'),
         ),
     ]

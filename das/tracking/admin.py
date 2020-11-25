@@ -177,7 +177,7 @@ class TrackConfigurationAdmin(admin.ModelAdmin):
             'fields': ('name_change_excluded_subject_types',)
         }
          ),
-        (None, {'fields': ('config_type',)})
+        (None, {'fields': ('configuration_type',)})
     )
 
     def has_add_permission(self, request):
