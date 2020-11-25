@@ -15,7 +15,7 @@ class FeatureProximityAnalyzerConfig(SubjectAnalyzerConfig):
                      "<br/>A subject's path is drawn using a straight line between "
                      "reported positions.")  # 500 meters
 
-    analyzer_category = 'feature_proximity'
+    analyzer_category = 'proximity'
     proximal_features = models.ForeignKey(
         to=SpatialFeatureGroupStatic,
         on_delete=models.CASCADE,
