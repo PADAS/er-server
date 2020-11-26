@@ -47,10 +47,7 @@ class TrackConfiguration(TimestampedModel):
         SubjectType, related_name='name_change_excluded_subject_types', default='wildlife',
         help_text=_('Select any Subject Types to exclude from matching'))
     configuration_type = models.CharField(
-        default=DEFAULT_CONFIG, choices=TRACT_CONFIGURATION_CHOICES, max_length=50)
+        default=DEFAULT_CONFIG, choices=TRACT_CONFIGURATION_CHOICES, max_length=50, unique=True)
 
     class Meta:
         verbose_name = 'EarthRanger Track Configuration'
-        constraints = [UniqueConstraint(fields=['configuration_type'],
-                                        condition=Q(configuration_type=DEFAULT_CONFIG), name='default_track_configuration')]
-
