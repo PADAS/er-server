@@ -199,13 +199,14 @@ class SourceManager(models.Manager):
 class SourceProviderManager(models.Manager):
     def create_provider(self, **kwargs):
         provider_key = kwargs.get("provider_key")
-        try:
-            provider = SourceProvider.objects.get(provider_key=provider_key)
-        except SourceProvider.DoesNotExist:
-            if not kwargs.get('display_name'):
-                kwargs['display_name'] = ' '.join(x.capitalize() or '_' for x in provider_key.split('_'))
-            provider = SourceProvider.objects.create(**kwargs)
-        return provider
+        if provider_key:
+            try:
+                provider = SourceProvider.objects.get(provider_key=provider_key)
+            except SourceProvider.DoesNotExist:
+                if not kwargs.get('display_name'):
+                    kwargs['display_name'] = ' '.join(x.capitalize() or '_' for x in provider_key.split('_'))
+                provider = SourceProvider.objects.create(**kwargs)
+            return provider
 
 
 DEFAULT_SOURCE_PROVIDER_ID = '697f25e4-562c-4305-af86-1333e9081f4c'

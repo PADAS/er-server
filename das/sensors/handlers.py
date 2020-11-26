@@ -97,40 +97,56 @@ class GenericSensorHandler:
         return Response({}, status=status.HTTP_201_CREATED)
 
     @classmethod
-    def get_existing_matching_subject(cls, user_subjects, subject_name, excluded_subtypes):
+    def get_existing_matching_subject(cls, user_subjects, observation, excluded_subtypes, source):
+        subject_name = observation.get('subject_name')
+        record_time = observation.get('recorded_at')
         qs_person = user_subjects.filter(
             name=subject_name,
             subject_subtype__subject_type__value__iexact='person')
         if qs_person:
-            return cls.clean_subject(qs_person.first())
+            return cls.update_source_assignment(qs_person.first(), source, record_time)
         else:
             qs_other = user_subjects.filter(name=subject_name).exclude(
                 Q(subject_subtype__subject_type__value__in=excluded_subtypes)) if user_subjects else []
 
             if len(qs_other) == 1:
-                return cls.clean_subject(qs_other.first())
+                return cls.update_source_assignment(qs_other.first(), source, record_time)
 
     @classmethod
-    def clean_subject(cls, matching_subject):
+    def update_source_assignment(cls, matching_subject, source, record_time):
         # Terminate pre existing subject source assignment
-        SubjectSource.objects.filter(subject=matching_subject).delete()
+        original_assignment = SubjectSource.objects.filter(subject=matching_subject, source=source)
+        now = pytz.utc.localize(datetime.now())
+        if original_assignment:
+            updated_assigned_range = list((original_assignment.first().assigned_range.lower, now))
+            original_assignment.update(assigned_range=updated_assigned_range)
+            new_assigned_range = list((now, original_assignment.first().assigned_range.upper))
+        else:
+            lower = now
+            if record_time:
+                lower = now if (now < record_time) else record_time
+            new_assigned_range = list((lower, pytz.utc.localize(datetime.max)))
+        SubjectSource.objects.create(
+            source=source, subject=matching_subject, assigned_range=new_assigned_range
+        )
         return matching_subject
 
     @classmethod
-    def handle_new_device(cls, track_config, user_subjects, subject_name, source):
+    def handle_new_device(cls, track_config, user_subjects, observation, source):
         source.groups.set((SourceGroup.objects.get_default(),))
         config = track_config.new_device_config
         if config == USE_EXISTING:
             excluded_subtypes = [k.value for k in track_config.new_subject_excluded_subject_types.all()]
-            return cls.get_existing_matching_subject(user_subjects, subject_name, excluded_subtypes)
+            return cls.get_existing_matching_subject(user_subjects, observation, excluded_subtypes, source)
 
     @classmethod
-    def handle_device_name_change(cls, track_config, user_subjects, subject_name, subject_id):
+    def handle_device_name_change(cls, track_config, user_subjects, observation, subject_id, source):
         config = track_config.name_change_config
+        subject_name = observation.get('subject_name')
 
         if config == USE_EXISTING:
             excluded_subtypes = [k.value for k in track_config.name_change_excluded_subject_types.all()]
-            return cls.get_existing_matching_subject(user_subjects, subject_name, excluded_subtypes)
+            return cls.get_existing_matching_subject(user_subjects, observation, excluded_subtypes, source)
 
         elif config == UPDATE_NAME:
             if subject_id:
@@ -156,13 +172,13 @@ class GenericSensorHandler:
             source, source_created = Source.objects.get_source(**kwargs)
 
             if subject_info:
-                subject_name = observation.get('subject_name')
                 subject_id = subject_info.get('id')
 
                 if source_created:
-                    subject_model = cls.handle_new_device(track_config, user_subjects, subject_name, source)
+                    subject_model = cls.handle_new_device(track_config, user_subjects, observation, source)
                 else:
-                    subject_model = cls.handle_device_name_change(track_config, user_subjects, subject_name, subject_id)
+                    subject_model = cls.handle_device_name_change(
+                        track_config, user_subjects, observation, subject_id, source)
                 if not subject_model:
                     if Subject.objects.filter(id=subject_id):
                         subject_info.pop('id')

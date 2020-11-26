@@ -401,10 +401,8 @@ class GenericSensorHandlerTest(BaseAPITest):
         # Observation added to matching Subject
         self.assertEqual(len(Subject.objects.get(name='Katie Kitten').observations()), 1)
 
-        # Former subject source assignment terminated
-        self.assertEqual(0, SubjectSource.objects.filter(subject=matching_subject, source=self.test_source).count())
-        new_assignment = SubjectSource.objects.filter(subject=matching_subject).first()
-        self.assertEqual(new_assignment.source.manufacturer_id, 'new_source')
+        # New source assignment added
+        self.assertEqual(2, SubjectSource.objects.filter(subject=matching_subject).count())
 
     def test_device_handling_with_name_update_config(self):
         self.one_observation['subject_name'] = 'Fatu'
