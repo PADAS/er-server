@@ -1,0 +1,23 @@
+{% extends "admin/delete_selected_confirmation_template.html" %}
+{% load i18n l10n admin_urls static %}
+
+{% block deletion_bar %}
+    <p>{% blocktrans %}Are you sure you want to delete the selected {{ objects_name }}? All of the following objects and their related items will be deleted:{% endblocktrans %}</p>
+    {% include "admin/includes/object_delete_summary_template.html" %}
+    <h2>{% trans "Objects" %}</h2>
+    {% for deletable_object in deletable_objects %}
+        <ul>{{ deletable_object|unordered_list }}</ul>
+    {% endfor %}
+    <form method="post">{% csrf_token %}
+    <div>
+    {% for obj in queryset %}
+    <input type="hidden" name="{{ action_checkbox_name }}" value="{{ obj.pk|unlocalize }}">
+    {% endfor %}
+    <input type="hidden" name="action" value="delete_selected">
+    <input type="hidden" name="post" value="yes">
+        <input type="submit" value="{% trans 'Delete configurations only' %}" name="delete_configuration_only">
+        <input type="submit" value="{% trans 'Delete configurations and associated features' %}" name="delete_config_and_associated_features">
+    <a href="#" class="button cancel-link">{% trans "No, take me back" %}</a>
+    </div>
+    </form>
+{% endblock %}

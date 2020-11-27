@@ -418,6 +418,9 @@ class SpatialFeatureFileAdmin(BaseSpatialFileAdmin):
 
 @admin.register(models.ArcgisConfiguration)
 class ArcgisConfigurationAdmin(admin.ModelAdmin):
+    delete_confirmation_template = "admin/arcgis_delete_confirmation_template.html"
+    delete_selected_confirmation_template = "admin/arcgis_delete_selected_confirmation_template.html"
+
     list_display = ('config_name', 'username', )
     fieldsets = (
         (None, {
