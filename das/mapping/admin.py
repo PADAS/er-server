@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.contrib.admin import helpers
 from django.contrib.admin.exceptions import DisallowedModelAdminToField
 from django.contrib.admin.options import IS_POPUP_VAR, TO_FIELD_VAR
+from django.contrib.admin.actions import delete_selected
 from django.contrib.admin.utils import (get_deleted_objects, model_ngettext,
                                         unquote)
 from django.contrib.gis import admin
@@ -438,6 +439,56 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
         ),)
     readonly_fields = ('last_download_time',)
     form = ArcgisConfigurationForm
+
+    def delete_model(self, request, obj):
+        opts = self.model._meta
+        if 'delete_config_and_associated_features' in request.POST:
+            # Delete related arcgis item, that deletes the associated features
+            deleted_items = models.ArcgisItem.objects.filter(arcgis_config=obj).delete()
+            features_count = deleted_items[1].get('mapping.SpatialFeature', 0)
+            messages.success(
+                request,
+                _('The %(name)s “%(obj)s” and its associated %(features_count)d features deleted successfully.') % {
+                    'name': opts.verbose_name,
+                    'obj': str(obj),
+                    'features_count': features_count
+                }
+            )
+        super().delete_model(request, obj)
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        actions['delete_selected'] = (self.delete_selected_arcgisconfigs,
+                                      'delete_selected',
+                                      "Delete selected Feature Service Configurations")
+        return actions
+
+    def delete_selected_arcgisconfigs(self, modeladmin, request, queryset):
+        features_count = 0
+
+        deletable_objects, model_count, perms_needed, protected = modeladmin.get_deleted_objects(queryset, request)
+        if request.POST.get('post') and not protected:
+            if perms_needed:
+                raise PermissionDenied
+            n = queryset.count()
+            if n:
+                for obj in queryset:
+                    obj_display = str(obj)
+                    modeladmin.log_deletion(request, obj, obj_display)
+
+                    if 'delete_config_and_associated_features' in request.POST:
+                        # Delete related arcgis item, that deletes the associated features
+                        deleted_items = models.ArcgisItem.objects.filter(arcgis_config=obj).delete()
+                        features_count = deleted_items[1].get('mapping.SpatialFeature', 0)
+
+                modeladmin.delete_queryset(request, queryset)
+                del_msg = _("Successfully deleted %(count)d %(items)s and %(features_count)d features") % {
+                    "count": n, "items": model_ngettext(modeladmin.opts, n), "features_count": features_count
+                }
+
+                modeladmin.message_user(request, del_msg, messages.SUCCESS)
+            return None
+        return delete_selected(modeladmin, request, queryset)
 
     def get_fieldsets(self, request, obj=None):
         if self.fieldsets:
