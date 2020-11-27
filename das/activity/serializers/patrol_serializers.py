@@ -179,7 +179,7 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
             instance.patrol_type.icon_id) if instance.patrol_type else None
         rep['patrol'] = self.get_patrol(
             instance.patrol) if instance.patrol else None
-        # rep['updates'] = self.render_updates(instance)
+        rep['updates'] = self.render_updates(instance)
         return rep
 
     def get_patrol(self, patrol):
@@ -297,7 +297,7 @@ class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
                 time=revision.revision_at.isoformat(),
                 user=UserDisplaySerializer().to_representation(revision.user),
                 type=self.get_patrol_update_type(revision))
-            for revision in revisions if 'state' in revision.data and revision.action == 'updated'
+            for revision in revisions
         ]
         return result
 

@@ -328,6 +328,7 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(len(response.data['files']) == 1)
         assert response.data['files'][0]['updates']
+        self.assertEqual(response.data['files'][0]['updates'][0].get('type'), 'add_patrolfile')
 
         file_id = response.data['files'][0]['id']
         file_name = "meta-data"  # response.data['files'][0]['id']
@@ -339,6 +340,53 @@ class TestPatrol(BaseAPITest):
         response = views.PatrolFileView.as_view()(
             request, id=my_patrol_id, filecontent_id=file_id, filename=file_name)
         self.assertEqual(response.status_code, 200)
+
+    def test_history_updates_patrol_notes(self):
+        patrol = dict(title='T-Patrol', notes=[{'text': 'New Note ...'}])
+
+        url = reverse('patrols')
+        request = self.factory.post(url, data=patrol)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        assert response.data['notes'][0]['updates']
+        self.assertEqual(len(response.data['notes'][0]['updates']), 1)
+        self.assertEqual(response.data['notes'][0]['updates'][0].get('type'), 'add_patrolnote')
+
+        note_id = response.data['notes'][0]['id']
+        update_patrol = dict(notes=[{'id': note_id, 'text': 'New Note ... [updated]'}])
+        p = Patrol.objects.get(title='T-Patrol')
+
+        url = reverse('patrol', kwargs={'id': p.id})
+        request = self.factory.patch(url, data=update_patrol)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolView.as_view()(request, id=p.id)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data['notes'][0]['updates']), 2)
+        self.assertEqual(response.data['notes'][0]['updates'][0].get('type'), 'update_patrol')
+
+    def test_history_updates_patrol(self):
+        patrol = dict(title='Alpha-01')
+
+        url = reverse('patrols')
+        request = self.factory.post(url, data=patrol)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(len(response.data['updates']), 1)
+        self.assertEqual(response.data['updates'][0].get('type'), 'add_patrol')
+
+        # Update patrol title
+        patrol_id = response.data['id']
+        updated_patrol = dict(title='Alpha-01 [Updated]')
+
+        url = reverse('patrol', kwargs={'id': patrol_id})
+        request = self.factory.patch(url, data=updated_patrol)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolView.as_view()(request, id=patrol_id)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data['updates']), 2)
+        self.assertEqual(response.data['updates'][0].get('type'), 'update_patrol')
 
     def test_update_all_patrol_patrolsegment_properties(self):
         su = Subject.objects.create(
@@ -366,7 +414,7 @@ class TestPatrol(BaseAPITest):
                     "tracks_available": False,
                     "image_url": "/static/elephant-black.svg"
                 },
-                "scheduled_start": "2020-08-05 02:00:00+00",
+                "scheduled_start": "2020-08-26T01:14:34.196502+03:00",
                 "time_range": {
                     "start_time": "2020-09-24T07:08:16.711000+03:00",
                     "end_time": "2020-09-26T07:08:16.711000+03:00"
@@ -444,6 +492,8 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data.get('patrol_segments')), 1)
         self.assertEqual(len(response.data.get('notes')), 1)
+        self.assertEqual(len(response.data['updates']), 2)
+        self.assertEqual(response.data['patrol_segments'][0]['updates'][0].get('type'), 'update_patrol')
 
     def test_update_patrol(self):
         patrol_update_data = dict(

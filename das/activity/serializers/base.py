@@ -186,20 +186,20 @@ class RevisionMixin:
     def get_action(self, revision):
         if revision.action == AC_UPDATED:
             field_mapping = {
-                'state': 'State is {0}'  # Patrol Mappings
+                'state': 'State is {0}',  # Patrol Mappings
                 # 'priority': 'Priority is {0}',
-                # 'title': 'Title',
+                'title': 'Title',
                 # 'objective': 'Objective',
                 #
                 # 'text': 'Note Text',  # Note Mappings
                 #
-                # 'scheduled_start': 'Scheduled Start',  # Segment Mappings
-                # 'time_range': 'Time_range',
-                # 'leader_id': 'Leader id',
+                'scheduled_start': 'Scheduled Start',  # Segment Mappings
+                'time_range': 'Patrol Time',
+                'leader_id': 'Tracking Subject',
                 # 'provenance': 'Leader',
                 # 'patrol_type': 'Patrol Type is {0}',
-                # 'start_location': 'Start Location',
-                # 'end_location': 'End Location'
+                'start_location': 'Start Location',
+                'end_location': 'End Location'
             }
             fieldnames = [field_mapping[k].format(
                 v) for k, v in revision.data.items() if k in field_mapping]
