@@ -39,7 +39,9 @@ def load_features_from_wfs(obj_id, group_id):
                     title = member.title.replace(' ', '-')
                     last_modified = datetime.fromtimestamp(int(member.modified/1000), timezone.utc)
                     logger.info(f'processing {title}')
-                    arcgis_item = create_or_update_arcgisitem(arc_config, member, title)
+
+                    defaults = {"name": title, "arcgis_config": arc_config}
+                    arcgis_item, created = models.ArcgisItem.objects.update_or_create(id=member.id, defaults=defaults)
                     extract_gis_data(arc_config, member, errored_files, success_files, arcgis_item.id)
                     # timestamps seem broken in arcgis
                     # if created or last_modified > arcgis_item.updated_at:
@@ -54,14 +56,6 @@ def load_features_from_wfs(obj_id, group_id):
     arc_config.save()
 
     wfs_download_return_messages(None, errored_files, success_files)
-
-
-def create_or_update_arcgisitem(arc_config, member, title):
-    arcgis_item, created = models.ArcgisItem.objects.get_or_create(id=member.id)
-    arcgis_item.name = title
-    arcgis_item.arcgis_config = arc_config
-    arcgis_item.save()
-    return arcgis_item
 
 
 def get_wfs_config_objects(obj_id, group_id):
