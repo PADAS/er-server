@@ -11,6 +11,7 @@ locals {
     "akagera"                = "prod1"
     "amakhala"               = "prod1"
     "amboseli"               = "prod1"
+    "amboseli-np"            = "prod1"
     "apntraining"            = "prod1"
     "apr"                    = "prod1"
     "balule"                 = "prod1"
@@ -20,6 +21,7 @@ locals {
     "biocarbonpartners"      = "prod1"
     "birdshead"              = "prod-asia"
     "bomani"                 = "prod1"
+    "bostonpridelands"       = "prod1"
     "bubyevalley"            = "prod1"
     "centralrift"            = "prod1"
     "chadreintroduction"     = "prod1"
@@ -33,6 +35,7 @@ locals {
     "dinokeng"               = "prod1"
     "dwnp"                   = "prod1"
     "elephantsalive"         = "prod1"
+    "elephantqueen"          = "prod1"
     "ennedi"                 = "prod1"
     "eruc2020"               = "prod1"
     "ewt"                    = "prod1"
@@ -49,6 +52,7 @@ locals {
     "karingani"              = "prod1"
     "karuk"                  = "prod1"
     "kapama"                 = "prod1"
+    "lapalala"               = "prod1"
     "lewa"                   = "prod1"
     "lionalert"              = "prod1"
     "lionlandscapes"         = "prod1"
@@ -159,6 +163,10 @@ locals {
     "rfcx"                = 1
     "centralrift"         = 1
     "karuk"               = 1
+    "amboseli-np"         = 1
+    "lapalala"            = 1
+    "bostonpridelands"    = 1
+    "elephantqueen"       = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
