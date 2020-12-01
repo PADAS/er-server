@@ -183,24 +183,8 @@ class FileSerializerMixin:
 
 
 class RevisionMixin:
-    def get_action(self, revision):
+    def get_action(self, revision, field_mapping=None):
         if revision.action == AC_UPDATED:
-            field_mapping = {
-                'state': 'State is {0}',  # Patrol Mappings
-                # 'priority': 'Priority is {0}',
-                'title': 'Title',
-                # 'objective': 'Objective',
-                #
-                # 'text': 'Note Text',  # Note Mappings
-                #
-                'scheduled_start': 'Scheduled Start',  # Segment Mappings
-                'time_range': 'Patrol Time',
-                'leader_id': 'Tracking Subject',
-                # 'provenance': 'Leader',
-                # 'patrol_type': 'Patrol Type is {0}',
-                'start_location': 'Start Location',
-                'end_location': 'End Location'
-            }
             fieldnames = [field_mapping[k].format(
                 v) for k, v in revision.data.items() if k in field_mapping]
             return '{0} fields: {1}'.format(revision.get_action_display(), ', '.join(fieldnames))

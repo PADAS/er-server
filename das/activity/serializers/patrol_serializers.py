@@ -8,7 +8,7 @@ from rest_framework.fields import DateTimeField
 from collections import OrderedDict
 import activity.models
 
-from revision.manager import AC_UPDATED, AC_RELATION_DELETED
+from revision.manager import AC_UPDATED, AC_RELATION_DELETED, AC_ADDED
 import utils
 import usercontent.serializers
 from accounts.serializers import UserDisplaySerializer, get_user_display
@@ -198,16 +198,25 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
     def render_updates(self, segment):
         revisions = list(
             iter(segment.revision.all_user().order_by('sequence')))
+        field_mapping = {'scheduled_start': 'Scheduled Start',
+                         'time_range': 'Patrol Time',
+                         'leader_id': 'Tracking Subject',
+                         'start_location': 'Start Location',
+                         'end_location': 'End Location'
+                         }
         result = [
             dict(
                 message='{action}'.format(
-                    action=self.get_action(revision),
+                    action=self.get_action(revision, field_mapping),
                     user=get_user_display(revision.user)
                 ),
                 time=revision.revision_at.isoformat(),
                 user=UserDisplaySerializer().to_representation(revision.user),
                 type=self.get_patrol_update_type(revision, 'segment'))
-            for revision in revisions
+            for revision in revisions if (revision.action == AC_ADDED) or
+                                         (revision.action == AC_RELATION_DELETED) or
+                                         (revision.action == AC_UPDATED
+                                          and set(field_mapping.keys()) & set(revision.data.keys()))
         ]
         return sorted(result, key=lambda u: u['time'], reverse=True)
 
@@ -287,17 +296,22 @@ class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
                 model.objects.create(**data)
 
     def render_updates(self, patrol):
+        field_mapping = {'state': 'State', 'title': 'Title'}
+
         revisions = list(iter(patrol.revision.all_user().order_by('sequence')))
         result = [
             dict(
                 message='{action}'.format(
-                    action=self.get_action(revision),
+                    action=self.get_action(revision, field_mapping),
                     user=get_user_display(revision.user)
                 ),
                 time=revision.revision_at.isoformat(),
                 user=UserDisplaySerializer().to_representation(revision.user),
                 type=self.get_patrol_update_type(revision))
-            for revision in revisions
+            for revision in revisions if (revision.action == AC_ADDED) or
+                                         (revision.action == AC_RELATION_DELETED) or
+                                         (revision.action == AC_UPDATED
+                                          and set(field_mapping.keys()) & set(revision.data.keys()))
         ]
         return result
 
