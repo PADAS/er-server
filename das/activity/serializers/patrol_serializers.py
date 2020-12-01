@@ -296,7 +296,7 @@ class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
                 model.objects.create(**data)
 
     def render_updates(self, patrol):
-        field_mapping = {'state': 'State', 'title': 'Title'}
+        field_mapping = {'state': 'State is {}', 'title': 'Title'}
 
         revisions = list(iter(patrol.revision.all_user().order_by('sequence')))
         result = [
