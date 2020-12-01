@@ -454,6 +454,7 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
                     'features_count': features_count
                 }
             )
+        models.ArcgisGroup.objects.filter(config_id=obj.id).delete()
         super().delete_model(request, obj)
 
     def get_actions(self, request):
@@ -480,12 +481,12 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
                         # Delete related arcgis item, that deletes the associated features
                         deleted_items = models.ArcgisItem.objects.filter(arcgis_config=obj).delete()
                         features_count = deleted_items[1].get('mapping.SpatialFeature', 0)
+                    models.ArcgisGroup.objects.filter(config_id=obj.id).delete()
 
                 modeladmin.delete_queryset(request, queryset)
                 del_msg = _("Successfully deleted %(count)d %(items)s and %(features_count)d features") % {
                     "count": n, "items": model_ngettext(modeladmin.opts, n), "features_count": features_count
                 }
-
                 modeladmin.message_user(request, del_msg, messages.SUCCESS)
             return None
         return delete_selected(modeladmin, request, queryset)
