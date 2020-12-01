@@ -21,6 +21,7 @@ locals {
     "biocarbonpartners"      = "prod1"
     "birdshead"              = "prod-asia"
     "bomani"                 = "prod1"
+    "bostonpridelands"       = "prod1"
     "bubyevalley"            = "prod1"
     "centralrift"            = "prod1"
     "chadreintroduction"     = "prod1"
@@ -163,6 +164,7 @@ locals {
     "karuk"               = 1
     "amboseli-np"         = 1
     "lapalala"            = 1
+    "bostonpridelands"    = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
