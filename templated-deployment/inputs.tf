@@ -212,5 +212,5 @@ variable "tableau_site_id" {
 
 variable "tableau_default_dashboard" {
   type     = string
-  default = "Dashboard1" 
+  default = "EarthRangerEventReportsSummary_demo" 
 }

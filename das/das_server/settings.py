@@ -80,14 +80,14 @@ MIDDLEWARE = (
     'django.middleware.csrf.CsrfViewMiddleware',
     'corsheaders.middleware.CorsPostCsrfMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    #'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
+    # 'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'oauth2_provider.middleware.OAuth2TokenMiddleware',
     'revision.middleware.RevisionMiddleware',
     'utils.middleware.RequestLoggingMiddleware',
     'utils.middleware.EULARedirectMiddleware'
-    #'django.contrib.sites.middleware.CurrentSiteMiddleware',
+    # 'django.contrib.sites.middleware.CurrentSiteMiddleware',
 )
 
 ROOT_URLCONF = 'das_server.urls'
@@ -154,7 +154,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
-        #'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly',
+        # 'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly',
         'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -162,7 +162,7 @@ REST_FRAMEWORK = {
         'utils.authentication.BearerTokenInUrlAuthentication',
         'utils.authentication.SuperUserSessionAuthentication',
     ),
-    #'VIEW_DESCRIPTION_FUNCTION': 'rest_framework_swagger.views.get_restructuredtext',
+    # 'VIEW_DESCRIPTION_FUNCTION': 'rest_framework_swagger.views.get_restructuredtext',
     'DEFAULT_RENDERER_CLASSES': (
         'utils.json.ExtendedJSONRenderer',
         'utils.json.ExtendedBrowsableAPIRenderer',
@@ -170,8 +170,8 @@ REST_FRAMEWORK = {
     'DEFAULT_METADATA_CLASS': 'utils.meta.NoMetaData',
     'EXCEPTION_HANDLER': 'utils.drf.api_exception_handler',
     'TEST_REQUEST_DEFAULT_FORMAT': 'json',
-    #'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning',
-    #'DEFAULT_VERSION': 'v1.0',
+    # 'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning',
+    # 'DEFAULT_VERSION': 'v1.0',
     'SECURITY_DEFINITIONS': {
         'oauth2': {
             'type': 'oauth2',
@@ -279,8 +279,8 @@ SWAGGER_SETTINGS = {
     ],
     'doc_expansion': 'None',
     'exclude_namespaces': [],
-    #'is_authenticated': True,
-    #'is_superuser': True,
+    # 'is_authenticated': True,
+    # 'is_superuser': True,
     'info': {
         'contact': 'guest@test.com',
         'description': 'EarthRanger Server',
@@ -555,7 +555,7 @@ TABLEAU_VERSION = 3.9
 TABLEAU_API_TOKEN = None
 TABLEAU_API_USERNAME = "ER Server"
 TABLEAU_API_PASSWORD = None
-TABLEAU_DEFAULT_DASHBOARD = "Dashboard1"
+TABLEAU_DEFAULT_DASHBOARD = "EarthRangerEventReportsSummary_demo"
 
 # Sensible default domain name.
 SERVER_FQDN = "tempuri.org"
