@@ -9,15 +9,15 @@ from django.contrib.admin.exceptions import DisallowedModelAdminToField
 from django.contrib.admin.options import IS_POPUP_VAR, TO_FIELD_VAR
 from django.contrib.admin.actions import delete_selected
 from django.contrib.admin.utils import (get_deleted_objects, model_ngettext,
-                                        unquote)
+                                        unquote, quote, NestedObjects, capfirst)
 from django.contrib.gis import admin
 from django.core.exceptions import PermissionDenied
-from django.db import transaction
+from django.db import transaction, router
 from django.db.models import Q
 from django.db.models.expressions import RawSQL
 from django.http import HttpResponseRedirect
 from django.template.response import TemplateResponse
-from django.urls import reverse
+from django.urls import reverse, NoReverseMatch
 from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
@@ -448,14 +448,19 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
             features_count = deleted_items[1].get('mapping.SpatialFeature', 0)
             messages.success(
                 request,
-                _('The %(name)s “%(obj)s” and its associated %(features_count)d features deleted successfully.') % {
-                    'name': opts.verbose_name,
-                    'obj': str(obj),
-                    'features_count': features_count
+                _('The %(name)s “%(obj)s” and %(features_count)d associated features deleted successfully.') % {
+                    'name': opts.verbose_name, 'obj': str(obj), 'features_count': features_count
                 }
             )
         models.ArcgisGroup.objects.filter(config_id=obj.id).delete()
         super().delete_model(request, obj)
+
+    def response_delete(self, request, obj_display, obj_id):
+        response = super().response_delete(request, obj_display, obj_id)
+        queued_msgs = messages.get_messages(request)._queued_messages
+        if len(queued_msgs) > 1:
+            queued_msgs.pop()
+        return response
 
     def get_actions(self, request):
         actions = super().get_actions(request)
@@ -463,6 +468,63 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
                                       'delete_selected',
                                       "Delete selected Feature Service Configurations")
         return actions
+
+    def get_deleted_objects(self, objs, request):
+        """
+        Find all objects related to ``objs`` that should also be deleted
+        """
+        admin_site = self.admin_site
+        try:
+            obj = objs[0]
+        except IndexError:
+            return [], {}, set(), []
+        else:
+            using = router.db_for_write(obj._meta.model)
+        collector = NestedObjects(using=using)
+        collector.collect(objs)
+        perms_needed = set()
+
+        def get_url(item):
+            opts = item._meta
+            admin_url = reverse(
+                '%s:%s_%s_change' % (admin_site.name, opts.app_label, opts.model_name), None, (quote(item.pk),))
+            return format_html('{}: <a href="{}">{}</a>', capfirst(opts.verbose_name), admin_url, item)
+
+        def format_callback(obj):
+            model = obj.__class__
+            has_admin = model in admin_site._registry
+            opts = obj._meta
+
+            no_edit_link = '%s: %s' % (capfirst(opts.verbose_name), obj)
+
+            if has_admin:
+                if not admin_site._registry[model].has_delete_permission(request, obj):
+                    perms_needed.add(opts.verbose_name)
+                config_url = get_url(obj)
+
+                features_to_delete = []
+                for arc_item in models.ArcgisItem.objects.filter(arcgis_config=obj):
+                    features_to_delete.extend([get_url(ft) for ft in arc_item.features])
+                return (config_url, features_to_delete) if features_to_delete else config_url
+            else:
+                return no_edit_link
+
+        deletable_objects = collector.nested(format_callback)
+
+        to_delete = []
+        features_count = 0
+        for deletable_obj in list(deletable_objects):
+            if isinstance(deletable_obj, str):
+                to_delete.append(deletable_obj)
+            else:
+                features_count = len(deletable_obj[1])
+                to_delete.extend([obj for obj in deletable_obj])
+
+        protected = [format_callback(obj) for obj in collector.protected]
+        model_count = {model._meta.verbose_name_plural: len(objs) for model, objs in collector.model_objs.items()}
+        model_count["Features"] = features_count
+
+        return to_delete, model_count, perms_needed, protected
 
     def delete_selected_arcgisconfigs(self, modeladmin, request, queryset):
         features_count = 0

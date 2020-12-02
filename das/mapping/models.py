@@ -762,9 +762,16 @@ class ArcgisConfiguration(TimestampedModel):
         fmt = '%d %b %Y, %H:%M %p (%Z)'
         return self.last_download.astimezone(t_zone).strftime(fmt)
 
+    def __str__(self):
+        return self.config_name
+
 
 # Minimal model for an arcgis.gis.Item
 class ArcgisItem(TimestampedModel):
     id = models.UUIDField(primary_key=True)
     name = models.CharField(max_length=50)
     arcgis_config = models.ForeignKey(to=ArcgisConfiguration, on_delete=models.SET_NULL, null=True)
+
+    @property
+    def features(self):
+        return SpatialFeature.objects.filter(arcgis_item=self)
