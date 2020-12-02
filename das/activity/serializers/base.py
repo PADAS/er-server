@@ -214,7 +214,7 @@ class RevisionMixin:
             for k, v in field_mapping:
                 if k in data:
                     return v
-            return 'update_patrol'
+            return f'update_{item}'
         return 'other'
 
 
