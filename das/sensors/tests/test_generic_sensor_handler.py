@@ -14,7 +14,7 @@ from django.utils import lorem_ipsum
 from core.tests import BaseAPITest, fake_get_pool
 from sensors.views import GenericSensorHandlerView
 from observations.models import Subject, SourceProvider, Source, SubjectSource, Observation, SubjectGroup, SubjectSubType, SubjectType
-from tracking.models.er_track import TrackConfiguration, CREATE_NEW, UPDATE_NAME, DEFAULT_CONFIG
+from tracking.models.er_track import TrackConfiguration, CREATE_NEW, UPDATE_NAME
 from accounts.models import User
 
 class GenericSensorHandlerTest(BaseAPITest):
@@ -77,11 +77,10 @@ class GenericSensorHandlerTest(BaseAPITest):
 
         self.api_path = '/'.join((self.api_base, 'sensors',
                                   self.sensor_type, self.provider, 'status'))
-        TrackConfiguration.objects.create()
         self.super_user = User.objects.create_superuser(username="superuser",
                                                         password="adfsfds32423",
                                                         email="super@user.com")
-        self.config = TrackConfiguration.objects.filter(configuration_type=DEFAULT_CONFIG).first()
+        self.config = TrackConfiguration.objects.create(is_default=True)
 
     @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def run_transaction_hooks(self):

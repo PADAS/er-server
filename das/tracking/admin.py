@@ -180,11 +180,6 @@ class TrackConfigurationAdmin(admin.ModelAdmin):
         (None, {'fields': ('configuration_type',)})
     )
 
-    def has_add_permission(self, request):
-        count = models.TrackConfiguration.objects.all().count()
-        if count == 0:
-            return True
-        return False
 
     class Media:
         js = ['admin/js/toggle_subject_types.js',]

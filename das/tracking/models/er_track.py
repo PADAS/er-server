@@ -2,10 +2,9 @@ from django.contrib.gis.db import models
 from django.db.models import Q
 from core.models import TimestampedModel
 from django.utils.translation import ugettext_lazy as _
-from observations.models import SubjectType
+from observations.models import SubjectType, SourceProvider
 import uuid
 from django.db.models.constraints import UniqueConstraint
-from django.db import transaction
 
 CREATE_NEW = 'create_new'
 USE_EXISTING = 'use_existing'
@@ -19,11 +18,6 @@ NAME_CHANGE_CONFIG_CHOICES = (
     (CREATE_NEW, 'Create a new subject'),
     (USE_EXISTING, 'Use existing matching subject'),
     (UPDATE_NAME, 'Update the name of the existing subject'))
-
-DEFAULT_CONFIG = 'default_config'
-TRACT_CONFIGURATION_CHOICES = (
-    (DEFAULT_CONFIG, 'Default Configuration'),
-)
 
 
 class TrackConfiguration(TimestampedModel):
@@ -46,8 +40,10 @@ class TrackConfiguration(TimestampedModel):
     name_change_excluded_subject_types = models.ManyToManyField(
         SubjectType, related_name='name_change_excluded_subject_types', default='wildlife',
         help_text=_('Select any Subject Types to exclude from matching'))
-    configuration_type = models.CharField(
-        default=DEFAULT_CONFIG, choices=TRACT_CONFIGURATION_CHOICES, max_length=50, unique=True)
+    is_default = models.BooleanField(_('default subject group'), default=False)
+    source_provider = models.OneToOneField(to=SourceProvider, null=True, blank=True, on_delete=models.SET_NULL)
 
     class Meta:
         verbose_name = 'EarthRanger Track Configuration'
+        constraints = [UniqueConstraint(fields=['is_default'],
+                                        condition=Q(is_default=True), name='default_track_config')]

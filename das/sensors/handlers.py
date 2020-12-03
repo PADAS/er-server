@@ -14,7 +14,7 @@ from observations.models import SubjectSource, Source, Observation, Subject, Sou
 from observations.serializers import ObservationSerializer
 from observations import servicesutils
 from observations.models import update_subject_status_from_post, SourceGroup
-from tracking.models.er_track import UPDATE_NAME, USE_EXISTING, TrackConfiguration, DEFAULT_CONFIG
+from tracking.models.er_track import UPDATE_NAME, USE_EXISTING, TrackConfiguration
 from tracking.pubsub_registry import notify_new_tracks
 from sensors.vehicle_tracker import SkylineObservations, SkylineAdapter, \
     FollowltObservation, TractAdapter, TractVehicleData, EzytrackObservation, \
@@ -161,11 +161,23 @@ class GenericSensorHandler:
                         return subject_model
 
     @classmethod
+    def create_default_config(cls):
+        default_config = TrackConfiguration.objects.create(is_default=True)
+        return default_config
+
+    @classmethod
     def ensure_source(cls, *args, **kwargs):
         subject_info = kwargs.get('subject')
         user = kwargs.get('user')
         observation = kwargs.get('observation')
-        track_config = TrackConfiguration.objects.filter(configuration_type=DEFAULT_CONFIG).first()
+        provider = SourceProvider.objects.filter(provider_key=kwargs.get('provider')).first()
+
+        track_config = TrackConfiguration.objects.filter(
+            Q(source_provider=provider) | Q(is_default=True)).first()
+
+        if not track_config:
+            track_config = cls.create_default_config(provider)
+
         user_subjects = Subject.objects.all().by_user_subjects(user)
 
         with transaction.atomic():
