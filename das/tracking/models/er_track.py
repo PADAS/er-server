@@ -19,11 +19,6 @@ NAME_CHANGE_CONFIG_CHOICES = (
     (USE_EXISTING, 'Use existing matching subject'),
     (UPDATE_NAME, 'Update the name of the existing subject'))
 
-DEFAULT_CONFIG = 'default_config'
-TRACT_CONFIGURATION_CHOICES = (
-    (DEFAULT_CONFIG, 'Default Configuration'),
-)
-
 
 class TrackConfiguration(TimestampedModel):
 
