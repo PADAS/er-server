@@ -7,7 +7,9 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.forms.widgets import Widget
 from django.utils.translation import ugettext_lazy as _
 from django.forms import TextInput
-from django.contrib.admin.widgets import FilteredSelectMultiple
+from django.contrib.admin.widgets import FilteredSelectMultiple, AdminSplitDateTime as BaseAdminSplitDateTime
+from django.contrib.gis import forms as gisforms
+from django.contrib.auth import get_user_model
 
 from activity.exceptions import SchemaValidationError, \
     SCHEMA_ERROR_INCORRECT_RENDER_TAG, SCHEMA_ERROR_JSON_DECODE_ERROR
@@ -24,6 +26,8 @@ from utils.schema_utils import get_schema_renderer_method, \
 from core.widget import IconKeyInput, get_icon_select_list
 from core.common import TIMEZONE_USED
 from django.utils.html import format_html
+from observations.models import Subject
+from activity.models import Community
 
 logger = logging.getLogger(__name__)
 
@@ -211,12 +215,24 @@ class EventForm(forms.ModelForm):
         }
 
 
+def reported_by_lookup():
+    user_qs = get_user_model().objects.values_list('username', flat=True)
+    community_qs = Community.objects.values_list('name', flat=True)
+    subject_qs = Subject.objects.values_list('name', flat=True)
+    return subject_qs.union(user_qs, community_qs).order_by('name')
+
+
 class PatrolForm(forms.ModelForm):
     title = forms.CharField(required=True,)
-
-    class Meta:
-        model = Patrol
-        fields = '__all__'
+    patrol_type = forms.CharField()
+    tracked_subject = forms.ModelChoiceField(queryset=reported_by_lookup(), label='Tracked subject name')
+    patrol_status = forms.CharField(widget=forms.TextInput(attrs={'class': 'x'}))
+    scheduled_start_date = forms.DateTimeField(widget=BaseAdminSplitDateTime({'size': '11'}))
+    actual_start_date = forms.DateTimeField(widget=BaseAdminSplitDateTime({'size': '11'}))
+    start_location = gisforms.PointField(srid=4321)
+    scheduled_end_date = forms.DateTimeField(widget=BaseAdminSplitDateTime({'size': '11'}))
+    actual_end_date = forms.DateTimeField(widget=BaseAdminSplitDateTime({'size': '11'}))
+    end_location = gisforms.PointField(srid=4321)
 
 
 class PatrolTypeForm(forms.ModelForm):

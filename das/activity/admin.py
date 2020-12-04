@@ -1,5 +1,8 @@
 import logging
 import time
+import datetime
+import pytz
+from enum import Enum
 
 from django.contrib.gis import admin
 from django.templatetags.static import static
@@ -8,6 +11,9 @@ from django.utils.safestring import mark_safe
 from django.urls import reverse
 from django.http import HttpResponseRedirect
 from django.contrib import messages
+from django.db.models import OuterRef, Subquery, F, Case, Q, When, Value, CharField
+from django.contrib.auth import get_user_model
+from django.contrib.admin import SimpleListFilter
 
 import activity.models as models
 from activity.forms import EventTypeForm, EventForm, PatrolTypeForm, PatrolForm
@@ -394,58 +400,187 @@ class PatrolTypeAdmin(admin.ModelAdmin):
     _icon_display.short_description = 'Icon'
 
 
+class PatrolStatusFilter(SimpleListFilter):
+    title = 'Patrol status'
+    parameter_name = 'status'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('start_overdue', 'Start Overdue'),
+            ('ready_to_start', 'Ready to Start'),
+            ('scheduled', 'Scheduled'),
+            ('active', 'Active'),
+            ('done', 'Done'),
+            ('cancelled', 'Cancelled'),
+        )
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(status=value)
+
+        return queryset
+
+
+class PatrolState(Enum):
+    overdue = 'start_overdue'
+    ready = 'ready_to_start'
+    scheduled = 'scheduled'
+    active = 'active'
+    done = models.PC_DONE
+    cancelled = models.PC_CANCELLED
+
+
 @AdminFeatureFlag(models.Patrol, flag='PATROL_ENABLED')
 @admin.register(models.Patrol)
-class PatrolAdmin(admin.ModelAdmin):
+class PatrolAdmin(OSMGeoExtendedAdmin):
 
     form = PatrolForm
     readonly_fields = ('id', 'serial_number')
-    list_display = [
-        'serial_number', 'title', 'patrol_type', 'tracked_subject_name',
-        'scheduled_date', 'start_date', 'start_location', 'end_date',
-        'end_location'
-    ]
+
+    list_display = ('serial_number', 'title', 'patrol_type', 'tracked_subject_name', 'status',
+                    'scheduled_start_date', 'actual_start_date', 'start_location', 'scheduled_end_date',
+                    'actual_end_date', 'end_location')
+    # fields = ('serial_number', 'title', 'patrol_type')
+    fields = ('serial_number', 'title', 'patrol_type', 'tracked_subject', 'patrol_status', 'priority', 'scheduled_start_date',
+              'actual_start_date', 'start_location', 'scheduled_end_date', 'actual_end_date', 'end_location')
+    list_filter = ('patrol_segment__patrol_type__display',  PatrolStatusFilter)  # todo: filter by status
     list_display_links = ('serial_number', 'title')
-    search_fields = ('title', 'patrol_segment__patrol_type__display')
+    search_fields = ('title', 'patrol_segment__patrol_type__display')  # todo: filter tracked subject name
 
-    def patrol_segment(self, obj):
-        return obj.patrol_segments.first()
+    ordering = ('serial_number', )
+    actions = ('delete_patrol', )
 
-    def patrol_type(self, obj):
-        patrol_segment = self.patrol_segment(obj)
-        return getattr(patrol_segment.patrol_type, 'display', None) if \
-            patrol_segment else None
+    map_width = 600
+    map_height = 300
 
-    def tracked_subject_name(self, obj):
-        patrol_segment = self.patrol_segment(obj)
-        return str(patrol_segment.leader) if patrol_segment else None
+    def get_queryset(self, request):
+        queryset = super(PatrolAdmin, self).get_queryset(request)
+        patrol_sgment = models.PatrolSegment.objects.filter(patrol_id=OuterRef('id'),
+                                                            leader_content_type=F('leader_content_type'))
+        subject = models.Subject.objects.filter(id=OuterRef('leader_id'))
+        community = models.Community.objects.filter(id=OuterRef('leader_id'))
+        user = get_user_model().objects.filter(id=OuterRef('leader_id'))
 
-    def scheduled_date(self, obj):
-        patrol_segment = self.patrol_segment(obj)
-        return patrol_segment.scheduled_start if patrol_segment else None
+        set_time = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(minutes=30)
+        end_day = set_time.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-    scheduled_date.short_description = 'scheduled date %s' % TIMEZONE_USED
+        overdue = Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state=models.PC_OPEN) & \
+                  Q(patrol_segment__time_range__startswith__isnull=True) & \
+                  Q(patrol_segment__scheduled_start__lt=set_time)
 
-    def start_date(self, obj):
-        patrol_segment = self.patrol_segment(obj)
-        return getattr(patrol_segment.time_range, 'lower', None) if \
-            patrol_segment else None
+        readyto = Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state=models.PC_OPEN) & \
+                  Q(patrol_segment__time_range__startswith__isnull=True) & \
+                  Q(patrol_segment__scheduled_start__range=(set_time,  end_day))
 
-    start_date.short_description = 'start date %s' % TIMEZONE_USED
+        scheduled = Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state=models.PC_OPEN) &\
+                    Q(patrol_segment__time_range__startswith__isnull=True) & \
+                    Q(patrol_segment__scheduled_start__gt=end_day)
 
-    def start_location(self, obj):
-        patrol_segment = self.patrol_segment(obj)
-        return getattr(patrol_segment.start_location, 'coords', None) if \
-            patrol_segment else None
+        # todo: worry later.
+        queryset = queryset.annotate(patrol_type=Subquery(patrol_sgment.values('patrol_type__display')[:1]),
+                                     tracked_subject=Subquery(patrol_sgment.annotate(
+                                         leader_name=Subquery(subject.values('name'))).values('leader_name')[:1]),
+                                     tracked_user=Subquery(patrol_sgment.annotate(
+                                         leader_name=Subquery(user.values('username'))).values('leader_name')[:1]),
+                                     tracked_community=Subquery(patrol_sgment.annotate(
+                                         leader_name=Subquery(community.values('name'))).values('leader_name')[:1]),
+                                     scheduled_start=Subquery(patrol_sgment.values('scheduled_start')[:1]),
+                                     scheduled_end=Subquery(patrol_sgment.values('scheduled_end')[:1]),
+                                     start_time=Subquery(patrol_sgment.values('time_range__startswith')[:1]),
+                                     end_time=Subquery(patrol_sgment.values('time_range__endswith')[:1]),
+                                     start_location=Subquery(patrol_sgment.values('start_location')[:1]),
+                                     end_location=Subquery(patrol_sgment.values('end_location')[:1]),
+                                     status=Case(When(overdue, then=Value(PatrolState.overdue.value)),
+                                                 When(readyto, then=Value(PatrolState.ready.value)),
+                                                 When(scheduled, then=Value(PatrolState.scheduled.value)),
+                                                 When(state=models.PC_OPEN, then=Value(PatrolState.active.value)),
+                                                 default=F('state'), output_field=CharField()))
+        return queryset
 
-    def end_date(self, obj):
-        patrol_segment = self.patrol_segment(obj)
-        return getattr(patrol_segment.time_range, 'upper', None) if \
-            patrol_segment else None
+    def patrol_type(self, o):
+        return o.patrol_type
 
-    end_date.short_description = 'end date %s' % TIMEZONE_USED
+    def tracked_subject_name(self, o):
+        return o.tracked_subject
 
-    def end_location(self, obj):
-        patrol_segment = self.patrol_segment(obj)
-        return getattr(patrol_segment.end_location, 'coords', None) if \
-            patrol_segment else None
+    def status(self, o):
+        return ' '.join(o.status.split('_')).title()
+
+    def scheduled_start_date(self, o):
+        return o.scheduled_start
+    scheduled_start_date.short_description = 'scheduled start date %s' % TIMEZONE_USED
+
+    def scheduled_end_date(self, o):
+        return o.scheduled_end
+    scheduled_end_date.short_description = 'scheduled end date %s' % TIMEZONE_USED
+
+    def actual_start_date(self, o):
+        return o.start_time
+    actual_start_date.short_description = 'actual start date %s' % TIMEZONE_USED
+
+    def actual_end_date(self, o):
+        return o.end_time
+    actual_end_date.short_description = 'actual End Date %s' % TIMEZONE_USED
+
+    def start_location(self, o):
+        return f'{o.start_location.x:0.4} / {o.start_location.y:0.4}' if o.start_location else None
+    start_location.short_description = 'start Location (Lon/Lat)'
+
+    def end_location(self, o):
+        return f'{o.end_location.x:0.4} / {o.end_location.y:0.4}' if o.end_location else None
+    end_location.short_description = 'end location (lon/lat)'
+
+    def has_add_permission(self, request):
+        return False
+
+    # def has_delete_permission(self, request, obj=None):
+    #     return False
+
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        """
+        :param request:
+        :param obj:
+        :param change:
+        :param kwargs:
+        :return: form
+        """
+        form = super(PatrolAdmin, self).get_form(request, obj, change, **kwargs)
+        if change:
+            db_field = models.PatrolSegment._meta.get_field
+
+            form.base_fields['patrol_type'].initial = obj.patrol_type
+            form.base_fields['tracked_subject'].initial = obj.tracked_subject
+            form.base_fields['patrol_status'].initial = obj.status
+            form.base_fields['patrol_status'].disabled = True
+
+            form.base_fields['scheduled_start_date'].initial = obj.scheduled_start
+            form.base_fields['scheduled_end_date'].initial = obj.scheduled_end
+
+            form.base_fields['actual_start_date'].initial = obj.start_time
+            form.base_fields['actual_end_date'].initial = obj.end_time
+
+            form.base_fields['end_location'].widget = self.get_map_widget(db_field('end_location'))()
+            form.base_fields['end_location'].widget.attrs['map_srid'] = 4326
+            form.base_fields['end_location'].initial = obj.end_location
+            #
+            form.base_fields['start_location'].widget = self.get_map_widget(db_field('start_location'))()
+            form.base_fields['start_location'].widget.attrs['map_srid'] = 4326
+            form.base_fields['start_location'].initial = obj.start_location
+
+        return form
+
+    @staticmethod
+    def search_tracked_subject(search_term):
+        q_object = Q(models.Subject.objects.filter(name__icontains=search_term)) | \
+                   Q(get_user_model().objects.filter(username__icontains=search_term)) | \
+                   Q(models.Community.objects.filter(name__icontains=search_term))
+
+        return [i.values_list('id', flat=True)[0] for i in q_object.children if i]
+
+    def get_search_results(self, request, queryset, search_term):
+        qs = queryset
+        queryset, use_distinct = super(PatrolAdmin, self).get_search_results(request, queryset, search_term)
+
+        queryset |= qs.filter(patrol_segment__leader_id__in=self.search_tracked_subject(search_term))
+        return queryset, use_distinct

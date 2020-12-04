@@ -37,8 +37,9 @@ var {{ module }} = {};
 
 var write_wkt = function(feat) {
     if ("{{ geom_type }}" == "Point"){
-    var x = document.getElementById('id_coordinate_0').value =feat.getGeometry().getCoordinates()[0];
-    var y = document.getElementById('id_coordinate_1').value =feat.getGeometry().getCoordinates()[1];
+        console.log('{{ id }}')
+    var x = document.getElementById('{{ id }}_coordinate_0').value =feat.getGeometry().getCoordinates()[0];
+    var y = document.getElementById('{{ id }}_coordinate_1').value =feat.getGeometry().getCoordinates()[1];
     document.getElementById('{{ id }}').value = `SRID={{ srid|unlocalize }};POINT(${x} ${y})`;
     }else{
     document.getElementById('{{ id }}').value = {{ module }}.get_ewkt(feat);
@@ -123,8 +124,8 @@ var modify_wkt = function(event) {
 
 
 var notNaN = function(){
-    x = document.getElementById('id_coordinate_0').value
-    y = document.getElementById('id_coordinate_1').value
+    x = document.getElementById('{{ id }}_coordinate_0').value
+    y = document.getElementById('{{ id }}_coordinate_1').value
 
     console.log(x)
     if (!isNaN(x) && !isNaN(y)){
@@ -133,8 +134,8 @@ var notNaN = function(){
 };
 
 var Validate_ = function(){
-    x = document.getElementById('id_coordinate_0').value ? true : false;
-    y = document.getElementById('id_coordinate_1').value ? true : false;
+    x = document.getElementById('{{ id }}_coordinate_0').value ? true : false;
+    y = document.getElementById('{{ id }}_coordinate_1').value ? true : false;
     if ((x && y) && notNaN()){
         return true;
     }
@@ -146,8 +147,8 @@ var timeout = null;
 var ChangeCoordinate = function(event){
     event.preventDefault()
     // x: Longitude y: Latitude
-    var x = document.getElementById('id_coordinate_0').value;
-    var y = document.getElementById('id_coordinate_1').value;
+    var x = document.getElementById('{{ id }}_coordinate_0').value;
+    var y = document.getElementById('{{ id }}_coordinate_1').value;
     if(Validate_()){
         document.getElementById('{{ id }}').value = `SRID={{ srid|unlocalize }};POINT(${x} ${y})`;
 
@@ -169,8 +170,8 @@ var ChangeCoordinate = function(event){
     };
 };
 
-document.getElementById('id_coordinate_0').addEventListener('keyup',  ChangeCoordinate, false)
-document.getElementById('id_coordinate_1').addEventListener('keyup', ChangeCoordinate, false)
+document.getElementById('{{ id }}_coordinate_0').addEventListener('keyup',  ChangeCoordinate, false)
+document.getElementById('{{ id }}_coordinate_1').addEventListener('keyup', ChangeCoordinate, false)
 
 
 var CreateTileLayer = function(){
@@ -367,9 +368,10 @@ var delet = function (className){
         result = confirm("Want to clear all features?");
         if (result){
             source.clear();
+            console.log(document.getElementById('{{ id }}').value)
             document.getElementById('{{ id }}').value = '';
-            document.getElementById('id_coordinate_0').value = '';
-            document.getElementById('id_coordinate_1').value = '';
+            document.getElementById('{{ id }}_coordinate_0').value = '';
+            document.getElementById('{{ id }}_coordinate_1').value = '';
         }
     };
 
