@@ -400,18 +400,27 @@ class PatrolTypeAdmin(admin.ModelAdmin):
     _icon_display.short_description = 'Icon'
 
 
+class PatrolState(Enum):
+    overdue = 'start_overdue'
+    ready = 'ready_to_start'
+    scheduled = 'scheduled'
+    active = 'active'
+    done = models.PC_DONE
+    cancelled = models.PC_CANCELLED
+
+
 class PatrolStatusFilter(SimpleListFilter):
     title = 'Patrol status'
     parameter_name = 'status'
 
     def lookups(self, request, model_admin):
         return (
-            ('start_overdue', 'Start Overdue'),
-            ('ready_to_start', 'Ready to Start'),
-            ('scheduled', 'Scheduled'),
-            ('active', 'Active'),
-            ('done', 'Done'),
-            ('cancelled', 'Cancelled'),
+            (PatrolState.overdue.value, 'Start Overdue'),
+            (PatrolState.ready.value, 'Ready to Start'),
+            (PatrolState.scheduled.value, 'Scheduled'),
+            (PatrolState.active.value, 'Active'),
+            (PatrolState.done.value, 'Done'),
+            (PatrolState.cancelled.value, 'Cancelled'),
         )
 
     def queryset(self, request, queryset):
@@ -420,15 +429,6 @@ class PatrolStatusFilter(SimpleListFilter):
             return queryset.filter(status=value)
 
         return queryset
-
-
-class PatrolState(Enum):
-    overdue = 'start_overdue'
-    ready = 'ready_to_start'
-    scheduled = 'scheduled'
-    active = 'active'
-    done = models.PC_DONE
-    cancelled = models.PC_CANCELLED
 
 
 @AdminFeatureFlag(models.Patrol, flag='PATROL_ENABLED')
