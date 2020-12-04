@@ -115,8 +115,11 @@ class GenericSensorHandler:
     @classmethod
     def update_source_assignment(cls, matching_subject, source, record_time):
         # Terminate pre existing subject source assignment
-        original_assignment = SubjectSource.objects.filter(subject=matching_subject, source=source)
         now = pytz.utc.localize(datetime.now())
+        original_assignment = SubjectSource.objects.filter(
+            subject=matching_subject, source=source,
+            subject__subjectsource__assigned_range__contains=now)
+
         if original_assignment:
             updated_assigned_range = list((original_assignment.first().assigned_range.lower, now))
             original_assignment.update(assigned_range=updated_assigned_range)
@@ -166,16 +169,14 @@ class GenericSensorHandler:
         return default_config
 
     @classmethod
-    def ensure_source(cls, *args, **kwargs):
-        subject_info = kwargs.get('subject')
-        user = kwargs.get('user')
-        observation = kwargs.get('observation')
+    def ensure_source(cls, observation, user, subject_info, **kwargs):
         provider = SourceProvider.objects.filter(provider_key=kwargs.get('provider')).first()
         track_config = TrackConfiguration.objects.filter(is_default=True).first()
         user_subjects = Subject.objects.all().by_user_subjects(user)
 
-        track_config = TrackConfiguration.objects.filter(
-            Q(source_provider=provider) | Q(is_default=True)).first()
+        configs = TrackConfiguration.objects.filter(
+            Q(source_provider=provider) | Q(is_default=True)).order_by('is_default')
+        track_config = configs.first()
 
         if not track_config:
             track_config = cls.create_default_config(provider)
@@ -217,20 +218,19 @@ class GenericSensorHandler:
         model_name = an_observation.get('model_name', None) or '{}:{}'.format(
             sensor_type, provider_key)
         subject_name = an_observation.get('subject_name') or manufacturer_id
-
-        src = cls.ensure_source(
-            observation=an_observation,
-            user=user,
-            source_type=source_type,
-            provider=provider_key,
-            manufacturer_id=manufacturer_id,
-            model_name=model_name,
-            subject={
+        subject_info = {
                'subject_subtype_id': subject_subtype,
                'name': subject_name,
                'subject_groups': clean_subjectgroups(an_observation.get('subject_groups')),
                'id': an_observation.get('subject_id')
-            },
+            }
+
+        src = cls.ensure_source(
+            an_observation, user, subject_info,
+            source_type=source_type,
+            provider=provider_key,
+            manufacturer_id=manufacturer_id,
+            model_name=model_name,
             additional=an_observation.get('source_additional'))
 
         recorded_at = an_observation.get('recorded_at')
