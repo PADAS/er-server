@@ -62,10 +62,10 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
 
                 # Create the analyzer result
                 result = SubjectAnalyzerResult(subject_analyzer=self.config,
-                                               title=self.subject.name + str(_(' proximal to ')) +
+                                               title=self.subject.name + str(_(' is near ')) +
                                                subject_2_name + '.',
                                                level=CRITICAL,
-                                               message=self.subject.name + str(_(' proximal to ')) +
+                                               message=self.subject.name + str(_(' is near ')) +
                                                subject_2_name + '.',
                                                analyzer_revision=1,
                                                subject=self.subject)
