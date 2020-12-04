@@ -62,8 +62,28 @@ class TestReportUtils(TestCase):
             logger.debug('Event details rendered: %s', item)
 
     def test_daily_report_context(self):
+        edetails = {
+            'beginning_of_incident': 'Monday',
+            'details': 'Elephant carcass',
+            'endi_of_incident': 'Monday',
+            'results_and_findings': 'Trophies confiscated',
+        }
+        edata = {'event_type': 'carcass_rep',
+                 'title': 'Test Event',
+                 'priority': Event.PRI_URGENT,
+                 'event_details': edetails,
+                 }
+
+        request = HttpRequest()
+        request.user = User.objects.get(username='reportuser')
+        ser = EventSerializer(data=edata,
+                              context={'request': request})
+
+        if ser.is_valid():
+            ser.create(ser.validated_data)
+
         today = datetime.datetime.now(tz=datetime.timezone.utc)
         context = get_daily_report_data(
-            today - datetime.timedelta(days=1),         today, username=self.user.username)
+            datetime.datetime(2016, 1, 1, tzinfo=datetime.timezone.utc),         today, username=self.user.username)
 
         assert "unknown" in get_conservancies()

@@ -352,34 +352,40 @@ def get_daily_report_data(since, before, **kwargs):
 
     fence_breakage = accumulator([], fence_breakage)
 
-    # Accumulator for 'security events'
-    def security_events(accum, event):
-        if event.event_type.category.value != 'security':
-            return
+    # Accumulator for an event category
+    def make_events_accum(category):
+        event_category = category
 
-        # Special case: exclude human_wildlife_conflict events which are to be included in another section of
-        #               this report.
-        if event.event_type.value in HWC_REPORT_TYPES:
-            return
+        def inner_events(accum, event):
+            if event.event_type.category.value != event_category:
+                return
 
-        event_details = schema_utils.generate_details(
-            event, render_schema(event.event_type.schema))
-        en = event.notes.all().order_by('created_at')
+            # Special case: exclude human_wildlife_conflict events which are to be included in another section of
+            #               this report.
+            if event.event_type.value in HWC_REPORT_TYPES:
+                return
 
-        def build_note(note):
-            return {'text': html.escape(note.text),
-                    'username': note.created_by_user.username,
-                    'created_at': note.created_at.astimezone(timezone.get_current_timezone()).strftime(EVENT_LIST_TIMESTAMP_FORMAT),
-                    }
+            event_details = schema_utils.generate_details(
+                event, render_schema(event.event_type.schema))
+            en = event.notes.all().order_by('created_at')
 
-        accum.append({'title': '{}: {}'.format(event.serial_number, escape(event.title)),
-                      'event_name': '{}: {}'.format(event.serial_number, escape(event.title)),
-                      'event_time': event.event_time.astimezone(timezone.get_current_timezone()).strftime(EVENT_LIST_TIMESTAMP_FORMAT),
-                      'attributes': sorted(event_details, key=lambda x: x['order']),
-                      'notes': [build_note(n) for n in en]
-                      })
+            def build_note(note):
+                return {'text': html.escape(note.text),
+                        'username': note.created_by_user.username,
+                        'created_at': note.created_at.astimezone(timezone.get_current_timezone()).strftime(EVENT_LIST_TIMESTAMP_FORMAT),
+                        }
 
-    security_events = accumulator([], security_events)
+            accum.append({'title': '{}: {}'.format(event.serial_number, escape(event.title)),
+                          'event_name': '{}: {}'.format(event.serial_number, escape(event.title)),
+                          'event_time': event.event_time.astimezone(timezone.get_current_timezone()).strftime(EVENT_LIST_TIMESTAMP_FORMAT),
+                          'attributes': sorted(event_details, key=lambda x: x['order']),
+                          'notes': [build_note(n) for n in en]
+                          })
+        return inner_events
+
+    security_events = accumulator([], make_events_accum('security'))
+    security_ke_police_events = accumulator(
+        [], make_events_accum('security_ke_police'))
 
     # Accumulator for 'human wildlife conflict'
     def human_wildlife_conflict(accum, event):
@@ -410,7 +416,7 @@ def get_daily_report_data(since, before, **kwargs):
 
     human_wildlife_conflict = accumulator([], human_wildlife_conflict)
     b = broadcast((rhino_sightings, rhino_births, rhino_territorial_movement, other_wildlife_sightings, carcass,
-                   gap_movement, rainfall, fence_breakage, security_events, human_wildlife_conflict))
+                   gap_movement, rainfall, fence_breakage, security_events, security_ke_police_events, human_wildlife_conflict))
 
     for event in events:
         b.send(event)
@@ -424,6 +430,7 @@ def get_daily_report_data(since, before, **kwargs):
     fence_breakage = fence_breakage.send(None)
     wildlife_sightings_per_conservancy = rhino_sightings.send(None)
     security_events = security_events.send(None)
+    security_ke_police_events = security_ke_police_events.send(None)
     human_wildlife_conflict = human_wildlife_conflict.send(None)
 
     #
@@ -497,6 +504,8 @@ def get_daily_report_data(since, before, **kwargs):
         'fence_breakage': fence_breakage,
 
         'security_events': security_events,
+
+        'security_ke_police_events': security_ke_police_events,
 
         'human_wildlife_conflict': human_wildlife_conflict,
 
