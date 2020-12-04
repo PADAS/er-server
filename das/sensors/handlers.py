@@ -115,20 +115,18 @@ class GenericSensorHandler:
     @classmethod
     def update_source_assignment(cls, matching_subject, source, record_time):
         # Terminate pre existing subject source assignment
-        now = pytz.utc.localize(datetime.now())
-        original_assignment = SubjectSource.objects.filter(
-            subject=matching_subject,
-            subject__subjectsource__assigned_range__contains=now)
+        existing_assignment = SubjectSource.objects.filter(
+            subject=matching_subject, assigned_range__contains=record_time).order_by('-assigned_range').first()
 
-        if original_assignment:
-            updated_assigned_range = list((original_assignment.first().assigned_range.lower, now))
-            original_assignment.update(assigned_range=updated_assigned_range)
-            new_assigned_range = list((now, original_assignment.first().assigned_range.upper))
+        if existing_assignment:
+            terminated_at = record_time - datetime.timedelta(seconds=1)
+            updated_assigned_range = list((existing_assignment.assigned_range.lower, terminated_at))
+            existing_assignment.assigned_range = updated_assigned_range
+            existing_assignment.save()
+
+            new_assigned_range = list((record_time, existing_assignment.assigned_range.upper))
         else:
-            lower = now
-            if record_time:
-                lower = now if (now < record_time) else record_time
-            new_assigned_range = list((lower, pytz.utc.localize(datetime.max)))
+            new_assigned_range = list((record_time, pytz.utc.localize(datetime.max)))
         SubjectSource.objects.create(
             source=source, subject=matching_subject, assigned_range=new_assigned_range
         )
