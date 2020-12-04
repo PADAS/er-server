@@ -34,6 +34,7 @@
     {% endfor %}
     </ul>
 {% else %}
+{% block deletion_bar %}
     <p>{% blocktrans %}Are you sure you want to delete the selected {{ objects_name }}? All of the following objects and their related items will be deleted:{% endblocktrans %}</p>
     {% include "admin/includes/object_delete_summary_template.html" %}
     <h2>{% trans "Objects" %}</h2>
@@ -52,5 +53,6 @@
     <a href="#" class="button cancel-link">{% trans "No, take me back" %}</a>
     </div>
     </form>
+{% endblock %}
 {% endif %}
 {% endblock %}
