@@ -117,7 +117,7 @@ class GenericSensorHandler:
         # Terminate pre existing subject source assignment
         now = pytz.utc.localize(datetime.now())
         original_assignment = SubjectSource.objects.filter(
-            subject=matching_subject, source=source,
+            subject=matching_subject,
             subject__subjectsource__assigned_range__contains=now)
 
         if original_assignment:
