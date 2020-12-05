@@ -122,7 +122,7 @@ def extract_gis_data(obj, member, errored_files, success_files, arcgis_item_id):
             logger.debug('to_geojson failed, trying to_json')
             data = arcgis2geojson(layer.query().to_json)
         except Exception as error:
-            logger.info(f'Error reading from {member.title}', error)
+            logger.exception(f'Error {error} occurred reading from {member.title}')
             if member.title not in errored_files:
                 errored_files.append(member.title)
         if data:
