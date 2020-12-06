@@ -13,8 +13,8 @@ import utils
 import usercontent.serializers
 from accounts.serializers import UserDisplaySerializer, get_user_display
 from activity.models import PATROL_STATE_CHOICES, PC_OPEN, PRI_NONE, PRIORITY_CHOICES
-from activity.models import Patrol, PatrolNote, PatrolSegment
-from activity.serializers import AlertRuleSerializer, EventSourceSerializer
+from activity.models import Patrol, PatrolNote, PatrolSegment, Event
+from activity.serializers import AlertRuleSerializer, EventSourceSerializer, EventSerializer
 from activity.serializers import fields, ReportedByRelatedField
 from activity.serializers.base import BaseSerializer, RevisionMixin, TimestampMixin, FileSerializerMixin
 from activity.serializers.fields import choicefield_serializer, text_field
@@ -147,6 +147,7 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
     end_location = fields.GEOPointField(required=False, allow_null=True, validators=[PointValidator()])
     image_url = serializers.CharField(read_only=True, required=False)
     icon_id = serializers.CharField(read_only=True, required=False)
+    reports = serializers.SerializerMethodField()
 
     def to_internal_value(self, data):
         sch_start = data.get('scheduled_start')
@@ -156,6 +157,11 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
             raise serializers.ValidationError(
                 'scheduled_start time has to be earlier than scheduled_end time')
         return super().to_internal_value(data)
+
+    def get_reports(self, obj):
+        seg_reports = Event.objects.filter(patrol_segment=obj)
+        return EventSerializer(seg_reports, many=True).data
+
 
     @staticmethod
     def resolve_image_url(patrolsegment):

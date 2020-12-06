@@ -1221,6 +1221,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     files = EventFileSerializer(many=True, required=False, read_only=True)
 
     related_subjects = SubjectSerializer(many=True, required=False)
+    patrol_segment_id = rest_framework.serializers.UUIDField(required=False, allow_null=True)
 
     def get_contains(self, event):
         return self.get_out_relation(event, 'contains')
@@ -1271,6 +1272,23 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
         return super().validate(attrs)
 
+    def update(self, instance, validated_data):
+        patrol_segment_id = validated_data.get('patrol_segment_id')
+        if patrol_segment_id:
+            segment = activity.models.PatrolSegment.objects.get(id=patrol_segment_id)
+            instance.patrol_segment = segment
+            instance.save()
+        return super(EventSerializer, self).update(instance, validated_data)
+
+    def validate_patrol_segment_id(self, value):
+        if value:
+            try:
+                seg = activity.models.PatrolSegment.objects.get(id=value)
+                return seg.id
+            except activity.models.PatrolSegment.DoesNotExist:
+                raise ValidationError(f'PatrolSegment with id {value} does not exist')
+
+
     def get_out_relation(self, event, value):
         self.context['event_relationship_direction'] = 'out'
         qs = event.out_relationships.filter(
@@ -1294,7 +1312,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             'event_type', 'priority', 'priority_label', 'attributes', 'comment', 'title',
             'created_by_user', 'notes', 'reported_by',
             'state', 'event_details', 'contains', 'is_linked_to', 'is_contained_in',
-            'files', 'related_subjects', 'eventsource', 'external_event_id', 'sort_at', ) + read_only_fields
+            'files', 'related_subjects', 'eventsource', 'external_event_id', 'sort_at', 'patrol_segment_id') + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

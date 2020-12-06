@@ -2,7 +2,7 @@ from django.conf.urls import url, include
 from activity import views, alerts_views
 
 urlpatterns = [
-    url(r'^events/?$', views.EventsView.as_view()),
+    url(r'^events/?$', views.EventsView.as_view(), name="events"),
     url(r'^events/geojson/?$', views.EventsGeoJsonView.as_view()),
     url(r'^events/export/?$', views.EventsExportView.as_view()),
     url(r'^events/schema/?$', views.EventSchemaView.as_view()),
