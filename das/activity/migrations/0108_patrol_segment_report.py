@@ -7,7 +7,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('activity', '0106_add_accoustic_eventtype'),
+        ('activity', '0107_add_subject_proximity_evevnttype'),
     ]
 
     operations = [
