@@ -477,7 +477,6 @@ class PatrolAdmin(OSMGeoExtendedAdmin):
                     Q(patrol_segment__time_range__startswith__isnull=True) & \
                     Q(patrol_segment__scheduled_start__gt=end_day)
 
-        # todo: worry later.
         queryset = queryset.annotate(patrol_type=Subquery(patrol_sgment.values('patrol_type__display')[:1]),
                                      tracked_subject=Subquery(patrol_sgment.annotate(
                                          leader_name=Subquery(subject.values('name'))).values('leader_name')[:1]),
@@ -550,7 +549,7 @@ class PatrolAdmin(OSMGeoExtendedAdmin):
             db_field = models.PatrolSegment._meta.get_field
 
             form.base_fields['patrol_type'].initial = obj.patrol_type
-            form.base_fields['tracked_subject'].initial = obj.tracked_subject
+            form.base_fields['tracked_subject'].initial = obj.tracked_subject or obj.tracked_user or obj.tracked_community
             form.base_fields['patrol_status'].initial = obj.status
             form.base_fields['patrol_status'].disabled = True
 
