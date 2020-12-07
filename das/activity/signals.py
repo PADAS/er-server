@@ -23,6 +23,10 @@ def event_post_save(sender, instance, created, **kwargs):
                           celery.app.send_task(
                               'activity.tasks.evaluate_alert_rules', args=(str(instance.id), created))
                           )
+    if getattr(instance.patrol_segment, 'patrol', None):
+        # Send patrol_update rt message
+        segment = instance.patrol_segment
+        verify_patrol_constituent_for_rt_messaging(segment)
 
 
 @receiver(post_delete, sender=Event)
