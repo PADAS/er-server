@@ -115,6 +115,7 @@ locals {
     "velebit"                = "prod1"
     "westernsiempang"        = "prod-asia"
     "wildhorizons"           = "prod1"
+    "wisentproject"          = "prod1"
     "zakouma"                = "prod1"
   }
 
@@ -169,6 +170,7 @@ locals {
     "bostonpridelands"    = 1
     "elephantqueen"       = 1
     "timbavati"           = 1
+    "wisentproject"       = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
