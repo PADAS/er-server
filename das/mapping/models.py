@@ -733,7 +733,7 @@ class ArcgisGroup(TimestampedModel):
 
 
 class ArcgisConfiguration(TimestampedModel):
-    disable_import_feature_classes = models.BooleanField(default=False)
+    disable_import_feature_class_presentation = models.BooleanField(default=False)
     service_url = models.CharField(max_length=2000, blank=True, null=True,
                                    help_text='Leave blank to connect to ArcGIS Online, '
                                              'or enter your ArcGIS Enterprise service URL')

@@ -59,6 +59,8 @@ def arcgis_integration(request, obj):
         elif "_downloadfeatures" in request.POST:
             # set to a background task
             if obj.groups:
+                # DAS-6060
+                obj.save()
                 task_started_msg = "Features download in progress, checkout loaded <a href='/admin/mapping/spatialfeature/'>spatialfeatures</a> after a few minutes"
                 message(request, messages.INFO, mark_safe(task_started_msg))
                 load_features_from_wfs.apply_async(args=(obj.id, obj.groups.group_id))
@@ -114,12 +116,14 @@ def extract_gis_data(obj, member, errored_files, success_files, arcgis_item_id):
     for layer_num, layer in enumerate(member.layers):
         data = None
         simple_presentation = None
+        layer_name = layer.properties.name if hasattr(layer.properties, 'name') else layer_num
         try:
-            simple_presentation = import_featuretype_presentation(layer.properties.drawingInfo.renderer)
+            simple_presentation = import_featuretype_presentation(layer.properties.drawingInfo.renderer,
+                                                                  arc_item.arcgis_config)
             # set the spatial reference to 4326 in the query
             data = layer.query(out_sr=4326).to_geojson
         except KeyError:
-            logger.debug('to_geojson failed, trying to_json')
+            logger.warning('to_geojson failed, trying to_json')
             data = arcgis2geojson(layer.query().to_json)
         except Exception as error:
             logger.exception(f'Error {error} occurred reading from {member.title}')
@@ -128,7 +132,7 @@ def extract_gis_data(obj, member, errored_files, success_files, arcgis_item_id):
         if data:
             # TODO: validate that we have valid, non-empty content in data, else gdal barfs later
             success_files, global_ids = extract_features(
-                obj, member, layer_num, data, success_files, simple_presentation, arc_item)
+                obj, member, layer_num, layer_name, data, success_files, simple_presentation, arc_item)
             imported_global_ids.extend(global_ids)
 
     delete_result = models.SpatialFeature.objects.filter(arcgis_item=arc_item).exclude(
@@ -138,24 +142,24 @@ def extract_gis_data(obj, member, errored_files, success_files, arcgis_item_id):
     return success_files, errored_files
 
 
-def extract_features(obj, member, layer_num, data, success_files, simple_presentation, arc_item):
+def extract_features(obj, member, layer_num, layer_name, data, success_files, simple_presentation, arc_item):
     with tempfile.NamedTemporaryFile() as data_file:
         data_file.write(data.encode())
         data_file.flush()
         data_file.seek(0)
-        imported_global_ids = import_features_from_esri(obj, layer_num, data_file.name, arc_item, simple_presentation)
+        imported_global_ids = import_features_from_esri(obj, layer_num, layer_name, data_file.name, arc_item, simple_presentation)
         if member.title not in success_files:
             success_files.append(member.title)
         return success_files, imported_global_ids
 
 
-def import_features_from_esri(obj, layer_num, tmp_filename, arcgis_item, simple_presentation):
+def import_features_from_esri(obj, layer_num, layer_name, tmp_filename, arcgis_item, simple_presentation):
     external_sourcename = obj.source
     type_field = obj.type_label
     id_field = obj.id_field
     name_field = obj.name_field
 
-    logger.info('Importing esri features for itemid %s from temp file: %s', arcgis_item.id, tmp_filename)
+    logger.info(f'Importing esri features for itemid: {arcgis_item.id}, layer name: {layer_name} from temp file: {tmp_filename}')
     # comeback cleanup
     try:
         datasource, datasource_layer_num = get_datasource_and_layer_num(filename=tmp_filename)
@@ -173,7 +177,7 @@ def import_features_from_esri(obj, layer_num, tmp_filename, arcgis_item, simple_
                     logger.warning('Did not get or create spatialfeaturetype for %s. Skipping', str(feature))
                     continue
 
-                if not arcgis_item.arcgis_config.disable_import_feature_classes:
+                if not arcgis_item.arcgis_config.disable_import_feature_class_presentation:
                     spatial_feature_type.presentation = simple_presentation
                     # TODO: does a write in each iteration. Optimize.
                     spatial_feature_type.save()
@@ -246,76 +250,91 @@ def wfs_download_return_messages(request, errored_files, success_files):
     logger.info('Returning from download_features')
 
 
-def import_featuretype_presentation(renderer, arcgis_item=None):
-    configuration = arcgis_item.arcgis_config if arcgis_item else None
-    is_import_disabled = (
-        configuration.disable_import_feature_classes if configuration else
-        False
-    )
+def import_featuretype_presentation(renderer, arcgis_config):
+    # uniqueValue renderer types come in as array objects that have a name and presentation information.
+    # So if needed, we are able to create a SpatialFeatureType (SFT) here and set its presentation.
+    # simple renderer type doesn't have a name and there's only one simple renderer per arcgis item imported
+    # So we are unable to create a SFT if its a simple renderer. Instead, we set the presentation
+    # when importing individual features in the import_features_from_esri function, creating the SFT
+    # if needed.
+
     if renderer.type == RENDERER_TYPE_UNIQUE_VALUE:
         for unique_val in renderer.uniqueValueInfos:
             feature_type_name = unique_val.value
-            presentation = get_mb_style(unique_val.symbol)
-            logger.debug(f'{feature_type_name}: {presentation}')
-            if presentation:
-                feature_type, created = (
-                    models.SpatialFeatureType.objects.get_or_create(name=feature_type_name)
-                )
+            logger.debug(f'get_or_create spatialfeaturetype: {feature_type_name}')
+            feature_type, created = (
+                models.SpatialFeatureType.objects.get_or_create(name=feature_type_name)
+            )
 
-                if not feature_type:
-                    return
+            if not feature_type:
+                logger.warning(f'Did not get or create spatialfeaturetype for {feature_type_name}')
+                return
 
-                if not is_import_disabled:
+            if not arcgis_config.disable_import_feature_class_presentation:
+                presentation = get_mb_style(unique_val.symbol)
+                if presentation:
+                    logger.debug(f'{feature_type_name}: {presentation}')
                     feature_type.presentation = presentation
                     feature_type.save()
-    elif renderer.type == 'simple':
+
+    elif renderer.type == RENDERER_TYPE_SIMPLE:
         simple_presentation = get_mb_style(renderer.symbol)
         # logger.info(simple_presentation)
         return simple_presentation
     else:
-        logger.info(f'Ignoring {renderer.type} renderer')
+        logger.warning(f'Ignoring {renderer.type} renderer')
 
 
 def get_mb_style(symbol):
-    presentation = None
+    presentation = {}
     type = symbol.type
 
     if type == ESRI_LINE:
         logger.debug('processing line')
-        r, g, b, a = symbol.color
-        width = symbol.width
-        colors_as_hex = "#{:02x}{:02x}{:02x}".format(r, g, b)
-        opacity = "{:.2f}".format(a / 255)
-        presentation = {
-            "stroke": colors_as_hex,
-            "stroke-opacity": opacity,
-            "stroke-width": width
-        }
+        if hasattr(symbol, 'color') and symbol.color:
+            r, g, b, a = symbol.color
+            colors_as_hex = "#{:02x}{:02x}{:02x}".format(r, g, b)
+            opacity = "{:.2f}".format(a / 255)
+            presentation = {
+                "stroke": colors_as_hex,
+                "stroke-opacity": opacity
+            }
+            if hasattr(symbol, 'width') and symbol.width:
+                presentation['stroke-width'] = symbol.width
+        else:
+            logger.warning(f'Line symbol does not have color attribute. skipping color import')
     elif type == ESRI_POLYGON:
         logger.debug('processing polygon')
-        r, g, b, a = symbol.color
-        fill_color = "#{:02x}{:02x}{:02x}".format(r, g, b)
-        fill_opacity = "{:.2f}".format(a / 255)
-        presentation = {
-            "fill": fill_color,
-            "fill-opacity": fill_opacity
-        }
-        if hasattr(symbol, 'outline') and symbol.outline:
+        if hasattr(symbol, 'color') and symbol.color:
+            r, g, b, a = symbol.color
+            fill_color = "#{:02x}{:02x}{:02x}".format(r, g, b)
+            fill_opacity = "{:.2f}".format(a / 255)
+            presentation = {
+                "fill": fill_color,
+                "fill-opacity": fill_opacity
+            }
+        else:
+            logger.warning(f'Polygon symbol does not have color attribute. skipping color import')
+        if hasattr(symbol, 'outline') and symbol.outline \
+                and hasattr(symbol.outline, 'color') and symbol.outline.color:
             r, g, b, a = symbol.outline.color
             presentation["stroke"] = "#{:02x}{:02x}{:02x}".format(r, g, b)
             presentation["stroke-opacity"] = "{:.2f}".format(a / 255)
-            presentation["stroke-width"] = symbol.outline.width
+            if hasattr(symbol.outline, 'width') and symbol.outline.width:
+                presentation['stroke-width'] = symbol.outline.width
+        else:
+            logger.warning(f'Polygon symbol does not have outline or outline.color attribute. skipping outline import')
     elif type == ESRI_PMS or type == ESRI_PFS:
         logger.debug(f'processing picture symbol {type}')
         presentation = {
-            "image": f"data:image/png;base64,{symbol.imageData}",
-            "width": symbol.width if hasattr(symbol, "width") else DEFAULT_IMAGE_WIDTH,
-            "height": symbol.height if hasattr(symbol, "height") else DEFAULT_IMAGE_HEIGHT
+            "image": f"data:image/png;base64,{symbol.imageData}" if hasattr(symbol, "imageData") and symbol.imageData else DEFAULT_IMAGE,
+            "width": symbol.width if hasattr(symbol, "width") and symbol.width else DEFAULT_IMAGE_WIDTH,
+            "height": symbol.height if hasattr(symbol, "height") and symbol.height else DEFAULT_IMAGE_HEIGHT
         }
     elif type == ESRI_SMS:
         logger.debug('processing simple marker symbol')
         presentation = DEFAULT_IMAGE
     else:
-        logger.info(f'Got type: {type}. Not handled yet.')
+        logger.warning(f'Got Esri symbol type: {type}. Not handled yet.')
 
     return presentation

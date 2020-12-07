@@ -426,7 +426,8 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('last_download_time', 'config_name', 'username', 'password', 'search_text', 'disable_import_feature_classes')
+            'fields': ('last_download_time', 'config_name', 'username', 'password', 'search_text',
+                       'disable_import_feature_class_presentation')
         }),
         ('ArcGIS Group', {
             'classes': ('wide', 'groups'),
@@ -434,7 +435,7 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
         }),
         ('Optional Attributes', {
             'classes': ('collapse',),
-            'fields': ('service_url', 'source', 'type_label', 'id_field','name_field',)
+            'fields': ('service_url', 'source', 'type_label', 'id_field', 'name_field',)
         }
         ),)
     readonly_fields = ('last_download_time',)

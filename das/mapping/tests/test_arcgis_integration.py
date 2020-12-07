@@ -64,7 +64,6 @@ class Group(object):
         self.__class__.instances.append(self)
     
 
-# TODO: revisit.
 class TestArcGisIntegration(BaseAPITest):
     def setUp(self):
         super().setUp()
@@ -117,12 +116,12 @@ class TestArcGisIntegration(BaseAPITest):
         json_dict = self._read_test_data(
             os.path.join(TESTS_PATH, 'testdata/polygon-renderer.json'))
 
-        self.test_config.disable_import_feature_classes = True
+        self.test_config.disable_import_feature_class_presentation = True
         self.test_config.save()
 
         renderer = Renderer(json_dict=json_dict['renderer'])
 
-        import_featuretype_presentation(renderer, self.arcgis_item)
+        import_featuretype_presentation(renderer, self.test_config)
 
         for unique_val in renderer.uniqueValueInfos:
             feature_type_name = unique_val.value
@@ -131,10 +130,10 @@ class TestArcGisIntegration(BaseAPITest):
             feature_type = SpatialFeatureType.objects.get(name=feature_type_name)
             self.assertNotEqual(feature_type.presentation, presentation)
 
-        self.test_config.disable_import_feature_classes = False
+        self.test_config.disable_import_feature_class_presentation = False
         self.test_config.save()
 
-        import_featuretype_presentation(renderer, self.arcgis_item)
+        import_featuretype_presentation(renderer, self.test_config)
 
         for unique_val in renderer.uniqueValueInfos:
             feature_type_name = unique_val.value
@@ -154,7 +153,7 @@ class TestArcGisIntegration(BaseAPITest):
         renderer = Renderer(json_dict['renderer'])
         types = [info.value for info in renderer.uniqueValueInfos]
         types.sort()
-        prez = import_featuretype_presentation(renderer)
+        prez = import_featuretype_presentation(renderer, self.test_config)
 
         self.assertIsNone(prez)
         self.assertEqual(len(types), SpatialFeatureType.objects.count())
@@ -180,7 +179,7 @@ class TestArcGisIntegration(BaseAPITest):
 
     def extract_wfs_features(self, data):
         _, extracted_ids = extract_features(
-            self.test_config, self.gis_group, 0, json.dumps(data), [], None, self.arcgis_item)
+            self.test_config, self.gis_group, 0, 'test-layer', json.dumps(data), [], None, self.arcgis_item)
         SpatialFeature.objects.filter(
             arcgis_item=self.arcgis_item).exclude(external_id__in=extracted_ids).delete()
 
@@ -206,33 +205,6 @@ class TestArcGisIntegration(BaseAPITest):
 
         # Two groups returned which contain africa in the name or content
         self.assertEqual(len(groups), 2)
-
-    # TODO: revisit these cases when we work on esri integration
-    # def test_extract_features_with_features_park_name_not_set(self):
-    #     groups_before_config = SpatialFeature.objects.all().count()
-    #     self.assertEqual(groups_before_config, 0)
-    #     self.load_features()
-    #
-    #     groups_after_config = SpatialFeature.objects.all().count()
-    #     self.assertEqual(groups_after_config, 0)
-    #
-    # def test_extract_features_into_er_from_loaded_file_with_valid_park_content(self):
-    #     with self.settings(UI_SITE_URL='http://www.liwonde.com'):
-    #         groups_before_config = SpatialFeature.objects.all().count()
-    #         self.assertEqual(groups_before_config, 0)
-    #         self.load_features()
-    #
-    #         groups_after_config = SpatialFeature.objects.all().count()
-    #         self.assertEqual(groups_after_config, 41)
-    #
-    # def test_new_spatial_feature_types_created_from_new_features(self):
-    #     with self.settings(UI_SITE_URL='http://www.liwonde.com'):
-    #         feature_types_before_config = SpatialFeatureType.objects.all().count()
-    #         self.assertEqual(feature_types_before_config, 0)
-    #         self.load_features()
-    #
-    #         feature_types_after_config = SpatialFeatureType.objects.all().count()
-    #         self.assertEqual(feature_types_after_config, 7)
 
     def test_deleted_feature_from_esri(self):
         self.load_features()

@@ -195,11 +195,12 @@ class DisplayCategoryForm(forms.ModelForm):
 
 class ArcgisConfigurationForm(forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput(render_value=True))
-    disable_import_feature_classes = forms.BooleanField(
+    disable_import_feature_class_presentation = forms.BooleanField(
         widget=forms.CheckboxInput(),
         help_text=(
-            'Check to pause the importing of Feature Classes.  '
-            'Note, this will not affect the importing of Features.'
+            'Check to pause the importing of Feature Class presentation.  '
+            'Note, Feature Class names will still be imported. This will not '
+            'affect the importing of Features.'
         ),
         required=False
     )
