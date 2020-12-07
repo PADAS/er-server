@@ -766,7 +766,9 @@ class Event(RevisionMixin, TimestampedModel):
                                     'reported_by_id')
 
     sort_at = models.DateTimeField(blank=True)
-    patrol_segment = models.ForeignKey(to='PatrolSegment', on_delete=models.SET_NULL, blank=True, null=True)
+    patrol_segment = models.ForeignKey(
+        to='PatrolSegment', on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='reports', related_query_name='report')
 
     @property
     def display_title(self):
@@ -1748,9 +1750,6 @@ class PatrolSegment(TimestampedModel, RevisionMixin):
     revision = Revision()
 
     objects = PatrolSegmentManager()
-
-    def __str__(self):
-        return str(self.id)
 
 
 # class PatrolTemplate(models.Model):

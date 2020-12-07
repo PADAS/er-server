@@ -1272,14 +1272,6 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
         return super().validate(attrs)
 
-    def update(self, instance, validated_data):
-        patrol_segment_id = validated_data.get('patrol_segment_id')
-        if patrol_segment_id:
-            segment = activity.models.PatrolSegment.objects.get(id=patrol_segment_id)
-            instance.patrol_segment = segment
-            instance.save()
-        return super(EventSerializer, self).update(instance, validated_data)
-
     def validate_patrol_segment_id(self, value):
         if value:
             try:
@@ -1287,7 +1279,6 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
                 return seg.id
             except activity.models.PatrolSegment.DoesNotExist:
                 raise ValidationError(f'PatrolSegment with id {value} does not exist')
-
 
     def get_out_relation(self, event, value):
         self.context['event_relationship_direction'] = 'out'
