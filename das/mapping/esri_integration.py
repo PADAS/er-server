@@ -159,19 +159,19 @@ def import_features_from_esri(obj, layer_num, layer_name, tmp_filename, arcgis_i
     id_field = obj.id_field
     name_field = obj.name_field
 
-    logger.info(f'Importing esri features for itemid: {arcgis_item.id}, layer name: {layer_name} from temp file: {tmp_filename}')
+    simple = 'simple' if simple_presentation else 'uniqueValue'
+    logger.info(f'Importing esri features for item: {arcgis_item.name}, layer name: {layer_name} renderer: {simple}')
     # comeback cleanup
     try:
         datasource, datasource_layer_num = get_datasource_and_layer_num(filename=tmp_filename)
         layer, external_ids = datasource[datasource_layer_num], []
 
-        # TODO: bail if arc_item is null
-
         # TODO: revisit and handle case where layer/features do not have a GlobalID
         has_unique_keys = contains_unique_keys_in_layer(id_field, name_field, layer)
+        processed_sfts = set()
         for i, feature in enumerate(layer):
-
-            if simple_presentation:
+            sft_name = feature.get(type_field)
+            if simple_presentation and sft_name not in processed_sfts:
                 spatial_feature_type = get_spatial_feature_type(feature, type_field)
                 if not spatial_feature_type:
                     logger.warning('Did not get or create spatialfeaturetype for %s. Skipping', str(feature))
@@ -179,8 +179,11 @@ def import_features_from_esri(obj, layer_num, layer_name, tmp_filename, arcgis_i
 
                 if not arcgis_item.arcgis_config.disable_import_feature_class_presentation:
                     spatial_feature_type.presentation = simple_presentation
-                    # TODO: does a write in each iteration. Optimize.
                     spatial_feature_type.save()
+
+                processed_sfts.add(sft_name)
+            # else:
+            #     logger.info(f'{sft_name} already cached.')
 
             # linked to above to revisit if don't have a GlobalID
             external_id = make_external_id(layer_num, feature, id_field, name_field, arcgis_item.id)
