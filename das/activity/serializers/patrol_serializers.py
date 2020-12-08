@@ -104,10 +104,11 @@ class PatrolNoteSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
 
 class LeaderRelatedField(ReportedByRelatedField):
     def get_object_queryset(self):
+        request = self.context.get('request')
         for p in activity.models.PROVENANCE_CHOICES:
             provenance = p[0]
             values = list(
-                activity.models.PatrolSegment.objects.get_leader_for_provenance(provenance))
+                activity.models.PatrolSegment.objects.get_leader_for_provenance(provenance, request.user))
             if values:
                 yield provenance, values
 

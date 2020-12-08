@@ -357,11 +357,13 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
         if not self.check_has_event_category_permission():
             return False
 
+        request = self.context.get('request')
+
         for p in activity.models.Event.PROVENANCE_CHOICES:
             provenance = p[0]
             values = list(
                 activity.models.Event.objects.get_reported_by_for_provenance(
-                    provenance))
+                    provenance, request.user))
             if values:
                 yield (provenance, values)
 
