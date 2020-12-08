@@ -14,8 +14,8 @@ from arcgis2geojson import arcgis2geojson
 from mapping import models
 from mapping.utils import (contains_unique_keys_in_layer, geometry_mapper,
                            get_datasource_and_layer_num, get_or_create_feature,
-                           get_spatial_feature_type, make_external_id,
-                           set_feature_name)
+                           get_or_create_spatial_feature_type, make_external_id,
+                           set_feature_name, get_spatial_feature_type_name)
 
 logger = logging.getLogger(__name__)
 
@@ -170,9 +170,9 @@ def import_features_from_esri(obj, layer_num, layer_name, tmp_filename, arcgis_i
         has_unique_keys = contains_unique_keys_in_layer(id_field, name_field, layer)
         processed_sfts = set()
         for i, feature in enumerate(layer):
-            sft_name = feature.get(type_field)
+            sft_name = get_spatial_feature_type_name(feature, type_field)
             if simple_presentation and sft_name not in processed_sfts:
-                spatial_feature_type = get_spatial_feature_type(feature, type_field)
+                spatial_feature_type = get_or_create_spatial_feature_type(feature, type_field)
                 if not spatial_feature_type:
                     logger.warning('Did not get or create spatialfeaturetype for %s. Skipping', str(feature))
                     continue
@@ -182,8 +182,6 @@ def import_features_from_esri(obj, layer_num, layer_name, tmp_filename, arcgis_i
                     spatial_feature_type.save()
 
                 processed_sfts.add(sft_name)
-            # else:
-            #     logger.info(f'{sft_name} already cached.')
 
             # linked to above to revisit if don't have a GlobalID
             external_id = make_external_id(layer_num, feature, id_field, name_field, arcgis_item.id)
@@ -217,7 +215,7 @@ def save_esri_feature(feature, source_name, external_id, type_label, name_field,
         logger.warning(f'Saving feature {external_id} raised GDALException: {gex}')
         return
 
-    feature_type = get_spatial_feature_type(feature, type_label)
+    feature_type = get_or_create_spatial_feature_type(feature, type_label)
     if not feature_type:
         return
 

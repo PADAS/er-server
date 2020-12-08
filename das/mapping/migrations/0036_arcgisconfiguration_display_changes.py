@@ -15,4 +15,11 @@ class Migration(migrations.Migration):
             old_name='disable_import_feature_classes',
             new_name='disable_import_feature_class_presentation',
         ),
+        migrations.AlterField(
+            model_name='arcgisconfiguration',
+            name='type_label',
+            field=models.CharField(blank=True, default='FeatureType',
+                                   help_text='Name of field in your GIS data that has the feature type. Defaults are type and FeatureType',
+                                   max_length=100, null=True, verbose_name='Type field'),
+        ),
     ]

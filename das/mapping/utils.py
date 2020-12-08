@@ -138,20 +138,17 @@ def reduce_json(document):
     return reduced
 
 
-def get_spatial_feature_type(feature, type_label=None):
-    # get wfs type from given type label
-    type_name = None
+def get_spatial_feature_type_name(feature, type_label):
     if type_label:
-        try:
-            type_name = feature.get(type_label)
-        except Exception:
-            logger.warning(f'Type label given - {type_label} not a valid field for this feature')
+        return feature.get(type_label) if type_label in feature.fields else None
+
+
+def get_or_create_spatial_feature_type(feature, type_label=None):
+    type_name = get_spatial_feature_type_name(feature, type_label)
 
     if not type_name:
         try:
-            # todo: eventually remove Types
-            type_name = feature.get('FeatureType') if 'FeatureType' in feature.fields else feature.get(
-                'Types') if 'Types' in feature.fields else feature.get('type')
+            type_name = feature.get('FeatureType') if 'FeatureType' in feature.fields else feature.get('type')
         except Exception:
             logger.warning('%s missing featuretype', str(feature))
             return
@@ -192,7 +189,7 @@ def get_or_create_feature(attributes):
 
 def mappingv2_save_spatial_data(feature, external_id, spatialfile, counter=0):
     model = models.SpatialFeature
-    feature_type = spatialfile.feature_type if spatialfile.feature_type else get_spatial_feature_type(feature)
+    feature_type = spatialfile.feature_type if spatialfile.feature_type else get_or_create_spatial_feature_type(feature)
     if not feature_type:
         return
 

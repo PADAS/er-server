@@ -42,17 +42,17 @@ spec:
 #          limits:
 #            cpu: "500m"
 #            memory: "4000Mi"
-#        livenessProbe:
-#          exec:
-#            command:
-#              - "/bin/sh"
-#              - "-c"
-#              - "celery inspect ping -A das_server -d celery@default"
-#          initialDelaySeconds: 20
-#          timeoutSeconds: 20
-#          periodSeconds: 180
-#          failureThreshold: 3
-#          successThreshold: 1
+        livenessProbe:
+          exec:
+            command:
+              - "/bin/sh"
+              - "-c"
+              - "celery inspect ping -A das_server -d celery@default"
+          initialDelaySeconds: 20
+          timeoutSeconds: 20
+          periodSeconds: 180
+          failureThreshold: 3
+          successThreshold: 1
         volumeMounts:
         - name: google-credentials
           mountPath: "/etc/earthranger/"
