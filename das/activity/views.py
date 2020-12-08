@@ -41,7 +41,7 @@ from activity.models import Event, EventNote, EventClass, \
     EventFile, Community, StateFilters, \
     EventFilter, EventSource, EventProvider, PatrolType, Patrol, PatrolSegment, PatrolNote, PatrolFile
 from activity.permissions import EventCategoryPermissions, \
-    EventNotesCategoryPermissions, IsOwner
+    EventNotesCategoryPermissions, IsOwner, PatrolObjectPermissions
 from activity.serializers import EventSerializer, EventNoteSerializer, \
     EventJSONSchema, EventStateSerializer, \
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer, \
@@ -1151,6 +1151,7 @@ class PatrolSchema(CustomSchema):
 class PatrolsView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
     serializer_class = PatrolSerializer
+    permission_classes = (PatrolObjectPermissions,)
     schema = PatrolSchema()
 
     def get(self, request, *args, **kwargs):
@@ -1196,11 +1197,12 @@ class PatrolsView(generics.ListCreateAPIView):
 class PatrolView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
     serializer_class = PatrolSerializer
+    permission_classes = (PatrolObjectPermissions,)
     queryset = Patrol.objects.all()
 
 
 class PatrolNotesView(generics.ListCreateAPIView):
-    # permission_classes = (PatrolNotesCategoryPermissions,)
+    permission_classes = (PatrolObjectPermissions,)
     serializer_class = PatrolNoteSerializer
     pagination_class = StandardResultsSetPagination
 
@@ -1217,7 +1219,7 @@ class PatrolNotesView(generics.ListCreateAPIView):
 
 
 class PatrolNoteView(generics.RetrieveUpdateAPIView):
-    #permission_classes = (PatrolNotesCategoryPermissions,)
+    permission_classes = (PatrolObjectPermissions,)
     serializer_class = PatrolNoteSerializer
 
     def get_queryset(self):
@@ -1238,7 +1240,7 @@ class PatrolNoteView(generics.RetrieveUpdateAPIView):
 
 
 class PatrolFilesView(generics.ListCreateAPIView):
-    # permission_classes = (PatrolCategoryPermissions,)
+    permission_classes = (PatrolObjectPermissions,)
     serializer_class = PatrolFileSerializer
     pagination_class = StandardResultsSetPagination
 
@@ -1278,7 +1280,7 @@ class PatrolFilesView(generics.ListCreateAPIView):
 
 
 class PatrolFileView(generics.RetrieveUpdateDestroyAPIView):
-    # permission_classes = (PatrolCategoryPermissions,)
+    permission_classes = (PatrolObjectPermissions,)
     serializer_class = PatrolFileSerializer
 
     def get_queryset(self):
@@ -1332,6 +1334,7 @@ class PatrolFileView(generics.RetrieveUpdateDestroyAPIView):
 class PatrolsegmentsView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
     serializer_class = PatrolSegmentSerializer
+    permission_classes = (PatrolObjectPermissions,)
     queryset = PatrolSegment.objects.all()
 
     def get_queryset(self):
@@ -1341,6 +1344,7 @@ class PatrolsegmentsView(generics.ListCreateAPIView):
 
 class PatrolsegmentView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
+    permission_classes = (PatrolObjectPermissions,)
     serializer_class = PatrolSegmentSerializer
 
     def get_queryset(self):

@@ -20,6 +20,7 @@ from oauth2_provider.models import (get_access_token_model,
                                     get_refresh_token_model)
 from oauth2_provider.admin import (AccessTokenAdmin, GrantAdmin,
                                    RefreshTokenAdmin)
+from django.conf import settings
 
 from accounts.models import User, PermissionSet
 from choices.models import Choice
@@ -28,7 +29,9 @@ from observations import kmlutils
 from utils.admin import DefaultFilterMixin
 from utils.html import make_html_list
 from core.common import TIMEZONE_USED
+from accounts.utils import patrol_mgmt_permissions
 
+PATROL_ENABLED = getattr(settings, 'PATROL_ENABLED', False)
 
 class PermissionSetAdminForm(forms.ModelForm):
     filter_horizontal = ('permissions', 'children')
@@ -64,6 +67,16 @@ class PermissionSetAdminForm(forms.ModelForm):
             self.fields['user_set'].initial = self.instance.user_set.all()
             self.fields['acquire_from'].initial = self.instance._parents.all()
 
+        if not PATROL_ENABLED:
+            self.fields['children'].queryset = self.fields['children'].queryset.\
+                exclude(permissions__in=patrol_mgmt_permissions())
+
+            self.fields['acquire_from'].queryset = self.fields['acquire_from'].queryset.\
+                exclude(permissions__in=patrol_mgmt_permissions())
+
+            self.fields['permissions'].queryset = self.fields['permissions'].queryset.\
+                exclude(codename__in=patrol_mgmt_permissions().values_list('codename'))
+
     def _save_m2m(self):
         users = self.cleaned_data['user_set']
         inherit_from = self.cleaned_data['acquire_from']
@@ -89,6 +102,12 @@ class PermissionSetAdmin(DjangoGroupAdmin):
         (_('Grant permissions to'), {
             'fields': ('children', 'user_set')}),
     )
+
+    def get_queryset(self, request):
+        queryset = super(PermissionSetAdmin, self).get_queryset(request)
+        if not PATROL_ENABLED:
+            return queryset.exclude(permissions__in=patrol_mgmt_permissions())
+        return queryset
 
     def formfield_for_dbfield(self, db_field, **kwargs):
         if db_field.name == 'children':

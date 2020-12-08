@@ -1,8 +1,10 @@
 from rest_framework.permissions import (SAFE_METHODS, BasePermission,
                                         DjangoModelPermissions,
+                                        DjangoObjectPermissions,
                                         IsAuthenticated)
+from rest_framework import exceptions
 
-from activity.models import EventType, Event
+from activity.models import EventType, Event, Patrol
 from observations.views import UnauthorizedView
 
 
@@ -139,3 +141,37 @@ class IsEventProviderOwnerPermission(BasePermission):
 
         eventprovider = getattr(obj, self.relation_field, None)
         return eventprovider is not None and eventprovider.owner == request.user
+
+
+class PatrolObjectPermissions(DjangoObjectPermissions):
+    view_perms = ['%(app_label)s.view_%(model_name)s']
+
+    perms_map = {
+        'GET': view_perms,
+        'OPTIONS': view_perms,
+        'HEAD': view_perms,
+        'POST': ['%(app_label)s.add_%(model_name)s'],
+        'PUT': ['%(app_label)s.change_%(model_name)s'],
+        'PATCH': ['%(app_label)s.change_%(model_name)s'],
+        'DELETE': ['%(app_label)s.delete_%(model_name)s'],
+    }
+
+    def get_required_permissions(self, method, model_cls):
+        """
+        Given a model and an HTTP method, return the list of permission
+        codes that the user is required to have.
+        """
+        model_cls = Patrol
+        kwargs = {
+            'app_label': model_cls._meta.app_label,
+            'model_name': model_cls._meta.model_name
+        }
+
+        if method not in self.perms_map:
+            raise exceptions.MethodNotAllowed(method)
+
+        return [perm % kwargs for perm in self.perms_map[method]]
+
+
+
+
