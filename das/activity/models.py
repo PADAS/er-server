@@ -1601,6 +1601,9 @@ class Patrol(TimestampedModel, RevisionMixin):
     objective = models.TextField(blank=True, null=True)
     revision = Revision()
 
+    def __str__(self):
+        return self.title or f'Patrol #{self.serial_number}'
+
 
 class PatrolNote(RevisionMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -1670,6 +1673,9 @@ class PatrolType(TimestampedModel):
     @property
     def image_url(self):
         return PatrolType.marker_icon(self.icon_id)
+
+    def __str__(self):
+        return self.display
 
 
 class PatrolSegmentMembershipManager(models.Manager):

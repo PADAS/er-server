@@ -14,11 +14,13 @@ from django.contrib import messages
 from django.db.models import OuterRef, Subquery, F, Case, Q, When, Value, CharField
 from django.contrib.auth import get_user_model
 from django.contrib.admin import SimpleListFilter
+from psycopg2.extras import DateTimeTZRange
+
 
 import activity.models as models
 from activity.forms import EventTypeForm, EventForm, PatrolTypeForm, PatrolForm
 from core.admin import InlineExtraDynamicMixin
-from activity.forms import EventProviderForm, AlertRuleForm
+from activity.forms import EventProviderForm, AlertRuleForm, PatrolSegmentStackedInline, PatrolSegmentForm
 from core.openlayers import OSMGeoExtendedAdmin
 from activity.tasks import refresh_event_details_view, recreate_event_details_view
 from core.common import TIMEZONE_USED, AdminFeatureFlag
@@ -431,28 +433,34 @@ class PatrolStatusFilter(SimpleListFilter):
         return queryset
 
 
+class PatrolSegmentInline(PatrolSegmentStackedInline):
+    max_num = 1
+    can_delete = False
+    fields = ('id', 'patrol_type', 'tracked_subject', 'scheduled_start', 'start_time', 'start_location', 'scheduled_end', 'end_time', 'end_location')
+    form = PatrolSegmentForm
+    map_width = 600
+    map_height = 300
+    model = models.PatrolSegment
+
+
 @AdminFeatureFlag(models.Patrol, flag='PATROL_ENABLED')
 @admin.register(models.Patrol)
 class PatrolAdmin(OSMGeoExtendedAdmin):
-
+    inlines = [PatrolSegmentInline]
     form = PatrolForm
     readonly_fields = ('id', 'serial_number')
 
     list_display = ('serial_number', 'title', 'patrol_type', 'tracked_subject_name', 'status',
                     'scheduled_start_date', 'actual_start_date', 'start_location', 'scheduled_end_date',
                     'actual_end_date', 'end_location')
-    # fields = ('serial_number', 'title', 'patrol_type')
-    fields = ('serial_number', 'title', 'patrol_type', 'tracked_subject', 'patrol_status', 'priority', 'scheduled_start_date',
-              'actual_start_date', 'start_location', 'scheduled_end_date', 'actual_end_date', 'end_location')
-    list_filter = ('patrol_segment__patrol_type__display',  PatrolStatusFilter)  # todo: filter by status
+
+    fields = ('serial_number', 'title', 'priority', 'patrol_status')
+
+    list_filter = ('patrol_segment__patrol_type__display',  PatrolStatusFilter)
     list_display_links = ('serial_number', 'title')
-    search_fields = ('title', 'patrol_segment__patrol_type__display')  # todo: filter tracked subject name
+    search_fields = ('title', 'patrol_segment__patrol_type__display')
 
     ordering = ('serial_number', )
-    actions = ('delete_patrol', )
-
-    map_width = 600
-    map_height = 300
 
     def get_queryset(self, request):
         queryset = super(PatrolAdmin, self).get_queryset(request)
@@ -533,40 +541,11 @@ class PatrolAdmin(OSMGeoExtendedAdmin):
     def has_add_permission(self, request):
         return False
 
-    # def has_delete_permission(self, request, obj=None):
-    #     return False
-
     def get_form(self, request, obj=None, change=False, **kwargs):
-        """
-        :param request:
-        :param obj:
-        :param change:
-        :param kwargs:
-        :return: form
-        """
         form = super(PatrolAdmin, self).get_form(request, obj, change, **kwargs)
         if change:
-            db_field = models.PatrolSegment._meta.get_field
-
-            form.base_fields['patrol_type'].initial = obj.patrol_type
-            form.base_fields['tracked_subject'].initial = obj.tracked_subject or obj.tracked_user or obj.tracked_community
-            form.base_fields['patrol_status'].initial = obj.status
+            form.base_fields['patrol_status'].initial = ' '.join(obj.status.split('_')).title()
             form.base_fields['patrol_status'].disabled = True
-
-            form.base_fields['scheduled_start_date'].initial = obj.scheduled_start
-            form.base_fields['scheduled_end_date'].initial = obj.scheduled_end
-
-            form.base_fields['actual_start_date'].initial = obj.start_time
-            form.base_fields['actual_end_date'].initial = obj.end_time
-
-            form.base_fields['end_location'].widget = self.get_map_widget(db_field('end_location'))()
-            form.base_fields['end_location'].widget.attrs['map_srid'] = 4326
-            form.base_fields['end_location'].initial = obj.end_location
-            #
-            form.base_fields['start_location'].widget = self.get_map_widget(db_field('start_location'))()
-            form.base_fields['start_location'].widget.attrs['map_srid'] = 4326
-            form.base_fields['start_location'].initial = obj.start_location
-
         return form
 
     @staticmethod
@@ -583,3 +562,20 @@ class PatrolAdmin(OSMGeoExtendedAdmin):
 
         queryset |= qs.filter(patrol_segment__leader_id__in=self.search_tracked_subject(search_term))
         return queryset, use_distinct
+
+    def save_formset(self, request, form, formset, change):
+        instances = formset.save(commit=False)
+        start_time = formset.cleaned_data[0].get('start_time')
+        end_time = formset.cleaned_data[0].get('end_time')
+        tracked_subject = formset.cleaned_data[0].get('tracked_subject')
+
+        for instance in instances:
+            instance.patrol = formset.instance
+            if start_time and end_time:
+                instance.time_range = DateTimeTZRange(lower=start_time, upper=end_time)
+            elif end_time:
+                instance.time_range = DateTimeTZRange(upper=end_time)
+            if tracked_subject:
+                instance.leader = tracked_subject
+            instance.save()
+

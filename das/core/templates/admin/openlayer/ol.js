@@ -187,7 +187,7 @@ var CreateTileLayer = function(){
 
         });
         object = {};
-        var id = tile.attributes.title.replace(/\s/g, "").toLowerCase() + '_id';
+        var id = tile.attributes.title.replace(/\s/g, "").toLowerCase() + '_{{ id }}';
         object[id] = TileLayer;
         array.push(object);
     });
@@ -270,7 +270,7 @@ var createGeometricObject = function(innerHTML, geoType, className){
         e.preventDefault()
         map.getInteractions().pop();
 
-        var el = document.getElementById("card");
+        var el = document.getElementById("card-{{ id }}");
         if (el.style.display === "grid") {
             el.style.display = "none";
         };
@@ -336,7 +336,7 @@ var modif = function(className) {
         modify = new ol.interaction.Modify({ source: source });
         map.getInteractions().pop()
 
-        var el = document.getElementById("card");
+        var el = document.getElementById("card-{{ id }}");
         if (el.style.display === "grid") {
             el.style.display = "none";
         };
@@ -368,7 +368,7 @@ var delet = function (className){
         result = confirm("Want to clear all features?");
         if (result){
             source.clear();
-            console.log(document.getElementById('{{ id }}').value)
+            // console.log(document.getElementById('{{ id }}').value)
             document.getElementById('{{ id }}').value = '';
             document.getElementById('{{ id }}_coordinate_0').value = '';
             document.getElementById('{{ id }}_coordinate_1').value = '';
@@ -427,7 +427,7 @@ var switchBaseLayer = function (e) {
         location.reload();
     }
 
-    var el = document.getElementById("card");
+    var el = document.getElementById("card-{{ id }}");
     // console.log(el)
     if (el.style.display === "grid"){
         el.style.display = "none";
@@ -449,7 +449,7 @@ var BaseLayerControl = new ol.control.Control({
 map.addControl(BaseLayerControl);
 
 
-var cardHTML = `<div class="card ol-unselectable ol-control ol-bl" id="card"></div>`;
+var cardHTML = `<div class="card ol-unselectable ol-control ol-bl" id="card-{{ id }}"></div>`;
 
 var olLayersViewPort = document.getElementById('{{ id }}_map').getElementsByClassName("ol-viewport")[0];
 
@@ -464,23 +464,41 @@ var TileLayerHTML = function(id, icon_url, name, title){
                 <input type="image" src="${icon_url}" name="${name}" class="input" id="${id}" style="${style}"/>
                 <span> <center id="${id}">${title}</center> </span>
             </div>`;
-    cardDiv = document.getElementById('card');
+    cardDiv = document.getElementById('card-{{ id }}');
     cardDiv.insertAdjacentHTML('beforeend', HTML);
 };
 
 var setLocalStorage = function (key, id) {
+    // console.log('key', key, 'id:', id)
     localStorage.setItem(key, id);
 };
 var dynamicActive = function(id){
     var activeState;
-    setLocalStorage('baselayer', id);
+    console.log('iiii', id);
+    setLocalStorage('{{ id }}_baselayer', id);
     activeState = document.getElementsByClassName('active');
+
+    console.log(document.getElementById(id).parentElement)
+
+
     if(activeState.length == 0){
         document.getElementById(id).parentElement.className += ' active';
     }else{
         var current = activeState;
-        current[0].className = current[0].className.replace(' active', '');
-        document.getElementById(id).parentElement.className += ' active';
+        var i;
+        for(i=0; i < current.length; i++){
+            var ax = current[i].getElementsByTagName('input')[0].id;
+            // console.log('ax:',  ax,  'id:', id, '{id}', "{{ id }}");
+            // console.log(current);
+            if (id.includes("{{ id }}") && ax.includes("{{ id }}")){
+                // console.log('ax:',  ax,  'id:', id, '{id}', "{{ id }}");
+                // console.log(ax.includes("{{ id }}"))
+                document.getElementById(ax).parentElement.className = 'item'
+                document.getElementById(id).parentElement.className += ' active';
+            }
+             document.getElementById(id).parentElement.className = 'item active';
+        }
+
     }
 };
 
@@ -523,7 +541,7 @@ var defaultIcon = "https://img.icons8.com/cotton/256/000000/globe.png";
 
 {{ module }}.tile_layers.forEach( function(layer){
     if (layer.attributes.type == "tile_server"){
-        var id = layer.attributes.title.replace(/\s/g, "").toLowerCase()+'_id';
+        var id = layer.attributes.title.replace(/\s/g, "").toLowerCase()+'_{{ id }}';
         var name = layer.attributes.title.toLowerCase();
         var title = layer.attributes.title;
         var icon_url = layer.attributes.icon_url;
@@ -541,18 +559,18 @@ var defaultIcon = "https://img.icons8.com/cotton/256/000000/globe.png";
 
 // Default option for OSM:
 var osmIConUrl ="{% static 'img/Openstreetmap_logo.png' %}"
-TileLayerHTML('osm_', osmIConUrl, 'osm', 'OSM');
-document.querySelectorAll('[id^="osm_"]').forEach(function(element){
+TileLayerHTML("osm_{{ id }}", osmIConUrl, 'osm', 'OSM');
+document.querySelectorAll('[id^="osm_{{ id }}"]').forEach(function(element){
     element.addEventListener('click', function(event){
         event.preventDefault();
-        dynamicActive('osm_');
+        dynamicActive("osm_{{ id }}");
         switchBaseMapLayer(raster);
     });
 
 });
 
 // Note: This code should be below the code that creates OSM tilelayer
-var tileFromStorageId = localStorage.getItem('baselayer');
+var tileFromStorageId = localStorage.getItem('{{ id }}_baselayer');
 if (tileFromStorageId != null) {
     tileLayerSession(tileFromStorageId);
     document.getElementById(tileFromStorageId).parentElement.className += ' active';

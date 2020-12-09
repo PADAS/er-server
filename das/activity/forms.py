@@ -7,7 +7,7 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.forms.widgets import Widget
 from django.utils.translation import ugettext_lazy as _
 from django.forms import TextInput
-from django.contrib.admin.widgets import FilteredSelectMultiple, AdminSplitDateTime as BaseAdminSplitDateTime
+from django.contrib.admin.widgets import FilteredSelectMultiple, AdminSplitDateTime
 from django.contrib.gis import forms as gisforms
 from django.contrib.auth import get_user_model
 
@@ -20,7 +20,7 @@ import jsonschema
 from core.utils import OneWeekSchedule
 from activity.alerting.conditions import Conditions
 from activity.models import EventProvider, NotificationMethod, EventType, \
-    Event, Patrol, PatrolType
+    Event, Patrol, PatrolType, PatrolSegment
 from utils.schema_utils import get_schema_renderer_method, \
     validate_rendered_schema_is_wellformed
 from core.widget import IconKeyInput, get_icon_select_list
@@ -28,8 +28,7 @@ from core.common import TIMEZONE_USED
 from django.utils.html import format_html
 from observations.models import Subject
 from activity.models import Community
-
-logger = logging.getLogger(__name__)
+from core.inline_openlayer import InlineOSMGeoAdmin
 
 
 class MonospaceTextWidget(forms.Textarea):
@@ -223,16 +222,11 @@ def reported_by_lookup():
 
 
 class PatrolForm(forms.ModelForm):
-    title = forms.CharField(required=True,)
-    patrol_type = forms.CharField()
-    tracked_subject = forms.ModelChoiceField(queryset=reported_by_lookup(), label='Tracked subject name')
-    patrol_status = forms.CharField(widget=forms.TextInput(attrs={'class': 'x'}))
-    scheduled_start_date = forms.DateTimeField(widget=BaseAdminSplitDateTime({'size': '11'}))
-    actual_start_date = forms.DateTimeField(widget=BaseAdminSplitDateTime({'size': '11'}))
-    start_location = gisforms.PointField(srid=4321)
-    scheduled_end_date = forms.DateTimeField(widget=BaseAdminSplitDateTime({'size': '11'}))
-    actual_end_date = forms.DateTimeField(widget=BaseAdminSplitDateTime({'size': '11'}))
-    end_location = gisforms.PointField(srid=4321)
+    patrol_status = forms.CharField(required=False)
+
+    class Meta:
+        model = Patrol
+        fields = '__all__'
 
 
 class PatrolTypeForm(forms.ModelForm):
@@ -243,3 +237,48 @@ class PatrolTypeForm(forms.ModelForm):
     class Meta:
         model = PatrolType
         fields = '__all__'
+
+
+def queryset_chain(*iterables):
+    for it in iterables:
+        for element in it:
+            yield str(element), element
+
+
+def chained_tracked_by():
+    user_qs = get_user_model().objects.all()
+    subject_qs = Subject.objects.all()
+    choices = [(None, '-----------')] + list(queryset_chain(user_qs, subject_qs))
+    return choices
+
+
+class OverrideChoiceField(forms.ChoiceField):
+    def to_python(self, value):
+        """Return a queryset"""
+        if value in self.empty_values:
+            return ''
+        combined_choices = dict(self.choices)
+        return combined_choices.get(value)
+
+
+class PatrolSegmentForm(forms.ModelForm):
+    start_time = forms.SplitDateTimeField(widget=AdminSplitDateTime(), label='Actual Start Date', required=False)
+    end_time = forms.SplitDateTimeField(widget=AdminSplitDateTime(), label='Actual End Date', required=False)
+    tracked_subject = OverrideChoiceField(choices=chained_tracked_by(), label='Tracked subject name', required=False)
+
+    class Meta:
+        model = PatrolSegment
+        exclude = ('time_range', 'id')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        instance = kwargs.get('instance')
+        if instance and instance.time_range:
+            self.fields['start_time'].initial = instance.time_range.lower
+            self.fields['end_time'].initial = instance.time_range.upper
+
+            self.fields['tracked_subject'].initial = instance.leader
+
+
+class PatrolSegmentStackedInline(InlineOSMGeoAdmin):
+    template = 'admin/edit_inline/stacked.html'
