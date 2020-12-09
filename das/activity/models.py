@@ -766,8 +766,8 @@ class Event(RevisionMixin, TimestampedModel):
                                     'reported_by_id')
 
     sort_at = models.DateTimeField(blank=True)
-    patrol_segment = models.ForeignKey(
-        to='PatrolSegment', on_delete=models.SET_NULL, blank=True, null=True,
+    patrol_segment = models.ManyToManyField(
+        to='PatrolSegment', through='EventRelatedSegments',
         related_name='reports', related_query_name='report')
 
     @property
@@ -937,6 +937,16 @@ class Event(RevisionMixin, TimestampedModel):
 
     def __str__(self):
         return f'{self.serial_number}: ({self.title}, {self.event_type})'
+
+
+class EventRelatedSegmentsManager(models.Manager):
+    pass
+
+
+class EventRelatedSegments(models.Model):
+    objects = EventRelatedSegmentsManager()
+    event = models.ForeignKey(Event, on_delete=models.SET_NULL, null=True)
+    patrol_segment = models.ForeignKey(to='PatrolSegment', on_delete=models.SET_NULL, null=True)
 
 
 class EventRelatedSubjectManager(models.Manager):
