@@ -676,7 +676,7 @@ class TestPatrol(BaseAPITest):
         filter_query = {'filter': json.dumps(
             {"date_range": {"upper": self.start_of_today.isoformat()}})}
         response = self._filter_patrol(filter_query)
-        self.assertEqual(response.data.get('count'), 1)
+        self.assertEqual(response.data.get('count'), 0)
 
     def test_patrol_filter_only_scheduled_start_given(self):
         start = self.start_of_today + \
