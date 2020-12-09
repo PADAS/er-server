@@ -50,17 +50,20 @@ def forwards(apps, schema_editor):
     event_category, _ = EventCategory.objects.using(db_alias).get_or_create(value='analyzer_event',
                                                                             defaults={"display": "Analyzer Event",
                                                                                       "ordernum": 1})
-    EventType.objects.using(db_alias).update_or_create(value='acoustic_detection',
-                                                       display='Acoustic Detection',
-                                                       category_id=event_category.id,
-                                                       default_priority=200,
-                                                       icon='radar_rep',
-                                                       is_collection=False,
-                                                       schema=ACOUSTIC_DETECTION_SCHEMA)
+
+    defaults = dict(display='Acoustic Detection',
+                    category_id=event_category.id,
+                    default_priority=200,
+                    icon='radar_rep',
+                    is_collection=False,
+                    schema=ACOUSTIC_DETECTION_SCHEMA)
+    EventType.objects.using(db_alias).update_or_create(defaults=defaults,
+     value='acoustic_detection')
+                                                       )
 
 
 class Migration(migrations.Migration):
-    dependencies = [
+    dependencies=[
         ('activity', '0105_patrol_scheduled_end'),
     ]
 
