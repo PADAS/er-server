@@ -1490,30 +1490,27 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_date_range(self, filter_param):
         queryset = self
         lower, upper = parse_date_range(filter_param)
-        if lower and upper:
-            # Active patrols within given dates
-            end_filter = Q(patrol_segment__time_range__endswith__gte=lower) | Q(
-                patrol_segment__time_range__endswith__isnull=True)
-            start_filter = Q(patrol_segment__time_range__startswith__lte=upper) | Q(
-                patrol_segment__scheduled_start__lte=upper)
-            q1 = queryset.filter(start_filter, end_filter).exclude(state=PC_CANCELLED)
 
-            # Get patrols cancelled within given range
-            q2 = queryset.annotate(cancel_rev_exists=Exists(
-                Patrol.revision.model.objects.filter(
-                    data__state=PC_CANCELLED, object_id=OuterRef('id'),
-                    data__updated_at__range=(lower.isoformat(), upper.isoformat())))).filter(cancel_rev_exists=True)
+        lower = lower or pytz.utc.localize(datetime.datetime.min)
+        upper = upper or pytz.utc.localize(datetime.datetime.max)
 
-            # End_date past but patrol still active
-            q3 = queryset.filter(
-                patrol_segment__time_range__endswith__lte=datetime.datetime.today(), state=PC_OPEN)
-            queryset = (q1 | q2 | q3).distinct()
+        # Active patrols within given dates
+        end_filter = Q(patrol_segment__time_range__endswith__gte=lower) | Q(
+            patrol_segment__time_range__endswith__isnull=True)
+        start_filter = Q(patrol_segment__time_range__startswith__lte=upper) | Q(
+            patrol_segment__scheduled_start__lte=upper)
+        q1 = queryset.filter(start_filter, end_filter).exclude(state=PC_CANCELLED)
 
-        elif lower:
-            queryset = queryset.filter(
-                Q(patrol_segment__time_range__startswith__gte=lower) | Q(patrol_segment__scheduled_start__gte=lower))
-        elif upper:
-            queryset = queryset.filter(patrol_segment__time_range__endswith__lte=upper)
+        # Get patrols cancelled within given range
+        q2 = queryset.annotate(cancel_rev_exists=Exists(
+            Patrol.revision.model.objects.filter(
+                data__state=PC_CANCELLED, object_id=OuterRef('id'),
+                data__updated_at__range=(lower.isoformat(), upper.isoformat())))).filter(cancel_rev_exists=True)
+
+        # End_date past but patrol still active
+        q3 = queryset.filter(
+            patrol_segment__time_range__endswith__lte=datetime.datetime.today(), state=PC_OPEN)
+        queryset = (q1 | q2 | q3).distinct()
 
         return queryset
 

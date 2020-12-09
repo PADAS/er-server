@@ -363,7 +363,7 @@ class TestPatrol(BaseAPITest):
         response = views.PatrolView.as_view()(request, id=p.id)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data['notes'][0]['updates']), 2)
-        self.assertEqual(response.data['notes'][0]['updates'][0].get('type'), 'update_patrol')
+        self.assertEqual(response.data['notes'][0]['updates'][0].get('type'), 'update_note')
 
     def test_history_updates_patrol(self):
         patrol = dict(title='Alpha-01')
@@ -493,7 +493,7 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(len(response.data.get('patrol_segments')), 1)
         self.assertEqual(len(response.data.get('notes')), 1)
         self.assertEqual(len(response.data['updates']), 2)
-        self.assertEqual(response.data['patrol_segments'][0]['updates'][0].get('type'), 'update_patrol')
+        self.assertEqual(response.data['patrol_segments'][0]['updates'][0].get('type'), 'update_segment')
 
     def test_update_patrol(self):
         patrol_update_data = dict(
@@ -676,7 +676,7 @@ class TestPatrol(BaseAPITest):
         filter_query = {'filter': json.dumps(
             {"date_range": {"upper": self.start_of_today.isoformat()}})}
         response = self._filter_patrol(filter_query)
-        self.assertEqual(response.data.get('count'), 0)
+        self.assertEqual(response.data.get('count'), 1)
 
     def test_patrol_filter_only_scheduled_start_given(self):
         start = self.start_of_today + \
