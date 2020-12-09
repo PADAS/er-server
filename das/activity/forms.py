@@ -20,7 +20,7 @@ import jsonschema
 from core.utils import OneWeekSchedule
 from activity.alerting.conditions import Conditions
 from activity.models import EventProvider, NotificationMethod, EventType, \
-    Event, Patrol, PatrolType, PatrolSegment
+    Event, Patrol, PatrolType, PatrolSegment, PROVENANCE_CHOICES
 from utils.schema_utils import get_schema_renderer_method, \
     validate_rendered_schema_is_wellformed
 from core.widget import IconKeyInput, get_icon_select_list
@@ -239,16 +239,15 @@ class PatrolTypeForm(forms.ModelForm):
         fields = '__all__'
 
 
-def queryset_chain(*iterables):
+def queryset_chain(iterables):
     for it in iterables:
         for element in it:
             yield str(element), element
 
 
 def chained_tracked_by():
-    user_qs = get_user_model().objects.all()
-    subject_qs = Subject.objects.all()
-    choices = [(None, '-----------')] + list(queryset_chain(user_qs, subject_qs))
+    query_list = [PatrolSegment.objects.get_leader_for_provenance(p[0]) for p in PROVENANCE_CHOICES]
+    choices = [(None, '-----------')] + list(queryset_chain(query_list))
     return choices
 
 
