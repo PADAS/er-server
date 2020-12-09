@@ -121,7 +121,7 @@ class SubjectProximityAnalyzerAdmin(admin.ModelAdmin):
     list_display = ('name', 'subject_group_1_name', 'subject_group_2_name')
     ordering = ('name', 'subject_group', 'second_subject_group')
 
-    search_fields = ('subject_group__name', 'second_subject_group__name', )
+    search_fields = ('subject_group__name', 'second_subject_group__name', 'name',)
     readonly_fields = ('id',)
     form = SubjectProximityAnalyzerForm
 

@@ -31,10 +31,6 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
         else:
             return list(self.subject.observations(last_hours=self.config.analysis_search_time_hours))
 
-    def get_location_url_on_er(self, location):
-        location = self.evaluate_return_value(location)
-        return f'https://{settings.SERVER_FQDN}?lnglat={location[1]:.4f},{location[0]:.4f}'
-
     def analyze_trajectory(self, traj=None):
         """
         A function to analyze the trajectory of a subject in relation to a set of other subjects to
@@ -62,10 +58,10 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
 
                 # Create the analyzer result
                 result = SubjectAnalyzerResult(subject_analyzer=self.config,
-                                               title=self.subject.name + str(_(' proximal to ')) +
+                                               title=self.subject.name + str(_(' is near ')) +
                                                subject_2_name + '.',
                                                level=CRITICAL,
-                                               message=self.subject.name + str(_(' proximal to ')) +
+                                               message=self.subject.name + str(_(' is near ')) +
                                                subject_2_name + '.',
                                                analyzer_revision=1,
                                                subject=self.subject)
@@ -83,13 +79,13 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
                     'subject_1_name': self.evaluate_return_value(prox.subject_1_name),
                     'subject_1_speed_kmhr': self.evaluate_return_value(prox.subject_1_speed),
                     'subject_1_heading': self.evaluate_return_value(prox.subject_1_travel_heading),
-                    'subject_1_location': self.get_location_url_on_er(prox.subject_1_location),
+                    'subject_1_location': prox.subject_1_location,
 
                     'subject_2_id': prox.subject_2_id,
                     'subject_2_name': self.evaluate_return_value(prox.subject_2_name),
                     'subject_2_speed_kmhr': self.evaluate_return_value(prox.subject_2_speed),
                     'subject_2_heading': self.evaluate_return_value(prox.subject_2_travel_heading),
-                    'subject_2_location': self.get_location_url_on_er(prox.subject_2_location),
+                    'subject_2_location': prox.subject_2_location,
 
                     'proximity_dist_meters': prox.proximity_distance_meters,
                     'total_fix_count': traj.relocs.fix_count
@@ -226,12 +222,12 @@ SUBJECT_PROXIMITY_SCHEMA = {
         "subject_1_name": {"type": "string", "title": "Subject 1 Name"},
         "subject_1_speed_kmhr": {"type": "number", "title": "Subject 1 Speed Kmhr"},
         "subject_1_heading": {"type": "number", "title": "Subject 1 Heading"},
-        "subject_1_location": {"type": "string", "title": "Subject 1 location on map", "format": "uri"},
+        "subject_1_location": {"type": "string", "title": "Subject 1 location"},
 
         "subject_2_name": {"type": "string", "title": "Subject 2 Name"},
         "subject_2_speed_kmhr": {"type": "number", "title": "Subject 2 Speed Kmhr"},
         "subject_2_heading": {"type": "number", "title": "Subject 2 Heading"},
-        "subject_2_location": {"type": "string", "title": "Subject 2 location on map", "format": "uri"},
+        "subject_2_location": {"type": "string", "title": "Subject 2 location"},
 
         "proximity_dist_meters": {"type": "number", "title": "Proximity Dist Meters"},
         "total_fix_count": {"type": "number", "title": "Total Fix Count"}
