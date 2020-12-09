@@ -467,7 +467,6 @@ class PatrolAdmin(OSMGeoExtendedAdmin):
         patrol_sgment = models.PatrolSegment.objects.filter(patrol_id=OuterRef('id'),
                                                             leader_content_type=F('leader_content_type'))
         subject = models.Subject.objects.filter(id=OuterRef('leader_id'))
-        community = models.Community.objects.filter(id=OuterRef('leader_id'))
         user = get_user_model().objects.filter(id=OuterRef('leader_id'))
 
         set_time = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(minutes=30)
@@ -490,8 +489,6 @@ class PatrolAdmin(OSMGeoExtendedAdmin):
                                          leader_name=Subquery(subject.values('name'))).values('leader_name')[:1]),
                                      tracked_user=Subquery(patrol_sgment.annotate(
                                          leader_name=Subquery(user.values('username'))).values('leader_name')[:1]),
-                                     tracked_community=Subquery(patrol_sgment.annotate(
-                                         leader_name=Subquery(community.values('name'))).values('leader_name')[:1]),
                                      scheduled_start=Subquery(patrol_sgment.values('scheduled_start')[:1]),
                                      scheduled_end=Subquery(patrol_sgment.values('scheduled_end')[:1]),
                                      start_time=Subquery(patrol_sgment.values('time_range__startswith')[:1]),
@@ -509,7 +506,7 @@ class PatrolAdmin(OSMGeoExtendedAdmin):
         return o.patrol_type
 
     def tracked_subject_name(self, o):
-        return o.tracked_subject
+        return o.tracked_subject or o.tracked_user
 
     def status(self, o):
         return ' '.join(o.status.split('_')).title()
@@ -551,8 +548,7 @@ class PatrolAdmin(OSMGeoExtendedAdmin):
     @staticmethod
     def search_tracked_subject(search_term):
         q_object = Q(models.Subject.objects.filter(name__icontains=search_term)) | \
-                   Q(get_user_model().objects.filter(username__icontains=search_term)) | \
-                   Q(models.Community.objects.filter(name__icontains=search_term))
+                   Q(get_user_model().objects.filter(username__icontains=search_term))
 
         return [i.values_list('id', flat=True)[0] for i in q_object.children if i]
 
