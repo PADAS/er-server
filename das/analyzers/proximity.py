@@ -64,14 +64,15 @@ class ProximityAnalyzer(SubjectAnalyzer):
         et_display = self.value_to_display(et_value)
         et_defaults_dict = dict(display=et_display)
 
-        if isinstance(this_result.subject_analyzer, SubjectProximityAnalyzerConfig):
-            et_defaults_dict['schema'] = json.dumps(SUBJECT_PROXIMITY_SCHEMA, indent=2, default=str)
-
         ec, created = EventCategory.objects.get_or_create(
             value='analyzer_event', defaults=dict(display='Analyzer Events'))
-        EventType.objects.get_or_create(
+        et, created = EventType.objects.get_or_create(
             value=et_value, category=ec,
             defaults=et_defaults_dict)
+
+        if created and isinstance(this_result.subject_analyzer, SubjectProximityAnalyzerConfig):
+            et.schema = json.dumps(SUBJECT_PROXIMITY_SCHEMA, indent=2, default=str)
+            et.save()
         return et_value
 
     def create_analyzer_event(self, last_result=None, this_result=None):
