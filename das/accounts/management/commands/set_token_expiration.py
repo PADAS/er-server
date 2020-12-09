@@ -1,11 +1,7 @@
-import logging
 from datetime import datetime, timezone
 
 from django.core.management.base import BaseCommand
 from oauth2_provider.models import AccessToken
-
-logger = logging.getLogger(__name__)
-
 
 class Command(BaseCommand):
     help = '''
@@ -27,7 +23,6 @@ class Command(BaseCommand):
 def set_token_expiration(token_prefix=None, expire_at=None):
     if not token_prefix:
         raise ValueError('You must provide an access token prefix')
-        return
 
     if expire_at:
         expire_at = dateutil.parser.parse(expire_at)
