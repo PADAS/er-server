@@ -1,7 +1,11 @@
+import logging
+
 from datetime import datetime, timezone
 
 from django.core.management.base import BaseCommand
 from oauth2_provider.models import AccessToken
+
+logger = logging.getLogger(__name__)
 
 class Command(BaseCommand):
     help = '''
@@ -35,10 +39,10 @@ def set_token_expiration(token_prefix=None, expire_at=None):
         ac = AccessToken.objects.get(token__startswith=token_prefix)
         ac.expires = expire_at
         ac.save()
-        print(f'Found token with prefix "{token_prefix}" for username {ac.user.username}.')
-        print(f'It now expires at {expire_at.isoformat()}')
+        logger.info(f'Found token with prefix "{token_prefix}" for username {ac.user.username}.'
+                    f' It now expires at {expire_at.isoformat()}')
 
     except AccessToken.DoesNotExist:
-        print(f'No access token found for prefix "{token_prefix}". Doing nothing.')
+        logger.warning(f'No access token found for prefix "{token_prefix}". Doing nothing.')
     except AccessToken.MultipleObjectsReturned:
-        print(f'Multiple tokens found for prefix "{token_prefix}". Doing nothing.')
+        logger.warning(f'Multiple tokens found for prefix "{token_prefix}". Doing nothing.')
