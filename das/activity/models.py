@@ -1508,7 +1508,7 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
                 data__updated_at__range=(lower.isoformat(), upper.isoformat())))).filter(cancel_rev_exists=True)
 
         q3 = queryset.filter(
-            patrol_segment__time_range__endswith__lte=upper, state=PC_OPEN)
+            patrol_segment__time_range__startswith__lte=upper, state=PC_OPEN)
         queryset = (q1 | q2 | q3).distinct()
 
         return queryset
