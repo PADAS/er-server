@@ -1126,7 +1126,7 @@ class TestPatrol(BaseAPITest):
         response = views.PatrolsegmentsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
-        self.assertEqual(0, len(response.data.get('reports')))
+        self.assertEqual(0, len(response.data.get('events')))
 
         segment_id = response.data.get('id')
         et = EventType.objects.first()
@@ -1135,7 +1135,7 @@ class TestPatrol(BaseAPITest):
         event_data = dict(
             title="Test Event",
             event_type=et.value,
-            patrol_segment_id=segment_id
+            patrol_segment_ids=[segment_id]
 
         )
         events_url = reverse('events')
@@ -1144,11 +1144,11 @@ class TestPatrol(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.data.get('patrol_segment_id'), segment_id)
+        self.assertTrue(str(segment_id) in response.data.get('patrol_segment_ids'))
 
         # View reports from segment
         url = reverse('patrol-segment', kwargs={'id': segment_id})
         request = self.factory.get(url)
         self.force_authenticate(request, self.user)
         response = views.PatrolsegmentView.as_view()(request, id=segment_id)
-        self.assertEqual(1, len(response.data.get('reports')))
+        self.assertEqual(1, len(response.data.get('events')))

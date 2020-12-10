@@ -109,4 +109,10 @@ urlpatterns = [
         r'^patrols/segments/?$', views.PatrolsegmentsView.as_view(), name='patrol-segments'),
     url(
         r'^patrols/segments/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.PatrolsegmentView.as_view(), name='patrol-segment'),
+    url(
+        r'^patrols/segments/(?P<segment_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/events/?$',
+        views.EventsView.as_view(), name='segment-events'),
+    url(
+        r'^patrols/segments/(?P<segment_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/event/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
+        views.EventView.as_view(), name='segment-event'),
 ]

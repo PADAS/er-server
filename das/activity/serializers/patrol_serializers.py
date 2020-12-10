@@ -147,7 +147,7 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
     end_location = fields.GEOPointField(required=False, allow_null=True, validators=[PointValidator()])
     image_url = serializers.CharField(read_only=True, required=False)
     icon_id = serializers.CharField(read_only=True, required=False)
-    reports = EventSerializer(many=True, read_only=True)
+    events = EventSerializer(many=True, read_only=True)
 
     def to_internal_value(self, data):
         sch_start = data.get('scheduled_start')

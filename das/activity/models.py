@@ -454,7 +454,11 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
 class EventManager(models.Manager):
     def create_event(self, **values):
-        return self.create(**values)
+        segment_ids = values.pop('patrol_segments', 0)
+        event = self.create(**values)
+        if segment_ids:
+            event.patrol_segments.set(PatrolSegment.objects.filter(id__in=segment_ids))
+        return event
 
     def get_reported_by_for_provenance(self, provenance):
         if Event.PC_STAFF == provenance:
@@ -766,9 +770,9 @@ class Event(RevisionMixin, TimestampedModel):
                                     'reported_by_id')
 
     sort_at = models.DateTimeField(blank=True)
-    patrol_segment = models.ManyToManyField(
+    patrol_segments = models.ManyToManyField(
         to='PatrolSegment', through='EventRelatedSegments',
-        related_name='reports', related_query_name='report')
+        related_name='events', related_query_name='event')
 
     @property
     def display_title(self):

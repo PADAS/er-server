@@ -716,6 +716,9 @@ class EventsView(generics.ListCreateAPIView):
 
         queryset = Event.objects.all_sort().prefetch_related(
             'eventsource_event_refs')
+        patrol_segment = self.kwargs.get('segment_id')
+        if patrol_segment:
+            queryset = queryset.filter(patrol_segments__id=patrol_segment)
 
         query_params = self.request.query_params
         event_ids = query_params.get('event_ids', [])
@@ -846,6 +849,9 @@ class EventView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         queryset = Event.objects.all()
+        patrol_segment = self.kwargs.get('segment_id')
+        if patrol_segment:
+            queryset = queryset.filter(patrol_segment__id=patrol_segment)
 
         event_filter = self.request.query_params.get('filter', None)
         if event_filter:
