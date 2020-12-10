@@ -464,8 +464,7 @@ class PatrolAdmin(OSMGeoExtendedAdmin):
 
     def get_queryset(self, request):
         queryset = super(PatrolAdmin, self).get_queryset(request)
-        patrol_sgment = models.PatrolSegment.objects.filter(patrol_id=OuterRef('id'),
-                                                            leader_content_type=F('leader_content_type'))
+        patrol_sgment = models.PatrolSegment.objects.filter(patrol_id=OuterRef('id')).order_by('created_at')
         subject = models.Subject.objects.filter(id=OuterRef('leader_id'))
         user = get_user_model().objects.filter(id=OuterRef('leader_id'))
 

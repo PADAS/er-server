@@ -275,7 +275,7 @@ class PatrolSegmentForm(forms.ModelForm):
         if instance and instance.time_range:
             self.fields['start_time'].initial = instance.time_range.lower
             self.fields['end_time'].initial = instance.time_range.upper
-
+        if instance:
             self.fields['tracked_subject'].initial = instance.leader
 
 
