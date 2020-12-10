@@ -59,7 +59,6 @@ def forwards(apps, schema_editor):
                     schema=ACOUSTIC_DETECTION_SCHEMA)
     EventType.objects.using(db_alias).update_or_create(defaults=defaults,
      value='acoustic_detection')
-                                                       )
 
 
 class Migration(migrations.Migration):
