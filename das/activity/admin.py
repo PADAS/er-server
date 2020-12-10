@@ -15,6 +15,7 @@ from django.db.models import OuterRef, Subquery, F, Case, Q, When, Value, CharFi
 from django.contrib.auth import get_user_model
 from django.contrib.admin import SimpleListFilter
 from psycopg2.extras import DateTimeTZRange
+from django.db.utils import DataError
 
 
 import activity.models as models
@@ -544,6 +545,15 @@ class PatrolAdmin(OSMGeoExtendedAdmin):
             form.base_fields['patrol_status'].disabled = True
         return form
 
+    def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
+        try:
+            return super().changeform_view(request, object_id, form_url, extra_context)
+        except DataError as exc:
+            self.message_user(request,
+                              "Actual start date must be earlier or equal to Actual end date",
+                              level=messages.ERROR)
+            return HttpResponseRedirect(request.get_full_path())
+
     @staticmethod
     def search_tracked_subject(search_term):
         q_object = Q(models.Subject.objects.filter(name__icontains=search_term)) | \
@@ -568,6 +578,8 @@ class PatrolAdmin(OSMGeoExtendedAdmin):
             instance.patrol = formset.instance
             if start_time and end_time:
                 instance.time_range = DateTimeTZRange(lower=start_time, upper=end_time)
+            elif start_time:
+                instance.time_range = DateTimeTZRange(lower=start_time)
             elif end_time:
                 instance.time_range = DateTimeTZRange(upper=end_time)
             if tracked_subject:
