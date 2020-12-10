@@ -6,6 +6,8 @@ from django.core.exceptions import ValidationError
 from drf_extra_fields.compat import DateTimeTZRange
 from drf_extra_fields.fields import RangeField
 from dateutil.parser import parse as parse_date
+from drf_extra_fields.geo_fields import PointField
+from django.contrib.gis.geos import GEOSGeometry
 
 
 class CoordinateField(serializers.Field):
@@ -79,3 +81,20 @@ class _RangeField(RangeField):
 class DateTimeRangeField(_RangeField):
     child = DateTimeField(allow_null=True)
     range_type = DateTimeTZRange
+
+
+class GEOPointField(PointField):
+
+    def to_representation(self, value):
+        """
+        Transform POINT object to json.
+        """
+        if value is None:
+            return value
+
+        if isinstance(value, GEOSGeometry):
+            value = {
+                "latitude": value.y,
+                "longitude": value.x
+            }
+        return value

@@ -143,10 +143,8 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
     scheduled_start = DateTimeField(required=False, allow_null=True)
     scheduled_end = DateTimeField(required=False, allow_null=True)
     time_range = fields.DateTimeRangeField(required=False, allow_null=True)
-    start_location = PointField(required=False, allow_null=True,
-                                validators=[PointValidator()])
-    end_location = PointField(required=False, allow_null=True,
-                              validators=[PointValidator()])
+    start_location = fields.GEOPointField(required=False, allow_null=True, validators=[PointValidator()])
+    end_location = fields.GEOPointField(required=False, allow_null=True, validators=[PointValidator()])
     image_url = serializers.CharField(read_only=True, required=False)
     icon_id = serializers.CharField(read_only=True, required=False)
 
