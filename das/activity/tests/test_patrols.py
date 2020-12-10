@@ -1096,3 +1096,19 @@ class TestPatrol(BaseAPITest):
         results[7] = response.data['results'][7]['patrol_segments'][0]['patrol_type']
         for exp, actual in zip(expected, results):
             self.assertEqual(exp, actual)
+
+    def test_locations_in_patrolsegment(self):
+        # test that start_location or end_location return a float/numeric
+        patrolsgm_data = dict(patrol_type='unique_fence_patrol',
+                              start_location={
+                                  'latitude': '-122.334', 'longitude': '47.598'},
+                              end_location={'latitude': '-124.54',
+                                            'longitude': '38.98'},
+                              )
+        url = reverse('patrol-segments')
+        request = self.factory.post(url, data=patrolsgm_data)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsegmentsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(isinstance(response.data.get('start_location').get('latitude'), float))
+        self.assertTrue(isinstance(response.data.get('end_location').get('latitude'), float))
