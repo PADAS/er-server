@@ -660,10 +660,23 @@ class EventsView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
     metadata_class = EventJSONSchema
 
+    def add_segment_to_record(self, patrol_segment_id, new_record):
+        for record in new_record:
+            if not record.get('patrol_segment_ids'):
+                record['patrol_segment_ids'] = patrol_segment_id if isinstance(patrol_segment_id, list) else [patrol_segment_id]
+            else:
+                record['patrol_segment_ids'].append(patrol_segment_id)
+        return new_record
+
     def post(self, request, *args, **kwargs):
+        request.POST._mutable = True
         new_record = request.data
         if isinstance(new_record, dict):
             new_record = [new_record]
+
+        patrol_segment = self.kwargs.get('segment_id')
+        if patrol_segment:
+            new_record = self.add_segment_to_record(patrol_segment, new_record)
         with transaction.atomic():
             errors = []
             serializer = self.get_serializer(data=new_record, many=True)
@@ -1321,8 +1334,22 @@ class PatrolsegmentsView(generics.ListCreateAPIView):
     serializer_class = PatrolSegmentSerializer
     queryset = PatrolSegment.objects.all()
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        return get_segments(self.kwargs, queryset)
+
 
 class PatrolsegmentView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
     serializer_class = PatrolSegmentSerializer
-    queryset = PatrolSegment.objects.all()
+
+    def get_queryset(self):
+        queryset = PatrolSegment.objects.filter(id=self.kwargs.get('id'))
+        return get_segments(self.kwargs, queryset)
+
+
+def get_segments(kwargs, queryset):
+    related_event = kwargs.get('event_id')
+    if related_event:
+        queryset = queryset.filter(eventrelatedsegments__event__id=related_event)
+    return queryset
