@@ -1,6 +1,8 @@
 import logging
 import time
 import datetime
+from abc import ABC
+
 import pytz
 from enum import Enum
 
@@ -13,7 +15,7 @@ from django.http import HttpResponseRedirect
 from django.contrib import messages
 from django.db.models import OuterRef, Subquery, F, Case, Q, When, Value, CharField
 from django.contrib.auth import get_user_model
-from django.contrib.admin import SimpleListFilter
+from django.contrib.admin import SimpleListFilter, FieldListFilter
 from psycopg2.extras import DateTimeTZRange
 from django.db.utils import DataError
 
@@ -434,6 +436,15 @@ class PatrolStatusFilter(SimpleListFilter):
         return queryset
 
 
+def update_filter_name(title):
+    class Wrapper(FieldListFilter, ABC):
+        def __new__(cls, *args, **kwargs):
+            instance = FieldListFilter.create(*args, **kwargs)
+            instance.title = title
+            return instance
+    return Wrapper
+
+
 class PatrolSegmentInline(PatrolSegmentStackedInline):
     max_num = 1
     can_delete = False
@@ -457,7 +468,7 @@ class PatrolAdmin(OSMGeoExtendedAdmin):
 
     fields = ('serial_number', 'title', 'priority', 'patrol_status')
 
-    list_filter = ('patrol_segment__patrol_type__display',  PatrolStatusFilter)
+    list_filter = (PatrolStatusFilter,  ('patrol_segment__patrol_type__display', update_filter_name('Patrol Type')))
     list_display_links = ('serial_number', 'title')
     search_fields = ('title', 'patrol_segment__patrol_type__display')
 

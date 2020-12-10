@@ -261,13 +261,17 @@ class OverrideChoiceField(forms.ChoiceField):
 
 
 class PatrolSegmentForm(forms.ModelForm):
-    start_time = forms.SplitDateTimeField(widget=AdminSplitDateTime(), label='Actual Start Date', required=False)
-    end_time = forms.SplitDateTimeField(widget=AdminSplitDateTime(), label='Actual End Date', required=False)
+    start_time = forms.SplitDateTimeField(widget=AdminSplitDateTime(), label='Actual start date', required=False)
+    end_time = forms.SplitDateTimeField(widget=AdminSplitDateTime(), label='Actual end date', required=False)
     tracked_subject = OverrideChoiceField(choices=chained_tracked_by, label='Tracked subject name', required=False)
 
     class Meta:
         model = PatrolSegment
         exclude = ('time_range', 'id')
+        labels = {
+            "scheduled_start": "Scheduled start date",
+            "scheduled_end": "Scheduled end date"
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
