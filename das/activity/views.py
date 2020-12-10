@@ -851,7 +851,7 @@ class EventView(generics.RetrieveUpdateDestroyAPIView):
         queryset = Event.objects.all()
         patrol_segment = self.kwargs.get('segment_id')
         if patrol_segment:
-            queryset = queryset.filter(patrol_segment__id=patrol_segment)
+            queryset = queryset.filter(patrol_segments__id=patrol_segment)
 
         event_filter = self.request.query_params.get('filter', None)
         if event_filter:
