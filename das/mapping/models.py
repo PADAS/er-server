@@ -733,7 +733,7 @@ class ArcgisGroup(TimestampedModel):
 
 
 class ArcgisConfiguration(TimestampedModel):
-    disable_import_feature_classes = models.BooleanField(default=False)
+    disable_import_feature_class_presentation = models.BooleanField(default=False)
     service_url = models.CharField(max_length=2000, blank=True, null=True,
                                    help_text='Leave blank to connect to ArcGIS Online, '
                                              'or enter your ArcGIS Enterprise service URL')
@@ -751,7 +751,7 @@ class ArcgisConfiguration(TimestampedModel):
     id_field = models.CharField(max_length=100, blank=True, null=True, default='GlobalID',
                                 help_text='Name of field in your GIS data that has the feature ID. Default is GlobalID')
     type_label = models.CharField(max_length=100, blank=True, null=True, verbose_name='Type field', default='FeatureType',
-                                  help_text='Name of field in your GIS data that has the feature type. Defaults are Type and FeatureType')
+                                  help_text='Name of field in your GIS data that has the feature type. Defaults are type and FeatureType')
     last_download = models.DateTimeField(blank=True, null=True, verbose_name='Last Download Time')
 
     class Meta:
