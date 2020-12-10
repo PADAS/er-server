@@ -949,8 +949,8 @@ class EventRelatedSegmentsManager(models.Manager):
 
 class EventRelatedSegments(models.Model):
     objects = EventRelatedSegmentsManager()
-    event = models.ForeignKey(Event, on_delete=models.SET_NULL, null=True)
-    patrol_segment = models.ForeignKey(to='PatrolSegment', on_delete=models.SET_NULL, null=True)
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, null=False)
+    patrol_segment = models.ForeignKey(to='PatrolSegment', on_delete=models.CASCADE, null=False)
 
 
 class EventRelatedSubjectManager(models.Manager):
