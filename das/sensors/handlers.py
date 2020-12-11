@@ -8,7 +8,9 @@ from rest_framework import status, serializers
 from rest_framework.response import Response
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, F, Func, ExpressionWrapper
+from psycopg2.extras import DateTimeTZRange
+from django.contrib.postgres.fields import DateTimeRangeField
 
 from observations.models import SubjectSource, Source, Observation, Subject, SourceProvider, SubjectSubType
 from observations.serializers import ObservationSerializer
@@ -57,7 +59,7 @@ class GenericSensorHandler:
         params = SensorPostParameters(data=observations_json, many=True)
         if not params.is_valid():
             return Response(data=params.errors, status=status.HTTP_400_BAD_REQUEST)
-
+        # TODO: pass deserialized observations
         return cls.process_observations(params.validated_data, provider_key, sensor_type, request.user)
 
     @classmethod
@@ -115,20 +117,16 @@ class GenericSensorHandler:
     @classmethod
     def update_source_assignment(cls, matching_subject, source, record_time):
         # Terminate pre existing subject source assignment
-        existing_assignment = SubjectSource.objects.filter(
-            subject=matching_subject, assigned_range__contains=record_time).order_by('-assigned_range').first()
+        count_terminated_assignments = SubjectSource.objects.filter(subject=matching_subject, assigned_range__contains=record_time) \
+            .exclude(source=source) \
+            .annotate(lower_boundary=Func(F('assigned_range'), function='LOWER')) \
+            .update(assigned_range=ExpressionWrapper(Func(F('lower_boundary'), record_time, function='tstzrange'), output_field=DateTimeRangeField()))
 
-        if existing_assignment:
-            terminated_at = record_time - datetime.timedelta(seconds=1)
-            updated_assigned_range = list((existing_assignment.assigned_range.lower, terminated_at))
-            existing_assignment.assigned_range = updated_assigned_range
-            existing_assignment.save()
+        logger.info('Terminated %d existing assignments.', count_terminated_assignments)
 
-            new_assigned_range = list((record_time, existing_assignment.assigned_range.upper))
-        else:
-            new_assigned_range = list((record_time, pytz.utc.localize(datetime.max)))
         SubjectSource.objects.create(
-            source=source, subject=matching_subject, assigned_range=new_assigned_range
+            source=source, subject=matching_subject,
+            assigned_range=DateTimeTZRange(lower=record_time, upper=pytz.utc.localize(datetime.max))
         )
         return matching_subject
 
