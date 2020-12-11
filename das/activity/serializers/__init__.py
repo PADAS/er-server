@@ -1016,6 +1016,10 @@ class EventSerializerMixin:
                         enser.create(enser.validated_data)
                 continue
 
+            if k == 'patrol_segments':
+                instance.patrol_segments.set((activity.models.PatrolSegment.objects.get(id=p) for p in v))
+                continue
+
             if getattr(instance, k) != v:
                 setattr(instance, k, v)
                 if k == 'reported_by':
@@ -1221,6 +1225,11 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     files = EventFileSerializer(many=True, required=False, read_only=True)
 
     related_subjects = SubjectSerializer(many=True, required=False)
+    patrol_segment_ids = rest_framework.serializers.ListField(
+        source='patrol_segments', required=False,
+        child=rest_framework.serializers.UUIDField(), write_only=True,
+    )
+
 
     def get_contains(self, event):
         return self.get_out_relation(event, 'contains')
@@ -1268,8 +1277,16 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
                 attrs['priority'] = attrs['event_type'].default_priority
             if attrs.get('state') is None:
                 attrs['state'] = attrs['event_type'].default_state
-
         return super().validate(attrs)
+
+    def validate_patrol_segment_ids(self, segment_ids):
+        result = []
+        for seg_id in segment_ids:
+            if activity.models.PatrolSegment.objects.filter(id=seg_id).exists():
+                result.append(seg_id)
+            else:
+                raise ValidationError(f'PatrolSegment with id {seg_id} does not exist')
+        return result
 
     def get_out_relation(self, event, value):
         self.context['event_relationship_direction'] = 'out'
@@ -1294,7 +1311,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             'event_type', 'priority', 'priority_label', 'attributes', 'comment', 'title',
             'created_by_user', 'notes', 'reported_by',
             'state', 'event_details', 'contains', 'is_linked_to', 'is_contained_in',
-            'files', 'related_subjects', 'eventsource', 'external_event_id', 'sort_at', ) + read_only_fields
+            'files', 'related_subjects', 'eventsource', 'external_event_id', 'sort_at', 'patrol_segment_ids') + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1353,6 +1370,9 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             if event.location is not None:
                 geodata = make_feature(self.context['request'], event)
                 rep['geojson'] = geodata
+        if event.event_type:
+            rep['is_collection'] = event.event_type.is_collection
+        rep['patrol_segment_ids'] = [str(seg.id) for seg in event.patrol_segments.all()]
 
         if self.context.get('include_updates', True):
             updates = self.render_updates(event)
@@ -1365,9 +1385,6 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
                 updates.extend(details_updates)
             rep['updates'] = sorted(
                 updates, key=lambda u: u['time'], reverse=True)
-
-        if event.event_type:
-            rep['is_collection'] = event.event_type.is_collection
 
         return rep
 

@@ -10,9 +10,8 @@ import django.contrib.auth
 from django.core.management import call_command
 from django.urls import reverse
 from django.utils import lorem_ipsum
-
 from activity import views
-from activity.models import Patrol, PatrolSegment, PatrolType, StateFilters
+from activity.models import Patrol, PatrolSegment, PatrolType, StateFilters, Event, EventType
 from core.tests import BaseAPITest
 from observations.models import Subject
 
@@ -29,8 +28,10 @@ class TestPatrol(BaseAPITest):
         call_command('loaddata', 'test_patroltype')
 
         user_const = dict(last_name='last', first_name='first')
-        self.user = User.objects.create_user('user', 'user@test.com', 'all_perms_user', is_superuser=True,
-                                             is_staff=True, **user_const)
+        self.user = User.objects.create_superuser(
+            'super_user', 'das_super_user@vulcan.com', 'super_user_pass',
+            **user_const)
+
         self.sample_patrol_id = "b14bc72f-96d6-4248-9fea-7dd0bbc8c196"
         Patrol.objects.bulk_create(
             [
@@ -1113,3 +1114,41 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         self.assertTrue(isinstance(response.data.get('start_location').get('latitude'), float))
         self.assertTrue(isinstance(response.data.get('end_location').get('latitude'), float))
+
+    def test_add_report_to_patrol_segment(self):
+        patrol_segment = dict(
+            patrol_type="routine_patrol"
+        )
+
+        url = reverse('patrol-segments')
+        request = self.factory.post(url, data=patrol_segment)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsegmentsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        self.assertEqual(0, len(response.data.get('events')))
+
+        segment_id = response.data.get('id')
+        et = EventType.objects.first()
+
+        # Create an event and view segment
+        event_data = dict(
+            title="Test Event",
+            event_type=et.value,
+            patrol_segment_ids=[segment_id]
+
+        )
+        events_url = reverse('events')
+        request = self.factory.post(events_url, event_data)
+        self.force_authenticate(request, self.user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(str(segment_id) in response.data.get('patrol_segment_ids'))
+
+        # View reports from segment
+        url = reverse('patrol-segment', kwargs={'id': segment_id})
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.user)
+        response = views.PatrolsegmentView.as_view()(request, id=segment_id)
+        self.assertEqual(1, len(response.data.get('events')))

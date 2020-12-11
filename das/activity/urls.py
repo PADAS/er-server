@@ -2,7 +2,7 @@ from django.conf.urls import url, include
 from activity import views, alerts_views
 
 urlpatterns = [
-    url(r'^events/?$', views.EventsView.as_view()),
+    url(r'^events/?$', views.EventsView.as_view(), name="events"),
     url(r'^events/geojson/?$', views.EventsGeoJsonView.as_view()),
     url(r'^events/export/?$', views.EventsExportView.as_view()),
     url(r'^events/schema/?$', views.EventSchemaView.as_view()),
@@ -109,4 +109,17 @@ urlpatterns = [
         r'^patrols/segments/?$', views.PatrolsegmentsView.as_view(), name='patrol-segments'),
     url(
         r'^patrols/segments/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.PatrolsegmentView.as_view(), name='patrol-segment'),
+    url(
+        r'^patrols/segments/(?P<segment_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/events/?$',
+        views.EventsView.as_view(), name='segment-events'),
+    url(
+        r'^patrols/segments/(?P<segment_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/event/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
+        views.EventView.as_view(), name='segment-event'),
+
+    url(
+        r'^event/(?P<event_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/segments/?$',
+        views.PatrolsegmentsView.as_view(), name='event-segments-view'),
+    url(
+        r'^event/(?P<event_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/segment/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})?$',
+        views.PatrolsegmentView.as_view(), name='event-segment-view'),
 ]
