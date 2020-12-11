@@ -194,6 +194,7 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
         return activity.models.PatrolSegment.objects.create(**validated_data)
 
     def render_updates(self, segment):
+        model_verbose_name = segment._meta.verbose_name.title()
         revisions = list(
             iter(segment.revision.all_user().order_by('sequence')))
         field_mapping = {'scheduled_start': 'Scheduled Start',
@@ -205,7 +206,7 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
         result = [
             dict(
                 message='{action}'.format(
-                    action=self.get_action(revision, field_mapping),
+                    action=self.get_action(revision, field_mapping, model_verbose_name),
                     user=get_user_display(revision.user)
                 ),
                 time=revision.revision_at.isoformat(),
@@ -294,13 +295,14 @@ class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
                 model.objects.create(**data)
 
     def render_updates(self, patrol):
+        model_verbose_name = patrol._meta.verbose_name.title()
         field_mapping = {'state': 'State is {}', 'title': 'Title'}
 
         revisions = list(iter(patrol.revision.all_user().order_by('sequence')))
         result = [
             dict(
                 message='{action}'.format(
-                    action=self.get_action(revision, field_mapping),
+                    action=self.get_action(revision, field_mapping, model_verbose_name),
                     user=get_user_display(revision.user)
                 ),
                 time=revision.revision_at.isoformat(),

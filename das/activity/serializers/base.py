@@ -183,7 +183,7 @@ class FileSerializerMixin:
 
 
 class RevisionMixin:
-    def get_action(self, revision, field_mapping=None):
+    def get_action(self, revision, field_mapping=None, verbose_name=None):
         if revision.action == AC_UPDATED:
             fieldnames = [field_mapping[k].format(
                 v) for k, v in revision.data.items() if k in field_mapping]
@@ -196,7 +196,7 @@ class RevisionMixin:
                           k in field_mapping]
             return '{0} fields: {1}'.format(revision.get_action_display(), ', '.join(fieldnames))
 
-        return revision.get_action_display()
+        return f'{verbose_name} {revision.get_action_display()}' if verbose_name else revision.get_action_display()
 
     def get_patrol_update_type(self, revision, item='patrol'):
         field_keys = ('state',)

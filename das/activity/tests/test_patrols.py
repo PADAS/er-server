@@ -375,6 +375,7 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(len(response.data['updates']), 1)
         self.assertEqual(response.data['updates'][0].get('type'), 'add_patrol')
+        self.assertEqual(response.data['updates'][0].get('message'), 'Patrol Added')
 
         # Update patrol title
         patrol_id = response.data['id']
