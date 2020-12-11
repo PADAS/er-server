@@ -37,7 +37,6 @@ var {{ module }} = {};
 
 var write_wkt = function(feat) {
     if ("{{ geom_type }}" == "Point"){
-        console.log('{{ id }}')
     var x = document.getElementById('{{ id }}_coordinate_0').value =feat.getGeometry().getCoordinates()[0];
     var y = document.getElementById('{{ id }}_coordinate_1').value =feat.getGeometry().getCoordinates()[1];
     document.getElementById('{{ id }}').value = `SRID={{ srid|unlocalize }};POINT(${x} ${y})`;
@@ -469,18 +468,12 @@ var TileLayerHTML = function(id, icon_url, name, title){
 };
 
 var setLocalStorage = function (key, id) {
-    // console.log('key', key, 'id:', id)
     localStorage.setItem(key, id);
 };
 var dynamicActive = function(id){
     var activeState;
-    console.log('iiii', id);
     setLocalStorage('{{ id }}_baselayer', id);
     activeState = document.getElementsByClassName('active');
-
-    console.log(document.getElementById(id).parentElement)
-
-
     if(activeState.length == 0){
         document.getElementById(id).parentElement.className += ' active';
     }else{
@@ -488,11 +481,7 @@ var dynamicActive = function(id){
         var i;
         for(i=0; i < current.length; i++){
             var ax = current[i].getElementsByTagName('input')[0].id;
-            // console.log('ax:',  ax,  'id:', id, '{id}', "{{ id }}");
-            // console.log(current);
             if (id.includes("{{ id }}") && ax.includes("{{ id }}")){
-                // console.log('ax:',  ax,  'id:', id, '{id}', "{{ id }}");
-                // console.log(ax.includes("{{ id }}"))
                 document.getElementById(ax).parentElement.className = 'item'
                 document.getElementById(id).parentElement.className += ' active';
             }
