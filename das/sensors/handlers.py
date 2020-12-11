@@ -8,20 +8,18 @@ from rest_framework import status, serializers
 from rest_framework.response import Response
 
 from django.db import transaction
-from django.db.models import Q, F, Func, ExpressionWrapper
-from psycopg2.extras import DateTimeTZRange
-from django.contrib.postgres.fields import DateTimeRangeField
 
-from observations.models import SubjectSource, Source, Observation, Subject, SourceProvider, SubjectSubType
+from observations.models import SubjectSource, Source, Observation, Subject, SourceProvider
 from observations.serializers import ObservationSerializer
 from observations import servicesutils
-from observations.models import update_subject_status_from_post, SourceGroup
-from tracking.models.er_track import UPDATE_NAME, USE_EXISTING, TrackConfiguration
+from observations.models import update_subject_status_from_post
+from tracking.models.er_track import TrackConfiguration
 from tracking.pubsub_registry import notify_new_tracks
 from sensors.vehicle_tracker import SkylineObservations, SkylineAdapter, \
     FollowltObservation, TractAdapter, TractVehicleData, EzytrackObservation, \
     EzyTrackAdapter, DasObservation
 from analyzers import gfw_inbound
+from sensors.tasks import handle_subject_and_source
 
 logger = logging.getLogger(__name__)
 
@@ -98,106 +96,19 @@ class GenericSensorHandler:
 
         return Response({}, status=status.HTTP_201_CREATED)
 
-    @classmethod
-    def get_existing_matching_subject(cls, user_subjects, observation, excluded_subtypes, source):
-        subject_name = observation.get('subject_name')
-        record_time = observation.get('recorded_at')
-        qs_person = user_subjects.filter(
-            name=subject_name,
-            subject_subtype__subject_type__value__iexact='person')
-        if qs_person:
-            return cls.update_source_assignment(qs_person.first(), source, record_time)
-        else:
-            qs_other = user_subjects.filter(name=subject_name).exclude(
-                Q(subject_subtype__subject_type__value__in=excluded_subtypes)) if user_subjects else []
-
-            if len(qs_other) == 1:
-                return cls.update_source_assignment(qs_other.first(), source, record_time)
-
-    @classmethod
-    def update_source_assignment(cls, matching_subject, source, record_time):
-        # Terminate pre existing subject source assignment
-        count_terminated_assignments = SubjectSource.objects.filter(subject=matching_subject, assigned_range__contains=record_time) \
-            .exclude(source=source) \
-            .annotate(lower_boundary=Func(F('assigned_range'), function='LOWER')) \
-            .update(assigned_range=ExpressionWrapper(Func(F('lower_boundary'), record_time, function='tstzrange'), output_field=DateTimeRangeField()))
-
-        logger.info('Terminated %d existing assignments.', count_terminated_assignments)
-
-        SubjectSource.objects.create(
-            source=source, subject=matching_subject,
-            assigned_range=DateTimeTZRange(lower=record_time, upper=pytz.utc.localize(datetime.max))
-        )
-        return matching_subject
-
-    @classmethod
-    def handle_new_device(cls, track_config, user_subjects, observation, source):
-        source.groups.set((SourceGroup.objects.get_default(),))
-        config = track_config.new_device_config
-        if config == USE_EXISTING:
-            excluded_subtypes = [k.value for k in track_config.new_subject_excluded_subject_types.all()]
-            return cls.get_existing_matching_subject(user_subjects, observation, excluded_subtypes, source)
-
-    @classmethod
-    def handle_device_name_change(cls, track_config, user_subjects, observation, subject_id, source):
-        config = track_config.name_change_config
-        subject_name = observation.get('subject_name')
-
-        if config == USE_EXISTING:
-            excluded_subtypes = [k.value for k in track_config.name_change_excluded_subject_types.all()]
-            return cls.get_existing_matching_subject(user_subjects, observation, excluded_subtypes, source)
-
-        elif config == UPDATE_NAME:
-            if subject_id:
-                try:
-                    subject_model = Subject.objects.get(id=subject_id)
-                except Subject.DoesNotExist:
-                    pass
-                else:
-                    if subject_model.name != subject_name:
-                        subject_model.name = subject_name
-                        subject_model.save()
-                        return subject_model
-
-    @classmethod
-    def create_default_config(cls):
-        default_config = TrackConfiguration.objects.create(is_default=True)
-        return default_config
 
     @classmethod
     def ensure_source(cls, observation, user, subject_info, **kwargs):
-        provider = SourceProvider.objects.filter(provider_key=kwargs.get('provider')).first()
-        track_config = TrackConfiguration.objects.filter(is_default=True).first()
-        user_subjects = Subject.objects.all().by_user_subjects(user)
-
-        configs = TrackConfiguration.objects.filter(
-            Q(source_provider=provider) | Q(is_default=True)).order_by('is_default')
-        track_config = configs.first()
-
-        if not track_config:
-            track_config = cls.create_default_config(provider)
-
-        user_subjects = Subject.objects.all().by_user_subjects(user)
-
+        provider_key = kwargs.get('provider')
         with transaction.atomic():
             source, source_created = Source.objects.get_source(**kwargs)
-
             if subject_info:
-                subject_id = subject_info.get('id')
-
-                if source_created:
-                    subject_model = cls.handle_new_device(track_config, user_subjects, observation, source)
-                else:
-                    subject_model = cls.handle_device_name_change(
-                        track_config, user_subjects, observation, subject_id, source)
-                if not subject_model:
-                    if Subject.objects.filter(id=subject_id):
-                        subject_info.pop('id')
-                    subject_model = Subject.objects.create_subject(**subject_info)
+                handle_subject_and_source.apply_async(
+                    args=(subject_info, source_created, source.id, provider_key, user.id, observation))
             else:
                 subject_model = Subject.objects.create_subject(
                     **{'name': source.manufacturer_id})
-            SubjectSource.objects.get_or_create(source=source, subject=subject_model)
+                SubjectSource.objects.create(source=source, subject=subject_model)
             return source
 
     @classmethod
