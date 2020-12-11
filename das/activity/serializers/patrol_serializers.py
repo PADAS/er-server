@@ -211,8 +211,7 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
                 time=revision.revision_at.isoformat(),
                 user=UserDisplaySerializer().to_representation(revision.user),
                 type=self.get_patrol_update_type(revision, 'segment'))
-            for revision in revisions if (revision.action == AC_ADDED) or
-                                         (revision.action == AC_RELATION_DELETED) or
+            for revision in revisions if (revision.action == AC_RELATION_DELETED) or
                                          (revision.action == AC_UPDATED
                                           and set(field_mapping.keys()) & set(revision.data.keys()))
         ]
@@ -294,13 +293,14 @@ class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
                 model.objects.create(**data)
 
     def render_updates(self, patrol):
+        verbose_name = patrol._meta.verbose_name.title()
         field_mapping = {'state': 'State is {}', 'title': 'Title'}
 
         revisions = list(iter(patrol.revision.all_user().order_by('sequence')))
         result = [
             dict(
                 message='{action}'.format(
-                    action=self.get_action(revision, field_mapping),
+                    action=self.get_action(revision, field_mapping, verbose_name),
                     user=get_user_display(revision.user)
                 ),
                 time=revision.revision_at.isoformat(),
