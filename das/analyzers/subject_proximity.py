@@ -79,13 +79,13 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
                     'subject_1_name': self.evaluate_return_value(prox.subject_1_name),
                     'subject_1_speed_kmhr': self.evaluate_return_value(prox.subject_1_speed),
                     'subject_1_heading': self.evaluate_return_value(prox.subject_1_travel_heading),
-                    'subject_1_location': prox.subject_1_location,
+                    'subject_1_location': prox.subject_1_location[0],
 
                     'subject_2_id': prox.subject_2_id,
                     'subject_2_name': self.evaluate_return_value(prox.subject_2_name),
                     'subject_2_speed_kmhr': self.evaluate_return_value(prox.subject_2_speed),
                     'subject_2_heading': self.evaluate_return_value(prox.subject_2_travel_heading),
-                    'subject_2_location': prox.subject_2_location,
+                    'subject_2_location': prox.subject_2_location[0],
 
                     'proximity_dist_meters': prox.proximity_distance_meters,
                     'total_fix_count': traj.relocs.fix_count
@@ -165,12 +165,12 @@ class SubjectProximityAnalysis:
                                     subject_1_id=str(analysis_subject.id),
                                     subject_1_name=analysis_subject.name,
                                     subject_1_speed=round(seg.speed_kmhr, 2),
-                                    subject_1_location=analysis_subject_track.location.coords,
+                                    subject_1_location=cls.get_map_coords(analysis_subject_track),
 
                                     subject_2_id=str(subject.id),
                                     subject_2_name=subject.name,
                                     subject_2_speed=round(seg2.speed_kmhr, 2),
-                                    subject_2_location=sub2_last_track.location.coords,
+                                    subject_2_location=cls.get_map_coords(sub2_last_track),
 
                                     subject_1_travel_heading=round(seg.heading, 2),
                                     subject_2_travel_heading=round(seg2.heading, 2),
@@ -185,6 +185,12 @@ class SubjectProximityAnalysis:
         result.analysis_end = dt.datetime.utcnow()
 
         return result
+
+    @classmethod
+    def get_map_coords(cls, track):
+        if track.location:
+            location = track.location.coords  # lon/lat
+            return ', '.join(map(str, location[::-1]))  # lat/lon
 
 
 class SubjectProximityEvent:
