@@ -1,32 +1,29 @@
+import datetime
 import logging
 import time
-import datetime
 from abc import ABC
-
-import pytz
 from enum import Enum
 
-from django.contrib.gis import admin
-from django.templatetags.static import static
-from django.utils.translation import ugettext as _
-from django.utils.safestring import mark_safe
-from django.urls import reverse
-from django.http import HttpResponseRedirect
+import pytz
 from django.contrib import messages
-from django.db.models import OuterRef, Subquery, F, Case, Q, When, Value, CharField
-from django.contrib.auth import get_user_model
 from django.contrib.admin import SimpleListFilter, FieldListFilter
-from psycopg2.extras import DateTimeTZRange
+from django.contrib.auth import get_user_model
+from django.contrib.gis import admin
+from django.db.models import OuterRef, Subquery, F, Case, Q, When, Value, CharField
 from django.db.utils import DataError
-
+from django.http import HttpResponseRedirect
+from django.urls import reverse
+from django.utils.safestring import mark_safe
+from django.utils.translation import ugettext as _
+from psycopg2.extras import DateTimeTZRange
 
 import activity.models as models
-from activity.forms import EventTypeForm, EventForm, PatrolTypeForm, PatrolForm
-from core.admin import InlineExtraDynamicMixin
 from activity.forms import EventProviderForm, AlertRuleForm, PatrolSegmentStackedInline, PatrolSegmentForm
-from core.openlayers import OSMGeoExtendedAdmin
+from activity.forms import EventTypeForm, EventForm, PatrolTypeForm, PatrolForm
 from activity.tasks import refresh_event_details_view, recreate_event_details_view
+from core.admin import InlineExtraDynamicMixin
 from core.common import TIMEZONE_USED, AdminFeatureFlag
+from core.openlayers import OSMGeoExtendedAdmin
 
 logger = logging.getLogger(__name__)
 
