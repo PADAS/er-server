@@ -37,8 +37,8 @@ var {{ module }} = {};
 
 var write_wkt = function(feat) {
     if ("{{ geom_type }}" == "Point"){
-    var x = document.getElementById('id_coordinate_0').value =feat.getGeometry().getCoordinates()[0];
-    var y = document.getElementById('id_coordinate_1').value =feat.getGeometry().getCoordinates()[1];
+    var x = document.getElementById('{{ id }}_coordinate_0').value =feat.getGeometry().getCoordinates()[0];
+    var y = document.getElementById('{{ id }}_coordinate_1').value =feat.getGeometry().getCoordinates()[1];
     document.getElementById('{{ id }}').value = `SRID={{ srid|unlocalize }};POINT(${x} ${y})`;
     }else{
     document.getElementById('{{ id }}').value = {{ module }}.get_ewkt(feat);
@@ -123,8 +123,8 @@ var modify_wkt = function(event) {
 
 
 var notNaN = function(){
-    x = document.getElementById('id_coordinate_0').value
-    y = document.getElementById('id_coordinate_1').value
+    x = document.getElementById('{{ id }}_coordinate_0').value
+    y = document.getElementById('{{ id }}_coordinate_1').value
 
     console.log(x)
     if (!isNaN(x) && !isNaN(y)){
@@ -133,8 +133,8 @@ var notNaN = function(){
 };
 
 var Validate_ = function(){
-    x = document.getElementById('id_coordinate_0').value ? true : false;
-    y = document.getElementById('id_coordinate_1').value ? true : false;
+    x = document.getElementById('{{ id }}_coordinate_0').value ? true : false;
+    y = document.getElementById('{{ id }}_coordinate_1').value ? true : false;
     if ((x && y) && notNaN()){
         return true;
     }
@@ -146,8 +146,8 @@ var timeout = null;
 var ChangeCoordinate = function(event){
     event.preventDefault()
     // x: Longitude y: Latitude
-    var x = document.getElementById('id_coordinate_0').value;
-    var y = document.getElementById('id_coordinate_1').value;
+    var x = document.getElementById('{{ id }}_coordinate_0').value;
+    var y = document.getElementById('{{ id }}_coordinate_1').value;
     if(Validate_()){
         document.getElementById('{{ id }}').value = `SRID={{ srid|unlocalize }};POINT(${x} ${y})`;
 
@@ -169,8 +169,8 @@ var ChangeCoordinate = function(event){
     };
 };
 
-document.getElementById('id_coordinate_0').addEventListener('keyup',  ChangeCoordinate, false)
-document.getElementById('id_coordinate_1').addEventListener('keyup', ChangeCoordinate, false)
+document.getElementById('{{ id }}_coordinate_0').addEventListener('keyup',  ChangeCoordinate, false)
+document.getElementById('{{ id }}_coordinate_1').addEventListener('keyup', ChangeCoordinate, false)
 
 
 var CreateTileLayer = function(){
@@ -186,7 +186,7 @@ var CreateTileLayer = function(){
 
         });
         object = {};
-        var id = tile.attributes.title.replace(/\s/g, "").toLowerCase() + '_id';
+        var id = tile.attributes.title.replace(/\s/g, "").toLowerCase() + '_{{ id }}';
         object[id] = TileLayer;
         array.push(object);
     });
@@ -269,7 +269,7 @@ var createGeometricObject = function(innerHTML, geoType, className){
         e.preventDefault()
         map.getInteractions().pop();
 
-        var el = document.getElementById("card");
+        var el = document.getElementById("card-{{ id }}");
         if (el.style.display === "grid") {
             el.style.display = "none";
         };
@@ -335,7 +335,7 @@ var modif = function(className) {
         modify = new ol.interaction.Modify({ source: source });
         map.getInteractions().pop()
 
-        var el = document.getElementById("card");
+        var el = document.getElementById("card-{{ id }}");
         if (el.style.display === "grid") {
             el.style.display = "none";
         };
@@ -367,9 +367,10 @@ var delet = function (className){
         result = confirm("Want to clear all features?");
         if (result){
             source.clear();
+            // console.log(document.getElementById('{{ id }}').value)
             document.getElementById('{{ id }}').value = '';
-            document.getElementById('id_coordinate_0').value = '';
-            document.getElementById('id_coordinate_1').value = '';
+            document.getElementById('{{ id }}_coordinate_0').value = '';
+            document.getElementById('{{ id }}_coordinate_1').value = '';
         }
     };
 
@@ -425,7 +426,7 @@ var switchBaseLayer = function (e) {
         location.reload();
     }
 
-    var el = document.getElementById("card");
+    var el = document.getElementById("card-{{ id }}");
     // console.log(el)
     if (el.style.display === "grid"){
         el.style.display = "none";
@@ -447,7 +448,7 @@ var BaseLayerControl = new ol.control.Control({
 map.addControl(BaseLayerControl);
 
 
-var cardHTML = `<div class="card ol-unselectable ol-control ol-bl" id="card"></div>`;
+var cardHTML = `<div class="card ol-unselectable ol-control ol-bl" id="card-{{ id }}"></div>`;
 
 var olLayersViewPort = document.getElementById('{{ id }}_map').getElementsByClassName("ol-viewport")[0];
 
@@ -462,7 +463,7 @@ var TileLayerHTML = function(id, icon_url, name, title){
                 <input type="image" src="${icon_url}" name="${name}" class="input" id="${id}" style="${style}"/>
                 <span> <center id="${id}">${title}</center> </span>
             </div>`;
-    cardDiv = document.getElementById('card');
+    cardDiv = document.getElementById('card-{{ id }}');
     cardDiv.insertAdjacentHTML('beforeend', HTML);
 };
 
@@ -471,14 +472,22 @@ var setLocalStorage = function (key, id) {
 };
 var dynamicActive = function(id){
     var activeState;
-    setLocalStorage('baselayer', id);
+    setLocalStorage('{{ id }}_baselayer', id);
     activeState = document.getElementsByClassName('active');
     if(activeState.length == 0){
         document.getElementById(id).parentElement.className += ' active';
     }else{
         var current = activeState;
-        current[0].className = current[0].className.replace(' active', '');
-        document.getElementById(id).parentElement.className += ' active';
+        var i;
+        for(i=0; i < current.length; i++){
+            var ax = current[i].getElementsByTagName('input')[0].id;
+            if (id.includes("{{ id }}") && ax.includes("{{ id }}")){
+                document.getElementById(ax).parentElement.className = 'item'
+                document.getElementById(id).parentElement.className += ' active';
+            }
+             document.getElementById(id).parentElement.className = 'item active';
+        }
+
     }
 };
 
@@ -521,7 +530,7 @@ var defaultIcon = "https://img.icons8.com/cotton/256/000000/globe.png";
 
 {{ module }}.tile_layers.forEach( function(layer){
     if (layer.attributes.type == "tile_server"){
-        var id = layer.attributes.title.replace(/\s/g, "").toLowerCase()+'_id';
+        var id = layer.attributes.title.replace(/\s/g, "").toLowerCase()+'_{{ id }}';
         var name = layer.attributes.title.toLowerCase();
         var title = layer.attributes.title;
         var icon_url = layer.attributes.icon_url;
@@ -539,18 +548,18 @@ var defaultIcon = "https://img.icons8.com/cotton/256/000000/globe.png";
 
 // Default option for OSM:
 var osmIConUrl ="{% static 'img/Openstreetmap_logo.png' %}"
-TileLayerHTML('osm_', osmIConUrl, 'osm', 'OSM');
-document.querySelectorAll('[id^="osm_"]').forEach(function(element){
+TileLayerHTML("osm_{{ id }}", osmIConUrl, 'osm', 'OSM');
+document.querySelectorAll('[id^="osm_{{ id }}"]').forEach(function(element){
     element.addEventListener('click', function(event){
         event.preventDefault();
-        dynamicActive('osm_');
+        dynamicActive("osm_{{ id }}");
         switchBaseMapLayer(raster);
     });
 
 });
 
 // Note: This code should be below the code that creates OSM tilelayer
-var tileFromStorageId = localStorage.getItem('baselayer');
+var tileFromStorageId = localStorage.getItem('{{ id }}_baselayer');
 if (tileFromStorageId != null) {
     tileLayerSession(tileFromStorageId);
     document.getElementById(tileFromStorageId).parentElement.className += ' active';

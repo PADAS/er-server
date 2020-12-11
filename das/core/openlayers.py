@@ -82,7 +82,7 @@ class OSMGeoExtendedAdmin(admin.OSMGeoAdmin, SaveCoordinatesToCookieMixin):
         OLMap.params['tile_layers'] = [baselayer_conf for baselayer_conf in TileLayer.objects.values('attributes')]
         return OLMap
 
-    def get_form(self, request, obj=None, **kwargs):
+    def get_form(self, request, obj=None,  change=False, **kwargs):
         if not obj:
             lon, lat = 0, 0
             try:

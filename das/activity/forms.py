@@ -7,7 +7,9 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.forms.widgets import Widget
 from django.utils.translation import ugettext_lazy as _
 from django.forms import TextInput
-from django.contrib.admin.widgets import FilteredSelectMultiple
+from django.contrib.admin.widgets import FilteredSelectMultiple, AdminSplitDateTime
+from django.contrib.gis import forms as gisforms
+from django.contrib.auth import get_user_model
 
 from activity.exceptions import SchemaValidationError, \
     SCHEMA_ERROR_INCORRECT_RENDER_TAG, SCHEMA_ERROR_JSON_DECODE_ERROR
@@ -18,14 +20,15 @@ import jsonschema
 from core.utils import OneWeekSchedule
 from activity.alerting.conditions import Conditions
 from activity.models import EventProvider, NotificationMethod, EventType, \
-    Event, Patrol, PatrolType
+    Event, Patrol, PatrolType, PatrolSegment, PROVENANCE_CHOICES
 from utils.schema_utils import get_schema_renderer_method, \
     validate_rendered_schema_is_wellformed
 from core.widget import IconKeyInput, get_icon_select_list
 from core.common import TIMEZONE_USED
 from django.utils.html import format_html
-
-logger = logging.getLogger(__name__)
+from observations.models import Subject
+from activity.models import Community
+from core.inline_openlayer import InlineOSMGeoAdmin
 
 
 class MonospaceTextWidget(forms.Textarea):
@@ -211,8 +214,15 @@ class EventForm(forms.ModelForm):
         }
 
 
+def reported_by_lookup():
+    user_qs = get_user_model().objects.values_list('username', flat=True)
+    community_qs = Community.objects.values_list('name', flat=True)
+    subject_qs = Subject.objects.values_list('name', flat=True)
+    return subject_qs.union(user_qs, community_qs).order_by('name')
+
+
 class PatrolForm(forms.ModelForm):
-    title = forms.CharField(required=True,)
+    patrol_status = forms.CharField(required=False)
 
     class Meta:
         model = Patrol
@@ -227,3 +237,51 @@ class PatrolTypeForm(forms.ModelForm):
     class Meta:
         model = PatrolType
         fields = '__all__'
+
+
+def queryset_chain(iterables):
+    for it in iterables:
+        for element in it:
+            yield str(element), element
+
+
+def chained_tracked_by():
+    query_list = [PatrolSegment.objects.get_leader_for_provenance(p[0]) for p in PROVENANCE_CHOICES]
+    choices = [(None, '-----------')] + list(queryset_chain(query_list))
+    return choices
+
+
+class OverrideChoiceField(forms.ChoiceField):
+    def to_python(self, value):
+        """Return a queryset"""
+        if value in self.empty_values:
+            return ''
+        combined_choices = dict(self.choices)
+        return combined_choices.get(value)
+
+
+class PatrolSegmentForm(forms.ModelForm):
+    start_time = forms.SplitDateTimeField(widget=AdminSplitDateTime(), label='Actual start date', required=False)
+    end_time = forms.SplitDateTimeField(widget=AdminSplitDateTime(), label='Actual end date', required=False)
+    tracked_subject = OverrideChoiceField(choices=chained_tracked_by, label='Tracked subject name', required=False)
+
+    class Meta:
+        model = PatrolSegment
+        exclude = ('time_range', 'id')
+        labels = {
+            "scheduled_start": "Scheduled start date",
+            "scheduled_end": "Scheduled end date"
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        instance = kwargs.get('instance')
+        if instance and instance.time_range:
+            self.fields['start_time'].initial = instance.time_range.lower
+            self.fields['end_time'].initial = instance.time_range.upper
+        if instance:
+            self.fields['tracked_subject'].initial = instance.leader
+
+
+class PatrolSegmentStackedInline(InlineOSMGeoAdmin):
+    template = 'admin/edit_inline/stacked.html'
