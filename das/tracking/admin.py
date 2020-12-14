@@ -160,7 +160,6 @@ class TrackConfigurationAdmin(admin.ModelAdmin):
     }
     fieldsets = (
         ('New device subject handling', {
-            'classes': ('wide',),
             'fields': ('new_device_config',)
         }
          ),
@@ -170,7 +169,6 @@ class TrackConfigurationAdmin(admin.ModelAdmin):
         }
          ),
         ('Device name change handling', {
-            'classes': ('wide',),
             'fields': ('name_change_config',)
         }
          ),
