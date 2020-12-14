@@ -1179,6 +1179,11 @@ class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
         fields = ('type', 'ordernum',)
 
 
+class EventRelationshipSerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = activity.models.PatrolSegment
+
+
 def resolve_image_url(event):
     return event.image_url
 
@@ -1748,3 +1753,11 @@ class PatrolTypeSerializer(rest_framework.serializers.ModelSerializer):
         read_only_fields = ('id', 'value', 'display', 'ordernum',
                             'icon_id', 'default_priority', 'is_active')
         fields = read_only_fields
+
+
+class EventRelatedSegmentSerializer(rest_framework.serializers.ModelSerializer):
+
+    class Meta:
+        model = activity.models.EventRelatedSegments
+        fields = ('event', 'patrol_segment')
+

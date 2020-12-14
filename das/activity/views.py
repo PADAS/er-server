@@ -39,7 +39,8 @@ from activity.filters import EventObjectPermissionsFilter
 from activity.models import Event, EventNote, EventClass, \
     EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, \
     EventFile, Community, StateFilters, \
-    EventFilter, EventSource, EventProvider, PatrolType, Patrol, PatrolSegment, PatrolNote, PatrolFile
+    EventFilter, EventSource, EventProvider, PatrolType, Patrol, PatrolSegment, PatrolNote, PatrolFile, \
+    EventRelatedSegments
 from activity.permissions import EventCategoryPermissions, \
     EventNotesCategoryPermissions, IsOwner
 from activity.serializers import EventSerializer, EventNoteSerializer, \
@@ -49,7 +50,7 @@ from activity.serializers import EventSerializer, EventNoteSerializer, \
     EventFileSerializer, \
     EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, \
     EventGeoJsonSerializer, \
-    PatrolTypeSerializer
+    PatrolTypeSerializer, EventRelatedSegmentSerializer
 from activity.serializers.patrol_serializers import PatrolSerializer, PatrolSegmentSerializer, PatrolNoteSerializer, PatrolFileSerializer
 from choices.models import Choice
 from observations.models import Subject
@@ -1352,3 +1353,41 @@ def get_segments(kwargs, queryset):
     if related_event:
         queryset = queryset.filter(eventrelatedsegments__event__id=related_event)
     return queryset
+
+
+from rest_framework import mixins, views
+class EventRelatedSegmentView(generics.GenericAPIView, mixins.CreateModelMixin, mixins.DestroyModelMixin,
+                              mixins.RetrieveModelMixin):
+
+    def create(self, request, *args, **kwargs):
+
+        return super().create(request, *args, **kwargs)
+
+    # permission_classes = (EventCategoryPermissions,)
+    serializer_class = EventRelatedSegmentSerializer
+
+    def get_queryset(self):
+
+        filter = {}
+        filter['event'] = generics.get_object_or_404(Event.objects.all(),
+                                           pk=self.kwargs['event_id'])
+
+        filter['patrol_segment'] = generics.get_object_or_404(PatrolSegment.objects.all(),
+                                           pk=self.kwargs['patrol_segment'])
+
+        return EventRelatedSegments.objects.filter(**filter)
+
+
+    def get_object(self):
+        queryset = self.get_queryset()
+
+        filters = {
+            'event_id': self.kwargs['event_id'],
+            'patrol_segment_id': self.kwargs['patrol_segment']
+        }
+
+        obj = generics.get_object_or_404(queryset, **filters)
+
+        return obj
+
+
