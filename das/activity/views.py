@@ -660,12 +660,23 @@ class EventsView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
     metadata_class = EventJSONSchema
 
+    def add_segment_to_record(self, patrol_segment_id, new_record):
+        for record in new_record:
+            if not record.get('patrol_segments'):
+                record['patrol_segments'] = patrol_segment_id if isinstance(patrol_segment_id, list) else [patrol_segment_id]
+            else:
+                record['patrol_segments'].append(patrol_segment_id)
+        return new_record
 
     def post(self, request, *args, **kwargs):
         request.POST._mutable = True
         new_record = request.data
         if isinstance(new_record, dict):
             new_record = [new_record]
+
+        patrol_segment = self.kwargs.get('patrol_segment')
+        if patrol_segment:
+            new_record = self.add_segment_to_record(patrol_segment, new_record)
 
         with transaction.atomic():
             errors = []
@@ -719,10 +730,10 @@ class EventsView(generics.ListCreateAPIView):
 
         queryset = Event.objects.all_sort().prefetch_related(
             'eventsource_event_refs')
-        patrol_segment_id = self.request.query_params.get('patrol_segment')
+        patrol_segment_id = self.kwargs.get('patrol_segment')
         if patrol_segment_id:
             logger.debug("Filtering on patrol segment id: %s", patrol_segment_id)
-            queryset = queryset.filter(patrol_segment__id=patrol_segment_id)
+            queryset = queryset.filter(patrol_segments__id=patrol_segment_id)
 
         query_params = self.request.query_params
         event_ids = query_params.get('event_ids', [])
