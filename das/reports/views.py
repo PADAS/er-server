@@ -15,6 +15,8 @@ from rest_framework.response import Response
 
 from core.utils import get_site_name
 from reports.reports import get_daily_report_data
+from activity.permissions import EventCategoryPermissions
+from activity.models import EventCategory
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +51,19 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
     # template_engine = 'docx_template'
     # template_name = 'lewa_sitrep_template.docx'
 
+    def get_permitted_event_categories(self, request):
+        permitted_categories = []
+
+        for category in EventCategory.objects.filter(is_active=True):
+            permission_name = 'activity.{0}_{1}'.format(
+                category.value,
+                EventCategoryPermissions.http_method_map['GET']
+            )
+            if request.user.has_perm(permission_name):
+                permitted_categories.append(category)
+        return permitted_categories
+
+
     def get(self, request, *args, **kwargs):
 
         qs = ReportDateParameters(data=request.query_params)
@@ -60,7 +75,9 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         since = qs.get('since') or (now - datetime.timedelta(hours=24))
         before = qs.get('before') or now
 
-        context = self.get_context_data(since=since, before=before, **kwargs)
+        event_categories = self.get_permitted_event_categories(request)
+        context = self.get_context_data(since=since, before=before, event_categories=event_categories,
+                                        **kwargs)
         return self.render_to_response(context)
 
     def render_to_response(self, context, **response_kwargs):
@@ -72,8 +89,8 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             response['x-das-download-filename'] = context['report_filename']
         return response
 
-    def get_context_data(self, since, before, **kwargs):
-        return get_daily_report_data(since, before, **kwargs)
+    def get_context_data(self, since, before, event_categories=None, **kwargs):
+        return get_daily_report_data(since, before, event_categories=event_categories, **kwargs)
 
 
 class IsSuperAdminUser(permissions.BasePermission):
