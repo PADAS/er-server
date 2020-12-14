@@ -90,7 +90,7 @@ def get_track_config(provider_key):
     track_config = configs.first()
 
     if not track_config:
-        track_config = create_default_config(provider)
+        track_config = create_default_config()
     return track_config
 
 
@@ -99,7 +99,7 @@ def create_default_config():
     return default_config
 
 
-def get_subject_model(subject_info, source_created, source, provider_key, user_id, observation):
+def get_track_subject(subject_info, source_created, source, provider_key, user_id, observation):
     user = User.objects.get(id=user_id)
     user_subjects = Subject.objects.all().by_user_subjects(user)
     subject_id = subject_info.get('id')

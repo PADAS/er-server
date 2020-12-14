@@ -38,7 +38,8 @@ class TrackConfiguration(TimestampedModel):
         default='wildlife', blank=True, verbose_name='')
 
     name_change_excluded_subject_types = models.ManyToManyField(
-        SubjectType, related_name='name_change_excluded_subject_types', default='wildlife',
+        SubjectType, related_name='name_change_excluded_subject_types',
+        default='wildlife', blank=True,
         help_text=_('Select any Subject Types to exclude from matching'))
     is_default = models.BooleanField(_('default subject group'), default=False)
     source_provider = models.OneToOneField(to=SourceProvider, null=True, blank=True, on_delete=models.SET_NULL)
