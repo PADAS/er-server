@@ -7,7 +7,7 @@ from sensors.subject_name_change import get_subject_model
 logger = logging.getLogger(__name__)
 
 
-@celery.app.task(bind=True)
+@celery.app.task()
 def handle_subject_and_source(subject_info, source_created, source_id, provider_key, user_id, observation):
     source = Source.objects.get(id=source_id)
     subject_model = get_subject_model(

@@ -16,6 +16,7 @@ from sensors.views import GenericSensorHandlerView
 from observations.models import Subject, SourceProvider, Source, SubjectSource, Observation, SubjectGroup, SubjectSubType, SubjectType
 from tracking.models.er_track import TrackConfiguration, CREATE_NEW, UPDATE_NAME
 from accounts.models import User
+from django.test import TestCase, override_settings
 
 class GenericSensorHandlerTest(BaseAPITest):
     source_type = 'tracking-collar'
@@ -149,6 +150,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertEqual(1, Observation.objects.filter(
             source=self.test_source).count())
 
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_post_with_new_source_subject_subtype(self):
         observation = copy.deepcopy(self.one_observation)
         observation.update({"subject_subtype": "ranger"})
@@ -161,6 +163,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertEqual(Subject.objects.get(
             name=observation['subject_name']).subject_subtype, SubjectSubType.objects.get(value="ranger"))
 
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_post_with_new_source_subject_groups(self):
         observation = copy.deepcopy(self.one_observation)
         observation.update({"subject_groups": ["sg_1", "sg_2"]})
@@ -172,6 +175,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertIn(Subject.objects.get(
             name=observation['subject_name']), SubjectGroup.objects.get(name="sg_1").subjects.all())
 
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_post_with_new_source_but_empty_subject_groups(self):
         observation = copy.deepcopy(self.one_observation)
         observation.update({"subject_groups": [""]})
@@ -182,6 +186,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertIn(Subject.objects.get(
             name=observation['subject_name']), SubjectGroup.objects.get_default().subjects.all())
 
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_post_with_new_source_but_empty_subject_groups_two(self):
         self.third_observation['subject_groups'] = ["", ""]
         response = self._post_data(json.dumps(self.third_observation))
@@ -189,6 +194,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertIn(Subject.objects.get(
             name="administrator1025"), SubjectGroup.objects.get_default().subjects.all())
 
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_post_sensor_data_with_provided_subject_groups(self):
         self.third_observation['subject_groups'] = ["Quails"]
         response = self._post_data(json.dumps(self.third_observation))
@@ -197,6 +203,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             Subject.objects.get(name="administrator1025"),
             SubjectGroup.objects.get(name='Quails').subjects.all())
 
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_post_sensor_data_with_provided_source_additional(self):
         self.third_observation['source_additional'] = {"frequency": "123.5"}
 
@@ -250,6 +257,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(2, Observation.objects.count())
 
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_subject_source_donot_exist(self):
         new_source_id = 'new_src_id'
         local_obs = copy.deepcopy(self.one_observation)
@@ -281,6 +289,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertIsNotNone(SourceProvider.objects.get(
             provider_key='random_src_provider'))
 
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_subject_src_provider_donot_exist(self):
         mfg_id = 'brew_new_mfg_id'
         provider_key = 'new_provider_key'
@@ -297,6 +306,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertIsNotNone(src)
         self.assertIsNotNone(Subject.objects.get(name=mfg_id))
 
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_with_new_subject_id_and_source(self):
         uuid = uuid4()
         new_source_id = 'new_src_id'
@@ -363,6 +373,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             source=new_source).count())
         self.assertIsNotNone(SubjectSubType.objects.get(value=subject_subtype))
 
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_post_new_device_handling_with_create_new_config(self):
         config = self.config
         config.new_device_config = CREATE_NEW
@@ -375,6 +386,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             source=self.test_source).count())
         self.assertEqual(Subject.objects.count(), 1)  # New subject created
 
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_post_new_device_handling_with_use_existing_config(self):
         subject_type = SubjectType.objects.create(value='Cats')
         subject_subtype = SubjectSubType.objects.create(value='queens', subject_type=subject_type)
@@ -402,6 +414,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         # New source assignment added
         self.assertEqual(2, SubjectSource.objects.filter(subject=matching_subject).count())
 
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_device_handling_with_name_update_config(self):
         self.one_observation['subject_name'] = 'Fatu'
         response = self._post_data(json.dumps(self.one_observation))
