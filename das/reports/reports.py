@@ -66,9 +66,19 @@ def _listify(o):
 
 EVENT_LIST_TIMESTAMP_FORMAT = '%-d-%b %H:%M' if platform.system().lower() != 'windows' else '%#d-%b %H:%M'
 
+def get_permitted_events(start=None, end=None, event_categories=None):
 
-def get_events(start, end):
-    events = Event.objects.filter(event_time__range=[start, end]).prefetch_related('event_type', 'reported_by')\
+    if not event_categories:
+        return Event.objects.none()
+
+    queryset = Event.objects.filter(event_type__category__in=event_categories) \
+        .filter(event_time__range=[start, end])
+    return queryset
+
+
+def get_events(start=None, end=None, event_categories=None):
+    events = get_permitted_events(start=start, end=end, event_categories=event_categories) \
+        .prefetch_related('event_type', 'reported_by') \
         .order_by('event_time')
     return events
 
@@ -77,8 +87,9 @@ def get_conservancies():
     return get_choices('conservancy')
 
 
-def get_rhino_sightings(start, end):
-    events = Event.objects.filter(event_type__value__in=('black_rhino_sighting', 'white_rhino_sighting'),
+def get_rhino_sightings(start=None, end=None, event_categories=None):
+    events = get_permitted_events(start=start, end=end, event_categories=event_categories) \
+        .filter(event_type__value__in=('black_rhino_sighting', 'white_rhino_sighting'),
                                   event_time__range=[start, end])
     return events
 
@@ -88,15 +99,15 @@ def get_rhinos():
     return rhinos
 
 
-def get_security_event(start, end):
-    security_events = Event.objects.filter(
-        event_time__range=[start, end], event_type__category__value='security')
+def get_security_event(start=None, end=None, event_categories=None):
+    security_events = get_permitted_events(start=start, end=end, event_categories=event_categories) \
+        .filter(event_time__range=[start, end], event_type__category__value='security')
     security_events = security_events.prefetch_related(
         'event_type', 'reported_by').order_by('-event_time')
     return security_events
 
 
-def get_daily_report_data(since, before, **kwargs):
+def get_daily_report_data(since, before, event_categories=None, **kwargs):
     '''
     This applies brute-force the the events, marching through the various sections of a Sit Rep and filling in the
     blanks.
@@ -110,7 +121,7 @@ def get_daily_report_data(since, before, **kwargs):
     # Get the events we're interested in. We just need this list once and we'll run it through a set of
     # accumulotors that take whatever they need to hydrate the sit-rep
     # report.
-    events = get_events(since, before)
+    events = get_events(start=since, end=before, event_categories=event_categories)
 
     CONSERVANCY_UNSPECIFIED = '&lt;unspecified&gt;'
 
