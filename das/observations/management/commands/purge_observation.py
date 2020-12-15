@@ -26,6 +26,8 @@ SUB_COMMANDS = [
     SubCommand('subjects', models.Subject, 'remove_subject'),
     SubCommand('subject_groups', models.SubjectGroup, 'remove_subject_group'),
     SubCommand('source_groups', models.SourceGroup, 'remove_source_group'),
+    SubCommand('source_provider', models.SourceProvider,
+               'remove_source_provider'),
 ]
 
 
@@ -155,7 +157,9 @@ class PurgeObservations(PurgeBase):
 
             subject.groups.clear()
             self.delete_qs(models.Subject.objects.filter(id=pk))
-        self.logger.info(f'Removed Subject {name}')
+            self.logger.info(f'Removed Subject {name}')
+        else:
+            self.logger.info(f'Dry Run, would have removed Subject {name}')
 
     def remove_source(self, source, include_subject_source=True):
         pk = source.id
@@ -175,10 +179,38 @@ class PurgeObservations(PurgeBase):
             self.delete_qs(models.Observation.objects.filter(source_id=pk))
             self.delete_qs(SourcePlugin.objects.filter(source_id=pk))
             self.delete_qs(models.Source.objects.filter(id=pk))
-        self.logger.info(f'Removed Source {source_manufacturer_id}')
+            self.logger.info(f'Removed Source {source_manufacturer_id}')
+        else:
+            self.logger.info(
+                f'Dry Run, would have removed Source {source_manufacturer_id}')
 
     def is_keep_source(self, source):
         return source.manufacturer_id.lower() in self.keep_sources
+
+    def remove_source_provider(self, provider):
+        pk = provider.id
+        name = provider.display_name
+        provider_key = provider.provider_key
+
+        self.logger.info(
+            f'Removing source provider {name} and associated sources/subjects')
+
+        subjects = models.Subject.objects.all().filter(
+            subjectsource__source__provider__provider_key=provider_key)
+
+        for subject in subjects:
+            self.remove_subject(subject)
+
+        sources = models.Source.objects.all().filter(
+            provider__provider_key=provider_key)
+        for source in sources:
+            self.remove_source(source)
+
+        if self.dry_run:
+            self.logger.info(
+                f'Dry Run, would have removed source provider {name}')
+        else:
+            self.delete_qs(models.SourceProvider.objects.filter(id=pk))
 
     def remove_source_group(self, sg):
         raise NotImplementedError()
