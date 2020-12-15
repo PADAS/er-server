@@ -605,6 +605,13 @@ class EventsExportView(views.APIView):
 
         queryset = Event.objects.all().prefetch_related('event_type')
 
+        permitted_event_categories = get_permitted_event_categories(self.request)
+
+        if len(permitted_event_categories) > 0:
+            queryset = queryset.filter(event_type__category__in=permitted_event_categories)
+        else:
+            return queryset.none()
+
         query_params = self.request.query_params
         bbox = query_params.get('bbox', None)
         if bbox:
@@ -817,6 +824,19 @@ class EventsView(generics.ListCreateAPIView):
             queryset = queryset.prefetch_related(Prefetch('files'))
 
         return queryset
+
+
+def get_permitted_event_categories(request):
+    permitted_categories = []
+
+    for category in EventCategory.objects.filter(is_active=True):
+        permission_name = 'activity.{0}_{1}'.format(
+            category.value,
+            EventCategoryPermissions.http_method_map['GET']
+        )
+        if request.user.has_perm(permission_name):
+            permitted_categories.append(category)
+    return permitted_categories
 
 
 def calculate_event_etag(view_instance, view_method, request, *args, **kwargs):
