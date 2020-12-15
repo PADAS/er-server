@@ -171,7 +171,3 @@ class PatrolObjectPermissions(DjangoObjectPermissions):
             raise exceptions.MethodNotAllowed(method)
 
         return [perm % kwargs for perm in self.perms_map[method]]
-
-
-
-
