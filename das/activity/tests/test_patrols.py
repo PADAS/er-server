@@ -1135,7 +1135,7 @@ class TestPatrol(BaseAPITest):
         event_data = dict(
             title="Test Event",
             event_type=et.value,
-            patrol_segment_ids=[segment_id]
+            patrol_segments=[segment_id]
 
         )
         events_url = reverse('events')
@@ -1144,7 +1144,7 @@ class TestPatrol(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        self.assertTrue(str(segment_id) in response.data.get('patrol_segment_ids'))
+        self.assertTrue(str(segment_id) in str(response.data.get('patrol_segments')))
 
         # View reports from segment
         url = reverse('patrol-segment', kwargs={'id': segment_id})

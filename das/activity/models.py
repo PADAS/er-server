@@ -454,10 +454,10 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
 class EventManager(models.Manager):
     def create_event(self, **values):
-        segment_ids = values.pop('patrol_segments', 0)
+        patrol_segments = values.pop('patrol_segments', None)
         event = self.create(**values)
-        if segment_ids:
-            event.patrol_segments.set(PatrolSegment.objects.filter(id__in=segment_ids))
+        if patrol_segments:
+            event.patrol_segments.set(patrol_segments)
         return event
 
     def get_reported_by_for_provenance(self, provenance):
