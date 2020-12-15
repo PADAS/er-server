@@ -115,7 +115,4 @@ urlpatterns = [
     url(
         r'^event/(?P<event_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/segments/?$',
         views.PatrolsegmentsView.as_view(), name='event-segments-view'),
-    url(
-        r'^patrols/segments/(?P<patrol_segment>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/events/(?P<event_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
-        views.EventRelatedSegmentView.as_view(), name='segment-event-view'),
 ]
