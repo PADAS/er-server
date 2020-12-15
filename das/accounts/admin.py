@@ -77,6 +77,11 @@ class PermissionSetAdminForm(forms.ModelForm):
             self.fields['permissions'].queryset = self.fields['permissions'].queryset.\
                 exclude(codename__in=patrol_mgmt_permissions().values_list('codename'))
 
+        self.fields['permissions'].queryset = self.fields['permissions'].queryset. \
+            exclude(codename__in=patrol_mgmt_permissions(modelnames=('patrolsegment',
+                                                                     'patrolnote', 'patrolfile',
+                                                                     'patrolsegmentmembership')).values_list('codename'))
+
     def _save_m2m(self):
         users = self.cleaned_data['user_set']
         inherit_from = self.cleaned_data['acquire_from']

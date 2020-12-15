@@ -16,6 +16,7 @@ from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext as _
 from psycopg2.extras import DateTimeTZRange
+from django.contrib.auth import get_permission_codename
 
 import activity.models as models
 from activity.forms import EventProviderForm, AlertRuleForm, PatrolSegmentStackedInline, PatrolSegmentForm
@@ -402,6 +403,35 @@ class PatrolTypeAdmin(admin.ModelAdmin):
     _icon_display.short_description = 'Icon'
 
 
+class PatrolPermissionMixin:
+    patrol_opts = models.Patrol._meta
+
+    def has_add_permission(self, request):
+        opts = self.patrol_opts
+        codename = get_permission_codename('add', opts)
+        return request.user.has_perm(f"{opts.app_label}.{codename}")
+
+    def has_change_permission(self, request, obj=None):
+        opts = self.patrol_opts
+        codename = get_permission_codename('change', opts)
+        return request.user.has_perm(f"{opts.app_label}.{codename}")
+
+    def has_delete_permission(self, request, obj=None):
+        opts = self.patrol_opts
+        codename = get_permission_codename('delete', opts)
+        return request.user.has_perm(f"{opts.app_label}.{codename}")
+
+    def has_view_permission(self, request, obj=None):
+        opts = self.patrol_opts
+        codename_view = get_permission_codename('view', opts)
+        codename_add = get_permission_codename('add', opts)
+        codename_change = get_permission_codename('change', opts)
+        return (
+            request.user.has_perm(f"{opts.app_label}.{codename_view}") or
+            request.user.has_perm(f"{opts.app_label}.{codename_add}") or
+            request.user.has_perm(f"{opts.app_label}.{codename_change}"))
+
+
 class PatrolState(Enum):
     overdue = 'start_overdue'
     ready = 'ready_to_start'
@@ -442,7 +472,7 @@ def update_filter_name(title):
     return Wrapper
 
 
-class PatrolSegmentInline(PatrolSegmentStackedInline):
+class PatrolSegmentInline(PatrolPermissionMixin, PatrolSegmentStackedInline):
     max_num = 1
     can_delete = False
     fields = ('id', 'patrol_type', 'tracked_subject', 'scheduled_start', 'start_time', 'start_location', 'scheduled_end', 'end_time', 'end_location')
@@ -454,7 +484,7 @@ class PatrolSegmentInline(PatrolSegmentStackedInline):
 
 @AdminFeatureFlag(models.Patrol, flag='PATROL_ENABLED')
 @admin.register(models.Patrol)
-class PatrolAdmin(OSMGeoExtendedAdmin):
+class PatrolAdmin(PatrolPermissionMixin, OSMGeoExtendedAdmin):
     inlines = [PatrolSegmentInline]
     form = PatrolForm
     readonly_fields = ('id', 'serial_number')
