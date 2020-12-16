@@ -31,7 +31,7 @@ from utils.html import make_html_list
 from core.common import TIMEZONE_USED
 from accounts.utils import patrol_mgmt_permissions
 
-PATROL_ENABLED = getattr(settings, 'PATROL_ENABLED', False)
+PATROL_ENABLED = settings.PATROL_ENABLED
 
 class PermissionSetAdminForm(forms.ModelForm):
     filter_horizontal = ('permissions', 'children')
