@@ -19,7 +19,7 @@ from psycopg2.extras import DateTimeTZRange
 from django.contrib.auth import get_permission_codename
 
 import activity.models as models
-from activity.forms import EventProviderForm, AlertRuleForm, PatrolSegmentStackedInline, PatrolSegmentForm
+from activity.forms import EventProviderForm, AlertRuleForm, PatrolSegmentStackedInline, PatrolSegmentForm, chained_tracked_by
 from activity.forms import EventTypeForm, EventForm, PatrolTypeForm, PatrolForm
 from activity.tasks import refresh_event_details_view, recreate_event_details_view
 from core.admin import InlineExtraDynamicMixin
@@ -481,6 +481,10 @@ class PatrolSegmentInline(PatrolPermissionMixin, PatrolSegmentStackedInline):
     map_height = 300
     model = models.PatrolSegment
 
+    def get_formset(self, request, obj=None, **kwargs):
+        setattr(self.model, 'user', request.user)
+        return super(PatrolSegmentInline, self).get_formset(request, obj, **kwargs)
+
 
 @AdminFeatureFlag(models.Patrol, flag='PATROL_ENABLED')
 @admin.register(models.Patrol)
@@ -501,11 +505,23 @@ class PatrolAdmin(PatrolPermissionMixin, OSMGeoExtendedAdmin):
 
     ordering = ('serial_number', )
 
+    def _allowed_tracked_subject(self, user):
+        tracked_subjects = chained_tracked_by(user)
+        subjects = []
+        users = []
+        for v in dict(tracked_subjects).values():
+            if isinstance(v, models.Subject):
+                subjects.append(v.id)
+            if isinstance(v, get_user_model()):
+                users.append(v.id)
+        return subjects, users
+
     def get_queryset(self, request):
         queryset = super(PatrolAdmin, self).get_queryset(request)
         patrol_sgment = models.PatrolSegment.objects.filter(patrol_id=OuterRef('id')).order_by('created_at')
         subject = models.Subject.objects.filter(id=OuterRef('leader_id'))
         user = get_user_model().objects.filter(id=OuterRef('leader_id'))
+        subjects, users = self._allowed_tracked_subject(request.user)
 
         set_time = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(minutes=30)
         end_day = set_time.replace(hour=23, minute=59, second=59, microsecond=999999)
@@ -524,9 +540,9 @@ class PatrolAdmin(PatrolPermissionMixin, OSMGeoExtendedAdmin):
 
         queryset = queryset.annotate(patrol_type=Subquery(patrol_sgment.values('patrol_type__display')[:1]),
                                      tracked_subject=Subquery(patrol_sgment.annotate(
-                                         leader_name=Subquery(subject.values('name'))).values('leader_name')[:1]),
+                                         leader_name=Subquery(subject.filter(Q(id__in=subjects)).values('name'))).values('leader_name')[:1]),
                                      tracked_user=Subquery(patrol_sgment.annotate(
-                                         leader_name=Subquery(user.values('username'))).values('leader_name')[:1]),
+                                         leader_name=Subquery(user.filter(Q(id__in=users)).values('username'))).values('leader_name')[:1]),
                                      scheduled_start=Subquery(patrol_sgment.values('scheduled_start')[:1]),
                                      scheduled_end=Subquery(patrol_sgment.values('scheduled_end')[:1]),
                                      start_time=Subquery(patrol_sgment.values('time_range__startswith')[:1]),
@@ -544,7 +560,8 @@ class PatrolAdmin(PatrolPermissionMixin, OSMGeoExtendedAdmin):
         return o.patrol_type
 
     def tracked_subject_name(self, o):
-        return o.tracked_subject or o.tracked_user
+        value = o.tracked_subject or o.tracked_user
+        return value if value else None
 
     def status(self, o):
         return ' '.join(o.status.split('_')).title()
