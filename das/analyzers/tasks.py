@@ -148,7 +148,6 @@ def poll_gfw():
     gfw_user = get_gfw_user()
     for layer_slug, gfw_subscription in get_model_slug_pairs():
         alert_info = make_alert_info(layer_slug, gfw_subscription)
-        logger.info(alert_info)
         gfw_inbound.process_alert_for_subscription(layer_slug,
                                                    gfw_subscription.subscription_id,
                                                    alert_info,
