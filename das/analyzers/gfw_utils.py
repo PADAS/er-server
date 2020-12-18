@@ -1,10 +1,12 @@
 import logging
 import urllib.parse as urlparse
+from datetime import date, timedelta
 
 from django.conf import settings
 
 from accounts.models import User
 from analyzers.models import GlobalForestWatchSubscription as gfw_model
+from analyzers.gfw_alert_schema import GFWLayerSlugs
 
 logger = logging.getLogger(__name__)
 
@@ -94,27 +96,45 @@ def get_gfw_endpoint():
     return f'{parsed_gfw_api_root.scheme}://{parsed_gfw_api_root.netloc}'
 
 
-def make_download_url(geostore_id, start_date, end_date, gfw_endpoint=None):
+def make_download_url(geostore_id, start_date_str, end_date_str, gfw_endpoint=None):
     if not gfw_endpoint:
         gfw_endpoint = get_gfw_endpoint()
 
     download_url_prefix = f'{gfw_endpoint}/glad-alerts/download/?gladConfirmOnly=False&aggregate_values=False&aggregate_by=False&format=json'
-    start_date_str, end_date_str = start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')
+    # start_date_str, end_date_str = start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')
 
     return f'{download_url_prefix}&period={start_date_str},{end_date_str}&geostore={geostore_id}'
 
 
-def make_alert_info(alert_name, geostore_id, start_date, end_date):
+def should_backfill_confirmed(today):
+    return True if not today.day % settings.GFW_BACKFILL_INTERVAL else False
+
+
+def get_alert_start_end_dates(layer_slug, gfw_object):
+    today = date.today()
+    # go back 10 days by default
+    start_date = today - timedelta(days=10)
+
+    if (layer_slug == GFWLayerSlugs.GLAD_ALERTS.value
+            and gfw_object.Deforestation_confidence == gfw_model.CONFIRMED
+            and should_backfill_confirmed(today)):
+        start_date = today - timedelta(days=gfw_object.glad_confirmed_backfill_days)
+
+    return start_date.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d')
+
+
+def make_alert_info(layer_slug, gfw_object):
     gfw_endpoint = get_gfw_endpoint()
-    start_date_str, end_date_str = start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')
+    geostore_id = gfw_object.geostore_id
+    start_date_str, end_date_str = get_alert_start_end_dates(layer_slug, gfw_object)
 
     return dict(
-        alert_name=alert_name,
+        alert_name=gfw_object.name,
         alert_link=f'{gfw_endpoint}/map/3/0/0/ALL/grayscale/?fit_to_geom=true&begin={start_date_str}&end={end_date_str}&geostore={geostore_id}',
         alert_date_begin=start_date_str,
         alert_date_end=end_date_str,
         downloadUrls={
-            'json': make_download_url(geostore_id, start_date, end_date, gfw_endpoint)
+            'json': make_download_url(geostore_id, start_date_str, end_date_str, gfw_endpoint)
         }
     )
 

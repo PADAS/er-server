@@ -145,13 +145,14 @@ def download_gfw_alerts(self, download_url, event_dict, user_id):
 
 @celery.app.task()
 def poll_gfw():
-    # check gfw for alerts for subscriptions in the db. check for the past 2 days
-    end_date = date.today()
-    start_date = end_date - timedelta(2)
-
     gfw_user = get_gfw_user()
-
-    [generate_alert(m, start_date, end_date, gfw_user) for m in gfw_model.objects.all()]
+    for layer_slug, gfw_subscription in get_model_slug_pairs():
+        alert_info = make_alert_info(layer_slug, gfw_subscription)
+        logger.info(alert_info)
+        gfw_inbound.process_alert_for_subscription(layer_slug,
+                                                   gfw_subscription.subscription_id,
+                                                   alert_info,
+                                                   str(gfw_user.id))
 
 
 def fetch_alerts(self, event_dict, download_url, user_id):
@@ -202,10 +203,10 @@ def process_response(event_dict, download_url, http_response, user_id):
     return result
 
 
-def generate_alert(gfw_subscription, start_date, end_date, gfw_user):
-    alert_info = make_alert_info(gfw_subscription.name, gfw_subscription.geostore_id, start_date, end_date)
-    [gfw_inbound.process_alert_for_subscription(t, gfw_subscription.subscription_id, alert_info, str(gfw_user.id))
-     for t in gfw_subscription.additional['alert_types']]
+def get_model_slug_pairs():
+    for subscription in gfw_model.objects.all():
+        for slug in subscription.additional['alert_types']:
+            yield slug, subscription
 
 
 def update_status(model, status_message):
