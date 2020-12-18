@@ -38,6 +38,8 @@ class SubjectTestCase(BaseAPITest):
         'test/observations_subject.json',
         'test/observations_subject_source.json',
         'test/observations_observation.json',
+        'test/user_and_usergroup.yaml',
+        'test/source_group.json'
     ]
 
     def setUp(self):
@@ -52,6 +54,29 @@ class SubjectTestCase(BaseAPITest):
         self.site = AdminSite()
         self.request = RequestFactory()
         self.admin = GPXAdmin(model=GPXTrackFile, admin_site=self.site)
+
+    def test_empty_point_not_included_in_subject_tracks(self):
+        from django.contrib.gis.geos import Point
+        coordinates = self.get_coordinates_returned()
+        monitored_location = Point(50.7586930900307, 40.3297162190965) # Existing trackpoint from fixtures
+        self.assertEqual(3, len(coordinates))
+        self.assertIn(monitored_location.coords, coordinates)
+
+        # Update one coordinate to an empty point
+        Observation.objects.filter(location=monitored_location).update(location=Point(0, 0))
+        new_coordinates = self.get_coordinates_returned()
+        self.assertNotIn(monitored_location.coords, new_coordinates)
+        self.assertEqual(2, len(new_coordinates))  # Track not included in tracks
+
+    def get_coordinates_returned(self):
+        from observations import views
+        self.satellite_user = User.objects.get(username='satellite-user')
+        self.henry = Subject.objects.get(name='Henry')
+
+        request = self.factory.get(self.api_base + '/subject/{}/tracks/'.format(self.henry.id))
+        self.force_authenticate(request, self.satellite_user)
+        response = views.SubjectTracksView.as_view()(request, subject_id=self.henry.id)
+        return response.data['features'][0]['geometry']['coordinates']
 
     def test_subject_observations(self):
         subject = Subject.objects.get(name='Topsy')
@@ -608,3 +633,5 @@ class SubjectTestCase(BaseAPITest):
         self.assertTrue(self.no_perms_user.has_perm(
             'observations.add_observation'))
         self.assertEqual(response.status_code, 201)
+
+
