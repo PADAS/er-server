@@ -140,7 +140,8 @@ app.conf.beat_schedule = {
     'poll-gfw': {
         'task': 'analyzers.tasks.poll_gfw',
         # 3 AM per settings.TIME_ZONE
-        'schedule': crontab(hour=3, minute=0)
+        # 'schedule': crontab(hour=3, minute=0)
+        'schedule': timedelta(minutes=10)
     },
     # Run pulse routine frequently and on a high-priority queue.
     'beat-pulse': {

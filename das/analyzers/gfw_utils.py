@@ -105,7 +105,8 @@ def make_download_url(geostore_id, start_date_str, end_date_str, gfw_endpoint=No
     return f'{download_url_prefix}&period={start_date_str},{end_date_str}&geostore={geostore_id}'
 
 
-def should_backfill_confirmed(today):
+def should_backfill_confirmed_alerts(today):
+    # a condition to check to determine when to run the backfill.
     return True if not today.day % settings.GFW_BACKFILL_INTERVAL_DAYS else False
 
 
@@ -115,8 +116,7 @@ def get_alert_start_end_dates(layer_slug, gfw_object):
     start_date = today - timedelta(days=10)
 
     if (layer_slug == GFWLayerSlugs.GLAD_ALERTS.value
-            and gfw_object.Deforestation_confidence == gfw_model.CONFIRMED
-            and should_backfill_confirmed(today)):
+            and should_backfill_confirmed_alerts(today)):
         start_date = today - timedelta(days=gfw_object.glad_confirmed_backfill_days)
         logger.info(f'{gfw_object.name}: schedule GLAD alert backfill for period: '
                     f'{start_date.strftime("%Y-%m-%d")}:{today.strftime("%Y-%m-%d")}')
