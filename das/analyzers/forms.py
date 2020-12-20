@@ -72,8 +72,8 @@ class GlobalForestWatchSubscriptionForm(JSONFieldFormMixin, forms.ModelForm):
         model = GlobalForestWatchSubscription
         widgets = {'Fire_confidence': forms.RadioSelect, 'Deforestation_confidence': forms.RadioSelect}
         labels = {
-            'Fire_confidence': 'Fire Alerts (VIIRS) Confidence Level',
-            'Deforestation_confidence': 'Deforestation Alerts (GLAD) Confidence Level'
+            'Fire_confidence': _('Fire Alerts (VIIRS) Confidence Level'),
+            'Deforestation_confidence': _('Deforestation Alerts (GLAD) Confidence Level')
         }
         fields = '__all__'
         json_fields = ('alert_types',)
@@ -85,7 +85,7 @@ class GlobalForestWatchSubscriptionForm(JSONFieldFormMixin, forms.ModelForm):
     glad_confirmed_backfill_days = forms.IntegerField(initial=30,
                                                       max_value=180,
                                                       min_value=10,
-                                                      label='Number of days to backfill for confirmed GLAD alerts')
+                                                      label=_('Number of days to backfill for confirmed GLAD alerts'))
 
     def clean(self):
         res = super().clean()

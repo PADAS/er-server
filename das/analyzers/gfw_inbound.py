@@ -13,7 +13,7 @@ from rest_framework import status, serializers
 from rest_framework.response import Response
 
 from accounts.models import User
-from activity.models import Event
+from activity.models import EventDetails
 from activity.serializers import EventSerializer
 from analyzers.clustering_utils import cluster_alerts
 from analyzers.gfw_alert_schema import ensure_gfw_event_types, GFW_EVENT_TYPES_MAP
@@ -146,6 +146,7 @@ def process_alert_for_subscription(layer_slug, subscription_id, validated_data, 
         'event_details': event_details_dict
     }
 
+    # todo: cleanup.
     if event_dict.get('event_type') == 'gfw_activefire_alert':
         validated_data['downloadUrls'] = prepare_downloadable_url(validated_data, subscription_id)
 
@@ -277,14 +278,12 @@ def persist_event(event_fields, request, counts):
                      event_fields['location']['latitude'])
     confidence = event_fields['event_details']['confidence']
 
-    try:
-        saved_event = Event.objects.get(location=location,
-                                        event_time=event_fields['time'],
-                                        event_type__value__exact=event_fields['event_type'])
-
-        # need to optimize this.
+    qs = EventDetails.objects.filter(event__location=location,
+                                     event__event_time=event_fields['time'],
+                                     event__event_type__value__exact=event_fields['event_type'])
+    if qs.exists():
+        evt_details = qs.first()
         if event_fields['event_type'] == 'gfw_glad_alert':
-            evt_details = saved_event.event_details.get()
             saved_conf = evt_details.data['event_details']['confidence']
             if saved_conf != confidence:
                 evt_details.data['event_details']['confidence'] = confidence
@@ -295,7 +294,7 @@ def persist_event(event_fields, request, counts):
         else:
             logger.debug('Ignoring duplicate event')
 
-    except Event.DoesNotExist:
+    else:
         evt_serializer = EventSerializer(
             data=event_fields, context={'request': request})
         if not evt_serializer.is_valid():

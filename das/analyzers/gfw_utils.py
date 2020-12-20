@@ -5,8 +5,8 @@ from datetime import date, timedelta
 from django.conf import settings
 
 from accounts.models import User
-from analyzers.models import GlobalForestWatchSubscription as gfw_model
 from analyzers.gfw_alert_schema import GFWLayerSlugs
+from analyzers.models import GlobalForestWatchSubscription as gfw_model
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +91,10 @@ def rebuild_glad_download_url(download_url, gfw_object):
     return urlparse.urlunparse(new_parsed_result)
 
 
+def get_correct_download_url(event_info, gfw_object, polling):
+    pass
+
+
 def get_gfw_endpoint() -> str:
     parsed_gfw_api_root = urlparse.urlparse(settings.GFW_API_ROOT)
     return f'{parsed_gfw_api_root.scheme}://{parsed_gfw_api_root.netloc}'
@@ -132,17 +136,14 @@ def get_dict(start_date: date, end_date: date, gfw_object: gfw_model,
 
 def make_alert_infos(layer_slug: str, gfw_object: gfw_model) -> dict:
     end_date = date.today()
+    start_date = end_date - timedelta(days=10)  # query for past 10 days by default
+    confirmed_only = True if gfw_object.Deforestation_confidence == gfw_model.CONFIRMED else False
+    yield get_dict(start_date, end_date, gfw_object, confirmed_only)
 
-    if layer_slug == GFWLayerSlugs.VIIRS_ACTIVE_FIRES.value:
-        start_date = end_date - timedelta(days=7)  # query for past 7 days for fire alerts
-        yield get_dict(start_date, end_date, gfw_object)
-    elif layer_slug == GFWLayerSlugs.GLAD_ALERTS.value:
-        start_date = end_date - timedelta(days=10) # query for past 10 days for GLAD alerts
-        confirmed_only = True if gfw_object.Deforestation_confidence == gfw_model.CONFIRMED else False
-        yield get_dict(start_date, end_date, gfw_object, confirmed_only)
-        if should_backfill_confirmed_alerts(end_date):
-            start_date = end_date - timedelta(days=gfw_object.glad_confirmed_backfill_days)
-            yield get_dict(start_date, end_date, gfw_object, True)
+    if (layer_slug == GFWLayerSlugs.GLAD_ALERTS.value
+            and should_backfill_confirmed_alerts(end_date)):
+        start_date = end_date - timedelta(days=gfw_object.glad_confirmed_backfill_days)
+        yield get_dict(start_date, end_date, gfw_object, True)
 
 
 def get_gfw_user():
