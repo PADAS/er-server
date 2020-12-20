@@ -91,43 +91,33 @@ def rebuild_glad_download_url(download_url, gfw_object):
     return urlparse.urlunparse(new_parsed_result)
 
 
-def get_gfw_endpoint():
+def get_gfw_endpoint() -> str:
     parsed_gfw_api_root = urlparse.urlparse(settings.GFW_API_ROOT)
     return f'{parsed_gfw_api_root.scheme}://{parsed_gfw_api_root.netloc}'
 
 
-def make_download_url(geostore_id, start_date_str, end_date_str, gfw_endpoint=None):
+def make_download_url(geostore_id: str, start_date_str: str, end_date_str: str,
+                      confirmed_only: bool = False, gfw_endpoint: str = None) -> str:
     if not gfw_endpoint:
         gfw_endpoint = get_gfw_endpoint()
 
-    download_url_prefix = f'{gfw_endpoint}/glad-alerts/download/?gladConfirmOnly=False&aggregate_values=False&aggregate_by=False&format=json'
+    download_url_prefix = f'{gfw_endpoint}/glad-alerts/download/?aggregate_values=False' \
+                          f'&aggregate_by=False&format=json'
 
-    return f'{download_url_prefix}&period={start_date_str},{end_date_str}&geostore={geostore_id}'
+    return f'{download_url_prefix}&period={start_date_str},{end_date_str}' \
+           f'&geostore={geostore_id}&gladConfirmOnly={confirmed_only}'
 
 
-def should_backfill_confirmed_alerts(today):
-    # a condition to check to determine when to run the backfill.
+def should_backfill_confirmed_alerts(today: date) -> bool:
+    # a condition to check to determine if backfill should be run.
     return True if not today.day % settings.GFW_BACKFILL_INTERVAL_DAYS else False
 
 
-def get_alert_start_end_dates(layer_slug, gfw_object):
-    today = date.today()
-    # go back 10 days by default
-    start_date = today - timedelta(days=10)
-
-    if (layer_slug == GFWLayerSlugs.GLAD_ALERTS.value
-            and should_backfill_confirmed_alerts(today)):
-        start_date = today - timedelta(days=gfw_object.glad_confirmed_backfill_days)
-        logger.info(f'{gfw_object.name}: schedule GLAD alert backfill for period: '
-                    f'{start_date.strftime("%Y-%m-%d")}:{today.strftime("%Y-%m-%d")}')
-
-    return start_date.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d')
-
-
-def make_alert_info(layer_slug, gfw_object):
+def get_dict(start_date: date, end_date: date, gfw_object: gfw_model,
+             confirmed_only: bool = False) -> dict:
     gfw_endpoint = get_gfw_endpoint()
     geostore_id = gfw_object.geostore_id
-    start_date_str, end_date_str = get_alert_start_end_dates(layer_slug, gfw_object)
+    start_date_str, end_date_str = start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')
 
     return dict(
         alert_name=gfw_object.name,
@@ -135,9 +125,24 @@ def make_alert_info(layer_slug, gfw_object):
         alert_date_begin=start_date_str,
         alert_date_end=end_date_str,
         downloadUrls={
-            'json': make_download_url(geostore_id, start_date_str, end_date_str, gfw_endpoint)
+            'json': make_download_url(geostore_id, start_date_str, end_date_str, confirmed_only, gfw_endpoint)
         }
     )
+
+
+def make_alert_infos(layer_slug: str, gfw_object: gfw_model) -> dict:
+    end_date = date.today()
+
+    if layer_slug == GFWLayerSlugs.VIIRS_ACTIVE_FIRES.value:
+        start_date = end_date - timedelta(days=7)  # query for past 7 days for fire alerts
+        yield get_dict(start_date, end_date, gfw_object)
+    elif layer_slug == GFWLayerSlugs.GLAD_ALERTS.value:
+        start_date = end_date - timedelta(days=10) # query for past 10 days for GLAD alerts
+        confirmed_only = True if gfw_object.Deforestation_confidence == gfw_model.CONFIRMED else False
+        yield get_dict(start_date, end_date, gfw_object, confirmed_only)
+        if should_backfill_confirmed_alerts(end_date):
+            start_date = end_date - timedelta(days=gfw_object.glad_confirmed_backfill_days)
+            yield get_dict(start_date, end_date, gfw_object, True)
 
 
 def get_gfw_user():

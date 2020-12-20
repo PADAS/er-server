@@ -1,7 +1,7 @@
 import json
 import logging
 import textwrap
-from datetime import date, timedelta, datetime
+from datetime import datetime
 
 import requests
 from celery_once import QueueOnce
@@ -12,7 +12,7 @@ from analyzers import gfw_inbound
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.finder import get_subject_analyzers
 from analyzers.gfw_alert_schema import GFWGladEventTypeSpec
-from analyzers.gfw_utils import get_gfw_user, make_alert_info
+from analyzers.gfw_utils import get_gfw_user, make_alert_infos
 from analyzers.models import GlobalForestWatchSubscription as gfw_model
 from analyzers.models import ObservationAnnotator
 from das_server import celery
@@ -147,12 +147,13 @@ def download_gfw_alerts(self, download_url, event_dict, user_id):
 def poll_gfw():
     gfw_user = get_gfw_user()
     for layer_slug, gfw_subscription in get_model_slug_pairs():
-        alert_info = make_alert_info(layer_slug, gfw_subscription)
-        logger.info(f'{layer_slug} {alert_info}')
-        gfw_inbound.process_alert_for_subscription(layer_slug,
-                                                   gfw_subscription.subscription_id,
-                                                   alert_info,
-                                                   str(gfw_user.id))
+        for alert_info in make_alert_infos(layer_slug, gfw_subscription):
+            logger.info(f'{layer_slug} {alert_info}')
+            gfw_inbound.process_alert_for_subscription(layer_slug,
+                                                       gfw_subscription.subscription_id,
+                                                       alert_info,
+                                                       str(gfw_user.id),
+                                                       True)
 
 
 def fetch_alerts(self, event_dict, download_url, user_id):

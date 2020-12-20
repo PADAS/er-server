@@ -128,7 +128,7 @@ def process_handler_post(request):
     return Response(status=status.HTTP_200_OK, data=dict(message='Alerts are being processed'))
 
 
-def process_alert_for_subscription(layer_slug, subscription_id, validated_data, user_id):
+def process_alert_for_subscription(layer_slug, subscription_id, validated_data, user_id, polling=False):
     logger.info('Got %s alert', layer_slug,
                 extra={'alert_type': layer_slug})
     event_type_value = GFW_EVENT_TYPES_MAP.get(layer_slug)
@@ -150,17 +150,16 @@ def process_alert_for_subscription(layer_slug, subscription_id, validated_data, 
         validated_data['downloadUrls'] = prepare_downloadable_url(validated_data, subscription_id)
 
     download_urls = validated_data.get('downloadUrls')
-    if download_urls:
-        download_url = download_urls.get('json')
-        if event_dict.get('event_type') == 'gfw_glad_alert':
-            # make sure geostore is correct in download_url
-            download_url = rebuild_glad_download_url(download_url, GlobalForestWatchSubscription.objects.get(
-                subscription_id=subscription_id))
+    download_url = download_urls.get('json')
+    if event_dict.get('event_type') == 'gfw_glad_alert' and not polling:
+        # make sure geostore is correct in download_url
+        download_url = rebuild_glad_download_url(download_url, GlobalForestWatchSubscription.objects.get(
+            subscription_id=subscription_id))
 
-        result = celery.app.send_task('analyzers.tasks.download_gfw_alerts', args=(download_url,
-                                                                                   event_dict,
-                                                                                   user_id))
-        logger.info('Submitted task for downloading GFW Alerts. Celery Async result: %s', result)
+    result = celery.app.send_task('analyzers.tasks.download_gfw_alerts', args=(download_url,
+                                                                               event_dict,
+                                                                               user_id))
+    logger.info('Submitted task for downloading GFW Alerts. Celery Async result: %s', result)
 
 
 def process_downloaded_alerts(payload, common_event_fields, user_id):
@@ -268,8 +267,6 @@ def filter_alert_based_on_confidence(alerts, common_event_fields):
     return filtered_alerts
 
 
-
-
 def persist_event(event_fields, request, counts):
     def pre_save_info(sender, instance, **kwargs):
         if issubclass(sender, RevisionMixin):
@@ -278,12 +275,27 @@ def persist_event(event_fields, request, counts):
     # check for duplicates before serializing
     location = Point(event_fields['location']['longitude'],
                      event_fields['location']['latitude'])
+    confidence = event_fields['event_details']['confidence']
 
-    if Event.objects.filter(location=location,
-                            event_time=event_fields['time'],
-                            event_type__value__exact=event_fields['event_type']).exists():
-        logger.debug('Event already exists - ignoring duplicate event')
-    else:
+    try:
+        saved_event = Event.objects.get(location=location,
+                                        event_time=event_fields['time'],
+                                        event_type__value__exact=event_fields['event_type'])
+
+        # need to optimize this.
+        if event_fields['event_type'] == 'gfw_glad_alert':
+            evt_details = saved_event.event_details.get()
+            saved_conf = evt_details.data['event_details']['confidence']
+            if saved_conf != confidence:
+                evt_details.data['event_details']['confidence'] = confidence
+                evt_details.save()
+                logger.info(f'event details id: {evt_details.id} GLAD confidence updated from {saved_conf} to {confidence}')
+            else:
+                logger.debug('Ignoring duplicate event')
+        else:
+            logger.debug('Ignoring duplicate event')
+
+    except Event.DoesNotExist:
         evt_serializer = EventSerializer(
             data=event_fields, context={'request': request})
         if not evt_serializer.is_valid():
