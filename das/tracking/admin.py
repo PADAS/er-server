@@ -8,7 +8,7 @@ from django.utils.translation import ugettext_lazy as _
 
 import observations.models
 import tracking.models as models
-from tracking.forms import SourcePluginForm, TrackConfigurationForm
+from tracking.forms import SourcePluginForm
 from django.forms import CheckboxSelectMultiple
 
 import logging

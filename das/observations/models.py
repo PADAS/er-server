@@ -144,6 +144,7 @@ class SourceManager(models.Manager):
         subject_info = kwargs.get('subject')
 
         with transaction.atomic():
+
             source, source_created = self.get_source(**kwargs)
             if source_created:
 
@@ -179,21 +180,19 @@ class SourceManager(models.Manager):
 
             return source
 
-    def get_source(self, **kwargs):
-        additional = kwargs.get('additional', {})
-        provider = SourceProvider.objects.create_provider(
-            provider_key=kwargs.get('provider'))
+    def get_source(self, *, provider=None, manufacturer_id=None, model_name=None,
+                   source_type=None, additional=None, **kwargs):
+        additional = additional or {}
+        provider = SourceProvider.objects.create_provider(provider_key=provider)
 
-        searchkey = dict(
-            manufacturer_id=kwargs['manufacturer_id'], provider=provider)
+        searchkey = dict(manufacturer_id=manufacturer_id, provider=provider)
         defaults = {
-            'source_type': kwargs.get('source_type'),
-            'model_name': kwargs.get('model_name'),
+            'source_type': source_type,
+            'model_name': model_name,
             'additional': additional
         }
 
-        return Source.objects.get_or_create(
-            defaults=defaults, **searchkey)
+        return Source.objects.get_or_create(defaults=defaults, **searchkey)
 
 
 class SourceProviderManager(models.Manager):
