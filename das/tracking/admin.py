@@ -8,9 +8,12 @@ from django.utils.translation import ugettext_lazy as _
 
 import observations.models
 import tracking.models as models
-from tracking.forms import SourcePluginForm
+from tracking.forms import SourcePluginForm, TrackConfigurationForm
 from django.forms import CheckboxSelectMultiple
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 def _get_plugin_class_search_fields():
     '''
@@ -154,13 +157,16 @@ class AwtAdmin(admin.ModelAdmin):
 
 @admin.register(models.TrackConfiguration)
 class TrackConfigurationAdmin(admin.ModelAdmin):
-    list_display = ('id', 'new_device_config', 'name_change_config')
+
+    list_display = ('friendly_name', 'new_device_config', 'name_change_config', 'is_default',)
+    list_editable = ('is_default',)
     formfield_overrides = {
         django.db.models.ManyToManyField: {'widget': CheckboxSelectMultiple},
     }
     fieldsets = (
         ('New device subject handling', {
-            'fields': ('new_device_config',)
+            'classes': ('wide',),
+            'fields': ('new_device_config', 'is_default', 'source_provider')
         }
          ),
         (None, {
@@ -179,6 +185,13 @@ class TrackConfigurationAdmin(admin.ModelAdmin):
          ),
     )
 
+    def friendly_name(self, instance):
+        if instance.source_provider:
+            return f'Config for {instance.source_provider.display_name}'
+        else:
+            return 'Default Configuration' if instance.is_default else 'Unassociated configuration'
+
+    friendly_name.short_description = 'Friendly display name'
 
     class Media:
         js = ['admin/js/toggle_subject_types.js',]

@@ -5,6 +5,11 @@ from django.utils.translation import ugettext_lazy as _
 from observations.models import SubjectType, SourceProvider
 import uuid
 from django.db.models.constraints import UniqueConstraint
+from django.core.exceptions import ValidationError
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 CREATE_NEW = 'create_new'
 USE_EXISTING = 'use_existing'
@@ -41,8 +46,14 @@ class TrackConfiguration(TimestampedModel):
         SubjectType, related_name='name_change_excluded_subject_types',
         default='wildlife', blank=True,
         help_text=_('Select any Subject Types to exclude from matching'))
-    is_default = models.BooleanField(_('default subject group'), default=False)
-    source_provider = models.OneToOneField(to=SourceProvider, null=True, blank=True, on_delete=models.SET_NULL)
+
+    is_default = models.BooleanField(verbose_name=_('Use as default?'),
+                                     help_text=_('Used this as the default configuration'),
+                                     default=False)
+
+    source_provider = models.OneToOneField(to=SourceProvider, null=True, blank=True, on_delete=models.SET_NULL,
+                                           verbose_name=_('Configuration for this Source Provider'),
+                                           help_text=_('This configuration will be used for this SourceProvider'))
 
     class Meta:
         verbose_name = 'EarthRanger Track Configuration'
