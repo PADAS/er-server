@@ -424,11 +424,9 @@ class PatrolPermissionMixin:
     def has_view_permission(self, request, obj=None):
         opts = self.patrol_opts
         codename_view = get_permission_codename('view', opts)
-        codename_add = get_permission_codename('add', opts)
         codename_change = get_permission_codename('change', opts)
         return (
             request.user.has_perm(f"{opts.app_label}.{codename_view}") or
-            request.user.has_perm(f"{opts.app_label}.{codename_add}") or
             request.user.has_perm(f"{opts.app_label}.{codename_change}"))
 
 
