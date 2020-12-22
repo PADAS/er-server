@@ -102,13 +102,13 @@ class GenericSensorHandler:
         provider_key = kwargs.get('provider')
         with transaction.atomic():
             source, source_created = Source.objects.get_source(**kwargs)
-            if subject_info:
-                handle_subject_and_source.apply_async(
-                    args=(subject_info, source_created, source.id, provider_key, user.id, observation))
-            else:
+            if source_created and not subject_info:
                 subject_model = Subject.objects.create_subject(
                     **{'name': source.manufacturer_id})
                 SubjectSource.objects.create(source=source, subject=subject_model)
+            elif subject_info:
+                handle_subject_and_source.apply_async(
+                    args=(subject_info, source_created, source.id, provider_key, user.id, observation))
             return source
 
     @classmethod

@@ -51,7 +51,6 @@ class SourceProviderConfiguration(TimestampedModel):
                                      default=False)
 
     source_provider = models.OneToOneField(to=SourceProvider, null=True, blank=True, on_delete=models.SET_NULL,
-                                           verbose_name=_('Configuration for this Source Provider'),
                                            help_text=_('This configuration will be used for this SourceProvider'))
 
     class Meta:

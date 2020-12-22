@@ -164,9 +164,12 @@ class SourceProviderConfigurationAdmin(admin.ModelAdmin):
         django.db.models.ManyToManyField: {'widget': CheckboxSelectMultiple},
     }
     fieldsets = (
+        (None, {
+            'fields': ('is_default', 'source_provider', )
+        }
+         ),
         ('New device subject handling', {
-            'classes': ('wide',),
-            'fields': ('new_device_config', 'is_default', 'source_provider')
+            'fields': ('new_device_config',)
         }
          ),
         (None, {
