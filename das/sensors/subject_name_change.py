@@ -9,7 +9,7 @@ from observations.models import (SourceGroup, SourceProvider, Subject,
                                  SubjectSource)
 from psycopg2.extras import DateTimeTZRange
 from tracking.models.er_track import (UPDATE_NAME, USE_EXISTING,
-                                      TrackConfiguration)
+                                      SourceProviderConfiguration)
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,7 @@ def update_source_assignment(matching_subject, source, record_time):
 def get_track_config(provider_key):
     provider = SourceProvider.objects.filter(provider_key=provider_key).first()
 
-    configs = TrackConfiguration.objects.filter(
+    configs = SourceProviderConfiguration.objects.filter(
         Q(source_provider=provider) | Q(is_default=True)).order_by('is_default')
     track_config = configs.first()
 
@@ -95,7 +95,7 @@ def get_track_config(provider_key):
 
 
 def create_default_config():
-    default_config = TrackConfiguration.objects.create(is_default=True)
+    default_config = SourceProviderConfiguration.objects.create(is_default=True)
     return default_config
 
 

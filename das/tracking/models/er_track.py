@@ -25,7 +25,7 @@ NAME_CHANGE_CONFIG_CHOICES = (
     (UPDATE_NAME, 'Update the name of the existing subject'))
 
 
-class TrackConfiguration(TimestampedModel):
+class SourceProviderConfiguration(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     new_device_config = models.CharField(
@@ -44,8 +44,7 @@ class TrackConfiguration(TimestampedModel):
 
     name_change_excluded_subject_types = models.ManyToManyField(
         SubjectType, related_name='name_change_excluded_subject_types',
-        default='wildlife', blank=True,
-        help_text=_('Select any Subject Types to exclude from matching'))
+        default='wildlife', blank=True, verbose_name='')
 
     is_default = models.BooleanField(verbose_name=_('Use as default?'),
                                      help_text=_('Used this as the default configuration'),

@@ -155,8 +155,8 @@ class AwtAdmin(admin.ModelAdmin):
     list_display = ('name', 'username', 'host')
 
 
-@admin.register(models.TrackConfiguration)
-class TrackConfigurationAdmin(admin.ModelAdmin):
+@admin.register(models.SourceProviderConfiguration)
+class SourceProviderConfigurationAdmin(admin.ModelAdmin):
 
     list_display = ('friendly_name', 'new_device_config', 'name_change_config', 'is_default',)
     list_editable = ('is_default',)
@@ -197,7 +197,7 @@ class TrackConfigurationAdmin(admin.ModelAdmin):
         js = ['admin/js/toggle_subject_types.js',]
 
     def get_form(self, request, obj=None, change=False, **kwargs):
-        form = super(TrackConfigurationAdmin, self).get_form(request, obj, change, **kwargs)
+        form = super(SourceProviderConfigurationAdmin, self).get_form(request, obj, change, **kwargs)
         form.base_fields['new_subject_excluded_subject_types'].widget.can_add_related = False
         form.base_fields['name_change_excluded_subject_types'].widget.can_add_related = False
         return form

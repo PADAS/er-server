@@ -13,7 +13,7 @@ from observations.models import SubjectSource, Source, Observation, Subject, Sou
 from observations.serializers import ObservationSerializer
 from observations import servicesutils
 from observations.models import update_subject_status_from_post
-from tracking.models.er_track import TrackConfiguration
+from tracking.models.er_track import SourceProviderConfiguration
 from tracking.pubsub_registry import notify_new_tracks
 from sensors.vehicle_tracker import SkylineObservations, SkylineAdapter, \
     FollowltObservation, TractAdapter, TractVehicleData, EzytrackObservation, \

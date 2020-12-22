@@ -14,7 +14,7 @@ from django.utils import lorem_ipsum
 from core.tests import BaseAPITest, fake_get_pool
 from sensors.views import GenericSensorHandlerView
 from observations.models import Subject, SourceProvider, Source, SubjectSource, Observation, SubjectGroup, SubjectSubType, SubjectType
-from tracking.models.er_track import TrackConfiguration, CREATE_NEW, UPDATE_NAME
+from tracking.models.er_track import SourceProviderConfiguration, CREATE_NEW, UPDATE_NAME
 from accounts.models import User
 from django.test import TestCase, override_settings
 
@@ -80,7 +80,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.super_user = User.objects.create_superuser(username="superuser",
                                                         password="adfsfds32423",
                                                         email="super@user.com")
-        self.config = TrackConfiguration.objects.create(is_default=True)
+        self.config = SourceProviderConfiguration.objects.create(is_default=True)
 
     @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def run_transaction_hooks(self):
