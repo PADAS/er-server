@@ -1152,3 +1152,50 @@ class TestPatrol(BaseAPITest):
         self.force_authenticate(request, self.user)
         response = views.PatrolsegmentView.as_view()(request, id=segment_id)
         self.assertEqual(1, len(response.data.get('events')))
+
+    def test_patrolsegment_history_update_endtime(self):
+        Patrol.objects.all().delete()
+        now = datetime.datetime.now(tz=pytz.utc)
+
+        patrol_patrolsegment = dict(
+            priority=0,
+            title="Patrol XYZ",
+            patrol_segments=[{
+                "patrol_type": "routine_patrol",
+                "scheduled_start": "2020-08-26T01:14:34.196502+03:00",
+                "time_range": {
+                    "start_time": "2020-09-24T07:08:16.711000+03:00",
+                    "end_time": "2020-09-26T07:08:16.711000+03:00"
+                }
+            }]
+        )
+
+        url = reverse('patrols')
+        request = self.factory.post(url, data=patrol_patrolsegment)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        patrol_sgs = response.data.get('patrol_segments')
+        patrol_sgs_id = patrol_sgs[0].get('id')
+
+        updated_patrol_patrolsg = dict(
+            priority=200,
+            patrol_segments=[{
+                "id": patrol_sgs_id,
+                "patrol_type": "dog_patrol",
+                "scheduled_start": "2020-09-26T01:14:34.196502+03:00",
+                "time_range": {
+                    "start_time": "2020-09-24T07:08:16.711000+03:00",
+                    "end_time": "2020-09-29T07:08:16.711000+03:00"
+                }
+            }]
+        )
+
+        p = Patrol.objects.get(title='Patrol XYZ')
+        url = reverse('patrol', kwargs={'id': p.id})
+        request = self.factory.patch(url, data=updated_patrol_patrolsg)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolView.as_view()(request, id=p.id)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue('End Time' in response.data['patrol_segments'][0]['updates'][0].get('message'))
