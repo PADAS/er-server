@@ -13,10 +13,8 @@ from django.utils import lorem_ipsum
 
 from core.tests import BaseAPITest, fake_get_pool
 from sensors.views import GenericSensorHandlerView
-from observations.models import Subject, SourceProvider, Source, SubjectSource, Observation, SubjectGroup, SubjectSubType, SubjectType
-from tracking.models.er_track import SourceProviderConfiguration, CREATE_NEW, UPDATE_NAME
-from accounts.models import User
-from django.test import TestCase, override_settings
+from observations.models import Subject, SourceProvider, Source, Observation, SubjectGroup, SubjectSubType
+
 
 class GenericSensorHandlerTest(BaseAPITest):
     source_type = 'tracking-collar'
@@ -68,7 +66,9 @@ class GenericSensorHandlerTest(BaseAPITest):
 
     def setUp(self):
         super().setUp()
-        # setup db: create source, provider
+
+        # setup db: create subject, source, provider
+        Subject.objects.create(name="test_subject")
         self.test_sourceprovider = SourceProvider.objects.create(
             display_name=self.provider, provider_key=self.provider)
         self.test_source = Source.objects.create(
@@ -77,10 +77,6 @@ class GenericSensorHandlerTest(BaseAPITest):
 
         self.api_path = '/'.join((self.api_base, 'sensors',
                                   self.sensor_type, self.provider, 'status'))
-        self.super_user = User.objects.create_superuser(username="superuser",
-                                                        password="adfsfds32423",
-                                                        email="super@user.com")
-        self.config = SourceProviderConfiguration.objects.create(is_default=True)
 
     @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def run_transaction_hooks(self):
@@ -130,7 +126,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             source=self.test_source).count())
         obs = next(iter(Observation.objects.filter(
             source=self.test_source)))
-        
+
     def test_request_recorded_at_timezone(self):
         recorded_at_iso = self.second_observation['recorded_at']
         recorded_at = dateparser.parse(recorded_at_iso)
@@ -150,7 +146,6 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertEqual(1, Observation.objects.filter(
             source=self.test_source).count())
 
-    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_post_with_new_source_subject_subtype(self):
         observation = copy.deepcopy(self.one_observation)
         observation.update({"subject_subtype": "ranger"})
@@ -163,7 +158,6 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertEqual(Subject.objects.get(
             name=observation['subject_name']).subject_subtype, SubjectSubType.objects.get(value="ranger"))
 
-    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_post_with_new_source_subject_groups(self):
         observation = copy.deepcopy(self.one_observation)
         observation.update({"subject_groups": ["sg_1", "sg_2"]})
@@ -175,7 +169,6 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertIn(Subject.objects.get(
             name=observation['subject_name']), SubjectGroup.objects.get(name="sg_1").subjects.all())
 
-    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_post_with_new_source_but_empty_subject_groups(self):
         observation = copy.deepcopy(self.one_observation)
         observation.update({"subject_groups": [""]})
@@ -186,7 +179,6 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertIn(Subject.objects.get(
             name=observation['subject_name']), SubjectGroup.objects.get_default().subjects.all())
 
-    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_post_with_new_source_but_empty_subject_groups_two(self):
         self.third_observation['subject_groups'] = ["", ""]
         response = self._post_data(json.dumps(self.third_observation))
@@ -194,7 +186,6 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertIn(Subject.objects.get(
             name="administrator1025"), SubjectGroup.objects.get_default().subjects.all())
 
-    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_post_sensor_data_with_provided_subject_groups(self):
         self.third_observation['subject_groups'] = ["Quails"]
         response = self._post_data(json.dumps(self.third_observation))
@@ -203,7 +194,6 @@ class GenericSensorHandlerTest(BaseAPITest):
             Subject.objects.get(name="administrator1025"),
             SubjectGroup.objects.get(name='Quails').subjects.all())
 
-    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_post_sensor_data_with_provided_source_additional(self):
         self.third_observation['source_additional'] = {"frequency": "123.5"}
 
@@ -257,7 +247,6 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(2, Observation.objects.count())
 
-    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_subject_source_donot_exist(self):
         new_source_id = 'new_src_id'
         local_obs = copy.deepcopy(self.one_observation)
@@ -289,7 +278,6 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertIsNotNone(SourceProvider.objects.get(
             provider_key='random_src_provider'))
 
-    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_subject_src_provider_donot_exist(self):
         mfg_id = 'brew_new_mfg_id'
         provider_key = 'new_provider_key'
@@ -306,7 +294,6 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertIsNotNone(src)
         self.assertIsNotNone(Subject.objects.get(name=mfg_id))
 
-    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_with_new_subject_id_and_source(self):
         uuid = uuid4()
         new_source_id = 'new_src_id'
@@ -323,10 +310,11 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertIsNotNone(Subject.objects.get(pk=uuid))
 
     def test_multiple_obs_with_new_subject_id_and_source(self):
+        uuid = uuid4()
         new_source_id = 'new_src_id'
         obs_list = [x for x in self._generate_observations(distinct=True)]
         for o in obs_list:
-            o['subject_id'] = uuid4().hex
+            o['subject_id'] = uuid.hex
             o['manufacturer_id'] = new_source_id
         response = self._post_data(json.dumps(obs_list))
         new_source = Source.objects.get(manufacturer_id=new_source_id)
@@ -335,6 +323,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertIsNotNone(new_source)
         self.assertEqual(len(obs_list), Observation.objects.filter(
             source=new_source).count())
+        self.assertIsNotNone(Subject.objects.get(pk=uuid))
 
     def test_with_multiple_subject_ids_new_source(self):
         uuids = [uuid4() for i in range(5)]
@@ -357,8 +346,6 @@ class GenericSensorHandlerTest(BaseAPITest):
 
     def test_with_subject_subtype(self):
         subject_subtype = 'animal-awesome'
-        subject_type = SubjectType.objects.create(value='Awesome')
-        SubjectSubType.objects.create(value=subject_subtype, subject_type=subject_type)
         new_source_id = 'new_src_id'
         obs_copy = copy.deepcopy(self.one_observation)
         obs_copy['subject_subtype'] = subject_subtype
@@ -373,162 +360,6 @@ class GenericSensorHandlerTest(BaseAPITest):
             source=new_source).count())
         self.assertIsNotNone(SubjectSubType.objects.get(value=subject_subtype))
 
-    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    def test_post_new_device_handling_with_create_new_config(self):
-        config = self.config
-        config.new_device_config = CREATE_NEW
-        config.save()
-        self.assertTrue(Subject.objects.count() == 0 and SubjectSource.objects.count() == 0)
-        response = self._post_data(json.dumps(self.one_observation))
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(1, Observation.objects.filter(
-            source=self.test_source).count())
-        self.assertTrue(SubjectSource.objects.count() == 1 and Subject.objects.count() == 1)  # New subject created
-
-    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    def test_post_new_device_handling_with_use_existing_config(self):
-        subject_type = SubjectType.objects.create(value='Cats')
-        subject_subtype = SubjectSubType.objects.create(value='queens', subject_type=subject_type)
-        matching_subject = Subject.objects.create(
-            name='Katie Kitten', subject_subtype=subject_subtype,
-            additional={'sex': 'female'})
-        SubjectSource.objects.create(subject=matching_subject, source=self.test_source)
-        obs_copy = copy.deepcopy(self.one_observation)
-        obs_copy['subject_name'] = 'Katie Kitten'
-        obs_copy['manufacturer_id'] = 'new_source'
-
-        self.assertEqual(Subject.objects.count(), 1)
-        self.assertEqual(len(Subject.objects.get(name='Katie Kitten').observations()), 0)
-
-        self.assertEqual(1, SubjectSource.objects.filter(subject=matching_subject, source=self.test_source).count())
-        response = self._post_data(json.dumps(obs_copy), user=self.super_user)
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
-        # No new subject created
-        self.assertEqual(Subject.objects.count(), 1)
-
-        # Observation added to matching Subject
-        self.assertEqual(len(Subject.objects.get(name='Katie Kitten').observations()), 1)
-
-        # New source assignment added
-        self.assertEqual(2, SubjectSource.objects.filter(subject=matching_subject).count())
-
-    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    def test_device_handling_with_use_existing_config_and_person_subtype_match(self):
-        subject_type = SubjectType.objects.create(value='Cats')
-        person_subject_type = SubjectType.objects.create(value='Person')
-        subject_subtype = SubjectSubType.objects.create(value='queens', subject_type=subject_type)
-        ranger_subject_subtype = SubjectSubType.objects.create(value='Ranger', subject_type=person_subject_type)
-
-        subject_name = 'Katie Kitten'
-
-        person_subject = Subject.objects.create(
-            name=subject_name, subject_subtype=ranger_subject_subtype)  # Person Match
-
-        other_subject = Subject.objects.create(
-            name=subject_name, subject_subtype=subject_subtype)  # Other match
-
-        obs_copy = copy.deepcopy(self.one_observation)
-        obs_copy['subject_name'] = 'Katie Kitten'
-        obs_copy['manufacturer_id'] = 'new_source'
-
-        self.assertEqual(Subject.objects.count(), 2)
-        self.assertTrue(
-            len(Subject.objects.get(name=subject_name, subject_subtype=ranger_subject_subtype).observations()) == 0 and
-            len(Subject.objects.get(name=subject_name, subject_subtype=subject_subtype).observations()) == 0
-        )
-
-        self.assertEqual(0, SubjectSource.objects.filter(source=self.test_source).count())
-        response = self._post_data(json.dumps(obs_copy), user=self.super_user)
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
-        # No new subject created
-        self.assertEqual(Subject.objects.count(), 2)
-
-        # Observation added to matching Subject
-        self.assertTrue(
-            len(Subject.objects.get(name=subject_name, subject_subtype=ranger_subject_subtype).observations()) == 1 and
-            len(Subject.objects.get(name=subject_name, subject_subtype=subject_subtype).observations()) == 0
-        )
-
-        # New source assignment added
-        self.assertEqual(1, SubjectSource.objects.filter(subject=person_subject).count())
-        self.assertEqual(0, SubjectSource.objects.filter(subject=other_subject).count())
-
-    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    def test_device_handling_with_use_existing_config_and_other_subtype_matches(self):
-        subject_type = SubjectType.objects.create(value='Cats')
-        subject_subtype = SubjectSubType.objects.create(value='queens', subject_type=subject_type)
-
-        wildlife_subject_type = SubjectType.objects.create(value='Wildlife')
-        ranger_subject_subtype = SubjectSubType.objects.create(value='Rhinos', subject_type=wildlife_subject_type)
-
-        subject_name = 'Katie Kitten'
-
-        Subject.objects.create(name=subject_name, subject_subtype=ranger_subject_subtype)  # Other match 1
-        Subject.objects.create(name=subject_name, subject_subtype=subject_subtype)  # Other match 2
-
-        obs_copy = copy.deepcopy(self.one_observation)
-        obs_copy['subject_name'] = subject_name
-        obs_copy['manufacturer_id'] = 'new_source'
-
-        self.assertEqual(Subject.objects.count(), 2)
-        self.assertTrue(
-            len(Subject.objects.get(name=subject_name, subject_subtype=ranger_subject_subtype).observations()) == 0 and
-            len(Subject.objects.get(name=subject_name, subject_subtype=subject_subtype).observations()) == 0
-        )
-
-        self.assertEqual(0, SubjectSource.objects.filter(source=self.test_source).count())
-        response = self._post_data(json.dumps(obs_copy), user=self.super_user)
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
-        # One more subject created, more than one other (Not person) match found
-        self.assertEqual(Subject.objects.count(), 3)
-
-        self.assertEqual(1, SubjectSource.objects.count())
-
-        # Match on only one other subtype subjects
-        subject_2_name = 'Katrina Kitten'
-        obs_copy = copy.deepcopy(self.one_observation)
-        obs_copy['subject_name'] = subject_2_name
-        Subject.objects.create(name=subject_2_name, subject_subtype=subject_subtype)  # Other match 1
-
-        self.assertEqual(Subject.objects.count(), 4)
-
-        self._post_data(json.dumps(obs_copy), user=self.super_user)
-        self.assertEqual(Subject.objects.count(), 4)  # No new subject created, only one other (than Person) match found
-        self.assertEqual(2, SubjectSource.objects.count())
-
-    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    def test_device_handling_with_name_update_config(self):
-        self.one_observation['subject_name'] = 'Fatu'
-        response = self._post_data(json.dumps(self.one_observation))
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(1, Observation.objects.filter(
-            source=self.test_source).count())
-
-        subject = Subject.objects.first()
-        self.assertEqual(Subject.objects.count(), 1)
-        self.assertEqual(subject.name, 'Fatu')
-
-        config = self.config
-        config.name_change_config = UPDATE_NAME
-        config.save()
-
-        self.one_observation['subject_name'] = 'Najin'
-        self.one_observation['recorded_at'] = "2019-04-10T12:01:00"
-        self.one_observation['subject_id'] = subject.id.hex
-
-        response = self._post_data(json.dumps(self.one_observation), user=self.super_user)
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        # Renamed subject
-        self.assertEqual(Subject.objects.count(), 1)
-        self.assertEqual(Subject.objects.first().name, 'Najin')
-
-        # Observation added to given subject
-        self.assertEqual(2, len(Subject.objects.get(name='Najin').observations()))
-        self.assertEqual(2, Observation.objects.filter(source=self.test_source).count())
-
     def _generate_observations(self, n=10, distinct=False):
         for i in range(n):
             obs = dict(self.one_observation)
@@ -540,13 +371,13 @@ class GenericSensorHandlerTest(BaseAPITest):
             yield obs
 
     @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
-    def _post_data(self, payload, provider=None, user=None):
+    def _post_data(self, payload, provider=None):
         if not provider:
             provider = self.provider
 
         request = self.factory.post(
             self.api_path, data=payload, content_type='application/json')
-        self.force_authenticate(request, user or self.app_user)
+        self.force_authenticate(request, self.app_user)
         response = GenericSensorHandlerView.as_view()(
             request, sensor_type=self.sensor_type, provider_key=provider)
         return response
