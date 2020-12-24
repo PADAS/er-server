@@ -1,17 +1,22 @@
 import inspect
+import logging
 import sys
+from functools import partial
 
 import django
-from django.apps import apps
-from django.contrib.gis import admin
-from django.utils.translation import ugettext_lazy as _
-
 import observations.models
+from django.apps import apps
+from django.contrib import messages
+from django.contrib.gis import admin
+from django.db import transaction
+from django.db.utils import IntegrityError
+from django.forms import CheckboxSelectMultiple, modelformset_factory
+from django.http.response import HttpResponseRedirect
+from django.utils.translation import ugettext_lazy as _
+from observations.admin import ModelFormSet
+
 import tracking.models as models
 from tracking.forms import SourcePluginForm
-from django.forms import CheckboxSelectMultiple
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -204,3 +209,33 @@ class SourceProviderConfigurationAdmin(admin.ModelAdmin):
         form.base_fields['new_subject_excluded_subject_types'].widget.can_add_related = False
         form.base_fields['name_change_excluded_subject_types'].widget.can_add_related = False
         return form
+
+    def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
+        try:
+            return super().changeform_view(request, object_id, form_url, extra_context)
+        except IntegrityError:
+            self.message_user(
+                request, "A default configuration already exists. Only one allowed", level=messages.WARNING)
+            return HttpResponseRedirect(request.get_full_path())
+
+    @transaction.atomic
+    def changelist_view(self, request, extra_context=None):
+        url_path = request.get_full_path()
+        try:
+            response = super(SourceProviderConfigurationAdmin, self).changelist_view(request, extra_context)
+            return response
+        except IntegrityError:
+            msg = _("Warning: A default configuration has already been set.")
+            self.message_user(request, msg, level=messages.WARNING)
+            return HttpResponseRedirect(url_path)
+
+    def get_changelist_formset(self, request, **kwargs):
+        if request.method == 'POST':
+            defaults = {
+                'formfield_callback': partial(self.formfield_for_dbfield, request=request),
+                **kwargs,
+            }
+            return modelformset_factory(
+                self.model, self.get_changelist_form(request), formset=ModelFormSet,  extra=0,
+                fields=self.list_editable, **defaults)
+        return super(SourceProviderConfigurationAdmin, self).get_changelist_formset(request, **kwargs)

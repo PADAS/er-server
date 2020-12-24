@@ -69,10 +69,9 @@ def mutate_ertrack_subject_assignment(*, source: Source = None, subject_name: st
     # Short-circuit if the assignment is already in place.
     if Subject.objects.filter(subjectsource__source=source, subjectsource__assigned_range__contains=recorded_at,
                               name=subject_name).exists():
-        logger.info('Found everythiing already in place. Doing nothing.')
+        logger.info('Found everything already in place. Doing nothing.')
         return
 
-    #
     er_track_configuration = get_track_config(source.provider)
     subject_queryset = Subject.objects.by_user_subjects(user)
 
