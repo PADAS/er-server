@@ -50,7 +50,7 @@ import usercontent.serializers
 from activity.serializers.base import FileSerializerMixin, IMAGE_RENDITION_SETS
 
 from activity.alerting.conditions import Conditions
-
+from activity.models import PatrolSegment
 
 logger = logging.getLogger(__name__)
 
@@ -995,7 +995,17 @@ class EventSerializerMixin:
         return activity.models.Event.objects.get(id=new_event.id)
 
     def update(self, instance, validated_data):
+
+        logger.info('Inside update: %s', validated_data)
         update_fields = []
+
+
+        patrol_segments = validated_data.pop('patrol_segments', None)
+        if patrol_segments:
+            logger.info('setting patrol segments. with %s', patrol_segments)
+            # update_fields.append('patrol_segments')
+            instance.patrol_segments.set(patrol_segments)
+
         for k, v in validated_data.items():
             # details don't get saved in the same table as the rest of the
             # event data, so hand this off and pretend we never saw it
@@ -1016,10 +1026,6 @@ class EventSerializerMixin:
                         enser.update(note_instance, enser.validated_data)
                     else:
                         enser.create(enser.validated_data)
-                continue
-
-            if k == 'patrol_segments':
-                instance.patrol_segments.set((activity.models.PatrolSegment.objects.get(id=p) for p in v))
                 continue
 
             if getattr(instance, k) != v:
@@ -1227,11 +1233,9 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     files = EventFileSerializer(many=True, required=False, read_only=True)
 
     related_subjects = SubjectSerializer(many=True, required=False)
-    patrol_segment_ids = rest_framework.serializers.ListField(
-        source='patrol_segments', required=False,
-        child=rest_framework.serializers.UUIDField(), write_only=True,
-    )
 
+    patrol_segments = rest_framework.serializers.PrimaryKeyRelatedField(many=True, required=False,
+                                                                        queryset=PatrolSegment.objects.all())
 
     def get_contains(self, event):
         return self.get_out_relation(event, 'contains')
@@ -1281,15 +1285,6 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
                 attrs['state'] = attrs['event_type'].default_state
         return super().validate(attrs)
 
-    def validate_patrol_segment_ids(self, segment_ids):
-        result = []
-        for seg_id in segment_ids:
-            if activity.models.PatrolSegment.objects.filter(id=seg_id).exists():
-                result.append(seg_id)
-            else:
-                raise ValidationError(f'PatrolSegment with id {seg_id} does not exist')
-        return result
-
     def get_out_relation(self, event, value):
         self.context['event_relationship_direction'] = 'out'
         qs = event.out_relationships.filter(
@@ -1313,7 +1308,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             'event_type', 'priority', 'priority_label', 'attributes', 'comment', 'title',
             'created_by_user', 'notes', 'reported_by',
             'state', 'event_details', 'contains', 'is_linked_to', 'is_contained_in',
-            'files', 'related_subjects', 'eventsource', 'external_event_id', 'sort_at', 'patrol_segment_ids') + read_only_fields
+            'files', 'related_subjects', 'eventsource', 'external_event_id', 'sort_at',
+                 'patrol_segments') + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1374,7 +1370,6 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
                 rep['geojson'] = geodata
         if event.event_type:
             rep['is_collection'] = event.event_type.is_collection
-        rep['patrol_segment_ids'] = [str(seg.id) for seg in event.patrol_segments.all()]
 
         if self.context.get('include_updates', True):
             updates = self.render_updates(event)
@@ -1755,3 +1750,11 @@ class PatrolTypeSerializer(rest_framework.serializers.ModelSerializer):
         read_only_fields = ('id', 'value', 'display', 'ordernum',
                             'icon_id', 'default_priority', 'is_active')
         fields = read_only_fields
+
+
+class EventRelatedSegmentSerializer(rest_framework.serializers.ModelSerializer):
+
+    class Meta:
+        model = activity.models.EventRelatedSegments
+        fields = ('event', 'patrol_segment')
+

@@ -1,16 +1,24 @@
 import inspect
+import logging
 import sys
+from functools import partial
 
 import django
-from django.apps import apps
-from django.contrib.gis import admin
-from django.utils.translation import ugettext_lazy as _
-
 import observations.models
+from django.apps import apps
+from django.contrib import messages
+from django.contrib.gis import admin
+from django.db import transaction
+from django.db.utils import IntegrityError
+from django.forms import CheckboxSelectMultiple, modelformset_factory
+from django.http.response import HttpResponseRedirect
+from django.utils.translation import ugettext_lazy as _
+from observations.admin import ModelFormSet
+
 import tracking.models as models
 from tracking.forms import SourcePluginForm
-from django.forms import CheckboxSelectMultiple
 
+logger = logging.getLogger(__name__)
 
 def _get_plugin_class_search_fields():
     '''
@@ -152,15 +160,20 @@ class AwtAdmin(admin.ModelAdmin):
     list_display = ('name', 'username', 'host')
 
 
-@admin.register(models.TrackConfiguration)
-class TrackConfigurationAdmin(admin.ModelAdmin):
-    list_display = ('id', 'new_device_config', 'name_change_config')
+@admin.register(models.SourceProviderConfiguration)
+class SourceProviderConfigurationAdmin(admin.ModelAdmin):
+
+    list_display = ('friendly_name', 'new_device_config', 'name_change_config', 'is_default',)
+    list_editable = ('is_default',)
     formfield_overrides = {
         django.db.models.ManyToManyField: {'widget': CheckboxSelectMultiple},
     }
     fieldsets = (
+        (None, {
+            'fields': ('is_default', 'source_provider', )
+        }
+         ),
         ('New device subject handling', {
-            'classes': ('wide',),
             'fields': ('new_device_config',)
         }
          ),
@@ -170,7 +183,6 @@ class TrackConfigurationAdmin(admin.ModelAdmin):
         }
          ),
         ('Device name change handling', {
-            'classes': ('wide',),
             'fields': ('name_change_config',)
         }
          ),
@@ -181,11 +193,49 @@ class TrackConfigurationAdmin(admin.ModelAdmin):
          ),
     )
 
+    def friendly_name(self, instance):
+        if instance.source_provider:
+            return f'Config for {instance.source_provider.display_name}'
+        else:
+            return 'Default Configuration' if instance.is_default else 'Unassociated configuration'
+
+    friendly_name.short_description = 'Friendly display name'
+
     class Media:
         js = ['admin/js/toggle_subject_types.js',]
 
     def get_form(self, request, obj=None, change=False, **kwargs):
-        form = super(TrackConfigurationAdmin, self).get_form(request, obj, change, **kwargs)
+        form = super(SourceProviderConfigurationAdmin, self).get_form(request, obj, change, **kwargs)
         form.base_fields['new_subject_excluded_subject_types'].widget.can_add_related = False
         form.base_fields['name_change_excluded_subject_types'].widget.can_add_related = False
         return form
+
+    def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
+        try:
+            return super().changeform_view(request, object_id, form_url, extra_context)
+        except IntegrityError:
+            self.message_user(
+                request, "A default configuration already exists. Only one allowed", level=messages.WARNING)
+            return HttpResponseRedirect(request.get_full_path())
+
+    @transaction.atomic
+    def changelist_view(self, request, extra_context=None):
+        url_path = request.get_full_path()
+        try:
+            response = super(SourceProviderConfigurationAdmin, self).changelist_view(request, extra_context)
+            return response
+        except IntegrityError:
+            msg = _("Warning: A default configuration has already been set.")
+            self.message_user(request, msg, level=messages.WARNING)
+            return HttpResponseRedirect(url_path)
+
+    def get_changelist_formset(self, request, **kwargs):
+        if request.method == 'POST':
+            defaults = {
+                'formfield_callback': partial(self.formfield_for_dbfield, request=request),
+                **kwargs,
+            }
+            return modelformset_factory(
+                self.model, self.get_changelist_form(request), formset=ModelFormSet,  extra=0,
+                fields=self.list_editable, **defaults)
+        return super(SourceProviderConfigurationAdmin, self).get_changelist_formset(request, **kwargs)

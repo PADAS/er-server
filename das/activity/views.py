@@ -39,7 +39,8 @@ from activity.filters import EventObjectPermissionsFilter
 from activity.models import Event, EventNote, EventClass, \
     EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, \
     EventFile, Community, StateFilters, \
-    EventFilter, EventSource, EventProvider, PatrolType, Patrol, PatrolSegment, PatrolNote, PatrolFile
+    EventFilter, EventSource, EventProvider, PatrolType, Patrol, PatrolSegment, PatrolNote, PatrolFile, \
+    EventRelatedSegments
 from activity.permissions import EventCategoryPermissions, \
     EventNotesCategoryPermissions, IsOwner, PatrolObjectPermissions
 from activity.serializers import EventSerializer, EventNoteSerializer, \
@@ -49,7 +50,7 @@ from activity.serializers import EventSerializer, EventNoteSerializer, \
     EventFileSerializer, \
     EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, \
     EventGeoJsonSerializer, \
-    PatrolTypeSerializer
+    PatrolTypeSerializer, EventRelatedSegmentSerializer
 from activity.serializers.patrol_serializers import PatrolSerializer, PatrolSegmentSerializer, PatrolNoteSerializer, PatrolFileSerializer
 from choices.models import Choice
 from observations.models import Subject
@@ -605,6 +606,13 @@ class EventsExportView(views.APIView):
 
         queryset = Event.objects.all().prefetch_related('event_type')
 
+        permitted_event_categories = get_permitted_event_categories(self.request)
+
+        if len(permitted_event_categories) > 0:
+            queryset = queryset.filter(event_type__category__in=permitted_event_categories)
+        else:
+            return queryset.none()
+
         query_params = self.request.query_params
         bbox = query_params.get('bbox', None)
         if bbox:
@@ -662,10 +670,10 @@ class EventsView(generics.ListCreateAPIView):
 
     def add_segment_to_record(self, patrol_segment_id, new_record):
         for record in new_record:
-            if not record.get('patrol_segment_ids'):
-                record['patrol_segment_ids'] = patrol_segment_id if isinstance(patrol_segment_id, list) else [patrol_segment_id]
+            if not record.get('patrol_segments'):
+                record['patrol_segments'] = patrol_segment_id if isinstance(patrol_segment_id, list) else [patrol_segment_id]
             else:
-                record['patrol_segment_ids'].append(patrol_segment_id)
+                record['patrol_segments'].append(patrol_segment_id)
         return new_record
 
     def post(self, request, *args, **kwargs):
@@ -674,9 +682,10 @@ class EventsView(generics.ListCreateAPIView):
         if isinstance(new_record, dict):
             new_record = [new_record]
 
-        patrol_segment = self.kwargs.get('segment_id')
+        patrol_segment = self.kwargs.get('patrol_segment')
         if patrol_segment:
             new_record = self.add_segment_to_record(patrol_segment, new_record)
+
         with transaction.atomic():
             errors = []
             serializer = self.get_serializer(data=new_record, many=True)
@@ -729,9 +738,10 @@ class EventsView(generics.ListCreateAPIView):
 
         queryset = Event.objects.all_sort().prefetch_related(
             'eventsource_event_refs')
-        patrol_segment = self.kwargs.get('segment_id')
-        if patrol_segment:
-            queryset = queryset.filter(patrol_segments__id=patrol_segment)
+        patrol_segment_id = self.kwargs.get('patrol_segment')
+        if patrol_segment_id:
+            logger.debug("Filtering on patrol segment id: %s", patrol_segment_id)
+            queryset = queryset.filter(patrol_segments__id=patrol_segment_id)
 
         query_params = self.request.query_params
         event_ids = query_params.get('event_ids', [])
@@ -819,6 +829,19 @@ class EventsView(generics.ListCreateAPIView):
         return queryset
 
 
+def get_permitted_event_categories(request):
+    permitted_categories = []
+
+    for category in EventCategory.objects.filter(is_active=True):
+        permission_name = 'activity.{0}_{1}'.format(
+            category.value,
+            EventCategoryPermissions.http_method_map['GET']
+        )
+        if request.user.has_perm(permission_name):
+            permitted_categories.append(category)
+    return permitted_categories
+
+
 def calculate_event_etag(view_instance, view_method, request, *args, **kwargs):
     instance = view_instance.get_object()
     return str(hash(instance.updated_at))
@@ -862,9 +885,6 @@ class EventView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         queryset = Event.objects.all()
-        patrol_segment = self.kwargs.get('segment_id')
-        if patrol_segment:
-            queryset = queryset.filter(patrol_segments__id=patrol_segment)
 
         event_filter = self.request.query_params.get('filter', None)
         if event_filter:

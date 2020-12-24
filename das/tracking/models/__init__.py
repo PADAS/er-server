@@ -12,9 +12,8 @@ from tracking.models.plugin_base import TrackingPlugin
 from tracking.models.sirtrack import SirtrackPlugin
 from tracking.models.vectronics import VectronicsPlugin
 from tracking.models.awt import AwtPlugin
-from tracking.models.er_track import TrackConfiguration
+from tracking.models.er_track import SourceProviderConfiguration
 
 runnable_plugins = (SavannahPlugin, DemoSourcePlugin, InreachPlugin, InreachKMLPlugin, AWTHttpPlugin,
                     SkygisticsSatellitePlugin, SpiderTracksPlugin, AWETelemetryPlugin, SirtrackPlugin,
-                    VectronicsPlugin, AwtPlugin, TrackConfiguration)
-
+                    VectronicsPlugin, AwtPlugin)

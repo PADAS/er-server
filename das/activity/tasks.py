@@ -132,7 +132,7 @@ def refresh_event_details_view(self, activity):
         return activity, 'FAILURE'
 
 
-@celery.app.task(bine=True, ignore_result=False, track_started=True,
+@celery.app.task(bind=True, ignore_result=False, track_started=True,
                  base=QueueOnce, once={'graceful': True})
 def refresh_event_details_view_task(self, activity):
     # run the scheduler if and only-if view exist.

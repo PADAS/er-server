@@ -13,8 +13,12 @@ EXPIRE_SUBTASKS = 300
 @celery.app.task(bind=True)
 def run_plugins(self, expire_subtasks=EXPIRE_SUBTASKS):
     for plugin_class in runnable_plugins:
-        run_plugin_class.apply_async(args=[plugin_class.__name__, ], kwargs={'expire_subtasks': expire_subtasks},
-                                     expires=expire_subtasks)
+        if issubclass(plugin_class, (TrackingPlugin,)):
+            run_plugin_class.apply_async(args=[plugin_class.__name__, ], kwargs={'expire_subtasks': expire_subtasks},
+                                         expires=expire_subtasks)
+        else:
+            logger.error('Coding error. %s.%s is not runnable as a TrackingPlugin.',
+                         plugin_class.__module__, plugin_class.__name__)
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True, })
