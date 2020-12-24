@@ -19,7 +19,8 @@ from sensors.vehicle_tracker import SkylineObservations, SkylineAdapter, \
     FollowltObservation, TractAdapter, TractVehicleData, EzytrackObservation, \
     EzyTrackAdapter, DasObservation
 from analyzers import gfw_inbound
-from sensors.tasks import handle_subject_and_source
+# from sensors.tasks import handle_subject_and_source
+from sensors.subject_name_change import mutate_ertrack_subject_assignment
 
 logger = logging.getLogger(__name__)
 
@@ -194,8 +195,14 @@ class ErTrackHandler(GenericSensorHandler):
                     **{'name': source.manufacturer_id})
                 SubjectSource.objects.create(source=source, subject=subject_model)
             elif subject_info:
-                handle_subject_and_source.apply_async(
-                    args=(subject_info, source_created, source.id, provider_key, user.id, observation))
+
+                recorded_at = observation.get('recorded_at')
+                mutate_ertrack_subject_assignment(source=source,
+                                                  is_new_source=source_created,
+                                                  subject_name=subject_info.get('name'),
+                                                  subject_subtype_id=subject_info.get('subject_subtype_id'),
+                                                  recorded_at=recorded_at,
+                                                  user=user)
             return source
 
     @classmethod

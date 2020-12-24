@@ -1,120 +1,145 @@
 import logging
 from datetime import datetime
 
+import dateutil.parser
 import pytz
 from accounts.models import User
 from django.contrib.postgres.fields import DateTimeRangeField
 from django.db.models import ExpressionWrapper, F, Func, Q
 from observations.models import (SourceGroup, SourceProvider, Subject,
-                                 SubjectSource)
+                                 SubjectSource, Source)
 from psycopg2.extras import DateTimeTZRange
-from tracking.models.er_track import (UPDATE_NAME, USE_EXISTING,
+from tracking.models.er_track import (UPDATE_NAME, USE_EXISTING, CREATE_NEW,
                                       SourceProviderConfiguration)
 
 logger = logging.getLogger(__name__)
 
 
-def handle_new_device(track_config, user_subjects, observation, source):
-    source.groups.set((SourceGroup.objects.get_default(),))
-    config = track_config.new_device_config
-    if config == USE_EXISTING:
-        excluded_subtypes = [
-            k.value for k in track_config.new_subject_excluded_subject_types.all()]
-        return get_existing_matching_subject(user_subjects, observation, excluded_subtypes, source)
+def update_source_assignment(subject, source, recorded_at, terminate_existing_assignments=True):
+    '''
+    Create an assignment between the given subject and source. This function will also terminate any
+    existing assignments for either the Subject or the Source.
 
+    :param subject: A Subject
+    :param source: A Source
+    :param recorded_at: The timestamp used for starting the assignment.
+    :return: a SubjectSource object
+    '''
+    # Coerce record_time to datetime object.
+    recorded_at = recorded_at if isinstance(recorded_at, (datetime,)) else dateutil.parser.parse(recorded_at)
 
-def handle_device_name_change(track_config, user_subjects, observation, source):
-    config = track_config.name_change_config
-    subject_name = observation.get('subject_name')
+    logger.debug('Reassigning subject: %s and source: %s using recorded_at %s', subject, source, recorded_at)
 
-    if config == USE_EXISTING:
-        excluded_subtypes = [
-            k.value for k in track_config.name_change_excluded_subject_types.all()]
-        return get_existing_matching_subject(user_subjects, observation, excluded_subtypes, source)
+    if terminate_existing_assignments:
+        # Terminate pre existing subject source assignment
+        count_terminated_assignments = SubjectSource.objects.filter(Q(source=source) | Q(subject=subject),
+                                                                    assigned_range__contains=recorded_at) \
+            .annotate(lower_boundary=Func(F('assigned_range'), function='LOWER')) \
+            .update(assigned_range=ExpressionWrapper(Func(F('lower_boundary'), recorded_at, function='tstzrange'),
+                                                     output_field=DateTimeRangeField()))
 
-    elif config == UPDATE_NAME:
-        # get_subject for the latest source assignment of this source
-        # import pdb; pdb.set_trace()
-        ss_assignment = SubjectSource.objects.filter(source=source).order_by('assigned_range').first()
-        if ss_assignment:
-            subject = ss_assignment.subject
-            if subject.name != subject_name:
-                subject.name = subject_name
-                subject.save()
-                return subject
+        logger.info('Terminated %d existing assignments.',
+                    count_terminated_assignments)
 
-
-def get_existing_matching_subject(user_subjects, observation, excluded_subtypes, source):
-    subject_name = observation.get('subject_name')
-    record_time = observation.get('recorded_at')
-    qs_person = user_subjects.filter(
-        name=subject_name,
-        subject_subtype__subject_type__value__iexact='person')
-    if qs_person:
-        matching_subject = qs_person.first()
-        update_source_assignment(matching_subject, source, record_time)
-        return matching_subject
-    else:
-        if user_subjects:
-            try:
-                # Get matching subject from other subtypes
-                matching_subject = user_subjects.exclude(
-                    Q(subject_subtype__subject_type__value__in=excluded_subtypes)).get(name=subject_name)
-                update_source_assignment(matching_subject, source, record_time)
-                return matching_subject
-            except Subject.MultipleObjectsReturned:
-                # More than one subject returned, skip and create new subject later
-                pass
-
-
-def update_source_assignment(matching_subject, source, record_time):
-    # Terminate pre existing subject source assignment
-    count_terminated_assignments = SubjectSource.objects.filter(Q(source=source) | Q(subject=matching_subject), assigned_range__contains=record_time) \
-        .annotate(lower_boundary=Func(F('assigned_range'), function='LOWER')) \
-        .update(assigned_range=ExpressionWrapper(Func(F('lower_boundary'), record_time, function='tstzrange'), output_field=DateTimeRangeField()))
-
-    logger.info('Terminated %d existing assignments.',
-                count_terminated_assignments)
-
-    SubjectSource.objects.create(
-        source=source, subject=matching_subject,
+    return SubjectSource.objects.create(
+        source=source, subject=subject,
         assigned_range=DateTimeTZRange(
-            lower=record_time, upper=pytz.utc.localize(datetime.max))
+            lower=recorded_at, upper=pytz.utc.localize(datetime.max))
     )
 
 
-def get_track_config(provider_key):
-    provider = SourceProvider.objects.filter(provider_key=provider_key).first()
+def mutate_ertrack_subject_assignment(*, source: Source = None, subject_name: str = None,
+                                      subject_subtype_id: str = None,
+                                      recorded_at: datetime = None, user: User = None, is_new_source: bool):
+    '''
+    Really special handling for ERTrack observations.
 
-    configs = SourceProviderConfiguration.objects.filter(
-        Q(source_provider=provider) | Q(is_default=True)).order_by('is_default')
-    track_config = configs.first()
+    This function uses the incoming Observation and a SourceProviderConfiguration object to apply rules
+    for updating or reassigning the Observation's Source and/or Subject.
+
+    :param source: The Source for the posted Observation
+    :param subject_name: The Subject_name given in the posted Observation
+    :param subject_subtype_id: chosen subtype for a new Subject
+    :param recorded_at: Timestamp for the Observation, used to identify existing assignment(s)
+    :param user: User which determines the pool of Subjects for changing assignments.
+    :param is_new_source: Indicate whether the Source is just now created.
+    :return:
+    '''
+
+    # Short-circuit if the assignment is already in place.
+    if Subject.objects.filter(subjectsource__source=source, subjectsource__assigned_range__contains=recorded_at,
+                              name=subject_name).exists():
+        logger.info('Found everythiing already in place. Doing nothing.')
+        return
+
+    #
+    er_track_configuration = get_track_config(source.provider)
+    subject_queryset = Subject.objects.by_user_subjects(user)
+
+    # Identify excluded subject types.
+    if is_new_source:
+        excluded_subject_types = er_track_configuration.new_subject_excluded_subject_types.all()
+        subject_mutate_setting = er_track_configuration.new_device_config
+    else:
+        excluded_subject_types = er_track_configuration.name_change_excluded_subject_types.all()
+        subject_mutate_setting = er_track_configuration.name_change_config
+
+    logger.debug("Is new source? %s", is_new_source)
+    logger.debug('Excluding types: %s, mutating by %s', excluded_subject_types, subject_mutate_setting)
+
+    # ...and update the queryset if necessary.
+    if excluded_subject_types:
+        logger.debug('Updating query for excludes')
+        subject_queryset = subject_queryset.exclude(subject_subtype__subject_type__in=excluded_subject_types)
+
+    # Use existing match
+    if subject_mutate_setting == USE_EXISTING:
+
+        try:
+            # Special Case, if subject-type is "person" we want to find the first.
+            existing_match = subject_queryset.filter(name=subject_name,
+                                                     subject_subtype__subject_type__value__iexact='person').first()
+
+            # Otherwise get unique matching subject from other subtypes
+            if not existing_match:
+                existing_match = subject_queryset.exclude(subject_subtype__subject_type__value__iexact='person').get(name=subject_name)
+
+        except Subject.MultipleObjectsReturned:
+            # More than one subject returned, skip and create new subject later
+            logger.warning('Multiple Subjects found with name %s', subject_name)
+        except Subject.DoesNotExist:
+            # More than one subject returned, skip and create new subject later
+            pass
+
+        if existing_match:
+            logger.debug('Found match by name: %s', existing_match)
+            update_source_assignment(existing_match, source, recorded_at)
+        else:
+            logger.debug('No match found by name %s. Fall back to CREATE_NEW.', subject_name)
+            subject_mutate_setting = CREATE_NEW
+
+    if subject_mutate_setting == UPDATE_NAME:
+        # Update name for all Subjects presently assigned to this Source.
+        cnt = Subject.objects.filter(subjectsource__source=source,
+                                     subjectsource__assigned_range__contains=recorded_at).update(name=subject_name)
+        if cnt == 0:
+            logger.debug('No assignment found for source %s when trying to rename to %s. Fall back to CREATE_NEW.', source, subject_name)
+            subject_mutate_setting = CREATE_NEW
+
+    # Create new.
+    if subject_mutate_setting == CREATE_NEW:
+        logger.debug('CREAT_NEW for subject name: %s, source: %s, recorded_at: %s', subject_name, source, recorded_at)
+        created_subject = Subject.objects.create_subject(name=subject_name, subject_subtype_id=subject_subtype_id)
+        update_source_assignment(created_subject, source, recorded_at)
+
+
+def get_track_config(provider: SourceProvider):
+
+    track_config = SourceProviderConfiguration.objects.filter(
+        Q(source_provider=provider) | Q(is_default=True)).order_by('is_default').first()
 
     if not track_config:
-        track_config = create_default_config()
+        track_config, _ = SourceProviderConfiguration.objects.get_or_create(is_default=True)
     return track_config
 
 
-def create_default_config():
-    default_config = SourceProviderConfiguration.objects.create(is_default=True)
-    return default_config
-
-
-def get_tracked_subject(subject_info, source_created, source, provider_key, user_id, observation):
-    user = User.objects.get(id=user_id)
-    user_subjects = Subject.objects.all().by_user_subjects(user)
-    subject_id = subject_info.get('id')
-
-    track_config = get_track_config(provider_key)
-
-    if source_created:
-        tracked_subject = handle_new_device(
-            track_config, user_subjects, observation, source)
-    else:
-        tracked_subject = handle_device_name_change(
-            track_config, user_subjects, observation, source)
-    if not tracked_subject:
-        if Subject.objects.filter(id=subject_id):
-            subject_info.pop('id')
-        tracked_subject = Subject.objects.create_subject(**subject_info)
-    return tracked_subject
