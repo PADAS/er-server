@@ -32,6 +32,7 @@ urlpatterns = [
     url(rf'^ezytrack-tracker/{url_suffix}', views.EzyTrackHandlerView.as_view(), name='ezytrack-view'),
     url(rf'^inreach-tracker/{url_suffix}', views.InreachHandlerView.as_view()),
     url(rf'^kerlink-push/{url_suffix}', views.KerlinkHandlerView.as_view(), name='kerlink-view'),
+    url(rf'^ertrack/{url_suffix}', views.ERTrackHandlerView.as_view(), name='er-track-view'),
     url(
         r'^(?P<sensor_type>[\w-]{3,20})/(?P<provider_key>[\w-]{3,20})/status/?$',
         views.GenericSensorHandlerView.as_view()),

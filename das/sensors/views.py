@@ -13,7 +13,7 @@ from sensors.handlers import (DasRadioAgentHandler, EzyTrackHandler,
                               GenericSensorHandler, GFWAlertHandler,
                               GsatHandler, InreachPushHandler,
                               SigFoxPushHandler, SkylineVehicleTrackerHandler,
-                              TestHandler, TractVehicleHandler)
+                              TestHandler, TractVehicleHandler, ErTrackHandler)
 from sensors.sigfox_foundation_push_handler import SigfoxV1Handler, SigfoxV2Handler
 from sensors.kerlink_push_handler import KerlinkHandler
 from utils.drf import AllowAnyGet
@@ -38,6 +38,13 @@ class GenericSensorHandlerView(BaseSensorsView):
         increment(f'sensor_{sensor_type}_{provider_key}')
         return GenericSensorHandler.post(request, sensor_type=sensor_type, provider_key=provider_key)
 
+
+class ERTrackHandlerView(BaseSensorsView):
+    serializer_class = GenericSensorHandler.serializer_class
+
+    def post(self, request, provider_key=None):
+        """ Add ER Track Observations """
+        return ErTrackHandler.post(request, provider_key=provider_key)
 
 class GsatSchema(CustomSchema):
     def get_operation(self, path, method):
