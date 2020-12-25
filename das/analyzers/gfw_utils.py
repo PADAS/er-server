@@ -11,6 +11,7 @@ from analyzers.models import GlobalForestWatchSubscription as gfw_model
 logger = logging.getLogger(__name__)
 
 CARTO_URL = settings.CARTO_URL
+DEFAULT_LOOKBACK_DAYS = 10
 
 SQL_FORMAT = """SELECT pt.*
     FROM vnp14imgtdl_nrt_global_7d pt
@@ -136,13 +137,16 @@ def get_dict(start_date: date, end_date: date, gfw_object: gfw_model,
 
 def make_alert_infos(layer_slug: str, gfw_object: gfw_model) -> dict:
     end_date = date.today()
-    start_date = end_date - timedelta(days=10)  # query for past 10 days by default
+    start_date = end_date - timedelta(days=DEFAULT_LOOKBACK_DAYS)  # query for past 10 days by default
     confirmed_only = True if gfw_object.Deforestation_confidence == gfw_model.CONFIRMED else False
+    # hostname in viirs alert doesn't matter here as its always rebuilt using settings.CARTO_URL in gfw_inbound
     yield get_dict(start_date, end_date, gfw_object, confirmed_only)
 
     if (layer_slug == GFWLayerSlugs.GLAD_ALERTS.value
             and should_backfill_confirmed_alerts(end_date)):
         start_date = end_date - timedelta(days=gfw_object.glad_confirmed_backfill_days)
+        logger.info(f'scheduling GLAD backfill for subscription: {gfw_object.name} id: {gfw_object.id} '
+                    f'period: {start_date} to {end_date}')
         yield get_dict(start_date, end_date, gfw_object, True)
 
 

@@ -148,7 +148,7 @@ def poll_gfw():
     gfw_user = get_gfw_user()
     for layer_slug, gfw_subscription in get_model_slug_pairs():
         for alert_info in make_alert_infos(layer_slug, gfw_subscription):
-            logger.info(f'poll_gfw {layer_slug} {alert_info}')
+            logger.info(f'poll_gfw for {gfw_subscription.name} {layer_slug} download url: {alert_info["downloadUrls"]["json"]}')
             gfw_inbound.process_alert_for_subscription(layer_slug,
                                                        gfw_subscription.subscription_id,
                                                        alert_info,
