@@ -284,7 +284,7 @@ class GFWAlertHandlerTest(BaseAPITest):
                                               additional={'alert_types': [GFWLayerSlugs.GLAD_ALERTS.value]})
         self.assertIsNotNone(sub)
 
-        with patch('analyzers.tests.test_gfw_inbound.send_task') as mock_task:
+        with patch(f'{__name__}.send_task') as mock_task:
             app.send_task = send_task
             response = self._post_data(json.dumps(GLAD_ALERT))
             self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -294,7 +294,7 @@ class GFWAlertHandlerTest(BaseAPITest):
             self.assertTrue(parser.urlparse(settings.GFW_API_ROOT).netloc in download_url)
             self._verify_download_url(sub, download_url, date(2019, 7, 1), date(2019, 7, 2), False)
 
-        with patch('analyzers.tests.test_gfw_inbound.send_task') as mock_task:
+        with patch(f'{__name__}.send_task') as mock_task:
             sub.additional = {'alert_types': [GFWLayerSlugs.VIIRS_ACTIVE_FIRES.value]}
             sub.save()
             app.send_task = send_task
@@ -311,7 +311,7 @@ class GFWAlertHandlerTest(BaseAPITest):
         mock_date.today.return_value = date(2020, 12, 20)
         self._create_and_get_test_model()
 
-        with patch('analyzers.tests.test_gfw_inbound.send_task') as mock_task:
+        with patch(f'{__name__}.send_task') as mock_task:
             app.send_task = send_task
             tasks.poll_gfw()
             self.assertEqual(mock_task.call_count, 3)
@@ -324,7 +324,7 @@ class GFWAlertHandlerTest(BaseAPITest):
         sub = self._create_and_get_test_model(additional={'alert_types': [GFWLayerSlugs.GLAD_ALERTS.value]})
         self.assertIsNotNone(sub)
 
-        with patch('analyzers.tests.test_gfw_inbound.send_task') as mock_task:
+        with patch(f'{__name__}.send_task') as mock_task:
             app.send_task = send_task
             tasks.poll_gfw()
             mock_task.assert_called_once()
@@ -333,7 +333,7 @@ class GFWAlertHandlerTest(BaseAPITest):
             self.assertTrue(parser.urlparse(settings.GFW_API_ROOT).netloc in download_url)
             self._verify_download_url(sub, download_url, start_date, end_date, True)
 
-        with patch('analyzers.tests.test_gfw_inbound.send_task') as mock_task:
+        with patch(f'{__name__}.send_task') as mock_task:
             sub.Deforestation_confidence = gfw_model.BOTH_CONFIRMED_UNCONFIRMED
             sub.save()
             app.send_task = send_task
@@ -344,7 +344,7 @@ class GFWAlertHandlerTest(BaseAPITest):
             self.assertTrue(parser.urlparse(settings.GFW_API_ROOT).netloc in download_url)
             self._verify_download_url(sub, download_url, start_date, end_date, False)
 
-        with patch('analyzers.tests.test_gfw_inbound.send_task') as mock_task:
+        with patch(f'{__name__}.send_task') as mock_task:
             sub.additional = {'alert_types': [GFWLayerSlugs.VIIRS_ACTIVE_FIRES.value]}
             sub.save()
             app.send_task = send_task
