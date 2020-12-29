@@ -41,6 +41,7 @@ resource "template_dir" "deployments" {
     FQDN                            = var.fqdn
     FROM_EMAIL                      = local.from_email
     GFW_CLUSTER_RADIUS              = var.gfw_cluster_radius
+    GFW_BACKFILL_INTERVAL_DAYS      = var.gfw_backfill_interval_days
     GS_BUCKET_NAME                  = var.gs_bucket_name
     INGRESS_VERSION                 = var.INGRESS_VERSION
     WEB_REACT_VERSION               = var.WEB_REACT_VERSION

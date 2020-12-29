@@ -7,6 +7,7 @@ from django.utils.translation import ugettext_lazy as _
 from analyzers.environmental import EnvironmentalSubjectAnalyzerConfig
 from analyzers.models.gfw import GlobalForestWatchSubscription
 from analyzers.gfw_outbound import create_subscription, update_subscription
+from analyzers.gfw_alert_schema import GFWLayerSlugs
 from core.forms_utils import JSONFieldFormMixin, FixedWidthFontTextArea
 import analyzers.models as models
 
@@ -71,16 +72,20 @@ class GlobalForestWatchSubscriptionForm(JSONFieldFormMixin, forms.ModelForm):
         model = GlobalForestWatchSubscription
         widgets = {'Fire_confidence': forms.RadioSelect, 'Deforestation_confidence': forms.RadioSelect}
         labels = {
-            'Fire_confidence': 'Fire Alerts (VIIRS) Confidence Level',
-            'Deforestation_confidence': 'Deforestation Alerts (GLAD) Confidence Level'
+            'Fire_confidence': _('Fire Alerts (VIIRS) Confidence Level'),
+            'Deforestation_confidence': _('Deforestation Alerts (GLAD) Confidence Level')
         }
         fields = '__all__'
         json_fields = ('alert_types',)
 
     alert_types = forms.MultipleChoiceField(choices=(
-        ('glad-alerts', _('Deforestation alerts (GLAD) / weekly / 30m')),
-        ('viirs-active-fires', _('Fire Alerts (VIIRS) / daily / 375m')),
+        (GFWLayerSlugs.GLAD_ALERTS.value, _('Deforestation alerts (GLAD) / weekly / 30m')),
+        (GFWLayerSlugs.VIIRS_ACTIVE_FIRES.value, _('Fire Alerts (VIIRS) / daily / 375m')),
     ), help_text='Click to select one, SHIFT+click to select both')
+    glad_confirmed_backfill_days = forms.IntegerField(initial=30,
+                                                      max_value=180,
+                                                      min_value=10,
+                                                      label=_('Number of days to backfill for confirmed GLAD alerts'))
 
     def clean(self):
         res = super().clean()
@@ -148,6 +153,7 @@ class SubjectProximityAnalyzerForm(forms.ModelForm):
     class Meta:
         fields = '__all__'
         model = models.SubjectProximityAnalyzerConfig
+
 
 class LowSpeedWilcoxSubjectAnalyzerForm(BaseAnalyzerForm):
     BaseAnalyzerForm.Meta.model = models.LowSpeedWilcoxAnalyzerConfig
