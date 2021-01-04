@@ -245,8 +245,8 @@ def queryset_chain(iterables):
             yield str(element), element
 
 
-def chained_tracked_by():
-    query_list = [PatrolSegment.objects.get_leader_for_provenance(p[0]) for p in PROVENANCE_CHOICES]
+def chained_tracked_by(user=None):
+    query_list = [PatrolSegment.objects.get_leader_for_provenance(p[0], user) for p in PROVENANCE_CHOICES]
     choices = [(None, '-----------')] + list(queryset_chain(query_list))
     return choices
 
@@ -263,7 +263,7 @@ class OverrideChoiceField(forms.ChoiceField):
 class PatrolSegmentForm(forms.ModelForm):
     start_time = forms.SplitDateTimeField(widget=AdminSplitDateTime(), label='Actual start date', required=False)
     end_time = forms.SplitDateTimeField(widget=AdminSplitDateTime(), label='Actual end date', required=False)
-    tracked_subject = OverrideChoiceField(choices=chained_tracked_by, label='Tracked subject name', required=False)
+    tracked_subject = OverrideChoiceField(label='Tracked subject name', required=False)
 
     class Meta:
         model = PatrolSegment
@@ -280,7 +280,10 @@ class PatrolSegmentForm(forms.ModelForm):
             self.fields['start_time'].initial = instance.time_range.lower
             self.fields['end_time'].initial = instance.time_range.upper
         if instance:
-            self.fields['tracked_subject'].initial = instance.leader
+            choices = chained_tracked_by(instance.user)
+            self.fields['tracked_subject'].choices = choices
+            self.fields['tracked_subject'].initial = instance.leader \
+                if instance.leader in dict(choices).values() else None
 
 
 class PatrolSegmentStackedInline(InlineOSMGeoAdmin):
