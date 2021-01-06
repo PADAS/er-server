@@ -169,7 +169,7 @@ def get_filtered_events(event_filter, queryset):
 
 
 def get_filtered_patrols(patrol_filter, queryset):
-    pf = patrol_filter.get("filter")
+    pf = patrol_filter.get("filter") or {}
     return queryset.by_patrol_filter(pf)
 
 
