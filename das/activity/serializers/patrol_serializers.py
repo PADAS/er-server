@@ -202,7 +202,7 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
                 fieldnames = []
                 for k, v in revision.data.items():
                     if k in field_mapping:
-                        fieldnames.append(k)
+                        fieldnames.append(field_mapping.get(k))
                     elif k == 'time_range' and v:
                         values = json.loads(v)
                         if values.get('lower'):
@@ -215,9 +215,12 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
         revisions = list(
             iter(segment.revision.all_user().order_by('sequence')))
         field_mapping = {'scheduled_start': 'Scheduled Start',
+                         'scheduled_end': 'Scheduled End',
                          'leader_id': 'Tracking Subject',
                          'start_location': 'Start Location',
-                         'end_location': 'End Location'
+                         'end_location': 'End Location',
+                         'auto_end': 'Auto-end',
+                         'auto_start': 'Auto-start'
                          }
 
         result = [

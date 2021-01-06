@@ -1767,9 +1767,24 @@ class PatrolSegmentRevisionAdapter(RevisionAdapter):
                 difference = new_data - old_data
                 serialized_data[fieldname] = json.dumps(dict(difference), cls=DjangoJSONEncoder)
 
+                self.auto_start_end(dict(old_data),
+                                    dict(new_data),
+                                    dparse(obj_data.get('updated_at')),
+                                    serialized_data, dict(difference))
+
             elif original.get(fieldname, None) != obj_data.get(fieldname, None):
                 serialized_data[fieldname] = obj_data.get(fieldname)
         return serialized_data
+
+    @staticmethod
+    def auto_start_end(old_data, new_data, updated_time, serialized_data, difference):
+        mapping = {'auto_end': 'upper', 'auto_start': 'lower'}
+        for key, bound in mapping.items():
+            if old_data.get(key) is None and new_data.get(bound):
+                if new_data.get(bound) >= updated_time + datetime.timedelta(minutes=3):
+                    serialized_data[key] = True
+            elif difference.get(bound) is None and old_data.get(bound):
+                serialized_data[key] = False
 
 
 class PatrolSegmentRevision(Revision):
