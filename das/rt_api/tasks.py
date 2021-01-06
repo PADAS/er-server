@@ -168,6 +168,11 @@ def get_filtered_events(event_filter, queryset):
     return queryset.by_event_filter(filter)
 
 
+def get_filtered_patrols(patrol_filter, queryset):
+    pf = patrol_filter.get("filter")
+    return queryset.by_patrol_filter(pf)
+
+
 @celery.app.task(base=QueueOnce, once={'graceful': True}, rate_limit='10/m')
 def _broadcast_service_status(service_status_data=None):
 
@@ -364,6 +369,14 @@ def _patrol_handler(item_id, type):
                             logger.debug(
                                 'Permission denied. user=%s, patrol=%s', username, instance.id)
                         else:
+                            try:
+                                socket_client = SocketClient.objects.get(id=sid)
+                            except SocketClient.DoesNotExist:
+                                logger.debug(f'SocketClient does not exist for sid={sid}')
+                            else:
+                                queryset = get_filtered_patrols(socket_client.patrol_filter, queryset)
+                                matches_current_filter = queryset.exists()
+
                             data = serializer(instance, context={
                                               'request': request}).data
                             emit_data = {
