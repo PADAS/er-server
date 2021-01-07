@@ -12,7 +12,7 @@ from rest_framework import generics, serializers
 from rest_framework.permissions import AllowAny, DjangoObjectPermissions
 from rest_framework.schemas.openapi import AutoSchema
 
-from activity.alerts import has_alerts_permissionset
+from activity.alerts import has_alerts_permissionset, has_patrol_view_permission
 from core.utils import get_site_name
 # This import ensures we register user-login receivers.
 from das_server import __version__, metrics
@@ -167,7 +167,8 @@ class StatusView(generics.RetrieveAPIView):
         resp['server_timezone'] = timezone.localtime().strftime('%Z')
         resp['site_name'] = get_site_name()
         resp['eula_enabled'] = settings.ACCEPT_EULA
-        resp['patrol_enabled'] = settings.PATROL_ENABLED
+        resp['patrol_enabled'] = settings.PATROL_ENABLED and has_patrol_view_permission(
+            self.request.user)
 
         if self.get_support_settings():
             resp['eus_settings'] = self.get_support_settings()
