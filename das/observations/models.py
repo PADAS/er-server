@@ -1593,6 +1593,7 @@ class SocketClient(TimestampedModel):
     bbox = models.MultiPolygonField(
         'Viewport bounding box.', null=True, blank=True)
     event_filter = JSONField('Event filter', default=dict)
+    patrol_filter = JSONField('Patrol filter', default=dict)
 
 
 class UserSession(TimestampedModel):

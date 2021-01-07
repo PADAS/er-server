@@ -126,6 +126,10 @@ variable "gfw_cluster_radius" {
   type    = string
   default = "5"
 }
+variable "gfw_backfill_interval_days" {
+  type = string
+  default = 10
+}
 variable "enable_debug" {
   type    = string
   default = "false"

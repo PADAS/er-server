@@ -50,7 +50,7 @@ def now(tz=pytz.utc):
     return tz.localize(datetime.datetime.utcnow())
 
 
-def update_client(sid, bbox=None, event_filter=None):
+def update_client(sid, bbox=None, event_filter=None, patrol_filter=None):
     sid = str(sid)
     logger.info('update_client, sid: %s', sid)
     client_data = get_client(sid)
@@ -69,6 +69,9 @@ def update_client(sid, bbox=None, event_filter=None):
             update_values['bbox'] = bbox_geom
         if event_filter:
             update_values['event_filter'] = event_filter
+
+        if patrol_filter:
+            update_values['patrol_filter'] = patrol_filter
 
         if update_values:
             from observations.models import SocketClient

@@ -16,9 +16,10 @@ from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext as _
 from psycopg2.extras import DateTimeTZRange
+from django.contrib.auth import get_permission_codename
 
 import activity.models as models
-from activity.forms import EventProviderForm, AlertRuleForm, PatrolSegmentStackedInline, PatrolSegmentForm
+from activity.forms import EventProviderForm, AlertRuleForm, PatrolSegmentStackedInline, PatrolSegmentForm, chained_tracked_by
 from activity.forms import EventTypeForm, EventForm, PatrolTypeForm, PatrolForm
 from activity.tasks import refresh_event_details_view, recreate_event_details_view
 from core.admin import InlineExtraDynamicMixin
@@ -402,6 +403,33 @@ class PatrolTypeAdmin(admin.ModelAdmin):
     _icon_display.short_description = 'Icon'
 
 
+class PatrolPermissionMixin:
+    patrol_opts = models.Patrol._meta
+
+    def has_add_permission(self, request):
+        opts = self.patrol_opts
+        codename = get_permission_codename('add', opts)
+        return request.user.has_perm(f"{opts.app_label}.{codename}")
+
+    def has_change_permission(self, request, obj=None):
+        opts = self.patrol_opts
+        codename = get_permission_codename('change', opts)
+        return request.user.has_perm(f"{opts.app_label}.{codename}")
+
+    def has_delete_permission(self, request, obj=None):
+        opts = self.patrol_opts
+        codename = get_permission_codename('delete', opts)
+        return request.user.has_perm(f"{opts.app_label}.{codename}")
+
+    def has_view_permission(self, request, obj=None):
+        opts = self.patrol_opts
+        codename_view = get_permission_codename('view', opts)
+        codename_change = get_permission_codename('change', opts)
+        return (
+            request.user.has_perm(f"{opts.app_label}.{codename_view}") or
+            request.user.has_perm(f"{opts.app_label}.{codename_change}"))
+
+
 class PatrolState(Enum):
     overdue = 'start_overdue'
     ready = 'ready_to_start'
@@ -442,7 +470,7 @@ def update_filter_name(title):
     return Wrapper
 
 
-class PatrolSegmentInline(PatrolSegmentStackedInline):
+class PatrolSegmentInline(PatrolPermissionMixin, PatrolSegmentStackedInline):
     max_num = 1
     can_delete = False
     fields = ('id', 'patrol_type', 'tracked_subject', 'scheduled_start', 'start_time', 'start_location', 'scheduled_end', 'end_time', 'end_location')
@@ -451,10 +479,14 @@ class PatrolSegmentInline(PatrolSegmentStackedInline):
     map_height = 300
     model = models.PatrolSegment
 
+    def get_formset(self, request, obj=None, **kwargs):
+        setattr(self.model, 'user', request.user)
+        return super(PatrolSegmentInline, self).get_formset(request, obj, **kwargs)
+
 
 @AdminFeatureFlag(models.Patrol, flag='PATROL_ENABLED')
 @admin.register(models.Patrol)
-class PatrolAdmin(OSMGeoExtendedAdmin):
+class PatrolAdmin(PatrolPermissionMixin, OSMGeoExtendedAdmin):
     inlines = [PatrolSegmentInline]
     form = PatrolForm
     readonly_fields = ('id', 'serial_number')
@@ -471,11 +503,23 @@ class PatrolAdmin(OSMGeoExtendedAdmin):
 
     ordering = ('serial_number', )
 
+    def _allowed_tracked_subject(self, user):
+        tracked_subjects = chained_tracked_by(user)
+        subjects = []
+        users = []
+        for v in dict(tracked_subjects).values():
+            if isinstance(v, models.Subject):
+                subjects.append(v.id)
+            if isinstance(v, get_user_model()):
+                users.append(v.id)
+        return subjects, users
+
     def get_queryset(self, request):
         queryset = super(PatrolAdmin, self).get_queryset(request)
         patrol_sgment = models.PatrolSegment.objects.filter(patrol_id=OuterRef('id')).order_by('created_at')
         subject = models.Subject.objects.filter(id=OuterRef('leader_id'))
         user = get_user_model().objects.filter(id=OuterRef('leader_id'))
+        subjects, users = self._allowed_tracked_subject(request.user)
 
         set_time = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(minutes=30)
         end_day = set_time.replace(hour=23, minute=59, second=59, microsecond=999999)
@@ -494,9 +538,9 @@ class PatrolAdmin(OSMGeoExtendedAdmin):
 
         queryset = queryset.annotate(patrol_type=Subquery(patrol_sgment.values('patrol_type__display')[:1]),
                                      tracked_subject=Subquery(patrol_sgment.annotate(
-                                         leader_name=Subquery(subject.values('name'))).values('leader_name')[:1]),
+                                         leader_name=Subquery(subject.filter(Q(id__in=subjects)).values('name'))).values('leader_name')[:1]),
                                      tracked_user=Subquery(patrol_sgment.annotate(
-                                         leader_name=Subquery(user.values('username'))).values('leader_name')[:1]),
+                                         leader_name=Subquery(user.filter(Q(id__in=users)).values('username'))).values('leader_name')[:1]),
                                      scheduled_start=Subquery(patrol_sgment.values('scheduled_start')[:1]),
                                      scheduled_end=Subquery(patrol_sgment.values('scheduled_end')[:1]),
                                      start_time=Subquery(patrol_sgment.values('time_range__startswith')[:1]),
@@ -514,7 +558,8 @@ class PatrolAdmin(OSMGeoExtendedAdmin):
         return o.patrol_type
 
     def tracked_subject_name(self, o):
-        return o.tracked_subject or o.tracked_user
+        value = o.tracked_subject or o.tracked_user
+        return value if value else None
 
     def status(self, o):
         return ' '.join(o.status.split('_')).title()
