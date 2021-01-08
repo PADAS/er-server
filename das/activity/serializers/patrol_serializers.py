@@ -1,4 +1,5 @@
 import copy
+import json
 
 from django.contrib.gis.geos.point import Point
 from django.contrib.contenttypes.models import ContentType
@@ -199,18 +200,35 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
         return activity.models.PatrolSegment.objects.create(**validated_data)
 
     def render_updates(self, segment):
+        def action(revision, fmapping):
+            if revision.action == AC_UPDATED:
+                fieldnames = []
+                for k, v in revision.data.items():
+                    if k == 'time_range' and v:
+                        values = json.loads(v)
+                        if values.get('lower'):
+                            fieldnames.append('Start Time')
+                        if values.get('upper'):
+                            fieldnames.append('End Time')
+                    elif k in field_mapping:
+                        fieldnames.append(field_mapping.get(k))
+                return '{0} fields: {1}'.format(revision.get_action_display(), ', '.join(fieldnames))
+            return self.get_action(revision, fmapping)
+
         revisions = list(
             iter(segment.revision.all_user().order_by('sequence')))
         field_mapping = {'scheduled_start': 'Scheduled Start',
-                         'time_range': 'Patrol Time',
+                         'scheduled_end': 'Scheduled End',
                          'leader_id': 'Tracking Subject',
                          'start_location': 'Start Location',
-                         'end_location': 'End Location'
+                         'end_location': 'End Location',
+                         'time_range': 'Patrol Time'
                          }
+
         result = [
             dict(
                 message='{action}'.format(
-                    action=self.get_action(revision, field_mapping),
+                    action=action(revision, field_mapping),
                     user=get_user_display(revision.user)
                 ),
                 time=revision.revision_at.isoformat(),
