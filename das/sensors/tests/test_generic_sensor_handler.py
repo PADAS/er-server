@@ -126,7 +126,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             source=self.test_source).count())
         obs = next(iter(Observation.objects.filter(
             source=self.test_source)))
-        
+
     def test_request_recorded_at_timezone(self):
         recorded_at_iso = self.second_observation['recorded_at']
         recorded_at = dateparser.parse(recorded_at_iso)

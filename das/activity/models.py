@@ -463,7 +463,7 @@ class EventManager(models.Manager):
             event.patrol_segments.set(patrol_segments)
         return event
 
-    def get_reported_by_for_provenance(self, provenance):
+    def get_reported_by_for_provenance(self, provenance, user=None):
         if Event.PC_STAFF == provenance:
             def get_staff():
                 # First get all user accounts in the reported by permission
@@ -482,7 +482,10 @@ class EventManager(models.Manager):
 
                 # We also want subjects who are staff (rangers are tracked as
                 # subjects via their radio, but can report events
-                for obj in Subject.objects.all().get_staff().by_is_active():
+                staff_subject = Subject.objects.all().get_staff().by_is_active()
+
+                # get subjects user has permission for.
+                for obj in staff_subject.by_user_subjects(user) if user else staff_subject:
                     yield (obj.name.lower(), obj)
             for staff in sorted(get_staff(), key=itemgetter(0)):
                 yield staff[1]
@@ -1715,7 +1718,7 @@ class PatrolSegmentMembership(TimestampedModel):
 
 
 class PatrolSegmentManager(models.Manager):
-    def get_leader_for_provenance(self, provenance):
+    def get_leader_for_provenance(self, provenance, user=None):
         if PC_STAFF == provenance:
             def get_staff():
                 # First get all user accounts in the reported by permission
@@ -1734,7 +1737,9 @@ class PatrolSegmentManager(models.Manager):
 
                 # We also want subjects who are staff (rangers are tracked as
                 # subjects via their radio, but can report events
-                for obj in Subject.objects.all().get_staff().by_is_active():
+                staff_subject = Subject.objects.all().get_staff().by_is_active()
+
+                for obj in staff_subject.by_user_subjects(user) if user else staff_subject:
                     yield obj.name.lower(), obj
             for staff in sorted(get_staff(), key=itemgetter(0)):
                 yield staff[1]

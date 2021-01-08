@@ -1,10 +1,11 @@
 import logging
+import datetime
 
 from django.db import transaction
 from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 
-from activity.models import Event, EventPhoto, Patrol, PatrolSegment, PatrolNote, PatrolFile
+from activity.models import Event, EventPhoto, Patrol, PatrolSegment, PatrolNote, PatrolFile, PC_OPEN, PC_DONE
 from das_server import celery, pubsub
 from usercontent.tasks import imagefile_rendered
 
@@ -90,6 +91,7 @@ def verify_patrol_constituent_for_rt_messaging(instance):
 def patrol_item_post_save(sender, instance, created, **kwargs):
     logger.info(
         f"saved {sender._meta.verbose_name} {instance.pk}, created={str(created)}")
+    set_eta(instance)
     verify_patrol_constituent_for_rt_messaging(instance)
 
 
@@ -99,3 +101,19 @@ def patrol_item_post_save(sender, instance, created, **kwargs):
 def patrol_item_post_delete(sender, instance, **kwargs):
     logger.info(f"deleted {sender._meta.verbose_name} {instance.pk}")
     verify_patrol_constituent_for_rt_messaging(instance)
+
+
+def set_eta(instance):
+    if isinstance(instance, PatrolSegment) and instance.time_range:
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        upper_bound = instance.time_range.upper
+        celery.app.send_task('activity.tasks.maintain_patrol_state',
+                             eta=upper_bound) if upper_bound and upper_bound > now else None
+
+
+@receiver(pre_save, sender=Patrol)
+def update_patrolstate(sender, instance, **kwargs):
+    # Transition patrol state from done to open.
+    for o in instance.patrol_segments.all():
+        if o.time_range and all([o.time_range.upper is None, instance.state == PC_DONE]):
+            instance.state = PC_OPEN

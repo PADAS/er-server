@@ -240,7 +240,7 @@ class SpeedDistroAdmin(admin.ModelAdmin):
 @admin.register(models.GlobalForestWatchSubscription)
 class GlobalForestWatchAdmin(OSMGeoExtendedAdmin):
     form = GlobalForestWatchSubscriptionForm
-    readonly_fields = ('subscription_id', 'geostore_id','last_check_time', 'last_check_status')
+    readonly_fields = ('subscription_id', 'geostore_id', 'last_check_time', 'last_check_status')
 
     list_display = ('name', 'subscription_id', 'last_check_time', 'last_check_status')
     ordering = list_display
@@ -258,7 +258,7 @@ class GlobalForestWatchAdmin(OSMGeoExtendedAdmin):
         }),
         ('Advanced Attributes', {
             'classes': ('wide', 'collapse'),
-            'fields': ('id', 'additional')
+            'fields': ('id', 'additional', 'glad_confirmed_backfill_days')
         }),
         ('Global Forest Watch Alerts Confidence Level', {
             'fields': ('Deforestation_confidence', 'Fire_confidence')
