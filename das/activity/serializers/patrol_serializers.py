@@ -220,7 +220,46 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
                                          (revision.action == AC_UPDATED
                                           and set(field_mapping.keys()) & set(revision.data.keys()))
         ]
+
+        event_results = self.render_event_updates(segment.events.all())
+        result.extend(event_results)
+
         return sorted(result, key=lambda u: u['time'], reverse=True)
+
+    def render_event_updates(self, events):
+        results = []
+
+        def get_action(revision, e):
+            if revision.action == AC_ADDED:
+                verbose_name = 'Incident Collection' if e.event_type.is_collection else 'Report'
+                return f'{verbose_name} {revision.get_action_display()}'
+
+        for event in events:
+            revisions = list(iter(event.revision.all_user().order_by('sequence')))
+            result = [
+                dict(
+                    message='{action}'.format(action=get_action(revision, event)),
+                    time=revision.revision_at.isoformat(),
+                    user=UserDisplaySerializer().to_representation(revision.user),
+                    type=self.get_patrol_update_type(revision, 'event'))
+                for revision in revisions if (revision.action == AC_ADDED)
+            ]
+            results.extend(result)
+
+            if event.out_relationships.exists():
+                for o in event.out_relationships.all():
+                    revisions = list(iter(o.to_event.revision.all_user().order_by('sequence')))
+                    updates = [
+                        dict(
+                            message='Report Added',
+                            time=revision.revision_at.isoformat(),
+                            user=UserDisplaySerializer().to_representation(revision.user),
+                            type=self.get_patrol_update_type(revision, 'event'))
+                        for revision in revisions if (revision.action == AC_ADDED)
+                    ]
+                    results.extend(updates)
+
+        return results
 
 
 class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):

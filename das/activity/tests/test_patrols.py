@@ -1160,12 +1160,28 @@ class TestPatrol(BaseAPITest):
         self.assertTrue(str(segment_id) in str(
             response.data.get('patrol_segments')))
 
+        event_data2 = dict(
+            title="Test Event2",
+            event_type=et.value,
+            patrol_segments=[segment_id]
+
+        )
+        events_url = reverse('events')
+        request = self.factory.post(events_url, event_data2)
+        self.force_authenticate(request, self.user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(str(segment_id) in str(response.data.get('patrol_segments')))
+
         # View reports from segment
         url = reverse('patrol-segment', kwargs={'id': segment_id})
         request = self.factory.get(url)
         self.force_authenticate(request, self.user)
         response = views.PatrolsegmentView.as_view()(request, id=segment_id)
-        self.assertEqual(1, len(response.data.get('events')))
+        self.assertEqual(2, len(response.data.get('events')))
+        self.assertEqual(response.data.get('updates')[0].get('message'), 'Report Added')
+        self.assertEqual(response.data.get('updates')[1].get('message'), 'Report Added')
 
     def test_maintain_patrol_state(self):
         # Monkey-patch send_task to execute task by blocking; because task_always_eager has no effect on send_task.
