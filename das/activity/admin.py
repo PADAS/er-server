@@ -13,6 +13,7 @@ from django.db.models import OuterRef, Subquery, F, Case, Q, When, Value, CharFi
 from django.db.utils import DataError
 from django.http import HttpResponseRedirect
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext as _
 from psycopg2.extras import DateTimeTZRange
@@ -521,7 +522,7 @@ class PatrolAdmin(PatrolPermissionMixin, OSMGeoExtendedAdmin):
         user = get_user_model().objects.filter(id=OuterRef('leader_id'))
         subjects, users = self._allowed_tracked_subject(request.user)
 
-        set_time = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(minutes=30)
+        set_time = timezone.localtime() - datetime.timedelta(minutes=30)
         end_day = set_time.replace(hour=23, minute=59, second=59, microsecond=999999)
 
         overdue = Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state=models.PC_OPEN) & \
