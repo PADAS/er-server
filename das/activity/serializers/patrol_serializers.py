@@ -201,14 +201,14 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
             if revision.action == AC_UPDATED:
                 fieldnames = []
                 for k, v in revision.data.items():
-                    if k in field_mapping:
-                        fieldnames.append(field_mapping.get(k))
-                    elif k == 'time_range' and v:
+                    if k == 'time_range' and v:
                         values = json.loads(v)
                         if values.get('lower'):
                             fieldnames.append('Start Time')
                         if values.get('upper'):
                             fieldnames.append('End Time')
+                    elif k in field_mapping:
+                        fieldnames.append(field_mapping.get(k))
                 return '{0} fields: {1}'.format(revision.get_action_display(), ', '.join(fieldnames))
             return self.get_action(revision, fmapping)
 
@@ -220,7 +220,8 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
                          'start_location': 'Start Location',
                          'end_location': 'End Location',
                          'auto_end': 'Auto-end',
-                         'auto_start': 'Auto-start'
+                         'auto_start': 'Auto-start',
+                         'time_range': 'Patrol Time'
                          }
 
         result = [
