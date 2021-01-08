@@ -12,7 +12,7 @@ from revision.manager import AC_UPDATED, AC_RELATION_DELETED, AC_ADDED
 import utils
 import usercontent.serializers
 from accounts.serializers import UserDisplaySerializer, get_user_display
-from activity.models import PATROL_STATE_CHOICES, PC_OPEN, PRI_NONE, PRIORITY_CHOICES
+from activity.models import PATROL_STATE_CHOICES, PC_OPEN, PC_DONE, PRI_NONE, PRIORITY_CHOICES
 from activity.models import Patrol, PatrolNote, PatrolSegment, Event
 from activity.serializers import AlertRuleSerializer, EventSourceSerializer, EventSerializer
 from activity.serializers import fields, ReportedByRelatedField
@@ -144,11 +144,14 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
     scheduled_start = DateTimeField(required=False, allow_null=True)
     scheduled_end = DateTimeField(required=False, allow_null=True)
     time_range = fields.DateTimeRangeField(required=False, allow_null=True)
-    start_location = fields.GEOPointField(required=False, allow_null=True, validators=[PointValidator()])
-    end_location = fields.GEOPointField(required=False, allow_null=True, validators=[PointValidator()])
+    start_location = fields.GEOPointField(
+        required=False, allow_null=True, validators=[PointValidator()])
+    end_location = fields.GEOPointField(
+        required=False, allow_null=True, validators=[PointValidator()])
     image_url = serializers.CharField(read_only=True, required=False)
     icon_id = serializers.CharField(read_only=True, required=False)
-    events = EventSerializer(many=True, read_only=True, context={'include_related_events': True})
+    events = EventSerializer(many=True, read_only=True, context={
+                             'include_related_events': True})
 
     def to_internal_value(self, data):
         sch_start = data.get('scheduled_start')
@@ -158,7 +161,6 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
             raise serializers.ValidationError(
                 'scheduled_start time has to be earlier than scheduled_end time')
         return super().to_internal_value(data)
-
 
     @staticmethod
     def resolve_image_url(patrolsegment):
@@ -298,16 +300,34 @@ class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
     def render_updates(self, patrol):
         verbose_name = patrol._meta.verbose_name.title()
         field_mapping = {'state': 'State is {}', 'title': 'Title'}
+        last_state = None
+
+        def get_user(revision):
+            nonlocal last_state
+            state = revision.data.get('state')
+            if not revision.user and state == PC_DONE and last_state == PC_OPEN:
+                user = {
+                    "username": "system",
+                    "first_name": "Auto-end",
+                    "last_name": "",
+                    "id": "00000000-0000-0000-0000-000000000000",
+                    "content_type": "accounts.user"
+                }
+            else:
+                user = UserDisplaySerializer().to_representation(revision.user)
+            last_state = state
+            return user
 
         revisions = list(iter(patrol.revision.all_user().order_by('sequence')))
         result = [
             dict(
                 message='{action}'.format(
-                    action=self.get_action(revision, field_mapping, verbose_name),
+                    action=self.get_action(
+                        revision, field_mapping, verbose_name),
                     user=get_user_display(revision.user)
                 ),
                 time=revision.revision_at.isoformat(),
-                user=UserDisplaySerializer().to_representation(revision.user),
+                user=get_user(revision),
                 type=self.get_patrol_update_type(revision))
             for revision in revisions if (revision.action == AC_ADDED) or
                                          (revision.action == AC_RELATION_DELETED) or
