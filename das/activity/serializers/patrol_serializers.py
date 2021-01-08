@@ -219,8 +219,6 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
                          'leader_id': 'Tracking Subject',
                          'start_location': 'Start Location',
                          'end_location': 'End Location',
-                         'auto_end': 'Auto-end',
-                         'auto_start': 'Auto-start',
                          'time_range': 'Patrol Time'
                          }
 
