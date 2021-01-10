@@ -3,6 +3,7 @@ import json
 
 from django.contrib.gis.geos.point import Point
 from django.contrib.contenttypes.models import ContentType
+from django.utils.dateparse import parse_datetime
 from drf_extra_fields.geo_fields import PointField
 from rest_framework import serializers, validators
 from rest_framework.fields import DateTimeField
@@ -200,7 +201,13 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
         return activity.models.PatrolSegment.objects.create(**validated_data)
 
     def render_updates(self, segment):
+        last_scheduled_end = None
+
         def action(revision, fmapping):
+            nonlocal last_scheduled_end
+            revision_time = revision.revision_at
+            scheduled_end = revision.data.get(
+                'scheduled_end', last_scheduled_end)
             if revision.action == AC_UPDATED:
                 fieldnames = []
                 for k, v in revision.data.items():
@@ -209,7 +216,9 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
                         if values.get('lower'):
                             fieldnames.append('Start Time')
                         if values.get('upper'):
-                            fieldnames.append('End Time')
+                            upper = parse_datetime(values.get('upper'))
+                            fieldnames.append(
+                                'End Time' if scheduled_end or revision_time > upper else "Auto-End Time")
                     elif k in field_mapping:
                         fieldnames.append(field_mapping.get(k))
                 return '{0} fields: {1}'.format(revision.get_action_display(), ', '.join(fieldnames))
@@ -253,10 +262,12 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
                 return f'{verbose_name} {revision.get_action_display()}'
 
         for event in events:
-            revisions = list(iter(event.revision.all_user().order_by('sequence')))
+            revisions = list(
+                iter(event.revision.all_user().order_by('sequence')))
             result = [
                 dict(
-                    message='{action}'.format(action=get_action(revision, event)),
+                    message='{action}'.format(
+                        action=get_action(revision, event)),
                     time=revision.revision_at.isoformat(),
                     user=UserDisplaySerializer().to_representation(revision.user),
                     type=self.get_patrol_update_type(revision, 'event'))
@@ -266,7 +277,8 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
 
             if event.out_relationships.exists():
                 for o in event.out_relationships.all():
-                    revisions = list(iter(o.to_event.revision.all_user().order_by('sequence')))
+                    revisions = list(
+                        iter(o.to_event.revision.all_user().order_by('sequence')))
                     updates = [
                         dict(
                             message='Report Added',
@@ -361,7 +373,7 @@ class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
 
         def get_user(revision):
             nonlocal last_state
-            state = revision.data.get('state')
+            state = revision.data.get('state', last_state)
             if not revision.user and state == PC_DONE and last_state == PC_OPEN:
                 user = {
                     "username": "system",

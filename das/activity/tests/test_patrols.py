@@ -1172,7 +1172,8 @@ class TestPatrol(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        self.assertTrue(str(segment_id) in str(response.data.get('patrol_segments')))
+        self.assertTrue(str(segment_id) in str(
+            response.data.get('patrol_segments')))
 
         # View reports from segment
         url = reverse('patrol-segment', kwargs={'id': segment_id})
@@ -1180,8 +1181,10 @@ class TestPatrol(BaseAPITest):
         self.force_authenticate(request, self.user)
         response = views.PatrolsegmentView.as_view()(request, id=segment_id)
         self.assertEqual(2, len(response.data.get('events')))
-        self.assertEqual(response.data.get('updates')[0].get('message'), 'Report Added')
-        self.assertEqual(response.data.get('updates')[1].get('message'), 'Report Added')
+        self.assertEqual(response.data.get('updates')[
+                         0].get('message'), 'Report Added')
+        self.assertEqual(response.data.get('updates')[
+                         1].get('message'), 'Report Added')
 
     def test_patrolsegment_history_update_endtime(self):
         Patrol.objects.all().delete()
@@ -1228,7 +1231,71 @@ class TestPatrol(BaseAPITest):
         self.force_authenticate(request, self.app_user)
         response = views.PatrolView.as_view()(request, id=p.id)
         self.assertEqual(response.status_code, 200)
-        self.assertTrue('End Time' in response.data['patrol_segments'][0]['updates'][0].get('message'))
+        self.assertTrue(
+            'End Time' in response.data['patrol_segments'][0]['updates'][0].get('message'))
+
+    def test_patrolsegment_history_autoendtime(self):
+        Patrol.objects.all().delete()
+        now = datetime.datetime.now(tz=pytz.utc)
+
+        patrol_patrolsegment = dict(
+            priority=0,
+            title="Patrol XYZ",
+            patrol_segments=[{
+                "patrol_type": "routine_patrol",
+                "time_range": {
+                    "start_time": "2020-09-24T07:08:16.711000+03:00"
+                }
+            }]
+        )
+
+        url = reverse('patrols')
+        request = self.factory.post(url, data=patrol_patrolsegment)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        patrol_sgs = response.data.get('patrol_segments')
+        patrol_sgs_id = patrol_sgs[0].get('id')
+
+        updated_patrol_patrolsg = dict(
+            priority=200,
+            patrol_segments=[{
+                "id": patrol_sgs_id,
+                "time_range": {
+                    "end_time": self.end_of_today
+                }
+            }]
+        )
+
+        p = Patrol.objects.get(title='Patrol XYZ')
+        url = reverse('patrol', kwargs={'id': p.id})
+        request = self.factory.patch(url, data=updated_patrol_patrolsg)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolView.as_view()(request, id=p.id)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            'Auto-End Time' in response.data['patrol_segments'][0]['updates'][0].get('message'))
+
+        updated_patrol_patrolsg = dict(
+            priority=200,
+            patrol_segments=[{
+                "id": patrol_sgs_id,
+                "scheduled_start": "2020-09-26T01:14:34.196502+03:00",
+                "time_range": {
+                    "end_time": "2020-09-29T07:08:16.711000+03:00"
+                }
+            }]
+        )
+
+        p = Patrol.objects.get(title='Patrol XYZ')
+        url = reverse('patrol', kwargs={'id': p.id})
+        request = self.factory.patch(url, data=updated_patrol_patrolsg)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolView.as_view()(request, id=p.id)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            'End Time' in response.data['patrol_segments'][0]['updates'][0].get('message'))
 
     def test_maintain_patrol_state(self):
         # Monkey-patch send_task to execute task by blocking; because task_always_eager has no effect on send_task.
