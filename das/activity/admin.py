@@ -532,13 +532,14 @@ class PatrolAdmin(PatrolPermissionMixin, OSMGeoExtendedAdmin):
                   Q(patrol_segment__time_range__startswith__isnull=True) & \
                   Q(patrol_segment__scheduled_start__lt=set_time)
 
-        readyto = Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state=models.PC_OPEN) & \
-                  Q(patrol_segment__time_range__startswith__isnull=True) & \
-                  Q(patrol_segment__scheduled_start__range=(set_time,  end_day))
+        readyto = Q(state=models.PC_OPEN) &\
+                  (Q(patrol_segment__time_range__startswith__gt=present_time,
+                     patrol_segment__time_range__startswith__lt=end_day) |
+                   Q(patrol_segment__scheduled_start__range=(set_time,  end_day)))
 
-        scheduled = Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state=models.PC_OPEN) &\
-                    Q(patrol_segment__time_range__startswith__isnull=True) & \
-                    Q(patrol_segment__scheduled_start__gt=end_day)
+        scheduled = Q(state=models.PC_OPEN) &\
+                    (Q(patrol_segment__time_range__startswith__gt=end_day) |
+                     Q(patrol_segment__scheduled_start__gt=end_day))
 
         queryset = queryset.annotate(patrol_type=Subquery(patrol_sgment.values('patrol_type__display')[:1]),
                                      tracked_subject=Subquery(patrol_sgment.annotate(
