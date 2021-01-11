@@ -541,8 +541,8 @@ class PatrolAdmin(PatrolPermissionMixin, OSMGeoExtendedAdmin):
             Q(patrol_segment__scheduled_start__lt=set_time)
 
         readyto = Q(state=models.PC_OPEN) & \
-            Q(patrol_segment__time_range__startswith__isnull=True) & \
-            Q(patrol_segment__scheduled_start__range=(set_time,  present_time))
+            Q(patrol_segment__time_range__startswith__range=(present_time, end_day)) | \
+            Q(patrol_segment__scheduled_start__range=(set_time,  end_day))
 
         scheduled = Q(state=models.PC_OPEN) &\
             (Q(patrol_segment__time_range__startswith__gt=end_day) |
