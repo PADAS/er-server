@@ -135,6 +135,18 @@ def get_dict(start_date: date, end_date: date, gfw_object: gfw_model,
     )
 
 
+def generate_intervals(start_date: date, end_date: date, interval_size: int = 30) -> tuple:
+    if start_date == end_date:
+        yield start_date, end_date
+
+    interval_start = start_date
+    while interval_start < end_date:
+        incr = min(interval_size, (end_date-interval_start).days)
+        interval_end = interval_start+timedelta(days=incr)
+        yield interval_start, interval_end
+        interval_start = interval_end
+
+
 def make_alert_infos(layer_slug: str, gfw_object: gfw_model) -> dict:
     end_date = date.today()
     start_date = end_date - timedelta(days=DEFAULT_LOOKBACK_DAYS)  # query for past 10 days by default
@@ -147,7 +159,8 @@ def make_alert_infos(layer_slug: str, gfw_object: gfw_model) -> dict:
         start_date = end_date - timedelta(days=gfw_object.glad_confirmed_backfill_days)
         logger.info(f'scheduling GLAD backfill for subscription: {gfw_object.name} id: {gfw_object.id} '
                     f'period: {start_date} to {end_date}')
-        yield get_dict(start_date, end_date, gfw_object, True)
+        for int_start, int_end in generate_intervals(start_date, end_date):
+            yield get_dict(int_start, int_end, gfw_object, True)
 
 
 def get_gfw_user():

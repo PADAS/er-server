@@ -82,10 +82,11 @@ class GlobalForestWatchSubscriptionForm(JSONFieldFormMixin, forms.ModelForm):
         (GFWLayerSlugs.GLAD_ALERTS.value, _('Deforestation alerts (GLAD) / weekly / 30m')),
         (GFWLayerSlugs.VIIRS_ACTIVE_FIRES.value, _('Fire Alerts (VIIRS) / daily / 375m')),
     ), help_text='Click to select one, SHIFT+click to select both')
-    glad_confirmed_backfill_days = forms.IntegerField(initial=30,
-                                                      max_value=180,
+    glad_confirmed_backfill_days = forms.IntegerField(initial=180,
+                                                      max_value=365,
                                                       min_value=10,
-                                                      label=_('Number of days to backfill for confirmed GLAD alerts'))
+                                                      label=_('Number of days to backfill for confirmed GLAD alerts'),
+                                                      help_text=_('Valid range: 10-365 days.'))
 
     def clean(self):
         res = super().clean()
