@@ -137,6 +137,7 @@ ACTION_CHOICES = (
 
 class Revision(object):
     manager_class = RevisionManager
+    revision_adapter = RevisionAdapter
 
     def contribute_to_class(self, cls, name):
         self.manager_name = name
@@ -145,7 +146,7 @@ class Revision(object):
     def create_revision(self, instance, action, **kwargs):
         user = getattr(instance, 'revision_user', None)
         manager = getattr(instance, self.manager_name)
-        adapter = RevisionAdapter(type(instance))
+        adapter = self.revision_adapter(type(instance))
 
         if instance.revision_sequence == 0:
             data = adapter.get_serialized_data(instance)

@@ -1371,7 +1371,9 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         if event.event_type:
             rep['is_collection'] = event.event_type.is_collection
 
-        if self.context.get('include_updates', True):
+        if self.context.get('include_updates', True) and not (self.context.get('view').get_view_name() == 'Patrols' or
+                                                              self.context.get('view').get_view_name() == 'Patrol'
+                                                              or self.context.get('view').get_view_name() == 'Patrolsegment'):
             updates = self.render_updates(event)
             for note in rep.get('notes', []):
                 updates.extend(note['updates'])
@@ -1382,6 +1384,9 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
                 updates.extend(details_updates)
             rep['updates'] = sorted(
                 updates, key=lambda u: u['time'], reverse=True)
+        else:
+            if rep.get('event_details'):
+                rep['event_details'].pop('updates')
 
         return rep
 

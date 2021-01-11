@@ -11,14 +11,21 @@ from django.core.management import call_command
 from django.urls import reverse
 from django.utils import lorem_ipsum
 from activity import views
-from activity.models import Patrol, PatrolSegment, PatrolType, StateFilters, Event, EventType
+from activity.models import Patrol, PatrolSegment, PatrolType, StateFilters, Event, EventType, PC_DONE
 from core.tests import BaseAPITest
 from observations.models import Subject
+from das_server.celery import app
 
 User = django.contrib.auth.get_user_model()
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tests')
 STATIC_IMAGE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
                                  "mapping", 'static',)
+
+
+def send_task(name, args=(), kwargs={}, **opts):
+    task = app.tasks[name]
+    # return task.apply(args, kwargs, **opts)
+    return task(*args, **kwargs)
 
 
 class TestPatrol(BaseAPITest):
@@ -31,6 +38,9 @@ class TestPatrol(BaseAPITest):
         self.user = User.objects.create_superuser(
             'super_user', 'das_super_user@vulcan.com', 'super_user_pass',
             **user_const)
+        self.app_user = User.objects.create_user('app-user2', 'app-user2@test.com',
+                                                 'app-user2', is_superuser=True,
+                                                 is_staff=True, **user_const)
 
         self.sample_patrol_id = "b14bc72f-96d6-4248-9fea-7dd0bbc8c196"
         Patrol.objects.bulk_create(
@@ -55,6 +65,7 @@ class TestPatrol(BaseAPITest):
 
     def tearDown(self):
         shutil.rmtree(self.temporary_folder)
+        app.send_task = app.send_task
 
     def test_get_all_patroltypes(self):
         patrol_types = PatrolType.objects.all()
@@ -329,7 +340,8 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(len(response.data['files']) == 1)
         assert response.data['files'][0]['updates']
-        self.assertEqual(response.data['files'][0]['updates'][0].get('type'), 'add_patrolfile')
+        self.assertEqual(response.data['files'][0]['updates'][0].get(
+            'type'), 'add_patrolfile')
 
         file_id = response.data['files'][0]['id']
         file_name = "meta-data"  # response.data['files'][0]['id']
@@ -352,10 +364,12 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         assert response.data['notes'][0]['updates']
         self.assertEqual(len(response.data['notes'][0]['updates']), 1)
-        self.assertEqual(response.data['notes'][0]['updates'][0].get('type'), 'add_patrolnote')
+        self.assertEqual(response.data['notes'][0]['updates'][0].get(
+            'type'), 'add_patrolnote')
 
         note_id = response.data['notes'][0]['id']
-        update_patrol = dict(notes=[{'id': note_id, 'text': 'New Note ... [updated]'}])
+        update_patrol = dict(
+            notes=[{'id': note_id, 'text': 'New Note ... [updated]'}])
         p = Patrol.objects.get(title='T-Patrol')
 
         url = reverse('patrol', kwargs={'id': p.id})
@@ -364,7 +378,8 @@ class TestPatrol(BaseAPITest):
         response = views.PatrolView.as_view()(request, id=p.id)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data['notes'][0]['updates']), 2)
-        self.assertEqual(response.data['notes'][0]['updates'][0].get('type'), 'update_note')
+        self.assertEqual(response.data['notes'][0]
+                         ['updates'][0].get('type'), 'update_note')
 
     def test_history_updates_patrol(self):
         patrol = dict(title='Alpha-01')
@@ -376,7 +391,8 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(len(response.data['updates']), 1)
         self.assertEqual(response.data['updates'][0].get('type'), 'add_patrol')
-        self.assertEqual(response.data['updates'][0].get('message'), 'Patrol Added')
+        self.assertEqual(response.data['updates']
+                         [0].get('message'), 'Patrol Added')
 
         # Update patrol title
         patrol_id = response.data['id']
@@ -388,7 +404,8 @@ class TestPatrol(BaseAPITest):
         response = views.PatrolView.as_view()(request, id=patrol_id)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data['updates']), 2)
-        self.assertEqual(response.data['updates'][0].get('type'), 'update_patrol')
+        self.assertEqual(response.data['updates']
+                         [0].get('type'), 'update_patrol')
 
     def test_update_all_patrol_patrolsegment_properties(self):
         su = Subject.objects.create(
@@ -418,17 +435,12 @@ class TestPatrol(BaseAPITest):
                 },
                 "scheduled_start": "2020-08-26T01:14:34.196502+03:00",
                 "time_range": {
-                    "start_time": "2020-09-24T07:08:16.711000+03:00",
-                    "end_time": "2020-09-26T07:08:16.711000+03:00"
+                    "start_time": "2020-09-24T07:08:16.711000+03:00"
                 },
                 "start_location": {
                     "longitude": -122.3607072,
                     "latitude": 47.681731199999994
-                },
-                "end_location": {
-                    "longitude": -129.3607072,
-                    "latitude": 49.681731199999994
-                },
+                }
             }]
         )
 
@@ -452,7 +464,7 @@ class TestPatrol(BaseAPITest):
             objective="Lorem Ipsum is simply dummy text of the printing and typesetting industry",
             priority=200,
             title="Dog Patrol",
-            state="open",
+            state="done",
             notes=[{'id': note_id, 'text': 'New Note2..'}],
             patrol_segments=[{
                 "id": patrol_sgs_id,
@@ -470,14 +482,8 @@ class TestPatrol(BaseAPITest):
                     "tracks_available": False,
                     "image_url": "/static/ranger-black.svg"
                 },
-                "scheduled_start": "2020-09-26T01:14:34.196502+03:00",
                 "time_range": {
-                    "start_time": "2020-09-29T07:09:16.711000+03:00",
-                    "end_time": "2020-09-30T07:10:16.711000+03:00"
-                },
-                "start_location": {
-                    "longitude": 37.440896005591924,
-                    "latitude": 0.23907934715522572
+                    "end_time": self.now.isoformat()
                 },
                 "end_location": {
                     "longitude": 37.41343018527925,
@@ -495,7 +501,8 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(len(response.data.get('patrol_segments')), 1)
         self.assertEqual(len(response.data.get('notes')), 1)
         self.assertEqual(len(response.data['updates']), 2)
-        self.assertEqual(response.data['patrol_segments'][0]['updates'][0].get('type'), 'update_segment')
+        self.assertEqual(response.data['patrol_segments'][0]['updates'][0].get(
+            'type'), 'update_segment')
 
     def test_update_patrol(self):
         patrol_update_data = dict(
@@ -791,13 +798,15 @@ class TestPatrol(BaseAPITest):
 
     def test_patrol_filter_with_past_end_time_but_patrol_not_completed(self):
         start = self.start_of_today - datetime.timedelta(days=2, hours=10)
-        end = self.start_of_today - datetime.timedelta(days=2, hours=5)
+        scheduled_end = self.start_of_today - \
+            datetime.timedelta(days=2, hours=5)
         patrol_data = dict(
             title='Test Patrol',
             patrol_segments=[
-                {'time_range': {"start_time": start.isoformat(), "end_time": end.isoformat()}}]
+                {'time_range': {"start_time": start.isoformat()},
+                 'scheduled_end': scheduled_end.isoformat()}]
         )
-        self._create_patrol(patrol_data)
+        patrol = self._create_patrol(patrol_data)
         response = self._filter_patrol(self.sample_patrol_filter)
 
         # patrol is still displayed as current since its not marked as done or
@@ -812,7 +821,8 @@ class TestPatrol(BaseAPITest):
         patrol_update_data = dict(
             state="done",
             patrol_segments=[{
-                "id": result.get('patrol_segments')[0]['id']
+                "id": result.get('patrol_segments')[0]['id'],
+                "time_range": {"end_time": scheduled_end.isoformat()}
             }]
         )
         request = self.factory.patch(url, data=patrol_update_data)
@@ -862,6 +872,7 @@ class TestPatrol(BaseAPITest):
         self.force_authenticate(request, self.app_user)
         response = views.PatrolsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
+        return response.data
 
     def test_sort_patrols(self):
         Patrol.objects.all().delete()
@@ -1112,8 +1123,10 @@ class TestPatrol(BaseAPITest):
         self.force_authenticate(request, self.app_user)
         response = views.PatrolsegmentsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        self.assertTrue(isinstance(response.data.get('start_location').get('latitude'), float))
-        self.assertTrue(isinstance(response.data.get('end_location').get('latitude'), float))
+        self.assertTrue(isinstance(response.data.get(
+            'start_location').get('latitude'), float))
+        self.assertTrue(isinstance(response.data.get(
+            'end_location').get('latitude'), float))
 
     def test_add_report_to_patrol_segment(self):
         patrol_segment = dict(
@@ -1144,11 +1157,237 @@ class TestPatrol(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        self.assertTrue(str(segment_id) in str(response.data.get('patrol_segments')))
+        self.assertTrue(str(segment_id) in str(
+            response.data.get('patrol_segments')))
+
+        event_data2 = dict(
+            title="Test Event2",
+            event_type=et.value,
+            patrol_segments=[segment_id]
+
+        )
+        events_url = reverse('events')
+        request = self.factory.post(events_url, event_data2)
+        self.force_authenticate(request, self.user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(str(segment_id) in str(
+            response.data.get('patrol_segments')))
 
         # View reports from segment
         url = reverse('patrol-segment', kwargs={'id': segment_id})
         request = self.factory.get(url)
         self.force_authenticate(request, self.user)
         response = views.PatrolsegmentView.as_view()(request, id=segment_id)
-        self.assertEqual(1, len(response.data.get('events')))
+        self.assertEqual(2, len(response.data.get('events')))
+        self.assertEqual(response.data.get('updates')[
+                         0].get('message'), 'Report Added')
+        self.assertEqual(response.data.get('updates')[
+                         1].get('message'), 'Report Added')
+
+    def test_patrolsegment_history_update_endtime(self):
+        Patrol.objects.all().delete()
+        now = datetime.datetime.now(tz=pytz.utc)
+
+        patrol_patrolsegment = dict(
+            priority=0,
+            title="Patrol XYZ",
+            patrol_segments=[{
+                "patrol_type": "routine_patrol",
+                "scheduled_start": "2020-08-26T01:14:34.196502+03:00",
+                "time_range": {
+                    "start_time": "2020-09-24T07:08:16.711000+03:00",
+                    "end_time": "2020-09-26T07:08:16.711000+03:00"
+                }
+            }]
+        )
+
+        url = reverse('patrols')
+        request = self.factory.post(url, data=patrol_patrolsegment)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        patrol_sgs = response.data.get('patrol_segments')
+        patrol_sgs_id = patrol_sgs[0].get('id')
+
+        updated_patrol_patrolsg = dict(
+            priority=200,
+            patrol_segments=[{
+                "id": patrol_sgs_id,
+                "patrol_type": "dog_patrol",
+                "scheduled_start": "2020-09-26T01:14:34.196502+03:00",
+                "time_range": {
+                    "start_time": "2020-09-24T07:08:16.711000+03:00",
+                    "end_time": "2020-09-29T07:08:16.711000+03:00"
+                }
+            }]
+        )
+
+        p = Patrol.objects.get(title='Patrol XYZ')
+        url = reverse('patrol', kwargs={'id': p.id})
+        request = self.factory.patch(url, data=updated_patrol_patrolsg)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolView.as_view()(request, id=p.id)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            'End Time' in response.data['patrol_segments'][0]['updates'][0].get('message'))
+
+    def test_patrolsegment_history_autoendtime(self):
+        Patrol.objects.all().delete()
+        now = datetime.datetime.now(tz=pytz.utc)
+
+        patrol_patrolsegment = dict(
+            priority=0,
+            title="Patrol XYZ",
+            patrol_segments=[{
+                "patrol_type": "routine_patrol",
+                "time_range": {
+                    "start_time": "2020-09-24T07:08:16.711000+03:00"
+                }
+            }]
+        )
+
+        url = reverse('patrols')
+        request = self.factory.post(url, data=patrol_patrolsegment)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        patrol_sgs = response.data.get('patrol_segments')
+        patrol_sgs_id = patrol_sgs[0].get('id')
+
+        updated_patrol_patrolsg = dict(
+            priority=200,
+            patrol_segments=[{
+                "id": patrol_sgs_id,
+                "time_range": {
+                    "end_time": self.end_of_today
+                }
+            }]
+        )
+
+        p = Patrol.objects.get(title='Patrol XYZ')
+        url = reverse('patrol', kwargs={'id': p.id})
+        request = self.factory.patch(url, data=updated_patrol_patrolsg)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolView.as_view()(request, id=p.id)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            'Auto-End Time' in response.data['patrol_segments'][0]['updates'][0].get('message'))
+
+        updated_patrol_patrolsg = dict(
+            priority=200,
+            patrol_segments=[{
+                "id": patrol_sgs_id,
+                "scheduled_start": "2020-09-26T01:14:34.196502+03:00",
+                "time_range": {
+                    "end_time": "2020-09-29T07:08:16.711000+03:00"
+                }
+            }]
+        )
+
+        p = Patrol.objects.get(title='Patrol XYZ')
+        url = reverse('patrol', kwargs={'id': p.id})
+        request = self.factory.patch(url, data=updated_patrol_patrolsg)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolView.as_view()(request, id=p.id)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            'End Time' in response.data['patrol_segments'][0]['updates'][0].get('message'))
+
+    def test_maintain_patrol_state(self):
+        # Monkey-patch send_task to execute task by blocking; because task_always_eager has no effect on send_task.
+        app.send_task = send_task
+        from activity.tasks import maintain_patrol_state
+
+        Patrol.objects.all().delete()
+        set_time = datetime.datetime.now(
+            tz=pytz.utc) - datetime.timedelta(minutes=1)
+
+        patrol = dict(title='alpha', patrol_segments=[
+                      {"time_range": {"end_time": set_time.isoformat()}}])
+        self._create_patrol(patrol)
+        maintain_patrol_state()
+        p = Patrol.objects.get(title='alpha')
+        self.assertEqual(p.state, 'done')
+
+        url = reverse('patrol', kwargs={'id': p.id})
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolView.as_view()(request, id=p.id)
+        self.assertEqual(response.status_code, 200)
+        updates = response.data['updates']
+        auto_done_message = [
+            u for u in updates if "State is done" in u['message']][0]
+
+        assert auto_done_message['user']['first_name'] == 'Auto-end'
+
+        # should not update cancelled patrol
+        patrol = dict(title='alpha2',  state='cancelled', patrol_segments=[
+                      {"time_range": {"end_time": set_time.isoformat()}}])
+        self._create_patrol(patrol)
+        maintain_patrol_state()
+        self.assertEqual(Patrol.objects.get(title='alpha2').state, 'cancelled')
+
+    def test_update_status(self):
+        # server should transition from done to open if the end_time is cleared
+        Patrol.objects.all().delete()
+        set_time = datetime.datetime.now(
+            tz=pytz.utc) - datetime.timedelta(minutes=1)
+
+        patrol_data = dict(
+            title="Sierra-09", state="done",
+            patrol_segments=[
+                {"time_range": {"end_time": set_time.isoformat()}}]
+        )
+        self._create_patrol(patrol_data)
+        patrol = Patrol.objects.get(title='Sierra-09')
+        self.assertEqual(patrol.state, 'done')
+
+        patrol_update_data = dict(
+            patrol_segments=[{
+                "id": str(patrol.patrol_segments.first().id),
+                "time_range": {
+                    "start_time": "2020-09-24T02:15:54.312000+03:00",
+                },
+            }]
+        )
+
+        url = reverse('patrol', kwargs={'id': patrol.id})
+        request = self.factory.patch(url, data=patrol_update_data)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolView.as_view()(request, id=patrol.id)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data.get('state'), 'open')
+
+    def test_dont_update_cancelled_status(self):
+        Patrol.objects.all().delete()
+        set_time = datetime.datetime.now(
+            tz=pytz.utc) - datetime.timedelta(minutes=1)
+
+        patrol_data = dict(
+            title="Sierra-09", state="cancelled",
+            patrol_segments=[
+                {"time_range": {"end_time": set_time.isoformat()}}]
+        )
+        self._create_patrol(patrol_data)
+        patrol = Patrol.objects.get(title='Sierra-09')
+        self.assertEqual(patrol.state, 'cancelled')
+
+        patrol_update_data = dict(
+            patrol_segments=[{
+                "id": str(patrol.patrol_segments.first().id),
+                "time_range": {
+                    "start_time": "2020-09-24T02:15:54.312000+03:00",
+                },
+            }]
+        )
+
+        url = reverse('patrol', kwargs={'id': patrol.id})
+        request = self.factory.patch(url, data=patrol_update_data)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolView.as_view()(request, id=patrol.id)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data.get('state'), 'cancelled')

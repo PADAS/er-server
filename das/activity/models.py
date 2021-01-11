@@ -6,6 +6,7 @@ from operator import itemgetter, attrgetter
 
 import django.utils
 import pytz
+import json
 from enum import Enum
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -29,13 +30,15 @@ from django.utils.encoding import force_text
 from django.utils.translation import ugettext_lazy as _
 from versatileimagefield.fields import VersatileImageField
 from django.contrib.postgres.fields import DateTimeRangeField
+from django.core.serializers.json import DjangoJSONEncoder
 
 from accounts.models.permissionset import PermissionSet
 from core.models import TimestampedModel
 from core.utils import static_image_finder
 from observations.models import Subject, Source
-from revision.manager import Revision, RevisionMixin
+from revision.manager import Revision, RevisionMixin, RevisionAdapter
 from utils.html import clean_user_text
+from observations.utils import dateparse as dparse
 
 logger = logging.getLogger(__name__)
 
@@ -1747,6 +1750,37 @@ class PatrolSegmentManager(models.Manager):
                 yield community
 
 
+class PatrolSegmentRevisionAdapter(RevisionAdapter):
+
+    def get_serialized_data_diff(self, obj, original):
+        fields = list(self.get_fieldnames())
+        obj_data = self._serialize(obj, fields)
+
+        def to_datetime(data):
+            if data.get('lower'):
+                data['lower'] = dparse(data['lower'])
+            if data.get('upper'):
+                data['upper'] = dparse(data['upper'])
+            return data
+
+        serialized_data = {}
+        for fieldname in fields:
+            if fieldname == 'time_range':
+                old_data = set(to_datetime(json.loads(original.get(fieldname))).items()) if original.get(fieldname) else set()
+                new_data = set(to_datetime(json.loads(obj_data.get(fieldname))).items()) if obj_data.get(fieldname) else set()
+
+                difference = new_data - old_data
+                serialized_data[fieldname] = json.dumps(dict(difference), cls=DjangoJSONEncoder)
+
+            elif original.get(fieldname, None) != obj_data.get(fieldname, None):
+                serialized_data[fieldname] = obj_data.get(fieldname)
+        return serialized_data
+
+
+class PatrolSegmentRevision(Revision):
+    revision_adapter = PatrolSegmentRevisionAdapter
+
+
 class PatrolSegment(TimestampedModel, RevisionMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     patrol = models.ForeignKey(Patrol,
@@ -1772,7 +1806,7 @@ class PatrolSegment(TimestampedModel, RevisionMixin):
         null=True, blank=True)
     leader_id = models.UUIDField(null=True, blank=True, default=None)
     leader = GenericForeignKey('leader_content_type', 'leader_id')
-    revision = Revision()
+    revision = PatrolSegmentRevision()
 
     objects = PatrolSegmentManager()
 

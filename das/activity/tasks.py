@@ -5,14 +5,16 @@ import logging
 from datetime import datetime, timedelta
 from celery_once import QueueOnce
 from versatileimagefield.image_warmer import VersatileImageFieldWarmer
+from django.db.models import Q
+from django.db import transaction
 
 from activity.alerting.businessrules import resolve_event_revisions, \
     infer_event_state
 from activity.alerting.message import send_event_alert, \
     get_revised_event_fields, get_revised_event_details_fields
 from activity.alerting.service import evaluate_event
-from activity.models import EventPhoto, Event, AlertRule, RefreshRecreateEventDetailView
-from das_server import celery
+from activity.models import EventPhoto, Event, AlertRule, RefreshRecreateEventDetailView, Patrol, PC_DONE, PC_OPEN
+from das_server import celery, pubsub
 from activity.materialized_view import refresh_materialized_view, re_create_view, check_db_view_exists
 
 logger = logging.getLogger(__name__)
@@ -56,7 +58,8 @@ def evaluate_alert_rules(event_id, created):
         for alert_rule in AlertRule.objects.filter(id__in=alert_rule_ids).order_by('ordernum', 'title'):
 
             # Verify conditions to only send alerts when the set conditions are met
-            evaluate_conditions_for_sending_alerts(event, alert_rule, already_queued_nids, created)
+            evaluate_conditions_for_sending_alerts(
+                event, alert_rule, already_queued_nids, created)
 
     except Exception as e:
         logger.exception(
@@ -156,3 +159,15 @@ def update_status_of_event_details_view_refresh(self, activity_and_status):
     activity, status = activity_and_status
     RefreshRecreateEventDetailView.objects.refresh(
         activity=activity, status=status)
+
+
+@celery.app.task(base=QueueOnce, once={'graceful': True})
+def maintain_patrol_state():
+    now = datetime.now(tz=pytz.utc)
+    done_patrols = Patrol.objects.filter(Q(patrol_segment__time_range__endswith__lte=now) & Q(
+        state=PC_OPEN) & Q(patrol_segment__scheduled_end=None))
+
+    # Transition patrol state from open to done.
+    for instance in done_patrols:
+        instance.state = PC_DONE
+        instance.save()
