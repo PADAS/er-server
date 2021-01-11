@@ -13,6 +13,7 @@ from django.db.models import OuterRef, Subquery, F, Case, Q, When, Value, CharFi
 from django.db.utils import DataError
 from django.http import HttpResponseRedirect
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext as _
 from psycopg2.extras import DateTimeTZRange
@@ -444,10 +445,11 @@ class PatrolStatusFilter(SimpleListFilter):
     parameter_name = 'status'
 
     def lookups(self, request, model_admin):
+        # Let the value be an tuple of status strings to be used in an in-clause.
         return (
             (PatrolState.overdue.value, 'Start Overdue'),
-            (PatrolState.ready.value, 'Ready to Start'),
-            (PatrolState.scheduled.value, 'Scheduled'),
+            ('$'.join((PatrolState.ready.value, PatrolState.overdue.value)), 'Ready to Start'),
+            ('$'.join((PatrolState.ready.value, PatrolState.overdue.value, PatrolState.scheduled.value)), 'Scheduled'),
             (PatrolState.active.value, 'Active'),
             (PatrolState.done.value, 'Done'),
             (PatrolState.cancelled.value, 'Cancelled'),
@@ -456,7 +458,7 @@ class PatrolStatusFilter(SimpleListFilter):
     def queryset(self, request, queryset):
         value = self.value()
         if value:
-            return queryset.filter(status=value)
+            return queryset.filter(status__in=value.split('$'))
 
         return queryset
 
@@ -521,20 +523,23 @@ class PatrolAdmin(PatrolPermissionMixin, OSMGeoExtendedAdmin):
         user = get_user_model().objects.filter(id=OuterRef('leader_id'))
         subjects, users = self._allowed_tracked_subject(request.user)
 
-        set_time = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(minutes=30)
-        end_day = set_time.replace(hour=23, minute=59, second=59, microsecond=999999)
+        # Anchor both boundaries on the present time, to handle cases where set_time turns out to be 'yesterday'.
+        present_time = timezone.localtime()
+        set_time = present_time - datetime.timedelta(minutes=30)
+        end_day = (present_time + datetime.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
 
         overdue = Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state=models.PC_OPEN) & \
                   Q(patrol_segment__time_range__startswith__isnull=True) & \
                   Q(patrol_segment__scheduled_start__lt=set_time)
 
-        readyto = Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state=models.PC_OPEN) & \
-                  Q(patrol_segment__time_range__startswith__isnull=True) & \
-                  Q(patrol_segment__scheduled_start__range=(set_time,  end_day))
+        readyto = Q(state=models.PC_OPEN) &\
+                  (Q(patrol_segment__time_range__startswith__gt=present_time,
+                     patrol_segment__time_range__startswith__lt=end_day) |
+                   Q(patrol_segment__scheduled_start__range=(set_time,  end_day)))
 
-        scheduled = Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state=models.PC_OPEN) &\
-                    Q(patrol_segment__time_range__startswith__isnull=True) & \
-                    Q(patrol_segment__scheduled_start__gt=end_day)
+        scheduled = Q(state=models.PC_OPEN) &\
+                    (Q(patrol_segment__time_range__startswith__gt=end_day) |
+                     Q(patrol_segment__scheduled_start__gt=end_day))
 
         queryset = queryset.annotate(patrol_type=Subquery(patrol_sgment.values('patrol_type__display')[:1]),
                                      tracked_subject=Subquery(patrol_sgment.annotate(
