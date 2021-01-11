@@ -105,6 +105,7 @@ locals {
     "spaceforgiants"         = "prod1"
     "ste"                    = "prod1"
     "tapirreserve"           = "prod1"
+    "tca"                    = "prod1"
     "timbavati"              = "prod1"
     "thabatholo"             = "prod1"
     "thornybush"             = "prod1"
@@ -177,6 +178,7 @@ locals {
     "mkomazi"             = 1
     "rhodopemountains"    = 1
     "tsavo-east"          = 1
+    "tca"                 = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
