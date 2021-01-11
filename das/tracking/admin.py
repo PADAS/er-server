@@ -165,6 +165,8 @@ class SourceProviderConfigurationAdmin(admin.ModelAdmin):
 
     list_display = ('friendly_name', 'new_device_config', 'name_change_config', 'is_default',)
     list_editable = ('is_default',)
+
+
     formfield_overrides = {
         django.db.models.ManyToManyField: {'widget': CheckboxSelectMultiple},
     }
@@ -189,6 +191,9 @@ class SourceProviderConfigurationAdmin(admin.ModelAdmin):
          ),
     )
 
+    def has_add_permission(self, request, obj=None):
+        return False
+    
     def friendly_name(self, instance):
         if instance.source_provider:
             return f'Config for {instance.source_provider.display_name}'
