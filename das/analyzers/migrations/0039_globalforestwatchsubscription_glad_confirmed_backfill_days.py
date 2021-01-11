@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='globalforestwatchsubscription',
             name='glad_confirmed_backfill_days',
-            field=models.IntegerField(default=30),
+            field=models.IntegerField(default=180),
         ),
     ]
