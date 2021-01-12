@@ -192,7 +192,9 @@ class SourceProviderConfigurationAdmin(admin.ModelAdmin):
     )
 
     def has_add_permission(self, request, obj=None):
-        return False
+        if self.model.objects.count() >= 1:
+            return False
+        return super().has_add_permission(request)
     
     def friendly_name(self, instance):
         if instance.source_provider:
