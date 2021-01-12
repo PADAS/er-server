@@ -1,4 +1,5 @@
 time_zone            = "Africa/Nairobi"
+patrol_enabled       = "True"
 daily_report_enabled = "True"
 tableau_enabled      = "True"
 tableau_site_id = "Demo1"
