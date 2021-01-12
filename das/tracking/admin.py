@@ -192,7 +192,7 @@ class SourceProviderConfigurationAdmin(admin.ModelAdmin):
     )
 
     def has_add_permission(self, request, obj=None):
-        if self.model.objects.count() >= 1:
+        if self.model.objects.count():
             return False
         return super().has_add_permission(request)
     
