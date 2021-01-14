@@ -314,7 +314,7 @@ class GFWAlertHandlerTest(BaseAPITest):
         with patch(f'{__name__}.send_task') as mock_task:
             app.send_task = send_task
             tasks.poll_gfw()
-            self.assertEqual(mock_task.call_count, 3)
+            self.assertEqual(mock_task.call_count, 8)
 
         gfw_model.objects.all().delete()
 
@@ -401,6 +401,41 @@ class GFWAlertHandlerTest(BaseAPITest):
                 self.assertEqual(1, len(alert_infos))
                 self._verify_alert_info(subscription, alert_infos[0], test_start_date, test_end_date)
 
+    def test_generate_intervals(self):
+        start, end = date(2020, 12, 1), date(2020, 12, 9)
+        expected_intervals = [(start, end)]
+        intervals = list(gfw_utils.generate_intervals(start, end))
+        self.assertEqual(intervals, expected_intervals)
+
+        start, end = date(2020, 12, 1), date(2020, 12, 31)
+        expected_intervals = self._get_expected_intervals(start, 1)
+        intervals = list(gfw_utils.generate_intervals(start, end))
+        self.assertEqual(intervals, expected_intervals)
+
+        start, end = date(2020, 11, 1), date(2020, 12, 31)
+        expected_intervals = self._get_expected_intervals(start, 2)
+        intervals = list(gfw_utils.generate_intervals(start, end))
+        self.assertEqual(intervals, expected_intervals)
+
+        end = date(2021, 1, 10)
+        start = end - timedelta(180)
+        expected_intervals = self._get_expected_intervals(start, 6)
+        intervals = list(gfw_utils.generate_intervals(start, end))
+        self.assertEqual(intervals, expected_intervals)
+
+        end = date(2022, 1, 20)
+        start = end - timedelta(270)
+        expected_intervals = self._get_expected_intervals(start, 9)
+        intervals = list(gfw_utils.generate_intervals(start, end))
+        self.assertEqual(intervals, expected_intervals)
+
+        start, end = date(2020, 1, 1), date(2020, 12, 31)
+        expected_intervals = self._get_expected_intervals(start, 12)
+        last_end_interval = expected_intervals[-1][1]
+        expected_intervals.append((last_end_interval, end))
+        intervals = list(gfw_utils.generate_intervals(start, end))
+        self.assertEqual(intervals, expected_intervals)
+
     @override_settings(GFW_BACKFILL_INTERVAL_DAYS=4)
     @patch('analyzers.gfw_utils.date')
     def test_backfill_scheduling(self, mock_date):
@@ -413,16 +448,23 @@ class GFWAlertHandlerTest(BaseAPITest):
         self.assertEqual(1, gfw_model.objects.count())
 
         slug, subscription = GFWLayerSlugs.GLAD_ALERTS.value, gfw_model.objects.first()
+        subscription.glad_confirmed_backfill_days = 180
+        subscription.save()
+
         alert_infos = list(gfw_utils.make_alert_infos(slug, subscription))
-        self.assertEqual(2, len(alert_infos))  # should get 2 alert_infos
+        self.assertEqual(7, len(alert_infos))  # should get 7 alert_infos
         # first info is for the normal poll that goes back 10 days, confirmed=False
         self._verify_alert_info(subscription, alert_infos[0], test_start_date, test_end_date, False)
-        # second info is for the confirmed glad backfill poll
-        self._verify_alert_info(subscription,
-                                alert_infos[1],
-                                test_end_date - timedelta(subscription.glad_confirmed_backfill_days),
-                                test_end_date,
-                                True)
+
+        # other 6 infos are for the confirmed glad backfill poll, interval sz=30
+        interval_start = test_end_date - timedelta(days=180)
+        for i in range(6):
+            self._verify_alert_info(subscription,
+                                    alert_infos[i+1],
+                                    interval_start,
+                                    interval_start + timedelta(days=30),
+                                    True)
+            interval_start += timedelta(days=30)
 
         # the next day, we're back to the normal poll
         test_end_date = test_end_date + timedelta(1)
@@ -431,6 +473,15 @@ class GFWAlertHandlerTest(BaseAPITest):
         alert_infos = list(gfw_utils.make_alert_infos(slug, subscription))
         self.assertEqual(1, len(alert_infos))  # should get 1 alert_info
         self._verify_alert_info(subscription, alert_infos[0], test_start_date, test_end_date, False)
+
+    def _get_expected_intervals(self, start_date: date, num: int):
+        expected_intervals = []
+        int_start = start_date
+        for i in range(num):
+            int_end = int_start + timedelta(30)
+            expected_intervals.append((int_start, int_end))
+            int_start = int_end
+        return expected_intervals
 
     def _verify_alert_info(self, subscription: gfw_model, alert_info: dict,
                            expected_start_date: date, expected_end_date: date,
