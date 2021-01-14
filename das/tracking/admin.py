@@ -165,14 +165,12 @@ class SourceProviderConfigurationAdmin(admin.ModelAdmin):
 
     list_display = ('friendly_name', 'new_device_config', 'name_change_config', 'is_default',)
     list_editable = ('is_default',)
+
+
     formfield_overrides = {
         django.db.models.ManyToManyField: {'widget': CheckboxSelectMultiple},
     }
     fieldsets = (
-        (None, {
-            'fields': ('is_default', 'source_provider', )
-        }
-         ),
         ('New device subject handling', {
             'fields': ('new_device_config',)
         }
@@ -193,6 +191,11 @@ class SourceProviderConfigurationAdmin(admin.ModelAdmin):
          ),
     )
 
+    def has_add_permission(self, request, obj=None):
+        if self.model.objects.count():
+            return False
+        return super().has_add_permission(request)
+    
     def friendly_name(self, instance):
         if instance.source_provider:
             return f'Config for {instance.source_provider.display_name}'
