@@ -87,6 +87,7 @@ locals {
     "oljogi"                 = "prod1"
     "olpejeta"               = "prod1"
     "owlrhinos"              = "prod1"
+    "pantheraolympic"        = "prod1"
     "parcw"                  = "prod1"
     "pendjari"               = "prod1"
     "pinelands"              = "prod1"
@@ -181,6 +182,7 @@ locals {
     "tsavo-east"          = 1
     "tca"                 = 1
     "nyungwe"             = 1
+    "pantheraolympic"     = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
