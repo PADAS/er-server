@@ -391,6 +391,14 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
                         for item in values]
         return choices
 
+    def is_allowed_to_view(self, output):
+        request = self.context.get('request')
+
+        if output.get('content_type') == 'observations.subject':
+            subject_id = output.get('id')
+            return Subject.objects.filter(id=subject_id).by_user_subjects(request.user)
+        return True
+
 
 class EventTypeRelatedField(rest_framework.serializers.RelatedField):
     def get_queryset(self):

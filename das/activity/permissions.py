@@ -3,6 +3,7 @@ from rest_framework.permissions import (SAFE_METHODS, BasePermission,
                                         DjangoObjectPermissions,
                                         IsAuthenticated)
 from rest_framework import exceptions
+from django.http import Http404
 
 from activity.models import EventType, Event, Patrol
 from observations.views import UnauthorizedView
@@ -171,3 +172,29 @@ class PatrolObjectPermissions(DjangoObjectPermissions):
             raise exceptions.MethodNotAllowed(method)
 
         return [perm % kwargs for perm in self.perms_map[method]]
+
+    def has_object_permission(self, request, view, obj):
+        # authentication checks have already executed via has_permission
+        model_cls = Patrol
+        user = request.user
+
+        perms = self.get_required_object_permissions(request.method, model_cls)
+
+        if not user.has_perms(perms, obj):
+            # If the user does not have permissions we need to determine if
+            # they have read permissions to see 403, or not, and simply see
+            # a 404 response.
+
+            if request.method in SAFE_METHODS:
+                # Read permissions already checked and failed, no need
+                # to make another lookup.
+                raise Http404
+
+            read_perms = self.get_required_object_permissions('GET', model_cls)
+            if not user.has_perms(read_perms, obj):
+                raise Http404
+
+            # Has read permissions.
+            return False
+
+        return True

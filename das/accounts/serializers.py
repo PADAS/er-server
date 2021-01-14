@@ -5,6 +5,7 @@ from rest_framework.exceptions import ValidationError
 
 from accounts.models.eula import EULA, UserAgreement
 from core.serializers import ContentTypeField
+from accounts.utils import allowed_permissions
 
 
 class UserSerializer(rest_framework.serializers.ModelSerializer):
@@ -22,6 +23,11 @@ class UserSerializer(rest_framework.serializers.ModelSerializer):
         ret = super(UserSerializer, self).to_representation(instance)
         if not settings.ACCEPT_EULA:
             del ret['accepted_eula']
+        perms = {}
+        for modelname in ['patrol', 'patroltype']:
+            perms[modelname] = allowed_permissions(instance, modelname)
+
+        ret['permissions'] = perms
         return ret
 
 
