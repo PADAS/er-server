@@ -12,13 +12,9 @@ def patrol_mgmt_permissions(modelnames=None):
 
 
 def allowed_permissions(user_instance, model_names, app_label):
-    if user_instance.is_superuser:
-        permissions = Permission.objects.filter(content_type__app_label=app_label,
-                                                content_type__model__in=model_names)
-    else:
-        permissions = Permission.objects.filter(permission_sets__user=user_instance,
-                                                content_type__app_label=app_label,
-                                                content_type__model__in=model_names)
+    permissions = Permission.objects.filter(permission_sets__user=user_instance,
+                                            content_type__app_label=app_label,
+                                            content_type__model__in=model_names)
 
     container = defaultdict(list)
     permissions = permissions.values_list('content_type__model', 'codename')
