@@ -23,11 +23,8 @@ class UserSerializer(rest_framework.serializers.ModelSerializer):
         ret = super(UserSerializer, self).to_representation(instance)
         if not settings.ACCEPT_EULA:
             del ret['accepted_eula']
-        perms = {}
-        for modelname in ['patrol', 'patroltype']:
-            perms[modelname] = allowed_permissions(instance, modelname)
-
-        ret['permissions'] = perms
+        permissions = allowed_permissions(instance, ['patrol', 'patroltype'], 'activity')
+        ret['permissions'] = [permissions] if permissions else []
         return ret
 
 

@@ -1,6 +1,6 @@
+from collections import defaultdict
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Q
 
 
 def patrol_mgmt_permissions(modelnames=None):
@@ -11,9 +11,17 @@ def patrol_mgmt_permissions(modelnames=None):
     return Permission.objects.filter(content_type__in=content_types)
 
 
-def allowed_permissions(instance, model_name, app_label='activity'):
-    perms_sets_ids = instance.get_all_permission_sets(only_ids=True)
-    perms = Permission.objects.filter(Q(permission_sets__in=perms_sets_ids) &
-                                      Q(content_type=ContentType.objects.get(app_label=app_label, model=model_name)))
-    perms = perms.distinct()
-    return list(perms.values_list('codename', flat=True))
+def allowed_permissions(user_instance, model_names, app_label):
+    if user_instance.is_superuser:
+        permissions = Permission.objects.filter(content_type__app_label=app_label,
+                                                content_type__model__in=model_names)
+    else:
+        permissions = Permission.objects.filter(permission_sets__user=user_instance,
+                                                content_type__app_label=app_label,
+                                                content_type__model__in=model_names)
+
+    container = defaultdict(list)
+    permissions = permissions.values_list('content_type__model', 'codename')
+    for modelname, action in permissions:
+        container[modelname].append(action.split('_')[0])
+    return container
