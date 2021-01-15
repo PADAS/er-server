@@ -114,7 +114,7 @@ render_templates: ## render templates (using Terraform) | [tfvars_environment="B
 	 -var site_ip_address=$$SITE_IP_ADDRESS \
 	 -var fqdn=$$FQDN \
 	 -var gs_bucket_name=$$GS_BUCKET_NAME"
-	@ cat $(template_path)/rendered/circleci-server-configmap.yaml
+	@ cat $(template_path)/rendered/circleci-01-server-configmap.yaml
 
 .PHONY: kubectl_apply
 kubectl_apply: ## kubectl apply (recursively) everything in the ./k8s path
