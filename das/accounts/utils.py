@@ -1,7 +1,8 @@
 from collections import defaultdict
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
-
+from django.db.models import Q
+from django.contrib import auth
 
 def patrol_mgmt_permissions(modelnames=None):
     modelnames = modelnames or ('patrol', 'patroltype', 'patrolsegment', 'patrolnote',
@@ -11,13 +12,25 @@ def patrol_mgmt_permissions(modelnames=None):
     return Permission.objects.filter(content_type__in=content_types)
 
 
-def allowed_permissions(user_instance, model_names, app_label):
-    permissions = Permission.objects.filter(permission_sets__user=user_instance,
-                                            content_type__app_label=app_label,
-                                            content_type__model__in=model_names).distinct()
+def allowed_permissions(user_instance):
+    '''
+    Get Permission from available backends.
+    :param user_instance: The user who's permissions we're resolving.
+    :return: a dictionary as content for our API.
+    '''
+    permissions = set()
+    for backend in auth.get_backends():
+      if hasattr(backend, "get_all_permissions"):
+        permissions.update(backend.get_all_permissions(user_instance))
 
     container = defaultdict(list)
-    permissions = permissions.values_list('content_type__model', 'codename')
-    for modelname, action in permissions:
-        container[modelname].append(action.split('_')[0])
+    for permission in permissions:
+        app_name, perm = permission.split('.')
+        verb, resource = perm.split('_', maxsplit=1)
+
+        # The non-standard permissions are a bit messy, so limit to CRUD verbs.
+        if verb in ('add', 'change', 'view', 'delete'):
+            container[resource].append(verb)
+
     return container
+

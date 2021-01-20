@@ -47,7 +47,7 @@ class UserView(generics.RetrieveAPIView):
         context = super().get_serializer_context()
 
         # Add permissions block. Initially this covers just Patrol-related resources.
-        context['permissions'] = allowed_permissions(self.request.user, ['patrol', 'patroltype'], 'activity') or {}
+        context['permissions'] = allowed_permissions(self.request.user) or {}
         return context
 
 
