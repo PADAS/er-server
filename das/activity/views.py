@@ -1,3 +1,7 @@
+from usercontent.serializers import get_stored_filename
+from activity.search import get_event_search_schema
+from activity.permissions import IsEventProviderOwnerPermission
+from django.shortcuts import get_object_or_404
 import copy
 import csv
 import json
@@ -169,10 +173,6 @@ class EventSourcesView(generics.ListCreateAPIView):
         return EventSource.objects.filter(eventprovider_id=eventprovider_id)
 
 
-from django.shortcuts import get_object_or_404
-from activity.permissions import IsEventProviderOwnerPermission
-
-
 class EventSourceView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = EventSourceSerializer
     permission_classes = (IsAuthenticated, IsEventProviderOwnerPermission)
@@ -302,9 +302,6 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
 
     def post(self, request, *args, **kwargs):
         raise rest_framework.exceptions.MethodNotAllowed('For Schema')
-
-
-from activity.search import get_event_search_schema
 
 
 class EventFilterSchemaView(generics.RetrieveAPIView):
@@ -606,10 +603,12 @@ class EventsExportView(views.APIView):
 
         queryset = Event.objects.all().prefetch_related('event_type')
 
-        permitted_event_categories = get_permitted_event_categories(self.request)
+        permitted_event_categories = get_permitted_event_categories(
+            self.request)
 
         if len(permitted_event_categories) > 0:
-            queryset = queryset.filter(event_type__category__in=permitted_event_categories)
+            queryset = queryset.filter(
+                event_type__category__in=permitted_event_categories)
         else:
             return queryset.none()
 
@@ -671,7 +670,8 @@ class EventsView(generics.ListCreateAPIView):
     def add_segment_to_record(self, patrol_segment_id, new_record):
         for record in new_record:
             if not record.get('patrol_segments'):
-                record['patrol_segments'] = patrol_segment_id if isinstance(patrol_segment_id, list) else [patrol_segment_id]
+                record['patrol_segments'] = patrol_segment_id if isinstance(
+                    patrol_segment_id, list) else [patrol_segment_id]
             else:
                 record['patrol_segments'].append(patrol_segment_id)
         return new_record
@@ -740,7 +740,8 @@ class EventsView(generics.ListCreateAPIView):
             'eventsource_event_refs')
         patrol_segment_id = self.kwargs.get('patrol_segment')
         if patrol_segment_id:
-            logger.debug("Filtering on patrol segment id: %s", patrol_segment_id)
+            logger.debug("Filtering on patrol segment id: %s",
+                         patrol_segment_id)
             queryset = queryset.filter(patrol_segments__id=patrol_segment_id)
 
         query_params = self.request.query_params
@@ -994,9 +995,6 @@ class EventFilesView(generics.ListCreateAPIView):
                                            pk=self.kwargs['id'])
 
         return event.files.all()
-
-
-from usercontent.serializers import get_stored_filename
 
 
 class EventFileView(generics.RetrieveUpdateDestroyAPIView):
@@ -1258,7 +1256,7 @@ class PatrolNoteView(generics.RetrieveUpdateAPIView):
 
     def get_patrol(self):
         return generics.get_object_or_404(Patrol.objects.all(),
-                                          pk=self.kwargs['id'])
+                                          pk=self.kwargs.get('id'))
 
 
 class PatrolFilesView(generics.ListCreateAPIView):
@@ -1307,7 +1305,7 @@ class PatrolFileView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return PatrolFile.objects.all().filter(patrol=generics.get_object_or_404(Patrol.objects.all(),
-                                                                                 pk=self.kwargs['id']))
+                                                                                 pk=self.kwargs.get('id')))
 
     def get_object(self):
         queryset = self.get_queryset()
@@ -1377,5 +1375,6 @@ class PatrolsegmentView(generics.RetrieveUpdateDestroyAPIView):
 def get_segments(kwargs, queryset):
     related_event = kwargs.get('event_id')
     if related_event:
-        queryset = queryset.filter(eventrelatedsegments__event__id=related_event)
+        queryset = queryset.filter(
+            eventrelatedsegments__event__id=related_event)
     return queryset
