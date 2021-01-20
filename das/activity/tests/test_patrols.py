@@ -15,6 +15,7 @@ from activity.models import Patrol, PatrolSegment, PatrolType, StateFilters, Eve
 from core.tests import BaseAPITest
 from observations.models import Subject
 from das_server.celery import app
+from accounts.models import PermissionSet
 
 User = django.contrib.auth.get_user_model()
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tests')
@@ -41,6 +42,9 @@ class TestPatrol(BaseAPITest):
         self.app_user = User.objects.create_user('app-user2', 'app-user2@test.com',
                                                  'app-user2', is_superuser=True,
                                                  is_staff=True, **user_const)
+        self.radio_room_user = User.objects.create_user(
+            'radio_room_user', 'das_radio_room@vulcan.com',
+            'radio_room_user', **user_const)
 
         self.sample_patrol_id = "b14bc72f-96d6-4248-9fea-7dd0bbc8c196"
         Patrol.objects.bulk_create(
@@ -1391,3 +1395,70 @@ class TestPatrol(BaseAPITest):
         response = views.PatrolView.as_view()(request, id=patrol.id)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data.get('state'), 'cancelled')
+
+    def test_no_patrol_permission(self):
+        url = reverse('patrols')
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.radio_room_user)
+        response = views.PatrolsView.as_view()(request)
+        assert response.status_code == 403
+
+        # Patrol-Types.
+        url = reverse('patrol-types')
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.radio_room_user)
+        response = views.PatrolTypesView.as_view()(request)
+        assert response.status_code == 403
+
+    def test_view_patrol_permission_no_subject_perm(self):
+        Patrol.objects.all().delete()
+        su = Subject.objects.create(name='Horton', subject_subtype_id='elephant')
+
+        patrol_patrolsegment = dict(
+            objective="Patrol Management",
+            priority=0,
+            title="Patrol",
+            state="open",
+            notes=[{'text': 'New Note..'}],
+            patrol_segments=[{
+                "patrol_type": "dog_patrol",
+                "leader": {
+                    "content_type": "observations.subject",
+                    "id": su.id,
+                    "name": "Radio-5",
+                    "subject_type": "wildlife",
+                    "subject_subtype": "elephant",
+                    "additional": {
+                    },
+                    "created_at": "2020-08-05T01:31:42.474284+03:00",
+                    "updated_at": "2020-08-05T01:31:42.474315+03:00",
+                    "is_active": True,
+                    "tracks_available": False,
+                    "image_url": "/static/elephant-black.svg"
+                },
+                "scheduled_start": "2020-08-26T01:14:34.196502+03:00",
+                "time_range": {
+                    "start_time": "2020-09-24T07:08:16.711000+03:00"
+                },
+                "start_location": {
+                    "longitude": -122.3607072,
+                    "latitude": 47.681731199999994
+                }
+            }]
+        )
+
+        url = reverse('patrols')
+        request = self.factory.post(url, data=patrol_patrolsegment)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        # give only view patrol permission to radio_room_user.
+        view_patrol_permissionset = PermissionSet.objects.get(name='View Patrols Permissions')
+        self.radio_room_user.permission_sets.add(view_patrol_permissionset)
+        url = reverse('patrols')
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.radio_room_user)
+        response = views.PatrolsView.as_view()(request)
+        assert response.status_code == 200
+        assert response.data['results'][0].get('patrol_segments')[0]['leader'] == {'hidden': True}

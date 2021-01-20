@@ -22,6 +22,11 @@ class UserSerializer(rest_framework.serializers.ModelSerializer):
         ret = super(UserSerializer, self).to_representation(instance)
         if not settings.ACCEPT_EULA:
             del ret['accepted_eula']
+
+        user_permissions = self.context.get('permissions')
+        if user_permissions is not None:
+            ret['permissions'] = user_permissions
+
         return ret
 
 

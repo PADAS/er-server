@@ -16,6 +16,7 @@ import usercontent.serializers
 from accounts.serializers import UserDisplaySerializer, get_user_display
 from activity.models import PATROL_STATE_CHOICES, PC_OPEN, PC_DONE, PRI_NONE, PRIORITY_CHOICES
 from activity.models import Patrol, PatrolNote, PatrolSegment, Event
+from observations.models import Subject
 from activity.serializers import AlertRuleSerializer, EventSourceSerializer, EventSerializer
 from activity.serializers import fields, ReportedByRelatedField
 from activity.serializers.base import BaseSerializer, RevisionMixin, TimestampMixin, FileSerializerMixin
@@ -113,6 +114,10 @@ class LeaderRelatedField(ReportedByRelatedField):
                 activity.models.PatrolSegment.objects.get_leader_for_provenance(provenance, request.user))
             if values:
                 yield provenance, values
+
+    def to_representation(self, value):
+        representation = super(LeaderRelatedField, self).to_representation(value)
+        return representation if self.is_allowed_to_view(representation) else {'hidden': True}
 
 
 class PatrolTypeRelatedField(serializers.RelatedField):
