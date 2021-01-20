@@ -65,6 +65,7 @@ locals {
     "majete"                 = "prod1"
     "malamala"               = "prod1"
     "malamala"               = "prod1"
+    "marabustopisaaten"      = "prod1"
     "marataba"               = "prod1"
     "matlamamba"             = "prod1"
     "matusadona"             = "prod1"
@@ -187,6 +188,7 @@ locals {
     "pantheraolympic"     = 1
     "ashiacheetah"        = 1
     "osaconservation"     = 1
+    "marabustopisaaten"   = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
