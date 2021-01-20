@@ -14,7 +14,7 @@ def patrol_mgmt_permissions(modelnames=None):
 def allowed_permissions(user_instance, model_names, app_label):
     permissions = Permission.objects.filter(permission_sets__user=user_instance,
                                             content_type__app_label=app_label,
-                                            content_type__model__in=model_names)
+                                            content_type__model__in=model_names).distinct()
 
     container = defaultdict(list)
     permissions = permissions.values_list('content_type__model', 'codename')

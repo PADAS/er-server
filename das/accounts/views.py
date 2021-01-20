@@ -18,6 +18,7 @@ from accounts.filters import UserObjectPermissionsFilter
 from accounts.models import User
 from accounts.models.eula import UserAgreement, EULA
 from accounts.permissions import UserObjectPermissions, EulaPermission
+from accounts.utils import allowed_permissions
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,13 @@ class UserView(generics.RetrieveAPIView):
         if self.kwargs[lookup_url_kwarg] == 'me':
             self.kwargs[lookup_url_kwarg] = self.request.user.id
         return super(UserView, self).get_object()
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+
+        # Add permissions block. Initially this covers just Patrol-related resources.
+        context['permissions'] = allowed_permissions(self.request.user, ['patrol', 'patroltype'], 'activity') or {}
+        return context
 
 
 class UserProfilesView(generics.ListAPIView):
