@@ -4,6 +4,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 from django.contrib import auth
 
+
 def patrol_mgmt_permissions(modelnames=None):
     modelnames = modelnames or ('patrol', 'patroltype', 'patrolsegment', 'patrolnote',
                                 'patrolfile', 'patrolsegmentmembership')
@@ -20,13 +21,16 @@ def allowed_permissions(user_instance):
     '''
     permissions = set()
     for backend in auth.get_backends():
-      if hasattr(backend, "get_all_permissions"):
-        permissions.update(backend.get_all_permissions(user_instance))
+        if hasattr(backend, "get_all_permissions"):
+            permissions.update(backend.get_all_permissions(user_instance))
 
     container = defaultdict(list)
     for permission in permissions:
         app_name, perm = permission.split('.')
         verb, resource = perm.split('_', maxsplit=1)
+
+        if any([resource in {'patrolsegment', 'patrolnote', 'patrolfile', 'patrolsegmentmembership'}, app_name not in {'activity'}]):
+            continue
 
         # The non-standard permissions are a bit messy, so limit to CRUD verbs.
         if verb in ('add', 'change', 'view', 'delete'):
