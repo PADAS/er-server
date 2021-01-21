@@ -234,17 +234,6 @@ class TestEventView(BaseAPITest):
 
         return event
 
-    def test_find_all_event_type_icons(self):
-
-        for et in EventType.objects.all():
-            for p in Event.PRIORITY_CHOICES:
-                for s in Event.STATE_CHOICES:
-                    image = Event.marker_icon(et.value,
-                                              p[0], s[0])
-                    image = image[8:]
-                    self.assertTrue(finders.find(image),
-                                    'Failed to find image: {0}'.format(image))
-
     def test_return_event_details(self):
         request = self.factory.get(self.api_base + '/event/')
         self.force_authenticate(request, self.all_perms_user)
