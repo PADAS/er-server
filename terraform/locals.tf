@@ -14,6 +14,7 @@ locals {
     "amboseli-np"            = "prod1"
     "apntraining"            = "prod1"
     "apr"                    = "prod1"
+    "ashiacheetah"           = "prod1"
     "balule"                 = "prod1"
     "baminguibangoran"       = "prod1"
     "bangweulu"              = "prod1"
@@ -64,6 +65,7 @@ locals {
     "majete"                 = "prod1"
     "malamala"               = "prod1"
     "malamala"               = "prod1"
+    "marabustopisaaten"      = "prod1"
     "marataba"               = "prod1"
     "matlamamba"             = "prod1"
     "matusadona"             = "prod1"
@@ -86,6 +88,7 @@ locals {
     "odzala"                 = "prod1"
     "oljogi"                 = "prod1"
     "olpejeta"               = "prod1"
+    "osaconservation"        = "prod1"
     "owlrhinos"              = "prod1"
     "pantheraolympic"        = "prod1"
     "parcw"                  = "prod1"
@@ -183,6 +186,9 @@ locals {
     "tca"                 = 1
     "nyungwe"             = 1
     "pantheraolympic"     = 1
+    "ashiacheetah"        = 1
+    "osaconservation"     = 1
+    "marabustopisaaten"   = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
