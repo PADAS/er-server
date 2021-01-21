@@ -10,6 +10,7 @@ import django.contrib.auth
 from django.core.management import call_command
 from django.urls import reverse
 from django.utils import lorem_ipsum
+from psycopg2.extras import DateTimeTZRange
 from activity import views
 from activity.models import Patrol, PatrolSegment, PatrolType, StateFilters, Event, EventType, PC_DONE
 from core.tests import BaseAPITest
@@ -63,8 +64,10 @@ class TestPatrol(BaseAPITest):
 
         self.sample_patrol_filter = {
             'filter': json.dumps(
-                {"date_range": {
-                    "lower": self.start_of_today.isoformat(), "upper": self.end_of_today.isoformat()}})}
+                {
+                    "patrols_overlap_daterange": True,
+                    "date_range": {
+                        "lower": self.start_of_today.isoformat(), "upper": self.end_of_today.isoformat()}})}
         self.temporary_folder = tempfile.mkdtemp()
 
     def tearDown(self):
@@ -689,6 +692,69 @@ class TestPatrol(BaseAPITest):
         filter_query = {'filter': json.dumps(
             {"date_range": {"upper": self.start_of_today.isoformat()}})}
         response = self._filter_patrol(filter_query)
+        self.assertEqual(response.data.get('count'), 0)
+
+    def test_patrol_filter_with_patrols_overlap_daterange_param(self):
+        Patrol.objects.all().delete()
+        date_range = {"lower": self.start_of_today.isoformat(
+        ), "upper": self.end_of_today.isoformat()}
+        date_range_filter = {'filter': json.dumps({"date_range": date_range})}
+
+        start = self.start_of_today + datetime.timedelta(hours=8)  # 8am
+        end = self.start_of_today + datetime.timedelta(hours=11)  # 9 am
+        patrol_data = dict(
+            title='New Patrol',
+            patrol_segments=[
+                {'time_range': {"start_time": start.isoformat(), "end_time": end.isoformat()}}],
+        )
+        self._create_patrol(patrol_data)
+        response = self._filter_patrol(date_range_filter)  # today's filter
+
+        # patrol's start time within given range
+        self.assertEqual(response.data.get('count'), 1)
+        self.assertEqual(response.data.get('results')[
+                         0].get('title'), patrol_data.get('title'))
+
+        date_range['lower'] = (self.start_of_today +
+                               datetime.timedelta(hours=10)).isoformat()
+        new_filter = {'filter': json.dumps({"date_range": date_range})}
+        response = self._filter_patrol(new_filter)  # today's filter
+
+        # Patrol start time not within range
+        self.assertEqual(response.data.get('count'), 0)
+
+        new_filter = {'filter': json.dumps(
+            {"date_range": date_range, "patrols_overlap_daterange": True})}
+        response = self._filter_patrol(new_filter)  # today's filter
+
+        # Patrol start to end overlaps
+        self.assertEqual(response.data.get('count'), 1)
+
+        # Filter with midnight time in upper bound
+        date_range['lower'] = (self.start_of_today -
+                               datetime.timedelta(hours=10)).isoformat()
+        date_range['upper'] = (self.start_of_today).isoformat()
+
+        patrol = response.data.get('results')[0]
+        segment_id = patrol.get('patrol_segments')[0].get('id')
+
+        # update the patrol start time to 00:00
+        updated_time_range = DateTimeTZRange(
+            lower=self.start_of_today, upper=self.end_of_today)
+
+        PatrolSegment.objects.filter(id=segment_id).update(
+            time_range=updated_time_range)
+        new_filter = {'filter': json.dumps(
+            {"date_range": date_range, "patrols_overlap_daterange": True})}
+        response = self._filter_patrol(new_filter)
+
+        # Patrol overlapping timerange
+        self.assertEqual(response.data.get('count'), 1)
+
+        new_filter = {'filter': json.dumps({"date_range": date_range})}
+        response = self._filter_patrol(new_filter)
+
+        # Skipping patrol ending at 00:00
         self.assertEqual(response.data.get('count'), 0)
 
     def test_patrol_filter_only_scheduled_start_given(self):
@@ -1412,7 +1478,8 @@ class TestPatrol(BaseAPITest):
 
     def test_view_patrol_permission_no_subject_perm(self):
         Patrol.objects.all().delete()
-        su = Subject.objects.create(name='Horton', subject_subtype_id='elephant')
+        su = Subject.objects.create(
+            name='Horton', subject_subtype_id='elephant')
 
         patrol_patrolsegment = dict(
             objective="Patrol Management",
@@ -1454,11 +1521,13 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.status_code, 201)
 
         # give only view patrol permission to radio_room_user.
-        view_patrol_permissionset = PermissionSet.objects.get(name='View Patrols Permissions')
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name='View Patrols Permissions')
         self.radio_room_user.permission_sets.add(view_patrol_permissionset)
         url = reverse('patrols')
         request = self.factory.get(url)
         self.force_authenticate(request, self.radio_room_user)
         response = views.PatrolsView.as_view()(request)
         assert response.status_code == 200
-        assert response.data['results'][0].get('patrol_segments')[0]['leader'] == {'hidden': True}
+        assert response.data['results'][0].get('patrol_segments')[
+            0]['leader'] == {'hidden': True}
