@@ -11,6 +11,9 @@ from django.core.management import call_command
 from django.urls import reverse
 from django.utils import lorem_ipsum
 from psycopg2.extras import DateTimeTZRange
+from django.test import Client
+import pytest
+
 from activity import views
 from activity.models import Patrol, PatrolSegment, PatrolType, StateFilters, Event, EventType, PC_DONE
 from core.tests import BaseAPITest
@@ -18,6 +21,7 @@ from observations.models import Subject
 from das_server.celery import app
 from accounts.models import PermissionSet
 
+pytestmark = pytest.mark.django_db
 User = django.contrib.auth.get_user_model()
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tests')
 STATIC_IMAGE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
@@ -1475,6 +1479,16 @@ class TestPatrol(BaseAPITest):
         self.force_authenticate(request, self.radio_room_user)
         response = views.PatrolTypesView.as_view()(request)
         assert response.status_code == 403
+
+    def test_view_patrol_permission_can_view_patroltype(self):
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name='View Patrols Permissions')
+        self.radio_room_user.permission_sets.add(view_patrol_permissionset)
+        client = Client()
+        client.force_login(self.radio_room_user)
+        response = client.get(reverse("patrol-types"))
+        assert response.status_code == 200
+        assert [pt for pt in response.data if pt['value'] == 'routine_patrol']
 
     def test_view_patrol_permission_no_subject_perm(self):
         Patrol.objects.all().delete()
