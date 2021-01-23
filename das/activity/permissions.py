@@ -178,7 +178,19 @@ class PatrolObjectPermissions(DjangoObjectPermissions):
         user = request.user
 
         perms = self.get_required_object_permissions(request.method, model_cls)
-        return True if user.has_perms(perms, obj) else False
+
+        if not user.has_perms(perms, obj):
+            # If the user does not have permissions we need to determine if
+            # they have read permissions to see 403, or not, and simply raise
+            # PermissionDenied.
+            if request.method in SAFE_METHODS:
+                raise exceptions.PermissionDenied
+
+            read_perms = self.get_required_object_permissions('GET', model_cls)
+            if not user.has_perms(read_perms, obj):
+                raise exceptions.PermissionDenied
+            return False
+        return True
 
 
 class StandardModelPermissions(DjangoModelPermissions):
