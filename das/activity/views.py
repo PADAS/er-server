@@ -46,7 +46,7 @@ from activity.models import Event, EventNote, EventClass, \
     EventFilter, EventSource, EventProvider, PatrolType, Patrol, PatrolSegment, PatrolNote, PatrolFile, \
     EventRelatedSegments
 from activity.permissions import EventCategoryPermissions, \
-    EventNotesCategoryPermissions, IsOwner, PatrolObjectPermissions, StandardModelPermissions
+    EventNotesCategoryPermissions, IsOwner, PatrolObjectPermissions, PatrolTypePermissions, StandardModelPermissions
 from activity.serializers import EventSerializer, EventNoteSerializer, \
     EventJSONSchema, EventStateSerializer, \
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer, \
@@ -1144,14 +1144,14 @@ class EventAlertTargetsListView(generics.ListAPIView):
 
 class PatrolTypesView(generics.ListAPIView):
     serializer_class = PatrolTypeSerializer
-    permission_classes = (StandardModelPermissions,)
+    permission_classes = (PatrolTypePermissions,)
     queryset = PatrolType.objects.all()
 
 
 class PatrolTypeView(generics.RetrieveAPIView):
     lookup_field = 'id'
     serializer_class = PatrolTypeSerializer
-    permission_classes = (StandardModelPermissions,)
+    permission_classes = (PatrolTypePermissions,)
     queryset = PatrolType.objects.all()
 
 

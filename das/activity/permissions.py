@@ -5,7 +5,7 @@ from rest_framework.permissions import (SAFE_METHODS, BasePermission,
 from rest_framework import exceptions
 from django.http import Http404
 
-from activity.models import EventType, Event, Patrol
+from activity.models import EventType, Event, Patrol, PatrolType
 from observations.views import UnauthorizedView
 
 
@@ -188,6 +188,64 @@ class PatrolObjectPermissions(DjangoObjectPermissions):
 
             read_perms = self.get_required_object_permissions('GET', model_cls)
             if not user.has_perms(read_perms, obj):
+                raise exceptions.PermissionDenied
+            return False
+        return True
+
+
+class PatrolTypePermissions(DjangoModelPermissions):
+    """Verify the api caller has the appropriate PatrolType permissions.
+    Specifically a caller can View a patrol type if they have view_patroltype
+    or view_patrol. Otherwise for the other operations, they must have patroltype
+    permissions
+    """
+    view_perms = ['%(app_label)s.view_%(model_name)s',
+                  '%(app_label)s.view_%(patrol_model_name)s']
+
+    perms_map = {
+        'GET': view_perms,
+        'OPTIONS': view_perms,
+        'HEAD': view_perms,
+        'POST': ['%(app_label)s.add_%(model_name)s'],
+        'PUT': ['%(app_label)s.change_%(model_name)s'],
+        'PATCH': ['%(app_label)s.change_%(model_name)s'],
+        'DELETE': ['%(app_label)s.delete_%(model_name)s'],
+    }
+
+    def get_required_permissions(self, method, model_cls):
+        """
+        Given a model and an HTTP method, return the list of permission
+        codes that the user is required to have.
+        """
+        model_cls = PatrolType
+        kwargs = {
+            'app_label': model_cls._meta.app_label,
+            'model_name': model_cls._meta.model_name,
+            'patrol_model_name': Patrol._meta.model_name
+
+        }
+
+        if method not in self.perms_map:
+            raise exceptions.MethodNotAllowed(method)
+
+        return [perm % kwargs for perm in self.perms_map[method]]
+
+    def has_permission(self, request, view):
+        model_cls = Patrol
+        user = request.user
+
+        perms = self.get_required_permissions(request.method, model_cls)
+
+        # for this, it's any permission, not all
+        if not user.has_any_perms(perms):
+            # If the user does not have permissions we need to determine if
+            # they have read permissions to see 403, or not, and simply raise
+            # PermissionDenied.
+            if request.method in SAFE_METHODS:
+                raise exceptions.PermissionDenied
+
+            read_perms = self.get_required_permissions('GET', model_cls)
+            if not user.has_any_perms(read_perms):
                 raise exceptions.PermissionDenied
             return False
         return True
