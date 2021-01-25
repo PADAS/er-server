@@ -1516,7 +1516,7 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         queryset = self
         if 'date_range' in filter:
             patrols_overlap_daterange = filter.get(
-                'patrols_overlap_daterange', False)
+                'patrols_overlap_daterange', True)
             queryset = self.by_date_range(filter.get(
                 'date_range'), patrols_overlap_daterange)
         return queryset.distinct()
@@ -1528,7 +1528,25 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         lower = lower or pytz.utc.localize(datetime.datetime.min)
         upper = upper or pytz.utc.localize(datetime.datetime.max)
 
-        if not patrols_overlap_daterange:
+        if patrols_overlap_daterange:
+            # Patrols whose start to end date range overlaps with date range
+            end_filter = Q(patrol_segment__time_range__endswith__gte=lower) | Q(
+                patrol_segment__time_range__endswith__isnull=True)
+            start_filter = Q(patrol_segment__time_range__startswith__lte=upper) | Q(
+                patrol_segment__scheduled_start__lte=upper)
+            q1 = queryset.filter(start_filter, end_filter).exclude(
+                state=PC_CANCELLED)
+
+            # Get patrols cancelled within given range
+            q2 = queryset.annotate(cancel_rev_exists=Exists(
+                Patrol.revision.model.objects.filter(
+                    data__state=PC_CANCELLED, object_id=OuterRef('id'),
+                    data__updated_at__range=(lower.isoformat(), upper.isoformat())))).filter(cancel_rev_exists=True)
+
+            q3 = queryset.filter(
+                patrol_segment__time_range__startswith__lte=upper, state=PC_OPEN)
+            queryset = (q1 | q2 | q3).distinct()
+        else:
             # Patrols starting within date range
             upper = (upper - datetime.timedelta(minutes=1)
                      ).replace(second=59, microsecond=999999) if upper.time() == datetime.time(0, 0) else upper
@@ -1537,25 +1555,6 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
             queryset = queryset.filter(
                 start_filter).exclude(state=PC_CANCELLED)
-            return queryset
-
-        # Patrols whose start to end date range overlaps with date range
-        end_filter = Q(patrol_segment__time_range__endswith__gte=lower) | Q(
-            patrol_segment__time_range__endswith__isnull=True)
-        start_filter = Q(patrol_segment__time_range__startswith__lte=upper) | Q(
-            patrol_segment__scheduled_start__lte=upper)
-        q1 = queryset.filter(start_filter, end_filter).exclude(
-            state=PC_CANCELLED)
-
-        # Get patrols cancelled within given range
-        q2 = queryset.annotate(cancel_rev_exists=Exists(
-            Patrol.revision.model.objects.filter(
-                data__state=PC_CANCELLED, object_id=OuterRef('id'),
-                data__updated_at__range=(lower.isoformat(), upper.isoformat())))).filter(cancel_rev_exists=True)
-
-        q3 = queryset.filter(
-            patrol_segment__time_range__startswith__lte=upper, state=PC_OPEN)
-        queryset = (q1 | q2 | q3).distinct()
 
         return queryset
 

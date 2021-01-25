@@ -69,7 +69,6 @@ class TestPatrol(BaseAPITest):
         self.sample_patrol_filter = {
             'filter': json.dumps(
                 {
-                    "patrols_overlap_daterange": True,
                     "date_range": {
                         "lower": self.start_of_today.isoformat(), "upper": self.end_of_today.isoformat()}})}
         self.temporary_folder = tempfile.mkdtemp()
@@ -702,7 +701,8 @@ class TestPatrol(BaseAPITest):
         Patrol.objects.all().delete()
         date_range = {"lower": self.start_of_today.isoformat(
         ), "upper": self.end_of_today.isoformat()}
-        date_range_filter = {'filter': json.dumps({"date_range": date_range})}
+        date_range_filter = {'filter': json.dumps(
+            {"date_range": date_range, "patrols_overlap_daterange": False})}
 
         start = self.start_of_today + datetime.timedelta(hours=8)  # 8am
         end = self.start_of_today + datetime.timedelta(hours=11)  # 9 am
@@ -721,14 +721,14 @@ class TestPatrol(BaseAPITest):
 
         date_range['lower'] = (self.start_of_today +
                                datetime.timedelta(hours=10)).isoformat()
-        new_filter = {'filter': json.dumps({"date_range": date_range})}
+        new_filter = {'filter': json.dumps(
+            {"date_range": date_range, "patrols_overlap_daterange": False})}
         response = self._filter_patrol(new_filter)  # today's filter
 
         # Patrol start time not within range
         self.assertEqual(response.data.get('count'), 0)
 
-        new_filter = {'filter': json.dumps(
-            {"date_range": date_range, "patrols_overlap_daterange": True})}
+        new_filter = {'filter': json.dumps({"date_range": date_range})}
         response = self._filter_patrol(new_filter)  # today's filter
 
         # Patrol start to end overlaps
@@ -748,14 +748,14 @@ class TestPatrol(BaseAPITest):
 
         PatrolSegment.objects.filter(id=segment_id).update(
             time_range=updated_time_range)
-        new_filter = {'filter': json.dumps(
-            {"date_range": date_range, "patrols_overlap_daterange": True})}
+        new_filter = {'filter': json.dumps({"date_range": date_range})}
         response = self._filter_patrol(new_filter)
 
         # Patrol overlapping timerange
         self.assertEqual(response.data.get('count'), 1)
 
-        new_filter = {'filter': json.dumps({"date_range": date_range})}
+        new_filter = {'filter': json.dumps(
+            {"date_range": date_range, "patrols_overlap_daterange": False})}
         response = self._filter_patrol(new_filter)
 
         # Skipping patrol ending at 00:00
