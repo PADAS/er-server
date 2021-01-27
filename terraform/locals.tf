@@ -127,6 +127,7 @@ locals {
     "westernsiempang"        = "prod-asia"
     "wildhorizons"           = "prod1"
     "wisentproject"          = "prod1"
+    "wwfkenya"               = "prod1"
     "zakouma"                = "prod1"
   }
 
@@ -193,6 +194,7 @@ locals {
     "marabustopisaaten"   = 1
     "koro"                = 1
     "waterberg"           = 1
+    "wwfkenya"            = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
