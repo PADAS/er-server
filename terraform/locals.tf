@@ -123,6 +123,7 @@ locals {
     "welgevonden"            = "prod1"
     "upemba"                 = "prod1"
     "velebit"                = "prod1"
+    "waterberg"              = "prod1"
     "westernsiempang"        = "prod-asia"
     "wildhorizons"           = "prod1"
     "wisentproject"          = "prod1"
@@ -191,6 +192,7 @@ locals {
     "osaconservation"     = 1
     "marabustopisaaten"   = 1
     "koro"                = 1
+    "waterberg"           = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
