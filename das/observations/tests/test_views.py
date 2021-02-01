@@ -1,20 +1,23 @@
 import datetime
 import random
 import json
+from typing import NamedTuple
 from urllib.parse import urlencode
 
+import dateutil.parser
 import pytz
+import pytest
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIRequestFactory, force_authenticate
 from django.contrib.auth.models import Permission
 from oauth2_provider.models import Application, AccessToken
 from django.contrib.gis.geos import Point
-from django.utils import timezone
+from django.utils import timezone, lorem_ipsum
 
 from core.tests import BaseAPITest, API_BASE
 from accounts.models import User, PermissionSet
-from observations.models import Subject, SubjectGroup, Source, SubjectSource, Observation, SourceGroup
+from observations.models import Subject, SubjectGroup, Source, SubjectSource, Observation, SourceGroup, DEFAULT_ASSIGNED_RANGE
 import observations.views as views
 from observations.serializers import ObservationSerializer
 from datetime import timedelta
@@ -593,3 +596,77 @@ class ObservationViewTestCase(BaseAPITest):
 
         response = views.ObservationsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
+
+
+@pytest.fixture
+def user_with_one_week_track_perms(db, django_user_model):
+    user_const = dict(last_name='last', first_name='first')
+    user = User.objects.create_user('perms_user',
+                                    'das_perms@vulcan.com',
+                                    'perms',
+                                    **user_const)
+
+    subject_set = PermissionSet.objects.create(name='subject_perm_set')
+    permission_names = [
+        "Can view subject",
+        "Can view tracks no more than 7 days old",
+        "Can view tracks no less than 0 days old",
+        "Can view tracks no less than 1 day old",
+        "Can view tracks no less than 3 days old",
+        "Can view tracks no less than 7 days old",
+    ]
+    for name in permission_names:
+        subject_set.permissions.add(Permission.objects.get(name=name))
+    user.permission_sets.add(subject_set)
+    return user
+
+
+class UserSubject(NamedTuple):
+    user: any
+    subject: Subject
+
+
+@pytest.fixture
+def subject_with_month_long_track(db, user_with_one_week_track_perms):
+    subject = Subject.objects.create_subject(
+        name="Bobo", subject_subtype_id='elephant')
+    source = Source.objects.create(manufacturer_id='random-collar')
+    subjectgroup = SubjectGroup.objects.create(name="Bobo_subjectgroup")
+    subjectgroup.subjects.add(subject)
+    subjectgroup.permission_sets.set(
+        user_with_one_week_track_perms.permission_sets.all())
+    SubjectSource.objects.create(
+        subject=subject, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
+
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    next_time = now - datetime.timedelta(days=31)
+    x = 37.5
+    y = 0.56
+    while now > next_time:
+        x += (random.random() - 0.5) / 10000
+        y += (random.random() - 0.5) / 10000
+        Observation.objects.create(
+            source=subject.source,
+            location=Point(x=x, y=y),
+            recorded_at=next_time,
+            additional={}
+        )
+        next_time += datetime.timedelta(hours=6)
+
+    return UserSubject(user_with_one_week_track_perms, subject)
+
+
+def test_one_week_track_permissions(subject_with_month_long_track, client):
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    oldest_time = now - datetime.timedelta(days=31)
+
+    user, subject = (subject_with_month_long_track.user,
+                     subject_with_month_long_track.subject)
+    client.force_login(user)
+    url = reverse("subject-view-tracks", kwargs=dict(subject_id=subject.id))
+    response = client.get(url + "?since=" + oldest_time.isoformat())
+    max_day = datetime.datetime.combine(datetime.date.today(
+    ) - datetime.timedelta(days=6), datetime.time.min, tzinfo=datetime.timezone.utc)
+    assert response.status_code == 200
+    assert not [t for t in response.data['features'][0]
+                ['properties']['coordinateProperties']['times'] if t < max_day]
