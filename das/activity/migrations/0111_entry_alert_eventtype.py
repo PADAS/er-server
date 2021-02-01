@@ -8,11 +8,6 @@ ENTRY_ALERT_SCHEMA = """{
        "title": "Entry Alert",
        "type": "object",
        "properties": {
-            "skylight_location_url": {
-                "type": "string",
-                "title": "URL to Skylight for this alert",
-                "format": "uri"
-            },
             "entry_headed": {
                 "type": "number",
                 "title": "Heading at entry (deg)"
@@ -20,39 +15,12 @@ ENTRY_ALERT_SCHEMA = """{
             "entry_speed": {
                 "type": "number",
                 "title": "Speed at entry (knots)"
-              },
-            "end_time": {
-                "type": "string",
-                "title": "Time"
-              },
-            "last_known_loc": {
-                "type": "string",
-                "title": "Location"
-              },
-            "last_known_heading": {
-                "type": "number",
-                "title": "Heading (deg)"
-              },
-            "last_known_speed": {
-                "type": "number",
-                "title": "Speed (knots)"
               }
        }
    },
  "definition": [
-    "skylight_location_url",
     "entry_headed",
-    "entry_speed",
-    {
-      "type": "fieldset",
-      "title": "Last known position",
-      "items": [
-          "end_time",
-          "last_known_loc",
-          "last_known_heading",
-          "last_known_speed"
-      ]
-    }
+    "entry_speed"
  ]
 }
 """
