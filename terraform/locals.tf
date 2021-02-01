@@ -118,6 +118,7 @@ locals {
     "thornybush"             = "prod1"
     "training"               = "prod1"
     "tsavo-east"             = "prod1"
+    "tsavo-trust"            = "prod1"
     "tswalu"                 = "prod1"
     "twiga"                  = "prod1"
     "isiolo"                 = "prod1"
@@ -199,6 +200,7 @@ locals {
     "wwfkenya"            = 1
     "greaterukuwela"      = 1
     "zinnshoek"           = 1
+    "tsavo-trust"         = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
