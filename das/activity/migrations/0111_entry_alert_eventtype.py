@@ -39,7 +39,7 @@ def forwards(apps, schema_editor):
     defaults = dict(display='Entry Alert',
                     category_id=event_category.id,
                     default_priority=200,
-                    icon='event-AOI_alert',
+                    icon='entry_alert_rep',
                     is_collection=False,
                     schema=ENTRY_ALERT_SCHEMA)
     EventType.objects.using(db_alias).update_or_create(defaults=defaults,
