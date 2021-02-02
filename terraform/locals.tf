@@ -130,6 +130,7 @@ locals {
     "wisentproject"          = "prod1"
     "wwfkenya"               = "prod1"
     "zakouma"                = "prod1"
+    "zinnshoek"              = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -197,6 +198,7 @@ locals {
     "waterberg"           = 1
     "wwfkenya"            = 1
     "greaterukuwela"      = 1
+    "zinnshoek"           = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
