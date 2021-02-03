@@ -666,7 +666,20 @@ def test_one_week_track_permissions(subject_with_month_long_track, client):
     url = reverse("subject-view-tracks", kwargs=dict(subject_id=subject.id))
     response = client.get(url + "?since=" + oldest_time.isoformat())
     max_day = datetime.datetime.combine(datetime.date.today(
-    ) - datetime.timedelta(days=6), datetime.time.min, tzinfo=datetime.timezone.utc)
+    ) - datetime.timedelta(days=7), datetime.time.min, tzinfo=datetime.timezone.utc)
     assert response.status_code == 200
     assert not [t for t in response.data['features'][0]
                 ['properties']['coordinateProperties']['times'] if t < max_day]
+
+    # 'Can view all historical tracks' perm will precede over 'Can view tracks no more than 7 days old' perm.
+    SubjectGroup.objects.create(name="Kittens")
+    kitten_ps = PermissionSet.objects.get(name='View Kittens Subject Group')
+    kitten_ps.permissions.add(Permission.objects.get(name='Can view all historical tracks'))
+    user.permission_sets.add(kitten_ps)
+
+    url = reverse("subject-view-tracks", kwargs=dict(subject_id=subject.id))
+    response = client.get(url + "?since=" + oldest_time.isoformat())
+    max_day = datetime.datetime.combine(datetime.date.today(
+    ) - datetime.timedelta(days=7), datetime.time.min, tzinfo=datetime.timezone.utc)
+    assert response.status_code == 200
+    assert [t for t in response.data['features'][0]['properties']['coordinateProperties']['times'] if t > max_day]
