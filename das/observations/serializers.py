@@ -265,20 +265,20 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                         location = statusvalues.location if statusvalues.location else get_null_point()
                         recorded_at = statusvalues.recorded_at
 
-                    # TODO: These values might be more appropriate in the
-                    # geeojson properties.
-                    rep['tracks_available'] = recorded_at and recorded_at > default_window_cutoff
+                    tracks_available = recorded_at and recorded_at > default_window_cutoff
+                    rep['tracks_available'] = tracks_available
                     rep['last_position_status'] = {
-                        'last_voice_call_start_at': statusvalues.last_voice_call_start_at,
-                        'radio_state_at': statusvalues.radio_state_at,
+                        'last_voice_call_start_at':  None if statusvalues.last_voice_call_start_at == models.DEFAULT_STATUS_VALUE_DATE else statusvalues.last_voice_call_start_at,
+                        'radio_state_at': None if statusvalues.radio_state_at == models.DEFAULT_STATUS_VALUE_DATE else statusvalues.radio_state_at,
                         'radio_state': statusvalues.radio_state
                     }
 
-                    rep['last_position_date'] = recorded_at
-                    rep['last_position'] = make_feature(
-                        self.context['request'], location, instance,
-                        time=recorded_at, image_url=rep['image_url']
-                    )
+                    if tracks_available:
+                        rep['last_position_date'] = recorded_at
+                        rep['last_position'] = make_feature(
+                            self.context['request'], location, instance,
+                            time=recorded_at, image_url=rep['image_url']
+                        )
 
         if 'request' in self.context:
             request = self.context['request']

@@ -6,14 +6,20 @@ from unittest import mock
 import pytz
 
 from dateutil import parser as dateparser
+import django.contrib.auth
 from django.utils import timezone
 from django.db import transaction
+from django.test import Client
+from django.urls import reverse
 from rest_framework import status
 from django.utils import lorem_ipsum
+import pytest
 
 from core.tests import BaseAPITest, fake_get_pool
 from sensors.views import GenericSensorHandlerView
 from observations.models import Subject, SourceProvider, Source, Observation, SubjectGroup, SubjectSubType
+
+User = django.contrib.auth.get_user_model()
 
 
 class GenericSensorHandlerTest(BaseAPITest):
@@ -67,6 +73,11 @@ class GenericSensorHandlerTest(BaseAPITest):
     def setUp(self):
         super().setUp()
 
+        user_const = dict(last_name='last', first_name='first')
+        self.super_user = User.objects.create_superuser(
+            'super_user', 'das_super_user@vulcan.com', 'super_user_pass',
+            **user_const)
+
         # setup db: create subject, source, provider
         Subject.objects.create(name="test_subject")
         self.test_sourceprovider = SourceProvider.objects.create(
@@ -116,6 +127,10 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_post_one(self):
+        """If the subject has only a couple of observations and they are over a year old
+        we shouldn't see tracks available and we shouldn't see the last_position field
+        filled out with the default SubjectStatus placeholder record.
+        """
         recorded_at_iso = self.one_observation['recorded_at']
         recorded_at = dateparser.parse(recorded_at_iso)
         self.assertEqual(recorded_at_iso, recorded_at.isoformat())
@@ -126,7 +141,18 @@ class GenericSensorHandlerTest(BaseAPITest):
             source=self.test_source).count())
         obs = next(iter(Observation.objects.filter(
             source=self.test_source)))
-        
+
+        # check subjectstatus.
+        client = Client()
+        client.force_login(self.super_user)
+        response = client.get(
+            reverse("subjects-list-view") + "/?updated_since=2019-01-01")
+        assert response.status_code == 200
+        first_subject = response.data[0]
+        assert not first_subject["tracks_available"]
+        assert "last_position" not in first_subject
+        assert "last_position_date" not in first_subject
+
     def test_request_recorded_at_timezone(self):
         recorded_at_iso = self.second_observation['recorded_at']
         recorded_at = dateparser.parse(recorded_at_iso)

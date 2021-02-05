@@ -12,6 +12,10 @@ GIS
 * default geodjango spatial reference system is WGS84 (SRID 4326)
 """
 
+from analyzers.models import ObservationAnnotator
+import observations.signals
+from observations.utils import VIEW_END_WINDOWS
+from typing import NamedTuple
 from datetime import datetime, timedelta
 import uuid
 import random
@@ -525,9 +529,6 @@ class SubjectSourceManager(models.Manager):
             source=source, assigned_range__contains=at_time)
         if subject_sources:
             return subject_sources[0]
-
-
-from typing import NamedTuple
 
 
 class AssignedRangeBounds(NamedTuple):
@@ -1199,15 +1200,16 @@ class SubjectStatusQuerySet(models.QuerySet):
         return range_start, range_end
 
 
-from observations.utils import VIEW_END_WINDOWS
+DEFAULT_STATUS_VALUE_DATE = datetime(1970, 1, 1, tzinfo=pytz.utc)
+DEFAULT_STATUS_VALUE_LOCATION = EMPTY_POINT
 
 
 class SubjectStatusManager(models.Manager):
 
     DEFAULT_STATUS_VALUES = {
-        'location': EMPTY_POINT,
-        'recorded_at': datetime(1970, 1, 1, tzinfo=pytz.utc),
-        'radio_state_at': datetime(1970, 1, 1, tzinfo=pytz.utc),
+        'location': DEFAULT_STATUS_VALUE_LOCATION,
+        'recorded_at': DEFAULT_STATUS_VALUE_DATE,
+        'radio_state_at': DEFAULT_STATUS_VALUE_DATE,
     }
 
     # Delayed windows include all but 'current'.
@@ -1588,12 +1590,9 @@ class SocketClient(TimestampedModel):
 
 
 class UserSession(TimestampedModel):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_column="sid")
+    id = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, db_column="sid")
     time_range = DateTimeRangeField("user session time", null=True, blank=True)
-
-
-import observations.signals
-from analyzers.models import ObservationAnnotator
 
 
 class SubjectMaximumSpeed(ObservationAnnotator):
