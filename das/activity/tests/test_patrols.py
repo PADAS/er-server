@@ -52,13 +52,13 @@ class TestPatrol(BaseAPITest):
             'radio_room_user', **user_const)
 
         self.sample_patrol_id = "b14bc72f-96d6-4248-9fea-7dd0bbc8c196"
-        Patrol.objects.bulk_create(
-            [
-                Patrol(id=self.sample_patrol_id, title='Test Patrol',
+        Patrol.objects.create(id=self.sample_patrol_id, title='Test Patrol',
                        objective='Test Objective'),
-                Patrol(title='Test Patrol 2', objective='Test Objective 2')
-            ])
-        PatrolSegment.objects.create(patrol_type=PatrolType.objects.first())
+        Patrol.objects.create(title='Test Patrol 2', objective='Test Objective 2')
+
+        self.default_test_patrol = Patrol.objects.create(title='Default Test Patrol')
+        print(self.default_test_patrol.id)
+        PatrolSegment.objects.create(patrol_type=PatrolType.objects.first(), patrol_id=self.default_test_patrol.id)
 
         self.now = datetime.datetime.now(tz=pytz.utc)
         self.start_of_today = self.now.replace(
@@ -101,7 +101,7 @@ class TestPatrol(BaseAPITest):
         self.force_authenticate(request, self.app_user)
         response = views.PatrolsView.as_view()(request)
         assert response.status_code == 200
-        assert response.data.get('count') == 2
+        assert response.data.get('count') == 4
 
     def test_get_one_patrol_by_id(self):
         patrol_id = 'b14bc72f-96d6-4248-9fea-7dd0bbc8c196'
@@ -138,6 +138,7 @@ class TestPatrol(BaseAPITest):
                                   'latitude': '-122.334', 'longitude': '47.598'},
                               end_location={'latitude': '-124.54',
                                             'longitude': '38.98'},
+                              patrol=self.default_test_patrol.id,
                               )
         url = reverse('patrol-segments')
         request = self.factory.post(url, data=patrolsgm_data)
@@ -520,7 +521,7 @@ class TestPatrol(BaseAPITest):
             notes=[{"text": "New first note"}, {"text": "New second Note"}],
             patrol_segments=[{"patrol_type": "dog_patrol"}]
         )
-        patrol = Patrol.objects.first()
+        patrol = Patrol.objects.get(id=self.sample_patrol_id)
         self.assertEqual(len(patrol.notes.all()), 0)
         self.assertEqual(len(patrol.patrol_segments.all()), 0)
 
@@ -619,7 +620,8 @@ class TestPatrol(BaseAPITest):
 
     def test_update_patrol_with_new_patrolsegment(self):
         patrol = dict(state="open")
-        patrolsg = dict(patrol_type="dog_patrol")
+        patrolsg = dict(patrol_type="dog_patrol",
+                        patrol=self.default_test_patrol.id)
 
         # Create a patrol with no patrolsegment
         url = reverse('patrols')
@@ -636,7 +638,7 @@ class TestPatrol(BaseAPITest):
         self.force_authenticate(request, self.app_user)
         response = views.PatrolsegmentsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.data.get('patrol'), None)
+        self.assertEqual(str(response.data.get('patrol')), str(self.default_test_patrol.id))
 
         patrolsg_id = response.data.get('id')
 
@@ -698,6 +700,7 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.data.get('count'), 0)
 
     def test_patrol_filter_with_patrols_overlap_daterange_param(self):
+        PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
         date_range = {"lower": self.start_of_today.isoformat(
         ), "upper": self.end_of_today.isoformat()}
@@ -949,6 +952,7 @@ class TestPatrol(BaseAPITest):
         return response.data
 
     def test_sort_patrols(self):
+        PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
         now = datetime.datetime.now(tz=pytz.utc)
 
@@ -979,6 +983,7 @@ class TestPatrol(BaseAPITest):
             self.assertEqual(exp, actual)
 
     def test_sort_patrol_alphabetically(self):
+        PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
 
         patro1 = dict(title='C patrol', state='done')
@@ -999,6 +1004,7 @@ class TestPatrol(BaseAPITest):
             self.assertEqual(exp, actual)
 
     def test_overdue_readytostart(self):
+        PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
 
         ahead = datetime.datetime.now(
@@ -1027,6 +1033,7 @@ class TestPatrol(BaseAPITest):
             self.assertEqual(exp, actual)
 
     def test_sort_overdue_readytostart_active(self):
+        PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
 
         now = datetime.datetime.now(tz=pytz.utc)
@@ -1057,6 +1064,7 @@ class TestPatrol(BaseAPITest):
             self.assertEqual(exp, actual)
 
     def test_sort_by_state(self):
+        PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
 
         now = datetime.datetime.now(tz=pytz.utc)
@@ -1120,6 +1128,7 @@ class TestPatrol(BaseAPITest):
             self.assertEqual(exp, actual)
 
     def test_sort_overdue_readytostart_only_alphabetically(self):
+        PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
         subj = Subject.objects.create(
             name='Heritage', subject_subtype_id='elephant')
@@ -1191,6 +1200,7 @@ class TestPatrol(BaseAPITest):
                                   'latitude': '-122.334', 'longitude': '47.598'},
                               end_location={'latitude': '-124.54',
                                             'longitude': '38.98'},
+                              patrol=self.default_test_patrol.id,
                               )
         url = reverse('patrol-segments')
         request = self.factory.post(url, data=patrolsgm_data)
@@ -1203,10 +1213,13 @@ class TestPatrol(BaseAPITest):
             'end_location').get('latitude'), float))
 
     def test_add_report_to_patrol_segment(self):
+        print('default test patrol id: %s' % (self.default_test_patrol.id,))
         patrol_segment = dict(
-            patrol_type="routine_patrol"
+            patrol_type="routine_patrol",
+            patrol=str(self.default_test_patrol.id),
         )
 
+        print('Posting patrol_segment: %s' % (patrol_segment,))
         url = reverse('patrol-segments')
         request = self.factory.post(url, data=patrol_segment)
         self.force_authenticate(request, self.app_user)
@@ -1261,6 +1274,7 @@ class TestPatrol(BaseAPITest):
                          1].get('message'), 'Report Added')
 
     def test_patrolsegment_history_update_endtime(self):
+        PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
         now = datetime.datetime.now(tz=pytz.utc)
 
@@ -1309,6 +1323,7 @@ class TestPatrol(BaseAPITest):
             'End Time' in response.data['patrol_segments'][0]['updates'][0].get('message'))
 
     def test_patrolsegment_history_autoendtime(self):
+        PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
         now = datetime.datetime.now(tz=pytz.utc)
 
@@ -1376,6 +1391,8 @@ class TestPatrol(BaseAPITest):
         app.send_task = send_task
         from activity.tasks import maintain_patrol_state
 
+
+        PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
         set_time = datetime.datetime.now(
             tz=pytz.utc) - datetime.timedelta(minutes=1)
@@ -1407,6 +1424,7 @@ class TestPatrol(BaseAPITest):
 
     def test_update_status(self):
         # server should transition from done to open if the end_time is cleared
+        PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
         set_time = datetime.datetime.now(
             tz=pytz.utc) - datetime.timedelta(minutes=1)
@@ -1437,6 +1455,7 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.data.get('state'), 'open')
 
     def test_dont_update_cancelled_status(self):
+        PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
         set_time = datetime.datetime.now(
             tz=pytz.utc) - datetime.timedelta(minutes=1)
@@ -1491,6 +1510,7 @@ class TestPatrol(BaseAPITest):
         assert [pt for pt in response.data if pt['value'] == 'routine_patrol']
 
     def test_view_patrol_permission_no_subject_perm(self):
+        PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
         su = Subject.objects.create(
             name='Horton', subject_subtype_id='elephant')
@@ -1545,3 +1565,5 @@ class TestPatrol(BaseAPITest):
         assert response.status_code == 200
         assert response.data['results'][0].get('patrol_segments')[
             0]['leader'] == {'hidden': True}
+
+

@@ -2,49 +2,8 @@
 
 from django.db import migrations
 
-ENTRY_ALERT_SCHEMA = """{
-   "schema": {
-       "$schema": "http://json-schema.org/draft-04/schema#",
-       "title": "Entry Alert",
-       "type": "object",
-       "properties": {
-            "entry_headed": {
-                "type": "number",
-                "title": "Heading at entry (deg)"
-              },
-            "entry_speed": {
-                "type": "number",
-                "title": "Speed at entry (knots)"
-              }
-       }
-   },
- "definition": [
-    "entry_headed",
-    "entry_speed"
- ]
-}
-"""
-
-
-def forwards(apps, schema_editor):
-    EventCategory = apps.get_model('activity', 'EventCategory')
-    EventType = apps.get_model('activity', 'EventType')
-
-    db_alias = schema_editor.connection.alias
-
-    event_category, _ = EventCategory.objects.using(db_alias).get_or_create(value='security',
-                                                                            defaults={"display": "Security",
-                                                                                      "ordernum": 1})
-
-    defaults = dict(display='Entry Alert',
-                    category_id=event_category.id,
-                    default_priority=200,
-                    icon='entry_alert_rep',
-                    is_collection=False,
-                    schema=ENTRY_ALERT_SCHEMA)
-    EventType.objects.using(db_alias).update_or_create(defaults=defaults,
-                                                       value='entry_alert_rep')
-
+# Chris D: I moved the Entry Alert event-type into the event_data_model fixture, so
+# removed it from here. Leaving this migration in place for continunity.
 
 class Migration(migrations.Migration):
     dependencies = [
@@ -52,5 +11,4 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(forwards, reverse_code=migrations.RunPython.noop)
     ]

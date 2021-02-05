@@ -1823,8 +1823,8 @@ class PatrolSegmentRevision(Revision):
 class PatrolSegment(TimestampedModel, RevisionMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     patrol = models.ForeignKey(Patrol,
-                               on_delete=models.SET_NULL,
-                               blank=True, null=True, related_name='patrol_segments',
+                               on_delete=models.PROTECT,
+                               related_name='patrol_segments',
                                related_query_name='patrol_segment')
     patrol_type = models.ForeignKey(
         PatrolType, on_delete=models.SET_NULL, blank=True, null=True)

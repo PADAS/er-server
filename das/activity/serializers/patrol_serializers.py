@@ -142,10 +142,24 @@ class PatrolTypeRelatedField(serializers.RelatedField):
         return OrderedDict(((row.value, row.display)
                             for row in self.get_queryset()))
 
+class PatrolRelatedField(serializers.RelatedField):
+    queryset = activity.models.Patrol.objects.all()
+
+    def to_internal_value(self, external_value):
+        if external_value:
+            data = data if isinstance(data, str) else data.value
+            try:
+                return activity.models.PatrolType.objects.get_by_value(data)
+            except activity.models.PatrolType.DoesNotExist:
+                raise serializers.ValidationError(
+                    f'patrol_type: {data} does not exist')
+
+
 
 class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
     id = serializers.UUIDField(required=False, read_only=False)
-    patrol = PatrolList(required=False, read_only=True)
+    patrol = serializers.PrimaryKeyRelatedField(required=True, read_only=False,
+                                                queryset=Patrol.objects.all())
     patrol_type = PatrolTypeRelatedField(required=False)
     leader = LeaderRelatedField(required=False, allow_null=True)
     scheduled_start = DateTimeField(required=False, allow_null=True)
@@ -187,22 +201,22 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
             instance.patrol_type.value) if instance.patrol_type else None
         rep['icon_id'] = str(
             instance.patrol_type.icon_id) if instance.patrol_type else None
-        rep['patrol'] = self.get_patrol(
-            instance.patrol) if instance.patrol else None
+        # rep['patrol'] = self.get_patrol(
+        #     instance.patrol) if instance.patrol else None
         rep['updates'] = self.render_updates(instance)
         return rep
 
-    def get_patrol(self, patrol):
-        return PatrolSerializer(
-            instance=patrol,
-            includes=['id', 'patrol_type', 'priority', 'state', 'title']).data
+    # def get_patrol(self, patrol):
+    #     return PatrolSerializer(
+    #         instance=patrol,
+    #         includes=['id', 'patrol_type', 'priority', 'state', 'title']).data
 
     @staticmethod
     def empty_timerange():
         return {"start_time": None, "end_time": None}
 
     def create(self, validated_data):
-        validated_data['patrol'] = self._kwargs.get('data').get('patrol')
+        # validated_data['patrol'] = self._kwargs.get('data').get('patrol')
         return activity.models.PatrolSegment.objects.create(**validated_data)
 
     def render_updates(self, segment):
