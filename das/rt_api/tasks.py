@@ -14,6 +14,7 @@ from das_server import celery, pubsub
 from django.conf import settings
 from django.db import close_old_connections
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.request import Request
 
 from observations import servicesutils
 
@@ -100,8 +101,9 @@ def _event_handler(event_id, type):
                         }
                     }
                 else:
-                    request = DummyRequest(
-                        user=user, http_method='GET', query_parameters={})
+
+                    request = DummyRequest(user=user, http_method='GET', query_parameters={})
+                    request = Request(request) # Wrap in DRF Request
                     queryset = Event.objects.filter(id=event_id)
                     event = queryset.first()
 
@@ -332,6 +334,16 @@ def _patrol_handler(item_id, type):
         user_sids_map = get_username_sids_map()
         logger.debug('user_sids_map: %s', user_sids_map)
 
+        try:
+            queryset = model.objects.filter(id=item_id)
+            instance = queryset.first()
+        except model.DoesNotExist:
+            instance = None
+            if type != 'delete_patrol':
+                logger.warning('Patrol handler given id: %s but it is not found in the database.')
+                return
+
+
         for username, user_sids in user_sids_map.items():
             try:
                 user = User.objects.get(username=username)
@@ -357,10 +369,9 @@ def _patrol_handler(item_id, type):
                         }
                     }
                 else:
-                    request = DummyRequest(
-                        user=user, http_method='GET', query_parameters={})
-                    queryset = model.objects.filter(id=item_id)
-                    instance = queryset.first()
+                    request = DummyRequest(user=user, http_method='GET', query_parameters={})
+                    request = Request(request) # Wrap in DRF Request
+
                     if instance:
                         try:
                             view.check_object_permissions(
