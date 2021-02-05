@@ -1,14 +1,17 @@
 import logging
 import urllib.parse as urlparse
+from datetime import date, timedelta
 
 from django.conf import settings
 
 from accounts.models import User
+from analyzers.gfw_alert_schema import GFWLayerSlugs
 from analyzers.models import GlobalForestWatchSubscription as gfw_model
 
 logger = logging.getLogger(__name__)
 
 CARTO_URL = settings.CARTO_URL
+DEFAULT_LOOKBACK_DAYS = 10
 
 SQL_FORMAT = """SELECT pt.*
     FROM vnp14imgtdl_nrt_global_7d pt
@@ -89,34 +92,75 @@ def rebuild_glad_download_url(download_url, gfw_object):
     return urlparse.urlunparse(new_parsed_result)
 
 
-def get_gfw_endpoint():
+def get_correct_download_url(event_info, gfw_object, polling):
+    pass
+
+
+def get_gfw_endpoint() -> str:
     parsed_gfw_api_root = urlparse.urlparse(settings.GFW_API_ROOT)
     return f'{parsed_gfw_api_root.scheme}://{parsed_gfw_api_root.netloc}'
 
 
-def make_download_url(geostore_id, start_date, end_date, gfw_endpoint=None):
+def make_download_url(geostore_id: str, start_date_str: str, end_date_str: str,
+                      confirmed_only: bool = False, gfw_endpoint: str = None) -> str:
     if not gfw_endpoint:
         gfw_endpoint = get_gfw_endpoint()
 
-    download_url_prefix = f'{gfw_endpoint}/glad-alerts/download/?gladConfirmOnly=False&aggregate_values=False&aggregate_by=False&format=json'
-    start_date_str, end_date_str = start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')
+    download_url_prefix = f'{gfw_endpoint}/glad-alerts/download/?aggregate_values=False' \
+                          f'&aggregate_by=False&format=json'
 
-    return f'{download_url_prefix}&period={start_date_str},{end_date_str}&geostore={geostore_id}'
+    return f'{download_url_prefix}&period={start_date_str},{end_date_str}' \
+           f'&geostore={geostore_id}&gladConfirmOnly={confirmed_only}'
 
 
-def make_alert_info(alert_name, geostore_id, start_date, end_date):
+def should_backfill_confirmed_alerts(today: date) -> bool:
+    # a condition to check to determine if backfill should be run.
+    return True if not today.day % settings.GFW_BACKFILL_INTERVAL_DAYS else False
+
+
+def get_dict(start_date: date, end_date: date, gfw_object: gfw_model,
+             confirmed_only: bool = False) -> dict:
     gfw_endpoint = get_gfw_endpoint()
+    geostore_id = gfw_object.geostore_id
     start_date_str, end_date_str = start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')
 
     return dict(
-        alert_name=alert_name,
+        alert_name=gfw_object.name,
         alert_link=f'{gfw_endpoint}/map/3/0/0/ALL/grayscale/?fit_to_geom=true&begin={start_date_str}&end={end_date_str}&geostore={geostore_id}',
         alert_date_begin=start_date_str,
         alert_date_end=end_date_str,
         downloadUrls={
-            'json': make_download_url(geostore_id, start_date, end_date, gfw_endpoint)
+            'json': make_download_url(geostore_id, start_date_str, end_date_str, confirmed_only, gfw_endpoint)
         }
     )
+
+
+def generate_intervals(start_date: date, end_date: date, interval_size: int = 30) -> tuple:
+    if start_date == end_date:
+        yield start_date, end_date
+
+    interval_start = start_date
+    while interval_start < end_date:
+        incr = min(interval_size, (end_date-interval_start).days)
+        interval_end = interval_start+timedelta(days=incr)
+        yield interval_start, interval_end
+        interval_start = interval_end
+
+
+def make_alert_infos(layer_slug: str, gfw_object: gfw_model) -> dict:
+    end_date = date.today()
+    start_date = end_date - timedelta(days=DEFAULT_LOOKBACK_DAYS)  # query for past 10 days by default
+    confirmed_only = True if gfw_object.Deforestation_confidence == gfw_model.CONFIRMED else False
+    # hostname in viirs alert doesn't matter here as its always rebuilt using settings.CARTO_URL in gfw_inbound
+    yield get_dict(start_date, end_date, gfw_object, confirmed_only)
+
+    if (layer_slug == GFWLayerSlugs.GLAD_ALERTS.value
+            and should_backfill_confirmed_alerts(end_date)):
+        start_date = end_date - timedelta(days=gfw_object.glad_confirmed_backfill_days)
+        logger.info(f'scheduling GLAD backfill for subscription: {gfw_object.name} id: {gfw_object.id} '
+                    f'period: {start_date} to {end_date}')
+        for int_start, int_end in generate_intervals(start_date, end_date):
+            yield get_dict(int_start, int_end, gfw_object, True)
 
 
 def get_gfw_user():

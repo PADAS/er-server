@@ -532,6 +532,7 @@ GFW_CREDENTIALS = {
     'password': 'ns2S#@Bh3V&W2eR17Ru8'
 }
 GFW_CLUSTER_RADIUS = 5  # kilometers
+GFW_BACKFILL_INTERVAL_DAYS = 10  # run backfill every n days
 
 METRICS_BUCKET = "er-site-metrics"
 

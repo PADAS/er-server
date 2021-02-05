@@ -4333,5 +4333,22 @@
     "schema": "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"FIRMS Fire Report Schema\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"properties\": \r\n        {\r\n        \"bright_ti4\": {\r\n            \"type\": \"string\",\r\n            \"title\": \"VIIRS I-4 channel brightness (Kelvin)\"\r\n        },\r\n        \"bright_ti5\": {\r\n            \"type\": \"string\",\r\n            \"title\": \"VIIRS I-5 channel brightness (Kelvin)\"\r\n        },\r\n        \"scan\": {\r\n            \"type\": \"string\",\r\n            \"title\": \"VIIRS Scan\"\r\n        },\r\n        \"track\": {\r\n            \"type\": \"string\",\r\n            \"title\": \"Satellite Track\"\r\n        },\r\n        \"confidence\": {\r\n            \"type\": \"string\",\r\n            \"title\": \"FIRMS Confidence\"\r\n        },\r\n        \"frp\": {\r\n            \"type\": \"string\",\r\n            \"title\": \"Fire Radiative Power (MW)\"\r\n        }\r\n    }\r\n  },\r\n  \"definition\": [\r\n    \"confidence\",\r\n    \"frp\",\r\n    \"bright_ti4\",\r\n    \"bright_ti5\",\r\n    \"scan\",\r\n    \"track\"\r\n  ]\r\n}",
     "is_collection": false
   }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "42983691-0bd5-4cc1-8af4-60d5137e5ff0",
+  "fields": {
+    "created_at": "2021-02-04T00:00:00.000Z",
+    "updated_at": "2021-02-04T00:00:00.000Z",
+    "value": "entry_alert_rep",
+    "display": "Entry Alert",
+    "category": [
+      "security"
+    ],
+    "ordernum": 500,
+    "schema": "{\r\n   \"schema\": {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Entry Alert\",\r\n       \"type\": \"object\",\r\n       \"properties\": {\r\n            \"entry_headed\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Heading at entry (deg)\"\r\n              },\r\n            \"entry_speed\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Speed at entry (knots)\"\r\n              }\r\n       }\r\n   },\r\n \"definition\": [\r\n    \"entry_headed\",\r\n    \"entry_speed\"\r\n ]\r\n}\r\n",
+    "is_collection": false,
+    "default_priority": 200
+  }
 }
 ]

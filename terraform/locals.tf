@@ -14,6 +14,7 @@ locals {
     "amboseli-np"            = "prod1"
     "apntraining"            = "prod1"
     "apr"                    = "prod1"
+    "ashiacheetah"           = "prod1"
     "balule"                 = "prod1"
     "baminguibangoran"       = "prod1"
     "bangweulu"              = "prod1"
@@ -46,12 +47,14 @@ locals {
     "gorongosa"              = "prod1"
     "gotcha"                 = "prod1"
     "greatercoa"             = "prod1"
+    "greaterukuwela"         = "prod1"
     "grumeti"                = "prod1"
     "hello-asia"             = "prod-asia"
     "kafueccigri"            = "prod1"
     "karingani"              = "prod1"
     "karuk"                  = "prod1"
     "kapama"                 = "prod1"
+    "koro"                   = "prod1"
     "lapalala"               = "prod1"
     "lewa"                   = "prod1"
     "lionalert"              = "prod1"
@@ -64,6 +67,7 @@ locals {
     "majete"                 = "prod1"
     "malamala"               = "prod1"
     "malamala"               = "prod1"
+    "marabustopisaaten"      = "prod1"
     "marataba"               = "prod1"
     "matlamamba"             = "prod1"
     "matusadona"             = "prod1"
@@ -82,10 +86,13 @@ locals {
     "nkhotakota"             = "prod1"
     "northluangwa"           = "prod1"
     "nsumbu"                 = "prod1"
+    "nyungwe"                = "prod1"
     "odzala"                 = "prod1"
     "oljogi"                 = "prod1"
     "olpejeta"               = "prod1"
+    "osaconservation"        = "prod1"
     "owlrhinos"              = "prod1"
+    "pantheraolympic"        = "prod1"
     "parcw"                  = "prod1"
     "pendjari"               = "prod1"
     "pinelands"              = "prod1"
@@ -105,20 +112,26 @@ locals {
     "spaceforgiants"         = "prod1"
     "ste"                    = "prod1"
     "tapirreserve"           = "prod1"
+    "tca"                    = "prod1"
     "timbavati"              = "prod1"
     "thabatholo"             = "prod1"
     "thornybush"             = "prod1"
     "training"               = "prod1"
+    "tsavo-east"             = "prod1"
+    "tsavo-trust"            = "prod1"
     "tswalu"                 = "prod1"
     "twiga"                  = "prod1"
     "isiolo"                 = "prod1"
     "welgevonden"            = "prod1"
     "upemba"                 = "prod1"
     "velebit"                = "prod1"
+    "waterberg"              = "prod1"
     "westernsiempang"        = "prod-asia"
     "wildhorizons"           = "prod1"
     "wisentproject"          = "prod1"
+    "wwfkenya"               = "prod1"
     "zakouma"                = "prod1"
+    "zinnshoek"              = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -175,6 +188,19 @@ locals {
     "wisentproject"       = 1
     "mkomazi"             = 1
     "rhodopemountains"    = 1
+    "tsavo-east"          = 1
+    "tca"                 = 1
+    "nyungwe"             = 1
+    "pantheraolympic"     = 1
+    "ashiacheetah"        = 1
+    "osaconservation"     = 1
+    "marabustopisaaten"   = 1
+    "koro"                = 1
+    "waterberg"           = 1
+    "wwfkenya"            = 1
+    "greaterukuwela"      = 1
+    "zinnshoek"           = 1
+    "tsavo-trust"         = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)

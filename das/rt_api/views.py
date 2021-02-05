@@ -311,6 +311,35 @@ def create_realtime_handler(sios):
                           room=str(sid),
                           namespace='/das')
 
+        @sios.on('patrol_filter', namespace='/das')
+        def on_patrol_filter(sid, patrol_filter):
+            """
+            This is expecting a dict containing custom filter attributes.
+
+            :param patrol_filter:
+            :return:
+            """
+            try:
+                client.update_client(sid, patrol_filter=patrol_filter)
+                extra = dict(sid=sid, patrol_filter=patrol_filter)
+                logger.info('on_patrol_filter', extra=extra)
+
+                sios.emit('patrol_filter_response',
+                          {
+                              'message': 'Patrol filter has been saved.',
+                              'filter': patrol_filter,
+                          },
+                          room=str(sid),
+                          namespace='/das')
+            except ValueError as ve:
+                sios.emit('patrol_filter_response',
+                          {
+                              'message': 'Failed to set patrol_filter.',
+                              'error': str(ve),
+                          },
+                          room=str(sid),
+                          namespace='/das')
+
         @sios.on('echo', namespace='/das')
         def on_echo(sid, *args):
             sios.emit('echo_resp',

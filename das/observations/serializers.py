@@ -442,7 +442,7 @@ class SourceProviderSerializer(rest_framework.serializers.Serializer):
 
     def create(self, validated_data):
 
-        instance, created = models.SourceProvider.objects.get_or_create(
+        instance = models.SourceProvider.objects.create_provider(
             **validated_data)
         return instance
 

@@ -1,3 +1,4 @@
+from revision.manager import relation_deleted
 import datetime
 import logging
 import re
@@ -6,6 +7,7 @@ from operator import itemgetter, attrgetter
 
 import django.utils
 import pytz
+import json
 from enum import Enum
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -29,13 +31,15 @@ from django.utils.encoding import force_text
 from django.utils.translation import ugettext_lazy as _
 from versatileimagefield.fields import VersatileImageField
 from django.contrib.postgres.fields import DateTimeRangeField
+from django.core.serializers.json import DjangoJSONEncoder
 
 from accounts.models.permissionset import PermissionSet
 from core.models import TimestampedModel
 from core.utils import static_image_finder
 from observations.models import Subject, Source
-from revision.manager import Revision, RevisionMixin
+from revision.manager import Revision, RevisionMixin, RevisionAdapter
 from utils.html import clean_user_text
+from observations.utils import dateparse as dparse
 
 logger = logging.getLogger(__name__)
 
@@ -193,7 +197,6 @@ class EventTypeFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         if isinstance(event_types, str):
             values = [x.strip() for x in event_types.split(',')]
         return self.filter(value__in=values)
-
 
 
 PRI_URGENT = 300
@@ -441,7 +444,8 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         searchtext = ':* & '.join(searchtext.split()) + ':*'
 
         queryset = queryset.extra(tables=['activity_tsvectormodel'],
-                                  select={'rank': 'ts_rank_cd(activity_tsvectormodel.tsvector_event, %s)'},
+                                  select={
+                                      'rank': 'ts_rank_cd(activity_tsvectormodel.tsvector_event, %s)'},
                                   where=['activity_tsvectormodel.tsvector_event @@ to_tsquery(%s) OR '
                                          'activity_tsvectormodel.tsvector_event_note @@ to_tsquery(%s)',
                                          'activity_tsvectormodel.event_id=activity_event.id'],
@@ -460,7 +464,7 @@ class EventManager(models.Manager):
             event.patrol_segments.set(patrol_segments)
         return event
 
-    def get_reported_by_for_provenance(self, provenance):
+    def get_reported_by_for_provenance(self, provenance, user=None):
         if Event.PC_STAFF == provenance:
             def get_staff():
                 # First get all user accounts in the reported by permission
@@ -479,7 +483,10 @@ class EventManager(models.Manager):
 
                 # We also want subjects who are staff (rangers are tracked as
                 # subjects via their radio, but can report events
-                for obj in Subject.objects.all().get_staff().by_is_active():
+                staff_subject = Subject.objects.all().get_staff().by_is_active()
+
+                # get subjects user has permission for.
+                for obj in staff_subject.by_user_subjects(user) if user else staff_subject:
                     yield (obj.name.lower(), obj)
             for staff in sorted(get_staff(), key=itemgetter(0)):
                 yield staff[1]
@@ -950,7 +957,8 @@ class EventRelatedSegmentsManager(models.Manager):
 class EventRelatedSegments(models.Model):
     objects = EventRelatedSegmentsManager()
     event = models.ForeignKey(Event, on_delete=models.CASCADE, null=False)
-    patrol_segment = models.ForeignKey(to='PatrolSegment', on_delete=models.CASCADE, null=False)
+    patrol_segment = models.ForeignKey(
+        to='PatrolSegment', on_delete=models.CASCADE, null=False)
 
 
 class EventRelatedSubjectManager(models.Manager):
@@ -1095,9 +1103,6 @@ def upload_to(instance, filename):
                                                                                       day=d.day, pk=instance.id,
                                                                                       extension=extension)
     return file_path
-
-
-from revision.manager import relation_deleted
 
 
 class EventPhoto(RevisionMixin, TimestampedModel):
@@ -1307,6 +1312,7 @@ class EventsourceEvent(TimestampedModel):
 class NotificationMethodManager(models.Manager):
     pass
 
+
 NOTIFICATION_METHOD_EMAIL = "email"
 NOTIFICATION_METHOD_SMS = "sms"
 NOTIFICATION_METHOD_WHATSAPP = "whatsapp"
@@ -1329,10 +1335,13 @@ class NotificationMethod(TimestampedModel):
 
     title = models.CharField(max_length=100, blank=True)
 
-    method = models.CharField(default='email', max_length=20, choices=NOTIFICATION_METHOD_CHOICES)
-    value = models.CharField(default='', max_length=100, help_text=_('A phone number or email address.'))
+    method = models.CharField(
+        default='email', max_length=20, choices=NOTIFICATION_METHOD_CHOICES)
+    value = models.CharField(default='', max_length=100, help_text=_(
+        'A phone number or email address.'))
 
-    is_active = models.BooleanField(default=True, help_text=_('Whether messages should be sent to this method.'))
+    is_active = models.BooleanField(default=True, help_text=_(
+        'Whether messages should be sent to this method.'))
     objects = NotificationMethodManager()
 
     def __str__(self):
@@ -1353,7 +1362,8 @@ class AlertRule(TimestampedModel):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
         null=True, blank=False, related_name='alert_rules', related_query_name='alert_rule')
 
-    title = models.CharField(max_length=100, blank=True, help_text=_('A user friendly name for this alert.'))
+    title = models.CharField(max_length=100, blank=True, help_text=_(
+        'A user friendly name for this alert.'))
     ordernum = models.SmallIntegerField(blank=True, null=True, default=0)
 
     conditions = JSONField(default=dict, blank=True)
@@ -1362,7 +1372,8 @@ class AlertRule(TimestampedModel):
     notification_methods = models.ManyToManyField(NotificationMethod, related_name='alert_rules',
                                                   related_query_name='alert_rule',)
 
-    event_types = models.ManyToManyField(EventType, related_name='alert_rules', related_query_name='alert_rule',)
+    event_types = models.ManyToManyField(
+        EventType, related_name='alert_rules', related_query_name='alert_rule',)
 
     is_active = models.BooleanField(default=True,)
 
@@ -1372,7 +1383,8 @@ class AlertRule(TimestampedModel):
 
     @property
     def display_title(self):
-        if self.title: return self.title
+        if self.title:
+            return self.title
 
         n = self.event_types.count()
         if n > 1:
@@ -1389,8 +1401,10 @@ class EventNotification(TimestampedModel):
 
     id = models.BigAutoField(primary_key=True)
 
-    method = models.CharField(default='email', max_length=20, choices=NOTIFICATION_METHOD_CHOICES)
-    value = models.CharField(default='', max_length=100, help_text=_('A phone number or email address.'))
+    method = models.CharField(
+        default='email', max_length=20, choices=NOTIFICATION_METHOD_CHOICES)
+    value = models.CharField(default='', max_length=100, help_text=_(
+        'A phone number or email address.'))
 
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
@@ -1475,8 +1489,10 @@ class TeamMembership(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     type = models.ForeignKey('MembershipType', on_delete=models.PROTECT)
-    team = models.ForeignKey('Team', related_name='members', related_query_name='member', on_delete=models.CASCADE)
-    person = models.ForeignKey('Person', related_name='team_memberships', related_query_name='team_membership', on_delete=models.CASCADE)
+    team = models.ForeignKey('Team', related_name='members',
+                             related_query_name='member', on_delete=models.CASCADE)
+    person = models.ForeignKey('Person', related_name='team_memberships',
+                               related_query_name='team_membership', on_delete=models.CASCADE)
     ordernum = models.SmallIntegerField(blank=True, null=True)
 
     objects = TeamMembershipManager()
@@ -1498,35 +1514,47 @@ class StateFilters(Enum):
 class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_patrol_filter(self, filter):
         queryset = self
-        filter_param_and_funcs = {'date_range': 'by_date_range'}
-        for param, func in filter_param_and_funcs.items():
-            if param in filter:
-                queryset = getattr(queryset, func)(filter.get(param))
+        if 'date_range' in filter:
+            patrols_overlap_daterange = filter.get(
+                'patrols_overlap_daterange', True)
+            queryset = self.by_date_range(filter.get(
+                'date_range'), patrols_overlap_daterange)
         return queryset.distinct()
 
-    def by_date_range(self, filter_param):
+    def by_date_range(self, filter_param, patrols_overlap_daterange):
         queryset = self
         lower, upper = parse_date_range(filter_param)
 
         lower = lower or pytz.utc.localize(datetime.datetime.min)
         upper = upper or pytz.utc.localize(datetime.datetime.max)
 
-        # Active patrols within given dates
-        end_filter = Q(patrol_segment__time_range__endswith__gte=lower) | Q(
-            patrol_segment__time_range__endswith__isnull=True)
-        start_filter = Q(patrol_segment__time_range__startswith__lte=upper) | Q(
-            patrol_segment__scheduled_start__lte=upper)
-        q1 = queryset.filter(start_filter, end_filter).exclude(state=PC_CANCELLED)
+        if patrols_overlap_daterange:
+            # Patrols whose start to end date range overlaps with date range
+            end_filter = Q(patrol_segment__time_range__endswith__gte=lower) | Q(
+                patrol_segment__time_range__endswith__isnull=True)
+            start_filter = Q(patrol_segment__time_range__startswith__lte=upper) | Q(
+                patrol_segment__scheduled_start__lte=upper)
+            q1 = queryset.filter(start_filter, end_filter).exclude(
+                state=PC_CANCELLED)
 
-        # Get patrols cancelled within given range
-        q2 = queryset.annotate(cancel_rev_exists=Exists(
-            Patrol.revision.model.objects.filter(
-                data__state=PC_CANCELLED, object_id=OuterRef('id'),
-                data__updated_at__range=(lower.isoformat(), upper.isoformat())))).filter(cancel_rev_exists=True)
+            # Get patrols cancelled within given range
+            q2 = queryset.annotate(cancel_rev_exists=Exists(
+                Patrol.revision.model.objects.filter(
+                    data__state=PC_CANCELLED, object_id=OuterRef('id'),
+                    data__updated_at__range=(lower.isoformat(), upper.isoformat())))).filter(cancel_rev_exists=True)
 
-        q3 = queryset.filter(
-            patrol_segment__time_range__startswith__lte=upper, state=PC_OPEN)
-        queryset = (q1 | q2 | q3).distinct()
+            q3 = queryset.filter(
+                patrol_segment__time_range__startswith__lte=upper, state=PC_OPEN)
+            queryset = (q1 | q2 | q3).distinct()
+        else:
+            # Patrols starting within date range
+            upper = (upper - datetime.timedelta(minutes=1)
+                     ).replace(second=59, microsecond=999999) if upper.time() == datetime.time(0, 0) else upper
+            start_filter = Q(patrol_segment__time_range__startswith__range=(lower, upper)) | Q(
+                patrol_segment__scheduled_start__range=(lower, upper))
+
+            queryset = queryset.filter(
+                start_filter).exclude(state=PC_CANCELLED)
 
         return queryset
 
@@ -1539,18 +1567,21 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
         for state in states:
             if state == StateFilters.scheduled.value:
-                st_filter = Q(patrol_segment__time_range__startswith__gt=now) | Q(patrol_segment__scheduled_start__gt=now)
+                st_filter = Q(patrol_segment__time_range__startswith__gt=now) | Q(
+                    patrol_segment__scheduled_start__gt=now)
                 q1 = self.filter(st_filter, state=PC_OPEN)
 
             if state == StateFilters.active.value:
-                q2 = self.filter(Q(patrol_segment__time_range__startswith__lte=now), state=PC_OPEN)
+                q2 = self.filter(
+                    Q(patrol_segment__time_range__startswith__lte=now), state=PC_OPEN)
 
             if state == PC_DONE:
                 q3 = self.filter(state=PC_DONE)
 
             if state == StateFilters.overdue.value:
                 supposed_start = now - datetime.timedelta(minutes=30)
-                st_filter = Q(patrol_segment__time_range__startswith__isnull=True) & Q(patrol_segment__scheduled_start__lte=supposed_start)
+                st_filter = Q(patrol_segment__time_range__startswith__isnull=True) & Q(
+                    patrol_segment__scheduled_start__lte=supposed_start)
                 q4 = self.filter(st_filter, state=PC_OPEN)
 
             if state == PC_CANCELLED:
@@ -1562,16 +1593,18 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         return self.filter_field('patrol_segment__leader_id', subject)
 
     def sort_patrols(self):
-        set_time = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(minutes=30)
-        subject = Subject.objects.filter(id=OuterRef('patrol_segment__leader_id'))
+        set_time = datetime.datetime.now(
+            tz=pytz.utc) - datetime.timedelta(minutes=30)
+        subject = Subject.objects.filter(
+            id=OuterRef('patrol_segment__leader_id'))
 
         overdue_q = Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state=PC_OPEN) & \
-                    Q(patrol_segment__time_range__startswith__isnull=True) & \
-                    Q(patrol_segment__scheduled_start__lt=set_time)
+            Q(patrol_segment__time_range__startswith__isnull=True) & \
+            Q(patrol_segment__scheduled_start__lt=set_time)
 
         readyto_q = Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state=PC_OPEN) &  \
-                    Q(patrol_segment__time_range__startswith__isnull=True) &  \
-                    Q(patrol_segment__scheduled_start__gte=set_time)
+            Q(patrol_segment__time_range__startswith__isnull=True) &  \
+            Q(patrol_segment__scheduled_start__gte=set_time)
 
         return self.annotate(
             start_overdue=Case(
@@ -1607,9 +1640,12 @@ class Patrol(TimestampedModel, RevisionMixin):
         readonly = ['serial_number', ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    serial_number = models.BigIntegerField(verbose_name='Serial Number', unique=True, blank=True, null=True)
-    priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
-    state = models.CharField(choices=PATROL_STATE_CHOICES, default=PC_OPEN, max_length=25)
+    serial_number = models.BigIntegerField(
+        verbose_name='Serial Number', unique=True, blank=True, null=True)
+    priority = models.PositiveSmallIntegerField(
+        choices=PRIORITY_CHOICES, default=PRI_NONE)
+    state = models.CharField(choices=PATROL_STATE_CHOICES,
+                             default=PC_OPEN, max_length=25)
     title = models.CharField(max_length=255, blank=True, null=True)
     objective = models.TextField(blank=True, null=True)
     revision = Revision()
@@ -1621,7 +1657,8 @@ class Patrol(TimestampedModel, RevisionMixin):
 class PatrolNote(RevisionMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     text = models.TextField()
-    created_by_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True)
+    created_by_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True)
     patrol = models.ForeignKey(Patrol, on_delete=models.CASCADE,
                                related_name='notes',
                                related_query_name='note')
@@ -1630,16 +1667,19 @@ class PatrolNote(RevisionMixin, TimestampedModel):
 
 class PatrolFile(TimestampedModel, RevisionMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    patrol = models.ForeignKey('Patrol', related_name='files', related_query_name='file', on_delete=models.CASCADE)
-    comment = models.TextField(blank=True, null=False, default='', verbose_name='Comment about the file.')
+    patrol = models.ForeignKey(
+        'Patrol', related_name='files', related_query_name='file', on_delete=models.CASCADE)
+    comment = models.TextField(
+        blank=True, null=False, default='', verbose_name='Comment about the file.')
     relation_limits = models.Q(app_label='usercontent', model='filecontent') | \
-                      models.Q(app_label='usercontent', model='imagefilecontent')
+        models.Q(app_label='usercontent', model='imagefilecontent')
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='patrol_files', related_query_name='patrol_file')
 
     # Generic foreign key to plugin
-    usercontent_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, limit_choices_to=relation_limits)
+    usercontent_type = models.ForeignKey(
+        ContentType, on_delete=models.CASCADE, limit_choices_to=relation_limits)
     usercontent_id = models.UUIDField()
     usercontent = GenericForeignKey('usercontent_type', 'usercontent_id')
 
@@ -1661,7 +1701,8 @@ class PatrolType(TimestampedModel):
     display = models.CharField(max_length=255)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     icon = models.CharField(max_length=100, blank=True)
-    default_priority = models.PositiveSmallIntegerField(choices=PRIORITY_CHOICES, default=PRI_NONE)
+    default_priority = models.PositiveSmallIntegerField(
+        choices=PRIORITY_CHOICES, default=PRI_NONE)
     is_active = models.BooleanField(default=True)
 
     objects = PatrolTypeManager()
@@ -1698,7 +1739,8 @@ class PatrolSegmentMembershipManager(models.Manager):
 class PatrolSegmentMembership(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     type = models.ForeignKey('MembershipType', on_delete=models.PROTECT)
-    patrol_segment = models.ForeignKey('PatrolSegment', related_name='members', related_query_name='member', on_delete=models.CASCADE)
+    patrol_segment = models.ForeignKey(
+        'PatrolSegment', related_name='members', related_query_name='member', on_delete=models.CASCADE)
     person = models.ForeignKey('Person', related_name='patrolsegment_memberships', related_query_name='patrolsegment_membership',
                                on_delete=models.CASCADE)
     ordernum = models.SmallIntegerField(blank=True, null=True)
@@ -1712,7 +1754,7 @@ class PatrolSegmentMembership(TimestampedModel):
 
 
 class PatrolSegmentManager(models.Manager):
-    def get_leader_for_provenance(self, provenance):
+    def get_leader_for_provenance(self, provenance, user=None):
         if PC_STAFF == provenance:
             def get_staff():
                 # First get all user accounts in the reported by permission
@@ -1731,7 +1773,9 @@ class PatrolSegmentManager(models.Manager):
 
                 # We also want subjects who are staff (rangers are tracked as
                 # subjects via their radio, but can report events
-                for obj in Subject.objects.all().get_staff().by_is_active():
+                staff_subject = Subject.objects.all().get_staff().by_is_active()
+
+                for obj in staff_subject.by_user_subjects(user) if user else staff_subject:
                     yield obj.name.lower(), obj
             for staff in sorted(get_staff(), key=itemgetter(0)):
                 yield staff[1]
@@ -1742,13 +1786,48 @@ class PatrolSegmentManager(models.Manager):
                 yield community
 
 
+class PatrolSegmentRevisionAdapter(RevisionAdapter):
+
+    def get_serialized_data_diff(self, obj, original):
+        fields = list(self.get_fieldnames())
+        obj_data = self._serialize(obj, fields)
+
+        def to_datetime(data):
+            if data.get('lower'):
+                data['lower'] = dparse(data['lower'])
+            if data.get('upper'):
+                data['upper'] = dparse(data['upper'])
+            return data
+
+        serialized_data = {}
+        for fieldname in fields:
+            if fieldname == 'time_range':
+                old_data = set(to_datetime(json.loads(original.get(fieldname))).items(
+                )) if original.get(fieldname) else set()
+                new_data = set(to_datetime(json.loads(obj_data.get(fieldname))).items(
+                )) if obj_data.get(fieldname) else set()
+
+                difference = new_data - old_data
+                serialized_data[fieldname] = json.dumps(
+                    dict(difference), cls=DjangoJSONEncoder)
+
+            elif original.get(fieldname, None) != obj_data.get(fieldname, None):
+                serialized_data[fieldname] = obj_data.get(fieldname)
+        return serialized_data
+
+
+class PatrolSegmentRevision(Revision):
+    revision_adapter = PatrolSegmentRevisionAdapter
+
+
 class PatrolSegment(TimestampedModel, RevisionMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     patrol = models.ForeignKey(Patrol,
-                               on_delete=models.SET_NULL,
-                               blank=True, null=True, related_name='patrol_segments',
+                               on_delete=models.PROTECT,
+                               related_name='patrol_segments',
                                related_query_name='patrol_segment')
-    patrol_type = models.ForeignKey(PatrolType, on_delete=models.SET_NULL, blank=True, null=True)
+    patrol_type = models.ForeignKey(
+        PatrolType, on_delete=models.SET_NULL, blank=True, null=True)
     scheduled_start = models.DateTimeField(blank=True, null=True)
     scheduled_end = models.DateTimeField(blank=True, null=True)
     time_range = DateTimeRangeField(null=True, blank=True)
@@ -1767,7 +1846,7 @@ class PatrolSegment(TimestampedModel, RevisionMixin):
         null=True, blank=True)
     leader_id = models.UUIDField(null=True, blank=True, default=None)
     leader = GenericForeignKey('leader_content_type', 'leader_id')
-    revision = Revision()
+    revision = PatrolSegmentRevision()
 
     objects = PatrolSegmentManager()
 

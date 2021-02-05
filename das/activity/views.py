@@ -1,3 +1,7 @@
+from usercontent.serializers import get_stored_filename
+from activity.search import get_event_search_schema
+from activity.permissions import IsEventProviderOwnerPermission
+from django.shortcuts import get_object_or_404
 import copy
 import csv
 import json
@@ -42,7 +46,7 @@ from activity.models import Event, EventNote, EventClass, \
     EventFilter, EventSource, EventProvider, PatrolType, Patrol, PatrolSegment, PatrolNote, PatrolFile, \
     EventRelatedSegments
 from activity.permissions import EventCategoryPermissions, \
-    EventNotesCategoryPermissions, IsOwner
+    EventNotesCategoryPermissions, IsOwner, PatrolObjectPermissions, PatrolTypePermissions, StandardModelPermissions
 from activity.serializers import EventSerializer, EventNoteSerializer, \
     EventJSONSchema, EventStateSerializer, \
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer, \
@@ -167,10 +171,6 @@ class EventSourcesView(generics.ListCreateAPIView):
     def get_queryset(self):
         eventprovider_id = self.kwargs['eventprovider_id']
         return EventSource.objects.filter(eventprovider_id=eventprovider_id)
-
-
-from django.shortcuts import get_object_or_404
-from activity.permissions import IsEventProviderOwnerPermission
 
 
 class EventSourceView(generics.RetrieveUpdateDestroyAPIView):
@@ -302,9 +302,6 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
 
     def post(self, request, *args, **kwargs):
         raise rest_framework.exceptions.MethodNotAllowed('For Schema')
-
-
-from activity.search import get_event_search_schema
 
 
 class EventFilterSchemaView(generics.RetrieveAPIView):
@@ -606,10 +603,12 @@ class EventsExportView(views.APIView):
 
         queryset = Event.objects.all().prefetch_related('event_type')
 
-        permitted_event_categories = get_permitted_event_categories(self.request)
+        permitted_event_categories = get_permitted_event_categories(
+            self.request)
 
         if len(permitted_event_categories) > 0:
-            queryset = queryset.filter(event_type__category__in=permitted_event_categories)
+            queryset = queryset.filter(
+                event_type__category__in=permitted_event_categories)
         else:
             return queryset.none()
 
@@ -671,7 +670,8 @@ class EventsView(generics.ListCreateAPIView):
     def add_segment_to_record(self, patrol_segment_id, new_record):
         for record in new_record:
             if not record.get('patrol_segments'):
-                record['patrol_segments'] = patrol_segment_id if isinstance(patrol_segment_id, list) else [patrol_segment_id]
+                record['patrol_segments'] = patrol_segment_id if isinstance(
+                    patrol_segment_id, list) else [patrol_segment_id]
             else:
                 record['patrol_segments'].append(patrol_segment_id)
         return new_record
@@ -740,7 +740,8 @@ class EventsView(generics.ListCreateAPIView):
             'eventsource_event_refs')
         patrol_segment_id = self.kwargs.get('patrol_segment')
         if patrol_segment_id:
-            logger.debug("Filtering on patrol segment id: %s", patrol_segment_id)
+            logger.debug("Filtering on patrol segment id: %s",
+                         patrol_segment_id)
             queryset = queryset.filter(patrol_segments__id=patrol_segment_id)
 
         query_params = self.request.query_params
@@ -996,9 +997,6 @@ class EventFilesView(generics.ListCreateAPIView):
         return event.files.all()
 
 
-from usercontent.serializers import get_stored_filename
-
-
 class EventFileView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventFileSerializer
@@ -1146,12 +1144,14 @@ class EventAlertTargetsListView(generics.ListAPIView):
 
 class PatrolTypesView(generics.ListAPIView):
     serializer_class = PatrolTypeSerializer
+    permission_classes = (PatrolTypePermissions,)
     queryset = PatrolType.objects.all()
 
 
 class PatrolTypeView(generics.RetrieveAPIView):
     lookup_field = 'id'
     serializer_class = PatrolTypeSerializer
+    permission_classes = (PatrolTypePermissions,)
     queryset = PatrolType.objects.all()
 
 
@@ -1171,6 +1171,7 @@ class PatrolSchema(CustomSchema):
 class PatrolsView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
     serializer_class = PatrolSerializer
+    permission_classes = (PatrolObjectPermissions,)
     schema = PatrolSchema()
 
     def get(self, request, *args, **kwargs):
@@ -1216,11 +1217,12 @@ class PatrolsView(generics.ListCreateAPIView):
 class PatrolView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
     serializer_class = PatrolSerializer
+    permission_classes = (PatrolObjectPermissions,)
     queryset = Patrol.objects.all()
 
 
 class PatrolNotesView(generics.ListCreateAPIView):
-    # permission_classes = (PatrolNotesCategoryPermissions,)
+    permission_classes = (PatrolObjectPermissions,)
     serializer_class = PatrolNoteSerializer
     pagination_class = StandardResultsSetPagination
 
@@ -1237,7 +1239,7 @@ class PatrolNotesView(generics.ListCreateAPIView):
 
 
 class PatrolNoteView(generics.RetrieveUpdateAPIView):
-    #permission_classes = (PatrolNotesCategoryPermissions,)
+    permission_classes = (PatrolObjectPermissions,)
     serializer_class = PatrolNoteSerializer
 
     def get_queryset(self):
@@ -1254,11 +1256,11 @@ class PatrolNoteView(generics.RetrieveUpdateAPIView):
 
     def get_patrol(self):
         return generics.get_object_or_404(Patrol.objects.all(),
-                                          pk=self.kwargs['id'])
+                                          pk=self.kwargs.get('id'))
 
 
 class PatrolFilesView(generics.ListCreateAPIView):
-    # permission_classes = (PatrolCategoryPermissions,)
+    permission_classes = (PatrolObjectPermissions,)
     serializer_class = PatrolFileSerializer
     pagination_class = StandardResultsSetPagination
 
@@ -1298,12 +1300,12 @@ class PatrolFilesView(generics.ListCreateAPIView):
 
 
 class PatrolFileView(generics.RetrieveUpdateDestroyAPIView):
-    # permission_classes = (PatrolCategoryPermissions,)
+    permission_classes = (PatrolObjectPermissions,)
     serializer_class = PatrolFileSerializer
 
     def get_queryset(self):
         return PatrolFile.objects.all().filter(patrol=generics.get_object_or_404(Patrol.objects.all(),
-                                                                                 pk=self.kwargs['id']))
+                                                                                 pk=self.kwargs.get('id')))
 
     def get_object(self):
         queryset = self.get_queryset()
@@ -1352,6 +1354,7 @@ class PatrolFileView(generics.RetrieveUpdateDestroyAPIView):
 class PatrolsegmentsView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
     serializer_class = PatrolSegmentSerializer
+    permission_classes = (PatrolObjectPermissions,)
     queryset = PatrolSegment.objects.all()
 
     def get_queryset(self):
@@ -1361,6 +1364,7 @@ class PatrolsegmentsView(generics.ListCreateAPIView):
 
 class PatrolsegmentView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
+    permission_classes = (PatrolObjectPermissions,)
     serializer_class = PatrolSegmentSerializer
 
     def get_queryset(self):
@@ -1371,5 +1375,6 @@ class PatrolsegmentView(generics.RetrieveUpdateDestroyAPIView):
 def get_segments(kwargs, queryset):
     related_event = kwargs.get('event_id')
     if related_event:
-        queryset = queryset.filter(eventrelatedsegments__event__id=related_event)
+        queryset = queryset.filter(
+            eventrelatedsegments__event__id=related_event)
     return queryset

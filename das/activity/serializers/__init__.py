@@ -357,11 +357,13 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
         if not self.check_has_event_category_permission():
             return False
 
+        request = self.context.get('request')
+
         for p in activity.models.Event.PROVENANCE_CHOICES:
             provenance = p[0]
             values = list(
                 activity.models.Event.objects.get_reported_by_for_provenance(
-                    provenance))
+                    provenance, request.user))
             if values:
                 yield (provenance, values)
 
@@ -388,6 +390,14 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
             choices += [(self.to_representation(item), self.display_value(item))
                         for item in values]
         return choices
+
+    def is_allowed_to_view(self, output):
+        request = self.context.get('request')
+
+        if output.get('content_type') == 'observations.subject':
+            subject_id = output.get('id')
+            return Subject.objects.filter(id=subject_id).by_user_subjects(request.user)
+        return True
 
 
 class EventTypeRelatedField(rest_framework.serializers.RelatedField):
@@ -1369,7 +1379,11 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         if event.event_type:
             rep['is_collection'] = event.event_type.is_collection
 
-        if self.context.get('include_updates', True):
+        # This is to fix https://vulcan.atlassian.net/browse/DAS-6264
+        # TODO: Consider adjusting the context within the listed Views.
+        if self.context.get('include_updates', True) \
+            and not getattr(self.context.get('view', None), 'get_view_name', lambda: None)()\
+                    in ('Patrols', 'Patrol', 'Patrolsegment'):
             updates = self.render_updates(event)
             for note in rep.get('notes', []):
                 updates.extend(note['updates'])
@@ -1380,6 +1394,9 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
                 updates.extend(details_updates)
             rep['updates'] = sorted(
                 updates, key=lambda u: u['time'], reverse=True)
+        else:
+            if rep.get('event_details'):
+                rep['event_details'].pop('updates')
 
         return rep
 

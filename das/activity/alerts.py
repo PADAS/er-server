@@ -31,7 +31,7 @@ def create_alerts_permissionset():
     }
 
     permission_set = PermissionSet.objects.create(id=ALERT_RULES_PERMISSIONSET_ID,
-                name='Alert Rule Permissions')
+                                                  name='Alert Rule Permissions')
 
     for codename, name in permissions.items():
         perm, created = django.contrib.auth.models.Permission.objects.get_or_create(
@@ -48,5 +48,20 @@ def has_alerts_permissionset(user):
     '''
     Check if user has `Alert Rule Permissions` permissionset
     '''
-    if user.is_anonymous: return False
+    if user.is_anonymous:
+        return False
     return user.is_superuser or user.permission_sets.filter(id=ALERT_RULES_PERMISSIONSET_ID).exists()
+
+
+def has_patrol_view_permission(user):
+    """Does the user have at least view patrol permissions
+
+    Args:
+        user ([type]): [description]
+
+    Returns:
+        [bool]: do they?
+    """
+    if user.is_anonymous:
+        return False
+    return user.has_perm('activity.view_patrol')

@@ -37,6 +37,7 @@ Contents:
    :maxdepth: 2
    :caption: API
 
+   topics/api_primer
    api/oauth2
    api/user
    api/assets
@@ -54,4 +55,3 @@ Contents:
 .. * :ref:`modindex`
 
 .. * :ref:`search`
-

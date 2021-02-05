@@ -7,6 +7,8 @@ locals {
     "kafueccigri"            = "kafuegricci"
     "aberdares"              = "mountain"
     "meru"                   = "eastern"
+    "wisentproject"          = "pwn"
+    "pantheraolympic"        = "pantheraolympicpenninsula"
   }
 
   subdomain_name = lookup(local.alt_subdomains, terraform.workspace, kubernetes_namespace.this.metadata.0.name)

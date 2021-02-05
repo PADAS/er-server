@@ -1,4 +1,5 @@
 import json
+from enum import Enum
 
 from activity.models import EventType, EventCategory
 from analyzers.environmental import EventTypeSpec
@@ -104,10 +105,16 @@ GFWActiveFireAlertEventTypeSpec = EventTypeSpec(value='gfw_activefire_alert',
                                                 schema=GENERIC_GFW_ACTIVE_FIRE_SCHEMA,
                                                 icon='fire_rep')
 
+
 # Map GFW Layer-Slug to an EarthRanger event-type.
+class GFWLayerSlugs(Enum):
+    VIIRS_ACTIVE_FIRES = 'viirs-active-fires'
+    GLAD_ALERTS = 'glad-alerts'
+
+
 GFW_EVENT_TYPES_MAP = {
-    'viirs-active-fires': GFWActiveFireAlertEventTypeSpec.value,
-    'glad-alerts': GFWGladEventTypeSpec.value,
+    GFWLayerSlugs.VIIRS_ACTIVE_FIRES.value: GFWActiveFireAlertEventTypeSpec.value,
+    GFWLayerSlugs.GLAD_ALERTS.value: GFWGladEventTypeSpec.value,
 }
 
 

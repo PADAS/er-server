@@ -14,6 +14,7 @@ from das_server import celery, pubsub
 from django.conf import settings
 from django.db import close_old_connections
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.request import Request
 
 from observations import servicesutils
 
@@ -100,8 +101,9 @@ def _event_handler(event_id, type):
                         }
                     }
                 else:
-                    request = DummyRequest(
-                        user=user, http_method='GET', query_parameters={})
+
+                    request = DummyRequest(user=user, http_method='GET', query_parameters={})
+                    request = Request(request) # Wrap in DRF Request
                     queryset = Event.objects.filter(id=event_id)
                     event = queryset.first()
 
@@ -166,6 +168,11 @@ def get_filtered_events(event_filter, queryset):
         filter["state"] = event_filter.get("state")
 
     return queryset.by_event_filter(filter)
+
+
+def get_filtered_patrols(patrol_filter, queryset):
+    pf = patrol_filter.get("filter") or {}
+    return queryset.by_patrol_filter(pf)
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True}, rate_limit='10/m')
@@ -327,6 +334,16 @@ def _patrol_handler(item_id, type):
         user_sids_map = get_username_sids_map()
         logger.debug('user_sids_map: %s', user_sids_map)
 
+        try:
+            queryset = model.objects.filter(id=item_id)
+            instance = queryset.first()
+        except model.DoesNotExist:
+            instance = None
+            if type != 'delete_patrol':
+                logger.warning('Patrol handler given id: %s but it is not found in the database.')
+                return
+
+
         for username, user_sids in user_sids_map.items():
             try:
                 user = User.objects.get(username=username)
@@ -352,10 +369,9 @@ def _patrol_handler(item_id, type):
                         }
                     }
                 else:
-                    request = DummyRequest(
-                        user=user, http_method='GET', query_parameters={})
-                    queryset = model.objects.filter(id=item_id)
-                    instance = queryset.first()
+                    request = DummyRequest(user=user, http_method='GET', query_parameters={})
+                    request = Request(request) # Wrap in DRF Request
+
                     if instance:
                         try:
                             view.check_object_permissions(
@@ -364,6 +380,14 @@ def _patrol_handler(item_id, type):
                             logger.debug(
                                 'Permission denied. user=%s, patrol=%s', username, instance.id)
                         else:
+                            try:
+                                socket_client = SocketClient.objects.get(id=sid)
+                            except SocketClient.DoesNotExist:
+                                logger.debug(f'SocketClient does not exist for sid={sid}')
+                            else:
+                                queryset = get_filtered_patrols(socket_client.patrol_filter, queryset)
+                                matches_current_filter = queryset.exists()
+
                             data = serializer(instance, context={
                                               'request': request}).data
                             emit_data = {
