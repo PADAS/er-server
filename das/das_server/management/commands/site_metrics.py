@@ -61,7 +61,7 @@ class Command(BaseCommand):
 
         extracter = ExtractSiteMetrics(start, end)
         reports = extracter.run()
-        devices = sumarize_sources()
+        devices = sumarize_sources(start, end)
         eula = get_eula_compliance_list()
         user_session = get_user_session_time(start, end)
         wrapper = SiteMetrics(REPORT_TYPE, REPORT_VERSION,
@@ -222,9 +222,10 @@ class SourceProviderMetric(NamedTuple):
     plugin_name: str
     model_name: str
     source_type: str
+    track_points: int
 
 
-def sumarize_sources():
+def sumarize_sources(start, end):
     # group on provider key
     providers = {}
 
@@ -236,6 +237,7 @@ def sumarize_sources():
         if not provider:
             provider["enabled_count"] = 0
             provider["disabled_count"] = 0
+            provider['track_points'] = 0
             provider["count"] = 0
             provider['plugin_name'] = None
             provider['plugin_configuration_name'] = None
@@ -248,6 +250,7 @@ def sumarize_sources():
             "model_name", None) or source.model_name
         provider["source_type"] = provider.get(
             "source_type", None) or source.source_type
+        provider['track_points'] += source.observation_set.filter(created_at__range=(start, end)).count()
 
         # plugin info
         if source.source_plugins and source.source_plugins.first():
