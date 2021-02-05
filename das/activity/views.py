@@ -1211,6 +1211,7 @@ class PatrolsView(generics.ListCreateAPIView):
         if subject:
             queryset = queryset.by_subject(subject)
 
+        queryset = queryset.prefetch_related('notes', 'files', 'patrol_segments__patrol_type', 'patrol_segments__events')
         return queryset.sort_patrols()
 
 
