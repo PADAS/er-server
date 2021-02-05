@@ -53,12 +53,15 @@ class TestPatrol(BaseAPITest):
 
         self.sample_patrol_id = "b14bc72f-96d6-4248-9fea-7dd0bbc8c196"
         Patrol.objects.create(id=self.sample_patrol_id, title='Test Patrol',
-                       objective='Test Objective'),
-        Patrol.objects.create(title='Test Patrol 2', objective='Test Objective 2')
+                              objective='Test Objective'),
+        Patrol.objects.create(title='Test Patrol 2',
+                              objective='Test Objective 2')
 
-        self.default_test_patrol = Patrol.objects.create(title='Default Test Patrol')
+        self.default_test_patrol = Patrol.objects.create(
+            title='Default Test Patrol')
         print(self.default_test_patrol.id)
-        PatrolSegment.objects.create(patrol_type=PatrolType.objects.first(), patrol_id=self.default_test_patrol.id)
+        PatrolSegment.objects.create(
+            patrol_type=PatrolType.objects.first(), patrol_id=self.default_test_patrol.id)
 
         self.now = datetime.datetime.now(tz=pytz.utc)
         self.start_of_today = self.now.replace(
@@ -638,7 +641,8 @@ class TestPatrol(BaseAPITest):
         self.force_authenticate(request, self.app_user)
         response = views.PatrolsegmentsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(str(response.data.get('patrol')), str(self.default_test_patrol.id))
+        self.assertEqual(str(response.data.get('patrol')),
+                         str(self.default_test_patrol.id))
 
         patrolsg_id = response.data.get('id')
 
@@ -1273,6 +1277,68 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.data.get('updates')[
                          1].get('message'), 'Report Added')
 
+    def test_add_patrol_segment_to_report(self):
+        patrol = Patrol.objects.create(title="My Glorius Patrol")
+
+        patrol_segment = dict(
+            patrol_type="routine_patrol",
+            patrol=patrol.id
+        )
+
+        url = reverse('patrol-segments')
+        request = self.factory.post(url, data=patrol_segment)
+        self.force_authenticate(request, self.app_user)
+        response = views.PatrolsegmentsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        self.assertEqual(0, len(response.data.get('events')))
+
+        segment_id = response.data.get('id')
+        et = EventType.objects.first()
+
+        # Create an event
+        event_data = dict(
+            title="Test Event",
+            event_type=et.value,
+        )
+        events_url = reverse('events')
+        request = self.factory.post(events_url, event_data)
+        self.force_authenticate(request, self.user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        event_id = response.data.get('id')
+
+        event_data = dict(
+            patrol_segments=[segment_id, ]
+        )
+
+        events_url = reverse('event-view', kwargs={'id': event_id})
+        request = self.factory.patch(events_url, event_data)
+        self.force_authenticate(request, self.user)
+
+        response = views.EventView.as_view()(request, id=event_id)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(str(segment_id) in str(
+            response.data.get('patrol_segments')))
+
+        # View reports from segment
+        url = reverse('patrol-segment', kwargs={'id': segment_id})
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.user)
+        response = views.PatrolsegmentView.as_view()(request, id=segment_id)
+        self.assertEqual(1, len(response.data.get('events')))
+        self.assertEqual(response.data.get('updates')[
+                         0].get('message'), 'Report Added')
+
+        url = reverse('patrol', kwargs={'id': patrol.id})
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.user)
+        response = views.PatrolView.as_view()(request, id=patrol.id)
+        self.assertEqual(1, len(response.data.get(
+            'patrol_segments')[0].get('events')))
+
     def test_patrolsegment_history_update_endtime(self):
         PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
@@ -1390,7 +1456,6 @@ class TestPatrol(BaseAPITest):
         # Monkey-patch send_task to execute task by blocking; because task_always_eager has no effect on send_task.
         app.send_task = send_task
         from activity.tasks import maintain_patrol_state
-
 
         PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
@@ -1565,5 +1630,3 @@ class TestPatrol(BaseAPITest):
         assert response.status_code == 200
         assert response.data['results'][0].get('patrol_segments')[
             0]['leader'] == {'hidden': True}
-
-
