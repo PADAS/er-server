@@ -2,7 +2,7 @@ import logging
 import datetime
 
 from django.db import transaction
-from django.db.models.signals import post_save, post_delete, pre_save
+from django.db.models.signals import post_save, post_delete, pre_save, m2m_changed
 from django.dispatch import receiver
 
 from activity.models import Event, EventPhoto, Patrol, PatrolSegment, PatrolNote, PatrolFile, PC_OPEN, PC_DONE
@@ -76,6 +76,26 @@ def patrol_post_delete(sender, instance, **kwargs):
     patrol_action = 'das.patrol.delete'
     transaction.on_commit(lambda: pubsub.publish(
         {'patrol_id': str(instance.pk)}, patrol_action))
+
+
+@receiver(m2m_changed, sender=Event.patrol_segments.through)
+def event_linked_to_patrol_segment(sender, instance, action, reverse, model, pk_set, **kwargs):
+    def publish_patrol_event_actions(patrol_ids, event_ids):
+        logger.info(f"linked event {event_ids} and patrol {patrol_ids}")
+        patrol_action = 'das.patrol.update'
+        event_action = 'das.event.update'
+        for id in patrol_ids:
+            pubsub.publish({'patrol_id': str(id)}, patrol_action)
+        for id in event_ids:
+            pubsub.publish({'event_id': str(id)}, event_action)
+
+    listen_for_actions = ("post_add", "post_remove")
+    if action in listen_for_actions:
+        patrol_ids = (instance.patrol.pk,) if isinstance(instance, PatrolSegment) else [
+            p.pk for p in Patrol.objects.filter(patrol_segment__id__in=pk_set)]
+        event_ids = (instance.pk,) if isinstance(instance, Event) else pk_set
+        transaction.on_commit(
+            lambda: publish_patrol_event_actions(patrol_ids, event_ids))
 
 
 def verify_patrol_constituent_for_rt_messaging(instance):
