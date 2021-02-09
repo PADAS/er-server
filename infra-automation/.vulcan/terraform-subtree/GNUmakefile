@@ -18,7 +18,7 @@ vulcan_path := $(dir $(lastword $(MAKEFILE_LIST))).vulcan
 
 coerced_path_for_terraform := $(vulcan_path)/$(uname_s):$(shell dirname "$$(which git)")
 
-terraform_version := 0.12.26
+terraform_version := 0.13.6
 terraform_path := $(vulcan_path)/$(uname_s)
 terraform_binary := $(terraform_path)/terraform
 terraform_zip := $(terraform_path)/terraform_$(terraform_version)_$(uname_s)_amd64.zip
