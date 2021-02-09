@@ -59,7 +59,7 @@ terraform_apply: $(terraform_binary)
 terraform_output: output_name ?=
 terraform_output: output_options ?=
 terraform_output: $(terraform_binary)
-	export PATH="$(coerced_path_for_terraform)" && terraform output $(output_options) $(output_name)
+	@export PATH="$(coerced_path_for_terraform)" && terraform output $(output_options) $(output_name)
 
 .PHONY: terraform_workspace
 terraform_workspace: workspace_dir ?=
