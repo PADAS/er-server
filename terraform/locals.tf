@@ -44,6 +44,7 @@ locals {
     "eruc2020"               = "prod1"
     "ewt"                    = "prod1"
     "fao"                    = "prod1"
+    "freenature"             = "prod1"
     "garamba"                = "prod1"
     "gile"                   = "prod1"
     "gonarezhou"             = "prod1"
@@ -211,6 +212,7 @@ locals {
     "desertlion"          = 1
     "ccf"                 = 1
     "phuzamoya"           = 1
+    "freenature"          = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
