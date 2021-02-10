@@ -82,7 +82,7 @@ class AutoResolveWidget(forms.MultiWidget):
 
 class AutoResolveField(forms.fields.MultiValueField):
     widget = AutoResolveWidget
-    error_message_hours = {'min_value': "Ensure 'value for hour' is greater thant or equal to 1"}
+    error_message_hours = {'min_value': "Ensure 'value for hour' is greater than or equal to 1"}
 
     def __init__(self, *args, **kwargs):
         _fields = [
