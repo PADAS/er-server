@@ -14,6 +14,7 @@ locals {
     "amboseli-np"            = "prod1"
     "apntraining"            = "prod1"
     "apr"                    = "prod1"
+    "awsc"                   = "prod1"
     "ashiacheetah"           = "prod1"
     "balule"                 = "prod1"
     "baminguibangoran"       = "prod1"
@@ -24,6 +25,7 @@ locals {
     "bomani"                 = "prod1"
     "bostonpridelands"       = "prod1"
     "bubyevalley"            = "prod1"
+    "ccf"                    = "prod1"
     "centralrift"            = "prod1"
     "chadreintroduction"     = "prod1"
     "chipinge"               = "prod1"
@@ -33,6 +35,7 @@ locals {
     "damai"                  = "prod-asia"
     "daxiangling"            = "prod-asia"
     "degrees51"              = "prod1"
+    "desertlion"             = "prod1"
     "dinokeng"               = "prod1"
     "dwnp"                   = "prod1"
     "elephantsalive"         = "prod1"
@@ -41,6 +44,7 @@ locals {
     "eruc2020"               = "prod1"
     "ewt"                    = "prod1"
     "fao"                    = "prod1"
+    "freenature"             = "prod1"
     "garamba"                = "prod1"
     "gile"                   = "prod1"
     "gonarezhou"             = "prod1"
@@ -78,6 +82,7 @@ locals {
     "mkomazi"                = "prod1"
     "mtkenya"                = "prod1"
     "murchisonfalls"         = "prod1"
+    "naankuse"               = "prod1"
     "natgeo"                 = "prod1"
     "ndoki"                  = "prod1"
     "ngorongoro"             = "prod1"
@@ -95,6 +100,7 @@ locals {
     "pantheraolympic"        = "prod1"
     "parcw"                  = "prod1"
     "pendjari"               = "prod1"
+    "phuzamoya"              = "prod1"
     "pinelands"              = "prod1"
     "preylang"               = "prod-asia"
     "queenelizabeth"         = "prod1"
@@ -201,6 +207,12 @@ locals {
     "greaterukuwela"      = 1
     "zinnshoek"           = 1
     "tsavo-trust"         = 1
+    "awsc"                = 1
+    "naankuse"            = 1
+    "desertlion"          = 1
+    "ccf"                 = 1
+    "phuzamoya"           = 1
+    "freenature"          = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
