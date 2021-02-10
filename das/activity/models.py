@@ -1823,7 +1823,7 @@ class PatrolSegmentRevision(Revision):
 class PatrolSegment(TimestampedModel, RevisionMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     patrol = models.ForeignKey(Patrol,
-                               on_delete=models.PROTECT,
+                               on_delete=models.CASCADE,
                                related_name='patrol_segments',
                                related_query_name='patrol_segment')
     patrol_type = models.ForeignKey(
@@ -1841,7 +1841,7 @@ class PatrolSegment(TimestampedModel, RevisionMixin):
 
     leader_content_type = models.ForeignKey(
         ContentType,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,  # deleting a subject should not delete the patrol segment
         limit_choices_to=leader_limits,
         null=True, blank=True)
     leader_id = models.UUIDField(null=True, blank=True, default=None)
