@@ -99,6 +99,7 @@ locals {
     "pantheraolympic"        = "prod1"
     "parcw"                  = "prod1"
     "pendjari"               = "prod1"
+    "phuzamoya"              = "prod1"
     "pinelands"              = "prod1"
     "preylang"               = "prod-asia"
     "queenelizabeth"         = "prod1"
@@ -209,6 +210,7 @@ locals {
     "naankuse"            = 1
     "desertlion"          = 1
     "ccf"                 = 1
+    "phuzamoya"           = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
