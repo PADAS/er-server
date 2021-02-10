@@ -34,6 +34,7 @@ locals {
     "damai"                  = "prod-asia"
     "daxiangling"            = "prod-asia"
     "degrees51"              = "prod1"
+    "desertlion"             = "prod1"
     "dinokeng"               = "prod1"
     "dwnp"                   = "prod1"
     "elephantsalive"         = "prod1"
@@ -205,6 +206,7 @@ locals {
     "tsavo-trust"         = 1
     "awsc"                = 1
     "naankuse"            = 1
+    "desertlion"          = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
