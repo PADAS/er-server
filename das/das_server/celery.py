@@ -146,6 +146,10 @@ app.conf.beat_schedule = {
     'beat-pulse': {
         'task': 'das_server.tasks.celerybeat_pulse',
         'schedule': timedelta(seconds=60)
+    },
+    'auto-resolve': {
+        'task': 'activity.tasks.automatically_update_event_state',
+        'schedule': timedelta(hours=1)
     }
 
 }
