@@ -20,18 +20,21 @@ from tracking.forms import SourcePluginForm
 
 logger = logging.getLogger(__name__)
 
+
 def _get_plugin_class_search_fields():
     '''
     Get a list of search fields to support searching for a SourcePlugin record by the name of the plugin its
     associated with.
     :return: a list of search fields.
     '''
-    plugin_classes = inspect.getmembers(sys.modules['tracking.models'], inspect.isclass)
+    plugin_classes = inspect.getmembers(
+        sys.modules['tracking.models'], inspect.isclass)
 
     # Identify the actual plugin classes by having a valid 'source_plugin_reverse_relation' attribute.
     search_names = [f'{c.source_plugin_reverse_relation}__name'
                     for n, c in plugin_classes if getattr(c, 'source_plugin_reverse_relation', None)]
     return search_names
+
 
 class PluginTypeFilter(django.contrib.admin.SimpleListFilter):
     title = 'Plugin type'
@@ -52,6 +55,7 @@ class PluginTypeFilter(django.contrib.admin.SimpleListFilter):
             return queryset.filter(plugin_type__model__iexact=value)
         return queryset
 
+
 @admin.register(models.SourcePlugin)
 class SourcePluginAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
@@ -59,8 +63,10 @@ class SourcePluginAdmin(admin.ModelAdmin):
         queryset = queryset.prefetch_related('plugin')
         return queryset
 
-    list_display = ['_source_manufacturer_id', '_source_provider', 'status', '_plugin_name',]
-    search_fields = ['source__manufacturer_id'] + _get_plugin_class_search_fields()
+    list_display = ['_source_manufacturer_id',
+                    '_source_provider', 'status', '_plugin_name', ]
+    search_fields = ['source__manufacturer_id'] + \
+        _get_plugin_class_search_fields()
     list_select_related = True
 
     list_filter = [PluginTypeFilter]
@@ -97,8 +103,10 @@ class SourcePluginAdmin(admin.ModelAdmin):
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == 'source':
-            kwargs['queryset'] = observations.models.Source.objects.all().order_by('manufacturer_id').select_related('provider')
+            kwargs['queryset'] = observations.models.Source.objects.all().order_by(
+                'manufacturer_id').select_related('provider')
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
 
 @admin.register(models.SavannahPlugin)
 class SavannahPluginAdmin(admin.ModelAdmin):
@@ -163,39 +171,39 @@ class AwtAdmin(admin.ModelAdmin):
 @admin.register(models.SourceProviderConfiguration)
 class SourceProviderConfigurationAdmin(admin.ModelAdmin):
 
-    list_display = ('friendly_name', 'new_device_config', 'name_change_config', 'is_default',)
+    list_display = ('friendly_name', 'new_device_config',
+                    'name_change_config', 'is_default',)
     list_editable = ('is_default',)
-
 
     formfield_overrides = {
         django.db.models.ManyToManyField: {'widget': CheckboxSelectMultiple},
     }
     fieldsets = (
         ('New device subject handling', {
-            'fields': ('new_device_config',)
+            'fields': (('new_device_config', 'new_device_match_case'),)
         }
-         ),
+        ),
         (None, {
             'classes': ('new_subject_types',),
             'fields': ('new_subject_excluded_subject_types',)
         }
-         ),
+        ),
         ('Device name change handling', {
-            'fields': ('name_change_config',)
+            'fields': (('name_change_config', 'name_change_match_case'),)
         }
-         ),
+        ),
         (None, {
             'classes': ('name_change_types',),
             'fields': ('name_change_excluded_subject_types',)
         }
-         ),
+        ),
     )
 
     def has_add_permission(self, request, obj=None):
         if self.model.objects.count():
             return False
         return super().has_add_permission(request)
-    
+
     def friendly_name(self, instance):
         if instance.source_provider:
             return f'Config for {instance.source_provider.display_name}'
@@ -205,10 +213,11 @@ class SourceProviderConfigurationAdmin(admin.ModelAdmin):
     friendly_name.short_description = 'Friendly display name'
 
     class Media:
-        js = ['admin/js/toggle_subject_types.js',]
+        js = ['admin/js/toggle_subject_types.js', ]
 
     def get_form(self, request, obj=None, change=False, **kwargs):
-        form = super(SourceProviderConfigurationAdmin, self).get_form(request, obj, change, **kwargs)
+        form = super(SourceProviderConfigurationAdmin, self).get_form(
+            request, obj, change, **kwargs)
         form.base_fields['new_subject_excluded_subject_types'].widget.can_add_related = False
         form.base_fields['name_change_excluded_subject_types'].widget.can_add_related = False
         return form
@@ -225,7 +234,8 @@ class SourceProviderConfigurationAdmin(admin.ModelAdmin):
     def changelist_view(self, request, extra_context=None):
         url_path = request.get_full_path()
         try:
-            response = super(SourceProviderConfigurationAdmin, self).changelist_view(request, extra_context)
+            response = super(SourceProviderConfigurationAdmin,
+                             self).changelist_view(request, extra_context)
             return response
         except IntegrityError:
             msg = _("Warning: A default configuration has already been set.")

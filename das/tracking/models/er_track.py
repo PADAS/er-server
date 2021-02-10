@@ -47,11 +47,16 @@ class SourceProviderConfiguration(TimestampedModel):
         default='wildlife', blank=True, verbose_name='')
 
     is_default = models.BooleanField(verbose_name=_('Use as default?'),
-                                     help_text=_('Used this as the default configuration'),
+                                     help_text=_(
+                                         'Used this as the default configuration'),
                                      default=True)
 
     source_provider = models.OneToOneField(to=SourceProvider, null=True, blank=True, on_delete=models.SET_NULL,
                                            help_text=_('This configuration will be used for this SourceProvider'))
+    new_device_match_case = models.BooleanField(
+        default=False, verbose_name="Match case")
+    name_change_match_case = models.BooleanField(
+        default=False, verbose_name="Match case")
 
     class Meta:
         verbose_name = 'EarthRanger Track Configuration'

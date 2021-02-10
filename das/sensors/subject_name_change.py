@@ -26,9 +26,11 @@ def update_source_assignment(subject, source, recorded_at, terminate_existing_as
     :return: a SubjectSource object
     '''
     # Coerce record_time to datetime object.
-    recorded_at = recorded_at if isinstance(recorded_at, (datetime,)) else dateutil.parser.parse(recorded_at)
+    recorded_at = recorded_at if isinstance(
+        recorded_at, (datetime,)) else dateutil.parser.parse(recorded_at)
 
-    logger.debug('Reassigning subject: %s and source: %s using recorded_at %s', subject, source, recorded_at)
+    logger.debug('Reassigning subject: %s and source: %s using recorded_at %s',
+                 subject, source, recorded_at)
 
     if terminate_existing_assignments:
         # Terminate pre existing subject source assignment
@@ -79,33 +81,41 @@ def mutate_ertrack_subject_assignment(*, source: Source = None, subject_name: st
     if is_new_source:
         excluded_subject_types = er_track_configuration.new_subject_excluded_subject_types.all()
         subject_mutate_setting = er_track_configuration.new_device_config
+        match_case = er_track_configuration.new_device_match_case
     else:
         excluded_subject_types = er_track_configuration.name_change_excluded_subject_types.all()
         subject_mutate_setting = er_track_configuration.name_change_config
+        match_case = er_track_configuration.name_change_match_case
 
     logger.debug("Is new source? %s", is_new_source)
-    logger.debug('Excluding types: %s, mutating by %s', excluded_subject_types, subject_mutate_setting)
+    logger.debug('Excluding types: %s, mutating by %s',
+                 excluded_subject_types, subject_mutate_setting)
 
     # ...and update the queryset if necessary.
     if excluded_subject_types:
         logger.debug('Updating query for excludes')
-        subject_queryset = subject_queryset.exclude(subject_subtype__subject_type__in=excluded_subject_types)
+        subject_queryset = subject_queryset.exclude(
+            subject_subtype__subject_type__in=excluded_subject_types)
 
     # Use existing match
     if subject_mutate_setting == USE_EXISTING:
 
         try:
             # Special Case, if subject-type is "person" we want to find the first.
-            existing_match = subject_queryset.filter(name=subject_name,
+            name_filter = Q(name=subject_name) if match_case else Q(
+                name__iexact=subject_name)
+            existing_match = subject_queryset.filter(name_filter,
                                                      subject_subtype__subject_type__value__iexact='person').first()
 
             # Otherwise get unique matching subject from other subtypes
             if not existing_match:
-                existing_match = subject_queryset.exclude(subject_subtype__subject_type__value__iexact='person').get(name=subject_name)
+                existing_match = subject_queryset.exclude(
+                    subject_subtype__subject_type__value__iexact='person').get(name_filter)
 
         except Subject.MultipleObjectsReturned:
             # More than one subject returned, skip and create new subject later
-            logger.warning('Multiple Subjects found with name %s', subject_name)
+            logger.warning(
+                'Multiple Subjects found with name %s', subject_name)
         except Subject.DoesNotExist:
             # More than one subject returned, skip and create new subject later
             pass
@@ -114,7 +124,8 @@ def mutate_ertrack_subject_assignment(*, source: Source = None, subject_name: st
             logger.debug('Found match by name: %s', existing_match)
             update_source_assignment(existing_match, source, recorded_at)
         else:
-            logger.debug('No match found by name %s. Fall back to CREATE_NEW.', subject_name)
+            logger.debug(
+                'No match found by name %s. Fall back to CREATE_NEW.', subject_name)
             subject_mutate_setting = CREATE_NEW
 
     if subject_mutate_setting == UPDATE_NAME:
@@ -122,13 +133,16 @@ def mutate_ertrack_subject_assignment(*, source: Source = None, subject_name: st
         cnt = Subject.objects.filter(subjectsource__source=source,
                                      subjectsource__assigned_range__contains=recorded_at).update(name=subject_name)
         if cnt == 0:
-            logger.debug('No assignment found for source %s when trying to rename to %s. Fall back to CREATE_NEW.', source, subject_name)
+            logger.debug(
+                'No assignment found for source %s when trying to rename to %s. Fall back to CREATE_NEW.', source, subject_name)
             subject_mutate_setting = CREATE_NEW
 
     # Create new.
     if subject_mutate_setting == CREATE_NEW:
-        logger.debug('CREAT_NEW for subject name: %s, source: %s, recorded_at: %s', subject_name, source, recorded_at)
-        created_subject = Subject.objects.create_subject(name=subject_name, subject_subtype_id=subject_subtype_id)
+        logger.debug('CREAT_NEW for subject name: %s, source: %s, recorded_at: %s',
+                     subject_name, source, recorded_at)
+        created_subject = Subject.objects.create_subject(
+            name=subject_name, subject_subtype_id=subject_subtype_id)
         update_source_assignment(created_subject, source, recorded_at)
 
 
@@ -138,7 +152,6 @@ def get_track_config(provider: SourceProvider):
         Q(source_provider=provider) | Q(is_default=True)).order_by('is_default').first()
 
     if not track_config:
-        track_config, _ = SourceProviderConfiguration.objects.get_or_create(is_default=True)
+        track_config, _ = SourceProviderConfiguration.objects.get_or_create(
+            is_default=True)
     return track_config
-
-
