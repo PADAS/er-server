@@ -22,6 +22,10 @@
     const checkbx = document.getElementById('id_auto_eventtype_resolve_0');
     const btn = document.getElementById('id_auto_eventtype_resolve_1');
 
+    if (!checkbx.checked) {
+        btn.disabled = true
+    }
+
     checkbx.onchange = function (){
         btn.disabled = !this.checked;
         btn.value = '';
