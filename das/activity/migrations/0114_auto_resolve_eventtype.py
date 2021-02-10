@@ -22,6 +22,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='eventtype',
-            constraint=models.CheckConstraint(check=models.Q(models.Q(('auto_resolve', False), ('resolve_time__isnull', True)), models.Q(('auto_resolve', True), ('resolve_time__isnull', False)), _connector='OR'), name='auto_resolve_constraint'),
+            constraint=models.CheckConstraint(check=models.Q(models.Q(('auto_resolve', False), ('resolve_time__isnull', True)), models.Q(
+                ('auto_resolve', True), ('resolve_time__isnull', False)), _connector='OR'), name='auto_resolve_constraint'),
         ),
     ]

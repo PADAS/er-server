@@ -189,18 +189,6 @@ class EventTypeAdmin(admin.ModelAdmin):
         new_object.resolve_time = resolve_time
         return new_object
 
-    # def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
-    #     try:
-    #         return super().changeform_view(request, object_id, form_url, extra_context)
-    #     except IntegrityError as exc:
-    #         self.message_user(request,
-    #                           "Please correct the error below.",
-    #                           level=messages.ERROR)
-    #         return HttpResponseRedirect(request.get_full_path())
-
-
-
-
 
 @admin.register(models.EventSource)
 class EventSourceAdmin(admin.ModelAdmin):
