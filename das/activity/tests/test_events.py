@@ -44,6 +44,7 @@ from observations.serializers import SubjectSerializer
 from utils.html import clean_user_text
 from activity.tests import schema_examples
 from utils.schema_utils import format_key_for_title
+from activity.tasks import automatically_update_event_state
 
 logger = logging.getLogger(__name__)
 
@@ -3045,6 +3046,28 @@ class TestEventView(BaseAPITest):
         state = properties.get('wildlifesightingrep_collared')
         inactive_enum = state.get('inactive_enum')
         assert inactive_enum == ['oh yeah!']
+
+    def test_auto_resolve_eventtype(self):
+        event_data = copy.deepcopy(self.event_data)
+        event_data['reported_by'] = self.user_rep
+        event_data['provenance'] = Event.PC_STAFF
+
+        EventType.objects.filter(value=ET_OTHER).update(auto_resolve=True, resolve_time=1)
+        event_data['event_type'] = ET_OTHER
+
+        request = self.factory.post(self.api_base + '/events/', event_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        created_at = datetime.now(tz=pytz.utc) - timedelta(hours=2)
+        Event.objects.filter(id=response.data.get('id')).update(created_at=created_at)
+
+        self.assertEqual(response.data.get('state'), 'new')
+        automatically_update_event_state()
+
+        state = Event.objects.get(id=response.data.get('id')).state
+        self.assertEqual(state, 'resolved')
 
 
 class TestParsing(TestCase):
