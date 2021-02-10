@@ -25,6 +25,7 @@ locals {
     "bomani"                 = "prod1"
     "bostonpridelands"       = "prod1"
     "bubyevalley"            = "prod1"
+    "ccf"                    = "prod1"
     "centralrift"            = "prod1"
     "chadreintroduction"     = "prod1"
     "chipinge"               = "prod1"
@@ -207,6 +208,7 @@ locals {
     "awsc"                = 1
     "naankuse"            = 1
     "desertlion"          = 1
+    "ccf"                 = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
