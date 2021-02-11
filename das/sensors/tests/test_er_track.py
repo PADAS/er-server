@@ -93,6 +93,45 @@ class ErTrackHandlerTest(BaseAPITest):
             subject=matching_subject).count())
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_existing_config_match_case(self):
+        subject_subtype = SubjectSubType.objects.get(value='rhino')
+        matching_subject = Subject.objects.create(
+            name='Fatu', subject_subtype=subject_subtype)
+        SubjectSource.objects.create(
+            subject=matching_subject, source=self.test_source)
+
+        # Fatu still has no observations
+        self.assertEqual(
+            len(Subject.objects.get(name='Fatu').observations()), 0)
+        obs_copy = copy.deepcopy(self.one_observation)
+        obs_copy['subject_name'] = 'fatu'  # Note the lowercase
+        obs_copy['manufacturer_id'] = 'new_source'
+
+        self.assertEqual(1, SubjectSource.objects.filter(
+            subject=matching_subject, source=self.test_source).count())
+        response = self._post_data(json.dumps(obs_copy), user=self.super_user)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # New observation added to matching Subject, Fatu/fatu considered a match
+        self.assertEqual(
+            len(Subject.objects.get(name='Fatu').observations()), 1)
+        # No new subject created, Still only Fatu
+        self.assertEqual(Subject.objects.count(), 1)
+
+        self.config.new_device_match_case = True
+        self.config.save()
+
+        obs_copy['manufacturer_id'] = 'another_new_source'
+        self.assertEqual(1, SubjectSource.objects.filter(
+            subject=matching_subject, source=self.test_source).count())
+        self._post_data(json.dumps(obs_copy), user=self.super_user)
+
+        # New subject created and observation added to it, Fatu/fatu not considered a match
+        self.assertEqual(Subject.objects.count(), 2)
+        self.assertEqual(
+            len(Subject.objects.get(name='fatu').observations()), 1)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_device_handling_with_use_existing_config_and_person_subtype_match(self):
         subject_type = SubjectType.objects.create(value='Cats')
         person_subject_type = SubjectType.objects.create(value='Person')
