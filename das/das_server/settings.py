@@ -563,3 +563,5 @@ SERVER_FQDN = "tempuri.org"
 
 # Default to re-use the site's domain-name as a folder for daily-report template.
 DAILY_REPORT_TEMPLATE_SUBFOLDER = SERVER_FQDN
+
+TRACK_LENGTH = 21

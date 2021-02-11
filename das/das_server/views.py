@@ -138,6 +138,7 @@ class VersionSerializer(rest_framework.serializers.Serializer):
     site_name = rest_framework.serializers.CharField(read_only=True)
     last_migration_app = rest_framework.serializers.CharField(read_only=True)
     last_migration_name = rest_framework.serializers.CharField(read_only=True)
+    track_length = rest_framework.serializers.IntegerField(read_only=True)
 
 
 class StatusView(generics.RetrieveAPIView):
@@ -169,6 +170,7 @@ class StatusView(generics.RetrieveAPIView):
         resp['eula_enabled'] = settings.ACCEPT_EULA
         resp['patrol_enabled'] = settings.PATROL_ENABLED and has_patrol_view_permission(
             self.request.user)
+        resp['track_length'] = settings.TRACK_LENGTH
 
         if self.get_support_settings():
             resp['eus_settings'] = self.get_support_settings()
