@@ -881,6 +881,7 @@ class ObservationsView(generics.ListCreateAPIView):
             until, 'recorded_until')
         subject_id = query_params.get('subject_id', None)
         source_id = query_params.get('source_id', None)
+        created_at = query_params.get('created_at', None)
         filter_flag = 0
         filter_qparam = query_params.get('filter', 0)
         try:
@@ -908,6 +909,9 @@ class ObservationsView(generics.ListCreateAPIView):
         if mou_expiry_date:
             queryset = queryset.filter(recorded_at__lte=mou_expiry_date)
 
+        if created_at:
+            queryset.by_created(created_at)
+
         return queryset
 
     def create(self, request, *args, **kwargs):
@@ -933,6 +937,8 @@ class ObservationsView(generics.ListCreateAPIView):
         # generating docs schema
         context['include_details'] = parse_bool(self.request.query_params.get(
             'include_details', False)) if self.request else False
+        context['rt_emit_payload'] = parse_bool(self.request.query_params.get(
+            'rt_emit_payload', False)) if self.request else False
         return context
 
 

@@ -580,7 +580,9 @@ class ObservationSerializer(rest_framework.serializers.ModelSerializer):
 
     def to_representation(self, instance):
         rep = super(ObservationSerializer, self).to_representation(instance)
-        if self.context.get('include_details'):
+        if self.context.get('rt_emit_payload') and rep.get('location'):
+            return {'coordinates': [rep['location']['longitude'], rep['location']['latitude']], 'time': rep.get('recorded_at')}
+        elif self.context.get('include_details'):
             rep['observation_details'] = rep['additional']
         rep.pop('additional')
         return rep

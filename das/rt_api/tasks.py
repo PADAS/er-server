@@ -15,11 +15,12 @@ from django.conf import settings
 from django.db import close_old_connections
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.request import Request
+from django.urls import resolve
 
 from observations import servicesutils
 
 from observations.models import SubjectSource
-from observations.views import SubjectTracksView, SubjectStatusView
+from observations.views import SubjectTracksView, SubjectStatusView, ObservationsView
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from uuid import UUID
 from rt_api import client
@@ -218,6 +219,8 @@ def _subjectstatus_update_handler(subject_id):
         get_subjectstatus_payload = partial(
             get_subjectstatus_view, SubjectStatusView.as_view())
 
+        get_observations_payload = partial(get_observations_view, ObservationsView)
+
         user_sids_map = get_username_sids_map()
         logger.debug('user_sids_map: %s', user_sids_map)
 
@@ -260,6 +263,29 @@ def _subjectstatus_update_handler(subject_id):
                     logger.warning(
                         'SubjectStatus payload is empty.', extra=dict(username=username, subject_id=subject_id))
 
+                # emit batch observations
+                for sid in user_sids:
+                    created_at = client.retrieve_session_ts_subjects().get(sid)[subject_id] \
+                        if client.retrieve_session_ts_subjects().get(sid) else client.retrieve_default_session_ts().get(sid)
+                    payload = get_observations_payload(user, subject_id, created_at=created_at)
+                    if payload:
+                        emit_data = {
+                                'type': 'merge',
+                                'sid': sid,
+                                'subject_id': subject_id,
+                                'points': payload
+                        }
+                        emit_message = json.dumps(emit_data, default=dumps_helper)
+
+                        logger.debug("Emitting: %s", emit_message)
+                        pubsub.publish(emit_message, routing_key='das.realtime.emit')
+
+                        client.save_session_timestamp(sid, subject_id, timestamp=payload[0].get('time'))
+
+                    else:
+                        logger.warning(
+                            'Observation payload is empty.', extra=dict(username=username, subject_id=subject_id))
+
             except:
                 logger.exception(
                     'Error creating subject-status payload. username=%s', username)
@@ -288,6 +314,19 @@ def get_subjectstatus_view(view, user, subject_id):
     if result.status_code != 200 or not result.data:
         return
 
+    return result.data
+
+
+def get_observations_view(view, user, subject_id, created_at):
+    url = resolve('observations-list-view')
+    request = DummyRequest(
+        uri=f'{url}?subject_id={subject_id}&rt_emit_payload=true&created_at={created_at}', http_method='GET', user=user)
+
+    result = view(request, subject_id=subject_id)
+
+    logger.info(f"ObservationsView result: {result}")
+    if result.status_code != 200 or not result.data:
+        return
     return result.data
 
 

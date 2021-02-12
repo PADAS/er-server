@@ -19,6 +19,7 @@ from rt_api import client
 import rt_api.pubsub_listener
 import utils.json
 from utils import stats
+import json
 
 logger = logging.getLogger('rt_api')
 
@@ -224,6 +225,7 @@ def create_realtime_handler(sios):
                     client_data = client.ClientData(
                         sid=sid, username=user.username, bbox=None)
                     client.add_client(sid, client_data)
+                    client.save_session_timestamp(sid)
 
                     # Put the connection into the correct rooms
                     sios.manager.enter_room(sid, 'all_clients', '/das')

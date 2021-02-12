@@ -37,13 +37,21 @@ ClientData = collections.namedtuple('ClientData', FIELDS)
 BBOX_FIELDS = ['west', 'south', 'east', 'north']
 Bbox = collections.namedtuple('Bbox', BBOX_FIELDS)
 
+DEFAULT_SESSION_TIMESTAMP = 'rt_api.default_session_timestamp'
+SESSION_TIMESTAMP_PER_SUBJECT = 'rt_api.sessiontime_per_subject'
+
+
 
 def init_redis_storage():
     logger.info("Initializing redis storage")
     # first, remove existing key to remove stale clients
     redis_client.delete(CLIENT_LIST_KEY)
+
+    redis_client.delete(DEFAULT_SESSION_TIMESTAMP)
+    redis_client.delete(SESSION_TIMESTAMP_PER_SUBJECT)
+
     # add the service as a member of services set
-    redis_client.sadd(REALTIME_SERVICES_KEY, CLIENT_LIST_KEY)
+    redis_client.sadd(REALTIME_SERVICES_KEY, CLIENT_LIST_KEY, DEFAULT_SESSION_TIMESTAMP, SESSION_TIMESTAMP_PER_SUBJECT)
 
 
 def now(tz=pytz.utc):
@@ -185,6 +193,12 @@ def remove_clients(*sids):
     logger.info(
         f'Removed {count} clients (of {len(sids)} listed) from {EXPIRED_CLIENT_TRACES_LIST}')
 
+    count = redis_client.hdel(DEFAULT_SESSION_TIMESTAMP, *sids)
+    logger.info(f"Removed {count} timestamps of {len(sids)} clients")
+
+    count = redis_client.hdel(SESSION_TIMESTAMP_PER_SUBJECT, *sids)
+    logger.info(f"Removed {count} timestamps of {len(sids)} clients")
+
     logger.info('Deleteing mid keys for sids %s.', sids)
     redis_client.delete(*[f'mid-{sid}' for sid in sids])
 
@@ -283,3 +297,27 @@ def pop_trace(trace_id):
 
 def message_index(sid, message_type):
     return redis_client.hincrby(f'mid-{sid}', message_type, 1)
+
+
+def save_session_timestamp(sid, subject_id=None, timestamp=None):
+    timestamp = timestamp or datetime.datetime.now(tz=pytz.utc)
+    if subject_id:
+        redis_client.hset(SESSION_TIMESTAMP_PER_SUBJECT, sid, json.dumps({subject_id: timestamp}))
+    else:
+        redis_client.hset(DEFAULT_SESSION_TIMESTAMP, sid, timestamp)
+
+
+def retrieve_default_session_ts():
+    hashed_table = {}
+    saved_session_ts = redis_client.hgetall(DEFAULT_SESSION_TIMESTAMP)
+    for k, v in saved_session_ts.items():
+        hashed_table[k.decode()] = v.decode()
+    return hashed_table
+
+
+def retrieve_session_ts_subjects():
+    hashed_table = {}
+    saved_session_ts = redis_client.hgetall(SESSION_TIMESTAMP_PER_SUBJECT)
+    for k, v in saved_session_ts.items():
+        hashed_table[k.decode()] = json.loads(v.decode())
+    return hashed_table
