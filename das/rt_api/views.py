@@ -19,7 +19,6 @@ from rt_api import client
 import rt_api.pubsub_listener
 import utils.json
 from utils import stats
-import json
 
 logger = logging.getLogger('rt_api')
 
