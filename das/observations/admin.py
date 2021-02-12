@@ -589,7 +589,7 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
     def get_queryset(self, request):
         """Limit Subjects to those this person can administer"""
         qs = super(SubjectAdmin, self).get_queryset(request)
-        qs = qs.annotate(groups_names=ArrayAgg('groups__name'))\
+        qs = qs.annotate(groups_names=ArrayAgg('groups__name', distinct=True, ordering=F('groups__name')))\
             .prefetch_related('subject_subtype', 'subjectsources',)
         return qs
 
