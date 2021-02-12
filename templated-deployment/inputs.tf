@@ -218,3 +218,8 @@ variable "tableau_default_dashboard" {
   type     = string
   default = "EarthRangerEventReportsSummary_demo" 
 }
+
+variable "track_length" {
+  type    = string
+  default = "21"
+}
