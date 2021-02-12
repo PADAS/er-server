@@ -183,10 +183,13 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
             minimum_allowed_age = get_minimum_allowed_age(user)
             # additional.get('expiry', None)
             mou_expiry_date = user.mou_expiry_date
-
+            
             if mou_expiry_date is not None:
+                if not mou_expiry_date.tzinfo:
+                    mou_expiry_date = mou_expiry_date.replace(tzinfo=pytz.utc)
+
                 mou_expiry_age = datetime.now(
-                    tz=pytz.utc) - mou_expiry_date.replace(tzinfo=pytz.utc)
+                    tz=pytz.utc) - mou_expiry_date
 
                 minimum_allowed_age = max(
                     mou_expiry_age.days, minimum_allowed_age)
@@ -258,7 +261,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                     if mou_expiry_date and (mou_expiry_date.replace(tzinfo=pytz.utc) <= datetime.now(tz=pytz.utc)) \
                             and request.method == 'GET':
                         observation = get_observation_location(
-                            instance, mou_expiry_date)
+                            instance, mou_expiry_date, default_window_cutoff)
                         location = observation.location if observation else get_null_point()
                         recorded_at = observation.recorded_at if observation else None
                     else:
@@ -351,9 +354,23 @@ def resolve_status_values(subject):
             f'SubjectStatus does not exist for subject ID: {subject.id}')
 
 
-def get_observation_location(subject, mou_date):
-    observation = models.Observation.objects.filter(source__subjectsource__subject=subject,
-                                                    recorded_at__lte=mou_date).order_by('-recorded_at').first()
+def get_observation_location(subject, mou_date, default_window_cutoff):
+    """Return the latest subject observation less than the date of expiry,
+    and more recent than the site window cutoff
+
+    Args:
+        subject ([Subject]): observation subject
+        mou_date ([datetime]): user mou expiry
+        default_window_cutoff ([datetime]): the since value
+    Returns:
+        [Observation]: the observation
+    """
+    if mou_date < default_window_cutoff:
+        return None
+    observation = models.Observation.objects.get_subject_observations(
+        subject, since=default_window_cutoff,  until=mou_date, order_by='-recorded_at'
+        ).first()
+
     return observation
 
 

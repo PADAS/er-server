@@ -11,15 +11,12 @@ To re-sync your database with changes from others
 GIS
 * default geodjango spatial reference system is WGS84 (SRID 4326)
 """
-
-from analyzers.models import ObservationAnnotator
-import observations.signals
-from observations.utils import VIEW_END_WINDOWS
 from typing import NamedTuple
 from datetime import datetime, timedelta
 import uuid
 import random
 import itertools
+import logging
 
 # from collections import namedtuple
 #
@@ -31,19 +28,16 @@ from django.db import transaction
 from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.gis.geos import Point, Polygon
+from django.utils.functional import cached_property
+from django.db.models.constraints import UniqueConstraint
 import pymet
 import pytz
-
-import logging
 from dateutil.parser import parse as parse_date
-
 from django.db.models.functions import Greatest, Least
 from django.contrib.gis.db import models as dbmodels
 
 from tracking.pubsub_registry import notify_new_tracks, notify_subjectstatus_update
-from django.utils.functional import cached_property
-from django.db.models.constraints import UniqueConstraint
-
+from observations.utils import VIEW_END_WINDOWS
 from utils.json import zeroout_microseconds
 from das_server import settings
 from accounts.mixins import PermissionSetHierarchyMixin, PermissionSetGroupMixin
@@ -1605,6 +1599,12 @@ class UserSession(TimestampedModel):
     id = models.UUIDField(
         primary_key=True, default=uuid.uuid4, db_column="sid")
     time_range = DateTimeRangeField("user session time", null=True, blank=True)
+
+
+# good to answer at some point, but why we need to import signals here for the test_subjects.py unittests to work
+# without it, the observation signals don't fire and subsequently don't see SubjectStatus records being created
+import observations.signals
+from analyzers.models import ObservationAnnotator
 
 
 class SubjectMaximumSpeed(ObservationAnnotator):
