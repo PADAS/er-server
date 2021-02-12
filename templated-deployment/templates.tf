@@ -65,6 +65,7 @@ resource "template_dir" "deployments" {
     TABLEAU_ENABLED                 = var.tableau_enabled
     TABLEAU_SITE_ID                 = var.tableau_site_id
     TIME_ZONE                       = var.time_zone
+    TRACK_LENGTH                    = var.track_length
     USE_AZURE_STORAGE               = var.use_azure_storage
     WEB_SERVICE_NAME                = var.web_service_name
 
