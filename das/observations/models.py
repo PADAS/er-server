@@ -1601,9 +1601,6 @@ class UserSession(TimestampedModel):
     time_range = DateTimeRangeField("user session time", null=True, blank=True)
 
 
-# good to answer at some point, but why we need to import signals here for the test_subjects.py unittests to work
-# without it, the observation signals don't fire and subsequently don't see SubjectStatus records being created
-import observations.signals
 from analyzers.models import ObservationAnnotator
 
 
