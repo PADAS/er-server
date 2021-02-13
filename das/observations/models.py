@@ -11,11 +11,12 @@ To re-sync your database with changes from others
 GIS
 * default geodjango spatial reference system is WGS84 (SRID 4326)
 """
-
+from typing import NamedTuple
 from datetime import datetime, timedelta
 import uuid
 import random
 import itertools
+import logging
 
 # from collections import namedtuple
 #
@@ -27,19 +28,16 @@ from django.db import transaction
 from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.gis.geos import Point, Polygon
+from django.utils.functional import cached_property
+from django.db.models.constraints import UniqueConstraint
 import pymet
 import pytz
-
-import logging
 from dateutil.parser import parse as parse_date
-
 from django.db.models.functions import Greatest, Least
 from django.contrib.gis.db import models as dbmodels
 
 from tracking.pubsub_registry import notify_new_tracks, notify_subjectstatus_update
-from django.utils.functional import cached_property
-from django.db.models.constraints import UniqueConstraint
-
+from observations.utils import VIEW_END_WINDOWS
 from utils.json import zeroout_microseconds
 from das_server import settings
 from accounts.mixins import PermissionSetHierarchyMixin, PermissionSetGroupMixin
@@ -183,7 +181,8 @@ class SourceManager(models.Manager):
     def get_source(self, *, provider=None, manufacturer_id=None, model_name=None,
                    source_type=None, additional=None, **kwargs):
         additional = additional or {}
-        provider = SourceProvider.objects.create_provider(provider_key=provider)
+        provider = SourceProvider.objects.create_provider(
+            provider_key=provider)
 
         searchkey = dict(manufacturer_id=manufacturer_id, provider=provider)
         defaults = {
@@ -200,10 +199,12 @@ class SourceProviderManager(models.Manager):
         provider_key = kwargs.get("provider_key")
         if provider_key:
             try:
-                provider = SourceProvider.objects.get(provider_key=provider_key)
+                provider = SourceProvider.objects.get(
+                    provider_key=provider_key)
             except SourceProvider.DoesNotExist:
                 if not kwargs.get('display_name'):
-                    kwargs['display_name'] = ' '.join(x.capitalize() or '_' for x in provider_key.split('_'))
+                    kwargs['display_name'] = ' '.join(
+                        x.capitalize() or '_' for x in provider_key.split('_'))
                 provider = SourceProvider.objects.create(**kwargs)
             return provider
 
@@ -533,9 +534,6 @@ class SubjectSourceManager(models.Manager):
             source=source, assigned_range__contains=at_time)
         if subject_sources:
             return subject_sources[0]
-
-
-from typing import NamedTuple
 
 
 class AssignedRangeBounds(NamedTuple):
@@ -1207,15 +1205,16 @@ class SubjectStatusQuerySet(models.QuerySet):
         return range_start, range_end
 
 
-from observations.utils import VIEW_END_WINDOWS
+DEFAULT_STATUS_VALUE_DATE = datetime(1970, 1, 1, tzinfo=pytz.utc)
+DEFAULT_STATUS_VALUE_LOCATION = EMPTY_POINT
 
 
 class SubjectStatusManager(models.Manager):
 
     DEFAULT_STATUS_VALUES = {
-        'location': EMPTY_POINT,
-        'recorded_at': datetime(1970, 1, 1, tzinfo=pytz.utc),
-        'radio_state_at': datetime(1970, 1, 1, tzinfo=pytz.utc),
+        'location': DEFAULT_STATUS_VALUE_LOCATION,
+        'recorded_at': DEFAULT_STATUS_VALUE_DATE,
+        'radio_state_at': DEFAULT_STATUS_VALUE_DATE,
     }
 
     # Delayed windows include all but 'current'.
@@ -1597,11 +1596,11 @@ class SocketClient(TimestampedModel):
 
 
 class UserSession(TimestampedModel):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_column="sid")
+    id = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, db_column="sid")
     time_range = DateTimeRangeField("user session time", null=True, blank=True)
 
 
-import observations.signals
 from analyzers.models import ObservationAnnotator
 
 

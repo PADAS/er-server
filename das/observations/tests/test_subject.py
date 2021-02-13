@@ -21,7 +21,7 @@ import dateutil.parser as dateparser
 from pytz import UTC
 
 from core.tests import BaseAPITest
-from observations.models import Subject, Observation, GPXTrackFile, SubjectSource, Source
+from observations.models import Subject, Observation, GPXTrackFile, SubjectSource, Source, SubjectStatus
 from observations.utils import calculate_track_range
 from observations.views import SubjectsView, GPXFileUploadView
 from observations.admin import GPXAdmin
@@ -34,6 +34,8 @@ TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),
 
 class SubjectTestCase(BaseAPITest):
     fixtures = [
+        'test/user_and_usergroup.yaml',
+        'test/source_group.json',
         'test/observations_source.json',
         'test/observations_subject.json',
         'test/observations_subject_source.json',
@@ -52,6 +54,29 @@ class SubjectTestCase(BaseAPITest):
         self.site = AdminSite()
         self.request = RequestFactory()
         self.admin = GPXAdmin(model=GPXTrackFile, admin_site=self.site)
+
+    def test_empty_point_not_included_in_subject_tracks(self):
+        from django.contrib.gis.geos import Point
+        coordinates = self.get_coordinates_returned()
+        monitored_location = Point(50.7586930900307, 40.3297162190965) # Existing trackpoint from fixtures
+        self.assertEqual(3, len(coordinates))
+        self.assertIn(monitored_location.coords, coordinates)
+
+        # Update one coordinate to an empty point
+        Observation.objects.filter(location=monitored_location).update(location=Point(0, 0))
+        new_coordinates = self.get_coordinates_returned()
+        self.assertNotIn(monitored_location.coords, new_coordinates)
+        self.assertEqual(2, len(new_coordinates))  # Track not included in tracks
+
+    def get_coordinates_returned(self):
+        from observations import views
+        self.satellite_user = User.objects.get(username='satellite-user')
+        self.henry = Subject.objects.get(name='Henry')
+
+        request = self.factory.get(self.api_base + '/subject/{}/tracks/'.format(self.henry.id))
+        self.force_authenticate(request, self.satellite_user)
+        response = views.SubjectTracksView.as_view()(request, subject_id=self.henry.id)
+        return response.data['features'][0]['geometry']['coordinates']
 
     def test_subject_observations(self):
         subject = Subject.objects.get(name='Topsy')
@@ -142,6 +167,7 @@ class SubjectTestCase(BaseAPITest):
 
     @override_settings(SHOW_STATIONARY_SUBJECTS_ON_MAP=True)
     @override_settings(SHOW_TRACK_DAYS=16)
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_date_range_filter_works(self):
         url = reverse('subjects-list-view')
 
@@ -207,6 +233,8 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(actual_size, expected_size)
 
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    @override_settings(SHOW_TRACK_DAYS=16)
     def test_date_range_filter_works_with_bbox(self):
         url = reverse('subjects-list-view')
 
@@ -249,9 +277,14 @@ class SubjectTestCase(BaseAPITest):
 
     @property
     def additional_data_for_user(self):
-        expiry_date = (datetime.now(tz=UTC) +
+        """Additional user data that sets the mou expiry to 5 days ago.
+
+        Returns:
+            [type]: [description]
+        """
+        expiry_date = (datetime.now(tz=UTC) -
                        timedelta(days=5)).date().isoformat()
-        mou_datesigned = datetime.now(tz=UTC).date().isoformat()
+        mou_datesigned = (datetime.now(tz=UTC) - timedelta(days=50)).date().isoformat()
         additional_data = {
             'notes': 'Testing Notes',
             'expiry': expiry_date,
@@ -262,6 +295,7 @@ class SubjectTestCase(BaseAPITest):
         }
         return additional_data
 
+    @override_settings(SHOW_TRACK_DAYS=16)
     def test_subject_api_returning_last_position_per_MOU_expiry(self):
         url = reverse('subjects-list-view')
 
@@ -279,9 +313,9 @@ class SubjectTestCase(BaseAPITest):
         subject3 = Subject.objects.get(name='StatusGuy')
 
         point = Point((-122.334, 47.598))
-        t1 = datetime.now(tz=UTC)
-        t2 = datetime.now(tz=UTC) + timedelta(days=3)
-        t3 = datetime.now(tz=UTC) + timedelta(days=5)
+        t1 = datetime.now(tz=UTC) - timedelta(days=10)
+        t2 = datetime.now(tz=UTC) - timedelta(days=7)
+        t3 = datetime.now(tz=UTC) - timedelta(days=4)
 
         Observation.objects.create(
             source=subject.source,
@@ -307,6 +341,7 @@ class SubjectTestCase(BaseAPITest):
 
         self.force_authenticate(request, user)
         response = SubjectsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
 
         response_data = json.loads(response.render().content.decode())['data']
         extracted_data = {}
@@ -316,7 +351,9 @@ class SubjectTestCase(BaseAPITest):
             elif o['id'] == str(subject2.id):
                 extracted_data['subject2_last_position'] = o['last_position_date']
             elif o['id'] == str(subject3.id):
-                extracted_data['subject3_last_position'] = o['last_position_date']
+                # Past MOU expiry date, should not retrieve observation past mou expiry date.
+                assert 'last_position' not in o
+                assert not o['tracks_available']
 
         # subject1 and subject2 are within MOU expiry date.
         subject_last_position = dateparser.parse(
@@ -325,14 +362,9 @@ class SubjectTestCase(BaseAPITest):
             extracted_data.get('subject2_last_position')).date().isoformat()
         self.assertEqual(t1.date().isoformat(), subject_last_position)
         self.assertEqual(t2.date().isoformat(), subject2_last_postion)
-
-        # Past MOU expiry date, should not retrieve observation past mou expiry date.
-        subject3_last_position = extracted_data.get(
-            'subject3_last_position')  # return None
-        self.assertNotEqual(t3.date().isoformat(), subject3_last_position)
-        self.assertEqual(response.status_code, 200)
-
-    def test_return_point_zero_zero_when_geometry_null(self):
+        
+    @override_settings(SHOW_TRACK_DAYS=16)
+    def test_return_no_last_position_past_mou_expiry(self):
         url = reverse('subjects-list-view')
 
         password = User.objects.make_random_password()
@@ -346,7 +378,7 @@ class SubjectTestCase(BaseAPITest):
 
         subject = Subject.objects.get(name='StatusGuy')
         point = Point((-122.334, 47.598))
-        t1 = datetime.now(tz=UTC) + timedelta(days=6)
+        t1 = datetime.now(tz=UTC)
 
         # this observation is past mou date
         Observation.objects.create(
@@ -365,9 +397,9 @@ class SubjectTestCase(BaseAPITest):
         extracted_data = {}
         for o in response_data:
             if o['id'] == str(subject.id):
-                extracted_data['last_position'] = o['last_position']['geometry']['coordinates']
-        geom_ = extracted_data.get('last_position')
-        self.assertEqual(geom_, [0.0, 0.0])
+                assert 'last_postion' not in o
+                assert not o['tracks_available']
+
 
     def test_gpx_file_model(self):
 
@@ -608,3 +640,5 @@ class SubjectTestCase(BaseAPITest):
         self.assertTrue(self.no_perms_user.has_perm(
             'observations.add_observation'))
         self.assertEqual(response.status_code, 201)
+
+
