@@ -1,1 +1,1 @@
-time_zone           = "Africa/Kinshasa"
+time_zone           = "Africa/Lubumbashi"
