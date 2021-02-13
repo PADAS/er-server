@@ -90,19 +90,29 @@ class GenericSensorHandler:
 
     @classmethod
     def process_observations(cls, observations_json, provider_key, sensor_type, batch_size=128):
-
+        created = False
         obs_to_persist, errors, obs_cache = [], [], set()
         batches = cls.generate_batches(observations_json, batch_size)
         for batch in batches:
             for an_observation in batch:
-                cls.process_one_observation(
+                created |= cls.process_one_observation(
                     an_observation, provider_key, sensor_type, obs_to_persist, obs_cache, errors)
         cls.save_and_notify_tracks_listeners(obs_to_persist, errors, obs_cache)
 
-        return Response({}, status=status.HTTP_201_CREATED)
+        return Response({}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     @classmethod
     def process_one_observation(cls, an_observation, provider_key, sensor_type, obs_to_persist, obs_cache, errors):
+        """return True if an observation was created
+
+        Args:
+            an_observation ([type]): [description]
+            provider_key ([type]): [description]
+            sensor_type ([type]): [description]
+            obs_to_persist ([type]): [description]
+            obs_cache ([type]): [description]
+            errors ([type]): [description]
+        """
         manufacturer_id = an_observation['manufacturer_id']
         location = an_observation['location']
         lat = location.get('lat', None)
@@ -126,7 +136,8 @@ class GenericSensorHandler:
                                                'subject_groups': clean_subjectgroups(an_observation.get('subject_groups')),
                                                'id': an_observation.get('subject_id')
                                            },
-                                           additional=an_observation.get('source_additional')
+                                           additional=an_observation.get(
+                                               'source_additional')
                                            )
         recorded_at = an_observation.get('recorded_at')
         additional = an_observation.get('additional', {})
@@ -140,11 +151,12 @@ class GenericSensorHandler:
         obs_key = (str(src.id), recorded_at)
         # Short-circuit if we already have this observation.
         if obs_key in obs_cache or Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
-            logger.debug("Processed duplicate observation %s",
-                         subject_subtype, extra={'obs.dup': provider_key})
+            logger.info(f"Processed duplicate observation {src.manufacturer_id} @ {recorded_at}",
+                        extra={'obs.dup': provider_key, 'manufacturer_id': src.manufacturer_id, 'recorded_at': recorded_at.isoformat()})
             errors.append({})
-            return
+            return False
 
+        created = False
         obs_cache.add(obs_key)
         # TODO: constructing serializers in 2 different places - this below
         # validates each observation
@@ -154,8 +166,11 @@ class GenericSensorHandler:
             logger.debug("Added new observation %s", observation,
                          extra={'obs.new': provider_key})
             errors.append({})
+            created = True
         else:
             errors.append(validator.errors)
+
+        return created
 
 
 class ErTrackHandler(GenericSensorHandler):
@@ -193,14 +208,17 @@ class ErTrackHandler(GenericSensorHandler):
             if source_created and not subject_info:
                 subject_model = Subject.objects.create_subject(
                     **{'name': source.manufacturer_id})
-                SubjectSource.objects.create(source=source, subject=subject_model)
+                SubjectSource.objects.create(
+                    source=source, subject=subject_model)
             elif subject_info:
 
                 recorded_at = observation.get('recorded_at')
                 mutate_ertrack_subject_assignment(source=source,
                                                   is_new_source=source_created,
-                                                  subject_name=subject_info.get('name'),
-                                                  subject_subtype_id=subject_info.get('subject_subtype_id'),
+                                                  subject_name=subject_info.get(
+                                                      'name'),
+                                                  subject_subtype_id=subject_info.get(
+                                                      'subject_subtype_id'),
                                                   recorded_at=recorded_at,
                                                   user=user)
             return source
@@ -214,16 +232,17 @@ class ErTrackHandler(GenericSensorHandler):
         location = {'latitude': float(lat), 'longitude': float(lon)}
         subject_subtype = an_observation.get(
             'subject_subtype') or cls.DEFAULT_SUBJECT_SUBTYPE
-        source_type = an_observation.get('source_type', provider_key) or provider_key
+        source_type = an_observation.get(
+            'source_type', provider_key) or provider_key
         model_name = an_observation.get('model_name', None) or '{}:{}'.format(
             sensor_type, provider_key)
         subject_name = an_observation.get('subject_name') or manufacturer_id
         subject_info = {
-               'subject_subtype_id': subject_subtype,
-               'name': subject_name,
-               'subject_groups': clean_subjectgroups(an_observation.get('subject_groups')),
-               'id': an_observation.get('subject_id')
-            }
+            'subject_subtype_id': subject_subtype,
+            'name': subject_name,
+            'subject_groups': clean_subjectgroups(an_observation.get('subject_groups')),
+            'id': an_observation.get('subject_id')
+        }
 
         src = cls.ensure_source(
             an_observation, user, subject_info,
@@ -680,6 +699,7 @@ class TractVehicleHandler():
     SENSOR_TYPE = 'vehicle-observation'
     DEFAULT_SUBJECT_SUBTYPE = 'truck'
     serializer_class = TractVehicleData
+
     @classmethod
     def post(cls, request, provider_key):
 
@@ -782,6 +802,7 @@ class SigFoxPushHandler():
 
 class GateHandler:
     SENSOR_TYPE = 'gate'
+
     @classmethod
     def post(cls, request, provider_key):
         logger.info(f"{cls.SENSOR_TYPE} observation {request.data} for provider {provider_key}",
@@ -795,6 +816,7 @@ class GateHandler:
 
 class TestHandler:
     SENSOR_TYPE = 'test'
+
     @classmethod
     def post(cls, request, provider_key):
         logger.info(f"{cls.SENSOR_TYPE} observation {request.data} for provider {provider_key}",
@@ -843,7 +865,8 @@ class EzyTrackHandler:
                 }
             )
             if Observation.objects.filter(source=src, recorded_at=das_observation.recorded_at).exists():
-                logger.info("Processed duplicate observation {}".format(das_observation))
+                logger.info(
+                    "Processed duplicate observation {}".format(das_observation))
                 return Response(data={}, status=status.HTTP_200_OK)
             else:
                 observation = {
@@ -853,14 +876,17 @@ class EzyTrackHandler:
                     'additional': das_observation.additional
                 }
 
-                observation_serializer = ObservationSerializer(data=observation)
+                observation_serializer = ObservationSerializer(
+                    data=observation)
                 if observation_serializer.is_valid():
                     observation_serializer.save()
                     logger.debug("New observation added. %s" % observation)
                     notify_new_tracks(src.id)
                 else:
-                    logger.debug("Error occured while serializing observation: %s " % observation_serializer.errors)
-                    status_msg = {'status': 400, 'message': observation_serializer.errors}
+                    logger.debug(
+                        "Error occured while serializing observation: %s " % observation_serializer.errors)
+                    status_msg = {'status': 400,
+                                  'message': observation_serializer.errors}
                     return Response(data=status_msg, status=status.HTTP_400_BAD_REQUEST)
 
         status_ok = {'status': 201, 'message': 'Success'}
@@ -927,7 +953,8 @@ class InreachPushHandler:
         obs = DasObservation(
             location={'latitude': point.pop('latitude'),
                       'longitude': point.pop('longitude')},
-            recorded_at=datetime.fromtimestamp(data.get('timeStamp')/1000, timezone.utc),
+            recorded_at=datetime.fromtimestamp(
+                data.get('timeStamp')/1000, timezone.utc),
             manufacturer_id=data.get('imei'),
             subject_name=data.get('imei'),
             subject_type=cls.subject_type,
@@ -972,4 +999,5 @@ class InreachPushHandler:
                 cls.new_observations += 1
                 logger.info(f'New observation created from source {cls.src}')
             else:
-                logger.error(f'Invalid observation records {serializer.errors}')
+                logger.error(
+                    f'Invalid observation records {serializer.errors}')
