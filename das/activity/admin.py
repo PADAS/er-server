@@ -117,7 +117,7 @@ class EventTypeAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (None, {
-            'fields': ('display', 'value', 'category', 'is_collection', 'icon', 'ordernum', )
+            'fields': ('display', 'value', 'category', 'is_collection', 'icon', 'ordernum', 'auto_eventtype_resolve')
         }
         ),
         ('Default Values', {
@@ -179,6 +179,15 @@ class EventTypeAdmin(admin.ModelAdmin):
 
     def add_view(self, request, form_url='', extra_context=None):
         return super().add_view(request, form_url=form_url, extra_context=extra_context)
+
+    def save_form(self, request, form, change):
+        auto_resolve = form.cleaned_data.get('auto_resolve')
+        resolve_time = form.cleaned_data.get('resolve_time')
+        new_object = super().save_form(request, form, change)
+
+        new_object.auto_resolve = auto_resolve
+        new_object.resolve_time = resolve_time
+        return new_object
 
 
 @admin.register(models.EventSource)

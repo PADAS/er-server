@@ -263,6 +263,13 @@ class EventType(TimestampedModel):
                 }''')
 
     is_collection = models.BooleanField(default=False)
+    auto_resolve = models.BooleanField(default=False)
+    resolve_time = models.PositiveSmallIntegerField(blank=True, null=True)  # Specify integer of hour(s).
+
+    class Meta:
+        constraints = [models.CheckConstraint(check=Q(auto_resolve=False, resolve_time__isnull=True) |
+                                                    Q(auto_resolve=True, resolve_time__isnull=False),
+                                              name='auto_resolve_constraint')]
 
     objects = EventTypeManager.from_queryset(EventTypeFilteringQuerySet)()
 

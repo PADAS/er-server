@@ -5,7 +5,7 @@ import logging
 from datetime import datetime, timedelta
 from celery_once import QueueOnce
 from versatileimagefield.image_warmer import VersatileImageFieldWarmer
-from django.db.models import Q
+from django.db.models import Q, F
 from django.db import transaction
 
 from activity.alerting.businessrules import resolve_event_revisions, \
@@ -13,7 +13,7 @@ from activity.alerting.businessrules import resolve_event_revisions, \
 from activity.alerting.message import send_event_alert, \
     get_revised_event_fields, get_revised_event_details_fields
 from activity.alerting.service import evaluate_event
-from activity.models import EventPhoto, Event, AlertRule, RefreshRecreateEventDetailView, Patrol, PC_DONE, PC_OPEN
+from activity.models import EventPhoto, Event, AlertRule, RefreshRecreateEventDetailView, Patrol, PC_DONE, PC_OPEN, EventType, SC_RESOLVED
 from das_server import celery, pubsub
 from activity.materialized_view import refresh_materialized_view, re_create_view, check_db_view_exists
 
@@ -171,3 +171,11 @@ def maintain_patrol_state():
     for instance in done_patrols:
         instance.state = PC_DONE
         instance.save()
+
+
+@celery.app.task
+def automatically_update_event_state():
+    events = Event.objects.filter(created_at__lte=F('created_at') + timedelta(hours=1)*F('event_type__resolve_time'),
+                                  event_type__auto_resolve=True).exclude(state=SC_RESOLVED)
+
+    events.update(state=SC_RESOLVED)
