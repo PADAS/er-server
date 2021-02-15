@@ -15,7 +15,7 @@ from django.conf import settings
 from django.db import close_old_connections
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.request import Request
-from django.urls import resolve
+from django.urls import reverse
 
 from observations import servicesutils
 
@@ -219,7 +219,7 @@ def _subjectstatus_update_handler(subject_id):
         get_subjectstatus_payload = partial(
             get_subjectstatus_view, SubjectStatusView.as_view())
 
-        get_observations_payload = partial(get_observations_view, ObservationsView)
+        get_observations_payload = partial(get_observations_view, ObservationsView.as_view())
 
         user_sids_map = get_username_sids_map()
         logger.debug('user_sids_map: %s', user_sids_map)
@@ -318,16 +318,21 @@ def get_subjectstatus_view(view, user, subject_id):
 
 
 def get_observations_view(view, user, subject_id, created_at):
-    url = resolve('observations-list-view')
+    url = reverse('observations-list-view')
+    query_parameter = {
+        'subject_id': subject_id,
+        'rt_emit_payload': True,
+        'created_at': created_at
+    }
     request = DummyRequest(
-        uri=f'{url}?subject_id={subject_id}&rt_emit_payload=true&created_at={created_at}', http_method='GET', user=user)
+        uri=url, http_method='GET', user=user, query_parameters=query_parameter)
 
     result = view(request, subject_id=subject_id)
 
     logger.info(f"ObservationsView result: {result}")
-    if result.status_code != 200 or not result.data:
+    if result.status_code != 200 or not result.data.get('results'):
         return
-    return result.data
+    return result.data.get('results')
 
 
 @celery.app.task()

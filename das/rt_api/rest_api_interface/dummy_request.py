@@ -35,7 +35,7 @@ class DummyRequest(HttpRequest):
     def get_full_path(self):
         return self.uri
 
-    def build_absolute_uri(self, url):
+    def build_absolute_uri(self, url=None):
         return url
 
     def copy(self, *args):

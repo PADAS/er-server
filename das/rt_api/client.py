@@ -51,7 +51,7 @@ def init_redis_storage():
     redis_client.delete(SESSION_TIMESTAMP_PER_SUBJECT)
 
     # add the service as a member of services set
-    redis_client.sadd(REALTIME_SERVICES_KEY, CLIENT_LIST_KEY, DEFAULT_SESSION_TIMESTAMP, SESSION_TIMESTAMP_PER_SUBJECT)
+    redis_client.sadd(REALTIME_SERVICES_KEY, CLIENT_LIST_KEY)
 
 
 def now(tz=pytz.utc):
