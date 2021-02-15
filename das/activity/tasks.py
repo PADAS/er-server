@@ -177,5 +177,6 @@ def maintain_patrol_state():
 def automatically_update_event_state():
     events = Event.objects.filter(created_at__lte=F('created_at') + timedelta(hours=1)*F('event_type__resolve_time'),
                                   event_type__auto_resolve=True).exclude(state=SC_RESOLVED)
-
-    events.update(state=SC_RESOLVED)
+    for e in events:
+        e.state = SC_RESOLVED
+        e.save()
