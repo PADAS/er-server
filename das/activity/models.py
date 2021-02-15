@@ -264,7 +264,7 @@ class EventType(TimestampedModel):
 
     is_collection = models.BooleanField(default=False)
     auto_resolve = models.BooleanField(default=False)
-    resolve_time = models.PositiveSmallIntegerField(blank=True, null=True)
+    resolve_time = models.PositiveSmallIntegerField(blank=True, null=True)  # Specify integer of hour(s).
 
     class Meta:
         constraints = [models.CheckConstraint(check=Q(auto_resolve=False, resolve_time__isnull=True) |

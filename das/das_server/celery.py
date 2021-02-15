@@ -149,7 +149,7 @@ app.conf.beat_schedule = {
     },
     'auto-resolve': {
         'task': 'activity.tasks.automatically_update_event_state',
-        'schedule': timedelta(hours=1)
+        'schedule': timedelta(minutes=5)
     }
 
 }

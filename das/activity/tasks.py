@@ -16,7 +16,6 @@ from activity.alerting.service import evaluate_event
 from activity.models import EventPhoto, Event, AlertRule, RefreshRecreateEventDetailView, Patrol, PC_DONE, PC_OPEN, EventType, SC_RESOLVED
 from das_server import celery, pubsub
 from activity.materialized_view import refresh_materialized_view, re_create_view, check_db_view_exists
-from dateutil.parser import parse as parse_date
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +175,7 @@ def maintain_patrol_state():
 
 @celery.app.task
 def automatically_update_event_state():
-    events = Event.objects.filter(created_at__lte=F('created_at') + timedelta(minutes=60)*F('event_type__resolve_time'),
+    events = Event.objects.filter(created_at__lte=F('created_at') + timedelta(hours=1)*F('event_type__resolve_time'),
                                   event_type__auto_resolve=True).exclude(state=SC_RESOLVED)
 
     events.update(state=SC_RESOLVED)
