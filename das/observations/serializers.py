@@ -580,12 +580,24 @@ class ObservationSerializer(rest_framework.serializers.ModelSerializer):
 
     def to_representation(self, instance):
         rep = super(ObservationSerializer, self).to_representation(instance)
-        if self.context.get('rt_emit_payload') and rep.get('location'):
-            return {'coordinates': [rep['location']['longitude'], rep['location']['latitude']], 'time': rep.get('recorded_at')}
-        elif self.context.get('include_details'):
+        if self.context.get('include_details'):
             rep['observation_details'] = rep['additional']
         rep.pop('additional')
         return rep
+
+
+class FlattenObservationSerializer(rest_framework.serializers.ModelSerializer):
+    location = PointField(required=False)
+
+    class Meta:
+        model = models.Observation
+        fields = ('location', 'recorded_at')
+
+    def to_representation(self, instance):
+        rep = super(FlattenObservationSerializer, self).to_representation(instance)
+        representation = {'coordinates': [rep['location']['longitude'], rep['location']['latitude']],
+                          'time': rep.get('recorded_at')}
+        return representation
 
 
 SUBJECT_STATUS_RETURN_FIELDS = (

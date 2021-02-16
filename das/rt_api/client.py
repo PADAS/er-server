@@ -37,18 +37,14 @@ ClientData = collections.namedtuple('ClientData', FIELDS)
 BBOX_FIELDS = ['west', 'south', 'east', 'north']
 Bbox = collections.namedtuple('Bbox', BBOX_FIELDS)
 
-DEFAULT_SESSION_TIMESTAMP = 'rt_api.default_session_timestamp'
-SESSION_TIMESTAMP_PER_SUBJECT = 'rt_api.sessiontime_per_subject'
-
-
 
 def init_redis_storage():
     logger.info("Initializing redis storage")
     # first, remove existing key to remove stale clients
     redis_client.delete(CLIENT_LIST_KEY)
 
-    redis_client.delete(DEFAULT_SESSION_TIMESTAMP)
-    redis_client.delete(SESSION_TIMESTAMP_PER_SUBJECT)
+    [redis_client.delete(key) for key in redis_client.scan_iter('rt-session-timestamp-*')]
+    [redis_client.delete(key) for key in redis_client.scan_iter('rt-subject-timestamps-*')]
 
     # add the service as a member of services set
     redis_client.sadd(REALTIME_SERVICES_KEY, CLIENT_LIST_KEY)
@@ -193,14 +189,13 @@ def remove_clients(*sids):
     logger.info(
         f'Removed {count} clients (of {len(sids)} listed) from {EXPIRED_CLIENT_TRACES_LIST}')
 
-    count = redis_client.hdel(DEFAULT_SESSION_TIMESTAMP, *sids)
-    logger.info(f"Removed {count} timestamps of {len(sids)} clients")
-
-    count = redis_client.hdel(SESSION_TIMESTAMP_PER_SUBJECT, *sids)
-    logger.info(f"Removed {count} timestamps of {len(sids)} clients")
-
     logger.info('Deleteing mid keys for sids %s.', sids)
     redis_client.delete(*[f'mid-{sid}' for sid in sids])
+
+    logger.info('Deleteing session timestamp keys for sids %s.', sids)
+    redis_client.delete(*[f'rt-session-timestamp-{sid}' for sid in sids])
+    redis_client.delete(*[f'rt-subject-timestamps-{sid}' for sid in sids])
+
 
     from observations.models import SocketClient
 
@@ -302,22 +297,20 @@ def message_index(sid, message_type):
 def save_session_timestamp(sid, subject_id=None, timestamp=None):
     timestamp = timestamp or datetime.datetime.now(tz=pytz.utc)
     if subject_id:
-        redis_client.hset(SESSION_TIMESTAMP_PER_SUBJECT, sid, json.dumps({subject_id: timestamp}))
+        redis_client.hset(f'rt-subject-timestamps-{sid}', subject_id, timestamp)
     else:
-        redis_client.hset(DEFAULT_SESSION_TIMESTAMP, sid, timestamp)
+        redis_client.hset(f'rt-session-timestamp-{sid}', sid, timestamp)
 
 
-def retrieve_default_session_ts():
+def get_session_ts(sid):
+    """retrieve session timestamp"""
     hashed_table = {}
-    saved_session_ts = redis_client.hgetall(DEFAULT_SESSION_TIMESTAMP)
-    for k, v in saved_session_ts.items():
-        hashed_table[k.decode()] = v.decode()
-    return hashed_table
+    pipe = redis_client.pipeline(transaction=False)
 
+    pipe.hgetall(f'rt-session-timestamp-{sid}')
+    pipe.hgetall(f'rt-subject-timestamps-{sid}')
 
-def retrieve_session_ts_subjects():
-    hashed_table = {}
-    saved_session_ts = redis_client.hgetall(SESSION_TIMESTAMP_PER_SUBJECT)
-    for k, v in saved_session_ts.items():
-        hashed_table[k.decode()] = json.loads(v.decode())
+    for o in pipe.execute():
+        for k, v in o.items():
+            hashed_table[k.decode()] = v.decode()
     return hashed_table

@@ -265,9 +265,10 @@ def _subjectstatus_update_handler(subject_id):
 
                 # emit batch observations
                 for sid in user_sids:
-                    created_at = client.retrieve_session_ts_subjects().get(sid)[subject_id] \
-                        if client.retrieve_session_ts_subjects().get(sid) else client.retrieve_default_session_ts().get(sid)
-                    payload = get_observations_payload(user, subject_id, created_at=created_at)
+                    session_ts = client.get_session_ts(sid)
+                    created_after = session_ts.get(subject_id) or session_ts.get(sid)
+
+                    payload = get_observations_payload(user, subject_id, created_after=created_after)
                     if payload:
                         emit_data = {
                                 'type': 'merge',
@@ -317,12 +318,12 @@ def get_subjectstatus_view(view, user, subject_id):
     return result.data
 
 
-def get_observations_view(view, user, subject_id, created_at):
+def get_observations_view(view, user, subject_id, created_after):
     url = reverse('observations-list-view')
     query_parameter = {
         'subject_id': subject_id,
-        'rt_emit_payload': True,
-        'created_at': created_at
+        'json_format': 'flat',
+        'created_after': created_after
     }
     request = DummyRequest(
         uri=url, http_method='GET', user=user, query_parameters=query_parameter)

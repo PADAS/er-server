@@ -294,7 +294,7 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
             return self.by_until(recorded_until)
         return self
 
-    def by_created(self, timestamp):
+    def by_created_after(self, timestamp):
         return self.filter(Q(created_at__gt=timestamp))
 
     def by_exclusion_flags(self, filter_flag=None):
