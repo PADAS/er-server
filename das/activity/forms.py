@@ -82,12 +82,13 @@ class AutoResolveWidget(forms.MultiWidget):
 
 class AutoResolveField(forms.fields.MultiValueField):
     widget = AutoResolveWidget
-    error_message_hours = {'min_value': "Ensure 'value for hour' is greater than or equal to 1"}
+    error_message_hours = {'min_value': "Ensure 'value for hour' is greater than or equal to 1",
+                           'max_value': "Ensure 'value for hour' is less than or equal to 10,000"}
 
     def __init__(self, *args, **kwargs):
         _fields = [
             forms.fields.BooleanField(),
-            forms.fields.IntegerField(required=False, min_value=1, error_messages=self.error_message_hours)]
+            forms.fields.IntegerField(required=False, min_value=1, max_value=10000, error_messages=self.error_message_hours)]
         super().__init__(_fields, *args, **kwargs)
 
     def compress(self, values):
