@@ -24,7 +24,7 @@ def get_ip_address():
     return s.getsockname()[0]
 
 
-SERVICE_ID = socket.gethostbyname(socket.gethostname()) or str(get_ip_address())
+SERVICE_ID = 1
 CLIENT_LIST_KEY = 'rt_api.{}'.format(SERVICE_ID)
 EXPIRED_CLIENT_TRACES_LIST = 'rt_api.expired_traces'
 REALTIME_SERVICES_KEY = 'rt_api.services'
@@ -295,22 +295,14 @@ def message_index(sid, message_type):
 
 
 def save_session_timestamp(sid, subject_id=None, timestamp=None):
-    timestamp = timestamp or datetime.datetime.now(tz=pytz.utc)
+    timestamp = datetime.datetime.now(tz=pytz.utc)
     if subject_id:
         redis_client.hset(f'rt-subject-timestamps-{sid}', subject_id, timestamp)
     else:
         redis_client.hset(f'rt-session-timestamp-{sid}', sid, timestamp)
 
 
-def get_session_ts(sid):
+def get_session_ts(sid, subject_id):
     """retrieve session timestamp"""
-    hashed_table = {}
-    pipe = redis_client.pipeline(transaction=False)
-
-    pipe.hgetall(f'rt-session-timestamp-{sid}')
-    pipe.hgetall(f'rt-subject-timestamps-{sid}')
-
-    for o in pipe.execute():
-        for k, v in o.items():
-            hashed_table[k.decode()] = v.decode()
-    return hashed_table
+    ts = redis_client.hget(f'rt-subject-timestamps-{sid}', subject_id) or redis_client.hget(f'rt-session-timestamp-{sid}', sid)
+    return ts.decode()

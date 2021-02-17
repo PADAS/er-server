@@ -265,13 +265,12 @@ def _subjectstatus_update_handler(subject_id):
 
                 # emit batch observations
                 for sid in user_sids:
-                    session_ts = client.get_session_ts(sid)
-                    created_after = session_ts.get(subject_id) or session_ts.get(sid)
+                    created_after = client.get_session_ts(sid, subject_id)
 
                     payload = get_observations_payload(user, subject_id, created_after=created_after)
                     if payload:
                         emit_data = {
-                                'type': 'merge',
+                                'type': 'subject_track_merge',
                                 'sid': sid,
                                 'subject_id': subject_id,
                                 'points': payload
@@ -281,11 +280,11 @@ def _subjectstatus_update_handler(subject_id):
                         logger.debug("Emitting: %s", emit_message)
                         pubsub.publish(emit_message, routing_key='das.realtime.emit')
 
-                        client.save_session_timestamp(sid, subject_id, timestamp=payload[0].get('time'))
-
                     else:
                         logger.warning(
                             'Observation payload is empty.', extra=dict(username=username, subject_id=subject_id))
+
+                    client.save_session_timestamp(sid, subject_id)
 
             except:
                 logger.exception(
@@ -325,12 +324,9 @@ def get_observations_view(view, user, subject_id, created_after):
         'json_format': 'flat',
         'created_after': created_after
     }
-    request = DummyRequest(
-        uri=url, http_method='GET', user=user, query_parameters=query_parameter)
+    request = DummyRequest(uri=url, http_method='GET', user=user, query_parameters=query_parameter)
 
     result = view(request, subject_id=subject_id)
-
-    logger.info(f"ObservationsView result: {result}")
     if result.status_code != 200 or not result.data.get('results'):
         return
     return result.data.get('results')
