@@ -905,6 +905,7 @@ class ObservationsView(generics.ListCreateAPIView):
 
         mou_date = self.request.user.additional.get('expiry', None)
         mou_expiry_date = dateparse(mou_date) if mou_date else None
+        created_after = dateparse(created_after) if created_after else None
 
         if mou_expiry_date:
             queryset = queryset.filter(recorded_at__lte=mou_expiry_date)
