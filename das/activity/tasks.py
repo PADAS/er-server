@@ -16,6 +16,7 @@ from activity.alerting.service import evaluate_event
 from activity.models import EventPhoto, Event, AlertRule, RefreshRecreateEventDetailView, Patrol, PC_DONE, PC_OPEN, EventType, SC_RESOLVED
 from das_server import celery, pubsub
 from activity.materialized_view import refresh_materialized_view, re_create_view, check_db_view_exists
+from activity.util import get_er_user
 
 logger = logging.getLogger(__name__)
 
@@ -177,6 +178,8 @@ def maintain_patrol_state():
 def automatically_update_event_state():
     events = Event.objects.filter(created_at__lte=F('created_at') + timedelta(hours=1)*F('event_type__resolve_time'),
                                   event_type__auto_resolve=True).exclude(state=SC_RESOLVED)
+    er_system_user = get_er_user()
     for e in events:
         e.state = SC_RESOLVED
+        setattr(e, 'revision_user', er_system_user)
         e.save()
