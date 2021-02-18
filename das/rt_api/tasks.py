@@ -265,15 +265,18 @@ def _subjectstatus_update_handler(subject_id):
 
                 # emit batch observations
                 for sid in user_sids:
-                    created_after = client.get_session_ts(sid, subject_id)
+                    created_after = client.get_sid_subject_timestamp(sid, subject_id)
 
                     payload = get_observations_payload(user, subject_id, created_after=created_after)
+
                     if payload:
+                        # TODO: move this order-by clause into the view.
+                        points = sorted(payload, key=lambda x: x['time'], reverse=True)
                         emit_data = {
                                 'type': 'subject_track_merge',
                                 'sid': sid,
                                 'subject_id': subject_id,
-                                'points': payload
+                                'data': { 'points': points }
                         }
                         emit_message = json.dumps(emit_data, default=dumps_helper)
 

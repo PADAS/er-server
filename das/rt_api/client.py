@@ -38,13 +38,16 @@ BBOX_FIELDS = ['west', 'south', 'east', 'north']
 Bbox = collections.namedtuple('Bbox', BBOX_FIELDS)
 
 
+SID_SUBJECTS_TIMESTAMPS_KEY = 'sid-subject-timestamps-{}'
+SID_SESSION_TIMESTAMP_KEY = 'sid-session-timestamp-{}'
+
 def init_redis_storage():
     logger.info("Initializing redis storage")
     # first, remove existing key to remove stale clients
     redis_client.delete(CLIENT_LIST_KEY)
 
-    [redis_client.delete(key) for key in redis_client.scan_iter('rt-session-timestamp-*')]
-    [redis_client.delete(key) for key in redis_client.scan_iter('rt-subject-timestamps-*')]
+    [redis_client.delete(key) for key in redis_client.scan_iter(SID_SESSION_TIMESTAMP_KEY.format('*'))]
+    [redis_client.delete(key) for key in redis_client.scan_iter(SID_SUBJECTS_TIMESTAMPS_KEY.format('*'))]
 
     # add the service as a member of services set
     redis_client.sadd(REALTIME_SERVICES_KEY, CLIENT_LIST_KEY)
@@ -193,8 +196,8 @@ def remove_clients(*sids):
     redis_client.delete(*[f'mid-{sid}' for sid in sids])
 
     logger.info('Deleteing session timestamp keys for sids %s.', sids)
-    redis_client.delete(*[f'rt-session-timestamp-{sid}' for sid in sids])
-    redis_client.delete(*[f'rt-subject-timestamps-{sid}' for sid in sids])
+    redis_client.delete(*[SID_SESSION_TIMESTAMP_KEY.format(sid) for sid in sids])
+    redis_client.delete(*[SID_SUBJECTS_TIMESTAMPS_KEY.format(sid) for sid in sids])
 
 
     from observations.models import SocketClient
@@ -295,14 +298,20 @@ def message_index(sid, message_type):
 
 
 def save_session_timestamp(sid, subject_id=None, timestamp=None):
-    timestamp = datetime.datetime.now(tz=pytz.utc)
+
+    timestamp = timestamp or datetime.datetime.now(tz=pytz.utc)
+
     if subject_id:
-        redis_client.hset(f'rt-subject-timestamps-{sid}', subject_id, timestamp)
-    else:
-        redis_client.hset(f'rt-session-timestamp-{sid}', sid, timestamp)
+        redis_client.hset(SID_SUBJECTS_TIMESTAMPS_KEY.format(sid), subject_id, timestamp)
+
+    # Always set the session's default timestamp.
+    redis_client.set(SID_SESSION_TIMESTAMP_KEY.format(sid), timestamp)
 
 
-def get_session_ts(sid, subject_id):
+def get_sid_subject_timestamp(sid, subject_id):
     """retrieve session timestamp"""
-    ts = redis_client.hget(f'rt-subject-timestamps-{sid}', subject_id) or redis_client.hget(f'rt-session-timestamp-{sid}', sid)
-    return ts.decode()
+    ts = redis_client.hget(SID_SUBJECTS_TIMESTAMPS_KEY.format(sid), subject_id)
+    sid_ts = redis_client.get(SID_SESSION_TIMESTAMP_KEY.format(sid))
+    ts = ts or sid_ts
+
+    return ts.decode() if ts else datetime.datetime.now(tz=pytz.utc).isoformat()

@@ -853,6 +853,8 @@ class ObservationsViewSchema(CustomSchema):
                     'description': 'filter using exclusion_flags for an observation. one of [null, 0, 1, 2  or 3].'},
                 {'name': 'include_details', 'in': 'query',
                     'description': ' one of [true,false], default is false. This brings back the observation additional field'},
+                {'name': 'created_after', 'in': 'query',
+                 'description': 'get observations created (saved in EarthRanger) after this ISO8061 date, include timezone'},
             ]
             operation['parameters'].extend(query_params)
         return operation
@@ -911,7 +913,7 @@ class ObservationsView(generics.ListCreateAPIView):
             queryset = queryset.filter(recorded_at__lte=mou_expiry_date)
 
         if created_after:
-            queryset.by_created_after(created_after)
+            queryset = queryset.by_created_after(created_after)
 
         return queryset
 
