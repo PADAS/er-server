@@ -5,7 +5,7 @@ import logging
 from datetime import datetime, timedelta
 from celery_once import QueueOnce
 from versatileimagefield.image_warmer import VersatileImageFieldWarmer
-from django.db.models import Q, F
+from django.db.models import Q, F, DateTimeField, ExpressionWrapper
 from django.db import transaction
 
 from activity.alerting.businessrules import resolve_event_revisions, \
@@ -176,8 +176,13 @@ def maintain_patrol_state():
 
 @celery.app.task
 def automatically_update_event_state():
-    events = Event.objects.filter(created_at__lte=F('created_at') + timedelta(hours=1)*F('event_type__resolve_time'),
-                                  event_type__auto_resolve=True).exclude(state=SC_RESOLVED)
+    now = datetime.now(tz=pytz.utc)
+    expr = ExpressionWrapper(F('created_at') + timedelta(hours=1) * F('event_type__resolve_time'),
+                             output_field=DateTimeField())
+
+    # only auto-resolve event when the resolve time has reached or surpassed.
+    events = Event.objects.annotate(resolve_dt=expr).filter(resolve_dt__lte=now,
+                                                            event_type__auto_resolve=True).exclude(state=SC_RESOLVED)
     er_system_user = get_er_user()
     for e in events:
         e.state = SC_RESOLVED
