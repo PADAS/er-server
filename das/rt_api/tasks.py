@@ -275,8 +275,11 @@ def _subjectstatus_update_handler(subject_id):
                         emit_data = {
                                 'type': 'subject_track_merge',
                                 'sid': sid,
-                                'subject_id': subject_id,
-                                'data': { 'points': points }
+                                'object_id': subject_id,
+                                'data': {
+                                    'points': points,
+                                    'subject_id': subject_id
+                                }
                         }
                         emit_message = json.dumps(emit_data, default=dumps_helper)
 

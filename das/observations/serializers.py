@@ -595,7 +595,12 @@ class FlattenObservationSerializer(rest_framework.serializers.ModelSerializer):
 
     def to_representation(self, instance):
         rep = super(FlattenObservationSerializer, self).to_representation(instance)
-        representation = {'coordinates': [rep['location']['longitude'], rep['location']['latitude']],
+
+        # TODO: Figure out why coordinates are coming as strings.
+        x = float(rep['location']['longitude'])
+        y = float(rep['location']['latitude'])
+
+        representation = {'coordinates': [x, y],
                           'time': rep.get('recorded_at')}
         return representation
 
