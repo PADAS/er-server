@@ -16,7 +16,7 @@ data "google_compute_image" "ubuntu" {
   provider = google
 
   family  = "ubuntu-1804-lts"
-  project = "gce-uefi-images"
+  project = "ubuntu-os-cloud"
 }
 
 resource "random_string" "bastion_name_uniqueness" {

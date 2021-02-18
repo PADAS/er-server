@@ -1,5 +1,6 @@
 import logging
 import os
+from abc import ABC
 
 from django import forms
 from django.contrib import messages
@@ -63,6 +64,37 @@ class SchemaWidget(forms.Textarea):
         }
 
 
+class AutoResolveWidget(forms.MultiWidget):
+    template_name = 'admin/activity/eventtype/auto_resolve.html'
+
+    def __init__(self, attrs=None):
+        attrs = {'class': 'auto-resolve-start'}
+        widgets = [forms.CheckboxInput, forms.NumberInput]
+        forms.MultiWidget.__init__(self, widgets, attrs)
+
+    def get_context(self, name, value, attrs):
+        context = super(AutoResolveWidget, self).get_context(name, value, attrs)
+        return context
+
+    def decompress(self, value):
+        return [] if value is None else value
+
+
+class AutoResolveField(forms.fields.MultiValueField):
+    widget = AutoResolveWidget
+    error_message_hours = {'min_value': "Ensure 'value for hour' is greater than or equal to 1",
+                           'max_value': "Ensure 'value for hour' is less than or equal to 10,000"}
+
+    def __init__(self, *args, **kwargs):
+        _fields = [
+            forms.fields.BooleanField(),
+            forms.fields.IntegerField(required=False, min_value=1, max_value=10000, error_messages=self.error_message_hours)]
+        super().__init__(_fields, *args, **kwargs)
+
+    def compress(self, values):
+        return values
+
+
 def validate_schema_is_well_formed(schema):
 
     try:
@@ -87,9 +119,18 @@ class EventTypeForm(forms.ModelForm):
                            label='Icon Override',
                            widget=IconKeyInput(image_list_fn=get_icon_select_list))
 
+    auto_eventtype_resolve = AutoResolveField(label='', required=False)
+
     class Meta:
         model = EventType
-        fields = ['icon', 'display', 'schema',]
+        fields = ['icon', 'display', 'schema', 'auto_eventtype_resolve']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        instance = kwargs.get('instance')
+
+        if instance and instance.auto_resolve:
+            self.fields['auto_eventtype_resolve'].initial = [instance.auto_resolve, instance.resolve_time]
 
     def clean_schema(self):
         schema = self.cleaned_data.get('schema')
@@ -110,6 +151,14 @@ class EventTypeForm(forms.ModelForm):
                 schema_warning += f'Received the following error: {e}'
                 messages.add_message(self.request, messages.WARNING, schema_warning)
         return schema
+
+    def clean_auto_eventtype_resolve(self):
+        data = self.cleaned_data.get('auto_eventtype_resolve')
+        self.cleaned_data['auto_resolve'] = data[0]
+        self.cleaned_data['resolve_time'] = data[1]
+        if data[0] and not data[1]:
+            raise forms.ValidationError('Please specify the number of hours')
+        return data
 
 
 class NotificationMethodSelectField(forms.ModelMultipleChoiceField):

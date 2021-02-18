@@ -1,0 +1,34 @@
+{% with widget=widget.subwidgets.0 %}{% include widget.template_name %}{% endwith %} Automatically resolve after
+{% with widget=widget.subwidgets.1 %}{% include widget.template_name %}{% endwith %} hours
+
+<style>
+    input#id_auto_eventtype_resolve_0.auto-resolve-start {
+        margin: 0 2px 2px 2px;
+
+    }
+    input#id_auto_eventtype_resolve_1.auto-resolve-start {
+        width: 65px;
+        margin-right: 2px;
+        margin-left: 2px;
+        text-align: center;
+    }
+
+    label[for="id_auto_eventtype_resolve_0"] {
+        display:none;
+    }
+</style>
+
+<script>
+    const checkbx = document.getElementById('id_auto_eventtype_resolve_0');
+    const btn = document.getElementById('id_auto_eventtype_resolve_1');
+
+    if (!checkbx.checked) {
+        btn.disabled = true
+    }
+
+    checkbx.onchange = function (){
+        btn.disabled = !this.checked;
+        btn.value = '';
+    };
+
+</script>
