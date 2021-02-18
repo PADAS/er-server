@@ -294,6 +294,9 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
             return self.by_until(recorded_until)
         return self
 
+    def by_created_after(self, timestamp):
+        return self.filter(Q(created_at__gte=timestamp))
+
     def by_exclusion_flags(self, filter_flag=None):
         """Works with more than one filter flag, for example 3 which is manual and automatic exclusion"""
         if filter_flag is not None:

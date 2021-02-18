@@ -586,6 +586,25 @@ class ObservationSerializer(rest_framework.serializers.ModelSerializer):
         return rep
 
 
+class FlattenObservationSerializer(rest_framework.serializers.ModelSerializer):
+    location = PointField(required=False)
+
+    class Meta:
+        model = models.Observation
+        fields = ('location', 'recorded_at')
+
+    def to_representation(self, instance):
+        rep = super(FlattenObservationSerializer, self).to_representation(instance)
+
+        # TODO: Figure out why coordinates are coming as strings.
+        x = float(rep['location']['longitude'])
+        y = float(rep['location']['latitude'])
+
+        representation = {'coordinates': [x, y],
+                          'time': rep.get('recorded_at')}
+        return representation
+
+
 SUBJECT_STATUS_RETURN_FIELDS = (
     'last_voice_call_start_at', 'location_requested_at', 'radio_state_at') + ('radio_state',)
 

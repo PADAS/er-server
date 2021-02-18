@@ -15,11 +15,12 @@ from django.conf import settings
 from django.db import close_old_connections
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.request import Request
+from django.urls import reverse
 
 from observations import servicesutils
 
 from observations.models import SubjectSource
-from observations.views import SubjectTracksView, SubjectStatusView
+from observations.views import SubjectTracksView, SubjectStatusView, ObservationsView
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from uuid import UUID
 from rt_api import client
@@ -218,6 +219,8 @@ def _subjectstatus_update_handler(subject_id):
         get_subjectstatus_payload = partial(
             get_subjectstatus_view, SubjectStatusView.as_view())
 
+        get_observations_payload = partial(get_observations_view, ObservationsView.as_view())
+
         user_sids_map = get_username_sids_map()
         logger.debug('user_sids_map: %s', user_sids_map)
 
@@ -260,6 +263,35 @@ def _subjectstatus_update_handler(subject_id):
                     logger.warning(
                         'SubjectStatus payload is empty.', extra=dict(username=username, subject_id=subject_id))
 
+                # emit batch observations
+                for sid in user_sids:
+                    created_after = client.get_sid_subject_timestamp(sid, subject_id)
+
+                    payload = get_observations_payload(user, subject_id, created_after=created_after)
+
+                    if payload:
+                        # TODO: move this order-by clause into the view.
+                        points = sorted(payload, key=lambda x: x['time'], reverse=True)
+                        emit_data = {
+                                'type': 'subject_track_merge',
+                                'sid': sid,
+                                'object_id': subject_id,
+                                'data': {
+                                    'points': points,
+                                    'subject_id': subject_id
+                                }
+                        }
+                        emit_message = json.dumps(emit_data, default=dumps_helper)
+
+                        logger.debug("Emitting: %s", emit_message)
+                        pubsub.publish(emit_message, routing_key='das.realtime.emit')
+
+                    else:
+                        logger.warning(
+                            'Observation payload is empty.', extra=dict(username=username, subject_id=subject_id))
+
+                    client.save_session_timestamp(sid, subject_id)
+
             except:
                 logger.exception(
                     'Error creating subject-status payload. username=%s', username)
@@ -289,6 +321,21 @@ def get_subjectstatus_view(view, user, subject_id):
         return
 
     return result.data
+
+
+def get_observations_view(view, user, subject_id, created_after):
+    url = reverse('observations-list-view')
+    query_parameter = {
+        'subject_id': subject_id,
+        'json_format': 'flat',
+        'created_after': created_after
+    }
+    request = DummyRequest(uri=url, http_method='GET', user=user, query_parameters=query_parameter)
+
+    result = view(request, subject_id=subject_id)
+    if result.status_code != 200 or not result.data.get('results'):
+        return
+    return result.data.get('results')
 
 
 @celery.app.task()
