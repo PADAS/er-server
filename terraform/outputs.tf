@@ -62,6 +62,6 @@ output "analytics_user_pass" {
 }
 
 output "db_instance_private_ip" {
-  value     = "${local.db_instance_private_ip}"
+  value     = local.db_instance_private_ip
 }
 
