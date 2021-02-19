@@ -623,6 +623,17 @@ class SpatialFeatureType(TimestampedModel):
     def feature_count(self):
         return SpatialFeature.objects.filter(feature_type=self).count()
 
+    def save(self, *args, **kwargs):
+        try:
+            if self.presentation.get('fill-opacity'):
+                self.presentation['fill-opacity'] = float(self.presentation.get('fill-opacity'))
+            if self.presentation.get('stroke-opacity'):
+                self.presentation['stroke-opacity'] = float(self.presentation.get('stroke-opacity'))
+        except ValueError as exc:
+            logger.warning(exc)
+        finally:
+            super(SpatialFeatureType, self).save(*args, **kwargs)
+
 
 class SpatialFeatureFile(SpatialFilesBase):
     """
