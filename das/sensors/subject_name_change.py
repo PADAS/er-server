@@ -70,7 +70,7 @@ def mutate_ertrack_subject_assignment(*, source: Source = None, subject_name: st
 
     # Short-circuit if the assignment is already in place.
     if Subject.objects.filter(subjectsource__source=source, subjectsource__assigned_range__contains=recorded_at,
-                              name__iexact=subject_name).exists():
+                              name=subject_name).exists():
         logger.info('Found everything already in place. Doing nothing.')
         return
 
@@ -131,7 +131,7 @@ def mutate_ertrack_subject_assignment(*, source: Source = None, subject_name: st
     if subject_mutate_setting == UPDATE_NAME:
         # Update name for all requester-visible Subjects presently assigned to this Source.
         cnt = subject_queryset.filter(subjectsource__source=source,
-                                     subjectsource__assigned_range__contains=recorded_at).update(name=subject_name)
+                                      subjectsource__assigned_range__contains=recorded_at).update(name=subject_name)
 
         logger.debug('Changed name of %d subject(s) to %s', cnt, subject_name)
         if cnt == 0:
