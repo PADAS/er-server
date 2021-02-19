@@ -298,7 +298,7 @@ def get_mb_style(symbol):
             opacity = "{:.2f}".format(a / 255)
             presentation = {
                 "stroke": colors_as_hex,
-                "stroke-opacity": opacity
+                "stroke-opacity": float(opacity)
             }
             if hasattr(symbol, 'width') and symbol.width:
                 presentation['stroke-width'] = symbol.width
@@ -312,7 +312,7 @@ def get_mb_style(symbol):
             fill_opacity = "{:.2f}".format(a / 255)
             presentation = {
                 "fill": fill_color,
-                "fill-opacity": fill_opacity
+                "fill-opacity": float(fill_opacity)
             }
         else:
             logger.warning(f'Polygon symbol does not have color attribute. skipping color import')
@@ -320,7 +320,7 @@ def get_mb_style(symbol):
                 and hasattr(symbol.outline, 'color') and symbol.outline.color:
             r, g, b, a = symbol.outline.color
             presentation["stroke"] = "#{:02x}{:02x}{:02x}".format(r, g, b)
-            presentation["stroke-opacity"] = "{:.2f}".format(a / 255)
+            presentation["stroke-opacity"] = float("{:.2f}".format(a / 255))
             if hasattr(symbol.outline, 'width') and symbol.outline.width:
                 presentation['stroke-width'] = symbol.outline.width
         else:

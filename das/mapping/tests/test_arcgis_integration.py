@@ -102,6 +102,7 @@ class TestArcGisIntegration(BaseAPITest):
             self.assertTrue('stroke' in keys)
             self.assertTrue('stroke-width' in keys)
             self.assertTrue('stroke-opacity' in keys)
+            self.assertTrue(isinstance(t.presentation.get('stroke-opacity'), float))
 
     def test_unique_value_renderer_polygon(self):
         json_dict = self._read_test_data(os.path.join(TESTS_PATH, 'testdata/polygon-renderer.json'))
@@ -111,6 +112,8 @@ class TestArcGisIntegration(BaseAPITest):
             keys = t.presentation.keys()
             self.assertTrue('fill' in keys)
             self.assertTrue('fill-opacity' in keys)
+            self.assertTrue(isinstance(t.presentation.get('fill-opacity'), float))
+
 
     def test_import_featuretype_presentation(self):
         json_dict = self._read_test_data(
