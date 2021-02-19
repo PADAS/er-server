@@ -68,12 +68,6 @@ def mutate_ertrack_subject_assignment(*, source: Source = None, subject_name: st
     :return:
     '''
 
-    # Short-circuit if the assignment is already in place.
-    if Subject.objects.filter(subjectsource__source=source, subjectsource__assigned_range__contains=recorded_at,
-                              name=subject_name).exists():
-        logger.info('Found everything already in place. Doing nothing.')
-        return
-
     er_track_configuration = get_track_config(source.provider)
     subject_queryset = Subject.objects.by_user_subjects(user)
 
@@ -86,6 +80,14 @@ def mutate_ertrack_subject_assignment(*, source: Source = None, subject_name: st
         excluded_subject_types = er_track_configuration.name_change_excluded_subject_types.all()
         subject_mutate_setting = er_track_configuration.name_change_config
         match_case = er_track_configuration.name_change_match_case
+
+    name_filter = Q(name=subject_name) if match_case else Q(
+        name__iexact=subject_name)
+
+    # Short-circuit if the assignment is already in place.
+    if Subject.objects.filter(name_filter, subjectsource__source=source, subjectsource__assigned_range__contains=recorded_at).exists():
+        logger.info('Found everything already in place. Doing nothing.')
+        return
 
     logger.debug("Is new source? %s", is_new_source)
     logger.debug('Excluding types: %s, mutating by %s',
@@ -102,8 +104,6 @@ def mutate_ertrack_subject_assignment(*, source: Source = None, subject_name: st
 
         try:
             # Special Case, if subject-type is "person" we want to find the first.
-            name_filter = Q(name=subject_name) if match_case else Q(
-                name__iexact=subject_name)
             existing_match = subject_queryset.filter(name_filter,
                                                      subject_subtype__subject_type__value__iexact='person').first()
 
