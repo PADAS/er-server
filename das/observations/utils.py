@@ -257,10 +257,3 @@ def get_cyclic_subjectgroup():
         WHERE  cycle;
         """)
         return [row[0] for row in cursor.fetchall()]
-
-
-def patrols_view_refresh_schedule():
-    refresh_times = getattr(settings, 'PATROL_VIEW_REFRESH_TIME', 1)
-    schedule = crontab(hour=12, minute=0) if refresh_times == 1 else timedelta(
-        hours=24 / refresh_times)
-    return schedule

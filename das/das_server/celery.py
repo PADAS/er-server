@@ -5,7 +5,6 @@ from datetime import timedelta
 
 from django.conf import settings
 from kombu import Exchange, Queue
-from observations.utils import patrols_view_refresh_schedule
 
 from celery import Celery
 from celery.schedules import crontab
@@ -154,7 +153,7 @@ app.conf.beat_schedule = {
     },
     'refresh_patrols_view': {
         'task': 'observations.tasks.refresh_patrols_view',
-        'schedule': patrols_view_refresh_schedule()
+        'schedule': timedelta(hours=getattr(settings, 'PATROL_VIEW_REFRESH_HOURS', 1))
     },
 
 }
