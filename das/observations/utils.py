@@ -260,11 +260,7 @@ def get_cyclic_subjectgroup():
 
 
 def patrols_view_refresh_schedule():
-    refresh_times = settings.PATROL_VIEW_REFRESH_TIME
-
-    if refresh_times == 1:
-        schedule = crontab(hour=12, minute=0)  # 12 AM daily as the default
-    else:
-        schedule = timedelta(hour=24 / refresh_times)
-
+    refresh_times = getattr(settings, 'PATROL_VIEW_REFRESH_TIME', 1)
+    schedule = crontab(hour=12, minute=0) if refresh_times == 1 else timedelta(
+        hours=24 / refresh_times)
     return schedule

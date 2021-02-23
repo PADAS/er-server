@@ -10,10 +10,15 @@ class PatrolsMaterializedView:
     @property
     def generate_ddl(self):
         ddl = f"""
+
+        CREATE OR REPLACE FUNCTION to_two_dps(i float) RETURNS float AS $$
+            BEGIN RETURN ROUND(i::numeric, 2); END;
+        $$ LANGUAGE plpgsql;
+
         CREATE MATERIALIZED VIEW IF NOT EXISTS {self.table_name} AS
             SELECT p.serial_number as "Patrol Serial Number",
             CASE 
-                WHEN p.title IS NOT NULL THEN p.title
+                WHEN p.title NOT LIKE '' THEN p.title
                 WHEN ps.leader_id IS NOT NULL THEN (SELECT name FROM observations_subject WHERE id=ps.leader_id)
                 ELSE pt.display END
             as "Title",
@@ -36,11 +41,11 @@ class PatrolsMaterializedView:
                 ELSE ps.scheduled_end END
             AS "End date",
                 
-            ST_Y(ps.start_location) as "Start Lat",
-            ST_X(ps.start_location) as "Start Lon",
-            
-            ST_Y(ps.end_location) as "End Lat",
-            ST_X(ps.end_location) as "End Lon",
+            to_two_dps(ST_Y(ps.start_location)) as "Start Lat",
+            to_two_dps(ST_X(ps.start_location))  as "Start Lon",
+
+            to_two_dps(ST_Y(ps.end_location))  as "End Lat",
+            to_two_dps(ST_X(ps.end_location))  as "End Lon",
                 
             CASE
                 WHEN (p.state='open' AND ps.scheduled_start IS NOT NULL AND ps.scheduled_start >= (NOW() - ('{self.lookback} minute')::INTERVAL)) THEN 'Ready To start'
@@ -49,7 +54,7 @@ class PatrolsMaterializedView:
                 ELSE p.state END 
             AS "Status",
 
-            upper(ps.time_range)::timestamp- lower(ps.time_range) as "Duration (hh:mm:ss)",
+            to_char(upper(ps.time_range) - lower(ps.time_range), 'DD" days "HH24":"MI":"SS""') as "Duration (hh:mm:ss)",
             
             (SELECT SUM(patrol_distance) as "Distance covered (km)" FROM (SELECT
                 ASIN(SQRT( POWER(SIN((ST_Y(curr.location) - abs(ST_Y(prev.location))) * pi()/180 / 2),2) 
@@ -63,8 +68,6 @@ class PatrolsMaterializedView:
 
             coalesce((select COUNT(event_id) FROM activity_eventrelatedsegments 
                 WHERE patrol_segment_id=ps.id GROUP BY patrol_segment_id), 0)as "Number of reports",
-            
-            (SELECT ARRAY(SELECT source_id FROM observations_subjectsource WHERE subject_id=ps.leader_id)) as "Tracks",
             
             (SELECT string_agg(event_id::text,',') FROM activity_eventrelatedsegments 
                 WHERE patrol_segment_id=ps.id) as "Report IDs"
