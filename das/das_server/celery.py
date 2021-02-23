@@ -1,14 +1,15 @@
 from __future__ import absolute_import
+
 import os
 from datetime import timedelta
 
+from django.conf import settings
+from kombu import Exchange, Queue
+from observations.utils import patrols_view_refresh_schedule
+
 from celery import Celery
 from celery.schedules import crontab
-from django.conf import settings
-
 from celery.signals import setup_logging
-from kombu import Exchange, Queue
-
 
 # set the default Django settings module for the 'celery' program.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'das_server.settings')
@@ -150,7 +151,11 @@ app.conf.beat_schedule = {
     'auto-resolve': {
         'task': 'activity.tasks.automatically_update_event_state',
         'schedule': timedelta(minutes=5)
-    }
+    },
+    'refresh_patrols_view': {
+        'task': 'observations.tasks.refresh_patrols_view',
+        'schedule': patrols_view_refresh_schedule()
+    },
 
 }
 

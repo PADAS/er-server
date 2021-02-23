@@ -4,12 +4,12 @@ from datetime import datetime, timedelta
 
 import dateutil.parser
 import pytz
-from django.core.exceptions import PermissionDenied
-from django.conf import settings
-from pytz import timezone
+from celery.schedules import crontab
 from dateutil.parser import parse
+from django.conf import settings
+from django.core.exceptions import PermissionDenied
 from django.db import connection
-
+from pytz import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -257,3 +257,14 @@ def get_cyclic_subjectgroup():
         WHERE  cycle;
         """)
         return [row[0] for row in cursor.fetchall()]
+
+
+def patrols_view_refresh_schedule():
+    refresh_times = settings.PATROL_VIEW_REFRESH_TIME
+
+    if refresh_times == 1:
+        schedule = crontab(hour=12, minute=0)  # 12 AM daily as the default
+    else:
+        schedule = timedelta(hour=24 / refresh_times)
+
+    return schedule
