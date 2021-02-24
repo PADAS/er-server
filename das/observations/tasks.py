@@ -36,11 +36,6 @@ def maintain_subjectstatus_all():
             args=(str(subject['id']),))
 
 
-@celery.app.task
-def refresh_patrols_view():
-    patrols_view.refresh_view()
-
-
 @celery.app.task(base=QueueOnce, once={'graceful': True, })
 def maintain_subjectstatus_for_subject(subject_id):
 
@@ -255,3 +250,13 @@ def process_gpxdata_api(self, filename, source_id):
         return message
     else:
         raise ValidationError(message)
+
+
+@celery.app.task
+def refresh_patrols_view():
+    _refresh_patrols_view.apply_async()
+
+
+@celery.app.task(base=QueueOnce, once={'graceful': True})
+def _refresh_patrols_view():
+    patrols_view.refresh_view()

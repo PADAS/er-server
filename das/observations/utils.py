@@ -4,12 +4,12 @@ from datetime import datetime, timedelta
 
 import dateutil.parser
 import pytz
-from celery.schedules import crontab
-from dateutil.parser import parse
-from django.conf import settings
 from django.core.exceptions import PermissionDenied
-from django.db import connection
+from django.conf import settings
 from pytz import timezone
+from dateutil.parser import parse
+from django.db import connection
+
 
 logger = logging.getLogger(__name__)
 
