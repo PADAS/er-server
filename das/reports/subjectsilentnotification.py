@@ -59,7 +59,7 @@ def calculate_silent_source_report(usernames=None):
         # Disregard if we've already alerted for this source (within a threshold).
         if redis_client.exists(source_alert_marker):
             continue
-        silent_source_alert_quiet_period = parse_duration(silent_source.threshold_duration)
+        silent_source_alert_quiet_period = silent_source.threshold_duration  # type is timedelta.
         redis_client.setex(source_alert_marker, 1, silent_source_alert_quiet_period)
 
         report_list.append(silent_source)
