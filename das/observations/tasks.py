@@ -1,21 +1,23 @@
-import os
-import logging
 import json
-import xmltodict
+import logging
+import os
 from datetime import datetime, timedelta
-import pytz
 
+import pytz
+import xmltodict
 from celery_once import QueueOnce
 from das_server import celery, pubsub
-from observations import servicesutils
-from observations.models import Subject, SubjectStatus, Observation, SourceProvider, Source, GPXTrackFile
-from observations.serializers import ObservationSerializer
-from django.db.models import F
 from django.core.exceptions import ValidationError
-from observations.utils import dateparse
 from django.core.files.storage import default_storage
+from django.db.models import F
 from django.utils.translation import gettext as _
 
+from observations import servicesutils
+from observations.materialized_views import patrols_view
+from observations.models import (GPXTrackFile, Observation, Source,
+                                 SourceProvider, Subject, SubjectStatus)
+from observations.serializers import ObservationSerializer
+from observations.utils import dateparse
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +118,8 @@ def validate_observation(location, recorded_at, source_id, additional, obs_persi
 
 def process_observation(observation_records, observation_errors):
     if observation_records:
-        bulk_serializer = ObservationSerializer(data=observation_records, many=True)
+        bulk_serializer = ObservationSerializer(
+            data=observation_records, many=True)
         if bulk_serializer.is_valid():
             bulk_serializer.save()
             message = f"Successfully created {len(observation_records)} observations"
@@ -141,7 +144,8 @@ def process_trackpoints(source, source_id, trkpoints, file_name):
     try:
         list_gpx_datetime = [dateparse(trkp.get('time')) for trkp in trkpoints]
     except TypeError:
-        error_msg = _('Points are missing timestamps in GPX file %s') % (file_name, )
+        error_msg = _('Points are missing timestamps in GPX file %s') % (
+            file_name, )
     except Exception as exc:
         error_msg = _('Invalid timestamp, %s') % (exc, )
 
@@ -159,10 +163,12 @@ def process_trackpoints(source, source_id, trkpoints, file_name):
             lon = trkpt.get('@lon')
             location = {'latitude': float(lat), 'longitude': float(lon)}
             additional = get_additional(trkpt)
-            validate_observation(location, recorded_at, source_id, additional, obs_records, obs_errors)
+            validate_observation(location, recorded_at,
+                                 source_id, additional, obs_records, obs_errors)
             array_datetime.remove(recorded_at)
         else:
-            logger.info(f"Ignored observation record of recorded_at: {recorded_at} and source: {source}")
+            logger.info(
+                f"Ignored observation record of recorded_at: {recorded_at} and source: {source}")
 
     return obs_records, obs_errors
 
@@ -205,9 +211,11 @@ def process_gpxtrack_file(gpx_id):
 
     source_id = GPXTrackFile.objects.get_source_id(gpx_id)
     source = Source.objects.get(id=source_id)
-    obs_records, obs_errors = process_trackpoints(source, source_id, trkpoints, file_name)
+    obs_records, obs_errors = process_trackpoints(
+        source, source_id, trkpoints, file_name)
 
-    status, message = process_observation(observation_records=obs_records, observation_errors=obs_errors)
+    status, message = process_observation(
+        observation_records=obs_records, observation_errors=obs_errors)
     if status:
         success_process_gpxtrack(gpx_id, message)
     else:
@@ -233,10 +241,22 @@ def process_gpxdata_api(self, filename, source_id):
     source = Source.objects.get(id=source_id)
 
     file_name = filename.split('/')[-1]
-    obs_records, obs_errors = process_trackpoints(source, source_id, trkpoints, file_name)
+    obs_records, obs_errors = process_trackpoints(
+        source, source_id, trkpoints, file_name)
 
-    status, message = process_observation(observation_records=obs_records, observation_errors=obs_errors)
+    status, message = process_observation(
+        observation_records=obs_records, observation_errors=obs_errors)
     if status:
         return message
     else:
         raise ValidationError(message)
+
+
+@celery.app.task
+def refresh_patrols_view():
+    _refresh_patrols_view.apply_async()
+
+
+@celery.app.task(base=QueueOnce, once={'graceful': True})
+def _refresh_patrols_view():
+    patrols_view.refresh_view()
