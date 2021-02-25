@@ -8,6 +8,7 @@ from django.utils.dateparse import parse_duration
 from django import forms
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
+from django.contrib.postgres.forms import JSONField
 
 from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider, GPXTrackFile
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
@@ -255,13 +256,19 @@ days_data_retain_help_text =  \
 
 class AutoFormatJSONWidget(forms.widgets.Textarea):
 
+    def __init__(self, attrs=None):
+        # Use slightly better defaults than HTML's 20x2 box
+        default_attrs = {'cols': '80', 'rows': '30'}
+        if attrs:
+            default_attrs.update(attrs)
+        super().__init__(default_attrs)
+
     def format_value(self, value):
         try:
             value = json.dumps(json.loads(value), indent=2, sort_keys=True)
             # these lines will try to adjust size of TextArea to fit to content
             row_lengths = [len(r) for r in value.split('\n')]
             self.attrs['rows'] = min(max(len(row_lengths) + 2, 10), 30)
-            self.attrs['cols'] = 80
             self.attrs['style'] = "font-size: 15px"
             return value
         except Exception as e:
@@ -280,6 +287,12 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
     days_data_retain = forms.IntegerField(required=False, min_value=1, max_value=365,
                                           help_text=days_data_retain_help_text)
 
+    transforms = JSONField(widget=AutoFormatJSONWidget, required=False,
+                           error_messages={'invalid': "The array of Additional data to display with Subjects was not "
+                                                      "formed properly. Please correct and try again."},
+                           help_text="Contact support for assistance in configuring the additional data fields to "
+                                     "display for subjects")
+
     class Meta:
         model = SourceProvider
         fields = ['provider_key', 'display_name', 'additional', 'transforms']
@@ -289,12 +302,6 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
             'days_data_retain',
         )
         json_date_fields = set()
-
-        help_texts = {'transforms': "Contact support for assistance in configuring the "
-                                    "additional data fields to display for subjects"}
-        widgets = {'transforms': AutoFormatJSONWidget}
-
-    # def clean_lag_notification_threshold(self):
 
     def clean(self):
 
