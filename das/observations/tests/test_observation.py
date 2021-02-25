@@ -231,14 +231,7 @@ class ObservationTestCase(BaseAPITest):
         self.assertEqual(last1.recorded_at, initial_subjectstatus.recorded_at)
         self.assertEqual(last1.location, initial_subjectstatus.location)
 
-    def test_subjectstatus_x(self):
-
-        '''
-        Test saving an observation for an existing source.
-        Validate that an associated SubjectStatus is updated appropriately.
-        '''
-
-        # These are known IDs for subject and source, from test fixtures.
+    def test_subject_additional_data(self):
         subject_id = '269524d5-a434-4377-9ea9-2a7946dbd9c4'
         source_id = '56b1cf14-ef97-4054-8fbd-1342f265b2a9'
 
@@ -275,26 +268,20 @@ class ObservationTestCase(BaseAPITest):
             observation_instance = serializer.save()
 
         self.assertTrue(observation_instance is not None)
-
         subject_statuses = SubjectStatus.objects.filter(subject_id=subject_id, delay_hours=0)
-
         self.assertTrue(subject_statuses is not None)
 
         subject_status = subject_statuses.first()
         self.assertEqual(subject_status.recorded_at, observation_time)
         self.assertEqual((subject_status.location.x, subject_status.location.y), (fixed_longitude, fixed_latitude))
 
-
         url = reverse('subjects-list-view')
         request = self.factory.get(url)
 
         self.force_authenticate(request, self.user)
         response = SubjectsView.as_view()(request)
-        import pdb; pdb.set_trace()
         self.assertEqual(response.status_code, 200)
-
-
-
+        self.assertEqual(response.data[0].get('device_status_properties'), [{'label': 'Voltage', 'units': 'v', 'value': 12}])
 
 
 def generate_observation(source, recorded_at=None):
