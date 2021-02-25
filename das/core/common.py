@@ -99,7 +99,7 @@ class AdminReadonlyField(admin.helpers.AdminReadonlyField):
                     result_repr = linebreaksbr(result_repr)
             return conditional_escape(result_repr)
         else:
-            super(AdminReadonlyField, self).contents()
+            return super(AdminReadonlyField, self).contents()
 
 
 admin.helpers.AdminReadonlyField = AdminReadonlyField

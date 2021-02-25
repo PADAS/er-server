@@ -1,3 +1,5 @@
+import json
+import logging
 import re
 
 from django.utils.translation import ugettext_lazy as _
@@ -12,7 +14,6 @@ from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDate
 from choices.models import Choice
 from core.common import TIMEZONE_USED
 
-import logging
 logger = logging.getLogger(__name__)
 
 
@@ -252,6 +253,22 @@ days_data_retain_help_text =  \
     _('Observations records outside the configured number of days will be removed permanently and cannot be retrieved.')
 
 
+class AutoFormatJSONWidget(forms.widgets.Textarea):
+
+    def format_value(self, value):
+        try:
+            value = json.dumps(json.loads(value), indent=2, sort_keys=True)
+            # these lines will try to adjust size of TextArea to fit to content
+            row_lengths = [len(r) for r in value.split('\n')]
+            self.attrs['rows'] = min(max(len(row_lengths) + 2, 10), 30)
+            self.attrs['cols'] = 80
+            self.attrs['style'] = "font-size: 15px"
+            return value
+        except Exception as e:
+            logger.warning("Error while formatting JSON: {}".format(e))
+            return super().format_value(value)
+
+
 class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
 
     lag_notification_threshold = forms.CharField(max_length=8, required=False, empty_value=None,
@@ -265,13 +282,17 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
 
     class Meta:
         model = SourceProvider
-        fields = ['provider_key', 'display_name', 'additional']
+        fields = ['provider_key', 'display_name', 'additional', 'transforms']
         json_fields = (
             'lag_notification_threshold',
             'silence_notification_threshold',
             'days_data_retain',
         )
         json_date_fields = set()
+
+        help_texts = {'transforms': "Contact support for assistance in configuring the "
+                                    "additional data fields to display for subjects"}
+        widgets = {'transforms': AutoFormatJSONWidget}
 
     # def clean_lag_notification_threshold(self):
 

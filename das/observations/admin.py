@@ -1,61 +1,64 @@
-import random
 import csv
-from datetime import datetime, timedelta
-from uuid import UUID
+import json
+import random
 import urllib
-
-import pytz
-import humanize
-from django.contrib import admin
-from django.db import connection
-from django.conf import settings
-from django.urls import reverse
-from django.core.paginator import Paginator
-from django.contrib.admin.widgets import FilteredSelectMultiple
-from django.contrib.contenttypes.admin import GenericTabularInline
-from django import forms
-from django.utils.safestring import mark_safe
-from django.utils.html import escape
-from django.utils.translation import ugettext_lazy as _
-from django.db.models import Q, F, Count, ExpressionWrapper, Window, Max, Min
-from django.contrib.postgres.aggregates import ArrayAgg
-from django.db.models.functions import FirstValue, Trunc
-from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
-from django.db.models.functions import Now
-from django.db import transaction
-from django.http import HttpResponse
-from django.template.loader import render_to_string
-from django.utils.html import format_html
-from django.db.models.expressions import RawSQL
-import django.contrib.gis.admin as gis_admin
-from django.utils.safestring import mark_safe, SafeString
-from django.utils.functional import cached_property
-from django.http.response import HttpResponseRedirect
-from django.contrib.admin.utils import quote
+from abc import ABC
+from datetime import datetime, timedelta
+from functools import partial
 from urllib.parse import quote as urlquote
-from django.contrib import messages
-from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
-from django.contrib.auth import get_permission_codename
-from django.forms import modelformset_factory, BaseModelFormSet
-from django.db.utils import IntegrityError
+from uuid import UUID
 
-
-import observations.models as models
-from tracking.models import SourcePlugin
-import observations.forms
-from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm, GPXFileForm
-from observations.utils import assigned_range_dates, get_cyclic_subjectgroup
-from observations.tasks import process_gpxtrack_file
-from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin, \
-    SaveCoordinatesToCookieMixin
-from core.openlayers import OSMGeoExtendedAdmin
-from core.common import TIMEZONE_USED
-from utils.html import make_html_list
-from .models import SOURCE_TYPES
-from observations.daterange_filter import DateRangeFilter
+import humanize
+import pytz
 from bitfield import BitField
 from bitfield.forms import BitFieldCheckboxSelectMultiple
-from functools import partial
+from django import forms
+from django.conf import settings
+from django.contrib import admin
+from django.contrib import messages
+from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
+from django.contrib.admin.utils import quote
+from django.contrib.admin.widgets import FilteredSelectMultiple
+from django.contrib.auth import get_permission_codename
+from django.contrib.contenttypes.admin import GenericTabularInline
+from django.contrib.postgres.aggregates import ArrayAgg
+from django.contrib.postgres.fields import jsonb
+from django.core.paginator import Paginator
+from django.db import connection
+from django.db import transaction
+from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
+from django.db.models import F, Func
+from django.db.models import Q, Count, ExpressionWrapper, Window, Max, Min
+from django.db.models.functions import FirstValue, Trunc
+from django.db.models.functions import Now
+from django.db.utils import IntegrityError
+from django.forms import modelformset_factory, BaseModelFormSet
+from django.http import HttpResponse
+from django.http.response import HttpResponseRedirect
+from django.template.loader import render_to_string
+from django.urls import reverse
+from django.utils.functional import cached_property
+from django.utils.html import escape
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
+from django.utils.translation import ugettext_lazy as _
+from pygments import highlight
+from pygments.formatters.html import HtmlFormatter
+from pygments.lexers.data import JsonLexer
+
+import observations.forms
+import observations.models as models
+from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin, \
+    SaveCoordinatesToCookieMixin
+from core.common import TIMEZONE_USED
+from core.openlayers import OSMGeoExtendedAdmin
+from observations.daterange_filter import DateRangeFilter
+from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm, GPXFileForm
+from observations.tasks import process_gpxtrack_file
+from observations.utils import assigned_range_dates, get_cyclic_subjectgroup
+from tracking.models import SourcePlugin
+from utils.html import make_html_list
+from .models import SOURCE_TYPES
 
 site_title = _('EarthRanger Administration (advanced view)')
 admin.site.site_title = site_title
@@ -1513,12 +1516,17 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
     def _source_type(self, o):
         return o.source_type
 
+
+class JsonKeys(Func):
+    function = 'jsonb_object_keys'
+
+
 @admin.register(models.SourceProvider)
 class SourceProviderAdmin(admin.ModelAdmin):
     search_fields = ('provider_key', 'display_name',)
     ordering = ('provider_key', 'display_name')
     list_display = ('provider_key', 'display_name',)
-    readonly_fields = ('id',)
+    readonly_fields = ('id', 'prettify_sample_data', 'additional')
     form = SourceProviderForm
 
     fieldsets = (
@@ -1535,10 +1543,40 @@ class SourceProviderAdmin(admin.ModelAdmin):
 
         ('Advanced configuration', {
             'classes': ('wide', 'collapse',),
-            'fields': ('additional', 'id')
+            'fields': ('additional', 'id', 'prettify_sample_data', 'transforms')
         }
         )
     )
+
+    @staticmethod
+    def generate_sample_data(provider):
+        sample_data = {}
+        available_attributes = models.Observation.objects.filter(
+            source__provider=provider) \
+            .annotate(attributes=JsonKeys('additional')).values_list('attributes', flat=True).order_by('attributes') \
+            .distinct('attributes')
+
+        for key in available_attributes:
+            values = models.Observation.objects.filter(source__provider=provider,
+                                                       recorded_at__gte=datetime.now(tz=pytz.utc) - timedelta(
+                                                           days=30)).annotate(
+                values=jsonb.KeyTransform(key, 'additional')).values_list('values', flat=True).exclude(
+                Q(values__isnull=True)).order_by('recorded_at')[:3]
+            sample_data[key] = list(values if values else 'no sample data available')
+        return sample_data
+
+    def prettify_sample_data(self, instance):
+        """Function to display pretty version of sample data"""
+        data = self.generate_sample_data(instance)
+        response = json.dumps(data, sort_keys=True, indent=2)
+
+        formatter = HtmlFormatter(prestyles="padding-left:50px;line-height:140%")
+        response = highlight(response, JsonLexer(), formatter)
+        style = "<style>" + formatter.get_style_defs() + "</style><br>"
+        return mark_safe(style + response)
+
+    prettify_sample_data.short_description = 'Additional data [with sample values]'
+
 
 # @admin.register(models.SubjectSummary)
 
