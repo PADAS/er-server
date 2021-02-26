@@ -43,7 +43,12 @@ class PatrolsMaterializedView:
             to_four_dps(ST_Y(ps.end_location))  as "End Lat",
             to_four_dps(ST_X(ps.end_location))  as "End Lon",
                 
-            p.state,
+            CASE
+                WHEN (p.state='open' AND ps.scheduled_start IS NOT NULL AND ps.scheduled_start >= (NOW() - ('{self.lookback} minute')::INTERVAL)) THEN 'Ready To start'
+                WHEN (p.state='open' AND lower(ps.time_range) IS NULL AND ps.scheduled_start IS NOT NULL AND ps.scheduled_start <  (NOW() - ('{self.lookback} minute')::INTERVAL)) THEN 'Start Overdue'
+                WHEN (p.state='open' AND ps.time_range IS NOT NULL) THEN 'Active'
+                ELSE initcap(p.state) END
+            AS "Status",
 
             to_char(upper(ps.time_range) - lower(ps.time_range), 'DD" days "HH24":"MI":"SS""') as "Duration (hh:mm:ss)",
             
