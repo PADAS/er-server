@@ -162,7 +162,7 @@ class InreachKMLPlugin(TrackingPlugin):
         SourcePlugin, content_type_field='plugin_type', object_id_field='plugin_id',
         related_query_name=source_plugin_reverse_relation, related_name='+')
 
-    DEFAULT_REPORT_INTERVAL = timedelta(minutes=10)
+    DEFAULT_REPORT_INTERVAL = timedelta(minutes=7)
 
     class Meta:
         verbose_name = "inReach Personal plugin"

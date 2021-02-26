@@ -126,7 +126,7 @@ class AWTHttpPlugin(TrackingPlugin):
     service_api_url = models.URLField(help_text='The URL for the AWT service.',
                                       default='http://www.yrless.co.za/STE/yrserv/datanew.phtml')
     DEFAULT_START_OFFSET = timedelta(days=7)
-    DEFAULT_REPORT_INTERVAL = timedelta(minutes=30)
+    DEFAULT_REPORT_INTERVAL = timedelta(minutes=7)
 
     source_plugin_reverse_relation = 'awthttpplugin'
     source_plugins = GenericRelation(

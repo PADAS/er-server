@@ -90,7 +90,7 @@ class AWETelemetryPlugin(TrackingPlugin):
     Fetch data from Savannah Tracking API.
     '''
     DEFAULT_START_OFFSET = timedelta(days=14)
-    DEFAULT_REPORT_INTERVAL = timedelta(hours=1)
+    DEFAULT_REPORT_INTERVAL = timedelta(minutes=7)
     EXECUTION_THROTTLE = timedelta(minutes=15)
     DEFAULT_SUBJECT_SUBTYPE = 'elephant'
     DEFAULT_SOURCE_TYPE = 'tracking-device'

@@ -127,7 +127,7 @@ class InreachPlugin(TrackingPlugin):
         related_query_name=source_plugin_reverse_relation, related_name='+')
 
     DEFAULT_START_OFFSET = timedelta(days=31)
-    DEFAULT_REPORT_INTERVAL = timedelta(minutes=10)
+    DEFAULT_REPORT_INTERVAL = timedelta(minutes=7)
 
     class Meta:
         verbose_name = "inReach Professional plugin"

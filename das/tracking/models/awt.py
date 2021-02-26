@@ -348,7 +348,7 @@ class AwtPlugin(TrackingPlugin):
     Get Data from AWT API
     """
     # DEFAULT_URL = "https://api.africawildlifetracking.com/"
-    DEFAULT_REPORT_INTERVAL = timedelta(hours=1)
+    DEFAULT_REPORT_INTERVAL = timedelta(minutes=7)
     DEFAULT_START_OFFSET = timedelta(days=14)
     COLLAR_REACHBACK_OFFSET = timedelta(hours=12)
 

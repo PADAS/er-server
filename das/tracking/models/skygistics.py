@@ -849,7 +849,7 @@ class SkygisticsQ1Client(SkygisticsClient):
 class SkygisticsSatellitePlugin(TrackingPlugin):
 
     DEFAULT_START_OFFSET = timedelta(days=14)
-    DEFAULT_REPORT_INTERVAL = timedelta(hours=1)
+    DEFAULT_REPORT_INTERVAL = timedelta(minutes=7)
 
     service_username = models.CharField(max_length=50,
                                         help_text='The username for Skygistics API.')

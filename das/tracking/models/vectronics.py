@@ -18,7 +18,7 @@ class VectronicsPlugin(TrackingPlugin):
     DEFAULT_URL = "https://api.vectronic-wildlife.com/v2/"
     DEFAULT_SOURCE_TYPE = "collar/"
     DEFAULT_DATA_SOURCE = "gps"
-    DEFAULT_REPORT_INTERVAL = timedelta(hours=1)
+    DEFAULT_REPORT_INTERVAL = timedelta(minutes=7)
     DEFAULT_START_OFFSET = timedelta(days=140)
     # Timeout in seconds
     DEFAULT_TIMEOUT = 120

@@ -193,7 +193,7 @@ class SavannahPlugin(TrackingPlugin):
     Fetch data from Savannah Tracking API.
     '''
     DEFAULT_START_OFFSET = timedelta(days=14)
-    DEFAULT_REPORT_INTERVAL = timedelta(minutes=30)
+    DEFAULT_REPORT_INTERVAL = timedelta(minutes=7)
 
     service_username = models.CharField(max_length=50,
                                         help_text='The username for querying the Savannah Tracking service.')

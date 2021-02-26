@@ -209,7 +209,7 @@ class SirtrackPlugin(TrackingPlugin):
     Fetch data from SirTrack API.
     '''
     DEFAULT_START_OFFSET = timedelta(days=14)
-    DEFAULT_REPORT_INTERVAL = timedelta(minutes=15)
+    DEFAULT_REPORT_INTERVAL = timedelta(minutes=7)
 
     service_username = models.CharField(max_length=50,
                                         help_text='The username for querying the SirTrack service.')
