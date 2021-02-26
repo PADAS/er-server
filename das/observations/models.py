@@ -401,7 +401,7 @@ class ObservationManager(models.Manager):
         '''
         location = Point(x=observation.longitude, y=observation.latitude)
         additional = observation.additional or {}
-        result, created = observations.models.Observation.objects.get_or_create(source_id=observation.source.id,
+        result, created = Observation.objects.get_or_create(source_id=observation.source.id,
                                                                                 recorded_at=observation.recorded_at,
                                                                                 defaults=dict(
                                                                                     location=location,
