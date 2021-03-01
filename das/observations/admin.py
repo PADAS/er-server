@@ -2,7 +2,6 @@ import csv
 import json
 import random
 import urllib
-from abc import ABC
 from datetime import datetime, timedelta
 from functools import partial
 from urllib.parse import quote as urlquote
@@ -22,13 +21,13 @@ from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth import get_permission_codename
 from django.contrib.contenttypes.admin import GenericTabularInline
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.contrib.postgres.fields import jsonb
 from django.core.paginator import Paginator
 from django.db import connection
 from django.db import transaction
+from django.db.models import Aggregate
 from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
-from django.db.models import F, Func
-from django.db.models import Q, Count, ExpressionWrapper, Window, Max, Min
+from django.db.models import ExpressionWrapper, Max, Min
+from django.db.models import F, Q, Window, RowRange, Count
 from django.db.models.functions import FirstValue, Trunc
 from django.db.models.functions import Now
 from django.db.utils import IntegrityError
@@ -55,7 +54,7 @@ from core.openlayers import OSMGeoExtendedAdmin
 from observations.daterange_filter import DateRangeFilter
 from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm, GPXFileForm
 from observations.tasks import process_gpxtrack_file
-from observations.utils import assigned_range_dates, get_cyclic_subjectgroup
+from observations.utils import assigned_range_dates, get_cyclic_subjectgroup, find_paths
 from tracking.models import SourcePlugin
 from utils.html import make_html_list
 from .models import SOURCE_TYPES
@@ -1517,8 +1516,9 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
         return o.source_type
 
 
-class JsonKeys(Func):
-    function = 'jsonb_object_keys'
+class JsonAgg(Aggregate):
+    function = 'jsonb_agg'
+    template = '%(function)s(to_jsonb(%(expressions)s))'
 
 
 @admin.register(models.SourceProvider)
@@ -1550,20 +1550,20 @@ class SourceProviderAdmin(admin.ModelAdmin):
 
     @staticmethod
     def generate_sample_data(provider):
-        sample_data = {}
-        available_attributes = models.Observation.objects.filter(
-            source__provider=provider) \
-            .annotate(attributes=JsonKeys('additional')).values_list('attributes', flat=True).order_by('attributes') \
-            .distinct('attributes')
+        accum = {}
+        window_asc = {'partition_by': F('source_id'), 'order_by': [F('recorded_at').asc()]}
 
-        for key in available_attributes:
-            values = models.Observation.objects.filter(source__provider=provider,
-                                                       recorded_at__gte=datetime.now(tz=pytz.utc) - timedelta(
-                                                           days=30)).annotate(
-                values=jsonb.KeyTransform(key, 'additional')).values_list('values', flat=True).exclude(
-                Q(values__isnull=True)).order_by('recorded_at')[:3]
-            sample_data[key] = list(values if values else 'no sample data available')
-        return sample_data
+        obs = models.Observation.objects.filter(source__provider=provider,
+                                                recorded_at__gte=datetime.now(tz=pytz.utc) - timedelta(days=30)
+                                                ).annotate(agg_data=Window(expression=JsonAgg('additional'),
+                                                                           frame=RowRange(start=0, end=3),
+                                                                           **window_asc))
+
+        [find_paths(x, accum=accum) for i in obs for x in i.agg_data]
+
+        for k, v in accum.items():
+            accum[k] = random.sample(v, min(3, len(v)))
+        return accum
 
     def prettify_sample_data(self, instance):
         """Function to display pretty version of sample data"""

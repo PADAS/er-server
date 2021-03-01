@@ -243,7 +243,13 @@ class ObservationTestCase(BaseAPITest):
                                                                                 "label": "Voltage (from sysB)",
                                                                                 "source": ".additional.volts",
                                                                                 "units": "v"
-                                                                                }])
+                                                                                },
+                                                                               {"dest": "altitude",
+                                                                                "label": "Altitude",
+                                                                                "source": ".additional.Altitude.0.#text",
+                                                                                "units": "feet"
+                                                                                },
+                                                                               ])
 
         # Generate some random data for the observation.
         observation_time = UTC.localize(datetime.now())
@@ -256,7 +262,19 @@ class ObservationTestCase(BaseAPITest):
             'location': fixed_location,
             'recorded_at': observation_time,
             'source': source_id,
-            'additional': {"voltage": 12, "volts": "5.9v"}
+            'additional': {"voltage": 12,
+                           "volts": "5.9v",
+                           "Altitude": [
+                               {
+                                   "#text": "3241",
+                                   "@units": "Feet"
+                               },
+                               {
+                                   "#text": "3000",
+                                   "@units": "Feet"
+                               }
+                           ]
+                           }
         }
 
         serializer = ObservationSerializer(data=observation)
@@ -281,7 +299,11 @@ class ObservationTestCase(BaseAPITest):
         self.force_authenticate(request, self.user)
         response = SubjectsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data[0].get('device_status_properties'), [{'label': 'Voltage', 'units': 'v', 'value': 12}])
+
+        self.assertEqual(response.data[0].get('device_status_properties'),
+                         [{'label': 'Voltage', 'units': 'v', 'value': 12},
+                          {'label': 'Altitude', 'units': 'feet', 'value': '3241'}])
+        self.assertTrue(len(response.data[0].get('device_status_properties')), 2)
 
 
 def generate_observation(source, recorded_at=None):

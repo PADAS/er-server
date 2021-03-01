@@ -1401,18 +1401,51 @@ def update_subject_status(source, recorded_at, location,
 
 def transform_additional_data(additional, transform_format):
     """Transform additional subject data for display."""
+    from functools import reduce
+    from operator import getitem
+
     device_attributes = []
     dests = []
-    for t in transform_format:
-        key = t.get('source').split('.')[-1]
-        ds = t.get('dest')
-        if additional.get(key) and ds not in dests:
-            metadata = dict(value=additional.get(key),
-                            label=t.get('label'),
-                            units=t.get('units'))
+    for tf in transform_format:
+        ds = tf.get('dest')
+
+        keys = []
+        for k in tf.get('source').split('.'):
+            if k not in ['', 'additional']:
+                if k.isnumeric():
+                    keys.append(int(k))
+                else:
+                    keys.append(k)
+
+        try:
+            value = reduce(getitem, keys, additional)
+        except KeyError:
+            continue
+
+
+        if value and ds not in dests:
+            metadata = dict(value=value,
+                            label=tf.get('label'),
+                            units=tf.get('units'))
             dests.append(ds)
             device_attributes.append(metadata)
     return device_attributes
+
+
+# def transform_additional_data(additional, transform_format):
+#     """Transform additional subject data for display."""
+#     device_attributes = []
+#     dests = []
+#     for t in transform_format:
+#         key = t.get('source').split('.')[-1]
+#         ds = t.get('dest')
+#         if additional.get(key) and ds not in dests:
+#             metadata = dict(value=additional.get(key),
+#                             label=t.get('label'),
+#                             units=t.get('units'))
+#             dests.append(ds)
+#             device_attributes.append(metadata)
+#     return device_attributes
 
 
 def update_subject_status_from_observation(observation, delay_hours=0, force=False):
