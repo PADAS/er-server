@@ -282,7 +282,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                             self.context['request'], location, instance,
                             time=recorded_at, image_url=rep['image_url']
                         )
-                rep['device_status_properties'] = statusvalues.device_properties
+                rep['device_status_properties'] = statusvalues.device_status_properties
 
         if 'request' in self.context:
             request = self.context['request']
@@ -338,7 +338,7 @@ class SubjectStatusValues(NamedTuple):
     radio_state: str
     radio_state_at: datetime
     last_voice_call_start_at: datetime
-    device_properties: dict
+    device_status_properties: dict
 
 
 def resolve_status_values(subject):

@@ -237,16 +237,16 @@ class ObservationTestCase(BaseAPITest):
 
         SourceProvider.objects.filter(source__id=source_id).update(transforms=[{"dest": "voltage",
                                                                                "label": "Voltage",
-                                                                                "source": ".additional.voltage",
+                                                                                "source": "voltage",
                                                                                 "units": "v"},
                                                                                {"dest": "voltage",
                                                                                 "label": "Voltage (from sysB)",
-                                                                                "source": ".additional.volts",
+                                                                                "source": "volts",
                                                                                 "units": "v"
                                                                                 },
                                                                                {"dest": "altitude",
                                                                                 "label": "Altitude",
-                                                                                "source": ".additional.Altitude.0.#text",
+                                                                                "source": "Altitude.[0].#text",
                                                                                 "units": "feet"
                                                                                 },
                                                                                ])

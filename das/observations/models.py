@@ -16,7 +16,10 @@ from datetime import datetime, timedelta
 import uuid
 import random
 import itertools
+import re
 import logging
+from functools import reduce
+from operator import getitem
 
 # from collections import namedtuple
 #
@@ -813,7 +816,7 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             .annotate(status_radio_state=F('s1__radio_state')) \
             .annotate(status_radio_state_at=F('s1__radio_state_at')) \
             .annotate(status_location=F('s1__location')) \
-            .annotate(status_device_properties=KeyTransform('device_status_properties', F('s1__additional')))
+            .annotate(status_device_status_properties=KeyTransform('device_status_properties', F('s1__additional')))
 
     def _query_string_for_filter(self, updated_since=None, updated_until=None):
         updated_since_filter = Q(updated_at__gte=updated_since) \
@@ -1383,10 +1386,7 @@ def update_subject_status(source, recorded_at, location,
         status_updates['additional'] = {'subject_name': reported_subject_name}
 
     if transformed_additional_data:
-        if status_updates.get('additional'):
-            status_updates['additional']['device_status_properties'] = transformed_additional_data
-        else:
-            status_updates['additional'] = dict(device_status_properties=transformed_additional_data)
+        status_updates.setdefault('additional', {})['device_status_properties'] = transformed_additional_data
 
     SubjectStatus.objects.filter(subject__subjectsource__source=source,
                                  subject__subjectsource__assigned_range__contains=recorded_at,
@@ -1401,8 +1401,6 @@ def update_subject_status(source, recorded_at, location,
 
 def transform_additional_data(additional, transform_format):
     """Transform additional subject data for display."""
-    from functools import reduce
-    from operator import getitem
 
     device_attributes = []
     dests = []
@@ -1412,8 +1410,9 @@ def transform_additional_data(additional, transform_format):
         keys = []
         for k in tf.get('source').split('.'):
             if k not in ['', 'additional']:
-                if k.isnumeric():
-                    keys.append(int(k))
+                index = re.search(r"\[([0-9]+)]", k)
+                if index:
+                    keys.append(int(index.group(1)))
                 else:
                     keys.append(k)
 
