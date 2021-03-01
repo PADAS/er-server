@@ -83,6 +83,7 @@ locals {
     "mkomazi"                = "prod1"
     "mtkenya"                = "prod1"
     "murchisonfalls"         = "prod1"
+    "musekese"               = "prod1"
     "mwa"                    = "prod1"
     "naankuse"               = "prod1"
     "natgeo"                 = "prod1"
