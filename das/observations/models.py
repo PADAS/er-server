@@ -1432,22 +1432,6 @@ def transform_additional_data(additional, transform_format):
     return device_attributes
 
 
-# def transform_additional_data(additional, transform_format):
-#     """Transform additional subject data for display."""
-#     device_attributes = []
-#     dests = []
-#     for t in transform_format:
-#         key = t.get('source').split('.')[-1]
-#         ds = t.get('dest')
-#         if additional.get(key) and ds not in dests:
-#             metadata = dict(value=additional.get(key),
-#                             label=t.get('label'),
-#                             units=t.get('units'))
-#             dests.append(ds)
-#             device_attributes.append(metadata)
-#     return device_attributes
-
-
 def update_subject_status_from_observation(observation, delay_hours=0, force=False):
 
     additional = observation.additional
