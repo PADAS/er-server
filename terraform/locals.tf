@@ -105,6 +105,7 @@ locals {
     "phuzamoya"              = "prod1"
     "pinelands"              = "prod1"
     "preylang"               = "prod-asia"
+    "purplerain"             = "prod1"
     "queenelizabeth"         = "prod1"
     "rcb"                    = "prod1"
     "rfcx"                   = "prod1"
