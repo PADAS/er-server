@@ -1543,7 +1543,7 @@ class SourceProviderAdmin(admin.ModelAdmin):
 
         ('Advanced configuration', {
             'classes': ('wide', 'collapse',),
-            'fields': ('additional', 'id', 'prettify_sample_data', 'transforms')
+            'fields': ('id', 'prettify_sample_data', 'transforms')
         }
         )
     )
@@ -1556,7 +1556,7 @@ class SourceProviderAdmin(admin.ModelAdmin):
         obs = models.Observation.objects.filter(source__provider=provider,
                                                 recorded_at__gte=datetime.now(tz=pytz.utc) - timedelta(days=30)
                                                 ).annotate(agg_data=Window(expression=JsonAgg('additional'),
-                                                                           frame=RowRange(start=0, end=3),
+                                                                           frame=RowRange(start=0, end=25),
                                                                            **window_asc))
 
         [find_paths(x, accum=accum) for i in obs for x in i.agg_data]
@@ -1575,7 +1575,7 @@ class SourceProviderAdmin(admin.ModelAdmin):
         style = "<style>" + formatter.get_style_defs() + "</style><br>"
         return mark_safe(style + response)
 
-    prettify_sample_data.short_description = 'Additional data [with sample values]'
+    prettify_sample_data.short_description = _('Sample attributes from recent Observations')
 
 
 # @admin.register(models.SubjectSummary)

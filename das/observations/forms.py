@@ -137,7 +137,7 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
                        'backup_frequency', 'predicted_expiry', 'silence_notification_threshold')
         json_date_fields = ('predicted_expiry',)
         fields = ('id', 'manufacturer_id', 'provider', 'source_type',
-                  'model_name', 'additional') + json_fields
+                  'model_name') + json_fields
 
 
 class SubjectSubtypeChoiceField(forms.ModelChoiceField):
@@ -269,12 +269,16 @@ class AutoFormatJSONWidget(forms.widgets.Textarea):
             # these lines will try to adjust size of TextArea to fit to content
             row_lengths = [len(r) for r in value.split('\n')]
             self.attrs['rows'] = min(max(len(row_lengths) + 2, 10), 30)
-            self.attrs['style'] = "font-size: 15px"
+            self.attrs['style'] = "font-size: 15px; font-family: Consolas, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, monospace;"
             return value
         except Exception as e:
             logger.warning("Error while formatting JSON: {}".format(e))
             return super().format_value(value)
 
+    class Media:
+        css = {
+            'all': ('css/monospace_textarea.css',),
+        }
 
 class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
 
@@ -288,10 +292,11 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
                                           help_text=days_data_retain_help_text)
 
     transforms = JSONField(widget=AutoFormatJSONWidget, required=False,
-                           error_messages={'invalid': "The array of Additional data to display with Subjects was not "
-                                                      "formed properly. Please correct and try again."},
-                           help_text="Contact support for assistance in configuring the additional data fields to "
-                                     "display for subjects")
+                           label=_("Transformation Rules"),
+                           error_messages={'invalid': "The Transformation Rules must be valid JSON. "
+                                                      "Please correct and try saving again."},
+                           help_text="Contact support for assistance in configuring the the "
+                                        "transformation rules.")
 
     class Meta:
         model = SourceProvider

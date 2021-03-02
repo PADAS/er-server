@@ -223,8 +223,6 @@ def get_default_source_provider_id():
     return uuid.UUID(DEFAULT_SOURCE_PROVIDER_ID)
 
 
-
-
 class SourceProvider(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     provider_key = models.CharField('Natural key for source provider',
@@ -233,7 +231,8 @@ class SourceProvider(TimestampedModel):
                                     max_length=100, null=False,)
     notes = models.TextField(blank=True, null=True)
     additional = JSONField('additional data', default=dict, blank=True)
-    transforms = JSONField("transforms", default=dict, blank=True, null=True)
+    transforms = JSONField(name="transforms", default=dict, blank=True, null=True,
+                           verbose_name="Transformation Rules")
     objects = SourceProviderManager()
 
     def __str__(self):
