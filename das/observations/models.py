@@ -16,7 +16,10 @@ from datetime import datetime, timedelta
 import uuid
 import random
 import itertools
+import re
 import logging
+from functools import reduce
+from operator import getitem
 
 # from collections import namedtuple
 #
@@ -35,6 +38,8 @@ import pytz
 from dateutil.parser import parse as parse_date
 from django.db.models.functions import Greatest, Least
 from django.contrib.gis.db import models as dbmodels
+from django.contrib.postgres.fields.hstore import KeyTransform
+
 
 from tracking.pubsub_registry import notify_new_tracks, notify_subjectstatus_update
 from observations.utils import VIEW_END_WINDOWS
@@ -218,6 +223,8 @@ def get_default_source_provider_id():
     return uuid.UUID(DEFAULT_SOURCE_PROVIDER_ID)
 
 
+
+
 class SourceProvider(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     provider_key = models.CharField('Natural key for source provider',
@@ -226,6 +233,7 @@ class SourceProvider(TimestampedModel):
                                     max_length=100, null=False,)
     notes = models.TextField(blank=True, null=True)
     additional = JSONField('additional data', default=dict, blank=True)
+    transforms = JSONField("transforms", default=dict, blank=True, null=True)
     objects = SourceProviderManager()
 
     def __str__(self):
@@ -807,7 +815,8 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             .annotate(status_last_voice_call_start_at=F('s1__last_voice_call_start_at')) \
             .annotate(status_radio_state=F('s1__radio_state')) \
             .annotate(status_radio_state_at=F('s1__radio_state_at')) \
-            .annotate(status_location=F('s1__location'))
+            .annotate(status_location=F('s1__location')) \
+            .annotate(status_device_status_properties=KeyTransform('device_status_properties', F('s1__additional')))
 
     def _query_string_for_filter(self, updated_since=None, updated_until=None):
         updated_since_filter = Q(updated_at__gte=updated_since) \
@@ -1361,6 +1370,7 @@ def update_subject_status(source, recorded_at, location,
                           radio_state=None,
                           radio_state_at=None,
                           reported_subject_name=None,
+                          transformed_additional_data=None,
                           delay_hours=0,
                           force=False):
 
@@ -1375,6 +1385,9 @@ def update_subject_status(source, recorded_at, location,
     if reported_subject_name:
         status_updates['additional'] = {'subject_name': reported_subject_name}
 
+    if transformed_additional_data:
+        status_updates.setdefault('additional', {})['device_status_properties'] = transformed_additional_data
+
     SubjectStatus.objects.filter(subject__subjectsource__source=source,
                                  subject__subjectsource__assigned_range__contains=recorded_at,
                                  delay_hours=delay_hours
@@ -1386,9 +1399,42 @@ def update_subject_status(source, recorded_at, location,
             .exclude(name=reported_subject_name).update(name=reported_subject_name)
 
 
+def transform_additional_data(additional, transform_format):
+    """Transform additional subject data for display."""
+
+    device_attributes = []
+    dests = []
+    for tf in transform_format:
+        ds = tf.get('dest')
+
+        keys = []
+        for k in tf.get('source').split('.'):
+            if k not in ['', 'additional']:
+                index = re.search(r"\[([0-9]+)]", k)
+                if index:
+                    keys.append(int(index.group(1)))
+                else:
+                    keys.append(k)
+
+        try:
+            value = reduce(getitem, keys, additional)
+        except KeyError:
+            continue
+
+
+        if value and ds not in dests:
+            metadata = dict(value=value,
+                            label=tf.get('label'),
+                            units=tf.get('units'))
+            dests.append(ds)
+            device_attributes.append(metadata)
+    return device_attributes
+
+
 def update_subject_status_from_observation(observation, delay_hours=0, force=False):
 
     additional = observation.additional
+    transformed_data = None
 
     try:
         last_voice_call_start_at = parse_date(
@@ -1414,6 +1460,12 @@ def update_subject_status_from_observation(observation, delay_hours=0, force=Fal
                 observation.additional.get('radio_state_at'))
         except:
             radio_state_at = None
+
+        try:
+            transformed_data = transform_additional_data(additional, source.provider.transforms)
+        except Exception as exc:
+            logger.debug(f"failed with exception {exc}")
+
     else:
         reported_subject_name, radio_state, radio_state_at = None, None, None
 
@@ -1423,6 +1475,7 @@ def update_subject_status_from_observation(observation, delay_hours=0, force=Fal
                           radio_state=radio_state,
                           radio_state_at=radio_state_at,
                           reported_subject_name=reported_subject_name,
+                          transformed_additional_data=transformed_data,
                           delay_hours=delay_hours,
                           force=force)
 

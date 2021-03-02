@@ -257,3 +257,30 @@ def get_cyclic_subjectgroup():
         WHERE  cycle;
         """)
         return [row[0] for row in cursor.fetchall()]
+
+
+def find_paths(item, accum=None, prefix=None):
+    """
+    Accumulate unique "paths" along with sample data.
+    :param item:
+    :param accum:
+    :param prefix:
+    :return:
+    """
+
+    accum = accum if accum is not None else {}
+    prefix = prefix or []
+
+    if isinstance(item, (str, bool, int, float)):
+        accum.setdefault('.'.join(prefix), set()).add(item)
+
+    elif isinstance(item, dict):
+        for k, v in item.items():
+            if isinstance(v, (list,dict)):
+                find_paths(v, accum=accum, prefix=prefix + [k])
+            else:
+                accum.setdefault('.'.join(prefix + [k]), set()).add(v)
+
+    elif isinstance(item, list):
+        for v in item:
+            find_paths(v, accum=accum, prefix=prefix + ['[]'])

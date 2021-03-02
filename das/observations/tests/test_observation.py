@@ -6,18 +6,23 @@ from datetime import datetime, timedelta, timezone
 
 from django.db.models import F
 from django.test import TestCase
+from django.contrib.auth import get_user_model
+from django.urls import reverse
 from pytz import UTC
 import pytest
 
 from observations.models import Observation, SubjectSource, SubjectStatus, Subject, Source, SourceProvider
 from observations.serializers import ObservationSerializer
-from observations.views import TrackingDataCsvView
+from observations.views import TrackingDataCsvView, SubjectsView, SubjectStatusView
+from core.tests import BaseAPITest
+
+User = get_user_model()
 
 FIXTURE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),
                             'fixtures')
 
 FIXTURE_FOR_SUBJECT_STATUS_TESTS = 'test/radio-subject-fixtures.json'
-class ObservationTestCase(TestCase):
+class ObservationTestCase(BaseAPITest):
 
     fixtures = [
         'test/sourceprovider.yaml',
@@ -29,7 +34,10 @@ class ObservationTestCase(TestCase):
     ]
 
     def setUp(self):
-        pass
+        super().setUp()
+        user_const = dict(last_name='last', first_name='first')
+        self.user = User.objects.create_user('user', 'user@test.com', 'all_perms_user', is_superuser=True,
+                                             is_staff=True, **user_const)
 
     def test_observation_get_source_range_observations_in_range(self):
         source_id = '04859b48-5665-4895-b7b1-64319f9812b0'
@@ -223,6 +231,88 @@ class ObservationTestCase(TestCase):
         self.assertEqual(last1.recorded_at, initial_subjectstatus.recorded_at)
         self.assertEqual(last1.location, initial_subjectstatus.location)
 
+    def test_subject_additional_data(self):
+        subject_id = '269524d5-a434-4377-9ea9-2a7946dbd9c4'
+        source_id = '56b1cf14-ef97-4054-8fbd-1342f265b2a9'
+
+        SourceProvider.objects.filter(source__id=source_id).update(transforms=[{"dest": "voltage",
+                                                                               "label": "Voltage",
+                                                                                "source": "voltage",
+                                                                                "units": "v"},
+                                                                               {"dest": "voltage",
+                                                                                "label": "Voltage (from sysB)",
+                                                                                "source": "volts",
+                                                                                "units": "v"
+                                                                                },
+                                                                               {"dest": "altitude",
+                                                                                "label": "Altitude",
+                                                                                "source": "Altitude.[0].#text",
+                                                                                "units": "feet"
+                                                                                },
+                                                                               ])
+
+        # Generate some random data for the observation.
+        observation_time = UTC.localize(datetime.now())
+        fixed_latitude = float(random.randint(3000, 3000))/100
+        fixed_longitude = float(random.randint(2800, 4000))/100
+
+        fixed_location = dict(longitude=fixed_longitude, latitude=fixed_latitude)
+
+        observation = {
+            'location': fixed_location,
+            'recorded_at': observation_time,
+            'source': source_id,
+            'additional': {"voltage": 12,
+                           "volts": "5.9v",
+                           "Altitude": [
+                               {
+                                   "#text": "3241",
+                                   "@units": "Feet"
+                               },
+                               {
+                                   "#text": "3000",
+                                   "@units": "Feet"
+                               }
+                           ]
+                           }
+        }
+
+        serializer = ObservationSerializer(data=observation)
+
+        self.assertTrue(serializer.is_valid(), msg='Observation is not valid.')
+
+        observation_instance = None
+        if serializer.is_valid():
+            observation_instance = serializer.save()
+
+        self.assertTrue(observation_instance is not None)
+        subject_statuses = SubjectStatus.objects.filter(subject_id=subject_id, delay_hours=0)
+        self.assertTrue(subject_statuses is not None)
+
+        subject_status = subject_statuses.first()
+        self.assertEqual(subject_status.recorded_at, observation_time)
+        self.assertEqual((subject_status.location.x, subject_status.location.y), (fixed_longitude, fixed_latitude))
+
+        url = reverse('subjects-list-view')
+        request = self.factory.get(url)
+
+        self.force_authenticate(request, self.user)
+        response = SubjectsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+
+        self.assertEqual(response.data[0].get('device_status_properties'),
+                         [{'label': 'Voltage', 'units': 'v', 'value': 12},
+                          {'label': 'Altitude', 'units': 'feet', 'value': '3241'}])
+        self.assertTrue(len(response.data[0].get('device_status_properties')), 2)
+
+        # subject-status
+        url = reverse('subjectstatus-view',  kwargs={'subject_id': subject_id})
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.user)
+        response = SubjectStatusView.as_view()(request, subject_id=subject_id)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data.get('device_status_properties'))
+
 
 def generate_observation(source, recorded_at=None):
     observation_time = recorded_at if recorded_at else datetime.now(tz=timezone.utc)
@@ -254,7 +344,7 @@ def two_subjects_one_source(db):
     ivy = Subject.objects.create_subject(name="Ivy", subject_subtype_id='elephant')
 
     source = Source.objects.ensure_source(manufacturer_id="1125496", provider="bobo_provider")
-    
+
     time_start = datetime(year=2019, month=1, day=1, hour=2, tzinfo=timezone.utc)
 
     bobo_observations = [generate_observation(source, recorded_at=time_start + timedelta(days=i)).recorded_at for i in range(1, 5)]
