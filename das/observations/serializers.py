@@ -119,6 +119,24 @@ class SubjectSubTypeRelatedField(rest_framework.serializers.RelatedField):
                     f'subject_subtype : {data} does not exist')
 
 
+class CommonNameRelatedField(rest_framework.serializers.RelatedField):
+
+    def get_queryset(self):
+        return models.CommonName.objects.all()
+
+    def to_representation(self, value):
+        return value.value if value else None
+
+    def to_internal_value(self, data):
+        if data:
+            data = data if isinstance(data, str) else data.value
+            try:
+                return models.CommonName.objects.get(value=data)
+            except models.CommonName.DoesNotExist:
+                raise serializers.ValidationError(
+                    f'common_name : {data} does not exist')
+
+
 class SubjectSourceSerializer(rest_framework.serializers.ModelSerializer):
 
     assigned_range = DateTimeRangeField()
@@ -143,6 +161,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
     subject_type = rest_framework.serializers.CharField(
         max_length=100, required=False, read_only=True)
     subject_subtype = SubjectSubTypeRelatedField()
+    common_name = CommonNameRelatedField(required=False)
     additional = rest_framework.serializers.JSONField(
         label='Additional data', required=False)
     created_at = rest_framework.serializers.DateTimeField(read_only=True)
@@ -156,7 +175,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
         model = models.Subject
         read_only_fields = ('image_url', 'color',
                             'content_type', 'subject_type')
-        fields = ('id', 'name', 'subject_subtype',
+        fields = ('id', 'name', 'subject_subtype', 'common_name',
                   'additional', 'is_active',) + read_only_fields
 
     def to_internal_value(self, data):
@@ -183,7 +202,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
             minimum_allowed_age = get_minimum_allowed_age(user)
             # additional.get('expiry', None)
             mou_expiry_date = user.mou_expiry_date
-            
+
             if mou_expiry_date is not None:
                 if not mou_expiry_date.tzinfo:
                     mou_expiry_date = mou_expiry_date.replace(tzinfo=pytz.utc)
@@ -369,7 +388,7 @@ def get_observation_location(subject, mou_date, default_window_cutoff):
         return None
     observation = models.Observation.objects.get_subject_observations(
         subject, since=default_window_cutoff,  until=mou_date, order_by='-recorded_at'
-        ).first()
+    ).first()
 
     return observation
 
@@ -594,7 +613,8 @@ class FlattenObservationSerializer(rest_framework.serializers.ModelSerializer):
         fields = ('location', 'recorded_at')
 
     def to_representation(self, instance):
-        rep = super(FlattenObservationSerializer, self).to_representation(instance)
+        rep = super(FlattenObservationSerializer,
+                    self).to_representation(instance)
 
         # TODO: Figure out why coordinates are coming as strings.
         x = float(rep['location']['longitude'])

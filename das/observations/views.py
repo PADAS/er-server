@@ -389,7 +389,7 @@ class SubjectsView(generics.ListCreateAPIView):
         queryset = queryset.by_user_subjects(self.request.user)
 
         queryset = queryset.select_related(
-            'subject_subtype', 'subject_subtype__subject_type')
+            'subject_subtype', 'subject_subtype__subject_type', 'common_name')
 
         # Allow specifying a single subject group by 'id'.
         subject_group = self.request.query_params.get('subject_group')
