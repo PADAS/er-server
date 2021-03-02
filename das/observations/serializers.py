@@ -301,7 +301,8 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                             self.context['request'], location, instance,
                             time=recorded_at, image_url=rep['image_url']
                         )
-                rep['device_status_properties'] = statusvalues.device_status_properties
+                rep['device_status_properties'] = \
+                    statusvalues.device_status_properties if hasattr(statusvalues, 'device_status_properties') else None
 
         if 'request' in self.context:
             request = self.context['request']
