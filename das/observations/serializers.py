@@ -525,6 +525,9 @@ class SubjectStatusSerializer(rest_framework.serializers.BaseSerializer):
         feature = make_subjectstatus_feature(self.context['request'],
                                              coordinates,
                                              subject_status)
+
+        feature['device_status_properties'] = subject_status.additional.get('device_status_properties')
+
         return feature
 
 

@@ -13,7 +13,7 @@ import pytest
 
 from observations.models import Observation, SubjectSource, SubjectStatus, Subject, Source, SourceProvider
 from observations.serializers import ObservationSerializer
-from observations.views import TrackingDataCsvView, SubjectsView
+from observations.views import TrackingDataCsvView, SubjectsView, SubjectStatusView
 from core.tests import BaseAPITest
 
 User = get_user_model()
@@ -304,6 +304,14 @@ class ObservationTestCase(BaseAPITest):
                          [{'label': 'Voltage', 'units': 'v', 'value': 12},
                           {'label': 'Altitude', 'units': 'feet', 'value': '3241'}])
         self.assertTrue(len(response.data[0].get('device_status_properties')), 2)
+
+        # subject-status
+        url = reverse('subjectstatus-view',  kwargs={'subject_id': subject_id})
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.user)
+        response = SubjectStatusView.as_view()(request, subject_id=subject_id)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data.get('device_status_properties'))
 
 
 def generate_observation(source, recorded_at=None):
