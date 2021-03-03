@@ -1575,7 +1575,7 @@ class SourceProviderAdmin(admin.ModelAdmin):
         style = "<style>" + formatter.get_style_defs() + "</style><br>"
         return mark_safe(style + response)
 
-    prettify_sample_data.short_description = _('Additional data [with sample values]')
+    prettify_sample_data.short_description = _('Additional data with sample values')
 
 
 # @admin.register(models.SubjectSummary)
