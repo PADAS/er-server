@@ -1225,7 +1225,7 @@ class SubjectStatusManager(models.Manager):
         'location': DEFAULT_STATUS_VALUE_LOCATION,
         'recorded_at': DEFAULT_STATUS_VALUE_DATE,
         'radio_state_at': DEFAULT_STATUS_VALUE_DATE,
-        'device_status_properties': None
+        'additional': {"device_status_properties": None}
     }
 
     # Delayed windows include all but 'current'.

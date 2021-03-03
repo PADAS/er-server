@@ -53,7 +53,7 @@ from core.common import TIMEZONE_USED
 from core.openlayers import OSMGeoExtendedAdmin
 from observations.daterange_filter import DateRangeFilter
 from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm, GPXFileForm
-from observations.tasks import process_gpxtrack_file
+from observations.tasks import process_gpxtrack_file, maintain_subjectstatus_for_subject
 from observations.utils import assigned_range_dates, get_cyclic_subjectgroup, find_paths
 from tracking.models import SourcePlugin
 from utils.html import make_html_list
@@ -1576,6 +1576,12 @@ class SourceProviderAdmin(admin.ModelAdmin):
         return mark_safe(style + response)
 
     prettify_sample_data.short_description = _('Sample data from recent Observations')
+
+    def save_model(self, request, obj, form, change):
+        obj.save()
+        if 'transforms' in form.changed_data:
+            transaction.on_commit(lambda: [maintain_subjectstatus_for_subject.apply_async(args=[o.subject_id])
+                                           for o in models.SubjectSource.objects.filter(source__provider=obj)])
 
 
 # @admin.register(models.SubjectSummary)
