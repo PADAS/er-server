@@ -292,6 +292,7 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
                                           help_text=days_data_retain_help_text)
 
     transforms = JSONField(widget=AutoFormatJSONWidget, required=False,
+                           label=_("Additional data to display with Subjects"),
                            error_messages={'invalid': "The array of Additional data to display with Subjects was not "
                                                       "formed properly. Please correct and try again."},
                            help_text="Contact support for assistance in configuring the additional data fields to "
