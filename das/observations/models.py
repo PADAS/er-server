@@ -231,8 +231,7 @@ class SourceProvider(TimestampedModel):
                                     max_length=100, null=False,)
     notes = models.TextField(blank=True, null=True)
     additional = JSONField('additional data', default=dict, blank=True)
-    transforms = JSONField(name="transforms", default=dict, blank=True, null=True,
-                           verbose_name="Transformation Rules")
+    transforms = JSONField(name="transforms", default=dict, blank=True, null=True)
     objects = SourceProviderManager()
 
     def __str__(self):

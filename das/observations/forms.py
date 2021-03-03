@@ -292,11 +292,10 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
                                           help_text=days_data_retain_help_text)
 
     transforms = JSONField(widget=AutoFormatJSONWidget, required=False,
-                           label=_("Transformation Rules"),
-                           error_messages={'invalid': "The Transformation Rules must be valid JSON. "
-                                                      "Please correct and try saving again."},
-                           help_text="Contact support for assistance in configuring the the "
-                                        "transformation rules.")
+                           error_messages={'invalid': "The array of Additional data to display with Subjects was not "
+                                                      "formed properly. Please correct and try again."},
+                           help_text="Contact support for assistance in configuring the additional data fields to "
+                                     "display for subjects")
 
     class Meta:
         model = SourceProvider
