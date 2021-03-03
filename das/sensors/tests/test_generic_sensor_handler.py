@@ -25,7 +25,7 @@ User = django.contrib.auth.get_user_model()
 class GenericSensorHandlerTest(BaseAPITest):
     source_type = 'tracking-collar'
     sensor_type = 'ste-collar'
-    provider = 'test_provider'
+    provider = lorem_ipsum.words(100).replace(" ", "")[:100]
     manufacturer_id = "ST2010-3034"
 
     one_observation = {
