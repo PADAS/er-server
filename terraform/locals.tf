@@ -135,6 +135,7 @@ locals {
     "welgevonden"            = "prod1"
     "upemba"                 = "prod1"
     "velebit"                = "prod1"
+    "volunteeringafrica"     = "prod1"
     "waterberg"              = "prod1"
     "westernsiempang"        = "prod-asia"
     "wildhorizons"           = "prod1"
