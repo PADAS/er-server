@@ -1421,6 +1421,7 @@ def transform_additional_data(additional, transform_format):
             continue
 
         if value is not None and ds not in dests:
+            value = ",".join([str(x) for x in value]) if isinstance(value, list) else value
             metadata = dict(value=value,
                             label=tf.get('label'),
                             units=tf.get('units'))
