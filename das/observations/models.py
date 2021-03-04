@@ -33,6 +33,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.contrib.gis.geos import Point, Polygon
 from django.utils.functional import cached_property
 from django.db.models.constraints import UniqueConstraint
+from psycopg2.extras import DateTimeTZRange
 import pymet
 import pytz
 from dateutil.parser import parse as parse_date
@@ -550,6 +551,7 @@ class AssignedRangeBounds(NamedTuple):
     upper: datetime
 
 
+
 class SubjectSource(models.Model):
     """A Subject is associated with a Source device for a specific time period
     For example a Ranger carries a specific radio between 1/1/2015 and 1/2/2015
@@ -589,6 +591,17 @@ class SubjectSource(models.Model):
     def safe_assigned_range(self, value):
         raise NotImplementedError(
             'Please use .assigned_range directly to set its value.')
+
+    def save(self, *args, **kwargs):
+        if self.assigned_range:
+            if not self.assigned_range.upper:
+                self.assigned_range = DateTimeTZRange(lower=self.assigned_range.lower,
+                                                      upper=pytz.utc.localize(datetime.max))
+            if not self.assigned_range.lower:
+                self.assigned_range = DateTimeTZRange(lower=pytz.utc.localize(datetime.min),
+                                                      upper=self.assigned_range.upper)
+
+        super(SubjectSource, self).save(*args, **kwargs)
 
 
 class SubjectSourceSummary(SubjectSource):
