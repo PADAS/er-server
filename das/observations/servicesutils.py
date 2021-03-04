@@ -21,9 +21,14 @@ def store_service_status(provider_key=None, data=None):
     redis_client = redis.from_url(settings.CELERY_BROKER_URL)
     data['provider_key'] = provider_key
 
-    redis_client.set(key, json.dumps(data))
+    if valid_heartbeat_and_datasource(data):
+        redis_client.set(key, json.dumps(data))
+        celery.app.send_task('rt_api.tasks.broadcast_service_status')
 
-    celery.app.send_task('rt_api.tasks.broadcast_service_status')
+
+def valid_heartbeat_and_datasource(data):
+    if data.get('heartbeat', {}).get('latest_at') and data.get('datasource', {}).get('connection_changed_at'):
+        return True
 
 
 def get_service_status(provider_key=None):
@@ -48,10 +53,14 @@ def _add_status_indicators(service_status):
     # Add display name from SourceProvider.
     service_status['display_name'] = display_name
 
-    # Add status code based
-    code, reason = calculate_status_code(service_status)
-    service_status['status_code'] = code
-    service_status['reason'] = reason
+    service_status.setdefault('heartbeat', {})
+    service_status.setdefault('datasource', {})
+
+    if valid_heartbeat_and_datasource(service_status):
+        # Add status code based
+        code, reason = calculate_status_code(service_status)
+        service_status['status_code'] = code
+        service_status['reason'] = reason
 
     # These are hacks, but should be built to identify asset type (ie. Radio
     # vs. Collar vs. Airplane)
