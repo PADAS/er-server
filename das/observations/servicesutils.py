@@ -21,7 +21,7 @@ def store_service_status(provider_key=None, data=None):
     redis_client = redis.from_url(settings.CELERY_BROKER_URL)
     data['provider_key'] = provider_key
 
-    if valid_heartbeat_and_datasource:
+    if valid_heartbeat_and_datasource(data):
         redis_client.set(key, json.dumps(data))
         celery.app.send_task('rt_api.tasks.broadcast_service_status')
 
@@ -53,8 +53,8 @@ def _add_status_indicators(service_status):
     # Add display name from SourceProvider.
     service_status['display_name'] = display_name
 
-    service_status['heartbeat'] = service_status.get('heartbeat', {})
-    service_status['datasource'] = service_status.get('datasource', {})
+    service_status.setdefault('heartbeat', {})
+    service_status.setdefault('datasource', {})
 
     if valid_heartbeat_and_datasource(service_status):
         # Add status code based
