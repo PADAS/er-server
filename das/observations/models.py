@@ -1420,8 +1420,7 @@ def transform_additional_data(additional, transform_format):
         except KeyError:
             continue
 
-
-        if value and ds not in dests:
+        if value is not None and ds not in dests:
             metadata = dict(value=value,
                             label=tf.get('label'),
                             units=tf.get('units'))
