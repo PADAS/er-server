@@ -1,6 +1,7 @@
 import random
 
 from django.test import TestCase
+from drf_extra_fields.compat import DateTimeTZRange
 from datetime import datetime, timedelta
 import pytz
 from observations.models import Subject, Source, SubjectSource, SourceProvider, DEFAULT_ASSIGNED_RANGE, SubjectStatus
@@ -91,3 +92,16 @@ class SubjectSourceTestCase(TestCase):
         self.assertEqual(
             (subject_status.location.x, subject_status.location.y),
             (longitude, latitude))
+
+    def test_subjectsource_with_only_lower_bound_assignedrange(self):
+
+        subject, created = Subject.objects.get_or_create(name='#01-subject')
+        provider, created = SourceProvider.objects.get_or_create(provider_key='#01-provider')
+
+        source, created = Source.objects.get_or_create(manufacturer_id='#01-manufacurer_id', provider=provider)
+
+        ss = SubjectSource.objects.create(subject=subject, source=source,
+                                          assigned_range=DateTimeTZRange(lower=DEFAULT_ASSIGNED_RANGE[0]))
+        ss.refresh_from_db()
+        self.assertTrue(ss.assigned_range.lower)
+        self.assertTrue(ss.assigned_range.upper)
