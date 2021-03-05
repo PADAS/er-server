@@ -593,13 +593,18 @@ class SubjectSource(models.Model):
             'Please use .assigned_range directly to set its value.')
 
     def save(self, *args, **kwargs):
-        if self.assigned_range:
-            if not self.assigned_range.upper:
-                self.assigned_range = DateTimeTZRange(lower=self.assigned_range.lower,
-                                                      upper=pytz.utc.localize(datetime.max))
-            if not self.assigned_range.lower:
-                self.assigned_range = DateTimeTZRange(lower=pytz.utc.localize(datetime.min),
-                                                      upper=self.assigned_range.upper)
+
+        # accommodate a Range object or a python container
+        if isinstance(self.assigned_range, (list, tuple, set)) and len(self.assigned_range) == 2:
+            lower, upper = self.assigned_range
+        elif hasattr(self.assigned_range, 'lower') and hasattr(self.assigned_range, 'upper'):
+            lower = self.assigned_range.lower
+            upper = self.assigned_range.upper
+
+        lower = lower or pytz.utc.localize(datatime.min)
+        upper = upper or pytz.utc.localize(datetime.max)
+
+        self.assigned_range = DateTimeTZRange(lower=lower, upper=upper)
 
         super(SubjectSource, self).save(*args, **kwargs)
 
