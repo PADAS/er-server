@@ -1421,12 +1421,13 @@ def transform_additional_data(additional, transform_format):
             continue
 
         if value is not None and ds not in dests:
-            if isinstance(value, list):
-                value = ",".join([str(x) for x in value])
-            elif isinstance(value, dict):
-                value = ",".join([str(x) for x in value.values()])
 
-            value = ",".join([str(x) for x in value]) if isinstance(value, list) else value
+            if isinstance(value, dict): # list-ify a dict
+                value = [f'{k}:{str(v)}' for k,v in value.items()]
+
+            if isinstance(value, list): # string-ify a list
+                value = ",".join([str(x) for x in value])
+
             metadata = dict(value=value,
                             label=tf.get('label'),
                             units=tf.get('units'))
