@@ -1397,7 +1397,7 @@ def update_subject_status(source, recorded_at, location,
     if reported_subject_name:
         status_updates['additional'] = {'subject_name': reported_subject_name}
 
-    if transformed_additional_data:
+    if transformed_additional_data is not None:
         status_updates.setdefault('additional', {})['device_status_properties'] = transformed_additional_data
 
     SubjectStatus.objects.filter(subject__subjectsource__source=source,
@@ -1433,8 +1433,14 @@ def transform_additional_data(additional, transform_format):
         except KeyError:
             continue
 
+        if value is not None and ds not in dests:
 
-        if value and ds not in dests:
+            if isinstance(value, dict): # list-ify a dict
+                value = [f'{k}:{str(v)}' for k,v in value.items()]
+
+            if isinstance(value, list): # string-ify a list
+                value = ",".join([str(x) for x in value])
+
             metadata = dict(value=value,
                             label=tf.get('label'),
                             units=tf.get('units'))
