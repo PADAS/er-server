@@ -37,9 +37,12 @@ def maintain_subjectstatus_all():
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True, })
-def maintain_subjectstatus_for_subject(subject_id):
+def maintain_subjectstatus_for_subject(subject_id, notify=False):
 
     SubjectStatus.objects.maintain_subject_status(subject_id)
+
+    if notify:
+        pubsub.publish({'subject_id': str(subject_id)}, 'das.subjectstatus.update')
 
 
 @celery.app.task

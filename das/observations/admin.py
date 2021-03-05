@@ -1580,7 +1580,7 @@ class SourceProviderAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         obj.save()
         if 'transforms' in form.changed_data:
-            transaction.on_commit(lambda: [maintain_subjectstatus_for_subject.apply_async(args=[o.subject_id])
+            transaction.on_commit(lambda: [maintain_subjectstatus_for_subject.apply_async(args=[o.subject_id], kwargs={'notify': True})
                                            for o in models.SubjectSource.objects.filter(source__provider=obj)])
 
 
