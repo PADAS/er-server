@@ -266,18 +266,23 @@ workflows:
       - build_sphinx_docs:
           filters:
             branches:
-              only: 'develop'
+              only: 
+                - 'develop'
+                - 'inreach-messaging'
       - docker_build_image:
           filters:
             branches:
-              only: 'develop'
+              only: 
+                - 'develop'
+                - 'inreach-messaging'
           requires:
             - 'build_sphinx_docs'
       - run_api_unittests:
           filters:
             branches:
-              only:
+              only: 
                 - 'develop'
+                - 'inreach-messaging'
           requires:
             - 'docker_build_image'
       - terraform_plan_dev:
@@ -302,6 +307,7 @@ workflows:
             branches:
               ignore:
                 - 'develop'
+                - 'inreach-messaging'
                 - /release*/
       - docker_build_image:
           requires:
@@ -310,6 +316,7 @@ workflows:
             branches:
               ignore:
                 - 'develop'
+                - 'inreach-messaging'
                 - /release*/
       - run_api_unittests:
           requires:
