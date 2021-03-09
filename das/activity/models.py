@@ -1767,10 +1767,7 @@ class PatrolSegmentManager(models.Manager):
                 # First get all user accounts in the reported by permission
                 # set, if it exists in the settings and the db
                 try:
-                    reported_by_users = PermissionSet.objects.get(
-                        id=settings.REPORTED_BY_PERMISSION_SET).user_set
-                    for obj in reported_by_users.filter(is_active=True):
-                        yield obj.get_full_name().lower(), obj
+                    PermissionSet.objects.get(id=settings.REPORTED_BY_PERMISSION_SET)
                 except PermissionSet.DoesNotExist:
                     logger.warning(
                         'Someone has deleted the reported_by permission set')
