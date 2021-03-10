@@ -185,8 +185,9 @@ class EventTypeAdmin(admin.ModelAdmin):
         resolve_time = form.cleaned_data.get('resolve_time')
         new_object = super().save_form(request, form, change)
 
-        new_object.auto_resolve = auto_resolve
-        new_object.resolve_time = resolve_time
+        if auto_resolve is not None:
+            new_object.auto_resolve = auto_resolve
+            new_object.resolve_time = resolve_time
         return new_object
 
 
