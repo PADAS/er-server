@@ -737,7 +737,7 @@ class EventsView(generics.ListCreateAPIView):
     def get_queryset(self):
 
         queryset = Event.objects.all_sort().prefetch_related(
-            'eventsource_event_refs')
+            'eventsource_event_refs', 'patrol_segments')
         patrol_segment_id = self.kwargs.get('patrol_segment')
         if patrol_segment_id:
             logger.debug("Filtering on patrol segment id: %s",
