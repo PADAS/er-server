@@ -1204,6 +1204,13 @@ def resolve_external_event_source(user, external_event_type):
         pass
 
 
+class PatrolSegmentEventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
+
+    class Meta:
+        model = activity.models.Event
+        fields = ('id',)
+
+
 class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
     serializer_choice_field = ChoiceField
     # Using PointField here provides the magic to convert between a

@@ -54,7 +54,7 @@ from activity.serializers import EventSerializer, EventNoteSerializer, \
     EventFileSerializer, \
     EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, \
     EventGeoJsonSerializer, \
-    PatrolTypeSerializer, EventRelatedSegmentSerializer
+    PatrolTypeSerializer, EventRelatedSegmentSerializer, PatrolSegmentEventSerializer
 from activity.serializers.patrol_serializers import PatrolSerializer, PatrolSegmentSerializer, PatrolNoteSerializer, PatrolFileSerializer
 from choices.models import Choice
 from observations.models import Subject
@@ -828,6 +828,11 @@ class EventsView(generics.ListCreateAPIView):
             queryset = queryset.prefetch_related(Prefetch('files'))
 
         return queryset
+
+    def get_serializer_class(self):
+        if self.kwargs.get('patrol_segment') and self.request.method == 'GET':
+            return PatrolSegmentEventSerializer
+        return super().get_serializer_class()
 
 
 def get_permitted_event_categories(request):
