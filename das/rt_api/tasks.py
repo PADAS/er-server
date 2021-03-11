@@ -390,7 +390,6 @@ def _patrol_handler(item_id, type):
                 logger.warning('Patrol handler given id: %s but it is not found in the database.')
                 return
 
-
         for username, user_sids in user_sids_map.items():
             try:
                 user = User.objects.get(username=username)
