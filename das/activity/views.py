@@ -1361,10 +1361,12 @@ class PatrolsegmentsView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
     serializer_class = PatrolSegmentSerializer
     permission_classes = (PatrolObjectPermissions,)
-    queryset = PatrolSegment.objects.all()
+    queryset = PatrolSegment.objects.select_related('patrol_type', 'patrol').all()
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        queryset.prefetch_related(Prefetch('events'),
+                                  Prefetch('eventrelatedsegments_set'))
         return get_segments(self.kwargs, queryset)
 
 
@@ -1374,7 +1376,9 @@ class PatrolsegmentView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = PatrolSegmentSerializer
 
     def get_queryset(self):
-        queryset = PatrolSegment.objects.filter(id=self.kwargs.get('id'))
+        queryset = PatrolSegment.objects.select_related('patrol_type',
+                                                        'patrol').prefetch_related(Prefetch('events'),
+                                                                                   Prefetch('eventrelatedsegments_set')).filter(id=self.kwargs.get('id'))
         return get_segments(self.kwargs, queryset)
 
 
