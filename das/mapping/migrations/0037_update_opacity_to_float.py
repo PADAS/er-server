@@ -11,6 +11,10 @@ def forward(apps, schema_editor):
     spf = apps.get_model('mapping', 'SpatialFeatureType')
 
     for o in spf.objects.using(db_alias).all():
+
+        # Skip a presentation value if it's not a dict as we expect.
+        if not isinstance(o.presentation, dict): continue
+        
         fill_opacity = o.presentation.get('fill-opacity')
         stroke_opacity = o.presentation.get('stroke-opacity')
 
