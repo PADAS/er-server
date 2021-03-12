@@ -23,7 +23,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework import status
 from rest_framework.compat import coreapi, coreschema
-from rest_framework.exceptions import APIException, PermissionDenied, ValidationError
+from rest_framework.exceptions import APIException, PermissionDenied, ValidationError, NotFound
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -1756,3 +1756,41 @@ class GPXTaskStatusView(generics.ListAPIView):
             # Release the resources whenever AsyncResult instance is called.
             asyncResult.forget()
         return Response(data, status=status.HTTP_200_OK)
+
+
+class MessagesView(generics.ListCreateAPIView):
+    serializer_class = serializers.MessageSerializer
+    permission_classes = (StandardObjectPermissions,)
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        query_params = self.request.query_params
+        messages = models.Message.objects.all()
+
+        subject_id = query_params.get('subject_id')
+        if subject_id:
+            try:
+                models.Subject.objects.get(id=subject_id)
+                messages = models.Message.objects.filter(Q(sender_id=subject_id) | Q(receiver_id=subject_id))
+            except models.Subject.DoesNotExist:
+                raise NotFound({'Error': f'Subject with given ID does not exist'})
+
+        return messages
+
+    def create(self, request, *args, **kwargs):
+
+        serializer = self.serializer_class(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST, )
+
+        serializer.save()
+        headers = self.get_success_headers(serializer.data)
+        # TODO: Add message adapters
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+
+class MessageView(generics.RetrieveUpdateDestroyAPIView):
+    lookup_field = 'id'
+    serializer_class = serializers.MessageSerializer
+    permission_classes = (StandardObjectPermissions,)
+    queryset = models.Message.objects.all()

@@ -216,8 +216,3 @@ class RevisionMixin:
                     return v
             return f'update_{item}'
         return 'other'
-
-
-class TimestampMixin:
-    created_at = serializers.DateTimeField(read_only=True)
-    updated_at = serializers.DateTimeField(read_only=True)

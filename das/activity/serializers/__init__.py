@@ -1,56 +1,50 @@
 import copy
+import json
 import logging
 import traceback
 from collections import OrderedDict
 
 import django.db
 import drf_extra_fields.geo_fields
+import jsonschema
+import jsonschema.exceptions
 import pytz
 import rest_framework.serializers
 import rest_framework.status
-import versatileimagefield.files
-from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.geos import Point
 from django.core.exceptions import PermissionDenied
 from django.core.validators import EmailValidator, RegexValidator
 from django.http import Http404
+from django.template.defaultfilters import truncatechars
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.encoding import force_text
-from django.template.defaultfilters import truncatechars
 from drf_extra_fields.geo_fields import PointField
 from rest_framework.exceptions import ValidationError, APIException
 from rest_framework.fields import DateTimeField
 from rest_framework.metadata import BaseMetadata
-from rest_framework.fields import empty
 from rest_framework.request import clone_request
 from rest_framework.utils.field_mapping import ClassLookupDict
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from versatileimagefield.serializers import VersatileImageFieldSerializer
 
-from choices.serializers import ChoiceField
-
-
-import jsonschema
-import jsonschema.exceptions
-import json
-from core.serializers import ContentTypeField
-from utils.json import loads
-from utils.drf import PointValidator
 import activity.models
-import utils
-from core.utils import OneWeekSchedule
-from accounts.serializers import UserDisplaySerializer, get_user_display, UserSerializer
-from observations.serializers import SubjectSerializer, get_subject_display
-from observations.models import Subject
-from revision.manager import AC_UPDATED, AC_RELATION_DELETED
-import utils.schema_utils as schema_utils
 import usercontent.serializers
-from activity.serializers.base import FileSerializerMixin, IMAGE_RENDITION_SETS
-
+import utils
+import utils.schema_utils as schema_utils
+from accounts.serializers import UserDisplaySerializer, get_user_display, UserSerializer
 from activity.alerting.conditions import Conditions
 from activity.models import PatrolSegment
+from activity.serializers.base import FileSerializerMixin, IMAGE_RENDITION_SETS
+from choices.serializers import ChoiceField
+from core.serializers import ContentTypeField
+from core.serializers import GenericRelatedField
+from core.serializers import PointValidator
+from core.utils import OneWeekSchedule
+from observations.serializers import SubjectSerializer, DEFAULT_SERIALIZER_MAPPING
+from revision.manager import AC_UPDATED, AC_RELATION_DELETED
+from utils.json import loads
 
 logger = logging.getLogger(__name__)
 
@@ -106,16 +100,9 @@ class CommunitySerializer(rest_framework.serializers.ModelSerializer):
         return obj
 
 
-REPORTED_SERIALIZER_MAPPING = {
-    'observations.subject': {'serializer': SubjectSerializer,
-                             'field': 'subject'},
-    'accounts.user': {'serializer': UserDisplaySerializer,
-                      'field': 'user'},
-    'activity.community': {'serializer': CommunitySerializer,
-                           'field': 'community'},
-
-}
-
+REPORTED_SERIALIZER_MAPPING = DEFAULT_SERIALIZER_MAPPING
+REPORTED_SERIALIZER_MAPPING['activity.community'] = {
+    'serializer': CommunitySerializer, 'field': 'community'}
 
 def filter_blank_choice(choices):
     if isinstance(choices, dict):
@@ -303,40 +290,10 @@ class EventJSONSchema(BaseMetadata):
         return field_info
 
 
-class ReportedByRelatedField(rest_framework.serializers.RelatedField):
-    def to_representation(self, value):
-        mapping = REPORTED_SERIALIZER_MAPPING.get(
-            value._meta.label_lower, None)
-        if not mapping:
-            raise Exception(
-                'Unexpected ReportedBy Type {0}'.format(type(value)))
 
-        return mapping['serializer']().to_representation(value)
-
-    def to_internal_value(self, data):
-        if isinstance(data, dict):
-            content_type_value = data['content_type']
-        else:
-            content_type_value = data._meta.label_lower
-            data = {"id": data.id, "content_type": content_type_value}
-
-        mapping = REPORTED_SERIALIZER_MAPPING.get(
-            content_type_value, None)
-        if not mapping:
-            raise Exception(
-                'Unexpected ReportedBy Type {0}'.format(data))
-
-        return mapping['serializer']().to_internal_value(data)
-
-    def get_queryset(self):
-        return activity.models.Community.objects.all()
-
-    def run_validation(self, data=empty):
-        # We force empty strings & empty dictionary to None values for
-        # relational fields.
-        if data == '' or data == {}:
-            data = None
-        return super().run_validation(data)
+class ReportedByRelatedField(GenericRelatedField):
+    def get_field_mapping(self, custom_mapping=REPORTED_SERIALIZER_MAPPING, actor="ReportedBy"):
+        return custom_mapping, actor
 
     def check_has_event_category_permission(self):
         # Checks if the user has any event-category permission.
@@ -366,38 +323,6 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
                     provenance, request.user))
             if values:
                 yield (provenance, values)
-
-    def display_value(self, instance):
-        if isinstance(instance, get_user_model()):
-            return get_user_display(instance)
-        elif isinstance(instance, Subject):
-            return get_subject_display(instance)
-        return super().display_value(instance)
-
-    def get_choices(self, cutoff=None):
-        '''get_choices does not work for this complicated field, see object_choices'''
-        return OrderedDict()
-
-    @property
-    def object_choices(self):
-        queryset = self.get_object_queryset()
-        if queryset is None:
-            # Ensure that field.choices returns something sensible
-            # even when accessed with a read-only field.
-            return {}
-        choices = []
-        for provenance, values in queryset:
-            choices += [(self.to_representation(item), self.display_value(item))
-                        for item in values]
-        return choices
-
-    def is_allowed_to_view(self, output):
-        request = self.context.get('request')
-
-        if output.get('content_type') == 'observations.subject':
-            subject_id = output.get('id')
-            return Subject.objects.filter(id=subject_id).by_user_subjects(request.user)
-        return True
 
 
 class EventTypeRelatedField(rest_framework.serializers.RelatedField):

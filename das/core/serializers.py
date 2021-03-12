@@ -1,6 +1,9 @@
+import django.contrib.gis.serializers.geojson as geojson
 import rest_framework.serializers as serializers
 from django.contrib.contenttypes.models import ContentType
-import django.contrib.gis.serializers.geojson as geojson
+from rest_framework.fields import empty
+
+from activity.models import Community, Event
 
 
 class ContentTypeField(serializers.Field):
@@ -53,3 +56,68 @@ class Serializer(geojson.Serializer):
     def end_object(self, obj):
         self.json_kwargs.pop('properties', None)
         return super().end_object(obj)
+
+
+class TimestampMixin:
+    created_at = serializers.DateTimeField(read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
+
+
+class GenericRelatedField(serializers.RelatedField):
+    def get_field_mapping(self, custom_mapping, label):
+        return custom_mapping, label
+
+    def to_representation(self, value):
+
+        field_mapping, label = self.get_field_mapping()
+        mapping = field_mapping.get(
+            value._meta.label_lower, None)
+        if not mapping:
+            raise Exception(f'Unexpected {label} Type {type(value)}')
+
+        return mapping['serializer']().to_representation(value)
+
+    def to_internal_value(self, data):
+        if isinstance(data, dict):
+            content_type_value = data['content_type']
+        else:
+            content_type_value = data._meta.label_lower
+            data = {"id": data.id, "content_type": content_type_value}
+
+        field_mapping, label = self.get_field_mapping()
+        mapping = field_mapping.get(content_type_value, None)
+        if not mapping:
+            raise Exception(f'Unexpected {label} Type {data}')
+
+        return mapping['serializer']().to_internal_value(data)
+
+    def get_queryset(self):
+        return Community.objects.all()
+
+    def run_validation(self, data=empty):
+        # We force empty strings & empty dictionary to None values for
+        # relational fields.
+        if data == '' or data == {}:
+            data = None
+        return super().run_validation(data)
+
+    def get_object_queryset(self):
+        request = self.context.get('request')
+        for p in Event.PROVENANCE_CHOICES:
+            provenance = p[0]
+            values = list(
+                Event.objects.get_reported_by_for_provenance(
+                    provenance, request.user))
+            if values:
+                yield (provenance, values)
+
+
+class PointValidator:
+    """Check that the point field is valid in the latitude and longitude values
+    we do this by checking Point.valid is True"""
+
+    def __call__(self, value):
+        if value is None:
+            raise serializers.ValidationError("Location value is empty")
+        if not value.valid:
+            raise serializers.ValidationError(value.valid_reason)
