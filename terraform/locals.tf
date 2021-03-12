@@ -47,6 +47,7 @@ locals {
     "freenature"             = "prod1"
     "garamba"                = "prod1"
     "gile"                   = "prod1"
+    "gashakagumti"           = "prod1"
     "gonarezhou"             = "prod1"
     "gorongosa"              = "prod1"
     "gotcha"                 = "prod1"
@@ -219,6 +220,7 @@ locals {
     "phuzamoya"           = 1
     "freenature"          = 1
     "kariega"             = 1
+    "gashakagumti"        = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
