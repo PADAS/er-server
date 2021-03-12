@@ -47,6 +47,7 @@ locals {
     "freenature"             = "prod1"
     "garamba"                = "prod1"
     "gile"                   = "prod1"
+    "gashakagumti"           = "prod1"
     "gonarezhou"             = "prod1"
     "gorongosa"              = "prod1"
     "gotcha"                 = "prod1"
@@ -143,6 +144,7 @@ locals {
     "wwfkenya"               = "prod1"
     "zakouma"                = "prod1"
     "zinnshoek"              = "prod1"
+    "gashakagumti"           = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
