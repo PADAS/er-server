@@ -36,8 +36,7 @@ class RevisionManager(models.Manager):
 
     def all_user(self):
         """prefetch user"""
-        queryset = self.all()
-        queryset = queryset.prefetch_related(Prefetch('user'))
+        queryset = self.select_related('user')
         return queryset
 
 
