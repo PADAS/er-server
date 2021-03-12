@@ -237,6 +237,7 @@ class SourceProvider(TimestampedModel):
     transforms = JSONField(
         name="transforms", default=list, blank=True, null=True)
     objects = SourceProviderManager()
+    messaging_enabled = models.BooleanField(default=False)
 
     def __str__(self):
         return '{} ({})'.format(self.display_name, self.provider_key)

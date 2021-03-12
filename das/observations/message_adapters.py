@@ -1,0 +1,76 @@
+import logging
+import math
+from datetime import datetime
+
+import requests
+from django.conf import settings
+
+from observations.models import ERRORED, SENT
+from observations.models import Source, Message
+
+logger = logging.getLogger(__name__)
+
+
+class BaseMessageAdapter:
+
+    def __init__(self, payload={}, device_key=None):
+        self.payload = payload
+        self.device_key = device_key
+
+    @staticmethod
+    def send_msg_to_device(payload):
+        raise NotImplemented('An extending class must implement send_msg_to_device.')
+
+    @staticmethod
+    def update_message_status(message_id, status):
+        Message.objects.filter(id=message_id).update(status=status)
+        # Notify UI of the update (Use on update signals)
+
+
+class InReachAdapter(BaseMessageAdapter):
+    endpoint = settings.INREACH_INBOUND_ENDPOINT
+    username = settings.INREACH_USERNAME
+    password = settings.INREACH_PASSWORD
+
+    @staticmethod
+    def send_msg_to_device(data, source, user):
+        timestamp = math.trunc(datetime.timestamp(datetime.now()))
+        device_id = source.manufacturer_id
+
+        payload = {
+            "Messages": [{
+                "Message": data.get('text'),
+                "Recipients": [device_id],
+                "Sender": user.email or settings.FROM_EMAIL,
+                "Timestamp": f"\/Date({timestamp})\/"
+            }]
+        }
+
+        try:
+            requests.post(url=InReachAdapter.endpoint, auth=(
+                InReachAdapter.username, InReachAdapter.password), json=payload)
+            status = SENT
+        except Exception as ex:
+            logger.exception(f'Exception {ex} raised when sending message to device: {device_id}')
+            status = ERRORED
+        InReachAdapter.update_message_status(status, data.get('id'))
+
+
+DEVICE_ADAPTER_MAPPING = {
+    'inreach-provider': InReachAdapter
+}
+
+
+def _handle_outbox_message(payload, user):
+    device_id = payload.get('device')
+    if device_id:
+        try:
+            source = Source.objects.get(id=device_id)
+        except Source.objects.DoesNotExist:
+            logger.exception(f'Exception raised when sending message to device: {device_id}')
+        else:
+            adapter = DEVICE_ADAPTER_MAPPING.get(source.provider.provider_key, InReachAdapter)
+            if source.provider.messaging_enabled:
+                adapter.send_msg_to_device(payload, source, user)
+            else:
+                logger.error(f'Messaging not enabled for this device: {device_id}')

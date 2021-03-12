@@ -47,7 +47,7 @@ from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination
 from utils.json import zeroout_microseconds, parse_bool, ExtendedGEOJSONRenderer
 from utils import add_base_url
 from observations.utils import dateparse
-from observations.tasks import process_gpxdata_api
+from observations.tasks import process_gpxdata_api, handle_outbox_message
 
 logger = logging.getLogger(__name__)
 
@@ -1785,7 +1785,8 @@ class MessagesView(generics.ListCreateAPIView):
 
         serializer.save()
         headers = self.get_success_headers(serializer.data)
-        # TODO: Add message adapters
+
+        handle_outbox_message(serializer.data, request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 

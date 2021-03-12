@@ -18,6 +18,7 @@ from observations.models import (GPXTrackFile, Observation, Source,
                                  SourceProvider, Subject, SubjectStatus)
 from observations.serializers import ObservationSerializer
 from observations.utils import dateparse
+from observations.message_adapters import _handle_outbox_message
 
 logger = logging.getLogger(__name__)
 
@@ -263,3 +264,8 @@ def refresh_patrols_view():
 @celery.app.task(base=QueueOnce, once={'graceful': True})
 def _refresh_patrols_view():
     patrols_view.refresh_view()
+
+
+@celery.app.task(base=QueueOnce, once={'graceful': True})
+def handle_outbox_message(data, user):
+    _handle_outbox_message(data, user)
