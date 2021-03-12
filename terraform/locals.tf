@@ -144,7 +144,6 @@ locals {
     "wwfkenya"               = "prod1"
     "zakouma"                = "prod1"
     "zinnshoek"              = "prod1"
-    "gashakagumti"           = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -221,6 +220,7 @@ locals {
     "phuzamoya"           = 1
     "freenature"          = 1
     "kariega"             = 1
+    "gashakagumti"        = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
