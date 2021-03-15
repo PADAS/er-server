@@ -19,8 +19,8 @@ from django.urls import reverse
 
 from observations import servicesutils
 
-from observations.models import SubjectSource
-from observations.views import SubjectTracksView, SubjectStatusView, ObservationsView
+from observations.models import Message
+from observations.views import SubjectStatusView, ObservationsView
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from uuid import UUID
 from rt_api import client
@@ -65,24 +65,53 @@ def get_username_sids_map():
     return user_sids_map
 
 
+def get_instance(model, item_id, type, entity):
+    logger.debug(f'Processing type={type} on {entity}={item_id}')
+    user_sids_map = get_username_sids_map()
+    logger.debug('user_sids_map: %s', user_sids_map)
+
+    instance = model.objects.filter(id=item_id).first()
+    return instance, user_sids_map
+
+
+def get_user(username, user_sids, entity):
+    user = None
+    try:
+        user = User.objects.get(username=username)
+        logger.debug(f'Handling {entity} for user: %s', username)
+    except User.DoesNotExist:
+        logger.warning(
+            'patrol_handler found no username=%s.', username)
+        client.remove_clients(user_sids)
+    return user
+
+
+def emit_data_defaults(item_id, type, sid):
+    emit_data = {
+        'type': type,
+        'sid': sid,
+        'object_id': item_id
+    }
+    return emit_data
+
+
+def pubsub_emit_data(emit_data):
+    logger.debug(
+        'Publish das.realtime.emit.  data=%s', emit_data)
+    pubsub.publish(json.dumps(
+        emit_data, default=dumps_helper), 'das.realtime.emit')
+
+
+
 def _event_handler(event_id, type):
     try:
-        logger.debug('Processing type=%s on event=%s', type, event_id)
-        event_view = EventView()
-
-        user_sids_map = get_username_sids_map()
-        logger.debug('user_sids_map: %s', user_sids_map)
+        event_view, entity = EventView(), 'event'
+        event, user_sids_map = get_instance(Event, event_id, type, entity)
 
         for username, user_sids in user_sids_map.items():
-
-            try:
-                user = User.objects.get(username=username)
-            except User.DoesNotExist:
-                logger.warning('event_handler found no username=%s.', username)
-                client.remove_clients(user_sids)
+            user = get_user(username, user_sids, entity)
+            if not user:
                 continue
-
-            logger.debug('Handling event for user: %s', username)
 
             # TODO: update this logic to be a little more frugal with the per
             # user/event-filter query.
@@ -91,22 +120,17 @@ def _event_handler(event_id, type):
                 matches_current_filter = False
 
                 if type == 'delete_event':
-                    emit_data = {
-                        'type': type,
-                        'sid': sid,
-                        'object_id': event_id,
-                        'data': {
+                    emit_data = emit_data_defaults(event_id, type, sid)
+                    emit_data['data'] = {
                             'type': type, 'event_id': event_id,
                             'event_data': None,
                             'matches_current_filter': matches_current_filter
                         }
-                    }
                 else:
 
                     request = DummyRequest(user=user, http_method='GET', query_parameters={})
-                    request = Request(request) # Wrap in DRF Request
+                    request = Request(request)  # Wrap in DRF Request
                     queryset = Event.objects.filter(id=event_id)
-                    event = queryset.first()
 
                     if event:
                         event_count = 1
@@ -137,19 +161,11 @@ def _event_handler(event_id, type):
                                                        context={'request': request,
                                                                 'include_related_events': True
                                                                 }).data
-
-                                emit_data = {
-                                    'type': type,
-                                    'sid': sid,
-                                    'object_id': event_id,
-                                    'data': {'type': type, 'event_id': event_id, 'matches_current_filter': matches_current_filter, 'event_data': data, 'count': event_count}
-                                }
+                                emit_data = emit_data_defaults(event_id, type, sid)
+                                emit_data['data'] = {'type': type, 'event_id': event_id, 'matches_current_filter': matches_current_filter, 'event_data': data, 'count': event_count}
 
                 if emit_data:
-                    logger.debug(
-                        'Publish das.realtime.emit.  data=%s', emit_data)
-                    pubsub.publish(json.dumps(
-                        emit_data, default=dumps_helper), 'das.realtime.emit')
+                    pubsub_emit_data(emit_data)
 
     finally:
         close_old_connections()
@@ -226,39 +242,22 @@ def _subjectstatus_update_handler(subject_id):
 
         for username, user_sids in user_sids_map.items():
             try:
-                try:
-                    logger.debug('Lookup username=%s', username)
-                    user = User.objects.get(username=username)
-                except User.DoesNotExist:
-                    logger.warning(
-                        'subjectstatus_handler found no username=%s.', username)
-                    client.remove_clients(user_sids)
+                user = get_user(username, user_sids, 'subjectstatus')
+                if not user:
                     continue
-
-                else:
-                    logger.debug('Found user: %s', user)
 
                 # If subject-status payload is not None, then emit it.
                 payload = get_subjectstatus_payload(user, subject_id)
 
                 logger.debug('SubjectStatus payload: %s', payload)
                 if payload:
-
-                    emit_data = {
-                        'type': 'subject_status',
-                        'sid': '<<sid>>',
-                        'object_id': subject_id,
-                        'data': payload
-                    }
+                    emit_data = emit_data_defaults(subject_id, 'subject_status', '<<sid>>')
+                    emit_data['data'] = payload
                     emit_data = json.dumps(emit_data, default=dumps_helper)
 
                     for sid in user_sids:
-
-                        message = emit_data.replace('<<sid>>', sid)
-
-                        logger.debug('Emitting: %s', message)
-                        pubsub.publish(
-                            message, routing_key='das.realtime.emit')
+                        emit_data['sid'] = sid
+                        pubsub_emit_data(emit_data)
                 else:
                     logger.warning(
                         'SubjectStatus payload is empty.', extra=dict(username=username, subject_id=subject_id))
@@ -272,19 +271,10 @@ def _subjectstatus_update_handler(subject_id):
                     if payload:
                         # TODO: move this order-by clause into the view.
                         points = sorted(payload, key=lambda x: x['time'], reverse=True)
-                        emit_data = {
-                                'type': 'subject_track_merge',
-                                'sid': sid,
-                                'object_id': subject_id,
-                                'data': {
-                                    'points': points,
-                                    'subject_id': subject_id
-                                }
-                        }
-                        emit_message = json.dumps(emit_data, default=dumps_helper)
 
-                        logger.debug("Emitting: %s", emit_message)
-                        pubsub.publish(emit_message, routing_key='das.realtime.emit')
+                        emit_data = emit_data_defaults(subject_id, 'subject_track_merge', sid)
+                        emit_data['data'] = {'points': points, 'subject_id': subject_id}
+                        pubsub_emit_data(emit_data)
 
                     else:
                         logger.warning(
@@ -376,45 +366,23 @@ def handle_subjectstatus_update(subject_id):
 
 def _patrol_handler(item_id, type):
     try:
-        logger.debug('Processing type=%s on patrol=%s', type, item_id)
-        model, view, serializer = Patrol, PatrolView(), PatrolSerializer
-        user_sids_map = get_username_sids_map()
-        logger.debug('user_sids_map: %s', user_sids_map)
-
-        try:
-            queryset = model.objects.filter(id=item_id)
-            instance = queryset.first()
-        except model.DoesNotExist:
-            instance = None
-            if type != 'delete_patrol':
-                logger.warning('Patrol handler given id: %s but it is not found in the database.')
-                return
-
+        view, serializer, entity = Patrol, PatrolView(), PatrolSerializer, 'patrol'
+        instance, user_sids_map = get_instance(Patrol, item_id, type, entity)
 
         for username, user_sids in user_sids_map.items():
-            try:
-                user = User.objects.get(username=username)
-            except User.DoesNotExist:
-                logger.warning(
-                    'patrol_handler found no username=%s.', username)
-                client.remove_clients(user_sids)
+            user = get_user(username, user_sids, entity)
+            if not user:
                 continue
-
-            logger.debug('Handling patrol for user: %s', username)
 
             for sid in user_sids:
                 emit_data = {}
-                matches_current_filter = True  # To be regulated in the filters ticket
+                matches_current_filter = True
                 if type == 'delete_patrol':
-                    emit_data = {
-                        'type': type,
-                        'sid': sid,
-                        'object_id': item_id,
-                        'data': {
+                    emit_data = emit_data_defaults(item_id, type, sid)
+                    emit_data['data'] = {
                             'type': type, 'patrol_id': item_id,
                             'matches_current_filter': matches_current_filter
                         }
-                    }
                 else:
                     request = DummyRequest(user=user, http_method='GET', query_parameters={})
                     request = Request(request) # Wrap in DRF Request
@@ -437,21 +405,36 @@ def _patrol_handler(item_id, type):
 
                             data = serializer(instance, context={
                                               'request': request}).data
-                            emit_data = {
-                                'type': type,
-                                'sid': sid,
-                                'object_id': item_id,
-                                'data': {
+                            emit_data = emit_data_defaults(item_id, type, sid)
+                            emit_data['data'] = {
                                     'type': type, 'patrol_id': item_id, 'patrol_data': data,
                                     'matches_current_filter': matches_current_filter
                                 }
-                            }
 
                 if emit_data:
-                    logger.debug(
-                        'Publish das.realtime.emit.  data=%s', emit_data)
-                    pubsub.publish(json.dumps(
-                        emit_data, default=dumps_helper), 'das.realtime.emit')
+                    pubsub_emit_data(emit_data)
+    finally:
+        close_old_connections()
+
+
+def _radio_message_handler(item_id, type, status):
+    try:
+        entity = 'message'
+        instance, user_sids_map = get_instance(Message, item_id, type, entity)
+
+        for username, user_sids in user_sids_map.items():
+            user = get_user(username, user_sids, entity)
+            if not user:
+                continue
+
+            for sid in user_sids:
+                if type == 'message_status_update':
+                    emit_data = emit_data_defaults(item_id, type, sid)
+                    emit_data['data'] = {
+                            'type': type, 'message_id': item_id,
+                            'status': status
+                        }
+                    pubsub_emit_data(emit_data)
     finally:
         close_old_connections()
 
@@ -475,6 +458,13 @@ def handle_delete_patrol(patrol_id):
     logger.info('Celery worker handling delete patrol_id: %s',
                 patrol_id, extra={'rt.patrol': 'delete'})
     _patrol_handler(patrol_id, 'delete_patrol')
+
+
+@celery.app.task()
+def handle_message_status_update(message_id, status):
+    logger.info(f'Celery worker handling state update of message_id: {message_id}',
+                extra={'rt.message': 'status_update'})
+    _radio_message_handler(message_id, 'message_status_update', status)
 
 
 @celery.app.task()

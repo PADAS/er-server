@@ -7,7 +7,6 @@ from collections import OrderedDict
 import django.db
 import drf_extra_fields.geo_fields
 import jsonschema
-import jsonschema.exceptions
 import pytz
 import rest_framework.serializers
 import rest_framework.status
