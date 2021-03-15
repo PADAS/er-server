@@ -244,7 +244,7 @@ class Revision(object):
 
         return {
             'id': models.UUIDField(primary_key=True, default=uuid.uuid4),
-            'object_id': models.UUIDField(),
+            'object_id': models.UUIDField(db_index=True),
             'action': models.CharField(max_length=10, choices=ACTION_CHOICES,
                                        default=AC_ADDED),
             'revision_at': models.DateTimeField(auto_now_add=True),
