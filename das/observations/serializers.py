@@ -763,6 +763,7 @@ class MessageSerializer(rest_framework.serializers.Serializer, TimestampMixin):
     sender_location = GEOPointField(required=False, allow_null=True, validators=[PointValidator()])
     device_location = GEOPointField(required=False, allow_null=True, validators=[PointValidator()])
     message_time = DateTimeField(required=False, allow_null=True)
+    read = rest_framework.serializers.BooleanField(required=False)
     additional = rest_framework.serializers.JSONField(default=dict, allow_null=True)
 
     class Meta:

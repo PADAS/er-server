@@ -1831,4 +1831,5 @@ class Message(TimestampedModel):
     sender_location = models.PointField(blank=True, null=True)
     device_location = models.PointField(blank=True, null=True)
     message_time = models.DateTimeField(null=False, blank=False)
+    read = models.BooleanField(default=False)
     additional = JSONField('additional data', default=dict, blank=True, null=True)
