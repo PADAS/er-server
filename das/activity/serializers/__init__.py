@@ -99,10 +99,6 @@ class CommunitySerializer(rest_framework.serializers.ModelSerializer):
         return obj
 
 
-REPORTED_SERIALIZER_MAPPING = DEFAULT_SERIALIZER_MAPPING
-REPORTED_SERIALIZER_MAPPING['activity.community'] = {
-    'serializer': CommunitySerializer, 'field': 'community'}
-
 def filter_blank_choice(choices):
     if isinstance(choices, dict):
         choices = choices.items()
@@ -291,8 +287,8 @@ class EventJSONSchema(BaseMetadata):
 
 
 class ReportedByRelatedField(GenericRelatedField):
-    def get_field_mapping(self, custom_mapping=REPORTED_SERIALIZER_MAPPING, actor="ReportedBy"):
-        return custom_mapping, actor
+    def get_field_mapping(self, label="ReportedBy"):
+        return super().get_field_mapping(label)
 
     def check_has_event_category_permission(self):
         # Checks if the user has any event-category permission.

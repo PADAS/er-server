@@ -745,8 +745,8 @@ DEFAULT_SERIALIZER_MAPPING = {
 
 
 class SenderReceiverRelatedField(GenericRelatedField):
-    def get_field_mapping(self, custom_mapping=DEFAULT_SERIALIZER_MAPPING, label="User"):
-        return custom_mapping, label
+    def get_field_mapping(self, label="User"):
+        return super().get_field_mapping(label)
 
 
 class MessageSerializer(rest_framework.serializers.Serializer, TimestampMixin):
@@ -756,7 +756,7 @@ class MessageSerializer(rest_framework.serializers.Serializer, TimestampMixin):
     sender = SenderReceiverRelatedField(required=False, allow_null=True)
     receiver = SenderReceiverRelatedField(required=False, allow_null=True)
 
-    device = SourceRelatedField()
+    device = SourceRelatedField(required=False, allow_null=True)
     message_type = choicefield_serializer(models.MESSAGE_TYPES, default=models.INBOX)
     text = text_field(required=False, allow_blank=True, allow_null=True)
     status = choicefield_serializer(models.MESSAGE_STATE_CHOICES, default=models.PENDING)

@@ -1841,7 +1841,6 @@ class PatrolSegment(TimestampedModel, RevisionMixin):
     leader = GenericForeignKey('leader_content_type', 'leader_id')
     revision = PatrolSegmentRevision()
 
-    objects = PatrolSegmentManager()
 
 
 # class PatrolTemplate(models.Model):

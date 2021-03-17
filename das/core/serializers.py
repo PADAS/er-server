@@ -64,8 +64,20 @@ class TimestampMixin:
 
 
 class GenericRelatedField(serializers.RelatedField):
-    def get_field_mapping(self, custom_mapping, label):
-        return custom_mapping, label
+    def get_field_mapping(self, label=None):
+        from observations.serializers import SubjectSerializer
+        from accounts.serializers import UserDisplaySerializer
+        from activity.serializers import CommunitySerializer
+
+        default_mapping = {
+            'observations.subject': {'serializer': SubjectSerializer,
+                                     'field': 'subject'},
+            'accounts.user': {'serializer': UserDisplaySerializer,
+                              'field': 'user'},
+            'activity.community': {'serializer': CommunitySerializer,
+                                   'field': 'community'}
+        }
+        return default_mapping, label
 
     def to_representation(self, value):
 

@@ -15,10 +15,9 @@ import utils
 import usercontent.serializers
 from accounts.serializers import UserDisplaySerializer, get_user_display
 from activity.models import PATROL_STATE_CHOICES, PC_OPEN, PC_DONE, PRI_NONE, PRIORITY_CHOICES
-from activity.models import Patrol, PatrolNote, PatrolSegment, Event
-from observations.models import Subject
+from activity.models import Patrol, PatrolNote, PatrolSegment
 from activity.serializers import AlertRuleSerializer, EventSourceSerializer, EventSerializer
-from activity.serializers import fields, REPORTED_SERIALIZER_MAPPING
+from activity.serializers import fields
 from activity.serializers.base import BaseSerializer, RevisionMixin, FileSerializerMixin
 from core.fields import choicefield_serializer, text_field, GEOPointField
 from core.serializers import TimestampMixin, PointValidator, GenericRelatedField
@@ -106,8 +105,8 @@ class PatrolNoteSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
 
 
 class LeaderRelatedField(GenericRelatedField):
-    def get_field_mapping(self, custom_mapping=REPORTED_SERIALIZER_MAPPING, label="Leader"):
-        return custom_mapping, label
+    def get_field_mapping(self, label="Leader"):
+        return super().get_field_mapping(label)
 
     def to_representation(self, value):
         representation = super(LeaderRelatedField, self).to_representation(value)
