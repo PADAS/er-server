@@ -18,7 +18,8 @@ from activity.models import PATROL_STATE_CHOICES, PC_OPEN, PC_DONE, PRI_NONE, PR
 from activity.models import Patrol, PatrolNote, PatrolSegment
 from activity.serializers import AlertRuleSerializer, EventSourceSerializer, EventSerializer
 from activity.serializers import fields
-from activity.serializers.base import BaseSerializer, RevisionMixin, FileSerializerMixin
+from activity.serializers.base import RevisionMixin, FileSerializerMixin
+from core.serializers import BaseSerializer
 from core.fields import choicefield_serializer, text_field, GEOPointField
 from core.serializers import TimestampMixin, PointValidator, GenericRelatedField
 priority_choices_serializer = choicefield_serializer(

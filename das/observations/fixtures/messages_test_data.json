@@ -421,5 +421,56 @@
             },
             "owner": null
         }
+    },
+  {
+    "model": "observations.subjectsource",
+    "pk": "05e9612d-da0b-4ebf-8476-4820914a639e",
+    "fields": {
+      "assigned_range": "{\"bounds\": \"[)\", \"lower\": \"2019-02-28T09:15:00+00:00\", \"upper\": \"9999-12-31T23:59:59+00:00\"}",
+      "source": "dbe650b2-6818-4c93-8a51-285a02f2edaa",
+      "subject": "611db519-c672-4672-b967-90d61d2ff76f",
+      "additional": {
+        "comments": "",
+        "chronofile": null,
+        "data_status": "",
+        "data_stops_reason": "",
+        "data_stops_source": "",
+        "data_starts_source": ""
+      }
     }
+  },
+  {
+    "model": "observations.subjectsource",
+    "pk": "87dff6ce-e3b4-4ce9-a4bf-79afec6f256d",
+    "fields": {
+      "assigned_range": "{\"bounds\": \"[)\", \"lower\": \"2019-02-28T09:15:00+00:00\", \"upper\": \"9999-12-31T23:59:59+00:00\"}",
+      "source": "36c3cc49-5bde-4601-808e-eff7aa3699de",
+      "subject": "6d99ac3e-57d3-4840-bde0-7ab2422c4fac",
+      "additional": {
+        "comments": "",
+        "chronofile": null,
+        "data_status": "",
+        "data_stops_reason": "",
+        "data_stops_source": "",
+        "data_starts_source": ""
+      }
+    }
+  },
+  {
+    "model": "observations.subjectsource",
+    "pk": "e25c0090-0c32-4bba-86e9-768124921801",
+    "fields": {
+      "assigned_range": "{\"bounds\": \"[)\", \"lower\": \"2019-02-28T09:15:00+00:00\", \"upper\": \"2099-12-31T23:59:59+00:00\"}",
+      "source": "6ae5e493-968b-48f9-b061-4c252ba948c6",
+      "subject": "39ce0d2e-6cf0-4a87-b55c-3b26d7a2c203",
+      "additional": {
+        "comments": "",
+        "chronofile": null,
+        "data_status": "",
+        "data_stops_reason": "",
+        "data_stops_source": "",
+        "data_starts_source": ""
+      }
+    }
+  }
 ]

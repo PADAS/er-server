@@ -18,7 +18,7 @@ import utils.json
 from accounts.serializers import UserDisplaySerializer
 from core.fields import GEOPointField, choicefield_serializer, text_field
 from core.serializers import ContentTypeField, TimestampMixin
-from core.serializers import GenericRelatedField
+from core.serializers import GenericRelatedField, BaseSerializer
 from observations import models
 from observations.utils import (dateparse, get_maximum_allowed_age,
                                 get_minimum_allowed_age, get_null_point)
@@ -749,7 +749,7 @@ class SenderReceiverRelatedField(GenericRelatedField):
         return super().get_field_mapping(label)
 
 
-class MessageSerializer(rest_framework.serializers.Serializer, TimestampMixin):
+class MessageSerializer(BaseSerializer, TimestampMixin):
     from core.serializers import PointValidator
 
     id = rest_framework.serializers.UUIDField(read_only=True)

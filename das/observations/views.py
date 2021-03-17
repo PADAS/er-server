@@ -1779,7 +1779,8 @@ class MessagesView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
 
-        serializer = self.serializer_class(data=request.data)
+        data = self.verify_device(request.data)
+        serializer = self.serializer_class(data=data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST, )
 
@@ -1788,6 +1789,14 @@ class MessagesView(generics.ListCreateAPIView):
 
         handle_outbox_message(serializer.data, request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def verify_device(self, data):
+        receiver = data.get('receiver')
+        if receiver.get('content_type') == 'observations.subject' and not data.get('device'):
+            subject = models.Subject.objects.filter(id=receiver.get('id')).first()
+            if subject and subject.source:
+                data['device'] = str(subject.source.id)
+        return data
 
 
 class MessageView(generics.RetrieveUpdateDestroyAPIView):
