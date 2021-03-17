@@ -1,9 +1,12 @@
+from collections import OrderedDict
+
 import django.contrib.gis.serializers.geojson as geojson
 import rest_framework.serializers as serializers
 from django.contrib.contenttypes.models import ContentType
 from rest_framework.fields import empty
 
 from activity.models import Community, Event
+from observations.models import Subject
 
 
 class ContentTypeField(serializers.Field):
@@ -122,6 +125,41 @@ class GenericRelatedField(serializers.RelatedField):
                     provenance, request.user))
             if values:
                 yield (provenance, values)
+
+    def display_value(self, instance):
+        from accounts.serializers import get_user_display, get_user_model
+        from observations.serializers import get_subject_display
+
+        if isinstance(instance, get_user_model()):
+            return get_user_display(instance)
+        elif isinstance(instance, Subject):
+            return get_subject_display(instance)
+        return super().display_value(instance)
+
+    def get_choices(self, cutoff=None):
+        '''get_choices does not work for this complicated field, see object_choices'''
+        return OrderedDict()
+
+    @property
+    def object_choices(self):
+        queryset = self.get_object_queryset()
+        if queryset is None:
+            # Ensure that field.choices returns something sensible
+            # even when accessed with a read-only field.
+            return {}
+        choices = []
+        for provenance, values in queryset:
+            choices += [(self.to_representation(item), self.display_value(item))
+                        for item in values]
+        return choices
+
+    def is_allowed_to_view(self, output):
+        request = self.context.get('request')
+
+        if output.get('content_type') == 'observations.subject':
+            subject_id = output.get('id')
+            return Subject.objects.filter(id=subject_id).by_user_subjects(request.user)
+        return True
 
 
 class PointValidator:
