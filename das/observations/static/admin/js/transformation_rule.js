@@ -38,7 +38,7 @@
     }
 
     $(document).ready(function () {
-        console.log("login")
+        
         let i;
         let rules = $('[id^="id_tranformation_rule_"]')
 
