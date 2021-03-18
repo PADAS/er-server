@@ -1760,7 +1760,7 @@ class GPXTaskStatusView(generics.ListAPIView):
 
 class MessagesView(generics.ListCreateAPIView):
     serializer_class = serializers.MessageSerializer
-    permission_classes = (StandardObjectPermissions,)
+    permission_classes = (IsAuthenticated,)
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
@@ -1780,7 +1780,7 @@ class MessagesView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
 
         data = self.verify_device(request.data)
-        serializer = self.serializer_class(data=data)
+        serializer = self.serializer_class(data=data, context={'request': request})
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST, )
 
@@ -1790,7 +1790,7 @@ class MessagesView(generics.ListCreateAPIView):
         handle_outbox_message(serializer.data, request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
-    def verify_device(self, data):
+    def verify_device_and_sender(self, data):
         receiver = data.get('receiver')
         if receiver.get('content_type') == 'observations.subject' and not data.get('device'):
             subject = models.Subject.objects.filter(id=receiver.get('id')).first()
@@ -1802,5 +1802,5 @@ class MessagesView(generics.ListCreateAPIView):
 class MessageView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
     serializer_class = serializers.MessageSerializer
-    permission_classes = (StandardObjectPermissions,)
+    permission_classes = (IsAuthenticated,)
     queryset = models.Message.objects.all()

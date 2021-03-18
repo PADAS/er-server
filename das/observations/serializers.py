@@ -16,6 +16,7 @@ from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 import activity
 import utils.json
 from accounts.serializers import UserDisplaySerializer
+from accounts.models import User
 from core.fields import GEOPointField, choicefield_serializer, text_field
 from core.serializers import ContentTypeField, TimestampMixin
 from core.serializers import GenericRelatedField, BaseSerializer
@@ -768,8 +769,28 @@ class MessageSerializer(BaseSerializer, TimestampMixin):
 
     class Meta:
         model = models.Message
-        fields = ('id', 'sender', 'receiver', 'device', 'message_type', 'text', 'status',
+        fields = ('id', 'sender_id', 'receiver_id', 'device_id', 'message_type', 'text', 'status',
                   'sender_location', 'device_location', 'message_time', 'additional')
+
+    def to_representation(self, instance):
+        rep = super(MessageSerializer, self).to_representation(instance)
+
+        request = self.context.get('request')
+        query_params = request.query_params
+        include_additional = query_params.get('include_additional_data', False)
+        if not include_additional:
+            del rep['additional']
+        rep = self.verify_sender(rep, request.user)
+        return rep
+
+    def verify_sender(self, rep, request_user):
+        sender = rep['sender']
+        if sender and sender.get('content_type') == 'accounts.user':
+            user = User.objects.get(id=sender.get('id'))
+
+            if not (user == request_user or user.has_perm('accounts_view_user')):
+                rep['sender'] = None
+        return rep
 
     def create(self, validated_data):
         return models.Message.objects.create(**validated_data)

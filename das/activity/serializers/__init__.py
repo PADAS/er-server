@@ -41,7 +41,7 @@ from core.serializers import ContentTypeField
 from core.serializers import GenericRelatedField
 from core.serializers import PointValidator
 from core.utils import OneWeekSchedule
-from observations.serializers import SubjectSerializer, DEFAULT_SERIALIZER_MAPPING
+from observations.serializers import SubjectSerializer
 from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 from utils.json import loads
 
