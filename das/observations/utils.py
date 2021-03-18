@@ -9,6 +9,7 @@ from django.conf import settings
 from pytz import timezone
 from dateutil.parser import parse
 from django.db import connection
+from django.db.models import Aggregate
 
 
 logger = logging.getLogger(__name__)
@@ -284,3 +285,8 @@ def find_paths(item, accum=None, prefix=None):
     elif isinstance(item, list):
         for v in item:
             find_paths(v, accum=accum, prefix=prefix + ['[]'])
+
+
+class JsonAgg(Aggregate):
+    function = 'jsonb_agg'
+    template = '%(function)s(to_jsonb(%(expressions)s))'

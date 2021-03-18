@@ -1526,7 +1526,7 @@ class SourceProviderAdmin(admin.ModelAdmin):
     search_fields = ('provider_key', 'display_name',)
     ordering = ('provider_key', 'display_name')
     list_display = ('provider_key', 'display_name',)
-    readonly_fields = ('id', 'prettify_sample_data', 'additional')
+    readonly_fields = ('id', 'additional')
     form = SourceProviderForm
 
     fieldsets = (
@@ -1543,39 +1543,10 @@ class SourceProviderAdmin(admin.ModelAdmin):
 
         ('Advanced configuration', {
             'classes': ('wide', 'collapse',),
-            'fields': ('id', 'prettify_sample_data', 'transforms')
+            'fields': ('id', 'tranformation_rule', 'transforms')
         }
         )
     )
-
-    @staticmethod
-    def generate_sample_data(provider):
-        accum = {}
-        window_asc = {'partition_by': F('source_id'), 'order_by': [F('recorded_at').asc()]}
-
-        obs = models.Observation.objects.filter(source__provider=provider,
-                                                recorded_at__gte=datetime.now(tz=pytz.utc) - timedelta(days=30)
-                                                ).annotate(agg_data=Window(expression=JsonAgg('additional'),
-                                                                           frame=RowRange(start=0, end=25),
-                                                                           **window_asc))
-
-        [find_paths(x, accum=accum) for i in obs for x in i.agg_data]
-
-        for k, v in accum.items():
-            accum[k] = random.sample(v, min(3, len(v)))
-        return accum
-
-    def prettify_sample_data(self, instance):
-        """Function to display pretty version of sample data"""
-        data = self.generate_sample_data(instance)
-        response = json.dumps(data, sort_keys=True, indent=2)
-
-        formatter = HtmlFormatter(prestyles="padding-left:50px;line-height:140%")
-        response = highlight(response, JsonLexer(), formatter)
-        style = "<style>" + formatter.get_style_defs() + "</style><br>"
-        return mark_safe(style + response)
-
-    prettify_sample_data.short_description = _('Sample data from recent Observations')
 
     def save_model(self, request, obj, form, change):
         obj.save()
