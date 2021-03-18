@@ -69,6 +69,7 @@
         let row = checkbox.id.split('_')[3];
         let source = $(`#transform_key-${row}`).text()
         let dest = source.split('.')
+        source = source.replaceAll('[]', "[0]")
         let index = index_value[source]
 
         if (index === undefined) {

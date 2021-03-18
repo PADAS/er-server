@@ -263,7 +263,6 @@ class TranformationRuleWidget(forms.MultiWidget):
     template_name = 'admin/transformation_rule.html'
 
     def __init__(self, attrs=None, provider=None):
-        # attrs = {'class': 'auto-resolve-start'}
         self.provider = provider
         widgets = [forms.CheckboxInput,
                    forms.TextInput(attrs={"id": "transform_label"}),
@@ -281,6 +280,11 @@ class TranformationRuleWidget(forms.MultiWidget):
             'template_name': self.template_name,
         }}
         return context
+
+    @staticmethod
+    def get_dest(key):
+        val = key.split('.')
+        return val[-1] if val[-1] != '[]' else val[-2]
 
     def get_context(self, name, value, attrs):
         context = self._get_context(name, value, attrs)
@@ -306,7 +310,7 @@ class TranformationRuleWidget(forms.MultiWidget):
                 try:
                     widget_value = None
                     for x in value:
-                        if x.get('dest') == key:
+                        if x.get('dest') == self.get_dest(key):
                             vals = list(x.values())
                             widget_value = vals[i]
                 except IndexError:
