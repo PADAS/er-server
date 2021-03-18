@@ -3,21 +3,26 @@
 
     let tranform_rules = $('#id_transforms')
     let message = JSON.parse(tranform_rules.val()) ? JSON.parse(tranform_rules.val()) : []
-    let index_value = {}
+    let dest_index = {}
 
 
-    /* map source value to row index.: */
-    let map_source_index = function () {
+    let get_dest = function (source){
+        source = source.split('.')
+        return source[source.length - 1] === "[]" ? source[source.length - 2] : source[source.length - 1]
+    }
+
+
+    /* map dest value to row index.: */
+    let map_dest_index = function () {
         let i;
-        index_value = {}
+        dest_index = {}
         for (i = 0; i < message.length; i++) {
-            let source = message[i].source;
-
-            index_value[source] = i;
+            let dest = message[i].dest;
+            dest_index[dest] = i;
         }
     }
 
-    map_source_index();
+    map_dest_index();
     tranform_rules.hide();
     tranform_rules.before("<p style=\"color: #777; margin-left: 10px;\">Advanced transformation rules (<span><a class=\"click-toggle\"  href='javascript:'>Show</a></span>) </p>")
 
@@ -26,7 +31,8 @@
         let row = target.id.split('_')[2];
         let value = target.value;
         let source = $(`#transform_key-${row}`).text()
-        let index = index_value[source];
+        let destination = get_dest(source)
+        let index = dest_index[destination];
 
         return {index: index, value: value}
     }
@@ -68,18 +74,16 @@
         let checkbox = event.target;
         let row = checkbox.id.split('_')[3];
         let source = $(`#transform_key-${row}`).text()
-        let dest = source.split('.')
-        source = source.replaceAll('[]', "[0]")
-        let index = index_value[source]
+        let destination = get_dest(source)
+        let index = dest_index[destination]
 
         if (index === undefined) {
-            // console.log(message)
-            let destination = dest[dest.length - 1] === "[]" ? dest[dest.length - 2] : dest[dest.length - 1]
+            source = source.replaceAll('[]', "[0]")
             message.push({"dest": `${destination}`, "label": "", "source": `${source}`, "units": ""})
             let new_msg = JSON.stringify(message, undefined, 2);
             $('#id_transforms').val(new_msg);
+            map_dest_index()
         }
-        map_source_index()
 
         if (checkbox.checked) {
             $(`#transform_label_${row}`).removeAttr('disabled');
@@ -99,9 +103,8 @@
             message.splice(index, 1);
             let new_msg = JSON.stringify(message, undefined, 2);
             $('#id_transforms').val(new_msg);
-            map_source_index()
+            map_dest_index()
         }
-
     })
 
     $('[id^="transform_label_"]').keyup(function (event) {
