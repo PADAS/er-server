@@ -1526,7 +1526,6 @@ class SourceProviderAdmin(admin.ModelAdmin):
     search_fields = ('provider_key', 'display_name',)
     ordering = ('provider_key', 'display_name')
     list_display = ('provider_key', 'display_name',)
-    readonly_fields = ('id', 'additional')
     form = SourceProviderForm
 
     fieldsets = (
@@ -1540,10 +1539,15 @@ class SourceProviderAdmin(admin.ModelAdmin):
             'fields': ('lag_notification_threshold', 'silence_notification_threshold', 'days_data_retain')
         }
         ),
-
         ('Advanced configuration', {
             'classes': ('wide', 'collapse',),
-            'fields': ('id', 'tranformation_rule', 'transforms')
+            'fields': ('additional',)
+        }
+         ),
+
+        ('Subject Additional Information Configuration', {
+            'classes': ('wide', 'collapse',),
+            'fields': ('tranformation_rule', 'transforms')
         }
         )
     )
