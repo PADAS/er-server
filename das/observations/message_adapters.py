@@ -1,3 +1,4 @@
+import json
 import logging
 import math
 from datetime import datetime
@@ -40,18 +41,19 @@ class InReachAdapter(BaseMessageAdapter):
                 "Message": data.get('text'),
                 "Recipients": [device_id],
                 "Sender": user.email or settings.FROM_EMAIL,
-                "Timestamp": f"\/Date({timestamp})\/"
+                "Timestamp": f"/Date({timestamp})/"
             }]
         }
 
         try:
-            headers = {'content-type': 'application/json'}
+            headers = {'content-type': 'application/json', 'accept': 'application/json'}
             res = requests.post(
                 url=InReachAdapter.endpoint, auth=(InReachAdapter.username, InReachAdapter.password),
                 json=payload, headers=headers)
             if res.status_code != 200:
                 status = ERRORED
-                logger.exception(f'Error sending message to device: {device_id} - {res.text.get("Message")}')
+                error_message = json.loads(res.text).get('Message')
+                logger.exception(f'Error sending message to device: {device_id} - {error_message}')
             else:
                 status = SENT
         except Exception as ex:

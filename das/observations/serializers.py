@@ -781,16 +781,6 @@ class MessageSerializer(BaseSerializer, TimestampMixin):
         include_additional = query_params.get('include_additional_data', False)
         if not include_additional:
             del rep['additional']
-        rep = self.verify_sender(rep, request.user)
-        return rep
-
-    def verify_sender(self, rep, request_user):
-        sender = rep['sender']
-        if sender and sender.get('content_type') == 'accounts.user':
-            user = User.objects.get(id=sender.get('id'))
-
-            if not (user == request_user or request_user.has_perm('accounts_view_user')):
-                rep['sender'] = None
         return rep
 
     def create(self, validated_data):
