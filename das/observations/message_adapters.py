@@ -24,7 +24,6 @@ class BaseMessageAdapter:
     @staticmethod
     def update_message_status(message_id, status):
         Message.objects.filter(id=message_id).update(status=status)
-        # Notify UI of the update (Use on update signals)
 
 
 class InReachAdapter(BaseMessageAdapter):
@@ -36,7 +35,6 @@ class InReachAdapter(BaseMessageAdapter):
     def send_msg_to_device(data, source, user):
         timestamp = math.trunc(datetime.timestamp(datetime.now()))
         device_id = source.manufacturer_id
-
         payload = {
             "Messages": [{
                 "Message": data.get('text'),
@@ -47,13 +45,19 @@ class InReachAdapter(BaseMessageAdapter):
         }
 
         try:
-            requests.post(url=InReachAdapter.endpoint, auth=(
-                InReachAdapter.username, InReachAdapter.password), json=payload)
-            status = SENT
+            headers = {'content-type': 'application/json'}
+            res = requests.post(
+                url=InReachAdapter.endpoint, auth=(InReachAdapter.username, InReachAdapter.password),
+                json=payload, headers=headers)
+            if res.status_code != 200:
+                status = ERRORED
+                logger.exception(f'Error sending message to device: {device_id} - {res.text.get("Message")}')
+            else:
+                status = SENT
         except Exception as ex:
             logger.exception(f'Exception {ex} raised when sending message to device: {device_id}')
             status = ERRORED
-        InReachAdapter.update_message_status(status, data.get('id'))
+        InReachAdapter.update_message_status(data.get('id'), status)
 
 
 DEVICE_ADAPTER_MAPPING = {
@@ -67,7 +71,7 @@ def _handle_outbox_message(payload, user):
         try:
             source = Source.objects.get(id=device_id)
         except Source.objects.DoesNotExist:
-            logger.exception(f'Exception raised when sending message to device: {device_id}')
+            logger.exception(f'Device: {device_id} does not exist')
         else:
             adapter = DEVICE_ADAPTER_MAPPING.get(source.provider.provider_key, InReachAdapter)
             if source.provider.messaging_enabled:

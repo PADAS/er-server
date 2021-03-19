@@ -1824,7 +1824,7 @@ class Message(TimestampedModel):
     receiver = GenericForeignKey('receiver_content_type', 'receiver_id')
     device = models.ForeignKey('Source', null=True, on_delete=models.SET_NULL)
     message_type = models.CharField(
-        max_length=40, choices=MESSAGE_TYPES, default=INBOX)
+        max_length=40, choices=MESSAGE_TYPES, default=OUTBOX)
     text = models.TextField(blank=True)
     status = models.CharField(
         max_length=40, choices=MESSAGE_STATE_CHOICES, default=PENDING)

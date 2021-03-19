@@ -1765,37 +1765,41 @@ class MessagesView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         query_params = self.request.query_params
-        messages = models.Message.objects.all()
+        messages = get_user_messages(self.request.user)
 
         subject_id = query_params.get('subject_id')
         if subject_id:
             try:
                 models.Subject.objects.get(id=subject_id)
-                messages = models.Message.objects.filter(Q(sender_id=subject_id) | Q(receiver_id=subject_id))
+                messages = messages.filter(Q(sender_id=subject_id) | Q(receiver_id=subject_id))
             except models.Subject.DoesNotExist:
                 raise NotFound({'Error': f'Subject with given ID does not exist'})
-
         return messages
 
     def create(self, request, *args, **kwargs):
 
-        data = self.verify_device(request.data)
+        data = self._data(request)
         serializer = self.serializer_class(data=data, context={'request': request})
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST, )
 
         serializer.save()
         headers = self.get_success_headers(serializer.data)
-
         handle_outbox_message(serializer.data, request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
-    def verify_device_and_sender(self, data):
-        receiver = data.get('receiver')
+    def _data(self, request):
+        data = request.data
+        receiver, sender = data.get('receiver'), data.get('sender')
+
         if receiver.get('content_type') == 'observations.subject' and not data.get('device'):
             subject = models.Subject.objects.filter(id=receiver.get('id')).first()
             if subject and subject.source:
                 data['device'] = str(subject.source.id)
+
+        if not sender:
+            # Set logged in user as the sender
+            data['sender'] = {"content_type": "accounts.user", "id": request.user.id}
         return data
 
 
@@ -1804,3 +1808,15 @@ class MessageView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = serializers.MessageSerializer
     permission_classes = (IsAuthenticated,)
     queryset = models.Message.objects.all()
+
+    def get_queryset(self):
+        return get_user_messages(self.request.user)
+
+
+def get_user_messages(user):
+    # Get messages a user has access to
+    subjects = models.Subject.objects.all()
+    user_subjects = subjects.by_user_subjects(user)
+    user_subject_ids = [subj.id for subj in user_subjects]
+    messages = models.Message.objects.filter(Q(sender_id__in=user_subject_ids) | Q(receiver_id__in=user_subject_ids))
+    return messages

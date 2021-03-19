@@ -486,6 +486,7 @@ class SourceProviderSerializer(rest_framework.serializers.Serializer):
         label='Display Name', max_length=100,)
     additional = rest_framework.serializers.JSONField(
         label='Additional Data', )
+    messaging_enabled = rest_framework.serializers.BooleanField(required=False, default=False)
 
     class Meta:
         model = models.SourceProvider
@@ -758,7 +759,7 @@ class MessageSerializer(BaseSerializer, TimestampMixin):
     receiver = SenderReceiverRelatedField(required=False, allow_null=True)
 
     device = SourceRelatedField(required=False, allow_null=True)
-    message_type = choicefield_serializer(models.MESSAGE_TYPES, default=models.INBOX)
+    message_type = choicefield_serializer(models.MESSAGE_TYPES, default=models.OUTBOX)
     text = text_field(required=False, allow_blank=True, allow_null=True)
     status = choicefield_serializer(models.MESSAGE_STATE_CHOICES, default=models.PENDING)
     sender_location = GEOPointField(required=False, allow_null=True, validators=[PointValidator()])
@@ -788,7 +789,7 @@ class MessageSerializer(BaseSerializer, TimestampMixin):
         if sender and sender.get('content_type') == 'accounts.user':
             user = User.objects.get(id=sender.get('id'))
 
-            if not (user == request_user or user.has_perm('accounts_view_user')):
+            if not (user == request_user or request_user.has_perm('accounts_view_user')):
                 rep['sender'] = None
         return rep
 
