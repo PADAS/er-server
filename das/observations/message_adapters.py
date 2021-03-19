@@ -34,7 +34,7 @@ class InReachAdapter(BaseMessageAdapter):
 
     @staticmethod
     def send_msg_to_device(data, source, user):
-        timestamp = math.trunc(datetime.timestamp(datetime.now()))
+        timestamp = math.trunc(datetime.timestamp(datetime.now()) * 1000)
         device_id = source.manufacturer_id
         payload = {
             "Messages": [{
