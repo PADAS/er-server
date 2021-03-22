@@ -70,6 +70,18 @@ class GenericSensorHandlerTest(BaseAPITest):
         }
     }
 
+    additional_observation = {
+        "subject_name": "test_subject_w_additional",
+        "subject_additional": {"sex": "male"},
+        "source_additional": {"description": lorem_ipsum.words(2)},
+        "manufacturer_id": "test_subject_w_additional_manufacturer_id",
+        "recorded_at": "2020-03-07T16:28:38+00:00",
+        "location": {
+            "lon": "31.19239",
+            "lat": "-24.43071"},
+        "additional": {"temp": 40.1}
+    }
+
     def setUp(self):
         super().setUp()
 
@@ -162,6 +174,12 @@ class GenericSensorHandlerTest(BaseAPITest):
         obs = next(iter(Observation.objects.filter(
             source=self.test_source)))
         self.assertEqual(recorded_at, obs.recorded_at)
+
+    def test_request_subject_additional(self):
+        response = self._post_data(json.dumps(self.additional_observation))
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        assert Subject.objects.get(
+            name=self.additional_observation['subject_name']).additional['sex'] == 'male'
 
     def test_post_with_additional(self):
         observation = copy.deepcopy(self.one_observation)
