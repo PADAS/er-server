@@ -6,6 +6,7 @@ from datetime import datetime
 import requests
 from django.conf import settings
 
+from accounts.models import User
 from observations.models import ERRORED, SENT
 from observations.models import Source, Message
 
@@ -33,14 +34,14 @@ class InReachAdapter(BaseMessageAdapter):
     password = settings.INREACH_PASSWORD
 
     @staticmethod
-    def send_msg_to_device(data, source, user):
+    def send_msg_to_device(data, source, user_email):
         timestamp = math.trunc(datetime.timestamp(datetime.now()) * 1000)
         device_id = source.manufacturer_id
         payload = {
             "Messages": [{
                 "Message": data.get('text'),
                 "Recipients": [device_id],
-                "Sender": user.email or settings.FROM_EMAIL,
+                "Sender": user_email or settings.FROM_EMAIL,
                 "Timestamp": f"/Date({timestamp})/"
             }]
         }
@@ -67,7 +68,7 @@ DEVICE_ADAPTER_MAPPING = {
 }
 
 
-def _handle_outbox_message(payload, user):
+def _handle_outbox_message(payload, user_email):
     device_id = payload.get('device')
     if device_id:
         try:
@@ -77,6 +78,6 @@ def _handle_outbox_message(payload, user):
         else:
             adapter = DEVICE_ADAPTER_MAPPING.get(source.provider.provider_key, InReachAdapter)
             if source.provider.messaging_enabled:
-                adapter.send_msg_to_device(payload, source, user)
+                adapter.send_msg_to_device(payload, source, user_email)
             else:
                 logger.error(f'Messaging not enabled for this device: {device_id}')

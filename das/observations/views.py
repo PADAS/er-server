@@ -1785,7 +1785,7 @@ class MessagesView(generics.ListCreateAPIView):
 
         serializer.save()
         headers = self.get_success_headers(serializer.data)
-        handle_outbox_message.apply_async(args=(serializer.data, request.user))
+        handle_outbox_message.apply_async(args=(serializer.data, request.user.email))
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def _data(self, request):
