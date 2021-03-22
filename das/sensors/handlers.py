@@ -36,10 +36,11 @@ class SensorPostParameters(serializers.Serializer):
         child=serializers.CharField(allow_blank=True), allow_empty=True, default=list)
     subject_type = serializers.CharField(default=None)  # Legacy key
     subject_subtype = serializers.CharField(default=None)
+    subject_additional = serializers.DictField(default=None)
     model_name = serializers.CharField(default=None)
     source_type = serializers.CharField(default=None)
     additional = serializers.DictField(default=dict)
-    source_additional = serializers.DictField(default=dict)
+    source_additional = serializers.DictField(default=None)
 
 
 class GenericSensorHandler:
@@ -125,19 +126,27 @@ class GenericSensorHandler:
         model_name = an_observation.get('model_name', None) or '{}:{}'.format(
             sensor_type, provider_key)
         subject_name = an_observation.get('subject_name') or manufacturer_id
+        subject_additional = an_observation.get('subject_additional', None)
+
+        subject_info = {
+            'subject_subtype_id': subject_subtype,
+            'name': subject_name,
+            'subject_groups': clean_subjectgroups(an_observation.get('subject_groups')),
+            'id': an_observation.get('subject_id'),
+        }
+        if subject_additional is not None:
+            subject_info['additional'] = subject_additional
+
+        source_info = {}
+        if an_observation.get('source_additional') is not None:
+            source_info['additional'] = an_observation['source_additional']
 
         src = Source.objects.ensure_source(source_type,
                                            provider=provider_key,
                                            manufacturer_id=manufacturer_id,
                                            model_name=model_name,
-                                           subject={
-                                               'subject_subtype_id': subject_subtype,
-                                               'name': subject_name,
-                                               'subject_groups': clean_subjectgroups(an_observation.get('subject_groups')),
-                                               'id': an_observation.get('subject_id')
-                                           },
-                                           additional=an_observation.get(
-                                               'source_additional')
+                                           subject=subject_info,
+                                           **source_info
                                            )
         recorded_at = an_observation.get('recorded_at')
         additional = an_observation.get('additional', {})
@@ -243,6 +252,12 @@ class ErTrackHandler(GenericSensorHandler):
             'subject_groups': clean_subjectgroups(an_observation.get('subject_groups')),
             'id': an_observation.get('subject_id')
         }
+        if an_observation.get('subject_additional') is not None:
+            subject_info['additional'] = an_observation['subject_additional']
+
+        source_info = {}
+        if an_observation.get('source_additional') is not None:
+            source_info['additional'] = an_observation['source_additional']
 
         src = cls.ensure_source(
             an_observation, user, subject_info,
@@ -250,7 +265,8 @@ class ErTrackHandler(GenericSensorHandler):
             provider=provider_key,
             manufacturer_id=manufacturer_id,
             model_name=model_name,
-            additional=an_observation.get('source_additional'))
+            **source_info
+        )
 
         recorded_at = an_observation.get('recorded_at')
         additional = an_observation.get('additional', {})
