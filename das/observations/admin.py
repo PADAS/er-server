@@ -1545,7 +1545,7 @@ class SourceProviderAdmin(admin.ModelAdmin):
         }
          ),
 
-        ('Subject Additional Information Configuration', {
+        ('Subject Details Configuration', {
             'classes': ('wide', 'collapse',),
             'fields': ('tranformation_rule', 'transforms')
         }
