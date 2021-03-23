@@ -1630,3 +1630,14 @@ class TestPatrol(BaseAPITest):
         assert response.status_code == 200
         assert response.data['results'][0].get('patrol_segments')[
             0]['leader'] == {'hidden': True}
+
+
+def test_patrol_admin_page(django_assert_max_num_queries, client):
+    user_const = dict(last_name='last', first_name='first')
+    user = User.objects.create_user('user', 'user@test.com', 'all_perms_user', is_superuser=True,
+                                    is_staff=True, **user_const)
+
+    client.force_login(user)
+    url = reverse('admin:activity_patrol_changelist')
+    with django_assert_max_num_queries(15):
+        client.get(url)

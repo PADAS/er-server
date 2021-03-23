@@ -148,6 +148,14 @@ class Revision(object):
         manager = getattr(instance, self.manager_name)
         adapter = self.revision_adapter(type(instance))
 
+        instance.revision_sequence = 0
+        if instance.id:
+            sequences = manager.all()
+            sequences = sequences.order_by('-sequence')
+            for sequence in sequences.values_list('sequence', flat=True):
+                instance.revision_sequence = sequence
+                break
+
         if instance.revision_sequence == 0:
             data = adapter.get_serialized_data(instance)
         elif action == AC_DELETED:
@@ -202,11 +210,6 @@ class Revision(object):
         if instance.id:
             adapter = RevisionAdapter(type(instance))
             instance.revision_original = adapter.get_data_copy(instance)
-            sequences = manager.all()
-            sequences = sequences.order_by('-sequence')
-            for sequence in sequences.values_list('sequence', flat=True):
-                instance.revision_sequence = sequence
-                break
 
     def finalize(self, sender, **kwargs):
         revision_model = self.create_revision_model(sender)
