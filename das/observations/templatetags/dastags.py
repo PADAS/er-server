@@ -16,3 +16,18 @@ def percentof(amount, total):
         return '{:.1f}%'.format(amount / total * 100)
     except ZeroDivisionError:
         return None
+
+
+@register.filter()
+def to_tuple(value):
+    return tuple(value)
+
+
+@register.filter()
+def receive_data(value, index):
+    return value[index]
+
+
+@register.filter()
+def span_id(index):
+    return f'transform_key-{index}'
