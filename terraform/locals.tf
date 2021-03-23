@@ -84,6 +84,7 @@ locals {
     "mep"                    = "prod1"
     "mkomazi"                = "prod1"
     "mtkenya"                = "prod1"
+    "mugie"                  = "prod1"
     "murchisonfalls"         = "prod1"
     "musekese"               = "prod1"
     "mwa"                    = "prod1"
