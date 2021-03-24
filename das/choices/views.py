@@ -9,6 +9,7 @@ from utils.helpers import FileCompression
 from utils.drf import StandardResultsSetPagination
 from django.http import Http404
 from choices.permissions import ChoiceModelPermissions
+from das_server.views import CustomSchema
 
 
 class ChoiceZipIcon(APIView):
@@ -24,10 +25,28 @@ class ChoiceZipIcon(APIView):
         return file_compress.zip_compress('choice_icons')
 
 
+class ChoicesViewSchema(CustomSchema):
+    def get_operation(self, path, method):
+        operation = super().get_operation(path, method)
+        if method == 'GET':
+            query_params = [{
+                'name': 'model',
+                'in': 'query',
+                'description': "Filter by 'model' field"},
+                {
+                'name': 'field',
+                'in': 'query',
+                'description': "Filter by 'field' field"}
+            ]
+            operation['parameters'].extend(query_params)
+        return operation
+
+
 class ChoicesView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
     permission_classes = (ChoiceModelPermissions,)
     serializer_class = ChoiceSerializer
+    schema = ChoicesViewSchema()
 
     def get_queryset(self):
         queryset = Choice.objects.get_active_choices()

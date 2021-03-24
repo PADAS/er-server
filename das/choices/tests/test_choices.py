@@ -1,25 +1,23 @@
 import json
 import os
-from typing import NamedTuple
+from typing import NamedTuple, Any
 
-import django.contrib.auth
 import pytest
 from django.urls import reverse
 
 from choices.models import Choice
 
 pytestmark = pytest.mark.django_db
-User = django.contrib.auth.get_user_model()
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tests')
 
 
 class ChoiceDetails(NamedTuple):
     choices: Choice
-    user: User
+    user: Any
 
 
 @pytest.fixture
-def choices_fixture(db):
+def choices_fixture(db, django_user_model):
     Choice.objects.all().delete()
 
     Choice.objects.create(model='activity.eventtype',
@@ -33,8 +31,8 @@ def choices_fixture(db):
                           display='Rhino')
 
     user_const = dict(last_name='last', first_name='first')
-    user = User.objects.create_user('user', 'user@test.com', 'all_perms_user', is_superuser=True,
-                                    is_staff=True, **user_const)
+    user = django_user_model.objects.create_user('user', 'user@test.com', 'all_perms_user', is_superuser=True,
+                                                 is_staff=True, **user_const)
 
     return ChoiceDetails(choices=Choice.objects.all(), user=user)
 
