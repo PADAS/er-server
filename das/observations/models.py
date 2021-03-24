@@ -594,14 +594,18 @@ class SubjectSource(models.Model):
 
     def save(self, *args, **kwargs):
 
+        # guard against "empty" assigned_range.
+        if self.assigned_range == 'empty':
+            lower, upper = None, None
+
         # accommodate a Range object or a python container
-        if isinstance(self.assigned_range, (list, tuple, set)) and len(self.assigned_range) == 2:
+        elif isinstance(self.assigned_range, (list, tuple, set)) and len(self.assigned_range) == 2:
             lower, upper = self.assigned_range
         elif hasattr(self.assigned_range, 'lower') and hasattr(self.assigned_range, 'upper'):
             lower = self.assigned_range.lower
             upper = self.assigned_range.upper
 
-        lower = lower or pytz.utc.localize(datatime.min)
+        lower = lower or pytz.utc.localize(datetime.min)
         upper = upper or pytz.utc.localize(datetime.max)
 
         self.assigned_range = DateTimeTZRange(lower=lower, upper=upper)
