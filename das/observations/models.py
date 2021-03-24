@@ -232,7 +232,8 @@ class SourceProvider(TimestampedModel):
                                     max_length=100, null=False,)
     notes = models.TextField(blank=True, null=True)
     additional = JSONField('additional data', default=dict, blank=True)
-    transforms = JSONField(name="transforms", default=list, blank=True, null=True)
+    transforms = JSONField(
+        name="transforms", default=list, blank=True, null=True)
     objects = SourceProviderManager()
 
     def __str__(self):
@@ -258,7 +259,7 @@ class Source(TimestampedModel):
     manufacturer_id = models.CharField('device manufacturer id', max_length=100,
                                        null=True)
     model_name = models.CharField(
-        'device model name', max_length=100, null=True)
+        'device model name', max_length=201, null=True)
     additional = JSONField('additional data', default=dict, blank=True)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
@@ -409,11 +410,11 @@ class ObservationManager(models.Manager):
         location = Point(x=observation.longitude, y=observation.latitude)
         additional = observation.additional or {}
         result, created = Observation.objects.get_or_create(source_id=observation.source.id,
-                                                                                recorded_at=observation.recorded_at,
-                                                                                defaults=dict(
-                                                                                    location=location,
-                                                                                    additional=additional
-                                                                                ))
+                                                            recorded_at=observation.recorded_at,
+                                                            defaults=dict(
+                                                                location=location,
+                                                                additional=additional
+                                                            ))
         return result, created
 
     def get_max_recorded_at(self, source):
@@ -549,7 +550,6 @@ class SubjectSourceManager(models.Manager):
 class AssignedRangeBounds(NamedTuple):
     lower: datetime
     upper: datetime
-
 
 
 class SubjectSource(models.Model):
@@ -1403,7 +1403,8 @@ def update_subject_status(source, recorded_at, location,
         status_updates['additional'] = {'subject_name': reported_subject_name}
 
     if transformed_additional_data is not None:
-        status_updates.setdefault('additional', {})['device_status_properties'] = transformed_additional_data
+        status_updates.setdefault('additional', {})[
+            'device_status_properties'] = transformed_additional_data
 
     SubjectStatus.objects.filter(subject__subjectsource__source=source,
                                  subject__subjectsource__assigned_range__contains=recorded_at,
@@ -1440,10 +1441,10 @@ def transform_additional_data(additional, transform_format):
 
         if value is not None and ds not in dests:
 
-            if isinstance(value, dict): # list-ify a dict
-                value = [f'{k}:{str(v)}' for k,v in value.items()]
+            if isinstance(value, dict):  # list-ify a dict
+                value = [f'{k}:{str(v)}' for k, v in value.items()]
 
-            if isinstance(value, list): # string-ify a list
+            if isinstance(value, list):  # string-ify a list
                 value = ",".join([str(x) for x in value])
 
             metadata = dict(value=value,
@@ -1485,7 +1486,8 @@ def update_subject_status_from_observation(observation, delay_hours=0, force=Fal
             radio_state_at = None
 
         try:
-            transformed_data = transform_additional_data(additional, source.provider.transforms)
+            transformed_data = transform_additional_data(
+                additional, source.provider.transforms)
         except Exception as exc:
             logger.debug(f"failed with exception {exc}")
 
@@ -1679,9 +1681,7 @@ class UserSession(TimestampedModel):
         primary_key=True, default=uuid.uuid4, db_column="sid")
     time_range = DateTimeRangeField("user session time", null=True, blank=True)
 
-
 from analyzers.models import ObservationAnnotator
-
 
 class SubjectMaximumSpeed(ObservationAnnotator):
     class Meta:
