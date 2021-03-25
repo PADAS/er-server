@@ -246,7 +246,7 @@ jobs:
       - run: 
           name: Grep Exit Code from test results
           command: |
-            if grep -i 'failures="1"' ~/unittest-output/result.xml; then
+            if grep -i 'failures="0"' ~/unittest-output/result.xml; then
                 exit 0
             else
                 exit 1
