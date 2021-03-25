@@ -246,8 +246,11 @@ jobs:
       - run: 
           name: Grep Exit Code from test results
           command: |
-            cat ~/unittest-output/result.xml
-
+            if grep -i 'failures="0"' ~/unittest-output/result.xml; then
+                exit 0
+            else
+                exit 1
+            fi
   docker_build_image:
     executor: 'default'
     steps:
