@@ -77,7 +77,4 @@ def _handle_outbox_message(payload, user_email):
             logger.exception(f'Device: {device_id} does not exist')
         else:
             adapter = DEVICE_ADAPTER_MAPPING.get(source.provider.provider_key, InReachAdapter)
-            if source.provider.messaging_enabled:
-                adapter.send_msg_to_device(payload, source, user_email)
-            else:
-                logger.error(f'Messaging not enabled for this device: {device_id}')
+            adapter.send_msg_to_device(payload, source, user_email)

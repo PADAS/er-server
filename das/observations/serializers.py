@@ -486,7 +486,6 @@ class SourceProviderSerializer(rest_framework.serializers.Serializer):
         label='Display Name', max_length=100,)
     additional = rest_framework.serializers.JSONField(
         label='Additional Data', )
-    messaging_enabled = rest_framework.serializers.BooleanField(required=False, default=False)
 
     class Meta:
         model = models.SourceProvider
