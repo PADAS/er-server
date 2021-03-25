@@ -241,6 +241,13 @@ jobs:
             exit ${TEST_EXIT_CODE}
       - store_test_results:
           path: ~/unittest-output
+      - store_artifacts:
+          path: ~/unittest-output
+      - run: 
+          name: Grep Exit Code from test results
+          command: |
+            cat ~/unittest-output/result.xml
+
   docker_build_image:
     executor: 'default'
     steps:
