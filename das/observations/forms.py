@@ -74,6 +74,10 @@ silence_notification_threshold_help_text_for_source =  \
     _('Threshold in hours:minutes:seconds that indicates an abnormal period without new data for this Source.')
 
 
+two_way_help_text = \
+    _('specify whether the source supports two-way messaging')
+
+
 class SourceForm(JSONFieldFormMixin, forms.ModelForm):
 
     '''
@@ -108,6 +112,7 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
 
     silence_notification_threshold = forms.CharField(max_length=8, required=False, empty_value=None,
                                                      help_text=silence_notification_threshold_help_text_for_source)
+    two_way_messaging = forms.NullBooleanField(label='Two-way messaging', help_text=two_way_help_text)
 
     @staticmethod
     def fetch_organizations():
@@ -139,7 +144,7 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
                        'feed_id', 'feed_passwd',
                        'adjusted_beacon_freq', 'frequency',
                        'adjusted_frequency',
-                       'backup_frequency', 'predicted_expiry', 'silence_notification_threshold')
+                       'backup_frequency', 'predicted_expiry', 'silence_notification_threshold', 'two_way_messaging')
         json_date_fields = ('predicted_expiry',)
         fields = ('id', 'manufacturer_id', 'provider', 'source_type',
                   'model_name') + json_fields
@@ -257,6 +262,9 @@ silence_notification_threshold_help_text =  \
 
 days_data_retain_help_text =  \
     _('Observations records outside the configured number of days will be removed permanently and cannot be retrieved.')
+
+two_way_help_text_sp = \
+    _('specify whether the source provider supports two-way messaging')
 
 
 class TranformationRuleWidget(forms.MultiWidget):
@@ -407,6 +415,8 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
                                           help_text=days_data_retain_help_text)
 
     tranformation_rule = TranformationRuleField(required=False)
+    two_way_messaging = forms.BooleanField(required=False, initial=False, label='Two-way messaging',
+                                           help_text=two_way_help_text_sp)
 
     transforms = JSONField(widget=AutoFormatJSONWidget, required=False,
                            label=_("Advanced transformation rules"),
@@ -426,6 +436,7 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
             'lag_notification_threshold',
             'silence_notification_threshold',
             'days_data_retain',
+            'two_way_messaging'
         )
         json_date_fields = set()
 
