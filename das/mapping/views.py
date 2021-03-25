@@ -3,22 +3,24 @@ import logging
 from itertools import chain
 
 import simplejson as json
-from django.conf import settings
 from django.core.serializers import serialize
 from django.db.models import F
 from django.http import HttpResponse, Http404
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import generics
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.parsers import JSONParser
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_extensions.etag.decorators import etag
 
 import mapping.serializers as serializers
 from mapping import app_settings
 from mapping.models import MBTiles, MBTilesNotFoundError, MissingTileError, Map, TileLayer
-from mapping.models import PolygonFeature, LineFeature, PointFeature, FeatureSet, SpatialFeature, DisplayCategory
+from mapping.models import SpatialFeature, DisplayCategory
 from utils.json import parse_bool
 
 logger = logging.getLogger(__name__)
@@ -70,7 +72,7 @@ class FeatureSetListJsonView(APIView):
 
     def get(self, request):
         def feature_types(featureset, include_hidden):
-            feature_types_qs = featureset.spatialfeaturetype_set.all() if include_hidden\
+            feature_types_qs = featureset.spatialfeaturetype_set.all() if include_hidden \
                 else featureset.spatialfeaturetype_set.filter(is_visible=True)
 
             for t in feature_types_qs:
@@ -92,7 +94,6 @@ class FeatureSetListJsonView(APIView):
 
 
 def calculate_featureset_etag(view_instance, view_method, request, args, kwargs):
-
     include_hidden = parse_bool(request.GET.get('include_hidden', False))
     featureset = DisplayCategory.objects.get(id=kwargs['id'])
     field_list = ('updated_at', 'feature_type__updated_at')
@@ -147,12 +148,27 @@ class MapListJsonView(generics.ListAPIView):
     serializer_class = serializers.MapSerializer
 
 
-class LayerListJsonView(generics.ListAPIView):
+class LayerListJsonView(generics.ListCreateAPIView):
     """
     List of available map layers.
     """
     queryset = TileLayer.objects.all().by_ordernum()
     serializer_class = serializers.TileLayerSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data, context={'request': request})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST, )
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class LayerJsonView(generics.RetrieveUpdateDestroyAPIView):
+    lookup_field = 'id'
+    serializer_class = serializers.TileLayerSerializer
+    queryset = TileLayer.objects.all()
+    permission_classes = (IsAuthenticated,)
 
 
 #
