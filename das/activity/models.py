@@ -1764,20 +1764,6 @@ class PatrolSegmentManager(models.Manager):
     def get_leader_for_provenance(self, provenance, user=None):
         if PC_STAFF == provenance:
             def get_staff():
-                # First get all user accounts in the reported by permission
-                # set, if it exists in the settings and the db
-                try:
-                    reported_by_users = PermissionSet.objects.get(
-                        id=settings.REPORTED_BY_PERMISSION_SET).user_set
-                    for obj in reported_by_users.filter(is_active=True):
-                        yield obj.get_full_name().lower(), obj
-                except PermissionSet.DoesNotExist:
-                    logger.warning(
-                        'Someone has deleted the reported_by permission set')
-                except AttributeError:
-                    logger.warning(
-                        'Reported by permission set not specified in settings')
-
                 # We also want subjects who are staff (rangers are tracked as
                 # subjects via their radio, but can report events
                 staff_subject = Subject.objects.all().get_staff().by_is_active()
