@@ -676,7 +676,7 @@ class PatrolAdmin(PatrolPermissionMixin, OSMGeoExtendedAdmin):
             instance.save()
 
 
-@AdminFeatureFlag(models.Patrol, flag='PATROL_ENABLED')
+@AdminFeatureFlag(models.PatrolConfiguration, flag='PATROL_ENABLED')
 @admin.register(models.PatrolConfiguration)
 class PatrolConfiguration(admin.ModelAdmin):
     list_display = ('name',)
