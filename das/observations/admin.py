@@ -1547,10 +1547,14 @@ class SourceProviderAdmin(admin.ModelAdmin):
             'fields': ('additional',)
         }
          ),
+
         ('Subject Details Configuration', {
             'classes': ('wide', 'collapse',),
             'fields': ('tranformation_rule', 'transforms')
-=======
+        }
+        )
+    )
+
     def save_model(self, request, obj, form, change):
         obj.save()
         if 'transforms' in form.changed_data:
