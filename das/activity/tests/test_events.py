@@ -1135,7 +1135,7 @@ class TestEventView(BaseAPITest):
         request = self.factory.post(self.api_base + '/events/', carcass_data)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
-        self.assertEqual(response.status_code, 201)
+        assert response.status_code == 201
 
         url = """/activity/events/export?state=active&filter=%7B%22text%22:%22carcass%22%7D"""
 
@@ -1146,6 +1146,7 @@ class TestEventView(BaseAPITest):
         response = views.EventsExportView.as_view()(request)
 
         self.assertEqual(response.status_code, 200)
+        assert response.status_code == 200
 
     def test_export_reports_with_create_date_filter(self):
         url = """/activity/events/export"""
@@ -1157,7 +1158,7 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
         rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
-        self.assertEqual(1, len(rendered_dict))
+        assert len(rendered_dict) == 1
 
         tomorrow = self.now + timedelta(days=1)
         q_params = json.dumps({"create_date": {"lower": tomorrow.isoformat()}})
@@ -1166,7 +1167,7 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
         rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
-        self.assertEqual(0, len(rendered_dict))
+        assert len(rendered_dict) == 0
 
     def test_export_filter_on_incident_associated_reports(self):
         incident_data = copy.deepcopy(self.event_data)
