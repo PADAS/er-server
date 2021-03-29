@@ -322,7 +322,7 @@ class ObservationManager(models.Manager):
             self, subjectsource, since=None, until=None, limit=None, values=None,
             filter_flag=0, order_by=None):
 
-        queryset = Observation.objects.filter(source__subjectsource__in=subject_source,
+        queryset = Observation.objects.filter(source__subjectsource=subjectsource,
                                               source__subjectsource__assigned_range__contains=F(
                                                   'recorded_at'))
 
