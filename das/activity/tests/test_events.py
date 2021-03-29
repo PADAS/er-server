@@ -14,6 +14,7 @@ from unittest import mock
 
 import pytz
 import pytest
+from urllib.parse import urlencode
 from django.utils import dateparse
 import django.contrib.auth
 from django.db import transaction
@@ -2935,6 +2936,19 @@ class TestEventView(BaseAPITest):
             data = properties.get(o)
             inactive_enum = data.get('inactive_enum')
             assert inactive_enum == ['di3', 'di4']
+
+        # Inactive enums present
+        assert 'inactive_enum' in properties.get('HopActivity')
+
+        # Inactive enums skipped
+        url += '?{}'.format(urlencode({'definition': 'flat'}))
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventTypeSchemaView.as_view()(
+            request, eventtype=event_type.value)
+        properties = response.data['schema']['properties']
+        assert 'inactive_enum' not in properties.get('HopActivity')
+
 
     def test_flat_definition(self):
         choice = Choice.objects.create(
