@@ -1,15 +1,15 @@
-from rest_framework.views import APIView
 from django.db.models import Q
-from rest_framework.views import Response
+from django.http import Http404
 from rest_framework import generics
+from rest_framework.views import APIView
 
 from choices.models import Choice
-from choices.serializers import ChoiceIconZipSerializer, ChoiceSerializer
-from utils.helpers import FileCompression
-from utils.drf import StandardResultsSetPagination
-from django.http import Http404
 from choices.permissions import ChoiceModelPermissions
+from choices.serializers import ChoiceIconZipSerializer, ChoiceSerializer
 from das_server.views import CustomSchema
+from utils.drf import StandardResultsSetPagination
+from utils.helpers import FileCompression
+from utils.json import parse_bool
 
 
 class ChoiceZipIcon(APIView):
@@ -34,9 +34,13 @@ class ChoicesViewSchema(CustomSchema):
                 'in': 'query',
                 'description': "Filter by 'model' field"},
                 {
-                'name': 'field',
-                'in': 'query',
-                'description': "Filter by 'field' field"}
+                    'name': 'field',
+                    'in': 'query',
+                    'description': "Filter by 'field' field"},
+                {
+                    'name': 'include_inactive',
+                    'in': 'query',
+                    'description': "include inactive choices but not disabled"}
             ]
             operation['parameters'].extend(query_params)
         return operation
@@ -47,10 +51,17 @@ class ChoicesView(generics.ListCreateAPIView):
     permission_classes = (ChoiceModelPermissions,)
     serializer_class = ChoiceSerializer
     schema = ChoicesViewSchema()
+    queryset = Choice.objects.all()
 
     def get_queryset(self):
-        queryset = Choice.objects.get_active_choices()
+        queryset = super().get_queryset()
         qparam = self.request.query_params
+
+        if parse_bool(qparam.get('include_inactive')):
+            # get choices that are both active and inactive but not disabled.
+            queryset = queryset.filter(delete_on__isnull=True)
+        else:
+            queryset = queryset.filter(delete_on__isnull=True, is_active=True)
 
         queryset = queryset.filter(model=qparam.get('model')) if qparam.get('model') else queryset
         queryset = queryset.filter(field=qparam.get('field')) if qparam.get('field') else queryset
