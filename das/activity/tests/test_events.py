@@ -2931,24 +2931,28 @@ class TestEventView(BaseAPITest):
         assert response.status_code == 200
 
         properties = response.data['schema']['properties']
+        inactive_choices = ['di3', 'di4']
 
         for o in properties_with_enum:
+            # Inactive enums present
             data = properties.get(o)
             inactive_enum = data.get('inactive_enum')
-            assert inactive_enum == ['di3', 'di4']
+            assert inactive_enum == inactive_choices
 
-        # Inactive enums present
-        assert 'inactive_enum' in properties.get('HopActivity')
-
-        # Inactive enums skipped
         url += '?{}'.format(urlencode({'definition': 'flat'}))
         request = self.factory.get(url)
         self.force_authenticate(request, self.all_perms_user)
-        response = views.EventTypeSchemaView.as_view()(
+        new_response = views.EventTypeSchemaView.as_view()(
             request, eventtype=event_type.value)
-        properties = response.data['schema']['properties']
-        assert 'inactive_enum' not in properties.get('HopActivity')
 
+        properties = new_response.data['schema']['properties']
+
+        for o in properties_with_enum:
+            # Inactive enums skipped
+            data = properties.get(o)
+            assert not data.get('inactive_enum')
+            assert all(inactive_choices) not in data.get('enum')
+            assert all(inactive_choices) not in data.get('enumNames').keys()
 
     def test_flat_definition(self):
         choice = Choice.objects.create(

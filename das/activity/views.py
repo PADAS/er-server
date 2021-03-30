@@ -249,42 +249,55 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
             request, eventtype.image_url)
 
         field_schema = schema_utils.map_schema(eventtype.schema, schema)
-        if definition_format != 'flat':
-            for key, value in field_schema.items():
-                inactive_choices = []
-                obj = Choice.objects.filter(
-                    is_active=False, field=value['field_name'])
-                for o in obj:
-                    inactive_choices.append(o.value)
-                if inactive_choices:
-                    schema['schema']['properties'][key]["inactive" +
-                                                    "_" + value['lookup']] = inactive_choices
 
-            for value in schema_utils.get_values_titlemap(eventtype.schema):
-                inactive_choices = []
-                obj = Choice.objects.filter(is_active=False, field=value)
-                for o in obj:
-                    inactive_choices.append(o.value)
-                if inactive_choices:
-                    for key in schema['definition']:
-                        if isinstance(key, OrderedDict):
-                            items = key.get('items')
+        for key, value in field_schema.items():
+            inactive_choices = []
+            obj = Choice.objects.filter(
+                is_active=False, field=value['field_name'])
+            for o in obj:
+                inactive_choices.append(o.value)
 
-                            tmap_values = [(i, i['titleMap']) for i in items if isinstance(i, OrderedDict)
-                                           and i.get('titleMap')] if items else None
+            if inactive_choices:
+                lookup = value['lookup']
+                schema_item = schema['schema']['properties'][key]
 
-                            # TODO: Consider the truthiness of tmap_values here,
-                            # for the case where it is set to [].
-                            if tmap_values:
-                                for item, tmap in tmap_values:
-                                    for tm in tmap:
-                                        if tm.get('value') in inactive_choices:
-                                            item['inactive_titleMap'] = inactive_choices
+                if definition_format == 'flat':
+                    for k, v in schema_item.items():
+                        if isinstance(v, list):
+                            # remove all inactive
+                            schema_item[k] = [
+                                k for k in v if k not in inactive_choices]
+                        elif isinstance(v, dict):
+                            schema_item[k] = dict(
+                                (k, v) for k, v in v.items() if k not in inactive_choices)
+                else:
+                    schema_item[f"inactive_{lookup}"] = inactive_choices
 
-                            elif key.get('titleMap'):
-                                for title_map_elem in key.get('titleMap'):
-                                    if title_map_elem.get('value') in inactive_choices:
-                                        key['inactive_titleMap'] = inactive_choices
+        for value in schema_utils.get_values_titlemap(eventtype.schema):
+            inactive_choices = []
+            obj = Choice.objects.filter(is_active=False, field=value)
+            for o in obj:
+                inactive_choices.append(o.value)
+            if inactive_choices and definition_format != 'flat':
+                for key in schema['definition']:
+                    if isinstance(key, OrderedDict):
+                        items = key.get('items')
+
+                        tmap_values = [(i, i['titleMap']) for i in items if isinstance(i, OrderedDict)
+                                       and i.get('titleMap')] if items else None
+
+                        # TODO: Consider the truthiness of tmap_values here,
+                        # for the case where it is set to [].
+                        if tmap_values:
+                            for item, tmap in tmap_values:
+                                for tm in tmap:
+                                    if tm.get('value') in inactive_choices:
+                                        item['inactive_titleMap'] = inactive_choices
+
+                        elif key.get('titleMap'):
+                            for title_map_elem in key.get('titleMap'):
+                                if title_map_elem.get('value') in inactive_choices:
+                                    key['inactive_titleMap'] = inactive_choices
 
         for key, value in field_schema.items():
             for o, vals in enumImages_vals.items():
@@ -1211,7 +1224,8 @@ class PatrolsView(generics.ListCreateAPIView):
         if subject:
             queryset = queryset.by_subject(subject)
 
-        queryset = queryset.prefetch_related('notes', 'files', 'patrol_segments__patrol_type', 'patrol_segments__events')
+        queryset = queryset.prefetch_related(
+            'notes', 'files', 'patrol_segments__patrol_type', 'patrol_segments__events')
         return queryset.sort_patrols()
 
 
