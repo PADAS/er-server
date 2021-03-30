@@ -1208,7 +1208,13 @@ class PatrolSegmentEventSerializer(EventSerializerMixin, rest_framework.serializ
 
     class Meta:
         model = activity.models.Event
-        fields = ('id',)
+        fields = ('id', 'event_type', 'serial', 'title', 'priority', 'updated_at', 'state')
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        if not rep.get('title'):
+            del rep['title']
+        return rep
 
 
 class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
