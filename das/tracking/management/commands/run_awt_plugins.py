@@ -1,13 +1,16 @@
 import logging
 import re
 from datetime import datetime, timezone
+import csv
+import os
+import pathlib
 
 from dateutil.parser import parse
 from django.apps import apps
 from django.core.management.base import BaseCommand
 
 from observations.models import Source, SourceProvider
-from tracking.models.plugin_base import SourcePlugin, DasDefaultTarget
+from tracking.models.plugin_base import SourcePlugin, DasDefaultTarget, Obs
 from tracking.models.awt import AwtClient
 from tracking.tasks import run_source_plugin
 from tracking.pubsub_registry import notify_new_tracks
@@ -30,7 +33,7 @@ class Command(BaseCommand):
     help = 'Run AwtPlugin maintenance.'
 
     SUB_COMMANDS = ('maintenance', 'observations',
-                     'list', 'taglist', 'upgrade')
+                    'unitlist', 'taglist', 'tagsync', 'upgrade', 'backfill')
     plugin_class = apps.get_model('tracking', 'AwtPlugin')
 
     def add_arguments(self, parser):
@@ -53,12 +56,16 @@ class Command(BaseCommand):
         parser.add_argument('--dry-run', action='store_true',
                             help="stdout data(won't store in DB). Possible "
                                  "values [true/false]")
-        parser.add_argument('--enable-replay', action= 'store_true',
+        parser.add_argument('--enable-replay', action='store_true',
                             help="use awt replay api as needed for 3 month backfill"
                                  "values [true/false]")
         parser.add_argument('--enable-history', action='store_true',
                             help="use awt history api as needed for historical backfill"
                                  "values [true/false]")
+        parser.add_argument('--output',
+                            help='Filename for csv output')
+        parser.add_argument('--input',
+                            help='Filename for csv input')
 
     def handle(self, *args, **options):
         sub_command = options['sub-command']
@@ -86,7 +93,7 @@ class Command(BaseCommand):
             else:
                 plugin.execute()
 
-    def list(self, options):
+    def unitlist(self, options):
         """Stdout list of units associated with AwtClient(AwtPlugin Client)"""
         for plugin in self.fetch_plugins(options):
             awt_client = AwtClient(username=plugin.username,
@@ -99,8 +106,21 @@ class Command(BaseCommand):
         for plugin in self.fetch_plugins(options):
             awt_client = AwtClient(username=plugin.username,
                                    password=plugin.password, host=plugin.host)
+            tags = awt_client.fetch_tags()["Tag_List"]
             self.logger.info(f'Tags for account {plugin.username}')
-            self.logger.info(awt_client.fetch_tags())
+            self.logger.info(tags)
+            fieldnames = ('id', 'type',)
+            with open(options['output'], 'w', newline='') as fh:
+                writer = csv.DictWriter(
+                    fh, fieldnames=fieldnames, extrasaction='ignore')
+                writer.writeheader()
+                for tag in tags:
+                    writer.writerow(tag)
+
+    def tagsync(self, options):
+        """Synchronize taglist with ER"""
+        for plugin in self.fetch_plugins(options):
+            plugin._maintenance()
 
     def validate_start_end_time(self, start, end=None):
         # Check Start/end should be less than now
@@ -115,9 +135,20 @@ class Command(BaseCommand):
                 raise ValueError("End time can't be less than or equal to start"
                                  " time")
 
-    def fetch_observation(self, options):
+    def fetch_observations(self, options, created_callback=None):
         """get tag_id using options['manufacturer_id'] and show observations for
-        same tag_id"""
+        same tag_id.
+
+        Args:
+            options (dict): options list
+
+        Raises:
+            Exception: specifically if the manufacturer_id is not found
+
+        Returns:
+            Obs[]: returns an array of the observations that were added
+        """
+
         manufacturer_id = options['manufacturer_id']
         try:
             source = Source.objects.get(manufacturer_id=manufacturer_id)
@@ -135,30 +166,38 @@ class Command(BaseCommand):
                     for source_plugin in source_plugins:
                         accumulator = None
                         with DasDefaultTarget() as t:
+                            created_count = 0
                             for observation in source_plugin.plugin.fetch(
-                                source, source_plugin.cursor_data, options):
+                                    source, source_plugin.cursor_data, options):
                                 if not options['dry_run']:
                                     accumulator = t.send(observation)
+                                    if accumulator['created'] > created_count:
+                                        created_count += 1
+                                        if created_callback:
+                                            created_callback(observation)
+
                                 self.logger.info(observation)
                         if accumulator and accumulator.get('created', 0) > 0:
                             notify_new_tracks(str(source.id))
 
-    def observations(self, options):
+    def set_option_times(self, options):
         if not options['start_time']:
             raise ValueError('start-time is required with end-time. '
                              'Use --start-time [start-time])')
-        try:
-            options['start_time'] = parse(
-                options['start_time']).replace(tzinfo=timezone.utc)
-            options['end_time'] = (parse(options['end_time']).replace(tzinfo=timezone.utc)
-                                   if options['end_time'] else datetime.now(tz=timezone.utc))
-            self.validate_start_end_time(options['start_time'],
-                                         options['end_time'])
-        except Exception as e:
-            raise e
+
+        options['start_time'] = parse(
+            options['start_time']).replace(tzinfo=timezone.utc)
+        options['end_time'] = (parse(options['end_time']).replace(tzinfo=timezone.utc)
+                               if options['end_time'] else datetime.now(tz=timezone.utc))
+        self.validate_start_end_time(options['start_time'],
+                                     options['end_time'])
+        return options
+
+    def observations(self, options):
+        options = self.set_option_times(options)
 
         if options['manufacturer_id']:
-            self.fetch_observation(options)
+            self.fetch_observations(options)
         elif options['unit_id']:
             options['unit'] = options['unit_id']
             for plugin in self.fetch_plugins(options):
@@ -171,13 +210,59 @@ class Command(BaseCommand):
                     for tag in tags:
                         tag_id = tag['id']
                         options['manufacturer_id'] = tag_id
-                        self.fetch_observation(options)
+                        self.fetch_observations(options)
                 else:
                     raise Exception(response)
         else:
             raise ValueError('Either manufacturer-id or unit-id is required'
                              '. Use --manufacturer-id [manufacturer-id] '
                              'or --unit-id [unit-id].')
+
+    def backfill(self, options):
+        """Run a backfill operation for all tags found in the --input csv specifically the "id" column.
+        If --output is specified, write out a csv with rows for any new observations found.
+
+        Backfill per the dates specified in --start-time and --end-time
+
+        Args:
+            options ([type]): arguments passed to the command
+        """
+        fieldnames = ('tag_id', 'recorded_at', 'latitude',
+                      'longitude', 'source_id')
+        options['enable_replay'] = True
+        options['enable_history'] = True
+        options['use_policy_backoff_threshold'] = 10
+        options = self.set_option_times(options)
+
+        with open(options["input"], 'r') as fh:
+            reader = csv.DictReader(fh)
+            tagids = [tag['id'] for tag in reader]
+
+        should_write_headers = False
+        if options.get("output"):
+            path = pathlib.Path(options["output"])
+            should_write_headers = not path.exists
+            fh = path.open('a')
+        else:
+            fh = open(os.devnull, "w")
+
+        try:
+            writer = csv.DictWriter(fh, fieldnames=fieldnames)
+            if should_write_headers:
+                writer.writeheader()
+
+            def callback_writer(tag, writer):
+                def _(obs):
+                    writer.writerow(dict(tag_id=tag, recorded_at=obs.recorded_at,
+                                    latitude=obs.latitude, longitude=obs.longitude, source_id=obs.source.id))
+                return _
+
+            for tag in tagids:
+                options['manufacturer_id'] = tag
+                self.fetch_observations(options, callback_writer(tag, writer))
+
+        finally:
+            fh.close()
 
     def upgrade(self, options):
 

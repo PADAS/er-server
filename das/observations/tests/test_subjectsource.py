@@ -47,6 +47,7 @@ class SubjectSourceTestCase(TestCase):
         return subject_status, longitude, latitude
 
     def test_subjectsource_with_empty_assignedrange(self):
+        # test that we don't have empty assignedaterange set in database.
 
         subject, created = Subject.objects.get_or_create(
             name='Assigned Subject')
@@ -59,21 +60,19 @@ class SubjectSourceTestCase(TestCase):
             subject=subject, source=source, assigned_range='empty')
 
         ss.refresh_from_db()
-        self.assertTrue(ss.assigned_range.isempty)
+        assert not ss.assigned_range.isempty  # there is default lower & upper values
 
         sample_date = datetime.now(tz=pytz.utc)
 
-        self.assertFalse(sample_date in ss.assigned_range)
-        self.assertFalse(sample_date in ss.safe_assigned_range)
+        assert sample_date in ss.assigned_range
+        assert sample_date not in ss.safe_assigned_range
 
         SubjectSource.objects.filter(id=ss.id).update(
             assigned_range=DEFAULT_ASSIGNED_RANGE)
 
         ss = SubjectSource.objects.get(id=ss.id)
-        self.assertEqual(ss.safe_assigned_range.lower,
-                         DEFAULT_ASSIGNED_RANGE[0], msg='Lower bound does not match.')
-        self.assertEqual(ss.safe_assigned_range.upper,
-                         DEFAULT_ASSIGNED_RANGE[1], msg='Upper bound does not match.')
+        assert ss.safe_assigned_range.lower == DEFAULT_ASSIGNED_RANGE[0]
+        assert ss.safe_assigned_range.upper == DEFAULT_ASSIGNED_RANGE[1]
 
     def test_update_source(self):
 

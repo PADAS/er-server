@@ -1,6 +1,9 @@
 import json
 import logging
 import re
+import random
+import pytz
+from datetime import datetime, timedelta
 
 from django.utils.translation import ugettext_lazy as _
 from django.utils.dateparse import parse_duration
@@ -9,11 +12,13 @@ from django import forms
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
 from django.contrib.postgres.forms import JSONField
+from django.db.models import F, Q, Window, RowRange, Count, Aggregate
 
-from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider, GPXTrackFile
+from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider, GPXTrackFile, Observation
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
 from choices.models import Choice
 from core.common import TIMEZONE_USED
+from observations.utils import find_paths, JsonAgg
 
 logger = logging.getLogger(__name__)
 
@@ -254,6 +259,115 @@ days_data_retain_help_text =  \
     _('Observations records outside the configured number of days will be removed permanently and cannot be retrieved.')
 
 
+class TranformationRuleWidget(forms.MultiWidget):
+    template_name = 'admin/transformation_rule.html'
+
+    def __init__(self, attrs=None, provider=None):
+        self.provider = provider
+        widgets = [forms.CheckboxInput,
+                   forms.TextInput(attrs={"id": "transform_label"}),
+                   forms.TextInput({"id": "transform_unit"})]
+        widgets = widgets * len(provider) if provider else widgets
+        forms.MultiWidget.__init__(self, widgets, attrs)
+
+    def _get_context(self, name, value, attrs):
+        context = {'widget': {
+            'name': name,
+            'is_hidden': self.is_hidden,
+            'required': self.is_required,
+            'value': self.format_value(value),
+            'attrs': self.build_attrs(self.attrs, attrs),
+            'template_name': self.template_name,
+        }}
+        return context
+
+    @staticmethod
+    def get_dest(key):
+        val = key.split('.')
+        return val[-1] if val[-1] != '[]' else val[-2]
+
+    def get_context(self, name, value, attrs):
+        context = self._get_context(name, value, attrs)
+        if self.is_localized:
+            for widget in self.widgets:
+                widget.is_localized = self.is_localized
+        # value is a list of values, each corresponding to a widget
+        # in self.widgets.
+        if not isinstance(value, list):
+            value = self.decompress(value)
+
+        final_attrs = context['widget']['attrs']
+        input_type = final_attrs.pop('type', None)
+        id_ = final_attrs.get('id')
+        subwidgets = []
+        list_subwidgets = []
+
+        for _, key in enumerate(sorted(self.provider.keys())):
+            for i, widget in enumerate(self.widgets):
+                if input_type is not None:
+                    widget.input_type = input_type
+                widget_name = '%s_%s' % (name, i)
+                try:
+                    widget_value = None
+                    for x in value:
+                        if x.get('dest') == self.get_dest(key):
+                            vals = list(x.values())
+                            widget_value = vals[i]
+                except IndexError:
+                    widget_value = None
+                if id_:
+                    widget_attrs = final_attrs.copy()
+                    widget_attrs['id'] = '%s_%s' % (widget.attrs.get('id') or id_, _)
+                else:
+                    widget_attrs = final_attrs
+                subwidgets.append(widget.get_context(widget_name, widget_value, widget_attrs)['widget'])
+            list_subwidgets.append(subwidgets)
+            subwidgets = []
+        context['widget']['subwidgets'] = list_subwidgets
+        context['sample_data'] = json.loads(json.dumps(self.provider, sort_keys=True, indent=4))
+
+        return context
+
+    def render(self, name, value, attrs=None, renderer=None):
+        """Render the widget as an HTML string."""
+        context = self.get_context(name, value, attrs)
+        return self._render(self.template_name, context, renderer)
+
+    def decompress(self, value):
+        return [] if value is None else value
+
+
+def generate_sample_data(provider):
+    accum = {}
+    window_asc = {'partition_by': F('source_id'), 'order_by': [F('recorded_at').asc()]}
+
+    obs = Observation.objects.filter(source__provider=provider,
+                                     recorded_at__gte=datetime.now(tz=pytz.utc) - timedelta(days=30)
+                                     ).annotate(agg_data=Window(expression=JsonAgg('additional'),
+                                                                frame=RowRange(start=0, end=25),**window_asc))
+
+    [find_paths(x, accum=accum) for i in obs for x in i.agg_data]
+
+    for k, v in accum.items():
+        accum[k] = random.sample(v, min(3, len(v)))
+    return accum
+
+
+class TranformationRuleField(forms.fields.MultiValueField):
+    widget = TranformationRuleWidget
+
+    def __init__(self, *args, **kwargs):
+        _fields = [
+            forms.fields.BooleanField(required=False),
+            forms.fields.CharField(required=False),
+            forms.CharField(required=False),
+            forms.CharField(required=False)]
+        super().__init__(_fields, *args, **kwargs)
+
+    def compress(self, values):
+        return values
+
+
 class AutoFormatJSONWidget(forms.widgets.Textarea):
 
     def __init__(self, attrs=None):
@@ -280,6 +394,7 @@ class AutoFormatJSONWidget(forms.widgets.Textarea):
             'all': ('css/monospace_textarea.css',),
         }
 
+
 class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
 
     lag_notification_threshold = forms.CharField(max_length=8, required=False, empty_value=None,
@@ -291,12 +406,19 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
     days_data_retain = forms.IntegerField(required=False, min_value=1, max_value=365,
                                           help_text=days_data_retain_help_text)
 
+    tranformation_rule = TranformationRuleField(required=False)
+
     transforms = JSONField(widget=AutoFormatJSONWidget, required=False,
-                           label=_("Additional data to display with Subjects"),
+                           label=_("Advanced transformation rules"),
                            error_messages={'invalid': "The array of Additional data to display with Subjects was not "
-                                                      "formed properly. Please correct and try again."},
-                           help_text="Contact support for assistance in configuring the additional data fields to "
-                                     "display for subjects")
+                                                      "formed properly. Please correct and try again."})
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['tranformation_rule'].widget.provider = generate_sample_data(kwargs.get('instance'))
+        instance = kwargs.get('instance')
+        if instance:
+            self.fields['tranformation_rule'].initial = instance.transforms
 
     class Meta:
         model = SourceProvider

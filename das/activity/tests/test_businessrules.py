@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timedelta
 from unittest import mock
+import logging
 
 import jsonschema
 import pytz
@@ -31,6 +32,8 @@ from core.tests import BaseAPITest
 from core.utils import NonHttpRequest
 from core.utils import OneWeekSchedule
 from observations.models import Subject, SubjectGroup, CommonName
+
+logger = logging.getLogger(__name__)
 
 power_user_permissions = [
     'security_read',
@@ -289,20 +292,22 @@ class BusinessRulesTestCase(BaseAPITest):
         # print(json.dumps(exported_rule_data, indent=2))
 
     def test_schedule_mask(self):
-
+        # Don't use US timezone as the week of daylight savings time, this will break
+        test_timezone = "GMT"
         schedule = {
             'periods': {
                 'sunday': [['08:00', '12:00'], ['13:00', '18:30']]
-            }
+            },
+            'timezone': test_timezone
         }
 
         schedule = OneWeekSchedule(schedule)
-        d1 = datetime.now(tz=pytz.timezone(timezone.get_current_timezone_name()))
+        d1 = datetime.now(tz=pytz.timezone(test_timezone))
 
         # Find the most recent Monday.
         d1 = d1 - timedelta(days=d1.isoweekday())
         d1 = d1.replace(hour=17)
-        print(f'Testing {d1}')
+        logger.info(f'Testing {d1}')
         self.assertTrue(d1 in schedule)
         d1 = d1.replace(hour=19)
         self.assertFalse(d1 in schedule)
@@ -560,7 +565,6 @@ class BusinessRulesTestCase(BaseAPITest):
 
         print(action_list)
 
-
     def test_rule_with_state_exclusion_including_updates(self):
 
         # Create a carcass event with some details
@@ -606,23 +610,22 @@ class BusinessRulesTestCase(BaseAPITest):
             reportTypes=[carcass_eventtype.value, ],
             notification_method_ids=[notification_method_id, ],
             conditions={
-              "all": [
-                {
-                  "name": "state",
-                  "value": [
-                      "active",
-                    "resolved"
-                  ],
-                  "operator": "shares_no_elements_with"
-                }
-              ]
+                "all": [
+                    {
+                        "name": "state",
+                        "value": [
+                            "active",
+                            "resolved"
+                        ],
+                        "operator": "shares_no_elements_with"
+                    }
+                ]
             },
             schedule=self._create_a_period_from_datetime(including_time=True)
         )
 
-
         alert_rules_list = []
-        for ar in [alert_rule_1,]:
+        for ar in [alert_rule_1, ]:
             request = NonHttpRequest()
             request.user = self.power_user
             ser = AlertRuleSerializer(data=ar, context={'request': request})
@@ -643,7 +646,8 @@ class BusinessRulesTestCase(BaseAPITest):
 
         request = NonHttpRequest()
         request.user = self.power_user
-        ser = EventSerializer(event, data={'title': 'This is a new title.'}, context={'request': request}, partial=True)
+        ser = EventSerializer(event, data={'title': 'This is a new title.'}, context={
+                              'request': request}, partial=True)
 
         if not ser.is_valid():
             print(f'Event is not valid. Errors are: {ser.errors}')
@@ -1468,9 +1472,9 @@ class BusinessRulesTestCase(BaseAPITest):
 
         raised = False
         try:
-            evaluate_conditions_for_sending_alerts(event, alert_rule, alert_rule_ids, True)
+            evaluate_conditions_for_sending_alerts(
+                event, alert_rule, alert_rule_ids, True)
         except KeyError:
             raised = True
         self.assertFalse(raised)
         self.assertEqual(mock_evaluate_notifications.call_count, 1)
-

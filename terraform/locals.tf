@@ -26,6 +26,7 @@ locals {
     "bostonpridelands"       = "prod1"
     "bubyevalley"            = "prod1"
     "ccf"                    = "prod1"
+    "centralapennines"       = "prod1"
     "centralrift"            = "prod1"
     "chadreintroduction"     = "prod1"
     "chipinge"               = "prod1"
@@ -47,6 +48,7 @@ locals {
     "freenature"             = "prod1"
     "garamba"                = "prod1"
     "gile"                   = "prod1"
+    "gashakagumti"           = "prod1"
     "gonarezhou"             = "prod1"
     "gorongosa"              = "prod1"
     "gotcha"                 = "prod1"
@@ -54,6 +56,7 @@ locals {
     "greaterukuwela"         = "prod1"
     "grumeti"                = "prod1"
     "hello-asia"             = "prod-asia"
+    "indalo"                 = "prod1"
     "kafueccigri"            = "prod1"
     "kariega"                = "prod1"
     "karingani"              = "prod1"
@@ -82,6 +85,7 @@ locals {
     "mep"                    = "prod1"
     "mkomazi"                = "prod1"
     "mtkenya"                = "prod1"
+    "mugie"                  = "prod1"
     "murchisonfalls"         = "prod1"
     "musekese"               = "prod1"
     "mwa"                    = "prod1"
@@ -114,6 +118,7 @@ locals {
     "sabiegamereserve"       = "prod1"
     "sabisands"              = "prod1"
     "sawc"                   = "prod1"
+    "sca"                    = "prod1"
     "serengeti"              = "prod1"
     "snowleopardtrust"       = "prod-asia"
     "socp"                   = "prod-asia"
@@ -219,6 +224,10 @@ locals {
     "phuzamoya"           = 1
     "freenature"          = 1
     "kariega"             = 1
+    "gashakagumti"        = 1
+    "indalo"              = 1
+    "sca"                 = 1
+    "centralapennines"    = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
