@@ -1205,17 +1205,39 @@ def resolve_external_event_source(user, external_event_type):
 
 
 class PatrolSegmentEventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
+    updated_at = DateTimeField(read_only=True)
+    title = rest_framework.serializers.CharField(required=False, allow_blank=True)
+    event_type = EventTypeRelatedField(required=False)
+    contains = rest_framework.serializers.SerializerMethodField()
 
     class Meta:
         model = activity.models.Event
-        fields = ('id', 'event_type', 'serial', 'title', 'priority', 'updated_at', 'state')
+        fields = ('id',
+                  'serial_number',
+                  'event_type', 'priority', 'title',
+                  'state',  'contains', 'updated_at')
 
-    def to_representation(self, instance):
-        rep = super().to_representation(instance)
-        if not rep.get('title'):
-            del rep['title']
+    def get_contains(self, event):
+        return self.get_out_relation(event, 'contains')
+
+    def get_out_relation(self, event, value):
+        self.context['event_relationship_direction'] = 'out'
+        qs = event.out_relationships.filter(
+            type__value=value).all().order_by('ordernum', 'to_event__created_at')
+        serializer = EventRelationshipSerializer(
+            instance=qs, many=True, context=self.context,)
+        return serializer.data
+
+    def to_representation(self, event):
+        rep = super().to_representation(event)
+        if event.location is not None:
+            geodata = make_feature(self.context['request'], event)
+            rep['geojson'] = geodata
+
+        if event.event_type:
+            rep['is_collection'] = event.event_type.is_collection
+
         return rep
-
 
 class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
     serializer_choice_field = ChoiceField
