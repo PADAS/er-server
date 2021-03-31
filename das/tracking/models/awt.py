@@ -5,12 +5,13 @@ import copy
 import json
 import logging
 from time import sleep
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date
 
 import redis
 import requests
 from Crypto.Cipher import AES
 from dateutil.parser import parse
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.core.cache import cache
 from django.contrib.contenttypes.fields import GenericRelation
@@ -19,7 +20,12 @@ from django.conf import settings
 import utils.redis as redis_utils
 
 from tracking.models.plugin_base import Obs, TrackingPlugin, SourcePlugin, DasPluginSourceRetryError
+from observations.models import Source, Subject, SubjectSource
 from .utils import to_float
+
+
+AWT_DEFAULT_TAG_DATETIME = datetime(
+    year=2010, month=1, day=1, tzinfo=timezone.utc)
 
 
 class AWTPluginException(Exception):
@@ -58,17 +64,18 @@ class AwtClient(object):
     key_mapping = {'start_time': 'T1', 'end_time': 'T2',
                    'tag_id': 'T', 'unit': 'U'}
     # Session Token expiry in Seconds(has to be renewed in at least 1 hour)
-    session_token_expiry = 3000  # 50 minutes
+    session_token_expiry = 600  # 10 minutes
     default_cache_expiry = 300  # 5 minutes
     use_policy_backoff = 70  # one minute + 10 seconds
-    use_policy_backoff_threshold = 2
+    use_policy_backoff_threshold = 1
     use_policy_major_backoff = 3720  # one hour + 2 minutes
     # live api returns last 24 hours of data
-    live_api_coverage = timedelta(hours=24)
+    live_api_coverage = timedelta(hours=48)
     replay_api_coverage = timedelta(days=90)  # replay only goes back 90 days
     unit_tag_cache_expiry = 3600  # one hour
     fetch_unit_data_expiry = 240  # four minutes
     awt_api_lock_timeout = 300  # five minutes
+    max_returned_rows = 1000  # no paging, but the max number of rows returned is 1000
     LIVE_API = 'LIVE_API'
     REPLAY_API = 'REPLAY_API'
     HISTORY_API = 'HISTORY_API'
@@ -165,15 +172,20 @@ class AwtClient(object):
                 if sleep_seconds:
                     message = f'AWT Use Policy enforcement for {api_type} account {self.username}, retry after {sleep_seconds} secs'
                     self.logger.warning(message
-                        )
-                    raise DasPluginSourceRetryError(retry_seconds=sleep_seconds, message=message)
+                                        )
+                    if self.use_policy_backoff_threshold <= 1:
+                        raise DasPluginSourceRetryError(
+                            retry_seconds=sleep_seconds, message=message)
+                    else:
+                        sleep(sleep_seconds)
             else:
                 return
             backoff_count += 1
 
     def set_use_policy_api(self, api_type, major_backoff=False):
         backoff_seconds = self.use_policy_backoff if not major_backoff else self.use_policy_major_backoff
-        ttl = datetime.now(tz=timezone.utc) + timedelta(seconds=backoff_seconds)
+        ttl = datetime.now(tz=timezone.utc) + \
+            timedelta(seconds=backoff_seconds)
         cache.set(self.make_use_policy_key(api_type),
                   ttl.isoformat(),
                   backoff_seconds)
@@ -295,14 +307,16 @@ class AwtClient(object):
             # ST is Key (used in awt api) for Session Token
             payload = {'ST': self.session_token}
             if api_type == self.LIVE_API:
-                payload['RT'] = datetime.now(tz=timezone.utc) - self.live_api_coverage
+                payload['RT'] = datetime.now(
+                    tz=timezone.utc) - self.live_api_coverage
                 payload['RT'] = payload['RT'].timestamp()
             else:
                 for key, name in self.key_mapping.items():
                     if key in params:
                         payload[name] = params[key]
                 if 'T1' in payload and api_type == self.REPLAY_API:
-                    min_start_timestamp = (datetime.now(tz=timezone.utc) - self.replay_api_coverage).timestamp()
+                    min_start_timestamp = (datetime.now(
+                        tz=timezone.utc) - self.replay_api_coverage).timestamp()
                     payload['T1'] = max(min_start_timestamp, payload['T1'])
 
             response = self.handle_request(api_type, url, payload,
@@ -338,9 +352,34 @@ class AwtClient(object):
                                    expiry_period=self.unit_tag_cache_expiry)
 
     def fetch_observations(self, params):
+        """Return the observations for a tag.
+        Does paging if the date range is to large. The api only returns 1000 records
+        at a time. So once started, page based on the latest timestamp.
+
+        Args:
+            params (dict): dictionary of parameters
+
+        Yields:
+            Obs: observation
+        """
         tag_id = params['tag_id']
-        results = self.fetch_data(params)
-        return [observation for observation in results if observation['tag_id'] == tag_id]
+        start_time, end_time = datetime.fromtimestamp(
+            params['start_time'], tz=timezone.utc), datetime.fromtimestamp(params['end_time'], tz=timezone.utc)
+        latest_time = end_time
+
+        while start_time < end_time:
+            params['start_time'], params['end_time'] = start_time.timestamp(
+            ), end_time.timestamp()
+            results = self.fetch_data(params)
+            for observation in results:
+                if observation['tag_id'] == tag_id:
+                    obs_time = datetime.fromtimestamp(observation['timestamp'],
+                                                      tz=timezone.utc)
+                    latest_time = obs_time if obs_time > latest_time else latest_time
+                    yield observation
+
+            start_time = latest_time if len(
+                results) >= self.max_returned_rows else end_time
 
 
 class AwtPlugin(TrackingPlugin):
@@ -350,7 +389,7 @@ class AwtPlugin(TrackingPlugin):
     # DEFAULT_URL = "https://api.africawildlifetracking.com/"
     DEFAULT_REPORT_INTERVAL = timedelta(minutes=7)
     DEFAULT_START_OFFSET = timedelta(days=14)
-    COLLAR_REACHBACK_OFFSET = timedelta(hours=12)
+    COLLAR_REACHBACK_OFFSET = timedelta(hours=48)
 
     # Timeout in seconds(Need to decide timeout)
     # DEFAULT_TIMEOUT = 30
@@ -390,7 +429,6 @@ class AwtPlugin(TrackingPlugin):
         # If latitude or longitude is not there in API Data, return None
         return None
 
-
     def _parse_additional_data(self, metadata):
         additional_data = copy.copy(metadata)
         fixed_keys = ['api_type', 'start_time', 'end_time', 'tag_id',
@@ -426,15 +464,25 @@ class AwtPlugin(TrackingPlugin):
             additional_data.pop(key, None)
         return additional_data
 
-    def fetch(self, source, cursor_data, additional_data={}):
-        self.logger = logging.getLogger(self.__class__.__name__)
+    def _get_client(self, additional_data={}):
         enable_history = additional_data.get('enable_history', False)
         enable_replay = additional_data.get('enable_replay', False)
+        use_policy_backoff_threshold = additional_data.get(
+            'use_policy_backoff_threshold', None)
         client = AwtClient(host=self.host, username=self.username,
-                            password=self.password,
+                           password=self.password,
                            subscription_token=self.subscription_token,
                            enable_replay=enable_replay,
                            enable_history=enable_history)
+        if use_policy_backoff_threshold:
+            client.use_policy_backoff_threshold = use_policy_backoff_threshold
+        return client
+
+    def fetch(self, source, cursor_data, additional_data={}):
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+        client = self._get_client(additional_data=additional_data)
+
         end_date = datetime.now(tz=timezone.utc)
         # create cursor_data
         self.cursor_data = copy.copy(cursor_data) if cursor_data else {}
@@ -444,7 +492,8 @@ class AwtPlugin(TrackingPlugin):
             if not start_date.tzinfo:
                 start_date = start_date.replace(tzinfo=timezone.utc)
         except Exception as e:
-            start_date = datetime.now(tz=timezone.utc) - self.DEFAULT_START_OFFSET
+            start_date = datetime.now(
+                tz=timezone.utc) - self.DEFAULT_START_OFFSET
 
         # Set tag value(manufacture id) if not in additional_data
         if additional_data:
@@ -463,18 +512,95 @@ class AwtPlugin(TrackingPlugin):
         if additional_data:
             params = self._parse_additional_data(additional_data)
 
-        observations = client.fetch_observations(params)
-        if observations:
-            for observation in observations:
-                fix_time = datetime.fromtimestamp(
-                    observation.get('timestamp'), tz=timezone.utc)
-                obs = self._transform_to_observation(source, observation)
-                if obs:
-                    yield obs
-                
-                # keep track of latest timestamp.
-                latest_timestamp = (max(latest_timestamp, fix_time) if
-                                    latest_timestamp else fix_time)
+        for observation in client.fetch_observations(params):
+            fix_time = datetime.fromtimestamp(
+                observation.get('timestamp'), tz=timezone.utc)
+            obs = self._transform_to_observation(source, observation)
+            if obs:
+                yield obs
+
+            # keep track of latest timestamp.
+            latest_timestamp = (max(latest_timestamp, fix_time) if
+                                latest_timestamp else fix_time)
 
         if latest_timestamp:  # Update cursor data.
             self.cursor_data['latest_timestamp'] = latest_timestamp.isoformat()
+
+    def _maintenance(self):
+        self._sync_unit_info()
+
+    def _sync_unit_info(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+        client = self._get_client()
+        taglist = client.fetch_tags()["Tag_List"]
+        #  {"id": 1143963, "type": "Inmarsat Satellite"},
+        for tag in taglist:
+            try:
+                name = id = str(tag['id'])
+                src, created = ensure_source(
+                    'tracking-device', id, tag['type'])
+                if created:
+                    self.logger.info(
+                        f"Created source for tag {id}, now creating plugin")
+                    ensure_source_plugin(src, self)
+                    ensure_subject_source(src, AWT_DEFAULT_TAG_DATETIME, name)
+                    break
+
+            except Exception as e:
+                self.logger.exception(
+                    f'Error in syncing tag info {tag}')
+                raise
+
+
+def ensure_source(source_type, manufacturer_id, model_name="AWT"):
+    src, created = Source.objects.get_or_create(source_type=source_type,
+                                                manufacturer_id=manufacturer_id,
+                                                defaults={'model_name': model_name,
+                                                          'additional': {'note': 'Created automatically during feed sync.'}})
+
+    return src, created
+
+
+def ensure_source_plugin(source, tracking_plugin):
+    defaults = dict(
+        status='enabled',
+        # cursor_data={}
+    )
+
+    plugin_type = ContentType.objects.get_for_model(tracking_plugin)
+    v, created = SourcePlugin.objects.get_or_create(defaults=defaults,
+                                                    source=source,
+                                                    plugin_id=tracking_plugin.id,
+                                                    plugin_type=plugin_type)
+
+    return v
+
+
+def ensure_subject_source(source, event_time, subject_name=None):
+    # get the most recent Subject for this Source
+    subject_source = SubjectSource \
+        .objects \
+        .filter(source=source, assigned_range__contains=event_time)\
+        .order_by('assigned_range')\
+        .reverse()\
+        .first()
+
+    if not subject_source:
+
+        subject_name = subject_name or source.manufacturer_id
+
+        sub, created = Subject.objects.get_or_create(
+            name=subject_name,
+            defaults=dict(subject_subtype_id='unassigned',
+                          additional=dict(region='', country='', ))
+        )
+
+        d1 = event_time
+        d2 = datetime(year=9999, month=1, day=1, tzinfo=timezone.utc)
+        if sub:
+            subject_source, created = SubjectSource.objects.get_or_create(source=source, subject=sub,
+                                                                          defaults=dict(assigned_range=(d1, d2), additional={
+                                                                              'note': 'Created automatically during feed sync.'}))
+
+    return subject_source

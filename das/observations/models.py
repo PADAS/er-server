@@ -33,6 +33,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.contrib.gis.geos import Point, Polygon
 from django.utils.functional import cached_property
 from django.db.models.constraints import UniqueConstraint
+from psycopg2.extras import DateTimeTZRange
 import pymet
 import pytz
 from dateutil.parser import parse as parse_date
@@ -231,8 +232,8 @@ class SourceProvider(TimestampedModel):
                                     max_length=100, null=False,)
     notes = models.TextField(blank=True, null=True)
     additional = JSONField('additional data', default=dict, blank=True)
-    transforms = JSONField(name="transforms", default=dict, blank=True, null=True,
-                           verbose_name="Transformation Rules")
+    transforms = JSONField(
+        name="transforms", default=list, blank=True, null=True)
     objects = SourceProviderManager()
 
     def __str__(self):
@@ -317,6 +318,29 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
 
 
 class ObservationManager(models.Manager):
+    def get_subjectsource_observations(
+            self, subjectsource, since=None, until=None, limit=None, values=None,
+            filter_flag=0, order_by=None):
+
+        queryset = Observation.objects.filter(source__subjectsource=subjectsource,
+                                              source__subjectsource__assigned_range__contains=F(
+                                                  'recorded_at'))
+
+        queryset = queryset.by_exclusion_flags(filter_flag)
+
+        queryset = queryset.by_since_until(since, until)
+
+        if order_by:
+            queryset = queryset.order_by(order_by)
+
+        if limit and limit > 0:
+            queryset = queryset[:limit]
+
+        if values:
+            queryset = queryset.values(*values)
+
+        return queryset
+
     def get_source_observations(
             self, source, since=None, until=None, limit=None, values=None,
             filter_flag=0, order_by=None):
@@ -409,11 +433,11 @@ class ObservationManager(models.Manager):
         location = Point(x=observation.longitude, y=observation.latitude)
         additional = observation.additional or {}
         result, created = Observation.objects.get_or_create(source_id=observation.source.id,
-                                                                                recorded_at=observation.recorded_at,
-                                                                                defaults=dict(
-                                                                                    location=location,
-                                                                                    additional=additional
-                                                                                ))
+                                                            recorded_at=observation.recorded_at,
+                                                            defaults=dict(
+                                                                location=location,
+                                                                additional=additional
+                                                            ))
         return result, created
 
     def get_max_recorded_at(self, source):
@@ -591,6 +615,26 @@ class SubjectSource(models.Model):
         raise NotImplementedError(
             'Please use .assigned_range directly to set its value.')
 
+    def save(self, *args, **kwargs):
+
+        # guard against "empty" assigned_range.
+        if self.assigned_range == 'empty':
+            lower, upper = None, None
+
+        # accommodate a Range object or a python container
+        elif isinstance(self.assigned_range, (list, tuple, set)) and len(self.assigned_range) == 2:
+            lower, upper = self.assigned_range
+        elif hasattr(self.assigned_range, 'lower') and hasattr(self.assigned_range, 'upper'):
+            lower = self.assigned_range.lower
+            upper = self.assigned_range.upper
+
+        lower = lower or pytz.utc.localize(datetime.min)
+        upper = upper or pytz.utc.localize(datetime.max)
+
+        self.assigned_range = DateTimeTZRange(lower=lower, upper=upper)
+
+        super(SubjectSource, self).save(*args, **kwargs)
+
 
 class SubjectSourceSummary(SubjectSource):
     class Meta:
@@ -685,6 +729,11 @@ class SubjectTrackSegmentFilter(TimestampedModel):
 DEFAULT_SOURCE_GROUP_ID = '654e592c-fc5a-436d-98dd-fd1b36436a85'
 
 
+class SubjectGroupQuerySet(models.QuerySet, FilterMixin):
+    def by_name_search(self, value):
+        return self.filter(name__icontains=value)
+
+
 class SubjectGroupManager(HierarchyManager):
     def get_default(self):
         return self.get(is_default=True)
@@ -736,7 +785,7 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
             'This Subject group is the default for new subjects.'
         ),)
 
-    objects = SubjectGroupManager()
+    objects = SubjectGroupManager.from_queryset(SubjectGroupQuerySet)()
 
     def get_all_subjects(self, user=None, active=None, include_from_subgroups=True, mou_expiry_date=None):
 
@@ -1226,6 +1275,7 @@ class SubjectStatusManager(models.Manager):
         'location': DEFAULT_STATUS_VALUE_LOCATION,
         'recorded_at': DEFAULT_STATUS_VALUE_DATE,
         'radio_state_at': DEFAULT_STATUS_VALUE_DATE,
+        'additional': {"device_status_properties": None}
     }
 
     # Delayed windows include all but 'current'.
@@ -1384,8 +1434,9 @@ def update_subject_status(source, recorded_at, location,
     if reported_subject_name:
         status_updates['additional'] = {'subject_name': reported_subject_name}
 
-    if transformed_additional_data:
-        status_updates.setdefault('additional', {})['device_status_properties'] = transformed_additional_data
+    if transformed_additional_data is not None:
+        status_updates.setdefault('additional', {})[
+            'device_status_properties'] = transformed_additional_data
 
     SubjectStatus.objects.filter(subject__subjectsource__source=source,
                                  subject__subjectsource__assigned_range__contains=recorded_at,
@@ -1420,8 +1471,14 @@ def transform_additional_data(additional, transform_format):
         except KeyError:
             continue
 
+        if value is not None and ds not in dests:
 
-        if value and ds not in dests:
+            if isinstance(value, dict):  # list-ify a dict
+                value = [f'{k}:{str(v)}' for k, v in value.items()]
+
+            if isinstance(value, list):  # string-ify a list
+                value = ",".join([str(x) for x in value])
+
             metadata = dict(value=value,
                             label=tf.get('label'),
                             units=tf.get('units'))
@@ -1461,7 +1518,8 @@ def update_subject_status_from_observation(observation, delay_hours=0, force=Fal
             radio_state_at = None
 
         try:
-            transformed_data = transform_additional_data(additional, source.provider.transforms)
+            transformed_data = transform_additional_data(
+                additional, source.provider.transforms)
         except Exception as exc:
             logger.debug(f"failed with exception {exc}")
 
@@ -1656,7 +1714,7 @@ class UserSession(TimestampedModel):
     time_range = DateTimeRangeField("user session time", null=True, blank=True)
 
 
-from analyzers.models import ObservationAnnotator
+from analyzers.models import ObservationAnnotator  # noqa
 
 
 class SubjectMaximumSpeed(ObservationAnnotator):

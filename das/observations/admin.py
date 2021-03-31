@@ -53,7 +53,7 @@ from core.common import TIMEZONE_USED
 from core.openlayers import OSMGeoExtendedAdmin
 from observations.daterange_filter import DateRangeFilter
 from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm, GPXFileForm
-from observations.tasks import process_gpxtrack_file
+from observations.tasks import process_gpxtrack_file, maintain_subjectstatus_for_subject
 from observations.utils import assigned_range_dates, get_cyclic_subjectgroup, find_paths
 from tracking.models import SourcePlugin
 from utils.html import make_html_list
@@ -1526,7 +1526,6 @@ class SourceProviderAdmin(admin.ModelAdmin):
     search_fields = ('provider_key', 'display_name',)
     ordering = ('provider_key', 'display_name')
     list_display = ('provider_key', 'display_name',)
-    readonly_fields = ('id', 'prettify_sample_data', 'additional')
     form = SourceProviderForm
 
     fieldsets = (
@@ -1540,42 +1539,24 @@ class SourceProviderAdmin(admin.ModelAdmin):
             'fields': ('lag_notification_threshold', 'silence_notification_threshold', 'days_data_retain')
         }
         ),
-
         ('Advanced configuration', {
             'classes': ('wide', 'collapse',),
-            'fields': ('id', 'prettify_sample_data', 'transforms')
+            'fields': ('additional',)
+        }
+         ),
+
+        ('Subject Details Configuration', {
+            'classes': ('wide', 'collapse',),
+            'fields': ('tranformation_rule', 'transforms')
         }
         )
     )
 
-    @staticmethod
-    def generate_sample_data(provider):
-        accum = {}
-        window_asc = {'partition_by': F('source_id'), 'order_by': [F('recorded_at').asc()]}
-
-        obs = models.Observation.objects.filter(source__provider=provider,
-                                                recorded_at__gte=datetime.now(tz=pytz.utc) - timedelta(days=30)
-                                                ).annotate(agg_data=Window(expression=JsonAgg('additional'),
-                                                                           frame=RowRange(start=0, end=25),
-                                                                           **window_asc))
-
-        [find_paths(x, accum=accum) for i in obs for x in i.agg_data]
-
-        for k, v in accum.items():
-            accum[k] = random.sample(v, min(3, len(v)))
-        return accum
-
-    def prettify_sample_data(self, instance):
-        """Function to display pretty version of sample data"""
-        data = self.generate_sample_data(instance)
-        response = json.dumps(data, sort_keys=True, indent=2)
-
-        formatter = HtmlFormatter(prestyles="padding-left:50px;line-height:140%")
-        response = highlight(response, JsonLexer(), formatter)
-        style = "<style>" + formatter.get_style_defs() + "</style><br>"
-        return mark_safe(style + response)
-
-    prettify_sample_data.short_description = _('Sample attributes from recent Observations')
+    def save_model(self, request, obj, form, change):
+        obj.save()
+        if 'transforms' in form.changed_data:
+            transaction.on_commit(lambda: [maintain_subjectstatus_for_subject.apply_async(args=[o.subject_id], kwargs={'notify': True})
+                                           for o in models.SubjectSource.objects.filter(source__provider=obj)])
 
 
 # @admin.register(models.SubjectSummary)
