@@ -882,6 +882,7 @@ class EventView(generics.RetrieveUpdateDestroyAPIView):
             query_params.get('include_files', True))
         context['include_related_events'] = parse_bool(
             query_params.get('include_related_events', True))
+        context['request'] = self.request
         return context
 
     def get_queryset(self):
@@ -1211,7 +1212,8 @@ class PatrolsView(generics.ListCreateAPIView):
         if subject:
             queryset = queryset.by_subject(subject)
 
-        queryset = queryset.prefetch_related('notes', 'files', 'patrol_segments__patrol_type', 'patrol_segments__events')
+        queryset = queryset.prefetch_related(
+            'notes', 'files', 'patrol_segments__patrol_type', 'patrol_segments__events')
         return queryset.sort_patrols()
 
 
