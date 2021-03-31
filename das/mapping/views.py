@@ -21,6 +21,7 @@ import mapping.serializers as serializers
 from mapping import app_settings
 from mapping.models import MBTiles, MBTilesNotFoundError, MissingTileError, Map, TileLayer
 from mapping.models import SpatialFeature, DisplayCategory
+from mapping.permissions import LayerObjectPermissions
 from utils.json import parse_bool
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,8 @@ class FeatureListJsonView(APIView):
             feature_type__is_visible=True)
 
         for feature in features:
-            type_dict = dict(name=feature.feature_type.name, id=str(feature.feature_type.id))
+            type_dict = dict(name=feature.feature_type.name,
+                             id=str(feature.feature_type.id))
 
             response_data['features'].append({
                 'name': feature.name,
@@ -154,10 +156,11 @@ class LayerListJsonView(generics.ListCreateAPIView):
     """
     queryset = TileLayer.objects.all().by_ordernum()
     serializer_class = serializers.TileLayerSerializer
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (LayerObjectPermissions,)
 
     def create(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data, context={'request': request})
+        serializer = self.serializer_class(
+            data=request.data, context={'request': request})
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST, )
         serializer.save()
@@ -168,7 +171,7 @@ class LayerJsonView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
     serializer_class = serializers.TileLayerSerializer
     queryset = TileLayer.objects.all()
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (LayerObjectPermissions,)
 
 
 #
