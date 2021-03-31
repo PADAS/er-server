@@ -411,6 +411,21 @@ class GenericSensorHandlerTest(BaseAPITest):
             source=new_source).count())
         self.assertIsNotNone(SubjectSubType.objects.get(value=subject_subtype))
 
+    def test_request_with_varying_provider_key_lengths(self):
+        client = Client()
+        client.force_login(self.super_user)
+        response = client.get(self.api_path)
+
+        # Method not allowed, GET not implimated but post form viewable
+        assert response.status_code == 405
+
+        provider = lorem_ipsum.words(200).replace(" ", "")[:200]
+        url = '/'.join((self.api_base, 'sensors',
+                        self.sensor_type, provider, 'status'))
+
+        response = client.get(url)
+        assert response.status_code == 404  # Not found
+
     def _generate_observations(self, n=10, distinct=False):
         for i in range(n):
             obs = dict(self.one_observation)
