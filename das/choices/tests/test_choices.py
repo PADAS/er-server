@@ -103,3 +103,19 @@ def test_softdelete_choice(choices_fixture, client):
     assert disabled_choices == 1
 
 
+def test_readd_inactive_choice(choices_fixture, client):
+    choices, user = choices_fixture.choices, choices_fixture.user
+    inactive_choice = choices.filter(value='rhino').update(is_active=False)
+
+    assert inactive_choice == 1
+
+    data = dict(
+        model='activity.eventtype',
+        field='wildlifesighting_species',
+        value='rhino',
+        display='Rhino')
+
+    client.force_login(user)
+    url = reverse('choices')
+    response = client.post(url, data=data)
+    assert response.status_code == 409

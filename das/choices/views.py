@@ -1,7 +1,10 @@
 from django.db.models import Q
+from django.db import IntegrityError
 from django.http import Http404
 from rest_framework import generics
 from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
 
 from choices.models import Choice
 from choices.permissions import ChoiceModelPermissions
@@ -40,10 +43,15 @@ class ChoicesViewSchema(CustomSchema):
                 {
                     'name': 'include_inactive',
                     'in': 'query',
-                    'description': "include inactive choices but not disabled"}
+                    'description': "include inactive choices"}
             ]
             operation['parameters'].extend(query_params)
         return operation
+
+
+def return_409_response():
+    status_msg = {'error_message': 'The request could not be completed due to conflict with existing data.'}
+    return Response(status_msg, status=status.HTTP_409_CONFLICT)
 
 
 class ChoicesView(generics.ListCreateAPIView):
@@ -68,6 +76,12 @@ class ChoicesView(generics.ListCreateAPIView):
 
         return queryset.order_by('ordernum', 'display')
 
+    def post(self, request, *args, **kwargs):
+        try:
+            return self.create(request, *args, **kwargs)
+        except IntegrityError:
+            return return_409_response()
+
 
 class ChoiceView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
@@ -77,4 +91,17 @@ class ChoiceView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_destroy(self, instance):
         instance.disable()
+
+    def put(self, request, *args, **kwargs):
+        try:
+            return self.update(request, *args, **kwargs)
+        except IntegrityError:
+            return return_409_response()
+
+    def patch(self, request, *args, **kwargs):
+        try:
+            return self.partial_update(request, *args, **kwargs)
+        except IntegrityError:
+            return return_409_response()
+
 
