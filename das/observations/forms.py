@@ -417,7 +417,8 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['tranformation_rule'].widget.provider = generate_sample_data(kwargs.get('instance'))
         instance = kwargs.get('instance')
-        self.fields['tranformation_rule'].initial = instance.transforms
+        if instance:
+            self.fields['tranformation_rule'].initial = instance.transforms
 
     class Meta:
         model = SourceProvider

@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 import dateutil.parser
 import pytz
 import pytest
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APIRequestFactory, force_authenticate
 from django.contrib.auth.models import Permission
@@ -112,7 +112,7 @@ class BasePermissionTest(BaseAPITest):
 
         DEFAULT_DATE_RANGE = (
             datetime.datetime(2015, 11, 1, tzinfo=pytz.utc),
-            datetime.datetime(3030, 1, 1, tzinfo=pytz.utc)
+            dateutil.parser.parse("9999-12-31 23:59:59+0000")
         )
 
         source = Source.objects.create(additional={})
@@ -175,6 +175,16 @@ class SubjectViewPermissionsTest(BasePermissionTest):
 
         response = views.SubjectSourcesView.as_view()(request, id=str(self.ele.id))
         self.assertEqual(response.status_code, 403)
+
+    @override_settings(TIME_ZONE="Africa/Nairobi")
+    def test_return_subject_sources(self):
+        request = self.factory.get(
+            API_BASE + '/subject/{0}/subjectsources'.format(self.ele.id))
+        self.force_authenticate(request, self.realtime_view_user)
+
+        response = views.SubjectSubjectSourcesView.as_view()(request, id=str(self.ele.id))
+        assert response.status_code == 200
+        assert len(response.data)
 
     def test_return_all_observation_for_subject(self):
         request = self.factory.get(API_BASE + '/subject/')
@@ -435,7 +445,7 @@ class ObservationViewTestCase(BaseAPITest):
 
         DEFAULT_DATE_RANGE = (
             datetime.datetime(2015, 11, 1, tzinfo=pytz.utc),
-            datetime.datetime(3030, 1, 1, tzinfo=pytz.utc)
+            dateutil.parser.parse("9999-12-31 23:59:59+0000")
         )
         SubjectSource.objects.create(
             assigned_range=DEFAULT_DATE_RANGE,
@@ -469,6 +479,20 @@ class ObservationViewTestCase(BaseAPITest):
             self.observation_readwrite_set)
 
         self.ele_group.permission_sets.add(self.observation_readwrite_set)
+
+    def test_return_observations_by_subjectsource(self):
+        subjectsource_id = str(self.elephant.subjectsources.all()[0].id)
+
+        url = reverse('observations-list-view')
+        url += '?{}'.format(urlencode({'subjectsource_id': subjectsource_id}))
+
+        request = self.factory.get(self.api_base + url)
+
+        self.force_authenticate(request, self.user)
+
+        response = views.ObservationsView.as_view()(request)
+        assert response.status_code == 200
+        assert len(response.data)
 
     def test_include_details_false(self):
         url = reverse('observations-list-view')
@@ -674,7 +698,8 @@ def test_one_week_track_permissions(subject_with_month_long_track, client):
     # 'Can view all historical tracks' perm will precede over 'Can view tracks no more than 7 days old' perm.
     SubjectGroup.objects.create(name="Kittens")
     kitten_ps = PermissionSet.objects.get(name='View Kittens Subject Group')
-    kitten_ps.permissions.add(Permission.objects.get(name='Can view all historical tracks'))
+    kitten_ps.permissions.add(Permission.objects.get(
+        name='Can view all historical tracks'))
     user.permission_sets.add(kitten_ps)
 
     url = reverse("subject-view-tracks", kwargs=dict(subject_id=subject.id))
@@ -682,4 +707,5 @@ def test_one_week_track_permissions(subject_with_month_long_track, client):
     max_day = datetime.datetime.combine(datetime.date.today(
     ) - datetime.timedelta(days=7), datetime.time.min, tzinfo=datetime.timezone.utc)
     assert response.status_code == 200
-    assert [t for t in response.data['features'][0]['properties']['coordinateProperties']['times'] if t > max_day]
+    assert [t for t in response.data['features'][0]['properties']
+            ['coordinateProperties']['times'] if t > max_day]
