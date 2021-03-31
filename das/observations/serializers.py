@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, MAXYEAR, MINYEAR
 from collections import OrderedDict
 from typing import NamedTuple
 
@@ -13,6 +13,7 @@ import rest_framework.serializers
 from drf_extra_fields.geo_fields import PointField
 from drf_extra_fields.fields import DateTimeRangeField
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
+from rest_framework.fields import DateTimeField
 
 from core.serializers import ContentTypeField
 from observations import models
@@ -35,15 +36,21 @@ class RecursiveSerializer(rest_framework.serializers.Serializer):
         return serializer.data
 
 
-def create_sg_serializer(name, model, serializer):
+def create_sg_serializer(name, model, serializer, include_subgroups=True):
     contained_field = '{0}s'.format(serializer.Meta.model._meta.model_name)
+    meta_fields = ('name', 'id')
+    if include_subgroups:
+        meta_fields += ('subgroups',)
     meta = type('Meta', (object,), dict(model=model,
-                                        fields=('name', 'id', 'subgroups')))
-    subgroups = RecursiveSerializer(
-        many=True, read_only=True, source='children')
-    return type(name, (GroupSerializer,), dict(serializer=serializer, Meta=meta,
-                                               subgroups=subgroups,
-                                               contained_field=contained_field))
+                                        fields=meta_fields))
+
+    gs_fields = dict(serializer=serializer, Meta=meta,
+                     contained_field=contained_field)
+    if include_subgroups:
+        gs_fields["subgroups"] = RecursiveSerializer(
+            many=True, read_only=True, source='children')
+
+    return type(name, (GroupSerializer,), gs_fields)
 
 
 class GroupSerializer(rest_framework.serializers.ModelSerializer):
@@ -115,7 +122,7 @@ class SubjectSubTypeRelatedField(rest_framework.serializers.RelatedField):
             try:
                 return models.SubjectSubType.objects.get(value=data)
             except models.SubjectSubType.DoesNotExist:
-                raise serializers.ValidationError(
+                raise rest_framework.serializers.ValidationError(
                     f'subject_subtype : {data} does not exist')
 
 
@@ -133,17 +140,26 @@ class CommonNameRelatedField(rest_framework.serializers.RelatedField):
             try:
                 return models.CommonName.objects.get(value=data)
             except models.CommonName.DoesNotExist:
-                raise serializers.ValidationError(
+                raise rest_framework.serializers.ValidationError(
                     f'common_name : {data} does not exist')
+
+
+class TimezoneOverflowAwareDateTimeField(DateTimeField):
+    def enforce_timezone(self, value):
+        """we wont enforce timezone on datetime object with max year number or min year number; to prevent OverFlow"""
+        if value.year >= MAXYEAR or value.year <= MINYEAR:
+            return value
+        else:
+            return super().enforce_timezone(value)
 
 
 class SubjectSourceSerializer(rest_framework.serializers.ModelSerializer):
 
-    assigned_range = DateTimeRangeField()
+    assigned_range = DateTimeRangeField(child=TimezoneOverflowAwareDateTimeField())
 
     class Meta:
         model = models.SubjectSource
-        fields = ('id', 'assigned_range', 'soruce', 'subject',
+        fields = ('id', 'assigned_range', 'source', 'subject',
                   'additional')
 
     def create(self, validated_data):
@@ -302,7 +318,8 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                             time=recorded_at, image_url=rep['image_url']
                         )
                 rep['device_status_properties'] = \
-                    statusvalues.device_status_properties if hasattr(statusvalues, 'device_status_properties') else None
+                    statusvalues.device_status_properties if hasattr(
+                        statusvalues, 'device_status_properties') else None
 
         if 'request' in self.context:
             request = self.context['request']
@@ -546,7 +563,8 @@ class SubjectStatusSerializer(rest_framework.serializers.BaseSerializer):
                                              coordinates,
                                              subject_status)
 
-        feature['device_status_properties'] = subject_status.additional.get('device_status_properties')
+        feature['device_status_properties'] = subject_status.additional.get(
+            'device_status_properties')
 
         return feature
 

@@ -76,6 +76,31 @@ class SubjectGroupTest(BaseAPITest):
                         (str(self.rosie.id) in subject_ids and
                          str(self.henry.id) in subject_ids))
 
+    def test_subject_group_search_api(self):
+        request = self.factory.get(API_BASE + "/subjectgroups?group_name=Lewa")
+        self.force_authenticate(request, self.user)
+
+        response = SubjectGroupsView.as_view()(request)
+        assert response.status_code == 200
+        for sg in response.data:
+            assert "Lewa" in sg['name']
+
+    def test_flat_subject_groups_api(self):
+        # Test subjectgroups api(lists flat subjectgroups)
+        subject_group = SubjectGroup.objects.get(name='Lewa Elephants')
+        child_group = SubjectGroup.objects.create(
+            name='Lewa Elephants child group')
+        subject_group.children.add(child_group)
+
+        request = self.factory.get(API_BASE + '/subjectgroups?flat=true')
+        self.force_authenticate(request, self.user)
+
+        response = SubjectGroupsView.as_view()(request)
+        assert response.status_code == 200
+        for sg in response.data:
+            assert "subgroups" not in sg
+            assert sg['name'] in (subject_group.name, child_group.name)
+
     def test_subjects_api(self):
         # Test subjects api(lists all active subjects)
         # whether this api returns inactive subject/s or not

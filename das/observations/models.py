@@ -232,7 +232,8 @@ class SourceProvider(TimestampedModel):
                                     max_length=100, null=False,)
     notes = models.TextField(blank=True, null=True)
     additional = JSONField('additional data', default=dict, blank=True)
-    transforms = JSONField(name="transforms", default=list, blank=True, null=True)
+    transforms = JSONField(
+        name="transforms", default=list, blank=True, null=True)
     objects = SourceProviderManager()
 
     def __str__(self):
@@ -317,6 +318,29 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
 
 
 class ObservationManager(models.Manager):
+    def get_subjectsource_observations(
+            self, subjectsource, since=None, until=None, limit=None, values=None,
+            filter_flag=0, order_by=None):
+
+        queryset = Observation.objects.filter(source__subjectsource=subjectsource,
+                                              source__subjectsource__assigned_range__contains=F(
+                                                  'recorded_at'))
+
+        queryset = queryset.by_exclusion_flags(filter_flag)
+
+        queryset = queryset.by_since_until(since, until)
+
+        if order_by:
+            queryset = queryset.order_by(order_by)
+
+        if limit and limit > 0:
+            queryset = queryset[:limit]
+
+        if values:
+            queryset = queryset.values(*values)
+
+        return queryset
+
     def get_source_observations(
             self, source, since=None, until=None, limit=None, values=None,
             filter_flag=0, order_by=None):
@@ -409,11 +433,11 @@ class ObservationManager(models.Manager):
         location = Point(x=observation.longitude, y=observation.latitude)
         additional = observation.additional or {}
         result, created = Observation.objects.get_or_create(source_id=observation.source.id,
-                                                                                recorded_at=observation.recorded_at,
-                                                                                defaults=dict(
-                                                                                    location=location,
-                                                                                    additional=additional
-                                                                                ))
+                                                            recorded_at=observation.recorded_at,
+                                                            defaults=dict(
+                                                                location=location,
+                                                                additional=additional
+                                                            ))
         return result, created
 
     def get_max_recorded_at(self, source):
@@ -549,7 +573,6 @@ class SubjectSourceManager(models.Manager):
 class AssignedRangeBounds(NamedTuple):
     lower: datetime
     upper: datetime
-
 
 
 class SubjectSource(models.Model):
@@ -706,6 +729,11 @@ class SubjectTrackSegmentFilter(TimestampedModel):
 DEFAULT_SOURCE_GROUP_ID = '654e592c-fc5a-436d-98dd-fd1b36436a85'
 
 
+class SubjectGroupQuerySet(models.QuerySet, FilterMixin):
+    def by_name_search(self, value):
+        return self.filter(name__icontains=value)
+
+
 class SubjectGroupManager(HierarchyManager):
     def get_default(self):
         return self.get(is_default=True)
@@ -757,7 +785,7 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
             'This Subject group is the default for new subjects.'
         ),)
 
-    objects = SubjectGroupManager()
+    objects = SubjectGroupManager.from_queryset(SubjectGroupQuerySet)()
 
     def get_all_subjects(self, user=None, active=None, include_from_subgroups=True, mou_expiry_date=None):
 
@@ -1407,7 +1435,8 @@ def update_subject_status(source, recorded_at, location,
         status_updates['additional'] = {'subject_name': reported_subject_name}
 
     if transformed_additional_data is not None:
-        status_updates.setdefault('additional', {})['device_status_properties'] = transformed_additional_data
+        status_updates.setdefault('additional', {})[
+            'device_status_properties'] = transformed_additional_data
 
     SubjectStatus.objects.filter(subject__subjectsource__source=source,
                                  subject__subjectsource__assigned_range__contains=recorded_at,
@@ -1444,10 +1473,10 @@ def transform_additional_data(additional, transform_format):
 
         if value is not None and ds not in dests:
 
-            if isinstance(value, dict): # list-ify a dict
-                value = [f'{k}:{str(v)}' for k,v in value.items()]
+            if isinstance(value, dict):  # list-ify a dict
+                value = [f'{k}:{str(v)}' for k, v in value.items()]
 
-            if isinstance(value, list): # string-ify a list
+            if isinstance(value, list):  # string-ify a list
                 value = ",".join([str(x) for x in value])
 
             metadata = dict(value=value,
@@ -1489,7 +1518,8 @@ def update_subject_status_from_observation(observation, delay_hours=0, force=Fal
             radio_state_at = None
 
         try:
-            transformed_data = transform_additional_data(additional, source.provider.transforms)
+            transformed_data = transform_additional_data(
+                additional, source.provider.transforms)
         except Exception as exc:
             logger.debug(f"failed with exception {exc}")
 
@@ -1684,7 +1714,7 @@ class UserSession(TimestampedModel):
     time_range = DateTimeRangeField("user session time", null=True, blank=True)
 
 
-from analyzers.models import ObservationAnnotator
+from analyzers.models import ObservationAnnotator  # noqa
 
 
 class SubjectMaximumSpeed(ObservationAnnotator):
