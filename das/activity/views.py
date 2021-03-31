@@ -215,15 +215,19 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
         schema_fields = schema_utils.get_replacement_fields_in_schema(
             eventtype.schema)
 
+        choices = Choice.objects.filter(
+            is_active=True) if definition_format == 'flat' else Choice.objects.all()
+
         parameters = {}
         enumImages_vals = {}
         for schema_field in schema_fields:
             if schema_field['lookup'] == 'enum':
-                icon_vals = schema_utils.get_enumImage_values(schema_field)
+                icon_vals = schema_utils.get_enumImage_values(
+                    schema_field, queryset=choices)
                 if icon_vals:
                     enumImages_vals[schema_field['field']] = icon_vals
                 parameters[schema_field['tag']
-                           ] = schema_utils.get_enum_choices(schema_field)
+                           ] = schema_utils.get_enum_choices(schema_field, queryset=choices)
             elif schema_field['lookup'] == 'query':
                 parameters[schema_field['tag']
                            ] = schema_utils.get_dynamic_choices(schema_field)
@@ -250,54 +254,42 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
 
         field_schema = schema_utils.map_schema(eventtype.schema, schema)
 
-        for key, value in field_schema.items():
-            inactive_choices = []
-            obj = Choice.objects.filter(
-                is_active=False, field=value['field_name'])
-            for o in obj:
-                inactive_choices.append(o.value)
+        if definition_format != 'flat':
+            for key, value in field_schema.items():
+                inactive_choices = []
+                obj = Choice.objects.filter(
+                    is_active=False, field=value['field_name'])
+                for o in obj:
+                    inactive_choices.append(o.value)
+                if inactive_choices:
+                    schema['schema']['properties'][key]["inactive" +
+                                                        "_" + value['lookup']] = inactive_choices
 
-            if inactive_choices:
-                lookup = value['lookup']
-                schema_item = schema['schema']['properties'][key]
+            for value in schema_utils.get_values_titlemap(eventtype.schema):
+                inactive_choices = []
+                obj = Choice.objects.filter(is_active=False, field=value)
+                for o in obj:
+                    inactive_choices.append(o.value)
+                if inactive_choices:
+                    for key in schema['definition']:
+                        if isinstance(key, OrderedDict):
+                            items = key.get('items')
 
-                if definition_format == 'flat':
-                    for k, v in schema_item.items():
-                        if isinstance(v, list):
-                            # remove all inactive
-                            schema_item[k] = [
-                                k for k in v if k not in inactive_choices]
-                        elif isinstance(v, dict):
-                            schema_item[k] = dict(
-                                (k, v) for k, v in v.items() if k not in inactive_choices)
-                else:
-                    schema_item[f"inactive_{lookup}"] = inactive_choices
+                            tmap_values = [(i, i['titleMap']) for i in items if isinstance(i, OrderedDict)
+                                           and i.get('titleMap')] if items else None
 
-        for value in schema_utils.get_values_titlemap(eventtype.schema):
-            inactive_choices = []
-            obj = Choice.objects.filter(is_active=False, field=value)
-            for o in obj:
-                inactive_choices.append(o.value)
-            if inactive_choices and definition_format != 'flat':
-                for key in schema['definition']:
-                    if isinstance(key, OrderedDict):
-                        items = key.get('items')
+                            # TODO: Consider the truthiness of tmap_values here,
+                            # for the case where it is set to [].
+                            if tmap_values:
+                                for item, tmap in tmap_values:
+                                    for tm in tmap:
+                                        if tm.get('value') in inactive_choices:
+                                            item['inactive_titleMap'] = inactive_choices
 
-                        tmap_values = [(i, i['titleMap']) for i in items if isinstance(i, OrderedDict)
-                                       and i.get('titleMap')] if items else None
-
-                        # TODO: Consider the truthiness of tmap_values here,
-                        # for the case where it is set to [].
-                        if tmap_values:
-                            for item, tmap in tmap_values:
-                                for tm in tmap:
-                                    if tm.get('value') in inactive_choices:
-                                        item['inactive_titleMap'] = inactive_choices
-
-                        elif key.get('titleMap'):
-                            for title_map_elem in key.get('titleMap'):
-                                if title_map_elem.get('value') in inactive_choices:
-                                    key['inactive_titleMap'] = inactive_choices
+                            elif key.get('titleMap'):
+                                for title_map_elem in key.get('titleMap'):
+                                    if title_map_elem.get('value') in inactive_choices:
+                                        key['inactive_titleMap'] = inactive_choices
 
         for key, value in field_schema.items():
             for o, vals in enumImages_vals.items():

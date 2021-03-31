@@ -64,7 +64,7 @@ def _get_dynamic_choices(field_details):
         choice_criteria = json.loads(dynamic_choice.criteria)
     except json.decoder.JSONDecodeError as jde:
         logger.exception('Error decoding criteria for dynamic choice %s. Criteria is: %s', str(dynamic_choice.id),
-            dynamic_choice.criteria)
+                         dynamic_choice.criteria)
         return []
 
     model_to_filter = apps.get_model(dynamic_choice.model_name)
@@ -86,10 +86,11 @@ def _get_dynamic_choices(field_details):
     return return_val
 
 
-def get_enum_choices(field_details, as_string=True):
+def get_enum_choices(field_details, as_string=True, queryset=None):
     options = OrderedDict()
-    for choice in Choice.objects.filter(model='activity.event',
-                                        field=field_details['field']).extra(
+    qs = queryset or Choice.objects.all()
+    for choice in qs.filter(model='activity.event',
+                            field=field_details['field']).extra(
         select={'lower_name': 'lower(display)'}).order_by('ordernum',
                                                           'lower_name'):
         options[choice.value] = choice.display
@@ -112,10 +113,10 @@ def get_enum_choices(field_details, as_string=True):
     return return_val
 
 
-def get_enumImage_values(field_details):
-
+def get_enumImage_values(field_details, queryset=None):
+    qs = queryset or Choice.objects.all()
     options = OrderedDict()
-    for choice in Choice.objects.filter(model='activity.event', field=field_details['field']).extra(select={'lower_name': 'lower(display)'}).order_by('ordernum', 'lower_name'):
+    for choice in qs.filter(model='activity.event', field=field_details['field']).extra(select={'lower_name': 'lower(display)'}).order_by('ordernum', 'lower_name'):
         options[choice.value] = choice.icon
 
     return {k: v for k, v in options.items() if v}
@@ -173,13 +174,13 @@ def get_schema_renderer_method():
         for schema_field in schema_fields:
             if schema_field['lookup'] == 'enum':
                 parameters[schema_field['tag']
-                ] = memo_enum_choices('{field}:{type}'.format(**schema_field))
+                           ] = memo_enum_choices('{field}:{type}'.format(**schema_field))
             elif schema_field['lookup'] == 'query':
                 parameters[schema_field['tag']
                            ] = memo_dynamic_choices('{field}:{type}'.format(**schema_field))
             elif schema_field['lookup'] == 'table':
                 parameters[schema_field['tag']
-                ] = memo_table_choices('{field}:{type}'.format(**schema_field))
+                           ] = memo_table_choices('{field}:{type}'.format(**schema_field))
         if parameters:
             template = Template(schema)
             rendered_template = template.render(
@@ -220,7 +221,8 @@ def extract_from_list(items: list = list):
     ids = []
     for item in items:
         if item and isinstance(item, (str, bool, int, float)):
-            logger.warning(f'extract_from_list value is not a dict: {item} from {items}')
+            logger.warning(
+                f'extract_from_list value is not a dict: {item} from {items}')
             names.append(str(item))
             ids.append(item)
         elif isinstance(item, dict) and 'name' in item and 'value' in item:
@@ -228,7 +230,8 @@ def extract_from_list(items: list = list):
             names.append(item['name'])
             ids.append(item['value'])
         else:
-            logger.warning(f'extract_from_list cannot parse in value: {item} from {items}')
+            logger.warning(
+                f'extract_from_list cannot parse in value: {item} from {items}')
 
     return ';'.join(ids), ';'.join(names)
 
@@ -260,7 +263,8 @@ def extract_from_definition(schema_item, definition, key, eventdetail_value, ext
         if isinstance(definition_item, dict) \
                 and (schema_item.get('key') == definition_item.get('key') or key == definition_item.get('key')):
             if definition_item.get("type") == "checkboxes":
-                extracted_value, display = handle_checkboxes_in_fieldsets(definition_item, eventdetail_value)
+                extracted_value, display = handle_checkboxes_in_fieldsets(
+                    definition_item, eventdetail_value)
             return definition_item.get('title'), extracted_value, display
     title = schema_item.get('title') or key
     return title, extracted_value, display
@@ -272,7 +276,8 @@ def extractor(schema_item, definition, key, eventdetail_value):
     if isinstance(eventdetail_value, list):
         extracted_value, display = extract_from_list(eventdetail_value)
     else:
-        extracted_value, display = extract_from_dict_or_string(schema_item, eventdetail_value)
+        extracted_value, display = extract_from_dict_or_string(
+            schema_item, eventdetail_value)
 
     # The simplest case is when the json schema specifies the title.
     if 'title' in schema_item:
@@ -343,7 +348,7 @@ def flatten_definition_items(definition: list = list):
 
         if isinstance(elem, dict):
             if elem.get('type', None) == 'fieldset' \
-                and 'items' in elem:
+                    and 'items' in elem:
                 yield from flatten_definition_items(elem['items'])
             else:
                 yield elem
@@ -361,9 +366,11 @@ def filter_schema_definition(schema: dict, definition_format: str):
     elif definition_format == 'flat':
         schema = copy.deepcopy(schema)
         if 'definition' in schema:
-            schema['definition'] = list(flatten_definition_items(schema['definition']))
+            schema['definition'] = list(
+                flatten_definition_items(schema['definition']))
         return schema
-    raise ValueError(f"Unsupported definition presentation type: {definition_format}")
+    raise ValueError(
+        f"Unsupported definition presentation type: {definition_format}")
 
 
 def definition_key_order_as_dict(schema):
@@ -544,7 +551,7 @@ def get_display_value_header_for_key(schema, key):
     elif definition_header:
         return definition_header
     else:
-         # return property key for fields with no key or title
+        # return property key for fields with no key or title
         return key
 
 
@@ -651,7 +658,8 @@ def get_values_titlemap(schema):
     # Map VariableNode to TextNode.
     values = []
     template = Template(schema)
-    _ = dict(zip(template.nodelist.get_nodes_by_type(VariableNode), template.nodelist.get_nodes_by_type(TextNode)))
+    _ = dict(zip(template.nodelist.get_nodes_by_type(VariableNode),
+             template.nodelist.get_nodes_by_type(TextNode)))
     for k, v in _.items():
         if 'titleMap' in v.token.contents:
             field_tag = k.token.contents
