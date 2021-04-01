@@ -1,3 +1,4 @@
+from django.core.serializers import serialize
 import logging
 
 import rest_framework.serializers as serializers
@@ -8,6 +9,7 @@ from rest_framework.validators import UniqueValidator
 import mapping.models as models
 import utils
 from activity.serializers.base import BaseSerializer
+from mapping.utils import fetch_service_types
 
 logger = logging.getLogger(__name__)
 
@@ -33,12 +35,24 @@ class ExternalTileSerializer(serializers.ModelSerializer):
         return rep
 
 
+class TileLayerAttributes(serializers.Serializer):
+    type = serializers.ChoiceField(
+        choices=fetch_service_types(), label='service_type')
+    title = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True)
+    url = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True)
+    icon_url = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True)
+    configuration = serializers.JSONField(required=False, allow_null=True)
+
+
 class TileLayerSerializer(BaseSerializer):
     id = serializers.UUIDField(required=False, read_only=True)
     name = serializers.CharField(required=False, allow_null=True,
                                  validators=[UniqueValidator(queryset=models.TileLayer.objects.all())])
-    attributes = serializers.JSONField(required=False)
     ordernum = serializers.IntegerField(required=False, allow_null=True)
+    attributes = TileLayerAttributes()
 
     def to_representation(self, instance):
         request = self.context['request']
@@ -76,7 +90,6 @@ class FeatureTypeSerializer(serializers.ModelSerializer):
 #     GeometryCollection, GEOSException, GEOSGeometry, LineString,
 #     MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 # )
-from django.core.serializers import serialize
 
 
 # class FeatureGeometrySerializer(serializers.Serializer):

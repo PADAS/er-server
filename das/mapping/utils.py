@@ -16,11 +16,13 @@ from django.contrib.gis.gdal import GDALException
 import utils.json
 from mapping import models
 from utils.spatial import GeometryMapper
+from choices.models import Choice
 
 geometry_mapper = GeometryMapper()
 
 logger = logging.getLogger(__name__)
-SPATIAL_FILES_FOLDER = getattr(settings, 'SPATIAL_FILES_FOLDER', 'mapping/spatialfiles')
+SPATIAL_FILES_FOLDER = getattr(
+    settings, 'SPATIAL_FILES_FOLDER', 'mapping/spatialfiles')
 
 
 FEATURE_TYPES = {
@@ -58,6 +60,7 @@ default_name_field = 'Name'
 default_id_field = 'globalid'
 default_layer = 0
 
+
 def validate_feature_record(record, record_name, model):
     try:
         return model.objects.get(name=record)
@@ -67,7 +70,7 @@ def validate_feature_record(record, record_name, model):
 
 
 def make_external_id(layer, feature, id_field, name_field, arc_item_id=None):
-    id_field =  id_field or default_id_field
+    id_field = id_field or default_id_field
     name_field = name_field or default_name_field
     name_value, id_value = '', ''
     for name in feature.fields:
@@ -106,7 +109,8 @@ def get_datasource_and_layer_num(filename, tmpdirs=None, layer=None):
 
     layer_num = 0 if layer is None else layer
     if layer_num >= datasource.layer_count:
-        logger.warning(f'Given layer {layer} should be less than existing layers: {datasource.layer_count}')
+        logger.warning(
+            f'Given layer {layer} should be less than existing layers: {datasource.layer_count}')
         layer_num = 0
     return datasource, layer_num
 
@@ -148,7 +152,8 @@ def get_or_create_spatial_feature_type(feature, type_label=None):
 
     if not type_name:
         try:
-            type_name = feature.get('FeatureType') if 'FeatureType' in feature.fields else feature.get('type')
+            type_name = feature.get(
+                'FeatureType') if 'FeatureType' in feature.fields else feature.get('type')
         except Exception:
             logger.warning('%s missing featuretype', str(feature))
             return
@@ -173,13 +178,15 @@ def set_feature_name(feature_record, feature, feature_type, name_field, counter)
 def get_or_create_feature(attributes):
     created = False
     try:
-        feature_record = models.SpatialFeature.objects.get(external_id=attributes.get('external_id'))
+        feature_record = models.SpatialFeature.objects.get(
+            external_id=attributes.get('external_id'))
     except models.SpatialFeature.DoesNotExist:
         feature_record = None
 
     if not feature_record:
         try:
-            feature_record = models.SpatialFeature.objects.create_spatialfeature(**attributes)
+            feature_record = models.SpatialFeature.objects.create_spatialfeature(
+                **attributes)
             created = True
         except IntegrityError as ie:
             logger.exception(ie)
@@ -189,7 +196,8 @@ def get_or_create_feature(attributes):
 
 def mappingv2_save_spatial_data(feature, external_id, spatialfile, counter=0):
     model = models.SpatialFeature
-    feature_type = spatialfile.feature_type if spatialfile.feature_type else get_or_create_spatial_feature_type(feature)
+    feature_type = spatialfile.feature_type if spatialfile.feature_type else get_or_create_spatial_feature_type(
+        feature)
     if not feature_type:
         return
 
@@ -199,7 +207,7 @@ def mappingv2_save_spatial_data(feature, external_id, spatialfile, counter=0):
     feature_geometry = geometry_mapper.get_db_geom(
         feature.geom, model_field_type)
     data = {
-        'external_id' : external_id,
+        'external_id': external_id,
         'feature_geometry': feature_geometry,
         'feature_type': feature_type}
 
@@ -237,7 +245,8 @@ def mappingv2_save_spatial_data(feature, external_id, spatialfile, counter=0):
                                for value in feature['tags'].value.split(',')]
     for key, value in defaults.items():
         setattr(feature_record, key, value)
-    set_feature_name(feature_record, feature, feature_type, spatialfile.name_field, counter)
+    set_feature_name(feature_record, feature, feature_type,
+                     spatialfile.name_field, counter)
     feature_record.clean()
     feature_record.save()
 
@@ -249,18 +258,22 @@ def check_file_extension(f_type, data_file, feature_types_file):
 
 
 def validate_file_type(f_type, data_file, field):
-    file_type_formats = {'shapefile': '.zip', 'geodatabase': '.gdb', 'geojson': ('.json', '.geojson')}
+    file_type_formats = {'shapefile': '.zip',
+                         'geodatabase': '.gdb', 'geojson': ('.json', '.geojson')}
     for file_type, extension in file_type_formats.items():
         if f_type == file_type and not data_file.name.lower().endswith(extension):
-            extension = ' or '.join(extension) if isinstance(extension, tuple) else extension
-            raise ValidationError({field: [f'Kindly chose a {extension} file']})
+            extension = ' or '.join(extension) if isinstance(
+                extension, tuple) else extension
+            raise ValidationError(
+                {field: [f'Kindly chose a {extension} file']})
 
 
 def import_layer(layer, spatialfile):
     logger.info('Importing layer: %s, type: %s, fields: %s',
                 layer.name, layer.geom_type, layer.fields)
 
-    has_unique_keys = contains_unique_keys_in_layer(spatialfile.id_field, spatialfile.name_field, layer)
+    has_unique_keys = contains_unique_keys_in_layer(
+        spatialfile.id_field, spatialfile.name_field, layer)
     for i, feature in enumerate(layer):
         if feature.geom.empty:
             continue
@@ -269,7 +282,8 @@ def import_layer(layer, spatialfile):
 
 
 def load_layer(layer, feature, i, spatialfile, has_unique_keys):
-    external_id = make_external_id(layer, feature, spatialfile.id_field, spatialfile.name_field)
+    external_id = make_external_id(
+        layer, feature, spatialfile.id_field, spatialfile.name_field)
     if not has_unique_keys:
         external_id = external_id + '-' + str(i)
     if spatialfile.__class__.__name__ == 'SpatialFile':
@@ -298,7 +312,8 @@ def mappingv1_save_spatial_data(feature, external_id, spatialfile, counter=0):
     feature_geometry = geometry_mapper.get_db_geom(
         feature.geom, model_field_type)
     defaults = {'feature_geometry': feature_geometry, 'fields': fields}
-    feature_type = get_featuretype_for_feature(feature, default=spatialfile.feature_type)
+    feature_type = get_featuretype_for_feature(
+        feature, default=spatialfile.feature_type)
     feature_record, created = feature_model.objects.get_or_create(
         defaults=defaults,
         featureset=models.FeatureSet.objects.get(name=spatialfile.feature_set),
@@ -310,7 +325,8 @@ def mappingv1_save_spatial_data(feature, external_id, spatialfile, counter=0):
 
     feature_record.feature_geometry = feature_geometry
     feature_record.fields = fields
-    set_feature_name(feature_record, feature, feature_type, spatialfile.name_field, counter)
+    set_feature_name(feature_record, feature, feature_type,
+                     spatialfile.name_field, counter)
     feature_record.spatialfile = spatialfile
     logger.debug('Import feature: %s, created:%s', external_id, created)
 
@@ -368,12 +384,14 @@ def import_feature_types(datasource, source_name=DEFAULT_SOURCE_NAME):
 
         try:
             type_record, created = model.objects.get_or_create(name=name)
-            display_category = get_display_category(feature['display_category'].value)
+            display_category = get_display_category(
+                feature['display_category'].value)
         except IntegrityError as err:
             logger.warning(err)
             return
         except Exception as error:
-            raise ValidationError({'feature_types_file': ["Unable to process file: ", error]})
+            raise ValidationError(
+                {'feature_types_file': ["Unable to process file: ", error]})
 
         type_record.display_category = display_category
         type_record.external_id = global_id
@@ -420,3 +438,13 @@ def construct_url_param(redirect_url, params):
     url_parts = list(urlparse.urlparse(redirect_url))
     url_parts[4] = urlencode(params)
     return urlparse.urlunparse(url_parts)
+
+
+def fetch_service_types():
+    service_type_choices = {}
+    for service_type in Choice.objects.filter(
+            model='mapping.TileLayer',
+            field='service_type').order_by('ordernum'):
+        service_type_choices[service_type.value] = service_type.display
+    return tuple([(key, value)
+                  for key, value in service_type_choices.items()])

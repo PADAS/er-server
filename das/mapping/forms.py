@@ -9,7 +9,7 @@ from django.utils.translation import ugettext_lazy as _
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
 from mapping.models import Map, TileLayer, SpatialFeatureGroupStatic, \
     FeatureType, DisplayCategory, SpatialFeatureType, ArcgisConfiguration
-from choices.models import Choice
+from mapping.utils import fetch_service_types
 from core.common import TIMEZONE_USED
 
 
@@ -90,17 +90,7 @@ class TileLayerFormWithAttributes(JSONFieldFormMixin, TileLayerForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['type'].choices = self.fetch_service_types()
-
-    @staticmethod
-    def fetch_service_types():
-        service_type_choices = {}
-        for service_type in Choice.objects.filter(
-                model='mapping.TileLayer',
-                field='service_type').order_by('ordernum'):
-            service_type_choices[service_type.value] = service_type.display
-        return tuple([(key, value)
-                      for key, value in service_type_choices.items()])
+        self.fields['type'].choices = fetch_service_types()
 
     class Meta(TileLayerForm.Meta):
         json_fields = ('type', 'title', 'url', 'icon_url', 'configuration')
@@ -189,7 +179,8 @@ class DisplayCategoryForm(forms.ModelForm):
 
     def save(self, commit=True):
         instance = super().save(commit)
-        instance.spatialfeaturetype_set.set(self.cleaned_data['feature_classes'])
+        instance.spatialfeaturetype_set.set(
+            self.cleaned_data['feature_classes'])
         return instance
 
 
