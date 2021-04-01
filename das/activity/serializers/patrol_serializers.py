@@ -17,7 +17,7 @@ from accounts.serializers import UserDisplaySerializer, get_user_display
 from activity.models import PATROL_STATE_CHOICES, PC_OPEN, PC_DONE, PRI_NONE, PRIORITY_CHOICES
 from activity.models import Patrol, PatrolNote, PatrolSegment, Event
 from observations.models import Subject
-from activity.serializers import AlertRuleSerializer, EventSourceSerializer, EventSerializer
+from activity.serializers import AlertRuleSerializer, EventSourceSerializer, EventSerializer, PatrolSegmentEventSerializer
 from activity.serializers import fields, ReportedByRelatedField
 from activity.serializers.base import BaseSerializer, RevisionMixin, TimestampMixin, FileSerializerMixin
 from activity.serializers.fields import choicefield_serializer, text_field
@@ -171,7 +171,8 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
         required=False, allow_null=True, validators=[PointValidator()])
     image_url = serializers.CharField(read_only=True, required=False)
     icon_id = serializers.CharField(read_only=True, required=False)
-    events = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    events = PatrolSegmentEventSerializer(many=True, read_only=True, context={
+                             'include_related_events': True})
 
     def to_internal_value(self, data):
         sch_start = data.get('scheduled_start')
