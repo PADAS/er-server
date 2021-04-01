@@ -305,7 +305,7 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
 
 
 class TrackedBySerializer(serializers.Serializer):
-    leader = LeaderRelatedField(required=False, allow_null=True)
+    leader = LeaderRelatedField(read_only=True)
 
 
 class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
