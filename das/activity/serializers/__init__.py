@@ -1204,12 +1204,68 @@ def resolve_external_event_source(user, external_event_type):
         pass
 
 
+class OptimizedEventRelationshipSerializer(EventRelationshipSerializer):
+    type = EventRelationshipTypeRelatedField()
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        if 'request' in self.context:
+            request = self.context['request']
+            rep['url'] = utils.add_base_url(request,
+                                            reverse('event-view-relationship', args=[instance.from_event_id,
+                                                                                                 instance.type.value,
+                                                                                                 instance.to_event_id,]))
+
+            direction = self.context.get('event_relationship_direction', 'out')
+            if direction == 'out':
+                related_event = instance.to_event
+            else:
+                related_event = instance.from_event
+
+            rep['related_event'] = PatrolSegmentEventSerializer(instance=related_event, many=False,
+                                                                context={'include_related_events': False}).data
+            return rep
+
+
 class PatrolSegmentEventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
+    updated_at = DateTimeField(read_only=True)
+    title = rest_framework.serializers.CharField(required=False, allow_blank=True)
+    event_type = EventTypeRelatedField(required=False)
+    contains = rest_framework.serializers.SerializerMethodField()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.context.get('include_related_events', False):
+            self.fields.pop('contains')
 
     class Meta:
         model = activity.models.Event
-        fields = ('id',)
+        fields = ('id',
+                  'serial_number',
+                  'event_type', 'priority', 'title',
+                  'state',  'contains', 'updated_at')
 
+    def get_contains(self, event):
+        return self.get_out_relation(event, 'contains')
+
+    def get_out_relation(self, event, value):
+        self.context['event_relationship_direction'] = 'out'
+        qs = event.out_relationships.filter(
+            type__value=value).all().order_by('ordernum', 'to_event__created_at')
+        serializer = OptimizedEventRelationshipSerializer(
+            instance=qs, many=True, context=self.context,)
+        return serializer.data
+
+    def to_representation(self, event):
+        rep = super().to_representation(event)
+        if event.location is not None:
+            geodata = make_feature(self.context['request'], event)
+            rep['geojson'] = geodata
+
+        if event.event_type:
+            rep['is_collection'] = event.event_type.is_collection
+
+        return rep
 
 class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
     serializer_choice_field = ChoiceField
