@@ -44,12 +44,12 @@ class TileLayerAttributes(serializers.Serializer):
         required=False, allow_null=True, allow_blank=True)
     icon_url = serializers.CharField(
         required=False, allow_null=True, allow_blank=True)
-    configuration = serializers.JSONField(required=False, allow_null=True)
+    configuration = serializers.JSONField(required=False, default=dict)
 
 
 class TileLayerSerializer(BaseSerializer):
     id = serializers.UUIDField(required=False, read_only=True)
-    name = serializers.CharField(required=False, allow_null=True,
+    name = serializers.CharField(required=False, allow_null=True, allow_blank=True,
                                  validators=[UniqueValidator(queryset=models.TileLayer.objects.all())])
     ordernum = serializers.IntegerField(required=False, allow_null=True)
     attributes = TileLayerAttributes()
