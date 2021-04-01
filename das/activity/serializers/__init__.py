@@ -28,6 +28,7 @@ from rest_framework.request import clone_request
 from rest_framework.utils.field_mapping import ClassLookupDict
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from versatileimagefield.serializers import VersatileImageFieldSerializer
+from activity.util import get_permitted_event_categories
 
 from choices.serializers import ChoiceField
 
@@ -1295,27 +1296,16 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
     def get_out_relation(self, event, value):
         self.context['event_relationship_direction'] = 'out'
+        request = self.context.get('request')
+        permitted_categories = get_permitted_event_categories(request)
+
         qs = event.out_relationships.filter(
+            to_event__event_type__category__in=permitted_categories,
             type__value=value).all().order_by('ordernum', 'to_event__created_at')
-        user_events = self.get_user_events([e.to_event for e in qs])
-        qs = qs.filter(to_event__in=user_events)
+
         serializer = EventRelationshipSerializer(
             instance=qs, many=True, context=self.context,)
         return serializer.data
-
-    def get_user_events(self, events):
-        user_events = []
-        request = self.context.get('request')
-
-        for obj in events:
-            permission_name = 'activity.{0}_{1}'.format(
-                obj.event_type.category.value,
-                EventCategoryPermissions.http_method_map[request.method]
-            )
-
-            if request.user.has_perm(permission_name):
-                user_events.append(obj)
-        return user_events
 
     def get_in_relation(self, event, value):
         qs = event.in_relationships.filter(type__value=value).all()
