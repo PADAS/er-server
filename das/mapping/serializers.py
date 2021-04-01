@@ -1,13 +1,15 @@
-import os
+from django.core.serializers import serialize
 import logging
 
-import simplejson as json
-from django.urls import reverse, NoReverseMatch
 import rest_framework.serializers as serializers
+import simplejson as json
+from django.urls import reverse
+from rest_framework.validators import UniqueValidator
 
 import mapping.models as models
-
 import utils
+from activity.serializers.base import BaseSerializer
+from mapping.utils import fetch_service_types
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +35,25 @@ class ExternalTileSerializer(serializers.ModelSerializer):
         return rep
 
 
-class TileLayerSerializer(serializers.Serializer):
+class TileLayerAttributes(serializers.Serializer):
+    type = serializers.ChoiceField(
+        choices=fetch_service_types(), label='service_type')
+    title = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True)
+    url = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True)
+    icon_url = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True)
+    configuration = serializers.JSONField(required=False, default=dict)
+
+
+class TileLayerSerializer(BaseSerializer):
+    id = serializers.UUIDField(required=False, read_only=True)
+    name = serializers.CharField(required=False, allow_null=True, allow_blank=True,
+                                 validators=[UniqueValidator(queryset=models.TileLayer.objects.all())])
+    ordernum = serializers.IntegerField(required=False, allow_null=True)
+    attributes = TileLayerAttributes()
+
     def to_representation(self, instance):
         request = self.context['request']
 
@@ -41,6 +61,9 @@ class TileLayerSerializer(serializers.Serializer):
             instance, context={'request': request}
         )
         return rep.data
+
+    def create(self, validated_data):
+        return models.TileLayer.objects.create(**validated_data)
 
 
 class MapSerializer(serializers.ModelSerializer):
@@ -67,7 +90,8 @@ class FeatureTypeSerializer(serializers.ModelSerializer):
 #     GeometryCollection, GEOSException, GEOSGeometry, LineString,
 #     MultiLineString, MultiPoint, MultiPolygon, Point, Polygon,
 # )
-from django.core.serializers import serialize
+
+
 # class FeatureGeometrySerializer(serializers.Serializer):
 #
 #     def to_representation(self, instance):
@@ -75,23 +99,21 @@ from django.core.serializers import serialize
 
 
 class SpatialFeatureSerializer(serializers.ModelSerializer):
-
     # feature_geometry = FeatureGeometrySerializer()
     feature_type = FeatureTypeSerializer()
 
     class Meta:
         model = models.SpatialFeature
-        fields = ('id', 'name', 'feature_type', )  # 'feature_geometry',)
+        fields = ('id', 'name', 'feature_type',)  # 'feature_geometry',)
 
     def to_representation(self, instance):
         # rep = super().to_representation(instance)
-        return json.loads(serialize('geojson', (instance,), properties={}, geometry_field='feature_geometry',))
+        return json.loads(serialize('geojson', (instance,), properties={}, geometry_field='feature_geometry', ))
 
         return rep
 
 
 class SpatialFeatureGroupStaticSerializer(serializers.ModelSerializer):
-
     features = SpatialFeatureSerializer(many=True)
 
     class Meta:
@@ -99,7 +121,6 @@ class SpatialFeatureGroupStaticSerializer(serializers.ModelSerializer):
         fields = ('name', 'features', 'description')
 
     def to_representation(self, instance):
-
         rep = super().to_representation(instance)
 
         if 'request' in self.context:
