@@ -14,6 +14,7 @@ from unittest import mock
 
 import pytz
 import pytest
+from urllib.parse import urlencode
 from django.utils import dateparse
 import django.contrib.auth
 from django.db import transaction
@@ -201,6 +202,11 @@ class TestEventView(BaseAPITest):
             self.guest_user)
 
         self.temporary_folder = tempfile.mkdtemp()
+        self.now = datetime.now(tz=pytz.utc)
+        self.start_of_today = self.now.replace(
+            hour=0, minute=0, second=0, microsecond=0)
+        self.end_of_today = self.start_of_today + \
+                            timedelta(hours=23, minutes=59, seconds=59)
 
     def tearDown(self):
         shutil.rmtree(self.temporary_folder)
@@ -1130,7 +1136,7 @@ class TestEventView(BaseAPITest):
         request = self.factory.post(self.api_base + '/events/', carcass_data)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
-        self.assertEqual(response.status_code, 201)
+        assert response.status_code == 201
 
         url = """/activity/events/export?state=active&filter=%7B%22text%22:%22carcass%22%7D"""
 
@@ -1141,6 +1147,28 @@ class TestEventView(BaseAPITest):
         response = views.EventsExportView.as_view()(request)
 
         self.assertEqual(response.status_code, 200)
+        assert response.status_code == 200
+
+    def test_export_reports_with_create_date_filter(self):
+        url = """/activity/events/export"""
+        q_params = json.dumps(
+                {"create_date": {
+                        "lower": self.start_of_today.isoformat(), "upper": self.end_of_today.isoformat()}})
+
+        request = self.factory.get(self.api_base + url, {'filter': q_params})
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        assert len(rendered_dict) == 1
+
+        tomorrow = self.now + timedelta(days=1)
+        q_params = json.dumps({"create_date": {"lower": tomorrow.isoformat()}})
+
+        request = self.factory.get(self.api_base + url, {'filter': q_params})
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        assert len(rendered_dict) == 0
 
     def test_export_filter_on_incident_associated_reports(self):
         incident_data = copy.deepcopy(self.event_data)
@@ -2930,11 +2958,28 @@ class TestEventView(BaseAPITest):
         assert response.status_code == 200
 
         properties = response.data['schema']['properties']
+        inactive_choices = ['di3', 'di4']
 
         for o in properties_with_enum:
+            # Inactive enums present
             data = properties.get(o)
             inactive_enum = data.get('inactive_enum')
-            assert inactive_enum == ['di3', 'di4']
+            assert inactive_enum == inactive_choices
+
+        url += '?{}'.format(urlencode({'definition': 'flat'}))
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.all_perms_user)
+        new_response = views.EventTypeSchemaView.as_view()(
+            request, eventtype=event_type.value)
+
+        properties = new_response.data['schema']['properties']
+
+        for o in properties_with_enum:
+            # Inactive enums skipped
+            data = properties.get(o)
+            assert not data.get('inactive_enum')
+            assert all(inactive_choices) not in data.get('enum')
+            assert all(inactive_choices) not in data.get('enumNames').keys()
 
     def test_flat_definition(self):
         choice = Choice.objects.create(

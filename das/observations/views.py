@@ -944,7 +944,7 @@ class ObservationsView(generics.ListCreateAPIView):
                 source_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag, order_by='recorded_at')
         elif subjectsource_id:
             queryset = models.Observation.objects.get_subjectsource_observations(
-                source_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag, order_by='recorded_at')
+                subjectsource_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag, order_by='recorded_at')
         else:
             queryset = models.Observation.objects.by_since_until(
                 recorded_since, recorded_until)

@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, MAXYEAR, MINYEAR
 from collections import OrderedDict
 from typing import NamedTuple
 
@@ -13,6 +13,7 @@ import rest_framework.serializers
 from drf_extra_fields.geo_fields import PointField
 from drf_extra_fields.fields import DateTimeRangeField
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
+from rest_framework.fields import DateTimeField
 
 from core.serializers import ContentTypeField
 from observations import models
@@ -121,7 +122,7 @@ class SubjectSubTypeRelatedField(rest_framework.serializers.RelatedField):
             try:
                 return models.SubjectSubType.objects.get(value=data)
             except models.SubjectSubType.DoesNotExist:
-                raise serializers.ValidationError(
+                raise rest_framework.serializers.ValidationError(
                     f'subject_subtype : {data} does not exist')
 
 
@@ -139,13 +140,22 @@ class CommonNameRelatedField(rest_framework.serializers.RelatedField):
             try:
                 return models.CommonName.objects.get(value=data)
             except models.CommonName.DoesNotExist:
-                raise serializers.ValidationError(
+                raise rest_framework.serializers.ValidationError(
                     f'common_name : {data} does not exist')
+
+
+class TimezoneOverflowAwareDateTimeField(DateTimeField):
+    def enforce_timezone(self, value):
+        """we wont enforce timezone on datetime object with max year number or min year number; to prevent OverFlow"""
+        if value.year >= MAXYEAR or value.year <= MINYEAR:
+            return value
+        else:
+            return super().enforce_timezone(value)
 
 
 class SubjectSourceSerializer(rest_framework.serializers.ModelSerializer):
 
-    assigned_range = DateTimeRangeField()
+    assigned_range = DateTimeRangeField(child=TimezoneOverflowAwareDateTimeField())
 
     class Meta:
         model = models.SubjectSource

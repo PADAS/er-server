@@ -1,3 +1,4 @@
 time_zone                       = "Africa/Nairobi"
 show_stationary_subjects_on_map = "True"
 tableau_enabled      = "True"
+patrol_enabled       = "True"

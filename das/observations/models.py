@@ -259,7 +259,7 @@ class Source(TimestampedModel):
     manufacturer_id = models.CharField('device manufacturer id', max_length=100,
                                        null=True)
     model_name = models.CharField(
-        'device model name', max_length=100, null=True)
+        'device model name', max_length=201, null=True)
     additional = JSONField('additional data', default=dict, blank=True)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
@@ -322,7 +322,7 @@ class ObservationManager(models.Manager):
             self, subjectsource, since=None, until=None, limit=None, values=None,
             filter_flag=0, order_by=None):
 
-        queryset = Observation.objects.filter(source__subjectsource__in=subject_source,
+        queryset = Observation.objects.filter(source__subjectsource=subjectsource,
                                               source__subjectsource__assigned_range__contains=F(
                                                   'recorded_at'))
 

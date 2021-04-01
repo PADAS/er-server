@@ -419,6 +419,10 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             queryset = queryset.filter(
                 reported_by_id__in=filter.get('reported_by'))
 
+        if filter.get('create_date'):
+            lower, upper = parse_date_range(filter.get('create_date'))
+            queryset = queryset.by_created_date(lower=lower, upper=upper)
+
         return queryset.distinct()
 
     def by_duration(self, duration):
@@ -461,6 +465,16 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
                                   params=[searchtext, searchtext])
 
         return queryset.all_sort().distinct()
+
+    def by_created_date(self, lower=None, upper=None):
+        if lower and upper:
+            return self.filter(created_at__range=(lower, upper))
+        elif lower:
+            return self.filter(created_at__gt=lower)
+        elif upper:
+            return self.filter(created_at__lt=upper)
+
+        return self
 
 
 class EventManager(models.Manager):
