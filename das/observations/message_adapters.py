@@ -77,7 +77,10 @@ def _handle_outbox_message(payload, user_email):
             logger.exception(f'Device: {device_id} does not exist')
         else:
             adapter = DEVICE_ADAPTER_MAPPING.get(source.provider.provider_key, InReachAdapter)
-            if source.additional.get('two_way_messaging') or source.provider.additional.get('two_way_messaging'):
+            source_2way_msg_config = source.additional.get('two_way_messaging')
+            provider_2way_msg_config = source.provider.additional.get('two_way_messaging')
+
+            if source_2way_msg_config is True or (source_2way_msg_config in [None, ""] and provider_2way_msg_config.get('two_way_messaging')):
                 adapter.send_msg_to_device(payload, source, user_email)
             else:
                 logger.debug(f'Messaging not enabled for this device: {device_id}')
