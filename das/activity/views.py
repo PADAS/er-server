@@ -62,6 +62,7 @@ from utils.drf import StandardResultsSetPagination, \
     StandardResultsSetGeoJsonPagination
 from utils.json import parse_bool, loads, ExtendedGEOJSONRenderer
 from das_server.views import CustomSchema
+from activity.util import get_permitted_event_categories
 
 logger = logging.getLogger(__name__)
 
@@ -835,19 +836,6 @@ class EventsView(generics.ListCreateAPIView):
         return queryset
 
 
-def get_permitted_event_categories(request):
-    permitted_categories = []
-
-    for category in EventCategory.objects.filter(is_active=True):
-        permission_name = 'activity.{0}_{1}'.format(
-            category.value,
-            EventCategoryPermissions.http_method_map['GET']
-        )
-        if request.user.has_perm(permission_name):
-            permitted_categories.append(category)
-    return permitted_categories
-
-
 def calculate_event_etag(view_instance, view_method, request, *args, **kwargs):
     instance = view_instance.get_object()
     return str(hash(instance.updated_at))
@@ -887,6 +875,7 @@ class EventView(generics.RetrieveUpdateDestroyAPIView):
             query_params.get('include_files', True))
         context['include_related_events'] = parse_bool(
             query_params.get('include_related_events', True))
+        context['request'] = self.request
         return context
 
     def get_queryset(self):

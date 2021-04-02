@@ -28,6 +28,7 @@ from rest_framework.request import clone_request
 from rest_framework.utils.field_mapping import ClassLookupDict
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from versatileimagefield.serializers import VersatileImageFieldSerializer
+from activity.util import get_permitted_event_categories
 
 from choices.serializers import ChoiceField
 
@@ -48,6 +49,7 @@ from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 import utils.schema_utils as schema_utils
 import usercontent.serializers
 from activity.serializers.base import FileSerializerMixin, IMAGE_RENDITION_SETS
+from activity.permissions import EventCategoryPermissions
 
 from activity.alerting.conditions import Conditions
 from activity.models import PatrolSegment
@@ -1007,7 +1009,6 @@ class EventSerializerMixin:
         logger.info('Inside update: %s', validated_data)
         update_fields = []
 
-
         patrol_segments = validated_data.pop('patrol_segments', None)
         if patrol_segments:
             logger.info('setting patrol segments. with %s', patrol_segments)
@@ -1295,8 +1296,13 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
     def get_out_relation(self, event, value):
         self.context['event_relationship_direction'] = 'out'
+        request = self.context.get('request')
+        permitted_categories = get_permitted_event_categories(request)
+
         qs = event.out_relationships.filter(
+            to_event__event_type__category__in=permitted_categories,
             type__value=value).all().order_by('ordernum', 'to_event__created_at')
+
         serializer = EventRelationshipSerializer(
             instance=qs, many=True, context=self.context,)
         return serializer.data
@@ -1317,7 +1323,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             'created_by_user', 'notes', 'reported_by',
             'state', 'event_details', 'contains', 'is_linked_to', 'is_contained_in',
             'files', 'related_subjects', 'eventsource', 'external_event_id', 'sort_at',
-                 'patrol_segments') + read_only_fields
+            'patrol_segments') + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1382,8 +1388,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         # This is to fix https://vulcan.atlassian.net/browse/DAS-6264
         # TODO: Consider adjusting the context within the listed Views.
         if self.context.get('include_updates', True) \
-            and not getattr(self.context.get('view', None), 'get_view_name', lambda: None)()\
-                    in ('Patrols', 'Patrol', 'Patrolsegment'):
+                and not getattr(self.context.get('view', None), 'get_view_name', lambda: None)()\
+                in ('Patrols', 'Patrol', 'Patrolsegment'):
             updates = self.render_updates(event)
             for note in rep.get('notes', []):
                 updates.extend(note['updates'])
@@ -1772,4 +1778,3 @@ class EventRelatedSegmentSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventRelatedSegments
         fields = ('event', 'patrol_segment')
-
