@@ -9,6 +9,7 @@ from django.conf import settings
 from accounts.models import User
 from observations.models import ERRORED, SENT
 from observations.models import Source, Message
+from utils.json import parse_bool
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,8 @@ class BaseMessageAdapter:
 
     @staticmethod
     def send_msg_to_device(payload):
-        raise NotImplemented('An extending class must implement send_msg_to_device.')
+        raise NotImplemented(
+            'An extending class must implement send_msg_to_device.')
 
     @staticmethod
     def update_message_status(message_id, status):
@@ -47,18 +49,22 @@ class InReachAdapter(BaseMessageAdapter):
         }
 
         try:
-            headers = {'content-type': 'application/json', 'accept': 'application/json'}
+            headers = {'content-type': 'application/json',
+                       'accept': 'application/json'}
             res = requests.post(
-                url=InReachAdapter.endpoint, auth=(InReachAdapter.username, InReachAdapter.password),
+                url=InReachAdapter.endpoint, auth=(
+                    InReachAdapter.username, InReachAdapter.password),
                 json=payload, headers=headers)
             if res.status_code != 200:
                 status = ERRORED
                 error_message = json.loads(res.text).get('Message')
-                logger.exception(f'Error sending message to device: {device_id} - {error_message}')
+                logger.exception(
+                    f'Error sending message to device: {device_id} - {error_message}')
             else:
                 status = SENT
         except Exception as ex:
-            logger.exception(f'Exception {ex} raised when sending message to device: {device_id}')
+            logger.exception(
+                f'Exception {ex} raised when sending message to device: {device_id}')
             status = ERRORED
         InReachAdapter.update_message_status(data.get('id'), status)
 
@@ -76,11 +82,14 @@ def _handle_outbox_message(payload, user_email):
         except Source.objects.DoesNotExist:
             logger.exception(f'Device: {device_id} does not exist')
         else:
-            adapter = DEVICE_ADAPTER_MAPPING.get(source.provider.provider_key, InReachAdapter)
+            adapter = DEVICE_ADAPTER_MAPPING.get(
+                source.provider.provider_key, InReachAdapter)
             source_2way_msg_config = source.additional.get('two_way_messaging')
-            provider_2way_msg_config = source.provider.additional.get('two_way_messaging')
+            provider_2way_msg_config = source.provider.additional.get(
+                'two_way_messaging', False)
 
-            if source_2way_msg_config is True or (source_2way_msg_config in [None, ""] and provider_2way_msg_config.get('two_way_messaging')):
+            if (parse_bool(source_2way_msg_config) or (source_2way_msg_config in (None, "") and provider_2way_msg_config)):
                 adapter.send_msg_to_device(payload, source, user_email)
             else:
-                logger.debug(f'Messaging not enabled for this device: {device_id}')
+                logger.debug(
+                    f'Messaging not enabled for this device: {device_id}')

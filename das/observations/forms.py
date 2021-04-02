@@ -60,7 +60,8 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
         fields = ('id', 'subject', 'source', 'assigned_range',
                   'additional') + json_fields
 
-    assigned_range = AssignedDateTimeRangeField(label=f'Assigned Range in {TIMEZONE_USED}')
+    assigned_range = AssignedDateTimeRangeField(
+        label=f'Assigned Range in {TIMEZONE_USED}')
 
     # For JSONFieldFormMixin -- this identifies the Model attribute that is
     # the JSON Field.
@@ -127,7 +128,8 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
 
     silence_notification_threshold = forms.CharField(max_length=8, required=False, empty_value=None,
                                                      help_text=silence_notification_threshold_help_text_for_source)
-    two_way_messaging = forms.ChoiceField(label='Two-way messaging', help_text=two_way_help_text, required=False)
+    two_way_messaging = forms.ChoiceField(
+        label='Two-way messaging', help_text=two_way_help_text, required=False)
 
     @staticmethod
     def fetch_organizations():
@@ -150,20 +152,18 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
     @staticmethod
     def fetch_2way_messaging_choices(instance):
         if instance:
-            provider_2way_conf = instance.provider.additional.get('two_way_messaging')
-            source_2way_conf = instance.additional.get('two_way_messaging')
-
-            if provider_2way_conf and source_2way_conf in [None, ""]:
-                return two_way_choices(source_provider_enable=True)
+            provider_2way_conf = instance.provider.additional.get(
+                'two_way_messaging', False)
+            return two_way_choices(source_provider_enable=provider_2way_conf)
         return two_way_choices()
-
 
     def __init__(self, *args, **kwargs):
         super(SourceForm, self).__init__(*args, **kwargs)
         instance = kwargs.get('instance')
         self.fields['data_owners'].choices = self.fetch_organizations()
         self.fields['collar_status'].choices = self.fetch_collar_status()
-        self.fields['two_way_messaging'].choices = self.fetch_2way_messaging_choices(instance)
+        self.fields['two_way_messaging'].choices = self.fetch_2way_messaging_choices(
+            instance)
 
     class Meta:
         model = Source
@@ -353,14 +353,17 @@ class TranformationRuleWidget(forms.MultiWidget):
                     widget_value = None
                 if id_:
                     widget_attrs = final_attrs.copy()
-                    widget_attrs['id'] = '%s_%s' % (widget.attrs.get('id') or id_, _)
+                    widget_attrs['id'] = '%s_%s' % (
+                        widget.attrs.get('id') or id_, _)
                 else:
                     widget_attrs = final_attrs
-                subwidgets.append(widget.get_context(widget_name, widget_value, widget_attrs)['widget'])
+                subwidgets.append(widget.get_context(
+                    widget_name, widget_value, widget_attrs)['widget'])
             list_subwidgets.append(subwidgets)
             subwidgets = []
         context['widget']['subwidgets'] = list_subwidgets
-        context['sample_data'] = json.loads(json.dumps(self.provider, sort_keys=True, indent=4))
+        context['sample_data'] = json.loads(
+            json.dumps(self.provider, sort_keys=True, indent=4))
 
         return context
 
@@ -375,12 +378,14 @@ class TranformationRuleWidget(forms.MultiWidget):
 
 def generate_sample_data(provider):
     accum = {}
-    window_asc = {'partition_by': F('source_id'), 'order_by': [F('recorded_at').asc()]}
+    window_asc = {'partition_by': F('source_id'), 'order_by': [
+        F('recorded_at').asc()]}
 
     obs = Observation.objects.filter(source__provider=provider,
-                                     recorded_at__gte=datetime.now(tz=pytz.utc) - timedelta(days=30)
+                                     recorded_at__gte=datetime.now(
+                                         tz=pytz.utc) - timedelta(days=30)
                                      ).annotate(agg_data=Window(expression=JsonAgg('additional'),
-                                                                frame=RowRange(start=0, end=25),**window_asc))
+                                                                frame=RowRange(start=0, end=25), **window_asc))
 
     [find_paths(x, accum=accum) for i in obs for x in i.agg_data]
 
@@ -453,7 +458,8 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['tranformation_rule'].widget.provider = generate_sample_data(kwargs.get('instance'))
+        self.fields['tranformation_rule'].widget.provider = generate_sample_data(
+            kwargs.get('instance'))
         instance = kwargs.get('instance')
         self.fields['tranformation_rule'].initial = instance.transforms
 
