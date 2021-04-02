@@ -1043,7 +1043,7 @@ class SourceAdmin(admin.ModelAdmin, ObservationsContextMixin):
         ),
         ('Data Source Configuration', {
             'classes': ('wide',),
-            'fields': ('silence_notification_threshold',)
+            'fields': ('silence_notification_threshold', 'two_way_messaging')
         }
         ),
 
@@ -1284,7 +1284,7 @@ class SubjectGroupAdmin(HierarchyModelAdmin):
             'fields': ('children',)
         }),
         (_('Permissions'), {'fields': ('permission_sets',)}),
-        
+
     )
     list_display = ('name', 'is_visible', 'is_default')
     readonly_fields = ('is_default',)
@@ -1536,7 +1536,10 @@ class SourceProviderAdmin(admin.ModelAdmin):
         ),
         ('Provider configurations', {
             'classes': ('wide',),
-            'fields': ('lag_notification_threshold', 'silence_notification_threshold', 'days_data_retain')
+            'fields': ('lag_notification_threshold',
+                       'silence_notification_threshold',
+                       'days_data_retain',
+                       'two_way_messaging')
         }
         ),
         ('Advanced configuration', {
