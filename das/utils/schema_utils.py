@@ -378,8 +378,11 @@ def definition_key_order_as_dict(schema):
 
 
 def property_keys_order_as_dict(schema):
-    property_keys = schema.get("schema").get("properties", []).keys()
-    return OrderedDict(definition_keys(property_keys))
+    properties = schema.get("schema", {}).get("properties", [])
+    if properties:
+        property_keys = properties.keys()
+        return OrderedDict(definition_keys(property_keys))
+    return OrderedDict()
 
 
 def detail_resolver(schema, key, value):
