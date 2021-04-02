@@ -1,7 +1,7 @@
 (function ($) {
     'use strict';
 
-    let tranform_rules = $('#id_transforms')
+    let tranform_rules = $('#id_transforms');
     let message = JSON.parse(tranform_rules.val()) ? JSON.parse(tranform_rules.val()) : []
     let dest_index = {}
 
@@ -79,15 +79,17 @@
 
         if (index === undefined) {
             source = source.replaceAll('[]', "[0]")
-            message.push({"dest": `${destination}`, "label": "", "source": `${source}`, "units": ""})
+            message.push({"dest": `${destination}`, "label": `${destination}`, "source": `${source}`, "units": ""})
             let new_msg = JSON.stringify(message, undefined, 2);
             $('#id_transforms').val(new_msg);
             map_dest_index()
         }
 
         if (checkbox.checked) {
-            $(`#transform_label_${row}`).removeAttr('disabled');
+            let label_el = $(`#transform_label_${row}`)
+            label_el.removeAttr('disabled');
             $(`#transform_unit_${row}`).removeAttr('disabled');
+            label_el.val(destination)
 
         } else {
             let label_element = $(`#transform_label_${row}`);
