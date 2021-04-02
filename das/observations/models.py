@@ -964,6 +964,27 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
     def by_name_search(self, value):
         return self.filter(name__icontains=value)
 
+    def by_subjectgroups(self, subjectgroups, user):
+        if not hasattr(user, 'get_all_permission_sets'):
+            return self.none()
+
+        def get_effective_sg(allowed_sgs):
+            effective_sg_set = set()
+            for sg in allowed_sgs:
+                effective_sg_set.add(sg)
+                effective_sg_set.update(sg.get_descendants())
+            return effective_sg_set
+
+        if user.is_superuser:
+            effective_sgs = get_effective_sg(subjectgroups)
+        else:
+            ids = list(subjectgroups.values_list('id', flat=True))
+            allowed_subject_groups = \
+                SubjectGroup.objects.filter(id__in=ids, permission_sets__in=user.get_all_permission_sets())
+            effective_sgs = get_effective_sg(allowed_subject_groups)
+
+        return self.filter(groups__in=effective_sgs).distinct('id')
+
 
 class SubjectManager(models.Manager):
 

@@ -55,7 +55,7 @@ from activity.serializers import EventSerializer, EventNoteSerializer, \
     EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, \
     EventGeoJsonSerializer, \
     PatrolTypeSerializer, EventRelatedSegmentSerializer
-from activity.serializers.patrol_serializers import PatrolSerializer, PatrolSegmentSerializer, PatrolNoteSerializer, PatrolFileSerializer
+from activity.serializers.patrol_serializers import PatrolSerializer, PatrolSegmentSerializer, PatrolNoteSerializer, PatrolFileSerializer, TrackedBySerializer
 from choices.models import Choice
 from observations.models import Subject
 from utils.drf import StandardResultsSetPagination, \
@@ -1385,3 +1385,17 @@ def get_segments(kwargs, queryset):
         queryset = queryset.filter(
             eventrelatedsegments__event__id=related_event)
     return queryset
+
+
+class TrackedBySchema(generics.ListCreateAPIView):
+    serializer_class = TrackedBySerializer
+    metadata_class = EventJSONSchema
+
+    def get(self, request, *args, **kwargs):
+        meta = self.metadata_class()
+        data = meta.determine_metadata(request, self)
+        return generics.views.Response(data)
+
+    def post(self, request, *args, **kwargs):
+        raise rest_framework.exceptions.MethodNotAllowed('For Schema')
+

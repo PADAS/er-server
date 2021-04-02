@@ -674,3 +674,19 @@ class PatrolAdmin(PatrolPermissionMixin, OSMGeoExtendedAdmin):
             if tracked_subject:
                 instance.leader = tracked_subject
             instance.save()
+
+
+@AdminFeatureFlag(models.PatrolConfiguration, flag='PATROL_ENABLED')
+@admin.register(models.PatrolConfiguration)
+class PatrolConfiguration(admin.ModelAdmin):
+    list_display = ('name',)
+    filter_horizontal = ('subject_groups',)
+
+    def has_add_permission(self, request):
+        if self.model.objects.count():
+            return False
+        return super().has_add_permission(request)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+

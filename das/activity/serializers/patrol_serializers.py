@@ -142,11 +142,12 @@ class PatrolTypeRelatedField(serializers.RelatedField):
         return OrderedDict(((row.value, row.display)
                             for row in self.get_queryset()))
 
+
 class PatrolRelatedField(serializers.RelatedField):
     queryset = activity.models.Patrol.objects.all()
 
-    def to_internal_value(self, external_value):
-        if external_value:
+    def to_internal_value(self, data):
+        if data:
             data = data if isinstance(data, str) else data.value
             try:
                 return activity.models.PatrolType.objects.get_by_value(data)
@@ -301,6 +302,10 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
                     results.extend(updates)
 
         return results
+
+
+class TrackedBySerializer(serializers.Serializer):
+    leader = LeaderRelatedField(read_only=True)
 
 
 class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
