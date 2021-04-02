@@ -1771,21 +1771,42 @@ class MessagesView(generics.ListCreateAPIView):
         if subject_id:
             try:
                 models.Subject.objects.get(id=subject_id)
-                messages = messages.filter(Q(sender_id=subject_id) | Q(receiver_id=subject_id))
+                messages = messages.filter(
+                    Q(sender_id=subject_id) | Q(receiver_id=subject_id))
             except models.Subject.DoesNotExist:
-                raise NotFound({'Error': f'Subject with given ID does not exist'})
+                raise NotFound(
+                    {'Error': f'Subject with given ID does not exist'})
         return messages
+
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        if data.get("bulk_read"):
+            # Handle bulk reading of messages
+            ids, read = data.get("ids"), data.get("read", True)
+            ids = [ids] if isinstance(ids, str) else ids
+
+            user_messages = get_user_messages(self.request.user)
+            user_msg_ids = [str(k.id) for k in user_messages]
+            valid_update_ids = [k for k in ids if k in user_msg_ids]
+
+            user_messages.filter(id__in=valid_update_ids).update(read=read)
+            read_state = 'read' if read else 'unread'
+            return Response(f"{len(valid_update_ids)} messages successfully updated to {read_state}", status=status.HTTP_200_OK)
+
+        return self.create(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
 
         data = self._data(request)
-        serializer = self.serializer_class(data=data, context={'request': request})
+        serializer = self.serializer_class(
+            data=data, context={'request': request})
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST, )
 
         serializer.save()
         headers = self.get_success_headers(serializer.data)
-        handle_outbox_message.apply_async(args=(serializer.data, request.user.email))
+        handle_outbox_message.apply_async(
+            args=(serializer.data, request.user.email))
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def _data(self, request):
@@ -1793,13 +1814,15 @@ class MessagesView(generics.ListCreateAPIView):
         receiver, sender = data.get('receiver'), data.get('sender')
 
         if receiver.get('content_type') == 'observations.subject' and not data.get('device'):
-            subject = models.Subject.objects.filter(id=receiver.get('id')).first()
+            subject = models.Subject.objects.filter(
+                id=receiver.get('id')).first()
             if subject and subject.source:
                 data['device'] = str(subject.source.id)
 
         if not sender:
             # Set logged in user as the sender
-            data['sender'] = {"content_type": "accounts.user", "id": request.user.id}
+            data['sender'] = {
+                "content_type": "accounts.user", "id": request.user.id}
         return data
 
 
