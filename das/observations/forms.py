@@ -263,7 +263,7 @@ class TranformationRuleWidget(forms.MultiWidget):
     template_name = 'admin/transformation_rule.html'
 
     def __init__(self, attrs=None, provider=None):
-        self.provider = provider
+        self.provider = provider or {}
         widgets = [forms.CheckboxInput,
                    forms.TextInput(attrs={"id": "transform_label"}),
                    forms.TextInput({"id": "transform_unit"})]
@@ -339,14 +339,21 @@ class TranformationRuleWidget(forms.MultiWidget):
 
 def generate_sample_data(provider):
     accum = {}
-    window_asc = {'partition_by': F('source_id'), 'order_by': [F('recorded_at').asc()]}
+    rows = 25
+    dt_filter = datetime.now(tz=pytz.utc) - timedelta(days=30)
 
-    obs = Observation.objects.filter(source__provider=provider,
-                                     recorded_at__gte=datetime.now(tz=pytz.utc) - timedelta(days=30)
-                                     ).annotate(agg_data=Window(expression=JsonAgg('additional'),
-                                                                frame=RowRange(start=0, end=25),**window_asc))
+    observations = Observation.objects.raw("""
+     select ob.id,
+        jsonb_agg(to_jsonb(ob.additional))
+        OVER (PARTITION BY ob.source_id ORDER BY ob.recorded_at ASC ROWS BETWEEN CURRENT ROW AND %s FOLLOWING) AS agg_data
+     from (select row_number()
+              over (partition by o.source_id order by o.recorded_at DESC) as rn, o.*
+     from observations_observation o) ob
+          INNER JOIN observations_source ON (ob.source_id = observations_source.id)
+     where ob.rn <= %s and observations_source.provider_id = %s and ob.recorded_at >= %s
+     """, [rows, rows, provider.id, dt_filter])
 
-    [find_paths(x, accum=accum) for i in obs for x in i.agg_data]
+    [find_paths(aggregate_data, accum=accum) for observation in observations for aggregate_data in observation.agg_data]
 
     for k, v in accum.items():
         accum[k] = random.sample(v, min(3, len(v)))
@@ -415,9 +422,9 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['tranformation_rule'].widget.provider = generate_sample_data(kwargs.get('instance'))
         instance = kwargs.get('instance')
         if instance:
+            self.fields['tranformation_rule'].widget.provider = generate_sample_data(instance)
             self.fields['tranformation_rule'].initial = instance.transforms
 
     class Meta:
