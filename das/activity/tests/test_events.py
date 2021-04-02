@@ -1116,6 +1116,19 @@ class TestEventView(BaseAPITest):
         self.assertTrue(
             self.notes_line2_prefix in response.content.decode("utf-8"))
 
+    def test_export_events_with_invalid_et_schema(self):
+        url = """/activity/events/export?value_cols=true"""
+        # Update eventschema to have an invalid schema
+
+        EventType.objects.filter(value=ET_OTHER).update(schema={})
+        request = self.factory.get(
+            self.api_base + url)
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        assert response.status_code == 200
+
+
     def convert_rendered_csv_to_dict(self, content):
         reader = csv.DictReader(io.StringIO(content))
         return [row for row in reader]
@@ -1201,7 +1214,6 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
 
-        self.assertEqual(response.status_code, 200)
         assert response.status_code == 200
 
     def test_export_reports_with_create_date_filter(self):
