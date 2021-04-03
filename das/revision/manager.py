@@ -1,3 +1,4 @@
+import django.dispatch
 import logging
 import uuid
 
@@ -13,7 +14,6 @@ from django.db.models import Prefetch
 
 logger = logging.getLogger(__name__)
 
-import django.dispatch
 relation_deleted = django.dispatch.Signal(
     providing_args=['relation', 'instance', 'related_query_name'])
 
@@ -173,10 +173,10 @@ class Revision(object):
             if not data:
                 return
 
-
         with transaction.atomic():
 
-            o = manager.filter(object_id=instance.id).aggregate(max_sequence=Max('sequence'))
+            o = manager.filter(object_id=instance.id).aggregate(
+                max_sequence=Max('sequence'))
             max_sequence = o.get('max_sequence') or 0
 
             revision = manager.create(
@@ -247,7 +247,7 @@ class Revision(object):
 
         return {
             'id': models.UUIDField(primary_key=True, default=uuid.uuid4),
-            'object_id': models.UUIDField(db_index=True),
+            'object_id': models.UUIDField(),
             'action': models.CharField(max_length=10, choices=ACTION_CHOICES,
                                        default=AC_ADDED),
             'revision_at': models.DateTimeField(auto_now_add=True),
@@ -261,7 +261,6 @@ class Revision(object):
     def get_meta_options(self, model):
         result = {
             'unique_together': ('object_id', 'sequence',),
-            'index_together': ('object_id', 'sequence'),
             'app_label': model._meta.app_label,
         }
         from django.db.models.options import DEFAULT_NAMES
