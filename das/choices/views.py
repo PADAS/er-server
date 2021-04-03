@@ -59,17 +59,14 @@ class ChoicesView(generics.ListCreateAPIView):
     permission_classes = (ChoiceModelPermissions,)
     serializer_class = ChoiceSerializer
     schema = ChoicesViewSchema()
-    queryset = Choice.objects.all()
 
     def get_queryset(self):
-        queryset = super().get_queryset()
         qparam = self.request.query_params
 
         if parse_bool(qparam.get('include_inactive')):
-            # get choices that are both active and inactive but not disabled.
-            queryset = queryset.filter(delete_on__isnull=True)
+            queryset = Choice.objects.all()
         else:
-            queryset = queryset.filter(delete_on__isnull=True, is_active=True)
+            queryset = Choice.objects.get_active_choices()
 
         queryset = queryset.filter(model=qparam.get('model')) if qparam.get('model') else queryset
         queryset = queryset.filter(field=qparam.get('field')) if qparam.get('field') else queryset
@@ -87,7 +84,7 @@ class ChoiceView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
     serializer_class = ChoiceSerializer
     permission_classes = (ChoiceModelPermissions,)
-    queryset = Choice.objects.get_active_choices()
+    queryset = Choice.objects.all()
 
     def perform_destroy(self, instance):
         instance.disable()

@@ -9,7 +9,7 @@ from django.utils.translation import ugettext_lazy as _
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
 from mapping.models import Map, TileLayer, SpatialFeatureGroupStatic, \
     FeatureType, DisplayCategory, SpatialFeatureType, ArcgisConfiguration
-from mapping.utils import fetch_service_types
+from choices.models import Choice
 from core.common import TIMEZONE_USED
 
 
@@ -90,7 +90,17 @@ class TileLayerFormWithAttributes(JSONFieldFormMixin, TileLayerForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['type'].choices = fetch_service_types()
+        self.fields['type'].choices = self.fetch_service_types()
+
+    @staticmethod
+    def fetch_service_types():
+        service_type_choices = {}
+        for service_type in Choice.objects.filter(
+                model='mapping.TileLayer',
+                field='service_type').order_by('ordernum'):
+            service_type_choices[service_type.value] = service_type.display
+        return tuple([(key, value)
+                      for key, value in service_type_choices.items()])
 
     class Meta(TileLayerForm.Meta):
         json_fields = ('type', 'title', 'url', 'icon_url', 'configuration')

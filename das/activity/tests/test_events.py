@@ -904,6 +904,61 @@ class TestEventView(BaseAPITest):
         logger.debug(response_data)
         self.assertEqual(response.status_code, 201)
 
+    def test_collection_event_contains_with_different_user_permissions(self):
+        # Create Event A, B and collection
+        collection_et = EventType.objects.get_by_value('incident_collection')
+        logistics_et = EventType.objects.get_by_value(ET_LOGISTICS)
+        monitoring_et = EventType.objects.get_by_value(ET_MONITORING)
+
+        event_collection = Event.objects.create(
+            title="incident_collection_event", event_type=collection_et)
+        event_a = Event.objects.create(
+            title="Event_A", event_type=logistics_et)
+        event_b = Event.objects.create(
+            title="Event_B", event_type=monitoring_et)
+
+        EventRelationship.objects.add_relationship(
+            event_collection, event_a, 'contains')
+        EventRelationship.objects.add_relationship(
+            event_collection, event_b, 'contains')
+
+        request = self.factory.get(
+            self.api_base + '/event/' + str(event_collection.id))
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventView.as_view()(request, id=str(event_collection.id))
+
+        contained_events = response.data.get("contains")
+
+        # All perms user can view all contained events (A and B)
+        assert len(contained_events) == 2
+        contained_event_titles = [k.get('related_event').get(
+            'title') for k in contained_events]
+
+        assert contained_event_titles == ["Event_A", "Event_B"]
+
+        # Grant user security_read permissions
+
+        self.guest_user_permissionset.permissions.add(
+            Permission.objects.get(codename="security_read"))
+
+        self.guest_user.permission_sets.add(self.guest_user_permissionset)
+
+        new_request = self.factory.get(
+            self.api_base + '/event/' + str(event_collection.id))
+        self.force_authenticate(new_request, self.guest_user)
+        new_response = views.EventView.as_view()(
+            new_request, id=str(event_collection.id))
+
+        contained_events = new_response.data.get("contains")
+
+        # Guest user can view only the collection and event_A (security and logistics)
+        assert len(contained_events) == 1
+        contained_event_titles = [k.get('related_event').get(
+            'title') for k in contained_events]
+
+        assert contained_event_titles != ["Event_A", "Event_B"]
+        assert "Event_B" not in contained_event_titles
+
     def test_return_new_contained_events(self):
 
         event_data = json.loads(
@@ -1061,6 +1116,19 @@ class TestEventView(BaseAPITest):
         self.assertTrue(
             self.notes_line2_prefix in response.content.decode("utf-8"))
 
+    def test_export_events_with_invalid_et_schema(self):
+        url = """/activity/events/export?value_cols=true"""
+        # Update eventschema to have an invalid schema
+
+        EventType.objects.filter(value=ET_OTHER).update(schema={})
+        request = self.factory.get(
+            self.api_base + url)
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        assert response.status_code == 200
+
+
     def convert_rendered_csv_to_dict(self, content):
         reader = csv.DictReader(io.StringIO(content))
         return [row for row in reader]
@@ -1146,7 +1214,6 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
 
-        self.assertEqual(response.status_code, 200)
         assert response.status_code == 200
 
     def test_export_reports_with_create_date_filter(self):
@@ -3097,7 +3164,8 @@ class TestEventView(BaseAPITest):
         event_data['reported_by'] = self.user_rep
         event_data['provenance'] = Event.PC_STAFF
 
-        EventType.objects.filter(value=ET_OTHER).update(auto_resolve=True, resolve_time=1)
+        EventType.objects.filter(value=ET_OTHER).update(
+            auto_resolve=True, resolve_time=1)
         event_data['event_type'] = ET_OTHER
 
         request = self.factory.post(self.api_base + '/events/', event_data)
@@ -3106,7 +3174,8 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 201)
 
         created_at = datetime.now(tz=pytz.utc) - timedelta(hours=2)
-        Event.objects.filter(id=response.data.get('id')).update(created_at=created_at)
+        Event.objects.filter(id=response.data.get(
+            'id')).update(created_at=created_at)
 
         self.assertEqual(response.data.get('state'), 'new')
         automatically_update_event_state()

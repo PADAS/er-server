@@ -116,7 +116,8 @@ class LeaderRelatedField(ReportedByRelatedField):
                 yield provenance, values
 
     def to_representation(self, value):
-        representation = super(LeaderRelatedField, self).to_representation(value)
+        representation = super(
+            LeaderRelatedField, self).to_representation(value)
         return representation if self.is_allowed_to_view(representation) else {'hidden': True}
 
 
@@ -142,18 +143,18 @@ class PatrolTypeRelatedField(serializers.RelatedField):
         return OrderedDict(((row.value, row.display)
                             for row in self.get_queryset()))
 
+
 class PatrolRelatedField(serializers.RelatedField):
     queryset = activity.models.Patrol.objects.all()
 
-    def to_internal_value(self, external_value):
-        if external_value:
+    def to_internal_value(self, data):
+        if data:
             data = data if isinstance(data, str) else data.value
             try:
                 return activity.models.PatrolType.objects.get_by_value(data)
             except activity.models.PatrolType.DoesNotExist:
                 raise serializers.ValidationError(
                     f'patrol_type: {data} does not exist')
-
 
 
 class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
@@ -172,7 +173,7 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
     image_url = serializers.CharField(read_only=True, required=False)
     icon_id = serializers.CharField(read_only=True, required=False)
     events = PatrolSegmentEventSerializer(many=True, read_only=True, context={
-                             'include_related_events': True})
+        'include_related_events': True})
 
     def to_internal_value(self, data):
         sch_start = data.get('scheduled_start')
@@ -301,6 +302,10 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
                     results.extend(updates)
 
         return results
+
+
+class TrackedBySerializer(serializers.Serializer):
+    leader = LeaderRelatedField(read_only=True)
 
 
 class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):

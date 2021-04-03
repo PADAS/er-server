@@ -9,7 +9,7 @@ from rest_framework.validators import UniqueValidator
 import mapping.models as models
 import utils
 from activity.serializers.base import BaseSerializer
-from mapping.utils import fetch_service_types
+from choices.models import Choice
 
 logger = logging.getLogger(__name__)
 
@@ -35,16 +35,37 @@ class ExternalTileSerializer(serializers.ModelSerializer):
         return rep
 
 
+class ServiceTypeRelatedField(serializers.RelatedField):
+    def get_queryset(self):
+        return Choice.objects.filter(model='mapping.TileLayer', field='service_type')
+
+    def to_representation(self, value):
+        return value.value if value else None
+
+    def to_internal_value(self, data):
+        if data:
+            try:
+                Choice.objects.get(value=data)
+                return data
+            except Choice.DoesNotExist:
+                raise serializers.ValidationError(
+                    {'choice': f'Choice with value {data} does not exist.'})
+        return None
+
+    def display_value(self, instance):
+        return instance.display
+
+
 class TileLayerAttributes(serializers.Serializer):
-    type = serializers.ChoiceField(
-        choices=fetch_service_types(), label='service_type')
+    type = ServiceTypeRelatedField(required=False, allow_empty=True)
     title = serializers.CharField(
         required=False, allow_null=True, allow_blank=True)
     url = serializers.CharField(
         required=False, allow_null=True, allow_blank=True)
     icon_url = serializers.CharField(
         required=False, allow_null=True, allow_blank=True)
-    configuration = serializers.JSONField(required=False, default=dict)
+    configuration = serializers.JSONField(
+        required=False, allow_null=True, default=dict)
 
 
 class TileLayerSerializer(BaseSerializer):

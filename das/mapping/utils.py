@@ -438,13 +438,3 @@ def construct_url_param(redirect_url, params):
     url_parts = list(urlparse.urlparse(redirect_url))
     url_parts[4] = urlencode(params)
     return urlparse.urlunparse(url_parts)
-
-
-def fetch_service_types():
-    service_type_choices = {}
-    for service_type in Choice.objects.filter(
-            model='mapping.TileLayer',
-            field='service_type').order_by('ordernum'):
-        service_type_choices[service_type.value] = service_type.display
-    return tuple([(key, value)
-                  for key, value in service_type_choices.items()])

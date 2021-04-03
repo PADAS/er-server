@@ -108,6 +108,8 @@ urlpatterns = [
     url(
         r'^patrols/segments/?$', views.PatrolsegmentsView.as_view(), name='patrol-segments'),
     url(
+        r'^patrols/trackedby/?$', views.TrackedBySchema.as_view(), name='patrol-segments-schema'),
+    url(
         r'^patrols/segments/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.PatrolsegmentView.as_view(), name='patrol-segment'),
     url(
         r'^patrols/segments/(?P<patrol_segment>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/events/?$',
