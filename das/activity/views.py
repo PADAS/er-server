@@ -54,7 +54,7 @@ from activity.serializers import EventSerializer, EventNoteSerializer, \
     EventFileSerializer, \
     EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, \
     EventGeoJsonSerializer, \
-    PatrolTypeSerializer, EventRelatedSegmentSerializer
+    PatrolTypeSerializer, EventRelatedSegmentSerializer, PatrolSegmentEventSerializer
 from activity.serializers.patrol_serializers import PatrolSerializer, PatrolSegmentSerializer, PatrolNoteSerializer, PatrolFileSerializer, TrackedBySerializer
 from choices.models import Choice
 from observations.models import Subject
@@ -743,7 +743,7 @@ class EventsView(generics.ListCreateAPIView):
     def get_queryset(self):
 
         queryset = Event.objects.all_sort().prefetch_related(
-            'eventsource_event_refs')
+            'eventsource_event_refs', 'patrol_segments')
         patrol_segment_id = self.kwargs.get('patrol_segment')
         if patrol_segment_id:
             logger.debug("Filtering on patrol segment id: %s",
@@ -834,6 +834,11 @@ class EventsView(generics.ListCreateAPIView):
             queryset = queryset.prefetch_related(Prefetch('files'))
 
         return queryset
+
+    def get_serializer_class(self):
+        if self.kwargs.get('patrol_segment') and self.request.method == 'GET':
+            return PatrolSegmentEventSerializer
+        return super().get_serializer_class()
 
 
 def calculate_event_etag(view_instance, view_method, request, *args, **kwargs):
@@ -1351,10 +1356,13 @@ class PatrolsegmentsView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
     serializer_class = PatrolSegmentSerializer
     permission_classes = (PatrolObjectPermissions,)
-    queryset = PatrolSegment.objects.all()
+    queryset = PatrolSegment.objects.select_related(
+        'patrol_type', 'patrol').all()
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        queryset.prefetch_related(Prefetch('events'),
+                                  Prefetch('eventrelatedsegments_set'))
         return get_segments(self.kwargs, queryset)
 
 
@@ -1364,7 +1372,9 @@ class PatrolsegmentView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = PatrolSegmentSerializer
 
     def get_queryset(self):
-        queryset = PatrolSegment.objects.filter(id=self.kwargs.get('id'))
+        queryset = PatrolSegment.objects.select_related('patrol_type',
+                                                        'patrol').prefetch_related(Prefetch('events'),
+                                                                                   Prefetch('eventrelatedsegments_set')).filter(id=self.kwargs.get('id'))
         return get_segments(self.kwargs, queryset)
 
 
@@ -1387,4 +1397,3 @@ class TrackedBySchema(generics.ListCreateAPIView):
 
     def post(self, request, *args, **kwargs):
         raise rest_framework.exceptions.MethodNotAllowed('For Schema')
-

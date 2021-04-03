@@ -1,3 +1,4 @@
+import django.dispatch
 import logging
 import uuid
 
@@ -13,7 +14,6 @@ from django.db.models import Prefetch
 
 logger = logging.getLogger(__name__)
 
-import django.dispatch
 relation_deleted = django.dispatch.Signal(
     providing_args=['relation', 'instance', 'related_query_name'])
 
@@ -36,8 +36,7 @@ class RevisionManager(models.Manager):
 
     def all_user(self):
         """prefetch user"""
-        queryset = self.all()
-        queryset = queryset.prefetch_related(Prefetch('user'))
+        queryset = self.select_related('user')
         return queryset
 
 
@@ -174,10 +173,10 @@ class Revision(object):
             if not data:
                 return
 
-
         with transaction.atomic():
 
-            o = manager.filter(object_id=instance.id).aggregate(max_sequence=Max('sequence'))
+            o = manager.filter(object_id=instance.id).aggregate(
+                max_sequence=Max('sequence'))
             max_sequence = o.get('max_sequence') or 0
 
             revision = manager.create(

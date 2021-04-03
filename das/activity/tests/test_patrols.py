@@ -1641,3 +1641,23 @@ def test_patrol_admin_page(django_assert_max_num_queries, client):
     url = reverse('admin:activity_patrol_changelist')
     with django_assert_max_num_queries(15):
         client.get(url)
+
+
+def test_patrols(django_assert_max_num_queries, client):
+    user_const = dict(last_name='last', first_name='first')
+    user = User.objects.create_user('user', 'user@test.com', 'all_perms_user', is_superuser=True,
+                                    is_staff=True, **user_const)
+    client.force_login(user)
+    url = reverse('patrols')
+    with django_assert_max_num_queries(35):
+        client.get(url)
+
+
+def test_patrolsegments(django_assert_max_num_queries, client):
+    user_const = dict(last_name='last', first_name='first')
+    user = User.objects.create_user('user', 'user@test.com', 'all_perms_user', is_superuser=True,
+                                    is_staff=True, **user_const)
+    client.force_login(user)
+    url = reverse('patrols')
+    with django_assert_max_num_queries(35):
+        client.get(url)
