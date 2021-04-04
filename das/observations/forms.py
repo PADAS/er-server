@@ -60,7 +60,8 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
         fields = ('id', 'subject', 'source', 'assigned_range',
                   'additional') + json_fields
 
-    assigned_range = AssignedDateTimeRangeField(label=f'Assigned Range in {TIMEZONE_USED}')
+    assigned_range = AssignedDateTimeRangeField(
+        label=f'Assigned Range in {TIMEZONE_USED}')
 
     # For JSONFieldFormMixin -- this identifies the Model attribute that is
     # the JSON Field.
@@ -72,6 +73,25 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
 
 silence_notification_threshold_help_text_for_source =  \
     _('Threshold in hours:minutes:seconds that indicates an abnormal period without new data for this Source.')
+
+
+two_way_help_text = \
+    _('specify whether the source supports two-way messaging')
+
+
+def two_way_choices(source_provider_enable=False):
+    if source_provider_enable:
+        return (
+            (None, _('Enabled by Source Provider')),
+            (True, _('Enabled')),
+            (False, _('Disabled'))
+        )
+    else:
+        return (
+            (None, _('')),
+            (True, _('Enabled')),
+            (False, _('Disabled'))
+        )
 
 
 class SourceForm(JSONFieldFormMixin, forms.ModelForm):
@@ -108,6 +128,8 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
 
     silence_notification_threshold = forms.CharField(max_length=8, required=False, empty_value=None,
                                                      help_text=silence_notification_threshold_help_text_for_source)
+    two_way_messaging = forms.ChoiceField(
+        label='Two-way messaging', help_text=two_way_help_text, required=False)
 
     @staticmethod
     def fetch_organizations():
@@ -127,10 +149,21 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
             choices[choice.value] = choice.display
         return tuple([(key, value) for key, value in choices.items()])
 
+    @staticmethod
+    def fetch_2way_messaging_choices(instance):
+        if instance:
+            provider_2way_conf = instance.provider.additional.get(
+                'two_way_messaging', False)
+            return two_way_choices(source_provider_enable=provider_2way_conf)
+        return two_way_choices()
+
     def __init__(self, *args, **kwargs):
         super(SourceForm, self).__init__(*args, **kwargs)
+        instance = kwargs.get('instance')
         self.fields['data_owners'].choices = self.fetch_organizations()
         self.fields['collar_status'].choices = self.fetch_collar_status()
+        self.fields['two_way_messaging'].choices = self.fetch_2way_messaging_choices(
+            instance)
 
     class Meta:
         model = Source
@@ -139,7 +172,7 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
                        'feed_id', 'feed_passwd',
                        'adjusted_beacon_freq', 'frequency',
                        'adjusted_frequency',
-                       'backup_frequency', 'predicted_expiry', 'silence_notification_threshold')
+                       'backup_frequency', 'predicted_expiry', 'silence_notification_threshold', 'two_way_messaging')
         json_date_fields = ('predicted_expiry',)
         fields = ('id', 'manufacturer_id', 'provider', 'source_type',
                   'model_name') + json_fields
@@ -258,6 +291,9 @@ silence_notification_threshold_help_text =  \
 days_data_retain_help_text =  \
     _('Observations records outside the configured number of days will be removed permanently and cannot be retrieved.')
 
+two_way_help_text_sp = \
+    _('specify whether the source provider supports two-way messaging')
+
 
 class TranformationRuleWidget(forms.MultiWidget):
     template_name = 'admin/transformation_rule.html'
@@ -317,14 +353,17 @@ class TranformationRuleWidget(forms.MultiWidget):
                     widget_value = None
                 if id_:
                     widget_attrs = final_attrs.copy()
-                    widget_attrs['id'] = '%s_%s' % (widget.attrs.get('id') or id_, _)
+                    widget_attrs['id'] = '%s_%s' % (
+                        widget.attrs.get('id') or id_, _)
                 else:
                     widget_attrs = final_attrs
-                subwidgets.append(widget.get_context(widget_name, widget_value, widget_attrs)['widget'])
+                subwidgets.append(widget.get_context(
+                    widget_name, widget_value, widget_attrs)['widget'])
             list_subwidgets.append(subwidgets)
             subwidgets = []
         context['widget']['subwidgets'] = list_subwidgets
-        context['sample_data'] = json.loads(json.dumps(self.provider, sort_keys=True, indent=4))
+        context['sample_data'] = json.loads(
+            json.dumps(self.provider, sort_keys=True, indent=4))
 
         return context
 
@@ -414,6 +453,8 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
                                           help_text=days_data_retain_help_text)
 
     tranformation_rule = TranformationRuleField(required=False)
+    two_way_messaging = forms.BooleanField(required=False, initial=False, label='Two-way messaging',
+                                           help_text=two_way_help_text_sp)
 
     transforms = JSONField(widget=AutoFormatJSONWidget, required=False,
                            label=_("Advanced transformation rules"),
@@ -434,6 +475,7 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
             'lag_notification_threshold',
             'silence_notification_threshold',
             'days_data_retain',
+            'two_way_messaging'
         )
         json_date_fields = set()
 

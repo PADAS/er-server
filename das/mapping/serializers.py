@@ -8,7 +8,7 @@ from rest_framework.validators import UniqueValidator
 
 import mapping.models as models
 import utils
-from activity.serializers.base import BaseSerializer
+from core.serializers import BaseSerializer
 from choices.models import Choice
 
 logger = logging.getLogger(__name__)

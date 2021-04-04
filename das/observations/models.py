@@ -38,6 +38,8 @@ import pymet
 import pytz
 from dateutil.parser import parse as parse_date
 from django.db.models.functions import Greatest, Least
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models as dbmodels
 from django.contrib.postgres.fields.hstore import KeyTransform
 
@@ -1804,3 +1806,50 @@ class GPXTrackFile(GPXLogRecord):
     class Meta:
         verbose_name_plural = 'GPX track file'
         ordering = ('processed_date',)
+
+
+PENDING = 'pending'
+SENT = 'sent'
+ERRORED = 'errored'
+RECEIVED = 'received'
+MESSAGE_STATE_CHOICES = (
+    (PENDING, 'Pending'),
+    ('sent', 'Sent'),
+    ('errored', 'Errored'),
+    ('received', 'received'),
+)
+
+INBOX = 'inbox'
+OUTBOX = 'outbox'
+MESSAGE_TYPES = (
+    (INBOX, 'Inbox'),
+    (OUTBOX, 'Outbox'),
+)
+
+
+class Message(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    _limits = models.Q(app_label='observations', model='subject') | models.Q(
+        app_label='accounts', model='user')
+
+    sender_content_type = models.ForeignKey(
+        ContentType, on_delete=models.CASCADE, limit_choices_to=_limits, null=True, blank=True, related_name='sender_content_type')
+    receiver_content_type = models.ForeignKey(
+        ContentType, on_delete=models.CASCADE, limit_choices_to=_limits, null=True, blank=True, related_name='receiver_content_type')
+
+    sender_id = models.UUIDField(null=True, blank=True, default=None)
+    receiver_id = models.UUIDField(null=True, blank=True, default=None)
+
+    sender = GenericForeignKey('sender_content_type', 'sender_id')
+    receiver = GenericForeignKey('receiver_content_type', 'receiver_id')
+    device = models.ForeignKey('Source', null=True, on_delete=models.SET_NULL)
+    message_type = models.CharField(
+        max_length=40, choices=MESSAGE_TYPES, default=OUTBOX)
+    text = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=40, choices=MESSAGE_STATE_CHOICES, default=PENDING)
+    sender_location = models.PointField(blank=True, null=True)
+    device_location = models.PointField(blank=True, null=True)
+    message_time = models.DateTimeField(null=False, blank=False)
+    read = models.BooleanField(default=False)
+    additional = JSONField('additional data', default=dict, blank=True, null=True)

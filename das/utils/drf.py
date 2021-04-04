@@ -81,17 +81,6 @@ class StandardResultsSetGeoJsonPagination(GeoJsonPagination):
     page_size = 25
 
 
-class PointValidator:
-    """Check that the point field is valid in the latitude and longitude values
-    we do this by checking Point.valid is True"""
-
-    def __call__(self, value):
-        if value is None:
-            raise serializers.ValidationError("Location value is empty")
-        if not value.valid:
-            raise serializers.ValidationError(value.valid_reason)
-
-
 class AllowAnyGet(BasePermission):
     def has_permission(self, request, view):
         return request.method in ('GET', 'HEAD', 'OPTIONS') \

@@ -15,13 +15,15 @@ import utils
 import usercontent.serializers
 from accounts.serializers import UserDisplaySerializer, get_user_display
 from activity.models import PATROL_STATE_CHOICES, PC_OPEN, PC_DONE, PRI_NONE, PRIORITY_CHOICES
-from activity.models import Patrol, PatrolNote, PatrolSegment, Event
-from observations.models import Subject
-from activity.serializers import AlertRuleSerializer, EventSourceSerializer, EventSerializer, PatrolSegmentEventSerializer
-from activity.serializers import fields, ReportedByRelatedField
-from activity.serializers.base import BaseSerializer, RevisionMixin, TimestampMixin, FileSerializerMixin
-from activity.serializers.fields import choicefield_serializer, text_field
-from utils.drf import PointValidator
+from activity.models import Patrol, PatrolNote, PatrolSegment
+from activity.serializers import AlertRuleSerializer, EventSourceSerializer, PatrolSegmentEventSerializer
+from activity.serializers import fields
+from activity.serializers.base import RevisionMixin, FileSerializerMixin
+from core.serializers import BaseSerializer
+from core.fields import choicefield_serializer, text_field, GEOPointField
+from core.serializers import TimestampMixin, PointValidator, GenericRelatedField
+
+
 priority_choices_serializer = choicefield_serializer(
     PRIORITY_CHOICES, default=PRI_NONE)
 state_choices_serializer = choicefield_serializer(
@@ -105,15 +107,9 @@ class PatrolNoteSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
         return sorted(result, key=lambda u: u['time'], reverse=True)
 
 
-class LeaderRelatedField(ReportedByRelatedField):
-    def get_object_queryset(self):
-        request = self.context.get('request')
-        for p in activity.models.PROVENANCE_CHOICES:
-            provenance = p[0]
-            values = list(
-                activity.models.PatrolSegment.objects.get_leader_for_provenance(provenance, request.user))
-            if values:
-                yield provenance, values
+class LeaderRelatedField(GenericRelatedField):
+    def get_field_mapping(self, label="Leader"):
+        return super().get_field_mapping(label)
 
     def to_representation(self, value):
         representation = super(
@@ -166,9 +162,9 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
     scheduled_start = DateTimeField(required=False, allow_null=True)
     scheduled_end = DateTimeField(required=False, allow_null=True)
     time_range = fields.DateTimeRangeField(required=False, allow_null=True)
-    start_location = fields.GEOPointField(
+    start_location = GEOPointField(
         required=False, allow_null=True, validators=[PointValidator()])
-    end_location = fields.GEOPointField(
+    end_location = GEOPointField(
         required=False, allow_null=True, validators=[PointValidator()])
     image_url = serializers.CharField(read_only=True, required=False)
     icon_id = serializers.CharField(read_only=True, required=False)

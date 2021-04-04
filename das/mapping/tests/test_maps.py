@@ -1,7 +1,9 @@
 import logging
 
+from django.contrib.auth.models import Permission
 from django.contrib.auth import get_user_model
 
+from accounts.models import PermissionSet
 from core.tests import BaseAPITest
 from mapping import views
 
@@ -9,11 +11,12 @@ logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
+TILELAYER_CUD_PERMISSIONS = ('change_tilelayer', 'delete_tilelayer', 'add_tilelayer')
 
 class TestMaps(BaseAPITest):
     fixtures = ('initial_dev_map.yaml', './test/mapping_layer.yaml',
                 'initial_tilelayers.json')
-
+       
     def test_return_two_maps(self):
         request = self.factory.get(
             self.api_base + '/maps')
@@ -33,8 +36,13 @@ class TestMaps(BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
     def test_layers_api_crud_operations(self):
+        ps = PermissionSet.objects.create(name='TILELAYER CUD Permissions')
+        for p in Permission.objects.filter(codename__in=TILELAYER_CUD_PERMISSIONS):
+            ps.permissions.add(p)
+        self.app_user.permission_sets.add(ps)
+
         layers_url = self.api_base + '/mapping/layers'
-        layer_data = dict(name="Esri Satellite")
+        layer_data = dict(name="Esri Satellite", attributes={})
 
         # Create and view layer
         request = self.factory.post(layers_url, layer_data)
@@ -50,7 +58,7 @@ class TestMaps(BaseAPITest):
                 "type": "google_map",
                 "title": "Google Satellite",
                 "configuration": {
-                    "accessToken": "AIzaSyArYgAAi9immeQFbEO2_6dRgc7hCSLaOIo"
+                    "accessToken": "testaccesstoken"
                 }
             }
         )

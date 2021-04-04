@@ -1,26 +1,31 @@
 import json
-from datetime import datetime, timedelta, MAXYEAR, MINYEAR
 from collections import OrderedDict
+from datetime import datetime, timedelta, MAXYEAR, MINYEAR
 from typing import NamedTuple
 
 import pytz
-from dateutil.parser import parse as parse_date
+import rest_framework.serializers
+from django.conf import settings
 from django.contrib.gis.geos import Point
 from django.urls import reverse
-from django.conf import settings
-from django.db import transaction
-import rest_framework.serializers
-from drf_extra_fields.geo_fields import PointField
 from drf_extra_fields.fields import DateTimeRangeField
+from drf_extra_fields.geo_fields import PointField
+from rest_framework.fields import DateTimeField
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from rest_framework.fields import DateTimeField
 
-from core.serializers import ContentTypeField
-from observations import models
-from observations.utils import get_maximum_allowed_age, get_minimum_allowed_age, dateparse, get_null_point
+import activity
 import utils.json
-from utils.json import zeroout_microseconds
+from accounts.serializers import UserDisplaySerializer
+from accounts.models import User
+from core.fields import GEOPointField, choicefield_serializer, text_field
+from core.serializers import ContentTypeField, TimestampMixin
+from core.serializers import GenericRelatedField, BaseSerializer
+from observations import models
+from observations.utils import (dateparse, get_maximum_allowed_age,
+                                get_minimum_allowed_age, get_null_point)
 from utils import add_base_url
+from utils.json import zeroout_microseconds
 
 
 class RegionSerializer(rest_framework.serializers.ModelSerializer):
@@ -740,3 +745,52 @@ class GPXTrackFileUploadSerializer(rest_framework.serializers.Serializer):
             raise rest_framework.serializers.ValidationError(
                 {'data': 'Only .gpx files can be imported.'})
         return data
+
+
+DEFAULT_SERIALIZER_MAPPING = {
+    'observations.subject': {'serializer': SubjectSerializer,
+                             'field': 'subject'},
+    'accounts.user': {'serializer': UserDisplaySerializer,
+                      'field': 'user'}
+}
+
+
+class SenderReceiverRelatedField(GenericRelatedField):
+    def get_field_mapping(self, label="User"):
+        return super().get_field_mapping(label)
+
+
+class MessageSerializer(BaseSerializer, TimestampMixin):
+    from core.serializers import PointValidator
+
+    id = rest_framework.serializers.UUIDField(read_only=True)
+    sender = SenderReceiverRelatedField(required=False, allow_null=True)
+    receiver = SenderReceiverRelatedField(required=False, allow_null=True)
+
+    device = SourceRelatedField(required=False, allow_null=True)
+    message_type = choicefield_serializer(models.MESSAGE_TYPES, default=models.OUTBOX)
+    text = text_field(required=False, allow_blank=True, allow_null=True)
+    status = choicefield_serializer(models.MESSAGE_STATE_CHOICES, default=models.PENDING)
+    sender_location = GEOPointField(required=False, allow_null=True, validators=[PointValidator()])
+    device_location = GEOPointField(required=False, allow_null=True, validators=[PointValidator()])
+    message_time = DateTimeField(required=False, allow_null=True)
+    read = rest_framework.serializers.BooleanField(required=False)
+    additional = rest_framework.serializers.JSONField(default=dict, allow_null=True)
+
+    class Meta:
+        model = models.Message
+        fields = ('id', 'sender_id', 'receiver_id', 'device_id', 'message_type', 'text', 'status',
+                  'sender_location', 'device_location', 'message_time', 'additional')
+
+    def to_representation(self, instance):
+        rep = super(MessageSerializer, self).to_representation(instance)
+
+        request = self.context.get('request')
+        query_params = request.query_params
+        include_additional = query_params.get('include_additional_data', False)
+        if not include_additional:
+            del rep['additional']
+        return rep
+
+    def create(self, validated_data):
+        return models.Message.objects.create(**validated_data)

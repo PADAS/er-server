@@ -76,6 +76,12 @@ def start(realtime_server):
         message_data = json.loads(data)
         realtime_server.send_realtime_message(message_data)
 
+    def message_status_update_handler(data, message):
+        logger.debug(
+            'message_status_update_handler. data=%s, message=%s', data, message)
+        celery.app.send_task('rt_api.tasks.handle_message_status_update',
+                             args=(data['message_id'], data['status'],))
+
     def pubsub_listener():
 
         logger.info('Starting pubsub listener')
@@ -108,6 +114,10 @@ def start(realtime_server):
             {
                 'routing_key': 'das.realtime.emit',
                 'callback': emit_handler},
+            {
+                'routing_key': 'das.message.status_update',
+                'callback': message_status_update_handler,
+            },
         ]
         for subscription in subscriptions:
             subscription['name'] = 'rt_api.{0}'.format(
