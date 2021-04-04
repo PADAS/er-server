@@ -189,7 +189,8 @@ class DisplayCategoryForm(forms.ModelForm):
 
     def save(self, commit=True):
         instance = super().save(commit)
-        instance.spatialfeaturetype_set.set(self.cleaned_data['feature_classes'])
+        instance.spatialfeaturetype_set.set(
+            self.cleaned_data['feature_classes'])
         return instance
 
 

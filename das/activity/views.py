@@ -54,14 +54,15 @@ from activity.serializers import EventSerializer, EventNoteSerializer, \
     EventFileSerializer, \
     EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, \
     EventGeoJsonSerializer, \
-    PatrolTypeSerializer, EventRelatedSegmentSerializer
-from activity.serializers.patrol_serializers import PatrolSerializer, PatrolSegmentSerializer, PatrolNoteSerializer, PatrolFileSerializer
+    PatrolTypeSerializer, EventRelatedSegmentSerializer, PatrolSegmentEventSerializer
+from activity.serializers.patrol_serializers import PatrolSerializer, PatrolSegmentSerializer, PatrolNoteSerializer, PatrolFileSerializer, TrackedBySerializer
 from choices.models import Choice
 from observations.models import Subject
 from utils.drf import StandardResultsSetPagination, \
     StandardResultsSetGeoJsonPagination
 from utils.json import parse_bool, loads, ExtendedGEOJSONRenderer
 from das_server.views import CustomSchema
+from activity.util import get_permitted_event_categories
 
 logger = logging.getLogger(__name__)
 
@@ -215,15 +216,19 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
         schema_fields = schema_utils.get_replacement_fields_in_schema(
             eventtype.schema)
 
+        choices = Choice.objects.filter(
+            is_active=True) if definition_format == 'flat' else Choice.objects.all()
+
         parameters = {}
         enumImages_vals = {}
         for schema_field in schema_fields:
             if schema_field['lookup'] == 'enum':
-                icon_vals = schema_utils.get_enumImage_values(schema_field)
+                icon_vals = schema_utils.get_enumImage_values(
+                    schema_field, queryset=choices)
                 if icon_vals:
                     enumImages_vals[schema_field['field']] = icon_vals
                 parameters[schema_field['tag']
-                           ] = schema_utils.get_enum_choices(schema_field)
+                           ] = schema_utils.get_enum_choices(schema_field, queryset=choices)
             elif schema_field['lookup'] == 'query':
                 parameters[schema_field['tag']
                            ] = schema_utils.get_dynamic_choices(schema_field)
@@ -249,42 +254,43 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
             request, eventtype.image_url)
 
         field_schema = schema_utils.map_schema(eventtype.schema, schema)
-        for key, value in field_schema.items():
-            inactive_choices = []
-            obj = Choice.objects.filter(
-                is_active=False, field=value['field_name'])
-            for o in obj:
-                inactive_choices.append(o.value)
-            if inactive_choices:
-                schema['schema']['properties'][key]["inactive" +
-                                                    "_" + value['lookup']] = inactive_choices
 
-        for value in schema_utils.get_values_titlemap(eventtype.schema):
-            inactive_choices = []
-            obj = Choice.objects.filter(is_active=False, field=value)
-            for o in obj:
-                inactive_choices.append(o.value)
-            if inactive_choices:
+        if definition_format != 'flat':
+            for key, value in field_schema.items():
+                inactive_choices = []
+                obj = Choice.objects.filter(
+                    is_active=False, field=value['field_name'])
+                for o in obj:
+                    inactive_choices.append(o.value)
+                if inactive_choices:
+                    schema['schema']['properties'][key]["inactive" +
+                                                        "_" + value['lookup']] = inactive_choices
 
-                for key in schema['definition']:
-                    if isinstance(key, OrderedDict):
-                        items = key.get('items')
+            for value in schema_utils.get_values_titlemap(eventtype.schema):
+                inactive_choices = []
+                obj = Choice.objects.filter(is_active=False, field=value)
+                for o in obj:
+                    inactive_choices.append(o.value)
+                if inactive_choices:
+                    for key in schema['definition']:
+                        if isinstance(key, OrderedDict):
+                            items = key.get('items')
 
-                        tmap_values = [(i, i['titleMap']) for i in items if isinstance(i, OrderedDict)
-                                       and i.get('titleMap')] if items else None
+                            tmap_values = [(i, i['titleMap']) for i in items if isinstance(i, OrderedDict)
+                                           and i.get('titleMap')] if items else None
 
-                        # TODO: Consider the truthiness of tmap_values here,
-                        # for the case where it is set to [].
-                        if tmap_values:
-                            for item, tmap in tmap_values:
-                                for tm in tmap:
-                                    if tm.get('value') in inactive_choices:
-                                        item['inactive_titleMap'] = inactive_choices
+                            # TODO: Consider the truthiness of tmap_values here,
+                            # for the case where it is set to [].
+                            if tmap_values:
+                                for item, tmap in tmap_values:
+                                    for tm in tmap:
+                                        if tm.get('value') in inactive_choices:
+                                            item['inactive_titleMap'] = inactive_choices
 
-                        elif key.get('titleMap'):
-                            for title_map_elem in key.get('titleMap'):
-                                if title_map_elem.get('value') in inactive_choices:
-                                    key['inactive_titleMap'] = inactive_choices
+                            elif key.get('titleMap'):
+                                for title_map_elem in key.get('titleMap'):
+                                    if title_map_elem.get('value') in inactive_choices:
+                                        key['inactive_titleMap'] = inactive_choices
 
         for key, value in field_schema.items():
             for o, vals in enumImages_vals.items():
@@ -737,7 +743,7 @@ class EventsView(generics.ListCreateAPIView):
     def get_queryset(self):
 
         queryset = Event.objects.all_sort().prefetch_related(
-            'eventsource_event_refs')
+            'eventsource_event_refs', 'patrol_segments')
         patrol_segment_id = self.kwargs.get('patrol_segment')
         if patrol_segment_id:
             logger.debug("Filtering on patrol segment id: %s",
@@ -829,18 +835,10 @@ class EventsView(generics.ListCreateAPIView):
 
         return queryset
 
-
-def get_permitted_event_categories(request):
-    permitted_categories = []
-
-    for category in EventCategory.objects.filter(is_active=True):
-        permission_name = 'activity.{0}_{1}'.format(
-            category.value,
-            EventCategoryPermissions.http_method_map['GET']
-        )
-        if request.user.has_perm(permission_name):
-            permitted_categories.append(category)
-    return permitted_categories
+    def get_serializer_class(self):
+        if self.kwargs.get('patrol_segment') and self.request.method == 'GET':
+            return PatrolSegmentEventSerializer
+        return super().get_serializer_class()
 
 
 def calculate_event_etag(view_instance, view_method, request, *args, **kwargs):
@@ -882,6 +880,7 @@ class EventView(generics.RetrieveUpdateDestroyAPIView):
             query_params.get('include_files', True))
         context['include_related_events'] = parse_bool(
             query_params.get('include_related_events', True))
+        context['request'] = self.request
         return context
 
     def get_queryset(self):
@@ -1211,7 +1210,8 @@ class PatrolsView(generics.ListCreateAPIView):
         if subject:
             queryset = queryset.by_subject(subject)
 
-        queryset = queryset.prefetch_related('notes', 'files', 'patrol_segments__patrol_type', 'patrol_segments__events')
+        queryset = queryset.prefetch_related(
+            'notes', 'files', 'patrol_segments__patrol_type', 'patrol_segments__events')
         return queryset.sort_patrols()
 
 
@@ -1356,10 +1356,13 @@ class PatrolsegmentsView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
     serializer_class = PatrolSegmentSerializer
     permission_classes = (PatrolObjectPermissions,)
-    queryset = PatrolSegment.objects.all()
+    queryset = PatrolSegment.objects.select_related(
+        'patrol_type', 'patrol').all()
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        queryset.prefetch_related(Prefetch('events'),
+                                  Prefetch('eventrelatedsegments_set'))
         return get_segments(self.kwargs, queryset)
 
 
@@ -1369,7 +1372,9 @@ class PatrolsegmentView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = PatrolSegmentSerializer
 
     def get_queryset(self):
-        queryset = PatrolSegment.objects.filter(id=self.kwargs.get('id'))
+        queryset = PatrolSegment.objects.select_related('patrol_type',
+                                                        'patrol').prefetch_related(Prefetch('events'),
+                                                                                   Prefetch('eventrelatedsegments_set')).filter(id=self.kwargs.get('id'))
         return get_segments(self.kwargs, queryset)
 
 
@@ -1379,3 +1384,16 @@ def get_segments(kwargs, queryset):
         queryset = queryset.filter(
             eventrelatedsegments__event__id=related_event)
     return queryset
+
+
+class TrackedBySchema(generics.ListCreateAPIView):
+    serializer_class = TrackedBySerializer
+    metadata_class = EventJSONSchema
+
+    def get(self, request, *args, **kwargs):
+        meta = self.metadata_class()
+        data = meta.determine_metadata(request, self)
+        return generics.views.Response(data)
+
+    def post(self, request, *args, **kwargs):
+        raise rest_framework.exceptions.MethodNotAllowed('For Schema')

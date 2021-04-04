@@ -79,8 +79,8 @@ commands:
         default: 'dev'
     steps:
       - 'activate_google_service_account'
-      - run: "gcloud compute firewall-rules create \"bastion-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --allow=\"tcp:22\" --description=\"for CircleCi... delete by: $(date --date='tomorrow')\" --direction=INGRESS --network=\"<< parameters.network >>\" --priority=899 --source-ranges=\"$(curl --silent ifconfig.me)/32\" --target-tags=\"psql-bastion\" --project=\"earthranger-78ca55ca\" --quiet"
-      - run: "gcloud compute firewall-rules create \"k8s-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --allow=\"tcp:$K8S_PROXY_PORT\" --description=\"for CircleCi... delete by: $(date --date='tomorrow')\" --direction=INGRESS --network=\"$K8S_PROXY_NETWORK\" --priority=899 --source-ranges=\"$(curl --silent ifconfig.me)/32\" --target-tags=\"$K8S_PROXY_TARGET_TAG\" --project=\"$K8S_PROXY_PROJECT\" --quiet"
+      - run: "gcloud compute firewall-rules create \"bastion-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --allow=\"tcp:22\" --description=\"for CircleCi... delete by: $(date --date='tomorrow')\" --direction=INGRESS --network=\"<< parameters.network >>\" --priority=899 --source-ranges=\"$(curl --silent ifconfig.io)/32\" --target-tags=\"psql-bastion\" --project=\"earthranger-78ca55ca\" --quiet"
+      - run: "gcloud compute firewall-rules create \"k8s-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --allow=\"tcp:$K8S_PROXY_PORT\" --description=\"for CircleCi... delete by: $(date --date='tomorrow')\" --direction=INGRESS --network=\"$K8S_PROXY_NETWORK\" --priority=899 --source-ranges=\"$(curl --silent ifconfig.io)/32\" --target-tags=\"$K8S_PROXY_TARGET_TAG\" --project=\"$K8S_PROXY_PROJECT\" --quiet"
       - run: '<<parameters.inner_command>>'
       - run:
           command: "gcloud compute firewall-rules delete \"bastion-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --project=\"earthranger-78ca55ca\" --quiet"
@@ -94,7 +94,7 @@ commands:
         type: 'string'
     steps:
       - 'activate_google_service_account'
-      - run: "gcloud compute firewall-rules create \"k8s-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --allow=\"tcp:$K8S_PROXY_PORT\" --description=\"for CircleCi... delete by: $(date --date='tomorrow')\" --direction=INGRESS --network=\"$K8S_PROXY_NETWORK\" --priority=899 --source-ranges=\"$(curl --silent ifconfig.me)/32\" --target-tags=\"$K8S_PROXY_TARGET_TAG\" --project=\"$K8S_PROXY_PROJECT\" --quiet"
+      - run: "gcloud compute firewall-rules create \"k8s-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --allow=\"tcp:$K8S_PROXY_PORT\" --description=\"for CircleCi... delete by: $(date --date='tomorrow')\" --direction=INGRESS --network=\"$K8S_PROXY_NETWORK\" --priority=899 --source-ranges=\"$(curl --silent ifconfig.io)/32\" --target-tags=\"$K8S_PROXY_TARGET_TAG\" --project=\"$K8S_PROXY_PROJECT\" --quiet"
       - run: '<<parameters.inner_command>>'
       - run:
           command: "gcloud compute firewall-rules delete \"k8s-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --project=\"$K8S_PROXY_PROJECT\" --quiet"
@@ -241,6 +241,16 @@ jobs:
             exit ${TEST_EXIT_CODE}
       - store_test_results:
           path: ~/unittest-output
+      # - store_artifacts:
+      #     path: ~/unittest-output
+      - run: 
+          name: Grep Exit Code from test results
+          command: |
+            if grep -i 'failures="0"' ~/unittest-output/result.xml; then
+                exit 0
+            else
+                exit 1
+            fi
   docker_build_image:
     executor: 'default'
     steps:

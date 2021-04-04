@@ -25,7 +25,7 @@ User = django.contrib.auth.get_user_model()
 class GenericSensorHandlerTest(BaseAPITest):
     source_type = 'tracking-collar'
     sensor_type = 'ste-collar'
-    provider = 'test_provider'
+    provider = lorem_ipsum.words(100).replace(" ", "")[:100]
     manufacturer_id = "ST2010-3034"
 
     one_observation = {
@@ -410,6 +410,23 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertEqual(1, Observation.objects.filter(
             source=new_source).count())
         self.assertIsNotNone(SubjectSubType.objects.get(value=subject_subtype))
+
+    def test_request_with_varying_provider_key_lengths(self):
+        client = Client()
+        client.force_login(self.super_user)
+
+        response = client.post(
+            self.api_path, self.one_observation, content_type="application/json")
+
+        assert response.status_code == 201
+
+        provider = lorem_ipsum.words(200).replace(" ", "")[:200]
+        url = '/'.join((self.api_base, 'sensors',
+                        self.sensor_type, provider, 'status'))
+
+        response = client.post(url, self.one_observation,
+                               content_type="application/json")
+        assert response.status_code == 404  # Not found
 
     def _generate_observations(self, n=10, distinct=False):
         for i in range(n):

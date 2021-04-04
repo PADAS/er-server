@@ -34,9 +34,9 @@ from django.contrib.postgres.fields import DateTimeRangeField
 from django.core.serializers.json import DjangoJSONEncoder
 
 from accounts.models.permissionset import PermissionSet
-from core.models import TimestampedModel
+from core.models import TimestampedModel, SingletonModel
 from core.utils import static_image_finder
-from observations.models import Subject, Source
+from observations.models import Subject, Source, SubjectGroup
 from revision.manager import Revision, RevisionMixin, RevisionAdapter
 from utils.html import clean_user_text
 from observations.utils import dateparse as dparse
@@ -419,6 +419,10 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             queryset = queryset.filter(
                 reported_by_id__in=filter.get('reported_by'))
 
+        if filter.get('create_date'):
+            lower, upper = parse_date_range(filter.get('create_date'))
+            queryset = queryset.by_created_date(lower=lower, upper=upper)
+
         return queryset.distinct()
 
     def by_duration(self, duration):
@@ -461,6 +465,16 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
                                   params=[searchtext, searchtext])
 
         return queryset.all_sort().distinct()
+
+    def by_created_date(self, lower=None, upper=None):
+        if lower and upper:
+            return self.filter(created_at__range=(lower, upper))
+        elif lower:
+            return self.filter(created_at__gt=lower)
+        elif upper:
+            return self.filter(created_at__lt=upper)
+
+        return self
 
 
 class EventManager(models.Manager):
@@ -1761,22 +1775,21 @@ class PatrolSegmentMembership(TimestampedModel):
 
 
 class PatrolSegmentManager(models.Manager):
-    def get_leader_for_provenance(self, provenance, user=None):
+
+    @staticmethod
+    def get_leader_for_provenance(provenance, user=None):
         if PC_STAFF == provenance:
-            def get_staff():
-                # We also want subjects who are staff (rangers are tracked as
-                # subjects via their radio, but can report events
-                staff_subject = Subject.objects.all().get_staff().by_is_active()
+            def get_subjects():
+                active_subjects = Subject.objects.all().by_is_active()
+                subject_grps = PatrolConfiguration.objects.first().subject_groups.all()
 
-                for obj in staff_subject.by_user_subjects(user) if user else staff_subject:
-                    yield obj.name.lower(), obj
-            for staff in sorted(get_staff(), key=itemgetter(0)):
-                yield staff[1]
+                for o in active_subjects.by_subjectgroups(subject_grps, user=user):
+                    yield o.name.lower(), o
 
-        elif PC_COMMUNITY == provenance:
-            for community in sorted(Community.objects.all(),
-                                    key=attrgetter('name')):
-                yield community
+            subjects = get_subjects()
+            for sub in sorted(subjects, key=itemgetter(0)):
+                yield sub[1]
+
 
 
 class PatrolSegmentRevisionAdapter(RevisionAdapter):
@@ -1842,6 +1855,11 @@ class PatrolSegment(TimestampedModel, RevisionMixin):
     revision = PatrolSegmentRevision()
 
     objects = PatrolSegmentManager()
+
+
+class PatrolConfiguration(SingletonModel):
+    name = models.CharField(max_length=255)
+    subject_groups = models.ManyToManyField(SubjectGroup, related_name='groups', blank=True)
 
 
 # class PatrolTemplate(models.Model):

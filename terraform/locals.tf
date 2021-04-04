@@ -25,7 +25,9 @@ locals {
     "bomani"                 = "prod1"
     "bostonpridelands"       = "prod1"
     "bubyevalley"            = "prod1"
+    "buffalokloof"           = "prod1"
     "ccf"                    = "prod1"
+    "centralapennines"       = "prod1"
     "centralrift"            = "prod1"
     "chadreintroduction"     = "prod1"
     "chipinge"               = "prod1"
@@ -226,6 +228,8 @@ locals {
     "gashakagumti"        = 1
     "indalo"              = 1
     "sca"                 = 1
+    "centralapennines"    = 1
+    "buffalokloof"        = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)

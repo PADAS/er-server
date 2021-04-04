@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 import dateutil.parser
 import pytz
 import pytest
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APIRequestFactory, force_authenticate
 from django.contrib.auth.models import Permission
@@ -112,7 +112,7 @@ class BasePermissionTest(BaseAPITest):
 
         DEFAULT_DATE_RANGE = (
             datetime.datetime(2015, 11, 1, tzinfo=pytz.utc),
-            datetime.datetime(3030, 1, 1, tzinfo=pytz.utc)
+            dateutil.parser.parse("9999-12-31 23:59:59+0000")
         )
 
         source = Source.objects.create(additional={})
@@ -176,6 +176,7 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         response = views.SubjectSourcesView.as_view()(request, id=str(self.ele.id))
         self.assertEqual(response.status_code, 403)
 
+    @override_settings(TIME_ZONE="Africa/Nairobi")
     def test_return_subject_sources(self):
         request = self.factory.get(
             API_BASE + '/subject/{0}/subjectsources'.format(self.ele.id))
@@ -444,7 +445,7 @@ class ObservationViewTestCase(BaseAPITest):
 
         DEFAULT_DATE_RANGE = (
             datetime.datetime(2015, 11, 1, tzinfo=pytz.utc),
-            datetime.datetime(3030, 1, 1, tzinfo=pytz.utc)
+            dateutil.parser.parse("9999-12-31 23:59:59+0000")
         )
         SubjectSource.objects.create(
             assigned_range=DEFAULT_DATE_RANGE,
@@ -478,6 +479,20 @@ class ObservationViewTestCase(BaseAPITest):
             self.observation_readwrite_set)
 
         self.ele_group.permission_sets.add(self.observation_readwrite_set)
+
+    def test_return_observations_by_subjectsource(self):
+        subjectsource_id = str(self.elephant.subjectsources.all()[0].id)
+
+        url = reverse('observations-list-view')
+        url += '?{}'.format(urlencode({'subjectsource_id': subjectsource_id}))
+
+        request = self.factory.get(self.api_base + url)
+
+        self.force_authenticate(request, self.user)
+
+        response = views.ObservationsView.as_view()(request)
+        assert response.status_code == 200
+        assert len(response.data)
 
     def test_include_details_false(self):
         url = reverse('observations-list-view')

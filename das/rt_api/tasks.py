@@ -366,7 +366,7 @@ def handle_subjectstatus_update(subject_id):
 
 def _patrol_handler(item_id, type):
     try:
-        view, serializer, entity = Patrol, PatrolView(), PatrolSerializer, 'patrol'
+        view, serializer, entity = PatrolView(), PatrolSerializer, 'patrol'
         instance, user_sids_map = get_instance(Patrol, item_id, type, entity)
 
         for username, user_sids in user_sids_map.items():
