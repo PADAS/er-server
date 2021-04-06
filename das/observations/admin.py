@@ -58,6 +58,7 @@ from observations.utils import assigned_range_dates, get_cyclic_subjectgroup, fi
 from tracking.models import SourcePlugin
 from utils.html import make_html_list
 from .models import SOURCE_TYPES
+from django.contrib.admin import SimpleListFilter
 
 site_title = _('EarthRanger Administration (advanced view)')
 admin.site.site_title = site_title
@@ -350,7 +351,8 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
 
     gis_geometry_field_name = 'location'
 
-    list_filter = (SubjectNameFilter, SubjectIdFilter, SourceIdFilter, ('recorded_at', DateRangeFilter))
+    list_filter = (SubjectNameFilter, SubjectIdFilter,
+                   SourceIdFilter, ('recorded_at', DateRangeFilter))
 
     def subject_link(self, obj):
         return mark_safe('<a href="{}">{}</a>'.format(
@@ -360,7 +362,6 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
         ))
     subject_link.short_description = 'Subject'
     subject_link.admin_order_field = 'subject_name'
-
 
     def _longitude(self, o):
         return round(o.location.x, 5)
@@ -439,7 +440,8 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
         daterange_set = self.is_date_range_set(request)
         if daterange_set:
             d1, d2 = daterange_set
-            extra_context['history_limit_days'] = self.difference_in_date( d1[0], d2[0])
+            extra_context['history_limit_days'] = self.difference_in_date(
+                d1[0], d2[0])
             return super().changelist_view(request, extra_context=extra_context)
         extra_context['history_limit_days'] = OBSERVATIONS_HISTORY_LIMIT.days
         return super().changelist_view(request, extra_context=extra_context)
@@ -686,7 +688,8 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
         _url = reverse('admin:observations_gpxtrackfile_changelist')
         filter_param = 'source_assignment__subject__id__exact'
         extra_context['gpxdata'] = gpxdata[:3]
-        extra_context['query_filter'] = f'{_url}?{filter_param}={object_id}' if gpxdata.count() > 3 else None
+        extra_context['query_filter'] = f'{_url}?{filter_param}={object_id}' if gpxdata.count(
+        ) > 3 else None
         return extra_context
 
     def check_for_no_trackpoints_import_failure(self, request, gpx_uploads):
@@ -712,11 +715,14 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
                                        'observations.change_observation')):
             latest_gpx_upload = models.GPXTrackFile.objects.filter(source_assignment__subject=object_id). \
                 annotate(subject_name=F('source_assignment__subject__name'),
-                         source_name=F('source_assignment__source__manufacturer_id'),
+                         source_name=F(
+                             'source_assignment__source__manufacturer_id'),
                          username=F('created_by__username')).order_by('-processed_date').values()
-            extra_context = self.get_gpxdata_context(extra_context, latest_gpx_upload, object_id)
+            extra_context = self.get_gpxdata_context(
+                extra_context, latest_gpx_upload, object_id)
 
-        self.check_for_no_trackpoints_import_failure(request, latest_gpx_upload)
+        self.check_for_no_trackpoints_import_failure(
+            request, latest_gpx_upload)
 
         return super().change_view(
             request, object_id, form_url, extra_context=extra_context,
@@ -730,15 +736,21 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
 
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         if db_field.name == 'import_gpx_data':
-            formfield = self.formfield_for_foreignkey(db_field, request, **kwargs)
-            related_modeladmin = self.admin_site._registry.get(db_field.remote_field.model)
+            formfield = self.formfield_for_foreignkey(
+                db_field, request, **kwargs)
+            related_modeladmin = self.admin_site._registry.get(
+                db_field.remote_field.model)
             wrapper_kwargs = {}
             if related_modeladmin:
                 wrapper_kwargs.update(
-                    can_add_related=related_modeladmin.has_add_permission(request),
-                    can_change_related=related_modeladmin.has_change_permission(request),
-                    can_delete_related=related_modeladmin.has_delete_permission(request),
-                    can_view_related=related_modeladmin.has_view_permission(request),
+                    can_add_related=related_modeladmin.has_add_permission(
+                        request),
+                    can_change_related=related_modeladmin.has_change_permission(
+                        request),
+                    can_delete_related=related_modeladmin.has_delete_permission(
+                        request),
+                    can_view_related=related_modeladmin.has_view_permission(
+                        request),
                     query_value=request.resolver_match.kwargs.get('object_id'),
                 )
             formfield.widget = _RelatedFieldWidgetWrapper(
@@ -824,7 +836,8 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
         if not change:
             subject_id = request.GET.get('subject_id')
             none_qs = models.SubjectSource.objects.none()
-            queryset = models.Subject.objects.get(id=subject_id).subjectsources.all() if self.check_uuid(subject_id) else none_qs
+            queryset = models.Subject.objects.get(
+                id=subject_id).subjectsources.all() if self.check_uuid(subject_id) else none_qs
             form.base_fields['source_assignment'].widget = forms.Select()
             form.base_fields['source_assignment'].queryset = queryset
             form.base_fields['source_assignment'].initial = queryset.last()
@@ -845,10 +858,12 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
         )
         # Add a link to the object's change form if the user can edit the obj.
         if self.has_change_permission(request, obj):
-            obj_repr = format_html('<a href="{}">{}</a>', urlquote(obj_url), obj)
+            obj_repr = format_html('<a href="{}">{}</a>',
+                                   urlquote(obj_url), obj)
         else:
             obj_repr = str(obj)
-        msg_dict = {'name': opts.verbose_name, 'obj': obj_repr, 'filename': obj.file_name}
+        msg_dict = {'name': opts.verbose_name,
+                    'obj': obj_repr, 'filename': obj.file_name}
 
         if "_addanother" in request.POST:
 
@@ -858,7 +873,8 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
             )
             self.message_user(request, msg, messages.SUCCESS)
             redirect_url = request.get_full_path()
-            redirect_url = add_preserved_filters({'preserved_filters': preserved_filters, 'opts': opts}, redirect_url)
+            redirect_url = add_preserved_filters(
+                {'preserved_filters': preserved_filters, 'opts': opts}, redirect_url)
             return HttpResponseRedirect(redirect_url)
         else:
 
@@ -944,7 +960,6 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
             pass
         return imported_points if imported_points else '-'
     _points_imported.short_description = 'Track Points Imported'
-
 
 
 @admin.register(models.SubjectSourceSummary)
@@ -1107,7 +1122,7 @@ class CurrentAssignmentFilter(admin.SimpleListFilter):
 class SubjectSourceAdmin(admin.ModelAdmin):
     list_display = ('subject_name', 'manufacturer_id',
                     'current', '_assigned_range')
-    ordering = ('subject','source', 'assigned_range')
+    ordering = ('subject', 'source', 'assigned_range')
     list_filter = ('source__source_type', CurrentAssignmentFilter,
                    'subject__subject_subtype__subject_type__value', 'subject__subject_subtype__value')
     search_fields = ('source__manufacturer_id', 'subject__name')
@@ -1261,6 +1276,7 @@ class ModelFormSet(BaseModelFormSet):
 class SubjectGroupException(Exception):
     pass
 
+
 class DeleteDefaultSubjectGroupException(SubjectGroupException):
     pass
 
@@ -1334,7 +1350,8 @@ class SubjectGroupAdmin(HierarchyModelAdmin):
     def changelist_view(self, request, extra_context=None):
         url_path = request.get_full_path()
         try:
-            response = super(SubjectGroupAdmin, self).changelist_view(request, extra_context)
+            response = super(SubjectGroupAdmin, self).changelist_view(
+                request, extra_context)
         except IntegrityError:
             msg = _("Warning: A default subject group has already been set.")
             self.message_user(request, msg, level=messages.WARNING)
@@ -1358,9 +1375,11 @@ class SubjectGroupAdmin(HierarchyModelAdmin):
 
     def delete_view(self, request, object_id, extra_context=None):
         try:
-            template_response = super()._delete_view(request, object_id, extra_context=None)
+            template_response = super()._delete_view(
+                request, object_id, extra_context=None)
         except SubjectGroupException:
-            url_path = reverse('admin:observations_subjectgroup_change', kwargs={'object_id': object_id})
+            url_path = reverse('admin:observations_subjectgroup_change', kwargs={
+                               'object_id': object_id})
             msg = _("Warning: Cannot delete the default subject group.")
             self.message_user(request, msg, level=messages.WARNING)
             return HttpResponseRedirect(url_path)
@@ -1464,7 +1483,6 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
     subject_link.short_description = 'Subject'
     subject_link.admin_order_field = 'subject'
 
-
     def _age(self, o):
         return humanize.naturaldelta(datetime.now(tz=pytz.utc) - o.recorded_at) if o.recorded_at else 'n/a'
     _age.short_description = _('Age of Observation')
@@ -1490,7 +1508,8 @@ class SubjectStatusAdmin(OSMGeoExtendedAdmin):
     def get_queryset(self, request):
         """Limit Subjects to those this person can administer"""
         qs = super(SubjectStatusAdmin, self).get_queryset(request)
-        subject_source = models.SubjectSource.objects.filter(subject_id=OuterRef('subject__pk'))
+        subject_source = models.SubjectSource.objects.filter(
+            subject_id=OuterRef('subject__pk'))
         qs = qs.filter(delay_hours=0)
         qs = qs.annotate(subject_provider=Subquery(subject_source.values('source__provider__display_name')[:1]),
                          source_type=Subquery(subject_source.values('source__source_type')[:1]))
@@ -1546,7 +1565,7 @@ class SourceProviderAdmin(admin.ModelAdmin):
             'classes': ('wide', 'collapse',),
             'fields': ('additional',)
         }
-         ),
+        ),
 
         ('Subject Details Configuration', {
             'classes': ('wide', 'collapse',),
@@ -1702,3 +1721,49 @@ class ObservationAnnotatorAdmin(admin.ModelAdmin):
 
     def subject_subtype(self, o):
         return o.subject.subject_subtype.value
+
+
+class SubjectMessagesFilter(SimpleListFilter):
+    title = 'Subjects'
+    parameter_name = 'subjects'
+
+    def lookups(self, request, model_admin):
+
+        # Get subjects with messages and add as filter options
+        sender_subject_ids = models.Message.objects.filter(sender_content_type__model="subject").values_list(
+            'sender_id', flat=True)
+        receiver_subject_ids = models.Message.objects.filter(receiver_content_type__model="subject").values_list(
+            'receiver_id', flat=True)
+        subject_ids = receiver_subject_ids.union(sender_subject_ids)
+        subjects = models.Subject.objects.filter(id__in=subject_ids)
+
+        return [(str(k.id), k.name) for k in subjects]
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value:
+            return queryset.filter(Q(sender_id=value) | Q(receiver_id=value))
+        return queryset
+
+
+@admin.register(models.Message)
+class MessageAdmin(admin.ModelAdmin):
+
+    list_display = ('sender', 'receiver', 'message_type',
+                    'status', 'message_time', 'read')
+    list_editable = ('read',)
+    search_fields = ('sender_id', 'receiver_id')
+    list_filter = (SubjectMessagesFilter,)
+    ordering = ('message_time', )
+    readonly_fields = ('id',)
+
+    def get_search_results(self, request, queryset, search_term):
+        qs = queryset
+        queryset, use_distinct = super(MessageAdmin, self).get_search_results(
+            request, qs, search_term)
+
+        matching_subject_ids = models.Subject.objects.filter(
+            name__icontains=search_term).values_list('id', flat=True)
+        queryset |= qs.filter(Q(sender_id__in=matching_subject_ids) | Q(
+            receiver_id__in=matching_subject_ids))
+        return queryset, use_distinct
