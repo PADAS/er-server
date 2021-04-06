@@ -549,7 +549,8 @@ class EventsExportView(views.APIView):
                 if header.startswith('"') and header.endswith('"'):
                     header = header[1:-1]
                 column_data = schema_data.get(header, "")
-                event_data[header_key] = column_data if column_data else ""
+                event_data[header_key] = column_data if (
+                    column_data or column_data == 0) else ""
 
             current_event_type_data['events'].append(event_data)
 
