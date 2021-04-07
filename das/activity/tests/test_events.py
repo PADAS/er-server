@@ -206,7 +206,7 @@ class TestEventView(BaseAPITest):
         self.start_of_today = self.now.replace(
             hour=0, minute=0, second=0, microsecond=0)
         self.end_of_today = self.start_of_today + \
-                            timedelta(hours=23, minutes=59, seconds=59)
+            timedelta(hours=23, minutes=59, seconds=59)
 
     def tearDown(self):
         shutil.rmtree(self.temporary_folder)
@@ -1128,7 +1128,6 @@ class TestEventView(BaseAPITest):
         response = views.EventsExportView.as_view()(request)
         assert response.status_code == 200
 
-
     def convert_rendered_csv_to_dict(self, content):
         reader = csv.DictReader(io.StringIO(content))
         return [row for row in reader]
@@ -1219,13 +1218,14 @@ class TestEventView(BaseAPITest):
     def test_export_reports_with_create_date_filter(self):
         url = """/activity/events/export"""
         q_params = json.dumps(
-                {"create_date": {
-                        "lower": self.start_of_today.isoformat(), "upper": self.end_of_today.isoformat()}})
+            {"create_date": {
+                "lower": self.start_of_today.isoformat(), "upper": self.end_of_today.isoformat()}})
 
         request = self.factory.get(self.api_base + url, {'filter': q_params})
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        rendered_dict = self.convert_rendered_csv_to_dict(
+            response.content.decode("utf-8"))
         assert len(rendered_dict) == 1
 
         tomorrow = self.now + timedelta(days=1)
@@ -1234,7 +1234,8 @@ class TestEventView(BaseAPITest):
         request = self.factory.get(self.api_base + url, {'filter': q_params})
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
-        rendered_dict = self.convert_rendered_csv_to_dict(response.content.decode("utf-8"))
+        rendered_dict = self.convert_rendered_csv_to_dict(
+            response.content.decode("utf-8"))
         assert len(rendered_dict) == 0
 
     def test_export_filter_on_incident_associated_reports(self):
@@ -2757,6 +2758,47 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
         self.assertTrue("Unknown Rhino 1" in response.content.decode("utf-8"))
+
+    def test_export_with_0_event_details_data(self):
+        et_schema = json.dumps({
+            "schema": {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "type": "object",
+                "properties": {
+                        "test_three_number":
+                            {"type": "number",
+                             "title": "Test 3 Number With Min and Max",
+                             "minimum": 0,
+                             "maximum": 50},
+                        "test_four_number":
+                        {"type": "number", "title": "Test 4 Number"}
+                }},
+            "definition": ["test_three_number", "test_four_number"]
+        })
+
+        event_type = self.sample_event.event_type
+        event_type.schema = et_schema
+        event_type.save()
+
+        EventDetails.objects.create(
+            data={"event_details": {"test_four_number": 0, "test_three_number": 0}},
+            event=self.sample_event)
+
+        url = """/activity/events/export"""
+        filter_spec = json.dumps({'text': "Test event"})
+        request = self.factory.get(
+            self.api_base + url, {'filter': filter_spec})
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        rendered_content = response.content.decode("utf-8")
+        rendered_dict = self.convert_rendered_csv_to_dict(rendered_content)
+
+        first_report = rendered_dict[0]
+
+        # 0 event detail values included in export
+        assert int(first_report.get('Test_4_Number')) == 0
+        assert int(first_report.get('Test_3_Number_With_Min_and_Max')) == 0
 
     def test_export_on_checkbox_with_query_titlemaps(self):
         DynamicChoice.objects.create(

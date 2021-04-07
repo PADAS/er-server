@@ -384,7 +384,7 @@ def _patrol_handler(item_id, type):
 
         for username, user_sids in user_sids_map.items():
             user = get_sid_user(username, user_sids)
-            if user:
+            if not user:
                 continue
 
             logger.debug('Handling patrol for user: %s', username)
