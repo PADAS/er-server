@@ -76,6 +76,11 @@ def get_sid_user(username, user_sids):
         client.remove_clients(user_sids)
 
 
+def get_emit_data(**kwargs):
+    emit_data = EmitData(**kwargs)._asdict()
+    return dict(emit_data)
+
+
 def _event_handler(event_id, type):
     try:
         logger.debug('Processing type=%s on event=%s', type, event_id)
@@ -97,16 +102,11 @@ def _event_handler(event_id, type):
                 matches_current_filter = False
 
                 if type == 'delete_event':
-                    emit_data = EmitData(type=type,
-                                         sid=sid,
-                                         object_id=event_id,
-                                         data={'type': type,
-                                               'event_id': event_id,
-                                               'event_data': None,
-                                               'matches_current_filter': matches_current_filter
-                                               })._asdict()
-
-                    emit_data = dict(emit_data)
+                    emit_data = get_emit_data(type=type,
+                                              sid=sid,
+                                              object_id=event_id,
+                                              data={'type': type,  'event_id': event_id,  'event_data': None,
+                                                    'matches_current_filter': matches_current_filter})
                 else:
 
                     request = DummyRequest(user=user, http_method='GET', query_parameters={})
@@ -144,12 +144,11 @@ def _event_handler(event_id, type):
                                                                 'include_related_events': True
                                                                 }).data
 
-                                emit_data = {
-                                    'type': type,
-                                    'sid': sid,
-                                    'object_id': event_id,
-                                    'data': {'type': type, 'event_id': event_id, 'matches_current_filter': matches_current_filter, 'event_data': data, 'count': event_count}
-                                }
+                                emit_data = get_emit_data(type=type, sid=sid, object_id=event_id,
+                                                          data={'type': type,
+                                                                'event_id': event_id,
+                                                                'matches_current_filter': matches_current_filter,
+                                                                'event_data': data, 'count': event_count})
 
                 if emit_data:
                     logger.debug(
@@ -270,15 +269,10 @@ def _subjectstatus_update_handler(subject_id):
                     if payload:
                         # TODO: move this order-by clause into the view.
                         points = sorted(payload, key=lambda x: x['time'], reverse=True)
-                        emit_data = {
-                                'type': 'subject_track_merge',
-                                'sid': sid,
-                                'object_id': subject_id,
-                                'data': {
-                                    'points': points,
-                                    'subject_id': subject_id
-                                }
-                        }
+
+                        emit_data = get_emit_data(type='subject_track_merge', sid=sid, object_id=subject_id,
+                                                  data={'points': points, 'subject_id': subject_id})
+
                         emit_message = json.dumps(emit_data, default=dumps_helper)
 
                         logger.debug("Emitting: %s", emit_message)
@@ -400,11 +394,8 @@ def _patrol_handler(item_id, type):
                 matches_current_filter = True  # To be regulated in the filters ticket
                 if type == 'delete_patrol':
                     data = {'type': type, 'patrol_id': item_id, 'matches_current_filter': matches_current_filter}
-                    emitdata = EmitData(type=type,
-                                        sid=sid,
-                                        object_id=item_id,
-                                        data=data)._asdict()
-                    emit_data = dict(emitdata)
+                    emit_data = get_emit_data(type=type, sid=sid, object_id=item_id, data=data)
+
                 else:
                     request = DummyRequest(user=user, http_method='GET', query_parameters={})
                     request = Request(request) # Wrap in DRF Request
@@ -428,12 +419,9 @@ def _patrol_handler(item_id, type):
                             data = serializer(instance, context={
                                               'request': request}).data
 
-                            emitdata = EmitData(type=type,
-                                                sid=sid,
-                                                object_id=item_id,
-                                                data={'type': type, 'patrol_id': item_id, 'patrol_data': data,
-                                                      'matches_current_filter': matches_current_filter})._asdict()
-                            emit_data = dict(emitdata)
+                            emit_data = get_emit_data(type=type, sid=sid, object_id=item_id,
+                                                      data={'type': type, 'patrol_id': item_id, 'patrol_data': data,
+                                                            'matches_current_filter': matches_current_filter})
 
                 if emit_data:
                     logger.debug(
@@ -462,12 +450,8 @@ def _radio_message_handler(object_id, action, status):
             for sid in user_sids:
                 emit_data = {}
                 if action == 'message_status_update':
-                    emitdata = EmitData(type=action,
-                                        sid=sid,
-                                        object_id=object_id,
-                                        data={'type': action, 'message_id': object_id, 'status': status})
-
-                    emit_data = dict(emitdata._asdict())
+                    emit_data = get_emit_data(type=action, sid=sid, object_id=object_id,
+                                              data={'type': action, 'message_id': object_id, 'status': status})
                 if emit_data:
                     logger.debug('Publish das.realtime.emit.  data=%s', emit_data)
                     pubsub.publish(json.dumps(emit_data, default=dumps_helper), 'das.realtime.emit')
