@@ -454,6 +454,38 @@ def _patrol_handler(item_id, type):
         close_old_connections()
 
 
+def _radio_message_handler(object_id, action, status):
+    try:
+        logger.debug('Processing type=%s on message=%s', action, object_id)
+
+        user_sids_map = get_username_sids_map()
+        logger.debug('user_sids_map: %s', user_sids_map)
+
+        for username, user_sids in user_sids_map.items():
+            try:
+                user = User.objects.get(username=username)
+            except User.DoesNotExist:
+                logger.warning('radio_message_handler found no username=%s.', username)
+                client.remove_clients(user_sids)
+                continue
+
+            for sid in user_sids:
+                emit_data = {}
+                if action == 'message_status_update':
+                    emit_data = {
+                        'type': action,
+                        'sid': sid,
+                        'object_id': object_id,
+                        'data': {'type': action, 'message_id': object_id, 'status': status}
+                    }
+
+                if emit_data:
+                    logger.debug('Publish das.realtime.emit.  data=%s', emit_data)
+                    pubsub.publish(json.dumps(emit_data, default=dumps_helper), 'das.realtime.emit')
+    finally:
+        close_old_connections()
+
+
 @celery.app.task()
 def handle_new_patrol(patrol_id):
     logger.info('Celery worker handling new patrol_id: %s',
