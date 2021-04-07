@@ -3,6 +3,7 @@ import json
 import logging
 import redis
 from functools import partial
+from collections import namedtuple
 import pytz
 
 from celery_once import QueueOnce
@@ -19,8 +20,8 @@ from django.urls import reverse
 
 from observations import servicesutils
 
-from observations.models import Message
-from observations.views import SubjectStatusView, ObservationsView
+from observations.models import SubjectSource
+from observations.views import SubjectTracksView, SubjectStatusView, ObservationsView
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from uuid import UUID
 from rt_api import client
@@ -34,6 +35,8 @@ from observations.models import SocketClient
 
 
 logger = logging.getLogger(__name__)
+
+EmitData = namedtuple('EmitData', ['type', 'sid', 'object_id', 'data'])
 
 
 def get_context():
@@ -65,54 +68,33 @@ def get_username_sids_map():
     return user_sids_map
 
 
-def get_instance(model, item_id, type, entity):
-    logger.debug(f'Processing type={type} on {entity}={item_id}')
-    user_sids_map = get_username_sids_map()
-    logger.debug('user_sids_map: %s', user_sids_map)
-
-    instance = model.objects.filter(id=item_id).first()
-    return instance, user_sids_map
-
-
-def get_user(username, user_sids, entity):
-    user = None
+def get_sid_user(username, user_sids):
     try:
-        user = User.objects.get(username=username)
-        logger.debug(f'Handling {entity} for user: %s', username)
+        return User.objects.get(username=username)
     except User.DoesNotExist:
-        logger.warning(
-            'patrol_handler found no username=%s.', username)
+        logger.warning('realtime-handler found no username=%s.', username)
         client.remove_clients(user_sids)
-    return user
 
 
-def emit_data_defaults(item_id, type, sid):
-    emit_data = {
-        'type': type,
-        'sid': sid,
-        'object_id': item_id
-    }
-    return emit_data
-
-
-def pubsub_emit_data(emit_data):
-    logger.debug(
-        'Publish das.realtime.emit.  data=%s', emit_data)
-    pubsub.publish(json.dumps(
-        emit_data, default=dumps_helper), 'das.realtime.emit')
-
+def get_emit_data(**kwargs):
+    emit_data = EmitData(**kwargs)._asdict()
+    return dict(emit_data)
 
 
 def _event_handler(event_id, type):
     try:
-        event_view, entity = EventView(), 'event'
-        event, user_sids_map = get_instance(Event, event_id, type, entity)
+        logger.debug('Processing type=%s on event=%s', type, event_id)
+        event_view = EventView()
+
+        user_sids_map = get_username_sids_map()
+        logger.debug('user_sids_map: %s', user_sids_map)
 
         for username, user_sids in user_sids_map.items():
-            user = get_user(username, user_sids, entity)
+            user = get_sid_user(username, user_sids)
             if not user:
                 continue
 
+            logger.debug('Handling event for user: %s', username)
             # TODO: update this logic to be a little more frugal with the per
             # user/event-filter query.
             for sid in user_sids:
@@ -120,17 +102,17 @@ def _event_handler(event_id, type):
                 matches_current_filter = False
 
                 if type == 'delete_event':
-                    emit_data = emit_data_defaults(event_id, type, sid)
-                    emit_data['data'] = {
-                            'type': type, 'event_id': event_id,
-                            'event_data': None,
-                            'matches_current_filter': matches_current_filter
-                        }
+                    emit_data = get_emit_data(type=type,
+                                              sid=sid,
+                                              object_id=event_id,
+                                              data={'type': type,  'event_id': event_id,  'event_data': None,
+                                                    'matches_current_filter': matches_current_filter})
                 else:
 
                     request = DummyRequest(user=user, http_method='GET', query_parameters={})
                     request = Request(request)  # Wrap in DRF Request
                     queryset = Event.objects.filter(id=event_id)
+                    event = queryset.first()
 
                     if event:
                         event_count = 1
@@ -161,11 +143,18 @@ def _event_handler(event_id, type):
                                                        context={'request': request,
                                                                 'include_related_events': True
                                                                 }).data
-                                emit_data = emit_data_defaults(event_id, type, sid)
-                                emit_data['data'] = {'type': type, 'event_id': event_id, 'matches_current_filter': matches_current_filter, 'event_data': data, 'count': event_count}
+
+                                emit_data = get_emit_data(type=type, sid=sid, object_id=event_id,
+                                                          data={'type': type,
+                                                                'event_id': event_id,
+                                                                'matches_current_filter': matches_current_filter,
+                                                                'event_data': data, 'count': event_count})
 
                 if emit_data:
-                    pubsub_emit_data(emit_data)
+                    logger.debug(
+                        'Publish das.realtime.emit.  data=%s', emit_data)
+                    pubsub.publish(json.dumps(
+                        emit_data, default=dumps_helper), 'das.realtime.emit')
 
     finally:
         close_old_connections()
@@ -242,7 +231,7 @@ def _subjectstatus_update_handler(subject_id):
 
         for username, user_sids in user_sids_map.items():
             try:
-                user = get_user(username, user_sids, 'subjectstatus')
+                user = get_sid_user(username, user_sids)
                 if not user:
                     continue
 
@@ -251,13 +240,22 @@ def _subjectstatus_update_handler(subject_id):
 
                 logger.debug('SubjectStatus payload: %s', payload)
                 if payload:
-                    emit_data = emit_data_defaults(subject_id, 'subject_status', '<<sid>>')
-                    emit_data['data'] = payload
+
+                    emit_data = {
+                        'type': 'subject_status',
+                        'sid': '<<sid>>',
+                        'object_id': subject_id,
+                        'data': payload
+                    }
                     emit_data = json.dumps(emit_data, default=dumps_helper)
 
                     for sid in user_sids:
-                        emit_data['sid'] = sid
-                        pubsub_emit_data(emit_data)
+
+                        message = emit_data.replace('<<sid>>', sid)
+
+                        logger.debug('Emitting: %s', message)
+                        pubsub.publish(
+                            message, routing_key='das.realtime.emit')
                 else:
                     logger.warning(
                         'SubjectStatus payload is empty.', extra=dict(username=username, subject_id=subject_id))
@@ -272,9 +270,13 @@ def _subjectstatus_update_handler(subject_id):
                         # TODO: move this order-by clause into the view.
                         points = sorted(payload, key=lambda x: x['time'], reverse=True)
 
-                        emit_data = emit_data_defaults(subject_id, 'subject_track_merge', sid)
-                        emit_data['data'] = {'points': points, 'subject_id': subject_id}
-                        pubsub_emit_data(emit_data)
+                        emit_data = get_emit_data(type='subject_track_merge', sid=sid, object_id=subject_id,
+                                                  data={'points': points, 'subject_id': subject_id})
+
+                        emit_message = json.dumps(emit_data, default=dumps_helper)
+
+                        logger.debug("Emitting: %s", emit_message)
+                        pubsub.publish(emit_message, routing_key='das.realtime.emit')
 
                     else:
                         logger.warning(
@@ -366,23 +368,34 @@ def handle_subjectstatus_update(subject_id):
 
 def _patrol_handler(item_id, type):
     try:
-        view, serializer, entity = PatrolView(), PatrolSerializer, 'patrol'
-        instance, user_sids_map = get_instance(Patrol, item_id, type, entity)
+        logger.debug('Processing type=%s on patrol=%s', type, item_id)
+        model, view, serializer = Patrol, PatrolView(), PatrolSerializer
+        user_sids_map = get_username_sids_map()
+        logger.debug('user_sids_map: %s', user_sids_map)
+
+        try:
+            queryset = model.objects.filter(id=item_id)
+            instance = queryset.first()
+        except model.DoesNotExist:
+            instance = None
+            if type != 'delete_patrol':
+                logger.warning('Patrol handler given id: %s but it is not found in the database.')
+                return
 
         for username, user_sids in user_sids_map.items():
-            user = get_user(username, user_sids, entity)
-            if not user:
+            user = get_sid_user(username, user_sids)
+            if user:
                 continue
+
+            logger.debug('Handling patrol for user: %s', username)
 
             for sid in user_sids:
                 emit_data = {}
-                matches_current_filter = True
+                matches_current_filter = True  # To be regulated in the filters ticket
                 if type == 'delete_patrol':
-                    emit_data = emit_data_defaults(item_id, type, sid)
-                    emit_data['data'] = {
-                            'type': type, 'patrol_id': item_id,
-                            'matches_current_filter': matches_current_filter
-                        }
+                    data = {'type': type, 'patrol_id': item_id, 'matches_current_filter': matches_current_filter}
+                    emit_data = get_emit_data(type=type, sid=sid, object_id=item_id, data=data)
+
                 else:
                     request = DummyRequest(user=user, http_method='GET', query_parameters={})
                     request = Request(request) # Wrap in DRF Request
@@ -405,36 +418,43 @@ def _patrol_handler(item_id, type):
 
                             data = serializer(instance, context={
                                               'request': request}).data
-                            emit_data = emit_data_defaults(item_id, type, sid)
-                            emit_data['data'] = {
-                                    'type': type, 'patrol_id': item_id, 'patrol_data': data,
-                                    'matches_current_filter': matches_current_filter
-                                }
+
+                            emit_data = get_emit_data(type=type, sid=sid, object_id=item_id,
+                                                      data={'type': type, 'patrol_id': item_id, 'patrol_data': data,
+                                                            'matches_current_filter': matches_current_filter})
 
                 if emit_data:
-                    pubsub_emit_data(emit_data)
+                    logger.debug(
+                        'Publish das.realtime.emit.  data=%s', emit_data)
+                    pubsub.publish(json.dumps(
+                        emit_data, default=dumps_helper), 'das.realtime.emit')
     finally:
         close_old_connections()
 
 
-def _radio_message_handler(item_id, type, status):
+def _radio_message_handler(object_id, action, status):
     try:
-        entity = 'message'
-        instance, user_sids_map = get_instance(Message, item_id, type, entity)
+        logger.debug('Processing type=%s on message=%s', action, object_id)
+
+        user_sids_map = get_username_sids_map()
+        logger.debug('user_sids_map: %s', user_sids_map)
 
         for username, user_sids in user_sids_map.items():
-            user = get_user(username, user_sids, entity)
-            if not user:
+            try:
+                user = User.objects.get(username=username)
+            except User.DoesNotExist:
+                logger.warning('radio_message_handler found no username=%s.', username)
+                client.remove_clients(user_sids)
                 continue
 
             for sid in user_sids:
-                if type == 'message_status_update':
-                    emit_data = emit_data_defaults(item_id, type, sid)
-                    emit_data['data'] = {
-                            'type': type, 'message_id': item_id,
-                            'status': status
-                        }
-                    pubsub_emit_data(emit_data)
+                emit_data = {}
+                if action == 'message_status_update':
+                    emit_data = get_emit_data(type=action, sid=sid, object_id=object_id,
+                                              data={'type': action, 'message_id': object_id, 'status': status})
+                if emit_data:
+                    logger.debug('Publish das.realtime.emit.  data=%s', emit_data)
+                    pubsub.publish(json.dumps(emit_data, default=dumps_helper), 'das.realtime.emit')
     finally:
         close_old_connections()
 
