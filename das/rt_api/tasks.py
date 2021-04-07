@@ -3,6 +3,7 @@ import json
 import logging
 import redis
 from functools import partial
+from collections import namedtuple
 import pytz
 
 from celery_once import QueueOnce
@@ -34,6 +35,8 @@ from observations.models import SocketClient
 
 
 logger = logging.getLogger(__name__)
+
+EmitData = namedtuple('EmitData', ['type', 'sid', 'object_id', 'data'])
 
 
 def get_context():
@@ -472,13 +475,12 @@ def _radio_message_handler(object_id, action, status):
             for sid in user_sids:
                 emit_data = {}
                 if action == 'message_status_update':
-                    emit_data = {
-                        'type': action,
-                        'sid': sid,
-                        'object_id': object_id,
-                        'data': {'type': action, 'message_id': object_id, 'status': status}
-                    }
+                    emitdata = EmitData(type=action,
+                                        sid=sid,
+                                        object_id=object_id,
+                                        data={'type': action, 'message_id': object_id, 'status': status})
 
+                    emit_data = dict(emitdata._asdict())
                 if emit_data:
                     logger.debug('Publish das.realtime.emit.  data=%s', emit_data)
                     pubsub.publish(json.dumps(emit_data, default=dumps_helper), 'das.realtime.emit')
