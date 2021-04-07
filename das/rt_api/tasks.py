@@ -68,6 +68,14 @@ def get_username_sids_map():
     return user_sids_map
 
 
+def get_sid_user(username, user_sids):
+    try:
+        return User.objects.get(username=username)
+    except User.DoesNotExist:
+        logger.warning('handler found no username=%s.', username)
+        client.remove_clients(user_sids)
+
+
 def _event_handler(event_id, type):
     try:
         logger.debug('Processing type=%s on event=%s', type, event_id)
@@ -77,12 +85,8 @@ def _event_handler(event_id, type):
         logger.debug('user_sids_map: %s', user_sids_map)
 
         for username, user_sids in user_sids_map.items():
-
-            try:
-                user = User.objects.get(username=username)
-            except User.DoesNotExist:
-                logger.warning('event_handler found no username=%s.', username)
-                client.remove_clients(user_sids)
+            user = get_sid_user(username, user_sids)
+            if not user:
                 continue
 
             logger.debug('Handling event for user: %s', username)
@@ -93,16 +97,16 @@ def _event_handler(event_id, type):
                 matches_current_filter = False
 
                 if type == 'delete_event':
-                    emit_data = {
-                        'type': type,
-                        'sid': sid,
-                        'object_id': event_id,
-                        'data': {
-                            'type': type, 'event_id': event_id,
-                            'event_data': None,
-                            'matches_current_filter': matches_current_filter
-                        }
-                    }
+                    emit_data = EmitData(type=type,
+                                         sid=sid,
+                                         object_id=event_id,
+                                         data={'type': type,
+                                               'event_id': event_id,
+                                               'event_data': None,
+                                               'matches_current_filter': matches_current_filter
+                                               })._asdict()
+
+                    emit_data = dict(emit_data)
                 else:
 
                     request = DummyRequest(user=user, http_method='GET', query_parameters={})
@@ -228,17 +232,9 @@ def _subjectstatus_update_handler(subject_id):
 
         for username, user_sids in user_sids_map.items():
             try:
-                try:
-                    logger.debug('Lookup username=%s', username)
-                    user = User.objects.get(username=username)
-                except User.DoesNotExist:
-                    logger.warning(
-                        'subjectstatus_handler found no username=%s.', username)
-                    client.remove_clients(user_sids)
+                user = get_sid_user(username, user_sids)
+                if not user:
                     continue
-
-                else:
-                    logger.debug('Found user: %s', user)
 
                 # If subject-status payload is not None, then emit it.
                 payload = get_subjectstatus_payload(user, subject_id)
@@ -393,12 +389,8 @@ def _patrol_handler(item_id, type):
                 return
 
         for username, user_sids in user_sids_map.items():
-            try:
-                user = User.objects.get(username=username)
-            except User.DoesNotExist:
-                logger.warning(
-                    'patrol_handler found no username=%s.', username)
-                client.remove_clients(user_sids)
+            user = get_sid_user(username, user_sids)
+            if user:
                 continue
 
             logger.debug('Handling patrol for user: %s', username)
@@ -407,15 +399,12 @@ def _patrol_handler(item_id, type):
                 emit_data = {}
                 matches_current_filter = True  # To be regulated in the filters ticket
                 if type == 'delete_patrol':
-                    emit_data = {
-                        'type': type,
-                        'sid': sid,
-                        'object_id': item_id,
-                        'data': {
-                            'type': type, 'patrol_id': item_id,
-                            'matches_current_filter': matches_current_filter
-                        }
-                    }
+                    data = {'type': type, 'patrol_id': item_id, 'matches_current_filter': matches_current_filter}
+                    emitdata = EmitData(type=type,
+                                        sid=sid,
+                                        object_id=item_id,
+                                        data=data)._asdict()
+                    emit_data = dict(emitdata)
                 else:
                     request = DummyRequest(user=user, http_method='GET', query_parameters={})
                     request = Request(request) # Wrap in DRF Request
@@ -438,15 +427,13 @@ def _patrol_handler(item_id, type):
 
                             data = serializer(instance, context={
                                               'request': request}).data
-                            emit_data = {
-                                'type': type,
-                                'sid': sid,
-                                'object_id': item_id,
-                                'data': {
-                                    'type': type, 'patrol_id': item_id, 'patrol_data': data,
-                                    'matches_current_filter': matches_current_filter
-                                }
-                            }
+
+                            emitdata = EmitData(type=type,
+                                                sid=sid,
+                                                object_id=item_id,
+                                                data={'type': type, 'patrol_id': item_id, 'patrol_data': data,
+                                                      'matches_current_filter': matches_current_filter})._asdict()
+                            emit_data = dict(emitdata)
 
                 if emit_data:
                     logger.debug(
