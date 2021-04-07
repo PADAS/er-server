@@ -72,6 +72,11 @@ USERCONTENT_FORCE_DOWNLOAD = getattr(settings, 'USERCONTENT_SETTINGS', {}).get(
     'force_download_mimetypes', set())
 
 
+def calculate_event_schema_etag(view_instance, view_method, request, *args, **kwargs):
+    schema = view_instance.metadata_class().determine_metadata(request, view_instance)
+    return str(hash(str(schema)))
+
+
 class EventSchemaView(generics.ListCreateAPIView):
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventSerializer
@@ -79,6 +84,7 @@ class EventSchemaView(generics.ListCreateAPIView):
     metadata_class = EventJSONSchema
     queryset = Event.objects.all()
 
+    @etag(etag_func=calculate_event_schema_etag)
     def get(self, request, *args, **kwargs):
         meta = self.metadata_class()
         data = meta.determine_metadata(request, self)

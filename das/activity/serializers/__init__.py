@@ -286,7 +286,6 @@ class EventJSONSchema(BaseMetadata):
         return field_info
 
 
-
 class ReportedByRelatedField(GenericRelatedField):
     def get_field_mapping(self, label="ReportedBy"):
         return super().get_field_mapping(label)
