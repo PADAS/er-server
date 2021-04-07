@@ -1747,7 +1747,7 @@ class SubjectMessagesFilter(SimpleListFilter):
 
 
 @admin.register(models.Message)
-class MessageAdmin(admin.ModelAdmin):
+class MessageAdmin(OSMGeoExtendedAdmin):
 
     list_display = ('sender', 'receiver', 'message_type',
                     'status', 'message_time', 'read')
