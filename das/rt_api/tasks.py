@@ -72,7 +72,7 @@ def get_sid_user(username, user_sids):
     try:
         return User.objects.get(username=username)
     except User.DoesNotExist:
-        logger.warning('handler found no username=%s.', username)
+        logger.warning('realtime-handler found no username=%s.', username)
         client.remove_clients(user_sids)
 
 
