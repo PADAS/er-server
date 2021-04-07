@@ -111,6 +111,15 @@ class LeaderRelatedField(GenericRelatedField):
     def get_field_mapping(self, label="Leader"):
         return super().get_field_mapping(label)
 
+    def get_object_queryset(self):
+        request = self.context.get('request')
+        for p in activity.models.PROVENANCE_CHOICES:
+            provenance = p[0]
+            values = list(
+                activity.models.PatrolSegment.objects.get_leader_for_provenance(provenance, request.user))
+            if values:
+                yield provenance, values
+
     def to_representation(self, value):
         representation = super(
             LeaderRelatedField, self).to_representation(value)
