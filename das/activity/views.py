@@ -73,8 +73,11 @@ USERCONTENT_FORCE_DOWNLOAD = getattr(settings, 'USERCONTENT_SETTINGS', {}).get(
 
 
 def calculate_event_schema_etag(view_instance, view_method, request, *args, **kwargs):
-    schema = view_instance.metadata_class().determine_metadata(request, view_instance)
-    return str(hash(str(schema)))
+    et_updates = list(
+        view_instance.queryset.values_list("event_type__updated_at"))
+    # Include choices for hashing
+    all_updates = str(et_updates) + str(view_instance.choices)
+    return str(hash(all_updates))
 
 
 class EventSchemaView(generics.ListCreateAPIView):
@@ -83,6 +86,8 @@ class EventSchemaView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
     metadata_class = EventJSONSchema
     queryset = Event.objects.all()
+
+    choices = Choice.objects.order_by('is_active', 'ordernum')
 
     @etag(etag_func=calculate_event_schema_etag)
     def get(self, request, *args, **kwargs):
