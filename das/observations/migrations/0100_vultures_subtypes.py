@@ -4,7 +4,7 @@ from django.db import migrations
 
 NEW_SUBTYPES = [{"display": "Cape Vulture", "value": "cape_vulture"},
                 {"display": "Hooded Vulture", "value": "hooded_vulture"},
-                {"display": "Lapped-faced Vulture", "value": "lappet_faced_vulture"},
+                {"display": "Lappet-faced Vulture", "value": "lappet_faced_vulture"},
                 {"display": "Martial Eagle", "value": "martial_eagle"},
                 {"display": "White-backed Vulture", "value": "white_backed_vulture"}]
 
