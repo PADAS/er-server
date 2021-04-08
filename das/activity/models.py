@@ -263,6 +263,7 @@ class EventType(TimestampedModel):
                 }''')
 
     is_collection = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
     auto_resolve = models.BooleanField(default=False)
     resolve_time = models.PositiveSmallIntegerField(blank=True, null=True)  # Specify integer of hour(s).
 
@@ -291,6 +292,10 @@ class EventType(TimestampedModel):
     @property
     def image_url(self):
         return Event.marker_icon(self.icon_id, PRI_BLACK, Event.SC_NEW)
+
+    def set_to_inactive(self):
+        self.is_active = False
+        self.save()
 
 
 def parse_date_range(val):

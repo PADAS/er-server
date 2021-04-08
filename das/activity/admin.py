@@ -110,7 +110,7 @@ class EventTypeAdmin(admin.ModelAdmin):
                 'default_priority', 'default_state')
     list_filter = ('category',)
     list_display = ('display', 'value', 'ordernum',
-                    'category', 'is_collection', '_default_priority_display', '_icon_display', 'default_state')
+                    'category', 'is_collection', '_default_priority_display', '_icon_display', 'default_state', 'is_active')
     list_editable = ('ordernum', 'default_state',)
     list_display_links = ('display',)
     search_fields = ('display', 'value',)
@@ -121,7 +121,7 @@ class EventTypeAdmin(admin.ModelAdmin):
         }
         ),
         ('Default Values', {
-            'fields': ('default_priority', 'default_state',)
+            'fields': ('default_priority', 'default_state', 'is_active')
         }
         ),
         ('Schema & Form Definition',
