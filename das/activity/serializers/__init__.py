@@ -464,8 +464,9 @@ class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         super(EventTypeSerializer, self).__init__(*args, **kwargs)
+        self.request = self.context.get('request')
 
-        if not self.context.get('include_schema', False):
+        if not self.context.get('include_schema', False) and self.request.method == 'GET':
             self.fields.pop('schema')
 
     @staticmethod

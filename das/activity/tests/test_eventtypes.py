@@ -7,6 +7,7 @@ from django.urls import reverse
 
 from activity.models import EventType, EventCategory
 from activity.tests import schema_examples
+from rest_framework.exceptions import ErrorDetail
 
 pytestmark = pytest.mark.django_db
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tests')
@@ -96,7 +97,7 @@ def test_post_eventtype_with_schema(eventtype_fixture, client):
         "display": "Simple Report",
         "value": "simple_report",
         "category": "monitoring",
-        "schema": schema
+        "schema": schema_examples.ET_SCHEMA
     }
     response = client.post(url, data=data)
     assert response.status_code == 201
@@ -135,43 +136,18 @@ def test_set_eventtype_to_inactive(eventtype_fixture, client):
     assert inactive_eventtype == 1
 
 
+def test_post_eventtype_with_bad_schema(eventtype_fixture, client):
+    eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
 
+    client.force_login(user)
+    url = reverse('eventtypes')
 
-
-
-
-
-
-#
-# def test_softdelete_choice(choices_fixture, client):
-#     choices, user = choices_fixture.choices, choices_fixture.user
-#     choice_id = str(choices.first().id)
-#
-#     disabled_choices = Choice.objects.get_inactive_choices().count()
-#     assert disabled_choices == 0
-#
-#     client.force_login(user)
-#     url = reverse('choice', kwargs={'id': choice_id})
-#     response = client.delete(url)
-#     assert response.status_code == 204
-#
-#     disabled_choices = Choice.objects.get_inactive_choices().count()
-#     assert disabled_choices == 1
-#
-#
-# def test_readd_inactive_choice(choices_fixture, client):
-#     choices, user = choices_fixture.choices, choices_fixture.user
-#     inactive_choice = choices.filter(value='rhino').update(is_active=False)
-#
-#     assert inactive_choice == 1
-#
-#     data = dict(
-#         model='activity.eventtype',
-#         field='wildlifesighting_species',
-#         value='rhino',
-#         display='Rhino')
-#
-#     client.force_login(user)
-#     url = reverse('choices')
-#     response = client.post(url, data=data)
-#     assert response.status_code == 409
+    data = {
+        "display": "Simple Report",
+        "value": "simple_report",
+        "category": "monitoring",
+        "schema": schema_examples.BAD_SCHEMA
+    }
+    response = client.post(url, data=data)
+    assert 'Invalid schema tag' in response.data.get('schema')[0]
+    assert response.status_code == 400
