@@ -33,7 +33,12 @@ def delete_patrol_handler(body, message):
 
 
 def message_status_update_handler(body, message):
-    logger.info('Heard message-status-update for message_id: %s', body.get('message_id'))
+    logger.info('Heard message-status-update for message_id: %s',
+                body.get('message_id'))
+
+
+def new_message_handler(body, message):
+    logger.info('Heard a new message id: %s', body.get('message_id'))
 
 
 # Define the mapping between routing_keys and callbacks
@@ -57,5 +62,7 @@ PUBSUB_SUBSCRIPTIONS = (
     # message subscriptions
     ('das.message.status_update', message_status_update_handler,
      'das_server.{0}'.format(message_status_update_handler.__name__)),
+    ('das.message.new', new_message_handler,
+     'das_server.{0}'.format(new_message_handler.__name__)),
 
 )

@@ -1798,6 +1798,7 @@ class MessagesView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
 
         data = self._data(request)
+        message_type = data.get("message_type", "outbox")
         serializer = self.serializer_class(
             data=data, context={'request': request})
         if not serializer.is_valid():
@@ -1805,19 +1806,26 @@ class MessagesView(generics.ListCreateAPIView):
 
         serializer.save()
         headers = self.get_success_headers(serializer.data)
-        handle_outbox_message.apply_async(
-            args=(serializer.data, request.user.email))
+
+        if message_type == "outbox":
+            handle_outbox_message.apply_async(
+                args=(serializer.data, request.user.email))
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def _device(self, subj):
+        subject = models.Subject.objects.filter(id=subj.get('id')).first()
+        if subject and subject.source:
+            return str(subject.source.id)
 
     def _data(self, request):
         data = request.data
-        receiver, sender = data.get('receiver'), data.get('sender')
+        receiver, sender = data.get('receiver', {}), data.get('sender', {})
 
-        if receiver.get('content_type') == 'observations.subject' and not data.get('device'):
-            subject = models.Subject.objects.filter(
-                id=receiver.get('id')).first()
-            if subject and subject.source:
-                data['device'] = str(subject.source.id)
+        if not data.get('device'):
+            if receiver.get('content_type') == 'observations.subject':
+                data['device'] = self._device(receiver)
+            elif sender.get('content_type') == 'observations.subject':
+                data['device'] = self._device(sender)
 
         if not sender:
             # Set logged in user as the sender

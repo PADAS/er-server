@@ -45,7 +45,8 @@ def start(realtime_server):
             from observations.models import Subject
             try:
                 if Subject.objects.get(id=subject_id).is_active:
-                    celery.app.send_task('rt_api.tasks.handle_new_subject_observation', args=(subject_id,))
+                    celery.app.send_task(
+                        'rt_api.tasks.handle_new_subject_observation', args=(subject_id,))
             except Subject.DoesNotExist:
                 pass
 
@@ -81,6 +82,12 @@ def start(realtime_server):
             'message_status_update_handler. data=%s, message=%s', data, message)
         celery.app.send_task('rt_api.tasks.handle_message_status_update',
                              args=(data['message_id'], data['status'],))
+
+    def new_message_handler(data, message):
+        logger.debug(
+            'new_message_handler. data=%s, message=%s', data, message)
+        celery.app.send_task(
+            'rt_api.tasks.handle_new_message', args=(data['message_id'],))
 
     def pubsub_listener():
 
@@ -118,6 +125,10 @@ def start(realtime_server):
                 'routing_key': 'das.message.status_update',
                 'callback': message_status_update_handler,
             },
+            {
+                'routing_key': 'das.message.new',
+                'callback': new_message_handler,
+            },
         ]
         for subscription in subscriptions:
             subscription['name'] = 'rt_api.{0}'.format(
@@ -129,5 +140,5 @@ def start(realtime_server):
     logger.info("Starting pubsub listener threads.")
     for x in range(5):
         logger.info("Starting pubsub listener thread (%s).", x)
-        threading.Thread(target=pubsub_listener, name=f'pubsub-listener-{x}', args=()).start()
-
+        threading.Thread(target=pubsub_listener,
+                         name=f'pubsub-listener-{x}', args=()).start()
