@@ -75,8 +75,11 @@ USERCONTENT_FORCE_DOWNLOAD = getattr(settings, 'USERCONTENT_SETTINGS', {}).get(
 def calculate_event_schema_etag(view_instance, view_method, request, *args, **kwargs):
     et_updates = list(
         view_instance.queryset.values_list("event_type__updated_at"))
-    # Include choices for hashing
-    all_updates = str(et_updates) + str(view_instance.choices)
+    choices_updates = list(
+        view_instance.choices.values_list("updated_at")
+    )
+    # Include choices in hashing
+    all_updates = str(et_updates) + str(choices_updates)
     return str(hash(all_updates))
 
 
