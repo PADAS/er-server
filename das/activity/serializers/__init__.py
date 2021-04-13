@@ -1008,8 +1008,6 @@ class EventSerializerMixin:
                 time=revision.revision_at.isoformat(),
                 user=self.get_revision_user(revision.user, event),
                 type=get_update_type(revision, revisions))
-            if record['type'] in ('read',):
-                continue
             result.append(record)
         return result
 
