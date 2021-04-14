@@ -19,7 +19,7 @@ from django.conf import settings
 from django.contrib.postgres.aggregates import StringAgg, ArrayAgg
 from django.db import transaction
 from django.db.models import CharField, Value
-from django.db.models import Prefetch, F, Count
+from django.db.models import Prefetch, F, Count, Max
 from django.db.models.functions import Concat, Cast
 from django.http import Http404
 from django.http.response import HttpResponse
@@ -73,13 +73,11 @@ USERCONTENT_FORCE_DOWNLOAD = getattr(settings, 'USERCONTENT_SETTINGS', {}).get(
 
 
 def calculate_event_schema_etag(view_instance, view_method, request, *args, **kwargs):
-    et_updates = list(
-        view_instance.queryset.values_list("event_type__updated_at"))
-    choices_updates = list(
-        view_instance.choices.values_list("updated_at")
-    )
-    # Include choices in hashing
-    all_updates = str(et_updates) + str(choices_updates)
+    latest_et_update = view_instance.queryset.aggregate(
+        Max('event_type__updated_at')).get("event_type__updated_at__max")
+    latest_choice_update = view_instance.choices.aggregate(
+        Max('updated_at')).get("updated_at__max")
+    all_updates = str(latest_et_update) + str(latest_choice_update)
     return str(hash(all_updates))
 
 
