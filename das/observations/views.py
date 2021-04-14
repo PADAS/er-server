@@ -1758,25 +1758,67 @@ class GPXTaskStatusView(generics.ListAPIView):
         return Response(data, status=status.HTTP_200_OK)
 
 
+class MessagesSchema(CustomSchema):
+    def get_operation(self, path, method):
+        operation = super().get_operation(path, method)
+        if method == 'GET':
+            query_params = [{
+                'name': 'subject_id',
+                'in': 'query',
+                'description': 'Get messages of this subject.'},
+                {
+                    'name': 'source_id',
+                    'in': 'query',
+                    'description': 'Get messages of this device/source'},
+                {
+                    'name': 'read',
+                    'in': 'query',
+                    'description': 'Get read/unread messages'},
+            ]
+            operation['parameters'].extend(query_params)
+
+        elif method == 'POST':
+            query_params = [{
+                'name': 'subject_id',
+                'in': 'query',
+                'description': 'Post messages to this subject.'},
+                {
+                'name': 'source_id',
+                'in': 'query',
+                'description': 'Post Messages to this device/source'},
+                {
+                'name': 'manufacturer_id',
+                'in': 'query',
+                'description': 'Post Messages from a device of this manufacturer id.'}
+            ]
+            operation['parameters'].extend(query_params)
+
+        return operation
+
+
 class MessagesView(generics.ListCreateAPIView):
     serializer_class = serializers.MessageSerializer
     permission_classes = (IsAuthenticated,)
     pagination_class = StandardResultsSetPagination
+    schema = MessagesSchema()
 
     def get_queryset(self):
         query_params = self.request.query_params
         messages = get_user_messages(self.request.user)
 
         subject_id = query_params.get('subject_id')
+        source_id = query_params.get('source_id')
+        read = query_params.get('read')
         if subject_id:
-            try:
-                models.Subject.objects.get(id=subject_id)
-                messages = messages.filter(
-                    Q(sender_id=subject_id) | Q(receiver_id=subject_id))
-            except models.Subject.DoesNotExist:
-                raise NotFound(
-                    {'Error': f'Subject with given ID does not exist'})
-        return messages
+            # Accepting a list i.e : ?subject_id=id1, id2, id2
+            subject_ids = [x.strip(' ') for x in subject_id.split(',')]
+            messages = messages.by_subject_ids(subject_ids)
+        if source_id:
+            messages = messages.by_source_id(source_id)
+        if read:
+            messages = messages.by_read(read)
+
+        return messages.order_by("-message_time")
 
     def post(self, request, *args, **kwargs):
         data = request.data
@@ -1795,35 +1837,57 @@ class MessagesView(generics.ListCreateAPIView):
 
         return self.create(request, *args, **kwargs)
 
-    def create(self, request, *args, **kwargs):
-
-        data = self._data(request)
+    def save_message(self, request, data):
         serializer = self.serializer_class(
             data=data, context={'request': request})
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST, )
 
         serializer.save()
-        headers = self.get_success_headers(serializer.data)
-        handle_outbox_message.apply_async(
-            args=(serializer.data, request.user.email))
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        return serializer.data
 
-    def _data(self, request):
+    def _source(self, manufacturer_id):
+        try:
+            return models.Source.objects.get(manufacturer_id=manufacturer_id)
+        except models.Source.DoesNotExist:
+            raise NotFound(
+                {'Error': f'Source with given ID does not exist'})
+
+    def create(self, request, *args, **kwargs):
+
         data = request.data
-        receiver, sender = data.get('receiver'), data.get('sender')
+        message_type = data.get("message_type", "outbox")
+        data['message_time'] = data.get(
+            "message_time", datetime.datetime.now(tz=pytz.utc).isoformat())
 
-        if receiver.get('content_type') == 'observations.subject' and not data.get('device'):
-            subject = models.Subject.objects.filter(
-                id=receiver.get('id')).first()
-            if subject and subject.source:
-                data['device'] = str(subject.source.id)
+        qparams = self.request.query_params
+        if message_type == "inbox":
+            source = self._source(qparams.get("manufacturer_id"))
+            subject_source = models.SubjectSource.objects.filter(source=source, assigned_range__contains=data['message_time']) \
+                .order_by('assigned_range').reverse().first()
 
-        if not sender:
+            if not subject_source:
+                return Response({"Error": "No subject assigned to this source"}, status=status.HTTP_404_NOT_FOUND)
+
+            data['sender'] = {
+                "content_type": "observations.subject", "id": subject_source.subject.id}
+            data['device'] = source.id
+            ser_data = self.save_message(request, data)
+
+        else:
             # Set logged in user as the sender
             data['sender'] = {
                 "content_type": "accounts.user", "id": request.user.id}
-        return data
+            data['receiver'] = {
+                "content_type": "observations.subject", "id": qparams.get('subject_id')}
+            data['device'] = qparams.get('source_id')
+
+            ser_data = self.save_message(request, data)
+            handle_outbox_message.apply_async(
+                args=(ser_data, request.user.email))
+
+        headers = self.get_success_headers(ser_data)
+        return Response(ser_data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class MessageView(generics.RetrieveUpdateDestroyAPIView):

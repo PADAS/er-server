@@ -160,7 +160,8 @@ class TimezoneOverflowAwareDateTimeField(DateTimeField):
 
 class SubjectSourceSerializer(rest_framework.serializers.ModelSerializer):
 
-    assigned_range = DateTimeRangeField(child=TimezoneOverflowAwareDateTimeField())
+    assigned_range = DateTimeRangeField(
+        child=TimezoneOverflowAwareDateTimeField())
 
     class Meta:
         model = models.SubjectSource
@@ -330,6 +331,16 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
             request = self.context['request']
             rep['url'] = utils.add_base_url(
                 request, reverse('subject-view', args=[instance.id, ]))
+
+            rep["messaging"] = []
+            for ss in models.SubjectSource.objects.filter(subject=instance):
+                message_url = utils.add_base_url(
+                    request, reverse('messages-view'))
+                data = {
+                    "source provider": ss.source.provider.display_name,
+                    "message url": f"{message_url}?subject_id={str(instance.id)}&source_id={str(ss.source_id)}"
+                }
+                rep["messaging"].append(data)
 
         if self.context.get('tracks', False):
             track_serializer = SubjectTrackSerializer(
@@ -768,14 +779,19 @@ class MessageSerializer(BaseSerializer, TimestampMixin):
     receiver = SenderReceiverRelatedField(required=False, allow_null=True)
 
     device = SourceRelatedField(required=False, allow_null=True)
-    message_type = choicefield_serializer(models.MESSAGE_TYPES, default=models.OUTBOX)
+    message_type = choicefield_serializer(
+        models.MESSAGE_TYPES, default=models.OUTBOX)
     text = text_field(required=False, allow_blank=True, allow_null=True)
-    status = choicefield_serializer(models.MESSAGE_STATE_CHOICES, default=models.PENDING)
-    sender_location = GEOPointField(required=False, allow_null=True, validators=[PointValidator()])
-    device_location = GEOPointField(required=False, allow_null=True, validators=[PointValidator()])
+    status = choicefield_serializer(
+        models.MESSAGE_STATE_CHOICES, default=models.PENDING)
+    sender_location = GEOPointField(
+        required=False, allow_null=True, validators=[PointValidator()])
+    device_location = GEOPointField(
+        required=False, allow_null=True, validators=[PointValidator()])
     message_time = DateTimeField(required=False, allow_null=True)
     read = rest_framework.serializers.BooleanField(required=False)
-    additional = rest_framework.serializers.JSONField(default=dict, allow_null=True)
+    additional = rest_framework.serializers.JSONField(
+        default=dict, allow_null=True)
 
     class Meta:
         model = models.Message
