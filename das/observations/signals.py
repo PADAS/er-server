@@ -135,16 +135,15 @@ def delete_auto_created_view_permission_set(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Message)
 def message_post_save(sender, instance, created, **kwargs):
-    if not created:
-        # status is updated
-        logger.info("Update status for message_id:{}".format(instance.pk))
-        message_action = 'das.message.status_update'
-        transaction.on_commit(lambda: pubsub.publish(
-            {'message_id': str(instance.pk), 'status': instance.status}, message_action))
+    logger.info("saved message {}, created={}".format(
+        instance.pk, str(created)))
+    message_action = 'das.message.new' if created else 'das.message.update'
+    transaction.on_commit(lambda: pubsub.publish(
+        {'message_id': str(instance.pk)}, message_action))
 
-    elif instance.message_type == 'inbox':
-        logger.info("New message received from :{}".format(
-            instance.device.manufacturer_id))
-        message_action = 'das.message.new'
-        transaction.on_commit(lambda: pubsub.publish(
-            {'message_id': str(instance.pk)}, message_action))
+
+@receiver(post_delete, sender=Message)
+def message_post_delete(sender, instance, **kwargs):
+    logger.info("delete message {}".format(instance.pk))
+    transaction.on_commit(lambda: pubsub.publish(
+        {'message_id': str(instance.pk)}, 'das.message.delete'))

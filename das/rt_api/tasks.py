@@ -432,7 +432,7 @@ def _patrol_handler(item_id, type):
         close_old_connections()
 
 
-def _radio_message_handler(object_id, action, status=None):
+def _radio_message_handler(object_id, action):
     try:
         logger.debug('Processing type=%s on message=%s', action, object_id)
 
@@ -445,11 +445,12 @@ def _radio_message_handler(object_id, action, status=None):
                 continue
 
             for sid in user_sids:
-                if action == 'message_status_update':
+                if action == 'delete_message':
                     emit_data = get_emit_data(
-                        type=action, sid=sid,
+                        type=action,
+                        sid=sid,
                         object_id=object_id,
-                        data={'type': action, 'message_id': object_id, 'status': status})
+                        data={'type': action, 'message_id': object_id, 'data': None})
                 else:
                     try:
                         instance = Message.objects.get(id=object_id)
@@ -491,17 +492,24 @@ def handle_delete_patrol(patrol_id):
 
 
 @celery.app.task()
-def handle_message_status_update(message_id, status):
-    logger.info(f'Celery worker handling state update of message_id: {message_id}',
-                extra={'rt.message': 'status_update'})
-    _radio_message_handler(message_id, 'message_status_update', status)
-
-
-@celery.app.task()
 def handle_new_message(message_id):
     logger.info(f'Celery worker handling new message id: {message_id}',
                 extra={'rt.message': 'new_message'})
     _radio_message_handler(message_id, 'new_message')
+
+
+@celery.app.task()
+def handle_update_message(message_id):
+    logger.info(f'Celery worker handling update message id: {message_id}',
+                extra={'rt.message': 'update_message'})
+    _radio_message_handler(message_id, 'update_message')
+
+
+@celery.app.task()
+def handle_delete_message(message_id):
+    logger.info(f'Celery worker handling deleting message id: {message_id}',
+                extra={'rt.message': 'delete_message'})
+    _radio_message_handler(message_id, 'delete_message')
 
 
 @celery.app.task()

@@ -77,17 +77,23 @@ def start(realtime_server):
         message_data = json.loads(data)
         realtime_server.send_realtime_message(message_data)
 
-    def message_status_update_handler(data, message):
-        logger.debug(
-            'message_status_update_handler. data=%s, message=%s', data, message)
-        celery.app.send_task('rt_api.tasks.handle_message_status_update',
-                             args=(data['message_id'], data['status'],))
-
     def new_message_handler(data, message):
         logger.debug(
             'new_message_handler. data=%s, message=%s', data, message)
         celery.app.send_task(
             'rt_api.tasks.handle_new_message', args=(data['message_id'],))
+
+    def update_message_handler(data, message):
+        logger.debug(
+            'update_message_handler. data=%s, message=%s', data, message)
+        celery.app.send_task(
+            'rt_api.tasks.handle_update_message', args=(data['message_id'],))
+
+    def delete_message_handler(data, message):
+        logger.debug(
+            'delete_message_handler. data=%s, message=%s', data, message)
+        celery.app.send_task(
+            'rt_api.tasks.handle_delete_message', args=(data['message_id'],))
 
     def pubsub_listener():
 
@@ -122,12 +128,16 @@ def start(realtime_server):
                 'routing_key': 'das.realtime.emit',
                 'callback': emit_handler},
             {
-                'routing_key': 'das.message.status_update',
-                'callback': message_status_update_handler,
-            },
-            {
                 'routing_key': 'das.message.new',
                 'callback': new_message_handler,
+            },
+            {
+                'routing_key': 'das.message.update',
+                'callback': update_message_handler,
+            },
+            {
+                'routing_key': 'das.message.delete',
+                'callback': delete_message_handler,
             },
         ]
         for subscription in subscriptions:
