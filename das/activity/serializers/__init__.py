@@ -460,7 +460,7 @@ class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
         model = activity.models.EventType
         read_only_fields = ('id',)
         fields = read_only_fields + ('value', 'display', 'ordernum',
-                                     'is_collection', 'category', 'icon_id',  'schema')
+                                     'is_collection', 'category', 'icon_id', 'is_active', 'schema')
 
     def __init__(self, *args, **kwargs):
         super(EventTypeSerializer, self).__init__(*args, **kwargs)
@@ -488,6 +488,7 @@ class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
 
     def to_representation(self, obj):
         rep = super().to_representation(obj, )
+        rep['url'] = utils.add_base_url(self.request, reverse('eventtype', args=[obj.id, ]))
         return rep
 
 

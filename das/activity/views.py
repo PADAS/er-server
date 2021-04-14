@@ -100,7 +100,7 @@ class EventSchemaView(generics.ListCreateAPIView):
         raise rest_framework.exceptions.MethodNotAllowed('For Schema')
 
 
-class EventtypeViewSchema(CustomSchema):
+class EventTypeViewSchema(CustomSchema):
     def get_operation(self, path, method):
         operation = super().get_operation(path, method)
         if method == 'GET':
@@ -121,7 +121,7 @@ class EventtypeViewSchema(CustomSchema):
 class EventTypesView(generics.ListCreateAPIView):
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventTypeSerializer
-    schema = EventtypeViewSchema()
+    schema = EventTypeViewSchema()
 
     def get_queryset(self):
         query_params = self.request.query_params
@@ -187,6 +187,13 @@ class EventTypeView(generics.RetrieveUpdateDestroyAPIView):
             return self.partial_update(request, *args, **kwargs)
         except IntegrityError:
             return return_409_response()
+
+    def get_serializer_context(self):
+        qparams = self.request.query_params
+        context = super().get_serializer_context()
+
+        context['include_schema'] = parse_bool(qparams.get('include_schema', False))
+        return context
 
 
 class EventCategoriesView(generics.ListAPIView):
