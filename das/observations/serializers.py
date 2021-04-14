@@ -337,8 +337,8 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                 message_url = utils.add_base_url(
                     request, reverse('messages-view'))
                 data = {
-                    "source provider": ss.source.provider.display_name,
-                    "message url": f"{message_url}?subject_id={str(instance.id)}&source_id={str(ss.source_id)}"
+                    "source_provider": ss.source.provider.display_name,
+                    "url": f"{message_url}?subject_id={str(instance.id)}&source_id={str(ss.source_id)}"
                 }
                 rep["messaging"].append(data)
 
