@@ -800,12 +800,8 @@ class MessageSerializer(BaseSerializer, TimestampMixin):
     message_type = choicefield_serializer(
         models.MESSAGE_TYPES, default=models.OUTBOX)
     text = text_field(required=False, allow_blank=True, allow_null=True)
-    status = choicefield_serializer(
-        models.MESSAGE_STATE_CHOICES, default=models.PENDING)
-    sender_location = GEOPointField(
-        required=False, allow_null=True, validators=[PointValidator()])
-    device_location = GEOPointField(
-        required=False, allow_null=True, validators=[PointValidator()])
+    status = choicefield_serializer(models.MESSAGE_STATE_CHOICES, default=models.PENDING)
+    device_location = GEOPointField(required=False, allow_null=True, validators=[PointValidator()])
     message_time = DateTimeField(required=False, allow_null=True)
     read = rest_framework.serializers.BooleanField(required=False)
     additional = rest_framework.serializers.JSONField(
@@ -814,7 +810,7 @@ class MessageSerializer(BaseSerializer, TimestampMixin):
     class Meta:
         model = models.Message
         fields = ('id', 'sender_id', 'receiver_id', 'device_id', 'message_type', 'text', 'status',
-                  'sender_location', 'device_location', 'message_time', 'additional')
+                  'device_location', 'message_time', 'additional')
 
     def to_representation(self, instance):
         rep = super(MessageSerializer, self).to_representation(instance)

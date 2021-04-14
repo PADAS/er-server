@@ -1756,6 +1756,18 @@ class MessageAdmin(OSMGeoExtendedAdmin):
     list_filter = (SubjectMessagesFilter,)
     ordering = ('message_time', )
     readonly_fields = ('id',)
+    fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': (('sender_content_type', 'sender_id', 'receiver_content_type', 'receiver_id', 'device',
+                        'message_type', 'text', 'status', 'device_location', 'message_time', 'read'))
+        }
+         ),
+        ('Advanced Message Attributes', {
+            'classes': ('wide', 'collapse'),
+            'fields': ('additional', 'id',)
+        })
+    )
 
     def get_search_results(self, request, queryset, search_term):
         qs = queryset
