@@ -1862,8 +1862,16 @@ class MessagesView(generics.ListCreateAPIView):
 
         qparams = self.request.query_params
         if message_type == "inbox":
-            source = self._source(qparams.get("manufacturer_id"))
-            subject_source = models.SubjectSource.objects.filter(source=source, assigned_range__contains=data['message_time']) \
+            # Handle Inbox messages
+
+            manufacturer_id = qparams.get("manufacturer_id")
+            if not manufacturer_id:
+                return Response({"Error": "Manufacturer Id param has to be provided for an inbox message"},
+                                status=status.HTTP_400_BAD_REQUEST)
+            source = self._source(manufacturer_id)
+            dt = parse_datetime(data['message_time'])
+            subject_source = models.SubjectSource.objects.filter(source=source,
+                                                                 assigned_range__contains=dt) \
                 .order_by('assigned_range').reverse().first()
 
             if not subject_source:
@@ -1873,14 +1881,22 @@ class MessagesView(generics.ListCreateAPIView):
                 "content_type": "observations.subject", "id": subject_source.subject.id}
             data['device'] = source.id
             ser_data = self.save_message(request, data)
-
         else:
+            # Handle Outbox messages
+
+            subject_id = qparams.get('subject_id')
+            source_id = qparams.get('source_id')
+
+            if not subject_id and not source_id:
+                return Response({"Error": "Source_id and subject_id params needed for an outbox message"},
+                                status=status.HTTP_400_BAD_REQUEST)
+
             # Set logged in user as the sender
             data['sender'] = {
                 "content_type": "accounts.user", "id": request.user.id}
             data['receiver'] = {
-                "content_type": "observations.subject", "id": qparams.get('subject_id')}
-            data['device'] = qparams.get('source_id')
+                "content_type": "observations.subject", "id": subject_id}
+            data['device'] = source_id
 
             ser_data = self.save_message(request, data)
             handle_outbox_message.apply_async(
