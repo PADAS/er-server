@@ -17,7 +17,7 @@ import rest_framework.exceptions
 import versatileimagefield.files
 from django.conf import settings
 from django.contrib.postgres.aggregates import StringAgg, ArrayAgg
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.db.models import CharField, Value
 from django.db.models import Prefetch, F, Count, Max
 from django.db.models.functions import Concat, Cast
@@ -62,7 +62,7 @@ from utils.drf import StandardResultsSetPagination, \
     StandardResultsSetGeoJsonPagination
 from utils.json import parse_bool, loads, ExtendedGEOJSONRenderer
 from das_server.views import CustomSchema
-from activity.util import get_permitted_event_categories
+from activity.util import get_permitted_event_categories, return_409_response
 
 logger = logging.getLogger(__name__)
 
@@ -100,14 +100,37 @@ class EventSchemaView(generics.ListCreateAPIView):
         raise rest_framework.exceptions.MethodNotAllowed('For Schema')
 
 
-class EventTypesView(generics.ListAPIView):
+class EventTypeViewSchema(CustomSchema):
+    def get_operation(self, path, method):
+        operation = super().get_operation(path, method)
+        if method == 'GET':
+            query_params = [
+                {
+                    'name': 'include_inactive',
+                    'in': 'query',
+                    'description': "include inactive eventtypes"},
+                {
+                    'name': 'include_schema',
+                    'in': 'query',
+                    'description': "include eventtype schema in the payload"},
+            ]
+            operation['parameters'].extend(query_params)
+        return operation
+
+
+class EventTypesView(generics.ListCreateAPIView):
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventTypeSerializer
+    schema = EventTypeViewSchema()
 
     def get_queryset(self):
         query_params = self.request.query_params
         queryset = EventType.objects.all_sort()
-        queryset = queryset.filter(category__is_active=True)
+
+        if parse_bool(query_params.get('include_inactive')):
+            queryset = queryset.filter(category__is_active=True)
+        else:
+            queryset = queryset.filter(category__is_active=True, is_active=True)
 
         category = query_params.getlist('category', None)
         if category:
@@ -134,6 +157,43 @@ class EventTypesView(generics.ListAPIView):
         if is_collection is not None:
             queryset = queryset.by_is_collection(parse_bool(is_collection))
         return queryset
+
+    def get_serializer_context(self):
+        qparams = self.request.query_params
+        context = super().get_serializer_context()
+
+        context['include_schema'] = parse_bool(qparams.get('include_schema', False))
+        return context
+
+
+class EventTypeView(generics.RetrieveUpdateDestroyAPIView):
+    lookup_field = 'id'
+    lookup_url_kwarg = 'eventtype_id'
+    permission_classes = (EventCategoryPermissions,)
+    serializer_class = EventTypeSerializer
+    queryset = EventType.objects.all()
+
+    def perform_destroy(self, instance):
+        instance.set_to_inactive()
+
+    def put(self, request, *args, **kwargs):
+        try:
+            return self.update(request, *args, **kwargs)
+        except IntegrityError:
+            return return_409_response()
+
+    def patch(self, request, *args, **kwargs):
+        try:
+            return self.partial_update(request, *args, **kwargs)
+        except IntegrityError:
+            return return_409_response()
+
+    def get_serializer_context(self):
+        qparams = self.request.query_params
+        context = super().get_serializer_context()
+
+        context['include_schema'] = parse_bool(qparams.get('include_schema', False))
+        return context
 
 
 class EventCategoriesView(generics.ListAPIView):

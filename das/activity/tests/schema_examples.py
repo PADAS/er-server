@@ -206,3 +206,66 @@ WILDLIFE_SCHEMA = """
  ]
 }
 """
+
+BAD_SCHEMA = """
+{
+   "schema":
+   {
+       "$schema": "http://json-schema.org/draft-04/schema#",
+       "title": "Shot Rep Report",
+
+       "type": "object",
+
+       "properties":
+       {
+            "shotrepTimeOfShot": {
+                "type": "string",
+                "title": "Line 1: Time when shot was heard"
+            },
+            "shotrepBearing": {
+                "type": "number",
+                "title": "Line 2: Bearing to Shot",
+                "minimum": 0,
+                "maximum":  360
+            },
+            "shotrepDistance": {
+                "type": "number",
+                "title": "Line 3: Distance of Shots",
+                "minimum": 0
+            },
+            "shotrepNumberOfShots": {
+                "type": "number",
+                "title": "Line 4: Number of Shots",
+                "minimum": 0
+            },
+            "shotrepTypeOfShots": {
+                "type": "string",
+                "title": "Line 5. Type of Shots",
+                "enum": {{table__TypeOfShots__values}},
+                "enumNames": {{table___TypeOfShots___names}}
+            },
+            "shotrepEstimatedCaliber": {
+                "type": "string",
+                "title": "Line 6: Estimated Caliber"
+            },
+            "shotrepEstimatedTarget": {
+                "type": "string",
+                "title": "Line 7: Estimated Target"
+            }
+       }
+   },
+ "definition": [
+   {
+   "key": "shotrepTimeOfShot",
+   "fieldHtmlClass": "date-time-picker json-schema",
+   "readonly": false
+   },
+   "shotrepBearing",
+   "shotrepDistance",
+   "shotrepNumberOfShots",
+   "shotrepTypeOfShots",
+   "shotrepEstimatedCaliber",
+   "shotrepEstimatedTarget"
+ ]
+}
+"""
