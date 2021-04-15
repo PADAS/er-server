@@ -83,7 +83,7 @@ urlpatterns = [
         views.TrackingMetaDataExportView.as_view()),
     url(r'^sourcegroup/(?P<slug>[a-zA-Z0-9\w\W\s\S-]+)/?$',
         views.SourceGroupView.as_view()),
-    url(r'^messages/?$', views.MessagesView.as_view()),
+    url(r'^messages/?$', views.MessagesView.as_view(), name="messages-view"),
     url(r'^messages/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
         views.MessageView.as_view()),
 ]

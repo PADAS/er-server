@@ -982,7 +982,8 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         else:
             ids = list(subjectgroups.values_list('id', flat=True))
             allowed_subject_groups = \
-                SubjectGroup.objects.filter(id__in=ids, permission_sets__in=user.get_all_permission_sets())
+                SubjectGroup.objects.filter(
+                    id__in=ids, permission_sets__in=user.get_all_permission_sets())
             effective_sgs = get_effective_sg(allowed_subject_groups)
 
         return self.filter(groups__in=effective_sgs).distinct('id')
@@ -1827,6 +1828,21 @@ MESSAGE_TYPES = (
 )
 
 
+class MessageFilteringQuerySet(models.QuerySet, FilterMixin):
+    def by_subject_ids(self, subject_ids):
+        return self.filter(Q(sender_id__in=subject_ids) | Q(receiver_id__in=subject_ids))
+
+    def by_source_id(self, source_id):
+        return self.filter(device=source_id)
+
+    def by_read(self, read):
+        return self.filter(read=read)
+
+
+class MessagesManager(models.Manager):
+    pass
+
+
 class Message(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     _limits = models.Q(app_label='observations', model='subject') | models.Q(
@@ -1852,4 +1868,7 @@ class Message(TimestampedModel):
     device_location = models.PointField(blank=True, null=True)
     message_time = models.DateTimeField(null=False, blank=False)
     read = models.BooleanField(default=False)
-    additional = JSONField('additional data', default=dict, blank=True, null=True)
+    additional = JSONField(
+        'additional data', default=dict, blank=True, null=True)
+
+    objects = MessagesManager.from_queryset(MessageFilteringQuerySet)()
