@@ -804,6 +804,24 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response_data['reported_by']['id'],
                          update_data['reported_by']['id'])
 
+    def test_event_revision(self):
+        event = self.create_event(self.event_data)
+        update_data = {}
+        update_data['reported_by'] = self.user_rep
+        update_data['provenance'] = Event.PC_STAFF
+
+        request = self.factory.patch(
+            self.api_base + '/event/{0}'.format(str(event.id)),
+            update_data)
+
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventView.as_view()(request,
+                                             id=str(event.id))
+        self.assertEqual(response.status_code, 200)
+        response_data = response.data
+        self.assertEqual(len(response_data['updates']), 2)
+
     def test_update_event_state_active(self):
         event = self.create_event(self.event_data)
         update_data = {'state': 'active'}
