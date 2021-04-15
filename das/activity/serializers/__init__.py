@@ -398,6 +398,14 @@ class EventSourceRelatedField(rest_framework.serializers.RelatedField):
                             for row in self.get_queryset()))
 
 
+def get_allowed_actions_for_category(user, category_name):
+    allowed_actions = []
+    for action in ('create', 'update', 'read', 'delete'):
+        if user.has_perm('activity.{0}_{1}'.format(category_name, action)):
+            allowed_actions.append(action)
+    return allowed_actions
+
+
 class EventCategorySerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventCategory
@@ -411,22 +419,19 @@ class EventCategorySerializer(rest_framework.serializers.ModelSerializer):
         # for that category
         user = getattr(self.context.get('request', None), 'user', None)
         if user is not None:
-            rep['permissions'] = self.get_allowed_actions_for_category(
+            rep['permissions'] = get_allowed_actions_for_category(
                 user, rep['value'])
         return rep
-
-    def get_allowed_actions_for_category(self, user, category_name):
-        allowed_actions = []
-        for action in ('create', 'update', 'read', 'delete'):
-            if user.has_perm('activity.{0}_{1}'.format(category_name, action)):
-                allowed_actions.append(action)
-        return allowed_actions
 
 
 class EventCategoryRelatedField(rest_framework.serializers.RelatedField):
 
     def to_representation(self, value):
-        return EventCategorySerializer().to_representation(value)
+        rep = EventCategorySerializer().to_representation(value)
+        user = getattr(self.context.get('request', None), 'user', None)
+        if user is not None:
+            rep['permissions'] = get_allowed_actions_for_category(user, rep['value'])
+        return rep
 
     def to_internal_value(self, data):
         if data:
