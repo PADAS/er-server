@@ -79,7 +79,7 @@ class EventCategoryPermissions(IsAuthenticated):
     def has_object_permission(self, request, view, obj):
 
         permission_name = 'activity.{0}_{1}'.format(
-            obj.event_type.category.value if isinstance(obj, Event) else obj.category.value,
+            obj.category.value if isinstance(obj, EventType) else obj.event_type.category.value,
             EventCategoryPermissions.http_method_map[request.method]
         )
         return request.user.has_perm(permission_name)
