@@ -65,8 +65,9 @@ class PatrolsMaterializedView:
             coalesce((select COUNT(event_id) FROM activity_eventrelatedsegments 
                 WHERE patrol_segment_id=ps.id GROUP BY patrol_segment_id), 0)as "Number of reports",
             
-            (SELECT string_agg(event_id::text,',') FROM activity_eventrelatedsegments 
-                WHERE patrol_segment_id=ps.id) as "Report IDs",
+            (SELECT string_agg(serial_number::text,',')  FROM activity_event WHERE id IN 
+                (SELECT event_id FROM activity_eventrelatedsegments WHERE patrol_segment_id = ps.id)) as "Report Serial Numbers",
+
             NOW() as "Refresh Time"
             
             FROM activity_patrol p INNER JOIN activity_patrolsegment ps  ON  p.id = ps.patrol_id  

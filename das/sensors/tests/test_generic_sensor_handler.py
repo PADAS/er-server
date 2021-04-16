@@ -25,7 +25,7 @@ User = django.contrib.auth.get_user_model()
 class GenericSensorHandlerTest(BaseAPITest):
     source_type = 'tracking-collar'
     sensor_type = 'ste-collar'
-    provider = 'test_provider'
+    provider = lorem_ipsum.words(100).replace(" ", "")[:100]
     manufacturer_id = "ST2010-3034"
 
     one_observation = {
@@ -68,6 +68,18 @@ class GenericSensorHandlerTest(BaseAPITest):
             "radio_state_at": "2020-02-05T21:30:26.0946916Z",
             "last_voice_call_start_at": "2020-01-21T05:27:26.0000000Z"
         }
+    }
+
+    additional_observation = {
+        "subject_name": "test_subject_w_additional",
+        "subject_additional": {"sex": "male"},
+        "source_additional": {"description": lorem_ipsum.words(2)},
+        "manufacturer_id": "test_subject_w_additional_manufacturer_id",
+        "recorded_at": "2020-03-07T16:28:38+00:00",
+        "location": {
+            "lon": "31.19239",
+            "lat": "-24.43071"},
+        "additional": {"temp": 40.1}
     }
 
     def setUp(self):
@@ -162,6 +174,12 @@ class GenericSensorHandlerTest(BaseAPITest):
         obs = next(iter(Observation.objects.filter(
             source=self.test_source)))
         self.assertEqual(recorded_at, obs.recorded_at)
+
+    def test_request_subject_additional(self):
+        response = self._post_data(json.dumps(self.additional_observation))
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        assert Subject.objects.get(
+            name=self.additional_observation['subject_name']).additional['sex'] == 'male'
 
     def test_post_with_additional(self):
         observation = copy.deepcopy(self.one_observation)
@@ -392,6 +410,23 @@ class GenericSensorHandlerTest(BaseAPITest):
         self.assertEqual(1, Observation.objects.filter(
             source=new_source).count())
         self.assertIsNotNone(SubjectSubType.objects.get(value=subject_subtype))
+
+    def test_request_with_varying_provider_key_lengths(self):
+        client = Client()
+        client.force_login(self.super_user)
+
+        response = client.post(
+            self.api_path, self.one_observation, content_type="application/json")
+
+        assert response.status_code == 201
+
+        provider = lorem_ipsum.words(200).replace(" ", "")[:200]
+        url = '/'.join((self.api_base, 'sensors',
+                        self.sensor_type, provider, 'status'))
+
+        response = client.post(url, self.one_observation,
+                               content_type="application/json")
+        assert response.status_code == 404  # Not found
 
     def _generate_observations(self, n=10, distinct=False):
         for i in range(n):

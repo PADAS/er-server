@@ -1,6 +1,6 @@
 from django.conf.urls import url
 
-from mapping.views import FeatureListJsonView, FeatureGeoJsonView, FeatureSetListJsonView, FeatureSetGeoJsonView, MapListJsonView, LayerListJsonView
+from mapping.views import FeatureListJsonView, FeatureGeoJsonView, FeatureSetListJsonView, FeatureSetGeoJsonView, MapListJsonView, LayerListJsonView, LayerJsonView
 from mapping.spatialviews import SpatialFeatureGroupView, SpatialFeatureView
 
 app_name = 'mapping'
@@ -21,7 +21,8 @@ urlpatterns = (
     # a list of available base maps
     url(r'^maps/?$', MapListJsonView.as_view()),
     url(r'^layers/?$', LayerListJsonView.as_view()),
-
+    url(r'^layer/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
+        LayerJsonView.as_view()),
     url(
         r'^spatialfeaturegroup/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
         SpatialFeatureGroupView.as_view(), name='spatialfeaturegroup-view'),

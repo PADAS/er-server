@@ -15,13 +15,15 @@ import utils
 import usercontent.serializers
 from accounts.serializers import UserDisplaySerializer, get_user_display
 from activity.models import PATROL_STATE_CHOICES, PC_OPEN, PC_DONE, PRI_NONE, PRIORITY_CHOICES
-from activity.models import Patrol, PatrolNote, PatrolSegment, Event
-from observations.models import Subject
-from activity.serializers import AlertRuleSerializer, EventSourceSerializer, EventSerializer
-from activity.serializers import fields, ReportedByRelatedField
-from activity.serializers.base import BaseSerializer, RevisionMixin, TimestampMixin, FileSerializerMixin
-from activity.serializers.fields import choicefield_serializer, text_field
-from utils.drf import PointValidator
+from activity.models import Patrol, PatrolNote, PatrolSegment
+from activity.serializers import AlertRuleSerializer, EventSourceSerializer, PatrolSegmentEventSerializer
+from activity.serializers import fields
+from activity.serializers.base import RevisionMixin, FileSerializerMixin
+from core.serializers import BaseSerializer
+from core.fields import choicefield_serializer, text_field, GEOPointField
+from core.serializers import TimestampMixin, PointValidator, GenericRelatedField
+
+
 priority_choices_serializer = choicefield_serializer(
     PRIORITY_CHOICES, default=PRI_NONE)
 state_choices_serializer = choicefield_serializer(
@@ -105,7 +107,10 @@ class PatrolNoteSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
         return sorted(result, key=lambda u: u['time'], reverse=True)
 
 
-class LeaderRelatedField(ReportedByRelatedField):
+class LeaderRelatedField(GenericRelatedField):
+    def get_field_mapping(self, label="Leader"):
+        return super().get_field_mapping(label)
+
     def get_object_queryset(self):
         request = self.context.get('request')
         for p in activity.models.PROVENANCE_CHOICES:
@@ -116,7 +121,8 @@ class LeaderRelatedField(ReportedByRelatedField):
                 yield provenance, values
 
     def to_representation(self, value):
-        representation = super(LeaderRelatedField, self).to_representation(value)
+        representation = super(
+            LeaderRelatedField, self).to_representation(value)
         return representation if self.is_allowed_to_view(representation) else {'hidden': True}
 
 
@@ -142,18 +148,18 @@ class PatrolTypeRelatedField(serializers.RelatedField):
         return OrderedDict(((row.value, row.display)
                             for row in self.get_queryset()))
 
+
 class PatrolRelatedField(serializers.RelatedField):
     queryset = activity.models.Patrol.objects.all()
 
-    def to_internal_value(self, external_value):
-        if external_value:
+    def to_internal_value(self, data):
+        if data:
             data = data if isinstance(data, str) else data.value
             try:
                 return activity.models.PatrolType.objects.get_by_value(data)
             except activity.models.PatrolType.DoesNotExist:
                 raise serializers.ValidationError(
                     f'patrol_type: {data} does not exist')
-
 
 
 class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
@@ -165,14 +171,14 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
     scheduled_start = DateTimeField(required=False, allow_null=True)
     scheduled_end = DateTimeField(required=False, allow_null=True)
     time_range = fields.DateTimeRangeField(required=False, allow_null=True)
-    start_location = fields.GEOPointField(
+    start_location = GEOPointField(
         required=False, allow_null=True, validators=[PointValidator()])
-    end_location = fields.GEOPointField(
+    end_location = GEOPointField(
         required=False, allow_null=True, validators=[PointValidator()])
     image_url = serializers.CharField(read_only=True, required=False)
     icon_id = serializers.CharField(read_only=True, required=False)
-    events = EventSerializer(many=True, read_only=True, context={
-                             'include_related_events': True})
+    events = PatrolSegmentEventSerializer(many=True, read_only=True, context={
+        'include_related_events': True})
 
     def to_internal_value(self, data):
         sch_start = data.get('scheduled_start')
@@ -301,6 +307,10 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
                     results.extend(updates)
 
         return results
+
+
+class TrackedBySerializer(serializers.Serializer):
+    leader = LeaderRelatedField(read_only=True)
 
 
 class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):

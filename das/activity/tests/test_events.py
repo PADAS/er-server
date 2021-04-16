@@ -14,6 +14,7 @@ from unittest import mock
 
 import pytz
 import pytest
+from urllib.parse import urlencode
 from django.utils import dateparse
 import django.contrib.auth
 from django.db import transaction
@@ -201,6 +202,11 @@ class TestEventView(BaseAPITest):
             self.guest_user)
 
         self.temporary_folder = tempfile.mkdtemp()
+        self.now = datetime.now(tz=pytz.utc)
+        self.start_of_today = self.now.replace(
+            hour=0, minute=0, second=0, microsecond=0)
+        self.end_of_today = self.start_of_today + \
+            timedelta(hours=23, minutes=59, seconds=59)
 
     def tearDown(self):
         shutil.rmtree(self.temporary_folder)
@@ -798,6 +804,24 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response_data['reported_by']['id'],
                          update_data['reported_by']['id'])
 
+    def test_event_revision(self):
+        event = self.create_event(self.event_data)
+        update_data = {}
+        update_data['reported_by'] = self.user_rep
+        update_data['provenance'] = Event.PC_STAFF
+
+        request = self.factory.patch(
+            self.api_base + '/event/{0}'.format(str(event.id)),
+            update_data)
+
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventView.as_view()(request,
+                                             id=str(event.id))
+        self.assertEqual(response.status_code, 200)
+        response_data = response.data
+        self.assertEqual(len(response_data['updates']), 2)
+
     def test_update_event_state_active(self):
         event = self.create_event(self.event_data)
         update_data = {'state': 'active'}
@@ -897,6 +921,61 @@ class TestEventView(BaseAPITest):
             request, from_event_id=collection_id)
         logger.debug(response_data)
         self.assertEqual(response.status_code, 201)
+
+    def test_collection_event_contains_with_different_user_permissions(self):
+        # Create Event A, B and collection
+        collection_et = EventType.objects.get_by_value('incident_collection')
+        logistics_et = EventType.objects.get_by_value(ET_LOGISTICS)
+        monitoring_et = EventType.objects.get_by_value(ET_MONITORING)
+
+        event_collection = Event.objects.create(
+            title="incident_collection_event", event_type=collection_et)
+        event_a = Event.objects.create(
+            title="Event_A", event_type=logistics_et)
+        event_b = Event.objects.create(
+            title="Event_B", event_type=monitoring_et)
+
+        EventRelationship.objects.add_relationship(
+            event_collection, event_a, 'contains')
+        EventRelationship.objects.add_relationship(
+            event_collection, event_b, 'contains')
+
+        request = self.factory.get(
+            self.api_base + '/event/' + str(event_collection.id))
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventView.as_view()(request, id=str(event_collection.id))
+
+        contained_events = response.data.get("contains")
+
+        # All perms user can view all contained events (A and B)
+        assert len(contained_events) == 2
+        contained_event_titles = [k.get('related_event').get(
+            'title') for k in contained_events]
+
+        assert contained_event_titles == ["Event_A", "Event_B"]
+
+        # Grant user security_read permissions
+
+        self.guest_user_permissionset.permissions.add(
+            Permission.objects.get(codename="security_read"))
+
+        self.guest_user.permission_sets.add(self.guest_user_permissionset)
+
+        new_request = self.factory.get(
+            self.api_base + '/event/' + str(event_collection.id))
+        self.force_authenticate(new_request, self.guest_user)
+        new_response = views.EventView.as_view()(
+            new_request, id=str(event_collection.id))
+
+        contained_events = new_response.data.get("contains")
+
+        # Guest user can view only the collection and event_A (security and logistics)
+        assert len(contained_events) == 1
+        contained_event_titles = [k.get('related_event').get(
+            'title') for k in contained_events]
+
+        assert contained_event_titles != ["Event_A", "Event_B"]
+        assert "Event_B" not in contained_event_titles
 
     def test_return_new_contained_events(self):
 
@@ -1055,6 +1134,18 @@ class TestEventView(BaseAPITest):
         self.assertTrue(
             self.notes_line2_prefix in response.content.decode("utf-8"))
 
+    def test_export_events_with_invalid_et_schema(self):
+        url = """/activity/events/export?value_cols=true"""
+        # Update eventschema to have an invalid schema
+
+        EventType.objects.filter(value=ET_OTHER).update(schema={})
+        request = self.factory.get(
+            self.api_base + url)
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        assert response.status_code == 200
+
     def convert_rendered_csv_to_dict(self, content):
         reader = csv.DictReader(io.StringIO(content))
         return [row for row in reader]
@@ -1130,7 +1221,7 @@ class TestEventView(BaseAPITest):
         request = self.factory.post(self.api_base + '/events/', carcass_data)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
-        self.assertEqual(response.status_code, 201)
+        assert response.status_code == 201
 
         url = """/activity/events/export?state=active&filter=%7B%22text%22:%22carcass%22%7D"""
 
@@ -1140,7 +1231,30 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsExportView.as_view()(request)
 
-        self.assertEqual(response.status_code, 200)
+        assert response.status_code == 200
+
+    def test_export_reports_with_create_date_filter(self):
+        url = """/activity/events/export"""
+        q_params = json.dumps(
+            {"create_date": {
+                "lower": self.start_of_today.isoformat(), "upper": self.end_of_today.isoformat()}})
+
+        request = self.factory.get(self.api_base + url, {'filter': q_params})
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        rendered_dict = self.convert_rendered_csv_to_dict(
+            response.content.decode("utf-8"))
+        assert len(rendered_dict) == 1
+
+        tomorrow = self.now + timedelta(days=1)
+        q_params = json.dumps({"create_date": {"lower": tomorrow.isoformat()}})
+
+        request = self.factory.get(self.api_base + url, {'filter': q_params})
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        rendered_dict = self.convert_rendered_csv_to_dict(
+            response.content.decode("utf-8"))
+        assert len(rendered_dict) == 0
 
     def test_export_filter_on_incident_associated_reports(self):
         incident_data = copy.deepcopy(self.event_data)
@@ -2663,6 +2777,47 @@ class TestEventView(BaseAPITest):
         response = views.EventsExportView.as_view()(request)
         self.assertTrue("Unknown Rhino 1" in response.content.decode("utf-8"))
 
+    def test_export_with_0_event_details_data(self):
+        et_schema = json.dumps({
+            "schema": {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "type": "object",
+                "properties": {
+                        "test_three_number":
+                            {"type": "number",
+                             "title": "Test 3 Number With Min and Max",
+                             "minimum": 0,
+                             "maximum": 50},
+                        "test_four_number":
+                        {"type": "number", "title": "Test 4 Number"}
+                }},
+            "definition": ["test_three_number", "test_four_number"]
+        })
+
+        event_type = self.sample_event.event_type
+        event_type.schema = et_schema
+        event_type.save()
+
+        EventDetails.objects.create(
+            data={"event_details": {"test_four_number": 0, "test_three_number": 0}},
+            event=self.sample_event)
+
+        url = """/activity/events/export"""
+        filter_spec = json.dumps({'text': "Test event"})
+        request = self.factory.get(
+            self.api_base + url, {'filter': filter_spec})
+
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsExportView.as_view()(request)
+        rendered_content = response.content.decode("utf-8")
+        rendered_dict = self.convert_rendered_csv_to_dict(rendered_content)
+
+        first_report = rendered_dict[0]
+
+        # 0 event detail values included in export
+        assert int(first_report.get('Test_4_Number')) == 0
+        assert int(first_report.get('Test_3_Number_With_Min_and_Max')) == 0
+
     def test_export_on_checkbox_with_query_titlemaps(self):
         DynamicChoice.objects.create(
             id="queens",
@@ -2930,11 +3085,28 @@ class TestEventView(BaseAPITest):
         assert response.status_code == 200
 
         properties = response.data['schema']['properties']
+        inactive_choices = ['di3', 'di4']
 
         for o in properties_with_enum:
+            # Inactive enums present
             data = properties.get(o)
             inactive_enum = data.get('inactive_enum')
-            assert inactive_enum == ['di3', 'di4']
+            assert inactive_enum == inactive_choices
+
+        url += '?{}'.format(urlencode({'definition': 'flat'}))
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.all_perms_user)
+        new_response = views.EventTypeSchemaView.as_view()(
+            request, eventtype=event_type.value)
+
+        properties = new_response.data['schema']['properties']
+
+        for o in properties_with_enum:
+            # Inactive enums skipped
+            data = properties.get(o)
+            assert not data.get('inactive_enum')
+            assert all(inactive_choices) not in data.get('enum')
+            assert all(inactive_choices) not in data.get('enumNames').keys()
 
     def test_flat_definition(self):
         choice = Choice.objects.create(
@@ -3052,7 +3224,8 @@ class TestEventView(BaseAPITest):
         event_data['reported_by'] = self.user_rep
         event_data['provenance'] = Event.PC_STAFF
 
-        EventType.objects.filter(value=ET_OTHER).update(auto_resolve=True, resolve_time=1)
+        EventType.objects.filter(value=ET_OTHER).update(
+            auto_resolve=True, resolve_time=1)
         event_data['event_type'] = ET_OTHER
 
         request = self.factory.post(self.api_base + '/events/', event_data)
@@ -3061,7 +3234,8 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.status_code, 201)
 
         created_at = datetime.now(tz=pytz.utc) - timedelta(hours=2)
-        Event.objects.filter(id=response.data.get('id')).update(created_at=created_at)
+        Event.objects.filter(id=response.data.get(
+            'id')).update(created_at=created_at)
 
         self.assertEqual(response.data.get('state'), 'new')
         automatically_update_event_state()

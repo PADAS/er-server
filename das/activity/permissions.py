@@ -55,15 +55,17 @@ class EventCategoryPermissions(IsAuthenticated):
                  "PUT": 'update', 'GET': 'read', "DELETE": 'delete'}
         for k, v in perms.items():
             if request.method == k and (
-                    'event_type' in request.data or 'id' in view.kwargs):
+                    'event_type' in request.data or 'id' in view.kwargs or 'eventtype_id' in view.kwargs):
                 try:
-                    event_type = EventType.objects.get_by_natural_key(
-                        request.data['event_type']
-                    ) if 'event_type' in request.data else \
-                        Event.objects.get(id=view.kwargs["id"]).event_type
-                    permission_name = 'activity.{0}_{1}'.format(
-                        event_type.category.value, v
-                    )
+                    if "event_type" in request.data:
+                        event_type = EventType.objects.get_by_natural_key(request.data['event_type'])
+                    elif "eventtype_id" in view.kwargs:
+                        event_type = EventType.objects.get(id=view.kwargs['eventtype_id'])
+                    else:
+                        event_type = Event.objects.get(id=view.kwargs["id"]).event_type
+
+                    permission_name = 'activity.{0}_{1}'.format(event_type.category.value, v)
+
                     permitted = user.has_perm(permission_name)
                     if k == 'GET' and not permitted and user.is_authenticated:
                         return False
@@ -77,7 +79,7 @@ class EventCategoryPermissions(IsAuthenticated):
     def has_object_permission(self, request, view, obj):
 
         permission_name = 'activity.{0}_{1}'.format(
-            obj.event_type.category.value,
+            obj.category.value if isinstance(obj, EventType) else obj.event_type.category.value,
             EventCategoryPermissions.http_method_map[request.method]
         )
         return request.user.has_perm(permission_name)

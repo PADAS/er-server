@@ -1,56 +1,52 @@
 import copy
+import json
 import logging
 import traceback
 from collections import OrderedDict
 
 import django.db
 import drf_extra_fields.geo_fields
+import jsonschema
 import pytz
 import rest_framework.serializers
 import rest_framework.status
-import versatileimagefield.files
-from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.geos import Point
 from django.core.exceptions import PermissionDenied
 from django.core.validators import EmailValidator, RegexValidator
 from django.http import Http404
+from django.template.defaultfilters import truncatechars
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.encoding import force_text
-from django.template.defaultfilters import truncatechars
 from drf_extra_fields.geo_fields import PointField
 from rest_framework.exceptions import ValidationError, APIException
 from rest_framework.fields import DateTimeField
 from rest_framework.metadata import BaseMetadata
-from rest_framework.fields import empty
 from rest_framework.request import clone_request
 from rest_framework.utils.field_mapping import ClassLookupDict
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from versatileimagefield.serializers import VersatileImageFieldSerializer
+from activity.util import get_permitted_event_categories
 
-from choices.serializers import ChoiceField
-
-
-import jsonschema
-import jsonschema.exceptions
-import json
-from core.serializers import ContentTypeField
-from utils.json import loads
-from utils.drf import PointValidator
 import activity.models
-import utils
-from core.utils import OneWeekSchedule
-from accounts.serializers import UserDisplaySerializer, get_user_display, UserSerializer
-from observations.serializers import SubjectSerializer, get_subject_display
-from observations.models import Subject
-from revision.manager import AC_UPDATED, AC_RELATION_DELETED
-import utils.schema_utils as schema_utils
 import usercontent.serializers
-from activity.serializers.base import FileSerializerMixin, IMAGE_RENDITION_SETS
-
+import utils
+import utils.schema_utils as schema_utils
+from accounts.serializers import UserDisplaySerializer, get_user_display, UserSerializer
 from activity.alerting.conditions import Conditions
 from activity.models import PatrolSegment
+from activity.exceptions import SchemaValidationError
+from activity.serializers.base import FileSerializerMixin, IMAGE_RENDITION_SETS
+from choices.serializers import ChoiceField
+from core.serializers import ContentTypeField
+from core.serializers import GenericRelatedField
+from core.serializers import PointValidator
+from core.utils import OneWeekSchedule
+from observations.serializers import SubjectSerializer
+from revision.manager import AC_UPDATED, AC_RELATION_DELETED
+from utils.json import loads
+from utils.schema_utils import get_schema_renderer_method, validate_rendered_schema_is_wellformed
 
 logger = logging.getLogger(__name__)
 
@@ -104,17 +100,6 @@ class CommunitySerializer(rest_framework.serializers.ModelSerializer):
             raise ValidationError('Missing id in deserializing User object')
         obj = activity.models.Community.objects.get(id=data['id'])
         return obj
-
-
-REPORTED_SERIALIZER_MAPPING = {
-    'observations.subject': {'serializer': SubjectSerializer,
-                             'field': 'subject'},
-    'accounts.user': {'serializer': UserDisplaySerializer,
-                      'field': 'user'},
-    'activity.community': {'serializer': CommunitySerializer,
-                           'field': 'community'},
-
-}
 
 
 def filter_blank_choice(choices):
@@ -303,40 +288,9 @@ class EventJSONSchema(BaseMetadata):
         return field_info
 
 
-class ReportedByRelatedField(rest_framework.serializers.RelatedField):
-    def to_representation(self, value):
-        mapping = REPORTED_SERIALIZER_MAPPING.get(
-            value._meta.label_lower, None)
-        if not mapping:
-            raise Exception(
-                'Unexpected ReportedBy Type {0}'.format(type(value)))
-
-        return mapping['serializer']().to_representation(value)
-
-    def to_internal_value(self, data):
-        if isinstance(data, dict):
-            content_type_value = data['content_type']
-        else:
-            content_type_value = data._meta.label_lower
-            data = {"id": data.id, "content_type": content_type_value}
-
-        mapping = REPORTED_SERIALIZER_MAPPING.get(
-            content_type_value, None)
-        if not mapping:
-            raise Exception(
-                'Unexpected ReportedBy Type {0}'.format(data))
-
-        return mapping['serializer']().to_internal_value(data)
-
-    def get_queryset(self):
-        return activity.models.Community.objects.all()
-
-    def run_validation(self, data=empty):
-        # We force empty strings & empty dictionary to None values for
-        # relational fields.
-        if data == '' or data == {}:
-            data = None
-        return super().run_validation(data)
+class ReportedByRelatedField(GenericRelatedField):
+    def get_field_mapping(self, label="ReportedBy"):
+        return super().get_field_mapping(label)
 
     def check_has_event_category_permission(self):
         # Checks if the user has any event-category permission.
@@ -366,38 +320,6 @@ class ReportedByRelatedField(rest_framework.serializers.RelatedField):
                     provenance, request.user))
             if values:
                 yield (provenance, values)
-
-    def display_value(self, instance):
-        if isinstance(instance, get_user_model()):
-            return get_user_display(instance)
-        elif isinstance(instance, Subject):
-            return get_subject_display(instance)
-        return super().display_value(instance)
-
-    def get_choices(self, cutoff=None):
-        '''get_choices does not work for this complicated field, see object_choices'''
-        return OrderedDict()
-
-    @property
-    def object_choices(self):
-        queryset = self.get_object_queryset()
-        if queryset is None:
-            # Ensure that field.choices returns something sensible
-            # even when accessed with a read-only field.
-            return {}
-        choices = []
-        for provenance, values in queryset:
-            choices += [(self.to_representation(item), self.display_value(item))
-                        for item in values]
-        return choices
-
-    def is_allowed_to_view(self, output):
-        request = self.context.get('request')
-
-        if output.get('content_type') == 'observations.subject':
-            subject_id = output.get('id')
-            return Subject.objects.filter(id=subject_id).by_user_subjects(request.user)
-        return True
 
 
 class EventTypeRelatedField(rest_framework.serializers.RelatedField):
@@ -476,6 +398,14 @@ class EventSourceRelatedField(rest_framework.serializers.RelatedField):
                             for row in self.get_queryset()))
 
 
+def get_allowed_actions_for_category(user, category_name):
+    allowed_actions = []
+    for action in ('create', 'update', 'read', 'delete'):
+        if user.has_perm('activity.{0}_{1}'.format(category_name, action)):
+            allowed_actions.append(action)
+    return allowed_actions
+
+
 class EventCategorySerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventCategory
@@ -489,29 +419,81 @@ class EventCategorySerializer(rest_framework.serializers.ModelSerializer):
         # for that category
         user = getattr(self.context.get('request', None), 'user', None)
         if user is not None:
-            rep['permissions'] = self.get_allowed_actions_for_category(
+            rep['permissions'] = get_allowed_actions_for_category(
                 user, rep['value'])
         return rep
 
-    def get_allowed_actions_for_category(self, user, category_name):
-        allowed_actions = []
-        for action in ('create', 'update', 'read', 'delete'):
-            if user.has_perm('activity.{0}_{1}'.format(category_name, action)):
-                allowed_actions.append(action)
-        return allowed_actions
+
+class EventCategoryRelatedField(rest_framework.serializers.RelatedField):
+
+    def to_representation(self, value):
+        rep = EventCategorySerializer().to_representation(value)
+        user = getattr(self.context.get('request', None), 'user', None)
+        if user is not None:
+            rep['permissions'] = get_allowed_actions_for_category(user, rep['value'])
+        return rep
+
+    def to_internal_value(self, data):
+        if data:
+            data = data if isinstance(data, str) else data.value
+            try:
+                event_category = activity.models.EventCategory.objects.get_by_value(data)
+            except activity.models.EventCategory.DoesNotExist:
+                raise ValidationError(f'event_category: {data} does not exist.')
+            else:
+                return event_category
+
+    def get_queryset(self):
+        return activity.models.EventCategory.objects.all_sort()
+
+    def get_choices(self, cutoff=None):
+        queryset = self.get_queryset()
+        if queryset is None:
+            return {}
+
+        if cutoff is not None:
+            queryset = queryset[:cutoff]
+
+        return OrderedDict([(self.to_representation(item).get('value'),
+                             self.display_value(item)) for item in queryset])
 
 
 class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
-    category = EventCategorySerializer(read_only=True)
+    category = EventCategoryRelatedField()
 
     class Meta:
         model = activity.models.EventType
-        read_only_fields = ('id', 'value', 'display', 'ordernum',
-                            'is_collection', 'category', 'icon_id', 'default_priority',)
-        fields = read_only_fields
+        read_only_fields = ('id',)
+        fields = read_only_fields + ('value', 'display', 'ordernum',
+                                     'is_collection', 'category', 'icon_id', 'is_active', 'schema')
+
+    def __init__(self, *args, **kwargs):
+        super(EventTypeSerializer, self).__init__(*args, **kwargs)
+        self.request = self.context.get('request')
+
+        if not self.context.get('include_schema', False) and self.request.method == 'GET':
+            self.fields.pop('schema')
+
+    @staticmethod
+    def validate_schema(schema):
+        try:
+            rendered_schema = get_schema_renderer_method()(schema)
+        except NameError as exc:
+            raise ValidationError(exc)
+        except ValueError as exc:
+            raise ValidationError(exc)
+        except Exception as exc:
+            raise ValidationError(exc)
+        else:
+            try:
+                validate_rendered_schema_is_wellformed(rendered_schema)
+            except SchemaValidationError as exc:
+                raise ValidationError(exc)
+        return schema
 
     def to_representation(self, obj):
         rep = super().to_representation(obj, )
+        rep['url'] = utils.add_base_url(self.request, reverse('eventtype', args=[obj.id, ]))
         return rep
 
 
@@ -1007,7 +989,6 @@ class EventSerializerMixin:
         logger.info('Inside update: %s', validated_data)
         update_fields = []
 
-
         patrol_segments = validated_data.pop('patrol_segments', None)
         if patrol_segments:
             logger.info('setting patrol segments. with %s', patrol_segments)
@@ -1088,8 +1069,6 @@ class EventSerializerMixin:
                 time=revision.revision_at.isoformat(),
                 user=self.get_revision_user(revision.user, event),
                 type=get_update_type(revision, revisions))
-            if record['type'] in ('read',):
-                continue
             result.append(record)
         return result
 
@@ -1204,6 +1183,71 @@ def resolve_external_event_source(user, external_event_type):
         pass
 
 
+class OptimizedEventRelationshipSerializer(EventRelationshipSerializer):
+    type = EventRelationshipTypeRelatedField()
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        if 'request' in self.context:
+            request = self.context['request']
+            rep['url'] = utils.add_base_url(request,
+                                            reverse('event-view-relationship', args=[instance.from_event_id,
+                                                                                     instance.type.value,
+                                                                                     instance.to_event_id, ]))
+
+            direction = self.context.get('event_relationship_direction', 'out')
+            if direction == 'out':
+                related_event = instance.to_event
+            else:
+                related_event = instance.from_event
+
+            rep['related_event'] = PatrolSegmentEventSerializer(instance=related_event, many=False,
+                                                                context={'include_related_events': False}).data
+            return rep
+
+
+class PatrolSegmentEventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
+    updated_at = DateTimeField(read_only=True)
+    title = rest_framework.serializers.CharField(
+        required=False, allow_blank=True)
+    event_type = EventTypeRelatedField(required=False)
+    contains = rest_framework.serializers.SerializerMethodField()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.context.get('include_related_events', False):
+            self.fields.pop('contains')
+
+    class Meta:
+        model = activity.models.Event
+        fields = ('id',
+                  'serial_number',
+                  'event_type', 'priority', 'title',
+                  'state',  'contains', 'updated_at')
+
+    def get_contains(self, event):
+        return self.get_out_relation(event, 'contains')
+
+    def get_out_relation(self, event, value):
+        self.context['event_relationship_direction'] = 'out'
+        qs = event.out_relationships.filter(
+            type__value=value).all().order_by('ordernum', 'to_event__created_at')
+        serializer = OptimizedEventRelationshipSerializer(
+            instance=qs, many=True, context=self.context,)
+        return serializer.data
+
+    def to_representation(self, event):
+        rep = super().to_representation(event)
+        if event.location is not None:
+            geodata = make_feature(self.context['request'], event)
+            rep['geojson'] = geodata
+
+        if event.event_type:
+            rep['is_collection'] = event.event_type.is_collection
+
+        return rep
+
+
 class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
     serializer_choice_field = ChoiceField
     # Using PointField here provides the magic to convert between a
@@ -1295,8 +1339,13 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
     def get_out_relation(self, event, value):
         self.context['event_relationship_direction'] = 'out'
+        request = self.context.get('request')
+        permitted_categories = get_permitted_event_categories(request)
+
         qs = event.out_relationships.filter(
+            to_event__event_type__category__in=permitted_categories,
             type__value=value).all().order_by('ordernum', 'to_event__created_at')
+
         serializer = EventRelationshipSerializer(
             instance=qs, many=True, context=self.context,)
         return serializer.data
@@ -1317,7 +1366,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             'created_by_user', 'notes', 'reported_by',
             'state', 'event_details', 'contains', 'is_linked_to', 'is_contained_in',
             'files', 'related_subjects', 'eventsource', 'external_event_id', 'sort_at',
-                 'patrol_segments') + read_only_fields
+            'patrol_segments') + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1382,8 +1431,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         # This is to fix https://vulcan.atlassian.net/browse/DAS-6264
         # TODO: Consider adjusting the context within the listed Views.
         if self.context.get('include_updates', True) \
-            and not getattr(self.context.get('view', None), 'get_view_name', lambda: None)()\
-                    in ('Patrols', 'Patrol', 'Patrolsegment'):
+                and not getattr(self.context.get('view', None), 'get_view_name', lambda: None)()\
+                in ('Patrols', 'Patrol', 'Patrolsegment'):
             updates = self.render_updates(event)
             for note in rep.get('notes', []):
                 updates.extend(note['updates'])
@@ -1772,4 +1821,3 @@ class EventRelatedSegmentSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventRelatedSegments
         fields = ('event', 'patrol_segment')
-

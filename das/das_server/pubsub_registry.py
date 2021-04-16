@@ -32,6 +32,18 @@ def delete_patrol_handler(body, message):
     logger.info('Heard delete-patrol for patrol_id: %s', body.get('patrol_id'))
 
 
+def new_message_handler(body, message):
+    logger.info('Heard a new message id: %s', body.get('message_id'))
+
+
+def update_message_handler(body, message):
+    logger.info('Heard a update-message id: %s', body.get('message_id'))
+
+
+def delete_message_handler(body, message):
+    logger.info('Heard a delete-message id: %s', body.get('message_id'))
+
+
 # Define the mapping between routing_keys and callbacks
 # This will get picked up in pubsub.start_message_queue_listeners
 PUBSUB_SUBSCRIPTIONS = (
@@ -49,4 +61,13 @@ PUBSUB_SUBSCRIPTIONS = (
      'das_server.{0}'.format(update_patrol_handler.__name__)),
     ('das.patrol.delete', delete_patrol_handler,
      'das_server.{0}'.format(delete_patrol_handler.__name__)),
+
+    # message subscriptions
+    ('das.message.new', new_message_handler,
+     'das_server.{0}'.format(new_message_handler.__name__)),
+    ('das.message.update', update_message_handler,
+     'das_server.{0}'.format(update_message_handler.__name__)),
+    ('das.message.delete', delete_message_handler,
+     'das_server.{0}'.format(delete_message_handler.__name__)),
+
 )

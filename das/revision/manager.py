@@ -1,3 +1,4 @@
+import django.dispatch
 import logging
 import uuid
 
@@ -13,7 +14,6 @@ from django.db.models import Prefetch
 
 logger = logging.getLogger(__name__)
 
-import django.dispatch
 relation_deleted = django.dispatch.Signal(
     providing_args=['relation', 'instance', 'related_query_name'])
 
@@ -36,8 +36,7 @@ class RevisionManager(models.Manager):
 
     def all_user(self):
         """prefetch user"""
-        queryset = self.all()
-        queryset = queryset.prefetch_related(Prefetch('user'))
+        queryset = self.select_related('user')
         return queryset
 
 
@@ -148,6 +147,14 @@ class Revision(object):
         manager = getattr(instance, self.manager_name)
         adapter = self.revision_adapter(type(instance))
 
+        instance.revision_sequence = 0
+        if instance.id:
+            sequences = manager.all()
+            sequences = sequences.order_by('-sequence')
+            for sequence in sequences.values_list('sequence', flat=True):
+                instance.revision_sequence = sequence
+                break
+
         if instance.revision_sequence == 0:
             data = adapter.get_serialized_data(instance)
         elif action == AC_DELETED:
@@ -166,10 +173,10 @@ class Revision(object):
             if not data:
                 return
 
-
         with transaction.atomic():
 
-            o = manager.filter(object_id=instance.id).aggregate(max_sequence=Max('sequence'))
+            o = manager.filter(object_id=instance.id).aggregate(
+                max_sequence=Max('sequence'))
             max_sequence = o.get('max_sequence') or 0
 
             revision = manager.create(
@@ -202,11 +209,6 @@ class Revision(object):
         if instance.id:
             adapter = RevisionAdapter(type(instance))
             instance.revision_original = adapter.get_data_copy(instance)
-            sequences = manager.all()
-            sequences = sequences.order_by('-sequence')
-            for sequence in sequences.values_list('sequence', flat=True):
-                instance.revision_sequence = sequence
-                break
 
     def finalize(self, sender, **kwargs):
         revision_model = self.create_revision_model(sender)

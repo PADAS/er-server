@@ -1,6 +1,9 @@
 import json
 import logging
 import re
+import random
+import pytz
+from datetime import datetime, timedelta
 
 from django.utils.translation import ugettext_lazy as _
 from django.utils.dateparse import parse_duration
@@ -9,11 +12,13 @@ from django import forms
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
 from django.contrib.postgres.forms import JSONField
+from django.db.models import F, Q, Window, RowRange, Count, Aggregate
 
-from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider, GPXTrackFile
+from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider, GPXTrackFile, Observation
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
 from choices.models import Choice
 from core.common import TIMEZONE_USED
+from observations.utils import find_paths, JsonAgg
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +60,8 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
         fields = ('id', 'subject', 'source', 'assigned_range',
                   'additional') + json_fields
 
-    assigned_range = AssignedDateTimeRangeField(label=f'Assigned Range in {TIMEZONE_USED}')
+    assigned_range = AssignedDateTimeRangeField(
+        label=f'Assigned Range in {TIMEZONE_USED}')
 
     # For JSONFieldFormMixin -- this identifies the Model attribute that is
     # the JSON Field.
@@ -67,6 +73,25 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
 
 silence_notification_threshold_help_text_for_source =  \
     _('Threshold in hours:minutes:seconds that indicates an abnormal period without new data for this Source.')
+
+
+two_way_help_text = \
+    _('specify whether the source supports two-way messaging')
+
+
+def two_way_choices(source_provider_enable=False):
+    if source_provider_enable:
+        return (
+            (None, _('Enabled by Source Provider')),
+            (True, _('Enabled')),
+            (False, _('Disabled'))
+        )
+    else:
+        return (
+            (None, _('')),
+            (True, _('Enabled')),
+            (False, _('Disabled'))
+        )
 
 
 class SourceForm(JSONFieldFormMixin, forms.ModelForm):
@@ -103,6 +128,8 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
 
     silence_notification_threshold = forms.CharField(max_length=8, required=False, empty_value=None,
                                                      help_text=silence_notification_threshold_help_text_for_source)
+    two_way_messaging = forms.ChoiceField(
+        label='Two-way messaging', help_text=two_way_help_text, required=False)
 
     @staticmethod
     def fetch_organizations():
@@ -122,10 +149,21 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
             choices[choice.value] = choice.display
         return tuple([(key, value) for key, value in choices.items()])
 
+    @staticmethod
+    def fetch_2way_messaging_choices(instance):
+        if instance:
+            provider_2way_conf = instance.provider.additional.get(
+                'two_way_messaging', False)
+            return two_way_choices(source_provider_enable=provider_2way_conf)
+        return two_way_choices()
+
     def __init__(self, *args, **kwargs):
         super(SourceForm, self).__init__(*args, **kwargs)
+        instance = kwargs.get('instance')
         self.fields['data_owners'].choices = self.fetch_organizations()
         self.fields['collar_status'].choices = self.fetch_collar_status()
+        self.fields['two_way_messaging'].choices = self.fetch_2way_messaging_choices(
+            instance)
 
     class Meta:
         model = Source
@@ -134,7 +172,7 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
                        'feed_id', 'feed_passwd',
                        'adjusted_beacon_freq', 'frequency',
                        'adjusted_frequency',
-                       'backup_frequency', 'predicted_expiry', 'silence_notification_threshold')
+                       'backup_frequency', 'predicted_expiry', 'silence_notification_threshold', 'two_way_messaging')
         json_date_fields = ('predicted_expiry',)
         fields = ('id', 'manufacturer_id', 'provider', 'source_type',
                   'model_name') + json_fields
@@ -253,6 +291,132 @@ silence_notification_threshold_help_text =  \
 days_data_retain_help_text =  \
     _('Observations records outside the configured number of days will be removed permanently and cannot be retrieved.')
 
+two_way_help_text_sp = \
+    _('specify whether the source provider supports two-way messaging')
+
+
+class TranformationRuleWidget(forms.MultiWidget):
+    template_name = 'admin/transformation_rule.html'
+
+    def __init__(self, attrs=None, provider=None):
+        self.provider = provider or {}
+        widgets = [forms.CheckboxInput,
+                   forms.TextInput(attrs={"id": "transform_label"}),
+                   forms.TextInput({"id": "transform_unit"})]
+        widgets = widgets * len(provider) if provider else widgets
+        forms.MultiWidget.__init__(self, widgets, attrs)
+
+    def _get_context(self, name, value, attrs):
+        context = {'widget': {
+            'name': name,
+            'is_hidden': self.is_hidden,
+            'required': self.is_required,
+            'value': self.format_value(value),
+            'attrs': self.build_attrs(self.attrs, attrs),
+            'template_name': self.template_name,
+        }}
+        return context
+
+    @staticmethod
+    def get_dest(key):
+        val = key.split('.')
+        return val[-1] if val[-1] != '[]' else val[-2]
+
+    def get_context(self, name, value, attrs):
+        context = self._get_context(name, value, attrs)
+        if self.is_localized:
+            for widget in self.widgets:
+                widget.is_localized = self.is_localized
+        # value is a list of values, each corresponding to a widget
+        # in self.widgets.
+        if not isinstance(value, list):
+            value = self.decompress(value)
+
+        final_attrs = context['widget']['attrs']
+        input_type = final_attrs.pop('type', None)
+        id_ = final_attrs.get('id')
+        subwidgets = []
+        list_subwidgets = []
+
+        for _, key in enumerate(sorted(self.provider.keys())):
+            for i, widget in enumerate(self.widgets):
+                if input_type is not None:
+                    widget.input_type = input_type
+                widget_name = '%s_%s' % (name, i)
+                try:
+                    widget_value = None
+                    for x in value:
+                        if x.get('dest') == self.get_dest(key):
+                            vals = list(x.values())
+                            widget_value = vals[i]
+                except IndexError:
+                    widget_value = None
+                except AttributeError:
+                    widget_value = None
+                if id_:
+                    widget_attrs = final_attrs.copy()
+                    widget_attrs['id'] = '%s_%s' % (
+                        widget.attrs.get('id') or id_, _)
+                else:
+                    widget_attrs = final_attrs
+                subwidgets.append(widget.get_context(
+                    widget_name, widget_value, widget_attrs)['widget'])
+            list_subwidgets.append(subwidgets)
+            subwidgets = []
+        context['widget']['subwidgets'] = list_subwidgets
+        context['sample_data'] = json.loads(
+            json.dumps(self.provider, sort_keys=True, indent=4))
+
+        return context
+
+    def render(self, name, value, attrs=None, renderer=None):
+        """Render the widget as an HTML string."""
+        context = self.get_context(name, value, attrs)
+        return self._render(self.template_name, context, renderer)
+
+    def decompress(self, value):
+        return [] if value is None else value
+
+
+def generate_sample_data(provider):
+    accum = {}
+    rows = 4
+    dt_filter = datetime.now(tz=pytz.utc) - timedelta(days=3)
+
+    observations = Observation.objects.raw("""
+     select ob.id, 
+            jsonb_agg(to_jsonb(ob.additional))
+                over (partition by ob.source_id order by ob.recorded_at desc ROWS BETWEEN UNBOUNDED PRECEDING AND %s FOLLOWING) 
+                    AS agg_data
+    from (select row_number()
+            over (partition by o.source_id order by o.recorded_at DESC) as rn, o.*
+            from observations_observation o inner join observations_source 
+                on (o.source_id = observations_source.id) where 
+                    observations_source.provider_id = %s and o.recorded_at >= %s) ob
+        where ob.rn <= %s
+     """, [rows, provider.id, dt_filter, rows])
+
+    [find_paths(aggregate_data, accum=accum) for observation in observations for aggregate_data in observation.agg_data]
+
+    for k, v in accum.items():
+        accum[k] = random.sample(v, min(3, len(v)))
+    return accum
+
+
+class TranformationRuleField(forms.fields.MultiValueField):
+    widget = TranformationRuleWidget
+
+    def __init__(self, *args, **kwargs):
+        _fields = [
+            forms.fields.BooleanField(required=False),
+            forms.fields.CharField(required=False),
+            forms.CharField(required=False),
+            forms.CharField(required=False)]
+        super().__init__(_fields, *args, **kwargs)
+
+    def compress(self, values):
+        return values
+
 
 class AutoFormatJSONWidget(forms.widgets.Textarea):
 
@@ -280,6 +444,7 @@ class AutoFormatJSONWidget(forms.widgets.Textarea):
             'all': ('css/monospace_textarea.css',),
         }
 
+
 class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
 
     lag_notification_threshold = forms.CharField(max_length=8, required=False, empty_value=None,
@@ -291,12 +456,21 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
     days_data_retain = forms.IntegerField(required=False, min_value=1, max_value=365,
                                           help_text=days_data_retain_help_text)
 
+    tranformation_rule = TranformationRuleField(required=False)
+    two_way_messaging = forms.BooleanField(required=False, initial=False, label='Two-way messaging',
+                                           help_text=two_way_help_text_sp)
+
     transforms = JSONField(widget=AutoFormatJSONWidget, required=False,
-                           label=_("Additional data to display with Subjects"),
+                           label=_("Advanced transformation rules"),
                            error_messages={'invalid': "The array of Additional data to display with Subjects was not "
-                                                      "formed properly. Please correct and try again."},
-                           help_text="Contact support for assistance in configuring the additional data fields to "
-                                     "display for subjects")
+                                                      "formed properly. Please correct and try again."})
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        instance = kwargs.get('instance')
+        if instance:
+            self.fields['tranformation_rule'].widget.provider = generate_sample_data(instance)
+            self.fields['tranformation_rule'].initial = instance.transforms
 
     class Meta:
         model = SourceProvider
@@ -305,6 +479,7 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
             'lag_notification_threshold',
             'silence_notification_threshold',
             'days_data_retain',
+            'two_way_messaging'
         )
         json_date_fields = set()
 

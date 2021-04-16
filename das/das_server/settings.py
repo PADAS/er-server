@@ -527,6 +527,8 @@ ALERTS_ENABLED = True
 CARTO_URL = 'https://wri-01.cartodb.com/api/v2/sql'  # For: VIIRS-Fire-Alerts
 
 GFW_API_ROOT = 'https://production-api.globalforestwatch.org/v1'
+GFW_WEB_ROOT = 'https://www.globalforestwatch.org'
+
 GFW_CREDENTIALS = {
     'username': 'support@pamdas.org',
     'password': 'ns2S#@Bh3V&W2eR17Ru8'
@@ -567,3 +569,7 @@ DAILY_REPORT_TEMPLATE_SUBFOLDER = SERVER_FQDN
 TRACK_LENGTH = 21
 
 PATROL_VIEW_REFRESH_HOURS = 1
+
+INREACH_INBOUND_ENDPOINT = 'https://explore.garmin.com/IPCInbound/V1/Messaging.svc/Message'
+INREACH_USERNAME = os.getenv('INREACH_USERNAME', 'username')
+INREACH_PASSWORD = os.getenv('INREACH_PASSWORD', 'password')

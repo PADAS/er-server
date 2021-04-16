@@ -23,7 +23,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework import status
 from rest_framework.compat import coreapi, coreschema
-from rest_framework.exceptions import APIException, PermissionDenied, ValidationError
+from rest_framework.exceptions import APIException, PermissionDenied, ValidationError, NotFound
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -47,7 +47,7 @@ from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination
 from utils.json import zeroout_microseconds, parse_bool, ExtendedGEOJSONRenderer
 from utils import add_base_url
 from observations.utils import dateparse
-from observations.tasks import process_gpxdata_api
+from observations.tasks import process_gpxdata_api, handle_outbox_message
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +147,17 @@ class SubjectGroupsViewSchema(CustomSchema):
                 {
                 'name': 'include_inactive',
                 'in': 'query',
-                'description': 'Include inactive subjects in subject group list.'}
+                'description': 'Include inactive subjects in subject group list.'},
+                {
+                'name': 'flat',
+                'in': 'query',
+                'description': 'flatten the list of groups returned, no nested parent/child'
+            },
+                {
+                'name': 'group_name',
+                'in': 'query',
+                'description': 'find subject groups with this name'
+            }
             ]
             operation['parameters'].extend(query_params)
         return operation
@@ -188,9 +198,23 @@ class SubjectGroupsView(generics.ListAPIView):
         if not self.request.user.has_any_perms(VIEW_SUBJECTGROUP_PERMS):
             raise UnauthorizedView
 
-        queryset = models.SubjectGroup.objects.get_non_cyclic_subjectgroups()
+        qparams = self.request.query_params
+        if parse_bool(qparams.get('flat')):
+            queryset = models.SubjectGroup.objects.all()
+        else:
+            queryset = models.SubjectGroup.objects.get_non_cyclic_subjectgroups()
+
+        if qparams.get('group_name'):
+            queryset = queryset.by_name_search(qparams.get('group_name'))
+
         queryset = queryset.order_by('name')
         return queryset
+
+    def get_serializer_class(self):
+        qparams = self.request.query_params
+        include_subgroups = not parse_bool(qparams.get('flat'))
+        return serializers.create_sg_serializer('subjectgs', models.SubjectGroup,
+                                                serializers.SubjectSerializer, include_subgroups)
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -521,6 +545,21 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView):
         return queryset
 
 
+class SubjectSubjectSourcesView(generics.ListAPIView):
+    """View for a Subject's SubjectSource records
+    """
+    serializer_class = serializers.SubjectSourceSerializer
+
+    def get_queryset(self):
+        subject = generics.get_object_or_404(
+            models.Subject.objects.all(), pk=self.kwargs['id'])  # <-- Maybe annotate with subject_status
+        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
+            raise PermissionDenied
+        subject_sources = models.SubjectSource.objects.get_subject_sources(
+            subject)
+        return subject_sources
+
+
 class SubjectSourcesView(generics.ListCreateAPIView):
     serializer_class = serializers.SourceSerializer
 
@@ -845,6 +884,8 @@ class ObservationsViewSchema(CustomSchema):
                     'description': 'filter to a single subject'},
                 {'name': 'source_id', 'in': 'query',
                     'description': 'filter to a single source'},
+                {'name': 'subjectsource_id', 'in': 'query',
+                    'description': 'filter to a subjectsource_id, rather than source_id + time range'},
                 {'name': 'since', 'in': 'query',
                     'description': 'get observations after this ISO8061 date, include timezone'},
                 {'name': 'until', 'in': 'query',
@@ -883,6 +924,7 @@ class ObservationsView(generics.ListCreateAPIView):
             until, 'recorded_until')
         subject_id = query_params.get('subject_id', None)
         source_id = query_params.get('source_id', None)
+        subjectsource_id = query_params.get('subjectsource_id', None)
         created_after = query_params.get('created_after', None)
         filter_flag = 0
         filter_qparam = query_params.get('filter', 0)
@@ -891,14 +933,18 @@ class ObservationsView(generics.ListCreateAPIView):
         except (ValueError, TypeError):
             filter_flag = None if filter_qparam == 'null' else filter_flag
 
-        if subject_id and source_id:
-            raise ValueError("subject_id and source_id specified")
+        if len([id for id in (subject_id, source_id, subjectsource_id) if id]) > 1:
+            raise ValueError(
+                "Can only specify one of: subject_id and source_id and subjectsource_id")
         elif subject_id:
             queryset = models.Observation.objects.get_subject_observations(
                 subject_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag, order_by='recorded_at')
         elif source_id:
             queryset = models.Observation.objects.get_source_observations(
                 source_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag, order_by='recorded_at')
+        elif subjectsource_id:
+            queryset = models.Observation.objects.get_subjectsource_observations(
+                subjectsource_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag, order_by='recorded_at')
         else:
             queryset = models.Observation.objects.by_since_until(
                 recorded_since, recorded_until)
@@ -1710,3 +1756,171 @@ class GPXTaskStatusView(generics.ListAPIView):
             # Release the resources whenever AsyncResult instance is called.
             asyncResult.forget()
         return Response(data, status=status.HTTP_200_OK)
+
+
+class MessagesSchema(CustomSchema):
+    def get_operation(self, path, method):
+        operation = super().get_operation(path, method)
+        if method == 'GET':
+            query_params = [{
+                'name': 'subject_id',
+                'in': 'query',
+                'description': 'Get messages of this subject.'},
+                {
+                    'name': 'source_id',
+                    'in': 'query',
+                    'description': 'Get messages of this device/source'},
+                {
+                    'name': 'read',
+                    'in': 'query',
+                    'description': 'Get read/unread messages'},
+            ]
+            operation['parameters'].extend(query_params)
+
+        elif method == 'POST':
+            query_params = [{
+                'name': 'subject_id',
+                'in': 'query',
+                'description': 'Post messages to this subject.'},
+                {
+                'name': 'source_id',
+                'in': 'query',
+                'description': 'Post Messages to this device/source'},
+                {
+                'name': 'manufacturer_id',
+                'in': 'query',
+                'description': 'Post Messages from a device of this manufacturer id.'}
+            ]
+            operation['parameters'].extend(query_params)
+
+        return operation
+
+
+class MessagesView(generics.ListCreateAPIView):
+    serializer_class = serializers.MessageSerializer
+    permission_classes = (IsAuthenticated,)
+    pagination_class = StandardResultsSetPagination
+    schema = MessagesSchema()
+
+    def get_queryset(self):
+        query_params = self.request.query_params
+        messages = get_user_messages(self.request.user)
+
+        subject_id = query_params.get('subject_id')
+        source_id = query_params.get('source_id')
+        read = query_params.get('read')
+        if subject_id:
+            # Accepting a list i.e : ?subject_id=id1, id2, id2
+            subject_ids = [x.strip(' ') for x in subject_id.split(',')]
+            messages = messages.by_subject_ids(subject_ids)
+        if source_id:
+            messages = messages.by_source_id(source_id)
+        if read:
+            messages = messages.by_read(read)
+
+        return messages.order_by("-message_time")
+
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        if data.get("bulk_read"):
+            # Handle bulk reading of messages
+            ids, read = data.get("ids"), data.get("read", True)
+            ids = [ids] if isinstance(ids, str) else ids
+
+            user_messages = get_user_messages(self.request.user)
+            user_msg_ids = [str(k.id) for k in user_messages]
+            valid_update_ids = [k for k in ids if k in user_msg_ids]
+
+            user_messages.filter(id__in=valid_update_ids).update(read=read)
+            read_state = 'read' if read else 'unread'
+            return Response(f"{len(valid_update_ids)} messages successfully updated to {read_state}", status=status.HTTP_200_OK)
+
+        return self.create(request, *args, **kwargs)
+
+    def save_message(self, request, data):
+        serializer = self.serializer_class(
+            data=data, context={'request': request})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST, )
+
+        serializer.save()
+        return serializer.data
+
+    def _source(self, manufacturer_id):
+        try:
+            return models.Source.objects.get(manufacturer_id=manufacturer_id)
+        except models.Source.DoesNotExist:
+            raise NotFound(
+                {'Error': f'Source with given ID does not exist'})
+
+    def create(self, request, *args, **kwargs):
+
+        data = request.data
+        message_type = data.get("message_type", "outbox")
+        data['message_time'] = data.get(
+            "message_time", datetime.datetime.now(tz=pytz.utc).isoformat())
+
+        qparams = self.request.query_params
+        if message_type == "inbox":
+            # Handle Inbox messages
+
+            manufacturer_id = qparams.get("manufacturer_id")
+            if not manufacturer_id:
+                return Response({"Error": "Manufacturer Id param has to be provided for an inbox message"},
+                                status=status.HTTP_400_BAD_REQUEST)
+            source = self._source(manufacturer_id)
+            dt = parse_datetime(data['message_time'])
+            subject_source = models.SubjectSource.objects.filter(source=source,
+                                                                 assigned_range__contains=dt) \
+                .order_by('assigned_range').reverse().first()
+
+            if not subject_source:
+                return Response({"Error": "No subject assigned to this source"}, status=status.HTTP_404_NOT_FOUND)
+
+            data['sender'] = {
+                "content_type": "observations.subject", "id": subject_source.subject.id}
+            data['device'] = source.id
+            ser_data = self.save_message(request, data)
+        else:
+            # Handle Outbox messages
+
+            subject_id = qparams.get('subject_id')
+            source_id = qparams.get('source_id')
+
+            if not subject_id and not source_id:
+                return Response({"Error": "Source_id and subject_id params needed for an outbox message"},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            # Set logged in user as the sender
+            data['sender'] = {
+                "content_type": "accounts.user", "id": request.user.id}
+            data['receiver'] = {
+                "content_type": "observations.subject", "id": subject_id}
+            data['device'] = source_id
+
+            ser_data = self.save_message(request, data)
+            handle_outbox_message.apply_async(
+                args=(ser_data, request.user.email))
+
+        headers = self.get_success_headers(ser_data)
+        return Response(ser_data, status=status.HTTP_201_CREATED, headers=headers)
+
+
+class MessageView(generics.RetrieveUpdateDestroyAPIView):
+    lookup_field = 'id'
+    serializer_class = serializers.MessageSerializer
+    permission_classes = (IsAuthenticated,)
+    queryset = models.Message.objects.all()
+
+    def get_queryset(self):
+        return get_user_messages(self.request.user)
+
+
+def get_user_messages(user):
+    # Get messages a user has access to
+    subjects = models.Subject.objects.all()
+    user_subjects = subjects.by_user_subjects(user)
+    user_subject_ids = [subj.id for subj in user_subjects]
+    messages = models.Message.objects.filter(
+        Q(sender_id__in=user_subject_ids) | Q(receiver_id__in=user_subject_ids))
+    return messages

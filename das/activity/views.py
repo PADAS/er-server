@@ -17,9 +17,9 @@ import rest_framework.exceptions
 import versatileimagefield.files
 from django.conf import settings
 from django.contrib.postgres.aggregates import StringAgg, ArrayAgg
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.db.models import CharField, Value
-from django.db.models import Prefetch, F, Count
+from django.db.models import Prefetch, F, Count, Max
 from django.db.models.functions import Concat, Cast
 from django.http import Http404
 from django.http.response import HttpResponse
@@ -54,14 +54,15 @@ from activity.serializers import EventSerializer, EventNoteSerializer, \
     EventFileSerializer, \
     EventFilterSerializer, EventSourceSerializer, EventProviderSerializer, \
     EventGeoJsonSerializer, \
-    PatrolTypeSerializer, EventRelatedSegmentSerializer
-from activity.serializers.patrol_serializers import PatrolSerializer, PatrolSegmentSerializer, PatrolNoteSerializer, PatrolFileSerializer
+    PatrolTypeSerializer, EventRelatedSegmentSerializer, PatrolSegmentEventSerializer
+from activity.serializers.patrol_serializers import PatrolSerializer, PatrolSegmentSerializer, PatrolNoteSerializer, PatrolFileSerializer, TrackedBySerializer
 from choices.models import Choice
 from observations.models import Subject
 from utils.drf import StandardResultsSetPagination, \
     StandardResultsSetGeoJsonPagination
 from utils.json import parse_bool, loads, ExtendedGEOJSONRenderer
 from das_server.views import CustomSchema
+from activity.util import get_permitted_event_categories, return_409_response
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,15 @@ USERCONTENT_FORCE_DOWNLOAD = getattr(settings, 'USERCONTENT_SETTINGS', {}).get(
     'force_download_mimetypes', set())
 
 
+def calculate_event_schema_etag(view_instance, view_method, request, *args, **kwargs):
+    latest_et_update = view_instance.queryset.aggregate(
+        Max('event_type__updated_at')).get("event_type__updated_at__max")
+    latest_choice_update = view_instance.choices.aggregate(
+        Max('updated_at')).get("updated_at__max")
+    all_updates = str(latest_et_update) + str(latest_choice_update)
+    return str(hash(all_updates))
+
+
 class EventSchemaView(generics.ListCreateAPIView):
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventSerializer
@@ -78,6 +88,9 @@ class EventSchemaView(generics.ListCreateAPIView):
     metadata_class = EventJSONSchema
     queryset = Event.objects.all()
 
+    choices = Choice.objects.order_by('is_active', 'ordernum')
+
+    @etag(etag_func=calculate_event_schema_etag)
     def get(self, request, *args, **kwargs):
         meta = self.metadata_class()
         data = meta.determine_metadata(request, self)
@@ -87,14 +100,37 @@ class EventSchemaView(generics.ListCreateAPIView):
         raise rest_framework.exceptions.MethodNotAllowed('For Schema')
 
 
-class EventTypesView(generics.ListAPIView):
+class EventTypeViewSchema(CustomSchema):
+    def get_operation(self, path, method):
+        operation = super().get_operation(path, method)
+        if method == 'GET':
+            query_params = [
+                {
+                    'name': 'include_inactive',
+                    'in': 'query',
+                    'description': "include inactive eventtypes"},
+                {
+                    'name': 'include_schema',
+                    'in': 'query',
+                    'description': "include eventtype schema in the payload"},
+            ]
+            operation['parameters'].extend(query_params)
+        return operation
+
+
+class EventTypesView(generics.ListCreateAPIView):
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventTypeSerializer
+    schema = EventTypeViewSchema()
 
     def get_queryset(self):
         query_params = self.request.query_params
         queryset = EventType.objects.all_sort()
-        queryset = queryset.filter(category__is_active=True)
+
+        if parse_bool(query_params.get('include_inactive')):
+            queryset = queryset.filter(category__is_active=True)
+        else:
+            queryset = queryset.filter(category__is_active=True, is_active=True)
 
         category = query_params.getlist('category', None)
         if category:
@@ -121,6 +157,43 @@ class EventTypesView(generics.ListAPIView):
         if is_collection is not None:
             queryset = queryset.by_is_collection(parse_bool(is_collection))
         return queryset
+
+    def get_serializer_context(self):
+        qparams = self.request.query_params
+        context = super().get_serializer_context()
+
+        context['include_schema'] = parse_bool(qparams.get('include_schema', False))
+        return context
+
+
+class EventTypeView(generics.RetrieveUpdateDestroyAPIView):
+    lookup_field = 'id'
+    lookup_url_kwarg = 'eventtype_id'
+    permission_classes = (EventCategoryPermissions,)
+    serializer_class = EventTypeSerializer
+    queryset = EventType.objects.all()
+
+    def perform_destroy(self, instance):
+        instance.set_to_inactive()
+
+    def put(self, request, *args, **kwargs):
+        try:
+            return self.update(request, *args, **kwargs)
+        except IntegrityError:
+            return return_409_response()
+
+    def patch(self, request, *args, **kwargs):
+        try:
+            return self.partial_update(request, *args, **kwargs)
+        except IntegrityError:
+            return return_409_response()
+
+    def get_serializer_context(self):
+        qparams = self.request.query_params
+        context = super().get_serializer_context()
+
+        context['include_schema'] = parse_bool(qparams.get('include_schema', False))
+        return context
 
 
 class EventCategoriesView(generics.ListAPIView):
@@ -215,15 +288,19 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
         schema_fields = schema_utils.get_replacement_fields_in_schema(
             eventtype.schema)
 
+        choices = Choice.objects.filter(
+            is_active=True) if definition_format == 'flat' else Choice.objects.all()
+
         parameters = {}
         enumImages_vals = {}
         for schema_field in schema_fields:
             if schema_field['lookup'] == 'enum':
-                icon_vals = schema_utils.get_enumImage_values(schema_field)
+                icon_vals = schema_utils.get_enumImage_values(
+                    schema_field, queryset=choices)
                 if icon_vals:
                     enumImages_vals[schema_field['field']] = icon_vals
                 parameters[schema_field['tag']
-                           ] = schema_utils.get_enum_choices(schema_field)
+                           ] = schema_utils.get_enum_choices(schema_field, queryset=choices)
             elif schema_field['lookup'] == 'query':
                 parameters[schema_field['tag']
                            ] = schema_utils.get_dynamic_choices(schema_field)
@@ -249,42 +326,43 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
             request, eventtype.image_url)
 
         field_schema = schema_utils.map_schema(eventtype.schema, schema)
-        for key, value in field_schema.items():
-            inactive_choices = []
-            obj = Choice.objects.filter(
-                is_active=False, field=value['field_name'])
-            for o in obj:
-                inactive_choices.append(o.value)
-            if inactive_choices:
-                schema['schema']['properties'][key]["inactive" +
-                                                    "_" + value['lookup']] = inactive_choices
 
-        for value in schema_utils.get_values_titlemap(eventtype.schema):
-            inactive_choices = []
-            obj = Choice.objects.filter(is_active=False, field=value)
-            for o in obj:
-                inactive_choices.append(o.value)
-            if inactive_choices:
+        if definition_format != 'flat':
+            for key, value in field_schema.items():
+                inactive_choices = []
+                obj = Choice.objects.filter(
+                    is_active=False, field=value['field_name'])
+                for o in obj:
+                    inactive_choices.append(o.value)
+                if inactive_choices:
+                    schema['schema']['properties'][key]["inactive" +
+                                                        "_" + value['lookup']] = inactive_choices
 
-                for key in schema['definition']:
-                    if isinstance(key, OrderedDict):
-                        items = key.get('items')
+            for value in schema_utils.get_values_titlemap(eventtype.schema):
+                inactive_choices = []
+                obj = Choice.objects.filter(is_active=False, field=value)
+                for o in obj:
+                    inactive_choices.append(o.value)
+                if inactive_choices:
+                    for key in schema['definition']:
+                        if isinstance(key, OrderedDict):
+                            items = key.get('items')
 
-                        tmap_values = [(i, i['titleMap']) for i in items if isinstance(i, OrderedDict)
-                                       and i.get('titleMap')] if items else None
+                            tmap_values = [(i, i['titleMap']) for i in items if isinstance(i, OrderedDict)
+                                           and i.get('titleMap')] if items else None
 
-                        # TODO: Consider the truthiness of tmap_values here,
-                        # for the case where it is set to [].
-                        if tmap_values:
-                            for item, tmap in tmap_values:
-                                for tm in tmap:
-                                    if tm.get('value') in inactive_choices:
-                                        item['inactive_titleMap'] = inactive_choices
+                            # TODO: Consider the truthiness of tmap_values here,
+                            # for the case where it is set to [].
+                            if tmap_values:
+                                for item, tmap in tmap_values:
+                                    for tm in tmap:
+                                        if tm.get('value') in inactive_choices:
+                                            item['inactive_titleMap'] = inactive_choices
 
-                        elif key.get('titleMap'):
-                            for title_map_elem in key.get('titleMap'):
-                                if title_map_elem.get('value') in inactive_choices:
-                                    key['inactive_titleMap'] = inactive_choices
+                            elif key.get('titleMap'):
+                                for title_map_elem in key.get('titleMap'):
+                                    if title_map_elem.get('value') in inactive_choices:
+                                        key['inactive_titleMap'] = inactive_choices
 
         for key, value in field_schema.items():
             for o, vals in enumImages_vals.items():
@@ -543,7 +621,8 @@ class EventsExportView(views.APIView):
                 if header.startswith('"') and header.endswith('"'):
                     header = header[1:-1]
                 column_data = schema_data.get(header, "")
-                event_data[header_key] = column_data if column_data else ""
+                event_data[header_key] = column_data if (
+                    column_data is not None) else ""
 
             current_event_type_data['events'].append(event_data)
 
@@ -737,7 +816,7 @@ class EventsView(generics.ListCreateAPIView):
     def get_queryset(self):
 
         queryset = Event.objects.all_sort().prefetch_related(
-            'eventsource_event_refs')
+            'eventsource_event_refs', 'patrol_segments')
         patrol_segment_id = self.kwargs.get('patrol_segment')
         if patrol_segment_id:
             logger.debug("Filtering on patrol segment id: %s",
@@ -829,18 +908,10 @@ class EventsView(generics.ListCreateAPIView):
 
         return queryset
 
-
-def get_permitted_event_categories(request):
-    permitted_categories = []
-
-    for category in EventCategory.objects.filter(is_active=True):
-        permission_name = 'activity.{0}_{1}'.format(
-            category.value,
-            EventCategoryPermissions.http_method_map['GET']
-        )
-        if request.user.has_perm(permission_name):
-            permitted_categories.append(category)
-    return permitted_categories
+    def get_serializer_class(self):
+        if self.kwargs.get('patrol_segment') and self.request.method == 'GET':
+            return PatrolSegmentEventSerializer
+        return super().get_serializer_class()
 
 
 def calculate_event_etag(view_instance, view_method, request, *args, **kwargs):
@@ -882,6 +953,7 @@ class EventView(generics.RetrieveUpdateDestroyAPIView):
             query_params.get('include_files', True))
         context['include_related_events'] = parse_bool(
             query_params.get('include_related_events', True))
+        context['request'] = self.request
         return context
 
     def get_queryset(self):
@@ -1211,7 +1283,8 @@ class PatrolsView(generics.ListCreateAPIView):
         if subject:
             queryset = queryset.by_subject(subject)
 
-        queryset = queryset.prefetch_related('notes', 'files', 'patrol_segments__patrol_type', 'patrol_segments__events')
+        queryset = queryset.prefetch_related(
+            'notes', 'files', 'patrol_segments__patrol_type', 'patrol_segments__events')
         return queryset.sort_patrols()
 
 
@@ -1356,10 +1429,13 @@ class PatrolsegmentsView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
     serializer_class = PatrolSegmentSerializer
     permission_classes = (PatrolObjectPermissions,)
-    queryset = PatrolSegment.objects.all()
+    queryset = PatrolSegment.objects.select_related(
+        'patrol_type', 'patrol').all()
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        queryset.prefetch_related(Prefetch('events'),
+                                  Prefetch('eventrelatedsegments_set'))
         return get_segments(self.kwargs, queryset)
 
 
@@ -1369,7 +1445,9 @@ class PatrolsegmentView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = PatrolSegmentSerializer
 
     def get_queryset(self):
-        queryset = PatrolSegment.objects.filter(id=self.kwargs.get('id'))
+        queryset = PatrolSegment.objects.select_related('patrol_type',
+                                                        'patrol').prefetch_related(Prefetch('events'),
+                                                                                   Prefetch('eventrelatedsegments_set')).filter(id=self.kwargs.get('id'))
         return get_segments(self.kwargs, queryset)
 
 
@@ -1379,3 +1457,16 @@ def get_segments(kwargs, queryset):
         queryset = queryset.filter(
             eventrelatedsegments__event__id=related_event)
     return queryset
+
+
+class TrackedBySchema(generics.ListCreateAPIView):
+    serializer_class = TrackedBySerializer
+    metadata_class = EventJSONSchema
+
+    def get(self, request, *args, **kwargs):
+        meta = self.metadata_class()
+        data = meta.determine_metadata(request, self)
+        return generics.views.Response(data)
+
+    def post(self, request, *args, **kwargs):
+        raise rest_framework.exceptions.MethodNotAllowed('For Schema')

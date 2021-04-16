@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
+from django.core.cache import cache
 
 from treebeard.al_tree import AL_Node
 
@@ -91,3 +92,24 @@ class HierarchyModel(models.Model):
     def get_ancestor_ids(self):
         return [a.id for a in self.get_ancestors()]
 
+
+class SingletonModel(models.Model):
+    instance_id = 1
+
+    class Meta:
+        abstract = True
+
+    def set_cache(self):
+        cache.set(self.__class__.__name__, self)
+
+    def save(self, *args, **kwargs):
+        self.pk = self.instance_id
+        super(SingletonModel, self).save(*args, **kwargs)
+
+    def delete(self, using=None, keep_parents=False):
+        pass
+
+    @classmethod
+    def get_instance(cls, **kwargs):
+        o, created = cls.objects.get_or_create(pk=cls.instance_id, **kwargs)
+        return o

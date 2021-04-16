@@ -55,6 +55,8 @@ def api_exception_handler(exc, context):
                             )):
         logger.exception('Exception handling %s',
                          context['request'].get_full_path())
+    # TODO: there is a case where drf returns data as a list or a dictionary
+    # without putting it in a new dictionary under the "datail" key which breaks fixup_api_response
     response = exception_handler(exc, context)
     if not response:
         message = str(_('Internal Server Error'))
@@ -77,17 +79,6 @@ class StandardResultsSetPagination(OptionalResultsSetPagination):
 
 class StandardResultsSetGeoJsonPagination(GeoJsonPagination):
     page_size = 25
-
-
-class PointValidator:
-    """Check that the point field is valid in the latitude and longitude values
-    we do this by checking Point.valid is True"""
-
-    def __call__(self, value):
-        if value is None:
-            raise serializers.ValidationError("Location value is empty")
-        if not value.valid:
-            raise serializers.ValidationError(value.valid_reason)
 
 
 class AllowAnyGet(BasePermission):

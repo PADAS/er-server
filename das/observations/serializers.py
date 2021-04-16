@@ -1,25 +1,31 @@
 import json
-from datetime import datetime, timedelta
 from collections import OrderedDict
+from datetime import datetime, timedelta, MAXYEAR, MINYEAR
 from typing import NamedTuple
 
 import pytz
-from dateutil.parser import parse as parse_date
+import rest_framework.serializers
+from django.conf import settings
 from django.contrib.gis.geos import Point
 from django.urls import reverse
-from django.conf import settings
-from django.db import transaction
-import rest_framework.serializers
-from drf_extra_fields.geo_fields import PointField
 from drf_extra_fields.fields import DateTimeRangeField
+from drf_extra_fields.geo_fields import PointField
+from rest_framework.fields import DateTimeField
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
+from rest_framework.fields import DateTimeField
 
-from core.serializers import ContentTypeField
-from observations import models
-from observations.utils import get_maximum_allowed_age, get_minimum_allowed_age, dateparse, get_null_point
+import activity
 import utils.json
-from utils.json import zeroout_microseconds
+from accounts.serializers import UserDisplaySerializer
+from accounts.models import User
+from core.fields import GEOPointField, choicefield_serializer, text_field
+from core.serializers import ContentTypeField, TimestampMixin
+from core.serializers import GenericRelatedField, BaseSerializer
+from observations import models
+from observations.utils import (dateparse, get_maximum_allowed_age,
+                                get_minimum_allowed_age, get_null_point)
 from utils import add_base_url
+from utils.json import zeroout_microseconds
 
 
 class RegionSerializer(rest_framework.serializers.ModelSerializer):
@@ -35,15 +41,21 @@ class RecursiveSerializer(rest_framework.serializers.Serializer):
         return serializer.data
 
 
-def create_sg_serializer(name, model, serializer):
+def create_sg_serializer(name, model, serializer, include_subgroups=True):
     contained_field = '{0}s'.format(serializer.Meta.model._meta.model_name)
+    meta_fields = ('name', 'id')
+    if include_subgroups:
+        meta_fields += ('subgroups',)
     meta = type('Meta', (object,), dict(model=model,
-                                        fields=('name', 'id', 'subgroups')))
-    subgroups = RecursiveSerializer(
-        many=True, read_only=True, source='children')
-    return type(name, (GroupSerializer,), dict(serializer=serializer, Meta=meta,
-                                               subgroups=subgroups,
-                                               contained_field=contained_field))
+                                        fields=meta_fields))
+
+    gs_fields = dict(serializer=serializer, Meta=meta,
+                     contained_field=contained_field)
+    if include_subgroups:
+        gs_fields["subgroups"] = RecursiveSerializer(
+            many=True, read_only=True, source='children')
+
+    return type(name, (GroupSerializer,), gs_fields)
 
 
 class GroupSerializer(rest_framework.serializers.ModelSerializer):
@@ -115,7 +127,7 @@ class SubjectSubTypeRelatedField(rest_framework.serializers.RelatedField):
             try:
                 return models.SubjectSubType.objects.get(value=data)
             except models.SubjectSubType.DoesNotExist:
-                raise serializers.ValidationError(
+                raise rest_framework.serializers.ValidationError(
                     f'subject_subtype : {data} does not exist')
 
 
@@ -133,17 +145,27 @@ class CommonNameRelatedField(rest_framework.serializers.RelatedField):
             try:
                 return models.CommonName.objects.get(value=data)
             except models.CommonName.DoesNotExist:
-                raise serializers.ValidationError(
+                raise rest_framework.serializers.ValidationError(
                     f'common_name : {data} does not exist')
+
+
+class TimezoneOverflowAwareDateTimeField(DateTimeField):
+    def enforce_timezone(self, value):
+        """we wont enforce timezone on datetime object with max year number or min year number; to prevent OverFlow"""
+        if value.year >= MAXYEAR or value.year <= MINYEAR:
+            return value
+        else:
+            return super().enforce_timezone(value)
 
 
 class SubjectSourceSerializer(rest_framework.serializers.ModelSerializer):
 
-    assigned_range = DateTimeRangeField()
+    assigned_range = DateTimeRangeField(
+        child=TimezoneOverflowAwareDateTimeField())
 
     class Meta:
         model = models.SubjectSource
-        fields = ('id', 'assigned_range', 'soruce', 'subject',
+        fields = ('id', 'assigned_range', 'source', 'subject',
                   'additional')
 
     def create(self, validated_data):
@@ -302,12 +324,23 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                             time=recorded_at, image_url=rep['image_url']
                         )
                 rep['device_status_properties'] = \
-                    statusvalues.device_status_properties if hasattr(statusvalues, 'device_status_properties') else None
+                    statusvalues.device_status_properties if hasattr(
+                        statusvalues, 'device_status_properties') else None
 
         if 'request' in self.context:
             request = self.context['request']
             rep['url'] = utils.add_base_url(
                 request, reverse('subject-view', args=[instance.id, ]))
+
+            rep["messaging"] = []
+            for ss in models.SubjectSource.objects.filter(subject=instance):
+                message_url = utils.add_base_url(
+                    request, reverse('messages-view'))
+                data = {
+                    "source_provider": ss.source.provider.display_name,
+                    "url": f"{message_url}?subject_id={str(instance.id)}&source_id={str(ss.source_id)}"
+                }
+                rep["messaging"].append(data)
 
         if self.context.get('tracks', False):
             track_serializer = SubjectTrackSerializer(
@@ -546,7 +579,8 @@ class SubjectStatusSerializer(rest_framework.serializers.BaseSerializer):
                                              coordinates,
                                              subject_status)
 
-        feature['device_status_properties'] = subject_status.additional.get('device_status_properties')
+        feature['device_status_properties'] = subject_status.additional.get(
+            'device_status_properties')
 
         return feature
 
@@ -722,3 +756,57 @@ class GPXTrackFileUploadSerializer(rest_framework.serializers.Serializer):
             raise rest_framework.serializers.ValidationError(
                 {'data': 'Only .gpx files can be imported.'})
         return data
+
+
+DEFAULT_SERIALIZER_MAPPING = {
+    'observations.subject': {'serializer': SubjectSerializer,
+                             'field': 'subject'},
+    'accounts.user': {'serializer': UserDisplaySerializer,
+                      'field': 'user'}
+}
+
+
+class SenderReceiverRelatedField(GenericRelatedField):
+    def get_field_mapping(self, label="User"):
+        return super().get_field_mapping(label)
+
+
+class MessageSerializer(BaseSerializer, TimestampMixin):
+    from core.serializers import PointValidator
+
+    id = rest_framework.serializers.UUIDField(read_only=True)
+    sender = SenderReceiverRelatedField(required=False, allow_null=True)
+    receiver = SenderReceiverRelatedField(required=False, allow_null=True)
+
+    device = SourceRelatedField(required=False, allow_null=True)
+    message_type = choicefield_serializer(
+        models.MESSAGE_TYPES, default=models.OUTBOX)
+    text = text_field(required=False, allow_blank=True, allow_null=True)
+    status = choicefield_serializer(
+        models.MESSAGE_STATE_CHOICES, default=models.PENDING)
+    sender_location = GEOPointField(
+        required=False, allow_null=True, validators=[PointValidator()])
+    device_location = GEOPointField(
+        required=False, allow_null=True, validators=[PointValidator()])
+    message_time = DateTimeField(required=False, allow_null=True)
+    read = rest_framework.serializers.BooleanField(required=False)
+    additional = rest_framework.serializers.JSONField(
+        default=dict, allow_null=True)
+
+    class Meta:
+        model = models.Message
+        fields = ('id', 'sender_id', 'receiver_id', 'device_id', 'message_type', 'text', 'status',
+                  'sender_location', 'device_location', 'message_time', 'additional')
+
+    def to_representation(self, instance):
+        rep = super(MessageSerializer, self).to_representation(instance)
+
+        request = self.context.get('request')
+        query_params = request.query_params
+        include_additional = query_params.get('include_additional_data', False)
+        if not include_additional:
+            del rep['additional']
+        return rep
+
+    def create(self, validated_data):
+        return models.Message.objects.create(**validated_data)

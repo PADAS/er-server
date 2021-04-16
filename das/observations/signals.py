@@ -1,17 +1,17 @@
 import logging
 
 from django.apps import apps
-from django.db.models.signals import post_save, post_migrate, pre_delete, post_delete
-from django.dispatch import receiver
+from django.contrib.auth import models
 from django.contrib.auth.management import _get_all_permissions
 from django.contrib.auth.models import Permission
-from django.contrib import auth
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.auth import models
 from django.db import transaction
+from django.db.models.signals import post_save, post_migrate, pre_delete, post_delete
+from django.dispatch import receiver
 
-from observations.models import Observation, Subject, SubjectSource, SubjectStatus, SubjectGroup
 from accounts.models import PermissionSet
+from das_server import pubsub
+from observations.models import Observation, Subject, SubjectSource, SubjectStatus, SubjectGroup, Message
 
 logger = logging.getLogger(__name__)
 
@@ -131,3 +131,19 @@ def delete_auto_created_view_permission_set(sender, instance, **kwargs):
         search_list = {'View', 'Subject',  'Group'}
         if len(permission_set.subjectgroup_set.all()) == 1 and search_list.issubset(set(permission_set.name.split())):
             permission_set.delete()
+
+
+@receiver(post_save, sender=Message)
+def message_post_save(sender, instance, created, **kwargs):
+    logger.info("saved message {}, created={}".format(
+        instance.pk, str(created)))
+    message_action = 'das.message.new' if created else 'das.message.update'
+    transaction.on_commit(lambda: pubsub.publish(
+        {'message_id': str(instance.pk)}, message_action))
+
+
+@receiver(post_delete, sender=Message)
+def message_post_delete(sender, instance, **kwargs):
+    logger.info("delete message {}".format(instance.pk))
+    transaction.on_commit(lambda: pubsub.publish(
+        {'message_id': str(instance.pk)}, 'das.message.delete'))

@@ -45,7 +45,8 @@ def start(realtime_server):
             from observations.models import Subject
             try:
                 if Subject.objects.get(id=subject_id).is_active:
-                    celery.app.send_task('rt_api.tasks.handle_new_subject_observation', args=(subject_id,))
+                    celery.app.send_task(
+                        'rt_api.tasks.handle_new_subject_observation', args=(subject_id,))
             except Subject.DoesNotExist:
                 pass
 
@@ -75,6 +76,24 @@ def start(realtime_server):
     def emit_handler(data, message):
         message_data = json.loads(data)
         realtime_server.send_realtime_message(message_data)
+
+    def new_message_handler(data, message):
+        logger.debug(
+            'new_message_handler. data=%s, message=%s', data, message)
+        celery.app.send_task(
+            'rt_api.tasks.handle_new_message', args=(data['message_id'],))
+
+    def update_message_handler(data, message):
+        logger.debug(
+            'update_message_handler. data=%s, message=%s', data, message)
+        celery.app.send_task(
+            'rt_api.tasks.handle_update_message', args=(data['message_id'],))
+
+    def delete_message_handler(data, message):
+        logger.debug(
+            'delete_message_handler. data=%s, message=%s', data, message)
+        celery.app.send_task(
+            'rt_api.tasks.handle_delete_message', args=(data['message_id'],))
 
     def pubsub_listener():
 
@@ -108,6 +127,18 @@ def start(realtime_server):
             {
                 'routing_key': 'das.realtime.emit',
                 'callback': emit_handler},
+            {
+                'routing_key': 'das.message.new',
+                'callback': new_message_handler,
+            },
+            {
+                'routing_key': 'das.message.update',
+                'callback': update_message_handler,
+            },
+            {
+                'routing_key': 'das.message.delete',
+                'callback': delete_message_handler,
+            },
         ]
         for subscription in subscriptions:
             subscription['name'] = 'rt_api.{0}'.format(
@@ -119,5 +150,5 @@ def start(realtime_server):
     logger.info("Starting pubsub listener threads.")
     for x in range(5):
         logger.info("Starting pubsub listener thread (%s).", x)
-        threading.Thread(target=pubsub_listener, name=f'pubsub-listener-{x}', args=()).start()
-
+        threading.Thread(target=pubsub_listener,
+                         name=f'pubsub-listener-{x}', args=()).start()

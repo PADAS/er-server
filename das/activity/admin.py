@@ -110,7 +110,7 @@ class EventTypeAdmin(admin.ModelAdmin):
                 'default_priority', 'default_state')
     list_filter = ('category',)
     list_display = ('display', 'value', 'ordernum',
-                    'category', 'is_collection', '_default_priority_display', '_icon_display', 'default_state')
+                    'category', 'is_collection', '_default_priority_display', '_icon_display', 'default_state', 'is_active')
     list_editable = ('ordernum', 'default_state',)
     list_display_links = ('display',)
     search_fields = ('display', 'value',)
@@ -121,7 +121,7 @@ class EventTypeAdmin(admin.ModelAdmin):
         }
         ),
         ('Default Values', {
-            'fields': ('default_priority', 'default_state',)
+            'fields': ('default_priority', 'default_state', 'is_active')
         }
         ),
         ('Schema & Form Definition',
@@ -185,8 +185,9 @@ class EventTypeAdmin(admin.ModelAdmin):
         resolve_time = form.cleaned_data.get('resolve_time')
         new_object = super().save_form(request, form, change)
 
-        new_object.auto_resolve = auto_resolve
-        new_object.resolve_time = resolve_time
+        if auto_resolve is not None:
+            new_object.auto_resolve = auto_resolve
+            new_object.resolve_time = resolve_time
         return new_object
 
 
@@ -673,3 +674,19 @@ class PatrolAdmin(PatrolPermissionMixin, OSMGeoExtendedAdmin):
             if tracked_subject:
                 instance.leader = tracked_subject
             instance.save()
+
+
+@AdminFeatureFlag(models.PatrolConfiguration, flag='PATROL_ENABLED')
+@admin.register(models.PatrolConfiguration)
+class PatrolConfiguration(admin.ModelAdmin):
+    list_display = ('name',)
+    filter_horizontal = ('subject_groups',)
+
+    def has_add_permission(self, request):
+        if self.model.objects.count():
+            return False
+        return super().has_add_permission(request)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+

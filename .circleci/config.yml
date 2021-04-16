@@ -241,6 +241,16 @@ jobs:
             exit ${TEST_EXIT_CODE}
       - store_test_results:
           path: ~/unittest-output
+      # - store_artifacts:
+      #     path: ~/unittest-output
+      - run: 
+          name: Grep Exit Code from test results
+          command: |
+            if grep -i 'failures="0"' ~/unittest-output/result.xml; then
+                exit 0
+            else
+                exit 1
+            fi
   docker_build_image:
     executor: 'default'
     steps:

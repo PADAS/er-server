@@ -11,7 +11,9 @@ urlpatterns = [
     url(r'^events/count/?$', views.EventCountView.as_view()),
     url(r'^events/classes/?$', views.EventClassesView.as_view()),
     url(r'^events/factors/?$', views.EventFactorsView.as_view()),
-    url(r'^events/eventtypes/?$', views.EventTypesView.as_view()),
+    url(r'^events/eventtypes/?$', views.EventTypesView.as_view(), name='eventtypes'),
+    url(r'^events/eventtypes/(?P<eventtype_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.EventTypeView.as_view(), name='eventtype'),
+
     url(r'^events/categories/?$', views.EventCategoriesView.as_view()),
     url(r'^events/classfactors/?$', views.EventClassFactorsView.as_view()),
     url(r'^events/alerts/targets/?$', views.EventAlertTargetsListView.as_view()),
@@ -107,6 +109,8 @@ urlpatterns = [
         views.PatrolFileView.as_view(), name='patrol-view-file'),
     url(
         r'^patrols/segments/?$', views.PatrolsegmentsView.as_view(), name='patrol-segments'),
+    url(
+        r'^patrols/trackedby/?$', views.TrackedBySchema.as_view(), name='patrol-segments-schema'),
     url(
         r'^patrols/segments/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.PatrolsegmentView.as_view(), name='patrol-segment'),
     url(
