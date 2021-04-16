@@ -64,7 +64,6 @@ def create_rt_socketio():
             server_options['cors_allowed_origins'] = \
                 getattr(settings, 'CORS_ORIGIN_WHITELIST', None)
 
-
         socketio_logger = logging.getLogger('rt_api.socketio')
         sio = DasSocketServer(client_manager=client_mgr,
                               json=utils.json,
@@ -98,7 +97,7 @@ def confirm_authorzation(sid, sios):
 
     extra = dict(sid=sid)
     logger.debug('Confirming auth for new socket connection (waiting %s seconds).',
-        AUTH_CHECK_SLEEP_TIME, extra=extra)
+                 AUTH_CHECK_SLEEP_TIME, extra=extra)
     eventlet.sleep(AUTH_CHECK_SLEEP_TIME)
     if not client.is_client(sid):
         logger.debug(
@@ -127,16 +126,17 @@ def cleanup_disconnected_clients(sios):
             environ = [sid for sid in sios.environ]
             client_list = set(client.get_client_list())
 
-            stats.update_gauge('rt.clientcount', len(client_list), sample_rate=0.5)
+            stats.update_gauge('rt.clientcount', len(
+                client_list), sample_rate=0.5)
             remove_these_clients = set(
                 [c for c in client_list if c.sid not in environ])
 
             expired_clients = [client
-                for sid in client.get_expired_traces_client_list() for client in client_list if client.sid == sid]
+                               for sid in client.get_expired_traces_client_list() for client in client_list if client.sid == sid]
 
             disconnect_these_sids = [key
-                                 for sid in client.get_expired_traces_client_list()
-                                 for key, value in sios.environ.items() if value == sid]
+                                     for sid in client.get_expired_traces_client_list()
+                                     for key, value in sios.environ.items() if value == sid]
 
             remove_these_clients = remove_these_clients.union(expired_clients)
 
@@ -168,7 +168,7 @@ def create_realtime_handler(sios):
         supported_message_types = ['new_event', 'update_event', 'delete_event',
                                    'count_event', 'service_status', 'subject_status',
                                    'new_patrol', 'update_patrol', 'delete_patrol', 'subject_track_merge',
-                                   'message_status_update']
+                                   'new_message', 'update_message', 'delete_message']
 
         do_not_trace_these_types = ['service_status', ]
 
@@ -368,7 +368,7 @@ def create_realtime_handler(sios):
 
                 # Add trace ID to message. It will be sent back in callback.
                 if message_type not in RealtimeServices.do_not_trace_these_types \
-                    and isinstance(data, dict):
+                        and isinstance(data, dict):
                     data['trace_id'] = f'trace-{socketid}-{time.time()}'
                     client.push_trace(data['trace_id'], data)
 
@@ -378,7 +378,8 @@ def create_realtime_handler(sios):
                 else:
 
                     # Sample 10% of realtime messages per message-type.
-                    stats.increment(f'rt.emit.{message_type}', tags={'service': 'realtime'}, sample_rate=0.1)
+                    stats.increment(f'rt.emit.{message_type}', tags={
+                                    'service': 'realtime'}, sample_rate=0.1)
 
                     sios.emit(message_type, data, room=str(
                         socketid), namespace='/das', callback=receipt_callback)
@@ -403,7 +404,7 @@ def create_realtime_handler(sios):
                                       socketid=message_data['sid'])
             else:
                 logger.error('Realtime server received invalid message type: %s',
-                    message_data['type'])
+                             message_data['type'])
 
     # Start up recursive calls to clean up disconnected clients.
     eventlet.spawn_after(CLIENT_CLEANUP_INTERVAL,

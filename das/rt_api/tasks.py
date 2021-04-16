@@ -31,7 +31,7 @@ from utils.stats import update_gauge
 from activity.serializers import EventSerializer
 from activity.serializers.patrol_serializers import PatrolSerializer
 
-from observations.models import SocketClient
+from observations.models import SocketClient, Message
 
 
 logger = logging.getLogger(__name__)
@@ -432,7 +432,7 @@ def _patrol_handler(item_id, type):
         close_old_connections()
 
 
-def _radio_message_handler(object_id, action, status):
+def _radio_message_handler(object_id, action):
     try:
         logger.debug('Processing type=%s on message=%s', action, object_id)
 
@@ -440,18 +440,29 @@ def _radio_message_handler(object_id, action, status):
         logger.debug('user_sids_map: %s', user_sids_map)
 
         for username, user_sids in user_sids_map.items():
-            try:
-                user = User.objects.get(username=username)
-            except User.DoesNotExist:
-                logger.warning('radio_message_handler found no username=%s.', username)
-                client.remove_clients(user_sids)
+            user = get_sid_user(username, user_sids)
+            if not user:
                 continue
 
             for sid in user_sids:
-                emit_data = {}
-                if action == 'message_status_update':
-                    emit_data = get_emit_data(type=action, sid=sid, object_id=object_id,
-                                              data={'type': action, 'message_id': object_id, 'status': status})
+                if action == 'delete_message':
+                    emit_data = get_emit_data(
+                        type=action,
+                        sid=sid,
+                        object_id=object_id,
+                        data={'type': action, 'message_id': object_id, 'data': None})
+                else:
+                    try:
+                        instance = Message.objects.get(id=object_id)
+                    except Message.DoesNotExist:
+                        instance = None
+
+                    emit_data = get_emit_data(
+                        type=action,
+                        sid=sid,
+                        object_id=object_id,
+                        data={'type': action, 'message_id': object_id, 'data': instance})
+
                 if emit_data:
                     logger.debug('Publish das.realtime.emit.  data=%s', emit_data)
                     pubsub.publish(json.dumps(emit_data, default=dumps_helper), 'das.realtime.emit')
@@ -481,10 +492,24 @@ def handle_delete_patrol(patrol_id):
 
 
 @celery.app.task()
-def handle_message_status_update(message_id, status):
-    logger.info(f'Celery worker handling state update of message_id: {message_id}',
-                extra={'rt.message': 'status_update'})
-    _radio_message_handler(message_id, 'message_status_update', status)
+def handle_new_message(message_id):
+    logger.info(f'Celery worker handling new message id: {message_id}',
+                extra={'rt.message': 'new_message'})
+    _radio_message_handler(message_id, 'new_message')
+
+
+@celery.app.task()
+def handle_update_message(message_id):
+    logger.info(f'Celery worker handling update message id: {message_id}',
+                extra={'rt.message': 'update_message'})
+    _radio_message_handler(message_id, 'update_message')
+
+
+@celery.app.task()
+def handle_delete_message(message_id):
+    logger.info(f'Celery worker handling deleting message id: {message_id}',
+                extra={'rt.message': 'delete_message'})
+    _radio_message_handler(message_id, 'delete_message')
 
 
 @celery.app.task()
