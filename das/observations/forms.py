@@ -351,6 +351,8 @@ class TranformationRuleWidget(forms.MultiWidget):
                             widget_value = vals[i]
                 except IndexError:
                     widget_value = None
+                except AttributeError:
+                    widget_value = None
                 if id_:
                     widget_attrs = final_attrs.copy()
                     widget_attrs['id'] = '%s_%s' % (
@@ -378,19 +380,21 @@ class TranformationRuleWidget(forms.MultiWidget):
 
 def generate_sample_data(provider):
     accum = {}
-    rows = 25
-    dt_filter = datetime.now(tz=pytz.utc) - timedelta(days=30)
+    rows = 4
+    dt_filter = datetime.now(tz=pytz.utc) - timedelta(days=3)
 
     observations = Observation.objects.raw("""
-     select ob.id,
-        jsonb_agg(to_jsonb(ob.additional))
-        OVER (PARTITION BY ob.source_id ORDER BY ob.recorded_at ASC ROWS BETWEEN CURRENT ROW AND %s FOLLOWING) AS agg_data
-     from (select row_number()
-              over (partition by o.source_id order by o.recorded_at DESC) as rn, o.*
-     from observations_observation o) ob
-          INNER JOIN observations_source ON (ob.source_id = observations_source.id)
-     where ob.rn <= %s and observations_source.provider_id = %s and ob.recorded_at >= %s
-     """, [rows, rows, provider.id, dt_filter])
+     select ob.id, 
+            jsonb_agg(to_jsonb(ob.additional))
+                over (partition by ob.source_id order by ob.recorded_at desc ROWS BETWEEN UNBOUNDED PRECEDING AND %s FOLLOWING) 
+                    AS agg_data
+    from (select row_number()
+            over (partition by o.source_id order by o.recorded_at DESC) as rn, o.*
+            from observations_observation o inner join observations_source 
+                on (o.source_id = observations_source.id) where 
+                    observations_source.provider_id = %s and o.recorded_at >= %s) ob
+        where ob.rn <= %s
+     """, [rows, provider.id, dt_filter, rows])
 
     [find_paths(aggregate_data, accum=accum) for observation in observations for aggregate_data in observation.agg_data]
 

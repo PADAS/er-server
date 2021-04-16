@@ -6,6 +6,7 @@ from django.db.models.fields import BLANK_CHOICE_DASH
 from django.utils.functional import lazy, curry
 from django.utils.translation import ugettext_lazy as _
 from django.utils import timezone
+from core.models import TimestampedModel
 
 from core.utils import static_image_finder
 
@@ -86,7 +87,8 @@ class Choice(SoftDeleteModel):
     ], key=lambda item: item[1])
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    model = models.CharField(max_length=50, choices=MODEL_REF_CHOICES, default=Field_Reports)
+    model = models.CharField(
+        max_length=50, choices=MODEL_REF_CHOICES, default=Field_Reports)
     field = models.CharField(max_length=40)
     value = models.CharField(max_length=100, blank=True)
     display = models.CharField(max_length=100, blank=True)
@@ -96,6 +98,7 @@ class Choice(SoftDeleteModel):
                                            symmetrical=False)
 
     objects = ChoiceQuerySet.as_manager()
+    updated_at = models.DateTimeField(auto_now=True, null=True)
 
     class Meta:
         unique_together = (('model', 'field', 'value'),)

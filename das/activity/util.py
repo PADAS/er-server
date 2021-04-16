@@ -1,6 +1,8 @@
 from django.contrib.auth import get_user_model
 from activity.models import EventCategory
 from activity.permissions import EventCategoryPermissions
+from rest_framework.response import Response
+from rest_framework import status
 
 
 def get_er_user():
@@ -24,3 +26,8 @@ def get_permitted_event_categories(request):
         if request.user.has_perm(permission_name):
             permitted_categories.append(category)
     return permitted_categories
+
+
+def return_409_response():
+    status_msg = {'error_message': 'The request could not be completed due to conflict with existing data.'}
+    return Response(status_msg, status=status.HTTP_409_CONFLICT)

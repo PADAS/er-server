@@ -126,7 +126,7 @@ def get_dict(start_date: date, end_date: date, gfw_object: gfw_model,
 
     return dict(
         alert_name=gfw_object.name,
-        alert_link=f'{gfw_endpoint}/map/3/0/0/ALL/grayscale/?fit_to_geom=true&begin={start_date_str}&end={end_date_str}&geostore={geostore_id}',
+        alert_link=f'{settings.GFW_WEB_ROOT}/map/geostore/{geostore_id}/grayscale/?fit_to_geom=true&begin={start_date_str}&end={end_date_str}',
         alert_date_begin=start_date_str,
         alert_date_end=end_date_str,
         downloadUrls={

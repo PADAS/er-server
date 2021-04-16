@@ -36,6 +36,7 @@ import utils.schema_utils as schema_utils
 from accounts.serializers import UserDisplaySerializer, get_user_display, UserSerializer
 from activity.alerting.conditions import Conditions
 from activity.models import PatrolSegment
+from activity.exceptions import SchemaValidationError
 from activity.serializers.base import FileSerializerMixin, IMAGE_RENDITION_SETS
 from choices.serializers import ChoiceField
 from core.serializers import ContentTypeField
@@ -45,6 +46,7 @@ from core.utils import OneWeekSchedule
 from observations.serializers import SubjectSerializer
 from revision.manager import AC_UPDATED, AC_RELATION_DELETED
 from utils.json import loads
+from utils.schema_utils import get_schema_renderer_method, validate_rendered_schema_is_wellformed
 
 logger = logging.getLogger(__name__)
 
@@ -286,7 +288,6 @@ class EventJSONSchema(BaseMetadata):
         return field_info
 
 
-
 class ReportedByRelatedField(GenericRelatedField):
     def get_field_mapping(self, label="ReportedBy"):
         return super().get_field_mapping(label)
@@ -397,6 +398,14 @@ class EventSourceRelatedField(rest_framework.serializers.RelatedField):
                             for row in self.get_queryset()))
 
 
+def get_allowed_actions_for_category(user, category_name):
+    allowed_actions = []
+    for action in ('create', 'update', 'read', 'delete'):
+        if user.has_perm('activity.{0}_{1}'.format(category_name, action)):
+            allowed_actions.append(action)
+    return allowed_actions
+
+
 class EventCategorySerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventCategory
@@ -410,29 +419,81 @@ class EventCategorySerializer(rest_framework.serializers.ModelSerializer):
         # for that category
         user = getattr(self.context.get('request', None), 'user', None)
         if user is not None:
-            rep['permissions'] = self.get_allowed_actions_for_category(
+            rep['permissions'] = get_allowed_actions_for_category(
                 user, rep['value'])
         return rep
 
-    def get_allowed_actions_for_category(self, user, category_name):
-        allowed_actions = []
-        for action in ('create', 'update', 'read', 'delete'):
-            if user.has_perm('activity.{0}_{1}'.format(category_name, action)):
-                allowed_actions.append(action)
-        return allowed_actions
+
+class EventCategoryRelatedField(rest_framework.serializers.RelatedField):
+
+    def to_representation(self, value):
+        rep = EventCategorySerializer().to_representation(value)
+        user = getattr(self.context.get('request', None), 'user', None)
+        if user is not None:
+            rep['permissions'] = get_allowed_actions_for_category(user, rep['value'])
+        return rep
+
+    def to_internal_value(self, data):
+        if data:
+            data = data if isinstance(data, str) else data.value
+            try:
+                event_category = activity.models.EventCategory.objects.get_by_value(data)
+            except activity.models.EventCategory.DoesNotExist:
+                raise ValidationError(f'event_category: {data} does not exist.')
+            else:
+                return event_category
+
+    def get_queryset(self):
+        return activity.models.EventCategory.objects.all_sort()
+
+    def get_choices(self, cutoff=None):
+        queryset = self.get_queryset()
+        if queryset is None:
+            return {}
+
+        if cutoff is not None:
+            queryset = queryset[:cutoff]
+
+        return OrderedDict([(self.to_representation(item).get('value'),
+                             self.display_value(item)) for item in queryset])
 
 
 class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
-    category = EventCategorySerializer(read_only=True)
+    category = EventCategoryRelatedField()
 
     class Meta:
         model = activity.models.EventType
-        read_only_fields = ('id', 'value', 'display', 'ordernum',
-                            'is_collection', 'category', 'icon_id', 'default_priority',)
-        fields = read_only_fields
+        read_only_fields = ('id',)
+        fields = read_only_fields + ('value', 'display', 'ordernum',
+                                     'is_collection', 'category', 'icon_id', 'is_active', 'schema')
+
+    def __init__(self, *args, **kwargs):
+        super(EventTypeSerializer, self).__init__(*args, **kwargs)
+        self.request = self.context.get('request')
+
+        if not self.context.get('include_schema', False) and self.request.method == 'GET':
+            self.fields.pop('schema')
+
+    @staticmethod
+    def validate_schema(schema):
+        try:
+            rendered_schema = get_schema_renderer_method()(schema)
+        except NameError as exc:
+            raise ValidationError(exc)
+        except ValueError as exc:
+            raise ValidationError(exc)
+        except Exception as exc:
+            raise ValidationError(exc)
+        else:
+            try:
+                validate_rendered_schema_is_wellformed(rendered_schema)
+            except SchemaValidationError as exc:
+                raise ValidationError(exc)
+        return schema
 
     def to_representation(self, obj):
         rep = super().to_representation(obj, )
+        rep['url'] = utils.add_base_url(self.request, reverse('eventtype', args=[obj.id, ]))
         return rep
 
 
@@ -1008,8 +1069,6 @@ class EventSerializerMixin:
                 time=revision.revision_at.isoformat(),
                 user=self.get_revision_user(revision.user, event),
                 type=get_update_type(revision, revisions))
-            if record['type'] in ('read',):
-                continue
             result.append(record)
         return result
 
