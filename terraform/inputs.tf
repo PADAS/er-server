@@ -57,3 +57,8 @@ variable "ssl_certificate_vault_path" {
   description = "Vault path for SSL certificate chain."
   default     = "generic/fullchain.pem"
 }
+
+variable "versioning_enabled" {
+  description = "If true then versioning is enabled for all objects in this bucket."
+  default     = "true"
+}

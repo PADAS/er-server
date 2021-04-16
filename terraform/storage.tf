@@ -6,6 +6,9 @@ resource "google_storage_bucket" "user_uploads" {
   name     = "user-uploads-${kubernetes_namespace.this.metadata.0.name}"
   location = local.storage_location
   project  = data.google_project.earthranger.project_id
+  versioning {
+    enabled = var.versioning_enabled
+  }
 }
 
 resource "google_service_account" "earthranger_app_sa" {
