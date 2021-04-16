@@ -176,7 +176,7 @@ class SubjectSourceSerializer(rest_framework.serializers.ModelSerializer):
 
 class SubjectSerializer(rest_framework.serializers.Serializer):
 
-    content_type = ContentTypeField(read_only=True)
+    content_type = ContentTypeField(read_only=True, required=False)
 
     id = rest_framework.serializers.UUIDField(required=False,)
     name = rest_framework.serializers.CharField(max_length=100)
@@ -193,6 +193,9 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
     additional_fields = ('region', 'country', 'sex',
                          'species', 'additional')
 
+    allowed_partial_update_fields = (
+        "name", "subject_subtype", "common_name", "additional", "is_active")
+
     class Meta:
         model = models.Subject
         read_only_fields = ('image_url', 'color',
@@ -204,6 +207,18 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
         if 'id' in data:
             return models.Subject.objects.get(id=data['id'])
         return super().to_internal_value(data)
+
+    def update(self, instance, validated_data):
+        update_fields = []
+        for k, v in validated_data.items():
+            if k not in self.allowed_partial_update_fields:
+                continue
+            if getattr(instance, k) != v:
+                setattr(instance, k, v)
+                update_fields.append(k)
+        if update_fields:
+            instance.save(update_fields=update_fields)
+        return instance
 
     def to_representation(self, instance):
         user = getattr(self.context.get('request', None), 'user', None)
