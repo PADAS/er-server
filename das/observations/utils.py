@@ -290,3 +290,11 @@ def find_paths(item, accum=None, prefix=None):
 class JsonAgg(Aggregate):
     function = 'jsonb_agg'
     template = '%(function)s(to_jsonb(%(expressions)s))'
+
+
+def has_message_view_permission(user):
+    """Does the user have at least view message permission"""
+    if user.is_anonymous:
+        return False
+    return user.has_perm('observations.view_message')
+
