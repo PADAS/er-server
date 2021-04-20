@@ -1808,7 +1808,7 @@ class MessagesView(generics.ListCreateAPIView):
 
         subject_id = query_params.get('subject_id')
         source_id = query_params.get('source_id')
-        read = query_params.get('read')
+        read = parse_bool(query_params.get('read'))
         if subject_id:
             # Accepting a list i.e : ?subject_id=id1, id2, id2
             subject_ids = [x.strip(' ') for x in subject_id.split(',')]
