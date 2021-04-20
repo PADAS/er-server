@@ -348,6 +348,9 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                 request, reverse('subject-view', args=[instance.id, ]))
 
             rep["messaging"] = []
+
+            # TODO: We need this to filter based on messaging capabilities that are attached to either
+            # the source provider or source.
             for ss in models.SubjectSource.objects.filter(subject=instance):
                 message_url = utils.add_base_url(
                     request, reverse('messages-view'))
