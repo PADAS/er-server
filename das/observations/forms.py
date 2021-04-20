@@ -505,8 +505,11 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
         cleaned_data = super().clean()
         schema = cleaned_data.get('transforms')
 
-        if isinstance(schema, dict):
-            message = _("Tranformation rules is not properly configured, expecting a list")
+        if schema is None:  # tranform_rules can be null or a list.
+            return schema
+
+        if not isinstance(schema, list):
+            message = _("Tranformation rules is not properly configured, expecting a list or null")
             raise forms.ValidationError(message, code='invalid')
         return schema
 
