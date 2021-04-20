@@ -25,6 +25,7 @@ from observations.views import SubjectTracksView, SubjectStatusView, Observation
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from uuid import UUID
 from rt_api import client
+from observations.serializers import MessageSerializer
 
 from utils.stats import update_gauge
 
@@ -444,6 +445,9 @@ def _radio_message_handler(object_id, action):
             if not user:
                 continue
 
+            request = DummyRequest(user=user, http_method='GET', query_parameters={})
+            request = Request(request)  # Wrap in DRF Request
+
             for sid in user_sids:
                 if action == 'delete_message':
                     emit_data = get_emit_data(
@@ -456,16 +460,17 @@ def _radio_message_handler(object_id, action):
                         instance = Message.objects.get(id=object_id)
                     except Message.DoesNotExist:
                         instance = None
+                    else:
+                        message_data = MessageSerializer(instance, context={
+                            'request': request}).data
+                        emit_data = get_emit_data(
+                            type=action,
+                            sid=sid,
+                            object_id=object_id,
+                            data={'type': action, 'message_id': object_id, 'data': message_data})
 
-                    emit_data = get_emit_data(
-                        type=action,
-                        sid=sid,
-                        object_id=object_id,
-                        data={'type': action, 'message_id': object_id, 'data': instance})
-
-                if emit_data:
-                    logger.debug('Publish das.realtime.emit.  data=%s', emit_data)
-                    pubsub.publish(json.dumps(emit_data, default=dumps_helper), 'das.realtime.emit')
+                        logger.debug('Publish das.realtime.emit.  data=%s', emit_data)
+                        pubsub.publish(json.dumps(emit_data, default=dumps_helper), 'das.realtime.emit')
     finally:
         close_old_connections()
 
