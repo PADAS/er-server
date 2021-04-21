@@ -84,15 +84,15 @@ two_way_help_text = \
 def two_way_choices(source_provider_enable=False):
     if source_provider_enable:
         return (
-            (None, _('Enabled by Source Provider')),
-            (True, _('Enabled')),
-            (False, _('Disabled'))
+            ('unknown', _('Enabled by Source Provider')),
+            ('true', _('Enabled')),
+            ('false', _('Disabled'))
         )
     else:
         return (
-            (None, _('')),
-            (True, _('Enabled')),
-            (False, _('Disabled'))
+            ('unknown', _('')),
+            ('true', _('Enabled')),
+            ('false', _('Disabled'))
         )
 
 
@@ -130,7 +130,7 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
 
     silence_notification_threshold = forms.CharField(max_length=8, required=False, empty_value=None,
                                                      help_text=silence_notification_threshold_help_text_for_source)
-    two_way_messaging = forms.ChoiceField(
+    two_way_messaging = forms.NullBooleanField(
         label='Two-way messaging', help_text=two_way_help_text, required=False)
 
     @staticmethod
@@ -164,7 +164,7 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
         instance = kwargs.get('instance')
         self.fields['data_owners'].choices = self.fetch_organizations()
         self.fields['collar_status'].choices = self.fetch_collar_status()
-        self.fields['two_way_messaging'].choices = self.fetch_2way_messaging_choices(
+        self.fields['two_way_messaging'].widget.choices = self.fetch_2way_messaging_choices(
             instance)
 
     class Meta:
