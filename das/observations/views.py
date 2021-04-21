@@ -1831,7 +1831,11 @@ class MessagesView(generics.ListCreateAPIView):
             user_msg_ids = [str(k.id) for k in user_messages]
             valid_update_ids = [k for k in ids if k in user_msg_ids]
 
-            user_messages.filter(id__in=valid_update_ids).update(read=read)
+            msgs = user_messages.filter(id__in=valid_update_ids)
+            for m in msgs:
+                m.read = read
+                m.save()
+
             read_state = 'read' if read else 'unread'
             return Response(f"{len(valid_update_ids)} messages successfully updated to {read_state}", status=status.HTTP_200_OK)
 
