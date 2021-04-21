@@ -1808,15 +1808,15 @@ class MessagesView(generics.ListCreateAPIView):
 
         subject_id = query_params.get('subject_id')
         source_id = query_params.get('source_id')
-        read = parse_bool(query_params.get('read'))
+        read = query_params.get('read')
         if subject_id:
             # Accepting a list i.e : ?subject_id=id1, id2, id2
             subject_ids = [x.strip(' ') for x in subject_id.split(',')]
             messages = messages.by_subject_ids(subject_ids)
         if source_id:
             messages = messages.by_source_id(source_id)
-        if read:
-            messages = messages.by_read(read)
+        if read is not None:
+            messages = messages.by_read(parse_bool(read))
 
         return messages.order_by("-message_time")
 
