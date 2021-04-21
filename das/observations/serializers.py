@@ -352,7 +352,6 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
             message_content = []
 
             for ss in get_subjectsources_with_2way_msg(instance):
-                print("PPPPPPPPPPPP", ss.source_two_way_messaging, ss.two_way_messaging)
                 message_url = utils.add_base_url(
                     request, reverse('messages-view'))
                 data = {
