@@ -6,6 +6,8 @@ import dateutil.parser as dp
 
 from django.conf import settings
 from django.utils.translation import ugettext_lazy as _
+from django.contrib.postgres.fields import jsonb
+from django.db.models import Q
 import redis
 from das_server import celery
 
@@ -13,6 +15,7 @@ from observations.models import SourceProvider
 
 SERVICE_STATUS_NS = 'das-service-status'
 SERVICE_STATUS_KEY_PATTERN = ':'.join((SERVICE_STATUS_NS, '{provider_key}'))
+SOURCE_PROVIDER_2WAY_MSG_KEY = 'sp-two-way-messaging-key'
 
 
 def store_service_status(provider_key=None, data=None):
@@ -119,3 +122,27 @@ def get_source_provider_statuses():
     provider_statuses = [_add_status_indicators(s) for s in provider_statuses]
 
     return provider_statuses
+
+
+def is_2way_messaging_active():
+    field = 'two_way_messaging'
+    redis_client = redis.from_url(settings.CELERY_BROKER_URL)
+
+    two_way_msg = redis_client.hget(SOURCE_PROVIDER_2WAY_MSG_KEY, field)
+    if two_way_msg is None:
+        source_provider = SourceProvider.objects.annotate(two_way_message=
+                                                          jsonb.KeyTransform('two_way_messaging', 'additional')
+                                                          ).exclude(Q(two_way_message__isnull=True) |
+                                                                    Q(two_way_message=False)).exists()
+
+        redis_client.hset(SOURCE_PROVIDER_2WAY_MSG_KEY, field, source_provider)
+        return source_provider
+    return two_way_msg.decode()
+
+
+def has_message_view_permission(user):
+    """Does the user have at least view message permission"""
+    if user.is_anonymous:
+        return False
+    return user.has_perm('observations.view_message') and is_2way_messaging_active()
+
