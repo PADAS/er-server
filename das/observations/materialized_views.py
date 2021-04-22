@@ -1,4 +1,7 @@
+import logging
 from django.db import connection
+
+logger = logging.getLogger(__name__)
 
 
 class PatrolsMaterializedView:
@@ -84,6 +87,7 @@ class PatrolsMaterializedView:
     def execute_ddl(self):
         cursor = self.cursor()
         cursor.execute(self.generate_ddl)
+        logger.info(f"Successfully created table: {self.table_name}")
 
     def check_view_exists(self):
         cursor = self.cursor()
@@ -96,8 +100,14 @@ class PatrolsMaterializedView:
         if self.check_view_exists():
             cursor = self.cursor()
             cursor.execute(f"REFRESH MATERIALIZED VIEW {self.table_name}")
+            logger.info(f"Succesfully refreshed table: {self.table_name}")
         else:
             self.execute_ddl()
+
+    def drop_view(self):
+        cursor = self.cursor()
+        cursor.execute(f'DROP MATERIALIZED VIEW IF EXISTS {self.table_name}')
+        logger.info(f"{self.table_name} has been deleted.")
 
 
 patrols_view = PatrolsMaterializedView(table_name='patrols_view')
