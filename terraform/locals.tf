@@ -120,6 +120,7 @@ locals {
     "queenelizabeth"         = "prod1"
     "rcb"                    = "prod1"
     "rfcx"                   = "prod1"
+    "rouxcel"                = "prod1"
     "rhodopemountains"       = "prod1"
     "sabiegamereserve"       = "prod1"
     "sabisands"              = "prod1"
