@@ -44,6 +44,7 @@ locals {
     "elephantqueen"          = "prod1"
     "ennedi"                 = "prod1"
     "eruc2020"               = "prod1"
+    "ewasolandscape"         = "prod1"
     "ewt"                    = "prod1"
     "fao"                    = "prod1"
     "freenature"             = "prod1"
