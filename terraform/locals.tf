@@ -23,6 +23,7 @@ locals {
     "biocarbonpartners"      = "prod1"
     "birdshead"              = "prod-asia"
     "bomani"                 = "prod1"
+    "bornfreekenya"          = "prod1"
     "bostonpridelands"       = "prod1"
     "bubyevalley"            = "prod1"
     "buffalokloof"           = "prod1"
