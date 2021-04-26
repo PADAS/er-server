@@ -75,7 +75,7 @@ class InReachAdapter(BaseMessageAdapter):
         InReachAdapter.update_message_status(message.id, status)
 
 
-class SmartIntegrateAdapter(BaseMessageAdapter):
+class SmartIntegrateMessageAdapter(BaseMessageAdapter):
 
     @classmethod
     def send_msg_to_source(cls, message, message_config, user_email):
@@ -100,7 +100,7 @@ class SmartIntegrateAdapter(BaseMessageAdapter):
 
 ADAPTER_MAPPING = {
     'inreach-adapter': InReachAdapter,
-    'smart-integrate-adapter': SmartIntegrateAdapter,
+    'smart-integrate-adapter': SmartIntegrateMessageAdapter,
 }
 
 
