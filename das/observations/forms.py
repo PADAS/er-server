@@ -97,12 +97,6 @@ def two_way_choices(source_provider_enable=False):
         )
 
 
-X = (
-            (None, _('None')),
-            (True, _('Enabled')),
-            (False, _('Disabled'))
-        )
-
 class SourceForm(JSONFieldFormMixin, forms.ModelForm):
 
     '''
