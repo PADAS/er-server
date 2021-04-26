@@ -267,5 +267,5 @@ def _refresh_patrols_view():
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True})
-def handle_outbox_message(data, user_email):
-    _handle_outbox_message(data, user_email)
+def handle_outbox_message(message_id, user_email):
+    _handle_outbox_message(message_id, user_email)
