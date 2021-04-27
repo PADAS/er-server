@@ -1,0 +1,6 @@
+--2021-03-23 10:30:57--  https://awslambda-eu-cent-1-tasks.s3.eu-central-1.amazonaws.com/snapshots/074677080781/das-kerlink-grumeti-a4feb7ae-2dbd-4f6f-a836-2076f92e9c66?versionId=OTdXhAHV6UAt9Jhf1DSOMpYMAZfd9N.R
+Resolving awslambda-eu-cent-1-tasks.s3.eu-central-1.amazonaws.com (awslambda-eu-cent-1-tasks.s3.eu-central-1.amazonaws.com)... 52.219.75.204
+Connecting to awslambda-eu-cent-1-tasks.s3.eu-central-1.amazonaws.com (awslambda-eu-cent-1-tasks.s3.eu-central-1.amazonaws.com)|52.219.75.204|:443... connected.
+HTTP request sent, awaiting response... 403 Forbidden
+2021-03-23 10:30:58 ERROR 403: Forbidden.
+

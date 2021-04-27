@@ -1,0 +1,5 @@
+for ns in DAS-6362 DAS-6403 DAS-6407 DAS6170 jenae211 patrolplanning;
+do
+    make tf_workspace_select workspace=${ns}
+    make tf_destroy
+done;

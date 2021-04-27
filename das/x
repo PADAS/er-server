@@ -1,0 +1,7 @@
+curl 'https://develop.pamdas.org/static/sprite-src/light_rep.svg' \
+  -H 'sec-ch-ua: "Google Chrome";v="89", "Chromium";v="89", ";Not A Brand";v="99"' \
+  -H 'Referer: https://develop.pamdas.org/' \
+  -H 'Origin: https://develop.pamdas.org' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.90 Safari/537.36' \
+  --compressed --head

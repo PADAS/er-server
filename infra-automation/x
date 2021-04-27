@@ -1,0 +1,7 @@
+for ns in das-6362 das-6403 das-6407 das6170 jenae211 patrolplanning;
+do
+   for deployment in api beat mql rt-api worker worker-rt worker-analyzer;
+   do 
+       kubectl -n ${ns} scale --replicas=0 deploy ${deployment} ;
+   done 
+done;

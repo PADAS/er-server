@@ -40,7 +40,7 @@ class MessagesTestCase(BaseAPITest):
         request = self.factory.post(url, data=message_data)
         self.force_authenticate(request, self.admin_user)
         response = MessagesView.as_view()(request)
-         self.assertTrue(mock_send.called)
+        self.assertTrue(mock_send.called)
         assert response.status_code == 201
 
     def test_send_inbox_message(self):
