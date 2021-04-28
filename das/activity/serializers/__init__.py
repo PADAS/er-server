@@ -430,16 +430,19 @@ class EventCategoryRelatedField(rest_framework.serializers.RelatedField):
         rep = EventCategorySerializer().to_representation(value)
         user = getattr(self.context.get('request', None), 'user', None)
         if user is not None:
-            rep['permissions'] = get_allowed_actions_for_category(user, rep['value'])
+            rep['permissions'] = get_allowed_actions_for_category(
+                user, rep['value'])
         return rep
 
     def to_internal_value(self, data):
         if data:
             data = data if isinstance(data, str) else data.value
             try:
-                event_category = activity.models.EventCategory.objects.get_by_value(data)
+                event_category = activity.models.EventCategory.objects.get_by_value(
+                    data)
             except activity.models.EventCategory.DoesNotExist:
-                raise ValidationError(f'event_category: {data} does not exist.')
+                raise ValidationError(
+                    f'event_category: {data} does not exist.')
             else:
                 return event_category
 
@@ -464,8 +467,9 @@ class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventType
         read_only_fields = ('id',)
-        fields = read_only_fields + ('value', 'display', 'ordernum',
-                                     'is_collection', 'category', 'icon_id', 'is_active', 'schema')
+        write_only_fields = ('icon',)
+        fields = read_only_fields + write_only_fields + ('value', 'display', 'ordernum',
+                                                         'is_collection', 'category', 'icon_id', 'is_active', 'schema')
 
     def __init__(self, *args, **kwargs):
         super(EventTypeSerializer, self).__init__(*args, **kwargs)
@@ -491,9 +495,16 @@ class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
                 raise ValidationError(exc)
         return schema
 
+    def to_internal_value(self, data):
+        if data.get('icon_id'):
+            data['icon'] = data['icon_id']
+
+        return super().to_internal_value(data)
+
     def to_representation(self, obj):
         rep = super().to_representation(obj, )
-        rep['url'] = utils.add_base_url(self.request, reverse('eventtype', args=[obj.id, ]))
+        rep['url'] = utils.add_base_url(
+            self.request, reverse('eventtype', args=[obj.id, ]))
         return rep
 
 
