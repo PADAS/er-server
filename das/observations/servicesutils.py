@@ -10,6 +10,7 @@ from django.contrib.postgres.fields import jsonb
 from django.db.models import Q
 import redis
 from das_server import celery
+from django.core.cache import cache
 
 from observations.models import SourceProvider
 
@@ -125,19 +126,16 @@ def get_source_provider_statuses():
 
 
 def is_2way_messaging_active():
-    field = 'two_way_messaging'
-    redis_client = redis.from_url(settings.CELERY_BROKER_URL)
-
-    two_way_msg = redis_client.hget(SOURCE_PROVIDER_2WAY_MSG_KEY, field)
+    two_way_msg = cache.get(SOURCE_PROVIDER_2WAY_MSG_KEY)
     if two_way_msg is None:
         source_provider = SourceProvider.objects.annotate(two_way_message=
                                                           jsonb.KeyTransform('two_way_messaging', 'additional')
                                                           ).exclude(Q(two_way_message__isnull=True) |
                                                                     Q(two_way_message=False)).exists()
 
-        redis_client.hset(SOURCE_PROVIDER_2WAY_MSG_KEY, field, source_provider)
+        cache.set(SOURCE_PROVIDER_2WAY_MSG_KEY, source_provider, None)
         return source_provider
-    return two_way_msg.decode()
+    return two_way_msg
 
 
 def has_message_view_permission(user):

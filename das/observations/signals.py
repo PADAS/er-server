@@ -12,6 +12,7 @@ from django.dispatch import receiver
 from django.conf import settings
 from django.contrib.postgres.fields import jsonb
 from django.db.models import Q
+from django.core.cache import cache
 
 from accounts.models import PermissionSet
 from das_server import pubsub
@@ -141,15 +142,11 @@ def delete_auto_created_view_permission_set(sender, instance, **kwargs):
 
 @receiver(post_save, sender=SourceProvider)
 def source_provider_post_save(sender, **kwargs):
-    field = 'two_way_messaging'
-    redis_client = redis.from_url(settings.CELERY_BROKER_URL)
-
     source_provider = SourceProvider.objects.annotate(two_way_message=
                                                       jsonb.KeyTransform('two_way_messaging', 'additional')
                                                       ).exclude(Q(two_way_message__isnull=True) |
                                                                 Q(two_way_message=False)).exists()
-
-    redis_client.hset(SOURCE_PROVIDER_2WAY_MSG_KEY, field, source_provider)
+    cache.set(SOURCE_PROVIDER_2WAY_MSG_KEY, source_provider, None)
 
 
 @receiver(post_save, sender=Message)
