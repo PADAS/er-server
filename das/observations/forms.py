@@ -298,8 +298,9 @@ two_way_help_text_sp = \
 class TranformationRuleWidget(forms.MultiWidget):
     template_name = 'admin/transformation_rule.html'
 
-    def __init__(self, attrs=None, provider=None):
+    def __init__(self, attrs=None, provider=None, transform_rules=None):
         self.provider = provider or {}
+        self.transform_rules = transform_rules or []
         widgets = [forms.CheckboxInput,
                    forms.TextInput(attrs={"id": "transform_label"}),
                    forms.TextInput({"id": "transform_unit"})]
@@ -323,6 +324,7 @@ class TranformationRuleWidget(forms.MultiWidget):
         return val[-1] if val[-1] != '[]' else val[-2]
 
     def get_context(self, name, value, attrs):
+        value = self.transform_rules  # value correspondes to values of JSON transformation rules.
         context = self._get_context(name, value, attrs)
         if self.is_localized:
             for widget in self.widgets:
@@ -429,20 +431,59 @@ class AutoFormatJSONWidget(forms.widgets.Textarea):
 
     def format_value(self, value):
         try:
-            value = json.dumps(json.loads(value), indent=2, sort_keys=True)
-            # these lines will try to adjust size of TextArea to fit to content
-            row_lengths = [len(r) for r in value.split('\n')]
-            self.attrs['rows'] = min(max(len(row_lengths) + 2, 10), 30)
-            self.attrs['style'] = "font-size: 15px; font-family: Consolas, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, monospace;"
-            return value
+            deserialize = json.loads(value)
+            value = json.dumps(deserialize, indent=2, sort_keys=True)
         except Exception as e:
             logger.warning("Error while formatting JSON: {}".format(e))
             return super().format_value(value)
+        else:
+            if isinstance(deserialize, dict) and not bool(deserialize):
+                return json.dumps([])
+            else:
+                # these lines will try to adjust size of TextArea to fit to content
+                row_lengths = [len(r) for r in value.split('\n')]
+                self.attrs['rows'] = min(max(len(row_lengths) + 2, 10), 30)
+                return value
 
     class Media:
         css = {
             'all': ('css/monospace_textarea.css',),
         }
+
+
+class JSONString(str):
+    pass
+
+
+class InvalidJSONInput(str):
+    pass
+
+
+class ExtendedJSONField(JSONField):
+    default_error_messages = {
+        'invalid': _("JSON must be properly formatted. The following error was raised:  %(error)s"),
+    }
+
+    def to_python(self, value):
+        if self.disabled:
+            return value
+        if value in self.empty_values:
+            return None
+        elif isinstance(value, (list, dict, int, float, JSONString)):
+            return value
+        try:
+            converted = json.loads(value)
+        except json.JSONDecodeError as exc:
+            raise forms.ValidationError(
+                self.error_messages['invalid'],
+                code='invalid',
+                params={'error': exc},
+            )
+
+        if isinstance(converted, str):
+            return JSONString(converted)
+        else:
+            return converted
 
 
 class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
@@ -460,17 +501,15 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
     two_way_messaging = forms.BooleanField(required=False, initial=False, label='Two-way messaging',
                                            help_text=two_way_help_text_sp)
 
-    transforms = JSONField(widget=AutoFormatJSONWidget, required=False,
-                           label=_("Advanced transformation rules"),
-                           error_messages={'invalid': "The array of Additional data to display with Subjects was not "
-                                                      "formed properly. Please correct and try again."})
+    transforms = ExtendedJSONField(widget=AutoFormatJSONWidget, required=False,
+                                   label=_("Advanced transformation rules"))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         instance = kwargs.get('instance')
         if instance:
             self.fields['tranformation_rule'].widget.provider = generate_sample_data(instance)
-            self.fields['tranformation_rule'].initial = instance.transforms
+            self.fields['tranformation_rule'].widget.transform_rules = instance.transforms
 
     class Meta:
         model = SourceProvider
@@ -498,6 +537,18 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
             )
 
         return cleaned_data
+
+    def clean_transforms(self):
+        cleaned_data = super().clean()
+        schema = cleaned_data.get('transforms')
+
+        if schema is None:  # tranform_rules can be null or a list.
+            return schema
+
+        if not isinstance(schema, list) and bool(schema):
+            message = _("Tranformation rules must be properly configured, expecting a list or null")
+            raise forms.ValidationError(message, code='invalid')
+        return schema
 
 
 class SetRandomColorForm(ActionForm):
