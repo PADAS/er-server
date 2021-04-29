@@ -13,6 +13,7 @@ from rest_framework.permissions import AllowAny, DjangoObjectPermissions
 from rest_framework.schemas.openapi import AutoSchema
 
 from activity.alerts import has_alerts_permissionset, has_patrol_view_permission
+from observations.servicesutils import has_message_view_permission
 from core.utils import get_site_name
 # This import ensures we register user-login receivers.
 from das_server import __version__, metrics
@@ -135,6 +136,7 @@ class VersionSerializer(rest_framework.serializers.Serializer):
 
     eula_enabled = rest_framework.serializers.BooleanField(read_only=True)
     patrol_enabled = rest_framework.serializers.BooleanField(read_only=True)
+    messaging_enabled = rest_framework.serializers.BooleanField(read_only=True)
     site_name = rest_framework.serializers.CharField(read_only=True)
     last_migration_app = rest_framework.serializers.CharField(read_only=True)
     last_migration_name = rest_framework.serializers.CharField(read_only=True)
@@ -171,6 +173,8 @@ class StatusView(generics.RetrieveAPIView):
         resp['patrol_enabled'] = settings.PATROL_ENABLED and has_patrol_view_permission(
             self.request.user)
         resp['track_length'] = settings.TRACK_LENGTH
+        resp['messaging_enabled'] = has_message_view_permission(self.request.user)
+
 
         if self.get_support_settings():
             resp['eus_settings'] = self.get_support_settings()

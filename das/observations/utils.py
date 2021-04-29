@@ -290,3 +290,5 @@ def find_paths(item, accum=None, prefix=None):
 class JsonAgg(Aggregate):
     function = 'jsonb_agg'
     template = '%(function)s(to_jsonb(%(expressions)s))'
+
+

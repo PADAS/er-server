@@ -1798,7 +1798,7 @@ class MessagesSchema(CustomSchema):
 
 class MessagesView(generics.ListCreateAPIView):
     serializer_class = serializers.MessageSerializer
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (StandardObjectPermissions,)
     pagination_class = StandardResultsSetPagination
     schema = MessagesSchema()
 
@@ -1910,8 +1910,7 @@ class MessageView(generics.RetrieveUpdateDestroyAPIView):
 
 def get_user_messages(user):
     # Get messages a user has access to
-    subjects = models.Subject.objects.all()
-    user_subjects = subjects.by_user_subjects(user)
+    user_subjects = models.Subject.objects.by_user_subjects(user)
     user_subject_ids = [subj.id for subj in user_subjects]
     messages = models.Message.objects.filter(
         Q(sender_id__in=user_subject_ids) | Q(receiver_id__in=user_subject_ids))

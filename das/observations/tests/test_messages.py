@@ -1,8 +1,11 @@
 import os
 import django.contrib.auth
 from django.urls import reverse
+from django.db import transaction
 from core.tests import BaseAPITest
-from observations.models import Subject
+from unittest import mock
+from accounts.models import PermissionSet
+from observations.models import Subject, SubjectGroup, Source, SubjectSource, SourceProvider
 from observations.views import MessagesView, SubjectView
 from urllib.parse import urlencode
 
@@ -25,15 +28,19 @@ class MessagesTestCase(BaseAPITest):
                                                         password="adfsfds32423",
                                                         email="super@user.com")
 
-    def test_send_outbox_message(self):
+        self.app_user.permission_sets.add(PermissionSet.objects.get(name='View Message Permission'))
+
+    @mock.patch('observations.tasks.handle_outbox_message.apply_async')
+    def test_send_outbox_message(self, mock_send):
         message_data = dict(text="Status?")
         url = reverse('messages-view')
         url += '?{}'.format(urlencode({'subject_id': self.test_subject.id,
-                            'source_id': self.test_subject.source.id}))
+                                       'source_id': self.test_subject.source.id}))
 
         request = self.factory.post(url, data=message_data)
-        self.force_authenticate(request, self.app_user)
+        self.force_authenticate(request, self.admin_user)
         response = MessagesView.as_view()(request)
+        self.assertTrue(mock_send.called)
         assert response.status_code == 201
 
     def test_send_inbox_message(self):
@@ -41,7 +48,7 @@ class MessagesTestCase(BaseAPITest):
         url = reverse('messages-view')
 
         request = self.factory.post(url, data=message_data)
-        self.force_authenticate(request, self.app_user)
+        self.force_authenticate(request, self.admin_user)
         response = MessagesView.as_view()(request)
         assert response.status_code == 400
         assert response.data == {
@@ -50,11 +57,12 @@ class MessagesTestCase(BaseAPITest):
         url += '?{}'.format(urlencode({'manufacturer_id': 'subject-status-1'}))
 
         request = self.factory.post(url, data=message_data)
-        self.force_authenticate(request, self.app_user)
+        self.force_authenticate(request, self.admin_user)
         response = MessagesView.as_view()(request)
         assert response.status_code == 201
 
-    def test_messaging_in_subject_payload(self):
+    @mock.patch('observations.tasks.handle_outbox_message.apply_async')
+    def test_messaging_in_subject_payload(self, mock_send):
         url = reverse('subject-view', args=[self.test_subject.id, ])
         request = self.factory.get(url)
         self.force_authenticate(request, self.admin_user)
@@ -71,6 +79,44 @@ class MessagesTestCase(BaseAPITest):
         url = messaging.get('url')
 
         request = self.factory.post(url, data=message_data)
-        self.force_authenticate(request, self.app_user)
+        self.force_authenticate(request, self.admin_user)
         response = MessagesView.as_view()(request)
+        self.assertTrue(mock_send.called)
         self.assertEqual(response.status_code, 201)
+
+    @mock.patch('observations.tasks.handle_outbox_message.apply_async')
+    def test_message_permission(self, mock_send):
+        with mock.patch('django.db.backends.base.base.BaseDatabaseWrapper.validate_no_atomic_block', lambda x: False):
+            subject = Subject.objects.create(name='radio-001', )
+            subject_group = SubjectGroup.objects.create(name='Radios')
+            subject_group.subjects.set([subject])
+            transaction.get_connection().run_and_clear_commit_hooks()
+            permission_set = subject_group.permission_sets.get(name=subject_group.auto_permissionset_name)
+            self.assertEqual(permission_set.name, subject_group.auto_permissionset_name)
+
+            provider = SourceProvider.objects.create(provider_key='RDO-provider')
+            source = Source.objects.create(manufacturer_id='3FG89', provider=provider)
+            SubjectSource.objects.create(subject=subject, source=source)
+
+            # send outbox message.
+            url = reverse('messages-view')
+            url += '?{}'.format(urlencode({'subject_id': subject.id, 'source_id': subject.source.id}))
+
+            request = self.factory.post(url, data=dict(text="Hey, there!"))
+            self.force_authenticate(request, self.admin_user)
+            response = MessagesView.as_view()(request)
+            self.assertTrue(mock_send.called)
+            assert response.status_code == 201
+
+            # return 403 (Forbidden) for user with no message permission.
+            request = self.factory.post(url, data=dict(text="Hey, I dont have permission to send message."))
+            self.force_authenticate(request, self.app_user)
+            response = MessagesView.as_view()(request)
+            assert response.status_code == 403
+
+            # User can only see messages for subject-groups they have permission for.
+            url = reverse('messages-view')
+            request = self.factory.get(url)
+            self.force_authenticate(request, self.app_user)
+            response = MessagesView.as_view()(request)
+            self.assertEqual(len(response.data['results']), 0)
