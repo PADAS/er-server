@@ -52,7 +52,8 @@ from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin, \
 from core.common import TIMEZONE_USED
 from core.openlayers import OSMGeoExtendedAdmin
 from observations.daterange_filter import DateRangeFilter
-from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm, GPXFileForm
+from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm, GPXFileForm, \
+    MessageGenericForeignKeyRawIdWidget, MessagesForm
 from observations.tasks import process_gpxtrack_file, maintain_subjectstatus_for_subject
 from observations.utils import assigned_range_dates, get_cyclic_subjectgroup, find_paths
 from tracking.models import SourcePlugin
@@ -1752,6 +1753,7 @@ class MessageAdmin(OSMGeoExtendedAdmin):
     list_display = ('sender', 'receiver', 'message_type',
                     'status', 'message_time', 'read')
     list_editable = ('read',)
+    form = MessagesForm
     search_fields = ('sender_id', 'receiver_id')
     list_filter = (SubjectMessagesFilter,)
     ordering = ('message_time', )
@@ -1779,3 +1781,18 @@ class MessageAdmin(OSMGeoExtendedAdmin):
         queryset |= qs.filter(Q(sender_id__in=matching_subject_ids) | Q(
             receiver_id__in=matching_subject_ids))
         return queryset, use_distinct
+
+    def formfield_for_genericforeignkey(self, db_field, request, **kwargs):
+        kwargs['widget'] = MessageGenericForeignKeyRawIdWidget(db_field.remote_field,
+                                                               self.admin_site,
+                                                               using=kwargs.get('using'))
+        return db_field.formfield(**kwargs)
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name in ["sender_id", "receiver_id"]:
+            return self.formfield_for_genericforeignkey(db_field, request, **kwargs)
+        return super(MessageAdmin, self).formfield_for_dbfield(db_field, request, **kwargs)
+
+
+
+
