@@ -13,8 +13,10 @@ from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
 from django.contrib.postgres.forms import JSONField
 from django.db.models import F, Q, Window, RowRange, Count, Aggregate
+from django.urls import reverse
+from django.contrib.auth import get_user_model
 
-from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider, GPXTrackFile, Observation
+from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider, GPXTrackFile, Observation, Message
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
 from choices.models import Choice
 from core.common import TIMEZONE_USED
@@ -580,3 +582,84 @@ class GPXFileForm(forms.ModelForm):
             return file
         else:
             raise forms.ValidationError(error_msg, code='invalid')
+
+
+class MessageGenericForeignKeyRawIdWidget(forms.TextInput):
+    """Widget for displaying Dynamic GenericForeignkey in 'raw_id' rather than select box
+    """
+    template_name = 'admin/widgets/genericforeign_raw_id.html'
+
+    def __init__(self, rel, admin_site, attrs=None, using=None, content_type="subject"):
+        self.rel = rel
+        self.admin_site = admin_site
+        self.db = using
+        self.content_type = content_type
+        super().__init__(attrs)
+
+    def get_context(self, name, value, attrs):
+        context = super().get_context(name, value, attrs)
+        rel_to = Subject  # default to Subject object.
+        related_url = reverse(
+            'admin:%s_%s_changelist' % (
+                rel_to._meta.app_label, rel_to._meta.model_name,),
+            current_app=self.admin_site.name,
+        )
+        context['related_url'] = related_url
+        context['link_title'] = _('Lookup')
+        context['widget']['attrs'].setdefault(
+            'class', 'vForeignKeyRawIdAdminField')
+        if context['widget']['value']:
+            context['link_label'], context['link_url'] = self.label_and_url_for_value(
+                value)
+        else:
+            context['link_label'] = None
+        return context
+
+    def label_and_url_for_value(self, value):
+        try:
+            obj = Subject.objects.get(id=value)
+        except Subject.DoesNotExist:
+            from accounts.models import User
+            obj = User.objects.get(id=value)
+        url = reverse(
+            '%s:%s_%s_change' % (
+                self.admin_site.name, obj._meta.app_label, obj._meta.object_name.lower(),
+            ), args=(obj.pk,)
+        )
+        return obj, url
+
+
+class MessagesForm(forms.ModelForm):
+    class Meta:
+        model = Message
+        fields = '__all__'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        map_model = {'subject': Subject, 'user': get_user_model()}
+
+        def validate(content_type, contenttype_id, field):
+            if contenttype_id and content_type:
+                model = map_model.get(content_type.name)
+                try:
+                    model.objects.get(id=contenttype_id)
+                except Subject.DoesNotExist:
+                    raise forms.ValidationError(
+                        {field: forms.ValidationError(
+                            _(f'Subject with this id "{contenttype_id}" does not exist.'), code='invalid')})
+                except Exception:
+                    raise forms.ValidationError(
+                        {field: forms.ValidationError(
+                            _(f'User with this id "{contenttype_id}" does not exist'), code='invalid')})
+
+        # sender_content_type.
+        sender_content_type = cleaned_data.get('sender_content_type')
+        sender_id = cleaned_data.get('sender_id')
+        validate(sender_content_type, sender_id, 'sender_id')
+
+        # receiver_content_type
+        receiver_content_type = cleaned_data.get('receiver_content_type')
+        receiver_id = cleaned_data.get('receiver_id')
+        validate(receiver_content_type, receiver_id, 'receiver_id')
+
+        return cleaned_data
