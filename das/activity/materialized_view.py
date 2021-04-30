@@ -112,7 +112,8 @@ def generate_field_details(schema_accumulator):
             if prop_key in used_properties:
                 continue
             used_properties.add(prop_key)
-            details_path = ('event_details', prop_key, 'value')
+            sanitized_prop_key = prop_key.replace("'", "''")
+            details_path = ('event_details', sanitized_prop_key, 'value')
             if prop_val.get('type') == 'string':
                 yield details_path, 'TEXT'
 

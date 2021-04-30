@@ -1815,8 +1815,8 @@ class MessagesView(generics.ListCreateAPIView):
             messages = messages.by_subject_ids(subject_ids)
         if source_id:
             messages = messages.by_source_id(source_id)
-        if read:
-            messages = messages.by_read(read)
+        if read is not None:
+            messages = messages.by_read(parse_bool(read))
 
         return messages.order_by("-message_time")
 
@@ -1831,7 +1831,11 @@ class MessagesView(generics.ListCreateAPIView):
             user_msg_ids = [str(k.id) for k in user_messages]
             valid_update_ids = [k for k in ids if k in user_msg_ids]
 
-            user_messages.filter(id__in=valid_update_ids).update(read=read)
+            msgs = user_messages.filter(id__in=valid_update_ids)
+            for m in msgs:
+                m.read = read
+                m.save()
+
             read_state = 'read' if read else 'unread'
             return Response(f"{len(valid_update_ids)} messages successfully updated to {read_state}", status=status.HTTP_200_OK)
 
@@ -1845,13 +1849,6 @@ class MessagesView(generics.ListCreateAPIView):
 
         serializer.save()
         return serializer.data
-
-    def _source(self, manufacturer_id):
-        try:
-            return models.Source.objects.get(manufacturer_id=manufacturer_id)
-        except models.Source.DoesNotExist:
-            raise NotFound(
-                {'Error': f'Source with given ID does not exist'})
 
     def create(self, request, *args, **kwargs):
 
@@ -1868,19 +1865,14 @@ class MessagesView(generics.ListCreateAPIView):
             if not manufacturer_id:
                 return Response({"Error": "Manufacturer Id param has to be provided for an inbox message"},
                                 status=status.HTTP_400_BAD_REQUEST)
-            source = self._source(manufacturer_id)
+
             dt = parse_datetime(data['message_time'])
-            subject_source = models.SubjectSource.objects.filter(source=source,
-                                                                 assigned_range__contains=dt) \
-                .order_by('assigned_range').reverse().first()
-
-            if not subject_source:
-                return Response({"Error": "No subject assigned to this source"}, status=status.HTTP_404_NOT_FOUND)
-
-            data['sender'] = {
-                "content_type": "observations.subject", "id": subject_source.subject.id}
-            data['device'] = source.id
-            ser_data = self.save_message(request, data)
+            for subject_source in models.SubjectSource.objects.filter(source__manufacturer_id=manufacturer_id,
+                                                                 assigned_range__contains=dt).distinct('subject'):
+                data['sender'] = {
+                    "content_type": "observations.subject", "id": subject_source.subject.id}
+                data['device'] = subject_source.source.id
+                ser_data = self.save_message(request, data)
         else:
             # Handle Outbox messages
 

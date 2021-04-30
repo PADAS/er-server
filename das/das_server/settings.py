@@ -539,7 +539,7 @@ GFW_BACKFILL_INTERVAL_DAYS = 10  # run backfill every n days
 METRICS_BUCKET = "er-site-metrics"
 
 ACCEPT_EULA = True
-PATROL_ENABLED = False
+PATROL_ENABLED = True
 
 # Has to be a multiple of 256
 GS_BLOB_CHUNK_SIZE = 10485760

@@ -25,6 +25,7 @@ from observations.views import SubjectTracksView, SubjectStatusView, Observation
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from uuid import UUID
 from rt_api import client
+from observations.serializers import MessageSerializer
 
 from utils.stats import update_gauge
 
@@ -432,7 +433,7 @@ def _patrol_handler(item_id, type):
         close_old_connections()
 
 
-def _radio_message_handler(object_id, action):
+def _radio_message_handler(object_id, action='radio_message'):
     try:
         logger.debug('Processing type=%s on message=%s', action, object_id)
 
@@ -444,28 +445,32 @@ def _radio_message_handler(object_id, action):
             if not user:
                 continue
 
+            request = DummyRequest(user=user, http_method='GET', query_parameters={})
+            request = Request(request)  # Wrap in DRF Request
+
             for sid in user_sids:
                 if action == 'delete_message':
                     emit_data = get_emit_data(
                         type=action,
                         sid=sid,
                         object_id=object_id,
-                        data={'type': action, 'message_id': object_id, 'data': None})
+                        data={'type': action, 'data': {'id': object_id}})
                 else:
                     try:
                         instance = Message.objects.get(id=object_id)
                     except Message.DoesNotExist:
                         instance = None
+                    else:
+                        message_data = MessageSerializer(instance, context={
+                            'request': request}).data
+                        emit_data = get_emit_data(
+                            type=action,
+                            sid=sid,
+                            object_id=object_id,
+                            data={'type': action, 'data': message_data})
 
-                    emit_data = get_emit_data(
-                        type=action,
-                        sid=sid,
-                        object_id=object_id,
-                        data={'type': action, 'message_id': object_id, 'data': instance})
-
-                if emit_data:
-                    logger.debug('Publish das.realtime.emit.  data=%s', emit_data)
-                    pubsub.publish(json.dumps(emit_data, default=dumps_helper), 'das.realtime.emit')
+                        logger.debug('Publish das.realtime.emit.  data=%s', emit_data)
+                        pubsub.publish(json.dumps(emit_data, default=dumps_helper), 'das.realtime.emit')
     finally:
         close_old_connections()
 
@@ -495,14 +500,14 @@ def handle_delete_patrol(patrol_id):
 def handle_new_message(message_id):
     logger.info(f'Celery worker handling new message id: {message_id}',
                 extra={'rt.message': 'new_message'})
-    _radio_message_handler(message_id, 'new_message')
+    _radio_message_handler(message_id)
 
 
 @celery.app.task()
 def handle_update_message(message_id):
     logger.info(f'Celery worker handling update message id: {message_id}',
                 extra={'rt.message': 'update_message'})
-    _radio_message_handler(message_id, 'update_message')
+    _radio_message_handler(message_id)
 
 
 @celery.app.task()

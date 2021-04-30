@@ -23,9 +23,11 @@ locals {
     "biocarbonpartners"      = "prod1"
     "birdshead"              = "prod-asia"
     "bomani"                 = "prod1"
+    "bornfreekenya"          = "prod1"
     "bostonpridelands"       = "prod1"
     "bubyevalley"            = "prod1"
     "buffalokloof"           = "prod1"
+    "calauitisland"          = "prod-asia"
     "ccf"                    = "prod1"
     "centralapennines"       = "prod1"
     "centralrift"            = "prod1"
@@ -44,6 +46,7 @@ locals {
     "elephantqueen"          = "prod1"
     "ennedi"                 = "prod1"
     "eruc2020"               = "prod1"
+    "ewasolandscape"         = "prod1"
     "ewt"                    = "prod1"
     "fao"                    = "prod1"
     "freenature"             = "prod1"
@@ -101,6 +104,7 @@ locals {
     "northluangwa"           = "prod1"
     "nsumbu"                 = "prod1"
     "nyungwe"                = "prod1"
+    "oana"                   = "prod1"
     "odzala"                 = "prod1"
     "oljogi"                 = "prod1"
     "olpejeta"               = "prod1"
@@ -116,6 +120,7 @@ locals {
     "queenelizabeth"         = "prod1"
     "rcb"                    = "prod1"
     "rfcx"                   = "prod1"
+    "rouxcel"                = "prod1"
     "rhodopemountains"       = "prod1"
     "sabiegamereserve"       = "prod1"
     "sabisands"              = "prod1"
@@ -232,6 +237,7 @@ locals {
     "centralapennines"    = 1
     "buffalokloof"        = 1
     "methowbalkyhills"    = 1
+    "oana"                = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)

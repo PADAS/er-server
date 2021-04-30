@@ -196,7 +196,7 @@ variable "show_stationary_subjects_on_map" {
 
 variable "patrol_enabled" {
   type    = string
-  default = "False"
+  default = "True"
 }
 
 variable "subject_region_enabled" {
