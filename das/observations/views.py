@@ -1349,6 +1349,14 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         elif chronofile:
             queryset = queryset.filter(
                 subjectsource__additional__chronofile=int(chronofile))
+
+            queryset = queryset.annotate(subjectsource_additional=F('subjectsource__additional'))\
+                .annotate(source_model_name=F('subjectsource__source__model_name'))\
+                .annotate(source_manufacturer_id=F('subjectsource__source__manufacturer_id'))\
+                .annotate(subjectsource_assigned_range=F('subjectsource__assigned_range'))\
+                .annotate(source_additional=F('subjectsource__source__additional'))\
+                .annotate(source_id=F('subjectsource__source__id'))\
+                .annotate(subjectsource_id=F('subjectsource__id'))
         return queryset
 
     def get(self, request, *args, **kwargs):
@@ -1509,8 +1517,12 @@ class TrackingDataCsvView(generics.RetrieveAPIView):
         return 0
 
     def get_subject_trackdata_queryset(self, filter_flag, lower, subject, upper, max_records):
-        qs = models.Observation.objects.get_subject_observations(
-            subject, lower, upper, max_records, filter_flag=filter_flag, order_by='recorded_at')
+        if hasattr(subject, "subjectsource_id"):
+            qs = models.Observation.objects.get_subjectsource_observations(
+                subject.subjectsource_id, lower, upper, max_records, filter_flag=filter_flag, order_by='recorded_at')
+        else:
+            qs = models.Observation.objects.get_subject_observations(
+                subject, lower, upper, max_records, filter_flag=filter_flag, order_by='recorded_at')
         qs = qs.annotate(subjectsource_additional=F('source__subjectsource__additional'),
                          collar_id=F('source__manufacturer_id'))
         return qs
@@ -1868,7 +1880,7 @@ class MessagesView(generics.ListCreateAPIView):
 
             dt = parse_datetime(data['message_time'])
             for subject_source in models.SubjectSource.objects.filter(source__manufacturer_id=manufacturer_id,
-                                                                 assigned_range__contains=dt).distinct('subject'):
+                                                                      assigned_range__contains=dt).distinct('subject'):
                 data['sender'] = {
                     "content_type": "observations.subject", "id": subject_source.subject.id}
                 data['device'] = subject_source.source.id
