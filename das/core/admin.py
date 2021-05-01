@@ -37,16 +37,19 @@ class SaveCoordinatesToCookieMixin:
         return (0, 0)
 
     def set_coordinates_cookie(self, http_response, obj):
+        coords = None
         try:
             geom = getattr(obj, self.gis_geometry_field_name)
-            coords = geom.coords
+            if geom:
+                coords = geom.coords
         except AttributeError as ex:
-            logger.exception(f"Failed to get GIS geometry attribute on this obj {obj}: {ex}")
+            logger.exception(
+                f"Failed to get GIS geometry attribute on this obj {obj}: {ex}")
         else:
-            long, lat = self.get_single_coordinate_pair(coords)
-            http_response.set_cookie("latitude", lat,
-                                     max_age=365 * 24 * 60 * 60)
-            http_response.set_cookie("longitude", long,
-                                     max_age=365 * 24 * 60 * 60)
+            if coords:
+                long, lat = self.get_single_coordinate_pair(coords)
+                http_response.set_cookie("latitude", lat,
+                                         max_age=365 * 24 * 60 * 60)
+                http_response.set_cookie("longitude", long,
+                                         max_age=365 * 24 * 60 * 60)
         return http_response
-
