@@ -6,6 +6,9 @@ from core.tests import BaseAPITest
 from unittest import mock
 from accounts.models import PermissionSet
 from observations.models import Subject, SubjectGroup, Source, SubjectSource, SourceProvider
+from drf_extra_fields.compat import DateTimeTZRange
+from observations import models
+from observations.models import Subject
 from observations.views import MessagesView, SubjectView
 from urllib.parse import urlencode
 
@@ -29,6 +32,7 @@ class MessagesTestCase(BaseAPITest):
                                                         email="super@user.com")
 
         self.app_user.permission_sets.add(PermissionSet.objects.get(name='View Message Permission'))
+        models.SourceProvider.objects.filter(display_name='Default').update(additional={"two_way_messaging": True})
 
     @mock.patch('observations.tasks.handle_outbox_message.apply_async')
     def test_send_outbox_message(self, mock_send):
@@ -120,3 +124,40 @@ class MessagesTestCase(BaseAPITest):
             self.force_authenticate(request, self.app_user)
             response = MessagesView.as_view()(request)
             self.assertEqual(len(response.data['results']), 0)
+        self.assertTrue(mock_send.called)
+
+    def get_subject(self, subject_id):
+        url = reverse('subject-view', args=[subject_id, ])
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.admin_user)
+        response = SubjectView.as_view()(request, id=str(subject_id))
+        return response
+
+    def test_subject_api_with_msg_capabilities(self):
+        subject = Subject.objects.create(name='#subject-001')
+        provider = models.SourceProvider.objects.create(provider_key='#01-provider')
+        source = models.Source.objects.create(manufacturer_id='#01-manufacurer_id', provider=provider)
+
+        ss = models.SubjectSource.objects.create(subject=subject, source=source,
+                                                 assigned_range=DateTimeTZRange(lower=models.DEFAULT_ASSIGNED_RANGE[0]))
+
+        # subject with source-provider that has two-way messaging disabled (default).
+        response = self.get_subject(subject.id)
+        self.assertEqual(response.status_code, 200)
+        assert response.data.get("messaging") is None
+
+        # enable two-way messaging for source-provider
+        provider.additional = {"two_way_messaging": True}
+        provider.save()
+        response = self.get_subject(subject.id)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data.get('messaging'))
+
+        # disable two-way messaging for source-provider and enable source two-way messaging.
+        provider.additional = {"two_way_messaging": False}
+        provider.save()
+        source.additional = {'two_way_messaging': True}
+        source.save()
+        response = self.get_subject(subject.id)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data.get('messaging'))
