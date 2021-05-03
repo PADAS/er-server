@@ -1749,7 +1749,7 @@ class SubjectMessagesFilter(SimpleListFilter):
 
 @admin.register(models.Message)
 class MessageAdmin(OSMGeoExtendedAdmin):
-
+    gis_geometry_field_name = "device_location"
     list_display = ('sender', 'receiver', 'message_type',
                     'status', 'message_time', 'read')
     list_editable = ('read',)
@@ -1764,7 +1764,7 @@ class MessageAdmin(OSMGeoExtendedAdmin):
             'fields': (('sender_content_type', 'sender_id', 'receiver_content_type', 'receiver_id', 'device',
                         'message_type', 'text', 'status', 'device_location', 'message_time', 'read'))
         }
-         ),
+        ),
         ('Advanced Message Attributes', {
             'classes': ('wide', 'collapse'),
             'fields': ('additional', 'id',)
@@ -1792,7 +1792,3 @@ class MessageAdmin(OSMGeoExtendedAdmin):
         if db_field.name in ["sender_id", "receiver_id"]:
             return self.formfield_for_genericforeignkey(db_field, request, **kwargs)
         return super(MessageAdmin, self).formfield_for_dbfield(db_field, request, **kwargs)
-
-
-
-
