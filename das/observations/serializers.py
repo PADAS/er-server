@@ -377,17 +377,13 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
 
 
 def get_subjectsources_with_2way_msg(subject):
-    """filter based on messaging capabilities that are attached to either source or source-provider"""
-    condition = (Q(two_way_messaging=False) &
-                 (Q(source_two_way_messaging=False) |
-                  Q(source_two_way_messaging__isnull=True) |
-                  Q(source_two_way_messaging__exact='') |
-                  Q(source_two_way_messaging=None)))
-
+    """filter based on messaging capabilities that are attached to either source or source-provider
+    link to truth table. https://vulcan.atlassian.net/browse/DAS-6713?focusedCommentId=70634
+    """
     subject_sources = models.SubjectSource.objects.filter(subject=subject).annotate(
         two_way_messaging=jsonb.KeyTransform('two_way_messaging', 'source__provider__additional'),
         source_two_way_messaging=jsonb.KeyTransform('two_way_messaging', 'source__additional')).exclude(
-        Q(two_way_messaging__isnull=True) | condition)
+        Q(two_way_messaging__isnull=True) | Q(two_way_messaging=False))
     return subject_sources
 
 

@@ -138,8 +138,8 @@ class MessagesTestCase(BaseAPITest):
         provider = models.SourceProvider.objects.create(provider_key='#01-provider')
         source = models.Source.objects.create(manufacturer_id='#01-manufacurer_id', provider=provider)
 
-        ss = models.SubjectSource.objects.create(subject=subject, source=source,
-                                                 assigned_range=DateTimeTZRange(lower=models.DEFAULT_ASSIGNED_RANGE[0]))
+        models.SubjectSource.objects.create(subject=subject, source=source,
+                                            assigned_range=DateTimeTZRange(lower=models.DEFAULT_ASSIGNED_RANGE[0]))
 
         # subject with source-provider that has two-way messaging disabled (default).
         response = self.get_subject(subject.id)
@@ -154,10 +154,11 @@ class MessagesTestCase(BaseAPITest):
         self.assertTrue(response.data.get('messaging'))
 
         # disable two-way messaging for source-provider and enable source two-way messaging.
+        # should still have two-way messaging disabled.
         provider.additional = {"two_way_messaging": False}
         provider.save()
         source.additional = {'two_way_messaging': True}
         source.save()
         response = self.get_subject(subject.id)
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.data.get('messaging'))
+        assert response.data.get("messaging") is None
