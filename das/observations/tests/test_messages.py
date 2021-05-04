@@ -163,7 +163,6 @@ class MessagesTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         assert response.data.get("messaging") is None
 
-    
         # enable two-way messaging for source-provider and disable source two-way messaging.
         # messaging-should be disabled.
         provider.additional = {"two_way_messaging": True}
