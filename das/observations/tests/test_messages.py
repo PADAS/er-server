@@ -162,3 +162,35 @@ class MessagesTestCase(BaseAPITest):
         response = self.get_subject(subject.id)
         self.assertEqual(response.status_code, 200)
         assert response.data.get("messaging") is None
+
+    
+        # enable two-way messaging for source-provider and disable source two-way messaging.
+        # messaging-should be disabled.
+        provider.additional = {"two_way_messaging": True}
+        provider.save()
+        source.additional = {'two_way_messaging': False}
+        source.save()
+        response = self.get_subject(subject.id)
+        self.assertEqual(response.status_code, 200)
+        assert response.data.get("messaging") is None
+
+        # enable two-way messaging for source-provider and source two-way messaging to be empty string.
+        # messaging-should be enabled..
+        provider.additional = {"two_way_messaging": True}
+        provider.save()
+        source.additional = {'two_way_messaging': ''}
+        source.save()
+        response = self.get_subject(subject.id)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data.get('messaging'))
+
+        # enable two-way messaging for source-provider and source two-way messaging to be None.
+        # messaging-should be enabled..
+        provider.additional = {"two_way_messaging": True}
+        provider.save()
+        source.additional = {'two_way_messaging': None}
+        source.save()
+        response = self.get_subject(subject.id)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data.get('messaging'))
+
