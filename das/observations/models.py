@@ -1865,7 +1865,7 @@ class Message(TimestampedModel):
     status = models.CharField(
         max_length=40, choices=MESSAGE_STATE_CHOICES, default=PENDING)
     device_location = models.PointField(blank=True, null=True)
-    message_time = models.DateTimeField(null=False, blank=False)
+    message_time = models.DateTimeField(null=False, blank=False, db_index=True)
     read = models.BooleanField(default=False)
     additional = JSONField(
         'additional data', default=dict, blank=True, null=True)
