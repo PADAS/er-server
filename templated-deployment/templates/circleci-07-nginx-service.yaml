@@ -5,6 +5,7 @@ metadata:
   name: nginx
 spec:
   type: LoadBalancer
+  externalTrafficPolicy: Local
   loadBalancerIP: "${SITE_IP_ADDRESS}"
   ports:
   - port: 80
