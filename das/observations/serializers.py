@@ -13,6 +13,8 @@ from drf_extra_fields.geo_fields import PointField
 from rest_framework.fields import DateTimeField
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from rest_framework.fields import DateTimeField
+from django.contrib.postgres.fields import jsonb
+from django.db.models import Q
 
 import activity
 import utils.json
@@ -347,18 +349,18 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
             rep['url'] = utils.add_base_url(
                 request, reverse('subject-view', args=[instance.id, ]))
 
-            rep["messaging"] = []
+            message_content = []
 
-            # TODO: We need this to filter based on messaging capabilities that are attached to either
-            # the source provider or source.
-            for ss in models.SubjectSource.objects.filter(subject=instance):
+            for ss in get_subjectsources_with_2way_msg(instance):
                 message_url = utils.add_base_url(
                     request, reverse('messages-view'))
                 data = {
                     "source_provider": ss.source.provider.display_name,
                     "url": f"{message_url}?subject_id={str(instance.id)}&source_id={str(ss.source_id)}"
                 }
-                rep["messaging"].append(data)
+                message_content.append(data)
+            if message_content:
+                rep["messaging"] = message_content
 
         if self.context.get('tracks', False):
             track_serializer = SubjectTrackSerializer(
@@ -372,6 +374,20 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
             validated_data['owner'] = request.user
 
         return models.Subject.objects.create_subject(**validated_data)
+
+
+def get_subjectsources_with_2way_msg(subject):
+    """filter based on messaging capabilities that are attached to either source or source-provider
+    link to truth table. https://vulcan.atlassian.net/browse/DAS-6713?focusedCommentId=70634
+    """
+    condition = (Q(two_way_messaging=True) &
+                 (Q(source_two_way_messaging=False, source_two_way_messaging__isnull=False)))
+
+    subject_sources = models.SubjectSource.objects.filter(subject=subject).annotate(
+        two_way_messaging=jsonb.KeyTransform('two_way_messaging', 'source__provider__additional'),
+        source_two_way_messaging=jsonb.KeyTransform('two_way_messaging', 'source__additional')).exclude(
+        Q(two_way_messaging__isnull=True) | Q(two_way_messaging=False) | condition)
+    return subject_sources
 
 
 class SubjectGeoJsonSerializer(SubjectSerializer):
