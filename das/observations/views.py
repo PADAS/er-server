@@ -1942,4 +1942,4 @@ def get_user_messages(user):
     user_subject_ids = [subj.id for subj in user_subjects]
     messages = models.Message.objects.filter(
         Q(sender_id__in=user_subject_ids) | Q(receiver_id__in=user_subject_ids))
-    return messages.order_by('-message_time')
+    return messages
