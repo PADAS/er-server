@@ -90,7 +90,7 @@ class SmartIntegrateMessageAdapter(BaseMessageAdapter):
         }
         path = '?apikey='.join([message_config.get('url'), message_config.get('apikey')])
         try:
-            response = requests.post(url=path, json=payload)
+            response = requests.post(url=path, data=payload, headers={'content-type': 'application/json'})
         except requests.exceptions.RequestException as exc:
             logger.exception(f'Request failed with exception error: {exc}')
         else:
