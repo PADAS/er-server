@@ -90,7 +90,7 @@ class SmartIntegrateMessageAdapter(BaseMessageAdapter):
         }
         path = '?apikey='.join([message_config.get('url'), message_config.get('apikey')])
         try:
-            response = requests.post(url=path, data=payload)
+            response = requests.post(url=path, data=payload, headers={'content-type': 'application/json'})
         except requests.exceptions.RequestException as exc:
             logger.exception(f'Request failed with exception error: {exc}')
         else:
@@ -110,7 +110,7 @@ def _handle_outbox_message(message_id, user_email):
 
     if source:
         try:
-            source = Source.objects.get(id=source)
+            source = Source.objects.get(id=source.id)
         except Source.objects.DoesNotExist:
             logger.exception(f'Source with this id {source.id} does not exist')
         else:
@@ -122,8 +122,7 @@ def _handle_outbox_message(message_id, user_email):
                 source_2way_msg_config = source.additional.get('two_way_messaging')
                 provider_2way_msg_config = source.provider.additional.get('two_way_messaging', False)
 
-                if parse_bool(source_2way_msg_config) or (source_2way_msg_config in (None, "")
-                                                          and provider_2way_msg_config):
+                if provider_2way_msg_config and (parse_bool(source_2way_msg_config) or source_2way_msg_config in (None, "")) and adapter_cls:
                     adapter_cls.send_msg_to_source(message, message_conf, user_email)
                 else:
                     logger.debug(f'Messaging not enabled for this source: {source.id}')

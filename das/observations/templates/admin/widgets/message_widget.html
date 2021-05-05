@@ -16,3 +16,24 @@
         margin-bottom: 3px;
     }
 </style>
+
+
+<script type="application/javascript">
+    var checkbox = document.getElementById('id_two_way_messaging');
+    var msg_config = document.getElementsByClassName('field-messaging_config')[0]
+
+    if (!checkbox.checked){
+        msg_config.style.display = 'none';
+    }
+
+    checkbox.onchange = function (e){
+        if (e.target.checked){
+                msg_config.style.display = 'inline';
+        } else {
+           msg_config.style.display = 'none';
+        }
+    }
+
+
+
+</script>

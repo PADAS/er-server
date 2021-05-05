@@ -445,7 +445,7 @@ class MessageConfigurationWidget(forms.MultiWidget):
         return context
 
     def decompress(self, value):
-        return [value.get('adapter-key'), value.get('url'), value.get('apikey')] if value else []
+        return [value.get('adapter_type'), value.get('url'), value.get('apikey')] if value else []
 
 
 class MessageField(forms.MultiValueField):
@@ -458,7 +458,7 @@ class MessageField(forms.MultiValueField):
         super().__init__(fields, *args, **kwargs)
 
     def compress(self, data_list):
-        return {'adapter-key': data_list[0], 'url': data_list[1], 'apikey': data_list[2]} if data_list else data_list
+        return {'adapter_type': data_list[0], 'url': data_list[1], 'apikey': data_list[2]} if data_list else data_list
 
 
 class AutoFormatJSONWidget(forms.widgets.Textarea):
