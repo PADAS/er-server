@@ -1751,7 +1751,7 @@ class SubjectMessagesFilter(SimpleListFilter):
 class MessageAdmin(OSMGeoExtendedAdmin):
     gis_geometry_field_name = "device_location"
     list_display = ('sender', 'receiver', 'message_type',
-                    'status', 'message_time', 'read', 'created_at')
+                    'status', 'message_time', 'read')
     list_editable = ('read',)
     form = MessagesForm
     search_fields = ('sender_id', 'receiver_id')
