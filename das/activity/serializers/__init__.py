@@ -469,7 +469,8 @@ class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
         read_only_fields = ('id',)
         write_only_fields = ('icon',)
         fields = read_only_fields + write_only_fields + ('value', 'display', 'ordernum',
-                                                         'is_collection', 'category', 'icon_id', 'is_active', 'schema')
+                                                         'is_collection', 'category', 'icon_id', 'is_active', 'schema',
+                                                         'default_priority')
 
     def __init__(self, *args, **kwargs):
         super(EventTypeSerializer, self).__init__(*args, **kwargs)
