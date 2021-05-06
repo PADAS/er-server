@@ -131,6 +131,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                     'cluster_radius': test_cluster.cluster_radius,
                     'cluster_fix_count': test_cluster.threshold_point_count(self.config.threshold_radius),
                     'total_fix_count': test_cluster.relocs.fix_count,
+                    'immobility_time': cluster_timespan_seconds
                 }
 
         self.logger.info(result.message)
