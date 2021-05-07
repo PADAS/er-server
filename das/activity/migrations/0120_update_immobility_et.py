@@ -35,6 +35,7 @@ IMMOBILITY_SCHEMA = """{
           "immobility_time": {
           "type": "number",
           "title": "Duration of Immobility (Seconds)"
+          }
         },
         "definition": [
           "name",
