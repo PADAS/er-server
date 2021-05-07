@@ -177,7 +177,7 @@ class AccountsModelBackend(ModelBackend):
         always returns ``False``.
         """
         if '.' in perm and obj:
-            app_label, codename = perm.split('.')
+            app_label, codename = perm.split('.', maxsplit=1)
             if app_label != obj._meta.app_label:
                 raise ValueError("Passed perm has app label of '%s' and "
                                  "given obj has '%s'" % (app_label, obj._meta.app_label))

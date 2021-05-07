@@ -26,7 +26,7 @@ def allowed_permissions(user_instance):
 
     container = defaultdict(list)
     for permission in permissions:
-        app_name, perm = permission.split('.')
+        app_name, perm = permission.split('.', maxsplit=1)
         verb, resource = perm.split('_', maxsplit=1)
 
         if any([resource in {'patrolsegment', 'patrolnote', 'patrolfile', 'patrolsegmentmembership'}, app_name not in {'activity'}]):
