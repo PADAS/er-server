@@ -1864,7 +1864,6 @@ class Message(TimestampedModel):
     text = models.TextField(blank=True)
     status = models.CharField(
         max_length=40, choices=MESSAGE_STATE_CHOICES, default=PENDING)
-    sender_location = models.PointField(blank=True, null=True)
     device_location = models.PointField(blank=True, null=True)
     message_time = models.DateTimeField(null=False, blank=False)
     read = models.BooleanField(default=False)

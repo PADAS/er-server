@@ -13,8 +13,10 @@ from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
 from django.contrib.postgres.forms import JSONField
 from django.db.models import F, Q, Window, RowRange, Count, Aggregate
+from django.urls import reverse
+from django.contrib.auth import get_user_model
 
-from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider, GPXTrackFile, Observation
+from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider, GPXTrackFile, Observation, Message
 from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
 from choices.models import Choice
 from core.common import TIMEZONE_USED
@@ -82,15 +84,15 @@ two_way_help_text = \
 def two_way_choices(source_provider_enable=False):
     if source_provider_enable:
         return (
-            (None, _('Enabled by Source Provider')),
-            (True, _('Enabled')),
-            (False, _('Disabled'))
+            ('unknown', _('Enabled by Source Provider')),
+            ('true', _('Enabled')),
+            ('false', _('Disabled'))
         )
     else:
         return (
-            (None, _('')),
-            (True, _('Enabled')),
-            (False, _('Disabled'))
+            ('unknown', _('')),
+            ('true', _('Enabled')),
+            ('false', _('Disabled'))
         )
 
 
@@ -128,7 +130,7 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
 
     silence_notification_threshold = forms.CharField(max_length=8, required=False, empty_value=None,
                                                      help_text=silence_notification_threshold_help_text_for_source)
-    two_way_messaging = forms.ChoiceField(
+    two_way_messaging = forms.NullBooleanField(
         label='Two-way messaging', help_text=two_way_help_text, required=False)
 
     @staticmethod
@@ -162,7 +164,7 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
         instance = kwargs.get('instance')
         self.fields['data_owners'].choices = self.fetch_organizations()
         self.fields['collar_status'].choices = self.fetch_collar_status()
-        self.fields['two_way_messaging'].choices = self.fetch_2way_messaging_choices(
+        self.fields['two_way_messaging'].widget.choices = self.fetch_2way_messaging_choices(
             instance)
 
     class Meta:
@@ -298,8 +300,9 @@ two_way_help_text_sp = \
 class TranformationRuleWidget(forms.MultiWidget):
     template_name = 'admin/transformation_rule.html'
 
-    def __init__(self, attrs=None, provider=None):
+    def __init__(self, attrs=None, provider=None, transform_rules=None):
         self.provider = provider or {}
+        self.transform_rules = transform_rules or []
         widgets = [forms.CheckboxInput,
                    forms.TextInput(attrs={"id": "transform_label"}),
                    forms.TextInput({"id": "transform_unit"})]
@@ -323,6 +326,7 @@ class TranformationRuleWidget(forms.MultiWidget):
         return val[-1] if val[-1] != '[]' else val[-2]
 
     def get_context(self, name, value, attrs):
+        value = self.transform_rules  # value correspondes to values of JSON transformation rules.
         context = self._get_context(name, value, attrs)
         if self.is_localized:
             for widget in self.widgets:
@@ -429,20 +433,59 @@ class AutoFormatJSONWidget(forms.widgets.Textarea):
 
     def format_value(self, value):
         try:
-            value = json.dumps(json.loads(value), indent=2, sort_keys=True)
-            # these lines will try to adjust size of TextArea to fit to content
-            row_lengths = [len(r) for r in value.split('\n')]
-            self.attrs['rows'] = min(max(len(row_lengths) + 2, 10), 30)
-            self.attrs['style'] = "font-size: 15px; font-family: Consolas, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, monospace;"
-            return value
+            deserialize = json.loads(value)
+            value = json.dumps(deserialize, indent=2, sort_keys=True)
         except Exception as e:
             logger.warning("Error while formatting JSON: {}".format(e))
             return super().format_value(value)
+        else:
+            if isinstance(deserialize, dict) and not bool(deserialize):
+                return json.dumps([])
+            else:
+                # these lines will try to adjust size of TextArea to fit to content
+                row_lengths = [len(r) for r in value.split('\n')]
+                self.attrs['rows'] = min(max(len(row_lengths) + 2, 10), 30)
+                return value
 
     class Media:
         css = {
             'all': ('css/monospace_textarea.css',),
         }
+
+
+class JSONString(str):
+    pass
+
+
+class InvalidJSONInput(str):
+    pass
+
+
+class ExtendedJSONField(JSONField):
+    default_error_messages = {
+        'invalid': _("JSON must be properly formatted. The following error was raised:  %(error)s"),
+    }
+
+    def to_python(self, value):
+        if self.disabled:
+            return value
+        if value in self.empty_values:
+            return None
+        elif isinstance(value, (list, dict, int, float, JSONString)):
+            return value
+        try:
+            converted = json.loads(value)
+        except json.JSONDecodeError as exc:
+            raise forms.ValidationError(
+                self.error_messages['invalid'],
+                code='invalid',
+                params={'error': exc},
+            )
+
+        if isinstance(converted, str):
+            return JSONString(converted)
+        else:
+            return converted
 
 
 class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
@@ -460,17 +503,15 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
     two_way_messaging = forms.BooleanField(required=False, initial=False, label='Two-way messaging',
                                            help_text=two_way_help_text_sp)
 
-    transforms = JSONField(widget=AutoFormatJSONWidget, required=False,
-                           label=_("Advanced transformation rules"),
-                           error_messages={'invalid': "The array of Additional data to display with Subjects was not "
-                                                      "formed properly. Please correct and try again."})
+    transforms = ExtendedJSONField(widget=AutoFormatJSONWidget, required=False,
+                                   label=_("Advanced transformation rules"))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         instance = kwargs.get('instance')
         if instance:
             self.fields['tranformation_rule'].widget.provider = generate_sample_data(instance)
-            self.fields['tranformation_rule'].initial = instance.transforms
+            self.fields['tranformation_rule'].widget.transform_rules = instance.transforms
 
     class Meta:
         model = SourceProvider
@@ -498,6 +539,18 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
             )
 
         return cleaned_data
+
+    def clean_transforms(self):
+        cleaned_data = super().clean()
+        schema = cleaned_data.get('transforms')
+
+        if schema is None:  # tranform_rules can be null or a list.
+            return schema
+
+        if not isinstance(schema, list) and bool(schema):
+            message = _("Tranformation rules must be properly configured, expecting a list or null")
+            raise forms.ValidationError(message, code='invalid')
+        return schema
 
 
 class SetRandomColorForm(ActionForm):
@@ -529,3 +582,84 @@ class GPXFileForm(forms.ModelForm):
             return file
         else:
             raise forms.ValidationError(error_msg, code='invalid')
+
+
+class MessageGenericForeignKeyRawIdWidget(forms.TextInput):
+    """Widget for displaying Dynamic GenericForeignkey in 'raw_id' rather than select box
+    """
+    template_name = 'admin/widgets/genericforeign_raw_id.html'
+
+    def __init__(self, rel, admin_site, attrs=None, using=None, content_type="subject"):
+        self.rel = rel
+        self.admin_site = admin_site
+        self.db = using
+        self.content_type = content_type
+        super().__init__(attrs)
+
+    def get_context(self, name, value, attrs):
+        context = super().get_context(name, value, attrs)
+        rel_to = Subject  # default to Subject object.
+        related_url = reverse(
+            'admin:%s_%s_changelist' % (
+                rel_to._meta.app_label, rel_to._meta.model_name,),
+            current_app=self.admin_site.name,
+        )
+        context['related_url'] = related_url
+        context['link_title'] = _('Lookup')
+        context['widget']['attrs'].setdefault(
+            'class', 'vForeignKeyRawIdAdminField')
+        if context['widget']['value']:
+            context['link_label'], context['link_url'] = self.label_and_url_for_value(
+                value)
+        else:
+            context['link_label'] = None
+        return context
+
+    def label_and_url_for_value(self, value):
+        try:
+            obj = Subject.objects.get(id=value)
+        except Subject.DoesNotExist:
+            from accounts.models import User
+            obj = User.objects.get(id=value)
+        url = reverse(
+            '%s:%s_%s_change' % (
+                self.admin_site.name, obj._meta.app_label, obj._meta.object_name.lower(),
+            ), args=(obj.pk,)
+        )
+        return obj, url
+
+
+class MessagesForm(forms.ModelForm):
+    class Meta:
+        model = Message
+        fields = '__all__'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        map_model = {'subject': Subject, 'user': get_user_model()}
+
+        def validate(content_type, contenttype_id, field):
+            if contenttype_id and content_type:
+                model = map_model.get(content_type.name)
+                try:
+                    model.objects.get(id=contenttype_id)
+                except Subject.DoesNotExist:
+                    raise forms.ValidationError(
+                        {field: forms.ValidationError(
+                            _(f'Subject with this id "{contenttype_id}" does not exist.'), code='invalid')})
+                except Exception:
+                    raise forms.ValidationError(
+                        {field: forms.ValidationError(
+                            _(f'User with this id "{contenttype_id}" does not exist'), code='invalid')})
+
+        # sender_content_type.
+        sender_content_type = cleaned_data.get('sender_content_type')
+        sender_id = cleaned_data.get('sender_id')
+        validate(sender_content_type, sender_id, 'sender_id')
+
+        # receiver_content_type
+        receiver_content_type = cleaned_data.get('receiver_content_type')
+        receiver_id = cleaned_data.get('receiver_id')
+        validate(receiver_content_type, receiver_id, 'receiver_id')
+
+        return cleaned_data

@@ -23,7 +23,9 @@
     }
 
     map_dest_index();
-    tranform_rules.hide();
+    let err = $('.errorlist').text()
+
+    err.includes('must be properly configured') ? tranform_rules.show() : tranform_rules.hide();
     tranform_rules.before("<p style=\"color: #777; margin-left: 10px;\">Advanced transformation rules (<span><a class=\"click-toggle\"  href='javascript:'>Show</a></span>) </p>")
 
     let get_value = function (e) {

@@ -27,7 +27,7 @@ locals {
     "bostonpridelands"       = "prod1"
     "bubyevalley"            = "prod1"
     "buffalokloof"           = "prod1"
-    "calauitisland"          = "prod-asia"
+    "calawitisland"          = "prod-asia"
     "ccf"                    = "prod1"
     "centralapennines"       = "prod1"
     "centralrift"            = "prod1"

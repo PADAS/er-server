@@ -23,8 +23,10 @@ def eventtype_fixture(db, django_user_model):
     EventType.objects.all().delete()
     EventCategory.objects.all().delete()
 
-    event_category = EventCategory.objects.create(value='monitoring', display='Monitoring')
-    EventCategory.objects.create(value='analyzer_event', display='Analyzer Event')
+    event_category = EventCategory.objects.create(
+        value='monitoring', display='Monitoring')
+    EventCategory.objects.create(
+        value='analyzer_event', display='Analyzer Event')
 
     event_type = EventType.objects.create(display='Wildlife Sighting',
                                           value='wildlife_sighting_rep',
@@ -113,11 +115,15 @@ def test_update_eventtype(eventtype_fixture, client):
     url = reverse('eventtype', kwargs={'eventtype_id': eventtype_id})
     patch_data = {
         'display': 'Updated Display',
-        'value': 'update_display'}
+        'value': 'update_display',
+        'icon_id': 'carcass_rep'
+    }
 
-    response = client.patch(url, data=json.dumps(patch_data), content_type='application/json')
+    response = client.patch(url, data=json.dumps(
+        patch_data), content_type='application/json')
     assert response.status_code == 200
     assert response.data.get('value') == 'update_display'
+    assert response.data.get('icon_id') == 'carcass_rep'
 
 
 def test_set_eventtype_to_inactive(eventtype_fixture, client):

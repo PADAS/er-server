@@ -1,4 +1,5 @@
 import logging
+import redis
 
 from django.apps import apps
 from django.contrib.auth import models
@@ -8,10 +9,16 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.db.models.signals import post_save, post_migrate, pre_delete, post_delete
 from django.dispatch import receiver
+from django.conf import settings
+from django.contrib.postgres.fields import jsonb
+from django.db.models import Q
+from django.core.cache import cache
 
 from accounts.models import PermissionSet
 from das_server import pubsub
-from observations.models import Observation, Subject, SubjectSource, SubjectStatus, SubjectGroup, Message
+from observations.servicesutils import SOURCE_PROVIDER_2WAY_MSG_KEY
+from observations.models import Observation, Subject, SubjectSource, SubjectStatus, SubjectGroup, Message, \
+    SourceProvider
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +138,15 @@ def delete_auto_created_view_permission_set(sender, instance, **kwargs):
         search_list = {'View', 'Subject',  'Group'}
         if len(permission_set.subjectgroup_set.all()) == 1 and search_list.issubset(set(permission_set.name.split())):
             permission_set.delete()
+
+
+@receiver(post_save, sender=SourceProvider)
+def source_provider_post_save(sender, **kwargs):
+    source_provider = SourceProvider.objects.annotate(two_way_message=
+                                                      jsonb.KeyTransform('two_way_messaging', 'additional')
+                                                      ).exclude(Q(two_way_message__isnull=True) |
+                                                                Q(two_way_message=False)).exists()
+    cache.set(SOURCE_PROVIDER_2WAY_MSG_KEY, source_provider, None)
 
 
 @receiver(post_save, sender=Message)
