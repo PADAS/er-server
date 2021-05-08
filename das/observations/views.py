@@ -1585,7 +1585,11 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
             .annotate(source_id=F('subjectsource__source__id'))\
             .annotate(subjectsource_id=F('subjectsource__id'))
 
+        subjectsources = set()
         for subject in subjects:
+            if subject.subjectsource_id in subjectsources:
+                continue
+            subjectsources.add(subject.subjectsource_id)
             subject.subjectsource_additional = {} if subject.subjectsource_additional is None \
                 else subject.subjectsource_additional
 
@@ -1694,7 +1698,7 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
         queryset = models.Subject.objects.all()
         # To include inactive subjects in trackingmetadata report
         queryset = check_to_include_inactive_subjects(self.request, queryset)
-        queryset = queryset.by_user_subjects(self.request.user)
+        queryset = queryset.by_user_subjects_not_distinct(self.request.user)
         return queryset
 
 
