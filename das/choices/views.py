@@ -50,7 +50,8 @@ class ChoicesViewSchema(CustomSchema):
 
 
 def return_409_response():
-    status_msg = {'error_message': 'The request could not be completed due to conflict with existing data.'}
+    status_msg = {
+        'error_message': 'The request could not be completed due to conflict with existing data.'}
     return Response(status_msg, status=status.HTTP_409_CONFLICT)
 
 
@@ -66,10 +67,12 @@ class ChoicesView(generics.ListCreateAPIView):
         if parse_bool(qparam.get('include_inactive')):
             queryset = Choice.objects.all()
         else:
-            queryset = Choice.objects.get_active_choices()
+            queryset = Choice.objects.filter_active_choices()
 
-        queryset = queryset.filter(model=qparam.get('model')) if qparam.get('model') else queryset
-        queryset = queryset.filter(field=qparam.get('field')) if qparam.get('field') else queryset
+        queryset = queryset.filter(model=qparam.get(
+            'model')) if qparam.get('model') else queryset
+        queryset = queryset.filter(field=qparam.get(
+            'field')) if qparam.get('field') else queryset
 
         return queryset.order_by('ordernum', 'display')
 
@@ -100,5 +103,3 @@ class ChoiceView(generics.RetrieveUpdateDestroyAPIView):
             return self.partial_update(request, *args, **kwargs)
         except IntegrityError:
             return return_409_response()
-
-

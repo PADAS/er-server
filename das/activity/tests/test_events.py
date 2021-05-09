@@ -3059,12 +3059,14 @@ class TestEventView(BaseAPITest):
         [Choice.objects.create(model=Choice.Field_Reports,
                                field='behavior',
                                value=f'ac{i}',
+                               ordernum=i,
                                display=f'AC{i}') for i in range(0, 2)]
 
         [Choice.objects.create(model=Choice.Field_Reports,
                                field='behavior',
                                value=f'di{i}',
                                display=f'DI{i}',
+                               ordernum=i,
                                is_active=False) for i in range(3, 5)]
 
         et_schema = schema_examples.ET_SCHEMA

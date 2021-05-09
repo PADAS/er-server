@@ -83,7 +83,8 @@ def test_update_choice(choices_fixture, client):
     client.force_login(user)
     url = reverse('choice', kwargs={'id': choice_id})
     data = {"value": "updated value"}
-    response = client.patch(url, data=json.dumps(data), content_type='application/json')
+    response = client.patch(url, data=json.dumps(
+        data), content_type='application/json')
     assert response.status_code == 200
 
 
@@ -91,7 +92,7 @@ def test_softdelete_choice(choices_fixture, client):
     choices, user = choices_fixture.choices, choices_fixture.user
     choice_id = str(choices.first().id)
 
-    disabled_choices = Choice.objects.get_inactive_choices().count()
+    disabled_choices = Choice.objects.filter_inactive_choices().count()
     assert disabled_choices == 0
 
     client.force_login(user)
@@ -99,7 +100,7 @@ def test_softdelete_choice(choices_fixture, client):
     response = client.delete(url)
     assert response.status_code == 204
 
-    disabled_choices = Choice.objects.get_inactive_choices().count()
+    disabled_choices = Choice.objects.filter_inactive_choices().count()
     assert disabled_choices == 1
 
 

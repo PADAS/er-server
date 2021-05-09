@@ -65,7 +65,7 @@ class TestSoftDelete(BaseAPITest):
         obj = Choice.objects.filter(value='rhino')
         obj.disable_choices()
         self.assertQuerysetEqual(obj,
-                                 Choice.objects.get_inactive_choices(),
+                                 Choice.objects.filter_inactive_choices(),
                                  transform=lambda x: x)
 
         is_active = [i.is_active for i in obj]

@@ -33,11 +33,11 @@ class ChoiceQuerySet(models.QuerySet):
             parent_model, parent_field).filter(value=parent_value)
         return self.filter(sub_choice_of=parent)
 
-    def get_active_choices(self):
-        return self.filter(delete_on__isnull=True)
+    def filter_active_choices(self):
+        return self.filter(is_active=True)
 
-    def get_inactive_choices(self):
-        return self.filter(delete_on__isnull=False)
+    def filter_inactive_choices(self):
+        return self.filter(is_active=False)
 
     def disable_choices(self):
         return self.update(delete_on=timezone.now(), is_active=False)
