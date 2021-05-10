@@ -1923,8 +1923,10 @@ class MessagesView(generics.ListCreateAPIView):
             data['device'] = source_id
 
             ser_data = self.save_message(request, data)
+
+            message_id, user_email = ser_data.get('id'), request.user.email
             handle_outbox_message.apply_async(
-                args=(ser_data, request.user.email))
+                args=(message_id, user_email))
 
         headers = self.get_success_headers(ser_data)
         return Response(ser_data, status=status.HTTP_201_CREATED, headers=headers)
