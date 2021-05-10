@@ -833,8 +833,7 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         subjects.filter(additional__country=region.country, **kwargs)
         return subjects
 
-    def by_user_subjects(self, user):
-
+    def by_user_subjects_not_distinct(self, user):
         # Avoid checking for a user that does not have permission sets (ex.
         # AnonymousUser)
         if not hasattr(user, 'get_all_permission_sets'):
@@ -851,7 +850,11 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             effective_subject_group_set.add(sg)
             effective_subject_group_set.update(sg.get_descendants())
 
-        return self.filter(groups__in=effective_subject_group_set).distinct('id')
+        return self.filter(groups__in=effective_subject_group_set)
+
+    def by_user_subjects(self, user):
+        queryset = self.by_user_subjects_not_distinct(user)
+        return queryset.distinct('id')
 
     def annotate_with_subjectstatus(self, delay_hours=0, mou_expiry_date=None):
         if not mou_expiry_date:
@@ -1871,3 +1874,7 @@ class Message(TimestampedModel):
         'additional data', default=dict, blank=True, null=True)
 
     objects = MessagesManager.from_queryset(MessageFilteringQuerySet)()
+
+    class Meta:
+        index_together = [('sender_id', 'message_time'), ('receiver_id', 'message_time')]
+        ordering = ('-message_time', )

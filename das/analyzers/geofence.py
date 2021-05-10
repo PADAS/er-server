@@ -132,7 +132,7 @@ class GeofenceAnalyzer(SubjectAnalyzer):
                 str(_(' Subject now in: ')) + contain_names
 
             result.values = {
-                'geofence_name': vf_name,
+                'geofence_name': vf_name or 'Un-named Feature',
                 'contain_regions': contain_names,
                 'total_fix_count': traj.relocs.fix_count,
                 'subject_speed_kmhr': cross.subject_speed_kmhr,

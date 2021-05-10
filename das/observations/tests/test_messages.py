@@ -195,6 +195,7 @@ class MessagesTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data.get('messaging'))
 
+
     @mock.patch('requests.post')
     def test_smart_integrate_adapter(self, mock_request):
         mock_request.return_value = mock.Mock(status_code=200)
