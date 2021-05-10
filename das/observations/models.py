@@ -1874,3 +1874,7 @@ class Message(TimestampedModel):
         'additional data', default=dict, blank=True, null=True)
 
     objects = MessagesManager.from_queryset(MessageFilteringQuerySet)()
+
+    class Meta:
+        index_together = [('sender_id', 'message_time'), ('receiver_id', 'message_time')]
+        ordering = ('-message_time', )
