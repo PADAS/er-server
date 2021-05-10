@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 import django.contrib.auth
 from django.urls import reverse
 from django.db import transaction
@@ -11,6 +12,7 @@ from observations import models
 from observations.models import Subject
 from observations.views import MessagesView, SubjectView
 from urllib.parse import urlencode
+from observations.message_adapters import _handle_outbox_message
 
 User = django.contrib.auth.get_user_model()
 
@@ -192,4 +194,38 @@ class MessagesTestCase(BaseAPITest):
         response = self.get_subject(subject.id)
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data.get('messaging'))
+
+
+    @mock.patch('requests.post')
+    def test_smart_integrate_adapter(self, mock_request):
+        mock_request.return_value = mock.Mock(status_code=200)
+
+        messaging_config = {"url": "https://cdip-api.pamdas.org/messages",
+                            "apikey": "asdf89as903rkfmasf9s0801mfae",
+                            "adapter_type": "smart-integrate-adapter"
+                            }
+
+        subject = Subject.objects.create(name='Smart-radio')
+        provider = models.SourceProvider.objects.create(provider_key='Smart-Integrate',
+                                                        additional=dict(messaging_config=messaging_config,
+                                                                        two_way_messaging=True,))
+        source = models.Source.objects.create(manufacturer_id='0000001', provider=provider)
+
+        models.SubjectSource.objects.create(subject=subject, source=source,
+                                            assigned_range=DateTimeTZRange(lower=models.DEFAULT_ASSIGNED_RANGE[0]))
+
+        message = {
+            'sender_id': self.admin_user.id,
+            'receiver_id': subject.id,
+            'device_id': source.id,
+            'text': 'Habari yako!',
+            'message_type': 'outbox',
+            'message_time': datetime.utcnow()
+        }
+        msg = models.Message.objects.create(**message)
+        assert msg.status == 'pending'
+
+        _handle_outbox_message(message_id=msg.id, user_email=self.admin_user.email)
+        self.assertTrue(mock_request.called)
+        assert models.Message.objects.get(id=msg.id).status == 'sent'
 

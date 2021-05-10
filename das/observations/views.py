@@ -29,6 +29,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from django.core.files.storage import default_storage
+from django.db.models.functions import RowNumber
 
 from kombu import exceptions
 
@@ -1585,7 +1586,11 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
             .annotate(source_id=F('subjectsource__source__id'))\
             .annotate(subjectsource_id=F('subjectsource__id'))
 
+        subjectsources = set()
         for subject in subjects:
+            if subject.subjectsource_id in subjectsources:
+                continue
+            subjectsources.add(subject.subjectsource_id)
             subject.subjectsource_additional = {} if subject.subjectsource_additional is None \
                 else subject.subjectsource_additional
 
@@ -1694,7 +1699,7 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
         queryset = models.Subject.objects.all()
         # To include inactive subjects in trackingmetadata report
         queryset = check_to_include_inactive_subjects(self.request, queryset)
-        queryset = queryset.by_user_subjects(self.request.user)
+        queryset = queryset.by_user_subjects_not_distinct(self.request.user)
         return queryset
 
 
@@ -1786,6 +1791,10 @@ class MessagesSchema(CustomSchema):
                     'name': 'read',
                     'in': 'query',
                     'description': 'Get read/unread messages'},
+                {
+                    'name': 'recent_message',
+                    'in': 'query',
+                    'description': 'Number of recent messages'},
             ]
             operation['parameters'].extend(query_params)
 
@@ -1821,6 +1830,7 @@ class MessagesView(generics.ListCreateAPIView):
         subject_id = query_params.get('subject_id')
         source_id = query_params.get('source_id')
         read = query_params.get('read')
+        number_recent_msg = query_params.get('recent_message')  # define with this query-param number of recent_message.
         if subject_id:
             # Accepting a list i.e : ?subject_id=id1, id2, id2
             subject_ids = [x.strip(' ') for x in subject_id.split(',')]
@@ -1830,7 +1840,17 @@ class MessagesView(generics.ListCreateAPIView):
         if read is not None:
             messages = messages.by_read(parse_bool(read))
 
-        return messages.order_by("-message_time")
+        if number_recent_msg and number_recent_msg.isdigit():
+            sender = {'partition_by': F('sender_id'), 'order_by': [F('message_time').desc()]}
+            receiver = {'partition_by': F('receiver_id'), 'order_by': [F('message_time').desc()]}
+
+            messages = messages.annotate(rn_sender=Window(expression=RowNumber(), **sender),
+                                         rn_receiver=Window(expression=RowNumber(), **receiver))
+            sql, params = messages.query.sql_with_params()
+            messages = models.Message.objects.raw("""
+            select * from ({}) msgs where  rn_sender<= %s or rn_receiver <= %s """.format(sql),
+                                                  params=[*params, number_recent_msg, number_recent_msg])
+        return messages
 
     def post(self, request, *args, **kwargs):
         data = request.data
@@ -1903,8 +1923,10 @@ class MessagesView(generics.ListCreateAPIView):
             data['device'] = source_id
 
             ser_data = self.save_message(request, data)
+
+            message_id, user_email = ser_data.get('id'), request.user.email
             handle_outbox_message.apply_async(
-                args=(ser_data, request.user.email))
+                args=(message_id, user_email))
 
         headers = self.get_success_headers(ser_data)
         return Response(ser_data, status=status.HTTP_201_CREATED, headers=headers)

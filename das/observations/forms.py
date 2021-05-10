@@ -21,6 +21,7 @@ from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDate
 from choices.models import Choice
 from core.common import TIMEZONE_USED
 from observations.utils import find_paths, JsonAgg
+from observations.message_adapters import ADAPTER_MAPPING
 
 logger = logging.getLogger(__name__)
 
@@ -422,6 +423,44 @@ class TranformationRuleField(forms.fields.MultiValueField):
         return values
 
 
+def msg_adapter_choices():
+    choices = [(None, '')]
+    for key in ADAPTER_MAPPING:
+        choices.append((key, key))
+    return choices
+
+
+class MessageConfigurationWidget(forms.MultiWidget):
+    template_name = 'admin/widgets/message_widget.html'
+
+    def __init__(self, attrs=None):
+        widgets = [forms.Select(choices=msg_adapter_choices()), forms.URLInput(attrs={'size': 40}), forms.TextInput(attrs={'size': 40})]
+        super().__init__(widgets, attrs)
+
+    def get_context(self, name, value, attrs):
+        context = super().get_context(name, value, attrs)
+        context['url_label'] = _('URL: ')
+        context['adaptkey_label'] = _('Adapter Type: ')
+        context['apikey_label'] = _('API key: ')
+        return context
+
+    def decompress(self, value):
+        return [value.get('adapter_type'), value.get('url'), value.get('apikey')] if value else []
+
+
+class MessageField(forms.MultiValueField):
+    widget = MessageConfigurationWidget
+
+    def __init__(self, *args, **kwargs):
+        fields = [forms.CharField(required=False),
+                  forms.URLField(required=False),
+                  forms.CharField(required=False)]
+        super().__init__(fields, *args, **kwargs)
+
+    def compress(self, data_list):
+        return {'adapter_type': data_list[0], 'url': data_list[1], 'apikey': data_list[2]} if data_list else data_list
+
+
 class AutoFormatJSONWidget(forms.widgets.Textarea):
 
     def __init__(self, attrs=None):
@@ -506,6 +545,8 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
     transforms = ExtendedJSONField(widget=AutoFormatJSONWidget, required=False,
                                    label=_("Advanced transformation rules"))
 
+    messaging_config = MessageField(label='Messaging Configuration', required=False)
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         instance = kwargs.get('instance')
@@ -515,12 +556,13 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
 
     class Meta:
         model = SourceProvider
-        fields = ['provider_key', 'display_name', 'additional', 'transforms']
+        fields = ['provider_key', 'display_name', 'additional', 'transforms', 'messaging_config']
         json_fields = (
             'lag_notification_threshold',
             'silence_notification_threshold',
             'days_data_retain',
-            'two_way_messaging'
+            'two_way_messaging',
+            'messaging_config'
         )
         json_date_fields = set()
 
