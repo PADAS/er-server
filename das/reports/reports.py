@@ -66,6 +66,7 @@ def _listify(o):
 
 EVENT_LIST_TIMESTAMP_FORMAT = '%-d-%b %H:%M' if platform.system().lower() != 'windows' else '%#d-%b %H:%M'
 
+
 def get_permitted_events(start=None, end=None, event_categories=None):
 
     if not event_categories:
@@ -90,7 +91,7 @@ def get_conservancies():
 def get_rhino_sightings(start=None, end=None, event_categories=None):
     events = get_permitted_events(start=start, end=end, event_categories=event_categories) \
         .filter(event_type__value__in=('black_rhino_sighting', 'white_rhino_sighting'),
-                                  event_time__range=[start, end])
+                event_time__range=[start, end])
     return events
 
 
@@ -121,7 +122,8 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
     # Get the events we're interested in. We just need this list once and we'll run it through a set of
     # accumulotors that take whatever they need to hydrate the sit-rep
     # report.
-    events = get_events(start=since, end=before, event_categories=event_categories)
+    events = get_events(start=since, end=before,
+                        event_categories=event_categories)
 
     CONSERVANCY_UNSPECIFIED = '&lt;unspecified&gt;'
 
@@ -364,11 +366,11 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
     fence_breakage = accumulator([], fence_breakage)
 
     # Accumulator for an event category
-    def make_events_accum(category):
-        event_category = category
+    def make_events_accum(categories):
+        event_categories = categories
 
         def inner_events(accum, event):
-            if event.event_type.category.value != event_category:
+            if event.event_type.category.value not in event_categories:
                 return
 
             # Special case: exclude human_wildlife_conflict events which are to be included in another section of
@@ -394,9 +396,10 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
                           })
         return inner_events
 
-    security_events = accumulator([], make_events_accum('security'))
+    security_events = accumulator(
+        [], make_events_accum(('security', 'security_new')))
     security_ke_police_events = accumulator(
-        [], make_events_accum('security_ke_police'))
+        [], make_events_accum(('security_ke_police',)))
 
     # Accumulator for 'human wildlife conflict'
     def human_wildlife_conflict(accum, event):
@@ -477,7 +480,7 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
 
     # Post-process missing rhinos.
     missing_rhinos = sorted(missing_rhinos.values(), key=lambda _: _[
-                            'days_ago'], reverse=True)
+        'days_ago'], reverse=True)
     for r in missing_rhinos:
         r['days_ago'] = '> 7' if r['days_ago'] > 7 else str(r['days_ago'])
 
