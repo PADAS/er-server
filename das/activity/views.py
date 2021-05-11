@@ -130,7 +130,8 @@ class EventTypesView(generics.ListCreateAPIView):
         if parse_bool(query_params.get('include_inactive')):
             queryset = queryset.filter(category__is_active=True)
         else:
-            queryset = queryset.filter(category__is_active=True, is_active=True)
+            queryset = queryset.filter(
+                category__is_active=True, is_active=True)
 
         category = query_params.getlist('category', None)
         if category:
@@ -162,7 +163,8 @@ class EventTypesView(generics.ListCreateAPIView):
         qparams = self.request.query_params
         context = super().get_serializer_context()
 
-        context['include_schema'] = parse_bool(qparams.get('include_schema', False))
+        context['include_schema'] = parse_bool(
+            qparams.get('include_schema', False))
         return context
 
 
@@ -192,7 +194,8 @@ class EventTypeView(generics.RetrieveUpdateDestroyAPIView):
         qparams = self.request.query_params
         context = super().get_serializer_context()
 
-        context['include_schema'] = parse_bool(qparams.get('include_schema', False))
+        context['include_schema'] = parse_bool(
+            qparams.get('include_schema', False))
         return context
 
 
@@ -330,9 +333,9 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
         if definition_format != 'flat':
             for key, value in field_schema.items():
                 inactive_choices = []
-                obj = Choice.objects.filter(
-                    is_active=False, field=value['field_name'])
-                for o in obj:
+                objs = Choice.objects.get_choices(model=Choice.Field_Reports,
+                                                  field=value['field_name']).filter_inactive_choices()
+                for o in objs:
                     inactive_choices.append(o.value)
                 if inactive_choices:
                     schema['schema']['properties'][key]["inactive" +
@@ -340,8 +343,9 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
 
             for value in schema_utils.get_values_titlemap(eventtype.schema):
                 inactive_choices = []
-                obj = Choice.objects.filter(is_active=False, field=value)
-                for o in obj:
+                objs = Choice.objects.get_choices(model=Choice.Field_Reports,
+                                                  field=value).filter_inactive_choices()
+                for o in objs:
                     inactive_choices.append(o.value)
                 if inactive_choices:
                     for key in schema['definition']:

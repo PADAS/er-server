@@ -37,7 +37,7 @@ class ChoiceAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
-        queryset = queryset.get_active_choices()
+        queryset = queryset.filter_active_choices()
         if not self.has_change_permission(request):
             queryset = queryset.none()
         return queryset
@@ -188,7 +188,7 @@ class DisableChoiceAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
-        queryset = queryset.get_inactive_choices()
+        queryset = queryset.filter_inactive_choices()
         if not self.has_change_permission(request):
             queryset = queryset.none()
         return queryset
@@ -208,4 +208,3 @@ class DynamicChoiceAdmin(admin.ModelAdmin):
     list_display = ('id', 'model_name', 'criteria')
     list_display_links = ('id',)
     search_fields = ('model_name',)
-
