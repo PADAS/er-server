@@ -195,6 +195,32 @@ class MessagesTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data.get('messaging'))
 
+    def test_fetchmost_recent_message(self):
+        urlpath = reverse('messages-view')
+        url = urlpath + '?{}'.format(urlencode({'manufacturer_id': 'subject-status-1'}))
+        request = self.factory.post(url, data=dict(text="Sending inbox message", message_type="inbox"))
+        self.force_authenticate(request, self.admin_user)
+        response = MessagesView.as_view()(request)
+        assert response.status_code == 201
+
+        request = self.factory.post(url, data=dict(text="Sending second message", message_type="inbox"))
+        self.force_authenticate(request, self.admin_user)
+        MessagesView.as_view()(request)
+
+        request = self.factory.get(urlpath)
+        self.force_authenticate(request, self.admin_user)
+        response = MessagesView.as_view()(request)
+        assert response.status_code == 200
+        assert response.data.get('count') == 2
+
+        # get most-recent message.
+        url = urlpath + '?{}'.format(urlencode({'recent_message': 1}))
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.admin_user)
+        response = MessagesView.as_view()(request)
+        assert response.status_code == 200
+        assert response.data.get('count') == 1
+        assert response.data.get('results')[0]['text'] == 'Sending second message'
 
     @mock.patch('requests.post')
     def test_smart_integrate_adapter(self, mock_request):
@@ -228,4 +254,3 @@ class MessagesTestCase(BaseAPITest):
         _handle_outbox_message(message_id=msg.id, user_email=self.admin_user.email)
         self.assertTrue(mock_request.called)
         assert models.Message.objects.get(id=msg.id).status == 'sent'
-
