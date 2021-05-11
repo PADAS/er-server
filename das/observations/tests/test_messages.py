@@ -11,6 +11,7 @@ from drf_extra_fields.compat import DateTimeTZRange
 from observations import models
 from observations.models import Subject
 from observations.views import MessagesView, SubjectView
+from accounts.views import UserView
 from urllib.parse import urlencode
 from observations.message_adapters import _handle_outbox_message
 
@@ -113,6 +114,14 @@ class MessagesTestCase(BaseAPITest):
             response = MessagesView.as_view()(request)
             self.assertTrue(mock_send.called)
             assert response.status_code == 201
+
+            # permission exposed thru API.
+            url_user = 'api/v1.0/user/me'
+            request = self.factory.get(url_user)
+            self.force_authenticate(request, self.admin_user)
+            response = UserView.as_view()(request, id=self.admin_user.id)
+            assert response.status_code == 200
+            assert 'view' in response.data['permissions']['message']
 
             # return 403 (Forbidden) for user with no message permission.
             request = self.factory.post(url, data=dict(text="Hey, I dont have permission to send message."))
