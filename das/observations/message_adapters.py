@@ -27,7 +27,13 @@ class BaseMessageAdapter:
 
     @staticmethod
     def update_message_status(message_id, status):
-        Message.objects.filter(id=message_id).update(status=status)
+        try:
+            msg = Message.objects.get(id=message_id)
+        except Message.DoesNotExist:
+            logger.exception(f"Message with this {id} DoesNotExist.")
+        else:
+            msg.status = status
+            msg.save()
 
     @classmethod
     def get_classname(cls):
@@ -96,6 +102,8 @@ class SmartIntegrateMessageAdapter(BaseMessageAdapter):
         else:
             if response.status_code == 200:
                 cls.update_message_status(message_id=message.id, status=SENT)
+            else:
+                cls.update_message_status(message_id=message.id, status=ERRORED)
 
 
 ADAPTER_MAPPING = {

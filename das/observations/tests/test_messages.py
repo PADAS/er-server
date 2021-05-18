@@ -67,6 +67,7 @@ class MessagesTestCase(BaseAPITest):
         self.force_authenticate(request, self.admin_user)
         response = MessagesView.as_view()(request)
         assert response.status_code == 201
+        assert response.data.get('status') == 'received'
 
     @mock.patch('observations.tasks.handle_outbox_message.apply_async')
     def test_messaging_in_subject_payload(self, mock_send):
