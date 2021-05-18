@@ -32,6 +32,7 @@ locals {
     "centralapennines"       = "prod1"
     "centralrift"            = "prod1"
     "chadreintroduction"     = "prod1"
+    "cheetahoutreach"        = "prod1"
     "chipinge"               = "prod1"
     "chinko"                 = "prod1"
     "connected-conservation" = "prod1"
@@ -240,6 +241,7 @@ locals {
     "methowbalkyhills"    = 1
     "oana"                = 1
     "kwandwe"             = 1
+    "cheetahoutreach"     = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
