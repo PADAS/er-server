@@ -9,6 +9,7 @@ locals {
     "abokouamekro"           = "prod1"
     "africanparks"           = "prod1"
     "akagera"                = "prod1"
+    "akanda"                 = "prod1"
     "amakhala"               = "prod1"
     "amboseli"               = "prod1"
     "amboseli-np"            = "prod1"
