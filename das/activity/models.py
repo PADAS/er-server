@@ -492,7 +492,6 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             return self.filter(updated_at__gt=lower)
         elif upper:
             return self.filter(updated_at__lt=upper)
-
         return self
 
 
