@@ -409,16 +409,17 @@ def get_allowed_actions_for_category(user, category_name):
 class EventCategorySerializer(rest_framework.serializers.ModelSerializer):
     class Meta:
         model = activity.models.EventCategory
-        read_only_fields = ('value', 'display', 'ordernum', 'flag',)
-        fields = read_only_fields
+        read_only_fields = ('id',)
+        fields = ('id', 'value', 'display', 'is_active', 'ordernum', 'flag',)
 
     def to_representation(self, obj):
         rep = super().to_representation(obj)
 
         # If we know the user requesting the category, include their permissions
         # for that category
-        user = getattr(self.context.get('request', None), 'user', None)
-        if user is not None:
+        request = self.context.get('request', None)
+        user, method = getattr(request, 'user', None), getattr(request, 'method', None)
+        if user is not None and method == 'GET':
             rep['permissions'] = get_allowed_actions_for_category(
                 user, rep['value'])
         return rep

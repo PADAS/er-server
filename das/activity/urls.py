@@ -14,7 +14,8 @@ urlpatterns = [
     url(r'^events/eventtypes/?$', views.EventTypesView.as_view(), name='eventtypes'),
     url(r'^events/eventtypes/(?P<eventtype_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.EventTypeView.as_view(), name='eventtype'),
 
-    url(r'^events/categories/?$', views.EventCategoriesView.as_view()),
+    url(r'^events/categories/?$', views.EventCategoriesView.as_view(), name='event-categories'),
+    url(r'^events/categories/(?P<eventcategory_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.EventCategoryView.as_view(), name='event-category'),
     url(r'^events/classfactors/?$', views.EventClassFactorsView.as_view()),
     url(r'^events/alerts/targets/?$', views.EventAlertTargetsListView.as_view()),
 

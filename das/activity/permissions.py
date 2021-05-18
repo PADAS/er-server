@@ -5,7 +5,7 @@ from rest_framework.permissions import (SAFE_METHODS, BasePermission,
 from rest_framework import exceptions
 from django.http import Http404
 
-from activity.models import EventType, Event, Patrol, PatrolType
+from activity.models import EventType, Event, EventCategory, Patrol, PatrolType
 from observations.views import UnauthorizedView
 
 
@@ -34,7 +34,7 @@ class EventObjectPermissions(DjangoModelPermissions):
     }
 
 
-class EventCategoryPermissions(IsAuthenticated):
+class EventCategoryPermissions(DjangoObjectPermissions):
 
     http_method_map = {
         'GET': 'read',
@@ -77,11 +77,14 @@ class EventCategoryPermissions(IsAuthenticated):
         return super().has_permission(request, view)
 
     def has_object_permission(self, request, view, obj):
+        if isinstance(obj, EventCategory):
+            value = obj.value
+        elif isinstance(obj, EventType):
+            value = obj.category.value
+        else:
+            value = obj.event_type.category.value
 
-        permission_name = 'activity.{0}_{1}'.format(
-            obj.category.value if isinstance(obj, EventType) else obj.event_type.category.value,
-            EventCategoryPermissions.http_method_map[request.method]
-        )
+        permission_name = 'activity.{0}_{1}'.format(value, EventCategoryPermissions.http_method_map[request.method])
         return request.user.has_perm(permission_name)
 
 
@@ -254,6 +257,20 @@ class PatrolTypePermissions(DjangoModelPermissions):
 
 
 class StandardModelPermissions(DjangoModelPermissions):
+    view_perms = ['%(app_label)s.view_%(model_name)s']
+
+    perms_map = {
+        'GET': view_perms,
+        'OPTIONS': view_perms,
+        'HEAD': view_perms,
+        'POST': ['%(app_label)s.add_%(model_name)s'],
+        'PUT': ['%(app_label)s.change_%(model_name)s'],
+        'PATCH': ['%(app_label)s.change_%(model_name)s'],
+        'DELETE': ['%(app_label)s.delete_%(model_name)s'],
+    }
+
+
+class StandardObjectPermissions(DjangoObjectPermissions):
     view_perms = ['%(app_label)s.view_%(model_name)s']
 
     perms_map = {
