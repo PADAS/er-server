@@ -13,6 +13,16 @@ def patrol_mgmt_permissions(modelnames=None):
     return Permission.objects.filter(content_type__in=content_types)
 
 
+def ignore_permission(resource, app_name):
+    """state the condition for permission to be ignored or not."""
+    if resource in ['message']:
+        return False
+    elif any([resource in {'patrolsegment', 'patrolnote', 'patrolfile', 'patrolsegmentmembership'}, app_name not in {'activity'}]):
+        return True
+    else:
+        return False
+
+
 def allowed_permissions(user_instance):
     '''
     Get Permission from available backends.
@@ -29,7 +39,7 @@ def allowed_permissions(user_instance):
         app_name, perm = permission.split('.', maxsplit=1)
         verb, resource = perm.split('_', maxsplit=1)
 
-        if any([resource in {'patrolsegment', 'patrolnote', 'patrolfile', 'patrolsegmentmembership'}, app_name not in {'activity'}]):
+        if ignore_permission(resource, app_name):
             continue
 
         # The non-standard permissions are a bit messy, so limit to CRUD verbs.
