@@ -130,6 +130,7 @@ locals {
     "sabisands"              = "prod1"
     "sawc"                   = "prod1"
     "sca"                    = "prod1"
+    "selati"                 = "prod1"
     "serengeti"              = "prod1"
     "snowleopardtrust"       = "prod-asia"
     "socp"                   = "prod-asia"
