@@ -1904,6 +1904,7 @@ class MessagesView(generics.ListCreateAPIView):
                 data['sender'] = {
                     "content_type": "observations.subject", "id": subject_source.subject.id}
                 data['device'] = subject_source.source.id
+                data['status'] = models.RECEIVED   # update incoming message status to received.
                 ser_data = self.save_message(request, data)
         else:
             # Handle Outbox messages
