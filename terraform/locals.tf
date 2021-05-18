@@ -69,6 +69,7 @@ locals {
     "kapama"                 = "prod1"
     "kwandwe"                = "prod1"
     "koro"                   = "prod1"
+    "kubeyini"               = "prod1"
     "lalibela"               = "prod1"
     "lapalala"               = "prod1"
     "lewa"                   = "prod1"
