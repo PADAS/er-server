@@ -733,7 +733,7 @@ DEFAULT_SOURCE_GROUP_ID = '654e592c-fc5a-436d-98dd-fd1b36436a85'
 
 class SubjectGroupQuerySet(models.QuerySet, FilterMixin):
     def by_name_search(self, value):
-        return self.filter(name__icontains=value)
+        return self.filter(name__exact=value)
 
 
 class SubjectGroupManager(HierarchyManager):
@@ -1876,5 +1876,6 @@ class Message(TimestampedModel):
     objects = MessagesManager.from_queryset(MessageFilteringQuerySet)()
 
     class Meta:
-        index_together = [('sender_id', 'message_time'), ('receiver_id', 'message_time')]
+        index_together = [('sender_id', 'message_time'),
+                          ('receiver_id', 'message_time')]
         ordering = ('-message_time', )
