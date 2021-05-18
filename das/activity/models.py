@@ -304,7 +304,7 @@ def parse_date_range(val):
         lower = dateparse.parse_datetime(lower)
     if upper is not None:
         upper = dateparse.parse_datetime(upper)
-    return (lower, upper)
+    return lower, upper
 
 
 class RefreshRecreateEventDetailViewQuery(models.QuerySet):
@@ -428,6 +428,10 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             lower, upper = parse_date_range(filter.get('create_date'))
             queryset = queryset.by_created_date(lower=lower, upper=upper)
 
+        if filter.get('update_date'):
+            lower, upper = parse_date_range(filter.get('update_date'))
+            queryset = queryset.by_updated_date(lower=lower, upper=upper)
+
         return queryset.distinct()
 
     def by_duration(self, duration):
@@ -478,6 +482,16 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             return self.filter(created_at__gt=lower)
         elif upper:
             return self.filter(created_at__lt=upper)
+
+        return self
+
+    def by_updated_date(self, lower=None, upper=None):
+        if lower and upper:
+            return self.filter(updated_at__range=(lower, upper))
+        elif lower:
+            return self.filter(updated_at__gt=lower)
+        elif upper:
+            return self.filter(updated_at__lt=upper)
 
         return self
 
