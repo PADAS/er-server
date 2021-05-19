@@ -502,10 +502,23 @@ class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
 
         return super().to_internal_value(data)
 
+    @staticmethod
+    def is_schema_readonly(schema):
+        try:
+            rendered = get_schema_renderer_method()(schema)
+        except Exception:
+            pass
+        else:
+            _schema = rendered.get('schema', {})
+            return True if _schema.get('readonly') else False
+
     def to_representation(self, obj):
         rep = super().to_representation(obj, )
         rep['url'] = utils.add_base_url(
             self.request, reverse('eventtype', args=[obj.id, ]))
+
+        if self.is_schema_readonly(obj.schema):
+            rep['read_only'] = True
         return rep
 
 

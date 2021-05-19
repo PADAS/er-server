@@ -157,3 +157,42 @@ def test_post_eventtype_with_bad_schema(eventtype_fixture, client):
     response = client.post(url, data=data)
     assert 'Invalid schema tag' in response.data.get('schema')[0]
     assert response.status_code == 400
+
+
+def test_readonly_eventtype(eventtype_fixture, client):
+    eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
+
+    client.force_login(user)
+    url = reverse('eventtypes')
+    schema = """
+        {
+        "schema": 
+            {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "title": "Simple Schema Report",
+
+                "type": "object",
+                "readonly": true,
+                "properties": {
+                    "placeholder": {
+                    "type": "string",
+                    "title": "schema report"
+                    }
+                }
+            },
+        "defintion": []
+        }
+        """
+    data = {
+        "display": "Simple Report",
+        "value": "simple_report",
+        "category": "monitoring",
+        "schema": schema
+    }
+    response = client.post(url, data=data)
+    assert response.status_code == 201
+
+    # get that specific eventtype.
+    response = client.get(response.data.get('url'))
+    assert response.status_code == 200
+    assert response.data['read_only']
