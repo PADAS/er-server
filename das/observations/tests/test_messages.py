@@ -264,3 +264,15 @@ class MessagesTestCase(BaseAPITest):
         _handle_outbox_message(message_id=msg.id, user_email=self.admin_user.email)
         self.assertTrue(mock_request.called)
         assert models.Message.objects.get(id=msg.id).status == 'sent'
+
+    def test_verify_device_inlcuded_in_message_payload(self):
+        message_data = dict(text="new message coming in...", message_type="inbox")
+        url = reverse('messages-view')
+
+        url += '?{}'.format(urlencode({'manufacturer_id': 'subject-status-1'}))
+
+        request = self.factory.post(url, data=message_data)
+        self.force_authenticate(request, self.admin_user)
+        response = MessagesView.as_view()(request)
+        assert response.status_code == 201
+        assert response.data.get('device')
