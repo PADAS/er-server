@@ -2,6 +2,7 @@ import json
 import logging
 import math
 from datetime import datetime
+import pytz
 
 import requests
 from django.conf import settings
@@ -91,7 +92,7 @@ class SmartIntegrateMessageAdapter(BaseMessageAdapter):
         payload = {
             'device_ids': [manufacturer_id],
             'sender': user_email or settings.FROM_EMAIL,
-            'created_at': datetime.now().isoformat(),
+            'created_at': message.created_at.isoformat(),
             'text': message_text
         }
         path = '?apikey='.join([message_config.get('url'), message_config.get('apikey')])
@@ -100,7 +101,7 @@ class SmartIntegrateMessageAdapter(BaseMessageAdapter):
         except requests.exceptions.RequestException as exc:
             logger.exception(f'Request failed with exception error: {exc}')
         else:
-            if response.status_code == 200:
+            if response.ok:
                 cls.update_message_status(message_id=message.id, status=SENT)
             else:
                 cls.update_message_status(message_id=message.id, status=ERRORED)
