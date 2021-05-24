@@ -47,6 +47,11 @@ class EventCategoryPermissions(DjangoObjectPermissions):
         'DELETE': 'delete',
     }
 
+    @staticmethod
+    def is_authenticated(request):
+        """Allows access only to authenticated users."""
+        return bool(request.user and request.user.is_authenticated)
+
     def has_permission(self, request, view):
         # These methods are allowed for everyone
         if request.method in ['OPTIONS', 'HEAD']:
@@ -75,7 +80,9 @@ class EventCategoryPermissions(DjangoObjectPermissions):
                     pass
 
         # Otherwise, let it through here and check at the object level later on
-        return super().has_permission(request, view)
+        if view.get_view_name() in ['Event Categories', 'Event Category']:
+            return super().has_permission(request, view)
+        return self.is_authenticated(request)
 
     def has_object_permission(self, request, view, obj):
         if isinstance(obj, EventCategory):
