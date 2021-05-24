@@ -748,6 +748,10 @@ class Event(RevisionMixin, TimestampedModel):
             ('security__deprecated_read', 'View DEPRECATED security reports'),
             ('security__deprecated_update', 'Modify DEPRECATED security reports'),
         )
+        indexes = [
+            models.Index(fields=['created_at']),
+            models.Index(fields=['updated_at'])
+        ]
 
     class ReadonlyMeta:
         readonly = ['serial_number', ]
