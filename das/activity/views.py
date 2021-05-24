@@ -199,13 +199,29 @@ class EventTypeView(generics.RetrieveUpdateDestroyAPIView):
         return context
 
 
-class EventCategoriesView(generics.ListAPIView):
+class EventCategoryViewSchema(CustomSchema):
+    def get_operation(self, path, method):
+        operation = super().get_operation(path, method)
+        if method == 'GET':
+            query_params = [
+                {
+                    'name': 'include_inactive',
+                    'in': 'query',
+                    'description': "include inactive event-categories"},
+            ]
+            operation['parameters'].extend(query_params)
+        return operation
+
+
+class EventCategoriesView(generics.ListCreateAPIView):
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventCategorySerializer
 
     def get_queryset(self):
         queryset = EventCategory.objects.all_sort()
-        queryset = queryset.filter(is_active=True)
+
+        if not parse_bool(self.request.query_params.get('include_inactive')):
+            queryset = queryset.filter(is_active=True)
         for q in queryset:
             actions = ('create', 'update', 'read', 'delete')
             permission_name = [
@@ -213,6 +229,14 @@ class EventCategoriesView(generics.ListAPIView):
             if not any([self.request.user.has_perm(perm) for perm in permission_name]):
                 queryset = queryset.exclude(id=q.id)
         return queryset
+
+
+class EventCategoryView(generics.RetrieveUpdateDestroyAPIView):
+    lookup_field = 'id'
+    lookup_url_kwarg = 'eventcategory_id'
+    permission_classes = (EventCategoryPermissions,)
+    serializer_class = EventCategorySerializer
+    queryset = EventCategory.objects.all()
 
 
 class EventFiltersView(generics.ListCreateAPIView):
