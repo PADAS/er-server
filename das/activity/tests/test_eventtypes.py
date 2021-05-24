@@ -195,4 +195,4 @@ def test_readonly_eventtype(eventtype_fixture, client):
     # get that specific eventtype.
     response = client.get(response.data.get('url'))
     assert response.status_code == 200
-    assert response.data['read_only']
+    assert response.data['readonly']
