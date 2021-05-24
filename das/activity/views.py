@@ -1045,7 +1045,7 @@ class EventNoteView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_event(self):
         event = generics.get_object_or_404(Event.objects.all(),
-                                           pk=self.kwargs['id'])
+                                           pk=self.kwargs.get('id'))
         return event
 
 
@@ -1092,7 +1092,7 @@ class EventFilesView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         event = generics.get_object_or_404(Event.objects.all(),
-                                           pk=self.kwargs['id'])
+                                           pk=self.kwargs.get('id'))
 
         return event.files.all()
 
@@ -1103,7 +1103,7 @@ class EventFileView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         event = generics.get_object_or_404(Event.objects.all(),
-                                           pk=self.kwargs['event_id'])
+                                           pk=self.kwargs.get('event_id'))
 
         qs = EventFile.objects.all().filter(event=event)
         return qs
@@ -1186,7 +1186,7 @@ class EventRelationshipsView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         event = generics.get_object_or_404(Event.objects.all(),
-                                           pk=self.kwargs['from_event_id'])
+                                           pk=self.kwargs.get('from_event_id'))
 
         filter = {'from_event': event.id}
 
@@ -1202,7 +1202,7 @@ class EventRelationshipView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         event = generics.get_object_or_404(Event.objects.all(),
-                                           pk=self.kwargs['from_event_id'])
+                                           pk=self.kwargs.get('from_event_id'))
 
         relationships = EventRelationship.objects.all().filter(from_event=event)
         return relationships
