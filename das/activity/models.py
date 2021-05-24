@@ -304,7 +304,7 @@ def parse_date_range(val):
         lower = dateparse.parse_datetime(lower)
     if upper is not None:
         upper = dateparse.parse_datetime(upper)
-    return (lower, upper)
+    return lower, upper
 
 
 class RefreshRecreateEventDetailViewQuery(models.QuerySet):
@@ -428,6 +428,10 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             lower, upper = parse_date_range(filter.get('create_date'))
             queryset = queryset.by_created_date(lower=lower, upper=upper)
 
+        if filter.get('update_date'):
+            lower, upper = parse_date_range(filter.get('update_date'))
+            queryset = queryset.by_updated_date(lower=lower, upper=upper)
+
         return queryset.distinct()
 
     def by_duration(self, duration):
@@ -480,6 +484,11 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             return self.filter(created_at__lt=upper)
 
         return self
+
+    def by_updated_date(self,
+                        lower=datetime.datetime.min.replace(tzinfo=pytz.utc),
+                        upper=datetime.datetime.max.replace(tzinfo=pytz.utc)):
+        return self.filter(updated_at__range=(lower, upper))
 
 
 class EventManager(models.Manager):
@@ -739,6 +748,10 @@ class Event(RevisionMixin, TimestampedModel):
             ('security__deprecated_read', 'View DEPRECATED security reports'),
             ('security__deprecated_update', 'Modify DEPRECATED security reports'),
         )
+        indexes = [
+            models.Index(fields=['created_at']),
+            models.Index(fields=['updated_at'])
+        ]
 
     class ReadonlyMeta:
         readonly = ['serial_number', ]
