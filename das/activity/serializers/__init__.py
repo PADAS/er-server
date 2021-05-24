@@ -45,7 +45,7 @@ from core.serializers import PointValidator
 from core.utils import OneWeekSchedule
 from observations.serializers import SubjectSerializer
 from revision.manager import AC_UPDATED, AC_RELATION_DELETED
-from utils.json import loads
+from utils.json import loads, parse_bool
 from utils.schema_utils import get_schema_renderer_method, validate_rendered_schema_is_wellformed
 
 logger = logging.getLogger(__name__)
@@ -503,10 +503,23 @@ class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
 
         return super().to_internal_value(data)
 
+    @staticmethod
+    def is_schema_readonly(schema):
+        try:
+            rendered = get_schema_renderer_method()(schema)
+        except Exception:
+            pass
+        else:
+            _schema = rendered.get('schema', {})
+            return True if parse_bool(_schema.get('readonly')) else False
+
     def to_representation(self, obj):
         rep = super().to_representation(obj, )
         rep['url'] = utils.add_base_url(
             self.request, reverse('eventtype', args=[obj.id, ]))
+
+        if self.is_schema_readonly(obj.schema):
+            rep['readonly'] = True
         return rep
 
 
