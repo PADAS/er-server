@@ -4,6 +4,7 @@ from rest_framework.permissions import (SAFE_METHODS, BasePermission,
                                         IsAuthenticated)
 from rest_framework import exceptions
 from django.http import Http404
+from django.db import ProgrammingError
 
 from activity.models import EventType, Event, EventCategory, Patrol, PatrolType
 from observations.views import UnauthorizedView
@@ -82,7 +83,10 @@ class EventCategoryPermissions(DjangoObjectPermissions):
         elif isinstance(obj, EventType):
             value = obj.category.value
         else:
-            value = obj.event_type.category.value
+            try:
+                value = obj.event_type.category.value
+            except AttributeError as exc:
+                raise ProgrammingError(exc)
 
         permission_name = 'activity.{0}_{1}'.format(value, EventCategoryPermissions.http_method_map[request.method])
         return request.user.has_perm(permission_name)
