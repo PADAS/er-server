@@ -35,7 +35,7 @@ class EventObjectPermissions(DjangoModelPermissions):
     }
 
 
-class EventCategoryPermissions(DjangoObjectPermissions):
+class EventCategoryPermissions(IsAuthenticated):
 
     http_method_map = {
         'GET': 'read',
@@ -46,11 +46,6 @@ class EventCategoryPermissions(DjangoObjectPermissions):
         'PATCH': 'update',
         'DELETE': 'delete',
     }
-
-    @staticmethod
-    def is_authenticated(request):
-        """Allows access only to authenticated users."""
-        return bool(request.user and request.user.is_authenticated)
 
     def has_permission(self, request, view):
         # These methods are allowed for everyone
@@ -80,9 +75,7 @@ class EventCategoryPermissions(DjangoObjectPermissions):
                     pass
 
         # Otherwise, let it through here and check at the object level later on
-        if view.get_view_name() in ['Event Categories', 'Event Category']:
-            return super().has_permission(request, view)
-        return self.is_authenticated(request)
+        return super().has_permission(request, view)
 
     def has_object_permission(self, request, view, obj):
         if isinstance(obj, EventCategory):
@@ -96,6 +89,12 @@ class EventCategoryPermissions(DjangoObjectPermissions):
                 raise ProgrammingError(exc)
 
         permission_name = 'activity.{0}_{1}'.format(value, EventCategoryPermissions.http_method_map[request.method])
+        return request.user.has_perm(permission_name)
+
+
+class EventCategoryObjectPermissions(DjangoObjectPermissions):
+    def has_object_permission(self, request, view, obj):
+        permission_name = 'activity.{0}_{1}'.format(obj.value, EventCategoryPermissions.http_method_map[request.method])
         return request.user.has_perm(permission_name)
 
 
