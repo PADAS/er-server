@@ -1274,24 +1274,6 @@ class PatrolSegmentEventSerializer(EventSerializerMixin, rest_framework.serializ
         return rep
 
 
-class PatrolSegmentPrimaryKeyRelatedField(rest_framework.serializers.PrimaryKeyRelatedField):
-
-    def get_choices(self, cutoff=None):
-        return OrderedDict()
-    
-    @property
-    def object_choices(self):
-        queryset = self.get_queryset()
-        if queryset is None:
-            return {}
-        return [(self.to_representation(item), self.display_value(item)) for item in queryset]
-
-    def to_representation(self, value):
-        if self.pk_field is not None:
-            return self.pk_field.to_representation(value.pk)
-        return {'patrolsegment_id': value.pk, 'patrol_id': value.patrol.pk}
-
-
 class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
     serializer_choice_field = ChoiceField
     # Using PointField here provides the magic to convert between a
@@ -1330,11 +1312,17 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
     related_subjects = SubjectSerializer(many=True, required=False)
 
-    patrol_segments = PatrolSegmentPrimaryKeyRelatedField(many=True, required=False,
+    patrol_segments = rest_framework.serializers.PrimaryKeyRelatedField(many=True, required=False,
                                                                         queryset=PatrolSegment.objects.all())
+
+    patrols = rest_framework.serializers.SerializerMethodField()
+
 
     def get_contains(self, event):
         return self.get_out_relation(event, 'contains')
+
+    def get_patrols(self, event):
+        return [ps.patrol.id for ps in event.patrol_segments.all() if ps.patrol]
 
     def get_is_linked_to(self, event):
         return self.get_out_relation(event, 'is_linked_to')
@@ -1410,7 +1398,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             'created_by_user', 'notes', 'reported_by',
             'state', 'event_details', 'contains', 'is_linked_to', 'is_contained_in',
             'files', 'related_subjects', 'eventsource', 'external_event_id', 'sort_at',
-            'patrol_segments') + read_only_fields
+            'patrol_segments', 'patrols') + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
