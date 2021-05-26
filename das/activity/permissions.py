@@ -35,7 +35,7 @@ class EventObjectPermissions(DjangoModelPermissions):
     }
 
 
-class EventCategoryPermissions(DjangoObjectPermissions):
+class EventCategoryPermissions(IsAuthenticated):
 
     http_method_map = {
         'GET': 'read',
@@ -89,6 +89,12 @@ class EventCategoryPermissions(DjangoObjectPermissions):
                 raise ProgrammingError(exc)
 
         permission_name = 'activity.{0}_{1}'.format(value, EventCategoryPermissions.http_method_map[request.method])
+        return request.user.has_perm(permission_name)
+
+
+class EventCategoryObjectPermissions(DjangoObjectPermissions):
+    def has_object_permission(self, request, view, obj):
+        permission_name = 'activity.{0}_{1}'.format(obj.value, EventCategoryPermissions.http_method_map[request.method])
         return request.user.has_perm(permission_name)
 
 

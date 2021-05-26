@@ -46,7 +46,7 @@ from activity.models import Event, EventNote, EventClass, \
     EventFilter, EventSource, EventProvider, PatrolType, Patrol, PatrolSegment, PatrolNote, PatrolFile, \
     EventRelatedSegments
 from activity.permissions import EventCategoryPermissions, \
-    EventNotesCategoryPermissions, IsOwner, PatrolObjectPermissions, PatrolTypePermissions, StandardModelPermissions
+    EventNotesCategoryPermissions, IsOwner, PatrolObjectPermissions, PatrolTypePermissions, EventCategoryObjectPermissions
 from activity.serializers import EventSerializer, EventNoteSerializer, \
     EventJSONSchema, EventStateSerializer, \
     EventClassSerializer, EventFactorSerializer, EventClassFactorSerializer, \
@@ -214,7 +214,7 @@ class EventCategoryViewSchema(CustomSchema):
 
 
 class EventCategoriesView(generics.ListCreateAPIView):
-    permission_classes = (EventCategoryPermissions,)
+    permission_classes = (EventCategoryObjectPermissions,)
     serializer_class = EventCategorySerializer
 
     def get_queryset(self):
@@ -234,7 +234,7 @@ class EventCategoriesView(generics.ListCreateAPIView):
 class EventCategoryView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
     lookup_url_kwarg = 'eventcategory_id'
-    permission_classes = (EventCategoryPermissions,)
+    permission_classes = (EventCategoryObjectPermissions,)
     serializer_class = EventCategorySerializer
     queryset = EventCategory.objects.all()
 
