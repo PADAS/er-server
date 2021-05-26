@@ -1283,8 +1283,6 @@ class PatrolSegmentPrimaryKeyRelatedField(rest_framework.serializers.PrimaryKeyR
     def object_choices(self):
         queryset = self.get_queryset()
         if queryset is None:
-            # Ensure that field.choices returns something sensible
-            # even when accessed with a read-only field.
             return {}
         return [(self.to_representation(item), self.display_value(item)) for item in queryset]
 
