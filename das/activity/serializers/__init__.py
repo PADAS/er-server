@@ -1274,6 +1274,26 @@ class PatrolSegmentEventSerializer(EventSerializerMixin, rest_framework.serializ
         return rep
 
 
+class PatrolSegmentPrimaryKeyRelatedField(rest_framework.serializers.PrimaryKeyRelatedField):
+
+    def get_choices(self, cutoff=None):
+        return OrderedDict()
+    
+    @property
+    def object_choices(self):
+        queryset = self.get_queryset()
+        if queryset is None:
+            # Ensure that field.choices returns something sensible
+            # even when accessed with a read-only field.
+            return {}
+        return [(self.to_representation(item), self.display_value(item)) for item in queryset]
+
+    def to_representation(self, value):
+        if self.pk_field is not None:
+            return self.pk_field.to_representation(value.pk)
+        return {'patrolsegment_id': value.pk, 'patrol_id': value.patrol.pk}
+
+
 class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
     serializer_choice_field = ChoiceField
     # Using PointField here provides the magic to convert between a
@@ -1312,7 +1332,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
     related_subjects = SubjectSerializer(many=True, required=False)
 
-    patrol_segments = rest_framework.serializers.PrimaryKeyRelatedField(many=True, required=False,
+    patrol_segments = PatrolSegmentPrimaryKeyRelatedField(many=True, required=False,
                                                                         queryset=PatrolSegment.objects.all())
 
     def get_contains(self, event):
