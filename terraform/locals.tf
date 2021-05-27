@@ -138,6 +138,7 @@ locals {
     "socp"                   = "prod-asia"
     "somkhanda"              = "prod1"
     "southerncarpathians"    = "prod1"
+    "sloco"                  = "prod1"
     "spaceforgiants"         = "prod1"
     "ste"                    = "prod1"
     "tapirreserve"           = "prod1"
@@ -249,6 +250,7 @@ locals {
     "cheetahoutreach"     = 1
     "lalibela"            = 1
     "nkomazi"             = 1
+    "sloco"               = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
