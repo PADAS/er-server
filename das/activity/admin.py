@@ -18,6 +18,7 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext as _
 from psycopg2.extras import DateTimeTZRange
 from django.contrib.auth import get_permission_codename
+from celery_once import AlreadyQueued
 
 import activity.models as models
 from activity.forms import EventProviderForm, AlertRuleForm, PatrolSegmentStackedInline, PatrolSegmentForm, chained_tracked_by
@@ -330,7 +331,6 @@ class NotificationMethodAdmin(admin.ModelAdmin):
         return instance.owner.username
     owner_username.short_description = _('Owner')
 
-from celery_once import AlreadyQueued
 
 @admin.register(models.RefreshRecreateEventDetailView)
 class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
