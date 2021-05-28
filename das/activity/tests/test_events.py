@@ -1257,7 +1257,7 @@ class TestEventView(BaseAPITest):
         assert len(rendered_dict) == 0
 
     def test_filter_events_with_update_date(self):
-        url = """/activity/events/export"""
+        url = """/activity/events?"""
         q_params = json.dumps(
             {"update_date": {
                 "lower": self.start_of_today.isoformat(), "upper": self.end_of_today.isoformat()}})
@@ -1266,7 +1266,18 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data)
 
+        q_params = json.dumps(
+            {"update_date": {
+                "lower": self.start_of_today.isoformat()}})
+
+        request = self.factory.get(self.api_base + url, {'filter': q_params})
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data)
+        
     def test_export_filter_on_incident_associated_reports(self):
         incident_data = copy.deepcopy(self.event_data)
         incident_data['event_type'] = 'incident_collection'
