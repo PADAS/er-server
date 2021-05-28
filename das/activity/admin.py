@@ -330,15 +330,15 @@ class NotificationMethodAdmin(admin.ModelAdmin):
         return instance.owner.username
     owner_username.short_description = _('Owner')
 
+from celery_once import AlreadyQueued
 
 @admin.register(models.RefreshRecreateEventDetailView)
 class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
     # NOTE: This class relies on celery.
 
     change_list_template = 'admin/activity/eventtype/event_detail_change_list.html'
-    list_display = ('performed_by', 'refresh_at',
-                    'recreated_at', 'maintenance_status')
-    ordering = list_display
+    list_display = ('performed_by', 'task_mode', 'started_at', 'ended_at', 'maintenance_status')
+    ordering = ('-started_at', )
 
     enable_change_view = False
 
@@ -354,47 +354,60 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
-    def manage_task_status(self, request, task, status, qs_method, name):
+    def manage_task_status(self, request, task, task_mode,  qs_method, name):
         action = 'Admin'
+        obj = qs_method(activity=action, task_mode=task_mode)
+        filter_func = self.model.objects.filter
 
         while not task.ready():
             logger.info(f'State={task.state}, info={task.info}')
-            time.sleep(0.5)
 
+        if task.state == 'PENDING' or task.state == 'STARTED':
+            filter_func(id=obj.id).update_status(status=self.model.RUNNING)
         if task.state == 'SUCCESS':
-            qs_method(activity=action, status=status)
-            self.message_user(
-                request, f"Successfully {name} 'event_detail_view'")
+            filter_func(id=obj.id).update_status_and_ended_at(status=self.model.SUCCESS)
+            self.message_user(request, f"Successfully {name} 'event_detail_view'")
         if task.state == 'FAILURE':
-            qs_method(activity=action, status=f'Error ({name}): {task.info}')
+            filter_func(id=obj.id).update_status_and_ended_at(status=f'{self.model.FAILED}-{task.info}')
             self.message_user(
                 request, f"Failed to {name} 'event_detail_view'", messages.ERROR)
         if task.state == 'RETRY':
-            qs_method(activity=action, status=task.state)
+            filter_func(id=obj.id).update_status(status=task.state)
             self.message_user(
                 request, f"Retry again to {name} 'event_detail_view'",  messages.WARNING)
 
         return HttpResponseRedirect("../")
 
     def refresh_view(self, request):
-        task = refresh_event_details_view.apply_async(args=('Admin',))
-        status = dict(self.model.STATUS_MESSAGE).get('REFRESH')
+        try:
+            task = refresh_event_details_view.apply_async(args=('Admin',))
+        except AlreadyQueued:
+            self.message_user(request, f"Task to refresh event_detail view is already queued",  messages.WARNING)
+            return HttpResponseRedirect("../")
+
+        task_mode = self.model.REFRESH
         qs_method = self.model.objects.refresh
         name = 'refresh'
         return self.manage_task_status(request=request,
                                        task=task,
-                                       status=status,
+                                       task_mode=task_mode,
                                        qs_method=qs_method,
                                        name=name)
 
     def recreate_view(self, request):
-        task = recreate_event_details_view.delay()
-        status = dict(self.model.STATUS_MESSAGE).get('SUCCESS')
+        try:
+            task = recreate_event_details_view.apply_async()
+        except AlreadyQueued:
+            self.message_user(request, f"Task to recreate event_detail view is already queued",  messages.WARNING)
+            return HttpResponseRedirect("../")
+
+        # status = dict(self.model.STATUS_MESSAGE).get('SUCCESS')
+        task_mode = self.model.RECREATE
         qs_method = self.model.objects.recreate
         name = 'recreate'
         return self.manage_task_status(request=request,
                                        task=task,
-                                       status=status,
+                                       task_mode=task_mode,
                                        qs_method=qs_method,
                                        name=name)
 

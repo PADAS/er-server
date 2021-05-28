@@ -34,9 +34,9 @@ def generate_DDL():
     lines.append(',\n'.join(fieldset))
     lines.append(' from activity_eventdetails ed ')
     lines.append(' join activity_event e on e.id = ed.event_id ')
-    lines.append(' join activity_eventtype et on et.id = e.event_type_id ')
+    lines.append(' join activity_eventtype et on et.id = e.event_type_id; ')
     # lines.append(' with no data ')
-
+    lines.append('\n CREATE UNIQUE INDEX event_details_view_index ON event_details_view (event_id);')
     return lines
 
 
@@ -96,7 +96,7 @@ def re_create_view():
 def refresh_materialized_view():
     if check_db_view_exists():
         cursor = _cursor()
-        cursor.execute(f"REFRESH MATERIALIZED VIEW {table_name}")
+        cursor.execute(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {table_name}")
     else:
         execute_DDL()
 

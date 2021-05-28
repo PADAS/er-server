@@ -309,35 +309,39 @@ def parse_date_range(val):
 
 class RefreshRecreateEventDetailViewQuery(models.QuerySet):
 
-    def recreate(self, activity, status):
-        return self.create(recreated_at=timezone.now(),
-                           performed_by=activity,
-                           maintenance_status=status)
+    def recreate(self, activity, task_mode):
+        return self.create(task_mode=task_mode,
+                           started_at=datetime.datetime.now(tz=pytz.utc),
+                           performed_by=activity, maintenance_status='running')
 
-    def refresh(self, activity, status):
-        return self.create(refresh_at=timezone.now(),
-                           performed_by=activity,
-                           maintenance_status=status)
+    def refresh(self, activity, task_mode):
+        return self.create(task_mode=task_mode,
+                           started_at=datetime.datetime.now(tz=pytz.utc),
+                           performed_by=activity)
+
+    def update_status(self, status):
+        self.update(maintenance_status=status)
+
+    def update_status_and_ended_at(self, status):
+        self.update(maintenance_status=status, ended_at=datetime.datetime.now(tz=pytz.utc))
+
 
 
 class RefreshRecreateEventDetailView(models.Model):
-    SUCCESS = 'SUCCESS'
-    FAILURE = 'FAILURE'
-    REFRESH = 'REFRESH'
-    PENDING = 'PENDING'
-    RETRY = 'RETRY'
+    SUCCESS = 'succeeded'
+    FAILED = 'failed'
+    REFRESH = 'Refresh'
+    RECREATE = 'Recreate'
+    RUNNING = 'running'
 
-    STATUS_MESSAGE = [
-        (SUCCESS, 'Recreate'),
-        (FAILURE, 'Error'),
-        (REFRESH, 'Refresh'),
-        (PENDING, 'Pending'),
-        (RETRY, 'Retry'),
-    ]
+    TASK_MODE = [(REFRESH, 'refresh'),
+                 (RECREATE, 'recreate')]
 
     performed_by = models.CharField(blank=True, null=True, max_length=255)
-    refresh_at = models.DateTimeField(blank=True, null=True)
-    recreated_at = models.DateField(blank=True, null=True)
+    task_mode = models.CharField(blank=True, null=True, max_length=255, choices=TASK_MODE)
+    started_at = models.DateTimeField(blank=True, null=True)
+    ended_at = models.DateTimeField(blank=True, null=True)
+
     maintenance_status = models.CharField(max_length=255)
 
     objects = RefreshRecreateEventDetailViewQuery.as_manager()

@@ -116,24 +116,34 @@ def send_alert_to_notificationmethod(alert_rule_id=None, event_id=None, notifica
                      notification_method_id=notification_method_id)
 
 
-@celery.app.task(bind=True, ignore_result=False, track_started=True)
+class EventDetailViewException(Exception):
+    pass
+
+
+@celery.app.task(base=QueueOnce, bind=True, ignore_result=False, track_started=True)
 def recreate_event_details_view(self):
     # recreate materialized view for: "event_details_view".
+    try:
+        re_create_view()
+        logger.info(f'Recreate data for event_details_view')
+    except Exception as exc:
+        logger.exception('Failed to recreate event_details_view.')
+        raise EventDetailViewException(exc)
 
-    re_create_view()
-    logger.info(f'Recreate data for event_details_view')
 
-
-@celery.app.task(bind=True, ignore_result=False, track_started=True)
+@celery.app.task(base=QueueOnce, bind=True, ignore_result=False, track_started=True)
 def refresh_event_details_view(self, activity):
     # refresh materialized view for: "event_details_view".
     try:
         logger.info(f'Refresh data for event_details_view')
         refresh_materialized_view()
-        return activity, 'SUCCESS'
+        return activity, RefreshRecreateEventDetailView.SUCCESS
     except Exception as e:
         logger.exception('Failed to refresh event_details_view.')
-        return activity, 'FAILURE'
+        if activity == 'Celery':
+            return activity, f'{RefreshRecreateEventDetailView.FAILED}-{str(e)}'
+        else:
+            raise EventDetailViewException(e)
 
 
 @celery.app.task(bind=True, ignore_result=False, track_started=True,
@@ -144,9 +154,9 @@ def refresh_event_details_view_task(self, activity):
     # Remove records older than 15-days (keep the last five for posterity).
     minimum_date = datetime.now(tz=pytz.utc) - timedelta(days=15)
     last_five_ids = [
-        rec.id for rec in RefreshRecreateEventDetailView.objects.order_by('-refresh_at')[:5]]
+        rec.id for rec in RefreshRecreateEventDetailView.objects.order_by('-started_at')[:5]]
     RefreshRecreateEventDetailView.objects.filter(
-        refresh_at__lte=minimum_date).exclude(id__in=last_five_ids).delete()
+        started_at__lte=minimum_date).exclude(id__in=last_five_ids).delete()
 
     if check_db_view_exists():
         (refresh_event_details_view.s(activity=activity) |
@@ -158,8 +168,13 @@ def update_status_of_event_details_view_refresh(self, activity_and_status):
     logger.info('updating status of event details view refresh: %s',
                 activity_and_status)
     activity, status = activity_and_status
-    RefreshRecreateEventDetailView.objects.refresh(
-        activity=activity, status=status)
+
+    RefreshRecreateEventDetailView.objects.create(performed_by=activity,
+                                                  task_mode='Refresh',
+                                                  maintenance_status=status,
+                                                  started_at=datetime.now(tz=pytz.utc),
+                                                  ended_at=datetime.now(tz=pytz.utc)
+                                                  )
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True})
