@@ -79,6 +79,7 @@ locals {
     "liuwa"                  = "prod1"
     "liwonde"                = "prod1"
     "loisaba"                = "prod1"
+    "lowveldrhinotrust"      = "prod1"
     "lowerzambezi"           = "prod1"
     "madikwe"                = "prod1"
     "majete"                 = "prod1"
@@ -251,6 +252,7 @@ locals {
     "lalibela"            = 1
     "nkomazi"             = 1
     "sloco"               = 1
+    "lowveldrhinotrust"   = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
