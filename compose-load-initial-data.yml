@@ -10,5 +10,3 @@ services:
     links:
       - postgis
       - redis
-    depends_on:
-      - rt-api

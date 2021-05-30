@@ -13,10 +13,14 @@ services:
       - api
       - rt-api
       - web
-      #- reactapp
+      - admin
     ports:
-      - 9000:8000
+      - 8000:8000
       - '35729:35729'
+
+  admin:
+    image: gcr.io/padas-app/circleci/das-react-admin/master:latest
+    container_name: admin
 
   api:
     image: gcr.io/padas-app/circleci/das-server/develop:latest
