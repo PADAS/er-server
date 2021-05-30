@@ -17,18 +17,21 @@ version: "3.2"
 services:
 
   web:
-    env_file: $PWD/../das-web/.env
+    #env_file: $PWD/../das-web-react/.env
     ports:
       - 9000:9000
     build:
-      context: $PWD/../das-web/
-      dockerfile: docker/Dockerfile-develop
+      context: $PWD/../das-web-react/
+      dockerfile: $PWD/../das-web-react/Dockerfile.dev
+    volumes:
+      - /app/node_modules
+      - .:/app
 #    volumes:
-#      - $PWD/../das-web:/var/www/app
+#      - $PWD/../das-web-react:/var/www/app
 
-  reactapp:
-    container_name: das_reactapp
-    env_file: .reactapp.env
-    build:
-      context: $PWD/../das-react-admin/
-      dockerfile: Dockerfile.dev
+#  reactapp:
+#    container_name: das_reactapp
+#    env_file: .reactapp.env
+#    build:
+#      context: $PWD/../das-react-admin/
+#      dockerfile: Dockerfile.dev
