@@ -3,7 +3,7 @@ version: "3.2"
 services:
 
   notebook:
-    image: gcr.io/padas-app/circleci/earthranger-api:${DAS_TAG:-develop}
+    image: gcr.io/padas-app/circleci/das-server/develop:latest
     build:
       context: .
       dockerfile: circleci-docker/Dockerfile

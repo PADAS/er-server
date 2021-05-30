@@ -1,14 +1,11 @@
 version: "3.2"
 
 services:
-  web:
-    image: gcr.io/padas-app/web/app
-    container_name: das_web
-    env_file: .env
-
   nginx:
-    image: gcr.io/padas-app/nginx
     container_name: das_nginx
+    build:
+      context: $PWD/docker/Nginx
+      dockerfile: $PWD/docker/Nginx/Dockerfile
     env_file: .env
     environment:
       - REACT_APP_MOCK_API_URL=True
@@ -16,13 +13,13 @@ services:
       - api
       - rt-api
       - web
-      - reactapp
+      #- reactapp
     ports:
-      - 8000:8000
+      - 9000:8000
       - '35729:35729'
 
   api:
-    image: gcr.io/padas-app/circleci/earthranger-api:${DAS_TAG:-develop}
+    image: gcr.io/padas-app/circleci/das-server/develop:latest
     container_name: das_api
     env_file: .env
     environment:
@@ -40,7 +37,7 @@ services:
       retries: 5
 
   rt-api:
-    image: gcr.io/padas-app/circleci/earthranger-api:${DAS_TAG:-develop}
+    image: gcr.io/padas-app/circleci/das-server/develop:latest
     container_name: das_rt_api
     env_file: .env
     environment:
@@ -52,7 +49,7 @@ services:
       - api
 
   mql:
-    image: gcr.io/padas-app/circleci/earthranger-api:${DAS_TAG:-develop}
+    image: gcr.io/padas-app/circleci/das-server/develop:latest
     container_name: das_mql
     env_file: .env
     environment:
@@ -64,11 +61,11 @@ services:
       - rt-api
 
   worker:
-    image: gcr.io/padas-app/circleci/earthranger-api:${DAS_TAG:-develop}
+    image: gcr.io/padas-app/circleci/das-server/develop:latest
     container_name: das_worker
     env_file: .env
     environment:
-      - SERVICE_NAME=default_worker
+      - SERVICE_NAME=all_in_one_worker
     links:
       - postgis
       - redis
@@ -77,39 +74,9 @@ services:
     volumes:
       - user-uploads:/user-uploads
       - www-static:/var/www/static
-
-  worker-rt:
-    image: gcr.io/padas-app/circleci/earthranger-api:${DAS_TAG:-develop}
-    container_name: das_worker_rt
-    env_file: .env
-    environment:
-      - SERVICE_NAME=realtime_worker
-    links:
-      - postgis
-      - redis
-    depends_on:
-      - rt-api
-    volumes:
-      - user-uploads:/user-uploads
-      - www-static:/var/www/static
-
-  worker-analyzer:
-    image: gcr.io/padas-app/circleci/earthranger-api:${DAS_TAG:-develop}
-    container_name: das_worker_analyzer
-    env_file: .env
-    environment:
-      - SERVICE_NAME=analyzer_worker
-    links:
-      - postgis
-      - redis
-    depends_on:
-      - rt-api
-    volumes:
-      - user-uploads:/user-uploads
-      - www-static:/var/www/static
-
+  
   beat:
-    image: gcr.io/padas-app/circleci/earthranger-api:${DAS_TAG:-develop}
+    image: gcr.io/padas-app/circleci/das-server/develop:latest
     container_name: das_beat
     env_file: .env
     environment:
