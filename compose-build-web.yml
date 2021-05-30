@@ -19,13 +19,13 @@ services:
   web:
     #env_file: $PWD/../das-web-react/.env
     ports:
-      - 9000:9000
+      - 3000:3000
     build:
       context: $PWD/../das-web-react/
       dockerfile: $PWD/../das-web-react/Dockerfile.dev
     volumes:
       - /app/node_modules
-      - .:/app
+      - $PWD/../das-web-react:/app
 #    volumes:
 #      - $PWD/../das-web-react:/var/www/app
 
