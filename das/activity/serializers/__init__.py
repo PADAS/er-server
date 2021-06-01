@@ -1315,14 +1315,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     patrol_segments = rest_framework.serializers.PrimaryKeyRelatedField(many=True, required=False,
                                                                         queryset=PatrolSegment.objects.all())
 
-    patrols = rest_framework.serializers.SerializerMethodField()
-
-
     def get_contains(self, event):
         return self.get_out_relation(event, 'contains')
-
-    def get_patrols(self, event):
-        return [ps.patrol.id for ps in event.patrol_segments.all() if ps.patrol]
 
     def get_is_linked_to(self, event):
         return self.get_out_relation(event, 'is_linked_to')
@@ -1398,7 +1392,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             'created_by_user', 'notes', 'reported_by',
             'state', 'event_details', 'contains', 'is_linked_to', 'is_contained_in',
             'files', 'related_subjects', 'eventsource', 'external_event_id', 'sort_at',
-            'patrol_segments', 'patrols') + read_only_fields
+            'patrol_segments') + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1478,6 +1472,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         else:
             if rep.get('event_details'):
                 rep['event_details'].pop('updates')
+
+        rep['patrols'] = event.patrol_ids
 
         return rep
 

@@ -33,6 +33,7 @@ from rest_framework.exceptions import APIException
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_extensions.etag.decorators import etag
+from django.contrib.postgres.aggregates import ArrayAgg
 
 import accounts.models
 import accounts.serializers
@@ -928,6 +929,9 @@ class EventsView(generics.ListCreateAPIView):
         queryset = queryset.prefetch_related(Prefetch('created_by_user'))
         queryset = queryset.prefetch_related(Prefetch('reported_by'))
         queryset = queryset.prefetch_related(Prefetch('out_relationships'))
+        queryset = queryset.prefetch_related(Prefetch('patrol_segments'))
+
+        queryset = queryset.annotate(patrol_ids=ArrayAgg('patrol_segments__patrol_id'))
 
         if parse_bool(query_params.get('include_notes', False)):
             queryset = queryset.prefetch_related(Prefetch('notes'))
@@ -994,6 +998,8 @@ class EventView(generics.RetrieveUpdateDestroyAPIView):
                 return queryset.by_event_filter(event_filter)
             except:
                 logger.warning('Invalid filter expression %s', event_filter)
+
+        queryset = queryset.annotate(patrol_ids=ArrayAgg('patrol_segments__patrol_id'))
         return queryset
 
 
