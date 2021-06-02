@@ -1473,7 +1473,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             if rep.get('event_details'):
                 rep['event_details'].pop('updates')
 
-        rep['patrols'] = event.patrol_ids
+        if hasattr(event, 'patrol_ids'):
+            rep['patrols'] = event.patrol_ids
 
         return rep
 
