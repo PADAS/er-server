@@ -486,9 +486,15 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         return self
 
     def by_updated_date(self,
-                        lower=datetime.datetime.min.replace(tzinfo=pytz.utc),
-                        upper=datetime.datetime.max.replace(tzinfo=pytz.utc)):
-        return self.filter(updated_at__range=(lower, upper))
+                        lower=None,
+                        upper=None):
+        if lower and upper:
+            return self.filter(updated_at__range=(lower, upper))
+        elif lower:
+            return self.filter(updated_at__gte=lower)
+        elif upper:
+            return self.filter(updated_at__lte=upper)
+
 
 
 class EventManager(models.Manager):
