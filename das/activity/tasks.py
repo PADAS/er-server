@@ -146,9 +146,8 @@ def refresh_event_details_view(self, activity):
             raise EventDetailViewException(e)
 
 
-@celery.app.task(bind=True, ignore_result=False, track_started=True,
-                 base=QueueOnce, once={'graceful': True})
-def refresh_event_details_view_task(self, activity):
+@celery.app.task()
+def refresh_event_details_view_task(activity):
     # run the scheduler if and only-if view exist.
 
     # Remove records older than 15-days (keep the last five for posterity).
@@ -160,7 +159,7 @@ def refresh_event_details_view_task(self, activity):
 
     if check_db_view_exists():
         (refresh_event_details_view.s(activity=activity) |
-         update_status_of_event_details_view_refresh.s()).delay()
+         update_status_of_event_details_view_refresh.s()).apply_async()
 
 
 @celery.app.task(bind=True)
