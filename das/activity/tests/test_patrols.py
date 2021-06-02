@@ -1265,6 +1265,7 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         self.assertTrue(str(segment_id) in str(
             response.data.get('patrol_segments')))
+        self.assertTrue(response.data.get('patrols'))
 
         # View reports from segment
         url = reverse('patrol-segment', kwargs={'id': segment_id})
