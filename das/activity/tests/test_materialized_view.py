@@ -160,7 +160,7 @@ class TestMaterializedView(BaseAPITest):
 
         # Send query data to a sample model instead of the materialized view to read output
         query_string = 'select '
-        for line in generate_DDL()[1:]:
+        for line in generate_DDL()[1:-1]:
             query_string += line
 
         # At end we expect two event records and we can compare results to what
