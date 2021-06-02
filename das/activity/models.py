@@ -547,6 +547,9 @@ class EventManager(models.Manager):
     def new(self):
         return self.filter(state=Event.SC_NEW)
 
+    def get_related_patrol_ids(self, *, event=None):
+        return [str(p['id']) for p in Patrol.objects.filter(patrol_segment__event=event).values('id')]
+
 
 class EventRelationshipType(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)

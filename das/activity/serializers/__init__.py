@@ -1475,6 +1475,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
         if hasattr(event, 'patrol_ids'):
             rep['patrols'] = event.patrol_ids
+        else:
+            rep['patrols'] = activity.models.Event.objects.get_related_patrol_ids(event=event)
 
         return rep
 
