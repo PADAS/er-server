@@ -124,11 +124,13 @@ class EventDetailViewException(Exception):
 def recreate_event_details_view(self):
     # recreate materialized view for: "event_details_view".
     try:
-        re_create_view()
+        result = re_create_view()
         logger.info(f'Recreate data for event_details_view')
     except Exception as exc:
         logger.exception('Failed to recreate event_details_view.')
         raise EventDetailViewException(exc)
+    else:
+        logger.info(f'The following eventtypes {result} have invalid schema(s).')
 
 
 @celery.app.task(base=QueueOnce, bind=True, ignore_result=False, track_started=True)
@@ -136,14 +138,16 @@ def refresh_event_details_view(self, activity):
     # refresh materialized view for: "event_details_view".
     try:
         logger.info(f'Refresh data for event_details_view')
-        refresh_materialized_view()
-        return activity, RefreshRecreateEventDetailView.SUCCESS
+        result = refresh_materialized_view()
     except Exception as e:
         logger.exception('Failed to refresh event_details_view.')
         if activity == 'Celery':
             return activity, f'{RefreshRecreateEventDetailView.FAILED}-{str(e)}'
         else:
             raise EventDetailViewException(e)
+    else:
+        logger.info(f'The following eventtypes {result} have invalid schema(s).')
+        return activity, RefreshRecreateEventDetailView.SUCCESS
 
 
 @celery.app.task()

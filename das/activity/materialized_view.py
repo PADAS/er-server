@@ -7,6 +7,8 @@ from django.db import connection
 cursor = connection.cursor()
 table_name = 'event_details_view'
 
+invalid_eventtypes = []
+
 
 def load_schema():
     render_f = schema_utils.get_schema_renderer_method()
@@ -14,9 +16,18 @@ def load_schema():
 
     for et in EventType.objects.all():
         try:
-            schema_accumulator[et.value] = render_f(et.schema)
-        except json.decoder.JSONDecodeError as exc:
-            raise Exception(f"{exc} in eventtype '{et}'")
+            rendered_schema = render_f(et.schema)
+        except json.decoder.JSONDecodeError:
+            invalid_eventtypes.append(et.value)
+        except Exception:
+            invalid_eventtypes.append(et.value)
+        else:
+            try:
+                schema_utils.validate_rendered_schema_is_wellformed(rendered_schema)
+            except schema_utils.SchemaValidationError:
+                invalid_eventtypes.append(et.value)
+            else:
+                schema_accumulator[et.value] = rendered_schema
     return schema_accumulator
 
 
@@ -91,6 +102,7 @@ def re_create_view():
         cursor = _cursor()
         cursor.execute(f'DROP MATERIALIZED VIEW IF EXISTS {table_name}')
     execute_DDL()
+    return invalid_eventtypes
 
 
 def refresh_materialized_view():
@@ -99,6 +111,7 @@ def refresh_materialized_view():
         cursor.execute(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {table_name}")
     else:
         execute_DDL()
+    return invalid_eventtypes
 
 
 def generate_field_details(schema_accumulator):

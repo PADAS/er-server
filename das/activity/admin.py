@@ -354,6 +354,9 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_change_permission(self, request, obj=None):
+        return False
+
     def manage_task_status(self, request, task, task_mode,  qs_method, name):
         action = 'Admin'
         obj = qs_method(activity=action, task_mode=task_mode)
