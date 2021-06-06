@@ -156,6 +156,7 @@ locals {
     "twiga"                  = "prod1"
     "isiolo"                 = "prod1"
     "welgevonden"            = "prod1"
+    "umbabat"                = "prod1"
     "upemba"                 = "prod1"
     "velebit"                = "prod1"
     "volunteeringafrica"     = "prod1"
