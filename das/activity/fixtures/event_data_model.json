@@ -4334,5 +4334,21 @@
     "is_collection": false,
     "default_priority": 200
   }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "1f20b27c-95f2-42f3-bacc-94642399dc46",
+  "fields": {
+    "created_at": "2016-10-20T20:49:51.179Z",
+    "updated_at": "2018-02-07T22:55:58.801Z",
+    "value": "wildlife_checkboxes_rep",
+    "display": "Wildlife Sighting Checkbox",
+    "category": [
+      "monitoring"
+    ],
+    "ordernum": 70,
+    "schema": "{\n   \"schema\": \n   {\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\n       \"title\": \"Other Wildlife Sighting Report (wildlife_sighting_rep)\",\n     \n       \"type\": \"object\",\n\n       \"properties\": \n       {\n            \"wildlifesightingrep_species\": {\n                \"type\": \"string\",\n                \"title\": \"Species\" \n            }, \n           \"wildlifesightingrep_numberanimals\": {\n                \"type\": \"number\",\n                \"title\": \"Count\",\n                \"minimum\":0\n           },                      \n           \"wildlifesightingrep_collared\": {\n                \"type\": \"string\",\n                \"title\": \"Are Animals Collared\"                \n           },\n           \"wildlifesightingrep_activity\": {\n                \"type\": \"string\",\n                \"title\": \"Activity\",\n                \"enum\": {{enum___rhinosightingrep_activity___values}},\n                \"enumNames\": {{enum___rhinosightingrep_activity___names}}                   \n           },\n           \"wildlifesightingrep_condition\": {\n                \"type\": \"string\",\n                \"title\": \"Condition\",\n                \"enum\": {{enum___rhinosightingrep_condition___values}},\n                \"enumNames\": {{enum___rhinosightingrep_condition___names}}                   \n           },\n           \"wildlifesightingrep_injury\": {\n                \"type\": \"string\",\n                \"title\": \"Injury\",\n                \"enum\": {{enum___injuredanimalrep_injurytype___values}},\n                \"enumNames\": {{enum___injuredanimalrep_injurytype___names}}                   \n           },\n           \"wildlifesightingrep_comments\": {\n                \"type\": \"string\",\n                \"title\": \"Comments\"               \n           }\n          \n       }\n   },\n \"definition\": [\n    {\n       \"type\": \"fieldset\",\n       \"title\": \"Wildlife Information\",\n       \"htmlClass\": \"col-lg-12\",\n       \"items\": []\n    },\n    {\n        \"type\": \"fieldset\",\n        \"htmlClass\": \"col-lg-6\",\n        \"items\": [\n            {\"key\": \"wildlifesightingrep_species\",\n            \"type\": \"checkboxes\",\n            \"title\": \"Species\",\n            \"titleMap\": {{enum___wildlifesightingrep_species___map}} \n        }   \n        ]\n    },\n    {\n        \"type\": \"fieldset\",\n        \"htmlClass\": \"col-lg-6\",\n        \"items\": [\n            {\"key\": \"wildlifesightingrep_collared\",\n            \"type\": \"checkboxes\",\n            \"title\": \"Are Animals Collared\",\n            \"titleMap\": {{enum___yesno___map}} \n        }   \n        ]\n    },  \n    {\n        \"key\":    \"wildlifesightingrep_numberanimals\",\n        \"htmlClass\": \"col-lg-6\"\n    },    \n    {\n        \"key\":    \"wildlifesightingrep_activity\",\n        \"htmlClass\": \"col-lg-6\"\n    },\n    {\n        \"key\":    \"wildlifesightingrep_condition\",\n        \"htmlClass\": \"col-lg-6\"\n    },\n    {\n        \"key\":    \"wildlifesightingrep_injury\",\n        \"htmlClass\": \"col-lg-6\"\n    },\n    {\n        \"key\":    \"wildlifesightingrep_comments\",\n        \"type\": \"textarea\",\n        \"htmlClass\": \"col-lg-12\"\n    }     \n\n ]\n}",
+    "is_collection": false
+  }
 }
 ]

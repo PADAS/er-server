@@ -3268,6 +3268,27 @@ class TestEventView(BaseAPITest):
         state = Event.objects.get(id=response.data.get('id')).state
         self.assertEqual(state, 'resolved')
 
+    def test_post_with_checkboxes(self):
+
+        data = json.loads(
+            "{\"event_type\":\"wildlife_checkboxes_rep\",\"priority\":0,\"time\":\"2021-06-05T19:26:32.985Z\",\"event_details\":{\"wildlifesightingrep_species\":[\"bongo\"],\"wildlifesightingrep_numberanimals\":1,\"wildlifesightingrep_collared\":[\"no\"],\"wildlifesightingrep_comments\":\"Some Comments\"}}")
+
+        request = self.factory.post(self.api_base + '/events/', data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        assert response.status_code == 201
+        event_id = response.data['id']
+
+        request = self.factory.get(self.api_base + f"/event/{event_id}")
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventView.as_view()(request, id=event_id)
+        assert response.status_code == 200
+
+        event = Event.objects.get(id=event_id)
+        event_details = EventDetails.objects.get(event_id=event_id)
+        assert isinstance(
+            event_details.data["event_details"]["wildlifesightingrep_species"][0], str)
+
 
 class TestParsing(TestCase):
 
