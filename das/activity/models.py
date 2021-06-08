@@ -322,8 +322,8 @@ class RefreshRecreateEventDetailViewQuery(models.QuerySet):
     def update_status(self, status):
         self.update(maintenance_status=status)
 
-    def update_status_and_ended_at(self, status):
-        self.update(maintenance_status=status, ended_at=datetime.datetime.now(tz=pytz.utc))
+    def update_status_and_ended_at(self, status, error_details):
+        self.update(maintenance_status=status, ended_at=datetime.datetime.now(tz=pytz.utc), error_details=error_details)
 
 
 
@@ -343,6 +343,7 @@ class RefreshRecreateEventDetailView(models.Model):
     ended_at = models.DateTimeField(blank=True, null=True)
 
     maintenance_status = models.CharField(max_length=255)
+    error_details = models.TextField(blank=True, null=True)
 
     objects = RefreshRecreateEventDetailViewQuery.as_manager()
 

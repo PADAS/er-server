@@ -130,7 +130,8 @@ def recreate_event_details_view(self):
         logger.exception('Failed to recreate event_details_view.')
         raise EventDetailViewException(exc)
     else:
-        logger.info(f'The following eventtypes {result} have invalid schema(s).')
+        logger.exception(f'The following eventtypes {result} have invalid schema(s).')
+        return result
 
 
 @celery.app.task(base=QueueOnce, bind=True, ignore_result=False, track_started=True)
@@ -146,8 +147,11 @@ def refresh_event_details_view(self, activity):
         else:
             raise EventDetailViewException(e)
     else:
-        logger.info(f'The following eventtypes {result} have invalid schema(s).')
-        return activity, RefreshRecreateEventDetailView.SUCCESS
+        result = result if result else '-'
+        if activity == 'Celery':
+            return activity, RefreshRecreateEventDetailView.SUCCESS, result
+        else:
+            return result
 
 
 @celery.app.task()
@@ -170,13 +174,14 @@ def refresh_event_details_view_task(activity):
 def update_status_of_event_details_view_refresh(self, activity_and_status):
     logger.info('updating status of event details view refresh: %s',
                 activity_and_status)
-    activity, status = activity_and_status
+    activity, status, error_details = activity_and_status
 
     RefreshRecreateEventDetailView.objects.create(performed_by=activity,
                                                   task_mode='Refresh',
                                                   maintenance_status=status,
                                                   started_at=datetime.now(tz=pytz.utc),
-                                                  ended_at=datetime.now(tz=pytz.utc)
+                                                  ended_at=datetime.now(tz=pytz.utc),
+                                                  error_details=error_details
                                                   )
 
 

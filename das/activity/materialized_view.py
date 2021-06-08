@@ -17,15 +17,15 @@ def load_schema():
     for et in EventType.objects.all():
         try:
             rendered_schema = render_f(et.schema)
-        except json.decoder.JSONDecodeError:
-            invalid_eventtypes.append(et.value)
-        except Exception:
-            invalid_eventtypes.append(et.value)
+        except json.decoder.JSONDecodeError as exc:
+            invalid_eventtypes.append(f'Eventtype "{et.display}" failed with excepiton "{exc}"')
+        except Exception as exc:
+            invalid_eventtypes.append(f'Eventtype "{et.display}" failed with excepiton "{exc}"]')
         else:
             try:
                 schema_utils.validate_rendered_schema_is_wellformed(rendered_schema)
-            except schema_utils.SchemaValidationError:
-                invalid_eventtypes.append(et.value)
+            except schema_utils.SchemaValidationError as exc:
+                invalid_eventtypes.append(f'Eventtype "{et.display}" failed with excepiton "{exc}"')
             else:
                 schema_accumulator[et.value] = rendered_schema
     return schema_accumulator

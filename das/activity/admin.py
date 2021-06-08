@@ -337,7 +337,7 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
     # NOTE: This class relies on celery.
 
     change_list_template = 'admin/activity/eventtype/event_detail_change_list.html'
-    list_display = ('performed_by', 'task_mode', 'started_at', 'ended_at', 'maintenance_status')
+    list_display = ('performed_by', 'task_mode', 'started_at', 'ended_at', 'maintenance_status', 'error_details')
     ordering = ('-started_at', )
 
     enable_change_view = False
@@ -368,10 +368,10 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
         if task.state == 'PENDING' or task.state == 'STARTED':
             filter_func(id=obj.id).update_status(status=self.model.RUNNING)
         if task.state == 'SUCCESS':
-            filter_func(id=obj.id).update_status_and_ended_at(status=self.model.SUCCESS)
+            filter_func(id=obj.id).update_status_and_ended_at(status=self.model.SUCCESS, error_details=task.result)
             self.message_user(request, f"Successfully {name} 'event_detail_view'")
         if task.state == 'FAILURE':
-            filter_func(id=obj.id).update_status_and_ended_at(status=f'{self.model.FAILED}-{task.info}')
+            filter_func(id=obj.id).update_status_and_ended_at(status=self.model.FAILED, error_details=f'{task.info}')
             self.message_user(
                 request, f"Failed to {name} 'event_detail_view'", messages.ERROR)
         if task.state == 'RETRY':
