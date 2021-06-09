@@ -1473,10 +1473,10 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             if rep.get('event_details'):
                 rep['event_details'].pop('updates')
 
-        if hasattr(event, 'patrol_ids'):
-            rep['patrols'] = event.patrol_ids
-        else:
-            rep['patrols'] = activity.models.Event.objects.get_related_patrol_ids(event=event)
+        patrol_ids = event.patrol_ids if hasattr(event, 'patrol_ids') \
+            else activity.models.Event.objects.get_related_patrol_ids(event=event)
+        print(f'These are they: {patrol_ids}')
+        rep['patrols'] = [item for item in patrol_ids if item is not None]
 
         return rep
 
