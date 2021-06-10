@@ -36,23 +36,9 @@ def submit_row(context):
         ctx.update({'addchoices': True})
 
     if ctx['opts'].model_name == 'refreshrecreateeventdetailview':
-        # 'show_save_as_new': not is_popup and has_change_permission and change and save_as,
-        # 'show_save_and_add_another': (
-        #     has_add_permission and not is_popup and
-        #     (not save_as or add) and can_save
-        # ),
-        # 'show_save_and_continue': can_save_and_continue,
-        # 'show_save': show_save and can_save,
-        # 'show_close': not(show_save and can_save)
         ctx['show_save_and_continue'] = False
         ctx['show_save'] = False
         ctx['show_close'] = True
-
-
-
-
-
-    # import pdb; pdb.set_trace()
     return ctx
 
 
