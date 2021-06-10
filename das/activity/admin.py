@@ -19,10 +19,11 @@ from django.utils.translation import ugettext as _
 from psycopg2.extras import DateTimeTZRange
 from django.contrib.auth import get_permission_codename
 from celery_once import AlreadyQueued
+from django.contrib.postgres.fields import JSONField
 
 import activity.models as models
 from activity.forms import EventProviderForm, AlertRuleForm, PatrolSegmentStackedInline, PatrolSegmentForm, chained_tracked_by
-from activity.forms import EventTypeForm, EventForm, PatrolTypeForm, PatrolForm
+from activity.forms import EventTypeForm, EventForm, PatrolTypeForm, PatrolForm, PrettyReadOnlyJSONWidget
 from activity.tasks import refresh_event_details_view, recreate_event_details_view
 from core.admin import InlineExtraDynamicMixin
 from core.common import TIMEZONE_USED, AdminFeatureFlag
@@ -338,9 +339,12 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
 
     change_list_template = 'admin/activity/eventtype/event_detail_change_list.html'
     list_display = ('performed_by', 'task_mode', 'started_at', 'ended_at', 'maintenance_status')
+    fields = ('id', 'performed_by', 'task_mode', 'started_at', 'ended_at', 'error_details')
     ordering = ('-started_at', )
 
-    enable_change_view = False
+    formfield_overrides = {
+        JSONField: {'widget': PrettyReadOnlyJSONWidget}
+    }
 
     def get_urls(self):
         urls = super().get_urls()
@@ -354,6 +358,9 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+    def get_readonly_fields(self, request, obj=None):
+        return [f.name for f in self.model._meta.fields if not f.name == 'error_details']
+
     def manage_task_status(self, request, task, task_mode,  qs_method, name):
         action = 'Admin'
         obj = qs_method(activity=action, task_mode=task_mode)
@@ -365,10 +372,12 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
         if task.state == 'PENDING' or task.state == 'STARTED':
             filter_func(id=obj.id).update_status(status=self.model.RUNNING)
         if task.state == 'SUCCESS':
-            filter_func(id=obj.id).update_status_and_ended_at(status=self.model.SUCCESS)
+            success = self.model.SUCCESS_WARNING if task.result else self.model.SUCCESS
+            filter_func(id=obj.id).update_status_and_ended_at(status=success, error_details=task.result)
             self.message_user(request, f"Successfully {name} 'event_detail_view'")
         if task.state == 'FAILURE':
-            filter_func(id=obj.id).update_status_and_ended_at(status=f'{self.model.FAILED}-{task.info}')
+            error_details = [{f'action to {name}': f'failed with exception {task.info}'}]
+            filter_func(id=obj.id).update_status_and_ended_at(status=self.model.FAILED, error_details=error_details)
             self.message_user(
                 request, f"Failed to {name} 'event_detail_view'", messages.ERROR)
         if task.state == 'RETRY':

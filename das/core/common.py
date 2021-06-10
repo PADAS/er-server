@@ -34,6 +34,11 @@ def submit_row(context):
 
     if ctx['opts'].model_name == 'choice':
         ctx.update({'addchoices': True})
+
+    if ctx['opts'].model_name == 'refreshrecreateeventdetailview':
+        ctx['show_save_and_continue'] = False
+        ctx['show_save'] = False
+        ctx['show_close'] = True
     return ctx
 
 

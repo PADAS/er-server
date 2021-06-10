@@ -124,11 +124,13 @@ class EventDetailViewException(Exception):
 def recreate_event_details_view(self):
     # recreate materialized view for: "event_details_view".
     try:
-        re_create_view()
+        result = re_create_view()
         logger.info(f'Recreate data for event_details_view')
     except Exception as exc:
         logger.exception('Failed to recreate event_details_view.')
         raise EventDetailViewException(exc)
+    else:
+        return result
 
 
 @celery.app.task(base=QueueOnce, bind=True, ignore_result=False, track_started=True)
@@ -136,14 +138,20 @@ def refresh_event_details_view(self, activity):
     # refresh materialized view for: "event_details_view".
     try:
         logger.info(f'Refresh data for event_details_view')
-        refresh_materialized_view()
-        return activity, RefreshRecreateEventDetailView.SUCCESS
+        result = refresh_materialized_view()
     except Exception as e:
         logger.exception('Failed to refresh event_details_view.')
         if activity == 'Celery':
             return activity, f'{RefreshRecreateEventDetailView.FAILED}-{str(e)}'
         else:
             raise EventDetailViewException(e)
+    else:
+        success_state = RefreshRecreateEventDetailView.SUCCESS_WARNING if result else RefreshRecreateEventDetailView.SUCCESS
+        invalid_eventtypes = result if result else '-'
+        if activity == 'Celery':
+            return activity, success_state, invalid_eventtypes
+        else:
+            return result
 
 
 @celery.app.task()
@@ -166,13 +174,14 @@ def refresh_event_details_view_task(activity):
 def update_status_of_event_details_view_refresh(self, activity_and_status):
     logger.info('updating status of event details view refresh: %s',
                 activity_and_status)
-    activity, status = activity_and_status
+    activity, status, error_details = activity_and_status
 
     RefreshRecreateEventDetailView.objects.create(performed_by=activity,
                                                   task_mode='Refresh',
                                                   maintenance_status=status,
                                                   started_at=datetime.now(tz=pytz.utc),
-                                                  ended_at=datetime.now(tz=pytz.utc)
+                                                  ended_at=datetime.now(tz=pytz.utc),
+                                                  error_details=error_details
                                                   )
 
 

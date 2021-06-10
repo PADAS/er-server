@@ -322,13 +322,14 @@ class RefreshRecreateEventDetailViewQuery(models.QuerySet):
     def update_status(self, status):
         self.update(maintenance_status=status)
 
-    def update_status_and_ended_at(self, status):
-        self.update(maintenance_status=status, ended_at=datetime.datetime.now(tz=pytz.utc))
+    def update_status_and_ended_at(self, status, error_details):
+        self.update(maintenance_status=status, ended_at=datetime.datetime.now(tz=pytz.utc), error_details=error_details)
 
 
 
 class RefreshRecreateEventDetailView(models.Model):
     SUCCESS = 'succeeded'
+    SUCCESS_WARNING = 'succeeded-warning'
     FAILED = 'failed'
     REFRESH = 'Refresh'
     RECREATE = 'Recreate'
@@ -343,6 +344,8 @@ class RefreshRecreateEventDetailView(models.Model):
     ended_at = models.DateTimeField(blank=True, null=True)
 
     maintenance_status = models.CharField(max_length=255)
+    error_details = JSONField('error details', default=list, blank=True)
+
 
     objects = RefreshRecreateEventDetailViewQuery.as_manager()
 
