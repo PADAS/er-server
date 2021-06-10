@@ -12,7 +12,9 @@
   })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
 
   ga('create', '{% get_settings_value "GA_MEASUREMENT_ID" %}', 'auto');
-  ga('send', 'pageview');
+  ga('send', 'pageview', {
+  'dimension3':  '{% retrieve_site_name %}'
+});
 </script>
 <!-- End Google Analytics -->
 {% endblock %}
