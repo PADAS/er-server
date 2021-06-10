@@ -13,5 +13,3 @@ def get_settings_value(name):
 @register.simple_tag()
 def retrieve_site_name():
     return get_site_name()
-
-
