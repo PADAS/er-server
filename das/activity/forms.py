@@ -11,6 +11,8 @@ from django.forms import TextInput
 from django.contrib.admin.widgets import FilteredSelectMultiple, AdminSplitDateTime
 from django.contrib.gis import forms as gisforms
 from django.contrib.auth import get_user_model
+from django.template.loader import render_to_string
+
 
 from activity.exceptions import SchemaValidationError, \
     SCHEMA_ERROR_INCORRECT_RENDER_TAG, SCHEMA_ERROR_JSON_DECODE_ERROR
@@ -109,6 +111,15 @@ def validate_schema_is_well_formed(schema):
             validate_rendered_schema_is_wellformed(rendered_schema)
         except SchemaValidationError as e:
             raise forms.ValidationError(str(e))
+
+
+class PrettyReadOnlyJSONWidget(forms.widgets.Widget):
+    def render(self, name, value, attrs=None, renderer=None):
+        return render_to_string('json_readonly.html', {'name': name, 'value': value, 'attrs': attrs})
+
+    class Media:
+        css = {'all': ('css/prism-default.css', 'json_readonly.css')}
+        js = ['js/json_readonly.js', 'js/prism.js']
 
 
 class EventTypeForm(forms.ModelForm):

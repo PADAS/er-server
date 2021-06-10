@@ -130,7 +130,6 @@ def recreate_event_details_view(self):
         logger.exception('Failed to recreate event_details_view.')
         raise EventDetailViewException(exc)
     else:
-        logger.exception(f'The following eventtypes {result} have invalid schema(s).')
         return result
 
 
@@ -147,9 +146,10 @@ def refresh_event_details_view(self, activity):
         else:
             raise EventDetailViewException(e)
     else:
-        result = result if result else '-'
+        success_state = RefreshRecreateEventDetailView.SUCCESS_WARNING if result else RefreshRecreateEventDetailView.SUCCESS
+        invalid_eventtypes = result if result else '-'
         if activity == 'Celery':
-            return activity, RefreshRecreateEventDetailView.SUCCESS, result
+            return activity, success_state, invalid_eventtypes
         else:
             return result
 
