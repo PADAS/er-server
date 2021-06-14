@@ -94,7 +94,7 @@ ROOT_URLCONF = 'das_server.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR, 'das_server'],
+        'DIRS': [BASE_DIR, 'das_server/templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [

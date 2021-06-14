@@ -176,3 +176,7 @@ TABLEAU_DEFAULT_DASHBOARD = env.str('TABLEAU_DEFAULT_DASHBOARD', None)
 # allow to override for testing
 TABLEAU_SITE_ID = env.str('TABLEAU_SITE_ID', None)
 TRACK_LENGTH = env.int('TRACK_LENGTH', 21)
+
+
+# Google Analytics
+GA_MEASUREMENT_ID = env.str('GA_MEASUREMENT_ID', '')
