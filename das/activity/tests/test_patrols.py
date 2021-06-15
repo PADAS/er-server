@@ -13,6 +13,7 @@ from django.utils import lorem_ipsum
 from psycopg2.extras import DateTimeTZRange
 from django.test import Client
 import pytest
+from django.conf import settings
 
 from activity import views
 from activity.models import Patrol, PatrolSegment, PatrolType, StateFilters, Event, EventType, PC_DONE
@@ -26,6 +27,9 @@ User = django.contrib.auth.get_user_model()
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tests')
 STATIC_IMAGE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
                                  "mapping", 'static',)
+
+
+settings.UI_SITE_URL = "https://testing.pamdas.org"
 
 
 def send_task(name, args=(), kwargs={}, **opts):
