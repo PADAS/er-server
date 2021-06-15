@@ -43,6 +43,7 @@ services:
     container_name: redis-test
     environment:
       - FOO=bar
+      - FQDN=testing.pamdas.org
     ports:
       - 6379:6379
     healthcheck:

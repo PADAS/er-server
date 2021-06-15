@@ -29,9 +29,6 @@ STATIC_IMAGE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname
                                  "mapping", 'static',)
 
 
-settings.UI_SITE_URL = "https://testing.pamdas.org"
-
-
 def send_task(name, args=(), kwargs={}, **opts):
     task = app.tasks[name]
     # return task.apply(args, kwargs, **opts)
