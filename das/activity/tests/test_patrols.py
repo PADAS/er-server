@@ -13,7 +13,6 @@ from django.utils import lorem_ipsum
 from psycopg2.extras import DateTimeTZRange
 from django.test import Client
 import pytest
-from django.conf import settings
 
 from activity import views
 from activity.models import Patrol, PatrolSegment, PatrolType, StateFilters, Event, EventType, PC_DONE
@@ -1638,7 +1637,6 @@ def test_patrol_admin_page(django_assert_max_num_queries, client):
     user_const = dict(last_name='last', first_name='first')
     user = User.objects.create_user('user', 'user@test.com', 'all_perms_user', is_superuser=True,
                                     is_staff=True, **user_const)
-
 
     client.force_login(user)
     url = reverse('admin:activity_patrol_changelist')
