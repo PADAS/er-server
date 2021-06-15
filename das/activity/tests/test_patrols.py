@@ -1639,6 +1639,7 @@ def test_patrol_admin_page(django_assert_max_num_queries, client):
     user = User.objects.create_user('user', 'user@test.com', 'all_perms_user', is_superuser=True,
                                     is_staff=True, **user_const)
 
+
     client.force_login(user)
     url = reverse('admin:activity_patrol_changelist')
     with django_assert_max_num_queries(15):

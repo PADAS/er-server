@@ -11,6 +11,8 @@ services:
       - DB_USER=testuser
       - DB_PASSWORD=fancypassword
       - DB_PORT=5432
+      - FQDN=testing.pamdas.org
+
     links:
       - dbserver
       - redis
@@ -43,7 +45,6 @@ services:
     container_name: redis-test
     environment:
       - FOO=bar
-      - FQDN=testing.pamdas.org
     ports:
       - 6379:6379
     healthcheck:
