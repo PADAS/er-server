@@ -68,6 +68,6 @@ resource "template_dir" "deployments" {
     TRACK_LENGTH                    = var.track_length
     USE_AZURE_STORAGE               = var.use_azure_storage
     WEB_SERVICE_NAME                = var.web_service_name
-
+    GA_MEASUREMENT_ID               = data.vault_generic_secret.ga_measurement_id.data.ga_measurement_id
   }
 }
