@@ -122,6 +122,7 @@ class TestMaterializedView(BaseAPITest):
                     "behavior_choice": {"type": "string", "title": "name and value test"},
                     "behavior": {"type": "array", "title": "array test"},
                     "sample_attr": {"type": "string", "title": "name and value test"}},
+                    "$schema": "http://json-schema.org/draft-04/schema#",
                 },
             "definition": ["behavior_choice", "sample_attr"]
             })
