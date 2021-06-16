@@ -64,6 +64,7 @@ locals {
     "hello-asia"             = "prod-asia"
     "indalo"                 = "prod1"
     "kafueccigri"            = "prod1"
+    "kalahari"               = "prod1"
     "kariega"                = "prod1"
     "karingani"              = "prod1"
     "karuk"                  = "prod1"
@@ -261,6 +262,7 @@ locals {
     "lope"                  = 1
     "kidepovalley"          = 1
     "moroccoreintroduction" = 1
+    "kalahari"              = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
