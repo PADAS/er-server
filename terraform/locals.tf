@@ -169,6 +169,7 @@ locals {
     "wisentproject"          = "prod1"
     "wwfkenya"               = "prod1"
     "zakouma"                = "prod1"
+    "zambezedelta"           = "prod1"
     "zinnshoek"              = "prod1"
   }
 
@@ -263,6 +264,7 @@ locals {
     "kidepovalley"          = 1
     "moroccoreintroduction" = 1
     "kalahari"              = 1
+    "zambezedelta"          = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
