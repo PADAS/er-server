@@ -138,6 +138,7 @@ locals {
     "sabisands"              = "prod1"
     "sawc"                   = "prod1"
     "sca"                    = "prod1"
+    "sebakwe"                = "prod1"
     "selati"                 = "prod1"
     "serengeti"              = "prod1"
     "snowleopardtrust"       = "prod-asia"
@@ -265,6 +266,7 @@ locals {
     "moroccoreintroduction" = 1
     "kalahari"              = 1
     "zambezedelta"          = 1
+    "sebakwe"               = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
