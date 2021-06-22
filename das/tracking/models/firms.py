@@ -46,10 +46,9 @@ additional_fields = ('bright_ti4', 'bright_ti5', 'scan', 'track', 'satellite',
                      'confidence', 'version', 'frp', 'daynight')
 
 # Data from https file:
-#field_names = ('latitude', 'longitude', 'bright_ti4', 'scan', 'track', 'acq_date', 'acq_time',
-               # 'satellite', 'confidence', 'version', 'bright_ti5', 'frp', 'daynight')
-#29.07484,19.06227,338.1,0.43,0.46,2019-01-11,00:00,N,nominal,1.0NRT,281.5,1.9,N
-
+# field_names = ('latitude', 'longitude', 'bright_ti4', 'scan', 'track', 'acq_date', 'acq_time',
+# 'satellite', 'confidence', 'version', 'bright_ti5', 'frp', 'daynight')
+# 29.07484,19.06227,338.1,0.43,0.46,2019-01-11,00:00,N,nominal,1.0NRT,281.5,1.9,N
 
 
 FIRMS_FTP_REGIONS = (
@@ -100,18 +99,22 @@ class FirmsClient:
                     elem = elem.strip(' ')
                     if elem.startswith('filename='):
                         _, previous_filename = elem.split('=', maxsplit=1)
-                        last_dateindex = previous_filename.split('.', maxsplit=1)[0].split('_')[-1]
+                        last_dateindex = previous_filename.split('.', maxsplit=1)[
+                            0].split('_')[-1]
                         last_dateindex = int(last_dateindex)
                         return last_dateindex
                 except (AttributeError, KeyError, IndexError):
                     # Swallow the exceptions. Let caller assume we weren't able to resolve the date.
-                    logger.warning('Failed parsing headers for extracting data index for headers: %s', from_headers)
+                    logger.warning(
+                        'Failed parsing headers for extracting data index for headers: %s', from_headers)
 
     def calculate_valid_date_indexes(self, stored_headers=None):
         # Resolve one or more date-index values to process
         todays_index = self.calculate_date_index()
-        yesterdays_index = self.calculate_date_index(from_date=(datetime.now(tz=pytz.utc) - timedelta(days=1)))
-        stored_dateindex = self.extract_date_index(stored_headers) if stored_headers else 0
+        yesterdays_index = self.calculate_date_index(
+            from_date=(datetime.now(tz=pytz.utc) - timedelta(days=1)))
+        stored_dateindex = self.extract_date_index(
+            stored_headers) if stored_headers else 0
 
         process_these = []
 
@@ -138,11 +141,13 @@ class FirmsClient:
         If stored_headers is None, this function will start by downloading
         "today's" latest file.
         '''
-        process_these = self.calculate_valid_date_indexes(stored_headers=stored_headers)
+        process_these = self.calculate_valid_date_indexes(
+            stored_headers=stored_headers)
 
         for date_index, headers in process_these:
             # Caller will use last_storable_headers at the end of processing (to save its place).
-            data, self.last_storable_headers = self.fetch_new_day_records(date_index, stored_headers=headers)
+            data, self.last_storable_headers = self.fetch_new_day_records(
+                date_index, stored_headers=headers)
             yield from data
 
     def fetch_new_day_records(self, date_index, stored_headers=None):
@@ -172,7 +177,8 @@ class FirmsClient:
         request_headers = self.add_auth_header(request_headers)
         data = requests.get(url, headers=request_headers)
 
-        logger.info('Handling new FIRMS response.', extra={'url': url, 'status_code': data.status_code})
+        logger.info('Handling new FIRMS response.', extra={
+                    'url': url, 'status_code': data.status_code})
 
         # 200 or 206: read all data
         # 206: Last-modified date should reflect resource
@@ -181,16 +187,19 @@ class FirmsClient:
         # 404 Not Found: Assume the file does not yet exist.
         # 416 (Range unsatisfiable): log error message
         if data.status_code in (304, 404, 416):
-            logger.info('No new FIRMS data available.', extra={'url': url, 'status_code': data.status_code})
+            logger.info('No new FIRMS data available.', extra={
+                        'url': url, 'status_code': data.status_code})
             return list(), None
 
         if data.status_code in (200, 206):
-            storable_headers = dict((k.lower(), v) for k, v in data.headers.items())
+            storable_headers = dict((k.lower(), v)
+                                    for k, v in data.headers.items())
 
             # Adjust the Content-Length to account for offset, so caller may use it in the future as
             # if it was a complete download.
             if data.status_code == 206:
-                storable_headers['content-length'] = offset + int(storable_headers['content-length'])
+                storable_headers['content-length'] = offset + \
+                    int(storable_headers['content-length'])
 
             # Return a generator and a header dict that the caller may choose to cache.
             return self.generate_records(data.text.split('\n')), storable_headers
@@ -198,7 +207,6 @@ class FirmsClient:
         logger.warning('Unexpected response from FIRMS web service..', extra={'url': url,
                                                                               'status_code': data.status_code})
         return [], None
-
 
     @staticmethod
     def generate_records(lines):
@@ -210,7 +218,8 @@ class FirmsClient:
             try:
                 vals = [f(v) for f, v in zip(field_transform, s.split(','))]
             except ValueError as ve:
-                logger.error('Failed parsing FIRMS line "%s".', extra={'ValueError': ve})
+                logger.error('Failed parsing FIRMS line "%s".',
+                             extra={'ValueError': ve})
             else:
                 rec = dict(list(zip(field_names, vals)))
 
@@ -229,7 +238,7 @@ class FirmsPlugin(TrackingPlugin):
 
     app_key_help_text = '''You'll need an App Key in order to get data from NASA's EarthData website. 
     Visit https://nrt4.modaps.eosdis.nasa.gov/, create a Profile, and generate an App Key (available in the Profile menu).'''
-    app_key = models.CharField(max_length=50,
+    app_key = models.CharField(max_length=1024,
                                blank=True,
                                help_text=app_key_help_text)
 
@@ -318,12 +327,15 @@ class FirmsPlugin(TrackingPlugin):
             'confidence_alert_levels', self.DEFAULT_CONFIDENCE_ALERT_LEVELS)
 
         try:
-            alert_window = dateparse.parse_duration(self.additional.get('alert_window'))
+            alert_window = dateparse.parse_duration(
+                self.additional.get('alert_window'))
             alert_window_start_time = datetime.now(tz=pytz.utc) - alert_window
         except:
-            alert_window_start_time = datetime.now(tz=pytz.utc) - self.DEFAULT_ALERT_WINDOW
+            alert_window_start_time = datetime.now(
+                tz=pytz.utc) - self.DEFAULT_ALERT_WINDOW
 
-        self.client = FirmsClient(region=self.firms_region_name, auth_token=self.app_key)
+        self.client = FirmsClient(
+            region=self.firms_region_name, auth_token=self.app_key)
 
         sourceplugin = self.get_sourceplugin()
         source = sourceplugin.source
