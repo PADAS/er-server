@@ -265,11 +265,13 @@ class EventType(TimestampedModel):
     is_collection = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     auto_resolve = models.BooleanField(default=False)
-    resolve_time = models.PositiveSmallIntegerField(blank=True, null=True)  # Specify integer of hour(s).
+    # Specify integer of hour(s).
+    resolve_time = models.PositiveSmallIntegerField(blank=True, null=True)
 
     class Meta:
         constraints = [models.CheckConstraint(check=Q(auto_resolve=False, resolve_time__isnull=True) |
-                                                    Q(auto_resolve=True, resolve_time__isnull=False),
+                                              Q(auto_resolve=True,
+                                                resolve_time__isnull=False),
                                               name='auto_resolve_constraint')]
 
     objects = EventTypeManager.from_queryset(EventTypeFilteringQuerySet)()
@@ -323,8 +325,8 @@ class RefreshRecreateEventDetailViewQuery(models.QuerySet):
         self.update(maintenance_status=status)
 
     def update_status_and_ended_at(self, status, error_details):
-        self.update(maintenance_status=status, ended_at=datetime.datetime.now(tz=pytz.utc), error_details=error_details)
-
+        self.update(maintenance_status=status, ended_at=datetime.datetime.now(
+            tz=pytz.utc), error_details=error_details)
 
 
 class RefreshRecreateEventDetailView(models.Model):
@@ -339,13 +341,13 @@ class RefreshRecreateEventDetailView(models.Model):
                  (RECREATE, 'recreate')]
 
     performed_by = models.CharField(blank=True, null=True, max_length=255)
-    task_mode = models.CharField(blank=True, null=True, max_length=255, choices=TASK_MODE)
+    task_mode = models.CharField(
+        blank=True, null=True, max_length=255, choices=TASK_MODE)
     started_at = models.DateTimeField(blank=True, null=True)
     ended_at = models.DateTimeField(blank=True, null=True)
 
     maintenance_status = models.CharField(max_length=255)
     error_details = JSONField('error details', default=list, blank=True)
-
 
     objects = RefreshRecreateEventDetailViewQuery.as_manager()
 
@@ -503,7 +505,6 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             return self.filter(updated_at__lte=upper)
 
 
-
 class EventManager(models.Manager):
     def create_event(self, **values):
         patrol_segments = values.pop('patrol_segments', None)
@@ -511,6 +512,19 @@ class EventManager(models.Manager):
         if patrol_segments:
             event.patrol_segments.set(patrol_segments)
         return event
+
+    def get_reported_by(self, user=None):
+        """Yield a tuple that is the provenance, users
+
+        Args:
+            user ([type], optional): user to authenticate against. Defaults to None.
+        """
+        for p in Event.PROVENANCE_CHOICES:
+            provenance = p[0]
+            values = list(
+                self.get_reported_by_for_provenance(
+                    provenance, user))
+            yield (provenance, values)
 
     def get_reported_by_for_provenance(self, provenance, user=None):
         if Event.PC_STAFF == provenance:
@@ -1825,7 +1839,6 @@ class PatrolSegmentManager(models.Manager):
                 yield sub[1]
 
 
-
 class PatrolSegmentRevisionAdapter(RevisionAdapter):
 
     def get_serialized_data_diff(self, obj, original):
@@ -1893,7 +1906,8 @@ class PatrolSegment(TimestampedModel, RevisionMixin):
 
 class PatrolConfiguration(SingletonModel):
     name = models.CharField(max_length=255)
-    subject_groups = models.ManyToManyField(SubjectGroup, related_name='groups', blank=True)
+    subject_groups = models.ManyToManyField(
+        SubjectGroup, related_name='groups', blank=True)
 
 
 # class PatrolTemplate(models.Model):

@@ -146,6 +146,11 @@ class EventJSONSchema(BaseMetadata):
         ChoiceField: 'string',
 
     })
+
+    ignore_choices_lookup = ClassLookupDict({
+        rest_framework.serializers.ManyRelatedField: True
+    })
+
     schema = {
         '$schema': 'http://json-schema.org/draft-04/schema#',
         'type': 'object',
@@ -222,6 +227,12 @@ class EventJSONSchema(BaseMetadata):
                     field.field_name, type(field)))
             return None
 
+        ignore_choices = False
+        try:
+            ignore_choices = self.ignore_choices_lookup[field]
+        except KeyError:
+            pass
+
         field_info['required'] = getattr(field, 'required', False)
 
         attr_map = {
@@ -235,7 +246,7 @@ class EventJSONSchema(BaseMetadata):
             if value is not None and value != '':
                 field_info[dest_key] = value
 
-        if not field_info.get('read_only'):
+        if not field_info.get('read_only') and not ignore_choices:
             if hasattr(field, 'object_choices'):
                 object_choices = field.object_choices
                 if isinstance(object_choices, dict):
@@ -418,7 +429,8 @@ class EventCategorySerializer(rest_framework.serializers.ModelSerializer):
         # If we know the user requesting the category, include their permissions
         # for that category
         request = self.context.get('request', None)
-        user, method = getattr(request, 'user', None), getattr(request, 'method', None)
+        user, method = getattr(request, 'user', None), getattr(
+            request, 'method', None)
         if user is not None and method == 'GET':
             rep['permissions'] = get_allowed_actions_for_category(
                 user, rep['value'])
