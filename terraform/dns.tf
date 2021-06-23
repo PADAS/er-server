@@ -12,6 +12,9 @@ locals {
     "wildhorizons"           = "victoriafalls"
     "westernsiempang"        = "spws"
     "abokouamekro"           = "elephants-ci"
+    "tsavo-east"             = "tsavo"
+    "sca"                    = "southern"
+    "tca"                    = "tca-archive"
   }
 
   subdomain_name = lookup(local.alt_subdomains, terraform.workspace, kubernetes_namespace.this.metadata.0.name)
