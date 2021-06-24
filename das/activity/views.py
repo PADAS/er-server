@@ -17,6 +17,7 @@ import rest_framework.exceptions
 import versatileimagefield.files
 from django.conf import settings
 from django.contrib.postgres.aggregates import StringAgg, ArrayAgg
+from django.contrib.auth import get_user_model
 from django.db import transaction, IntegrityError
 from django.db.models import CharField, Value
 from django.db.models import Prefetch, F, Count, Max
@@ -39,7 +40,6 @@ import accounts.models
 import accounts.serializers
 import utils
 import utils.schema_utils as schema_utils
-from accounts.models import User
 from activity.filters import EventObjectPermissionsFilter
 from activity.models import Event, EventNote, EventClass, \
     EventFactor, EventClassFactor, EventType, EventRelationship, EventCategory, \
@@ -67,6 +67,7 @@ from activity.util import get_permitted_event_categories, return_409_response
 
 logger = logging.getLogger(__name__)
 
+User = get_user_model()
 LAST_DAYS = timedelta(days=3)
 
 USERCONTENT_FORCE_DOWNLOAD = getattr(settings, 'USERCONTENT_SETTINGS', {}).get(
@@ -74,11 +75,24 @@ USERCONTENT_FORCE_DOWNLOAD = getattr(settings, 'USERCONTENT_SETTINGS', {}).get(
 
 
 def calculate_event_schema_etag(view_instance, view_method, request, *args, **kwargs):
-    latest_et_update = view_instance.queryset.aggregate(
+    user = request.user
+    latest_et_update = Event.objects.all().aggregate(
         Max('event_type__updated_at')).get("event_type__updated_at__max")
-    latest_choice_update = view_instance.choices.aggregate(
+
+    latest_choice_update = Choice.objects.all().aggregate(
         Max('updated_at')).get("updated_at__max")
-    all_updates = str(latest_et_update) + str(latest_choice_update)
+
+    latest_reported_by_list = []
+    for providence, people in Event.objects.get_reported_by(user):
+        if people:
+            for person in people:
+                latest_reported_by_list.append((person.first_name, person.last_name) if isinstance(
+                    person, User) else person.updated_at)
+
+    latest_reported_by_count = len(latest_reported_by_list)
+
+    all_updates = str(latest_et_update) + str(latest_choice_update) + \
+        str(latest_reported_by_count) + str(latest_reported_by_list)
     return str(hash(all_updates))
 
 
@@ -931,7 +945,8 @@ class EventsView(generics.ListCreateAPIView):
         queryset = queryset.prefetch_related(Prefetch('out_relationships'))
         queryset = queryset.prefetch_related(Prefetch('patrol_segments'))
 
-        queryset = queryset.annotate(patrol_ids=ArrayAgg('patrol_segments__patrol_id'))
+        queryset = queryset.annotate(
+            patrol_ids=ArrayAgg('patrol_segments__patrol_id'))
 
         if parse_bool(query_params.get('include_notes', False)):
             queryset = queryset.prefetch_related(Prefetch('notes'))
@@ -999,7 +1014,8 @@ class EventView(generics.RetrieveUpdateDestroyAPIView):
             except:
                 logger.warning('Invalid filter expression %s', event_filter)
 
-        queryset = queryset.annotate(patrol_ids=ArrayAgg('patrol_segments__patrol_id'))
+        queryset = queryset.annotate(
+            patrol_ids=ArrayAgg('patrol_segments__patrol_id'))
         return queryset
 
 

@@ -688,6 +688,7 @@ class TestEventView(BaseAPITest):
         response_data = response.data
         self.assertEqual(response.status_code, 200)
         self.assertIn('provenance', response_data['properties'])
+        assert 'enum' not in response_data['properties']['patrol_segments']
 
     def test_event_feed(self):
         request = self.factory.get(self.api_base + '/events')
@@ -1277,7 +1278,7 @@ class TestEventView(BaseAPITest):
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data)
-        
+
     def test_export_filter_on_incident_associated_reports(self):
         incident_data = copy.deepcopy(self.event_data)
         incident_data['event_type'] = 'incident_collection'
