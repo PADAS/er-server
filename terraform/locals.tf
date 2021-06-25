@@ -114,6 +114,7 @@ locals {
     "niassawcs"              = "prod1"
     "nkomazi"                = "prod1"
     "nkhotakota"             = "prod1"
+    "northern"               = "prod1"
     "northluangwa"           = "prod1"
     "nsumbu"                 = "prod1"
     "nyungwe"                = "prod1"
