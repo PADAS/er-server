@@ -150,6 +150,7 @@ locals {
     "ste"                    = "prod1"
     "tapirreserve"           = "prod1"
     "tca"                    = "prod1"
+    "tikkihywood"            = "prod1"
     "timbavati"              = "prod1"
     "thabatholo"             = "prod1"
     "thornybush"             = "prod1"
