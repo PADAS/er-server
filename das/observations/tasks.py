@@ -15,7 +15,7 @@ from django.utils.translation import gettext as _
 from observations import servicesutils
 from observations.materialized_views import patrols_view
 from observations.models import (GPXTrackFile, Observation, Source,
-                                 SourceProvider, Subject, SubjectStatus)
+                                 SourceProvider, Subject, SubjectStatus, Announcement)
 from observations.serializers import ObservationSerializer
 from observations.utils import dateparse
 from observations.message_adapters import _handle_outbox_message
@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 
 @celery.app.task()
 def store_and_forward_service_status(provider_key=None, data=None):
-
     data = data or {}
     servicesutils.store_service_status(provider_key=provider_key, data=data)
 
@@ -39,7 +38,6 @@ def maintain_subjectstatus_all():
 
 @celery.app.task(base=QueueOnce, once={'graceful': True, })
 def maintain_subjectstatus_for_subject(subject_id, notify=False):
-
     SubjectStatus.objects.maintain_subject_status(subject_id)
 
     if notify:
@@ -149,9 +147,9 @@ def process_trackpoints(source, source_id, trkpoints, file_name):
         list_gpx_datetime = [dateparse(trkp.get('time')) for trkp in trkpoints]
     except TypeError:
         error_msg = _('Points are missing timestamps in GPX file %s') % (
-            file_name, )
+            file_name,)
     except Exception as exc:
-        error_msg = _('Invalid timestamp, %s') % (exc, )
+        error_msg = _('Invalid timestamp, %s') % (exc,)
 
     if error_msg:
         return None, error_msg
@@ -269,3 +267,54 @@ def _refresh_patrols_view():
 @celery.app.task(base=QueueOnce, once={'graceful': True})
 def handle_outbox_message(message_id, user_email):
     _handle_outbox_message(message_id, user_email)
+
+
+@celery.app.task(base=QueueOnce, once={'graceful': True})
+def poll_news_gcs_bucket():
+    """poll record topics from GCS bucket"""
+
+    from google.cloud import storage
+    from google.api_core import exceptions
+    from pathlib import Path
+    import shutil
+
+    directory = 'notifications'
+
+    source_file_name = f'{directory}/topic_feeds.json'
+    blob_name = 'topic_feeds.json'
+    bucket_name = 'er_notifications'
+
+    try:
+        storage_client = storage.Client()
+    except exceptions.GoogleAPIError:
+        return
+
+    try:
+        bucket = storage_client.get_bucket(bucket_name)
+    except exceptions.GoogleAPIError:
+        return
+
+    Path(directory).mkdir(parents=True, exist_ok=True)
+
+    blob = bucket.blob(blob_name)
+    with open(source_file_name, 'wb') as f:
+        storage_client.download_blob_to_file(blob, f)
+
+    with open(source_file_name, 'r') as content_file:
+        announcement = json.loads(content_file.read())
+
+    for post in announcement['topic_list']['topics']:
+        # ignore announcement that is already in db:
+
+        if not Announcement.objects.filter(description__id=post['id']).exists():
+            Announcement.objects.create(title=post['title'],
+                                        description=dict(slug=post["slug"],
+                                                         id=post['id'],
+                                                         fancy_title=post["fancy_title"],
+                                                         created_at=post["created_at"],
+                                                         category_id=post["category_id"],
+                                                         last_poster_username=post["last_poster_username"]
+                                                         ),
+                                        link=f"https://community.earthranger.com/t/{post['id']}",
+                                        )
+    shutil.rmtree(directory)

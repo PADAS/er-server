@@ -840,3 +840,22 @@ class MessageSerializer(BaseSerializer, TimestampMixin):
 
     def create(self, validated_data):
         return models.Message.objects.create(**validated_data)
+
+
+class AnnouncementSerializer(BaseSerializer):
+    id = rest_framework.serializers.UUIDField(read_only=True)
+    title = rest_framework.serializers.CharField(allow_null=True, required=False, max_length=255)
+    description = text_field(required=False, allow_blank=True, allow_null=True)
+    link = rest_framework.serializers.URLField(allow_null=True)
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        request = self.context.get('request')
+        if request:
+            rep['read'] = request.user in instance.related_users.all()
+        return rep
+
+
+class ReadAnnouncementSerializer(rest_framework.serializers.Serializer):
+    announcement_ids = rest_framework.serializers.ListField(child=rest_framework.serializers.UUIDField(), required=True)
+

@@ -95,6 +95,13 @@ def start(realtime_server):
         celery.app.send_task(
             'rt_api.tasks.handle_delete_message', args=(data['message_id'],))
 
+    def new_announcement_handler(data, message):
+        logger.debug(
+            'new_announcement_handler. data=%s, message=%s', data, message)
+        celery.app.send_task(
+            'rt_api.tasks.handle_new_announcement', args=(data['announcement_id'],))
+
+
     def pubsub_listener():
 
         logger.info('Starting pubsub listener')
@@ -139,6 +146,11 @@ def start(realtime_server):
                 'routing_key': 'das.message.delete',
                 'callback': delete_message_handler,
             },
+            {
+                'routing_key': 'das.announcement.new',
+                'callback': new_announcement_handler,
+            },
+
         ]
         for subscription in subscriptions:
             subscription['name'] = 'rt_api.{0}'.format(

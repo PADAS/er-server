@@ -18,7 +18,7 @@ from accounts.models import PermissionSet
 from das_server import pubsub
 from observations.servicesutils import SOURCE_PROVIDER_2WAY_MSG_KEY
 from observations.models import Observation, Subject, SubjectSource, SubjectStatus, SubjectGroup, Message, \
-    SourceProvider
+    SourceProvider, Announcement
 
 logger = logging.getLogger(__name__)
 
@@ -163,3 +163,13 @@ def message_post_delete(sender, instance, **kwargs):
     logger.info("delete message {}".format(instance.pk))
     transaction.on_commit(lambda: pubsub.publish(
         {'message_id': str(instance.pk)}, 'das.message.delete'))
+
+
+@receiver(post_save, sender=Announcement)
+def news_post_save(sender, instance, created, **kwargs):
+    if created:
+        logger.info("saved announcement {}, created={}".format(
+            instance.pk, str(created)))
+        action = 'das.announcement.new'
+        transaction.on_commit(lambda: pubsub.publish(
+            {'announcement_id': str(instance.pk)}, action))

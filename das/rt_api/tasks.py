@@ -25,14 +25,14 @@ from observations.views import SubjectTracksView, SubjectStatusView, Observation
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from uuid import UUID
 from rt_api import client
-from observations.serializers import MessageSerializer
+from observations.serializers import MessageSerializer, AnnouncementSerializer
 
 from utils.stats import update_gauge
 
 from activity.serializers import EventSerializer
 from activity.serializers.patrol_serializers import PatrolSerializer
 
-from observations.models import SocketClient, Message
+from observations.models import SocketClient, Message, Announcement
 
 
 logger = logging.getLogger(__name__)
@@ -475,6 +475,41 @@ def _radio_message_handler(object_id, action='radio_message'):
         close_old_connections()
 
 
+def _announcement_handler(object_id, action):
+    try:
+        logger.debug('Processing type=%s on message=%s', action, object_id)
+
+        user_sids_map = get_username_sids_map()
+        logger.debug('user_sids_map: %s', user_sids_map)
+
+        for username, user_sids in user_sids_map.items():
+            user = get_sid_user(username, user_sids)
+            if not user:
+                continue
+
+            request = DummyRequest(user=user, http_method='GET', query_parameters={})
+            request = Request(request)  # Wrap in DRF Request
+
+            for sid in user_sids:
+                try:
+                    instance = Announcement.objects.get(id=object_id)
+                except Announcement.DoesNotExist:
+                    logger.warning('Announcement with this id: %s not found in the database.')
+                else:
+                    message_data = AnnouncementSerializer(instance, context={
+                        'request': request}).data
+                    emit_data = get_emit_data(
+                        type=action,
+                        sid=sid,
+                        object_id=object_id,
+                        data={'type': action, 'data': message_data})
+
+                    logger.debug('Publish das.realtime.emit.  data=%s', emit_data)
+                    pubsub.publish(json.dumps(emit_data, default=dumps_helper), 'das.realtime.emit')
+    finally:
+        close_old_connections()
+
+
 @celery.app.task()
 def handle_new_patrol(patrol_id):
     logger.info('Celery worker handling new patrol_id: %s',
@@ -516,6 +551,12 @@ def handle_delete_message(message_id):
                 extra={'rt.message': 'delete_message'})
     _radio_message_handler(message_id, 'delete_message')
 
+
+@celery.app.task()
+def handle_new_announcement(announcement_id):
+    logger.info(f'Celery worker handling new announcement id: {announcement_id}',
+                extra={'rt.message': 'new_announcement'})
+    _announcement_handler(announcement_id, 'new_announcement')
 
 @celery.app.task()
 def handle_emit_data(event_id):

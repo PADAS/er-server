@@ -44,6 +44,10 @@ def delete_message_handler(body, message):
     logger.info('Heard a delete-message id: %s', body.get('message_id'))
 
 
+def new_announcement_handler(body, message):
+    logger.info('Heard a new message id: %s', body.get('announcement_id'))
+
+
 # Define the mapping between routing_keys and callbacks
 # This will get picked up in pubsub.start_message_queue_listeners
 PUBSUB_SUBSCRIPTIONS = (
@@ -70,4 +74,7 @@ PUBSUB_SUBSCRIPTIONS = (
     ('das.message.delete', delete_message_handler,
      'das_server.{0}'.format(delete_message_handler.__name__)),
 
+    # announcement subscriptions
+    ('das.announcement.new', new_announcement_handler,
+     'das_server.{0}'.format(new_announcement_handler.__name__)),
 )

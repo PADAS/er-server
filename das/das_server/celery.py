@@ -155,6 +155,10 @@ app.conf.beat_schedule = {
         'task': 'observations.tasks.refresh_patrols_view',
         'schedule': timedelta(hours=getattr(settings, 'PATROL_VIEW_REFRESH_HOURS', 1))
     },
+    'poll_news_gcs_bucket': {
+        'task': 'observations.tasks.poll_news_gcs_bucket',
+        'schedule': timedelta(hours=1)
+    },
 
 }
 
