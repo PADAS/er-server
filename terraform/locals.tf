@@ -74,6 +74,7 @@ locals {
     "koro"                   = "prod1"
     "kubeyini"               = "prod1"
     "lalibela"               = "prod1"
+    "lam-rhesusmacaques"     = "prod1"
     "lapalala"               = "prod1"
     "lewa"                   = "prod1"
     "lionalert"              = "prod1"
