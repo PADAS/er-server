@@ -11,7 +11,7 @@ from django.apps import apps
 from django.template import Template, Context
 from django.template.base import VariableNode, TextNode
 
-from activity.exceptions import SchemaValidationError, \
+from activity.exceptions import SchemaValidationError, UnmappableFormKeyError, \
     SCHEMA_ERROR_EMPTY_PROPERTY, SCHEMA_ERROR_MISSING_DOLLAR_SIGN_SCHEMA
 from choices.models import Choice, DynamicChoice
 from utils.memoize import memoize
@@ -651,9 +651,10 @@ def validate_rendered_schema_is_wellformed(rendered_schema: dict):
 
     schema_keyset = set(properties.keys())
 
-    extra_keys_in_definition = definition_keyset - schema_keyset
+    # Ignore blank or None keys in form definition.
+    extra_keys_in_definition = definition_keyset - schema_keyset - {'', None}
     if len(extra_keys_in_definition) > 0:
-        raise SchemaValidationError(
+        raise UnmappableFormKeyError(
             f'Form definition keys {repr(extra_keys_in_definition)} are not present in the schema definition')
 
 

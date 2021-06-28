@@ -1,4 +1,6 @@
 import json
+import logging
+
 from activity.models import EventType
 from utils import schema_utils
 
@@ -8,6 +10,8 @@ cursor = connection.cursor()
 table_name = 'event_details_view'
 
 invalid_eventtypes = []
+
+logger = logging.getLogger(__name__)
 
 
 def load_schema():
@@ -25,12 +29,21 @@ def load_schema():
         else:
             try:
                 schema_utils.validate_rendered_schema_is_wellformed(rendered_schema)
+            except schema_utils.UnmappableFormKeyError as e:
+                # Only warn when we hit form validation errors -- It's not critical for
+                # rendering the event details view.
+                logger.warning('EventType %s includes unmappable form key. ex=%s',
+                               extra={'event_type': et.value, 'warning': 'unmappable form field'})
             except schema_utils.SchemaValidationError as exc:
                 invalid_eventtypes.append({f'EventType {et.display}': f'failed with exception {exc}'})
             else:
                 schema_accumulator[et.value] = rendered_schema
     return schema_accumulator
 
+
+CREATE_EVENT_DETAILS_VIEW_INDEX_SQL = '''
+CREATE UNIQUE INDEX IF NOT EXISTS event_details_view_index ON event_details_view (event_id);
+'''
 
 def generate_DDL():
     lines = []
@@ -47,8 +60,7 @@ def generate_DDL():
     lines.append(' from activity_eventdetails ed ')
     lines.append(' join activity_event e on e.id = ed.event_id ')
     lines.append(' join activity_eventtype et on et.id = e.event_type_id; ')
-    # lines.append(' with no data ')
-    lines.append('\n CREATE UNIQUE INDEX event_details_view_index ON event_details_view (event_id);')
+    lines.append(CREATE_EVENT_DETAILS_VIEW_INDEX_SQL)
     return lines
 
 

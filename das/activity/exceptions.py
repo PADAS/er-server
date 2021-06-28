@@ -12,3 +12,6 @@ SCHEMA_ERROR_MISSING_DOLLAR_SIGN_SCHEMA = _('schema must contain the "$schema" k
 
 class SchemaValidationError(Exception):
     pass
+
+class UnmappableFormKeyError(SchemaValidationError):
+    pass
