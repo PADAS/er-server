@@ -103,9 +103,8 @@ def run_source_plugin(self, source_plugin_id):
     except DasPluginSourceRetryError as ex:
         logger.debug('Retry plugin {} for source {} after {}'.format(sp, sp.source, ex.retry_seconds))
         self.retry(countdown=ex.retry_seconds)
-
-    logger.debug('Finished running plugin {} for source {} with result.count={}'.format(
-        sp, sp.source, result.count))
+    else:
+        logger.debug('Finished running plugin {} for source {} with result.count={}'.format(sp, sp.source, result.count))
 
 
 @celery.app.task(bind=True)

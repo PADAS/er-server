@@ -101,17 +101,15 @@ class VectronicsPlugin(TrackingPlugin):
                 yield observations
             if not dry_run and observations:
                 for observation in observations:
-                    fix_time = self.parse_date(observation.get(
-                        'acquisitionTime'))
-                    if fix_time < after_date:
-                        continue
+                    scts = self.parse_date(observation.get('scts'))  # service-center timestamp
+
                     obs = self._transform_to_observation(source, observation)
                     if obs:
                         yield obs
 
                     # keep track of latest timestamp.
-                    latest_timestamp = (max(latest_timestamp, fix_time) if
-                                        latest_timestamp else fix_time)
+                    latest_timestamp = (max(latest_timestamp, scts) if
+                                        latest_timestamp else scts)
         except Exception as e:
             self.logger.error(e)
 
