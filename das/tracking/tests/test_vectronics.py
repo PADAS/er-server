@@ -1,10 +1,15 @@
 from django.test import TestCase
 from django.contrib.contenttypes.models import ContentType
 from django.apps import apps
+from unittest.mock import patch, Mock
 from tracking.models import VectronicsPlugin, SourcePlugin
 from observations.models import Source, SourceProvider, Subject, SubjectType, \
-    SubjectSubType, SubjectSource
+    SubjectSubType, SubjectSource, Observation
 from tracking.tasks import run_source_plugin
+from .vectronic_sample_data import positions
+import json
+import requests
+from mockredis import mock_redis_client
 
 
 class VectronicsPluginTest(TestCase):
@@ -56,3 +61,23 @@ class VectronicsPluginTest(TestCase):
             else:
                 plugin.execute()
         self.assertTrue(len(self.henry.observations()) > 0)
+
+    @patch('requests.get')
+    def test_DAS_6875_bug(self, mock_request):
+        """https://vulcan.atlassian.net/browse/DAS-6875"""
+        Observation.objects.all().delete()
+        mock_request.return_value = Mock(status_code=200, text=json.dumps(positions))
+        cursor_data = {'latest_timestamp': '2021-06-28T10:00:39+00:00'}
+
+        SourcePlugin.objects.update(cursor_data=cursor_data)
+        plugin_class = apps.get_model('tracking', 'VectronicsPlugin')
+
+        for plugin in plugin_class.objects.all():
+            if plugin.run_source_plugins:
+                for sp in plugin.source_plugins.filter(status='enabled'):
+                    if sp.should_run():
+                        run_source_plugin(sp.id)
+            else:
+                plugin.execute()
+
+        self.assertTrue(len(self.henry.observations()) == 12)
