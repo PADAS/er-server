@@ -627,8 +627,8 @@ class SubjectSource(models.Model):
         elif isinstance(self.assigned_range, (list, tuple, set)) and len(self.assigned_range) == 2:
             lower, upper = self.assigned_range
         elif hasattr(self.assigned_range, 'lower') and hasattr(self.assigned_range, 'upper'):
-            lower = self.assigned_range.lower
-            upper = self.assigned_range.upper
+            lower = self.assigned_range.lower.replace(tzinfo=pytz.utc)
+            upper = self.assigned_range.upper.replace(tzinfo=pytz.utc)
 
         lower = lower or pytz.utc.localize(datetime.min)
         upper = upper or pytz.utc.localize(datetime.max)

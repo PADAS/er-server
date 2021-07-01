@@ -3,7 +3,8 @@ import logging
 import re
 import random
 import pytz
-from datetime import datetime, timedelta
+
+from datetime import datetime, timedelta, MINYEAR, MAXYEAR
 
 from django.utils.translation import ugettext_lazy as _
 from django.utils.dateparse import parse_duration
