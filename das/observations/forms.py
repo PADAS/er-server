@@ -26,6 +26,13 @@ from observations.message_adapters import ADAPTER_MAPPING
 logger = logging.getLogger(__name__)
 
 
+def validate_assigned_range(value):
+    lower, upper = value
+    if lower and upper:
+        if lower > upper:
+            raise forms.ValidationError(_('range lower bound must be less than or equal to range upper bound'))
+
+
 class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
 
     '''
@@ -64,7 +71,7 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
                   'additional') + json_fields
 
     assigned_range = AssignedDateTimeRangeField(
-        label=f'Assigned Range in {TIMEZONE_USED}')
+        label=f'Assigned Range in {TIMEZONE_USED}', required=True, validators=[validate_assigned_range])
 
     # For JSONFieldFormMixin -- this identifies the Model attribute that is
     # the JSON Field.
