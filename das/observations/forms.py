@@ -4,7 +4,7 @@ import re
 import random
 import pytz
 
-from datetime import datetime, timedelta, MINYEAR, MAXYEAR
+from datetime import datetime, timedelta
 
 from django.utils.translation import ugettext_lazy as _
 from django.utils.dateparse import parse_duration
