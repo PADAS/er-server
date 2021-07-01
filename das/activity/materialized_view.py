@@ -121,6 +121,7 @@ def re_create_view():
 def refresh_materialized_view():
     if check_db_view_exists():
         cursor = _cursor()
+        cursor.execute(CREATE_EVENT_DETAILS_VIEW_INDEX_SQL)
         cursor.execute(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {table_name}")
     else:
         execute_DDL()
