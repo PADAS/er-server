@@ -53,7 +53,7 @@ from accounts.models import PermissionSet
 from core.models import HierarchyManager, HierarchyModel, TimestampedModel
 from core.utils import static_image_finder
 from observations.mixins import FilterMixin
-from observations.utils import calculate_track_range, get_minimum_allowed_age, get_cyclic_subjectgroup
+from observations.utils import calculate_track_range, get_minimum_allowed_age, get_cyclic_subjectgroup, naive_datetime_to_utc
 from bitfield import BitField
 
 
@@ -627,8 +627,8 @@ class SubjectSource(models.Model):
         elif isinstance(self.assigned_range, (list, tuple, set)) and len(self.assigned_range) == 2:
             lower, upper = self.assigned_range
         elif hasattr(self.assigned_range, 'lower') and hasattr(self.assigned_range, 'upper'):
-            lower = self.assigned_range.lower.replace(tzinfo=pytz.utc)
-            upper = self.assigned_range.upper.replace(tzinfo=pytz.utc)
+            lower = naive_datetime_to_utc(self.assigned_range.lower)
+            upper = naive_datetime_to_utc(self.assigned_range.upper)
 
         lower = lower or pytz.utc.localize(datetime.min)
         upper = upper or pytz.utc.localize(datetime.max)

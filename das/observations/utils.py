@@ -234,6 +234,10 @@ def get_chunk_file(file, chunksize=5120):
     return iter(lambda: file.read(chunksize), b'')
 
 
+def naive_datetime_to_utc(dt):
+    return dt if dt.tzinfo else dt.replace(tzinfo=pytz.utc)
+
+
 def get_cyclic_subjectgroup():
     with connection.cursor() as cursor:
         cursor.execute("""
