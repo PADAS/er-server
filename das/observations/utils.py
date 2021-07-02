@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import dateutil.parser
 import pytz
@@ -234,8 +234,11 @@ def get_chunk_file(file, chunksize=5120):
     return iter(lambda: file.read(chunksize), b'')
 
 
-def naive_datetime_to_utc(dt):
-    return dt if dt.tzinfo else dt.replace(tzinfo=pytz.utc)
+def ensure_timezone_aware(dt: datetime, default_timezone: timezone=pytz.utc):
+    if dt is None:
+        return dt
+
+    return dt if dt.tzinfo else dt.replace(tzinfo=default_timezone)
 
 
 def get_cyclic_subjectgroup():
