@@ -11,11 +11,15 @@
         </tr>
         <tr>
             <td>From in {{ timezone }}:</td>
+            {% if item.assigned_range.lower %}
             <td>{{ item.assigned_range.lower.strftime('%Y-%m-%d %H:%M:%SZ') }}</td>
+            {% endif  %}
         </tr>
         <tr>
             <td>To in {{ timezone }}:</td>
+            {% if item.assigned_range.upper %}
             <td>{{ item.assigned_range.upper.strftime('%Y-%m-%d %H:%M:%SZ') }}</td>
+            {% endif %}
         </tr>
     </table>
 </div>
