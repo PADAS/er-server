@@ -1881,6 +1881,10 @@ class Message(TimestampedModel):
         ordering = ('-message_time', )
 
 
+class AnnouncementManager(models.Manager):
+    pass
+
+
 class AnnouncementFilteringQuerySet(models.QuerySet, FilterMixin):
 
     def by_read(self, state, user):
@@ -1894,4 +1898,4 @@ class Announcement(TimestampedModel):
     title = models.CharField(null=True, max_length=255)
     description = JSONField(null=True, blank=True, default=dict)
     link = models.URLField(verbose_name="Link to topic", null=True)
-    objects = MessagesManager.from_queryset(MessageFilteringQuerySet)()
+    objects = AnnouncementManager.from_queryset(AnnouncementFilteringQuerySet)()

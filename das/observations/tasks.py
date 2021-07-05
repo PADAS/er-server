@@ -1,24 +1,26 @@
 import json
 import logging
-import os
+import tempfile
 from datetime import datetime, timedelta
 
 import pytz
 import xmltodict
 from celery_once import QueueOnce
-from das_server import celery, pubsub
 from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
 from django.db.models import F
 from django.utils.translation import gettext as _
+from google.api_core import exceptions
+from google.cloud import storage
 
+from das_server import celery, pubsub
 from observations import servicesutils
 from observations.materialized_views import patrols_view
+from observations.message_adapters import _handle_outbox_message
 from observations.models import (GPXTrackFile, Observation, Source,
                                  SourceProvider, Subject, SubjectStatus, Announcement)
 from observations.serializers import ObservationSerializer
 from observations.utils import dateparse
-from observations.message_adapters import _handle_outbox_message
 
 logger = logging.getLogger(__name__)
 
@@ -273,14 +275,6 @@ def handle_outbox_message(message_id, user_email):
 def poll_news_gcs_bucket():
     """poll record topics from GCS bucket"""
 
-    from google.cloud import storage
-    from google.api_core import exceptions
-    from pathlib import Path
-    import shutil
-
-    directory = 'notifications'
-
-    source_file_name = f'{directory}/topic_feeds.json'
     blob_name = 'topic_feeds.json'
     bucket_name = 'er_notifications'
 
@@ -294,14 +288,13 @@ def poll_news_gcs_bucket():
     except exceptions.GoogleAPIError:
         return
 
-    Path(directory).mkdir(parents=True, exist_ok=True)
-
-    blob = bucket.blob(blob_name)
-    with open(source_file_name, 'wb') as f:
+    with tempfile.NamedTemporaryFile(delete=False) as f:
+        blob = bucket.blob(blob_name)
         storage_client.download_blob_to_file(blob, f)
+        f.flush()
+        f.seek(0)
 
-    with open(source_file_name, 'r') as content_file:
-        announcement = json.loads(content_file.read())
+        announcement = json.loads(f.read())
 
     for post in announcement['topic_list']['topics']:
         # ignore announcement that is already in db:
@@ -317,4 +310,3 @@ def poll_news_gcs_bucket():
                                                          ),
                                         link=f"https://community.earthranger.com/t/{post['id']}",
                                         )
-    shutil.rmtree(directory)

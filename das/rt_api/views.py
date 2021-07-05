@@ -168,7 +168,7 @@ def create_realtime_handler(sios):
         supported_message_types = ['new_event', 'update_event', 'delete_event',
                                    'count_event', 'service_status', 'subject_status',
                                    'new_patrol', 'update_patrol', 'delete_patrol', 'subject_track_merge',
-                                   'radio_message', 'delete_message']
+                                   'radio_message', 'delete_message', 'new_announcement']
 
         do_not_trace_these_types = ['service_status', ]
 
