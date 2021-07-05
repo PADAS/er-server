@@ -235,3 +235,6 @@ infra-automation/.vulcan/workspaces
 terraform/tokens.auto.tfvars
 
 typings
+node_modules
+
+locust.env
