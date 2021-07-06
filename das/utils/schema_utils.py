@@ -445,7 +445,7 @@ def get_rendered_schema(schema):
     return rendered_schema['schema']
 
 
-def get_all_fields(schema):
+def get_all_fields(schema, return_keys=True):
     try:
         template = Template(schema)
 
@@ -461,7 +461,7 @@ def get_all_fields(schema):
         else:
             schema_json = json.loads(schema)
 
-        return schema_json['schema']['properties'].keys()
+        return schema_json['schema']['properties'].keys() if return_keys else schema_json
     except Exception as ex:
         logger.error("Error rendering schema with empty data", ex)
         return []
