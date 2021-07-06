@@ -3290,6 +3290,7 @@ class TestEventView(BaseAPITest):
             event_details.data["event_details"]["wildlifesightingrep_species"][0], str)
 
 
+
 class TestParsing(TestCase):
 
     def test_dates(self):
