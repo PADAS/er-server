@@ -157,7 +157,7 @@ app.conf.beat_schedule = {
     },
     'poll_news_gcs_bucket': {
         'task': 'observations.tasks.poll_news_gcs_bucket',
-        'schedule': timedelta(hours=1)
+        'schedule': timedelta(minutes=5)
     },
 
 }
