@@ -286,7 +286,7 @@ def poll_news_gcs_bucket():
     try:
         bucket = storage_client.get_bucket(bucket_name)
     except exceptions.GoogleAPIError as exc:
-        logger.exception(f"{exc}")
+        logger.info(f"Error occured when getting bucket {bucket_name} -> {exc}")
         return
 
     with tempfile.NamedTemporaryFile(delete=False) as f:
@@ -296,6 +296,8 @@ def poll_news_gcs_bucket():
         f.seek(0)
 
         announcement = json.loads(f.read())
+
+    logger.info(f"Announcements data from gcs {announcement}")
 
     for post in announcement['topic_list']['topics']:
         # ignore announcement that is already in db:
