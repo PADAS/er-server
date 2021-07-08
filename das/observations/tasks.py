@@ -311,3 +311,4 @@ def poll_news_gcs_bucket():
                                                          ),
                                         link=f"https://community.earthranger.com/t/{post['id']}",
                                         )
+
