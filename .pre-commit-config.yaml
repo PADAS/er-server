@@ -6,7 +6,6 @@ repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v3.4.0  # Use the ref you want to point at
     hooks:
-    -   id: check-added-large-files
     -   id: check-merge-conflict
     -   id: debug-statements
     -   id: end-of-file-fixer

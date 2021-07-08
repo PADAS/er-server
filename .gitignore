@@ -217,7 +217,6 @@ Pipfile.lock
 das/das_server/.env
 
 *tar.gz*
-GDAL*
 
 # Rendered terraform templates
 templated-deployment/rendered
@@ -235,3 +234,6 @@ infra-automation/.vulcan/workspaces
 terraform/tokens.auto.tfvars
 
 typings
+node_modules
+
+locust.env

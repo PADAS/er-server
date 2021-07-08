@@ -21,9 +21,9 @@ RUN apt-get install -y \
 WORKDIR /workspace
 
 ADD ./dependencies /workspace/dependencies
-RUN dpkg -i --force-all /workspace/dependencies/gdal_2.2.3-1_cp36_amd64.deb
-RUN dpkg -i --force-all /workspace/dependencies/geos_3.6.2-1_cp36_amd64.deb
-RUN dpkg -i --force-all /workspace/dependencies/proj_4.9.3-1_cp36_amd64.deb
+RUN dpkg -i --force-all /workspace/dependencies/gdal_3.2.3-1_cp36_amd64.deb
+RUN dpkg -i --force-all /workspace/dependencies/geos_3.9.1-1_cp36_amd64.deb
+RUN dpkg -i --force-all /workspace/dependencies/proj_7.2.1-1_cp36_amd64.deb
 ENV LD_LIBRARY_PATH "/usr/local/lib"
 
 RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -

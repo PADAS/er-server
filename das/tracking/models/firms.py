@@ -1,23 +1,21 @@
 from datetime import datetime, timedelta
+import logging
 
+from shapely.ops import unary_union
 from django.contrib.gis.geos import Polygon, MultiPolygon
 from dateutil.parser import parse as parse_date
-
 import pytz
-import logging
 import requests
 from django.db import transaction
 from django.contrib.gis.db import models
 from django.contrib.contenttypes.models import ContentType
 from django.utils import dateparse
-
 from django.contrib.gis.geos import Point
 from django.utils.translation import ugettext_lazy as _
 from django.contrib.contenttypes.fields import GenericRelation
 
 from activity.models import Event, EventType, EventDetails
 from mapping.models import SpatialFeatureGroupStatic
-
 from tracking.models.plugin_base import Obs, TrackingPlugin, DasFireEventTarget, SourcePlugin
 from observations.models import Source
 
@@ -263,10 +261,14 @@ class FirmsPlugin(TrackingPlugin):
     def run_source_plugins(self):
         return False
 
+    def __init__(self, *args, **kwargs):
+        self.logger = logging.getLogger(self.__class__.__name__)
+        super().__init__(*args, **kwargs)
+
     def execute(self):
 
-        logger.info('Running FIRMS Plugin. region-name=%s',
-                    self.firms_region_name)
+        self.logger.info('Running FIRMS Plugin. region-name=%s',
+                         self.firms_region_name)
         with DasFireEventTarget() as t:
             for observation in self.fetch():
                 t.send(observation)
@@ -293,26 +295,16 @@ class FirmsPlugin(TrackingPlugin):
                                                                    plugin_type=plugin_type)
         return sourceplugin
 
+    @staticmethod
+    def union_geofilterfeatures(geometries):
+        return unary_union(geometries)
+
     def fetch(self):
-
-        self.logger = logging.getLogger(self.__class__.__name__)
-
         if self.spatial_feature_group:
             features = self.spatial_feature_group.features.all()
-
-            # self._geo_filter = MultiPolygon(
-            #     [f.feature_geometry for f in features]
-            # )
-
-            geometries = [f.feature_geometry for f in features]
-            polyunion = geometries[0]
-            for geom in geometries[1:]:
-                polyunion = polyunion.union(geom)
-
-            self._geo_filter = polyunion
-
+            self._geo_filter = self.union_features(
+                [f.feature_geometry for f in features])
             logger.debug('Geometry union = %s', self._geo_filter)
-
         else:
             raise ValueError(
                 'Stubbornly refusing to allow no geo filter on FIRMS data ingestion.')

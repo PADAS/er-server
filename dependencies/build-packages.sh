@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # build in a docker container
-    # docker run -it -w="/workspace" -v /c/projects/das/das/dependencies/:/workspace ubuntu:17.10 bash
+    # docker run -it -w="/workspace" -v ~/projects/das/das/dependencies/:/workspace ubuntu:18.04 bash
 
 apt-get update -y
 apt-get install -y build-essential \
@@ -12,13 +12,17 @@ apt-get install -y build-essential \
                  zip \
                  checkinstall \
                  python3-dev \
-                 wget
+                 wget \
+                 pkg-config \
+                 libtiff5-dev \
+                 libcurl4-openssl-dev \
+                 sqlite3 libsqlite3-dev \
 
 
-wget http://download.osgeo.org/geos/geos-3.6.2.tar.bz2; tar -xjf geos-3.6.2.tar.bz2
-cd geos-3.6.2
+wget http://download.osgeo.org/geos/geos-3.9.1.tar.bz2; tar -xjf geos-3.9.1.tar.bz2
+cd geos-3.9.1
 
-# It's likely this 3.6.2 version of geos will report an invalid version. 
+# It's likely this 3.9.1 version of geos will report an invalid version. 
 # So before running make, fix the GEOSversion function.
 #
 # Ex. In file capi/geos_ts_c.cpp, edit this:
@@ -33,20 +37,20 @@ sed -i -e 's/return version/return GEOS_CAPI_VERSION/' capi/geos_ts_c.cpp
 
 ./configure; make; checkinstall -y;
 cd ..
-cp geos-3.6.2/geos_3.6.2-1_amd64.deb ./geos_3.6.2-1_cp36_amd64.deb
-#rm -rf geos-3.6.2
+cp geos-3.9.1/geos_3.9.1-1_amd64.deb ./geos_3.9.1-1_cp36_amd64.deb
+#rm -rf geos-3.9.1
 ldconfig
 
-wget http://download.osgeo.org/proj/proj-4.9.3.tar.gz; tar -xzvf proj-4.9.3.tar.gz; cd proj-4.9.3; ./configure --prefix=/usr; make; checkinstall -y;
+wget http://download.osgeo.org/proj/proj-7.2.1.tar.gz; tar -xzvf proj-7.2.1.tar.gz; cd proj-7.2.1; ./configure --prefix=/usr; make; checkinstall -y;
 cd ..
-cp proj-4.9.3/proj_4.9.3-1_amd64.deb ./proj_4.9.3-1_cp36_amd64.deb
-#rm -rf proj-4.9.3
+cp proj-7.2.1/proj_7.2.1-1_amd64.deb ./proj_7.2.1-1_cp36_amd64.deb
+#rm -rf proj-7.2.1
 ldconfig
 
-wget http://download.osgeo.org/gdal/2.2.3/gdal-2.2.3.tar.gz; tar -xzvf gdal-2.2.3.tar.gz; cd gdal-2.2.3; ./configure --prefix=/usr --with-python=/usr/bin/python3 --with-geos=/usr/local/bin/geos-config --with-static-proj4=/usr/lib/libproj.a; make; checkinstall -y;
+wget http://download.osgeo.org/gdal/3.2.3/gdal-3.2.3.tar.gz; tar -xzvf gdal-3.2.3.tar.gz; cd gdal-3.2.3; ./configure --prefix=/usr --with-python=/usr/bin/python3 --with-geos=/usr/local/bin/geos-config --with-proj=/usr; make; checkinstall -y;
 cd ..
-cp gdal-2.2.3/gdal_2.2.3-1_amd64.deb ./gdal_2.2.3-1_cp36_amd64.deb
-#rm -rf gdal-2.2.3
+cp gdal-3.2.3/gdal_3.2.3-1_amd64.deb ./gdal_3.2.3-1_cp36_amd64.deb
+#rm -rf gdal-3.2.3
 
 # RUN if [ ! -e /usr/lib/libproj.so ]; then \
 #   cd /opt; wget http://download.osgeo.org/proj/proj-4.9.2.tar.gz; tar -xzvf proj-4.9.2.tar.gz; cd proj-4.9.2; ./configure --prefix=/usr; make; make install; fi
