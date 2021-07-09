@@ -3320,8 +3320,8 @@ class TestEventView(BaseAPITest):
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
-        expected_result = {'event_details': {'wildlifesightingrep_species': [{'name': 'Buffalo', 'value': 'buffalo'}],
-                                             'wildlifesightingrep_collared': [{'name': 'Yes', 'value': 'yes'}],
+        expected_result = {'event_details': {'wildlifesightingrep_species': ['buffalo'],
+                                             'wildlifesightingrep_collared': ['yes'],
                                              'wildlifesightingrep_numberanimals': '2'}}
 
         actual_result = Event.objects.get(id=response.data.get('id')).event_details.first()

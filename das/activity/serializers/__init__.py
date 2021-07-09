@@ -766,15 +766,6 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
                     value=new_event_type)
         return event_type
 
-    @staticmethod
-    def _map_to_property(raw_schema, json_schema, parameters):
-        for key, value in schema_utils.map_schema(raw_schema, json_schema).items():
-            if key in parameters:
-                continue
-            field_name = value['field_name']
-            parameters[key] = parameters[field_name]
-            del parameters[field_name]
-        return parameters
 
     def get_schema_fields_possible_values(self, schema):
         replacement_fields = schema_utils.get_replacement_fields_in_schema(
@@ -796,9 +787,7 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
                 parameters[replacement_field['field']] = schema_utils.get_table_choices(
                     replacement_field, as_string=False)
 
-        json_schema = schema_utils.get_all_fields(schema, return_keys=False)
-        all_schema_fields = json_schema['schema']['properties'].keys()
-        parameters = self._map_to_property(schema, json_schema, parameters)
+        all_schema_fields = schema_utils.get_all_fields(schema)
         return all_schema_fields, parameters
 
     def _to_internal_value_inner(self, instance, data):
@@ -841,8 +830,7 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
                         if isinstance(d, dict) and d['value'] == value:
                             matches.append(d)
                         elif value == d:
-                            matches.append(
-                                {"name": parameters[k][value], "value": value})
+                            matches.append(value)
 
                     if len(matches) > 0:
                         all_values.append(matches[0])

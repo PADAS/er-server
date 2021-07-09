@@ -445,23 +445,9 @@ def get_rendered_schema(schema):
     return rendered_schema['schema']
 
 
-def get_all_fields(schema, return_keys=True):
+def get_all_fields(schema):
     try:
-        template = Template(schema)
-
-        empty_params = {}
-        for node in template.nodelist:
-            if type(node) is VariableNode:
-                empty_params[node.token.contents] = []
-
-        if len(empty_params) > 0:
-            rendered_schema = template.render(
-                Context(empty_params, autoescape=False))
-            schema_json = json.loads(rendered_schema)
-        else:
-            schema_json = json.loads(schema)
-
-        return schema_json['schema']['properties'].keys() if return_keys else schema_json
+        return get_rendered_schema(schema)['properties'].keys()
     except Exception as ex:
         logger.error("Error rendering schema with empty data", ex)
         return []
