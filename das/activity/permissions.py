@@ -91,11 +91,12 @@ class EventCategoryPermissions(IsAuthenticated):
                 raise ProgrammingError(exc)
 
             else:
-                s1 = Subject.objects.by_user_subjects(request.user).values_list('id', flat=True)
-                s2 = obj.related_subjects.values_list('id', flat=True)
-                s3 = set(s2) <= set(s1)
-                permission_name = permission_fmt.format(value, EventCategoryPermissions.http_method_map[request.method])
-                return request.user.has_perm(permission_name) and s3
+                s1 = obj.related_subjects.values_list('id', flat=True)
+                if s1:
+                    s2 = Subject.objects.by_user_subjects(request.user).values_list('id', flat=True)
+                    s3 = set(s1) <= set(s2)
+                    permission_name = permission_fmt.format(value, EventCategoryPermissions.http_method_map[request.method])
+                    return request.user.has_perm(permission_name) and s3
 
         permission_name = permission_fmt.format(value, EventCategoryPermissions.http_method_map[request.method])
         return request.user.has_perm(permission_name)
