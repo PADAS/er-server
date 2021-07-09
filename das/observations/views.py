@@ -1950,3 +1950,26 @@ def get_user_messages(user):
     messages = models.Message.objects.filter(
         Q(sender_id__in=user_subject_ids) | Q(receiver_id__in=user_subject_ids))
     return messages
+
+
+class AnnouncementsView(generics.ListCreateAPIView):
+    serializer_class = serializers.AnnouncementSerializer
+
+    def get_queryset(self):
+        queryset = models.Announcement.objects.all()
+
+        query_params = self.request.query_params
+        read = query_params.get('read')
+        user = self.request.user
+
+        if read is not None:
+            queryset = queryset.by_read(parse_bool(read), user)
+        return queryset
+
+    def post(self, request, *args, **kwargs):
+        serializer = serializers.ReadAnnouncementSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        queryset = models.Announcement.objects.filter(pk__in=serializer.data.get('announcement_ids'))
+        [q.related_users.add(request.user) for q in queryset]
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
