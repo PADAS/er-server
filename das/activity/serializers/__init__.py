@@ -1240,7 +1240,7 @@ class OptimizedEventRelationshipSerializer(EventRelationshipSerializer):
                 related_event = instance.from_event
 
             rep['related_event'] = PatrolSegmentEventSerializer(instance=related_event, many=False,
-                                                                context={'include_related_events': False}).data
+                                                                context={'include_related_events': False, 'request': request}).data
             return rep
 
 

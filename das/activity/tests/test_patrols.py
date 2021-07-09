@@ -12,10 +12,11 @@ from django.urls import reverse
 from django.utils import lorem_ipsum
 from psycopg2.extras import DateTimeTZRange
 from django.test import Client
+from drf_extra_fields.geo_fields import PointField
 import pytest
 
 from activity import views
-from activity.models import Patrol, PatrolSegment, PatrolType, StateFilters, Event, EventType, PC_DONE
+from activity.models import Patrol, PatrolSegment, PatrolType, StateFilters, Event, EventType, PC_DONE, EventRelationship
 from core.tests import BaseAPITest
 from observations.models import Subject
 from das_server.celery import app
@@ -39,6 +40,7 @@ class TestPatrol(BaseAPITest):
     def setUp(self):
         super().setUp()
         call_command('loaddata', 'test_patroltype')
+        call_command('loaddata', 'event_data_model')
 
         user_const = dict(last_name='last', first_name='first')
         self.user = User.objects.create_superuser(
@@ -1239,6 +1241,10 @@ class TestPatrol(BaseAPITest):
         event_data = dict(
             title="Test Event",
             event_type=et.value,
+            location={
+                "longitude": -122.3607072,
+                "latitude": 47.681731199999994
+            },
             patrol_segments=[segment_id]
 
         )
@@ -1251,21 +1257,19 @@ class TestPatrol(BaseAPITest):
         self.assertTrue(str(segment_id) in str(
             response.data.get('patrol_segments')))
 
-        event_data2 = dict(
-            title="Test Event2",
-            event_type=et.value,
-            patrol_segments=[segment_id]
+        location = PointField().to_internal_value({
+            "longitude": -122.3607072,
+            "latitude": 47.681731199999994
+        })
+        collection_et = EventType.objects.get_by_value('incident_collection')
+        event_collection = Event.objects.create(
+            title="incident_collection_event", event_type=collection_et)
+        event_child = Event.objects.create(
+            title="Event_A", event_type=et, location=location)
+        EventRelationship.objects.add_relationship(
+            event_collection, event_child, 'contains')
 
-        )
-        events_url = reverse('events')
-        request = self.factory.post(events_url, event_data2)
-        self.force_authenticate(request, self.user)
-
-        response = views.EventsView.as_view()(request)
-        self.assertEqual(response.status_code, 201)
-        self.assertTrue(str(segment_id) in str(
-            response.data.get('patrol_segments')))
-        self.assertTrue(response.data.get('patrols'))
+        PatrolSegment.objects.get(id=segment_id).events.add(event_collection)
 
         # View reports from segment
         url = reverse('patrol-segment', kwargs={'id': segment_id})
@@ -1276,7 +1280,7 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.data.get('updates')[
                          0].get('message'), 'Report Added')
         self.assertEqual(response.data.get('updates')[
-                         1].get('message'), 'Report Added')
+                         1].get('message'), 'Incident Collection Added')
 
     def test_add_patrol_segment_to_report(self):
         patrol = Patrol.objects.create(title="My Glorius Patrol")
