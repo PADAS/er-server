@@ -3269,10 +3269,13 @@ class TestEventView(BaseAPITest):
         self.assertEqual(state, 'resolved')
 
     def test_post_with_checkboxes(self):
-
+        schema = schema_examples.WILDLIFE_SCHEMA_CHECKBOX
+        event_type = self.sample_event.event_type
+        event_type.schema = schema
+        event_type.save()
         data = json.loads(
-            "{\"event_type\":\"wildlife_checkboxes_rep\",\"priority\":0,\"time\":\"2021-06-05T19:26:32.985Z\",\"event_details\":{\"wildlifesightingrep_species\":[\"bongo\"],\"wildlifesightingrep_numberanimals\":1,\"wildlifesightingrep_collared\":[\"no\"],\"wildlifesightingrep_comments\":\"Some Comments\"}}")
-
+            "{\"priority\":0,\"time\":\"2021-06-05T19:26:32.985Z\",\"event_details\":{\"wildlifesightingrep_species\":[\"bongo\"],\"wildlifesightingrep_numberanimals\":1,\"wildlifesightingrep_collared\":[\"no\"],\"wildlifesightingrep_comments\":\"Some Comments\"}}")
+        data["event_type"] = event_type.value
         request = self.factory.post(self.api_base + '/events/', data)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
