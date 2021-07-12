@@ -40,6 +40,7 @@ locals {
     "csl"                    = "prod1"
     "damai"                  = "prod-asia"
     "daxiangling"            = "prod-asia"
+    "defensores"             = "prod1"
     "degrees51"              = "prod1"
     "desertlion"             = "prod1"
     "dinokeng"               = "prod1"
@@ -270,6 +271,7 @@ locals {
     "kalahari"              = 1
     "zambezedelta"          = 1
     "sebakwe"               = 1
+    "defensores"            = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
