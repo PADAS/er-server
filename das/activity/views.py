@@ -938,9 +938,6 @@ class EventsView(generics.ListCreateAPIView):
         else:
             return queryset.none()
 
-        # return queryset that has subject_related None or subject they have access to.
-        # subject user has perm to view.
-
         subjects = Subject.objects.by_user_subjects(self.request.user).values_list('id', flat=True)
         queryset = queryset.filter(Q(related_subjects__in=list(subjects)) | Q(related_subjects__isnull=True))
 
