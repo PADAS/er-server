@@ -857,5 +857,5 @@ class AnnouncementSerializer(BaseSerializer):
 
 
 class ReadAnnouncementSerializer(rest_framework.serializers.Serializer):
-    announcement_ids = rest_framework.serializers.ListField(child=rest_framework.serializers.UUIDField(), required=True)
+    news_ids = rest_framework.serializers.ListField(child=rest_framework.serializers.UUIDField(), required=True)
 
