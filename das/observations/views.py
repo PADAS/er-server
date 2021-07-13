@@ -1959,17 +1959,21 @@ class AnnouncementsView(generics.ListCreateAPIView):
         queryset = models.Announcement.objects.all()
 
         query_params = self.request.query_params
+        is_read = query_params.get('is_read')
         read = query_params.get('read')
+
         user = self.request.user
 
-        if read is not None:
-            queryset = queryset.by_read(parse_bool(read), user)
+        if is_read is not None:
+            queryset = queryset.by_read(parse_bool(is_read), user)
+
+        if read:
+            data = dict(news_ids=[x.strip() for x in read.split(',')])
+            serializer = serializers.ReadAnnouncementSerializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            queryset = models.Announcement.objects.filter(pk__in=serializer.data.get('news_ids'))
+            [q.related_users.add(user) for q in queryset]
+
         return queryset
 
-    def post(self, request, *args, **kwargs):
-        serializer = serializers.ReadAnnouncementSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        queryset = models.Announcement.objects.filter(pk__in=serializer.data.get('announcement_ids'))
-        [q.related_users.add(request.user) for q in queryset]
-        return Response(serializer.data, status=status.HTTP_200_OK)
 

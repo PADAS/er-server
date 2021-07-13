@@ -41,10 +41,15 @@ class AnnouncementTestCase(BaseAPITest):
 
     def test_api_to_mark_topic_read(self):
         url = reverse('news-view')
-        data = {'announcement_ids': list(Announcement.objects.values_list('id', flat=True))}
-        request = self.factory.post(url, data=data)
+        ids = ''
+        for i in list(Announcement.objects.values_list('id', flat=True)):
+            ids += f'{i},'
+
+        url += f'?read={ids[:-1]}'
+        request = self.factory.get(url)
         self.force_authenticate(request, self.app_user)
         response = AnnouncementsView.as_view()(request)
+        assert response.status_code == 200
 
         url = reverse('news-view')
         request = self.factory.get(url)
