@@ -939,7 +939,7 @@ class EventsView(generics.ListCreateAPIView):
             return queryset.none()
 
         subjects = Subject.objects.by_user_subjects(self.request.user).values_list('id', flat=True)
-        queryset = queryset.filter(Q(related_subjects__in=list(subjects)) | Q(related_subjects__isnull=True))
+        queryset = queryset.filter(Q(related_subjects__isnull=True) | Q(related_subjects__in=list(subjects)))
 
         queryset = queryset.prefetch_related(Prefetch('related_subjects'))
         queryset = queryset.prefetch_related(Prefetch('event_type'))

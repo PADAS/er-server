@@ -80,6 +80,7 @@ class EventCategoryPermissions(IsAuthenticated):
 
     def has_object_permission(self, request, view, obj):
         permission_fmt = 'activity.{0}_{1}'
+        is_subject = True
         if isinstance(obj, EventCategory):
             value = obj.value
         elif isinstance(obj, EventType):
@@ -91,15 +92,13 @@ class EventCategoryPermissions(IsAuthenticated):
                 raise ProgrammingError(exc)
 
             else:
-                s1 = obj.related_subjects.values_list('id', flat=True)
-                if s1:
-                    s2 = Subject.objects.by_user_subjects(request.user).values_list('id', flat=True)
-                    s3 = set(s1) <= set(s2)
-                    permission_name = permission_fmt.format(value, EventCategoryPermissions.http_method_map[request.method])
-                    return request.user.has_perm(permission_name) and s3
+                event_subjects = obj.related_subjects.values_list('id', flat=True)
+                if event_subjects:
+                    user_subjects = Subject.objects.by_user_subjects(request.user).values_list('id', flat=True)
+                    is_subject = set(event_subjects) <= set(user_subjects)
 
         permission_name = permission_fmt.format(value, EventCategoryPermissions.http_method_map[request.method])
-        return request.user.has_perm(permission_name)
+        return request.user.has_perm(permission_name) and is_subject
 
 
 class EventCategoryObjectPermissions(DjangoObjectPermissions):
