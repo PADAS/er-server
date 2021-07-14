@@ -8,6 +8,8 @@ from .testdata.sample_topics import announcement
 User = django.contrib.auth.get_user_model()
 
 
+
+
 class AnnouncementTestCase(BaseAPITest):
 
     def setUp(self):
@@ -18,16 +20,19 @@ class AnnouncementTestCase(BaseAPITest):
                                                         email="super@user.com")
 
         for post in announcement['topic_list']['topics']:
+            # ignore announcement that is already in db:
+
+            # if not Announcement.objects.filter(description__id=post['id']).exists():
             Announcement.objects.create(title=post['title'],
-                                            description=dict(slug=post["slug"],
-                                                             id=post['id'],
-                                                             fancy_title=post["fancy_title"],
-                                                             created_at=post["created_at"],
-                                                             category_id=post["category_id"],
-                                                             last_poster_username=post["last_poster_username"]
-                                                             ),
-                                            link=f"https://community.earthranger.com/t/{post['id']}",
-                                            )
+                                        description=post['cooked'],
+                                        additional=dict(slug=post["slug"],
+                                                        id=post['id'],
+                                                        fancy_title=post["fancy_title"],
+                                                        created_at=post["created_at"],
+                                                        category_id=post["category_id"],
+                                                        last_poster_username=post["last_poster_username"]
+                                                        ),
+                                        link=f"https://community.earthranger.com/t/{post['id']}")
 
     def test_api_to_get_news(self):
         url = reverse('news-view')
@@ -35,7 +40,7 @@ class AnnouncementTestCase(BaseAPITest):
         self.force_authenticate(request, self.app_user)
         response = AnnouncementsView.as_view()(request)
         assert response.status_code == 200
-        assert len(response.data) == 5
+        assert len(response.data) == 6
 
         Announcement.objects.create(title='example', link='https://earthranger.com')
 
@@ -46,7 +51,7 @@ class AnnouncementTestCase(BaseAPITest):
             ids += f'{i},'
 
         url += f'?read={ids[:-1]}'
-        request = self.factory.get(url)
+        request = self.factory.post(url)
         self.force_authenticate(request, self.app_user)
         response = AnnouncementsView.as_view()(request)
         assert response.status_code == 200

@@ -304,13 +304,13 @@ def poll_news_gcs_bucket():
 
         if not Announcement.objects.filter(description__id=post['id']).exists():
             Announcement.objects.create(title=post['title'],
-                                        description=dict(slug=post["slug"],
-                                                         id=post['id'],
-                                                         fancy_title=post["fancy_title"],
-                                                         created_at=post["created_at"],
-                                                         category_id=post["category_id"],
-                                                         last_poster_username=post["last_poster_username"]
-                                                         ),
+                                        description=post['cooked'],
+                                        additional=dict(slug=post["slug"],
+                                                        id=post['id'],
+                                                        fancy_title=post["fancy_title"],
+                                                        created_at=post["created_at"],
+                                                        category_id=post["category_id"],
+                                                        last_poster_username=post["last_poster_username"]
+                                                        ),
                                         link=f"https://community.earthranger.com/t/{post['id']}",
                                         )
-

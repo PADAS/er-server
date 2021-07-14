@@ -1896,6 +1896,7 @@ class Announcement(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     related_users = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True)
     title = models.CharField(null=True, max_length=255)
-    description = JSONField(null=True, blank=True, default=dict)
+    description = models.TextField(null=True)
+    additional = JSONField(null=True, blank=True, default=dict)
     link = models.URLField(verbose_name="Link to topic", null=True)
     objects = AnnouncementManager.from_queryset(AnnouncementFilteringQuerySet)()
