@@ -171,6 +171,7 @@ locals {
     "velebit"                 = "prod1"
     "volunteeringafrica"      = "prod1"
     "waterberg"               = "prod1"
+    "wcpzambia"               = "prod1"
     "westernsiempang"         = "prod-asia"
     "wildhorizons"            = "prod1"
     "wisentproject"           = "prod1"
@@ -275,6 +276,7 @@ locals {
     "sebakwe"               = 1
     "defensores"            = 1
     "bisonpark"             = 1
+    "wcpzambia"             = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
