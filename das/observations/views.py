@@ -1943,6 +1943,7 @@ class MessageView(generics.RetrieveUpdateDestroyAPIView):
         return get_user_messages(self.request.user)
 
 
+
 def get_user_messages(user):
     # Get messages a user has access to
     user_subjects = models.Subject.objects.by_user_subjects(user)
