@@ -8,8 +8,6 @@ from .testdata.sample_topics import announcement
 User = django.contrib.auth.get_user_model()
 
 
-
-
 class AnnouncementTestCase(BaseAPITest):
 
     def setUp(self):
@@ -20,9 +18,6 @@ class AnnouncementTestCase(BaseAPITest):
                                                         email="super@user.com")
 
         for post in announcement['topic_list']['topics']:
-            # ignore announcement that is already in db:
-
-            # if not Announcement.objects.filter(description__id=post['id']).exists():
             Announcement.objects.create(title=post['title'],
                                         description=post['cooked'],
                                         additional=dict(slug=post["slug"],
