@@ -23,7 +23,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework import status
 from rest_framework.compat import coreapi, coreschema
-from rest_framework.exceptions import APIException, PermissionDenied, ValidationError, NotFound
+from rest_framework.exceptions import APIException, PermissionDenied, ValidationError, NotFound, ParseError
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -1960,20 +1960,29 @@ class AnnouncementsView(generics.ListCreateAPIView):
 
         query_params = self.request.query_params
         is_read = query_params.get('is_read')
-        read = query_params.get('read')
-
         user = self.request.user
 
         if is_read is not None:
             queryset = queryset.by_read(parse_bool(is_read), user)
 
-        if read:
-            data = dict(news_ids=[x.strip() for x in read.split(',')])
-            serializer = serializers.ReadAnnouncementSerializer(data=data)
-            serializer.is_valid(raise_exception=True)
-            queryset = models.Announcement.objects.filter(pk__in=serializer.data.get('news_ids'))
-            [q.related_users.add(user) for q in queryset]
-
         return queryset
+
+    def post(self, request, *args, **kwargs):
+        query_params = self.request.query_params
+        read = query_params.get('read')
+        if not read:
+            raise ParseError(detail=" Malformed request. Query parameter 'read' is required.")
+
+        data = dict(news_ids=[x.strip() for x in read.split(',')])
+        serializer = serializers.ReadAnnouncementSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+
+        queryset = models.Announcement.objects.filter(pk__in=serializer.data.get('news_ids'))
+        print(queryset.count())
+        [q.related_users.add(request.user) for q in queryset]
+
+        context = dict(request=self.request)
+        response = self.serializer_class(queryset, many=True, context=context)
+        return Response(response.data, status=status.HTTP_200_OK)
 
 

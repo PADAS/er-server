@@ -844,9 +844,10 @@ class MessageSerializer(BaseSerializer, TimestampMixin):
 
 class AnnouncementSerializer(BaseSerializer):
     id = rest_framework.serializers.UUIDField(read_only=True)
-    title = rest_framework.serializers.CharField(allow_null=True, required=False, max_length=255)
-    description = rest_framework.serializers.JSONField(default=dict, allow_null=True)
-    link = rest_framework.serializers.URLField(allow_null=True)
+    title = rest_framework.serializers.CharField(allow_null=True,  required=False, max_length=255)
+    description = text_field(allow_null=True, allow_blank=True, required=False,)
+    additional = rest_framework.serializers.JSONField(default=dict, allow_null=True)
+    link = rest_framework.serializers.URLField(allow_null=True,  required=False)
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
