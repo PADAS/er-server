@@ -654,6 +654,10 @@ class EventFile(TimestampedModel, RevisionMixin):
     def event_type(self):
         return self.event.event_type
 
+    @property
+    def related_subjects(self):
+        return self.event.related_subjects
+
     def clean(self):
         super().clean()
         self.comment = clean_user_text(self.comment, 'EventFile.comment')
