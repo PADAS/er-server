@@ -20,7 +20,7 @@ from django.contrib.postgres.aggregates import StringAgg, ArrayAgg
 from django.contrib.auth import get_user_model
 from django.db import transaction, IntegrityError
 from django.db.models import CharField, Value
-from django.db.models import Prefetch, F, Count, Max
+from django.db.models import Prefetch, F, Count, Max, Q
 from django.db.models.functions import Concat, Cast
 from django.http import Http404
 from django.http.response import HttpResponse
@@ -937,6 +937,9 @@ class EventsView(generics.ListCreateAPIView):
             queryset = queryset.by_category(allowed_event_categories)
         else:
             return queryset.none()
+
+        user_subjects = list(Subject.objects.by_user_subjects(self.request.user).values_list('id', flat=True))
+        queryset = queryset.filter(Q(related_subjects__isnull=True) | Q(related_subjects__in=user_subjects))
 
         queryset = queryset.prefetch_related(Prefetch('related_subjects'))
         queryset = queryset.prefetch_related(Prefetch('event_type'))

@@ -4,10 +4,11 @@ from rest_framework.permissions import (SAFE_METHODS, BasePermission,
                                         IsAuthenticated)
 from rest_framework import exceptions
 from django.http import Http404
-from django.db import ProgrammingError
+from django.db import ProgrammingError, models
 
 from activity.models import EventType, Event, EventCategory, Patrol, PatrolType
 from observations.views import UnauthorizedView
+from observations.models import Subject
 
 
 class EventObjectPermissions(DjangoModelPermissions):
@@ -78,6 +79,8 @@ class EventCategoryPermissions(IsAuthenticated):
         return super().has_permission(request, view)
 
     def has_object_permission(self, request, view, obj):
+        permission_fmt = 'activity.{0}_{1}'
+        is_subject = True
         if isinstance(obj, EventCategory):
             value = obj.value
         elif isinstance(obj, EventType):
@@ -88,8 +91,14 @@ class EventCategoryPermissions(IsAuthenticated):
             except AttributeError as exc:
                 raise ProgrammingError(exc)
 
-        permission_name = 'activity.{0}_{1}'.format(value, EventCategoryPermissions.http_method_map[request.method])
-        return request.user.has_perm(permission_name)
+            else:
+                event_subjects = obj.related_subjects.values_list('id', flat=True)
+                if event_subjects:
+                    user_subjects = Subject.objects.by_user_subjects(request.user).values_list('id', flat=True)
+                    is_subject = set(event_subjects) <= set(user_subjects)
+
+        permission_name = permission_fmt.format(value, EventCategoryPermissions.http_method_map[request.method])
+        return request.user.has_perm(permission_name) and is_subject
 
 
 class EventCategoryObjectPermissions(DjangoObjectPermissions):

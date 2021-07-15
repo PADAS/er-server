@@ -1,5 +1,7 @@
 from django.contrib.gis.db import models
 from django.test import TestCase
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 
 from analyzers.models import ImmobilityAnalyzerConfig, OK
 from analyzers.immobility import ImmobilityAnalyzer
@@ -10,11 +12,22 @@ from .immobility_test_data import *
 from analyzers.tasks import analyze_subject
 import analyzers.exceptions
 from .analyzer_test_utils import *
+from core.tests import BaseAPITest
 
 
-class TestImmobilityAnalyzer(TestCase):
+
+class TestImmobilityAnalyzer(BaseAPITest):
 
     fixtures = ['event_data_model', ]
+
+    def setUp(self):
+        super(TestImmobilityAnalyzer, self).setUp()
+        user_const = dict(last_name='last', first_name='first')
+
+        self.super_user = get_user_model().objects.create_user('super_admin',
+                                                             'superadmin@vulcan.com',
+                                                             'superadmin', is_superuser=True, **user_const)
+
 
     def test_immobility_with_moving_observations_list(self):
 
@@ -143,3 +156,69 @@ class TestImmobilityAnalyzer(TestCase):
         e = save_analyzer_event(event_data)
 
         self.assertTrue(e.event_details.count() == 1)
+
+    def test_apply_subject_view_perm_immobility(self):
+        """test that the event-api only return immoblity report user has perm for."""
+        from activity import views
+        from django.db import transaction
+        from unittest import mock
+        Event.objects.all().delete()
+
+        # Create models (Subject, SubjectSource and Source)
+        sub = models.Subject.objects.create_subject(
+            name='Ishango', subject_subtype_id='elephant')
+        source = models.Source.objects.create(manufacturer_id='ishango-collar')
+        models.SubjectSource.objects.create(
+            subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
+
+        # Create a SubjectTrackSegmentFilter
+        SubjectTrackSegmentFilter.objects.create(
+            subject_subtype_id='elephant', speed_KmHr=7.0)
+
+        with mock.patch('django.db.backends.base.base.BaseDatabaseWrapper.validate_no_atomic_block',
+                        lambda a: False):
+            sg = models.SubjectGroup.objects.create(
+                name='immobility_analyzer_group',)
+            transaction.get_connection().run_and_clear_commit_hooks()
+            sg.subjects.add(sub)
+            sg.save()
+
+        ImmobilityAnalyzerConfig.objects.create(subject_group=sg)
+
+        # Create observations in database, so the Analyzer will find them.
+        test_observations = [parse_recorded_at(x) for x in ISHANGO_IMMOBILE]
+        store_observations(test_observations, timeshift=True, source=source)
+
+        analyze_subject(str(sub.id))
+
+        permission = Permission.objects.get(codename='analyzer_event_read')
+        perm_set = models.PermissionSet.objects.create(name='Analyzer Event PermissionSet')
+        perm_set.permissions.add(permission)
+
+        self.app_user.permission_sets.add(perm_set)
+
+        request = self.factory.get(self.api_base + '/events/')
+        self.force_authenticate(request, self.app_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data['results']), 0)
+
+        # get particular analyzer report.
+        event_id = str(Event.objects.first().id)
+        request = self.factory.get(self.api_base + f'/event/{event_id}')
+        self.force_authenticate(request, self.app_user)
+
+        response = views.EventView.as_view()(request, id=event_id)
+        self.assertEqual(response.status_code, 403)
+
+        # give user permission to view the subjects belonging to subject-group immobility_analyzer_group Subject Group
+        perm_set = models.PermissionSet.objects.get(name=sg.auto_permissionset_name)
+        self.app_user.permission_sets.add(perm_set)
+
+        request = self.factory.get(self.api_base + '/events/')
+        self.force_authenticate(request, self.app_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data['results']), 1)
