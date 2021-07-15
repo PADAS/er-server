@@ -302,7 +302,7 @@ def poll_news_gcs_bucket():
     for post in announcement['topic_list']['topics']:
         # ignore announcement that is already in db:
 
-        if not Announcement.objects.filter(description__id=post['id']).exists():
+        if not Announcement.objects.filter(additional__id=post['id']).exists():
             Announcement.objects.create(title=post['title'],
                                         description=post['cooked'],
                                         additional=dict(slug=post["slug"],
