@@ -214,8 +214,24 @@ def extract_from_list(items: list = list, schema_item=None):
     '''
     return a 2-tuple of strings where the first holds IDs and the second holds
     corresponding human-friendly names.
-    :param schema_item:
     :param items: a list (of dicts of the format {'name': '', 'value': ''}
+    :param schema_item: (default to None)  dictionary contains enumValues, enumNames example:
+                        {
+                        "key":"carcassrep_species",
+                       "type":"array",
+                       "title":"Species",
+                       "items":{
+                          "type":"string",
+                          "enumValues":[
+                             "bongo",
+                             "buffalo"
+                          ],
+                          "enumNames":{
+                             "bongo":"Bongo",
+                             "buffalo":"Buffalo"
+                          }
+                       }
+                    }
     :return: 2-tuple (str, str)
     '''
     names = []
