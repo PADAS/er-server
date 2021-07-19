@@ -210,11 +210,28 @@ def validate(event, schema=None, raise_exception=False):
     return False
 
 
-def extract_from_list(items: list = list):
+def extract_from_list(items: list = list, schema_item=None):
     '''
     return a 2-tuple of strings where the first holds IDs and the second holds
     corresponding human-friendly names.
     :param items: a list (of dicts of the format {'name': '', 'value': ''}
+    :param schema_item: (default to None)  dictionary contains enumValues, enumNames example:
+                        {
+                        "key":"carcassrep_species",
+                       "type":"array",
+                       "title":"Species",
+                       "items":{
+                          "type":"string",
+                          "enumValues":[
+                             "bongo",
+                             "buffalo"
+                          ],
+                          "enumNames":{
+                             "bongo":"Bongo",
+                             "buffalo":"Buffalo"
+                          }
+                       }
+                    }
     :return: 2-tuple (str, str)
     '''
     names = []
@@ -223,7 +240,11 @@ def extract_from_list(items: list = list):
         if item and isinstance(item, (str, bool, int, float)):
             logger.warning(
                 f'extract_from_list value is not a dict: {item} from {items}')
-            names.append(str(item))
+            name = item
+            if schema_item and isinstance(item, str):
+                name = schema_item.get('items', {}).get('enumNames', {}).get(item, item)
+
+            names.append(str(name))
             ids.append(item)
         elif isinstance(item, dict) and 'name' in item and 'value' in item:
             logger.debug(f'extracting name/value from {item}')
@@ -274,7 +295,7 @@ def extractor(schema_item, definition, key, eventdetail_value):
 
     # Determine how the value should appear.
     if isinstance(eventdetail_value, list):
-        extracted_value, display = extract_from_list(eventdetail_value)
+        extracted_value, display = extract_from_list(eventdetail_value, schema_item)
     else:
         extracted_value, display = extract_from_dict_or_string(
             schema_item, eventdetail_value)
@@ -447,21 +468,7 @@ def get_rendered_schema(schema):
 
 def get_all_fields(schema):
     try:
-        template = Template(schema)
-
-        empty_params = {}
-        for node in template.nodelist:
-            if type(node) is VariableNode:
-                empty_params[node.token.contents] = []
-
-        if len(empty_params) > 0:
-            rendered_schema = template.render(
-                Context(empty_params, autoescape=False))
-            schema_json = json.loads(rendered_schema)
-        else:
-            schema_json = json.loads(schema)
-
-        return schema_json['schema']['properties'].keys()
+        return get_rendered_schema(schema)['properties'].keys()
     except Exception as ex:
         logger.error("Error rendering schema with empty data", ex)
         return []

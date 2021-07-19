@@ -1348,13 +1348,13 @@ class TestEventView(BaseAPITest):
                     "type": "number",
                     "title": "HA Surveyed",
                     "minimum": 0
-                },           
+                },
                 "repCountry": {
                     "type": "string",
                     "title": "Country",
                     "enum": {{enum___countries___values}},
                     "enumNames": {{enum___countries___names}}
-                },   
+                },
                 "repLocation": {
                     "type": "string",
                     "title": "Report Location"
@@ -1380,7 +1380,7 @@ class TestEventView(BaseAPITest):
                 "repObserver",
                 "repHASurveyed",
                 "",
-                "",                        
+                "",
                 "",
                 "",
                 "",
@@ -1391,7 +1391,7 @@ class TestEventView(BaseAPITest):
             "type": "fieldset",
             "htmlClass": "col-lg-6",
             "items": [
-                "repCountry",  
+                "repCountry",
                 "repLocation",
                 "",
                 "",
@@ -1406,7 +1406,7 @@ class TestEventView(BaseAPITest):
             "title": "No Locusts Reported",
             "htmlClass": "col-lg-12",
             "items": []
-            }    
+            }
 
         ]
         }
@@ -1469,13 +1469,13 @@ class TestEventView(BaseAPITest):
                         "type": "number",
                         "title": "HA Surveyed",
                         "minimum": 0
-                    },           
+                    },
                     "repCountry": {
                         "type": "string",
                         "title": "Country",
                         "enum": {{enum___countries___values}},
                         "enumNames": {{enum___countries___names}}
-                    },   
+                    },
                     "repLocation": {
                         "type": "string",
                         "title": "Report Location"
@@ -1500,7 +1500,7 @@ class TestEventView(BaseAPITest):
                     "repObserver",
                     "repHASurveyed",
                     "",
-                    "",                        
+                    "",
                     "",
                     "",
                     "",
@@ -1511,7 +1511,7 @@ class TestEventView(BaseAPITest):
                 "type": "fieldset",
                 "htmlClass": "col-lg-6",
                 "items": [
-                    "repCountry",  
+                    "repCountry",
                     "repLocation",
                     "",
                     "",
@@ -1526,7 +1526,7 @@ class TestEventView(BaseAPITest):
                 "title": "No Locusts Reported",
                 "htmlClass": "col-lg-12",
                 "items": []
-                }    
+                }
 
             ]
             }
@@ -2888,8 +2888,8 @@ class TestEventView(BaseAPITest):
         self.assertTrue('Katie Kitten' in response.content.decode("utf-8"))
 
     def test_export_on_similar_titles_for_different_reports(self):
-        et_schema = """{"schema": 
-                        {"properties": 
+        et_schema = """{"schema":
+                        {"properties":
                             {
                             "eLocust-key": {"type": "string"},
                             "behavior": {"type": "string"}
@@ -3267,6 +3267,66 @@ class TestEventView(BaseAPITest):
 
         state = Event.objects.get(id=response.data.get('id')).state
         self.assertEqual(state, 'resolved')
+
+    def test_post_with_checkboxes(self):
+        schema = schema_examples.WILDLIFE_SCHEMA_CHECKBOX
+        event_type = self.sample_event.event_type
+        event_type.schema = schema
+        event_type.save()
+        data = json.loads(
+            "{\"priority\":0,\"time\":\"2021-06-05T19:26:32.985Z\",\"event_details\":{\"wildlifesightingrep_species\":[\"bongo\"],\"wildlifesightingrep_numberanimals\":1,\"wildlifesightingrep_collared\":[\"no\"],\"wildlifesightingrep_comments\":\"Some Comments\"}}")
+        data["event_type"] = event_type.value
+        request = self.factory.post(self.api_base + '/events/', data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        assert response.status_code == 201
+        event_id = response.data['id']
+
+        request = self.factory.get(self.api_base + f"/event/{event_id}")
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventView.as_view()(request, id=event_id)
+        assert response.status_code == 200
+
+        event = Event.objects.get(id=event_id)
+        event_details = EventDetails.objects.get(event_id=event_id)
+        assert isinstance(
+            event_details.data["event_details"]["wildlifesightingrep_species"][0], str)
+    
+    def test_consistency_checkbox_value(self):
+        Choice.objects.all().delete()
+        Choice.objects.create(model=Choice.Field_Reports,
+                              field='wildlifesightingrep_species',
+                              value='buffalo',
+                              display='Buffalo')
+
+        Choice.objects.create(model=Choice.Field_Reports,
+                              field='yesno',
+                              value='yes',
+                              display='Yes')
+
+        schema = schema_examples.WILDLIFE_SCHEMA_CHECKBOX
+        event_type = self.sample_event.event_type
+        event_type.schema = schema
+        event_type.save()
+
+        payload = {"event_type": event_type.value,
+                   "event_details": {"wildlifesightingrep_species": ["buffalo"],
+                                     "wildlifesightingrep_collared": ["yes"],
+                                     "wildlifesightingrep_numberanimals": "2"}}
+
+        request = self.factory.post(self.api_base + '/events/', payload)
+        self.force_authenticate(request, self.all_perms_user)
+
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        expected_result = {'event_details': {'wildlifesightingrep_species': ['buffalo'],
+                                             'wildlifesightingrep_collared': ['yes'],
+                                             'wildlifesightingrep_numberanimals': '2'}}
+
+        actual_result = Event.objects.get(id=response.data.get('id')).event_details.first()
+        self.assertEqual(expected_result, actual_result.data)
+
 
 
 class TestParsing(TestCase):

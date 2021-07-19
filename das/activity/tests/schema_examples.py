@@ -269,3 +269,50 @@ BAD_SCHEMA = """
  ]
 }
 """
+
+WILDLIFE_SCHEMA_CHECKBOX = """
+{
+   "schema": 
+   {
+       "$schema": "http://json-schema.org/draft-04/schema#",
+       "title": "Other Wildlife Sighting Report (wildlife_sighting_rep)",
+
+       "type": "object",
+       "properties": 
+       {
+            "wildlifesightingrep_species": {
+                "type": "string",
+                "title": "Species",
+                "enum": {{enum___wildlifesightingrep_species___values}},
+                "enumNames": {{enum___wildlifesightingrep_species___names}}   
+            }, 
+           "wildlifesightingrep_numberanimals": {
+                "type": "number",
+                "title": "Count",
+                "minimum":0
+           },                      
+           "wildlifesightingrep_collared": {
+                "type": "string",
+                "title": "Are Animals Collared",
+                "enum": {{enum___yesno___values}},
+                "enumNames": {{enum___yesno___names}}                   
+           }
+
+       }
+   },
+ "definition": [
+    {
+        "key":    "wildlifesightingrep_species",
+        "htmlClass": "col-lg-6"
+    }, 
+    {
+        "key":    "wildlifesightingrep_numberanimals",
+        "htmlClass": "col-lg-6"
+    },    
+    {
+        "key":    "wildlifesightingrep_collared",
+        "htmlClass": "col-lg-6"
+    } 
+ ]
+}
+"""

@@ -766,6 +766,7 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
                     value=new_event_type)
         return event_type
 
+
     def get_schema_fields_possible_values(self, schema):
         replacement_fields = schema_utils.get_replacement_fields_in_schema(
             schema)
@@ -829,8 +830,7 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
                         if isinstance(d, dict) and d['value'] == value:
                             matches.append(d)
                         elif value == d:
-                            matches.append(
-                                {"name": parameters[k][value], "value": value})
+                            matches.append(value)
 
                     if len(matches) > 0:
                         all_values.append(matches[0])
