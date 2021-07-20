@@ -1,0 +1,10 @@
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  namespace: "${KUBERNETES_NAMESPACE}"
+  name: worker-analyzer
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      das.component: worker-analyzer
