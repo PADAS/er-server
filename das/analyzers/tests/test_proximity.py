@@ -219,3 +219,81 @@ class TestProximityAnalyzer(TestCase):
         for e in Event.objects.all():
             for ed in e.event_details.all():
                 print('Event Details: %s' % ed.data)
+
+    def test_subject_proximity_analyzer_proximity_distance(self):
+        """ Test the functioning of the proximity analyzer returns the correct proximity distance"""
+
+        # Create models (Subject, SubjectSource and Source)
+        subject_chuka = Subject.objects.create(name='Chuka', subject_subtype_id='elephant')
+        source = Source.objects.create(manufacturer_id='CHK001')
+        SubjectSource.objects.create(
+            subject=subject_chuka, source=source)
+        SubjectTrackSegmentFilter.objects.create(
+            subject_subtype_id='elephant', speed_KmHr=7.0)
+        sg = SubjectGroup.objects.create(
+            name='elephants', )
+        sg.subjects.add(subject_chuka)
+        sg.save()
+
+        # counter subject group info
+        subject_hari = Subject.objects.create(
+            name='Hari', subject_subtype_id='rhino')
+        source2 = Source.objects.create(manufacturer_id='HR0001')
+        SubjectSource.objects.create(
+            subject=subject_hari, source=source2, assigned_range=DEFAULT_ASSIGNED_RANGE)
+        SubjectTrackSegmentFilter.objects.create(
+            subject_subtype_id='rhino', speed_KmHr=8.0)
+
+        sg2 = SubjectGroup.objects.create(
+            name='rhinos', )
+        sg2.subjects.add(subject_hari)
+        sg2.save()
+
+        recorded_at = pytz.utc.localize(datetime.utcnow())
+
+        # intersect.
+        coordinates = [
+            [[-122.22081899642944, 47.409590070615295],
+             [-122.22041130065918, 47.41009832201713]],
+
+            [[-122.22253561019896, 47.41067917475635],
+             [-122.22317934036253, 47.40943033344746]],
+
+            [[-122.22656965255739, 47.41295895984107],
+             [-122.22708463668822, 47.40986597912771]],
+
+        ]
+
+        for coord in coordinates:
+            models.Observation.objects.create(
+                recorded_at=recorded_at, location=Point(coord[0][0], coord[0][1]), source=source, additional={})
+            models.Observation.objects.create(
+                recorded_at=recorded_at, location=Point(coord[1][0], coord[1][1]), source=source2, additional={})
+
+            recorded_at = recorded_at - timedelta(minutes=10)
+
+        config = SubjectProximityAnalyzerConfig.objects.create(
+            subject_group=sg,
+            second_subject_group=sg2,
+            threshold_dist_meters=200
+        )
+        analyzer = SubjectProximityAnalyzer(config=config, subject=subject_chuka)
+
+        # Iterate through the observations adding another point to the
+        # trajectory on each loop
+        analyzer.analyze()
+
+        # There should be a bunch of proximity results fom this analysis.
+        results = SubjectAnalyzerResult.objects.filter(subject=subject_chuka)
+
+        for result in results:
+            print('Proximity Result: %s' % result)
+            assert result.values.get('proximity_dist_meters') > 50
+
+        for e in Event.objects.all():
+            self.assertTrue(e.event_details.all().exists())
+
+        for e in Event.objects.all():
+            for ed in e.event_details.all():
+                print('Event Details: %s' % ed.data)
+

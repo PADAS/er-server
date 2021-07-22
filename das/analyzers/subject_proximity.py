@@ -44,7 +44,7 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
 
         # Subsample trajectory to the last two fixes
         traj = pymet.base.Trajectory(relocs=pymet.base.Relocations(fixes=traj.relocs.get_fixes()[-2:],
-                                                                   subject_id=traj.relocs.subject_id))
+                                                                   subject_id=self.subject.id))
 
         proximity_results = SubjectProximityAnalysis.calc_proximity_events(self.subject, self.config, proximity_analysis_params=analysis_params,
                                                                     trajectories=[traj])
@@ -138,7 +138,6 @@ class SubjectProximityAnalysis:
                 for subject in proximity_analysis_params:
                     # create_trajectory
                     subject_traj = subject.create_trajectory(
-                        obs=subject.observations(),
                         trajectory_filter_params=subject.default_trajectory_filter())
 
                     # Subsample trajectory to the last two fixes
@@ -154,11 +153,8 @@ class SubjectProximityAnalysis:
                                 config, analysis_subject_track, sub2_last_track)
 
                             if valid_proximal_time:
-                                # Calculate the distance between the traj seg and the new segment
-                                proximity_dist = seg.ogr_geometry.Distance(seg2.ogr_geometry)
-
-                                # Convert the distance from degrees to meters
-                                proximity_dist = pymet.utils.degrees_to_km(proximity_dist) * 1000.0
+                                # # Calculate the distance between the two subject
+                                proximity_dist = seg.end_fix_geopoint.dist_to_point(seg2.end_fix_geopoint.ogr_geometry)
 
                                 # Create the proximity event
                                 prox_event = SubjectProximityEvent(
