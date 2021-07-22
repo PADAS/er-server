@@ -1955,6 +1955,7 @@ def get_user_messages(user):
 
 class AnnouncementsView(generics.ListCreateAPIView):
     serializer_class = serializers.AnnouncementSerializer
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         queryset = models.Announcement.objects.all()
