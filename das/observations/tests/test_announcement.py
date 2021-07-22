@@ -35,7 +35,7 @@ class AnnouncementTestCase(BaseAPITest):
         self.force_authenticate(request, self.app_user)
         response = AnnouncementsView.as_view()(request)
         assert response.status_code == 200
-        assert len(response.data) == 6
+        assert len(response.data['results']) == 6
 
         Announcement.objects.create(title='example', link='https://earthranger.com')
 
@@ -57,7 +57,7 @@ class AnnouncementTestCase(BaseAPITest):
         response = AnnouncementsView.as_view()(request)
         assert response.status_code == 200
 
-        for r in response.data:
+        for r in response.data['results']:
             assert r.get('read') is True
 
         # this user:  self.admin_user has not read the notification
@@ -66,5 +66,5 @@ class AnnouncementTestCase(BaseAPITest):
         response = AnnouncementsView.as_view()(request)
         assert response.status_code == 200
 
-        for r in response.data:
+        for r in response.data['results']:
             assert r.get('read') is False
