@@ -106,9 +106,10 @@ class SubjectProximityAnalysis:
             return obs
 
     @classmethod
-    def verify_proximal_tracks_time_frame(cls, config, sub1_track, sub2_track):
-        if sub1_track and sub2_track and \
-                abs(sub1_track.recorded_at - sub2_track.recorded_at).total_seconds() <= config.proximity_time * 3600:
+    def verify_proximal_tracks_time_frame(cls, config, latest_observation_analysis_subject, latest_observation_second_subject):
+        # todo: update the variable name
+        if latest_observation_analysis_subject and latest_observation_second_subject and \
+                abs(latest_observation_analysis_subject.recorded_at - latest_observation_second_subject.recorded_at).total_seconds() <= config.proximity_time * 3600:
             return True
 
 
@@ -129,7 +130,7 @@ class SubjectProximityAnalysis:
 
         # Set the start time of the analysis
         result.analysis_start = dt.datetime.utcnow()
-        analysis_subject_track = cls.get_subject_latest_obs(analysis_subject)
+        latest_observation_analysis_subject = cls.get_subject_latest_obs(analysis_subject)
 
         for traj in trajectories:
             assert type(traj) is pymet.base.Trajectory
@@ -147,10 +148,10 @@ class SubjectProximityAnalysis:
 
                     for subject_traj in [subject_trajectories]:
                         for seg2 in subject_traj.traj_segs:
-
-                            sub2_last_track = cls.get_subject_latest_obs(subject)
+                            
+                            latest_observation_second_subject = cls.get_subject_latest_obs(subject)
                             valid_proximal_time = cls.verify_proximal_tracks_time_frame(
-                                config, analysis_subject_track, sub2_last_track)
+                                config, latest_observation_analysis_subject, latest_observation_second_subject)
 
                             if valid_proximal_time:
                                 # # Calculate the distance between the two subject
@@ -161,12 +162,12 @@ class SubjectProximityAnalysis:
                                     subject_1_id=str(analysis_subject.id),
                                     subject_1_name=analysis_subject.name,
                                     subject_1_speed=round(seg.speed_kmhr, 2),
-                                    subject_1_location=cls.get_map_coords(analysis_subject_track),
+                                    subject_1_location=cls.get_map_coords(latest_observation_analysis_subject),
 
                                     subject_2_id=str(subject.id),
                                     subject_2_name=subject.name,
                                     subject_2_speed=round(seg2.speed_kmhr, 2),
-                                    subject_2_location=cls.get_map_coords(sub2_last_track),
+                                    subject_2_location=cls.get_map_coords(latest_observation_second_subject),
 
                                     subject_1_travel_heading=round(seg.heading, 2),
                                     subject_2_travel_heading=round(seg2.heading, 2),
