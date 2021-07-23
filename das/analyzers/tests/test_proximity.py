@@ -221,7 +221,7 @@ class TestProximityAnalyzer(TestCase):
                 print('Event Details: %s' % ed.data)
 
     def test_subject_proximity_analyzer_proximity_distance(self):
-        """ Test the functioning of the proximity analyzer returns the correct proximity distance"""
+        """ Test that the subject proximity analyzer returns the proximity distance"""
 
         # Create models (Subject, SubjectSource and Source)
         subject_chuka = Subject.objects.create(name='Chuka', subject_subtype_id='elephant')
@@ -249,9 +249,8 @@ class TestProximityAnalyzer(TestCase):
         sg2.subjects.add(subject_hari)
         sg2.save()
 
-        recorded_at = pytz.utc.localize(datetime.utcnow())
+        recorded_at = pytz.utc.localize(datetime.now())
 
-        # intersect.
         coordinates = [
             [[-122.22081899642944, 47.409590070615295],
              [-122.22041130065918, 47.41009832201713]],
@@ -279,8 +278,7 @@ class TestProximityAnalyzer(TestCase):
         )
         analyzer = SubjectProximityAnalyzer(config=config, subject=subject_chuka)
 
-        # Iterate through the observations adding another point to the
-        # trajectory on each loop
+        # run the analyzer function.
         analyzer.analyze()
 
         # There should be a bunch of proximity results fom this analysis.
