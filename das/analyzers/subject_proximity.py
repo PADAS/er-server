@@ -107,7 +107,6 @@ class SubjectProximityAnalysis:
 
     @classmethod
     def verify_proximal_tracks_time_frame(cls, config, latest_observation_analysis_subject, latest_observation_second_subject):
-        # todo: update the variable name
         if latest_observation_analysis_subject and latest_observation_second_subject and \
                 abs(latest_observation_analysis_subject.recorded_at - latest_observation_second_subject.recorded_at).total_seconds() <= config.proximity_time * 3600:
             return True
@@ -148,7 +147,7 @@ class SubjectProximityAnalysis:
 
                     for subject_traj in [subject_trajectories]:
                         for seg2 in subject_traj.traj_segs:
-                            
+
                             latest_observation_second_subject = cls.get_subject_latest_obs(subject)
                             valid_proximal_time = cls.verify_proximal_tracks_time_frame(
                                 config, latest_observation_analysis_subject, latest_observation_second_subject)
