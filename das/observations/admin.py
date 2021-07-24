@@ -216,7 +216,7 @@ class SubjectSourceInline(InlineExtraDynamicMixin, admin.StackedInline):
         ),
         ('Source Assignment Attributes', {
             'classes': ('wide', 'collapse',),
-            'fields': ('chronofile', 'data_status', 'data_starts_source', 'data_stops_source', 'data_stops_reason', 'comments')
+            'fields': ('chronofile', 'data_status', 'data_starts_source', 'data_stops_source', 'data_stops_reason', 'date_off_or_removed', 'comments')
         }
         ),
         ('Raw Attributes Data', {
@@ -1018,7 +1018,7 @@ class SubjectSourceSummaryAdmin(admin.ModelAdmin):
         ),
         ('Attributes', {
             'classes': ('wide',),
-            'fields': ('chronofile', 'data_status', 'data_starts_source', 'data_stops_source', 'data_stops_reason', 'comments')
+            'fields': ('chronofile', 'data_status', 'data_starts_source', 'data_stops_source', 'data_stops_reason', 'date_off_or_removed', 'comments')
         }
         ),
         ('Advanced', {
@@ -1049,7 +1049,7 @@ class SourceAdmin(admin.ModelAdmin, ObservationsContextMixin):
         ('Source Attributes', {
             'classes': ('wide',),
             'fields': ('collar_status', 'collar_model', 'has_acc_data',
-                       'collar_manufacturer', 'data_owners',
+                       'collar_manufacturer', 'datasource', 'data_owners',
                        'adjusted_beacon_freq', 'frequency',
                        'adjusted_frequency',
                        'backup_frequency', 'predicted_expiry',
@@ -1157,7 +1157,7 @@ class SubjectSourceAdmin(admin.ModelAdmin):
         ),
         ('Attributes', {
             'classes': ('wide',),
-            'fields': ('chronofile', 'data_status', 'data_starts_source', 'data_stops_source', 'data_stops_reason', 'comments')
+            'fields': ('chronofile', 'data_status', 'data_starts_source', 'data_stops_source', 'data_stops_reason', 'date_off_or_removed', 'comments')
         }
         ),
         ('Advanced', {

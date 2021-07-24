@@ -1565,7 +1565,7 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
         data_stops = 'data_stops ({})'.format(
             tz_offset) if format != 'json' else 'data_stops'
         headers = ['chronofile', 'collar_type', 'collar_id', 'active',
-                   'frequency', 'animal_id', 'name', 'species',
+                   'datasource', 'frequency', 'animal_id', 'name', 'species',
                    'subtype', 'groups', data_starts, data_stops,
                    'date_off_or_removed', 'comments',
                    'predicted_expiry', 'rgb', 'sex', 'gmt', 'data_status',
@@ -1611,6 +1611,7 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                     'subtype': subject.subject_subtype.display,
                     'groups': subject_groups,
                     'subject_id': subject.id,
+                    'animal_id': subject.additional.get('tm_animal_id', ''),
                 })
 
                 if subject.source_additional is not None:
@@ -1631,10 +1632,11 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                             'chronofile', None),
                         'collar_type': subject.source_model_name,
                         'collar_id': subject.source_manufacturer_id,
+                        'datasource': subject.source_additional.get(
+                            'datasource', ''),
                         'frequency': subject.source_additional.get(
                             'frequency', 0.0),
-                        'animal_id': subject.source_additional.get(
-                            'tm_animal_id', ''),
+
                         data_starts: lower.strftime('%m/%d/%Y %H:%M:%S') if format != 'json' else lower.isoformat(),
                         data_stops: upper.strftime('%m/%d/%Y %H:%M:%S') if format != 'json' else upper.isoformat(),
                         'comments': subject.subjectsource_additional.get(
@@ -1653,6 +1655,9 @@ class TrackingMetaDataExportView(generics.RetrieveAPIView):
                         'data_stops_reason':
                             subject.subjectsource_additional.get(
                                 'data_stops_reason', ''),
+                        'date_off_or_removed':
+                            subject.subjectsource_additional.get(
+                                'date_off_or_removed', ''),
                         'collar_status':
                             subject.source_additional.get('collar_status', ''),
                         'collar_model': subject.source_additional.get(
@@ -1830,7 +1835,8 @@ class MessagesView(generics.ListCreateAPIView):
         subject_id = query_params.get('subject_id')
         source_id = query_params.get('source_id')
         read = query_params.get('read')
-        number_recent_msg = query_params.get('recent_message')  # define with this query-param number of recent_message.
+        # define with this query-param number of recent_message.
+        number_recent_msg = query_params.get('recent_message')
         if subject_id:
             # Accepting a list i.e : ?subject_id=id1, id2, id2
             subject_ids = [x.strip(' ') for x in subject_id.split(',')]
@@ -1841,8 +1847,10 @@ class MessagesView(generics.ListCreateAPIView):
             messages = messages.by_read(parse_bool(read))
 
         if number_recent_msg and number_recent_msg.isdigit():
-            sender = {'partition_by': F('sender_id'), 'order_by': [F('message_time').desc()]}
-            receiver = {'partition_by': F('receiver_id'), 'order_by': [F('message_time').desc()]}
+            sender = {'partition_by': F('sender_id'), 'order_by': [
+                F('message_time').desc()]}
+            receiver = {'partition_by': F('receiver_id'), 'order_by': [
+                F('message_time').desc()]}
 
             messages = messages.annotate(rn_sender=Window(expression=RowNumber(), **sender),
                                          rn_receiver=Window(expression=RowNumber(), **receiver))
@@ -1904,7 +1912,8 @@ class MessagesView(generics.ListCreateAPIView):
                 data['sender'] = {
                     "content_type": "observations.subject", "id": subject_source.subject.id}
                 data['device'] = str(subject_source.source.id)
-                data['status'] = models.RECEIVED   # update incoming message status to received.
+                # update incoming message status to received.
+                data['status'] = models.RECEIVED
                 ser_data = self.save_message(request, data)
         else:
             # Handle Outbox messages

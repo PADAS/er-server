@@ -349,6 +349,7 @@
                 "predicted_expiry": null,
                 "adjusted_frequency": "",
                 "collar_manufacturer": "",
+                "datasource":"",
                 "adjusted_beacon_freq": "",
                 "silence_notification_threshold": null
             },
@@ -378,6 +379,7 @@
                 "predicted_expiry": null,
                 "adjusted_frequency": "",
                 "collar_manufacturer": "",
+                "datasource":"",
                 "adjusted_beacon_freq": "",
                 "silence_notification_threshold": null
             },

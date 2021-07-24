@@ -47,6 +47,8 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
         required=False, label='Data Stops Source')
     data_stops_reason = forms.ChoiceField(required=False,
                                           help_text='Reason for Stop')
+    date_off_or_removed = forms.CharField(
+        required=False, label='Date Off or Removed')
     comments = forms.CharField(required=False, label='Comments',
                                widget=forms.Textarea)
 
@@ -67,7 +69,7 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
     class Meta:
         model = SubjectSource
         json_fields = ('chronofile', 'data_status', 'data_starts_source',
-                       'data_stops_source', 'data_stops_reason', 'comments')
+                       'data_stops_source', 'data_stops_reason', 'date_off_or_removed', 'comments')
         fields = ('id', 'subject', 'source', 'assigned_range',
                   'additional') + json_fields
 
@@ -116,6 +118,8 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
     collar_model = forms.CharField(required=False, label='Collar Model')
     collar_manufacturer = forms.CharField(required=False,
                                           label='Collar Manufacturer')
+    datasource = forms.CharField(required=False,
+                                 label='Data Source')
     has_acc_data = forms.BooleanField(
         required=False, label='Has Accelerometer Data')
     data_owners = forms.TypedMultipleChoiceField(
@@ -179,7 +183,7 @@ class SourceForm(JSONFieldFormMixin, forms.ModelForm):
     class Meta:
         model = Source
         json_fields = ('collar_key', 'collar_status', 'collar_model',
-                       'collar_manufacturer', 'has_acc_data', 'data_owners',
+                       'collar_manufacturer', 'datasource', 'has_acc_data', 'data_owners',
                        'feed_id', 'feed_passwd',
                        'adjusted_beacon_freq', 'frequency',
                        'adjusted_frequency',
@@ -335,7 +339,8 @@ class TranformationRuleWidget(forms.MultiWidget):
         return val[-1] if val[-1] != '[]' else val[-2]
 
     def get_context(self, name, value, attrs):
-        value = self.transform_rules  # value correspondes to values of JSON transformation rules.
+        # value correspondes to values of JSON transformation rules.
+        value = self.transform_rules
         context = self._get_context(name, value, attrs)
         if self.is_localized:
             for widget in self.widgets:
@@ -409,7 +414,8 @@ def generate_sample_data(provider):
         where ob.rn <= %s
      """, [rows, provider.id, dt_filter, rows])
 
-    [find_paths(aggregate_data, accum=accum) for observation in observations for aggregate_data in observation.agg_data]
+    [find_paths(aggregate_data, accum=accum)
+     for observation in observations for aggregate_data in observation.agg_data]
 
     for k, v in accum.items():
         accum[k] = random.sample(v, min(3, len(v)))
@@ -442,7 +448,8 @@ class MessageConfigurationWidget(forms.MultiWidget):
     template_name = 'admin/widgets/message_widget.html'
 
     def __init__(self, attrs=None):
-        widgets = [forms.Select(choices=msg_adapter_choices()), forms.URLInput(attrs={'size': 40}), forms.TextInput(attrs={'size': 40})]
+        widgets = [forms.Select(choices=msg_adapter_choices()), forms.URLInput(
+            attrs={'size': 40}), forms.TextInput(attrs={'size': 40})]
         super().__init__(widgets, attrs)
 
     def get_context(self, name, value, attrs):
@@ -553,18 +560,21 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
     transforms = ExtendedJSONField(widget=AutoFormatJSONWidget, required=False,
                                    label=_("Advanced transformation rules"))
 
-    messaging_config = MessageField(label='Messaging Configuration', required=False)
+    messaging_config = MessageField(
+        label='Messaging Configuration', required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         instance = kwargs.get('instance')
         if instance:
-            self.fields['tranformation_rule'].widget.provider = generate_sample_data(instance)
+            self.fields['tranformation_rule'].widget.provider = generate_sample_data(
+                instance)
             self.fields['tranformation_rule'].widget.transform_rules = instance.transforms
 
     class Meta:
         model = SourceProvider
-        fields = ['provider_key', 'display_name', 'additional', 'transforms', 'messaging_config']
+        fields = ['provider_key', 'display_name',
+                  'additional', 'transforms', 'messaging_config']
         json_fields = (
             'lag_notification_threshold',
             'silence_notification_threshold',
@@ -598,7 +608,8 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
             return schema
 
         if not isinstance(schema, list) and bool(schema):
-            message = _("Tranformation rules must be properly configured, expecting a list or null")
+            message = _(
+                "Tranformation rules must be properly configured, expecting a list or null")
             raise forms.ValidationError(message, code='invalid')
         return schema
 

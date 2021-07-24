@@ -26,7 +26,7 @@ class SourceAdditionalTest(TestCase):
     def test_source_additional_data(self):
         additional_data = {
             'collar_status': 'Activated', 'collar_model': 'GPS',
-            'collar_manufacturer': 'Vectronics', 'data_owners': ['KWS'],
+            'collar_manufacturer': 'Vectronics', 'datasource': 'SavannahTrackingAPI', 'data_owners': ['KWS'],
             'adjusted_beacon_freq': '125', 'frequency': '120',
             'adjusted_frequency': '40', 'backup_frequency': '180',
             'predicted_expiry': '12/11/2018',
@@ -63,7 +63,7 @@ class SubjectSourceAdditionalTest(TestCase):
 
         additional_data = {
             'collar_status': 'Activated', 'collar_model': 'GPS',
-            'collar_manufacturer': 'Vectronics', 'data_owners': ['KWS'],
+            'collar_manufacturer': 'Vectronics', 'datasource': 'SavannahTrackingAPI', 'data_owners': ['KWS'],
             'adjusted_beacon_freq': '125', 'frequency': '120',
             'adjusted_frequency': '40', 'backup_frequency': '180',
             'predicted_expiry': '12/11/2018',
