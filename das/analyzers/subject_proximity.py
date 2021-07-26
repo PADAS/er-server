@@ -44,7 +44,7 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
 
         # Subsample trajectory to the last two fixes
         traj = pymet.base.Trajectory(relocs=pymet.base.Relocations(fixes=traj.relocs.get_fixes()[-2:],
-                                                                   subject_id=traj.relocs.subject_id))
+                                                                   subject_id=self.subject.id))
 
         proximity_results = SubjectProximityAnalysis.calc_proximity_events(self.subject, self.config, proximity_analysis_params=analysis_params,
                                                                     trajectories=[traj])
@@ -106,9 +106,9 @@ class SubjectProximityAnalysis:
             return obs
 
     @classmethod
-    def verify_proximal_tracks_time_frame(cls, config, sub1_track, sub2_track):
-        if sub1_track and sub2_track and \
-                abs(sub1_track.recorded_at - sub2_track.recorded_at).total_seconds() <= config.proximity_time * 3600:
+    def verify_proximal_tracks_time_frame(cls, config, latest_observation_analysis_subject, latest_observation_second_subject):
+        if latest_observation_analysis_subject and latest_observation_second_subject and \
+                abs(latest_observation_analysis_subject.recorded_at - latest_observation_second_subject.recorded_at).total_seconds() <= config.proximity_time * 3600:
             return True
 
 
@@ -129,7 +129,7 @@ class SubjectProximityAnalysis:
 
         # Set the start time of the analysis
         result.analysis_start = dt.datetime.utcnow()
-        analysis_subject_track = cls.get_subject_latest_obs(analysis_subject)
+        latest_observation_analysis_subject = cls.get_subject_latest_obs(analysis_subject)
 
         for traj in trajectories:
             assert type(traj) is pymet.base.Trajectory
@@ -138,7 +138,6 @@ class SubjectProximityAnalysis:
                 for subject in proximity_analysis_params:
                     # create_trajectory
                     subject_traj = subject.create_trajectory(
-                        obs=subject.observations(),
                         trajectory_filter_params=subject.default_trajectory_filter())
 
                     # Subsample trajectory to the last two fixes
@@ -149,28 +148,25 @@ class SubjectProximityAnalysis:
                     for subject_traj in [subject_trajectories]:
                         for seg2 in subject_traj.traj_segs:
 
-                            sub2_last_track = cls.get_subject_latest_obs(subject)
+                            latest_observation_second_subject = cls.get_subject_latest_obs(subject)
                             valid_proximal_time = cls.verify_proximal_tracks_time_frame(
-                                config, analysis_subject_track, sub2_last_track)
+                                config, latest_observation_analysis_subject, latest_observation_second_subject)
 
                             if valid_proximal_time:
-                                # Calculate the distance between the traj seg and the new segment
-                                proximity_dist = seg.ogr_geometry.Distance(seg2.ogr_geometry)
-
-                                # Convert the distance from degrees to meters
-                                proximity_dist = pymet.utils.degrees_to_km(proximity_dist) * 1000.0
+                                # # Calculate the distance between the two subject
+                                proximity_dist = seg.end_fix_geopoint.dist_to_point(seg2.end_fix_geopoint.ogr_geometry)
 
                                 # Create the proximity event
                                 prox_event = SubjectProximityEvent(
                                     subject_1_id=str(analysis_subject.id),
                                     subject_1_name=analysis_subject.name,
                                     subject_1_speed=round(seg.speed_kmhr, 2),
-                                    subject_1_location=cls.get_map_coords(analysis_subject_track),
+                                    subject_1_location=cls.get_map_coords(latest_observation_analysis_subject),
 
                                     subject_2_id=str(subject.id),
                                     subject_2_name=subject.name,
                                     subject_2_speed=round(seg2.speed_kmhr, 2),
-                                    subject_2_location=cls.get_map_coords(sub2_last_track),
+                                    subject_2_location=cls.get_map_coords(latest_observation_second_subject),
 
                                     subject_1_travel_heading=round(seg.heading, 2),
                                     subject_2_travel_heading=round(seg2.heading, 2),
