@@ -53,12 +53,13 @@ class DasPluginTransformationError(DasPluginException):
 class DasPluginInsertError(DasPluginException):
     pass
 
+
 class DasPluginSourceRetryError(DasPluginException):
     """Retry executing source plugin in seconds"""
+
     def __init__(self, retry_seconds, message=None):
         super().__init__(message)
         self.retry_seconds = retry_seconds
-    
 
 
 logger = logging.getLogger(__name__)
@@ -150,7 +151,8 @@ class SourcePlugin(TimestampedModel):
                 notify_new_tracks(str(self.source.id))
 
             stats_count = accumulator.get('created', 0) if accumulator else 0
-            counter_name = '_'.join(('plugin', self.plugin._meta.label_lower, 'created'))
+            counter_name = '_'.join(
+                ('plugin', self.plugin._meta.label_lower, 'created'))
             stats.increment(counter_name, value=stats_count)
 
             return result
@@ -176,7 +178,8 @@ class SourcePlugin(TimestampedModel):
         '''
         if (int(observation.longitude) == 180 and int(observation.latitude) == 90):
             logger.info("Invalid observation location.To be flagged/excluded")
-            observation = observation._replace(exclusion_flags=2) # 2 for excluded_automatically
+            observation = observation._replace(
+                exclusion_flags=2)  # 2 for excluded_automatically
         return observation
 
     def __str__(self):
@@ -344,9 +347,10 @@ class DasDefaultTarget(PluginTarget):
                 recorded_at=item.recorded_at,
                 defaults=dict(
                     location=location,
-                    additional=additional
-                ),
-                exclusion_flags=item.exclusion_flags)
+                    additional=additional,
+                    exclusion_flags=item.exclusion_flags
+                )
+            )
 
         return result, created
 
