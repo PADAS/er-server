@@ -179,6 +179,7 @@ locals {
     "zakouma"                 = "prod1"
     "zambezedelta"            = "prod1"
     "zinnshoek"               = "prod1"
+    "matlabas"                = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
