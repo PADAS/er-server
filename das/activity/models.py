@@ -274,6 +274,8 @@ class EventType(TimestampedModel):
                                                 resolve_time__isnull=False),
                                               name='auto_resolve_constraint')]
 
+        ordering = ['display']
+
     objects = EventTypeManager.from_queryset(EventTypeFilteringQuerySet)()
 
     def save(self, *args, **kwargs):
