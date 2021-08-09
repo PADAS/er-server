@@ -6,6 +6,10 @@ from urllib.parse import urlencode
 import tempfile
 import shutil
 
+from psycopg2.extras import DateTimeTZRange
+
+from django.db import connection
+
 import django.contrib.auth
 from django.core.management import call_command
 from django.urls import reverse
@@ -18,7 +22,8 @@ import pytest
 from activity import views
 from activity.models import Patrol, PatrolSegment, PatrolType, StateFilters, Event, EventType, PC_DONE, EventRelationship
 from core.tests import BaseAPITest
-from observations.models import Subject
+from observations.models import Subject, Source, SubjectSource
+from observations.materialized_views import patrols_view
 from das_server.celery import app
 from accounts.models import PermissionSet
 
@@ -61,7 +66,7 @@ class TestPatrol(BaseAPITest):
 
         self.default_test_patrol = Patrol.objects.create(
             title='Default Test Patrol')
-        print(self.default_test_patrol.id)
+
         PatrolSegment.objects.create(
             patrol_type=PatrolType.objects.first(), patrol_id=self.default_test_patrol.id)
 
@@ -1666,3 +1671,51 @@ def test_patrolsegments(django_assert_max_num_queries, client):
     url = reverse('patrols')
     with django_assert_max_num_queries(35):
         client.get(url)
+
+def test_patrols_materialized_view(django_assert_max_num_queries, client):
+
+    user_const = dict(last_name='last', first_name='first')
+    user = User.objects.create_user('user', 'user@test.com', 'all_perms_user', is_superuser=True,
+                                    is_staff=True, **user_const)
+
+    leader = Subject.objects.create(
+        name='Aname', subject_subtype_id='ranger')
+
+    patrol_start_at = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=30)
+    patrol_end_at = patrol_start_at + datetime.timedelta(days=14)
+
+    patrol = Patrol.objects.create(title='Standard patrol')
+
+    PatrolSegment.objects.create(patrol=patrol,
+                                 scheduled_start=patrol_start_at,
+                                 time_range=DateTimeTZRange(patrol_start_at, patrol_end_at),
+                                 leader=leader)
+
+
+    sources = [
+        {'model_name': 'Model A', 'manufacturer_id': 'model-a-1',},
+        {'model_name': 'Model B', 'manufacturer_id': 'model-b-1',},
+    ]
+
+    # Arbitrary ranges that will overlap with the patrol range.
+    range_overlaps = [
+        ((patrol_start_at - datetime.timedelta(days=5), patrol_start_at + datetime.timedelta(days=4))),
+        ((patrol_start_at + datetime.timedelta(days=4), patrol_start_at + datetime.timedelta(days=21)))
+        ]
+
+    for i, s in enumerate(sources):
+        src = Source.objects.create(**s)
+        SubjectSource.objects.create(**{
+            'subject': leader,
+            'source': src,
+            'assigned_range': range_overlaps[i]
+        })
+
+    patrols_view.drop_view()
+    patrols_view.refresh_view()
+
+    cursor = connection.cursor().cursor
+
+    cursor.execute('select count(*) from patrols_view;')
+    data = cursor.fetchall()
+    # assert data[0] == (1,)

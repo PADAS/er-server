@@ -30,10 +30,15 @@ class PatrolsMaterializedView:
             
             (SELECT name FROM observations_subject WHERE id=ps.leader_id) as "Tracked Subject",
                 
-            (SELECT model_name FROM observations_source 
-                WHERE id=(SELECT source_id FROM observations_subjectsource 
-                    WHERE subject_id=ps.leader_id)) as "Tracked Device",
-                
+            (
+              SELECT string_agg(model_name, '/') model_name from 
+                  (select distinct(model_name) model_name from observations_source
+                     where id = any(select source_id from observations_subjectsource
+                                   where subject_id=ps.leader_id
+                                     and assigned_range && ps.time_range)) modelnames
+                          
+            ) as "Tracked Device",
+                            
             lower(ps.time_range) AS "Actual Start Date",
             ps.scheduled_start AS "Scheduled Start Date",
 
