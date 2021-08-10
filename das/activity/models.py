@@ -359,8 +359,8 @@ class RefreshRecreateEventDetailView(models.Model):
 
 class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
-    def all_sort(self):
-        return self.order_by('-sort_at')
+    def all_sort(self, sort_by='-sort_at'):
+        return self.order_by(sort_by)
 
     def by_bbox(self, bbox, last_days=None):
         geom = Polygon.from_bbox(bbox)
@@ -786,7 +786,8 @@ class Event(RevisionMixin, TimestampedModel):
         )
         indexes = [
             models.Index(fields=['created_at']),
-            models.Index(fields=['updated_at'])
+            models.Index(fields=['updated_at']),
+            models.Index(fields=['event_time']),
         ]
 
     class ReadonlyMeta:

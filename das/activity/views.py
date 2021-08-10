@@ -8,8 +8,10 @@ import json
 import logging
 import mimetypes
 import platform
+import itertools
 from collections import OrderedDict
 from datetime import timedelta, datetime
+from django.utils.translation import ugettext_lazy as _
 
 import dateutil.parser as dateparser
 import pytz
@@ -73,6 +75,10 @@ LAST_DAYS = timedelta(days=3)
 USERCONTENT_FORCE_DOWNLOAD = getattr(settings, 'USERCONTENT_SETTINGS', {}).get(
     'force_download_mimetypes', set())
 
+class BadRequestAPIException(APIException):
+    status_code = status.HTTP_400_BAD_REQUEST
+    default_detail = _('Bad request.')
+    default_code = 'error'
 
 def calculate_event_schema_etag(view_instance, view_method, request, *args, **kwargs):
     user = request.user
@@ -769,6 +775,59 @@ class EventsExportView(views.APIView):
         return queryset.order_by('event_type_id')
 
 
+class EventsViewSchema(CustomSchema):
+
+    def get_operation(self, path, method):
+        operation = super().get_operation(path, method)
+        if method == 'GET':
+            query_params = [
+                {
+                    'name': 'sort_by',
+                    'required': False,
+                    'description': "Sort by (use 'event_time', 'updated_at', 'created_at', 'serial_number')" \
+                      " with optional minus ('-') prefix to reverse order."
+                },
+                {
+                    'name': 'is_collection',
+                    'in': 'query',
+                    'description': 'true/false whether to filter on is_collection',
+                },
+                {
+                    'name': 'updated_since',
+                    'in': 'query',
+                    'description': 'date-string to limit on updated_at'
+                }
+                {
+                    'name': 'event_ids',
+                    'in': 'query',
+                    'description': 'Event IDs, comma-separated',
+                    'schema': {'type': 'array', 'items': {'type': 'string'}}
+                },
+                {
+                    'name': 'bbox',
+                    'in': 'query',
+                    'description': 'bounding box including four coordinate values, comma-separated.' \
+                    ' Ex. bbox=-122.4,48.4,-122.95,49.0 (west, south, east, north).'
+                },
+                {
+                    'name': 'include_updates',
+                    'in': 'query',
+                    'description': 'Boolean value'
+                },                {
+                    'name': 'include_updates',
+                    'in': 'query',
+                    'description': 'Boolean value'
+                },                {
+                    'name': 'include_details',
+                    'in': 'query',
+                    'description': 'Boolean value'
+                },
+
+                ]
+            operation['parameters'].extend(query_params)
+        return operation
+
+
 class EventsView(generics.ListCreateAPIView):
     __doc__ = """
     Returns all events.
@@ -779,7 +838,12 @@ class EventsView(generics.ListCreateAPIView):
     state
     include_updates, true to include event updates
     include_notes, true to include notes
+
+    sort_by, valid values are event_time, updated_at, created_at, serial_number (prefix with '-' for reverse order)
+    * default is by '-sort_at' which is a special value representing reverse by updated_at.
+
     page, page number
+    
     page_size, (default is {page_size}, max is {max_page_size})
     """.format(page_size=StandardResultsSetPagination.page_size,
                max_page_size=StandardResultsSetPagination.max_page_size)
@@ -788,6 +852,12 @@ class EventsView(generics.ListCreateAPIView):
     serializer_class = EventSerializer
     pagination_class = StandardResultsSetPagination
     metadata_class = EventJSONSchema
+
+    schema = EventsViewSchema()
+
+
+    sort_keys = ['event_time', 'updated_at', 'serial_number', 'created_at', 'sort_at']
+    eligible_sort_by = list(itertools.chain(*[(k, f'-{k}') for k in sort_keys]))
 
     def add_segment_to_record(self, patrol_segment_id, new_record):
         for record in new_record:
@@ -858,7 +928,19 @@ class EventsView(generics.ListCreateAPIView):
 
     def get_queryset(self):
 
-        queryset = Event.objects.all_sort().prefetch_related(
+        query_params = self.request.query_params
+
+
+        sort_by = query_params.get('sort_by', '-sort_at')
+
+        if not sort_by in self.eligible_sort_by:
+            raise BadRequestAPIException(
+                detail=f'sort_by \'{sort_by}\' is not valid. Valid values are {self.eligible_sort_by}.',
+            )
+
+
+
+        queryset = Event.objects.all_sort(sort_by=sort_by).prefetch_related(
             'eventsource_event_refs', 'patrol_segments')
         patrol_segment_id = self.kwargs.get('patrol_segment')
         if patrol_segment_id:
@@ -866,7 +948,6 @@ class EventsView(generics.ListCreateAPIView):
                          patrol_segment_id)
             queryset = queryset.filter(patrol_segments__id=patrol_segment_id)
 
-        query_params = self.request.query_params
         event_ids = query_params.get('event_ids', [])
         if event_ids:
             if isinstance(event_ids, str):
@@ -878,7 +959,7 @@ class EventsView(generics.ListCreateAPIView):
             bbox = bbox.split(',')
             bbox = [float(v) for v in bbox]
             if len(bbox) != 4:
-                raise ValueError("invalid bbox param")
+                raise BadRequestAPIException(detail="invalid bbox param")
 
             queryset = queryset.by_bbox(bbox)
         state = query_params.getlist('state', None)
@@ -902,8 +983,8 @@ class EventsView(generics.ListCreateAPIView):
         is_collection = query_params.get('is_collection', None)
         exclude_contained = query_params.get('exclude_contained', None)
         if is_collection and exclude_contained:
-            raise ValueError(
-                'invalid use of is_collection and exclude_contained in the same call')
+            raise BadRequestAPIException(
+                detail='invalid use of is_collection and exclude_contained in the same call')
 
         if is_collection:
             queryset = queryset.by_is_collection(parse_bool(is_collection))
@@ -918,8 +999,8 @@ class EventsView(generics.ListCreateAPIView):
                 updated_since = dateparser.parse(updated_since)
                 queryset = queryset.updated_since(updated_since)
             except ValueError:
-                raise ValueError(
-                    f"Invalid value for 'updated_since' = '{updated_since}'")
+                raise BadRequestAPIException(
+                    detail=f"Invalid value for 'updated_since' = '{updated_since}'")
 
         event_categories = query_params.getlist('event_category', None)
         if event_categories is None or len(event_categories) == 0:
