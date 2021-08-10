@@ -796,7 +796,7 @@ class EventsViewSchema(CustomSchema):
                     'name': 'updated_since',
                     'in': 'query',
                     'description': 'date-string to limit on updated_at'
-                }
+                },
                 {
                     'name': 'event_ids',
                     'in': 'query',
