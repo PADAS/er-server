@@ -2,40 +2,47 @@ data "google_project" "earthranger" {
   project_id = "earthranger-78ca55ca"
 }
 
-data "vault_generic_secret" "alerts_slack_url" {
-  path = "${local.legacy_vault_path}/slack-webhook-url-alertmanager"
+data "google_secret_manager_secret_version" "alerts_slack_url" {
+  project = data.google_project.earthranger.project_id
+  secret  = "slack_webhook_url_alertmanager"
 }
 
-data "vault_generic_secret" "email_username" {
-  path = "${local.legacy_vault_path}/email-username"
+data "google_secret_manager_secret_version" "email_username" {
+  project = data.google_project.earthranger.project_id
+  secret  = "email_username"
 }
 
-data "vault_generic_secret" "email_password" {
-  path = "${local.legacy_vault_path}/email-password"
+data "google_secret_manager_secret_version" "email_password" {
+  project = data.google_project.earthranger.project_id
+  secret  = "email_password"
 }
 
-data "vault_generic_secret" "ssl_privatekey_pem" {
-  path = "${local.legacy_vault_path}/${var.ssl_privatekey_vault_path}"
-
+data "google_secret_manager_secret_version" "ssl_privatekey_pem" {
+  project = data.google_project.earthranger.project_id
+  secret  = var.ssl_privatekey_gsm_id
 }
 
-data "vault_generic_secret" "ssl_certificate_chain" {
-  path = "${local.legacy_vault_path}/${var.ssl_certificate_vault_path}"
+data "google_secret_manager_secret_version" "ssl_certificate_chain" {
+  project = data.google_project.earthranger.project_id
+  secret  = var.ssl_certificate_gsm_id
 }
 
-data "vault_generic_secret" "twilio_account_settings" {
-  path = "${local.legacy_vault_path}/earthranger/twilio/default"
+data "google_secret_manager_secret_version" "twilio_account_settings" {
+  project = data.google_project.earthranger.project_id
+  secret  = "twilio_default"
 }
 
-data "vault_generic_secret" "ubi_api_credentials" {
-  path = "${local.legacy_vault_path}/earthranger/ubi-api-credentials"
+data "google_secret_manager_secret_version" "ubi_api_credentials" {
+  project = data.google_project.earthranger.project_id
+  secret  = "ubi_api_credentials"
 }
 
-data "vault_generic_secret" "kerlink_credentials" {
-  path = "${local.legacy_vault_path}/earthranger/kerlink-credentials"
+data "google_secret_manager_secret_version" "kerlink_credentials" {
+  project = data.google_project.earthranger.project_id
+  secret  = "kerlink_credentials"
 }
 
-data "vault_generic_secret" "tableau_api_credentials" {
-  path = "${local.legacy_vault_path}/earthranger/tableau-api-credentials"
+data "google_secret_manager_secret_version" "tableau_api_credentials" {
+  project = data.google_project.earthranger.project_id
+  secret  = "tableau_api_credentials"
 }
-

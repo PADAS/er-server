@@ -46,16 +46,16 @@ variable "subdomain_name" {
   default     = null
 }
 
-variable "ssl_privatekey_vault_path" {
+variable "ssl_privatekey_gsm_id" {
   type        = string
-  description = "Vault path for SSL private key"
-  default     = "generic/privatekey.pem"
+  description = "GSM ID for SSL private key"
+  default     = "generic_privatekey_pem"
 }
 
-variable "ssl_certificate_vault_path" {
+variable "ssl_certificate_gsm_id" {
   type        = string
-  description = "Vault path for SSL certificate chain."
-  default     = "generic/fullchain.pem"
+  description = "GSM ID for SSL private key"
+  default     = "generic_fullchain_pem"
 }
 
 variable "versioning_enabled" {

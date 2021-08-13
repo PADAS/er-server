@@ -4,12 +4,12 @@ locals {
     {
       db_instance            = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_name,
       db_instance_private_ip = data.terraform_remote_state.earthranger_app_infra.outputs.db_instance_private_ip,
-      db_password_path       = "${local.legacy_vault_path}/earthranger-app-infra-postgres-server-${local.db_secret_path}"
+      db_password_path       = "earthranger_app_infra_postgres_server_${local.db_secret_path}"
     },
     {
       db_instance            = data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_name,
       db_instance_private_ip = data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_private_ip,
-      db_password_path       = "${local.legacy_vault_path}/earthranger-app-infra-postgres-server2-${local.db_secret_path}"
+      db_password_path       = "earthranger_app_infra_postgres_server2_${local.db_secret_path}"
     }
   ]
 
@@ -21,7 +21,7 @@ locals {
   app_user_name          = "${local.unique_db_name}_appuser"
   db_instance            = element(local.db_instances, local.db_instance_index).db_instance
   db_instance_private_ip = element(local.db_instances, local.db_instance_index).db_instance_private_ip
-  db_password_vault_path       = element(local.db_instances, local.db_instance_index).db_password_path
+  db_password_gsm_id       = element(local.db_instances, local.db_instance_index).db_password_path
 
   migration_role_name = "${local.unique_db_name}_migrationrole"
   migration_user_name = "${local.unique_db_name}_migrationuser"
@@ -36,13 +36,14 @@ resource "random_string" "db_name_uniqueness" {
   upper   = false
 }
 
-data "vault_generic_secret" "db_password" {
-  path = local.db_password_vault_path
+data "google_secret_manager_secret_version" "db_password" {
+  project = data.google_project.earthranger.project_id
+  secret  = local.db_password_gsm_id
 }
 
-
-data "vault_generic_secret" "secret_manager_key" {
-  path = "${local.legacy_vault_path}/earthranger/secret-manager-key"
+data "google_secret_manager_secret_version" "secret_manager_key" {
+  project = data.google_project.earthranger.project_id
+  secret  = "secret_manager_key"
 }
 
 resource "google_sql_database" "database" {
@@ -59,7 +60,7 @@ resource "google_sql_database" "database" {
       user        = "bastion_server"
     }
 
-    inline = ["((sudo docker run --rm --interactive --env=PGSSLMODE=require --env=PGPASSWORD=${data.vault_generic_secret.db_password.data["value"]} --mount=type=bind,source=$PWD/postgres_bootstrapping.sql,destination=/tmp/postgres_bootstrapping.sql,readonly postgres:9.6 psql --host=${local.db_instance_private_ip} --username=postgres --dbname=${google_sql_database.database.name} --file=/tmp/postgres_bootstrapping.sql --variable=db_name=${google_sql_database.database.name} --variable=migration_role_name=${local.migration_role_name} --variable=migration_user_name=${local.migration_user_name} --variable=app_role_name=${local.app_role_name} --variable=app_user_name=${local.app_user_name} --variable=analytics_role_name=${local.analytics_role_name} --variable=analytics_user_name=${local.analytics_user_name} --single-transaction --variable=ON_ERROR_STOP=1) && sudo rm -rf /tmp/terraform* && exit 0) || (sudo rm -rf /tmp/terraform* && exit 1)", ]
+    inline = ["((sudo docker run --rm --interactive --env=PGSSLMODE=require --env=PGPASSWORD=${data.google_secret_manager_secret_version.db_password.secret_data["value"]} --mount=type=bind,source=$PWD/postgres_bootstrapping.sql,destination=/tmp/postgres_bootstrapping.sql,readonly postgres:9.6 psql --host=${local.db_instance_private_ip} --username=postgres --dbname=${google_sql_database.database.name} --file=/tmp/postgres_bootstrapping.sql --variable=db_name=${google_sql_database.database.name} --variable=migration_role_name=${local.migration_role_name} --variable=migration_user_name=${local.migration_user_name} --variable=app_role_name=${local.app_role_name} --variable=app_user_name=${local.app_user_name} --variable=analytics_role_name=${local.analytics_role_name} --variable=analytics_user_name=${local.analytics_user_name} --single-transaction --variable=ON_ERROR_STOP=1) && sudo rm -rf /tmp/terraform* && exit 0) || (sudo rm -rf /tmp/terraform* && exit 1)", ]
   }
   depends_on = [
     google_sql_user.migration_role,

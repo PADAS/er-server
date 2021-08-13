@@ -1,12 +1,13 @@
-locals {
-  legacy_vault_path = "secret/earthranger/migrated"
+data "google_project" "earthranger" {
+  project_id = "earthranger-78ca55ca"
 }
 
-data "vault_generic_secret" "aws_metrics_credentials" {
-  path = "${local.legacy_vault_path}/earthranger/aws_metrics_credentials"
+data "google_secret_manager_secret_version" "aws_metrics_credentials" {
+  project = data.google_project.earthranger.project_id
+  secret  = "aws_metrics_credentials"
 }
 
-data "vault_generic_secret" "ga_measurement_id" {
-  path = "secret/earthranger/ga_measurement_id"
+data "google_secret_manager_secret_version" "ga_measurement_id" {
+  project = data.google_project.earthranger.project_id
+  secret  = "ga_measurement_id"
 }
-

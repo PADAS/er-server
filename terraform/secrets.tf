@@ -4,7 +4,7 @@ resource "kubernetes_secret" "alerts_slack_url" {
     namespace = kubernetes_namespace.this.metadata.0.name
   }
 
-  data = data.vault_generic_secret.alerts_slack_url.data
+  data = data.google_secret_manager_secret_version.alerts_slack_url.secret_data
 }
 
 resource "kubernetes_secret" "email_username" {
@@ -13,7 +13,7 @@ resource "kubernetes_secret" "email_username" {
     namespace = kubernetes_namespace.this.metadata.0.name
   }
 
-  data = data.vault_generic_secret.email_username.data
+  data = data.google_secret_manager_secret_version.email_username.secret_data
 }
 
 resource "kubernetes_secret" "email_password" {
@@ -22,7 +22,7 @@ resource "kubernetes_secret" "email_password" {
     namespace = kubernetes_namespace.this.metadata.0.name
   }
 
-  data = data.vault_generic_secret.email_password.data
+  data = data.google_secret_manager_secret_version.email_password.secret_data
 }
 
 resource "kubernetes_secret" "db_password" {
@@ -31,7 +31,7 @@ resource "kubernetes_secret" "db_password" {
     namespace = kubernetes_namespace.this.metadata.0.name
   }
 
-  data = data.vault_generic_secret.db_password.data
+  data = data.google_secret_manager_secret_version.db_password.secret_data
 }
 
 resource "kubernetes_secret" "app_db_credentials" {
@@ -51,7 +51,7 @@ resource "kubernetes_secret" "ssl_certificate_chain" {
     name      = "pamdas-org-ssl-cert-bundle"
     namespace = kubernetes_namespace.this.metadata.0.name
   }
-  data = data.vault_generic_secret.ssl_certificate_chain.data
+  data = data.google_secret_manager_secret_version.ssl_certificate_chain.secret_data
 }
 
 resource "kubernetes_secret" "ssl_privatekey_pem" {
@@ -59,7 +59,7 @@ resource "kubernetes_secret" "ssl_privatekey_pem" {
     name      = "pamdas-org-private-key-pem"
     namespace = kubernetes_namespace.this.metadata.0.name
   }
-  data = data.vault_generic_secret.ssl_privatekey_pem.data
+  data = data.google_secret_manager_secret_version.ssl_privatekey_pem.secret_data
 }
 
 resource "kubernetes_secret" "twilio_account_settings" {
@@ -69,9 +69,9 @@ resource "kubernetes_secret" "twilio_account_settings" {
   }
 
   data = {
-    account_sid          = data.vault_generic_secret.twilio_account_settings.data.account_sid
-    auth_token           = data.vault_generic_secret.twilio_account_settings.data.auth_token
-    whatsapp_from_number = data.vault_generic_secret.twilio_account_settings.data.whatsapp_from_number
+    account_sid          = data.google_secret_manager_secret_version.twilio_account_settings.secret_data.account_sid
+    auth_token           = data.google_secret_manager_secret_version.twilio_account_settings.secret_data.auth_token
+    whatsapp_from_number = data.google_secret_manager_secret_version.twilio_account_settings.secret_data.whatsapp_from_number
   }
 }
 
@@ -82,8 +82,8 @@ resource "kubernetes_secret" "ubi_api_credentials" {
   }
 
   data = {
-    ubi_username = data.vault_generic_secret.ubi_api_credentials.data.username
-    ubi_password = data.vault_generic_secret.ubi_api_credentials.data.password
+    ubi_username = data.google_secret_manager_secret_version.ubi_api_credentials.secret_data.username
+    ubi_password = data.google_secret_manager_secret_version.ubi_api_credentials.secret_data.password
   }
 }
 
@@ -94,8 +94,8 @@ resource "kubernetes_secret" "kerlink_credentials" {
   }
 
   data = {
-    kerlink_username = data.vault_generic_secret.kerlink_credentials.data.username
-    kerlink_password = data.vault_generic_secret.kerlink_credentials.data.password
+    kerlink_username = data.google_secret_manager_secret_version.kerlink_credentials.secret_data.username
+    kerlink_password = data.google_secret_manager_secret_version.kerlink_credentials.secret_data.password
   }
 }
 
@@ -106,8 +106,8 @@ resource "kubernetes_secret" "tableau_api_credentials" {
   }
 
   data = {
-    tableau_username = data.vault_generic_secret.tableau_api_credentials.data.username
-    tableau_password = data.vault_generic_secret.tableau_api_credentials.data.password
-    tableau_token = data.vault_generic_secret.tableau_api_credentials.data.token
+    tableau_username = data.google_secret_manager_secret_version.tableau_api_credentials.secret_data.username
+    tableau_password = data.google_secret_manager_secret_version.tableau_api_credentials.secret_data.password
+    tableau_token = data.google_secret_manager_secret_version.tableau_api_credentials.secret_data.token
   }
 }
