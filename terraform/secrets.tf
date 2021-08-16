@@ -69,9 +69,9 @@ resource "kubernetes_secret" "twilio_account_settings" {
   }
 
   data = {
-    account_sid          = data.google_secret_manager_secret_version.twilio_account_settings.secret_data.account_sid
-    auth_token           = data.google_secret_manager_secret_version.twilio_account_settings.secret_data.auth_token
-    whatsapp_from_number = data.google_secret_manager_secret_version.twilio_account_settings.secret_data.whatsapp_from_number
+    account_sid          = jsondecode(data.google_secret_manager_secret_version.twilio_account_settings.secret_data).account_sid
+    auth_token           = jsondecode(data.google_secret_manager_secret_version.twilio_account_settings.secret_data).auth_token
+    whatsapp_from_number = jsondecode(data.google_secret_manager_secret_version.twilio_account_settings.secret_data).whatsapp_from_number
   }
 }
 
@@ -82,8 +82,8 @@ resource "kubernetes_secret" "ubi_api_credentials" {
   }
 
   data = {
-    ubi_username = data.google_secret_manager_secret_version.ubi_api_credentials.secret_data.username
-    ubi_password = data.google_secret_manager_secret_version.ubi_api_credentials.secret_data.password
+    ubi_username = jsondecode(data.google_secret_manager_secret_version.ubi_api_credentials.secret_data).username
+    ubi_password = jsondecode(data.google_secret_manager_secret_version.ubi_api_credentials.secret_data).password
   }
 }
 
@@ -94,8 +94,8 @@ resource "kubernetes_secret" "kerlink_credentials" {
   }
 
   data = {
-    kerlink_username = data.google_secret_manager_secret_version.kerlink_credentials.secret_data.username
-    kerlink_password = data.google_secret_manager_secret_version.kerlink_credentials.secret_data.password
+    kerlink_username = jsondecode(data.google_secret_manager_secret_version.kerlink_credentials.secret_data).username
+    kerlink_password = jsondecode(data.google_secret_manager_secret_version.kerlink_credentials.secret_data).password
   }
 }
 
@@ -106,8 +106,8 @@ resource "kubernetes_secret" "tableau_api_credentials" {
   }
 
   data = {
-    tableau_username = data.google_secret_manager_secret_version.tableau_api_credentials.secret_data.username
-    tableau_password = data.google_secret_manager_secret_version.tableau_api_credentials.secret_data.password
-    tableau_token = data.google_secret_manager_secret_version.tableau_api_credentials.secret_data.token
+    tableau_username = jsondecode(data.google_secret_manager_secret_version.tableau_api_credentials.secret_data).username
+    tableau_password = jsondecode(data.google_secret_manager_secret_version.tableau_api_credentials.secret_data).password
+    tableau_token = jsondecode(data.google_secret_manager_secret_version.tableau_api_credentials.secret_data).token
   }
 }

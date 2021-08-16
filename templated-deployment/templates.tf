@@ -22,8 +22,8 @@ resource "template_dir" "deployments" {
     API_ENDPOINT                    = var.api_endpoint
     API_HOST                        = var.api_host
     API_PORT                        = var.api_port
-    AWS_ACCESS_KEY_ID               = data.google_secret_manager_secret_version.aws_metrics_credentials.secret_data.aws_access_key_id
-    AWS_SECRET_ACCESS_KEY           = data.google_secret_manager_secret_version.aws_metrics_credentials.secret_data.aws_secret_access_key
+    AWS_ACCESS_KEY_ID               = jsondecode(data.google_secret_manager_secret_version.aws_metrics_credentials.secret_data).aws_access_key_id
+    AWS_SECRET_ACCESS_KEY           = jsondecode(data.google_secret_manager_secret_version.aws_metrics_credentials.secret_data).aws_secret_access_key
     CONFIG_CONTAINER                = var.config_container
     DAILY_REPORT_ENABLED            = var.daily_report_enabled
     DB_HOST                         = local.db_instance_private_ip
@@ -68,6 +68,6 @@ resource "template_dir" "deployments" {
     TRACK_LENGTH                    = var.track_length
     USE_AZURE_STORAGE               = var.use_azure_storage
     WEB_SERVICE_NAME                = var.web_service_name
-    GA_MEASUREMENT_ID               = data.google_secret_manager_secret_version.ga_measurement_id.secret_data.ga_measurement_id
+    GA_MEASUREMENT_ID               = jsondecode(data.google_secret_manager_secret_version.ga_measurement_id.secret_data).ga_measurement_id
   }
 }
