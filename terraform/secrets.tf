@@ -4,7 +4,7 @@ resource "kubernetes_secret" "alerts_slack_url" {
     namespace = kubernetes_namespace.this.metadata.0.name
   }
 
-  data = data.google_secret_manager_secret_version.alerts_slack_url.secret_data
+  data = jsondecode(data.google_secret_manager_secret_version.alerts_slack_url.secret_data)
 }
 
 resource "kubernetes_secret" "email_username" {
@@ -13,7 +13,7 @@ resource "kubernetes_secret" "email_username" {
     namespace = kubernetes_namespace.this.metadata.0.name
   }
 
-  data = data.google_secret_manager_secret_version.email_username.secret_data
+  data = jsondecode(data.google_secret_manager_secret_version.email_username.secret_data)
 }
 
 resource "kubernetes_secret" "email_password" {
@@ -22,7 +22,7 @@ resource "kubernetes_secret" "email_password" {
     namespace = kubernetes_namespace.this.metadata.0.name
   }
 
-  data = data.google_secret_manager_secret_version.email_password.secret_data
+  data = jsondecode(data.google_secret_manager_secret_version.email_password.secret_data)
 }
 
 resource "kubernetes_secret" "db_password" {
@@ -31,7 +31,7 @@ resource "kubernetes_secret" "db_password" {
     namespace = kubernetes_namespace.this.metadata.0.name
   }
 
-  data = data.google_secret_manager_secret_version.db_password.secret_data
+  data = jsondecode(data.google_secret_manager_secret_version.db_password.secret_data)
 }
 
 resource "kubernetes_secret" "app_db_credentials" {
@@ -51,7 +51,7 @@ resource "kubernetes_secret" "ssl_certificate_chain" {
     name      = "pamdas-org-ssl-cert-bundle"
     namespace = kubernetes_namespace.this.metadata.0.name
   }
-  data = data.google_secret_manager_secret_version.ssl_certificate_chain.secret_data
+  data = jsondecode(data.google_secret_manager_secret_version.ssl_certificate_chain.secret_data)
 }
 
 resource "kubernetes_secret" "ssl_privatekey_pem" {
@@ -59,7 +59,7 @@ resource "kubernetes_secret" "ssl_privatekey_pem" {
     name      = "pamdas-org-private-key-pem"
     namespace = kubernetes_namespace.this.metadata.0.name
   }
-  data = data.google_secret_manager_secret_version.ssl_privatekey_pem.secret_data
+  data = jsondecode(data.google_secret_manager_secret_version.ssl_privatekey_pem.secret_data)
 }
 
 resource "kubernetes_secret" "twilio_account_settings" {
