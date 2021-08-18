@@ -1,17 +1,9 @@
 provider "google" {
   region  = data.terraform_remote_state.earthranger_app_infra.outputs.gcp_region
-  version = "2.20.0"
-}
-
-provider "google" {
-  region  = data.terraform_remote_state.earthranger_app_infra.outputs.gcp_region
-  alias   = "gsm"
-  version = "3.79.0"
 }
 
 provider "google" {
   alias   = "k8s_cluster"
-  version = "2.20.0"
   project = data.terraform_remote_state.earthranger_app_infra.outputs.cluster_project_id
   scopes = [
     "https://www.googleapis.com/auth/cloud-platform",
