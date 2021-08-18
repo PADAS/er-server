@@ -16,7 +16,6 @@ SHELL := /bin/sh
 
 vulcan_path := $(CURDIR)/.vulcan
 terraform_makefile := $(vulcan_path)/terraform-subtree/GNUmakefile
-vault_makefile := $(vulcan_path)/vault-subtree/GNUmakefile
 
 terraform_path := $(CURDIR)/../terraform
 template_path := $(CURDIR)/../templated-deployment
@@ -66,20 +65,17 @@ tf_workspace_new: ## terraform workspace new | workspace="WORKSPACE"
 .PHONY: tf_plan
 tf_plan: plan_options ?=
 tf_plan: ## terraform plan | [plan_options="ARGS"]
-	@ $(MAKE) --no-print-directory --file $(vault_makefile) vault_login
 	@ cd $(terraform_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_plan plan_options="$(plan_options)"
 
 .PHONY: tf_apply
 tf_apply: apply_dir_or_planfile ?=
 tf_apply: apply_options ?=
 tf_apply: ## terraform apply | [apply_options="ARGS"] [apply_dir_or_planfile="PATH"]
-	@ $(MAKE) --no-print-directory --file $(vault_makefile) vault_login
 	@ cd $(terraform_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_apply apply_dir_or_planfile="$(apply_dir_or_planfile)" apply_options="$(apply_options)"
 
 .PHONY: tf_destroy
 tf_destroy: destroy_dir ?=
 tf_destroy: ## terraform destroy | [destroy_dir="PATH"]
-	@ $(MAKE) --no-print-directory --file $(vault_makefile) vault_login
 	@ cd $(terraform_path) && $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_destroy destroy_dir="$(destroy_dir)"
 
 .PHONY: tf_output
@@ -90,9 +86,6 @@ tf_output: ## terraform output | [output_name="NAME"]
 .PHONY: tf_version
 tf_version: ## show terraform version
 	@ $(MAKE) --no-print-directory --file $(terraform_makefile) terraform_version
-
-get_vault_token_for_ci: ## AppRole login (pass through to vault makefile).
-	@ $(MAKE) --no-print-directory --file $(vault_makefile) $@
 
 .PHONY: render_templates
 render_templates: tfvars_environment ?= no_overrides
@@ -110,7 +103,7 @@ render_templates: ## render templates (using Terraform) | [tfvars_environment="B
 	 -var app_infra_workspace=$$APP_INFRA_WORKSPACE \
 	 -var kubernetes_namespace=$$K8S_NAMESPACE \
 	 -var site_terraform_workspace=$(tfvars_environment) \
-       	 -var db_name=$$DATABASE_NAME \
+	 -var db_name=$$DATABASE_NAME \
 	 -var site_ip_address=$$SITE_IP_ADDRESS \
 	 -var fqdn=$$FQDN \
 	 -var gs_bucket_name=$$GS_BUCKET_NAME"
