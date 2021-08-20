@@ -57,7 +57,7 @@ class EventVariables(variables.BaseVariables):
 
     @variables.select_multiple_rule_variable(label=_('State'), options=state_options)
     def state(self):
-        return [self.event.get('inferred_state'),]
+        return [self.event.get('inferred_state'), ]
 
     # TODO: Implement state-change logic.
     # @variables.select_multiple_rule_variable(label=_('State Change'), options=state_change_options)
@@ -261,8 +261,14 @@ def _generate_aggregate_event_variables_class(event_types, only_common_factors=F
     # Reduce schemas to common properties
     keyset_list = []
     for event_type in event_types:
+        try:
+            rendered_schema = schema_utils.get_rendered_schema(
+                event_type.schema)
+        except Exception as ex:
+            logger.warn(
+                f"Error in get_rendered_schema with {event_type.value}, ex:{ex}")
+            raise
 
-        rendered_schema = schema_utils.get_rendered_schema(event_type.schema)
         keyset = set(rendered_schema['properties'].keys())
         keyset_list.append(keyset)
         logger.debug('event_type: %s - Adding keyset: %s',
@@ -360,7 +366,8 @@ def render_event(event, user, method='GET'):
     request.user = user
 
     if EventCategoryPermissions().has_object_permission(request, None, event):
-        event_data = EventSerializer(event, context={'request': request, }).data
+        event_data = EventSerializer(
+            event, context={'request': request, }).data
         event_data['inferred_state'] = infer_event_state(event)
         return event_data
     else:
