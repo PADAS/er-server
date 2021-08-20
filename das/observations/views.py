@@ -1952,7 +1952,6 @@ class MessageView(generics.RetrieveUpdateDestroyAPIView):
         return get_user_messages(self.request.user)
 
 
-
 def get_user_messages(user):
     # Get messages a user has access to
     user_subjects = models.Subject.objects.by_user_subjects(user)
@@ -1967,7 +1966,7 @@ class AnnouncementsView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
-        queryset = models.Announcement.objects.all()
+        queryset = models.Announcement.objects.all().order_by_announcement_at()
 
         query_params = self.request.query_params
         is_read = query_params.get('is_read')
@@ -1982,18 +1981,18 @@ class AnnouncementsView(generics.ListCreateAPIView):
         query_params = self.request.query_params
         read = query_params.get('read')
         if not read:
-            raise ParseError(detail=" Malformed request. Query parameter 'read' is required.")
+            raise ParseError(
+                detail=" Malformed request. Query parameter 'read' is required.")
 
         data = dict(news_ids=[x.strip() for x in read.split(',')])
         serializer = serializers.ReadAnnouncementSerializer(data=data)
         serializer.is_valid(raise_exception=True)
 
-        queryset = models.Announcement.objects.filter(pk__in=serializer.data.get('news_ids'))
+        queryset = models.Announcement.objects.filter(
+            pk__in=serializer.data.get('news_ids'))
         print(queryset.count())
         [q.related_users.add(request.user) for q in queryset]
 
         context = dict(request=self.request)
         response = self.serializer_class(queryset, many=True, context=context)
         return Response(response.data, status=status.HTTP_200_OK)
-
-
