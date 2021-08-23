@@ -266,6 +266,9 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 #CSRF_TRUSTED_ORIGINS = ('localhost',)
 
+
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000
+
 SWAGGER_SETTINGS = {
     'api_version': 'v1.0',
     'api_path': '/',
