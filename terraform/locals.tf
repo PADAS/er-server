@@ -192,9 +192,6 @@ locals {
 
   cluster_or_proxy_k8s_endpoint = var.is_running_in_automation ? data.terraform_remote_state.earthranger_app_infra.outputs.proxy_endpoint : data.terraform_remote_state.earthranger_app_infra.outputs.cluster_endpoint
 
-
-  legacy_vault_path = "secret/earthranger/migrated"
-
   workspace_to_database_instance = {
     # if not here, the lookup has a default
     "meru"                  = 1

@@ -4,7 +4,6 @@ provider "google" {
 
 provider "google" {
   alias   = "k8s_cluster"
-
   project = data.terraform_remote_state.earthranger_app_infra.outputs.cluster_project_id
   scopes = [
     "https://www.googleapis.com/auth/cloud-platform",
@@ -20,11 +19,6 @@ provider "kubernetes" {
   host                   = "https://${local.cluster_or_proxy_k8s_endpoint}"
   load_config_file       = false
   token                  = data.google_client_config.k8s.access_token
-}
-
-provider "vault" {
-  address         = "https://vault-prod.erboh.cloud"
-  skip_tls_verify = "false"
 }
 
 provider "aws" {

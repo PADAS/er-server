@@ -17,9 +17,6 @@ commands:
       - add_ssh_keys:
           fingerprints:
             - "ca:a6:a4:87:70:0b:8c:92:b5:06:65:00:13:4d:c9:c4"
-  configure_vault_access:
-    steps:
-      - run: 'echo "export VAULT_TOKEN=\"\$(cd infra-automation && make -s get_vault_token_for_ci)\"" >> $BASH_ENV'
   docker_login:
     steps:
       - run: echo "$GCR_PUSH_KEY" | docker login --username _json_key --password-stdin https://gcr.io
@@ -131,7 +128,6 @@ jobs:
     steps:
       - attach_workspace:
           at: './'
-      - configure_vault_access
       - 'export_google_credentials'
       - 'activate_google_service_account'
       - 'toggle_firewall_for_build_agent_k8s_closure':
@@ -145,7 +141,6 @@ jobs:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
     steps:
-      - configure_vault_access
       - terraform_plan:
           terraform_workspace: '$CIRCLE_BRANCH'
   terraform_plan_prod1:
@@ -153,7 +148,6 @@ jobs:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
     steps:
-      - configure_vault_access
       - terraform_plan:
           terraform_workspace: 'prod1'
   terraform_apply_dev:
@@ -161,7 +155,6 @@ jobs:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
     steps:
-      - configure_vault_access
       - terraform_apply:
           network: 'dev'
   terraform_apply_prod1:
@@ -169,7 +162,6 @@ jobs:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
     steps:
-      - configure_vault_access
       - terraform_apply:
           network: 'prod1'
   render_templates:
@@ -179,7 +171,6 @@ jobs:
     steps:
       - attach_workspace:
           at: './'
-      - configure_vault_access
       - 'export_google_credentials'
       - 'activate_google_service_account'
       - run:

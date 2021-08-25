@@ -6,7 +6,7 @@ terraform {
     }
     google = {
       source  = "hashicorp/google"
-      version = "~> 2.20"
+      version = "~> 3.79"
     }
     google-beta = {
       source  = "hashicorp/google-beta"
@@ -23,10 +23,6 @@ terraform {
     tls = {
       source  = "hashicorp/tls"
       version = ">=2.1"
-    }
-    vault = {
-      source  = "hashicorp/vault"
-      version = ">= 2.1"
     }
   }
   required_version = ">= 0.13"
