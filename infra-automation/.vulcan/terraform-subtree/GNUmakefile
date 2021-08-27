@@ -77,7 +77,7 @@ terraform_workspace: $(terraform_binary)
 terraform_destroy: destroy_dir ?=
 terraform_destroy: destroy_options ?=
 terraform_destroy: $(terraform_binary)
-	@ printf "This will destroy *all* things in the Terraform workspace: '%s'\n" "$$(terraform workspace show)" >&2
+	@ export PATH="$(coerced_path_for_terraform)" && printf "This will destroy *all* things in the Terraform workspace: '%s'\n" "$$(terraform workspace show)" >&2
 	@ export RESPONSE="$$(read -p "You must type exactly 'yes' to proceed: " -r RESPONSE; echo $${RESPONSE})" && if [ "$$RESPONSE" != "yes" ]; then ( printf "You typed '%s'... bailing out!\n" "$$RESPONSE" >&2 ; exit 1); fi
 	export PATH="$(coerced_path_for_terraform)" && terraform destroy $(destroy_options) $(destroy_dir)
 

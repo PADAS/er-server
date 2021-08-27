@@ -183,6 +183,7 @@ locals {
     "matlabas"                = "prod1"
     "karongwe"                = "prod1"
     "alladale"                = "prod1"
+    "western"                 = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
