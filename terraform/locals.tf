@@ -184,6 +184,7 @@ locals {
     "karongwe"                = "prod1"
     "alladale"                = "prod1"
     "ng26"                    = "prod1"
+    "gleneagles"              = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
