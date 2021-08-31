@@ -21,11 +21,6 @@ provider "kubernetes" {
   token                  = data.google_client_config.k8s.access_token
 }
 
-provider "vault" {
-  address         = "https://vault-prod.erboh.cloud"
-  skip_tls_verify = "false"
-}
-
 provider "aws" {
   version    = "~>2.44"
   access_key = var.access_key
