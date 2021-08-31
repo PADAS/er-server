@@ -183,6 +183,7 @@ locals {
     "matlabas"                = "prod1"
     "karongwe"                = "prod1"
     "alladale"                = "prod1"
+    "western"                 = "prod1"
     "ng26"                    = "prod1"
   }
 
