@@ -185,6 +185,7 @@ locals {
     "alladale"                = "prod1"
     "western"                 = "prod1"
     "ng26"                    = "prod1"
+    "gleneagles"              = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
