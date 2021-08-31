@@ -302,8 +302,17 @@ class FirmsPlugin(TrackingPlugin):
     def fetch(self):
         if self.spatial_feature_group:
             features = self.spatial_feature_group.features.all()
-            self._geo_filter = self.union_features(
-                [f.feature_geometry for f in features])
+            geometries = [f.feature_geometry for f in features]
+            try:
+                self._geo_filter = self.union_geofilterfeatures(
+                    geometries)
+            except Exception as ex:
+                logger.info(f"failed to use union_geofilterfeatures: {ex}")
+                polyunion = geometries[0]
+                for geom in geometries[1:]:
+                    polyunion = polyunion.union(geom)
+                self._geo_filter = polyunion
+
             logger.debug('Geometry union = %s', self._geo_filter)
         else:
             raise ValueError(

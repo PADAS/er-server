@@ -184,6 +184,7 @@ locals {
     "karongwe"                = "prod1"
     "alladale"                = "prod1"
     "western"                 = "prod1"
+    "ng26"                    = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -280,6 +281,7 @@ locals {
     "bisonpark"             = 1
     "wcpzambia"             = 1
     "lionlandscapeske"      = 1
+    "ng26"                  = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)

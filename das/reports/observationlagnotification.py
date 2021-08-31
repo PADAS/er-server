@@ -10,9 +10,11 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
+
 def get_lagging_providers():
     lagging_providers = []
-    configured_report_duration = "00:30:00" # TODO do we want to be able to configure this value?
+    # TODO do we want to be able to configure this value?
+    configured_report_duration = "00:30:00"
     period_end = datetime.datetime.now(pytz.utc)
     period_start = period_end - parse_duration(configured_report_duration)
     # grouped by source provider lets find the average lag time in the last duration along with number of entries
@@ -33,10 +35,12 @@ def get_lagging_providers():
             'period_end': period_end,
         }
         # get config for this provider
-        provider_lag_config = get_provider_lag_alert_config(provider_lag_check_data.get('provider_key'))
+        provider_lag_config = get_provider_lag_alert_config(
+            provider_lag_check_data.get('provider_key'))
         # now we have config lets check if it exceeded threshold
         if check_source_provider_lag_exceeded(provider_lag_check_data, provider_lag_config):
-            lagging_providers.append((provider_lag_check_data, provider_lag_config))
+            lagging_providers.append(
+                (provider_lag_check_data, provider_lag_config))
 
     return lagging_providers
 
@@ -45,7 +49,7 @@ def get_lagging_providers():
 def get_provider_lag_alert_config(provider_key):
     # hard coded for now, but could come from file, etc.
     provider = SourceProvider.objects.get(provider_key=provider_key)
-    threshold = provider.additional.get('lag_notification_threshold', '01:00:00')# default to an hour
+    threshold = provider.additional.get('lag_notification_threshold', None)
     configured_lag_threshold = {
         'lag_notification_threshold': threshold,
         'site_name': settings.UI_SITE_NAME,
@@ -66,8 +70,8 @@ def check_source_provider_lag_exceeded(provider_lag_check_data, provider_lag_con
     threshold = parse_duration(threshold)
     if provider_lag_check_data.get('avg_lag') > threshold:
         logger.warning('Provider {0} has exceeded lag threshold of {1}, its avg lag in the last interval {2}'
-                    .format(provider_lag_check_data.get('provider_name'),
-                            threshold, provider_lag_check_data.get('avg_lag')))
+                       .format(provider_lag_check_data.get('provider_name'),
+                               threshold, provider_lag_check_data.get('avg_lag')))
         return True
     return False
 
@@ -84,9 +88,11 @@ def send_lag_delay_alert(provider_lag_check_data, provider_lag_config, usernames
             'No recipients for Observation lag notification, so not generating report data.')
         return
 
-    email_body, message_subject = generate_lag_notification_email(provider_lag_check_data, provider_lag_config)
+    email_body, message_subject = generate_lag_notification_email(
+        provider_lag_check_data, provider_lag_config)
     recipient_emails = [recipient.email for recipient in recipients]
-    logger.info('Sending Observation Lag Notification for {0}'.format(recipient_emails))
+    logger.info(
+        'Sending Observation Lag Notification for {0}'.format(recipient_emails))
     send_report(subject=message_subject,
                 to_email=recipient_emails, text_content=email_body)
 

@@ -43,7 +43,8 @@ def maintain_subjectstatus_for_subject(subject_id, notify=False):
     SubjectStatus.objects.maintain_subject_status(subject_id)
 
     if notify:
-        pubsub.publish({'subject_id': str(subject_id)}, 'das.subjectstatus.update')
+        pubsub.publish({'subject_id': str(subject_id)},
+                       'das.subjectstatus.update')
 
 
 @celery.app.task
@@ -286,7 +287,8 @@ def poll_news_gcs_bucket():
     try:
         bucket = storage_client.get_bucket(bucket_name)
     except exceptions.GoogleAPIError as exc:
-        logger.info(f"Error occured when getting bucket {bucket_name} -> {exc}")
+        logger.info(
+            f"Error occured when getting bucket {bucket_name} -> {exc}")
         return
 
     with tempfile.NamedTemporaryFile(delete=False) as f:
@@ -297,12 +299,13 @@ def poll_news_gcs_bucket():
 
         announcement = json.loads(f.read())
 
-    logger.info(f"Announcements data from gcs {announcement}")
+    logger.debug(f"Announcements data from gcs {announcement}")
 
     for post in announcement['topic_list']['topics']:
         # ignore announcement that is already in db:
 
         if not Announcement.objects.filter(additional__id=post['id']).exists():
+            announcement_at = dateparse(post["created_at"])
             Announcement.objects.create(title=post['title'],
                                         description=post['cooked'],
                                         additional=dict(slug=post["slug"],
@@ -312,5 +315,6 @@ def poll_news_gcs_bucket():
                                                         category_id=post["category_id"],
                                                         last_poster_username=post["last_poster_username"]
                                                         ),
+                                        announcement_at=announcement_at,
                                         link=f"https://community.earthranger.com/t/{post['id']}",
                                         )

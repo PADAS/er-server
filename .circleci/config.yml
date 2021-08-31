@@ -167,9 +167,6 @@ jobs:
   render_templates:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
-      # Do not remove. As of today, terraform needs this environment variable
-      # to render templates, even though Vault's provider was removed.
-      VAULT_ADDR: 'https://example.vault.com'
     executor: 'default'
     steps:
       - attach_workspace:

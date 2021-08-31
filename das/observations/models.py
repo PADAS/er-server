@@ -1887,16 +1887,26 @@ class AnnouncementManager(models.Manager):
 
 class AnnouncementFilteringQuerySet(models.QuerySet, FilterMixin):
 
+    def order_by_announcement_at(self):
+        return self.order_by("-announcement_at")
+
     def by_read(self, state, user):
         """return all announcement read or unread"""
-        return self.filter(related_users=user) if state else self.filter(~Q(related_users=user))
+        qs = self.filter(related_users=user) if state else self.filter(
+            ~Q(related_users=user))
+        return qs
 
 
 class Announcement(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    related_users = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True)
+    related_users = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, blank=True)
     title = models.CharField(null=True, max_length=255)
     description = models.TextField(null=True)
     additional = JSONField(null=True, blank=True, default=dict)
     link = models.URLField(verbose_name="Link to topic", null=True)
-    objects = AnnouncementManager.from_queryset(AnnouncementFilteringQuerySet)()
+    announcement_at = models.DateTimeField(
+        db_index=True, null=True, blank=True)
+
+    objects = AnnouncementManager.from_queryset(
+        AnnouncementFilteringQuerySet)()
