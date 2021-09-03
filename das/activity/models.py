@@ -455,7 +455,7 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         if lower and upper:
             return self.filter(event_time__range=(lower, upper))
         elif lower:
-            return self.filter(event_time__gt=lower)
+            return self.filter(event_time__gte=lower)
         elif upper:
             return self.filter(event_time__lt=upper)
 
@@ -490,7 +490,7 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         if lower and upper:
             return self.filter(created_at__range=(lower, upper))
         elif lower:
-            return self.filter(created_at__gt=lower)
+            return self.filter(created_at__gte=lower)
         elif upper:
             return self.filter(created_at__lt=upper)
 
