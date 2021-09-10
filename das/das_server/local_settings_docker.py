@@ -64,6 +64,11 @@ SERVER_NAMES = [
 
 ]
 
+# Allow providing a list of alternate server names on environment.
+# export ALT_SERVER_NAMES=foo.bar.org,bar.baz.org
+ALT_SERVER_NAMES = env.list('ALT_SERVER_NAMES', default=[])
+SERVER_NAMES.extend(ALT_SERVER_NAMES)
+
 # Django allowed-hosts
 ALLOWED_HOSTS = SERVER_NAMES
 

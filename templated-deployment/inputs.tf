@@ -223,3 +223,10 @@ variable "track_length" {
   type    = string
   default = "21"
 }
+
+variable "alt_server_names" {
+  description = "comma-delimited list of alternative server names, to be used for ALLOWED_HOSTS and CORS."
+  type    = list(string)
+  default = []
+}
+
