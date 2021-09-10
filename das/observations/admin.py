@@ -659,9 +659,8 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
         subjectsources = models.SubjectSource \
             .objects \
             .filter(subject_id=instance.pk).annotate(manufacturer_id=F('source__manufacturer_id'), provider_display=F('source__provider__display_name')) \
-            .order_by('-assigned_range').annotate(current=ExpressionWrapper(Q(assigned_range__contains=Now()), output_field=BooleanField())
-
-                                                  )
+            .annotate(current=ExpressionWrapper(Q(assigned_range__contains=Now()), output_field=BooleanField())) \
+            .order_by('-assigned_range__startswith')
 
         def set_current_flag(o):
             if o['current']:
