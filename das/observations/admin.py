@@ -194,6 +194,9 @@ class SubjectSubTypeAdmin(admin.ModelAdmin):
 class SubjectSourceInline(InlineExtraDynamicMixin, admin.StackedInline):
     model = models.SubjectSource
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).order_by('-assigned_range__startswith')
+
     can_delete = True
     verbose_name = _('Source Assignment')
     verbose_name_plural = _('Source Assignments')
@@ -671,6 +674,7 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
 
         subjectsources = list(set_current_flag(o)
                               for o in subjectsources.values())
+
         content = render_to_string(
             'admin/subjectsource.html', {'subjectsources': list(subjectsources), 'timezone': TIMEZONE_USED})
 
