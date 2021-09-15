@@ -43,7 +43,7 @@ from observations.filters import SubjectObjectPermissionsFilter, create_gp_filte
 from observations.permissions import StandardObjectPermissions
 from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS, VIEW_SUBJECTGROUP_PERMS, \
     check_to_include_inactive_subjects, VIEW_OBSERVATION_PERMS
-from observations.utils import get_minimum_allowed_age
+from observations.utils import get_minimum_allowed_age, parse_comma
 from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination, StandardResultsSetGeoJsonPagination
 from utils.json import zeroout_microseconds, parse_bool, ExtendedGEOJSONRenderer
 from utils import add_base_url
@@ -807,9 +807,10 @@ class SourcesView(generics.ListCreateAPIView, ):
     filter_backends = (SubjectObjectPermissionsFilter,)
     pagination_class = StandardResultsSetPagination
 
-    lookup_fields = {'manufacturer_id': 'manufacturer_id',
-                     'provider_key': 'provider__provider_key',
-                     'provider': 'provider__provider_key'}
+    lookup_fields = {'manufacturer_id': 'manufacturer_id__in',
+                     'provider_key': 'provider__provider_key__in',
+                     'provider': 'provider__provider_key__in',
+                     'id': 'id__in'}
 
     def get_queryset(self):
         queryset = models.Source.objects.all()
@@ -817,7 +818,7 @@ class SourcesView(generics.ListCreateAPIView, ):
         filter = {}
         for fn, fld in self.lookup_fields.items():
             if fn in self.request.query_params:
-                filter[fld] = self.request.query_params.get(fn)
+                filter[fld] = parse_comma(self.request.query_params.get(fn))
         if filter:
             queryset = queryset.filter(**filter)
 
@@ -961,6 +962,9 @@ class ObservationsView(generics.ListCreateAPIView):
 
         if created_after:
             queryset = queryset.by_created_after(created_after)
+
+        queryset = queryset.prefetch_related(Prefetch('source'))
+        queryset = queryset.select_related('source__provider')
 
         return queryset
 
@@ -1996,3 +2000,21 @@ class AnnouncementsView(generics.ListCreateAPIView):
         context = dict(request=self.request)
         response = self.serializer_class(queryset, many=True, context=context)
         return Response(response.data, status=status.HTTP_200_OK)
+
+class SubjectSourcesAssignmentView(generics.ListAPIView):
+    serializer_class = serializers.SubjectSourceSerializer
+
+    def get_queryset(self):
+        if not self.request.user.has_any_perms('observations.view_source'):
+            raise PermissionDenied
+
+        query_params = self.request.query_params
+
+        qsubject = parse_comma(query_params.get('subjects'))
+        qsource = parse_comma(query_params.get('sources')) or []
+
+        allowed = models.Subject.objects.by_user_subjects(self.request.user).values_list('id', flat=True)
+        subjects = set(allowed) & set(qsubject) if qsubject else allowed
+
+        return models.SubjectSource.objects.get_subjects_sources(subjects=subjects, sources=qsource)
+

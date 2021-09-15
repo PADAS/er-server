@@ -1,5 +1,6 @@
 import json
 import logging
+import uuid
 from datetime import datetime, timedelta, timezone
 
 import dateutil.parser
@@ -299,3 +300,13 @@ class JsonAgg(Aggregate):
     template = '%(function)s(to_jsonb(%(expressions)s))'
 
 
+def parse_comma(q):
+    if q:
+        vals = [v.strip() for v in q.split(',')]
+        try:
+            return list(map(uuid.UUID, vals))
+        except ValueError:
+            return vals
+        except TypeError:
+            return vals
+    return

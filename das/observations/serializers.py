@@ -637,7 +637,7 @@ class TrackSerializer(rest_framework.serializers.Serializer):
 
 class SourceRelatedField(rest_framework.serializers.RelatedField):
     def get_queryset(self):
-        return models.Source.objects.all()
+        return models.Source.objects.select_related('provider').all()
 
     def to_representation(self, source):
         '''

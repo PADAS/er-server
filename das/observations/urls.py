@@ -88,6 +88,8 @@ urlpatterns = [
         views.MessageView.as_view()),
     url(r'^news/?$', views.AnnouncementsView.as_view(), name="news-view",),
 
+    url(r'^subjectsources/?$', views.SubjectSourcesAssignmentView.as_view()),
+
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

@@ -514,6 +514,10 @@ class SubjectSourceManager(models.Manager):
             subject_id=subject.id, source_id=source_id)
         return sds
 
+    def get_subjects_sources(self, subjects, sources=None):
+        queryset = SubjectSource.objects.filter(subject_id__in=subjects)
+        return queryset.filter(source_id__in=sources) if sources else queryset
+
     def ensure(self, source, subject, assigned_range=None):
         '''
         :param source:
