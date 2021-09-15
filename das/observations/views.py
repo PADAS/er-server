@@ -804,7 +804,6 @@ class SourceView(generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
 class SourcesView(generics.ListCreateAPIView, ):
     serializer_class = serializers.SourceSerializer
     permission_classes = (StandardObjectPermissions,)
-    filter_backends = (SubjectObjectPermissionsFilter,)
     pagination_class = StandardResultsSetPagination
 
     lookup_fields = {'manufacturer_id': 'manufacturer_id__in',
