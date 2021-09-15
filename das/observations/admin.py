@@ -280,7 +280,9 @@ class SubjectNameFilter(InputFilter):
     def queryset(self, request, queryset):
         if self.value() is not None:
             return queryset.filter(
-                Q(source__subjectsource__subject__name__icontains=self.value(), )
+                source__subjectsource__subject__name__icontains=self.value(),
+                source__subjectsource__assigned_range__contains=F(
+                    'recorded_at')
             )
 
 
@@ -292,7 +294,8 @@ class SubjectIdFilter(InputFilter, ValidateFilterMixin):
         if self.value() is not None:
             uuid = self.check_uuid(self.value())
             return queryset.filter(
-                Q(source__subjectsource__subject_id=uuid, )
+                source__subjectsource__subject_id=uuid, source__subjectsource__assigned_range__contains=F(
+                    'recorded_at')
             )
 
 
@@ -412,17 +415,15 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
         subject = models.Subject.objects.filter(subjectsource__source_id=OuterRef('source_id'),
                                                 subjectsource__assigned_range__contains=OuterRef('recorded_at'))
         qs = qs.annotate(subject_name=Subquery(subject.values('name')[:1]))
+        qs = qs.annotate(subject_id=Subquery(subject.values('id')[:1]))
 
         qs = qs.annotate(manufacturer_id=F('source__manufacturer_id'),
-                         subject_name=F(
-                             'source__subjectsource__subject__name'),
-                         subject_id=F('source__subjectsource__subject__id')
                          )
         qs = qs.select_related('source',)
 
-        # Hard-limit at 180 days.
-        dt = datetime.now(tz=pytz.utc) - OBSERVATIONS_HISTORY_LIMIT
         if not self.is_date_range_set(request):
+            # Hard-limit at 180 days.
+            dt = datetime.now(tz=pytz.utc) - OBSERVATIONS_HISTORY_LIMIT
             qs = qs.filter(recorded_at__gte=dt)
 
         return qs
