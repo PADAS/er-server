@@ -963,7 +963,7 @@ class ObservationsView(generics.ListCreateAPIView):
         if created_after:
             queryset = queryset.by_created_after(created_after)
 
-        queryset = queryset.prefetch_related(Prefetch('source'))
+        queryset = queryset.select_related('source')
         queryset = queryset.select_related('source__provider')
 
         return queryset
