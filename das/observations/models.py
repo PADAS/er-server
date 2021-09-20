@@ -514,9 +514,17 @@ class SubjectSourceManager(models.Manager):
             subject_id=subject.id, source_id=source_id)
         return sds
 
-    def get_subjects_sources(self, subjects, sources=None):
-        queryset = SubjectSource.objects.filter(subject_id__in=subjects)
-        return queryset.filter(source_id__in=sources) if sources else queryset
+    def get_subjects_sources(self, subjects=None, sources=None):
+        queryset = self
+
+        if subjects and sources:
+            queryset = queryset.filter(Q(subject_id__in=subjects) | Q(source_id__in=sources))
+        elif subjects:
+            queryset = queryset.filter(subject_id__in=subjects)
+        elif sources:
+            queryset = queryset.filter(source_id__in=sources)
+
+        return queryset
 
     def ensure(self, source, subject, assigned_range=None):
         '''

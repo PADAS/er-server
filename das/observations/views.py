@@ -2000,20 +2000,40 @@ class AnnouncementsView(generics.ListCreateAPIView):
         response = self.serializer_class(queryset, many=True, context=context)
         return Response(response.data, status=status.HTTP_200_OK)
 
+
+class SubjectSourceAssignmentSchema(CustomSchema):
+    def get_operation(self, path, method):
+        operation = super().get_operation(path, method)
+        if method == 'GET':
+            query_params = [{
+                'name': 'subjects',
+                'in': 'query',
+                'description': 'A comma-delimited list of Subject IDs.'},
+                {
+                    'name': 'sources',
+                    'in': 'query',
+                    'description': 'A comma-delimited list of Source IDs.'},
+            ]
+            operation['parameters'].extend(query_params)
+
+        return operation
+
+
 class SubjectSourcesAssignmentView(generics.ListAPIView):
+    permission_classes = (StandardObjectPermissions,)
     serializer_class = serializers.SubjectSourceSerializer
+    pagination_class = StandardResultsSetPagination
+    schema = SubjectSourceAssignmentSchema()
 
     def get_queryset(self):
-        if not self.request.user.has_any_perms('observations.view_source'):
-            raise PermissionDenied
-
         query_params = self.request.query_params
 
         qsubject = parse_comma(query_params.get('subjects'))
-        qsource = parse_comma(query_params.get('sources')) or []
+        qsource = parse_comma(query_params.get('sources'))
 
         allowed = models.Subject.objects.by_user_subjects(self.request.user).values_list('id', flat=True)
         subjects = set(allowed) & set(qsubject) if qsubject else allowed
 
-        return models.SubjectSource.objects.get_subjects_sources(subjects=subjects, sources=qsource)
+        queryset = models.SubjectSource.objects.get_subjects_sources(subjects=subjects, sources=qsource)
+        return queryset
 
