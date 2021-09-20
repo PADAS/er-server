@@ -14,7 +14,27 @@ ET_SCHEMA = """{
             "type": "number",
             "title": "HA Surveyed",
             "minimum": 0
-        },           
+        },  
+        "livestock_killed_array":{
+            "title": "Livestock Killed",
+            "type": "array",
+            "items": 
+            {
+                "type":"object",
+                "properties":{
+                "Animal Name":{
+                "title":"Type of Livestock/ Poultry",
+                "type":"string",
+                "enum": {{enum___behavior___values}},
+                "enumNames": {{enum___behavior___names}}
+                },
+                "Number":{
+                "title":"No. of Animals",
+                "type":"number",
+                "minimum":1}
+                }
+            }
+          },         
         "repCountry": {
             "type": "string",
             "title": "Country",
@@ -170,6 +190,26 @@ WILDLIFE_SCHEMA = """
        "type": "object",
        "properties": 
        {
+           "livestock_killed_array":{
+            "title": "Livestock Killed",
+            "type": "array",
+            "items": 
+            {
+                "type":"object",
+                "properties":{
+                    "Animal Name":{
+                        "title":"Type of Livestock/ Poultry",
+                        "type":"string",
+                        "enum": {{enum___wildlifesightingrep_species___values}},
+                        "enumNames": {{enum___wildlifesightingrep_species___names}}
+                    },
+                    "Number":{
+                        "title":"No. of Animals",
+                        "type":"number",
+                        "minimum":1}
+                }
+            }
+          },
             "wildlifesightingrep_species": {
                 "type": "string",
                 "title": "Species",

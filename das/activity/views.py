@@ -75,10 +75,12 @@ LAST_DAYS = timedelta(days=3)
 USERCONTENT_FORCE_DOWNLOAD = getattr(settings, 'USERCONTENT_SETTINGS', {}).get(
     'force_download_mimetypes', set())
 
+
 class BadRequestAPIException(APIException):
     status_code = status.HTTP_400_BAD_REQUEST
     default_detail = _('Bad request.')
     default_code = 'error'
+
 
 def calculate_event_schema_etag(view_instance, view_method, request, *args, **kwargs):
     user = request.user
@@ -373,18 +375,18 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
         schema['schema']['image_url'] = utils.add_base_url(
             request, eventtype.image_url)
 
-        field_schema = schema_utils.map_schema(eventtype.schema, schema)
+        field_schema = list(
+            schema_utils.schema_property_choices(eventtype.schema, schema))
 
         if definition_format != 'flat':
-            for key, value in field_schema.items():
+            for choice_property in field_schema:
                 inactive_choices = []
                 objs = Choice.objects.get_choices(model=Choice.Field_Reports,
-                                                  field=value['field_name']).filter_inactive_choices()
+                                                  field=choice_property.field_name).filter_inactive_choices()
                 for o in objs:
                     inactive_choices.append(o.value)
                 if inactive_choices:
-                    schema['schema']['properties'][key]["inactive" +
-                                                        "_" + value['lookup']] = inactive_choices
+                    choice_property.properties[f"inactive_{choice_property.lookup}"] = inactive_choices
 
             for value in schema_utils.get_values_titlemap(eventtype.schema):
                 inactive_choices = []
@@ -413,10 +415,10 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
                                     if title_map_elem.get('value') in inactive_choices:
                                         key['inactive_titleMap'] = inactive_choices
 
-        for key, value in field_schema.items():
+        for choice_property in field_schema:
             for o, vals in enumImages_vals.items():
-                if value['field_name'] == o:
-                    schema['schema']['properties'][key]['enumImages'] = vals
+                if choice_property.field_name == o:
+                    choice_property.properties['enumImages'] = vals
 
         # Apply definition filter
         try:
@@ -784,8 +786,8 @@ class EventsViewSchema(CustomSchema):
                 {
                     'name': 'sort_by',
                     'required': False,
-                    'description': "Sort by (use 'event_time', 'updated_at', 'created_at', 'serial_number')" \
-                      " with optional minus ('-') prefix to reverse order."
+                    'description': "Sort by (use 'event_time', 'updated_at', 'created_at', 'serial_number')"
+                    " with optional minus ('-') prefix to reverse order."
                 },
                 {
                     'name': 'is_collection',
@@ -806,7 +808,7 @@ class EventsViewSchema(CustomSchema):
                 {
                     'name': 'bbox',
                     'in': 'query',
-                    'description': 'bounding box including four coordinate values, comma-separated.' \
+                    'description': 'bounding box including four coordinate values, comma-separated.'
                     ' Ex. bbox=-122.4,48.4,-122.95,49.0 (west, south, east, north).'
                 },
                 {
@@ -823,7 +825,7 @@ class EventsViewSchema(CustomSchema):
                     'description': 'Boolean value'
                 },
 
-                ]
+            ]
             operation['parameters'].extend(query_params)
         return operation
 
@@ -855,9 +857,10 @@ class EventsView(generics.ListCreateAPIView):
 
     schema = EventsViewSchema()
 
-
-    sort_keys = ['event_time', 'updated_at', 'serial_number', 'created_at', 'sort_at']
-    eligible_sort_by = list(itertools.chain(*[(k, f'-{k}') for k in sort_keys]))
+    sort_keys = ['event_time', 'updated_at',
+                 'serial_number', 'created_at', 'sort_at']
+    eligible_sort_by = list(itertools.chain(
+        *[(k, f'-{k}') for k in sort_keys]))
 
     def add_segment_to_record(self, patrol_segment_id, new_record):
         for record in new_record:
@@ -930,15 +933,12 @@ class EventsView(generics.ListCreateAPIView):
 
         query_params = self.request.query_params
 
-
         sort_by = query_params.get('sort_by', '-sort_at')
 
         if not sort_by in self.eligible_sort_by:
             raise BadRequestAPIException(
                 detail=f'sort_by \'{sort_by}\' is not valid. Valid values are {self.eligible_sort_by}.',
             )
-
-
 
         queryset = Event.objects.all_sort(sort_by=sort_by).prefetch_related(
             'eventsource_event_refs', 'patrol_segments')
@@ -1019,8 +1019,10 @@ class EventsView(generics.ListCreateAPIView):
         else:
             return queryset.none()
 
-        user_subjects = list(Subject.objects.by_user_subjects(self.request.user).values_list('id', flat=True))
-        queryset = queryset.filter(Q(related_subjects__isnull=True) | Q(related_subjects__in=user_subjects))
+        user_subjects = list(Subject.objects.by_user_subjects(
+            self.request.user).values_list('id', flat=True))
+        queryset = queryset.filter(Q(related_subjects__isnull=True) | Q(
+            related_subjects__in=user_subjects))
 
         queryset = queryset.prefetch_related(Prefetch('related_subjects'))
         queryset = queryset.prefetch_related(Prefetch('event_type'))

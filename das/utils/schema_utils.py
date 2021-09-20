@@ -5,6 +5,7 @@ import logging
 import re
 import uuid
 import copy
+import typing
 
 from collections import OrderedDict
 from django.apps import apps
@@ -242,7 +243,8 @@ def extract_from_list(items: list = list, schema_item=None):
                 f'extract_from_list value is not a dict: {item} from {items}')
             name = item
             if schema_item and isinstance(item, str):
-                name = schema_item.get('items', {}).get('enumNames', {}).get(item, item)
+                name = schema_item.get('items', {}).get(
+                    'enumNames', {}).get(item, item)
 
             names.append(str(name))
             ids.append(item)
@@ -295,7 +297,8 @@ def extractor(schema_item, definition, key, eventdetail_value):
 
     # Determine how the value should appear.
     if isinstance(eventdetail_value, list):
-        extracted_value, display = extract_from_list(eventdetail_value, schema_item)
+        extracted_value, display = extract_from_list(
+            eventdetail_value, schema_item)
     else:
         extracted_value, display = extract_from_dict_or_string(
             schema_item, eventdetail_value)
@@ -679,24 +682,57 @@ def get_values_titlemap(schema):
     return values
 
 
-def map_schema(schema, load_schema):
-    lookups = []
-    keys = load_schema['schema']['properties'].keys()
-    for key in keys:
-        if bool({'enum', 'query', 'table'} & load_schema['schema']['properties'][key].keys()):
-            lookups.append(key)
+def _schema_properties(rendered_schema):
+    """walk the schema from top to bottom and depth first, returning only the single item properties.
+    For example, during the introspection, unpack arrays and other grouping constructs.
 
-    fields = []
-    template = Template(schema)
-    for node in template.nodelist:
-        if type(node) is VariableNode:
-            field_tag = node.token.contents
-            field_details = field_tag.split('___')
+    Args:
+        rendered_schema ([type]): the json schema, already rendered with enum, enumNames
+    Returns:
+        tuple: Return the property name and it's dict of properties as a tuple
+    """
+    def inner_schema_properties(props):
+        for key, value in props.items():
+            if value.get("type") == "array" and isinstance(value.get("items"), dict) and value["items"].get("properties"):
+                yield from inner_schema_properties(value["items"]["properties"])
+            else:
+                yield key, value
 
-            if field_details[2] == 'values':
-                fields.append({
-                    'field_name': field_details[1],
-                    'lookup': field_details[0]
-                })
+    for prop_name, props in inner_schema_properties(rendered_schema['schema']['properties']):
+        yield prop_name, props
 
-    return dict(zip(lookups, fields))
+
+class SchemaChoiceProperty(typing.NamedTuple):
+    name: str
+    properties: dict
+    field_name: str
+    lookup: str
+
+
+def schema_property_choices(schema, rendered_schema):
+    """[summary]
+
+    Args:
+        schema (str): raw unrendered schema, the template
+        rendered_schema (dict): the rendered schema
+
+    Returns:
+        list: list of SchemaChoiceProperty found in a schema
+    """
+
+    def template_values(schema):
+        template = Template(schema)
+        for node in template.nodelist:
+            if type(node) is VariableNode:
+                field_tag = node.token.contents
+                field_details = field_tag.split('___')
+
+                if field_details[2] == 'values':
+                    yield field_details[1], field_details[0]
+
+    iter_values = template_values(schema)
+
+    for prop_name, props in _schema_properties(rendered_schema):
+        if bool({'enum', 'query', 'table'} & props.keys()):
+            field_name, lookup = next(iter_values)
+            yield SchemaChoiceProperty(prop_name, props, field_name, lookup)

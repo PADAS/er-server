@@ -3240,6 +3240,10 @@ class TestEventView(BaseAPITest):
         inactive_enum = species.get('inactive_enum')
         assert inactive_enum == ['asiatic cheetah']
 
+        livestock_array = properties['livestock_killed_array']["items"]["properties"]["Animal Name"]
+        inactive_enum = livestock_array.get('inactive_enum')
+        assert inactive_enum == ['asiatic cheetah']
+
         state = properties.get('wildlifesightingrep_collared')
         inactive_enum = state.get('inactive_enum')
         assert inactive_enum == ['oh yeah!']
@@ -3291,7 +3295,7 @@ class TestEventView(BaseAPITest):
         event_details = EventDetails.objects.get(event_id=event_id)
         assert isinstance(
             event_details.data["event_details"]["wildlifesightingrep_species"][0], str)
-    
+
     def test_consistency_checkbox_value(self):
         Choice.objects.all().delete()
         Choice.objects.create(model=Choice.Field_Reports,
@@ -3324,9 +3328,9 @@ class TestEventView(BaseAPITest):
                                              'wildlifesightingrep_collared': ['yes'],
                                              'wildlifesightingrep_numberanimals': '2'}}
 
-        actual_result = Event.objects.get(id=response.data.get('id')).event_details.first()
+        actual_result = Event.objects.get(
+            id=response.data.get('id')).event_details.first()
         self.assertEqual(expected_result, actual_result.data)
-
 
 
 class TestParsing(TestCase):
