@@ -1,2 +1,2 @@
 time_zone           = "Africa/Gaborone"
-track_length        = "180"
+show_track_days     = "180"
