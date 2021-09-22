@@ -21,8 +21,7 @@ locals {
   app_user_name          = "${local.unique_db_name}_appuser"
   db_instance            = element(local.db_instances, local.db_instance_index).db_instance
   db_instance_private_ip = element(local.db_instances, local.db_instance_index).db_instance_private_ip
-  db_password_gsm_id       = element(local.db_instances, local.db_instance_index).db_password_path
-
+  db_password_gsm_id     = replace(element(local.db_instances, local.db_instance_index).db_password_path, "/[^A-Za-z0-9_]/", "_")
   migration_role_name = "${local.unique_db_name}_migrationrole"
   migration_user_name = "${local.unique_db_name}_migrationuser"
 
