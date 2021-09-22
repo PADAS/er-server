@@ -301,6 +301,7 @@ class JsonAgg(Aggregate):
 
 
 def parse_comma(q):
+    """Parse comma-separated query param"""
     if q:
         vals = [v.strip() for v in q.split(',')]
         try:

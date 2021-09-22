@@ -2028,12 +2028,18 @@ class SubjectSourcesAssignmentView(generics.ListAPIView):
     def get_queryset(self):
         query_params = self.request.query_params
 
-        qsubject = parse_comma(query_params.get('subjects'))
-        qsource = parse_comma(query_params.get('sources'))
+        subjects_list = parse_comma(query_params.get('subjects'))
+        sources_list = parse_comma(query_params.get('sources')) or []
 
         allowed = models.Subject.objects.by_user_subjects(self.request.user).values_list('id', flat=True)
-        subjects = set(allowed) & set(qsubject) if qsubject else allowed
 
-        queryset = models.SubjectSource.objects.get_subjects_sources(subjects=subjects, sources=qsource)
+        # First get subject-sources user has access to.
+        queryset = models.SubjectSource.objects.filter(subject_id__in=allowed)
+
+        if subjects_list and sources_list:
+            queryset = queryset.filter(Q(subject_id__in=set(allowed) & set(subjects_list)) | Q(source_id__in=sources_list))
+        elif subjects_list:
+            queryset = queryset.filter(subject_id__in=set(allowed) & set(subjects_list))
+        elif sources_list:
+            queryset = queryset.filter(source_id__in=sources_list)
         return queryset
-

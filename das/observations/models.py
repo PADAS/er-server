@@ -518,7 +518,7 @@ class SubjectSourceManager(models.Manager):
         queryset = self
 
         if subjects and sources:
-            queryset = queryset.filter(Q(subject_id__in=subjects) | Q(source_id__in=sources))
+            queryset = queryset.filter(Q(subject_id__in=subjects) & Q(source_id__in=sources))
         elif subjects:
             queryset = queryset.filter(subject_id__in=subjects)
         elif sources:
