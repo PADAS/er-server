@@ -189,6 +189,7 @@ locals {
     "manyoni"                 = "prod1"
     "buffelsdraai"            = "prod1"
     "lionguardians"           = "prod1"
+    "birdlifezimbabwe"        = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
