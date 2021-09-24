@@ -14,6 +14,7 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
+vulcan_path := $(CURDIR)/.vulcan
 terraform_makefile := $(vulcan_path)/terraform-subtree/GNUmakefile
 
 terraform_path := $(CURDIR)/../terraform
