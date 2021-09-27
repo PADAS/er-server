@@ -1,15 +1,26 @@
 import random
-
+import uuid
 from django.test import TestCase
 from drf_extra_fields.compat import DateTimeTZRange
 from datetime import datetime, timedelta
+from django.urls import reverse
+from django.contrib.auth import get_user_model
 import pytz
-from observations.models import Subject, Source, SubjectSource, SourceProvider, DEFAULT_ASSIGNED_RANGE, SubjectStatus
+from observations.models import Subject, Source, SubjectSource, SourceProvider, DEFAULT_ASSIGNED_RANGE, SubjectStatus, \
+    SubjectGroup
 from observations.serializers import ObservationSerializer
+from observations.utils import parse_comma
+from urllib.parse import urlsplit, parse_qs
+from core.tests import BaseAPITest
+from observations.views import SourcesView, SubjectSourcesAssignmentView
+from accounts.models import User, PermissionSet
+from accounts.models import PermissionSet
+from django.contrib.auth.models import Permission
+
+User = get_user_model()
 
 
-class SubjectSourceTestCase(TestCase):
-
+class SubjectSourceTestCase(BaseAPITest):
     fixtures = [
         'test/sourceprovider.yaml',
         'test/observations_source.json',
@@ -19,10 +30,17 @@ class SubjectSourceTestCase(TestCase):
     ]
 
     def setUp(self):
-        pass
+        super().setUp()
+        self.user_const = dict(last_name='last', first_name='first')
+        self.user = User.objects.create_user('user', 'user@test.com', 'all_perms_user', is_superuser=True,
+                                             is_staff=True, **self.user_const)
+
+        self.non_superuser = User.objects.create_user(username='user_x',
+                                              email='user_x@test.com',
+                                              password=User.objects.make_random_password(),
+                                              **self.user_const)
 
     def generate_observation_data(self, subject_id, source_id):
-
         # Generate random data for observation
         observation_time = pytz.UTC.localize(datetime.now())
         latitude = float(random.randint(3000, 3000)) / 100
@@ -75,7 +93,6 @@ class SubjectSourceTestCase(TestCase):
         assert ss.safe_assigned_range.upper == DEFAULT_ASSIGNED_RANGE[1]
 
     def test_update_source(self):
-
         subject_id = '269524d5-a434-4377-9ea9-2a7946dbd9c4'
         source_id = '56b1cf14-ef97-4054-8fbd-1342f265b2a9'
         source_id2 = 'a91e0366-898c-475b-830f-e0fae46e6efe'
@@ -93,7 +110,6 @@ class SubjectSourceTestCase(TestCase):
             (longitude, latitude))
 
     def test_subjectsource_with_only_lower_bound_assignedrange(self):
-
         subject, created = Subject.objects.get_or_create(name='#01-subject')
         provider, created = SourceProvider.objects.get_or_create(provider_key='#01-provider')
 
@@ -104,3 +120,152 @@ class SubjectSourceTestCase(TestCase):
         ss.refresh_from_db()
         self.assertTrue(ss.assigned_range.lower)
         self.assertTrue(ss.assigned_range.upper)
+
+    def test_parse_comma_function(self):
+        # pass comma-separated values(str)
+        urlpath = 'test.pamdas.org/api/v1.0/sources?manufacturer_id=Garmin-001,Garmin-002,Garmin-005'
+
+        query = urlsplit(urlpath).query
+        params = parse_qs(query)
+        listed_manufacturer_id = parse_comma(params.get('manufacturer_id')[0])
+
+        self.assertEqual(listed_manufacturer_id, ['Garmin-001', 'Garmin-002', 'Garmin-005'])
+
+        # pass comma-separated values (UUD4)
+        urlpath2 = 'test.pamdas.org/api/v1.0/' \
+                   'sources?id=0d9725c0-c186-464f-98f4-a45d31f81efd,0a308294-7b80-4633-a967-ef4f8e1de79a'
+
+        query = urlsplit(urlpath2).query
+        params = parse_qs(query)
+        listed_source_id = parse_comma(params.get('id')[0])
+
+        self.assertEqual(listed_source_id, [uuid.UUID('0d9725c0-c186-464f-98f4-a45d31f81efd'),
+                                            uuid.UUID('0a308294-7b80-4633-a967-ef4f8e1de79a')])
+
+    def test_sources_api(self):
+        provider, _ = SourceProvider.objects.get_or_create(provider_key='#01-provider')
+        provider2, _ = SourceProvider.objects.get_or_create(provider_key='#02-provider')  # control
+
+        source, _ = Source.objects.get_or_create(id=uuid.UUID('1f199c72-7a52-4659-be86-4ac40231826f'),
+                                                 manufacturer_id='#01-manufacurer_id', provider=provider)
+
+        source2, _ = Source.objects.get_or_create(id=uuid.UUID('7cbbd57e-0026-46a2-9726-32849a527326'),
+                                                  manufacturer_id='#02-manufacurer_id', provider=provider)
+
+        source3, _ = Source.objects.get_or_create(manufacturer_id='#02-Manf-ID', provider=provider2)
+
+        # Two sources with provider-key: #01-prvider
+        urlpath = reverse('sources-view')
+        url = urlpath + f'?provider=#01-provider'
+        request = self.factory.get(url)
+
+        self.force_authenticate(request, self.user)
+        response = SourcesView.as_view()(request)
+        self.assertEqual(len(response.data.get('results')), 2)
+
+        # there is only one source provider-key: #01-provider.
+        url = urlpath + f'?provider=#02-provider'
+        request = self.factory.get(url)
+
+        self.force_authenticate(request, self.user)
+        response = SourcesView.as_view()(request)
+        self.assertEqual(len(response.data.get('results')), 1)
+
+        # filter by source_id:
+        url = urlpath + f'?id=7cbbd57e-0026-46a2-9726-32849a527326, 1f199c72-7a52-4659-be86-4ac40231826f'
+        request = self.factory.get(url)
+
+        self.force_authenticate(request, self.user)
+        response = SourcesView.as_view()(request)
+        self.assertEqual(len(response.data.get('results')), 2)
+
+    def test_subjectsources_api(self):
+        """Test Subject-Sources-Assignment-API"""
+        SubjectSource.objects.all().delete()
+
+        subject, created = Subject.objects.get_or_create(name='#01-subject')
+        subject2, created = Subject.objects.get_or_create(name='#02-subject')
+
+        provider, created = SourceProvider.objects.get_or_create(provider_key='#01-provider')
+
+        source, created = Source.objects.get_or_create(manufacturer_id='#01-manufacurer_id', provider=provider)
+        source2, created = Source.objects.get_or_create(manufacturer_id='#02-manufacurer_id', provider=provider)
+        source3, created = Source.objects.get_or_create(manufacturer_id='#03-manufacurer_id', provider=provider)
+
+        # assign subject (#01-subject) with different sources.
+        ss = SubjectSource.objects.create(subject=subject, source=source,
+                                          assigned_range=DateTimeTZRange(lower=DEFAULT_ASSIGNED_RANGE[0]))
+        ss2 = SubjectSource.objects.create(subject=subject, source=source2,
+                                           assigned_range=DateTimeTZRange(lower=DEFAULT_ASSIGNED_RANGE[0]))
+
+        # asign subject (#02-subject) only one source.
+        ss3 = SubjectSource.objects.create(subject=subject2, source=source3,
+                                           assigned_range=DateTimeTZRange(lower=DEFAULT_ASSIGNED_RANGE[0]))
+
+        ss.refresh_from_db()
+        ss2.refresh_from_db()
+        ss3.refresh_from_db()
+
+        urlpath = reverse('subject-sources-list-view')
+        # all subject-sources;
+        request = self.factory.get(urlpath)
+        self.force_authenticate(request, self.user)
+        response = SubjectSourcesAssignmentView.as_view()(request)
+        self.assertEqual(len(response.data.get('results')), 3)
+
+        # filter by subject
+        url = urlpath + f'?subjects={str(subject.id)}'
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.user)
+        response = SubjectSourcesAssignmentView.as_view()(request)
+        self.assertEqual(len(response.data.get('results')), 2)
+
+        # filter by sources
+        url = urlpath + f'?sources={str(source3.id)}, {str(source2.id)}'
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.user)
+        response = SubjectSourcesAssignmentView.as_view()(request)
+        self.assertEqual(len(response.data.get('results')), 2)
+
+        # filter by both subject_id and source_id
+        url = urlpath + f'?sources={str(source2.id)}&subjects={str(subject2.id)}'
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.user)
+        response = SubjectSourcesAssignmentView.as_view()(request)
+        self.assertEqual(len(response.data.get('results')), 2)
+
+        # Create Subject-Group & have only one subject & give permission to view subject-source.
+        parent_group = SubjectGroup.objects.create(name='SG Group')
+        view_subject_group_perm_name = 'view_subjectgroup'
+        view_subject_source_perm_name = 'view_subjectsource'
+
+        view_subject_perm = Permission.objects.get(codename=view_subject_group_perm_name)
+        view_subject_source = Permission.objects.get(codename=view_subject_source_perm_name)
+        perm_set = PermissionSet.objects.create(name="View SG Group Perm set")
+        perm_set2 = PermissionSet.objects.create(name="View SubjectSource PermSet")
+        perm_set.permissions.add(view_subject_perm)
+        perm_set2.permissions.add(view_subject_source)
+        perm_set.save()
+        perm_set2.save()
+        self.non_superuser.permission_sets.add(perm_set)
+        self.non_superuser.permission_sets.add(perm_set2)
+        self.non_superuser.save()
+
+        parent_group.permission_sets.add(perm_set)
+        parent_group.subjects.add(subject2)
+        parent_group.is_visible = True
+        parent_group.save()
+
+        # non-super-user
+        # should only view subject-source (getting all subject-sources).
+        request = self.factory.get(urlpath)
+        self.force_authenticate(request, self.non_superuser)
+        response = SubjectSourcesAssignmentView.as_view()(request)
+        self.assertEqual(len(response.data.get('results')), 1)
+
+        # non-super-user filtering subject and source he has not permission to view.
+        url = urlpath + f'?sources={str(source.id)}&subjects={str(subject.id)}'
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.non_superuser)
+        response = SubjectSourcesAssignmentView.as_view()(request)
+        self.assertEqual(len(response.data.get('results')), 0)

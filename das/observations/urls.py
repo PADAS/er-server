@@ -56,7 +56,7 @@ urlpatterns = [
         views.SubjectStatusView.as_view(), name='subjectstatus-view'),
 
 
-    url(r'^sources/?$', views.SourcesView.as_view()),
+    url(r'^sources/?$', views.SourcesView.as_view(), name='sources-view'),
     url(r'^source/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
         views.SourceView.as_view(), name='source-view'),
     url(r'^source/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/subjects/?$',
@@ -87,6 +87,8 @@ urlpatterns = [
     url(r'^messages/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
         views.MessageView.as_view()),
     url(r'^news/?$', views.AnnouncementsView.as_view(), name="news-view",),
+
+    url(r'^subjectsources/?$', views.SubjectSourcesAssignmentView.as_view(), name='subject-sources-list-view'),
 
 ]
 

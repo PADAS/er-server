@@ -43,7 +43,7 @@ from observations.filters import SubjectObjectPermissionsFilter, create_gp_filte
 from observations.permissions import StandardObjectPermissions
 from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS, VIEW_SUBJECTGROUP_PERMS, \
     check_to_include_inactive_subjects, VIEW_OBSERVATION_PERMS
-from observations.utils import get_minimum_allowed_age
+from observations.utils import get_minimum_allowed_age, parse_comma
 from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination, StandardResultsSetGeoJsonPagination
 from utils.json import zeroout_microseconds, parse_bool, ExtendedGEOJSONRenderer
 from utils import add_base_url
@@ -804,12 +804,12 @@ class SourceView(generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
 class SourcesView(generics.ListCreateAPIView, ):
     serializer_class = serializers.SourceSerializer
     permission_classes = (StandardObjectPermissions,)
-    filter_backends = (SubjectObjectPermissionsFilter,)
     pagination_class = StandardResultsSetPagination
 
-    lookup_fields = {'manufacturer_id': 'manufacturer_id',
-                     'provider_key': 'provider__provider_key',
-                     'provider': 'provider__provider_key'}
+    lookup_fields = {'manufacturer_id': 'manufacturer_id__in',
+                     'provider_key': 'provider__provider_key__in',
+                     'provider': 'provider__provider_key__in',
+                     'id': 'id__in'}
 
     def get_queryset(self):
         queryset = models.Source.objects.all()
@@ -817,7 +817,7 @@ class SourcesView(generics.ListCreateAPIView, ):
         filter = {}
         for fn, fld in self.lookup_fields.items():
             if fn in self.request.query_params:
-                filter[fld] = self.request.query_params.get(fn)
+                filter[fld] = parse_comma(self.request.query_params.get(fn))
         if filter:
             queryset = queryset.filter(**filter)
 
@@ -961,6 +961,9 @@ class ObservationsView(generics.ListCreateAPIView):
 
         if created_after:
             queryset = queryset.by_created_after(created_after)
+
+        queryset = queryset.select_related('source')
+        queryset = queryset.select_related('source__provider')
 
         return queryset
 
@@ -1996,3 +1999,47 @@ class AnnouncementsView(generics.ListCreateAPIView):
         context = dict(request=self.request)
         response = self.serializer_class(queryset, many=True, context=context)
         return Response(response.data, status=status.HTTP_200_OK)
+
+
+class SubjectSourceAssignmentSchema(CustomSchema):
+    def get_operation(self, path, method):
+        operation = super().get_operation(path, method)
+        if method == 'GET':
+            query_params = [{
+                'name': 'subjects',
+                'in': 'query',
+                'description': 'A comma-delimited list of Subject IDs.'},
+                {
+                    'name': 'sources',
+                    'in': 'query',
+                    'description': 'A comma-delimited list of Source IDs.'},
+            ]
+            operation['parameters'].extend(query_params)
+
+        return operation
+
+
+class SubjectSourcesAssignmentView(generics.ListAPIView):
+    permission_classes = (StandardObjectPermissions,)
+    serializer_class = serializers.SubjectSourceSerializer
+    pagination_class = StandardResultsSetPagination
+    schema = SubjectSourceAssignmentSchema()
+
+    def get_queryset(self):
+        query_params = self.request.query_params
+
+        subjects_list = parse_comma(query_params.get('subjects'))
+        sources_list = parse_comma(query_params.get('sources')) or []
+
+        allowed = models.Subject.objects.by_user_subjects(self.request.user).values_list('id', flat=True)
+
+        # First get subject-sources user has access to.
+        queryset = models.SubjectSource.objects.filter(subject_id__in=allowed)
+
+        if subjects_list and sources_list:
+            queryset = queryset.filter(Q(subject_id__in=set(allowed) & set(subjects_list)) | Q(source_id__in=sources_list))
+        elif subjects_list:
+            queryset = queryset.filter(subject_id__in=set(allowed) & set(subjects_list))
+        elif sources_list:
+            queryset = queryset.filter(source_id__in=sources_list)
+        return queryset
