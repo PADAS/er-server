@@ -34,6 +34,7 @@ from django.contrib.postgres.fields import DateTimeRangeField
 from django.core.serializers.json import DjangoJSONEncoder
 
 from accounts.models.permissionset import PermissionSet
+from accounts.models.user import User
 from core.models import TimestampedModel, SingletonModel
 from core.utils import static_image_finder
 from observations.models import Subject, Source, SubjectGroup
@@ -1590,11 +1591,35 @@ class StateFilters(Enum):
 class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_patrol_filter(self, filter):
         queryset = self
-        if 'date_range' in filter:
-            patrols_overlap_daterange = filter.get(
-                'patrols_overlap_daterange', True)
-            queryset = self.by_date_range(filter.get(
-                'date_range'), patrols_overlap_daterange)
+        if "date_range" in filter:
+            patrols_overlap_daterange = filter.get("patrols_overlap_daterange", True)
+            queryset = self.by_date_range(
+                filter.get("date_range"), patrols_overlap_daterange
+            )
+        if "text" in filter:
+            text = filter.get("text")
+            if text:
+                subjects_id = self._get_match_subjects_id(text)
+                users_id = self._get_match_user_id(text)
+                text = re.escape(text)
+                queryset = queryset.filter(
+                    Q(serial_number_string=text)
+                    | Q(title__iregex=self._get_regex_istartswith(text))
+                    | Q(
+                        patrol_segment__patrol_type__value__iregex=self._get_regex_istartswith(
+                            text
+                        )
+                    )
+                    | Q(note__text__iregex=self._get_regex_istartswith(text))
+                    | Q(
+                        patrol_segment__leader_id__in=subjects_id,
+                        patrol_segment__leader_content_type__model="subject",
+                    )
+                    | Q(
+                        patrol_segment__leader_id__in=users_id,
+                        patrol_segment__leader_content_type__model="user",
+                    )
+                )
         return queryset.distinct()
 
     def by_date_range(self, filter_param, patrols_overlap_daterange):
@@ -1705,6 +1730,21 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
                         When(state=PC_DONE, then=Value(2)),
                         When(state=PC_CANCELLED, then=Value(3)),
                         default=Value(4)), Lower('start_overdue'), Lower('readyto_start'), Lower('sort_title'))
+
+    def _get_regex_istartswith(self, text):
+        return r"(^|\s)%s" % text
+
+    def _get_match_subjects_id(self, subject_name):
+        text = re.escape(subject_name)
+        return Subject.objects.filter(name__iregex=self._get_regex_istartswith(text)).values_list("id", flat=True)
+
+    def _get_match_user_id(self, user):
+        text = re.escape(user)
+        return User.objects.filter(
+            Q(username__iregex=self._get_regex_istartswith(text))
+            | Q(first_name__iregex=self._get_regex_istartswith(text))
+            | Q(last_name__iregex=self._get_regex_istartswith(text))
+        ).values_list("id", flat=True)
 
 
 class Patrol(TimestampedModel, RevisionMixin):

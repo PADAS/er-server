@@ -6,10 +6,7 @@ from urllib.parse import urlencode
 import tempfile
 import shutil
 
-from psycopg2.extras import DateTimeTZRange
-
 from django.db import connection
-
 import django.contrib.auth
 from django.core.management import call_command
 from django.urls import reverse
@@ -20,12 +17,14 @@ from drf_extra_fields.geo_fields import PointField
 import pytest
 
 from activity import views
-from activity.models import Patrol, PatrolSegment, PatrolType, StateFilters, Event, EventType, PC_DONE, EventRelationship
+from activity.models import Patrol, PatrolSegment, PatrolNote, PatrolType, StateFilters, Event, EventType, \
+    EventRelationship
 from core.tests import BaseAPITest
 from observations.models import Subject, Source, SubjectSource
 from observations.materialized_views import patrols_view
 from das_server.celery import app
 from accounts.models import PermissionSet
+from client_http import HTTPClient
 
 pytestmark = pytest.mark.django_db
 User = django.contrib.auth.get_user_model()
@@ -1672,6 +1671,7 @@ def test_patrolsegments(django_assert_max_num_queries, client):
     with django_assert_max_num_queries(35):
         client.get(url)
 
+
 def test_patrols_materialized_view(django_assert_max_num_queries, client):
 
     user_const = dict(last_name='last', first_name='first')
@@ -1719,3 +1719,380 @@ def test_patrols_materialized_view(django_assert_max_num_queries, client):
     cursor.execute('select count(*) from patrols_view;')
     data = cursor.fetchall()
     # assert data[0] == (1,)
+
+
+@pytest.mark.django_db
+class TestPatrolFilter:
+    def test_filter_in_serial_number(self, five_patrols):
+        self._arrange_patrol_serial_number_sql()
+
+        filter = {"patrols_overlap_daterange": True, "text": "1000"}
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name='View Patrols Permissions')
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+        request = client.factory.get(
+            client.api_base + f"/patrols/?filter={json.dumps(filter)}"
+        )
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert response.status_code == 200
+        assert data.get("count", 0) == 1
+
+    @pytest.mark.parametrize("text", ["title", "Title", "TITLE"])
+    def test_filter_by_title(self, five_patrols, text):
+        patrol = Patrol.objects.first()
+        patrol.title = f"This is my {text}"
+        patrol.save()
+        patrol2 = Patrol.objects.last()
+        patrol2.title = f"{text} is my first"
+        patrol2.save()
+
+        filter = {'patrols_overlap_daterange': True, 'text': 'title'}
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name='View Patrols Permissions')
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+        request = client.factory.get(client.api_base + f"/patrols/?filter={json.dumps(filter)}")
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert response.status_code == 200
+        assert data.get("count", 0) == 2
+
+    def test_filter_by_title_not_include_middle_string(self, five_patrols):
+        patrol = Patrol.objects.first()
+        patrol.title = "This is my title"
+        patrol.save()
+        patrol2 = Patrol.objects.last()
+        patrol2.title = "Thisismytitle"
+        patrol2.save()
+
+        filter = {'patrols_overlap_daterange': True, 'text': 'title'}
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name='View Patrols Permissions')
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+        request = client.factory.get(client.api_base + f"/patrols/?filter={json.dumps(filter)}")
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert response.status_code == 200
+        assert data.get("count", 0) == 1
+
+    @pytest.mark.parametrize("text", ["This is", "is my title", "we are writing"])
+    def test_filter_by_title_with_two_or_more_words(self, five_patrols, text):
+        patrol = Patrol.objects.first()
+        patrol.title = "This is my title"
+        patrol.save()
+        patrol2 = Patrol.objects.last()
+        patrol2.title = "We are writing my title here"
+        patrol2.save()
+
+        filter = {'patrols_overlap_daterange': True, 'text': text}
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name='View Patrols Permissions')
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+        request = client.factory.get(client.api_base + f"/patrols/?filter={json.dumps(filter)}")
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert response.status_code == 200
+        assert data.get("count", 0) == 1
+
+    @pytest.mark.parametrize("text", ["message", "Message", "MESSAGE"])
+    def test_filter_by_note(self, five_patrol_notes, text):
+        patrol_note = PatrolNote.objects.first()
+        patrol_note.text = f"This is my {text}"
+        patrol_note.save()
+        patrol_note_2 = PatrolNote.objects.last()
+        patrol_note_2.text = f"{text} This is my"
+        patrol_note_2.save()
+
+        filter = {'patrols_overlap_daterange': True, 'text': text}
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name='View Patrols Permissions')
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+        request = client.factory.get(client.api_base + f"/patrols/?filter={json.dumps(filter)}")
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert response.status_code == 200
+        assert data.get("count", 0) == 2
+
+    def test_filter_by_note_not_include_middle_string(self, five_patrol_notes):
+        patrol_note = PatrolNote.objects.first()
+        patrol_note.text = "This is my message"
+        patrol_note.save()
+        patrol_note_2 = PatrolNote.objects.last()
+        patrol_note_2.text = "Thismessageismy"
+        patrol_note_2.save()
+
+        filter = {'patrols_overlap_daterange': True, 'text': "message"}
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name='View Patrols Permissions')
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+        request = client.factory.get(client.api_base + f"/patrols/?filter={json.dumps(filter)}")
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert response.status_code == 200
+        assert data.get("count", 0) == 1
+
+    @pytest.mark.parametrize("text", ["here we", "are with another", "Words for this"])
+    def test_filter_by_note_with_two_or_more_words(self, five_patrol_notes, text):
+        patrol_note = PatrolNote.objects.first()
+        patrol_note.text = f"Here we are with another test"
+        patrol_note.save()
+        patrol_note_2 = PatrolNote.objects.last()
+        patrol_note_2.text = "Many words for this note"
+        patrol_note_2.save()
+
+        filter = {'patrols_overlap_daterange': True, 'text': text}
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name='View Patrols Permissions')
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+        request = client.factory.get(client.api_base + f"/patrols/?filter={json.dumps(filter)}")
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert response.status_code == 200
+        assert data.get("count", 0) == 1
+
+    @pytest.mark.parametrize("text", ["animal", "Animal", "ANIMAL"])
+    def test_by_patrol_type(self, five_patrol_segment, text):
+        patrol_segment = PatrolSegment.objects.first()
+        patrol_segment.patrol_type.value = f"animal type patrol"
+        patrol_segment.patrol_type.save()
+        patrol_segment2 = PatrolSegment.objects.last()
+        patrol_segment2.patrol_type.value = f"type animal patrol"
+        patrol_segment2.patrol_type.save()
+
+        filter = {'patrols_overlap_daterange': True, 'text': text}
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name='View Patrols Permissions')
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+        request = client.factory.get(
+            client.api_base + f"/patrols/?filter={json.dumps(filter)}"
+        )
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert response.status_code == 200
+        assert data.get("count", 0) == 2
+
+    def test_by_patrol_type_not_include_middle_string(self, five_patrol_segment):
+        patrol_segment = PatrolSegment.objects.first()
+        patrol_segment.patrol_type.value = f"animal type patrol"
+        patrol_segment.patrol_type.save()
+        patrol_segment2 = PatrolSegment.objects.last()
+        patrol_segment2.patrol_type.value = f"patrolanimaltype"
+        patrol_segment2.patrol_type.save()
+
+        filter = {'patrols_overlap_daterange': True, 'text': "animal"}
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name='View Patrols Permissions')
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+        request = client.factory.get(
+            client.api_base + f"/patrols/?filter={json.dumps(filter)}"
+        )
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert response.status_code == 200
+        assert data.get("count", 0) == 1
+
+    @pytest.mark.parametrize("text", ["You will", "a dog patrol", "ninja turtles"])
+    def test_by_patrol_type_with_two_or_more_words(self, five_patrol_segment, text):
+        patrol_segment = PatrolSegment.objects.first()
+        patrol_segment.patrol_type.value = "You will be a dog patrol from right away"
+        patrol_segment.patrol_type.save()
+        patrol_segment2 = PatrolSegment.objects.last()
+        patrol_segment2.patrol_type.value = "The ninja turtles patrol is here"
+        patrol_segment2.patrol_type.save()
+
+        filter = {'patrols_overlap_daterange': True, 'text': text}
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name='View Patrols Permissions')
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+        request = client.factory.get(
+            client.api_base + f"/patrols/?filter={json.dumps(filter)}"
+        )
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert response.status_code == 200
+        assert data.get("count", 0) == 1
+
+    @pytest.mark.parametrize("text", ["good", "Good", "GOOD"])
+    def test_filter_by_tracked_subject_name(self, five_patrol_segment_subject, text):
+        subject = Subject.objects.first()
+        subject.name = f"This is my name as a {text} subject"
+        subject.save()
+        subject2 = Subject.objects.last()
+        subject2.name = f"{text} subject this name my is"
+        subject2.save()
+
+        filter = {'patrols_overlap_daterange': True, 'text': "good"}
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name='View Patrols Permissions')
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+        request = client.factory.get(
+            client.api_base + f"/patrols/?filter={json.dumps(filter)}"
+        )
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert response.status_code == 200
+        assert data.get("count", 0) == 2
+
+    def test_filter_by_tracked_subject_name_not_include_middle_string(
+        self, five_patrol_segment_subject
+    ):
+        subject = Subject.objects.first()
+        subject.name = "I will be a subject for this test"
+        subject.save()
+        subject2 = Subject.objects.last()
+        subject2.name = "iwillbeasubjectinthistest"
+        subject2.save()
+
+        filter = {'patrols_overlap_daterange': True, 'text': "subject"}
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name='View Patrols Permissions')
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+        request = client.factory.get(
+            client.api_base + f"/patrols/?filter={json.dumps(filter)}"
+        )
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert response.status_code == 200
+        assert data.get("count", 0) == 1
+
+    @pytest.mark.parametrize("text", ["i will name", "this subject", "a new subject"])
+    def test_filter_by_tracked_subject_name_with_two_or_more_words(
+        self, five_patrol_segment_subject, text
+    ):
+        patrol_segment_subjects = PatrolSegment.objects.first()
+        patrol_segment_subjects.leader.name = "I will name this subject"
+        patrol_segment_subjects.leader.save()
+        patrol_segment_subjects2 = PatrolSegment.objects.last()
+        patrol_segment_subjects2.leader.name = "a new subject will be here"
+        patrol_segment_subjects2.leader.save()
+
+        filter = {'patrols_overlap_daterange': True, 'text': text}
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name='View Patrols Permissions')
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+        request = client.factory.get(
+            client.api_base + f"/patrols/?filter={json.dumps(filter)}"
+        )
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert response.status_code == 200
+        assert data.get("count", 0) == 1
+
+    @pytest.mark.parametrize("text", ["arnold", "Arnold", "ARNOLD"])
+    def test_filter_by_tracked_user(self, five_patrol_segment_user, text):
+        patrol_segment_user = PatrolSegment.objects.first()
+        patrol_segment_user.leader.first_name = "My name is Arnold"
+        patrol_segment_user.leader.save()
+        patrol_segment_user2 = PatrolSegment.objects.last()
+        patrol_segment_user2.leader.last_name = "Arnold is my name"
+        patrol_segment_user2.leader.save()
+
+        filter = {'patrols_overlap_daterange': True, 'text': text}
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name='View Patrols Permissions')
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+        request = client.factory.get(
+            client.api_base + f"/patrols/?filter={json.dumps(filter)}"
+        )
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert response.status_code == 200
+        assert data.get("count", 0) == 2
+
+    def test_filter_by_tracked_user_not_include_middle_string(self, five_patrol_segment_user):
+        patrol_segment_user = PatrolSegment.objects.first()
+        patrol_segment_user.leader.first_name = "My name is Arnold"
+        patrol_segment_user.leader.save()
+        patrol_segment_user2 = PatrolSegment.objects.last()
+        patrol_segment_user2.leader.last_name = "thisisArnoldisname"
+        patrol_segment_user2.leader.save()
+
+        filter = {'patrols_overlap_daterange': True, 'text': "arnold"}
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name='View Patrols Permissions')
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+        request = client.factory.get(
+            client.api_base + f"/patrols/?filter={json.dumps(filter)}"
+        )
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert response.status_code == 200
+        assert data.get("count", 0) == 1
+
+    @pytest.mark.parametrize("text", ["spongebob is", "am not a", "is a toon"])
+    def test_filter_by_tracked_user_with_two_or_more_words(self, five_patrol_segment_user, text):
+        patrol_segment_user = PatrolSegment.objects.first()
+        patrol_segment_user.leader.first_name = "SpongeBob is a toon"
+        patrol_segment_user.leader.save()
+        patrol_segment_user2 = PatrolSegment.objects.last()
+        patrol_segment_user2.leader.last_name = "I am not a toon"
+        patrol_segment_user2.leader.save()
+
+        filter = {'patrols_overlap_daterange': True, 'text': text}
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name='View Patrols Permissions')
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+        request = client.factory.get(
+            client.api_base + f"/patrols/?filter={json.dumps(filter)}"
+        )
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert response.status_code == 200
+        assert data.get("count", 0) == 1
+
+    def _arrange_patrol_serial_number_sql(self):
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE activity_patrol SET serial_number=1000 WHERE id=(SELECT id FROM activity_patrol LIMIT 1)"
+            )
+            cursor.execute(
+                "UPDATE activity_patrol SET serial_number=1001 WHERE id=(SELECT id FROM activity_patrol LIMIT 1 OFFSET 2)"
+            )

@@ -1395,7 +1395,7 @@ class PatrolsView(generics.ListCreateAPIView):
 
     def get_queryset(self):
 
-        queryset = Patrol.objects.all()
+        queryset = Patrol.objects.all().annotate(serial_number_string=Cast("serial_number", CharField()))
         query_params = self.request.query_params
         patrol_filter = query_params.get('filter')
         if patrol_filter:
