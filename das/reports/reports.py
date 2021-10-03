@@ -400,6 +400,8 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
         [], make_events_accum(('security', 'security_new')))
     security_ke_police_events = accumulator(
         [], make_events_accum(('security_ke_police',)))
+    findrep_events = accumulator(
+        [], make_events_accum(('findrep_category',)))
 
     # Accumulator for 'human wildlife conflict'
     def human_wildlife_conflict(accum, event):
@@ -430,7 +432,7 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
 
     human_wildlife_conflict = accumulator([], human_wildlife_conflict)
     b = broadcast((rhino_sightings, rhino_births, rhino_territorial_movement, other_wildlife_sightings, carcass,
-                   gap_movement, rainfall, fence_breakage, security_events, security_ke_police_events, human_wildlife_conflict))
+                   gap_movement, rainfall, fence_breakage, security_events, security_ke_police_events, findrep_events, human_wildlife_conflict))
 
     for event in events:
         b.send(event)
@@ -445,6 +447,7 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
     wildlife_sightings_per_conservancy = rhino_sightings.send(None)
     security_events = security_events.send(None)
     security_ke_police_events = security_ke_police_events.send(None)
+    findrep_events = findrep_events.send(None)
     human_wildlife_conflict = human_wildlife_conflict.send(None)
 
     #
@@ -520,6 +523,8 @@ def get_daily_report_data(since, before, event_categories=None, **kwargs):
         'security_events': security_events,
 
         'security_ke_police_events': security_ke_police_events,
+
+        'findrep_events': findrep_events,
 
         'human_wildlife_conflict': human_wildlife_conflict,
 
