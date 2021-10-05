@@ -167,7 +167,7 @@ variable "sms_token" {
 
 variable "sendsms_twilio_from_number" {
   type    = string
-  default = "+14254904368"
+  default = "+12062033988"
 }
 
 variable "daily_report_enabled" {
