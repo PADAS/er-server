@@ -191,6 +191,7 @@ locals {
     "lionguardians"           = "prod1"
     "birdlifezimbabwe"        = "prod1"
     "coastal"                 = "prod1"
+    "wildlifeact"             = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -294,4 +295,3 @@ locals {
 
 
 }
-
