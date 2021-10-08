@@ -192,6 +192,7 @@ locals {
     "birdlifezimbabwe"        = "prod1"
     "coastal"                 = "prod1"
     "wildlifeact"             = "prod1"
+    "contemplatewild"         = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
