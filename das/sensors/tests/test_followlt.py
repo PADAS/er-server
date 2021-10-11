@@ -49,7 +49,7 @@ class FollowltObservationTest(BaseAPITest):
         data = [{"lat": 32.01, "lng": 40.05, "date": "13-09-2018", "ttf": "485",
                  "sats": "2", "collarId": "followlt-1234",
                  "positionId": "789adc", "serialId": "12345", "alt": "58",
-                 "hdop": "0.23", "temp": "32.9", "name": "Test"},
+                 "hdop": "0.23", "temp": "32.9", "name": "Test", "power": "3.5"},
                 {"lat": 32.02, "lng": 40.06, "date": "14-09-2018", "ttf": "386",
                  "sats": "1", "collarId": "followlt-1234",
                  "positionId": "684adc", "serialId": "12345", "alt": "58",

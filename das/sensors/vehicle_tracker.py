@@ -99,6 +99,7 @@ class FollowltObservation(serializers.Serializer):
     lng = serializers.FloatField()
     date = serializers.CharField()
     collarId = serializers.CharField()
+    power = serializers.FloatField(allow_null=True, required=False)
     ttf = serializers.CharField(allow_blank=True, allow_null=True, required=False)
     sats = serializers.CharField(allow_blank=True, allow_null=True, required=False)
     positionId = serializers.CharField(allow_blank=True, allow_null=True, required=False)
@@ -107,6 +108,7 @@ class FollowltObservation(serializers.Serializer):
     hdop = serializers.CharField(allow_blank=True, allow_null=True, required=False)
     temp = serializers.CharField(allow_blank=True, allow_null=True, required=False)
     name = serializers.CharField(allow_blank=True, allow_null=True, required=False)
+
 
 
 class EzytrackObservation(serializers.Serializer):
