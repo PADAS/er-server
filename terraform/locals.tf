@@ -193,6 +193,7 @@ locals {
     "coastal"                 = "prod1"
     "wildlifeact"             = "prod1"
     "contemplatewild"         = "prod1"
+    "matlabasreserve"         = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -290,6 +291,7 @@ locals {
     "wcpzambia"             = 1
     "lionlandscapeske"      = 1
     "ng26"                  = 1
+    "matlabasreserve"       = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
