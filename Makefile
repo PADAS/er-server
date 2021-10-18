@@ -13,20 +13,23 @@ restart-deploy:
 get-pods:
 	kubectl -n ${NAMESPACE} get pods
 
+watch-pods:
+	watch kubectl -n ${NAMESPACE} get pods
+
 get-api-pod:
 	kubectl -n ${NAMESPACE} get pods | grep "^api-"
 
 get-api-logs:
 	kubectl -n ${NAMESPACE} logs ${POD} -c das-api -f
 
-connect:
+connect-api:
 	kubectl -n ${NAMESPACE} exec -ti deploy/api -- bash
 
 connect-db:
 	kubectl -n ${NAMESPACE} exec -it ${DB_POD} -- psql -U postgres
 
 test:
-	python -m pytest ${TEST_PATH}::${TEST_CLASS}::${TEST_METHOD} --no-migrations
+	python -m pytest -vv ${TEST_PATH}::${TEST_CLASS}::${TEST_METHOD} --no-migrations
 
 test-class:
-	python -m pytest ${TEST_PATH}::${TEST_CLASS} --no-migrations
+	python -m pytest -vv ${TEST_PATH}::${TEST_CLASS} --no-migrations

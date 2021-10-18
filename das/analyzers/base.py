@@ -1,7 +1,11 @@
-import pymet
-from observations.models import SubjectTrackSegmentFilter
-from analyzers.models import SubjectAnalyzerResult
+import logging
+from typing import Optional
 
+from analyzers.models import SubjectAnalyzerResult
+from django.core.cache import cache
+from observations.models import Subject
+
+logger = logging.getLogger(__name__)
 '''
 Base objects for Analyzer code.
 '''
@@ -44,7 +48,7 @@ class SubjectAnalyzer:
 
         return last_result
 
-    def analyze(self, observations=None, trajectory_filter=None):
+    def analyze(self, observations=None, trajectory_filter=None, analyzer_key=None):
 
         # Get default observations list if one isn't provided
         observations = observations or self.default_observations()
@@ -66,14 +70,24 @@ class SubjectAnalyzer:
             last_result = self.get_last_result()
 
             # Save the current result in the context of the last result saved
-            self.save_analyzer_result(last_result=last_result, this_result=this_result)
+            self.save_analyzer_result(
+                last_result=last_result, this_result=this_result)
 
-            # Create an event based on the result
-            this_event = self.create_analyzer_event(last_result=last_result, this_result=this_result)
+            this_event = self.create_analyzer_event(
+                last_result=last_result, this_result=this_result)
+            if analyzer_key and this_event:
+                logger.info('Pausing analyzer with id=%s', self.config.id)
+                cache.set(analyzer_key, analyzer_key,
+                          self.config.quiet_period.total_seconds())
 
             analyze_results.append((this_result, this_event))
 
         return analyze_results
+
+    def _get_analyzer_key(self, subject: Subject) -> Optional[str]:
+        if self.config.quiet_period:
+            return f"analyzer_silent__{self.config.id}__{subject.id}"
+        return None
 
     class Meta:
         abstract = True

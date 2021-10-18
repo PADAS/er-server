@@ -1,24 +1,25 @@
 import json
 import logging
 import os
-# Use python unit test here to persist results in test DB
-from unittest.mock import patch
-
-import yaml
 import urllib
-from django.test import TestCase, override_settings
-from django.core.files import File
-from django.core.serializers import serialize
 
+import pytest
+import yaml
 from activity.models import Event, EventCategory, EventType
 from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.geofence import GeofenceAnalyzer, GeofenceAnalyzerConfig
 from analyzers.models import SubjectAnalyzerResult
 from analyzers.tasks import analyze_subject
-from mapping.models import SpatialFeature, SpatialFeatureGroupStatic, SpatialFeatureFile
+from django.contrib.gis.geos import LineString
+from django.core.files import File
+from django.core.serializers import serialize
+from django.test import TestCase, override_settings
+from django.utils import timezone
+from mapping.models import (SpatialFeature, SpatialFeatureFile,
+                            SpatialFeatureGroupStatic)
 from mapping.spatialfile_utils import process_spatialfile
-from observations.models import (DEFAULT_ASSIGNED_RANGE, Source, Subject,
-                                 SubjectGroup, SubjectSource,
+from observations.models import (DEFAULT_ASSIGNED_RANGE, Observation, Source,
+                                 Subject, SubjectGroup, SubjectSource,
                                  SubjectTrackSegmentFilter)
 
 from .analyzer_test_utils import *
@@ -28,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 FIXTURE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),
                             'fixtures')
+
 
 @override_settings(DEFAULT_FILE_STORAGE='django.core.files.storage.FileSystemStorage')
 class TestGeofenceAnalyzer(TestCase):
@@ -76,18 +78,18 @@ class TestGeofenceAnalyzer(TestCase):
                                       stroke_width=3, stroke_opacity=1):
         '''Create a generic LineString feature from a list of Observations.'''
         feature = {
-                    "type": "Feature",
+            "type": "Feature",
                     "properties": {
                         "name": name,
                         "stroke": stroke,
                         "stroke-width": stroke_width,
                         "stroke-opacity": stroke_opacity,
                     },
-                    "geometry": {
+            "geometry": {
                         "type": "LineString",
                         "coordinates": [(obs.location.x, obs.location.y) for obs in observations]
                     }
-                }
+        }
 
         return feature
 
@@ -104,7 +106,8 @@ class TestGeofenceAnalyzer(TestCase):
 
             fence_breaks = json.loads(
                 serialize('geojson',
-                          SubjectAnalyzerResult.objects.filter(subject=subject),
+                          SubjectAnalyzerResult.objects.filter(
+                              subject=subject),
                           geometry_field='geometry_collection',
                           fields=('title', 'estimated_time'))
             )
@@ -122,8 +125,10 @@ class TestGeofenceAnalyzer(TestCase):
     def setUp(self):
 
         data = File(open(os.path.join(FIXTURE_PATH, 'lines.geojson'), 'rb'))
-        feature_types_file = File(open(os.path.join(FIXTURE_PATH, 'spatial_feature_types.geojson'), 'rb'))
-        spatialfile = SpatialFeatureFile.objects.create(data=data, feature_types_file=feature_types_file)
+        feature_types_file = File(
+            open(os.path.join(FIXTURE_PATH, 'spatial_feature_types.geojson'), 'rb'))
+        spatialfile = SpatialFeatureFile.objects.create(
+            data=data, feature_types_file=feature_types_file)
         process_spatialfile(spatialfile)
 
         ec, created = EventCategory.objects.get_or_create(
@@ -137,22 +142,28 @@ class TestGeofenceAnalyzer(TestCase):
     def test_geofencing_integration(self):
 
         # Create models (Subject, SubjectSource and Source)
-        sub = Subject.objects.create(name='Jolie', subject_subtype_id='elephant')
+        sub = Subject.objects.create(
+            name='Jolie', subject_subtype_id='elephant')
         source = Source.objects.create(manufacturer_id='006')
-        SubjectSource.objects.create(subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
+        SubjectSource.objects.create(
+            subject=sub, source=source, assigned_range=DEFAULT_ASSIGNED_RANGE)
 
         # Create a SubjectTrackSegmentFilter
-        SubjectTrackSegmentFilter.objects.create(subject_subtype_id='elephant', speed_KmHr=7.0)
+        SubjectTrackSegmentFilter.objects.create(
+            subject_subtype_id='elephant', speed_KmHr=7.0)
 
-        sg = SubjectGroup.objects.create(name='geofence_subject_analyzer_group1', )
+        sg = SubjectGroup.objects.create(
+            name='geofence_subject_analyzer_group1', )
         sg.subjects.add(sub)
         sg.save()
 
         # Create a SpatialFeatureGroupStatic group with the 'Moukabala-Doudou'
         # geofence
-        geofences = SpatialFeature.objects.filter(name__iexact='Moukalaba-Doudou')
+        geofences = SpatialFeature.objects.filter(
+            name__iexact='Moukalaba-Doudou')
         logger.info('Geofence count: %s' % len(geofences))
-        gf_grp = SpatialFeatureGroupStatic.objects.create(name='Gabon Geofences', )
+        gf_grp = SpatialFeatureGroupStatic.objects.create(
+            name='Gabon Geofences', )
         gf_grp.features.add(*geofences)
         gf_grp.save()
 
@@ -160,11 +171,13 @@ class TestGeofenceAnalyzer(TestCase):
         test_observations = list(time_shift(test_observations))
 
         # Create the Geofence Analyzer Config object
-        GeofenceAnalyzerConfig.objects.create(subject_group=sg, critical_geofence_group=gf_grp, search_time_hours=24.0)
+        GeofenceAnalyzerConfig.objects.create(
+            subject_group=sg, critical_geofence_group=gf_grp, search_time_hours=24.0)
 
         for idx in range(0, len(test_observations) - 2):
             # Store the entire list of observations.
-            store_observations(test_observations[idx:idx+1], timeshift=False, source=source)
+            store_observations(
+                test_observations[idx:idx+1], timeshift=False, source=source)
             analyze_subject(str(sub.id))
 
         results = SubjectAnalyzerResult.objects.filter(subject=sub)
@@ -206,14 +219,17 @@ class TestGeofenceAnalyzer(TestCase):
         geofences = SpatialFeature.objects.filter(
             name__iexact='Ol Donyo Farm 2')
         logger.info('Geofence count: %s', len(geofences))
-        gf_grp = SpatialFeatureGroupStatic.objects.create(name='Mara Geofences',)
+        gf_grp = SpatialFeatureGroupStatic.objects.create(
+            name='Mara Geofences',)
         gf_grp.features.add(*geofences)
         gf_grp.save()
 
         # Create a containment regions grp
-        contain_rgns = SpatialFeature.objects.filter(name='Pardamat Conservancy')
+        contain_rgns = SpatialFeature.objects.filter(
+            name='Pardamat Conservancy')
         logger.info('Containment region count: %s' % str(len(contain_rgns)))
-        cr_grp = SpatialFeatureGroupStatic.objects.create(name='Geofence Containment Regions',)
+        cr_grp = SpatialFeatureGroupStatic.objects.create(
+            name='Geofence Containment Regions',)
         cr_grp.features.add(*contain_rgns)
         cr_grp.save()
 
@@ -300,7 +316,8 @@ class TestGeofenceAnalyzer(TestCase):
 
         self.assertEqual(len(results), 6)
 
-        self.visualize_geofence_crossings(gf_grp, test_observations, sub, self.test_geofencing_for_crooked_boundaries.__name__)
+        self.visualize_geofence_crossings(
+            gf_grp, test_observations, sub, self.test_geofencing_for_crooked_boundaries.__name__)
 
     def test_geofencing_for_a_double_hop(self):
         sub = Subject.objects.create(
@@ -315,7 +332,8 @@ class TestGeofenceAnalyzer(TestCase):
         sg.save()
 
         # parse recorded_at (from string to datetime).
-        test_observations = [parse_recorded_at(x) for x in SUBJECT_TRACK_FOR_DOUBLE_FENCE_HOP]
+        test_observations = [parse_recorded_at(
+            x) for x in SUBJECT_TRACK_FOR_DOUBLE_FENCE_HOP]
         relocs_len = len(test_observations)
         test_observations = list(generate_observations(test_observations))
 
@@ -359,7 +377,8 @@ class TestGeofenceAnalyzer(TestCase):
 
         self.assertEqual(len(results), 1)
 
-        self.visualize_geofence_crossings(gf_grp, test_observations, sub, self.test_geofencing_for_a_double_hop.__name__)
+        self.visualize_geofence_crossings(
+            gf_grp, test_observations, sub, self.test_geofencing_for_a_double_hop.__name__)
 
     def test_illegitimate_fence_crossings(self):
         sub = Subject.objects.create(
@@ -418,7 +437,8 @@ class TestGeofenceAnalyzer(TestCase):
 
         self.assertEqual(len(results), 0)
 
-        self.visualize_geofence_crossings(gf_grp, test_observations, sub, self.test_illegitimate_fence_crossings.__name__)
+        self.visualize_geofence_crossings(
+            gf_grp, test_observations, sub, self.test_illegitimate_fence_crossings.__name__)
 
     def test_zero_crossings(self):
         sub = Subject.objects.create(
@@ -477,4 +497,172 @@ class TestGeofenceAnalyzer(TestCase):
 
         self.assertEqual(len(results), 0)
 
-        self.visualize_geofence_crossings(gf_grp, test_observations, sub, self.test_zero_crossings.__name__)
+        self.visualize_geofence_crossings(
+            gf_grp, test_observations, sub, self.test_zero_crossings.__name__)
+
+
+@pytest.mark.django_db
+class TestGeofenceAnalyzerQuietPeriod:
+    OBSERVATIONS = [
+        {
+            "longitude": 3.538229,
+            "latitude": 10.005134,
+            "recorded_at": "2021-10-09T23:00:13+00:00",
+        },
+        {
+            "longitude": 3.535698,
+            "latitude": 10.025114,
+            "recorded_at": "2021-10-09T23:30:20+00:00",
+        },
+        {
+            "longitude": 3.523348,
+            "latitude": 10.009393,
+            "recorded_at": "2021-10-10T00:00:24+00:00",
+        },
+        {
+            "longitude": 3.526284,
+            "latitude": 10.021463,
+            "recorded_at": "2021-10-10T00:30:31+00:00",
+        },
+        {
+            "longitude": 3.510491,
+            "latitude": 10.018116,
+            "recorded_at": "2021-10-10T01:00:31+00:00",
+        },
+    ]
+
+    def test_geofence_quiet_period(
+        self,
+        subject_source,
+        spatial_feature_type,
+        spatial_feature_group_static,
+        geofence_analyzer_config,
+        dummy_cache,
+        event_type,
+        caplog,
+        monkeypatch,
+    ):
+        caplog.set_level(logging.INFO)
+
+        subject_subtype = subject_source.subject.subject_subtype
+        subject_subtype.value = "elephant"
+        subject_subtype.display = "Elephant"
+        subject_subtype.save()
+
+        subtype = subject_subtype.subject_type
+        subtype.value = "wildlife"
+        subtype.display = "Wildlife"
+        subtype.save()
+
+        subject = subject_source.subject
+
+        subject_group = geofence_analyzer_config.subject_group
+        subject_group.name = "geofence_subject_analyzer_group1"
+        subject_group.save()
+        subject_group.subjects.add(subject)
+
+        spatial_feature = SpatialFeature.objects.create(
+            feature_type=spatial_feature_type,
+            feature_geometry=LineString(
+                Point(3.543898, 10.009698), Point(3.505531, 10.028968)
+            ),
+        )
+        spatial_feature_group_static.features.add(spatial_feature)
+
+        geofence_analyzer_config.quiet_period = timedelta(0, 9000)
+        geofence_analyzer_config.critical_geofence_group = spatial_feature_group_static
+        geofence_analyzer_config.subject_group = subject_group
+        geofence_analyzer_config.save()
+
+        event_type.value = "geofence_break"
+        event_type.save()
+
+        test_observations = [parse_recorded_at(
+            point) for point in self.OBSERVATIONS]
+        store_observations(
+            observations=test_observations,
+            timeshift=False,
+            source=subject_source.source,
+        )
+        for minutes, observation in enumerate(Observation.objects.all(), 1):
+            observation.recorded_at = timezone.now() - timedelta(
+                hours=6, minutes=minutes * 15
+            )
+            observation.save()
+
+        analyze_subject(subject.id)
+
+        assert f"Pausing analyzer with id={geofence_analyzer_config.id}" in caplog.text
+        assert (
+            f"The analyzer {geofence_analyzer_config.id} is quiet for a while"
+            not in caplog.text
+        )
+        assert Event.objects.all().count() == 4
+
+    def test_geofence_quiet_period_check_analyzer_is_paused(
+        self,
+        subject_source,
+        spatial_feature_type,
+        spatial_feature_group_static,
+        geofence_analyzer_config,
+        dummy_cache,
+        event_type,
+        caplog,
+        monkeypatch,
+    ):
+        caplog.set_level(logging.INFO)
+
+        subject_subtype = subject_source.subject.subject_subtype
+        subject_subtype.value = "elephant"
+        subject_subtype.display = "Elephant"
+        subject_subtype.save()
+
+        subtype = subject_subtype.subject_type
+        subtype.value = "wildlife"
+        subtype.display = "Wildlife"
+        subtype.save()
+
+        subject = subject_source.subject
+
+        subject_group = geofence_analyzer_config.subject_group
+        subject_group.name = "geofence_subject_analyzer_group1"
+        subject_group.save()
+        subject_group.subjects.add(subject)
+
+        spatial_feature = SpatialFeature.objects.create(
+            feature_type=spatial_feature_type,
+            feature_geometry=LineString(
+                Point(3.543898, 10.009698), Point(3.505531, 10.028968)
+            ),
+        )
+        spatial_feature_group_static.features.add(spatial_feature)
+
+        geofence_analyzer_config.quiet_period = timedelta(0, 9000)
+        geofence_analyzer_config.critical_geofence_group = spatial_feature_group_static
+        geofence_analyzer_config.subject_group = subject_group
+        geofence_analyzer_config.save()
+
+        event_type.value = "geofence_break"
+        event_type.save()
+
+        test_observations = [parse_recorded_at(
+            point) for point in self.OBSERVATIONS]
+        store_observations(
+            observations=test_observations,
+            timeshift=False,
+            source=subject_source.source,
+        )
+        for minutes, observation in enumerate(Observation.objects.all(), 1):
+            observation.recorded_at = timezone.now() - timedelta(
+                hours=6, minutes=minutes * 15
+            )
+            observation.save()
+
+        analyze_subject(subject.id)
+        analyze_subject(subject.id)
+
+        assert f"Pausing analyzer with id={geofence_analyzer_config.id}" in caplog.text
+        assert (
+            f"The analyzer {geofence_analyzer_config.id} is quiet for a while" in caplog.text
+        )
+        assert Event.objects.all().count() == 4

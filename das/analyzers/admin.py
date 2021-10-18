@@ -1,11 +1,14 @@
-from django.contrib import admin
-import django.contrib.gis.admin as gis_admin
-
 import analyzers.models as models
-from analyzers.forms import EnvironmentalAnalyzerAdminForm, GlobalForestWatchSubscriptionForm, \
-    GeofenceSubjectAnalyzerForm, ImmobilityAnalyzerForm, LowSpeedPercentileSubjectAnalyzerForm, \
-    LowSpeedWilcoxSubjectAnalyzerForm, SubjectProximityAnalyzerForm, FeatureProximityAnalyzerForm
+from analyzers.forms import (EnvironmentalAnalyzerAdminForm,
+                             FeatureProximityAnalyzerForm,
+                             GeofenceSubjectAnalyzerForm,
+                             GlobalForestWatchSubscriptionForm,
+                             ImmobilityAnalyzerForm,
+                             LowSpeedPercentileSubjectAnalyzerForm,
+                             LowSpeedWilcoxSubjectAnalyzerForm,
+                             SubjectProximityAnalyzerForm)
 from core.openlayers import OSMGeoExtendedAdmin
+from django.contrib import admin
 
 
 @admin.register(models.ImmobilityAnalyzerConfig)
@@ -31,7 +34,7 @@ class ImmobilityAnalyzerAdmin(admin.ModelAdmin):
         }),
         ('Advanced Analyzer Attributes', {
             'classes': ('wide', 'collapse'),
-            'fields': ('id', 'search_time_hours', 'notes',)
+            'fields': ('id', 'search_time_hours', 'quiet_period', 'notes',)
         })
     )
 
@@ -77,7 +80,7 @@ class EnvironmentalSubjectAnalyzerAdmin(admin.ModelAdmin):
         }),
         ('Advanced Analyzer Attributes', {
             'classes': ('wide', 'collapse'),
-            'fields': ('id', 'search_time_hours', 'notes',)
+            'fields': ('id', 'search_time_hours', 'quiet_period', 'notes',)
         })
     )
 
@@ -111,7 +114,7 @@ class FeatureProximityAnalyzerAdmin(admin.ModelAdmin):
         ),
         ('Advanced Analyzer Attributes', {
             'classes': ('wide', 'collapse'),
-            'fields': ('id', 'search_time_hours', 'notes',)
+            'fields': ('id', 'search_time_hours', 'quiet_period', 'notes',)
         })
     )
 
@@ -121,7 +124,8 @@ class SubjectProximityAnalyzerAdmin(admin.ModelAdmin):
     list_display = ('name', 'subject_group_1_name', 'subject_group_2_name')
     ordering = ('name', 'subject_group', 'second_subject_group')
 
-    search_fields = ('subject_group__name', 'second_subject_group__name', 'name',)
+    search_fields = ('subject_group__name',
+                     'second_subject_group__name', 'name',)
     readonly_fields = ('id',)
     form = SubjectProximityAnalyzerForm
 
@@ -133,7 +137,7 @@ class SubjectProximityAnalyzerAdmin(admin.ModelAdmin):
         }),
         ('Advanced Analyzer Attributes', {
             'classes': ('wide', 'collapse'),
-            'fields': ('id', 'analysis_search_time_hours', 'notes',)
+            'fields': ('id', 'analysis_search_time_hours', 'quiet_period', 'notes',)
         })
     )
 
@@ -171,7 +175,7 @@ class GeofenceSubjectAnalyzerAdmin(admin.ModelAdmin):
         ),
         ('Advanced Analyzer Attributes', {
             'classes': ('wide', 'collapse'),
-            'fields': ('id', 'search_time_hours', 'notes',)
+            'fields': ('id', 'search_time_hours', 'quiet_period', 'notes',)
         })
     )
 
@@ -196,7 +200,7 @@ class LowSpeedWilcoxSubjectAnalyzerAdmin(admin.ModelAdmin):
         ),
         ('Advanced Analyzer Attributes', {
             'classes': ('wide', 'collapse'),
-            'fields': ('id', 'search_time_hours', 'notes',)
+            'fields': ('id', 'search_time_hours', 'quiet_period', 'notes',)
         })
     )
 
@@ -222,7 +226,7 @@ class LowSpeedPercentileSubjectAnalyzerAdmin(admin.ModelAdmin):
         ),
         ('Advanced Analyzer Attributes', {
             'classes': ('wide', 'collapse'),
-            'fields': ('id', 'search_time_hours', 'notes',)
+            'fields': ('id', 'search_time_hours', 'quiet_period', 'notes',)
         })
     )
 
@@ -240,9 +244,11 @@ class SpeedDistroAdmin(admin.ModelAdmin):
 @admin.register(models.GlobalForestWatchSubscription)
 class GlobalForestWatchAdmin(OSMGeoExtendedAdmin):
     form = GlobalForestWatchSubscriptionForm
-    readonly_fields = ('subscription_id', 'geostore_id', 'last_check_time', 'last_check_status')
+    readonly_fields = ('subscription_id', 'geostore_id',
+                       'last_check_time', 'last_check_status')
 
-    list_display = ('name', 'subscription_id', 'last_check_time', 'last_check_status')
+    list_display = ('name', 'subscription_id',
+                    'last_check_time', 'last_check_status')
     ordering = list_display
 
     gis_geometry_field_name = 'subscription_geometry'
@@ -267,4 +273,3 @@ class GlobalForestWatchAdmin(OSMGeoExtendedAdmin):
             'fields': ('subscription_geometry',)
         })
     )
-

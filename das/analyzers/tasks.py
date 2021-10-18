@@ -5,6 +5,7 @@ from datetime import datetime
 
 import requests
 from celery_once import QueueOnce
+from django.core.cache import cache
 from requests.exceptions import Timeout
 from rest_framework import status
 
@@ -15,6 +16,7 @@ from analyzers.gfw_alert_schema import GFWGladEventTypeSpec
 from analyzers.gfw_utils import get_gfw_user, make_alert_infos
 from analyzers.models import GlobalForestWatchSubscription as gfw_model
 from analyzers.models import ObservationAnnotator
+from analyzers.utils import get_analyzer_key
 from das_server import celery
 from observations.models import Subject
 from observations.utils import convert_date_string
@@ -78,9 +80,14 @@ def analyze_subject(subject_id):
     if subject:
         logger.info('Running analyzers for subject: %s', subject)
         for analyzer in get_subject_analyzers(subject):
+            analyzer_key = get_analyzer_key(analyzer, subject)
+            if analyzer_key and cache.get(analyzer_key):
+                logger.info(
+                    f"The analyzer {analyzer.config.id} is quiet for a while")
+                continue
 
             try:
-                analyzer_results = analyzer.analyze()
+                analyzer_results = analyzer.analyze(analyzer_key=analyzer_key)
                 for result in analyzer_results:
                     logger.debug('Analyzer Result: %s', result[0])
 
@@ -136,7 +143,8 @@ def download_gfw_alerts(self, download_url, event_dict, user_id):
     try:
         model = gfw_model.objects.get(subscription_id=subscription_id)
     except gfw_model.DoesNotExist:
-        logger.error(f"{subscription_id} does not exist in database. Aborting download")
+        logger.error(
+            f"{subscription_id} does not exist in database. Aborting download")
         return
     else:
         result = fetch_alerts(self, event_dict, download_url, user_id)
@@ -148,7 +156,8 @@ def poll_gfw():
     gfw_user = get_gfw_user()
     for layer_slug, gfw_subscription in get_model_slug_pairs():
         for alert_info in make_alert_infos(layer_slug, gfw_subscription):
-            logger.info(f'poll_gfw for {gfw_subscription.name} {layer_slug} download url: {alert_info["downloadUrls"]["json"]}')
+            logger.info(
+                f'poll_gfw for {gfw_subscription.name} {layer_slug} download url: {alert_info["downloadUrls"]["json"]}')
             gfw_inbound.process_alert_for_subscription(layer_slug,
                                                        gfw_subscription.subscription_id,
                                                        alert_info,
@@ -162,13 +171,15 @@ def fetch_alerts(self, event_dict, download_url, user_id):
         if event_dict.get('event_type') == GFWGladEventTypeSpec.value:
             logger.info('Processing GFW payload for %s. Downloading from: %s', event_dict.get('event_type'),
                         download_url)
-            resp = requests.get(url=download_url, timeout=(connect_timeout, read_timeout))
+            resp = requests.get(url=download_url, timeout=(
+                connect_timeout, read_timeout))
         else:
             base_url, param = download_url['URL'], download_url['param']
             logger.info('Processing GFW payload for %s. Downloading from query params: %s',
                         event_dict.get('event_type'),
                         download_url)
-            resp = requests.post(url=base_url, data=param, timeout=(connect_timeout, read_timeout))
+            resp = requests.post(url=base_url, data=param,
+                                 timeout=(connect_timeout, read_timeout))
     except Timeout as tex:
         # TODO: revisit to figure out other failures that should be retried.
         logger.exception('Failed downloading GFW alert data for url: %s', download_url,
@@ -187,12 +198,16 @@ def fetch_alerts(self, event_dict, download_url, user_id):
 def process_response(event_dict, download_url, http_response, user_id):
     if http_response and http_response.status_code == status.HTTP_200_OK:
         gfw_alerts_payload = json.loads(http_response.text)
-        data_field = 'data' if event_dict.get('event_type') == GFWGladEventTypeSpec.value else 'rows'
+        data_field = 'data' if event_dict.get(
+            'event_type') == GFWGladEventTypeSpec.value else 'rows'
         if gfw_alerts_payload.get(data_field) is not None:
             alert_data = gfw_alerts_payload.get(data_field)
-            logger.info('Valid response from GFW. %d alerts received.', len(alert_data))
-            logger.info('First alert payload %s', alert_data[0]) if len(alert_data) else None
-            gfw_inbound.process_downloaded_alerts(alert_data, event_dict, user_id)
+            logger.info(
+                'Valid response from GFW. %d alerts received.', len(alert_data))
+            logger.info('First alert payload %s', alert_data[0]) if len(
+                alert_data) else None
+            gfw_inbound.process_downloaded_alerts(
+                alert_data, event_dict, user_id)
             result = 'Success'
         else:
             logger.error('GFW API returned error: %s', gfw_alerts_payload)

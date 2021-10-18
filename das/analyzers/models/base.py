@@ -83,6 +83,9 @@ class SubjectAnalyzerConfig(RevisionMixin, TimestampedModel):
                                           help_text=_('Analysis will be performed on recent data within this time frame.'))
 
     additional = JSONField(blank=True, default=dict)
+    quiet_period = models.DurationField(null=True, blank=True,
+                                        verbose_name='Quiet period (HH:MM:SS)',
+                                        help_text=_('This will be used to override the configured quiet period.'))
 
     class Meta:
         abstract = True

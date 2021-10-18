@@ -5,22 +5,27 @@ import os
 #from unittest import TestCase
 from unittest.mock import patch
 
+import pytest
 import yaml
-from django.core.files import File
-from django.test import TestCase
-
 from activity.models import Event, EventCategory, EventType
 from analyzers.exceptions import InsufficientDataAnalyzerException
-from analyzers.models import FeatureProximityAnalyzerConfig, SubjectAnalyzerResult, SubjectProximityAnalyzerConfig
+from analyzers.models import (FeatureProximityAnalyzerConfig,
+                              SubjectAnalyzerResult,
+                              SubjectProximityAnalyzerConfig)
 from analyzers.proximity import FeatureProximityAnalyzer
 from analyzers.subject_proximity import SubjectProximityAnalyzer
+from django.contrib.gis.geos import LineString
+from django.core.files import File
+from django.test import TestCase
+from django.utils import timezone
 from mapping.models import (SpatialFeature, SpatialFeatureFile,
                             SpatialFeatureGroupStatic)
 from mapping.spatialfile_utils import process_spatialfile
-from observations.models import (DEFAULT_ASSIGNED_RANGE, Source, Subject,
-                                 SubjectGroup, SubjectSource,
+from observations.models import (DEFAULT_ASSIGNED_RANGE, Observation, Source,
+                                 Subject, SubjectGroup, SubjectSource,
                                  SubjectTrackSegmentFilter)
 
+from ..tasks import analyze_subject
 from .analyzer_test_utils import *
 from .proximity_test_data import *
 
@@ -28,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 FIXTURE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),
                             'fixtures')
+
 
 class TestProximityAnalyzer(TestCase):
 
@@ -75,10 +81,12 @@ class TestProximityAnalyzer(TestCase):
 
     def setUp(self):
 
-        data = File(open(os.path.join(FIXTURE_PATH,'lines.geojson'), 'rb'))
-        feature_types_file = File(open(os.path.join(FIXTURE_PATH,'spatial_feature_types.geojson'), 'rb'))
+        data = File(open(os.path.join(FIXTURE_PATH, 'lines.geojson'), 'rb'))
+        feature_types_file = File(
+            open(os.path.join(FIXTURE_PATH, 'spatial_feature_types.geojson'), 'rb'))
 
-        spatialfile = SpatialFeatureFile.objects.create(data=data, feature_types_file=feature_types_file)
+        spatialfile = SpatialFeatureFile.objects.create(
+            data=data, feature_types_file=feature_types_file)
         process_spatialfile(spatialfile)
 
         ec, created = EventCategory.objects.get_or_create(
@@ -205,7 +213,8 @@ class TestProximityAnalyzer(TestCase):
         # Iterate through the observations adding another point to the
         # trajectory on each loop
         from observations.models import Observation
-        analyzer.analyze(observations=Observation.objects.filter(source=source))
+        analyzer.analyze(
+            observations=Observation.objects.filter(source=source))
 
         # There should be a bunch of proximity results fom this analysis.
         results = SubjectAnalyzerResult.objects.filter(subject=sub)
@@ -224,7 +233,8 @@ class TestProximityAnalyzer(TestCase):
         """ Test that the subject proximity analyzer returns the proximity distance"""
 
         # Create models (Subject, SubjectSource and Source)
-        subject_chuka = Subject.objects.create(name='Chuka', subject_subtype_id='elephant')
+        subject_chuka = Subject.objects.create(
+            name='Chuka', subject_subtype_id='elephant')
         source = Source.objects.create(manufacturer_id='CHK001')
         SubjectSource.objects.create(
             subject=subject_chuka, source=source)
@@ -276,7 +286,8 @@ class TestProximityAnalyzer(TestCase):
             second_subject_group=sg2,
             threshold_dist_meters=200
         )
-        analyzer = SubjectProximityAnalyzer(config=config, subject=subject_chuka)
+        analyzer = SubjectProximityAnalyzer(
+            config=config, subject=subject_chuka)
 
         # run the analyzer function.
         analyzer.analyze()
@@ -295,3 +306,167 @@ class TestProximityAnalyzer(TestCase):
             for ed in e.event_details.all():
                 print('Event Details: %s' % ed.data)
 
+
+@pytest.mark.django_db
+class TestFeatureProximityAnalyzerQuietPeriod:
+    OBSERVATIONS = [
+        {
+            "longitude": 3.5069101510333525,
+            "latitude": 9.878768920898438,
+            "recorded_at": "2021-10-09T23:00:13+00:00",
+        },
+        {
+            "longitude": 3.514449077480177,
+            "latitude": 9.952239990234375,
+            "recorded_at": "2021-10-09T23:30:20+00:00",
+        },
+        {
+            "longitude": 3.5288414041434337,
+            "latitude": 10.014381408691406,
+            "recorded_at": "2021-10-10T00:00:24+00:00",
+        },
+        {
+            "longitude": 3.5296177696020568,
+            "latitude": 10.01674711704254,
+            "recorded_at": "2021-10-10T00:00:30+00:00",
+        },
+    ]
+
+    def test_proximity_quiet_period(
+        self,
+        subject_source,
+        spatial_feature_type,
+        spatial_feature_group_static,
+        feature_proximity_analyzer_config,
+        dummy_cache,
+        caplog,
+    ):
+        caplog.set_level(logging.INFO)
+
+        subject_subtype = subject_source.subject.subject_subtype
+        subject_subtype.value = "elephant"
+        subject_subtype.display = "Elephant"
+        subject_subtype.save()
+
+        subtype = subject_subtype.subject_type
+        subtype.value = "wildlife"
+        subtype.display = "Wildlife"
+        subtype.save()
+
+        subject = subject_source.subject
+
+        subject_group = feature_proximity_analyzer_config.subject_group
+        subject_group.name = "elephants"
+        subject_group.save()
+        subject_group.subjects.add(subject)
+
+        spatial_feature = SpatialFeature.objects.create(
+            feature_type=spatial_feature_type,
+            feature_geometry=LineString(
+                Point(3.543898, 10.009698), Point(3.505531, 10.028968)
+            ),
+        )
+        spatial_feature_group_static.features.add(spatial_feature)
+
+        feature_proximity_analyzer_config.quiet_period = timedelta(0, 9000)
+        feature_proximity_analyzer_config.proximal_features = (
+            spatial_feature_group_static
+        )
+        feature_proximity_analyzer_config.threshold_dist_meters = 250
+        feature_proximity_analyzer_config.subject_group = subject_group
+        feature_proximity_analyzer_config.save()
+
+        test_observations = [parse_recorded_at(
+            point) for point in self.OBSERVATIONS]
+        store_observations(
+            observations=test_observations,
+            timeshift=False,
+            source=subject_source.source,
+        )
+        for minutes, observation in enumerate(Observation.objects.all(), 1):
+            observation.recorded_at = timezone.now() - timedelta(
+                hours=6, minutes=minutes * 15
+            )
+            observation.save()
+
+        analyze_subject(subject.id)
+
+        assert (
+            f"Pausing analyzer with id={feature_proximity_analyzer_config.id}"
+            in caplog.text
+        )
+        assert (
+            f"The analyzer {feature_proximity_analyzer_config.id} is quiet for a while"
+            not in caplog.text
+        )
+        assert Event.objects.all().count() == 1
+
+    def test_proximity_quiet_period_check_analyzer_is_paused(
+        self,
+        subject_source,
+        spatial_feature_type,
+        spatial_feature_group_static,
+        feature_proximity_analyzer_config,
+        dummy_cache,
+        caplog,
+    ):
+        caplog.set_level(logging.INFO)
+
+        subject_subtype = subject_source.subject.subject_subtype
+        subject_subtype.value = "elephant"
+        subject_subtype.display = "Elephant"
+        subject_subtype.save()
+
+        subtype = subject_subtype.subject_type
+        subtype.value = "wildlife"
+        subtype.display = "Wildlife"
+        subtype.save()
+
+        subject = subject_source.subject
+
+        subject_group = feature_proximity_analyzer_config.subject_group
+        subject_group.name = "elephants"
+        subject_group.save()
+        subject_group.subjects.add(subject)
+
+        spatial_feature = SpatialFeature.objects.create(
+            feature_type=spatial_feature_type,
+            feature_geometry=LineString(
+                Point(3.543898, 10.009698), Point(3.505531, 10.028968)
+            ),
+        )
+        spatial_feature_group_static.features.add(spatial_feature)
+
+        feature_proximity_analyzer_config.quiet_period = timedelta(0, 9000)
+        feature_proximity_analyzer_config.proximal_features = (
+            spatial_feature_group_static
+        )
+        feature_proximity_analyzer_config.threshold_dist_meters = 250
+        feature_proximity_analyzer_config.subject_group = subject_group
+        feature_proximity_analyzer_config.save()
+
+        test_observations = [parse_recorded_at(
+            point) for point in self.OBSERVATIONS]
+        store_observations(
+            observations=test_observations,
+            timeshift=False,
+            source=subject_source.source,
+        )
+        for minutes, observation in enumerate(Observation.objects.all(), 1):
+            observation.recorded_at = timezone.now() - timedelta(
+                hours=6, minutes=minutes * 15
+            )
+            observation.save()
+
+        analyze_subject(subject.id)
+        analyze_subject(subject.id)
+
+        assert (
+            f"Pausing analyzer with id={feature_proximity_analyzer_config.id}"
+            in caplog.text
+        )
+        assert (
+            f"The analyzer {feature_proximity_analyzer_config.id} is quiet for a while"
+            in caplog.text
+        )
+        assert Event.objects.all().count() == 1

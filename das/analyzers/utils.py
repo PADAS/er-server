@@ -1,5 +1,6 @@
 import copy
 import logging
+from typing import Optional
 
 from django.contrib.auth import get_user_model
 from django.http.request import HttpRequest
@@ -8,6 +9,8 @@ from shapely.geometry.multipoint import MultiPoint
 
 from activity.models import Event
 from activity.serializers import EventSerializer
+from analyzers.base import SubjectAnalyzer
+from observations.models import Subject
 
 logger = logging.getLogger(__name__)
 
@@ -53,10 +56,10 @@ def cluster(track, radius):
 def get_system_user():
     User = get_user_model()
     user, created = User.objects.get_or_create(username='system_analyzers',
-                                      defaults=dict(last_name='Alyzer', first_name='Anne',
-                                      email='system_analyzers@pamdas.org',
-                                      is_active=False,
-                                      password=User.objects.make_random_password()))
+                                               defaults=dict(last_name='Alyzer', first_name='Anne',
+                                                             email='system_analyzers@pamdas.org',
+                                                             is_active=False,
+                                                             password=User.objects.make_random_password()))
     return user
 
 
@@ -91,4 +94,7 @@ def typify(fmap, item):
     return r
 
 
-
+def get_analyzer_key(analyzer: SubjectAnalyzer, subject: Subject) -> Optional[str]:
+    if analyzer.config.quiet_period:
+        return f"analyzer_silent__{analyzer.config.id}__{subject.id}"
+    return None
