@@ -17,6 +17,7 @@ locals {
     "tca"                    = "tca-archive"
     "lionlandscapes"         = "lionlandscapestz"
     "matlabas"               = "matlabas-ci"
+    "africanparks"           = "greaterkafue"
   }
 
   subdomain_name = lookup(local.alt_subdomains, terraform.workspace, kubernetes_namespace.this.metadata.0.name)
