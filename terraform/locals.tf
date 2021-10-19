@@ -194,6 +194,7 @@ locals {
     "wildlifeact"             = "prod1"
     "contemplatewild"         = "prod1"
     "matlabasreserve"         = "prod1"
+    "tswehe"                  = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
