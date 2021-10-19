@@ -1,14 +1,12 @@
 import uuid
 
+from core.utils import static_image_finder
 from django.contrib.gis.db import models
 from django.core import checks, exceptions
 from django.db.models.fields import BLANK_CHOICE_DASH
-from django.utils.functional import lazy, curry
-from django.utils.translation import ugettext_lazy as _
 from django.utils import timezone
-from core.models import TimestampedModel
-
-from core.utils import static_image_finder
+from django.utils.functional import curry, lazy
+from django.utils.translation import ugettext_lazy as _
 
 
 class ChoiceQuerySet(models.QuerySet):
@@ -77,14 +75,14 @@ class Choice(SoftDeleteModel):
     Sources = 'observations.Source'
     Field_Report_Type = 'activity.eventtype'
 
-    MODEL_REF_CHOICES = sorted([
-        (Field_Reports, 'Field Reports'),
-        (User, 'User'),
-        (Maps, 'Maps'),
-        (Region, 'Region'),
-        (Sources, 'Sources'),
-        (Field_Report_Type, 'Field Report Type')
-    ], key=lambda item: item[1])
+    MODEL_REF_CHOICES = [
+        (Field_Reports, "Field Reports"),
+        (Field_Report_Type, "Field Report Type"),
+        (Maps, "Maps"),
+        (Region, "Region"),
+        (Sources, "Sources"),
+        (User, "User"),
+    ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     model = models.CharField(
