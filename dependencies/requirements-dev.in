@@ -24,3 +24,4 @@ requests-mock==1.8.0
 faker==4.1.1
 mimesis==4.0.0
 flake8==3.8.3
+google-cloud-error-reporting==1.4.0

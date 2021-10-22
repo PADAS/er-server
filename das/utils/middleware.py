@@ -1,22 +1,19 @@
+import inspect
 import logging
 import time
-
-import inspect
 import uuid
 from datetime import timedelta
-
 from threading import local
 
 from django.conf import settings
 from django.shortcuts import redirect
 from django.utils import timezone
+from google.cloud import error_reporting
 from oauth2_provider.models import get_access_token_model
-from django.urls import reverse
-from rest_framework.authtoken.models import Token
-
 from utils import add_base_url
 
 request_data = local()
+error_reporting_client = error_reporting.Client()
 
 
 class RequestLoggingMiddleware(object):
@@ -42,6 +39,7 @@ class RequestLoggingMiddleware(object):
 
     def process_exception(self, request, exception):
         self.logger.exception('Exception handling %s', request.get_full_path)
+        error_reporting_client.report_exception(exception)
 
     def process_response(self, request, response):
         try:
@@ -128,12 +126,13 @@ class EULARedirectMiddleware:
         user = request.user
 
         if settings.ACCEPT_EULA and is_check_eula_path(
-            request.path) and user.is_authenticated and not user.accepted_eula:
+                request.path) and user.is_authenticated and not user.accepted_eula:
             response = redirect(add_base_url(request, '/#eula'))
             response.set_cookie("routeAfterEulaAccepted", "/admin/")
             AccessToken = get_access_token_model()
             expires = timezone.now() + timedelta(minutes=20)
-            access_token = AccessToken.objects.create(user=user, token=str(uuid.uuid4()), expires=expires)
+            access_token = AccessToken.objects.create(
+                user=user, token=str(uuid.uuid4()), expires=expires)
 
             response.set_cookie("temporaryAccessToken", access_token.token)
 

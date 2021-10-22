@@ -105,3 +105,4 @@ arcgis==1.8.0
 arcgis2geojson==2.0.0
 
 xmltodict==0.12.0
+google-cloud-error-reporting==1.4.0
