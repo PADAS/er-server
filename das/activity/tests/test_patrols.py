@@ -1681,27 +1681,30 @@ def test_patrols_materialized_view(django_assert_max_num_queries, client):
     leader = Subject.objects.create(
         name='Aname', subject_subtype_id='ranger')
 
-    patrol_start_at = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=30)
+    patrol_start_at = datetime.datetime.now(
+        tz=datetime.timezone.utc) - datetime.timedelta(days=30)
     patrol_end_at = patrol_start_at + datetime.timedelta(days=14)
 
     patrol = Patrol.objects.create(title='Standard patrol')
 
     PatrolSegment.objects.create(patrol=patrol,
                                  scheduled_start=patrol_start_at,
-                                 time_range=DateTimeTZRange(patrol_start_at, patrol_end_at),
+                                 time_range=DateTimeTZRange(
+                                     patrol_start_at, patrol_end_at),
                                  leader=leader)
 
-
     sources = [
-        {'model_name': 'Model A', 'manufacturer_id': 'model-a-1',},
-        {'model_name': 'Model B', 'manufacturer_id': 'model-b-1',},
+        {'model_name': 'Model A', 'manufacturer_id': 'model-a-1', },
+        {'model_name': 'Model B', 'manufacturer_id': 'model-b-1', },
     ]
 
     # Arbitrary ranges that will overlap with the patrol range.
     range_overlaps = [
-        ((patrol_start_at - datetime.timedelta(days=5), patrol_start_at + datetime.timedelta(days=4))),
-        ((patrol_start_at + datetime.timedelta(days=4), patrol_start_at + datetime.timedelta(days=21)))
-        ]
+        ((patrol_start_at - datetime.timedelta(days=5),
+         patrol_start_at + datetime.timedelta(days=4))),
+        ((patrol_start_at + datetime.timedelta(days=4),
+         patrol_start_at + datetime.timedelta(days=21)))
+    ]
 
     for i, s in enumerate(sources):
         src = Source.objects.create(**s)
@@ -1755,7 +1758,8 @@ class TestPatrolFilter:
         view_patrol_permissionset = PermissionSet.objects.get(
             name='View Patrols Permissions')
         client.app_user.permission_sets.add(view_patrol_permissionset)
-        request = client.factory.get(client.api_base + f"/patrols/?filter={json.dumps(filter)}")
+        request = client.factory.get(
+            client.api_base + f"/patrols/?filter={json.dumps(filter)}")
         client.force_authenticate(request, client.app_user)
         response = views.PatrolsView.as_view()(request)
         data = dict(response.data)
@@ -1776,7 +1780,8 @@ class TestPatrolFilter:
         view_patrol_permissionset = PermissionSet.objects.get(
             name='View Patrols Permissions')
         client.app_user.permission_sets.add(view_patrol_permissionset)
-        request = client.factory.get(client.api_base + f"/patrols/?filter={json.dumps(filter)}")
+        request = client.factory.get(
+            client.api_base + f"/patrols/?filter={json.dumps(filter)}")
         client.force_authenticate(request, client.app_user)
         response = views.PatrolsView.as_view()(request)
         data = dict(response.data)
@@ -1798,7 +1803,8 @@ class TestPatrolFilter:
         view_patrol_permissionset = PermissionSet.objects.get(
             name='View Patrols Permissions')
         client.app_user.permission_sets.add(view_patrol_permissionset)
-        request = client.factory.get(client.api_base + f"/patrols/?filter={json.dumps(filter)}")
+        request = client.factory.get(
+            client.api_base + f"/patrols/?filter={json.dumps(filter)}")
         client.force_authenticate(request, client.app_user)
         response = views.PatrolsView.as_view()(request)
         data = dict(response.data)
@@ -1820,7 +1826,8 @@ class TestPatrolFilter:
         view_patrol_permissionset = PermissionSet.objects.get(
             name='View Patrols Permissions')
         client.app_user.permission_sets.add(view_patrol_permissionset)
-        request = client.factory.get(client.api_base + f"/patrols/?filter={json.dumps(filter)}")
+        request = client.factory.get(
+            client.api_base + f"/patrols/?filter={json.dumps(filter)}")
         client.force_authenticate(request, client.app_user)
         response = views.PatrolsView.as_view()(request)
         data = dict(response.data)
@@ -1841,7 +1848,8 @@ class TestPatrolFilter:
         view_patrol_permissionset = PermissionSet.objects.get(
             name='View Patrols Permissions')
         client.app_user.permission_sets.add(view_patrol_permissionset)
-        request = client.factory.get(client.api_base + f"/patrols/?filter={json.dumps(filter)}")
+        request = client.factory.get(
+            client.api_base + f"/patrols/?filter={json.dumps(filter)}")
         client.force_authenticate(request, client.app_user)
         response = views.PatrolsView.as_view()(request)
         data = dict(response.data)
@@ -1863,7 +1871,8 @@ class TestPatrolFilter:
         view_patrol_permissionset = PermissionSet.objects.get(
             name='View Patrols Permissions')
         client.app_user.permission_sets.add(view_patrol_permissionset)
-        request = client.factory.get(client.api_base + f"/patrols/?filter={json.dumps(filter)}")
+        request = client.factory.get(
+            client.api_base + f"/patrols/?filter={json.dumps(filter)}")
         client.force_authenticate(request, client.app_user)
         response = views.PatrolsView.as_view()(request)
         data = dict(response.data)
@@ -1874,10 +1883,10 @@ class TestPatrolFilter:
     @pytest.mark.parametrize("text", ["animal", "Animal", "ANIMAL"])
     def test_by_patrol_type(self, five_patrol_segment, text):
         patrol_segment = PatrolSegment.objects.first()
-        patrol_segment.patrol_type.value = f"animal type patrol"
+        patrol_segment.patrol_type.display = f"animal type patrol"
         patrol_segment.patrol_type.save()
         patrol_segment2 = PatrolSegment.objects.last()
-        patrol_segment2.patrol_type.value = f"type animal patrol"
+        patrol_segment2.patrol_type.display = f"type animal patrol"
         patrol_segment2.patrol_type.save()
 
         filter = {'patrols_overlap_daterange': True, 'text': text}
@@ -1897,10 +1906,10 @@ class TestPatrolFilter:
 
     def test_by_patrol_type_not_include_middle_string(self, five_patrol_segment):
         patrol_segment = PatrolSegment.objects.first()
-        patrol_segment.patrol_type.value = f"animal type patrol"
+        patrol_segment.patrol_type.display = f"animal type patrol"
         patrol_segment.patrol_type.save()
         patrol_segment2 = PatrolSegment.objects.last()
-        patrol_segment2.patrol_type.value = f"patrolanimaltype"
+        patrol_segment2.patrol_type.display = f"patrolanimaltype"
         patrol_segment2.patrol_type.save()
 
         filter = {'patrols_overlap_daterange': True, 'text': "animal"}
@@ -1921,10 +1930,10 @@ class TestPatrolFilter:
     @pytest.mark.parametrize("text", ["You will", "a dog patrol", "ninja turtles"])
     def test_by_patrol_type_with_two_or_more_words(self, five_patrol_segment, text):
         patrol_segment = PatrolSegment.objects.first()
-        patrol_segment.patrol_type.value = "You will be a dog patrol from right away"
+        patrol_segment.patrol_type.display = "You will be a dog patrol from right away"
         patrol_segment.patrol_type.save()
         patrol_segment2 = PatrolSegment.objects.last()
-        patrol_segment2.patrol_type.value = "The ninja turtles patrol is here"
+        patrol_segment2.patrol_type.display = "The ninja turtles patrol is here"
         patrol_segment2.patrol_type.save()
 
         filter = {'patrols_overlap_daterange': True, 'text': text}

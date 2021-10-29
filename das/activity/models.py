@@ -1592,7 +1592,8 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_patrol_filter(self, filter):
         queryset = self
         if "date_range" in filter:
-            patrols_overlap_daterange = filter.get("patrols_overlap_daterange", True)
+            patrols_overlap_daterange = filter.get(
+                "patrols_overlap_daterange", True)
             queryset = self.by_date_range(
                 filter.get("date_range"), patrols_overlap_daterange
             )
@@ -1606,7 +1607,7 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
                     Q(serial_number_string=text)
                     | Q(title__iregex=self._get_regex_istartswith(text))
                     | Q(
-                        patrol_segment__patrol_type__value__iregex=self._get_regex_istartswith(
+                        patrol_segment__patrol_type__display__iregex=self._get_regex_istartswith(
                             text
                         )
                     )
