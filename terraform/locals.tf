@@ -196,6 +196,7 @@ locals {
     "matlabasreserve"         = "prod1"
     "tswehe"                  = "prod1"
     "fao-pest"                = "prod1"
+    "chipanjechetu"           = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
