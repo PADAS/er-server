@@ -1,20 +1,25 @@
 import os
 import random
-import uuid
-from typing import NamedTuple
 from datetime import datetime, timedelta, timezone
+from typing import NamedTuple
 
-from django.db.models import F
-from django.test import TestCase
-from django.contrib.auth import get_user_model
-from django.urls import reverse
-from pytz import UTC
 import pytest
-
-from observations.models import Observation, SubjectSource, SubjectStatus, Subject, Source, SourceProvider
-from observations.serializers import ObservationSerializer
-from observations.views import TrackingDataCsvView, SubjectsView, SubjectStatusView
 from core.tests import BaseAPITest
+from django.contrib.auth import get_user_model
+from django.db.models import F
+from django.urls import reverse
+from observations.models import (
+    Observation,
+    Source,
+    SourceProvider,
+    Subject,
+    SubjectSource,
+    SubjectStatus,
+)
+from observations.serializers import ObservationSerializer
+from observations.views import SubjectStatusView, SubjectsView, TrackingDataCsvView
+from pytz import UTC
+
 
 User = get_user_model()
 
@@ -22,6 +27,8 @@ FIXTURE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),
                             'fixtures')
 
 FIXTURE_FOR_SUBJECT_STATUS_TESTS = 'test/radio-subject-fixtures.json'
+
+
 class ObservationTestCase(BaseAPITest):
 
     fixtures = [
@@ -40,16 +47,14 @@ class ObservationTestCase(BaseAPITest):
                                              is_staff=True, **user_const)
 
     def test_observation_get_source_range_observations_in_range(self):
-        source_id = '04859b48-5665-4895-b7b1-64319f9812b0'
-
-        subject_sources = SubjectSource.objects.all()
-        until = datetime(2015,11,10, tzinfo=UTC)
+        until = datetime(2015, 11, 10, tzinfo=UTC)
         since = until - timedelta(days=2)
 
+        subject_source = SubjectSource.objects.get(
+            source="2e47839d-0277-4398-904d-91da8b0698f4"
+        )
         observations = Observation.objects.get_subject_observations(
-            subject_sources[1].subject,
-            until=until,
-            since=since
+            subject_source.subject, until=until, since=since
         )
         actual = len(observations)
         expected = 1
@@ -60,7 +65,7 @@ class ObservationTestCase(BaseAPITest):
         source_id = '04859b48-5665-4895-b7b1-64319f9812b0'
 
         subject_sources = SubjectSource.objects.all()
-        until = datetime(3030,11,10, tzinfo=UTC)
+        until = datetime(3030, 11, 10, tzinfo=UTC)
         since = until - timedelta(days=2)
 
         observations = Observation.objects.get_subject_observations(
@@ -74,7 +79,6 @@ class ObservationTestCase(BaseAPITest):
         self.assertEqual(actual, expected)
 
     def test_observation_post_save_subject_status(self):
-
         '''
         Test saving an observation for an existing source.
         Validate that an associated SubjectStatus is updated appropriately.
@@ -89,7 +93,8 @@ class ObservationTestCase(BaseAPITest):
         fixed_latitude = float(random.randint(3000, 3000))/100
         fixed_longitude = float(random.randint(2800, 4000))/100
 
-        fixed_location = dict(longitude=fixed_longitude, latitude=fixed_latitude)
+        fixed_location = dict(longitude=fixed_longitude,
+                              latitude=fixed_latitude)
 
         observation = {
             'location': fixed_location,
@@ -108,14 +113,15 @@ class ObservationTestCase(BaseAPITest):
 
         self.assertTrue(observation_instance is not None)
 
-        subject_statuses = SubjectStatus.objects.filter(subject_id=subject_id, delay_hours=0)
+        subject_statuses = SubjectStatus.objects.filter(
+            subject_id=subject_id, delay_hours=0)
 
         self.assertTrue(subject_statuses is not None)
 
         subject_status = subject_statuses.first()
         self.assertEqual(subject_status.recorded_at, observation_time)
-        self.assertEqual((subject_status.location.x, subject_status.location.y), (fixed_longitude, \
-                                                                                    fixed_latitude))
+        self.assertEqual((subject_status.location.x, subject_status.location.y), (fixed_longitude,
+                                                                                  fixed_latitude))
 
     def test_observation_post_delete_subject_status(self):
 
@@ -128,7 +134,8 @@ class ObservationTestCase(BaseAPITest):
         fixed_latitude = float(random.randint(3000, 3000))/100
         fixed_longitude = float(random.randint(2800, 4000))/100
 
-        fixed_location = dict(longitude=fixed_longitude, latitude=fixed_latitude)
+        fixed_location = dict(longitude=fixed_longitude,
+                              latitude=fixed_latitude)
 
         observation = {
             'location': fixed_location,
@@ -143,14 +150,15 @@ class ObservationTestCase(BaseAPITest):
 
         self.assertTrue(observation_instance is not None)
 
-        subject_statuses = SubjectStatus.objects.filter(subject_id=subject_id, delay_hours=0)
+        subject_statuses = SubjectStatus.objects.filter(
+            subject_id=subject_id, delay_hours=0)
 
         self.assertTrue(subject_statuses is not None)
 
         subject_status = subject_statuses.first()
         self.assertEqual(subject_status.recorded_at, observation_time)
-        self.assertEqual((subject_status.location.x, subject_status.location.y), (fixed_longitude, \
-                                                                                    fixed_latitude))
+        self.assertEqual((subject_status.location.x, subject_status.location.y), (fixed_longitude,
+                                                                                  fixed_latitude))
         observation_time2 = UTC.localize(datetime.now())
         observation = {
             'location': fixed_location,
@@ -164,11 +172,13 @@ class ObservationTestCase(BaseAPITest):
             observation_instance = serializer.save()
         self.assertTrue(observation_instance is not None)
 
-        obs = Observation.objects.filter(recorded_at=observation_time2, source=source_id)
+        obs = Observation.objects.filter(
+            recorded_at=observation_time2, source=source_id)
         self.assertTrue(obs is not None)
         obs.delete()
 
-        subject_status = SubjectStatus.objects.filter(subject_id=subject_id, delay_hours=0, recorded_at=observation_time2)
+        subject_status = SubjectStatus.objects.filter(
+            subject_id=subject_id, delay_hours=0, recorded_at=observation_time2)
         self.assertTrue(subject_status.first() is None)
 
     def test_delete_latest_observation(self):
@@ -178,14 +188,16 @@ class ObservationTestCase(BaseAPITest):
         subject_id = 'd35cb4fe-c15f-404f-bc86-b479f01b6a01'
 
         SubjectStatus.objects.maintain_subject_status(subject_id)
-        initial_subjectstatus = SubjectStatus.objects.get(subject_id=subject_id, delay_hours=0)
+        initial_subjectstatus = SubjectStatus.objects.get(
+            subject_id=subject_id, delay_hours=0)
 
         print(f'initial radio state: {initial_subjectstatus.radio_state}')
         # Grab the latest two observations -- we'll after deleting the latest, we'll use these
         # to assert proper updates in SubjectStatus.
         last1, last2 = Observation.objects.filter(source__subjectsource__subject_id=subject_id,
-                                                        source__subjectsource__assigned_range__contains=F('recorded_at')
-                                                        ).order_by('-recorded_at')[:2]
+                                                  source__subjectsource__assigned_range__contains=F(
+                                                      'recorded_at')
+                                                  ).order_by('-recorded_at')[:2]
 
         self.assertEqual(initial_subjectstatus.recorded_at, last1.recorded_at)
 
@@ -193,19 +205,23 @@ class ObservationTestCase(BaseAPITest):
         last1.delete()
 
         # After delete, check consistency.
-        next_subjectstatus = SubjectStatus.objects.get(subject_id=subject_id, delay_hours=0)
+        next_subjectstatus = SubjectStatus.objects.get(
+            subject_id=subject_id, delay_hours=0)
 
         last2 = Observation.objects.filter(source__subjectsource__subject_id=subject_id,
-                                                        source__subjectsource__assigned_range__contains=F('recorded_at')
-                                                        ).order_by('-recorded_at').first()
+                                           source__subjectsource__assigned_range__contains=F(
+                                               'recorded_at')
+                                           ).order_by('-recorded_at').first()
 
         self.assertEqual(last2.recorded_at, next_subjectstatus.recorded_at)
         self.assertEqual(last2.location, next_subjectstatus.location)
 
         # Assert our test data is set up to test that during an Observation delete we will
         # forgo updating the radio state in SubjectStatus.
-        self.assertNotEqual(last1.additional['radio_state'], last2.additional['radio_state'])
-        self.assertEqual(initial_subjectstatus.radio_state, next_subjectstatus.radio_state)
+        self.assertNotEqual(
+            last1.additional['radio_state'], last2.additional['radio_state'])
+        self.assertEqual(initial_subjectstatus.radio_state,
+                         next_subjectstatus.radio_state)
 
     def test_delete_observation_that_is_not_latest(self):
         f'''
@@ -214,13 +230,15 @@ class ObservationTestCase(BaseAPITest):
         subject_id = 'd35cb4fe-c15f-404f-bc86-b479f01b6a01'
 
         SubjectStatus.objects.maintain_subject_status(subject_id)
-        initial_subjectstatus = SubjectStatus.objects.get(subject_id=subject_id, delay_hours=0)
+        initial_subjectstatus = SubjectStatus.objects.get(
+            subject_id=subject_id, delay_hours=0)
 
         # Grab the latest two observations -- we'll after deleting the latest, we'll use these
         # to assert proper updates in SubjectStatus.
         last1, last2 = Observation.objects.filter(source__subjectsource__subject_id=subject_id,
-                                                        source__subjectsource__assigned_range__contains=F('recorded_at')
-                                                        ).order_by('-recorded_at')[:2]
+                                                  source__subjectsource__assigned_range__contains=F(
+                                                      'recorded_at')
+                                                  ).order_by('-recorded_at')[:2]
 
         self.assertEqual(initial_subjectstatus.recorded_at, last1.recorded_at)
 
@@ -256,7 +274,8 @@ class ObservationTestCase(BaseAPITest):
         fixed_latitude = float(random.randint(3000, 3000))/100
         fixed_longitude = float(random.randint(2800, 4000))/100
 
-        fixed_location = dict(longitude=fixed_longitude, latitude=fixed_latitude)
+        fixed_location = dict(longitude=fixed_longitude,
+                              latitude=fixed_latitude)
 
         observation = {
             'location': fixed_location,
@@ -286,12 +305,14 @@ class ObservationTestCase(BaseAPITest):
             observation_instance = serializer.save()
 
         self.assertTrue(observation_instance is not None)
-        subject_statuses = SubjectStatus.objects.filter(subject_id=subject_id, delay_hours=0)
+        subject_statuses = SubjectStatus.objects.filter(
+            subject_id=subject_id, delay_hours=0)
         self.assertTrue(subject_statuses is not None)
 
         subject_status = subject_statuses.first()
         self.assertEqual(subject_status.recorded_at, observation_time)
-        self.assertEqual((subject_status.location.x, subject_status.location.y), (fixed_longitude, fixed_latitude))
+        self.assertEqual((subject_status.location.x,
+                         subject_status.location.y), (fixed_longitude, fixed_latitude))
 
         url = reverse('subjects-list-view')
         request = self.factory.get(url)
@@ -303,7 +324,8 @@ class ObservationTestCase(BaseAPITest):
         self.assertEqual(response.data[0].get('device_status_properties'),
                          [{'label': 'Voltage', 'units': 'v', 'value': 12},
                           {'label': 'Altitude', 'units': 'feet', 'value': '3241'}])
-        self.assertTrue(len(response.data[0].get('device_status_properties')), 2)
+        self.assertTrue(
+            len(response.data[0].get('device_status_properties')), 2)
 
         # subject-status
         url = reverse('subjectstatus-view',  kwargs={'subject_id': subject_id})
@@ -315,7 +337,8 @@ class ObservationTestCase(BaseAPITest):
 
 
 def generate_observation(source, recorded_at=None):
-    observation_time = recorded_at if recorded_at else datetime.now(tz=timezone.utc)
+    observation_time = recorded_at if recorded_at else datetime.now(
+        tz=timezone.utc)
     fixed_latitude = float(random.randint(3000, 3000))/100
     fixed_longitude = float(random.randint(2800, 4000))/100
     fixed_location = dict(longitude=fixed_longitude, latitude=fixed_latitude)
@@ -330,6 +353,7 @@ def generate_observation(source, recorded_at=None):
     observation_instance = serializer.save()
     return observation_instance
 
+
 class TwoSubjectsOneSource(NamedTuple):
     bobo: Subject
     ivy: Subject
@@ -340,33 +364,48 @@ class TwoSubjectsOneSource(NamedTuple):
 
 @pytest.fixture
 def two_subjects_one_source(db):
-    bobo = Subject.objects.create_subject(name="Bobo", subject_subtype_id='elephant')
-    ivy = Subject.objects.create_subject(name="Ivy", subject_subtype_id='elephant')
+    bobo = Subject.objects.create_subject(
+        name="Bobo", subject_subtype_id='elephant')
+    ivy = Subject.objects.create_subject(
+        name="Ivy", subject_subtype_id='elephant')
 
-    source = Source.objects.ensure_source(manufacturer_id="1125496", provider="bobo_provider")
+    source = Source.objects.ensure_source(
+        manufacturer_id="1125496", provider="bobo_provider")
 
-    time_start = datetime(year=2019, month=1, day=1, hour=2, tzinfo=timezone.utc)
+    time_start = datetime(year=2019, month=1, day=1,
+                          hour=2, tzinfo=timezone.utc)
 
-    bobo_observations = [generate_observation(source, recorded_at=time_start + timedelta(days=i)).recorded_at for i in range(1, 5)]
-    SubjectSource.objects.ensure(source, bobo, (bobo_observations[0], bobo_observations[3]+timedelta(seconds=1)))
+    bobo_observations = [generate_observation(
+        source, recorded_at=time_start + timedelta(days=i)).recorded_at for i in range(1, 5)]
+    SubjectSource.objects.ensure(
+        source, bobo, (bobo_observations[0], bobo_observations[3]+timedelta(seconds=1)))
 
-    ivy_observations = [generate_observation(source, recorded_at=time_start + timedelta(days=i)).recorded_at for i in range(5, 9)]
-    SubjectSource.objects.ensure(source, ivy, (ivy_observations[0], ivy_observations[3]+timedelta(seconds=1)))
+    ivy_observations = [generate_observation(
+        source, recorded_at=time_start + timedelta(days=i)).recorded_at for i in range(5, 9)]
+    SubjectSource.objects.ensure(
+        source, ivy, (ivy_observations[0], ivy_observations[3]+timedelta(seconds=1)))
 
-    bobo_observations += [generate_observation(source, recorded_at=time_start + timedelta(days=i)).recorded_at for i in range(9, 13)]
-    SubjectSource.objects.ensure(source, bobo, (bobo_observations[4], bobo_observations[7]+timedelta(seconds=1)))
+    bobo_observations += [generate_observation(
+        source, recorded_at=time_start + timedelta(days=i)).recorded_at for i in range(9, 13)]
+    SubjectSource.objects.ensure(
+        source, bobo, (bobo_observations[4], bobo_observations[7]+timedelta(seconds=1)))
 
-    ivy_observations += [generate_observation(source, recorded_at=time_start + timedelta(days=i)).recorded_at for i in range(13, 17)]
-    SubjectSource.objects.ensure(source, ivy, (ivy_observations[4], ivy_observations[7]+timedelta(seconds=1)))
+    ivy_observations += [generate_observation(
+        source, recorded_at=time_start + timedelta(days=i)).recorded_at for i in range(13, 17)]
+    SubjectSource.objects.ensure(
+        source, ivy, (ivy_observations[4], ivy_observations[7]+timedelta(seconds=1)))
 
     return TwoSubjectsOneSource(bobo, ivy, source, bobo_observations, ivy_observations)
 
 
 def test_subject_observations_for_multiple_source_assignments(two_subjects_one_source):
-    bobo_get_observations = [x.recorded_at for x in Observation.objects.get_subject_observations(str(two_subjects_one_source.bobo.id))]
+    bobo_get_observations = [x.recorded_at for x in Observation.objects.get_subject_observations(
+        str(two_subjects_one_source.bobo.id))]
 
-    assert set(bobo_get_observations) == set(two_subjects_one_source.bobo_observations)
-    assert set(bobo_get_observations).difference(set(two_subjects_one_source.ivy_observations))
+    assert set(bobo_get_observations) == set(
+        two_subjects_one_source.bobo_observations)
+    assert set(bobo_get_observations).difference(
+        set(two_subjects_one_source.ivy_observations))
 
 
 def test_trackingdata_view_for_multiple_source_assignments(two_subjects_one_source):
@@ -375,12 +414,16 @@ def test_trackingdata_view_for_multiple_source_assignments(two_subjects_one_sour
     upper = datetime.now(tz=timezone.utc)
     max_records = -1
     filter_flag = None
-    qs = view.get_subject_trackdata_queryset(filter_flag, lower, two_subjects_one_source.bobo, upper, max_records)
+    qs = view.get_subject_trackdata_queryset(
+        filter_flag, lower, two_subjects_one_source.bobo, upper, max_records)
     values = list(qs)
     bobo_get_observations = [x.recorded_at for x in values]
 
-    assert set(bobo_get_observations) == set(two_subjects_one_source.bobo_observations)
-    assert set(bobo_get_observations).difference(set(two_subjects_one_source.ivy_observations))
+    assert set(bobo_get_observations) == set(
+        two_subjects_one_source.bobo_observations)
+    assert set(bobo_get_observations).difference(
+        set(two_subjects_one_source.ivy_observations))
+
 
 def test_trackingdata_view_for_max_records(two_subjects_one_source):
     # Verify we don't see: AssertionError: Cannot reorder a query once a slice has been taken.
@@ -389,7 +432,8 @@ def test_trackingdata_view_for_max_records(two_subjects_one_source):
     upper = datetime.now(tz=timezone.utc)
     max_records = 1
     filter_flag = None
-    qs = view.get_subject_trackdata_queryset(filter_flag, lower, two_subjects_one_source.bobo, upper, max_records)
+    qs = view.get_subject_trackdata_queryset(
+        filter_flag, lower, two_subjects_one_source.bobo, upper, max_records)
     values = list(qs)
 
     assert len(values) >= 1
