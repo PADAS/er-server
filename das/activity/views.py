@@ -1,3 +1,5 @@
+import re
+
 from usercontent.serializers import get_stored_filename
 from activity.search import get_event_search_schema
 from activity.permissions import IsEventProviderOwnerPermission
@@ -328,6 +330,7 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
     def get(self, request, *args, **kwargs):
         eventtype = generics.get_object_or_404(EventType.objects.all(),
                                                value__iexact=self.kwargs['eventtype'])
+        event = self.request.query_params.get("event")
 
         if not eventtype.schema:
             return generics.views.Response(None)
@@ -337,6 +340,25 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
 
         schema_fields = schema_utils.get_replacement_fields_in_schema(
             eventtype.schema)
+
+        if event:
+            json_schema = self._get_json_schema(eventtype)
+
+            properties = json_schema.get("schema", {}).get("properties", {})
+            for schema_field in schema_fields:
+                for key, value in properties.items():
+                    enum = value.get("enum")
+                    enum_names = value.get("enumNames")
+                    if (
+                            enum
+                            and enum_names
+                            and schema_field.get("tag")
+                            in [
+                            self._clean_curly_brackets(enum),
+                            self._clean_curly_brackets(enum_names),
+                            ]
+                    ):
+                        schema_field["event_detail"] = key
 
         choices = Choice.objects.filter(
             is_active=True) if definition_format == 'flat' else Choice.objects.all()
@@ -353,7 +375,7 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
                            ] = schema_utils.get_enum_choices(schema_field, queryset=choices)
             elif schema_field['lookup'] == 'query':
                 parameters[schema_field['tag']
-                           ] = schema_utils.get_dynamic_choices(schema_field)
+                           ] = schema_utils.get_dynamic_choices(schema_field, event=event)
             elif schema_field['lookup'] == 'table':
                 parameters[schema_field['tag']
                            ] = schema_utils.get_table_choices(schema_field)
@@ -431,6 +453,15 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
 
     def post(self, request, *args, **kwargs):
         raise rest_framework.exceptions.MethodNotAllowed('For Schema')
+
+    def _get_json_schema(self, event_type):
+        schema = event_type.schema
+        for expression in re.findall("{{.*?}}", event_type.schema):
+            schema = schema.replace(expression, '"{}"'.format(expression))
+        return json.loads(schema)
+
+    def _clean_curly_brackets(self, value):
+        return value.replace("{{", "").replace("}}", "")
 
 
 class EventFilterSchemaView(generics.RetrieveAPIView):
@@ -1395,7 +1426,8 @@ class PatrolsView(generics.ListCreateAPIView):
 
     def get_queryset(self):
 
-        queryset = Patrol.objects.all().annotate(serial_number_string=Cast("serial_number", CharField()))
+        queryset = Patrol.objects.all().annotate(
+            serial_number_string=Cast("serial_number", CharField()))
         query_params = self.request.query_params
         patrol_filter = query_params.get('filter')
         if patrol_filter:
