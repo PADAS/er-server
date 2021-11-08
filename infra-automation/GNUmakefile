@@ -116,6 +116,10 @@ kubectl_apply: ## kubectl apply (recursively) everything in the ./k8s path
 .PHONY: database_init
 database_init: tfvars_environment ?= no_overrides
 database_init: ## Initialize a feature site database | [tfvars_environment="BRANCH_NAME"]
+	@ $$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="gcloud_kubectl_configuration" || false)
+	@ kubectl config set-cluster "$$(kubectl config get-clusters | tail -n 1)" --server="https://$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="cluster_proxy_endpoint")" || false
+	@ echo "$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="cluster_b64_encoded_proxy_ca_certificate")" | base64 -d > proxy.crt
+	@ kubectl config set-cluster "$$(kubectl config get-clusters | tail -n 1)" --certificate-authority="./proxy.crt" || false
 	@ K8S_NAMESPACE=$$(echo "$(tfvars_environment)" | tr '[:upper:]' '[:lower:]')
 	@ K8S_POD=$$(kubectl get pods -n $$K8S_NAMESPACE --selector=das.component=api -o jsonpath='{.items[*].metadata.name}')
 	@ $(CURDIR)/wait_for_pods.sh 120 6
