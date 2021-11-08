@@ -136,6 +136,19 @@ jobs:
           root: './'
           paths:
             - '*'
+  database_init:
+    executor: 'default'
+    steps:
+      - attach_workspace:
+          at: './'
+      - 'export_google_credentials'
+      - 'activate_google_service_account'
+      - 'toggle_firewall_for_build_agent_k8s_closure':
+          inner_command: 'cd infra-automation && make database_init tfvars_environment="$CIRCLE_BRANCH"'
+      - persist_to_workspace:
+          root: './'
+          paths:
+            - '*'
   terraform_plan_dev:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
@@ -331,6 +344,14 @@ workflows:
       - kubectl_apply:
           requires:
             - 'render_templates'
+      - database_init:
+          requires:
+            - 'kubectl_apply'
+          filters:
+            branches:
+              ignore:
+                - 'develop'
+                - /release*/
 
   build_and_terraform_prod1:
   # Build for all release branches
