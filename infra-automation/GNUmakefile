@@ -116,9 +116,10 @@ kubectl_apply: ## kubectl apply (recursively) everything in the ./k8s path
 .PHONY: database_init
 database_init: tfvars_environment ?= no_overrides
 database_init: ## Initialize a feature site database | [tfvars_environment="BRANCH_NAME"]
-	@ K8S_POD=$$(kubectl get pods -n $(tfvars_environment) --selector=das.component=api -o jsonpath='{.items[*].metadata.name}')
+	@ K8S_NAMESPACE=$$(echo "$(tfvars_environment)" | tr '[:upper:]' '[:lower:]')
+	@ K8S_POD=$$(kubectl get pods -n $$K8S_NAMESPACE --selector=das.component=api -o jsonpath='{.items[*].metadata.name}')
 	@ $(CURDIR)/wait_for_pods.sh 120 6
-	@ kubectl -n $(tfvars_environment) exec -it $$K8S_POD -c das-api -- start_scripts/start_load_initial_data_tests.sh
+	@ kubectl -n $$K8S_NAMESPACE exec -it $$K8S_POD -c das-api -- start_scripts/start_load_initial_data_tests.sh
 
 .PHONY: kubectl_apply_via_proxy
 kubectl_apply_via_proxy: # this should only be run by the build server
