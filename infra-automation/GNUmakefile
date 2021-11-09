@@ -120,12 +120,12 @@ database_init: ## Initialize a feature site database | [tfvars_environment="BRAN
 	@ kubectl config set-cluster "$$(kubectl config get-clusters | tail -n 1)" --server="https://$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="cluster_proxy_endpoint")" || false
 	@ echo "$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="cluster_b64_encoded_proxy_ca_certificate")" | base64 -d > proxy.crt
 	@ kubectl config set-cluster "$$(kubectl config get-clusters | tail -n 1)" --certificate-authority="./proxy.crt" || false
-	@ K8S_NAMESPACE=$$(echo "$(tfvars_environment)" | tr '[:upper:]' '[:lower:]')
-	@ K8S_POD=$$(kubectl get pods -n $$K8S_NAMESPACE --selector=das.component=api -o jsonpath='{.items[*].metadata.name}')
-	@ $(CURDIR)/wait_for_pods.sh 120 6
-	@ echo $$K8S_NAMESPACE
-	@ echo $$K8S_POD
-	@ kubectl -n $$K8S_NAMESPACE exec $$K8S_POD -c das-api -- start_scripts/start_load_initial_data_tests.sh
+	@ K8S_NAMESPACE=$$(echo "$(tfvars_environment)" | tr '[:upper:]' '[:lower:]') && \
+	  K8S_POD=$$(kubectl get pods -n $$K8S_NAMESPACE --selector=das.component=api -o jsonpath='{.items[*].metadata.name}') && \
+	  $(CURDIR)/wait_for_pods.sh 120 6 && \
+	  echo $$K8S_NAMESPACE && \
+	  echo $$K8S_POD && \
+	  kubectl -n $$K8S_NAMESPACE exec $$K8S_POD -c das-api -- start_scripts/start_load_initial_data_tests.sh
 
 .PHONY: kubectl_apply_via_proxy
 kubectl_apply_via_proxy: # this should only be run by the build server
