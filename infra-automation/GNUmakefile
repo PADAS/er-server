@@ -117,16 +117,23 @@ kubectl_apply: ## kubectl apply (recursively) everything in the ./k8s path
 database_init: tfvars_environment ?= no_overrides
 database_init: ## Initialize a feature site database | [tfvars_environment="BRANCH_NAME"]
 	@ $$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="gcloud_kubectl_configuration" || false) && \
-	kubectl config set-cluster "$$(kubectl config get-clusters | tail -n 1)" --server="https://$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="cluster_proxy_endpoint")" || false && \
-	echo "$$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="cluster_b64_encoded_proxy_ca_certificate")" | base64 -d > proxy.crt && \
-	kubectl config set-cluster "$$(kubectl config get-clusters | tail -n 1)" --certificate-authority="./proxy.crt" || false && \
+	ALLOWED_IP_ADDRESS=$$($(CURDIR)/get_cidr_blocks.sh)
+	CONTAINER_IP_ADDRESS=$$(curl --silent ifconfig.me)/32
 	K8S_NAMESPACE=$$(echo "$(tfvars_environment)" | tr '[:upper:]' '[:lower:]') && \
 	K8S_POD=$$(kubectl get pods -n $$K8S_NAMESPACE --selector=das.component=api -o jsonpath='{.items[*].metadata.name}') && \
+	gcloud container clusters update das-dev \
+	  --enable-master-authorized-networks \
+	  --zone us-west1-a \
+	  --master-authorized-networks $$CONTAINER_IP_ADDRESS,$$ALLOWED_IP_ADDRESS && \
 	$(CURDIR)/wait_for_pods.sh 120 6 && \
 	echo $$K8S_NAMESPACE && \
 	echo $$K8S_POD && \
 	kubectl version && \
-	kubectl -n $$K8S_NAMESPACE exec -it $$K8S_POD -c das-api -- start_scripts/start_load_initial_data_tests.sh
+	kubectl -n $$K8S_NAMESPACE exec -it $$K8S_POD -c das-api -- start_scripts/start_load_initial_data_tests.sh && \
+	gcloud container clusters update das-dev \
+	  --enable-master-authorized-networks \
+	  --zone us-west1-a \
+	  --master-authorized-networks $$CONTAINER_IP_ADDRESS
 
 .PHONY: kubectl_apply_via_proxy
 kubectl_apply_via_proxy: # this should only be run by the build server
