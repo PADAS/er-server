@@ -133,7 +133,7 @@ database_init: ## Initialize a feature site database | [tfvars_environment="BRAN
 	gcloud container clusters update das-dev \
 	  --enable-master-authorized-networks \
 	  --zone us-west1-a \
-	  --master-authorized-networks $$CONTAINER_IP_ADDRESS
+	  --master-authorized-networks $$ALLOWED_IP_ADDRESS
 
 .PHONY: kubectl_apply_via_proxy
 kubectl_apply_via_proxy: # this should only be run by the build server
