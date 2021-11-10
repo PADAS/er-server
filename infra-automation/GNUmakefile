@@ -117,9 +117,7 @@ kubectl_apply: ## kubectl apply (recursively) everything in the ./k8s path
 database_init: tfvars_environment ?= no_overrides
 database_init: ## Initialize a feature site database | [tfvars_environment="BRANCH_NAME"]
 	@ $$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="gcloud_kubectl_configuration" || false) && \
-	apt-get -qq install jq -y && \
-	gcloud config set project earthranger-78ca55ca -q --no-user-output-enabled && \
-	ALLOWED_IP_ADDRESS=$$(gcloud container clusters describe das-dev --zone us-west1-a --format json | jq -r ".masterAuthorizedNetworksConfig.cidrBlocks[] | .cidrBlock" | sed -z 's/\n/,/g;s/,$/\n/') && \
+	ALLOWED_IP_ADDRESS=$$($(CURDIR)/get_cidr_blocks.sh) && \
 	CONTAINER_IP_ADDRESS=$$(curl --silent ifconfig.me)/32 && \
 	K8S_NAMESPACE=$$(echo "$(tfvars_environment)" | tr '[:upper:]' '[:lower:]') && \
 	gcloud container clusters update das-dev \
