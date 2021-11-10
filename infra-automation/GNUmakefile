@@ -120,11 +120,11 @@ database_init: ## Initialize a feature site database | [tfvars_environment="BRAN
 	ALLOWED_IP_ADDRESS=$$($(CURDIR)/get_cidr_blocks.sh)
 	CONTAINER_IP_ADDRESS=$$(curl --silent ifconfig.me)/32
 	K8S_NAMESPACE=$$(echo "$(tfvars_environment)" | tr '[:upper:]' '[:lower:]') && \
-	K8S_POD=$$(kubectl get pods -n $$K8S_NAMESPACE --selector=das.component=api -o jsonpath='{.items[*].metadata.name}') && \
 	gcloud container clusters update das-dev \
 	  --enable-master-authorized-networks \
 	  --zone us-west1-a \
 	  --master-authorized-networks $$CONTAINER_IP_ADDRESS,$$ALLOWED_IP_ADDRESS && \
+	K8S_POD=$$(kubectl get pods -n $$K8S_NAMESPACE --selector=das.component=api -o jsonpath='{.items[*].metadata.name}') && \
 	$(CURDIR)/wait_for_pods.sh 120 6 && \
 	echo $$K8S_NAMESPACE && \
 	echo $$K8S_POD && \
