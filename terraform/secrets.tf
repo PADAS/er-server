@@ -43,7 +43,7 @@ resource "kubernetes_secret" "app_db_credentials" {
   data = {
     username   = google_sql_user.app_user.name
     password   = google_sql_user.app_user.password
-    ip_address = locals.db_instance_private_ip
+    ip_address = local.db_instance_private_ip
     name       = google_sql_database.database.name
     port       = "5432"
   }
