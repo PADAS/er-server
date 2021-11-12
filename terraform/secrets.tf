@@ -117,7 +117,7 @@ resource "kubernetes_secret" "tableau_api_credentials" {
 
 resource "kubernetes_secret" "aws_metrics_credentials" {
   metadata {
-    name      = "aws_metrics_credentials"
+    name      = "aws-metrics-credentials"
     namespace = kubernetes_namespace.this.metadata.0.name
   }
 
@@ -129,7 +129,7 @@ resource "kubernetes_secret" "aws_metrics_credentials" {
 
 resource "kubernetes_secret" "ga_measurement_id" {
   metadata {
-    name      = "ga_measurement_id"
+    name      = "ga-measurement-id"
     namespace = kubernetes_namespace.this.metadata.0.name
   }
 
