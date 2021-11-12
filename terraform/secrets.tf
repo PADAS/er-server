@@ -122,8 +122,8 @@ resource "kubernetes_secret" "aws_metrics_credentials" {
   }
 
   data = {
-    aws_access_key_id = jsondecode(data.google_secret_manager_secret_version.tableau_api_credentials.secret_data).aws_access_key_id
-    aws_secret_access_key = jsondecode(data.google_secret_manager_secret_version.tableau_api_credentials.secret_data).aws_secret_access_key
+    aws_access_key_id = jsondecode(data.google_secret_manager_secret_version.aws_metrics_credentials.secret_data).aws_access_key_id
+    aws_secret_access_key = jsondecode(data.google_secret_manager_secret_version.aws_metrics_credentials.secret_data).aws_secret_access_key
   }
 }
 
