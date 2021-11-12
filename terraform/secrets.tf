@@ -41,8 +41,11 @@ resource "kubernetes_secret" "app_db_credentials" {
   }
 
   data = {
-    username = google_sql_user.app_user.name
-    password = google_sql_user.app_user.password
+    username   = google_sql_user.app_user.name
+    password   = google_sql_user.app_user.password
+    ip_address = locals.db_instance_private_ip
+    name       = google_sql_database.database.name
+    port       = "5432"
   }
 }
 
@@ -109,5 +112,28 @@ resource "kubernetes_secret" "tableau_api_credentials" {
     tableau_username = jsondecode(data.google_secret_manager_secret_version.tableau_api_credentials.secret_data).username
     tableau_password = jsondecode(data.google_secret_manager_secret_version.tableau_api_credentials.secret_data).password
     tableau_token = jsondecode(data.google_secret_manager_secret_version.tableau_api_credentials.secret_data).token
+  }
+}
+
+resource "kubernetes_secret" "aws_metrics_credentials" {
+  metadata {
+    name      = "aws_metrics_credentials"
+    namespace = kubernetes_namespace.this.metadata.0.name
+  }
+
+  data = {
+    aws_access_key_id = jsondecode(data.google_secret_manager_secret_version.tableau_api_credentials.secret_data).aws_access_key_id
+    aws_secret_access_key = jsondecode(data.google_secret_manager_secret_version.tableau_api_credentials.secret_data).aws_secret_access_key
+  }
+}
+
+resource "kubernetes_secret" "ga_measurement_id" {
+  metadata {
+    name      = "ga_measurement_id"
+    namespace = kubernetes_namespace.this.metadata.0.name
+  }
+
+  data = {
+    ga_measurement_id = jsondecode(data.google_secret_manager_secret_version.ga_measurement_id.secret_data).ga_measurement_id
   }
 }
