@@ -182,7 +182,6 @@ jobs:
       - terraform_apply:
           network: 'prod1'
       - render_templates
-      - kubectl_apply
 
   build_sphinx_docs:
     executor: 'docs_executor'
@@ -344,9 +343,6 @@ workflows:
       - terraform_apply_prod1:
           requires:
             - 'review_plan_prod1'
-      - render_templates:
-          requires:
-            - 'terraform_apply_prod1'
 
   audit:
     jobs:
