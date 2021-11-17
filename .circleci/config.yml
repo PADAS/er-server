@@ -263,7 +263,7 @@ workflows:
             - 'docker_build_image'
       - terraform_apply:
           requires:
-            - 'terraform_plan_dev'
+            - 'terraform_plan'
 
   build_and_terraform_feature_branch:
   # Build for all branches except develop and release.
