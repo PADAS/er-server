@@ -95,18 +95,6 @@ commands:
           root: './'
           paths:
             - '*'
-  # kubectl_apply:
-  #   steps:
-  #     - attach_workspace:
-  #         at: './'
-  #     - 'export_google_credentials'
-  #     - 'activate_google_service_account'
-  #     - 'toggle_firewall_for_build_agent_k8s_closure':
-  #         inner_command: 'cd infra-automation && make kubectl_apply_via_proxy'
-  #     - persist_to_workspace:
-  #         root: './'
-  #         paths:
-  #           - '*'
   render_templates:
     steps:
       - attach_workspace:
