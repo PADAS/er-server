@@ -47,6 +47,34 @@ commands:
           root: './'
           paths:
             - '*'
+  terraform_apply_everything:
+    parameters:
+      apply_args:
+        type: string
+        default: "-input=false tfplan"
+      network:
+        type: string
+        default: 'dev'
+    steps:
+      - 'add_deploy_key_for_common_terraform_modules'
+      - attach_workspace:
+          at: './'
+      - 'export_google_credentials'
+      - 'toggle_firewall_for_build_agent_k8s_and_proxy_closure':
+          inner_command: 'cd infra-automation && make tf_apply apply_options="<< parameters.apply_args >>"'
+          network: '<< parameters.network >>'
+      - run:
+          name: 'Generate Manifest and Render Templates'
+          command: |
+            cd infra-automation
+            make generate_manifest current_branch="$CIRCLE_BRANCH"
+            make render_templates tfvars_environment="$CIRCLE_BRANCH"
+      - 'toggle_firewall_for_build_agent_k8s_closure':
+          inner_command: 'cd infra-automation && make kubectl_apply_via_proxy'
+      - persist_to_workspace:
+          root: './'
+          paths:
+            - '*'
   terraform_apply:
     parameters:
       apply_args:
@@ -67,18 +95,18 @@ commands:
           root: './'
           paths:
             - '*'
-  kubectl_apply:
-    steps:
-      - attach_workspace:
-          at: './'
-      - 'export_google_credentials'
-      - 'activate_google_service_account'
-      - 'toggle_firewall_for_build_agent_k8s_closure':
-          inner_command: 'cd infra-automation && make kubectl_apply_via_proxy'
-      - persist_to_workspace:
-          root: './'
-          paths:
-            - '*'
+  # kubectl_apply:
+  #   steps:
+  #     - attach_workspace:
+  #         at: './'
+  #     - 'export_google_credentials'
+  #     - 'activate_google_service_account'
+  #     - 'toggle_firewall_for_build_agent_k8s_closure':
+  #         inner_command: 'cd infra-automation && make kubectl_apply_via_proxy'
+  #     - persist_to_workspace:
+  #         root: './'
+  #         paths:
+  #           - '*'
   render_templates:
     steps:
       - attach_workspace:
@@ -170,10 +198,8 @@ jobs:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
     steps:
-      - terraform_apply:
+      - terraform_apply_everything:
           network: 'dev'
-      - render_templates
-      - kubectl_apply
   terraform_apply_prod1:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
