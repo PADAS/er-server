@@ -67,6 +67,34 @@ commands:
           root: './'
           paths:
             - '*'
+  kubectl_apply:
+    steps:
+      - attach_workspace:
+          at: './'
+      - 'export_google_credentials'
+      - 'activate_google_service_account'
+      - 'toggle_firewall_for_build_agent_k8s_closure':
+          inner_command: 'cd infra-automation && make kubectl_apply_via_proxy'
+      - persist_to_workspace:
+          root: './'
+          paths:
+            - '*'
+  render_templates:
+    steps:
+      - attach_workspace:
+          at: './'
+      - 'export_google_credentials'
+      - 'activate_google_service_account'
+      - run:
+          name: 'Generate Manifest and Render Templates'
+          command: |
+            cd infra-automation
+            make generate_manifest current_branch="$CIRCLE_BRANCH"
+            make render_templates tfvars_environment="$CIRCLE_BRANCH"
+      - persist_to_workspace:
+          root: './'
+          paths:
+            - '*'
   toggle_firewall_for_build_agent_k8s_and_proxy_closure:
     parameters:
       inner_command:
@@ -123,19 +151,6 @@ jobs:
       - 'export_google_credentials'
       - add_deploy_key_for_common_terraform_modules
       - run: 'cd infra-automation && make check_for_abandoned_workspaces'
-  kubectl_apply:
-    executor: 'default'
-    steps:
-      - attach_workspace:
-          at: './'
-      - 'export_google_credentials'
-      - 'activate_google_service_account'
-      - 'toggle_firewall_for_build_agent_k8s_closure':
-          inner_command: 'cd infra-automation && make kubectl_apply_via_proxy'
-      - persist_to_workspace:
-          root: './'
-          paths:
-            - '*'
   terraform_plan_dev:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
@@ -157,6 +172,8 @@ jobs:
     steps:
       - terraform_apply:
           network: 'dev'
+      - render_templates
+      - kubectl_apply
   terraform_apply_prod1:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
@@ -164,25 +181,8 @@ jobs:
     steps:
       - terraform_apply:
           network: 'prod1'
-  render_templates:
-    environment:
-      TF_IN_AUTOMATION: 'not-empty'
-    executor: 'default'
-    steps:
-      - attach_workspace:
-          at: './'
-      - 'export_google_credentials'
-      - 'activate_google_service_account'
-      - run:
-          name: 'Generate Manifest and Render Templates'
-          command: |
-            cd infra-automation
-            make generate_manifest current_branch="$CIRCLE_BRANCH"
-            make render_templates tfvars_environment="$CIRCLE_BRANCH"
-      - persist_to_workspace:
-          root: './'
-          paths:
-            - '*'
+      - render_templates
+      - kubectl_apply
 
   build_sphinx_docs:
     executor: 'docs_executor'
@@ -287,12 +287,6 @@ workflows:
       - terraform_apply_dev:
           requires:
             - 'terraform_plan_dev'
-      - render_templates:
-          requires:
-            - 'terraform_apply_dev'
-      - kubectl_apply:
-          requires:
-            - 'render_templates'
 
   build_and_terraform_feature_branch:
   # Build for all branches except develop and release.
@@ -325,12 +319,6 @@ workflows:
       - terraform_apply_dev:
           requires:
             - 'review_plan_dev'
-      - render_templates:
-          requires:
-            - 'terraform_apply_dev'
-      - kubectl_apply:
-          requires:
-            - 'render_templates'
 
   build_and_terraform_prod1:
   # Build for all release branches
