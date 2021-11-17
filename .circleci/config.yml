@@ -287,13 +287,13 @@ workflows:
       - terraform_plan:
           requires:
             - 'docker_build_image'
-      - review_plan_dev:
+      - review_plan:
           requires:
-            - 'terraform_plan_dev'
+            - 'terraform_plan'
           type: 'approval'
       - terraform_apply:
           requires:
-            - 'review_plan_dev'
+            - 'review_plan'
 
   audit:
     jobs:
