@@ -186,12 +186,19 @@ jobs:
     steps:
       - terraform_plan:
           terraform_workspace: '$CIRCLE_BRANCH'
-  terraform_apply:
+  terraform_apply_dev:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
     steps:
-      - terraform_apply:
+      - terraform_apply_dev:
+          network: 'dev'
+  terraform_apply_feature_branch:
+    environment:
+      TF_IN_AUTOMATION: 'not-empty'
+    executor: 'default'
+    steps:
+      - terraform_apply_feature_branch:
           network: 'dev'
   build_sphinx_docs:
     executor: 'docs_executor'
