@@ -238,3 +238,4 @@ typings
 node_modules
 
 locust.env
+docker/keys/default/application_default_credentials.json

@@ -28,12 +28,17 @@ services:
     env_file: .env
     environment:
       - SERVICE_NAME=api_server
+      - GOOGLE_APPLICATION_CREDENTIALS=/.config/gcloud/application_default_credentials.json
     links:
       - postgis
       - redis
     volumes:
       - user-uploads:/user-uploads
       - www-static:/var/www/static
+      - type: bind
+        source: ${PWD}/docker/keys/default
+        target: /.config/gcloud
+        read_only: True
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:8000/api/v1.0/status']
       interval: 30s
@@ -46,9 +51,15 @@ services:
     env_file: .env
     environment:
       - SERVICE_NAME=realtime_server
+      - GOOGLE_APPLICATION_CREDENTIALS=/.config/gcloud/application_default_credentials.json
     links:
       - postgis
       - redis
+    volumes:
+      - type: bind
+        source: ${PWD}/docker/keys/default
+        target: /.config/gcloud
+        read_only: True
     depends_on:
       - api
 
@@ -58,9 +69,15 @@ services:
     env_file: .env
     environment:
       - SERVICE_NAME=mql_server
+      - GOOGLE_APPLICATION_CREDENTIALS=/.config/gcloud/application_default_credentials.json
     links:
       - postgis
       - redis
+    volumes:
+      - type: bind
+        source: ${PWD}/docker/keys/default
+        target: /.config/gcloud
+        read_only: True
     depends_on:
       - rt-api
 
@@ -70,6 +87,7 @@ services:
     env_file: .env
     environment:
       - SERVICE_NAME=all_in_one_worker
+      - GOOGLE_APPLICATION_CREDENTIALS=/.config/gcloud/application_default_credentials.json
     links:
       - postgis
       - redis
@@ -78,6 +96,10 @@ services:
     volumes:
       - user-uploads:/user-uploads
       - www-static:/var/www/static
+      - type: bind
+        source: ${PWD}/docker/keys/default
+        target: /.config/gcloud
+        read_only: True
   
   beat:
     image: gcr.io/padas-app/circleci/das-server/develop:latest
@@ -85,9 +107,15 @@ services:
     env_file: .env
     environment:
       - SERVICE_NAME=beat_service
+      - GOOGLE_APPLICATION_CREDENTIALS=/.config/gcloud/application_default_credentials.json
     links:
       - postgis
       - redis
+    volumes:
+      - type: bind
+        source: ${PWD}/docker/keys/default
+        target: /.config/gcloud
+        read_only: True
     depends_on:
       - rt-api
 
