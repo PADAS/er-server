@@ -1,22 +1,20 @@
+import copy
 import html
 import json
-import jsonschema
 import logging
 import re
-import uuid
-import copy
 import typing
-
+import uuid
 from collections import OrderedDict
-from django.apps import apps
-from django.template import Template, Context
-from django.template.base import VariableNode, TextNode
 
-from activity.exceptions import SchemaValidationError, UnmappableFormKeyError, \
-    SCHEMA_ERROR_EMPTY_PROPERTY, SCHEMA_ERROR_MISSING_DOLLAR_SIGN_SCHEMA
+import jsonschema
+from activity.exceptions import (SCHEMA_ERROR_MISSING_DOLLAR_SIGN_SCHEMA,
+                                 SchemaValidationError, UnmappableFormKeyError)
 from choices.models import Choice, DynamicChoice
+from django.apps import apps
+from django.template import Context, Template
+from django.template.base import TextNode, VariableNode
 from utils.memoize import memoize
-
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +69,11 @@ def _get_dynamic_choices(field_details):
     model_to_filter = apps.get_model(dynamic_choice.model_name)
 
     options = OrderedDict()
-    for row in model_to_filter.objects.filter(*choice_criteria).order_by(dynamic_choice.display_col):
+    choices = model_to_filter.objects.filter(
+        *choice_criteria).order_by(dynamic_choice.display_col)
+    if dynamic_choice.model_name == "observations.subject":
+        choices = choices.filter(is_active=True)
+    for row in choices:
         value = getattr(row, dynamic_choice.value_col, None)
         display = getattr(row, dynamic_choice.display_col, None)
         options[str(value)] = str(display)
