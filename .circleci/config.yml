@@ -47,7 +47,7 @@ commands:
           root: './'
           paths:
             - '*'
-  terraform_apply:
+  terraform_apply_dev:
     parameters:
       apply_args:
         type: string
@@ -71,6 +71,36 @@ commands:
             make render_templates tfvars_environment="$CIRCLE_BRANCH"
       - 'toggle_firewall_for_build_agent_k8s_closure':
           inner_command: 'cd infra-automation && make kubectl_apply_via_proxy'
+      - persist_to_workspace:
+          root: './'
+          paths:
+            - '*'
+  terraform_apply_feature_branch:
+    parameters:
+      apply_args:
+        type: string
+        default: "-input=false tfplan"
+      network:
+        type: string
+        default: 'dev'
+    steps:
+      - 'add_deploy_key_for_common_terraform_modules'
+      - attach_workspace:
+          at: './'
+      - 'export_google_credentials'
+      - 'toggle_firewall_for_build_agent_k8s_and_proxy_closure':
+          inner_command: 'cd infra-automation && make tf_apply apply_options="<< parameters.apply_args >>"'
+          network: '<< parameters.network >>'
+      - run:
+          name: 'Generate Manifest and Render Templates'
+          command: |
+            cd infra-automation
+            make generate_manifest current_branch="$CIRCLE_BRANCH"
+            make render_templates tfvars_environment="$CIRCLE_BRANCH"
+      - 'toggle_firewall_for_build_agent_k8s_closure':
+          inner_command: 'cd infra-automation && make kubectl_apply_via_proxy'
+      - 'toggle_firewall_for_build_agent_k8s_closure':
+          inner_command: 'cd infra-automation && make database_init tfvars_environment="$CIRCLE_BRANCH"'
       - persist_to_workspace:
           root: './'
           paths:
@@ -124,7 +154,7 @@ commands:
 executors:
   default:
     docker:
-      - image: 'google/cloud-sdk:269.0.0'
+      - image: 'google/cloud-sdk:315.0.0'
         auth:
               username: erdockerhub
               password: $DOCKERHUB_PASSWORD
@@ -156,12 +186,19 @@ jobs:
     steps:
       - terraform_plan:
           terraform_workspace: '$CIRCLE_BRANCH'
-  terraform_apply:
+  terraform_apply_dev:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
     steps:
-      - terraform_apply:
+      - terraform_apply_dev:
+          network: 'dev'
+  terraform_apply_feature_branch:
+    environment:
+      TF_IN_AUTOMATION: 'not-empty'
+    executor: 'default'
+    steps:
+      - terraform_apply_feature_branch:
           network: 'dev'
   build_sphinx_docs:
     executor: 'docs_executor'
@@ -261,7 +298,7 @@ workflows:
       - terraform_plan:
           requires:
             - 'docker_build_image'
-      - terraform_apply:
+      - terraform_apply_dev:
           requires:
             - 'terraform_plan'
 
@@ -291,7 +328,7 @@ workflows:
           requires:
             - 'terraform_plan'
           type: 'approval'
-      - terraform_apply:
+      - terraform_apply_feature_branch:
           requires:
             - 'review_plan'
 
