@@ -63,6 +63,30 @@ commands:
       - 'toggle_firewall_for_build_agent_k8s_and_proxy_closure':
           inner_command: 'cd infra-automation && make tf_apply apply_options="<< parameters.apply_args >>"'
           network: '<< parameters.network >>'
+      - run:
+          name: 'Generate Manifest and Render Templates'
+          command: |
+            cd infra-automation
+            make generate_manifest current_branch="$CIRCLE_BRANCH"
+            make render_templates tfvars_environment="$CIRCLE_BRANCH"
+      - 'toggle_firewall_for_build_agent_k8s_closure':
+          inner_command: 'cd infra-automation && make kubectl_apply_via_proxy'
+      - persist_to_workspace:
+          root: './'
+          paths:
+            - '*'
+  render_templates:
+    steps:
+      - attach_workspace:
+          at: './'
+      - 'export_google_credentials'
+      - 'activate_google_service_account'
+      - run:
+          name: 'Generate Manifest and Render Templates'
+          command: |
+            cd infra-automation
+            make generate_manifest current_branch="$CIRCLE_BRANCH"
+            make render_templates tfvars_environment="$CIRCLE_BRANCH"
       - persist_to_workspace:
           root: './'
           paths:
@@ -96,6 +120,7 @@ commands:
       - run:
           command: "gcloud compute firewall-rules delete \"k8s-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --project=\"$K8S_PROXY_PROJECT\" --quiet"
           when: 'always'
+
 executors:
   default:
     docker:
@@ -115,6 +140,7 @@ executors:
         auth:
               username: erdockerhub
               password: $DOCKERHUB_PASSWORD
+
 jobs:
   check_for_abandoned_workspaces:
     executor: circleci_executor
@@ -123,67 +149,20 @@ jobs:
       - 'export_google_credentials'
       - add_deploy_key_for_common_terraform_modules
       - run: 'cd infra-automation && make check_for_abandoned_workspaces'
-  kubectl_apply:
-    executor: 'default'
-    steps:
-      - attach_workspace:
-          at: './'
-      - 'export_google_credentials'
-      - 'activate_google_service_account'
-      - 'toggle_firewall_for_build_agent_k8s_closure':
-          inner_command: 'cd infra-automation && make kubectl_apply_via_proxy'
-      - persist_to_workspace:
-          root: './'
-          paths:
-            - '*'
-  terraform_plan_dev:
+  terraform_plan:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
     steps:
       - terraform_plan:
           terraform_workspace: '$CIRCLE_BRANCH'
-  terraform_plan_prod1:
-    environment:
-      TF_IN_AUTOMATION: 'not-empty'
-    executor: 'default'
-    steps:
-      - terraform_plan:
-          terraform_workspace: 'prod1'
-  terraform_apply_dev:
+  terraform_apply:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
     steps:
       - terraform_apply:
           network: 'dev'
-  terraform_apply_prod1:
-    environment:
-      TF_IN_AUTOMATION: 'not-empty'
-    executor: 'default'
-    steps:
-      - terraform_apply:
-          network: 'prod1'
-  render_templates:
-    environment:
-      TF_IN_AUTOMATION: 'not-empty'
-    executor: 'default'
-    steps:
-      - attach_workspace:
-          at: './'
-      - 'export_google_credentials'
-      - 'activate_google_service_account'
-      - run:
-          name: 'Generate Manifest and Render Templates'
-          command: |
-            cd infra-automation
-            make generate_manifest current_branch="$CIRCLE_BRANCH"
-            make render_templates tfvars_environment="$CIRCLE_BRANCH"
-      - persist_to_workspace:
-          root: './'
-          paths:
-            - '*'
-
   build_sphinx_docs:
     executor: 'docs_executor'
     steps:
@@ -199,7 +178,7 @@ jobs:
       - persist_to_workspace:
           root: 'sphinx-docs/_build'
           paths:
-            - 'html'        
+            - 'html'
   run_api_unittests:
     executor: 'default'
     steps:
@@ -232,8 +211,6 @@ jobs:
             exit ${TEST_EXIT_CODE}
       - store_test_results:
           path: ~/unittest-output
-      # - store_artifacts:
-      #     path: ~/unittest-output
       - run: 
           name: Grep Exit Code from test results
           command: |
@@ -281,18 +258,12 @@ workflows:
                 - 'develop'
           requires:
             - 'docker_build_image'
-      - terraform_plan_dev:
+      - terraform_plan:
           requires:
             - 'docker_build_image'
-      - terraform_apply_dev:
+      - terraform_apply:
           requires:
-            - 'terraform_plan_dev'
-      - render_templates:
-          requires:
-            - 'terraform_apply_dev'
-      - kubectl_apply:
-          requires:
-            - 'render_templates'
+            - 'terraform_plan'
 
   build_and_terraform_feature_branch:
   # Build for all branches except develop and release.
@@ -303,7 +274,6 @@ workflows:
             branches:
               ignore:
                 - 'develop'
-                - /release*/
       - docker_build_image:
           requires:
             - 'build_sphinx_docs'
@@ -311,54 +281,19 @@ workflows:
             branches:
               ignore:
                 - 'develop'
-                - /release*/
       - run_api_unittests:
           requires:
             - 'docker_build_image'
-      - terraform_plan_dev:
+      - terraform_plan:
           requires:
             - 'docker_build_image'
-      - review_plan_dev:
+      - review_plan:
           requires:
-            - 'terraform_plan_dev'
+            - 'terraform_plan'
           type: 'approval'
-      - terraform_apply_dev:
+      - terraform_apply:
           requires:
-            - 'review_plan_dev'
-      - render_templates:
-          requires:
-            - 'terraform_apply_dev'
-      - kubectl_apply:
-          requires:
-            - 'render_templates'
-
-  build_and_terraform_prod1:
-  # Build for all release branches
-  # Review step for apply
-    jobs:
-      - build_sphinx_docs:
-          filters:
-            branches:
-              only: /release*/
-      - docker_build_image:
-          filters:
-            branches:
-              only: /release*/
-          requires:
-            - 'build_sphinx_docs'
-      - terraform_plan_prod1:
-          requires:
-            - 'docker_build_image'
-      - review_plan_prod1:
-          requires:
-            - 'terraform_plan_prod1'
-          type: 'approval'
-      - terraform_apply_prod1:
-          requires:
-            - 'review_plan_prod1'
-      - render_templates:
-          requires:
-            - 'terraform_apply_prod1'
+            - 'review_plan'
 
   audit:
     jobs:
