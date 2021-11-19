@@ -33,3 +33,6 @@ test:
 
 test-class:
 	python -m pytest -vv ${TEST_PATH}::${TEST_CLASS} --no-migrations
+
+format-file:
+	./formatter_py_files.sh ${FILE}
