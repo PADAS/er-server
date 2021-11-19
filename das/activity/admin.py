@@ -1,15 +1,32 @@
 import datetime
 import logging
-import time
 from abc import ABC
 from enum import Enum
 
-import pytz
+import activity.models as models
+from activity.forms import (
+    AlertRuleForm,
+    EventForm,
+    EventProviderForm,
+    EventTypeForm,
+    PatrolForm,
+    PatrolSegmentForm,
+    PatrolSegmentStackedInline,
+    PatrolTypeForm,
+    PrettyReadOnlyJSONWidget,
+    chained_tracked_by,
+)
+from activity.tasks import recreate_event_details_view, refresh_event_details_view
+from celery_once import AlreadyQueued
+from core.admin import InlineExtraDynamicMixin
+from core.common import TIMEZONE_USED, AdminFeatureFlag
+from core.openlayers import OSMGeoExtendedAdmin
 from django.contrib import messages
-from django.contrib.admin import SimpleListFilter, FieldListFilter
-from django.contrib.auth import get_user_model
+from django.contrib.admin import FieldListFilter, SimpleListFilter
+from django.contrib.auth import get_permission_codename, get_user_model
 from django.contrib.gis import admin
-from django.db.models import OuterRef, Subquery, F, Case, Q, When, Value, CharField
+from django.contrib.postgres.fields import JSONField
+from django.db.models import Case, CharField, F, OuterRef, Q, Subquery, Value, When
 from django.db.utils import DataError
 from django.http import HttpResponseRedirect
 from django.urls import reverse
@@ -17,17 +34,7 @@ from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext as _
 from psycopg2.extras import DateTimeTZRange
-from django.contrib.auth import get_permission_codename
-from celery_once import AlreadyQueued
-from django.contrib.postgres.fields import JSONField
 
-import activity.models as models
-from activity.forms import EventProviderForm, AlertRuleForm, PatrolSegmentStackedInline, PatrolSegmentForm, chained_tracked_by
-from activity.forms import EventTypeForm, EventForm, PatrolTypeForm, PatrolForm, PrettyReadOnlyJSONWidget
-from activity.tasks import refresh_event_details_view, recreate_event_details_view
-from core.admin import InlineExtraDynamicMixin
-from core.common import TIMEZONE_USED, AdminFeatureFlag
-from core.openlayers import OSMGeoExtendedAdmin
 
 logger = logging.getLogger(__name__)
 
@@ -43,22 +50,34 @@ class EventDetailsInline(admin.TabularInline):
 
 @admin.register(models.Event)
 class EventAdmin(OSMGeoExtendedAdmin):
-    # openlayers_url = static('js/openlayers_2.13/OpenLayers.js')
-    # wms_layer = 'terrain,overlay'
-    # wms_url = 'http://tiles.maps.eox.at/wms/'
     form = EventForm
-
-    list_display = ('serial_number', '_created_at', '_event_time', '_updated_at', 'event_type',
-                    'title', '_latitude', '_longitude')
-    ordering = ('serial_number', 'created_at', 'event_time',
-                'updated_at', 'event_type', 'title')
+    list_display = (
+        "serial_number",
+        "_created_at",
+        "_event_time",
+        "_updated_at",
+        "event_type",
+        "title",
+        "_latitude",
+        "_longitude",
+    )
+    ordering = (
+        "serial_number",
+    )
+    sortable_by = (
+        "serial_number",
+        "_created_at",
+        "_event_time",
+        "_updated_at",
+        "event_type",
+        "title",
+    )
     readonly_fields = ('id', 'serial_number', 'created_at', 'updated_at')
     search_fields = ('title', 'serial_number')
     list_filter = ('state', 'event_type', )
     actions = ('resolve_event',)
     inlines = [
         EventDetailsInline,
-        # EventRelationshipInline,
     ]
 
     fieldsets = (
@@ -338,8 +357,10 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
     # NOTE: This class relies on celery.
 
     change_list_template = 'admin/activity/eventtype/event_detail_change_list.html'
-    list_display = ('performed_by', 'task_mode', 'started_at', 'ended_at', 'maintenance_status')
-    fields = ('id', 'performed_by', 'task_mode', 'started_at', 'ended_at', 'error_details')
+    list_display = ('performed_by', 'task_mode', 'started_at',
+                    'ended_at', 'maintenance_status')
+    fields = ('id', 'performed_by', 'task_mode',
+              'started_at', 'ended_at', 'error_details')
     ordering = ('-started_at', )
 
     formfield_overrides = {
@@ -373,11 +394,15 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
             filter_func(id=obj.id).update_status(status=self.model.RUNNING)
         if task.state == 'SUCCESS':
             success = self.model.SUCCESS_WARNING if task.result else self.model.SUCCESS
-            filter_func(id=obj.id).update_status_and_ended_at(status=success, error_details=task.result)
-            self.message_user(request, f"Successfully {name} 'event_detail_view'")
+            filter_func(id=obj.id).update_status_and_ended_at(
+                status=success, error_details=task.result)
+            self.message_user(
+                request, f"Successfully {name} 'event_detail_view'")
         if task.state == 'FAILURE':
-            error_details = [{f'action to {name}': f'failed with exception {task.info}'}]
-            filter_func(id=obj.id).update_status_and_ended_at(status=self.model.FAILED, error_details=error_details)
+            error_details = [
+                {f'action to {name}': f'failed with exception {task.info}'}]
+            filter_func(id=obj.id).update_status_and_ended_at(
+                status=self.model.FAILED, error_details=error_details)
             self.message_user(
                 request, f"Failed to {name} 'event_detail_view'", messages.ERROR)
         if task.state == 'RETRY':
@@ -391,7 +416,8 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
         try:
             task = refresh_event_details_view.apply_async(args=('Admin',))
         except AlreadyQueued:
-            self.message_user(request, f"Task to refresh event_detail view is already queued",  messages.WARNING)
+            self.message_user(
+                request, f"Task to refresh event_detail view is already queued",  messages.WARNING)
             return HttpResponseRedirect("../")
 
         task_mode = self.model.REFRESH
@@ -407,7 +433,8 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
         try:
             task = recreate_event_details_view.apply_async()
         except AlreadyQueued:
-            self.message_user(request, f"Task to recreate event_detail view is already queued",  messages.WARNING)
+            self.message_user(
+                request, f"Task to recreate event_detail view is already queued",  messages.WARNING)
             return HttpResponseRedirect("../")
 
         # status = dict(self.model.STATUS_MESSAGE).get('SUCCESS')
@@ -711,4 +738,3 @@ class PatrolConfiguration(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
-
