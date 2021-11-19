@@ -1,14 +1,17 @@
-from revision.manager import relation_deleted
 import datetime
+import json
 import logging
 import re
 import uuid
-from operator import itemgetter, attrgetter
+from enum import Enum
+from operator import attrgetter, itemgetter
 
 import django.utils
 import pytz
-import json
-from enum import Enum
+from accounts.models.permissionset import PermissionSet
+from accounts.models.user import User
+from core.models import SingletonModel, TimestampedModel
+from core.utils import static_image_finder
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
@@ -16,31 +19,23 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Polygon
-from django.contrib.postgres.fields import JSONField
+from django.contrib.postgres.fields import DateTimeRangeField, JSONField
 from django.core.exceptions import ValidationError
+from django.core.serializers.json import DjangoJSONEncoder
 from django.core.validators import RegexValidator
 from django.db import transaction
-from django.db.models import Q, F, Func, Exists, OuterRef, Case, When, Value, Subquery
-from django.contrib.postgres.fields.ranges import RangeStartsWith
+from django.db.models import Case, Exists, F, OuterRef, Q, Subquery, Value, When
 from django.db.models.functions import Lower
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.utils import dateparse
-from django.utils import timezone
+from django.utils import dateparse, timezone
 from django.utils.encoding import force_text
 from django.utils.translation import ugettext_lazy as _
-from versatileimagefield.fields import VersatileImageField
-from django.contrib.postgres.fields import DateTimeRangeField
-from django.core.serializers.json import DjangoJSONEncoder
-
-from accounts.models.permissionset import PermissionSet
-from accounts.models.user import User
-from core.models import TimestampedModel, SingletonModel
-from core.utils import static_image_finder
-from observations.models import Subject, Source, SubjectGroup
-from revision.manager import Revision, RevisionMixin, RevisionAdapter
-from utils.html import clean_user_text
+from observations.models import Source, Subject, SubjectGroup
 from observations.utils import dateparse as dparse
+from revision.manager import Revision, RevisionAdapter, RevisionMixin, relation_deleted
+from utils.html import clean_user_text
+from versatileimagefield.fields import VersatileImageField
 
 logger = logging.getLogger(__name__)
 
@@ -462,28 +457,25 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
         return self
 
-    def by_text_filter(self, searchtext):
-
+    def by_text_filter(self, search_text):
         queryset = self
-        if re.match('[0-9]+', searchtext):
-            logger.info('Querying on numeric. %s', searchtext)
-            queryset = self.annotate(serial_number_text=Func(F('serial_number'),
-                                                             function='bigint_to_char'))
-            # 'startswith' witll use an index.
-            filter_ = Q(serial_number_text__startswith=searchtext)
-            return queryset.filter(filter_).distinct()
+        term = search_text
+        search_text = ":* & ".join(search_text.split()) + ":*"
 
-        searchtext = ':* & '.join(searchtext.split()) + ':*'
-
-        queryset = queryset.extra(tables=['activity_tsvectormodel'],
-                                  select={
-                                      'rank': 'ts_rank_cd(activity_tsvectormodel.tsvector_event, %s)'},
-                                  where=['activity_tsvectormodel.tsvector_event @@ to_tsquery(%s) OR '
-                                         'activity_tsvectormodel.tsvector_event_note @@ to_tsquery(%s)',
-                                         'activity_tsvectormodel.event_id=activity_event.id'],
-                                  order_by=['-rank'],
-                                  select_params=[searchtext],
-                                  params=[searchtext, searchtext])
+        queryset = queryset.extra(
+            tables=["activity_tsvectormodel"],
+            select={
+                "rank": "ts_rank_cd(activity_tsvectormodel.tsvector_event, %s)"},
+            where=[
+                "activity_tsvectormodel.tsvector_event @@ to_tsquery(%s) OR "
+                "activity_tsvectormodel.tsvector_event_note @@ to_tsquery(%s) OR "
+                f"activity_event.serial_number::text ILIKE '{term}%%'",
+                "activity_tsvectormodel.event_id=activity_event.id",
+            ],
+            order_by=["-rank"],
+            select_params=[search_text],
+            params=[search_text, search_text],
+        )
 
         return queryset.all_sort().distinct()
 

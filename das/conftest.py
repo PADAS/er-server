@@ -12,6 +12,8 @@ from factories import (
     SpatialFeatureTypeFactory,
     EventTypeFactory,
     FeatureProximityAnalyzerConfigFactory,
+    EventFactory,
+    EventDetailsFactory,
 )
 
 
@@ -82,3 +84,13 @@ def dummy_cache(settings):
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
         }
     }
+
+
+@pytest.fixture
+def five_events():
+    EventFactory.create_batch(5)
+
+
+@pytest.fixture
+def five_events_with_details():
+    EventDetailsFactory.create_batch(5)
