@@ -9,7 +9,7 @@ from django.conf import settings
 from django.shortcuts import redirect
 from django.utils import timezone
 from google.cloud import error_reporting
-from google.cloud.exceptions import DefaultCredentialsError
+from google.auth.exceptions import DefaultCredentialsError
 from oauth2_provider.models import get_access_token_model
 from utils import add_base_url
 
