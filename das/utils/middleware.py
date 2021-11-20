@@ -9,11 +9,19 @@ from django.conf import settings
 from django.shortcuts import redirect
 from django.utils import timezone
 from google.cloud import error_reporting
+from google.cloud.exceptions import DefaultCredentialsError
 from oauth2_provider.models import get_access_token_model
 from utils import add_base_url
 
+logger = logging.getLogger(__name__)
+
+
 request_data = local()
-error_reporting_client = error_reporting.Client()
+error_reporting_client = None
+try:
+    error_reporting_client = error_reporting.Client()
+except DefaultCredentialsError as ex:
+    logger.warning(f"Initializing err_reporting_client: {ex}")
 
 
 class RequestLoggingMiddleware(object):
@@ -39,7 +47,8 @@ class RequestLoggingMiddleware(object):
 
     def process_exception(self, request, exception):
         self.logger.exception('Exception handling %s', request.get_full_path)
-        error_reporting_client.report_exception(exception)
+        if error_reporting_client:
+            error_reporting_client.report_exception(exception)
 
     def process_response(self, request, response):
         try:
