@@ -197,6 +197,7 @@ locals {
     "tswehe"                  = "prod1"
     "fao-pest"                = "prod1"
     "chipanjechetu"           = "prod1"
+    "pantherakafue"           = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -295,6 +296,7 @@ locals {
     "lionlandscapeske"      = 1
     "ng26"                  = 1
     "matlabasreserve"       = 1
+    "pantherakafue"         = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
