@@ -1,19 +1,19 @@
 import pytest
-
 from factories import (
+    EventDetailsFactory,
+    EventFactory,
+    EventTypeFactory,
+    FeatureProximityAnalyzerConfigFactory,
+    GeofenceAnalyzerConfigFactory,
     PatrolFactory,
     PatrolNoteFactory,
     PatrolSegmentFactory,
     PatrolSegmentSubjectFactory,
     PatrolSegmentUserFactory,
-    SubjectSourceFactory,
-    GeofenceAnalyzerConfigFactory,
+    ProviderFactory,
     SpatialFeatureGroupStaticFactory,
     SpatialFeatureTypeFactory,
-    EventTypeFactory,
-    FeatureProximityAnalyzerConfigFactory,
-    EventFactory,
-    EventDetailsFactory,
+    SubjectSourceFactory,
 )
 
 
@@ -94,3 +94,7 @@ def five_events():
 @pytest.fixture
 def five_events_with_details():
     EventDetailsFactory.create_batch(5)
+
+
+def source_provider():
+    return ProviderFactory.create()

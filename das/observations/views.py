@@ -4,51 +4,59 @@ import json
 import logging
 import re
 import urllib
-import tempfile
 
 import dateutil.parser
 import django
+import observations.serializers as serializers
 import pytz
 import rest_framework
+import utils
+from das_server import celery
+from das_server.views import CustomSchema
 from django.conf import settings
+from django.core.files.storage import default_storage
 from django.core.serializers.json import DjangoJSONEncoder
-from django.db.models import F, Q, FilteredRelation, Window, Prefetch
-from django.db.models.functions import FirstValue
+from django.db.models import F, Q, Window
+from django.db.models.functions import FirstValue, RowNumber
 from django.http import Http404, HttpResponse
+from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from django.shortcuts import get_object_or_404
-from rest_framework import generics
-from rest_framework import status
-from rest_framework.compat import coreapi, coreschema
-from rest_framework.exceptions import APIException, PermissionDenied, ValidationError, NotFound, ParseError
-from rest_framework.renderers import StaticHTMLRenderer
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from django.core.files.storage import default_storage
-from django.db.models.functions import RowNumber
-
 from kombu import exceptions
-
-from das_server.views import CustomSchema
-from das_server import celery
-import observations.serializers as serializers
-import utils
-from observations import kmlutils
-from observations import models
+from observations import kmlutils, models
 from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
 from observations.permissions import StandardObjectPermissions
-from observations.utils import calculate_subject_view_window, VIEW_SUBJECT_PERMS, VIEW_SUBJECTGROUP_PERMS, \
-    check_to_include_inactive_subjects, VIEW_OBSERVATION_PERMS
-from observations.utils import get_minimum_allowed_age, parse_comma
-from utils.drf import StandardResultsSetPagination, OptionalResultsSetPagination, StandardResultsSetGeoJsonPagination
-from utils.json import zeroout_microseconds, parse_bool, ExtendedGEOJSONRenderer
+from observations.tasks import handle_outbox_message, process_gpxdata_api
+from observations.utils import (
+    VIEW_OBSERVATION_PERMS,
+    VIEW_SUBJECT_PERMS,
+    VIEW_SUBJECTGROUP_PERMS,
+    calculate_subject_view_window,
+    check_to_include_inactive_subjects,
+    dateparse,
+    get_minimum_allowed_age,
+    parse_comma,
+)
+from rest_framework import generics, status
+from rest_framework.exceptions import (
+    APIException,
+    ParseError,
+    PermissionDenied,
+    ValidationError,
+)
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.renderers import StaticHTMLRenderer
+from rest_framework.response import Response
 from utils import add_base_url
-from observations.utils import dateparse
-from observations.tasks import process_gpxdata_api, handle_outbox_message
+from utils.drf import (
+    OptionalResultsSetPagination,
+    StandardResultsSetGeoJsonPagination,
+    StandardResultsSetPagination,
+)
+from utils.json import ExtendedGEOJSONRenderer, parse_bool, zeroout_microseconds
+
 
 logger = logging.getLogger(__name__)
 
@@ -847,8 +855,7 @@ class SourceProvidersView(generics.ListCreateAPIView, ):
 class SourceProvidersViewPartial(generics.UpdateAPIView):
     serializer_class = serializers.SourceProviderSerializer
     permission_classes = (StandardObjectPermissions,)
-
-    lookup_field = 'provider_key'
+    lookup_field = 'id'
 
     def get_queryset(self):
         queryset = models.SourceProvider.objects.all()
@@ -857,10 +864,6 @@ class SourceProvidersViewPartial(generics.UpdateAPIView):
     def get_serializer_context(self):
         context = super().get_serializer_context()
         return context
-
-    # TODO - filter so only 'additional' can get updated
-    def put(self, request, *args, **kwargs):
-        return self.partial_update(request, *args, **kwargs)
 
 
 class SourceObservationsView(generics.ListAPIView):
@@ -2031,15 +2034,18 @@ class SubjectSourcesAssignmentView(generics.ListAPIView):
         subjects_list = parse_comma(query_params.get('subjects'))
         sources_list = parse_comma(query_params.get('sources')) or []
 
-        allowed = models.Subject.objects.by_user_subjects(self.request.user).values_list('id', flat=True)
+        allowed = models.Subject.objects.by_user_subjects(
+            self.request.user).values_list('id', flat=True)
 
         # First get subject-sources user has access to.
         queryset = models.SubjectSource.objects.filter(subject_id__in=allowed)
 
         if subjects_list and sources_list:
-            queryset = queryset.filter(Q(subject_id__in=set(allowed) & set(subjects_list)) | Q(source_id__in=sources_list))
+            queryset = queryset.filter(Q(subject_id__in=set(allowed) & set(
+                subjects_list)) | Q(source_id__in=sources_list))
         elif subjects_list:
-            queryset = queryset.filter(subject_id__in=set(allowed) & set(subjects_list))
+            queryset = queryset.filter(
+                subject_id__in=set(allowed) & set(subjects_list))
         elif sources_list:
             queryset = queryset.filter(source_id__in=sources_list)
         return queryset
