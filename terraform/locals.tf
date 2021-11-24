@@ -198,6 +198,8 @@ locals {
     "fao-pest"                = "prod1"
     "chipanjechetu"           = "prod1"
     "pantherakafue"           = "prod1"
+    "lwc"                     = "prod1"
+    "ehra"                    = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
