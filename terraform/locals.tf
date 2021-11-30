@@ -200,6 +200,9 @@ locals {
     "pantherakafue"           = "prod1"
     "lwc"                     = "prod1"
     "ehra"                    = "prod1"
+    "mankwe"                  = "prod1"
+    "zcp"                     = "prod1"
+    "grace"                   = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
