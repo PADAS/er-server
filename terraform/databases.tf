@@ -178,6 +178,7 @@ resource "google_sql_user" "app_user" {
 
 resource "google_secret_manager_secret" "er_sql_analytics_info" {
   secret_id = "er_${local.sanitized_db_name}_sql_analytics_info"
+  project   = data.google_project.earthranger.project_id
 
   labels = {
     app      = "earthranger"
