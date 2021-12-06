@@ -204,6 +204,7 @@ locals {
     "zcp"                     = "prod1"
     "grace"                   = "prod1"
     "tck9"                    = "prod1"
+    "mbuluzi"                 = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
