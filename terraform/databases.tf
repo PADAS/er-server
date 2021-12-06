@@ -183,6 +183,9 @@ resource "google_secret_manager_secret" "er_sql_analytics_info" {
     app      = "earthranger"
     consumer = "tableau_bi_api"
   }
+  replication {
+    automatic = true
+  }
 }
 
 resource "google_secret_manager_secret_version" "secret-version-basic" {
