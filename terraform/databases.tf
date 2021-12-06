@@ -175,3 +175,18 @@ resource "google_sql_user" "app_user" {
     random_password.app_user_pass
   ]
 }
+
+resource "google_secret_manager_secret" "er_sql_analytics_info" {
+  secret_id = "er_${local.sanitized_db_name}_sql_analytics_info"
+
+  labels = {
+    app      = "earthranger"
+    consumer = "tableau_bi_api"
+  }
+}
+
+resource "google_secret_manager_secret_version" "secret-version-basic" {
+  secret = google_secret_manager_secret.er_sql_analytics_info.id
+
+  secret_data = "{\"user\":\"${google_sql_user.analytics_user.name}\", \"password\":\"${random_password.analytics_user_pass.result}\"}"
+}
