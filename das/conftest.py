@@ -96,5 +96,21 @@ def five_events_with_details():
     EventDetailsFactory.create_batch(5)
 
 
+@pytest.fixture
+def five_patrol_segment_user_with_leader_uuid():
+    for i in range(1, 6):
+        PatrolSegmentSubjectFactory.create(
+            leader__id=f"00000000-0000-0000-0000-00000000000{i}"
+        )
+
+
+@pytest.fixture
+def five_patrol_segment_patrol_type_uuid():
+    for i in range(1, 6):
+        PatrolSegmentFactory.create(
+            patrol_type__id=f"00000000-0000-0000-0000-00000000000{i}"
+        )
+
+
 def source_provider():
     return ProviderFactory.create()

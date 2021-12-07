@@ -31,7 +31,7 @@ from django.dispatch import receiver
 from django.utils import dateparse, timezone
 from django.utils.encoding import force_text
 from django.utils.translation import ugettext_lazy as _
-from observations.models import Source, Subject, SubjectGroup
+from observations.models import Subject, SubjectGroup
 from observations.utils import dateparse as dparse
 from revision.manager import Revision, RevisionAdapter, RevisionMixin, relation_deleted
 from utils.html import clean_user_text
@@ -1583,13 +1583,13 @@ class StateFilters(Enum):
 class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_patrol_filter(self, filter):
         queryset = self
-        if "date_range" in filter:
+        if filter.get("date_range"):
             patrols_overlap_daterange = filter.get(
                 "patrols_overlap_daterange", True)
             queryset = self.by_date_range(
                 filter.get("date_range"), patrols_overlap_daterange
             )
-        if "text" in filter:
+        if filter.get("text") in filter:
             text = filter.get("text")
             if text:
                 subjects_id = self._get_match_subjects_id(text)
@@ -1613,6 +1613,18 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
                         patrol_segment__leader_content_type__model="user",
                     )
                 )
+
+        if filter.get("patrol_type"):
+
+            queryset = queryset.filter(
+                Q(patrol_segment__patrol_type__id__in=filter["patrol_type"])
+            )
+
+        if filter.get("tracked_by"):
+            queryset = queryset.filter(
+                Q(patrol_segment__leader_id__in=filter["tracked_by"])
+            )
+
         return queryset.distinct()
 
     def by_date_range(self, filter_param, patrols_overlap_daterange):
