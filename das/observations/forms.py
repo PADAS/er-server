@@ -1,28 +1,40 @@
 import json
 import logging
-import re
 import random
-import pytz
-
+import re
 from datetime import datetime, timedelta
 
-from django.utils.translation import ugettext_lazy as _
-from django.utils.dateparse import parse_duration
-
-from django import forms
-from django.contrib.admin.helpers import ActionForm
-from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
-from django.contrib.postgres.forms import JSONField
-from django.db.models import F, Q, Window, RowRange, Count, Aggregate
-from django.urls import reverse
-from django.contrib.auth import get_user_model
-
-from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider, GPXTrackFile, Observation, Message
-from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
+import pytz
 from choices.models import Choice
 from core.common import TIMEZONE_USED
-from observations.utils import find_paths, JsonAgg
+from core.forms_utils import (
+    AssignedDateTimeRangeField,
+    ColorPickerWidget,
+    JSONFieldFormMixin,
+)
+from django import forms
+from django.contrib.admin.helpers import ActionForm
+from django.contrib.admin.widgets import AdminDateWidget, FilteredSelectMultiple
+from django.contrib.auth import get_user_model
+from django.contrib.postgres.forms import JSONField
+from django.urls import reverse
+from django.utils.dateparse import parse_duration
+from django.utils.translation import ugettext_lazy as _
 from observations.message_adapters import ADAPTER_MAPPING
+from observations.models import (
+    GPXTrackFile,
+    Message,
+    Observation,
+    Source,
+    SourceProvider,
+    Subject,
+    SubjectGroup,
+    SubjectSource,
+    SubjectSubType,
+    SubjectType,
+)
+from observations.utils import find_paths
+
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +43,8 @@ def validate_assigned_range(value):
     lower, upper = value
     if lower and upper:
         if lower > upper:
-            raise forms.ValidationError(_('range lower bound must be less than or equal to range upper bound'))
+            raise forms.ValidationError(
+                _('range lower bound must be less than or equal to range upper bound'))
 
 
 class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
@@ -198,6 +211,20 @@ class SubjectSubtypeChoiceField(forms.ModelChoiceField):
         return '{1} ({0})'.format(obj.subject_type.display, obj.display)
 
 
+def get_subject_subtype_choices():
+    choices = []
+    subjects_type = SubjectType.objects.all().order_by("value")
+    for subject_type in subjects_type:
+        subjects_subtype = subject_type.subjectsubtype_set.all().order_by("display")
+        subjects_subtype = [
+            (subject_subtype.value, subject_subtype.display)
+            for subject_subtype in subjects_subtype
+        ]
+        choices.append((subject_type.display.upper(),
+                       (list(subjects_subtype))))
+    return choices
+
+
 class SubjectForm(JSONFieldFormMixin, forms.ModelForm):
 
     groups = forms.ModelMultipleChoiceField(
@@ -209,8 +236,7 @@ class SubjectForm(JSONFieldFormMixin, forms.ModelForm):
         )
     )
 
-    subject_subtype = SubjectSubtypeChoiceField(
-        queryset=SubjectSubType.objects.all().order_by('display').select_related('subject_type',))
+    subject_subtype = forms.ChoiceField(choices=get_subject_subtype_choices())
 
     '''
     This provides extra form fields for the attributes we expect to have stored
