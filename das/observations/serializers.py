@@ -229,7 +229,6 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
     def to_representation(self, instance):
         user = getattr(self.context.get('request', None), 'user', None)
         render_last_location = self.context.get('render_last_location', True)
-        model = self.Meta.model
 
         rep = super(SubjectSerializer, self).to_representation(instance)
         additional = instance.additional
@@ -238,6 +237,8 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
         rep.update(additional)
         rep['tracks_available'] = False
         rep['image_url'] = instance.image_url
+        if self._is_static_sensor(instance):
+            rep["is_static"] = True
 
         if user and render_last_location:
             # Find the user's allowed viewable date range
@@ -378,6 +379,11 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
             validated_data['owner'] = request.user
 
         return models.Subject.objects.create_subject(**validated_data)
+
+    def _is_static_sensor(self, instance):
+        if instance.subject_subtype.subject_type.display == "Stationary Sensor":
+            return True
+        return False
 
 
 def get_subjectsources_with_2way_msg(subject):
@@ -616,10 +622,6 @@ class SubjectTrackSerializer(rest_framework.serializers.BaseSerializer):
 
 class SubjectStatusSerializer(rest_framework.serializers.BaseSerializer):
     def to_representation(self, subject_status):
-
-        image_url = subject_status.subject.image_url
-        user = self.context['request'].user
-
         coordinates = Point(x=subject_status.location.x,
                             y=subject_status.location.y, srid=4326)
 
