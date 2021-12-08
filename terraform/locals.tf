@@ -205,6 +205,11 @@ locals {
     "grace"                   = "prod1"
     "tck9"                    = "prod1"
     "mbuluzi"                 = "prod1"
+    "schoongezicht"           = "prod1"
+    "zcp-liuwa"               = "prod1"
+    "zcp-southluangwa"        = "prod1"
+    "baclip"                  = "prod1"
+    "wrti"                    = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -304,6 +309,8 @@ locals {
     "ng26"                  = 1
     "matlabasreserve"       = 1
     "pantherakafue"         = 1
+    "baclip"                = 1
+    "schoongezicht"         = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
