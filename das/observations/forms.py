@@ -5,6 +5,9 @@ import re
 from datetime import datetime, timedelta
 
 import pytz
+from django.contrib.gis.forms import PointField, OSMWidget
+from django.core.exceptions import ValidationError
+
 from choices.models import Choice
 from core.common import TIMEZONE_USED
 from core.forms_utils import (
@@ -48,53 +51,76 @@ def validate_assigned_range(value):
 
 
 class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
-
-    '''
-    This provides extra form fields for the attributes we expect to have stored in SubjectSource.additional.
-    '''
-    chronofile = forms.IntegerField(required=False, label='Chronofile')
-    data_status = forms.CharField(required=False, label='Data Status')
+    """This provides extra form fields for the attributes we expect to have stored in SubjectSource.additional."""
+    chronofile = forms.IntegerField(required=False, label="Chronofile")
+    data_status = forms.CharField(required=False, label="Data Status")
     data_starts_source = forms.CharField(
-        required=False, label='Data Starts Source')
+        required=False, label="Data Starts Source")
     data_stops_source = forms.CharField(
-        required=False, label='Data Stops Source')
-    data_stops_reason = forms.ChoiceField(required=False,
-                                          help_text='Reason for Stop')
+        required=False, label="Data Stops Source")
+    data_stops_reason = forms.ChoiceField(
+        required=False, help_text="Reason for Stop")
     date_off_or_removed = forms.CharField(
-        required=False, label='Date Off or Removed')
-    comments = forms.CharField(required=False, label='Comments',
-                               widget=forms.Textarea)
-
-    @staticmethod
-    def fetch_stop_reasons():
-        stop_reasons_choices = {'': ''}
-        for stop_reason in Choice.objects.filter(
-                model='observations.Source',
-                field='data stops reason').order_by('ordernum'):
-            stop_reasons_choices[stop_reason.value] = stop_reason.display
-        return tuple([(key, value)
-                      for key, value in stop_reasons_choices.items()])
-
-    def __init__(self, *args, **kwargs):
-        super(SubjectSourceForm, self).__init__(*args, **kwargs)
-        self.fields['data_stops_reason'].choices = self.fetch_stop_reasons()
+        required=False, label="Date Off or Removed")
+    comments = forms.CharField(
+        required=False, label="Comments", widget=forms.Textarea)
+    assigned_range = AssignedDateTimeRangeField(
+        label=f"Assigned Range in {TIMEZONE_USED}",
+        required=True,
+        validators=[validate_assigned_range],
+    )
+    source = forms.ModelChoiceField(
+        queryset=Source.objects.all()
+        .order_by("manufacturer_id")
+        .prefetch_related(
+            "provider",
+        )
+    )
+    static_sensor_position = PointField(
+        widget=OSMWidget(
+            attrs={
+                "default_zoom": 4,
+                "display_wkt": True,
+                "map_width": 700,
+                "map_height": 500,
+            }
+        )
+    )
+    # For JSONFieldFormMixin -- this identifies the Model attribute that is the JSON Field.
+    json_field = "additional"
 
     class Meta:
         model = SubjectSource
-        json_fields = ('chronofile', 'data_status', 'data_starts_source',
-                       'data_stops_source', 'data_stops_reason', 'date_off_or_removed', 'comments')
-        fields = ('id', 'subject', 'source', 'assigned_range',
-                  'additional') + json_fields
+        json_fields = (
+            "chronofile",
+            "data_status",
+            "data_starts_source",
+            "data_stops_source",
+            "data_stops_reason",
+            "date_off_or_removed",
+            "comments",
+        )
+        fields = (
+            "id",
+            "subject",
+            "source",
+            "assigned_range",
+            "static_sensor_position",
+            "additional",
+        ) + json_fields
 
-    assigned_range = AssignedDateTimeRangeField(
-        label=f'Assigned Range in {TIMEZONE_USED}', required=True, validators=[validate_assigned_range])
+    def __init__(self, *args, **kwargs):
+        super(SubjectSourceForm, self).__init__(*args, **kwargs)
+        self.fields["data_stops_reason"].choices = self.fetch_stop_reasons()
 
-    # For JSONFieldFormMixin -- this identifies the Model attribute that is
-    # the JSON Field.
-    json_field = 'additional'
-
-    source = forms.ModelChoiceField(
-        queryset=Source.objects.all().order_by('manufacturer_id').prefetch_related('provider',))
+    @staticmethod
+    def fetch_stop_reasons():
+        stop_reasons_choices = {"": ""}
+        for stop_reason in Choice.objects.filter(
+            model="observations.Source", field="data stops reason"
+        ).order_by("ordernum"):
+            stop_reasons_choices[stop_reason.value] = stop_reason.display
+        return tuple([(key, value) for key, value in stop_reasons_choices.items()])
 
 
 silence_notification_threshold_help_text_for_source =  \
@@ -311,6 +337,15 @@ class SubjectForm(JSONFieldFormMixin, forms.ModelForm):
         if commit:
             instance.save()
         return instance
+
+    def clean_subject_subtype(self):
+        subject_subtype = self.cleaned_data["subject_subtype"]
+        try:
+            return SubjectSubType.objects.get(value=subject_subtype)
+        except SubjectSubType.DoesNotExits:
+            raise ValidationError(
+                f"The value for this subject subtype {subject_subtype} does not exists"
+            )
 
 
 class SubjectChangeListForm(forms.ModelForm):

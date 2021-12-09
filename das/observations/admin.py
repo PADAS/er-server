@@ -1,5 +1,4 @@
 import csv
-import json
 import random
 import urllib
 from datetime import datetime, timedelta
@@ -8,13 +7,22 @@ from urllib.parse import quote as urlquote
 from uuid import UUID
 
 import humanize
+import observations.forms
+import observations.models as models
 import pytz
 from bitfield import BitField
 from bitfield.forms import BitFieldCheckboxSelectMultiple
+from core.admin import (
+    HierarchyModelAdmin,
+    InlineExtraDynamicMixin,
+    SaveCoordinatesToCookieMixin,
+)
+from core.common import TIMEZONE_USED
+from core.openlayers import OSMGeoExtendedAdmin
 from django import forms
 from django.conf import settings
-from django.contrib import admin
-from django.contrib import messages
+from django.contrib import admin, messages
+from django.contrib.admin import SimpleListFilter
 from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
 from django.contrib.admin.utils import quote
 from django.contrib.admin.widgets import FilteredSelectMultiple
@@ -22,44 +30,48 @@ from django.contrib.auth import get_permission_codename
 from django.contrib.contenttypes.admin import GenericTabularInline
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.paginator import Paginator
-from django.db import connection
-from django.db import transaction
-from django.db.models import Aggregate
-from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
-from django.db.models import ExpressionWrapper, Max, Min
-from django.db.models import F, Q, Window, RowRange, Count
-from django.db.models.functions import FirstValue, Trunc
-from django.db.models.functions import Now
+from django.db import connection, transaction
+from django.db.models import (
+    Aggregate,
+    BooleanField,
+    Count,
+    DateTimeField,
+    ExpressionWrapper,
+    F,
+    Max,
+    Min,
+    OuterRef,
+    Q,
+    Subquery,
+    Window,
+)
+from django.db.models.functions import FirstValue, Now, Trunc
 from django.db.utils import IntegrityError
-from django.forms import modelformset_factory, BaseModelFormSet
+from django.forms import BaseModelFormSet, modelformset_factory
 from django.http import HttpResponse
 from django.http.response import HttpResponseRedirect
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.functional import cached_property
-from django.utils.html import escape
-from django.utils.html import format_html
+from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
-from pygments import highlight
-from pygments.formatters.html import HtmlFormatter
-from pygments.lexers.data import JsonLexer
-
-import observations.forms
-import observations.models as models
-from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin, \
-    SaveCoordinatesToCookieMixin
-from core.common import TIMEZONE_USED
-from core.openlayers import OSMGeoExtendedAdmin
 from observations.daterange_filter import DateRangeFilter
-from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm, GPXFileForm, \
-    MessageGenericForeignKeyRawIdWidget, MessagesForm
-from observations.tasks import process_gpxtrack_file, maintain_subjectstatus_for_subject
-from observations.utils import assigned_range_dates, get_cyclic_subjectgroup, find_paths
+from observations.forms import (
+    GPXFileForm,
+    MessageGenericForeignKeyRawIdWidget,
+    MessagesForm,
+    SourceProviderForm,
+    SubjectChangeListForm,
+    SubjectSourceForm,
+)
+from observations.tasks import maintain_subjectstatus_for_subject, process_gpxtrack_file
+from observations.utils import assigned_range_dates, get_cyclic_subjectgroup
 from tracking.models import SourcePlugin
 from utils.html import make_html_list
+
 from .models import SOURCE_TYPES
-from django.contrib.admin import SimpleListFilter
+
 
 site_title = _('EarthRanger Administration (advanced view)')
 admin.site.site_title = site_title
@@ -130,8 +142,8 @@ class ValidateFilterMixin:
 
     def check_uuid(self, uuid):
         try:
-            uuid_version = UUID(uuid).version
-        except Exception as exc:
+            UUID(uuid).version
+        except Exception:
             return
         return uuid
 
@@ -192,42 +204,61 @@ class SubjectSubTypeAdmin(admin.ModelAdmin):
 
 
 class SubjectSourceInline(InlineExtraDynamicMixin, admin.StackedInline):
+    can_delete = True
+    fk_name = "subject"
+    form = SubjectSourceForm
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    (
+                        "subject",
+                        "source",
+                    ),
+                )
+            },
+        ),
+        (None, {"classes": ("wide",), "fields": ("assigned_range",)}),
+        (None, {"fields": ("static_sensor_position",)}),
+        (
+            "Source Assignment Attributes",
+            {
+                "classes": (
+                    "wide",
+                    "collapse",
+                ),
+                "fields": (
+                    "chronofile",
+                    "data_status",
+                    "data_starts_source",
+                    "data_stops_source",
+                    "data_stops_reason",
+                    "date_off_or_removed",
+                    "comments",
+                ),
+            },
+        ),
+        (
+            "Raw Attributes Data",
+            {
+                "classes": (
+                    "wide",
+                    "collapse",
+                ),
+                "fields": ("additional", "id"),
+            },
+        ),
+    )
     model = models.SubjectSource
+    readonly_fields = ("additional",)
+    show_change_link = True
+    template = "admin/observations/subjectsource/edit_inline/stacked.html"
+    verbose_name = _("Source Assignment")
+    verbose_name_plural = _("Source Assignments")
 
     def get_queryset(self, request):
-        return super().get_queryset(request).order_by('-assigned_range__startswith')
-
-    can_delete = True
-    verbose_name = _('Source Assignment')
-    verbose_name_plural = _('Source Assignments')
-    show_change_link = True
-    fk_name = 'subject'
-    readonly_fields = ('additional', )
-    template = 'admin/observations/subjectsource/edit_inline/stacked.html'
-
-    form = SubjectSourceForm
-
-    fieldsets = (
-        (None, {
-            'fields': (('subject', 'source',),)
-        }
-        ),
-        (None, {
-            'classes': ('wide',),
-            'fields': ('assigned_range',)
-        }
-        ),
-        ('Source Assignment Attributes', {
-            'classes': ('wide', 'collapse',),
-            'fields': ('chronofile', 'data_status', 'data_starts_source', 'data_stops_source', 'data_stops_reason', 'date_off_or_removed', 'comments')
-        }
-        ),
-        ('Raw Attributes Data', {
-            'classes': ('wide', 'collapse',),
-            'fields': ('additional', 'id')
-        }
-        )
-    )
+        return super().get_queryset(request).order_by("-assigned_range__startswith")
 
 
 class SourceGenericInline(GenericTabularInline):
@@ -1664,7 +1695,7 @@ class SubjectPositionSummaryAdmin(admin.ModelAdmin):
         )
 
         try:
-            qs = response.context_data['cl'].queryset
+            response.context_data['cl'].queryset
         except (AttributeError, KeyError):
             return response
 
