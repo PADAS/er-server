@@ -111,6 +111,6 @@ def five_patrol_segment_patrol_type_uuid():
             patrol_type__id=f"00000000-0000-0000-0000-00000000000{i}"
         )
 
-
+@pytest.fixture
 def source_provider():
     return ProviderFactory.create()

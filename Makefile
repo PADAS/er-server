@@ -36,3 +36,9 @@ test-class:
 
 format-file:
 	./formatter_py_files.sh ${FILE}
+
+check-requirements:
+	safety check -r dependencies/requirements.txt
+
+make check-requirements-dev:
+	safety check -r dependencies/requirements-dev.txt
