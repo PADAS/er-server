@@ -210,6 +210,8 @@ locals {
     "zcp-southluangwa"        = "prod1"
     "baclip"                  = "prod1"
     "wrti"                    = "prod1"
+    "bdr"                     = "prod1"
+    "yellowstone"             = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
