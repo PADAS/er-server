@@ -1589,7 +1589,7 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             queryset = self.by_date_range(
                 filter.get("date_range"), patrols_overlap_daterange
             )
-        if filter.get("text") in filter:
+        if filter.get("text"):
             text = filter.get("text")
             if text:
                 subjects_id = self._get_match_subjects_id(text)
