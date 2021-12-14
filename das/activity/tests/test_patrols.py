@@ -812,64 +812,22 @@ class TestPatrol(BaseAPITest):
             title='Overdue Patrol',
             patrol_segments=[{'scheduled_start': (self.now - datetime.timedelta(minutes=45)).isoformat()}])
         cancelled_patrol = dict(title='Cancelled Patrol', state='cancelled')
+        Patrol.objects.all().delete()
 
         for patrol in [scheduled_patrol, active_patrol, done_patrol, overdue_patrol, cancelled_patrol]:
             self._create_patrol(patrol)
 
         for st_filter in [e.value for e in StateFilters]:
-            filter_param = {"state": st_filter}
+            filter_param = {"status": st_filter}
             response = self._filter_patrol(filter_param)
             self.assertEqual(response.data.get('count'), 1)
 
         url = reverse('patrols') + \
-            f'?state=scheduled&state=active&state=done&state=cancelled'
+            f'?status=scheduled&status=active&status=done&status=cancelled'
         request = self.factory.get(self.api_base + url)
         self.force_authenticate(request, self.user)
         response = views.PatrolsView.as_view()(request)
         self.assertEqual(response.data.get('count'), 4)
-
-    def test_patrol_filter_by_patrol_type(self):
-        patrol = dict(title='Test Patrol', patrol_segments=[
-                      {'patrol_type': 'dog_patrol'}])
-        self._create_patrol(patrol)
-
-        filter_param = {"patrol_type": "routine_patrol"}
-        response = self._filter_patrol(filter_param)
-        self.assertEqual(response.data.get('count'), 0)
-
-        filter_param = {"patrol_type": "dog_patrol"}
-        response = self._filter_patrol(filter_param)
-        self.assertEqual(response.data.get('count'), 1)
-
-    def test_patrol_filter_by_tracked_subject(self):
-        subj = Subject.objects.create(
-            name='Heritage', subject_subtype_id='elephant')
-        patrol_data = dict(
-            title="Patrol with tracked subject",
-            patrol_segments=[{
-                "patrol_type": "dog_patrol",
-                "leader": {
-                    "content_type": "observations.subject",
-                    "id": subj.id,
-                    "name": "The Don Galaxy 5",
-                    "subject_type": "wildlife",
-                    "subject_subtype": "elephant",
-                    "additional": {
-                    },
-                    "created_at": "2020-08-05T01:31:42.474284+03:00",
-                    "updated_at": "2020-08-05T01:31:42.474315+03:00",
-                    "is_active": True,
-                    "tracks_available": False,
-                    "image_url": "/static/elephant-black.svg"
-                }
-            }]
-        )
-        self._create_patrol(patrol_data)
-        filter_param = {"subject": subj.id}
-        response = self._filter_patrol(filter_param)
-        self.assertEqual(response.data.get('count'), 1)
-        self.assertEqual(response.data.get('results')[
-                         0].get('title'), patrol_data.get('title'))
 
     def test_patrol_filter_with_null_end_time(self):
         start = self.start_of_today - datetime.timedelta(days=3)  # 3 days ago
