@@ -15,6 +15,9 @@
 			"NODE_VERSION": "lts/*"
 		}
 	},
+	"containerEnv": {
+		"DJANGO_SETTINGS_MODULE": "das_server.local_settings"
+	},
 
 	// Set *default* container specific settings.json values on container create.
 	"settings": { 
@@ -23,19 +26,18 @@
 				"path": "/bin/bash"
 			}
 		},
-		"python.defaultInterpreterPath": "/usr/local/bin/python",
-		"python.languageServer": "Default",
+		"python.defaultInterpreterPath": "/usr/bin/python3",
 		"python.linting.enabled": true,
 		"python.linting.pylintEnabled": true,
-		"python.formatting.autopep8Path": "/usr/local/pip-global/autopep8",
-		"python.formatting.blackPath": "/usr/local/pip-global/black",
-		"python.formatting.yapfPath": "/usr/local/pip-global/yapf",
-		"python.linting.banditPath": "/usr/local/pip-global/bandit",
-		"python.linting.flake8Path": "/usr/local/pip-global/flake8",
-		"python.linting.mypyPath": "/usr/local/pip-global/mypy",
-		"python.linting.pycodestylePath": "/usr/local/pip-global/pycodestyle",
-		"python.linting.pydocstylePath": "/usr/local/pip-global/pydocstyle",
-		// "python.linting.pylintPath": "/usr/local/py-utils/bin/pylint"
+		"python.formatting.autopep8Path": "/usr/local/py-utils/bin/autopep8",
+		"python.formatting.blackPath": "/usr/local/py-utils/bin/black",
+		"python.formatting.yapfPath": "/usr/local/py-utils/bin/yapf",
+		"python.linting.banditPath": "/usr/local/py-utils/bin/bandit",
+		"python.linting.flake8Path": "/usr/local/py-utils/bin/flake8",
+		"python.linting.mypyPath": "/usr/local/py-utils/bin/mypy",
+		"python.linting.pycodestylePath": "/usr/local/py-utils/bin/pycodestyle",
+		"python.linting.pydocstylePath": "/usr/local/py-utils/bin/pydocstyle",
+		"python.linting.pylintPath": "/usr/local/py-utils/bin/pylint"
 	},
 
 	// Add the IDs of extensions you want installed when the container is created.

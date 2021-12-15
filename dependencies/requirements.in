@@ -28,8 +28,8 @@ pycryptodome==3.11.0
 jsonschema==3.0.2
 
 greenlet==0.4.16
-gunicorn==20.0.4
-eventlet==0.31.0
+gunicorn==20.1.0
+eventlet==0.30.2
 gevent==1.5.0
 
 django-bitfield==1.9.6
