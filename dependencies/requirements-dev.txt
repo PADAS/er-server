@@ -775,7 +775,7 @@ python-docx==0.8.6
     # via
     #   -r ./requirements.txt
     #   docxtpl
-python-engineio==3.14.2
+python-engineio==3.13.2
     # via -r ./requirements.txt
 python-json-logger==0.1.11
     # via -r ./requirements.txt

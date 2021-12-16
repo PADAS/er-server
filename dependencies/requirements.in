@@ -14,7 +14,7 @@ simplejson==3.17.0
 pytz==2020.1
 python-dateutil==2.8.1
 requests==2.24.0
-python-engineio==3.14.2
+python-engineio==3.13.2
 celery==4.2.2
 celery_once==1.2.0
 kombu==4.2.2-post1
