@@ -110,7 +110,7 @@
             "name": "ER Workers",
             "type": "python",
             "request": "launch",
-            "module": "celery",
+            "program": "/usr/local/bin/celery",
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
             "args": [
@@ -129,8 +129,7 @@
                 "-n",
                 "priority"
             ],
-            "postDebugTask": "killdebugger",
-            "django": true,
+            //"postDebugTask": "killdebugger",
             "env":{
                 "DJANGO_SETTINGS_MODULE": "das_server.local_settings",
             }
