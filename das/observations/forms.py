@@ -240,14 +240,16 @@ class SubjectSubtypeChoiceField(forms.ModelChoiceField):
 def get_subject_subtype_choices():
     choices = []
     subjects_type = SubjectType.objects.all().order_by("value")
-    for subject_type in subjects_type:
-        subjects_subtype = subject_type.subjectsubtype_set.all().order_by("display")
-        subjects_subtype = [
-            (subject_subtype.value, subject_subtype.display)
-            for subject_subtype in subjects_subtype
-        ]
-        choices.append((subject_type.display.upper(),
-                       (list(subjects_subtype))))
+    print(subjects_type)
+    if subjects_type:
+        for subject_type in subjects_type:
+            subjects_subtype = subject_type.subjectsubtype_set.all().order_by("display")
+            subjects_subtype = [
+                (subject_subtype.value, subject_subtype.display)
+                for subject_subtype in subjects_subtype
+            ]
+            choices.append((subject_type.display.upper(),
+                           (list(subjects_subtype))))
     return choices
 
 
