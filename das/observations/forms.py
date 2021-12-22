@@ -445,7 +445,8 @@ class TranformationRuleWidget(forms.MultiWidget):
         context['widget']['subwidgets'] = list_subwidgets
         context['sample_data'] = json.loads(
             json.dumps(self.provider, sort_keys=True, indent=4))
-
+        context["default_feature"] = self._get_default_feature(
+            self.transform_rules)
         return context
 
     def render(self, name, value, attrs=None, renderer=None):
@@ -455,6 +456,12 @@ class TranformationRuleWidget(forms.MultiWidget):
 
     def decompress(self, value):
         return [] if value is None else value
+
+    def _get_default_feature(self, transform_rules):
+        for rule in transform_rules:
+            if rule.get("default"):
+                return rule.get("dest")
+        return None
 
 
 def generate_sample_data(provider):

@@ -5,12 +5,10 @@
     let message = JSON.parse(tranform_rules.val()) ? JSON.parse(tranform_rules.val()) : []
     let dest_index = {}
 
-
-    let get_dest = function (source){
+    let get_dest = function (source) {
         source = source.split('.')
         return source[source.length - 1] === "[]" ? source[source.length - 2] : source[source.length - 1]
     }
-
 
     /* map dest value to row index.: */
     let map_dest_index = function () {
@@ -29,18 +27,18 @@
     tranform_rules.before("<p style=\"color: #777; margin-left: 10px;\">Advanced transformation rules (<span><a class=\"click-toggle\"  href='javascript:'>Show</a></span>) </p>")
 
     let get_value = function (e) {
-        let target = e.target
+        let target = e.target;
         let row = target.id.split('_')[2];
         let value = target.value;
-        let source = $(`#transform_key-${row}`).text()
-        let destination = get_dest(source)
+        let source = $(`#transform_key-${row}`).text();
+        let destination = get_dest(source);
         let index = dest_index[destination];
 
-        return {index: index, value: value}
+        return { index: index, value: value }
     }
 
     $(document).ready(function () {
-        
+
         let i;
         let rules = $('[id^="id_tranformation_rule_"]')
 
@@ -57,7 +55,6 @@
 
     })
 
-
     $('.click-toggle').click(function (event) {
 
         let x = event.target;
@@ -71,7 +68,6 @@
 
     })
 
-
     $('[id^="id_tranformation_rule_"]').change(function (event) {
         let checkbox = event.target;
         let row = checkbox.id.split('_')[3];
@@ -81,7 +77,7 @@
 
         if (index === undefined) {
             source = source.replaceAll('[]', "[0]")
-            message.push({"dest": `${destination}`, "label": `${destination}`, "source": `${source}`, "units": ""})
+            message.push({ "dest": `${destination}`, "label": `${destination}`, "source": `${source}`, "units": "" })
             let new_msg = JSON.stringify(message, undefined, 2);
             $('#id_transforms').val(new_msg);
             map_dest_index()
@@ -118,8 +114,7 @@
         message[index].label = index_value.value;
         let msg = JSON.stringify(message, undefined, 2);
         $('#id_transforms').val(msg);
-    })
-
+    });
 
     $('[id^="transform_unit_"]').keyup(function (event) {
         let index_value = get_value(event);
@@ -130,6 +125,12 @@
         $('#id_transforms').val(msg);
     })
 
+    $('input[type=radio][name=default]').change(function (event) {
+        message.forEach(element => {
+            element.default = element.dest === this.value;
+        });
+        let msg = JSON.stringify(message, undefined, 2);
+        $('#id_transforms').val(msg);
+    });
 
 })(django.jQuery);
-
