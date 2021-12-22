@@ -212,6 +212,7 @@ locals {
     "wrti"                    = "prod1"
     "bdr"                     = "prod1"
     "yellowstone"             = "prod1"
+    "mpala"                   = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
