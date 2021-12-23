@@ -5,9 +5,6 @@ import re
 from datetime import datetime, timedelta
 
 import pytz
-from django.contrib.gis.forms import PointField, OSMWidget
-from django.core.exceptions import ValidationError
-
 from choices.models import Choice
 from core.common import TIMEZONE_USED
 from core.forms_utils import (
@@ -19,7 +16,9 @@ from django import forms
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import AdminDateWidget, FilteredSelectMultiple
 from django.contrib.auth import get_user_model
+from django.contrib.gis.forms import OSMWidget, PointField
 from django.contrib.postgres.forms import JSONField
+from django.core.exceptions import ValidationError
 from django.urls import reverse
 from django.utils.dateparse import parse_duration
 from django.utils.translation import ugettext_lazy as _
@@ -33,11 +32,9 @@ from observations.models import (
     Subject,
     SubjectGroup,
     SubjectSource,
-    SubjectSubType,
-    SubjectType,
+    SubjectSubType
 )
 from observations.utils import find_paths
-
 
 logger = logging.getLogger(__name__)
 
@@ -77,14 +74,16 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
         )
     )
     static_sensor_position = PointField(
+        srid=4326,
         widget=OSMWidget(
             attrs={
                 "default_zoom": 4,
                 "display_wkt": True,
                 "map_width": 700,
                 "map_height": 500,
+                "map_srid": 4326
             }
-        )
+        ), required=False
     )
     # For JSONFieldFormMixin -- this identifies the Model attribute that is the JSON Field.
     json_field = "additional"
