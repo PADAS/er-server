@@ -96,5 +96,6 @@ def five_events_with_details():
     EventDetailsFactory.create_batch(5)
 
 
+@pytest.fixture
 def source_provider():
     return ProviderFactory.create()

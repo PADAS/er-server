@@ -1,14 +1,11 @@
 import uuid
 from datetime import datetime, timedelta
 
-from dateutil.parser import parse
-from django.conf import settings
-from django.test import TestCase
-from pytz import timezone
-
 from choices.models import Choice
+from django.contrib.gis.geos import Point
+from django.test import TestCase
 from observations.forms import SourceForm, SubjectSourceForm
-from observations.models import SourceProvider, Source, Subject, SubjectSource
+from observations.models import Source, SourceProvider, Subject, SubjectSource
 from observations.utils import convert_date_string
 
 
@@ -94,7 +91,7 @@ class SubjectSourceAdditionalTest(TestCase):
         end_date = end_date.strftime(format=date_time_format)
         form_data = {'id': uuid.uuid4(), 'subject': self.henry.id,
                      'source': self.source.id, 'assigned_range_0': start_date,
-                     'assigned_range_1': end_date
+                     'assigned_range_1': end_date, "static_sensor_position": Point(1, 1)
                      }
         additional_data = {'data_status': 'Activated',
                            'data_stops_reason': 'Damaged'}
