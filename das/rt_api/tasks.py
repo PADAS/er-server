@@ -169,10 +169,8 @@ def get_filtered_events(event_filter, queryset):
 
 
 def get_filtered_patrols(patrol_filter, queryset):
-    patrol_filter = urllib.parse.parse_qs(patrol_filter)
-
     if patrol_filter.get("filter"):
-        filters = json.loads(patrol_filter["filter"][0])
+        filters = patrol_filter["filter"]
         queryset = queryset.by_patrol_filter(filters)
 
     if patrol_filter.get("status"):
