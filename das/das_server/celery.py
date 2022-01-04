@@ -3,12 +3,11 @@ from __future__ import absolute_import
 import os
 from datetime import timedelta
 
-from django.conf import settings
-from kombu import Exchange, Queue
-
 from celery import Celery
 from celery.schedules import crontab
 from celery.signals import setup_logging
+from django.conf import settings
+from kombu import Exchange, Queue
 
 # set the default Django settings module for the 'celery' program.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'das_server.settings')
@@ -48,6 +47,7 @@ app.conf.task_routes = {
     'rt_api.tasks.handle_new_patrol': {'queue': 'realtime_p2', },
     'rt_api.tasks.handle_update_patrol': {'queue': 'realtime_p2', },
     'rt_api.tasks.handle_delete_patrol': {'queue': 'realtime_p3', },
+    'activity.tasks.periodically_maintain_patrol_state': {'queue': 'realtime_p2'},
     'observations.tasks.handle_source_with_new_observations': {'queue': 'realtime_p2'},
     'observations.tasks.maintain_subjectstatus_for_subject': {'queue': 'maintenance'},
     'observations.tasks.maintain_observation_data': {'queue': 'maintenance'},
@@ -159,7 +159,10 @@ app.conf.beat_schedule = {
         'task': 'observations.tasks.poll_news_gcs_bucket',
         'schedule': timedelta(minutes=5)
     },
-
+    'periodically_maintain_patrol_state': {
+        'task': 'activity.tasks.periodically_maintain_patrol_state',
+        'schedule': timedelta(minutes=1)
+    }
 }
 
 # Patch Celery's configuration with some attributes that Celery_once will
