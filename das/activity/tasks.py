@@ -204,7 +204,10 @@ def periodically_maintain_patrol_state():
     now = datetime.now(tz=pytz.utc)
     done_patrols = Patrol.objects.filter(Q(patrol_segment__time_range__endswith__lte=now) & Q(
         state=PC_OPEN) & Q(patrol_segment__scheduled_end=None))
-    done_patrols.update(state=PC_DONE)
+
+    for patrol in done_patrols:
+        patrol.state = PC_DONE
+        patrol.save()
 
 
 @celery.app.task
