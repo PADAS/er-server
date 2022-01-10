@@ -213,6 +213,8 @@ locals {
     "bdr"                     = "prod1"
     "yellowstone"             = "prod1"
     "mpala"                   = "prod1"
+    "nstcg-tz"                = "prod1"
+    "ntap-tz"                 = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -314,6 +316,7 @@ locals {
     "pantherakafue"         = 1
     "baclip"                = 1
     "schoongezicht"         = 1
+    "ntap-tz"               = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
