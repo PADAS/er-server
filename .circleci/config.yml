@@ -99,8 +99,9 @@ commands:
             make render_templates tfvars_environment="$CIRCLE_BRANCH"
       - 'toggle_firewall_for_build_agent_k8s_closure':
           inner_command: 'cd infra-automation && make kubectl_apply_via_proxy'
-      - 'toggle_firewall_for_build_agent_k8s_closure':
-          inner_command: 'cd infra-automation && make database_init tfvars_environment="$CIRCLE_BRANCH"'
+      # - 'toggle_firewall_for_build_agent_k8s_closure':
+      #     inner_command: 'cd infra-automation && make database_init tfvars_environment="$CIRCLE_BRANCH"'
+      - 'toggle_kubernetes_api_firewall'
       - persist_to_workspace:
           root: './'
           paths:
@@ -150,6 +151,22 @@ commands:
       - run:
           command: "gcloud compute firewall-rules delete \"k8s-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --project=\"$K8S_PROXY_PROJECT\" --quiet"
           when: 'always'
+  toggle_kubernetes_api_firewall:
+    parameters:
+      inner_command:
+        type: 'string'
+    steps:
+      - 'activate_google_service_account'
+      - run: "gcloud config set project earthranger-78ca55ca -q --no-user-output-enabled > /dev/null"
+      - run:
+          name: 'Get credentials'
+          command: echo "export ALLOWED_IP_ADDRESS=$(gcloud container clusters describe das-dev --zone us-west1-a --format json | jq -r \".masterAuthorizedNetworksConfig.cidrBlocks[] | .cidrBlock\" | sed -z 's/\\n/,/g;s/,$/\\n/')" >> $BASH_ENV
+      - run: echo ${ALLOWED_IP_ADDRESS}
+      # - run: gcloud container clusters update das-dev --enable-master-authorized-networks --zone us-west1-a --master-authorized-networks $(curl --silent ifconfig.me)/32,${ALLOWED_IP_ADDRESS}
+      - run: '<<parameters.inner_command>>'
+      # - run:
+      #     command: "gcloud compute firewall-rules delete \"k8s-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --project=\"$K8S_PROXY_PROJECT\" --quiet"
+      #     when: 'always'
 
 executors:
   default:
