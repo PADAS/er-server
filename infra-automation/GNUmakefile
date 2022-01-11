@@ -119,7 +119,8 @@ database_init: ## Initialize a feature site database | [tfvars_environment="BRAN
 	@ $$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="gcloud_kubectl_configuration" || false) && \
 	ALLOWED_IP_ADDRESS=$$($(CURDIR)/get_cidr_blocks.sh) && \
 	echo $$ALLOWED_IP_ADDRESS
-	if [ -z "$$ALLOWED_IP_ADDRESS" ]; then exit 1; fi && \
+	ALLOWED_IP_ADDRESS=""
+	if [ -z "$$ALLOWED_IP_ADDRESS" ]; then echo "Error fetching allowed IP addresses" && exit 1; fi && \
 	CONTAINER_IP_ADDRESS=$$(curl --silent ifconfig.me)/32 && \
 	K8S_NAMESPACE=$$(echo "$(tfvars_environment)" | tr '[:upper:]' '[:lower:]')
 	# gcloud container clusters update das-dev \
