@@ -158,6 +158,7 @@ commands:
         type: 'string'
     steps:
       - 'activate_google_service_account'
+      - run: 'apt-get install -y jq'
       - run: "gcloud config set project earthranger-78ca55ca -q --no-user-output-enabled > /dev/null"
       - run:
           name: 'Get credentials'
