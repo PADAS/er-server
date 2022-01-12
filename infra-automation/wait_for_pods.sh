@@ -13,7 +13,7 @@ function __pods_ready() {
 
   pods=$1
   namespace=$2
-  
+
   echo $pods
   echo $namespace
 
@@ -27,9 +27,9 @@ function __pods_ready() {
 }
 
 function __wait-until-pods-ready() {
-  local period interval i pods
+  local period interval i pods namespace
 
-  if [[ $# != 2 ]]; then
+  if [[ $# != 3 ]]; then
     echo "Usage: wait-until-pods-ready PERIOD INTERVAL" >&2
     echo "" >&2
     echo "This script waits for all pods to be ready in the current namespace." >&2
