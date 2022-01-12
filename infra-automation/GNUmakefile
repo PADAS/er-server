@@ -117,7 +117,7 @@ kubectl_apply: ## kubectl apply (recursively) everything in the ./k8s path
 database_init: tfvars_environment ?= no_overrides
 database_init: ## Initialize a feature site database | [tfvars_environment="BRANCH_NAME"]
 	@ $$($(MAKE) --no-print-directory --silent -f $(this_file) tf_output output_name="gcloud_kubectl_configuration" || false) && \
-	K8S_NAMESPACE=$$(echo "$(tfvars_environment)" | tr '[:upper:]' '[:lower:]')
+	K8S_NAMESPACE=$$(echo "$(tfvars_environment)" | tr '[:upper:]' '[:lower:]') && \
 	echo $$K8S_NAMESPACE && \
 	K8S_POD=$$(kubectl get pods -n $$K8S_NAMESPACE --selector=das.component=api -o jsonpath='{.items[*].metadata.name}') && \
 	echo $$K8S_POD
