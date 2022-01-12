@@ -12,9 +12,6 @@ function __pods_ready() {
 
   pods=$1
 
-  echo "Pods: $pods"
-  echo "Namespace: $namespace"
-
   [[ "$#" == 0 ]] && return 0
 
   for pod in $pods; do
@@ -37,8 +34,6 @@ function __wait-until-pods-ready() {
 
   period="$1"
   interval="$2"
-
-  echo "The namespace is ${namespace}"
 
   for ((i=0; i<$period; i+=$interval)); do
     pods="$(kubectl get po -n $namespace -o 'jsonpath={.items[*].metadata.name}')"
