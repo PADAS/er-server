@@ -99,10 +99,8 @@ commands:
             make render_templates tfvars_environment="$CIRCLE_BRANCH"
       - 'toggle_firewall_for_build_agent_k8s_closure':
           inner_command: 'cd infra-automation && make kubectl_apply_via_proxy'
-      # - 'toggle_firewall_for_build_agent_k8s_closure':
-      #     inner_command: 'cd infra-automation && make database_init tfvars_environment="$CIRCLE_BRANCH"'
       - 'toggle_kubernetes_api_firewall':
-          inner_command: 'echo "hello world"'
+          inner_command: 'cd infra-automation && make database_init tfvars_environment="$CIRCLE_BRANCH"'
       - persist_to_workspace:
           root: './'
           paths:
