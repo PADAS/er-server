@@ -162,7 +162,7 @@ commands:
       - run: "gcloud config set project earthranger-78ca55ca -q --no-user-output-enabled > /dev/null"
       - run:
           name: 'Get credentials'
-          command: echo "export ALLOWED_IP_ADDRESS=$(gcloud container clusters describe das-dev --zone us-west1-a --format json)" >> $BASH_ENV
+          command: echo 'export ALLOWED_IP_ADDRESS=$(gcloud container clusters describe das-dev --zone us-west1-a --format json)' >> $BASH_ENV
           #  | jq -r ".masterAuthorizedNetworksConfig.cidrBlocks[] | .cidrBlock" | sed -z 's/\n/,/g;s/,$/\n/'
       - run: echo "${ALLOWED_IP_ADDRESS}"
       # - run: gcloud container clusters update das-dev --enable-master-authorized-networks --zone us-west1-a --master-authorized-networks $(curl --silent ifconfig.me)/32,${ALLOWED_IP_ADDRESS}
