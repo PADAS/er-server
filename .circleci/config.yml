@@ -161,15 +161,13 @@ commands:
       - run: 'apt-get install -y jq'
       - run: "gcloud config set project earthranger-78ca55ca -q --no-user-output-enabled > /dev/null"
       - run:
-          name: 'Get credentials'
+          name: 'Get IP address'
           command: echo 'export ALLOWED_IP_ADDRESS=$(gcloud container clusters describe das-dev --zone us-west1-a --format json | jq -r ".masterAuthorizedNetworksConfig.cidrBlocks[] | .cidrBlock" | sed -z "s/\n/,/g;s/,$/\n/")' >> $BASH_ENV
-          #sed -z 's/\n/,/g;s/,$/\n/'
-      - run: echo "${ALLOWED_IP_ADDRESS}"
-      # - run: gcloud container clusters update das-dev --enable-master-authorized-networks --zone us-west1-a --master-authorized-networks $(curl --silent ifconfig.me)/32,${ALLOWED_IP_ADDRESS}
+      - run: gcloud container clusters update das-dev --enable-master-authorized-networks --zone us-west1-a --master-authorized-networks $(curl --silent ifconfig.me)/32,${ALLOWED_IP_ADDRESS}
       - run: '<<parameters.inner_command>>'
-      # - run:
-      #     command: "gcloud compute firewall-rules delete \"k8s-cci-${CIRCLE_SHA1:0:8}-${CIRCLE_BUILD_NUM}\" --project=\"$K8S_PROXY_PROJECT\" --quiet"
-      #     when: 'always'
+      - run:
+          command: gcloud container clusters update das-dev --enable-master-authorized-networks --zone us-west1-a --master-authorized-networks ${ALLOWED_IP_ADDRESS}
+          when: 'always'
 
 executors:
   default:
