@@ -8,7 +8,12 @@ function __is_pod_ready() {
 
 function __pods_ready() {
   local pod
+  local pods
+  local namespace
 
+  pods=$1
+  namespace=$2
+  
   echo $pods
   echo $namespace
 
