@@ -9,13 +9,11 @@ function __is_pod_ready() {
 function __pods_ready() {
   local pod
   local pods
-  local namespace
 
   pods=$1
-  namespace=$2
 
-  echo $pods
-  echo $namespace
+  echo "Pods: $pods"
+  echo "Namespace: $namespace"
 
   [[ "$#" == 0 ]] && return 0
 
@@ -27,7 +25,7 @@ function __pods_ready() {
 }
 
 function __wait-until-pods-ready() {
-  local period interval i pods namespace
+  local period interval i pods
 
   if [[ $# != 3 ]]; then
     echo "Usage: wait-until-pods-ready PERIOD INTERVAL" >&2
@@ -39,11 +37,12 @@ function __wait-until-pods-ready() {
 
   period="$1"
   interval="$2"
-  namespace="$3"
+
+  echo "The namespace is ${namespace}"
 
   for ((i=0; i<$period; i+=$interval)); do
     pods="$(kubectl get po -n $namespace -o 'jsonpath={.items[*].metadata.name}')"
-    if __pods_ready $pods $namespace; then
+    if __pods_ready $pods; then
       return 0
     fi
 
@@ -55,4 +54,5 @@ function __wait-until-pods-ready() {
   return 1
 }
 
+export namespace="$3"
 __wait-until-pods-ready $@
