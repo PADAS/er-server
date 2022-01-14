@@ -1,28 +1,39 @@
 import json
 import logging
-import re
 import random
-import pytz
-
+import re
 from datetime import datetime, timedelta
 
-from django.utils.translation import ugettext_lazy as _
-from django.utils.dateparse import parse_duration
-
-from django import forms
-from django.contrib.admin.helpers import ActionForm
-from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
-from django.contrib.postgres.forms import JSONField
-from django.db.models import F, Q, Window, RowRange, Count, Aggregate
-from django.urls import reverse
-from django.contrib.auth import get_user_model
-
-from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider, GPXTrackFile, Observation, Message
-from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
+import pytz
 from choices.models import Choice
 from core.common import TIMEZONE_USED
-from observations.utils import find_paths, JsonAgg
+from core.forms_utils import (
+    AssignedDateTimeRangeField,
+    ColorPickerWidget,
+    JSONFieldFormMixin,
+)
+from django import forms
+from django.contrib.admin.helpers import ActionForm
+from django.contrib.admin.widgets import AdminDateWidget, FilteredSelectMultiple
+from django.contrib.auth import get_user_model
+from django.contrib.postgres.forms import JSONField
+from django.urls import reverse
+from django.utils.dateparse import parse_duration
+from django.utils.translation import ugettext_lazy as _
 from observations.message_adapters import ADAPTER_MAPPING
+from observations.models import (
+    GPXTrackFile,
+    Message,
+    Observation,
+    Source,
+    SourceProvider,
+    Subject,
+    SubjectGroup,
+    SubjectSource,
+    SubjectSubType,
+)
+from observations.utils import find_paths
+
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +42,8 @@ def validate_assigned_range(value):
     lower, upper = value
     if lower and upper:
         if lower > upper:
-            raise forms.ValidationError(_('range lower bound must be less than or equal to range upper bound'))
+            raise forms.ValidationError(
+                _('range lower bound must be less than or equal to range upper bound'))
 
 
 class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
@@ -85,7 +97,9 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
 
 
 silence_notification_threshold_help_text_for_source =  \
-    _('Threshold in hours:minutes:seconds that indicates an abnormal period without new data for this Source.')
+    _('Threshold in hours:minutes:seconds. If no new data is received from this Source within this threshold, a '
+      'report will be created. This will override the "Default silence notification threshold" if set for the '
+      'source provider.')
 
 
 two_way_help_text = \
@@ -301,7 +315,12 @@ lag_notification_threshold_help_text =  \
     _('Threshold in hours:minutes:seconds that indicates an abnormal delay in data for this Source Provider.')
 
 silence_notification_threshold_help_text =  \
-    _('Threshold in hours:minutes:seconds that indicates an abnormal period without new data for this Source Provider.')
+    _('Threshold in hours:minutes:seconds. If ALL of the Sources for this Source Provider fail to submit new data '
+      'within this threshold, a report will be created for the Source Provider.')
+
+default_silence_notification_threshold_help_text = _('Threshold in hours:minutes. If any specific Sources for '
+                                                     'this Source Provider fail to submit new data within '
+                                                     'this threshold, a report will be created for each of them.')
 
 days_data_retain_help_text =  \
     _('Observations records outside the configured number of days will be removed permanently and cannot be retrieved.')
@@ -550,6 +569,10 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
     silence_notification_threshold = forms.CharField(max_length=8, required=False, empty_value=None,
                                                      help_text=silence_notification_threshold_help_text)
 
+    default_silent_notification_threshold = forms.CharField(max_length=8, required=False, empty_value=None,
+                                                            label="Default silence notification threshold",
+                                                            help_text=default_silence_notification_threshold_help_text)
+
     days_data_retain = forms.IntegerField(required=False, min_value=1, max_value=365,
                                           help_text=days_data_retain_help_text)
 
@@ -578,6 +601,7 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
         json_fields = (
             'lag_notification_threshold',
             'silence_notification_threshold',
+            'default_silent_notification_threshold',
             'days_data_retain',
             'two_way_messaging',
             'messaging_config'
@@ -612,6 +636,14 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
                 "Tranformation rules must be properly configured, expecting a list or null")
             raise forms.ValidationError(message, code='invalid')
         return schema
+
+    def clean_default_silent_notification_threshold(self):
+        data = self.cleaned_data["default_silent_notification_threshold"]
+        pattern = re.compile(r"^((?:[01]\d|2[0-3]):[0-5]\d$)")
+        if data and not re.fullmatch(pattern, data):
+            raise forms.ValidationError(
+                _("This field should follow the format HH:MM"))
+        return data
 
 
 class SetRandomColorForm(ActionForm):

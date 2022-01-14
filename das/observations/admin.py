@@ -1562,6 +1562,7 @@ class SourceProviderAdmin(admin.ModelAdmin):
             'classes': ('wide',),
             'fields': ('lag_notification_threshold',
                        'silence_notification_threshold',
+                       'default_silent_notification_threshold',
                        'days_data_retain',
                        'two_way_messaging',
                        'messaging_config')

@@ -1,22 +1,23 @@
-
 import logging
 
-
 from das_server import celery
-from reports.observationlagnotification import get_lagging_providers, send_lag_delay_alert
-from reports.subjectsilentnotification import calculate_silent_source_report
-
-from celery_once import QueueOnce
-
-
 from django.template.loader import render_to_string
 from django.utils.translation import ugettext_lazy as _
-
+from reports.distribution import (
+    SOURCE_REPORT_PERMISSION_CODENAME,
+    get_users_for_permission,
+    send_report,
+)
+from reports.observationlagnotification import (
+    check_sources_threshold,
+    get_lagging_providers,
+    send_lag_delay_alert,
+)
 from reports.subjectsourcereport import generate_user_reports
-from reports.distribution import send_report, get_users_for_permission, \
-    SOURCE_REPORT_PERMISSION_CODENAME
+
 
 logger = logging.getLogger(__name__)
+
 
 @celery.app.task(bind=True)
 def subjectsource_report(self, usernames=None):
@@ -42,7 +43,8 @@ def subjectsource_report(self, usernames=None):
         report_timestamp = report_context.get(
             'report_date').strftime('%b %d, %Y %H:%M (utc)')
 
-        message_subject = _('EarthRanger Source Report - {}').format(report_timestamp)
+        message_subject = _(
+            'EarthRanger Source Report - {}').format(report_timestamp)
         send_report(subject=message_subject,
                     to_email=user.email, text_content=_(
                         'EarthRanger Source report (attached as HTML).'),
@@ -50,18 +52,13 @@ def subjectsource_report(self, usernames=None):
 
 
 @celery.app.task(bind=True)
-def alert_lag_delay(self):
+def alert_lag_delay():
     lagging_providers = get_lagging_providers()
 
     for lagging_provider in lagging_providers:
         send_lag_delay_alert(*lagging_provider)
 
 
-@celery.app.task(bind=True)
-def queue_silent_source_report(self, usernames=None):
-    run_silent_source_report.apply_async(args=(), kwargs={'usernames': usernames})
-
-
-@celery.app.task(bind=True, base=QueueOnce, once={'graceful': True, })
-def run_silent_source_report(self, usernames=None):
-    return calculate_silent_source_report(usernames=usernames)
+@celery.app.task()
+def run_check_sources_threshold():
+    check_sources_threshold()

@@ -112,9 +112,9 @@ app.conf.beat_schedule = {
         'task':  'reports.tasks.alert_lag_delay',
         'schedule': timedelta(minutes=30),
     },
-    'silent-source-report': {
-        'task': 'reports.tasks.queue_silent_source_report',
-        'schedule': timedelta(minutes=60),
+    "check-sources-threshold": {
+        "task": "reports.tasks.run_check_sources_threshold",
+        "schedule": timedelta(minutes=5)
     },
     'routine-delete-observational-data': {
         'task': 'observations.tasks.maintain_observation_data',
