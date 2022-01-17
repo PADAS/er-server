@@ -216,6 +216,7 @@ locals {
     "nstcg-tz"                = "prod1"
     "ntap-tz"                 = "prod1"
     "wilderblean"             = "prod1"
+    "careforwildrhino"        = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
