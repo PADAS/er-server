@@ -6,14 +6,14 @@ import tempfile
 from urllib.parse import urlencode
 
 import django.contrib.auth
-from django.utils import timezone
 import pytest
 import pytz
 from accounts.models import PermissionSet
 from activity import views
-from activity.models import (Event, EventRelationship, EventType, Patrol,
-                             PatrolNote, PatrolSegment, PatrolType,
-                             StateFilters)
+from activity.models import (PC_DONE, PC_OPEN, Event, EventRelationship,
+                             EventType, Patrol, PatrolNote, PatrolSegment,
+                             PatrolType, StateFilters)
+from activity.serializers.patrol_serializers import PatrolSerializer
 from client_http import HTTPClient
 from core.tests import BaseAPITest
 from das_server.celery import app
@@ -21,7 +21,7 @@ from django.core.management import call_command
 from django.db import connection
 from django.test import Client
 from django.urls import reverse
-from django.utils import lorem_ipsum
+from django.utils import lorem_ipsum, timezone
 from drf_extra_fields.geo_fields import PointField
 from observations.materialized_views import patrols_view
 from observations.models import Source, Subject, SubjectSource
@@ -2219,3 +2219,88 @@ class TestPatrolFilter:
             cursor.execute(
                 "UPDATE activity_patrol SET serial_number=1001 WHERE id=(SELECT id FROM activity_patrol LIMIT 1 OFFSET 2)"
             )
+
+
+@pytest.mark.django_db
+class TestPatrolView:
+    def test_create_patrol_with_past_end_date(self):
+        now = datetime.datetime.now(tz=pytz.utc)
+        past_start_date = now - datetime.timedelta(days=6)
+        past_end_date = now - datetime.timedelta(days=3)
+        patrol_data = {
+            "patrol_segments":
+                [
+                    {
+                        "patrol_type": "routine_patrol",
+                        "time_range":
+                            {
+                                "start_time": past_start_date.isoformat(),
+                                "end_time": past_end_date.isoformat()
+                            },
+                    }
+                ],
+            "title": "Patrol with past date"
+        }
+
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name="Patrols Permissions - No Delete")
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+
+        request = client.factory.post(
+            client.api_base + f"/patrols/", data=patrol_data)
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert data["state"] == PC_DONE
+
+    def test_update_patrol_with_past_end_date(self, five_patrol_segment):
+        now = datetime.datetime.now(tz=pytz.utc)
+        past_start_date = now - datetime.timedelta(days=6)
+        past_end_date = now - datetime.timedelta(days=3)
+
+        patrol = Patrol.objects.last()
+        assert patrol.state == PC_OPEN
+
+        segment = patrol.patrol_segments.first()
+        segment.time_range = DateTimeTZRange(
+            lower=past_start_date, upper=past_end_date)
+        segment.save()
+
+        data = PatrolSerializer(patrol).data
+
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name="Patrols Permissions - No Delete")
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+
+        request = client.factory.patch(
+            f"{client.api_base}/patrols/{patrol.id}", data=data)
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolView.as_view()(request, id=patrol.id)
+        data = dict(response.data)
+
+        assert data["state"] == PC_DONE
+
+
+@pytest.mark.django_db
+class TestPatrolModel:
+    @pytest.mark.parametrize("patrol_type", ["ff2f7da6-ade4-4dc1-bd7a-c2c5244017fa", "e62ca278-8687-455e-ba76-2c7dfa4d6b5f"])
+    def test_create_patrol_with_past_date(self, patrol_type):
+        patrol = Patrol(title="Created Patrol through model")
+        assert patrol.state == PC_OPEN
+
+        now = datetime.datetime.now(tz=pytz.utc)
+        past_start_date = now - datetime.timedelta(days=6)
+        past_end_date = now - datetime.timedelta(days=3)
+
+        time_range = DateTimeTZRange(
+            lower=past_start_date, upper=past_end_date)
+        segment = PatrolSegment.objects.create(
+            patrol=patrol, patrol_type_id=patrol_type, time_range=time_range)
+
+        patrol.patrol_segments.add(segment)
+        patrol.save()
+
+        assert patrol.state == PC_DONE

@@ -1,28 +1,27 @@
 import copy
+import datetime
 import json
+from collections import OrderedDict
 
-from django.contrib.gis.geos.point import Point
+import activity.models
+import pytz
+import usercontent.serializers
+import utils
+from accounts.serializers import UserDisplaySerializer, get_user_display
+from activity.models import (PATROL_STATE_CHOICES, PC_CANCELLED, PC_DONE,
+                             PC_OPEN, PRI_NONE, PRIORITY_CHOICES, Patrol,
+                             PatrolNote, PatrolSegment)
+from activity.serializers import (AlertRuleSerializer, EventSourceSerializer,
+                                  PatrolSegmentEventSerializer, fields)
+from activity.serializers.base import FileSerializerMixin, RevisionMixin
+from core.fields import GEOPointField, choicefield_serializer, text_field
+from core.serializers import (BaseSerializer, GenericRelatedField,
+                              PointValidator, TimestampMixin)
 from django.contrib.contenttypes.models import ContentType
 from django.utils.dateparse import parse_datetime
-from drf_extra_fields.geo_fields import PointField
-from rest_framework import serializers, validators
+from rest_framework import serializers
 from rest_framework.fields import DateTimeField
-from collections import OrderedDict
-import activity.models
-
-from revision.manager import AC_UPDATED, AC_RELATION_DELETED, AC_ADDED
-import utils
-import usercontent.serializers
-from accounts.serializers import UserDisplaySerializer, get_user_display
-from activity.models import PATROL_STATE_CHOICES, PC_OPEN, PC_DONE, PRI_NONE, PRIORITY_CHOICES
-from activity.models import Patrol, PatrolNote, PatrolSegment
-from activity.serializers import AlertRuleSerializer, EventSourceSerializer, PatrolSegmentEventSerializer
-from activity.serializers import fields
-from activity.serializers.base import RevisionMixin, FileSerializerMixin
-from core.serializers import BaseSerializer
-from core.fields import choicefield_serializer, text_field, GEOPointField
-from core.serializers import TimestampMixin, PointValidator, GenericRelatedField
-
+from revision.manager import AC_ADDED, AC_RELATION_DELETED, AC_UPDATED
 
 priority_choices_serializer = choicefield_serializer(
     PRIORITY_CHOICES, default=PRI_NONE)
@@ -342,9 +341,15 @@ class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
 
         return rep
 
+    def validate(self, attrs):
+        if attrs.get("state"):
+            attrs["state"] = self._update_patrol_state(attrs)
+        return super().validate(attrs)
+
     def create(self, validated_data):
         patrol_notes = validated_data.pop('notes', [])
         patrol_segments = validated_data.pop('patrol_segments', [])
+
         new_patrol = Patrol.objects.create(**validated_data)
         for note in patrol_notes:
             note = copy.deepcopy(note)
@@ -425,6 +430,18 @@ class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
                                           and set(field_mapping.keys()) & set(revision.data.keys()))
         ]
         return result
+
+    def _update_patrol_state(self, validated_data):
+        now = datetime.datetime.now(tz=pytz.utc)
+        state = validated_data.get("state")
+        patrol_segments = validated_data.get("patrol_segments")
+
+        if patrol_segments and state and state != PC_CANCELLED:
+            for segment in patrol_segments:
+                if segment.get('time_range') and segment['time_range'].lower and segment['time_range'].upper:
+                    if segment['time_range'].upper < now:
+                        return PC_DONE
+        return state
 
 
 class PatrolTemplateSerializer(BaseSerializer):
