@@ -2260,7 +2260,7 @@ class TestPatrolView:
         past_start_date = now - datetime.timedelta(days=6)
         past_end_date = now - datetime.timedelta(days=3)
 
-        patrol = Patrol.objects.last()
+        patrol = Patrol.objects.order_by('created_at').last()
         assert patrol.state == PC_OPEN
 
         segment = patrol.patrol_segments.first()
