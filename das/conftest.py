@@ -53,6 +53,11 @@ def subject_source():
 
 
 @pytest.fixture
+def five_subject_source():
+    SubjectSourceFactory.create_batch(5)
+
+
+@pytest.fixture
 def geofence_analyzer_config():
     return GeofenceAnalyzerConfigFactory.create()
 

@@ -352,9 +352,12 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                             self.context['request'], location, instance,
                             time=recorded_at, image_url=rep['image_url']
                         )
-                rep['device_status_properties'] = \
-                    statusvalues.device_status_properties if hasattr(
-                        statusvalues, 'device_status_properties') else None
+
+                rep['device_status_properties'] = self._get_device_status_properties(
+                    statusvalues)
+                if self._is_static_sensor(instance):
+                    rep['device_status_properties'] = self._get_device_properties_static_sensor(
+                        statusvalues, instance)
 
         if 'request' in self.context:
             request = self.context['request']
@@ -395,6 +398,31 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
         ):
             return True
         return False
+
+    def _get_device_status_properties(self, status_values):
+        if hasattr(status_values, 'device_status_properties'):
+            return status_values.device_status_properties
+        return None
+
+    def _get_device_properties_static_sensor(self, status_values, subject):
+        device_status_properties = self._get_device_status_properties(
+            status_values)
+        default_measure = self._get_default_measure(subject)
+        if device_status_properties:
+            for device in device_status_properties:
+                device["default"] = False
+                if device.get("label") == default_measure:
+                    device["default"] = True
+        return device_status_properties
+
+    def _get_default_measure(self, subject):
+        last_subject_source = subject.subjectsources.last()
+        if last_subject_source:
+            transforms = last_subject_source.source.provider.transforms
+            for transform in transforms:
+                if transform.get("default"):
+                    return transform.get("label")
+        return ""
 
 
 def get_subjectsources_with_2way_msg(subject):
