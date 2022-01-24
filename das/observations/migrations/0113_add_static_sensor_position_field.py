@@ -7,7 +7,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('observations', '0111_aardvark'),
+        ('observations', '0112_make_subjectstatus_logged_again'),
     ]
 
     operations = [
