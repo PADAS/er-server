@@ -63,7 +63,7 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
             "provider",
         )
     )
-    static_sensor_position = PointField(
+    location = PointField(
         srid=4326,
         widget=OSMWidget(
             attrs={
@@ -94,7 +94,7 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
             "subject",
             "source",
             "assigned_range",
-            "static_sensor_position",
+            "location",
             "additional",
         ) + json_fields
 

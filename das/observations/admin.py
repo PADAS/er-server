@@ -220,7 +220,7 @@ class SubjectSourceInline(InlineExtraDynamicMixin, admin.StackedInline):
             },
         ),
         (None, {"classes": ("wide",), "fields": ("assigned_range",)}),
-        (None, {"fields": ("static_sensor_position",)}),
+        (None, {"fields": ("location",)}),
         (
             "Source Assignment Attributes",
             {

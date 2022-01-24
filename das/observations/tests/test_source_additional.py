@@ -91,7 +91,7 @@ class SubjectSourceAdditionalTest(TestCase):
         end_date = end_date.strftime(format=date_time_format)
         form_data = {'id': uuid.uuid4(), 'subject': self.henry.id,
                      'source': self.source.id, 'assigned_range_0': start_date,
-                     'assigned_range_1': end_date, "static_sensor_position": Point(1, 1)
+                     'assigned_range_1': end_date, "location": Point(1, 1)
                      }
         additional_data = {'data_status': 'Activated',
                            'data_stops_reason': 'Damaged'}

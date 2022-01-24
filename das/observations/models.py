@@ -601,7 +601,7 @@ class SubjectSource(models.Model):
                                 related_query_name='subjectsource')
     additional = JSONField('additional', default=dict, blank=True)
     """EXCLUDE USING gist (source_id WITH =, assigned_range WITH &&)"""
-    static_sensor_position = models.PointField(
+    location = models.PointField(
         verbose_name="Assigned location", blank=True, null=True)
     objects = SubjectSourceManager()
 

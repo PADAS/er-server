@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AddField(
             model_name='subjectsource',
-            name='static_sensor_position',
+            name='location',
             field=django.contrib.gis.db.models.fields.PointField(
                 blank=True, null=True, srid=4326, verbose_name='Assigned location'),
         ),

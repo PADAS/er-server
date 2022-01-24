@@ -314,7 +314,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
 
                             location = latest_observation.location
                             if self._is_static_sensor(instance):
-                                location = instance.subjectsources.last().static_sensor_position
+                                location = instance.subjectsources.last().location
 
                             rep['last_position'] = make_feature(
                                 self.context['request'],
@@ -344,7 +344,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                         'radio_state': statusvalues.radio_state
                     }
                     if self._is_static_sensor(instance):
-                        location = instance.subjectsources.last().static_sensor_position
+                        location = instance.subjectsources.last().location
 
                     if tracks_available:
                         rep['last_position_date'] = recorded_at
@@ -394,7 +394,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
         if (
                 instance.subject_subtype.subject_type.display == "Stationary Sensor"
                 and instance.subjectsources.last()
-                and instance.subjectsources.last().static_sensor_position
+                and instance.subjectsources.last().location
         ):
             return True
         return False

@@ -651,7 +651,7 @@ class TestSubjectsView:
     def test_static_sensor_response(self, five_subject_source):
         now = datetime.now(tz=pytz.utc)
         first_subject_source = SubjectSource.objects.last()
-        first_subject_source.static_sensor_position = Point(20.6, -103.6)
+        first_subject_source.location = Point(20.6, -103.6)
         first_subject_source.save()
         subject = first_subject_source.subject
         subject.name = "Subject test"
@@ -709,7 +709,7 @@ class TestSubjectsView:
     def test_static_sensor_response_with_many_observations(self, five_subject_source):
         now = datetime.now(tz=pytz.utc)
         first_subject_source = SubjectSource.objects.last()
-        first_subject_source.static_sensor_position = Point(20.6, -103.6)
+        first_subject_source.location = Point(20.6, -103.6)
         first_subject_source.save()
         subject = first_subject_source.subject
         subject.name = "Subject test"
