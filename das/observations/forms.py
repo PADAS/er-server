@@ -7,14 +7,12 @@ from datetime import datetime, timedelta
 import pytz
 from choices.models import Choice
 from core.common import TIMEZONE_USED
-from core.forms_utils import (
-    AssignedDateTimeRangeField,
-    ColorPickerWidget,
-    JSONFieldFormMixin,
-)
+from core.forms_utils import (AssignedDateTimeRangeField, ColorPickerWidget,
+                              JSONFieldFormMixin)
 from django import forms
 from django.contrib.admin.helpers import ActionForm
-from django.contrib.admin.widgets import AdminDateWidget, FilteredSelectMultiple
+from django.contrib.admin.widgets import (AdminDateWidget,
+                                          FilteredSelectMultiple)
 from django.contrib.auth import get_user_model
 from django.contrib.gis.forms import OSMWidget, PointField
 from django.contrib.postgres.forms import JSONField
@@ -23,17 +21,9 @@ from django.urls import reverse
 from django.utils.dateparse import parse_duration
 from django.utils.translation import ugettext_lazy as _
 from observations.message_adapters import ADAPTER_MAPPING
-from observations.models import (
-    GPXTrackFile,
-    Message,
-    Observation,
-    Source,
-    SourceProvider,
-    Subject,
-    SubjectGroup,
-    SubjectSource,
-    SubjectSubType
-)
+from observations.models import (GPXTrackFile, Message, Observation, Source,
+                                 SourceProvider, Subject, SubjectGroup,
+                                 SubjectSource, SubjectSubType, SubjectType)
 from observations.utils import find_paths
 
 logger = logging.getLogger(__name__)
@@ -236,131 +226,22 @@ class SubjectSubtypeChoiceField(forms.ModelChoiceField):
         return '{1} ({0})'.format(obj.subject_type.display, obj.display)
 
 
+def get_subject_subtype_choices():
+    choices = []
+    subjects_type = SubjectType.objects.all().order_by("value")
+    if subjects_type:
+        for subject_type in subjects_type:
+            subjects_subtype = subject_type.subjectsubtype_set.all().order_by("display")
+            subjects_subtype = [
+                (subject_subtype.value, subject_subtype.display)
+                for subject_subtype in subjects_subtype
+            ]
+            choices.append((subject_type.display.upper(),
+                           (list(subjects_subtype))))
+    return choices
+
+
 class SubjectForm(JSONFieldFormMixin, forms.ModelForm):
-    SUBJECT_SUBTYPES = [
-        (
-            "AIRCRAFT",
-            [
-                ("drone", "Drone"),
-                ("helicopter", "Helicopter"),
-                ("hot_air_balloon", "Hot Air Balloon"),
-                ("aviat_husky", "Husky"),
-                ("plane", "Plane"),
-                ("spraycraft", "Spraycraft"),
-            ],
-        ),
-        (
-            "PERSON",
-            [
-                ("dog_team", "Dog Team"),
-                ("driver", "Driver"),
-                ("expedition", "Expedition"),
-                ("fence_attendant", "Fence Attendant"),
-                ("manager", "Manager"),
-                ("ranger", "Ranger"),
-                ("ranger_team", "Ranger Team"),
-                ("scout", "Scout"),
-            ],
-        ),
-        (
-            "STATIONARY SENSOR",
-            [
-                ("camera_trap", "Camera Trap"),
-                ("static-door", "Door"),
-                ("static-fence", "Fence"),
-                ("static-gas-tank", "Gas Tank"),
-                ("static-gate", "Gate"),
-                ("static-water-gauge", "Water Gauge"),
-                ("static-water-tank", "Water Tank"),
-                ("static-weather", "Weather"),
-                ("weather_station", "Weather Sensor"),
-            ],
-        ),
-        ("UNASSIGNED", [("unassigned", "Unassigned")]),
-        (
-            "VEHICLE",
-            [
-                ("ranger_boat", "Boat"),
-                ("car", "Car"),
-                ("excavator", "Excavator"),
-                ("motorcycle", "Motorcycle"),
-                ("pickup", "Pickup"),
-                ("research", "Research Vehicle"),
-                ("security_vehicle", "Security Vehicle"),
-                ("tourist_vehicle", "Tourist Vehicle"),
-                ("truck", "Truck"),
-                ("van", "Van"),
-            ],
-        ),
-        (
-            "WILDLIFE",
-            [
-                ("aardvark", "Aardvark"),
-                ("addax", "Addax"),
-                ("antelope", "Antelope"),
-                ("barbary_sheep", "Barbary Sheep"),
-                ("bison", "Bison"),
-                ("black_bear", "Black Bear"),
-                ("black_vulture", "Black Vulture"),
-                ("bobcat", "Bobcat"),
-                ("brown_bear", "Brown Bear"),
-                ("brownhyena", "Brown Hyena"),
-                ("buffalo", "Buffalo"),
-                ("cape_vulture", "Cape Vulture"),
-                ("cat", "Cat"),
-                ("chamois", "Chamois"),
-                ("cheetah", "Cheetah"),
-                ("chimpanzee", "Chimpanzee"),
-                ("cougar", "Cougar"),
-                ("cow", "Cow"),
-                ("demoiselle_crane", "Demoiselle Crane"),
-                ("dugong", "Dugong"),
-                ("eagle_owl", "Eagle Owl"),
-                ("eland", "Eland"),
-                ("elephant", "Elephant"),
-                ("eurasian_lynx", "Eurasian Lynx"),
-                ("european_elk", "European Elk"),
-                ("fallow_deer", "Fallow Deer"),
-                ("forest_elephant", "Forest Elephant"),
-                ("giraffe", "Giraffe"),
-                ("gray_wolf", "Gray Wolf"),
-                ("great_white_shark", "Great White Shark"),
-                ("grey_wolf", "Grey Wolf"),
-                ("griffon_vulture", "Griffon Vulture"),
-                ("hooded_vulture", "Hooded Vulture"),
-                ("horse", "Horse"),
-                ("ibex", "Ibex"),
-                ("kulan", "Kulan"),
-                ("lappet_faced_vulture", "Lappet-faced Vulture"),
-                ("leopard", "Leopard"),
-                ("lion", "Lion"),
-                ("martial_eagle", "Martial Eagle"),
-                ("orangutan", "Orangutan"),
-                ("ostrich", "Ostrich"),
-                ("pangolin", "Pangolin"),
-                ("peccary", "Peccary"),
-                ("pelican", "Pelican"),
-                ("racoon", "Raccoon"),
-                ("red_deer", "Red Deer"),
-                ("rhino", "Rhino"),
-                ("sable", "Sable"),
-                ("scimitar_oryx", "Scimitar Oryx"),
-                ("serval", "Serval"),
-                ("spotted_hyena", "Spotted Hyena"),
-                ("spottedhyena", "Spotted Hyena"),
-                ("swift_fox", "Swift Fox"),
-                ("tapir", "Tapir"),
-                ("tauros", "Tauros"),
-                ("turtle", "Turtle"),
-                ("undeployed", "Undeployed"),
-                ("white_backed_vulture", "White-backed Vulture"),
-                ("wild_dog", "Wild Dog"),
-                ("wildebeest", "Wildebeest"),
-                ("wild_horse", "Wild Horse"),
-                ("zebra", "Zebra"),
-            ],
-        ),
-    ]
     groups = forms.ModelMultipleChoiceField(
         queryset=SubjectGroup.objects.all(),
         required=False,
@@ -369,9 +250,6 @@ class SubjectForm(JSONFieldFormMixin, forms.ModelForm):
             is_stacked=False
         )
     )
-
-    subject_subtype = forms.ChoiceField(choices=SUBJECT_SUBTYPES)
-
     '''
     This provides extra form fields for the attributes we expect to have stored
      in Subject.additional.
@@ -411,6 +289,9 @@ class SubjectForm(JSONFieldFormMixin, forms.ModelForm):
         # Get country and region choices from static methods
         self.fields['region'].choices = self.fetch_region_choices()
         self.fields['country'].choices = self.fetch_country_choices()
+        self.fields['subject_subtype'] = forms.ChoiceField(
+            choices=get_subject_subtype_choices()
+        )
 
     def _save_m2m(self):
         groups = self.cleaned_data['groups']
