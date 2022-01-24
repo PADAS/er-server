@@ -1,5 +1,5 @@
 FROM ubuntu:18.04
-MAINTAINER Chris Doehring, chrisdo@vulcan.com & Matt Korwel, mattko@vulcan.com  
+LABEL maintainer="EarthRanger Developers developers@earthranger.com"  
 
 RUN apt-get update
 

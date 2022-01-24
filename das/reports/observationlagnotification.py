@@ -1,12 +1,20 @@
-import logging
 import datetime
-import pytz
+import logging
 
-from django.utils.dateparse import parse_duration
-from reports.distribution import send_report, get_users_for_permission, OBSERVATION_LAG_NOTIFY_PERMISSION_CODENAME
-from observations.models import Observation, SourceProvider
-from django.db.models import Avg, F, Count
+import pytz
 from django.conf import settings
+from django.db.models import Avg, Count, F
+from django.utils.dateparse import parse_duration
+
+from activity.models import EventType
+from observations.models import Observation, SourceProvider
+from reports.distribution import (
+    OBSERVATION_LAG_NOTIFY_PERMISSION_CODENAME,
+    get_users_for_permission,
+    send_report,
+)
+from reports.models import SourceProviderEvent, SourceEvent
+from reports.serializers import EventSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -120,3 +128,243 @@ Average lag: {avg_lag}
                data_points=provider_lag_check_data.get('num_data_points'),
                avg_lag=provider_lag_check_data.get('avg_lag'))
     return email_body, message_subject
+
+
+def check_sources_threshold():
+    source_providers = SourceProvider.objects.filter(
+        source__subjectsource__assigned_range__contains=datetime.datetime.now(
+            pytz.utc)
+    ).distinct()
+    now = datetime.datetime.now(pytz.utc)
+
+    for source_provider in source_providers:
+        latest_observations = (
+            Observation.objects.filter(source__provider=source_provider)
+            .order_by("source", "-recorded_at")
+            .distinct("source")
+        )
+        if evaluate_source_provider_compliance(
+            source_provider, latest_observations, now
+        ):
+            continue
+
+        for observation in latest_observations:
+            evaluate_source_compliance(observation, source_provider, now)
+
+
+def evaluate_source_provider_compliance(source_provider, latest_observations, now):
+    silence_notification_threshold = source_provider.additional.get(
+        "silence_notification_threshold"
+    )
+    source_report = SourcesReport()
+    if silence_notification_threshold and all_sources_have_observations(
+        source_provider, latest_observations
+    ):
+        provider_threshold = parse_duration(silence_notification_threshold)
+        threshold = now - provider_threshold
+
+        if not all_observations_reach_threshold(
+            latest_observations, threshold
+        ) and check_can_write_new_provider_event(
+            source_provider, now, provider_threshold
+        ):
+            logger.info(
+                f"Creating source provider report, due to all sources reach the provider({source_provider.display_name}) threshold."
+            )
+            source_report.create_silent_source_provider_report(
+                source_provider,
+                now,
+                latest_observation_record_at=latest_observations.first().recorded_at,
+            )
+            return True
+    return False
+
+
+def all_sources_have_observations(source_provider, latest_observations):
+    return source_provider.sources.count() == latest_observations.count()
+
+
+def all_observations_reach_threshold(latest_observation, datetime_threshold):
+    return latest_observation.filter(recorded_at__gt=datetime_threshold).count()
+
+
+def check_can_write_new_provider_event(source_provider, now, threshold):
+    if source_provider.events_reached_threshold.all():
+        lag = (
+            now
+            - source_provider.events_reached_threshold.latest("created_at").created_at
+        )
+        return lag > threshold
+    return True
+
+
+def evaluate_source_compliance(observation, source_provider, now):
+    provider_default_threshold = source_provider.additional.get(
+        "default_silent_notification_threshold"
+    )
+    if provider_default_threshold:
+        provider_default_threshold = provider_default_threshold + ":00"
+    source_report = SourcesReport()
+
+    if is_threshold_reached(provider_default_threshold, now, observation):
+        if can_write_new_source_event(
+            observation.source, now, provider_default_threshold
+        ):
+            logger.info(
+                f"Creating source report, due to default provider threshold was reached by source {source_provider.display_name}"
+            )
+            source_report.create_silent_source_report(
+                observation.source, now, provider_default_threshold, default_reached=True)
+    else:
+        source_threshold = observation.source.additional.get(
+            "silence_notification_threshold"
+        )
+        if is_threshold_reached(
+            source_threshold, now, observation
+        ) and can_write_new_source_event(observation.source, now, source_threshold):
+            logger.info(
+                f"Creating source report, due to source threshold was reached by source {observation.source.model_name}"
+            )
+            source_report.create_silent_source_report(
+                observation.source, now, source_threshold, default_reached=False)
+
+
+def is_threshold_reached(threshold, now, observation):
+    if threshold:
+        threshold = now - parse_duration(threshold)
+        return observation.recorded_at < threshold
+    return False
+
+
+def can_write_new_source_event(source, now, threshold):
+    if source.events_reached_threshold.all():
+        lag = now - \
+            source.events_reached_threshold.latest("created_at").created_at
+        return lag > parse_duration(threshold)
+    return True
+
+
+class SourcesReport:
+    def create_silent_source_report(self, source, now, threshold, default_reached) -> None:
+        last_observations = source.observation_set.order_by("recorded_at")
+        self._save_silent_source_report(
+            title=self._get_report_title(source, default_reached),
+            report_time=now.strftime("%Y-%m-%d %H:%M:%S"),
+            subject_name=self._get_subject_name(source),
+            source_provider=source.provider.display_name,
+            device_id=source.manufacturer_id,
+            silence_threshold=threshold[:-3],
+            last_device_reported_at=last_observations.last().recorded_at.strftime(
+                "%Y-%m-%d %H:%M:%S"
+            ),
+            subject=self._get_source_subject(source),
+            source=source,
+            location={
+                "latitude": last_observations.last().location.y,
+                "longitude": last_observations.last().location.x,
+            },
+        )
+
+    def create_silent_source_provider_report(
+        self, source_provider, now, latest_observation_record_at
+    ) -> None:
+        self._save_silent_source_provider_report(
+            title=f"{source_provider.display_name} integration disrupted",
+            report_time=now.strftime("%Y-%m-%d %H:%M:%S"),
+            silence_threshold=source_provider.additional.get(
+                "silence_notification_threshold"
+            )[:-3],
+            last_device_reported_at=latest_observation_record_at.strftime(
+                "%Y-%m-%d %H:%M:%S"
+            ),
+            source_provider=source_provider
+        )
+
+    def _save_silent_source_report(
+        self,
+        title: str,
+        report_time: str,
+        subject_name: str,
+        source_provider: str,
+        device_id: str,
+        silence_threshold: str,
+        last_device_reported_at: str,
+        subject,
+        source,
+        location=None,
+    ) -> None:
+        data = {
+            "title": title,
+            "event_type": EventType.objects.get(value="silence_source_rep").id,
+            "location": location,
+            "events": [
+                {
+                    "data": {
+                        "event_details": {
+                            "report_time": report_time,
+                            "location": location,
+                            "device_id": device_id,
+                            "name_assigned_subject": subject_name,
+                            "source_provider": source_provider,
+                            "silence_threshold": silence_threshold,
+                            "latest_position_recorded_at": last_device_reported_at,
+                        }
+                    }
+                }
+            ],
+        }
+        serializer = EventSerializer(data=data)
+        if serializer.is_valid():
+            event = serializer.save()
+            if subject:
+                event.related_subjects.add(subject)
+            SourceEvent.objects.create(source=source, event=event)
+        else:
+            logger.info(
+                f"Impossible create a source report {serializer.errors}")
+
+    def _save_silent_source_provider_report(
+        self, title, report_time, silence_threshold, last_device_reported_at, source_provider
+    ) -> None:
+        data = {
+            "title": title,
+            "event_type": EventType.objects.get(value="silence_source_provider_rep").id,
+            "events": [
+                {
+                    "data": {
+                        "event_details": {
+                            "report_time": report_time,
+                            "silence_threshold": silence_threshold,
+                            "last_device_reported_at": last_device_reported_at,
+                        }
+                    }
+                }
+            ],
+        }
+        serializer = EventSerializer(data=data)
+        if serializer.is_valid():
+            event = serializer.save()
+            SourceProviderEvent.objects.create(
+                source_provider=source_provider, event=event)
+        else:
+            logger.info(
+                f"Impossible create a source provider report {serializer.errors}"
+            )
+
+    def _get_report_title(self, source, default_reached=False) -> str:
+        extra_title = "has gone silent" if default_reached else "is silent"
+        if source.subjectsource_set.last() and source.subjectsource_set.last().subject:
+            return f"{source.subjectsource_set.last().subject.name} {extra_title}"
+        if default_reached:
+            return f"{source.id} {extra_title}"
+        return f"{source.manufacturer_id} {extra_title}"
+
+    def _get_subject_name(self, source) -> str:
+        if source.subjectsource_set.last() and source.subjectsource_set.last().subject:
+            return source.subjectsource_set.last().subject.name
+        return "(none)"
+
+    def _get_source_subject(self, source):
+        if source.subjectsource_set.last() and source.subjectsource_set.last().subject:
+            return source.subjectsource_set.last().subject
+        return None

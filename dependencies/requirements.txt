@@ -10,6 +10,8 @@ affine==2.2.2
     # via rasterio
 amqp==2.4.2
     # via kombu
+anyio==3.4.0
+    # via jupyter-server
 appnope==0.1.2
     # via
     #   ipykernel
@@ -18,18 +20,22 @@ arcgis==1.8.0
     # via -r requirements.in
 arcgis2geojson==2.0.0
     # via -r requirements.in
-asn1crypto==0.24.0
-    # via cryptography
+argon2-cffi==21.1.0
+    # via
+    #   jupyter-server
+    #   notebook
 attrs==19.1.0
     # via
     #   fiona
     #   jsonschema
     #   rasterio
+babel==2.9.1
+    # via jupyterlab-server
 backcall==0.1.0
     # via ipython
 billiard==3.5.0.5
     # via celery
-bleach==2.1.4
+bleach==4.0.0
     # via
     #   -r requirements.in
     #   nbconvert
@@ -57,7 +63,9 @@ certifi==2019.3.9
     #   pyproj
     #   requests
 cffi==1.12.3
-    # via cryptography
+    # via
+    #   argon2-cffi
+    #   cryptography
 chardet==3.0.4
     # via requests
 click==7.0
@@ -66,6 +74,7 @@ click==7.0
     #   cligj
     #   fiona
     #   rasterio
+    #   safety
 click-plugins==1.1.1
     # via
     #   fiona
@@ -81,8 +90,9 @@ coreapi==2.3.3
     #   openapi-codec
 coreschema==0.0.4
     # via coreapi
-cryptography==2.6.1
+cryptography==3.4
     # via
+    #   -r requirements.in
     #   pyopenssl
     #   requests-ntlm
 cycler==0.10.0
@@ -98,7 +108,7 @@ decorator==4.4.0
     #   traitlets
 defusedxml==0.6.0
     # via nbconvert
-django==2.2.14
+django==2.2.24
     # via
     #   -r requirements.in
     #   django-bitfield
@@ -113,11 +123,12 @@ django==2.2.14
     #   django-redis
     #   django-storages
     #   django-treebeard
+    #   djangorestframework
 django-bitfield==1.9.6
     # via -r requirements.in
-django-cors-headers==2.5.3
+django-cors-headers==3.0.0
     # via -r requirements.in
-django-debug-toolbar==2.2
+django-debug-toolbar==2.2.1
     # via -r requirements.in
 django-docs==0.3.1
     # via -r requirements.in
@@ -155,9 +166,9 @@ django-tagulous==0.14.0
     # via -r requirements.in
 django-treebeard==4.3
     # via -r requirements.in
-django-versatileimagefield==1.10
+django-versatileimagefield==2.0
     # via -r requirements.in
-djangorestframework==3.10.3
+djangorestframework==3.11.2
     # via
     #   -r requirements.in
     #   django-rest-swagger
@@ -171,15 +182,20 @@ docutils==0.14
     # via botocore
 docxtpl==0.4.6
     # via -r requirements.in
+dparse==0.5.1
+    # via safety
 drf-extensions==0.5.0
     # via -r requirements.in
 earthengine-api==0.1.175
     # via pymet
 entrypoints==0.3
-    # via nbconvert
+    # via
+    #   jupyter-client
+    #   jupyterlab-server
+    #   nbconvert
 et-xmlfile==1.0.1
     # via openpyxl
-eventlet==0.25.2
+eventlet==0.30.2
     # via -r requirements.in
 fiona==1.8.19
     # via
@@ -207,7 +223,7 @@ geopandas==0.4.1
     #   pymet
 geopy==2.1.0
     # via -r requirements.in
-gevent==1.5.0
+gevent==1.4.0
     # via -r requirements.in
 google-api-core[grpc]==1.31.3
     # via
@@ -221,7 +237,6 @@ google-auth==1.35.0
     # via
     #   google-api-core
     #   google-api-python-client
-    #   google-auth-httplib2
     #   google-cloud-core
     #   google-cloud-storage
 google-auth-httplib2==0.0.3
@@ -253,19 +268,19 @@ greenlet==0.4.16
     #   gevent
 grpcio==1.41.0
     # via google-api-core
-gunicorn==20.0.4
+gunicorn==20.1.0
     # via -r requirements.in
-html5lib==1.0.1
-    # via bleach
-httplib2==0.12.3
+httplib2==0.19.0
     # via
+    #   -r requirements.in
     #   google-api-python-client
-    #   google-auth-httplib2
     #   oauth2client
 humanize==2.4.0
     # via -r requirements.in
 idna==2.8
-    # via requests
+    # via
+    #   anyio
+    #   requests
 importlib-metadata==1.5.0
     # via keyring
 ipykernel==5.1.4
@@ -276,8 +291,10 @@ ipython==7.12.0
     # via
     #   ipykernel
     #   ipywidgets
+    #   jupyterlab
 ipython-genutils==0.2.0
     # via
+    #   jupyter-server
     #   nbformat
     #   notebook
     #   traitlets
@@ -289,11 +306,12 @@ jdcal==1.4.1
     # via openpyxl
 jedi==0.16.0
     # via ipython
-jinja2==2.10.1
+jinja2==2.11.3
     # via
     #   -r requirements.in
     #   coreschema
     #   docxtpl
+    #   jupyter-server
     #   jupyterlab
     #   jupyterlab-server
     #   nbconvert
@@ -311,19 +329,29 @@ jsonschema==3.0.2
     #   -r requirements.in
     #   jupyterlab-server
     #   nbformat
-jupyter-client==6.0.0
+jupyter-client==7.1.0
     # via
     #   ipykernel
+    #   jupyter-server
     #   notebook
 jupyter-core==4.6.3
     # via
     #   jupyter-client
+    #   jupyter-server
+    #   jupyterlab
     #   nbconvert
     #   nbformat
     #   notebook
-jupyterlab==1.2.6
-    # via arcgis
-jupyterlab-server==1.0.6
+jupyter-server==1.12.0
+    # via
+    #   jupyterlab
+    #   jupyterlab-server
+    #   nbclassic
+jupyterlab==3.1.4
+    # via
+    #   -r requirements.in
+    #   arcgis
+jupyterlab-server==2.8.2
     # via jupyterlab
 keyring==21.1.0
     # via arcgis
@@ -335,7 +363,7 @@ kombu==4.2.2.post1
     #   celery
 lerc==0.1.0
     # via arcgis
-lxml==4.3.4
+lxml==4.6.3
     # via
     #   -r requirements.in
     #   docxtpl
@@ -346,25 +374,30 @@ matplotlib==3.1.3
     # via arcgis
 mistune==0.8.4
     # via nbconvert
-monotonic==1.5
-    # via eventlet
 munch==2.3.2
     # via fiona
+nbclassic==0.3.4
+    # via jupyterlab
 nbconvert==5.6.1
-    # via notebook
+    # via
+    #   jupyter-server
+    #   notebook
 nbformat==5.0.4
     # via
     #   ipywidgets
+    #   jupyter-server
     #   nbconvert
     #   notebook
-notebook==6.0.3
+nest-asyncio==1.5.1
+    # via jupyter-client
+notebook==6.1.5
     # via
-    #   jupyterlab
-    #   jupyterlab-server
+    #   -r requirements.in
+    #   nbclassic
     #   widgetsnbextension
 ntlm-auth==1.4.0
     # via requests-ntlm
-numpy==1.16.4
+numpy==1.16.6
     # via
     #   -r requirements.in
     #   arcgis
@@ -383,18 +416,21 @@ oauthlib==3.1.0
     #   -r requirements.in
     #   django-oauth-toolkit
     #   requests-oauthlib
-olefile==0.46
-    # via pillow
 openapi-codec==1.3.2
     # via django-rest-swagger
 openpyxl==2.5.4
     # via -r requirements.in
 packaging==21.0
     # via
+    #   bleach
+    #   dparse
     #   google-api-core
     #   google-cloud-appengine-logging
     #   google-cloud-error-reporting
     #   google-cloud-logging
+    #   jupyterlab
+    #   jupyterlab-server
+    #   safety
 pandas==1.0.4
     # via
     #   arcgis
@@ -410,10 +446,14 @@ pickleshare==0.7.5
     # via ipython
 piexif==1.1.3
     # via -r requirements.in
-pillow==4.3.0
-    # via django-versatileimagefield
+pillow==8.3.2
+    # via
+    #   -r requirements.in
+    #   django-versatileimagefield
 prometheus-client==0.7.1
-    # via notebook
+    # via
+    #   jupyter-server
+    #   notebook
 prompt-toolkit==3.0.3
     # via ipython
 proto-plus==1.19.5
@@ -444,7 +484,7 @@ pyasn1-modules==0.2.5
     #   oauth2client
 pycparser==2.19
     # via cffi
-pycryptodome==3.9.7
+pycryptodome==3.11.0
     # via -r requirements.in
 pygments==2.5.2
     # via
@@ -456,8 +496,9 @@ pymet==0.1.24
     # via -r requirements.in
 pyopenssl==19.0.0
     # via earthengine-api
-pyparsing==2.4.0
+pyparsing==2.4.7
     # via
+    #   httplib2
     #   matplotlib
     #   packaging
     #   snuggs
@@ -480,24 +521,30 @@ python-docx==0.8.6
     # via
     #   -r requirements.in
     #   docxtpl
-python-engineio==3.12.1
+python-engineio==3.13.2
     # via -r requirements.in
 python-json-logger==0.1.11
     # via -r requirements.in
+python-magic==0.4.24
+    # via django-versatileimagefield
 pytz==2020.1
     # via
     #   -r requirements.in
+    #   babel
     #   celery
     #   django
     #   django-ses
     #   google-api-core
     #   pandas
     #   twilio
-pyyaml==5.3.1
-    # via -r requirements.in
+pyyaml==5.4
+    # via
+    #   -r requirements.in
+    #   dparse
 pyzmq==18.1.1
     # via
     #   jupyter-client
+    #   jupyter-server
     #   notebook
 rasterio==1.0.23
     # via
@@ -519,9 +566,11 @@ requests==2.24.0
     #   datadog
     #   django-oauth-toolkit
     #   google-api-core
+    #   jupyterlab-server
     #   requests-ntlm
     #   requests-oauthlib
     #   requests-toolbelt
+    #   safety
     #   twilio
 requests-ntlm==1.1.0
     # via arcgis
@@ -529,20 +578,29 @@ requests-oauthlib==1.3.0
     # via arcgis
 requests-toolbelt==0.9.1
     # via arcgis
-rsa==4.0
+rsa==4.3
     # via
+    #   -r requirements.in
     #   google-auth
     #   oauth2client
 s3transfer==0.3.2
     # via boto3
+safety==1.10.3
+    # via -r requirements.in
 scikit-learn==0.20.3
     # via pymet
 scipy==1.2.1
     # via
     #   pymet
     #   scikit-learn
+semantic-version==2.8.5
+    # via setuptools-rust
 send2trash==1.5.0
-    # via notebook
+    # via
+    #   jupyter-server
+    #   notebook
+setuptools-rust==1.0.0
+    # via cryptography
 shapely==1.7.1
     # via
     #   -r requirements.in
@@ -559,7 +617,6 @@ six==1.16.0
     # via
     #   arcgis
     #   bleach
-    #   cryptography
     #   cycler
     #   django-bitfield
     #   django-extensions
@@ -573,16 +630,18 @@ six==1.16.0
     #   google-cloud-core
     #   google-resumable-media
     #   grpcio
-    #   html5lib
     #   jsonschema
     #   munch
     #   oauth2client
+    #   protobuf
     #   pyopenssl
     #   pyrsistent
     #   python-dateutil
     #   python-engineio
     #   traitlets
     #   twilio
+sniffio==1.2.0
+    # via anyio
 snuggs==1.4.3
     # via rasterio
 sqlparse==0.3.0
@@ -590,13 +649,20 @@ sqlparse==0.3.0
     #   django
     #   django-debug-toolbar
 terminado==0.8.3
-    # via notebook
+    # via
+    #   jupyter-server
+    #   notebook
 testpath==0.4.4
     # via nbconvert
-tornado==6.0.3
+toml==0.10.2
+    # via dparse
+tomli==1.2.2
+    # via setuptools-rust
+tornado==6.1
     # via
     #   ipykernel
     #   jupyter-client
+    #   jupyter-server
     #   jupyterlab
     #   notebook
     #   terminado
@@ -607,17 +673,23 @@ traitlets==4.3.3
     #   ipywidgets
     #   jupyter-client
     #   jupyter-core
+    #   jupyter-server
     #   nbconvert
     #   nbformat
     #   notebook
 twilio==6.44.0
     # via -r requirements.in
+typing-extensions==4.0.0
+    # via
+    #   anyio
+    #   setuptools-rust
 uritemplate==3.0.0
     # via
     #   coreapi
     #   google-api-python-client
-urllib3==1.24.2
+urllib3==1.25.9
     # via
+    #   -r requirements.in
     #   botocore
     #   requests
 vine==1.3.0
@@ -625,7 +697,9 @@ vine==1.3.0
 wcwidth==0.1.8
     # via prompt-toolkit
 webencodings==0.5.1
-    # via html5lib
+    # via bleach
+websocket-client==1.2.1
+    # via jupyter-server
 whitenoise==5.1.0
     # via -r requirements.in
 widgetsnbextension==3.5.1

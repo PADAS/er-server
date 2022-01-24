@@ -113,7 +113,9 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
 
 
 silence_notification_threshold_help_text_for_source =  \
-    _('Threshold in hours:minutes:seconds that indicates an abnormal period without new data for this Source.')
+    _('Threshold in hours:minutes:seconds. If no new data is received from this Source within this threshold, a '
+      'report will be created. This will override the "Default silence notification threshold" if set for the '
+      'source provider.')
 
 
 two_way_help_text = \
@@ -351,7 +353,12 @@ lag_notification_threshold_help_text =  \
     _('Threshold in hours:minutes:seconds that indicates an abnormal delay in data for this Source Provider.')
 
 silence_notification_threshold_help_text =  \
-    _('Threshold in hours:minutes:seconds that indicates an abnormal period without new data for this Source Provider.')
+    _('Threshold in hours:minutes:seconds. If ALL of the Sources for this Source Provider fail to submit new data '
+      'within this threshold, a report will be created for the Source Provider.')
+
+default_silence_notification_threshold_help_text = _('Threshold in hours:minutes. If any specific Sources for '
+                                                     'this Source Provider fail to submit new data within '
+                                                     'this threshold, a report will be created for each of them.')
 
 days_data_retain_help_text =  \
     _('Observations records outside the configured number of days will be removed permanently and cannot be retrieved.')
@@ -607,6 +614,10 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
     silence_notification_threshold = forms.CharField(max_length=8, required=False, empty_value=None,
                                                      help_text=silence_notification_threshold_help_text)
 
+    default_silent_notification_threshold = forms.CharField(max_length=8, required=False, empty_value=None,
+                                                            label="Default silence notification threshold",
+                                                            help_text=default_silence_notification_threshold_help_text)
+
     days_data_retain = forms.IntegerField(required=False, min_value=1, max_value=365,
                                           help_text=days_data_retain_help_text)
 
@@ -635,6 +646,7 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
         json_fields = (
             'lag_notification_threshold',
             'silence_notification_threshold',
+            'default_silent_notification_threshold',
             'days_data_retain',
             'two_way_messaging',
             'messaging_config'
@@ -669,6 +681,14 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
                 "Tranformation rules must be properly configured, expecting a list or null")
             raise forms.ValidationError(message, code='invalid')
         return schema
+
+    def clean_default_silent_notification_threshold(self):
+        data = self.cleaned_data["default_silent_notification_threshold"]
+        pattern = re.compile(r"^((?:[01]\d|2[0-3]):[0-5]\d$)")
+        if data and not re.fullmatch(pattern, data):
+            raise forms.ValidationError(
+                _("This field should follow the format HH:MM"))
+        return data
 
 
 class SetRandomColorForm(ActionForm):

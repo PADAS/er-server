@@ -1,20 +1,11 @@
 import pytest
-from factories import (
-    EventDetailsFactory,
-    EventFactory,
-    EventTypeFactory,
-    FeatureProximityAnalyzerConfigFactory,
-    GeofenceAnalyzerConfigFactory,
-    PatrolFactory,
-    PatrolNoteFactory,
-    PatrolSegmentFactory,
-    PatrolSegmentSubjectFactory,
-    PatrolSegmentUserFactory,
-    ProviderFactory,
-    SpatialFeatureGroupStaticFactory,
-    SpatialFeatureTypeFactory,
-    SubjectSourceFactory,
-)
+from factories import (EventDetailsFactory, EventFactory, EventTypeFactory,
+                       FeatureProximityAnalyzerConfigFactory,
+                       GeofenceAnalyzerConfigFactory, PatrolFactory,
+                       PatrolNoteFactory, PatrolSegmentFactory,
+                       PatrolSegmentSubjectFactory, PatrolSegmentUserFactory,
+                       ProviderFactory, SpatialFeatureGroupStaticFactory,
+                       SpatialFeatureTypeFactory, SubjectSourceFactory)
 
 
 @pytest.fixture
@@ -99,6 +90,22 @@ def five_events():
 @pytest.fixture
 def five_events_with_details():
     EventDetailsFactory.create_batch(5)
+
+
+@pytest.fixture
+def five_patrol_segment_user_with_leader_uuid():
+    for i in range(1, 6):
+        PatrolSegmentSubjectFactory.create(
+            leader__id=f"00000000-0000-0000-0000-00000000000{i}"
+        )
+
+
+@pytest.fixture
+def five_patrol_segment_patrol_type_uuid():
+    for i in range(1, 6):
+        PatrolSegmentFactory.create(
+            patrol_type__id=f"00000000-0000-0000-0000-00000000000{i}"
+        )
 
 
 @pytest.fixture
