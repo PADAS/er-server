@@ -231,11 +231,11 @@ class EventTypeManager(EventBaseManager):
 
 class EventType(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    value = models.CharField(max_length=40, unique=True, validators=[RegexValidator(
+    value = models.CharField(max_length=255, unique=True, validators=[RegexValidator(
         regex="^[A-Za-z0-9-_]*$",
         message='''An invalid character was detected in the Event type Value field.
         Supported characters are: Letters a-z (lowercase), Numbers 0-9 and Underscore''')])
-    display = models.CharField(max_length=100, blank=True)
+    display = models.CharField(max_length=255, blank=True)
     category = models.ForeignKey(EventCategory, null=True,
                                  on_delete=models.PROTECT)
     ordernum = models.SmallIntegerField(blank=True, null=True)
