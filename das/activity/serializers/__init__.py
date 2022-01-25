@@ -1288,9 +1288,11 @@ class PatrolSegmentEventSerializer(EventSerializerMixin, rest_framework.serializ
 def where_request_came_from(request):
     # NOTE: Tried to put this in a middleware but the request didn't have the _auth
     # property, consider if would be useful to move into a middleware
-    application = request._auth.application
-    print(f"\nApplication: {application}\n")
-    return application
+    if hasattr(request, '_auth'):
+        application = request._auth.application
+        print(f"\nApplication: {application}\n")
+        return application
+    return
 
 
 def which_field_search_for(application):
@@ -1303,15 +1305,16 @@ def which_field_search_for(application):
 
 def auto_add_report_to_patrols(request, event):
     application = where_request_came_from(request)
-    subject_field = which_field_search_for(application)
-    subject = getattr(event, subject_field)
+    if application:
+        subject_field = which_field_search_for(application)
+        subject = getattr(event, subject_field)
 
-    # print(f"\nEVENT: {event.__dict__}\n")
-    # print(f"\nSUBJECT: {subject}\n")
-    if subject:
-        segments = PatrolSegment.objects.filter(leader_id=subject.id).all()
-        for segment in segments:
-            segment.events.add(event)
+        # print(f"\nEVENT: {event.__dict__}\n")
+        # print(f"\nSUBJECT: {subject}\n")
+        if subject:
+            segments = PatrolSegment.objects.filter(leader_id=subject.id).all()
+            for segment in segments:
+                segment.events.add(event)
 
 
 class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
