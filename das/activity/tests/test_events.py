@@ -3410,7 +3410,7 @@ class TestEventFilterQueryset:
 
 @pytest.mark.django_db
 class TestEventView:
-    def test_auto_add_report_to_patrols(self, items):
+    def test_auto_add_report_to_patrols(self):
         # Set subject
         subject_data = {
             "name": "Subject auto add report to patrols",
