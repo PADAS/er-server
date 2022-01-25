@@ -1,10 +1,10 @@
-import uuid
 import datetime
+import uuid
 
 import django.contrib.auth
 from django.utils import timezone
+from oauth2_provider.models import AccessToken, Application
 from rest_framework.test import APIRequestFactory, force_authenticate
-from oauth2_provider.models import Application, AccessToken
 
 User = django.contrib.auth.get_user_model()
 API_BASE = "/api/v1.0"
@@ -28,18 +28,32 @@ class HTTPClient:
             client_type=Application.CLIENT_CONFIDENTIAL,
             authorization_grant_type=Application.GRANT_AUTHORIZATION_CODE,
         )
+        # self.cyber_tracker_application = Application.objects.create(
+        #     id=5,
+        #     name="TestCyberTracker",
+        #     redirect_uris="http://localhost",
+        #     user=self.app_user,
+        #     client_type=Application.CLIENT_CONFIDENTIAL,
+        #     authorization_grant_type=Application.GRANT_PASSWORD
+        # )
+        self.cyber_tracker_application = Application.objects.get(pk=5)
         self.factory = APIRequestFactory(enforce_csrf_checks=True)
 
-    def create_access_token(self, user):
+    def create_access_token(self, user, application):
         return AccessToken.objects.create(
             user=user,
             token=str(uuid.uuid4()),
-            application=self.application,
+            application=application,
             scope="read write",
             expires=timezone.now() + datetime.timedelta(days=1),
         )
 
     def force_authenticate(self, request, user):
         request.user = user
-        token = self.create_access_token(user)
+        token = self.create_access_token(user, self.application)
+        force_authenticate(request, user=user, token=token)
+
+    def force_authenticate_with_cyber_tracker(self, request, user):
+        request.user = user
+        token = self.create_access_token(user, self.cyber_tracker_application)
         force_authenticate(request, user=user, token=token)

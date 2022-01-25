@@ -4,12 +4,27 @@ import logging
 import traceback
 from collections import OrderedDict
 
+import activity.models
 import django.db
 import drf_extra_fields.geo_fields
 import jsonschema
 import pytz
 import rest_framework.serializers
 import rest_framework.status
+import usercontent.serializers
+import utils
+import utils.schema_utils as schema_utils
+from accounts.serializers import (UserDisplaySerializer, UserSerializer,
+                                  get_user_display)
+from activity.alerting.conditions import Conditions
+from activity.exceptions import SchemaValidationError
+from activity.models import PatrolSegment
+from activity.serializers.base import FileSerializerMixin
+from activity.util import get_permitted_event_categories
+from choices.serializers import ChoiceField
+from core.serializers import (ContentTypeField, GenericRelatedField,
+                              PointValidator)
+from core.utils import OneWeekSchedule
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.geos import Point
 from django.core.exceptions import PermissionDenied
@@ -20,33 +35,18 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.encoding import force_text
 from drf_extra_fields.geo_fields import PointField
-from rest_framework.exceptions import ValidationError, APIException
+from observations.serializers import SubjectSerializer
+from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.fields import DateTimeField
 from rest_framework.metadata import BaseMetadata
 from rest_framework.request import clone_request
 from rest_framework.utils.field_mapping import ClassLookupDict
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
+from revision.manager import AC_RELATION_DELETED, AC_UPDATED
+from utils.json import parse_bool
+from utils.schema_utils import (get_schema_renderer_method,
+                                validate_rendered_schema_is_wellformed)
 from versatileimagefield.serializers import VersatileImageFieldSerializer
-from activity.util import get_permitted_event_categories
-
-import activity.models
-import usercontent.serializers
-import utils
-import utils.schema_utils as schema_utils
-from accounts.serializers import UserDisplaySerializer, get_user_display, UserSerializer
-from activity.alerting.conditions import Conditions
-from activity.models import PatrolSegment
-from activity.exceptions import SchemaValidationError
-from activity.serializers.base import FileSerializerMixin, IMAGE_RENDITION_SETS
-from choices.serializers import ChoiceField
-from core.serializers import ContentTypeField
-from core.serializers import GenericRelatedField
-from core.serializers import PointValidator
-from core.utils import OneWeekSchedule
-from observations.serializers import SubjectSerializer
-from revision.manager import AC_UPDATED, AC_RELATION_DELETED
-from utils.json import loads, parse_bool
-from utils.schema_utils import get_schema_renderer_method, validate_rendered_schema_is_wellformed
 
 logger = logging.getLogger(__name__)
 
@@ -766,7 +766,6 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
                     value=new_event_type)
         return event_type
 
-
     def get_schema_fields_possible_values(self, schema):
         replacement_fields = schema_utils.get_replacement_fields_in_schema(
             schema)
@@ -1286,6 +1285,35 @@ class PatrolSegmentEventSerializer(EventSerializerMixin, rest_framework.serializ
         return rep
 
 
+def where_request_came_from(request):
+    # NOTE: Tried to put this in a middleware but the request didn't have the _auth
+    # property, consider if would be useful to move into a middleware
+    application = request._auth.application
+    print(f"\nApplication: {application}\n")
+    return application
+
+
+def which_field_search_for(application):
+    print(f"\nwhich_field_search_for\n")
+    if application.id == 5:
+        return 'reported_by'
+    else:
+        return 'reported_by'
+
+
+def auto_add_report_to_patrols(request, event):
+    application = where_request_came_from(request)
+    subject_field = which_field_search_for(application)
+    subject = getattr(event, subject_field)
+
+    # print(f"\nEVENT: {event.__dict__}\n")
+    # print(f"\nSUBJECT: {subject}\n")
+    if subject:
+        segments = PatrolSegment.objects.filter(leader_id=subject.id).all()
+        for segment in segments:
+            segment.events.add(event)
+
+
 class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
     serializer_choice_field = ChoiceField
     # Using PointField here provides the magic to convert between a
@@ -1326,6 +1354,12 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
     patrol_segments = rest_framework.serializers.PrimaryKeyRelatedField(many=True, required=False,
                                                                         queryset=PatrolSegment.objects.all())
+
+    def create(self, validated_data):
+        instance = super().create(validated_data)
+        request = self.context['request']
+        auto_add_report_to_patrols(request, instance)
+        return instance
 
     def get_contains(self, event):
         return self.get_out_relation(event, 'contains')
