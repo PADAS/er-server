@@ -1290,13 +1290,11 @@ def where_request_came_from(request):
     # property, consider if would be useful to move into a middleware
     if hasattr(request, '_auth'):
         application = request._auth.application
-        print(f"\nApplication: {application}\n")
         return application
     return
 
 
 def which_field_search_for(application):
-    print(f"\nwhich_field_search_for\n")
     if application.id == 5:
         return 'reported_by'
     else:
@@ -1309,8 +1307,6 @@ def auto_add_report_to_patrols(request, event):
         subject_field = which_field_search_for(application)
         subject = getattr(event, subject_field)
 
-        # print(f"\nEVENT: {event.__dict__}\n")
-        # print(f"\nSUBJECT: {subject}\n")
         if subject:
             segments = PatrolSegment.objects.filter(leader_id=subject.id).all()
             for segment in segments:

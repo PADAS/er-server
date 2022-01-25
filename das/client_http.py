@@ -28,14 +28,6 @@ class HTTPClient:
             client_type=Application.CLIENT_CONFIDENTIAL,
             authorization_grant_type=Application.GRANT_AUTHORIZATION_CODE,
         )
-        # self.cyber_tracker_application = Application.objects.create(
-        #     id=5,
-        #     name="TestCyberTracker",
-        #     redirect_uris="http://localhost",
-        #     user=self.app_user,
-        #     client_type=Application.CLIENT_CONFIDENTIAL,
-        #     authorization_grant_type=Application.GRANT_PASSWORD
-        # )
         self.cyber_tracker_application = Application.objects.get(pk=5)
         self.factory = APIRequestFactory(enforce_csrf_checks=True)
 
