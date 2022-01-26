@@ -40,14 +40,14 @@ ALTER ROLE :migration_role_name SET lock_timeout TO '10s';
 ALTER ROLE :analytics_role_name SET statement_timeout TO '3min';
 
 -- Take away superpowers (these were granted by default when terraforming these roles).
-REVOKE cloudsqlsuperuser FROM :app_role_name;
-REVOKE cloudsqlsuperuser FROM :app_user_name;
-
 REVOKE cloudsqlsuperuser FROM :migration_role_name;
 REVOKE cloudsqlsuperuser FROM :migration_user_name;
 
 REVOKE cloudsqlsuperuser FROM :analytics_role_name;
 REVOKE cloudsqlsuperuser FROM :analytics_user_name;
+
+REVOKE cloudsqlsuperuser FROM :app_user_name;
+REVOKE cloudsqlsuperuser FROM :app_role_name;
 
 -- Switch to app user, to allow altering default privileges.
 SET ROLE :app_user_name;

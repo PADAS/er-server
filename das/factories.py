@@ -7,6 +7,8 @@ from activity.models import (
     PatrolNote,
     PatrolSegment,
     PatrolType,
+    Event,
+    EventDetails,
 )
 from analyzers.models import FeatureProximityAnalyzerConfig, GeofenceAnalyzerConfig
 from django.contrib.auth.hashers import make_password
@@ -172,6 +174,8 @@ class EventCategoryFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = EventCategory
 
+    value = fuzzy.FuzzyText(length=20)
+
 
 class EventTypeFactory(factory.django.DjangoModelFactory):
     class Meta:
@@ -180,3 +184,19 @@ class EventTypeFactory(factory.django.DjangoModelFactory):
     value = fuzzy.FuzzyText(length=20)
     display = fuzzy.FuzzyText(length=50)
     category = factory.SubFactory(EventCategoryFactory)
+
+
+class EventFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Event
+
+    title = fuzzy.FuzzyText(length=20)
+    event_type = factory.SubFactory(EventTypeFactory)
+
+
+class EventDetailsFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = EventDetails
+
+    event = factory.SubFactory(EventFactory)
+    data = factory.LazyAttribute(lambda data: {})

@@ -98,19 +98,6 @@
 </style>
 <script type="text/javascript" src="{% url 'admin:jsi18n' %}"></script>
 <script>
-    function datefilter_apply(event, qs_name, form_name) {
-        event.preventDefault();
-        var query_string = django.jQuery('input#' + qs_name).val();
-        var form_data = django.jQuery('#' + form_name).serialize();
-        window.location = window.location.pathname + query_string + '&' + form_data;
-    }
-    function datefilter_reset(qs_name) {
-        var query_string = django.jQuery('input#' + qs_name).val();
-        window.location = window.location.pathname + query_string;
-    }
-</script>
-
-<script>
     document.addEventListener("DOMContentLoaded", function(){
         if (!('DateTimeShortcuts' in window)) {
             {% for m in spec.form.js %}
@@ -120,7 +107,33 @@
             {% endfor %}
         }
     });
+</script>
+<script>
+    function applyFilters(event) {
+        event.preventDefault();
+        let subjectName = document.getElementsByName("subject_name")[0]
+        let subjectId = document.getElementsByName("subject_id")[0]
+        let sourceId = document.getElementsByName("source_id")[0]
+        let recordedAtInit = document.getElementsByName("recorded_at__range__gte")[0]
+        let recordedAtEnd = document.getElementsByName("recorded_at__range__lte")[0]
+        let params = {}
+        let inputs = [subjectName, subjectId, sourceId, recordedAtInit, recordedAtEnd]
 
+        inputs.forEach(function(item) {
+            if (item && item.value) {
+                params[item.name] = item.value
+            }
+        });
+
+        if (params && Object.keys(params).length > 0) {
+            let parameters = new URLSearchParams(params);
+            window.location = window.location.pathname + '?' + '&' + parameters;
+        }
+    }
+
+    function resetFilters() {
+        window.location = location.protocol + '//' + location.host + location.pathname;
+    }
 </script>
 
 <div class="admindatefilter">
@@ -130,10 +143,10 @@
         <input type="hidden" id="{{ choice.system_name }}-query-string" value="{{ choice.query_string }}">
         {% endfor %}
         <div class="controls">
-            <input type="submit" value="{% trans "Search" %}"
-                onclick="datefilter_apply(event, '{{ choices.0.system_name }}-query-string', '{{ choices.0.system_name }}-form')">
+            <input type="button" value="{% trans "Search" %}"
+                onclick="applyFilters(event)">
             <input type="reset" class="button" value="{% trans "Clear" %}"
-                onclick="datefilter_reset('{{ choices.0.system_name }}-query-string')">
+                onclick="resetFilters()">
         </div>
     </form>
 </div>

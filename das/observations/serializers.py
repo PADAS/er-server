@@ -1,31 +1,35 @@
 import json
 from collections import OrderedDict
-from datetime import datetime, timedelta, MAXYEAR, MINYEAR
+from datetime import MAXYEAR, MINYEAR, datetime, timedelta
 from typing import NamedTuple
 
 import pytz
 import rest_framework.serializers
+import utils.json
+from accounts.serializers import UserDisplaySerializer
+from core.fields import GEOPointField, choicefield_serializer, text_field
+from core.serializers import (
+    BaseSerializer,
+    ContentTypeField,
+    GenericRelatedField,
+    TimestampMixin,
+)
 from django.conf import settings
 from django.contrib.gis.geos import Point
+from django.contrib.postgres.fields import jsonb
+from django.db.models import Q
 from django.urls import reverse
 from drf_extra_fields.fields import DateTimeRangeField
 from drf_extra_fields.geo_fields import PointField
+from observations import models
+from observations.utils import (
+    dateparse,
+    get_maximum_allowed_age,
+    get_minimum_allowed_age,
+    get_null_point,
+)
 from rest_framework.fields import DateTimeField
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
-from rest_framework.fields import DateTimeField
-from django.contrib.postgres.fields import jsonb
-from django.db.models import Q
-
-import activity
-import utils.json
-from accounts.serializers import UserDisplaySerializer
-from accounts.models import User
-from core.fields import GEOPointField, choicefield_serializer, text_field
-from core.serializers import ContentTypeField, TimestampMixin
-from core.serializers import GenericRelatedField, BaseSerializer
-from observations import models
-from observations.utils import (dateparse, get_maximum_allowed_age,
-                                get_minimum_allowed_age, get_null_point)
 from utils import add_base_url
 from utils.json import zeroout_microseconds
 
@@ -384,7 +388,8 @@ def get_subjectsources_with_2way_msg(subject):
                  (Q(source_two_way_messaging=False, source_two_way_messaging__isnull=False)))
 
     subject_sources = models.SubjectSource.objects.filter(subject=subject).annotate(
-        two_way_messaging=jsonb.KeyTransform('two_way_messaging', 'source__provider__additional'),
+        two_way_messaging=jsonb.KeyTransform(
+            'two_way_messaging', 'source__provider__additional'),
         source_two_way_messaging=jsonb.KeyTransform('two_way_messaging', 'source__additional')).exclude(
         Q(two_way_messaging__isnull=True) | Q(two_way_messaging=False) | condition)
     return subject_sources
@@ -547,9 +552,18 @@ class SourceProviderSerializer(rest_framework.serializers.Serializer):
         fields = ('id', 'provider_key', 'display_name', 'additional')
 
     def create(self, validated_data):
-
         instance = models.SourceProvider.objects.create_provider(
             **validated_data)
+        return instance
+
+    def update(self, instance, validated_data):
+        instance.provider_key = validated_data.get(
+            "provider_key", instance.provider_key)
+        instance.display_name = validated_data.get(
+            "display_name", instance.display_name)
+        instance.additional = validated_data.get(
+            "additional", instance.additional)
+        instance.save()
         return instance
 
 
@@ -816,8 +830,10 @@ class MessageSerializer(BaseSerializer, TimestampMixin):
     message_type = choicefield_serializer(
         models.MESSAGE_TYPES, default=models.OUTBOX)
     text = text_field(required=False, allow_blank=True, allow_null=True)
-    status = choicefield_serializer(models.MESSAGE_STATE_CHOICES, default=models.PENDING)
-    device_location = GEOPointField(required=False, allow_null=True, validators=[PointValidator()])
+    status = choicefield_serializer(
+        models.MESSAGE_STATE_CHOICES, default=models.PENDING)
+    device_location = GEOPointField(
+        required=False, allow_null=True, validators=[PointValidator()])
     message_time = DateTimeField(required=False, allow_null=True)
     read = rest_framework.serializers.BooleanField(required=False)
     additional = rest_framework.serializers.JSONField(
@@ -844,10 +860,14 @@ class MessageSerializer(BaseSerializer, TimestampMixin):
 
 class AnnouncementSerializer(BaseSerializer):
     id = rest_framework.serializers.UUIDField(read_only=True)
-    title = rest_framework.serializers.CharField(allow_null=True,  required=False, max_length=255)
-    description = text_field(allow_null=True, allow_blank=True, required=False,)
-    additional = rest_framework.serializers.JSONField(default=dict, allow_null=True)
-    link = rest_framework.serializers.URLField(allow_null=True,  required=False)
+    title = rest_framework.serializers.CharField(
+        allow_null=True,  required=False, max_length=255)
+    description = text_field(
+        allow_null=True, allow_blank=True, required=False,)
+    additional = rest_framework.serializers.JSONField(
+        default=dict, allow_null=True)
+    link = rest_framework.serializers.URLField(
+        allow_null=True,  required=False)
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
@@ -858,5 +878,5 @@ class AnnouncementSerializer(BaseSerializer):
 
 
 class ReadAnnouncementSerializer(rest_framework.serializers.Serializer):
-    news_ids = rest_framework.serializers.ListField(child=rest_framework.serializers.UUIDField(), required=True)
-
+    news_ids = rest_framework.serializers.ListField(
+        child=rest_framework.serializers.UUIDField(), required=True)

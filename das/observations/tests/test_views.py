@@ -1,26 +1,30 @@
 import datetime
 import random
-import json
+from datetime import timedelta
 from typing import NamedTuple
 from urllib.parse import urlencode
 
 import dateutil.parser
-import pytz
-import pytest
-from django.test import TestCase, override_settings
-from django.urls import reverse
-from rest_framework.test import APIRequestFactory, force_authenticate
-from django.contrib.auth.models import Permission
-from oauth2_provider.models import Application, AccessToken
-from django.contrib.gis.geos import Point
-from django.utils import timezone, lorem_ipsum
 
-from core.tests import BaseAPITest, API_BASE
-from accounts.models import User, PermissionSet
-from observations.models import Subject, SubjectGroup, Source, SubjectSource, Observation, SourceGroup, DEFAULT_ASSIGNED_RANGE
 import observations.views as views
-from observations.serializers import ObservationSerializer
-from datetime import timedelta
+import pytest
+import pytz
+from accounts.models import PermissionSet, User
+from client_http import HTTPClient
+from core.tests import API_BASE, BaseAPITest
+from django.contrib.auth.models import Permission
+from django.contrib.gis.geos import Point
+from django.test import override_settings
+from django.urls import reverse
+from observations.models import (
+    DEFAULT_ASSIGNED_RANGE,
+    Observation,
+    Source,
+    SourceGroup,
+    Subject,
+    SubjectGroup,
+    SubjectSource,
+)
 
 
 def random_string(length=10):
@@ -709,3 +713,49 @@ def test_one_week_track_permissions(subject_with_month_long_track, client):
     assert response.status_code == 200
     assert [t for t in response.data['features'][0]['properties']
             ['coordinateProperties']['times'] if t > max_day]
+
+
+@pytest.mark.django_db
+class TestSourceProvider:
+    def test_update_source_provider_with_patch_method(self, source_provider):
+        client = HTTPClient()
+        client.app_user.is_superuser = True
+        client.app_user.save()
+        request = client.factory.patch(
+            f"{client.api_base}/sourceprovider/{source_provider.id}/",
+            data={
+                "provider_key": "New provider key",
+                "display_name": "This is a provider key",
+                "additional": {},
+            },
+        )
+        client.force_authenticate(request, client.app_user)
+        response = views.SourceProvidersViewPartial.as_view()(
+            request, id=source_provider.id
+        )
+
+        assert response.status_code == 200
+        assert response.data.get("provider_key") == "New provider key"
+        assert response.data.get("display_name") == "This is a provider key"
+        assert response.data.get("additional") == {}
+
+    def test_update_source_provider_with_put_method(self, source_provider):
+        client = HTTPClient()
+        client.app_user.is_superuser = True
+        request = client.factory.put(
+            f"{client.api_base}/sourceprovider/{source_provider.id}/",
+            data={
+                "provider_key": "New provider key",
+                "display_name": "This is a provider key",
+                "additional": {},
+            },
+        )
+        client.force_authenticate(request, client.app_user)
+        response = views.SourceProvidersViewPartial.as_view()(
+            request, id=source_provider.id
+        )
+
+        assert response.status_code == 200
+        assert response.data.get("provider_key") == "New provider key"
+        assert response.data.get("display_name") == "This is a provider key"
+        assert response.data.get("additional") == {}

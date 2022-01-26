@@ -94,3 +94,34 @@ Body: form-data
 ~~~
 filecontent.file: <file>
 ~~~
+
+## Create an event and associate a subject to it
+In the case where a subject (animal, vehicle, person) is associated with the event, relate that existing subject with the event.
+
+POST to https://sandbox.pamdas.org/api/v1.0/activity/events
+ 
+Headers:
+~~~
+·         Authorization: Bearer xxxxxxxx
+·         Accept: application/json
+·         Content-Disposition: attachment; filename={}
+·         Content-Type: application/json
+~~~ 
+Body example:
+~~~
+{
+        "event_type": "geofence_rep",
+        "time": "2019-01-17T06:18:44.056439",
+        "location": {"latitude": 47.123, "longitude": -122.123},
+        "event_details": {
+            "speed": 50
+        },
+        "priority": 100,
+        related_subjects: [
+                {
+                    "content_type": "observations.subject",
+                    "id": "74865994-5ce9-486e-a953-42e802c38275"
+                }
+        ]
+}
+~~~

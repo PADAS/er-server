@@ -1,51 +1,53 @@
-import os
-import tempfile
-import shutil
-import logging
-import json
 import copy
-import collections
-import string
-import random
 import csv
 import io
+import json
+import logging
+import os
+import random
+import shutil
+import string
+import tempfile
 from datetime import datetime, timedelta
 from unittest import mock
-
-import pytz
-import pytest
 from urllib.parse import urlencode
-from django.utils import dateparse
+
 import django.contrib.auth
-from django.db import transaction
-from django.utils import lorem_ipsum
-from django.test import TestCase
-from django.utils import timezone
+import pytest
+import pytz
+from accounts.models import PermissionSet
+from accounts.serializers import UserDisplaySerializer
+from activity import views
+from activity.models import (
+    Event,
+    EventCategory,
+    EventDetails,
+    EventNote,
+    EventProvider,
+    EventRelationship,
+    EventSource,
+    EventsourceEvent,
+    EventType,
+    TSVectorModel,
+    parse_date_range,
+)
+from activity.serializers import EventDetailsSerializer
+from activity.tasks import automatically_update_event_state
+from activity.tests import schema_examples
+from choices.models import Choice, DynamicChoice
+from core.tests import BaseAPITest
 from django.contrib.auth.models import Permission
 from django.core.management import call_command
+from django.test import TestCase
 from django.urls import reverse
-from django.contrib.staticfiles.storage import staticfiles_storage
-from django.contrib.staticfiles import finders
-from kombu import Connection
-from rest_framework.fields import DateTimeField
+from django.utils import dateparse, lorem_ipsum, timezone
 from drf_extra_fields.geo_fields import PointField
-from django.urls import reverse
-
-from activity.serializers import EventDetailsSerializer
-from core.tests import BaseAPITest
-from choices.models import Choice, DynamicChoice
-from accounts.models import PermissionSet
-from activity.models import Event, EventAttachment, EventType, EventCategory, \
-    EventRelationship, EventRelationshipType, EventNote, EventsourceEvent, \
-    EventSource, EventProvider, parse_date_range, EventDetails, TSVectorModel
-from activity import views
-from observations.models import Subject, SubjectType, SubjectSubType
-from accounts.serializers import UserDisplaySerializer
-from observations.serializers import SubjectSerializer
+from kombu import Connection
+from observations.models import Subject, SubjectSubType, SubjectType
+from rest_framework.fields import DateTimeField
 from utils.html import clean_user_text
-from activity.tests import schema_examples
 from utils.schema_utils import format_key_for_title
-from activity.tasks import automatically_update_event_state
+
 
 logger = logging.getLogger(__name__)
 
@@ -3359,3 +3361,55 @@ class TestParsing(TestCase):
         val = dict(lower=0)
         with self.assertRaises(TypeError):
             result = parse_date_range(val)
+
+
+@pytest.mark.django_db
+class TestEventFilterQueryset:
+    ID = [
+        "248d5504-c430-4c61-8609-3f36db231806",
+        "6f0d6cdc-8dbd-45b6-9348-cbb5a0da3558",
+        "10989e64-81a9-4ee9-90c0-7a1d62ca6a45",
+        "d6e15c45-2e65-4f54-a06d-1d4075d07a10",
+        "b97e67c4-350e-412c-9ef7-cd1e54ed205a",
+    ]
+
+    def test_by_text_filter_method_for_serial_number(self, five_events_with_details):
+        event = Event.objects.last()
+
+        events = Event.objects.by_text_filter(f"{event.serial_number}")
+
+        assert events.count() == 1
+
+    @pytest.mark.parametrize("term", ["2", "24", "248"])
+    def test_by_text_filter_method_using_numbers_for_ids_in_event_details_data(
+        self, five_events_with_details, term
+    ):
+        event_details = EventDetails.objects.all()
+        for idx, event_detail in enumerate(event_details, 0):
+            event_detail.data = {
+                "event_details": {
+                    "rhinosightingrep_Rhino": self.ID[idx],
+                }
+            }
+            event_detail.save()
+
+        events = Event.objects.by_text_filter(term)
+
+        assert events.count() >= 1
+
+    @pytest.mark.parametrize("term", ["d", "d6", "d6e"])
+    def test_by_text_filter_method_using_letters_for_ids_in_event_details_data(
+        self, five_events_with_details, term
+    ):
+        event_details = EventDetails.objects.all()
+        for idx, event_detail in enumerate(event_details, 0):
+            event_detail.data = {
+                "event_details": {
+                    "rhinosightingrep_Rhino": self.ID[idx],
+                }
+            }
+            event_detail.save()
+
+        events = Event.objects.by_text_filter(term)
+
+        assert events.count() >= 1

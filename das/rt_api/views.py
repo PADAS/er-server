@@ -51,8 +51,9 @@ def create_rt_socketio():
     global GLOBAL_SIO
     if GLOBAL_SIO is None:
 
+        connection_options = dict(transport_options=settings.REALTIME_BROKER_OPTIONS)
         client_mgr = KombuManager(url=settings.REALTIME_BROKER_URL,
-                                  transport_options=settings.REALTIME_BROKER_OPTIONS
+                                  connection_options=connection_options
                                   )
         server_options = dict(async_mode=settings.ASYNC_MODE)
         server_options['cors_credentials'] = \
