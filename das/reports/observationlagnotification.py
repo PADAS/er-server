@@ -2,11 +2,12 @@ import datetime
 import logging
 
 import pytz
+from activity.models import EventType
+from celery_once import QueueOnce
+from das_server import celery
 from django.conf import settings
 from django.db.models import Avg, Count, F
 from django.utils.dateparse import parse_duration
-
-from activity.models import EventType
 from observations.models import Observation, SourceProvider
 from reports.distribution import (
     OBSERVATION_LAG_NOTIFY_PERMISSION_CODENAME,
@@ -130,6 +131,7 @@ Average lag: {avg_lag}
     return email_body, message_subject
 
 
+@celery.app.task(base=QueueOnce, once={'graceful': True})
 def check_sources_threshold():
     source_providers = SourceProvider.objects.filter(
         source__subjectsource__assigned_range__contains=datetime.datetime.now(
@@ -139,17 +141,38 @@ def check_sources_threshold():
 
     for source_provider in source_providers:
         latest_observations = (
-            Observation.objects.filter(source__provider=source_provider)
+            Observation.objects.filter(
+                source__provider=source_provider,
+                recorded_at__gte=now - datetime.timedelta(days=1),
+            )
             .order_by("source", "-recorded_at")
             .distinct("source")
         )
-        if evaluate_source_provider_compliance(
-            source_provider, latest_observations, now
-        ):
+        if evaluate_source_provider_compliance(source_provider, latest_observations, now):
             continue
+
+        sources_without_recent_observations = get_sources_id_without_recent_observations(
+            source_provider, latest_observations
+        )
+
+        if sources_without_recent_observations:
+            sources_with_latest_observation = (
+                Observation.objects.filter(
+                    source__in=sources_without_recent_observations)
+                .order_by("source", "-recorded_at")
+                .distinct("source")
+            )
+            latest_observations = latest_observations.union(
+                sources_with_latest_observation)
 
         for observation in latest_observations:
             evaluate_source_compliance(observation, source_provider, now)
+
+
+def get_sources_id_without_recent_observations(source_provider, latest_observations):
+    sources = source_provider.sources.all().values_list('id', flat=True)
+    sources_observations = latest_observations.values_list('source', flat=True)
+    return set(sources) - set(sources_observations)
 
 
 def evaluate_source_provider_compliance(source_provider, latest_observations, now):

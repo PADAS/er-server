@@ -114,7 +114,7 @@ app.conf.beat_schedule = {
     },
     "check-sources-threshold": {
         "task": "reports.tasks.run_check_sources_threshold",
-        "schedule": timedelta(minutes=5)
+        "schedule": timedelta(hours=1)
     },
     'routine-delete-observational-data': {
         'task': 'observations.tasks.maintain_observation_data',
