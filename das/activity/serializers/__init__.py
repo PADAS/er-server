@@ -1364,7 +1364,6 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         instance = super().update(instance, validated_data)
         request = self.context["request"]
         auto_add_report_to_patrols(request, instance)
-        print(f"\n{instance, type(instance)}\n")
         return instance
 
     def get_contains(self, event):
