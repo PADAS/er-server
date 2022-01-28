@@ -3414,7 +3414,6 @@ class TestEventView:
         segment = patrol.patrol_segments.first()
         subject = patrol.patrol_segments.first().leader
 
-        # Create Event (Report)
         event_data = {
             "event_type": "acoustic_detection",
             "reported_by": SubjectSerializer(subject).data,
@@ -3434,7 +3433,6 @@ class TestEventView:
         client.force_authenticate_with_cyber_tracker(request, client.app_user)
         response = views.EventsView.as_view()(request)
 
-        # Validate that Event was added to the patrols
         segment.refresh_from_db()
 
         assert response.status_code == 201

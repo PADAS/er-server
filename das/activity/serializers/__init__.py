@@ -1285,27 +1285,17 @@ class PatrolSegmentEventSerializer(EventSerializerMixin, rest_framework.serializ
         return rep
 
 
-def where_request_came_from(request):
-    # NOTE: Tried to put this in a middleware but the request didn't have the _auth
-    # property, consider if would be useful to move into a middleware
-    if hasattr(request, '_auth'):
-        application = request._auth.application
-        return application
-    return
-
-
 def which_field_search_for(application):
     if application and application.client_id == "cybertracker":
         return 'reported_by'
     return None
 
 
-def auto_add_report_to_patrols(request, event):
-    application = where_request_came_from(request)
-    subject_field = which_field_search_for(application)
+def auto_add_report_to_patrols(application, event):
+    field_to_search = which_field_search_for(application)
 
-    if application and subject_field:
-        subject = getattr(event, subject_field)
+    if field_to_search:
+        subject = getattr(event, field_to_search)
 
         if subject:
             segments = PatrolSegment.objects.filter(leader_id=subject.id).all()
@@ -1357,7 +1347,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     def create(self, validated_data):
         instance = super().create(validated_data)
         request = self.context['request']
-        auto_add_report_to_patrols(request, instance)
+        if request.auth:
+            auto_add_report_to_patrols(request.auth.application, instance)
         return instance
 
     def update(self, instance, validated_data):
