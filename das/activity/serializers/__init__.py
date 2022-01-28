@@ -1295,16 +1295,16 @@ def where_request_came_from(request):
 
 
 def which_field_search_for(application):
-    if application.client_id == "cybertracker":
+    if application and application.client_id == "cybertracker":
         return 'reported_by'
-    else:
-        return 'reported_by'
+    return None
 
 
 def auto_add_report_to_patrols(request, event):
     application = where_request_came_from(request)
-    if application:
-        subject_field = which_field_search_for(application)
+    subject_field = which_field_search_for(application)
+
+    if application and subject_field:
         subject = getattr(event, subject_field)
 
         if subject:
