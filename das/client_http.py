@@ -28,7 +28,8 @@ class HTTPClient:
             client_type=Application.CLIENT_CONFIDENTIAL,
             authorization_grant_type=Application.GRANT_AUTHORIZATION_CODE,
         )
-        self.cyber_tracker_application = Application.objects.get(pk=5)
+        self.cyber_tracker_application = Application.objects.get(
+            client_id="cybertracker")
         self.factory = APIRequestFactory(enforce_csrf_checks=True)
 
     def create_access_token(self, user, application):

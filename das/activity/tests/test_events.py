@@ -21,7 +21,7 @@ from activity import views
 from activity.models import (Event, EventCategory, EventDetails, EventNote,
                              EventProvider, EventRelationship, EventSource,
                              EventsourceEvent, EventType, Patrol,
-                             PatrolSegment, TSVectorModel, parse_date_range)
+                             TSVectorModel, parse_date_range)
 from activity.serializers import EventDetailsSerializer
 from activity.tasks import automatically_update_event_state
 from activity.tests import schema_examples
@@ -37,7 +37,6 @@ from drf_extra_fields.geo_fields import PointField
 from kombu import Connection
 from observations.models import Subject, SubjectSubType, SubjectType
 from observations.serializers import SubjectSerializer
-from psycopg2.extras import DateTimeTZRange
 from rest_framework.fields import DateTimeField
 from utils.html import clean_user_text
 from utils.schema_utils import format_key_for_title
@@ -3410,26 +3409,10 @@ class TestEventFilterQueryset:
 
 @pytest.mark.django_db
 class TestEventView:
-    def test_auto_add_report_to_patrols(self):
-        # Set subject
-        subject_data = {
-            "name": "Subject auto add report to patrols",
-            "subject_subtype": SubjectSubType.objects.get(value="ranger_team")
-        }
-        subject = Subject.objects.create(**subject_data)
-
-        # region Set patrols with that subject
-        patrol_data = {'title': 'Patrol to add reports'}
-        patrol = Patrol.objects.create(**patrol_data)
-
-        segment_data = {
-            "patrol_type_id": "c6f88fd2-2b87-477a-9c23-3bc4b3eb845d",
-            "leader": subject,
-            "time_range": DateTimeTZRange(lower=datetime.now(tz=pytz.utc)),
-            "patrol": patrol
-        }
-        segment = PatrolSegment.objects.create(**segment_data)
-        # endregion
+    def test_auto_add_report_to_patrols(self, five_patrol_segment_subject):
+        patrol = Patrol.objects.order_by("created_at").last()
+        segment = patrol.patrol_segments.first()
+        subject = patrol.patrol_segments.first().leader
 
         # Create Event (Report)
         event_data = {
@@ -3455,6 +3438,6 @@ class TestEventView:
         segment.refresh_from_db()
 
         assert response.status_code == 201
-        assert len(segment.events.all()) >= 1
+        assert segment.events.count() >= 1
         assert segment.events.first(
         ).event_type.value == event_data["event_type"]

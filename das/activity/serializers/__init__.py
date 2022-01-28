@@ -1295,7 +1295,7 @@ def where_request_came_from(request):
 
 
 def which_field_search_for(application):
-    if application.id == 5:
+    if application.client_id == "cybertracker":
         return 'reported_by'
     else:
         return 'reported_by'
