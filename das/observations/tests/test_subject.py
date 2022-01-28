@@ -651,7 +651,7 @@ class TestSubjectsView:
     def test_static_sensor_response(self, five_subject_source):
         now = datetime.now(tz=pytz.utc)
         first_subject_source = SubjectSource.objects.last()
-        first_subject_source.location = Point(20.6, -103.6)
+        first_subject_source.location = Point(-103.6, 20.6)
         first_subject_source.save()
         subject = first_subject_source.subject
         subject.name = "Subject test"
@@ -677,7 +677,7 @@ class TestSubjectsView:
         ]
         source_provider.save()
         Observation.objects.create(source=first_subject_source.source, location=Point(
-            20.5, -103.5), recorded_at=now, additional={"speed": 50, "temperature": 15})
+            -103.5, 20.5), recorded_at=now, additional={"speed": 50, "temperature": 15})
         for subject_status in SubjectStatus.objects.all():
             subject_status.additional = {"device_status_properties": [
                 {"label": "temp", "units": "c", "value": 15}, {"label": "speed", "units": "km", "value": 50}]}
@@ -699,7 +699,7 @@ class TestSubjectsView:
                 last_location = item.get("last_position")
                 device_status_properties = item.get("device_status_properties")
                 assert last_location.get("geometry").get(
-                    "coordinates", {}) == (20.6, -103.6)
+                    "coordinates", {}) == (-103.6, 20.6)
                 assert last_location.get("geometry").get("type", {}) == "Point"
                 assert item.get("is_static")
                 for device_property in device_status_properties:
@@ -709,7 +709,7 @@ class TestSubjectsView:
     def test_static_sensor_response_with_many_observations(self, five_subject_source):
         now = datetime.now(tz=pytz.utc)
         first_subject_source = SubjectSource.objects.last()
-        first_subject_source.location = Point(20.6, -103.6)
+        first_subject_source.location = Point(-103.6, 20.6)
         first_subject_source.save()
         subject = first_subject_source.subject
         subject.name = "Subject test"
@@ -735,11 +735,11 @@ class TestSubjectsView:
         ]
         source_provider.save()
         Observation.objects.create(source=first_subject_source.source, location=Point(
-            20.5, -103.5), recorded_at=now, additional={"speed": 50, "temperature": 150})
+            -103.5, 20.5), recorded_at=now, additional={"speed": 50, "temperature": 150})
         Observation.objects.create(source=first_subject_source.source, location=Point(
-            20.4, -103.4), recorded_at=now - timedelta(minutes=5), additional={"speed": 100, "temperature": 200})
+            -103.4, 20.4), recorded_at=now - timedelta(minutes=5), additional={"speed": 100, "temperature": 200})
         Observation.objects.create(source=first_subject_source.source, location=Point(
-            20.3, -103.3), recorded_at=now - timedelta(minutes=10), additional={"speed": 150, "temperature": 250})
+            -103.3, 20.3), recorded_at=now - timedelta(minutes=10), additional={"speed": 150, "temperature": 250})
         for subject_status in SubjectStatus.objects.all():
             subject_status.additional = {"device_status_properties": [
                 {"label": "temp", "units": "c", "value": 15}, {"label": "speed", "units": "km", "value": 50}]}
@@ -761,7 +761,7 @@ class TestSubjectsView:
                 last_location = item.get("last_position")
                 device_status_properties = item.get("device_status_properties")
                 assert last_location.get("geometry").get(
-                    "coordinates", {}) == (20.6, -103.6)
+                    "coordinates", {}) == (-103.6, 20.6)
                 assert last_location.get("geometry").get("type", {}) == "Point"
                 assert item.get("is_static")
                 for device_property in device_status_properties:

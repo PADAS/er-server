@@ -15,6 +15,7 @@ from django.contrib.admin.widgets import (AdminDateWidget,
                                           FilteredSelectMultiple)
 from django.contrib.auth import get_user_model
 from django.contrib.gis.forms import OSMWidget, PointField
+from django.contrib.gis.geos import Point
 from django.contrib.postgres.forms import JSONField
 from django.core.exceptions import ValidationError
 from django.urls import reverse
@@ -110,6 +111,12 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
         ).order_by("ordernum"):
             stop_reasons_choices[stop_reason.value] = stop_reason.display
         return tuple([(key, value) for key, value in stop_reasons_choices.items()])
+
+    def clean_location(self):
+        value = self.cleaned_data.get("location")
+        if value:
+            value = Point(value.y, value.x)
+        return value
 
 
 silence_notification_threshold_help_text_for_source =  \
