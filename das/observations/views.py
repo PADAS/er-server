@@ -331,6 +331,11 @@ class SubjectsViewSchema(InactiveSubjectsViewSchema):
                     'description': 'Include subjects having track data within this bounding box defined by a 4-tuple of coordinates marking west, south, east, north.',
                 },
                 {
+                    'name': 'use_high_precision_bbox',
+                    'in': 'query',
+                    'description': 'Looking for subjects that have crossed a bbox over the specified time period is an expensive call and can timeout on large datasets. We trim the accuracy of the bbox to one decimal place by default. Use this param to force a high resolution query. true/false, default is false',
+                },
+                {
                     'name': 'subject_group',
                     'in': 'query',
                     'description': 'Indicate a subject group for which Subjects should be listed.'
@@ -488,11 +493,15 @@ class SubjectsView(generics.ListCreateAPIView):
             updated_until = None
 
         bbox = self.request.query_params.get('bbox')
+        use_high_precision_bbox = parse_bool(self.request.query_params.get("use_high_precision_bbox", False))
         if bbox:
             bbox = bbox.split(',')
             bbox = [float(v) for v in bbox]
             if len(bbox) != 4:
                 raise ValueError("invalid bbox param")
+            if not use_high_precision_bbox:
+                precision = 1
+                bbox = [round(v, precision)  for v in bbox]
             queryset = queryset.by_bbox(bbox, last_days=get_track_days(),
                                         include_stationary_subjects=include_stationary_subjects_on_map(),
                                         updated_since=updated_since, updated_until=updated_until)
