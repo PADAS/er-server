@@ -358,6 +358,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                 if self._is_static_sensor(instance):
                     rep['device_status_properties'] = self._get_device_properties_static_sensor(
                         statusvalues, instance)
+                    rep["tracks_available"] = False
 
         if 'request' in self.context:
             request = self.context['request']
