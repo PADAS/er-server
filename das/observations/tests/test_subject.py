@@ -702,6 +702,7 @@ class TestSubjectsView:
                     "coordinates", {}) == (-103.6, 20.6)
                 assert last_location.get("geometry").get("type", {}) == "Point"
                 assert item.get("is_static")
+                assert not item.get("tracks_available")
                 for device_property in device_status_properties:
                     if device_property.get("label") == "speed":
                         assert device_property.get("default")
@@ -764,6 +765,7 @@ class TestSubjectsView:
                     "coordinates", {}) == (-103.6, 20.6)
                 assert last_location.get("geometry").get("type", {}) == "Point"
                 assert item.get("is_static")
+                assert not item.get("tracks_available")
                 for device_property in device_status_properties:
                     if device_property.get("label") == "speed":
                         assert device_property.get("default")
