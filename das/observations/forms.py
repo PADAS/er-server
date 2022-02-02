@@ -461,9 +461,10 @@ class TranformationRuleWidget(forms.MultiWidget):
         return [] if value is None else value
 
     def _get_default_feature(self, transform_rules):
-        for rule in transform_rules:
-            if rule.get("default"):
-                return rule.get("dest")
+        if transform_rules:
+            for rule in transform_rules:
+                if rule.get("default"):
+                    return rule.get("dest")
         return None
 
 
