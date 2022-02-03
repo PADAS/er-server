@@ -64,19 +64,6 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
             "provider",
         )
     )
-    location = PointField(
-        srid=4326,
-        widget=OSMWidget(
-            attrs={
-                "default_zoom": 4,
-                "display_wkt": True,
-                "map_width": 700,
-                "map_height": 500,
-                "map_srid": 4326
-            }
-        ), required=False
-    )
-    # For JSONFieldFormMixin -- this identifies the Model attribute that is the JSON Field.
     json_field = "additional"
 
     class Meta:
@@ -111,12 +98,6 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
         ).order_by("ordernum"):
             stop_reasons_choices[stop_reason.value] = stop_reason.display
         return tuple([(key, value) for key, value in stop_reasons_choices.items()])
-
-    def clean_location(self):
-        value = self.cleaned_data.get("location")
-        if value:
-            value = Point(value.y, value.x)
-        return value
 
 
 silence_notification_threshold_help_text_for_source =  \

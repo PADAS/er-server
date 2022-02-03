@@ -1,3 +1,4 @@
+import copy
 import csv
 import random
 import urllib
@@ -12,17 +13,15 @@ import observations.models as models
 import pytz
 from bitfield import BitField
 from bitfield.forms import BitFieldCheckboxSelectMultiple
-from core.admin import (
-    HierarchyModelAdmin,
-    InlineExtraDynamicMixin,
-    SaveCoordinatesToCookieMixin,
-)
+from core.admin import (HierarchyModelAdmin, InlineExtraDynamicMixin,
+                        SaveCoordinatesToCookieMixin)
 from core.common import TIMEZONE_USED
 from core.openlayers import OSMGeoExtendedAdmin
 from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.admin import SimpleListFilter
+from django.contrib.admin.options import FORMFIELD_FOR_DBFIELD_DEFAULTS
 from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
 from django.contrib.admin.utils import quote
 from django.contrib.admin.widgets import FilteredSelectMultiple
@@ -31,20 +30,9 @@ from django.contrib.contenttypes.admin import GenericTabularInline
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.paginator import Paginator
 from django.db import connection, transaction
-from django.db.models import (
-    Aggregate,
-    BooleanField,
-    Count,
-    DateTimeField,
-    ExpressionWrapper,
-    F,
-    Max,
-    Min,
-    OuterRef,
-    Q,
-    Subquery,
-    Window,
-)
+from django.db.models import (Aggregate, BooleanField, Count, DateTimeField,
+                              ExpressionWrapper, F, Max, Min, OuterRef, Q,
+                              Subquery, Window)
 from django.db.models.functions import FirstValue, Now, Trunc
 from django.db.utils import IntegrityError
 from django.forms import BaseModelFormSet, modelformset_factory
@@ -57,21 +45,17 @@ from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from observations.daterange_filter import DateRangeFilter
-from observations.forms import (
-    GPXFileForm,
-    MessageGenericForeignKeyRawIdWidget,
-    MessagesForm,
-    SourceProviderForm,
-    SubjectChangeListForm,
-    SubjectSourceForm,
-)
-from observations.tasks import maintain_subjectstatus_for_subject, process_gpxtrack_file
+from observations.forms import (GPXFileForm,
+                                MessageGenericForeignKeyRawIdWidget,
+                                MessagesForm, SourceProviderForm,
+                                SubjectChangeListForm, SubjectSourceForm)
+from observations.tasks import (maintain_subjectstatus_for_subject,
+                                process_gpxtrack_file)
 from observations.utils import assigned_range_dates, get_cyclic_subjectgroup
 from tracking.models import SourcePlugin
 from utils.html import make_html_list
 
 from .models import SOURCE_TYPES
-
 
 site_title = _('EarthRanger Administration (advanced view)')
 admin.site.site_title = site_title
@@ -203,7 +187,7 @@ class SubjectSubTypeAdmin(admin.ModelAdmin):
     )
 
 
-class SubjectSourceInline(InlineExtraDynamicMixin, admin.StackedInline):
+class SubjectSourceInline(InlineExtraDynamicMixin, OSMGeoExtendedAdmin, admin.StackedInline):
     can_delete = True
     fk_name = "subject"
     form = SubjectSourceForm
@@ -256,6 +240,20 @@ class SubjectSourceInline(InlineExtraDynamicMixin, admin.StackedInline):
     template = "admin/observations/subjectsource/edit_inline/stacked.html"
     verbose_name = _("Source Assignment")
     verbose_name_plural = _("Source Assignments")
+
+    def __init__(self, parent_model, admin_site):
+        self.admin_site = admin_site
+        self.parent_model = parent_model
+        self.opts = self.model._meta
+        self.has_registered_model = admin_site.is_registered(self.model)
+        overrides = copy.deepcopy(FORMFIELD_FOR_DBFIELD_DEFAULTS)
+        for k, v in self.formfield_overrides.items():
+            overrides.setdefault(k, {}).update(v)
+        self.formfield_overrides = overrides
+        if self.verbose_name is None:
+            self.verbose_name = self.model._meta.verbose_name
+        if self.verbose_name_plural is None:
+            self.verbose_name_plural = self.model._meta.verbose_name_plural
 
     def get_queryset(self, request):
         return super().get_queryset(request).order_by("-assigned_range__startswith")
