@@ -420,9 +420,10 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
         last_subject_source = subject.subjectsources.last()
         if last_subject_source:
             transforms = last_subject_source.source.provider.transforms
-            for transform in transforms:
-                if transform.get("default"):
-                    return transform.get("label")
+            if transforms:
+                for transform in transforms:
+                    if transform.get("default"):
+                        return transform.get("label")
         return ""
 
 
