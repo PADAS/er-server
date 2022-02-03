@@ -393,7 +393,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
 
     def _is_static_sensor(self, instance):
         if (
-                instance.subject_subtype.subject_type.display == "Stationary Sensor"
+                instance.subject_subtype.subject_type.display == "Stationary subject"
                 and instance.subjectsources.last()
                 and instance.subjectsources.last().location
         ):
