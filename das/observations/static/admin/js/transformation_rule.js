@@ -4,6 +4,7 @@
     let tranform_rules = $('#id_transforms');
     let message = JSON.parse(tranform_rules.val()) ? JSON.parse(tranform_rules.val()) : []
     let dest_index = {}
+    var tempUnit = {};
 
     let get_dest = function (source) {
         source = source.split('.')
@@ -76,8 +77,15 @@
         let index = dest_index[destination]
 
         if (index === undefined) {
+            $(`#transform_unit_${row}`).val(tempUnit[source]);
             source = source.replaceAll('[]', "[0]")
-            message.push({ "dest": `${destination}`, "label": `${destination}`, "source": `${source}`, "units": "" })
+            message.push({
+                "default": tempUnit[source + '_default'],
+                "dest": `${destination}`,
+                "label": `${destination}`,
+                "source": `${source}`,
+                "units": tempUnit[source]
+            })
             let new_msg = JSON.stringify(message, undefined, 2);
             $('#id_transforms').val(new_msg);
             map_dest_index()
@@ -85,16 +93,24 @@
 
         if (checkbox.checked) {
             let label_el = $(`#transform_label_${row}`)
+            let defaultElement = $(`#transform_unit_${row}`).parent().parent().find("[name='default']");
             label_el.removeAttr('disabled');
             $(`#transform_unit_${row}`).removeAttr('disabled');
             label_el.val(destination)
+            defaultElement.prop("disabled", false);
+            defaultElement.prop("checked", tempUnit[destination + '_default']);
 
         } else {
             let label_element = $(`#transform_label_${row}`);
             let unit_element = $(`#transform_unit_${row}`);
+            let defaultElement = $(`#transform_unit_${row}`).parent().parent().find("[name='default']");
+            tempUnit[$(`#id_tranformation_rule_${row}`).val()] = document.getElementById(`transform_unit_${row}`).value;
+            tempUnit[$(`#id_tranformation_rule_${row}`).val() + '_default'] = defaultElement.is(':checked');
 
             label_element.attr('disabled', 'disabled');
             unit_element.attr('disabled', 'disabled');
+            defaultElement.prop("checked", false);
+            defaultElement.prop("disabled", true);
 
             /* update value */
             label_element.val('');
