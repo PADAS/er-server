@@ -18,7 +18,7 @@ from accounts.serializers import (UserDisplaySerializer, UserSerializer,
                                   get_user_display)
 from activity.alerting.conditions import Conditions
 from activity.exceptions import SchemaValidationError
-from activity.models import PatrolSegment
+from activity.models import PC_OPEN, PatrolSegment
 from activity.serializers.base import FileSerializerMixin
 from activity.util import get_permitted_event_categories
 from choices.serializers import ChoiceField
@@ -1298,7 +1298,8 @@ def auto_add_report_to_patrols(application, event):
         subject = getattr(event, field_to_search)
 
         if subject:
-            segments = PatrolSegment.objects.filter(leader_id=subject.id).all()
+            segments = PatrolSegment.objects.filter(
+                leader_id=subject.id, patrol__state=PC_OPEN).all()
             for segment in segments:
                 segment.events.add(event)
 
