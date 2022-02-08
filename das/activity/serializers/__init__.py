@@ -1299,7 +1299,7 @@ def auto_add_report_to_patrols(application, event):
 
         if subject:
             segments = PatrolSegment.objects.filter(
-                leader_id=subject.id, patrol__state=PC_OPEN).all()
+                leader_id=subject.id, patrol__state=PC_OPEN)
             for segment in segments:
                 segment.events.add(event)
 
