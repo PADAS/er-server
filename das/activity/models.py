@@ -1,3 +1,5 @@
+from django.db.models import CharField
+from django.db.models.functions import Cast
 import datetime
 import json
 import logging
@@ -1575,7 +1577,7 @@ class StateFilters(Enum):
 
 class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_patrol_filter(self, filter):
-        queryset = self
+        queryset = self._annotate_queryset_with_serial_number_string()
         if filter.get("date_range"):
             patrols_overlap_daterange = filter.get(
                 "patrols_overlap_daterange", True)
@@ -1742,6 +1744,9 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             | Q(first_name__iregex=self._get_regex_istartswith(text))
             | Q(last_name__iregex=self._get_regex_istartswith(text))
         ).values_list("id", flat=True)
+
+    def _annotate_queryset_with_serial_number_string(self):
+        return self.annotate(serial_number_string=Cast("serial_number", CharField()))
 
 
 class Patrol(TimestampedModel, RevisionMixin):

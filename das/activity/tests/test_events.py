@@ -18,23 +18,15 @@ import pytz
 from accounts.models import PermissionSet
 from accounts.serializers import UserDisplaySerializer
 from activity import views
-from activity.models import (
-    Event,
-    EventCategory,
-    EventDetails,
-    EventNote,
-    EventProvider,
-    EventRelationship,
-    EventSource,
-    EventsourceEvent,
-    EventType,
-    TSVectorModel,
-    parse_date_range,
-)
+from activity.models import (Event, EventCategory, EventDetails, EventNote,
+                             EventProvider, EventRelationship, EventSource,
+                             EventsourceEvent, EventType, Patrol,
+                             TSVectorModel, parse_date_range)
 from activity.serializers import EventDetailsSerializer
 from activity.tasks import automatically_update_event_state
 from activity.tests import schema_examples
 from choices.models import Choice, DynamicChoice
+from client_http import HTTPClient
 from core.tests import BaseAPITest
 from django.contrib.auth.models import Permission
 from django.core.management import call_command
@@ -44,10 +36,10 @@ from django.utils import dateparse, lorem_ipsum, timezone
 from drf_extra_fields.geo_fields import PointField
 from kombu import Connection
 from observations.models import Subject, SubjectSubType, SubjectType
+from observations.serializers import SubjectSerializer
 from rest_framework.fields import DateTimeField
 from utils.html import clean_user_text
 from utils.schema_utils import format_key_for_title
-
 
 logger = logging.getLogger(__name__)
 
@@ -3413,3 +3405,37 @@ class TestEventFilterQueryset:
         events = Event.objects.by_text_filter(term)
 
         assert events.count() >= 1
+
+
+@pytest.mark.django_db
+class TestEventView:
+    def test_auto_add_report_to_patrols(self, five_patrol_segment_subject):
+        patrol = Patrol.objects.order_by("created_at").last()
+        segment = patrol.patrol_segments.first()
+        subject = patrol.patrol_segments.first().leader
+
+        event_data = {
+            "event_type": "acoustic_detection",
+            "reported_by": SubjectSerializer(subject).data,
+            "time": datetime.now().isoformat(),
+            "event_details": {
+                "type_accident": "1",
+                "number_people_involved": 5,
+                "animals_involved": "1"
+            }
+        }
+
+        url = f"{reverse('events')}"
+        client = HTTPClient()
+        client.app_user.is_superuser = True
+        client.app_user.save()
+        request = client.factory.post(url, data=event_data)
+        client.force_authenticate_with_cyber_tracker(request, client.app_user)
+        response = views.EventsView.as_view()(request)
+
+        segment.refresh_from_db()
+
+        assert response.status_code == 201
+        assert segment.events.count() >= 1
+        assert segment.events.first(
+        ).event_type.value == event_data["event_type"]
