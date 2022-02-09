@@ -219,6 +219,8 @@ locals {
     "careforwildrhino"        = "prod1"
     "zinave"                  = "prod1"
     "tintoumma"               = "prod1"
+    "khamab"                  = "prod1"
+    "luthuli"                 = "prod1"
     "kbopt"                   = "prod1"
     "siomangwezi"             = "prod1"
     "jock"                    = "prod1"
@@ -330,6 +332,8 @@ locals {
     "schoongezicht"         = 1
     "ntap-tz"               = 1
     "tintoumma"             = 1
+    "khamab"                = 1
+    "luthuli"               = 1
     "kbopt"                 = 1
     "siomangwezi"           = 1
     "jock"                  = 1
