@@ -51,7 +51,8 @@
                 "runserver",
                 "--noreload"
             ],
-            "django": true
+            "django": true,
+            "justMyCode": false
         },
         {
             "name": "Django:Gunicorn",

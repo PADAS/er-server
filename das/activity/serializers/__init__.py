@@ -247,8 +247,24 @@ class EventJSONSchema(BaseMetadata):
                 field_info[dest_key] = value
 
         if not field_info.get('read_only') and not ignore_choices:
-            if hasattr(field, 'object_choices'):
+            try:
                 object_choices = field.object_choices
+            except AttributeError:
+                try:
+                    choices = field.choices
+                except AttributeError:
+                    pass
+                else:
+                    field_info['enum_ext'] = [
+                        {
+                            'value': choice_value,
+                            'title': force_text(choice_name, strings_only=True)
+                        }
+                        for choice_value, choice_name in filter_blank_choice(choices)
+                    ]
+                    field_info['enum'] = [v['value'] for v in
+                                          field_info['enum_ext']]
+            else:
                 if isinstance(object_choices, dict):
                     unassigned = []
                     enum_ext = {}
@@ -280,21 +296,11 @@ class EventJSONSchema(BaseMetadata):
                             'value': choice_value,
                             'title': force_text(choice_name, strings_only=True)
                         }
-                        for choice_value, choice_name in filter_blank_choice(field.object_choices)
+                        for choice_value, choice_name in filter_blank_choice(object_choices)
                     ]
                     field_info['enum'] = [v['value'] for v in
                                           enum_ext]
                 field_info['enum_ext'] = enum_ext
-            elif hasattr(field, 'choices'):
-                field_info['enum_ext'] = [
-                    {
-                        'value': choice_value,
-                        'title': force_text(choice_name, strings_only=True)
-                    }
-                    for choice_value, choice_name in filter_blank_choice(field.choices)
-                ]
-                field_info['enum'] = [v['value'] for v in
-                                      field_info['enum_ext']]
 
         return field_info
 
