@@ -11,50 +11,49 @@ To re-sync your database with changes from others
 GIS
 * default geodjango spatial reference system is WGS84 (SRID 4326)
 """
-from typing import NamedTuple
-from datetime import datetime, timedelta
-import uuid
-import random
-import itertools
-import re
 import logging
+import random
+import re
+import uuid
+from datetime import datetime, timedelta
 from functools import reduce
 from operator import getitem
+from typing import NamedTuple
 
-# from collections import namedtuple
-#
-# from django.contrib.staticfiles.storage import staticfiles_storage
-from django.contrib.gis.db import models
-from django.contrib.postgres.fields import DateTimeRangeField, JSONField
-from django.db.models import Case, CharField, Value, When, F, Q, Max, When, OuterRef, Subquery, FilteredRelation
-from django.db import transaction
-from django.utils.text import slugify
-from django.utils.translation import ugettext_lazy as _
-from django.contrib.gis.geos import Point, Polygon
-from django.utils.functional import cached_property
-from django.db.models.constraints import UniqueConstraint
-from psycopg2.extras import DateTimeTZRange
 import pymet
 import pytz
-from dateutil.parser import parse as parse_date
-from django.db.models.functions import Greatest, Least
-from django.contrib.contenttypes.fields import GenericForeignKey
-from django.contrib.contenttypes.models import ContentType
-from django.contrib.gis.db import models as dbmodels
-from django.contrib.postgres.fields.hstore import KeyTransform
-
-
-from tracking.pubsub_registry import notify_new_tracks, notify_subjectstatus_update
-from observations.utils import VIEW_END_WINDOWS
-from utils.json import zeroout_microseconds
-from das_server import settings
-from accounts.mixins import PermissionSetHierarchyMixin, PermissionSetGroupMixin
+from accounts.mixins import PermissionSetGroupMixin, PermissionSetHierarchyMixin
 from accounts.models import PermissionSet
+from bitfield import BitField
 from core.models import HierarchyManager, HierarchyModel, TimestampedModel
 from core.utils import static_image_finder
+from das_server import settings
+from dateutil.parser import parse as parse_date
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.gis.db import models
+from django.contrib.gis.db import models as dbmodels
+from django.contrib.gis.geos import Point, Polygon
+from django.contrib.postgres.fields import DateTimeRangeField, JSONField
+from django.contrib.postgres.fields.hstore import KeyTransform
+from django.db import transaction
+from django.db.models import Case, F, FilteredRelation, Max, Q, Value, When
+from django.db.models.constraints import UniqueConstraint
+from django.db.models.functions import Greatest
+from django.utils.functional import cached_property
+from django.utils.text import slugify
+from django.utils.translation import ugettext_lazy as _
 from observations.mixins import FilterMixin
-from observations.utils import calculate_track_range, get_minimum_allowed_age, get_cyclic_subjectgroup, ensure_timezone_aware
-from bitfield import BitField
+from observations.utils import (
+    VIEW_END_WINDOWS,
+    calculate_track_range,
+    ensure_timezone_aware,
+    get_cyclic_subjectgroup,
+    get_minimum_allowed_age,
+)
+from psycopg2.extras import DateTimeTZRange
+from tracking.pubsub_registry import notify_subjectstatus_update
+from utils.json import zeroout_microseconds
 
 
 logger = logging.getLogger(__name__)
@@ -602,6 +601,8 @@ class SubjectSource(models.Model):
                                 related_query_name='subjectsource')
     additional = JSONField('additional', default=dict, blank=True)
     """EXCLUDE USING gist (source_id WITH =, assigned_range WITH &&)"""
+    location = models.PointField(
+        verbose_name="Assigned location", blank=True, null=True)
     objects = SubjectSourceManager()
 
     def __str__(self):

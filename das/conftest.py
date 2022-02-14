@@ -1,5 +1,6 @@
 import pytest
 from django.contrib.auth.models import Permission
+
 from factories import (EventDetailsFactory, EventFactory, EventTypeFactory,
                        FeatureProximityAnalyzerConfigFactory,
                        GeofenceAnalyzerConfigFactory, PatrolFactory,
@@ -76,8 +77,8 @@ def subject_source():
 
 
 @pytest.fixture
-def five_subject_sources():
-    return SubjectSourceFactory.create_batch(5)
+def five_subject_source():
+    SubjectSourceFactory.create_batch(5)
 
 
 @pytest.fixture
