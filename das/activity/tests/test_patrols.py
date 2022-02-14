@@ -2306,6 +2306,41 @@ class TestPatrolModel:
 
         assert patrol.state == PC_DONE
 
+    def test_filter_by_patrol_method(self, five_patrol_segment):
+        patrol = Patrol.objects.order_by("created_at").last()
+        patrol.title = "test"
+
+        segment = patrol.patrol_segments.first()
+        start_date = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(days=2)
+        segment.time_range = DateTimeTZRange(lower=start_date)
+
+        segment.save()
+        patrol.save()
+
+        filters = {
+            'date_range': {'lower': start_date.isoformat()},
+            'patrols_overlap_daterange': True,
+            'patrol_type': [],
+            'text': 'test',
+            'tracked_by': []
+        }
+        patrols = Patrol.objects.by_patrol_filter(filters)
+
+        assert patrols.first().id == patrol.id
+
+    def test_by_date_range_method(self, five_patrol_segment):
+        patrol = Patrol.objects.order_by("created_at").last()
+        segment = patrol.patrol_segments.first()
+
+        start_date = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(days=2)
+        segment.time_range = DateTimeTZRange(lower=start_date)
+        segment.save()
+
+        filters = {'lower': segment.time_range.lower.isoformat()}
+        patrols = Patrol.objects.by_date_range(filters, True)
+
+        assert patrols.first().id == patrol.id
+
 
 @pytest.mark.django_db
 class TestPatrolTrackedBySchemaView:
