@@ -1225,7 +1225,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
 
         try:
             state = getattr(self, 'status_radio_state', None) or \
-                self.subjectstatus_set.get(delay_hours=0).radio_state
+                self.subjectstatus_set.filter(delay_hours=0).next().radio_state
         except (SubjectStatus.DoesNotExist, AttributeError):
             yield '-'.join((key, 'black'))
             yield key

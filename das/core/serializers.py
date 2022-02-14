@@ -1,13 +1,14 @@
 import copy
 from collections import OrderedDict
 
+from django.db.models import Prefetch
 import django.contrib.gis.serializers.geojson as geojson
 import rest_framework.serializers as serializers
 from django.contrib.contenttypes.models import ContentType
 from rest_framework.fields import empty
 
 from activity.models import Community, Event
-from observations.models import Subject
+from observations.models import Subject, SubjectStatus
 
 
 class BaseSerializer(serializers.Serializer):
@@ -201,6 +202,7 @@ class GenericRelatedField(serializers.RelatedField):
             # even when accessed with a read-only field.
             return {}
         choices = []
+        self.context["disable_is_allowed_to_view_as_already_accomplish_in_get_object_queryset"] = True
         for provenance, values in queryset:
             choices += [(self.to_representation(item), self.display_value(item))
                         for item in values]
@@ -208,10 +210,12 @@ class GenericRelatedField(serializers.RelatedField):
 
     def is_allowed_to_view(self, output):
         request = self.context.get('request')
+        if self.context.get("disable_is_allowed_to_view_as_already_accomplish_in_get_object_queryset", False):
+            return True
 
         if output.get('content_type') == 'observations.subject':
             subject_id = output.get('id')
-            return Subject.objects.filter(id=subject_id).by_user_subjects(request.user)
+            return Subject.objects.prefetch_related(Prefetch("subjectstatus_set", queryset=SubjectStatus.objects.filter(delay_hours=0))).select_related("subject_subtype").filter(id=subject_id).by_user_subjects(request.user)
         return True
 
 

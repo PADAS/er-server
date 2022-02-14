@@ -488,6 +488,7 @@ class SubjectsView(generics.ListCreateAPIView):
             updated_until = None
 
         bbox = self.request.query_params.get('bbox')
+
         if bbox:
             bbox = bbox.split(',')
             bbox = [float(v) for v in bbox]

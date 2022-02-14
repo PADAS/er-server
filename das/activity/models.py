@@ -1,3 +1,5 @@
+from django.db.models import CharField
+from django.db.models.functions import Cast
 import datetime
 import json
 import logging
@@ -25,14 +27,14 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.core.validators import RegexValidator
 from django.db import transaction
 from django.db.models import (Case, Exists, F, OuterRef, Q, Subquery, Value,
-                              When)
+                              When, Prefetch)
 from django.db.models.functions import Lower
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import dateparse, timezone
 from django.utils.encoding import force_text
 from django.utils.translation import ugettext_lazy as _
-from observations.models import Subject, SubjectGroup
+from observations.models import Subject, SubjectGroup, SubjectStatus
 from observations.utils import dateparse as dparse
 from revision.manager import (Revision, RevisionAdapter, RevisionMixin,
                               relation_deleted)
@@ -1575,7 +1577,7 @@ class StateFilters(Enum):
 
 class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_patrol_filter(self, filter):
-        queryset = self
+        queryset = self._annotate_queryset_with_serial_number_string()
         if filter.get("date_range"):
             patrols_overlap_daterange = filter.get(
                 "patrols_overlap_daterange", True)
@@ -1743,6 +1745,9 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             | Q(last_name__iregex=self._get_regex_istartswith(text))
         ).values_list("id", flat=True)
 
+    def _annotate_queryset_with_serial_number_string(self):
+        return self.annotate(serial_number_string=Cast("serial_number", CharField()))
+
 
 class Patrol(TimestampedModel, RevisionMixin):
     objects = models.Manager.from_queryset(PatrolFilteringQuerySet)()
@@ -1885,7 +1890,8 @@ class PatrolSegmentManager(models.Manager):
     def get_leader_for_provenance(provenance, user=None):
         if PC_STAFF == provenance:
             def get_subjects():
-                active_subjects = Subject.objects.all().by_is_active()
+                active_subjects = Subject.objects.prefetch_related(Prefetch("subjectstatus_set", queryset=SubjectStatus.objects.filter(
+                    delay_hours=0))).select_related("subject_subtype", "subject_subtype__subject_type").all().by_is_active()
                 subject_grps = PatrolConfiguration.objects.first().subject_groups.all()
 
                 for o in active_subjects.by_subjectgroups(subject_grps, user=user):

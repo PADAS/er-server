@@ -267,6 +267,7 @@ execnet==1.7.1
     # via pytest-xdist
 factory-boy==3.2.0
     # via -r requirements-dev.in
+pytest-factoryboy==2.1.0
 faker==4.1.1
     # via
     #   -r requirements-dev.in

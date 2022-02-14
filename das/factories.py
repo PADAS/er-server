@@ -1,5 +1,9 @@
 import factory
-from accounts.models.user import User
+from django.contrib.auth.hashers import make_password
+from factory import fuzzy
+from django.contrib.auth import get_user_model
+
+from accounts.models.permissionset import PermissionSet
 from activity.models import (
     EventCategory,
     EventType,
@@ -11,8 +15,6 @@ from activity.models import (
     EventDetails,
 )
 from analyzers.models import FeatureProximityAnalyzerConfig, GeofenceAnalyzerConfig
-from django.contrib.auth.hashers import make_password
-from factory import fuzzy
 from mapping.models import SpatialFeatureGroupStatic, SpatialFeatureType
 from observations.models import (
     Observation,
@@ -24,6 +26,25 @@ from observations.models import (
     SubjectSubType,
     SubjectType,
 )
+
+User = get_user_model()
+
+
+class PermissionSetFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = PermissionSet
+        django_get_or_create = ('name',)
+
+    name = fuzzy.FuzzyText(length=25)
+
+    @factory.post_generation
+    def permissions(self, create, extracted, **kwargs):
+        if not create:
+            return
+
+        if extracted:
+            for permissions in extracted:
+                self.permissions.add(permissions)
 
 
 class UserFactory(factory.django.DjangoModelFactory):
@@ -119,8 +140,27 @@ class SubjectSourceFactory(factory.django.DjangoModelFactory):
 class SubjectGroupFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = SubjectGroup
+        django_get_or_create = ('name',)
 
     name = fuzzy.FuzzyText(length=40)
+
+    @factory.post_generation
+    def subjects(self, create, extracted, **kwargs):
+        if not create:
+            return
+
+        if extracted:
+            for subject in extracted:
+                self.subjects.add(subject)
+
+    @factory.post_generation
+    def permission_sets(self, create, extracted, **kwargs):
+        if not create:
+            return
+
+        if extracted:
+            for permission_set in extracted:
+                self.permission_sets.add(permission_set)
 
 
 class PatrolSegmentSubjectFactory(factory.django.DjangoModelFactory):

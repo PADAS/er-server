@@ -15,7 +15,6 @@ from reports.observationlagnotification import (
 )
 from reports.subjectsourcereport import generate_user_reports
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -59,6 +58,6 @@ def alert_lag_delay():
         send_lag_delay_alert(*lagging_provider)
 
 
-@celery.app.task()
+@celery.app.task
 def run_check_sources_threshold():
-    check_sources_threshold()
+    check_sources_threshold.apply_async()
