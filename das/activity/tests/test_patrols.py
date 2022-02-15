@@ -11,8 +11,9 @@ import pytz
 from accounts.models import PermissionSet
 from activity import views
 from activity.models import (PC_DONE, PC_OPEN, Event, EventRelationship,
-                             EventType, Patrol, PatrolNote, PatrolSegment,
-                             PatrolType, StateFilters)
+                             EventType, Patrol, PatrolConfiguration,
+                             PatrolNote, PatrolSegment, PatrolType,
+                             StateFilters)
 from activity.serializers.patrol_serializers import PatrolSerializer
 from client_http import HTTPClient
 from core.tests import BaseAPITest
@@ -2304,3 +2305,56 @@ class TestPatrolModel:
         patrol.save()
 
         assert patrol.state == PC_DONE
+
+    def test_filter_by_patrol_method(self, five_patrol_segment):
+        patrol = Patrol.objects.order_by("created_at").last()
+        patrol.title = "test"
+
+        segment = patrol.patrol_segments.first()
+        start_date = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(days=2)
+        segment.time_range = DateTimeTZRange(lower=start_date)
+
+        segment.save()
+        patrol.save()
+
+        filters = {
+            'date_range': {'lower': start_date.isoformat()},
+            'patrols_overlap_daterange': True,
+            'patrol_type': [],
+            'text': 'test',
+            'tracked_by': []
+        }
+        patrols = Patrol.objects.by_patrol_filter(filters)
+
+        assert patrols.first().id == patrol.id
+
+    def test_by_date_range_method(self, five_patrol_segment):
+        patrol = Patrol.objects.order_by("created_at").last()
+        segment = patrol.patrol_segments.first()
+
+        start_date = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(days=2)
+        segment.time_range = DateTimeTZRange(lower=start_date)
+        segment.save()
+
+        filters = {'lower': segment.time_range.lower.isoformat()}
+        patrols = Patrol.objects.by_date_range(filters, True)
+
+        assert patrols.first().id == patrol.id
+
+
+@pytest.mark.django_db
+class TestPatrolTrackedBySchemaView:
+    def test_trackedby_permissions_for_a_subjectgroup_viewer(self, django_assert_max_num_queries, client, two_subject_groups, ops_user):
+        a_subjectgroup, b_subjectgroup = two_subject_groups
+        a_subjectgroup.permission_sets.all()[0].user_set.add(ops_user)
+        PatrolConfiguration.objects.first().subject_groups.add(
+            *[a_subjectgroup, b_subjectgroup])
+
+        url = reverse('patrol-segments-schema')
+        client.force_login(ops_user)
+
+        with django_assert_max_num_queries(11):
+            response = client.get(url)
+            leaders = response.data["properties"]["leader"]["enum"]
+            assert not any(subject.name == leader["name"]
+                           for subject in b_subjectgroup.subjects.all() for leader in leaders)

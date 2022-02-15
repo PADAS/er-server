@@ -1,20 +1,16 @@
 import pytest
-from factories import (
-    EventDetailsFactory,
-    EventFactory,
-    EventTypeFactory,
-    FeatureProximityAnalyzerConfigFactory,
-    GeofenceAnalyzerConfigFactory,
-    PatrolFactory,
-    PatrolNoteFactory,
-    PatrolSegmentFactory,
-    PatrolSegmentSubjectFactory,
-    PatrolSegmentUserFactory,
-    ProviderFactory,
-    SpatialFeatureGroupStaticFactory,
-    SpatialFeatureTypeFactory,
-    SubjectSourceFactory,
-)
+from django.contrib.auth.models import Permission
+
+from factories import (EventDetailsFactory, EventFactory, EventTypeFactory,
+                       FeatureProximityAnalyzerConfigFactory,
+                       GeofenceAnalyzerConfigFactory, PatrolFactory,
+                       PatrolNoteFactory, PatrolSegmentFactory,
+                       PatrolSegmentSubjectFactory, PatrolSegmentUserFactory,
+                       PermissionSetFactory, ProviderFactory,
+                       SpatialFeatureGroupStaticFactory,
+                       SpatialFeatureTypeFactory, SubjectFactory,
+                       SubjectGroupFactory, SubjectSourceFactory, UserFactory)
+from pytest_factoryboy import register
 
 
 @pytest.fixture
@@ -48,13 +44,41 @@ def five_patrol_segment_user():
 
 
 @pytest.fixture
+def five_subjects():
+    SubjectFactory.create_batch(5)
+
+
+register(UserFactory, "ops_user")
+
+
+@pytest.fixture
+def view_subject_permissions():
+    return [Permission.objects.get_by_natural_key(
+            'view_subjectgroup', 'observations', 'subjectgroup'
+            ), Permission.objects.get_by_natural_key(
+            'view_subject', 'observations', 'subject'
+            ),
+            ]
+
+
+@pytest.fixture
+def two_subject_groups(view_subject_permissions):
+    view_sg_a_permissionset = PermissionSetFactory.create(
+        permissions=view_subject_permissions)
+    view_sg_b_permissionset = PermissionSetFactory.create(
+        permissions=view_subject_permissions)
+    return [SubjectGroupFactory.create(permission_sets=[view_sg_a_permissionset], subjects=SubjectFactory.create_batch(2)),
+            SubjectGroupFactory.create(permission_sets=[view_sg_b_permissionset], subjects=SubjectFactory.create_batch(2))]
+
+
+@pytest.fixture
 def subject_source():
     return SubjectSourceFactory.create()
 
 
 @pytest.fixture
-def five_subject_sources():
-    return SubjectSourceFactory.create_batch(5)
+def five_subject_source():
+    SubjectSourceFactory.create_batch(5)
 
 
 @pytest.fixture
@@ -115,6 +139,7 @@ def five_patrol_segment_patrol_type_uuid():
         PatrolSegmentFactory.create(
             patrol_type__id=f"00000000-0000-0000-0000-00000000000{i}"
         )
+
 
 @pytest.fixture
 def source_provider():

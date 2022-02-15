@@ -19,9 +19,8 @@ class FileCompression:
     def lookup_file_path(self, file_name):
         static_file = self.static_path.format(file_name)
 
-        if finders.find(static_file):
-            return staticfiles_storage.path(static_file)
-
+        file_path = finders.find(static_file)
+        return file_path
 
     def get_file_path(self):
         file_format = '{filename}.{ext}'
@@ -33,11 +32,9 @@ class FileCompression:
                     **dict(filename=file_name['icon'], ext=ext))
                 file_path = self.lookup_file_path(_file)
 
-                if file_path != None:
+                if file_path:
                     file_paths.append(file_path)
         return file_paths
-
-
 
     def zip_compress(self, zip_subdir):
         zipfile_name = "{0}.zip".format(zip_subdir)
@@ -50,5 +47,6 @@ class FileCompression:
 
                 zip_file.write(_file, zip_path)
 
-        response['Content-Disposition'] = 'attachment; filename={}'.format(zipfile_name)
+        response['Content-Disposition'] = 'attachment; filename={}'.format(
+            zipfile_name)
         return response

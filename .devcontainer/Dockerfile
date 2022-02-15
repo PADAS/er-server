@@ -60,6 +60,7 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     #libgdal-dev \
     curl \
     python3-openssl \
+    postgresql-client \
     libssl-dev \
     wget \
     gnupg \
@@ -78,8 +79,6 @@ RUN ldconfig
 RUN pip3 install numpy==1.19.5
 
 RUN pip3 --disable-pip-version-check --no-cache-dir install -r /workspace/dependencies/requirements-dev.txt -r /workspace/dependencies/requirements-pinned.txt -f /workspace/dependencies/wheelhouse
-
-
 
 
 # [Optional] If your pip requirements rarely change, uncomment this section to add them to the image.

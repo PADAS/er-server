@@ -3,29 +3,29 @@ import os
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-import django.contrib.auth
-from django.contrib.gis.geos import Point
-from django.urls import reverse
-from django.conf import settings
-from django.test import override_settings
-from django.core.files import File
-from django.contrib.admin.sites import AdminSite
-from django.test import RequestFactory
-from django.http import QueryDict
-from django.contrib.messages.storage.cookie import CookieStorage
-from django.db import transaction
-from accounts.models import PermissionSet
-from django.contrib.auth.models import Permission
-
 import dateutil.parser as dateparser
-from pytz import UTC
-
+import django.contrib.auth
+import pytest
+import pytz
+from accounts.models import PermissionSet
+from client_http import HTTPClient
 from core.tests import BaseAPITest
-from observations.models import Subject, Observation, GPXTrackFile, SubjectSource, Source, SubjectStatus
-from observations.utils import calculate_track_range
-from observations.views import SubjectsView, GPXFileUploadView
+from django.contrib.admin.sites import AdminSite
+from django.contrib.auth.models import Permission
+from django.contrib.gis.geos import Point
+from django.contrib.messages.storage.cookie import CookieStorage
+from django.core.files import File
+from django.db import transaction
+from django.http import QueryDict
+from django.test import RequestFactory, override_settings
+from django.urls import reverse
 from observations.admin import GPXAdmin
+from observations.models import (GPXTrackFile, Observation, Source, Subject,
+                                 SubjectSource, SubjectStatus, SubjectSubType)
 from observations.tasks import process_trackpoints
+from observations.utils import calculate_track_range
+from observations.views import GPXFileUploadView, SubjectsView
+from pytz import UTC
 
 User = django.contrib.auth.get_user_model()
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),
@@ -58,22 +58,26 @@ class SubjectTestCase(BaseAPITest):
     def test_empty_point_not_included_in_subject_tracks(self):
         from django.contrib.gis.geos import Point
         coordinates = self.get_coordinates_returned()
-        monitored_location = Point(50.7586930900307, 40.3297162190965) # Existing trackpoint from fixtures
+        # Existing trackpoint from fixtures
+        monitored_location = Point(50.7586930900307, 40.3297162190965)
         self.assertEqual(3, len(coordinates))
         self.assertIn(monitored_location.coords, coordinates)
 
         # Update one coordinate to an empty point
-        Observation.objects.filter(location=monitored_location).update(location=Point(0, 0))
+        Observation.objects.filter(
+            location=monitored_location).update(location=Point(0, 0))
         new_coordinates = self.get_coordinates_returned()
         self.assertNotIn(monitored_location.coords, new_coordinates)
-        self.assertEqual(2, len(new_coordinates))  # Track not included in tracks
+        # Track not included in tracks
+        self.assertEqual(2, len(new_coordinates))
 
     def get_coordinates_returned(self):
         from observations import views
         self.satellite_user = User.objects.get(username='satellite-user')
         self.henry = Subject.objects.get(name='Henry')
 
-        request = self.factory.get(self.api_base + '/subject/{}/tracks/'.format(self.henry.id))
+        request = self.factory.get(
+            self.api_base + '/subject/{}/tracks/'.format(self.henry.id))
         self.force_authenticate(request, self.satellite_user)
         response = views.SubjectTracksView.as_view()(request, subject_id=self.henry.id)
         return response.data['features'][0]['geometry']['coordinates']
@@ -284,7 +288,8 @@ class SubjectTestCase(BaseAPITest):
         """
         expiry_date = (datetime.now(tz=UTC) -
                        timedelta(days=5)).date().isoformat()
-        mou_datesigned = (datetime.now(tz=UTC) - timedelta(days=50)).date().isoformat()
+        mou_datesigned = (datetime.now(tz=UTC) -
+                          timedelta(days=50)).date().isoformat()
         additional_data = {
             'notes': 'Testing Notes',
             'expiry': expiry_date,
@@ -362,7 +367,7 @@ class SubjectTestCase(BaseAPITest):
             extracted_data.get('subject2_last_position')).date().isoformat()
         self.assertEqual(t1.date().isoformat(), subject_last_position)
         self.assertEqual(t2.date().isoformat(), subject2_last_postion)
-        
+
     @override_settings(SHOW_TRACK_DAYS=16)
     def test_return_no_last_position_past_mou_expiry(self):
         url = reverse('subjects-list-view')
@@ -394,12 +399,10 @@ class SubjectTestCase(BaseAPITest):
         response = SubjectsView.as_view()(request)
         response_data = json.loads(response.render().content.decode())['data']
 
-        extracted_data = {}
         for o in response_data:
             if o['id'] == str(subject.id):
                 assert 'last_postion' not in o
                 assert not o['tracks_available']
-
 
     def test_gpx_file_model(self):
 
@@ -642,3 +645,127 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 201)
 
 
+@pytest.mark.django_db
+class TestSubjectsView:
+
+    def test_static_sensor_response(self, five_subject_source):
+        now = datetime.now(tz=pytz.utc)
+        first_subject_source = SubjectSource.objects.last()
+        first_subject_source.location = Point(-103.6, 20.6)
+        first_subject_source.save()
+        subject = first_subject_source.subject
+        subject.name = "Subject test"
+        subject.subject_subtype = SubjectSubType.objects.get(
+            display="Camera Trap")
+        subject.save()
+        source_provider = first_subject_source.source.provider
+        source_provider.transforms = [
+            {
+                "default": False,
+                "dest": "temperature",
+                "label": "temp",
+                "source": "temperature",
+                "units": "c"
+            },
+            {
+                "default": True,
+                "dest": "speed",
+                "label": "speed",
+                "source": "speed",
+                "units": "km"
+            }
+        ]
+        source_provider.save()
+        Observation.objects.create(source=first_subject_source.source, location=Point(
+            -103.5, 20.5), recorded_at=now, additional={"speed": 50, "temperature": 15})
+        for subject_status in SubjectStatus.objects.all():
+            subject_status.additional = {"device_status_properties": [
+                {"label": "temp", "units": "c", "value": 15}, {"label": "speed", "units": "km", "value": 50}]}
+            subject_status.save()
+
+        client = HTTPClient()
+        client.app_user.is_superuser = True
+        client.app_user.save()
+        request = client.factory.get(
+            client.api_base + f"/subjects"
+        )
+        client.force_authenticate(request, client.app_user)
+        response = SubjectsView.as_view()(request)
+        data = list(response.data)
+
+        for item in data:
+            item = dict(item)
+            if item.get("name") == "Subject test":
+                last_location = item.get("last_position")
+                device_status_properties = item.get("device_status_properties")
+                assert last_location.get("geometry").get(
+                    "coordinates", {}) == (-103.6, 20.6)
+                assert last_location.get("geometry").get("type", {}) == "Point"
+                assert item.get("is_static")
+                assert not item.get("tracks_available")
+                for device_property in device_status_properties:
+                    if device_property.get("label") == "speed":
+                        assert device_property.get("default")
+
+    def test_static_sensor_response_with_many_observations(self, five_subject_source):
+        now = datetime.now(tz=pytz.utc)
+        first_subject_source = SubjectSource.objects.last()
+        first_subject_source.location = Point(-103.6, 20.6)
+        first_subject_source.save()
+        subject = first_subject_source.subject
+        subject.name = "Subject test"
+        subject.subject_subtype = SubjectSubType.objects.get(
+            display="Camera Trap")
+        subject.save()
+        source_provider = first_subject_source.source.provider
+        source_provider.transforms = [
+            {
+                "default": False,
+                "dest": "temperature",
+                "label": "temp",
+                "source": "temperature",
+                "units": "c"
+            },
+            {
+                "default": True,
+                "dest": "speed",
+                "label": "speed",
+                "source": "speed",
+                "units": "km"
+            }
+        ]
+        source_provider.save()
+        Observation.objects.create(source=first_subject_source.source, location=Point(
+            -103.5, 20.5), recorded_at=now, additional={"speed": 50, "temperature": 150})
+        Observation.objects.create(source=first_subject_source.source, location=Point(
+            -103.4, 20.4), recorded_at=now - timedelta(minutes=5), additional={"speed": 100, "temperature": 200})
+        Observation.objects.create(source=first_subject_source.source, location=Point(
+            -103.3, 20.3), recorded_at=now - timedelta(minutes=10), additional={"speed": 150, "temperature": 250})
+        for subject_status in SubjectStatus.objects.all():
+            subject_status.additional = {"device_status_properties": [
+                {"label": "temp", "units": "c", "value": 15}, {"label": "speed", "units": "km", "value": 50}]}
+            subject_status.save()
+
+        client = HTTPClient()
+        client.app_user.is_superuser = True
+        client.app_user.save()
+        request = client.factory.get(
+            client.api_base + f"/subjects"
+        )
+        client.force_authenticate(request, client.app_user)
+        response = SubjectsView.as_view()(request)
+        data = list(response.data)
+
+        for item in data:
+            item = dict(item)
+            if item.get("name") == "Subject test":
+                last_location = item.get("last_position")
+                device_status_properties = item.get("device_status_properties")
+                assert last_location.get("geometry").get(
+                    "coordinates", {}) == (-103.6, 20.6)
+                assert last_location.get("geometry").get("type", {}) == "Point"
+                assert item.get("is_static")
+                assert not item.get("tracks_available")
+                for device_property in device_status_properties:
+                    if device_property.get("label") == "speed":
+                        assert device_property.get("default")
