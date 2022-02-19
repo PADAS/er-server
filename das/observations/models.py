@@ -22,7 +22,8 @@ from typing import NamedTuple
 
 import pymet
 import pytz
-from accounts.mixins import PermissionSetGroupMixin, PermissionSetHierarchyMixin
+from accounts.mixins import (PermissionSetGroupMixin,
+                             PermissionSetHierarchyMixin)
 from accounts.models import PermissionSet
 from bitfield import BitField
 from core.models import HierarchyManager, HierarchyModel, TimestampedModel
@@ -44,17 +45,12 @@ from django.utils.functional import cached_property
 from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
 from observations.mixins import FilterMixin
-from observations.utils import (
-    VIEW_END_WINDOWS,
-    calculate_track_range,
-    ensure_timezone_aware,
-    get_cyclic_subjectgroup,
-    get_minimum_allowed_age,
-)
+from observations.utils import (VIEW_END_WINDOWS, calculate_track_range,
+                                ensure_timezone_aware, get_cyclic_subjectgroup,
+                                get_minimum_allowed_age)
 from psycopg2.extras import DateTimeTZRange
 from tracking.pubsub_registry import notify_subjectstatus_update
 from utils.json import zeroout_microseconds
-
 
 logger = logging.getLogger(__name__)
 GPX_FILES_FOLDER = getattr(
@@ -369,9 +365,9 @@ class ObservationManager(models.Manager):
             source__subjectsource__subject=subject,
             source__subjectsource__assigned_range__contains=F('recorded_at'))
 
-        queryset = queryset.by_exclusion_flags(filter_flag)
-
         queryset = queryset.by_since_until(since, until)
+
+        queryset = queryset.by_exclusion_flags(filter_flag)
 
         if order_by:
             queryset = queryset.order_by(order_by)
@@ -450,12 +446,12 @@ class ObservationManager(models.Manager):
     def get_last_source_observation(self, source, delay_hours=0):
 
         try:
-            qs = Observation.objects.filter(
-                source=source).exclude(location=EMPTY_POINT)
+            qs = Observation.objects.filter(source=source)
             if delay_hours:
                 end_time = pytz.utc.localize(
                     datetime.utcnow()) - timedelta(hours=delay_hours)
                 qs = qs.filter(recorded_at__lt=end_time)
+            qs = qs.exclude(location=EMPTY_POINT)
             return qs.latest('recorded_at')
 
         except Observation.DoesNotExist:
@@ -606,7 +602,6 @@ class SubjectSource(models.Model):
     objects = SubjectSourceManager()
 
     def __str__(self):
-        fmt = '%Y-%m-%d'
         ind = ' (expired)' if datetime.now(
             tz=pytz.utc) not in self.assigned_range else ''
         return f'{self.subject.name} <-> {self.source.manufacturer_id}{ind}'
