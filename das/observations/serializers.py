@@ -229,7 +229,6 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
     def to_representation(self, instance):
         user = getattr(self.context.get('request', None), 'user', None)
         render_last_location = self.context.get('render_last_location', True)
-        model = self.Meta.model
 
         rep = super(SubjectSerializer, self).to_representation(instance)
         additional = instance.additional
@@ -238,6 +237,8 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
         rep.update(additional)
         rep['tracks_available'] = False
         rep['image_url'] = instance.image_url
+        if self._is_static_sensor(instance):
+            rep["is_static"] = True
 
         if user and render_last_location:
             # Find the user's allowed viewable date range
@@ -310,9 +311,14 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                             }
                             rep['last_position_date'] = \
                                 latest_observation.recorded_at
+
+                            location = latest_observation.location
+                            if self._is_static_sensor(instance):
+                                location = instance.subjectsources.last().location
+
                             rep['last_position'] = make_feature(
                                 self.context['request'],
-                                latest_observation.location, instance,
+                                location, instance,
                                 time=latest_observation.recorded_at,
                                 image_url=rep['image_url'])
                 else:
@@ -337,6 +343,8 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                         'radio_state_at': None if statusvalues.radio_state_at == models.DEFAULT_STATUS_VALUE_DATE else statusvalues.radio_state_at,
                         'radio_state': statusvalues.radio_state
                     }
+                    if self._is_static_sensor(instance):
+                        location = instance.subjectsources.last().location
 
                     if tracks_available:
                         rep['last_position_date'] = recorded_at
@@ -344,9 +352,13 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                             self.context['request'], location, instance,
                             time=recorded_at, image_url=rep['image_url']
                         )
-                rep['device_status_properties'] = \
-                    statusvalues.device_status_properties if hasattr(
-                        statusvalues, 'device_status_properties') else None
+
+                rep['device_status_properties'] = self._get_device_status_properties(
+                    statusvalues)
+                if self._is_static_sensor(instance):
+                    rep['device_status_properties'] = self._get_device_properties_static_sensor(
+                        statusvalues, instance)
+                    rep["tracks_available"] = False
 
         if 'request' in self.context:
             request = self.context['request']
@@ -378,6 +390,41 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
             validated_data['owner'] = request.user
 
         return models.Subject.objects.create_subject(**validated_data)
+
+    def _is_static_sensor(self, instance):
+        if (
+                instance.subject_subtype.subject_type.display == "Stationary subject"
+                and instance.subjectsources.last()
+                and instance.subjectsources.last().location
+        ):
+            return True
+        return False
+
+    def _get_device_status_properties(self, status_values):
+        if hasattr(status_values, 'device_status_properties'):
+            return status_values.device_status_properties
+        return None
+
+    def _get_device_properties_static_sensor(self, status_values, subject):
+        device_status_properties = self._get_device_status_properties(
+            status_values)
+        default_measure = self._get_default_measure(subject)
+        if device_status_properties:
+            for device in device_status_properties:
+                device["default"] = False
+                if device.get("label") == default_measure:
+                    device["default"] = True
+        return device_status_properties
+
+    def _get_default_measure(self, subject):
+        last_subject_source = subject.subjectsources.last()
+        if last_subject_source:
+            transforms = last_subject_source.source.provider.transforms
+            if transforms:
+                for transform in transforms:
+                    if transform.get("default"):
+                        return transform.get("label")
+        return ""
 
 
 def get_subjectsources_with_2way_msg(subject):
@@ -616,10 +663,6 @@ class SubjectTrackSerializer(rest_framework.serializers.BaseSerializer):
 
 class SubjectStatusSerializer(rest_framework.serializers.BaseSerializer):
     def to_representation(self, subject_status):
-
-        image_url = subject_status.subject.image_url
-        user = self.context['request'].user
-
         coordinates = Point(x=subject_status.location.x,
                             y=subject_status.location.y, srid=4326)
 

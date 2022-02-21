@@ -1,7 +1,6 @@
 default: restart-deploy
 
 NAMESPACE=development
-POD=
 
 TEST_PATH=
 TEST_CLASS=
@@ -22,6 +21,9 @@ get-api-pod:
 get-api-logs:
 	kubectl -n ${NAMESPACE} logs ${POD} -c das-api -f
 
+clean-pods:
+	kubectl -n ${NAMESPACE} delete pod -l das.configuration=server
+
 connect-api:
 	kubectl -n ${NAMESPACE} exec -ti deploy/api -- bash
 
@@ -29,10 +31,16 @@ connect-db:
 	kubectl -n ${NAMESPACE} exec -it ${DB_POD} -- psql -U postgres
 
 test:
-	python -m pytest -vv ${TEST_PATH}::${TEST_CLASS}::${TEST_METHOD} --no-migrations
+	pytest -vv ${TEST_PATH}::${TEST_CLASS}::${TEST_METHOD}
 
 test-class:
-	python -m pytest -vv ${TEST_PATH}::${TEST_CLASS} --no-migrations
+	pytest -vv ${TEST_PATH}::${TEST_CLASS}
 
 format-file:
 	./formatter_py_files.sh ${FILE}
+
+check-requirements:
+	safety check -r dependencies/requirements.txt
+
+make check-requirements-dev:
+	safety check -r dependencies/requirements-dev.txt

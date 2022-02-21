@@ -34,11 +34,21 @@ var/
 
 #vscode
 .env.local
-.vscode
 .venv
 .venvdocs
 .docsvenv
 .vs/*
+
+### VisualStudioCode ###
+.vscode/*      # Maybe .vscode/**/* instead - see comments
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+### VisualStudioCode Patch ###
+# Ignore all local history of files
+**/.history
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -238,3 +248,4 @@ typings
 node_modules
 
 locust.env
+docker/keys/default/application_default_credentials.json

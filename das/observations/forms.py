@@ -1,28 +1,31 @@
 import json
 import logging
-import re
 import random
-import pytz
-
+import re
 from datetime import datetime, timedelta
 
-from django.utils.translation import ugettext_lazy as _
-from django.utils.dateparse import parse_duration
-
-from django import forms
-from django.contrib.admin.helpers import ActionForm
-from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
-from django.contrib.postgres.forms import JSONField
-from django.db.models import F, Q, Window, RowRange, Count, Aggregate
-from django.urls import reverse
-from django.contrib.auth import get_user_model
-
-from observations.models import Subject, Source, SubjectGroup, SubjectSource, SubjectSubType, SourceProvider, GPXTrackFile, Observation, Message
-from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
+import pytz
 from choices.models import Choice
 from core.common import TIMEZONE_USED
-from observations.utils import find_paths, JsonAgg
+from core.forms_utils import (AssignedDateTimeRangeField, ColorPickerWidget,
+                              JSONFieldFormMixin)
+from django import forms
+from django.contrib.admin.helpers import ActionForm
+from django.contrib.admin.widgets import (AdminDateWidget,
+                                          FilteredSelectMultiple)
+from django.contrib.auth import get_user_model
+from django.contrib.gis.forms import OSMWidget, PointField
+from django.contrib.gis.geos import Point
+from django.contrib.postgres.forms import JSONField
+from django.core.exceptions import ValidationError
+from django.urls import reverse
+from django.utils.dateparse import parse_duration
+from django.utils.translation import ugettext_lazy as _
 from observations.message_adapters import ADAPTER_MAPPING
+from observations.models import (GPXTrackFile, Message, Observation, Source,
+                                 SourceProvider, Subject, SubjectGroup,
+                                 SubjectSource, SubjectSubType, SubjectType)
+from observations.utils import find_paths
 
 logger = logging.getLogger(__name__)
 
@@ -31,61 +34,76 @@ def validate_assigned_range(value):
     lower, upper = value
     if lower and upper:
         if lower > upper:
-            raise forms.ValidationError(_('range lower bound must be less than or equal to range upper bound'))
+            raise forms.ValidationError(
+                _('range lower bound must be less than or equal to range upper bound'))
 
 
 class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
-
-    '''
-    This provides extra form fields for the attributes we expect to have stored in SubjectSource.additional.
-    '''
-    chronofile = forms.IntegerField(required=False, label='Chronofile')
-    data_status = forms.CharField(required=False, label='Data Status')
+    """This provides extra form fields for the attributes we expect to have stored in SubjectSource.additional."""
+    chronofile = forms.IntegerField(required=False, label="Chronofile")
+    data_status = forms.CharField(required=False, label="Data Status")
     data_starts_source = forms.CharField(
-        required=False, label='Data Starts Source')
+        required=False, label="Data Starts Source")
     data_stops_source = forms.CharField(
-        required=False, label='Data Stops Source')
-    data_stops_reason = forms.ChoiceField(required=False,
-                                          help_text='Reason for Stop')
+        required=False, label="Data Stops Source")
+    data_stops_reason = forms.ChoiceField(
+        required=False, help_text="Reason for Stop")
     date_off_or_removed = forms.CharField(
-        required=False, label='Date Off or Removed')
-    comments = forms.CharField(required=False, label='Comments',
-                               widget=forms.Textarea)
-
-    @staticmethod
-    def fetch_stop_reasons():
-        stop_reasons_choices = {'': ''}
-        for stop_reason in Choice.objects.filter(
-                model='observations.Source',
-                field='data stops reason').order_by('ordernum'):
-            stop_reasons_choices[stop_reason.value] = stop_reason.display
-        return tuple([(key, value)
-                      for key, value in stop_reasons_choices.items()])
-
-    def __init__(self, *args, **kwargs):
-        super(SubjectSourceForm, self).__init__(*args, **kwargs)
-        self.fields['data_stops_reason'].choices = self.fetch_stop_reasons()
+        required=False, label="Date Off or Removed")
+    comments = forms.CharField(
+        required=False, label="Comments", widget=forms.Textarea)
+    assigned_range = AssignedDateTimeRangeField(
+        label=f"Assigned Range in {TIMEZONE_USED}",
+        required=True,
+        validators=[validate_assigned_range],
+    )
+    source = forms.ModelChoiceField(
+        queryset=Source.objects.all()
+        .order_by("manufacturer_id")
+        .prefetch_related(
+            "provider",
+        )
+    )
+    json_field = "additional"
 
     class Meta:
         model = SubjectSource
-        json_fields = ('chronofile', 'data_status', 'data_starts_source',
-                       'data_stops_source', 'data_stops_reason', 'date_off_or_removed', 'comments')
-        fields = ('id', 'subject', 'source', 'assigned_range',
-                  'additional') + json_fields
+        json_fields = (
+            "chronofile",
+            "data_status",
+            "data_starts_source",
+            "data_stops_source",
+            "data_stops_reason",
+            "date_off_or_removed",
+            "comments",
+        )
+        fields = (
+            "id",
+            "subject",
+            "source",
+            "assigned_range",
+            "location",
+            "additional",
+        ) + json_fields
 
-    assigned_range = AssignedDateTimeRangeField(
-        label=f'Assigned Range in {TIMEZONE_USED}', required=True, validators=[validate_assigned_range])
+    def __init__(self, *args, **kwargs):
+        super(SubjectSourceForm, self).__init__(*args, **kwargs)
+        self.fields["data_stops_reason"].choices = self.fetch_stop_reasons()
 
-    # For JSONFieldFormMixin -- this identifies the Model attribute that is
-    # the JSON Field.
-    json_field = 'additional'
-
-    source = forms.ModelChoiceField(
-        queryset=Source.objects.all().order_by('manufacturer_id').prefetch_related('provider',))
+    @staticmethod
+    def fetch_stop_reasons():
+        stop_reasons_choices = {"": ""}
+        for stop_reason in Choice.objects.filter(
+            model="observations.Source", field="data stops reason"
+        ).order_by("ordernum"):
+            stop_reasons_choices[stop_reason.value] = stop_reason.display
+        return tuple([(key, value) for key, value in stop_reasons_choices.items()])
 
 
 silence_notification_threshold_help_text_for_source =  \
-    _('Threshold in hours:minutes:seconds that indicates an abnormal period without new data for this Source.')
+    _('Threshold in hours:minutes:seconds. If no new data is received from this Source within this threshold, a '
+      'report will be created. This will override the "Default silence notification threshold" if set for the '
+      'source provider.')
 
 
 two_way_help_text = \
@@ -198,8 +216,22 @@ class SubjectSubtypeChoiceField(forms.ModelChoiceField):
         return '{1} ({0})'.format(obj.subject_type.display, obj.display)
 
 
-class SubjectForm(JSONFieldFormMixin, forms.ModelForm):
+def get_subject_subtype_choices():
+    choices = []
+    subjects_type = SubjectType.objects.all().order_by("value")
+    if subjects_type:
+        for subject_type in subjects_type:
+            subjects_subtype = subject_type.subjectsubtype_set.all().order_by("display")
+            subjects_subtype = [
+                (subject_subtype.value, subject_subtype.display)
+                for subject_subtype in subjects_subtype
+            ]
+            choices.append((subject_type.display.upper(),
+                           (list(subjects_subtype))))
+    return choices
 
+
+class SubjectForm(JSONFieldFormMixin, forms.ModelForm):
     groups = forms.ModelMultipleChoiceField(
         queryset=SubjectGroup.objects.all(),
         required=False,
@@ -208,10 +240,6 @@ class SubjectForm(JSONFieldFormMixin, forms.ModelForm):
             is_stacked=False
         )
     )
-
-    subject_subtype = SubjectSubtypeChoiceField(
-        queryset=SubjectSubType.objects.all().order_by('display').select_related('subject_type',))
-
     '''
     This provides extra form fields for the attributes we expect to have stored
      in Subject.additional.
@@ -251,6 +279,9 @@ class SubjectForm(JSONFieldFormMixin, forms.ModelForm):
         # Get country and region choices from static methods
         self.fields['region'].choices = self.fetch_region_choices()
         self.fields['country'].choices = self.fetch_country_choices()
+        self.fields['subject_subtype'] = forms.ChoiceField(
+            choices=get_subject_subtype_choices()
+        )
 
     def _save_m2m(self):
         groups = self.cleaned_data['groups']
@@ -286,6 +317,15 @@ class SubjectForm(JSONFieldFormMixin, forms.ModelForm):
             instance.save()
         return instance
 
+    def clean_subject_subtype(self):
+        subject_subtype = self.cleaned_data["subject_subtype"]
+        try:
+            return SubjectSubType.objects.get(value=subject_subtype)
+        except SubjectSubType.DoesNotExits:
+            raise ValidationError(
+                f"The value for this subject subtype {subject_subtype} does not exists"
+            )
+
 
 class SubjectChangeListForm(forms.ModelForm):
 
@@ -301,7 +341,12 @@ lag_notification_threshold_help_text =  \
     _('Threshold in hours:minutes:seconds that indicates an abnormal delay in data for this Source Provider.')
 
 silence_notification_threshold_help_text =  \
-    _('Threshold in hours:minutes:seconds that indicates an abnormal period without new data for this Source Provider.')
+    _('Threshold in hours:minutes:seconds. If ALL of the Sources for this Source Provider fail to submit new data '
+      'within this threshold, a report will be created for the Source Provider.')
+
+default_silence_notification_threshold_help_text = _('Threshold in hours:minutes. If any specific Sources for '
+                                                     'this Source Provider fail to submit new data within '
+                                                     'this threshold, a report will be created for each of them.')
 
 days_data_retain_help_text =  \
     _('Observations records outside the configured number of days will be removed permanently and cannot be retrieved.')
@@ -384,7 +429,8 @@ class TranformationRuleWidget(forms.MultiWidget):
         context['widget']['subwidgets'] = list_subwidgets
         context['sample_data'] = json.loads(
             json.dumps(self.provider, sort_keys=True, indent=4))
-
+        context["default_feature"] = self._get_default_feature(
+            self.transform_rules)
         return context
 
     def render(self, name, value, attrs=None, renderer=None):
@@ -394,6 +440,13 @@ class TranformationRuleWidget(forms.MultiWidget):
 
     def decompress(self, value):
         return [] if value is None else value
+
+    def _get_default_feature(self, transform_rules):
+        if transform_rules:
+            for rule in transform_rules:
+                if rule.get("default"):
+                    return rule.get("dest")
+        return None
 
 
 def generate_sample_data(provider):
@@ -550,6 +603,10 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
     silence_notification_threshold = forms.CharField(max_length=8, required=False, empty_value=None,
                                                      help_text=silence_notification_threshold_help_text)
 
+    default_silent_notification_threshold = forms.CharField(max_length=8, required=False, empty_value=None,
+                                                            label="Default silence notification threshold",
+                                                            help_text=default_silence_notification_threshold_help_text)
+
     days_data_retain = forms.IntegerField(required=False, min_value=1, max_value=365,
                                           help_text=days_data_retain_help_text)
 
@@ -578,6 +635,7 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
         json_fields = (
             'lag_notification_threshold',
             'silence_notification_threshold',
+            'default_silent_notification_threshold',
             'days_data_retain',
             'two_way_messaging',
             'messaging_config'
@@ -612,6 +670,14 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
                 "Tranformation rules must be properly configured, expecting a list or null")
             raise forms.ValidationError(message, code='invalid')
         return schema
+
+    def clean_default_silent_notification_threshold(self):
+        data = self.cleaned_data["default_silent_notification_threshold"]
+        pattern = re.compile(r"^((?:[01]\d|2[0-3]):[0-5]\d$)")
+        if data and not re.fullmatch(pattern, data):
+            raise forms.ValidationError(
+                _("This field should follow the format HH:MM"))
+        return data
 
 
 class SetRandomColorForm(ActionForm):

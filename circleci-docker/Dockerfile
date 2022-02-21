@@ -1,5 +1,5 @@
 FROM ubuntu:18.04
-MAINTAINER Chris Doehring, chrisdo@vulcan.com & Matt Korwel, mattko@vulcan.com, lorainek@vulcan.com
+LABEL maintainer="EarthRanger Developers developers@earthranger.com"
 
 RUN apt-get update
 
@@ -34,7 +34,7 @@ RUN apt-get install -y postgresql-9.6-postgis-2.4-scripts
 RUN apt-get clean
 
 RUN pip3 install -U "pip"
-RUN pip3 install numpy
+RUN pip3 install numpy==1.19.5
 
 RUN rm -rf /usr/lib/python3/dist-packages/GDAL-2.2.2.*
 RUN pip3 install -r /workspace/dependencies/requirements.txt -r /workspace/dependencies/requirements-pinned.txt --no-cache-dir -f /workspace/dependencies/wheelhouse

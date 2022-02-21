@@ -34,6 +34,7 @@ class TestRTServer(TestCase):
         sios.eio.sockets['sid'] = mock_socket
         sios.on('connect', handler)
         sios._handle_eio_connect('sid', 'e8ef807c2bbe4418b32de45786d82a52')
+        #sios._handle_connect('sid', '/', None)
         handler.assert_called_once_with('sid', 'e8ef807c2bbe4418b32de45786d82a52')
         self.add_client()
         client.redis_client.hset(client.EXPIRED_CLIENT_TRACES_LIST, 'e8ef807c2bbe4418b32de45786d82a52',

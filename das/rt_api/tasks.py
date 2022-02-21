@@ -1,39 +1,29 @@
 import datetime
 import json
 import logging
-import redis
-from functools import partial
+import urllib
 from collections import namedtuple
-import pytz
-
-from celery_once import QueueOnce
+from functools import partial
+from uuid import UUID
 
 from accounts.models.user import User
 from activity.models import Event, Patrol
-from activity.views import EventView, PatrolView
-from das_server import celery, pubsub
-from django.conf import settings
-from django.db import close_old_connections
-from rest_framework.exceptions import PermissionDenied
-from rest_framework.request import Request
-from django.urls import reverse
-
-from observations import servicesutils
-
-from observations.models import SubjectSource
-from observations.views import SubjectTracksView, SubjectStatusView, ObservationsView
-from rt_api.rest_api_interface.dummy_request import DummyRequest
-from uuid import UUID
-from rt_api import client
-from observations.serializers import MessageSerializer, AnnouncementSerializer
-
-from utils.stats import update_gauge
-
 from activity.serializers import EventSerializer
 from activity.serializers.patrol_serializers import PatrolSerializer
-
-from observations.models import SocketClient, Message, Announcement
-
+from activity.views import EventView, PatrolView
+from celery_once import QueueOnce
+from das_server import celery, pubsub
+from django.db import close_old_connections
+from django.urls import reverse
+from observations import servicesutils
+from observations.models import Announcement, Message, SocketClient
+from observations.serializers import AnnouncementSerializer, MessageSerializer
+from observations.views import ObservationsView, SubjectStatusView
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.request import Request
+from rt_api import client
+from rt_api.rest_api_interface.dummy_request import DummyRequest
+from utils.stats import update_gauge
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +53,7 @@ def get_username_sids_map():
             sid = sid.decode('UTF-8')
             username = session_data['username']
             user_sids_map.setdefault(username, set()).add(sid)
-        except (UnicodeDecodeError, KeyError) as e:
+        except (UnicodeDecodeError, KeyError):
             logger.warning('Failed to parse session_data=%s', session_data)
 
     return user_sids_map
@@ -110,7 +100,8 @@ def _event_handler(event_id, type):
                                                     'matches_current_filter': matches_current_filter})
                 else:
 
-                    request = DummyRequest(user=user, http_method='GET', query_parameters={})
+                    request = DummyRequest(
+                        user=user, http_method='GET', query_parameters={})
                     request = Request(request)  # Wrap in DRF Request
                     queryset = Event.objects.filter(id=event_id)
                     event = queryset.first()
@@ -178,8 +169,13 @@ def get_filtered_events(event_filter, queryset):
 
 
 def get_filtered_patrols(patrol_filter, queryset):
-    pf = patrol_filter.get("filter") or {}
-    return queryset.by_patrol_filter(pf)
+    if patrol_filter.get("filter"):
+        filters = patrol_filter["filter"]
+        queryset = queryset.by_patrol_filter(filters)
+
+    if patrol_filter.get("status"):
+        queryset = queryset.by_state(patrol_filter["status"])
+    return queryset
 
 
 @celery.app.task(base=QueueOnce, once={'graceful': True}, rate_limit='10/m')
@@ -225,7 +221,8 @@ def _subjectstatus_update_handler(subject_id):
         get_subjectstatus_payload = partial(
             get_subjectstatus_view, SubjectStatusView.as_view())
 
-        get_observations_payload = partial(get_observations_view, ObservationsView.as_view())
+        get_observations_payload = partial(
+            get_observations_view, ObservationsView.as_view())
 
         user_sids_map = get_username_sids_map()
         logger.debug('user_sids_map: %s', user_sids_map)
@@ -263,21 +260,26 @@ def _subjectstatus_update_handler(subject_id):
 
                 # emit batch observations
                 for sid in user_sids:
-                    created_after = client.get_sid_subject_timestamp(sid, subject_id)
+                    created_after = client.get_sid_subject_timestamp(
+                        sid, subject_id)
 
-                    payload = get_observations_payload(user, subject_id, created_after=created_after)
+                    payload = get_observations_payload(
+                        user, subject_id, created_after=created_after)
 
                     if payload:
                         # TODO: move this order-by clause into the view.
-                        points = sorted(payload, key=lambda x: x['time'], reverse=True)
+                        points = sorted(
+                            payload, key=lambda x: x['time'], reverse=True)
 
                         emit_data = get_emit_data(type='subject_track_merge', sid=sid, object_id=subject_id,
                                                   data={'points': points, 'subject_id': subject_id})
 
-                        emit_message = json.dumps(emit_data, default=dumps_helper)
+                        emit_message = json.dumps(
+                            emit_data, default=dumps_helper)
 
                         logger.debug("Emitting: %s", emit_message)
-                        pubsub.publish(emit_message, routing_key='das.realtime.emit')
+                        pubsub.publish(
+                            emit_message, routing_key='das.realtime.emit')
 
                     else:
                         logger.warning(
@@ -323,7 +325,8 @@ def get_observations_view(view, user, subject_id, created_after):
         'json_format': 'flat',
         'created_after': created_after
     }
-    request = DummyRequest(uri=url, http_method='GET', user=user, query_parameters=query_parameter)
+    request = DummyRequest(uri=url, http_method='GET',
+                           user=user, query_parameters=query_parameter)
 
     result = view(request, subject_id=subject_id)
     if result.status_code != 200 or not result.data.get('results'):
@@ -380,7 +383,8 @@ def _patrol_handler(item_id, type):
         except model.DoesNotExist:
             instance = None
             if type != 'delete_patrol':
-                logger.warning('Patrol handler given id: %s but it is not found in the database.')
+                logger.warning(
+                    'Patrol handler given id: %s but it is not found in the database.')
                 return
 
         for username, user_sids in user_sids_map.items():
@@ -392,14 +396,17 @@ def _patrol_handler(item_id, type):
 
             for sid in user_sids:
                 emit_data = {}
-                matches_current_filter = True  # To be regulated in the filters ticket
+                matches_current_filter = False
                 if type == 'delete_patrol':
-                    data = {'type': type, 'patrol_id': item_id, 'matches_current_filter': matches_current_filter}
-                    emit_data = get_emit_data(type=type, sid=sid, object_id=item_id, data=data)
+                    data = {'type': type, 'patrol_id': item_id,
+                            'matches_current_filter': matches_current_filter}
+                    emit_data = get_emit_data(
+                        type=type, sid=sid, object_id=item_id, data=data)
 
                 else:
-                    request = DummyRequest(user=user, http_method='GET', query_parameters={})
-                    request = Request(request) # Wrap in DRF Request
+                    request = DummyRequest(
+                        user=user, http_method='GET', query_parameters={})
+                    request = Request(request)  # Wrap in DRF Request
 
                     if instance:
                         try:
@@ -409,12 +416,16 @@ def _patrol_handler(item_id, type):
                             logger.debug(
                                 'Permission denied. user=%s, patrol=%s', username, instance.id)
                         else:
+                            matches_current_filter = True
                             try:
-                                socket_client = SocketClient.objects.get(id=sid)
+                                socket_client = SocketClient.objects.get(
+                                    id=sid)
                             except SocketClient.DoesNotExist:
-                                logger.debug(f'SocketClient does not exist for sid={sid}')
+                                logger.debug(
+                                    f'SocketClient does not exist for sid={sid}')
                             else:
-                                queryset = get_filtered_patrols(socket_client.patrol_filter, queryset)
+                                queryset = get_filtered_patrols(
+                                    socket_client.patrol_filter, queryset)
                                 matches_current_filter = queryset.exists()
 
                             data = serializer(instance, context={
@@ -445,7 +456,8 @@ def _radio_message_handler(object_id, action='radio_message'):
             if not user:
                 continue
 
-            request = DummyRequest(user=user, http_method='GET', query_parameters={})
+            request = DummyRequest(
+                user=user, http_method='GET', query_parameters={})
             request = Request(request)  # Wrap in DRF Request
 
             for sid in user_sids:
@@ -469,8 +481,10 @@ def _radio_message_handler(object_id, action='radio_message'):
                             object_id=object_id,
                             data={'type': action, 'data': message_data})
 
-                        logger.debug('Publish das.realtime.emit.  data=%s', emit_data)
-                        pubsub.publish(json.dumps(emit_data, default=dumps_helper), 'das.realtime.emit')
+                        logger.debug(
+                            'Publish das.realtime.emit.  data=%s', emit_data)
+                        pubsub.publish(json.dumps(
+                            emit_data, default=dumps_helper), 'das.realtime.emit')
     finally:
         close_old_connections()
 
@@ -487,14 +501,16 @@ def _announcement_handler(object_id, action):
             if not user:
                 continue
 
-            request = DummyRequest(user=user, http_method='GET', query_parameters={})
+            request = DummyRequest(
+                user=user, http_method='GET', query_parameters={})
             request = Request(request)  # Wrap in DRF Request
 
             for sid in user_sids:
                 try:
                     instance = Announcement.objects.get(id=object_id)
                 except Announcement.DoesNotExist:
-                    logger.warning('Announcement with this id: %s not found in the database.')
+                    logger.warning(
+                        'Announcement with this id: %s not found in the database.')
                 else:
                     message_data = AnnouncementSerializer(instance, context={
                         'request': request}).data
@@ -504,8 +520,10 @@ def _announcement_handler(object_id, action):
                         object_id=object_id,
                         data={'type': action, 'data': message_data})
 
-                    logger.debug('Publish das.realtime.emit.  data=%s', emit_data)
-                    pubsub.publish(json.dumps(emit_data, default=dumps_helper), 'das.realtime.emit')
+                    logger.debug(
+                        'Publish das.realtime.emit.  data=%s', emit_data)
+                    pubsub.publish(json.dumps(
+                        emit_data, default=dumps_helper), 'das.realtime.emit')
     finally:
         close_old_connections()
 
@@ -558,6 +576,7 @@ def handle_new_announcement(announcement_id):
                 extra={'rt.message': 'new_announcement'})
     _announcement_handler(announcement_id, 'new_announcement')
 
+
 @celery.app.task()
 def handle_emit_data(event_id):
     logger.info('event mailer event_id: %s', event_id)
@@ -566,7 +585,7 @@ def handle_emit_data(event_id):
 @celery.app.task()
 def check_redis_queues():
     """
-    Periodic check of redis connections and queue sizes, so that we can expose them 
+    Periodic check of redis connections and queue sizes, so that we can expose them
     to elasticsearch via a log message
     """
     logger.info('Checking redis connectivity')

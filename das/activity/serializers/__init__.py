@@ -4,12 +4,27 @@ import logging
 import traceback
 from collections import OrderedDict
 
+import activity.models
 import django.db
 import drf_extra_fields.geo_fields
 import jsonschema
 import pytz
 import rest_framework.serializers
 import rest_framework.status
+import usercontent.serializers
+import utils
+import utils.schema_utils as schema_utils
+from accounts.serializers import (UserDisplaySerializer, UserSerializer,
+                                  get_user_display)
+from activity.alerting.conditions import Conditions
+from activity.exceptions import SchemaValidationError
+from activity.models import PC_OPEN, PatrolSegment
+from activity.serializers.base import FileSerializerMixin
+from activity.util import get_permitted_event_categories
+from choices.serializers import ChoiceField
+from core.serializers import (ContentTypeField, GenericRelatedField,
+                              PointValidator)
+from core.utils import OneWeekSchedule
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.geos import Point
 from django.core.exceptions import PermissionDenied
@@ -20,33 +35,18 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.encoding import force_text
 from drf_extra_fields.geo_fields import PointField
-from rest_framework.exceptions import ValidationError, APIException
+from observations.serializers import SubjectSerializer
+from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.fields import DateTimeField
 from rest_framework.metadata import BaseMetadata
 from rest_framework.request import clone_request
 from rest_framework.utils.field_mapping import ClassLookupDict
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
+from revision.manager import AC_RELATION_DELETED, AC_UPDATED
+from utils.json import parse_bool
+from utils.schema_utils import (get_schema_renderer_method,
+                                validate_rendered_schema_is_wellformed)
 from versatileimagefield.serializers import VersatileImageFieldSerializer
-from activity.util import get_permitted_event_categories
-
-import activity.models
-import usercontent.serializers
-import utils
-import utils.schema_utils as schema_utils
-from accounts.serializers import UserDisplaySerializer, get_user_display, UserSerializer
-from activity.alerting.conditions import Conditions
-from activity.models import PatrolSegment
-from activity.exceptions import SchemaValidationError
-from activity.serializers.base import FileSerializerMixin, IMAGE_RENDITION_SETS
-from choices.serializers import ChoiceField
-from core.serializers import ContentTypeField
-from core.serializers import GenericRelatedField
-from core.serializers import PointValidator
-from core.utils import OneWeekSchedule
-from observations.serializers import SubjectSerializer
-from revision.manager import AC_UPDATED, AC_RELATION_DELETED
-from utils.json import loads, parse_bool
-from utils.schema_utils import get_schema_renderer_method, validate_rendered_schema_is_wellformed
 
 logger = logging.getLogger(__name__)
 
@@ -247,8 +247,24 @@ class EventJSONSchema(BaseMetadata):
                 field_info[dest_key] = value
 
         if not field_info.get('read_only') and not ignore_choices:
-            if hasattr(field, 'object_choices'):
+            try:
                 object_choices = field.object_choices
+            except AttributeError:
+                try:
+                    choices = field.choices
+                except AttributeError:
+                    pass
+                else:
+                    field_info['enum_ext'] = [
+                        {
+                            'value': choice_value,
+                            'title': force_text(choice_name, strings_only=True)
+                        }
+                        for choice_value, choice_name in filter_blank_choice(choices)
+                    ]
+                    field_info['enum'] = [v['value'] for v in
+                                          field_info['enum_ext']]
+            else:
                 if isinstance(object_choices, dict):
                     unassigned = []
                     enum_ext = {}
@@ -280,21 +296,11 @@ class EventJSONSchema(BaseMetadata):
                             'value': choice_value,
                             'title': force_text(choice_name, strings_only=True)
                         }
-                        for choice_value, choice_name in filter_blank_choice(field.object_choices)
+                        for choice_value, choice_name in filter_blank_choice(object_choices)
                     ]
                     field_info['enum'] = [v['value'] for v in
                                           enum_ext]
                 field_info['enum_ext'] = enum_ext
-            elif hasattr(field, 'choices'):
-                field_info['enum_ext'] = [
-                    {
-                        'value': choice_value,
-                        'title': force_text(choice_name, strings_only=True)
-                    }
-                    for choice_value, choice_name in filter_blank_choice(field.choices)
-                ]
-                field_info['enum'] = [v['value'] for v in
-                                      field_info['enum_ext']]
 
         return field_info
 
@@ -765,7 +771,6 @@ class EventDetailsSerializer(rest_framework.serializers.ModelSerializer):
                 event_type = activity.models.EventType.objects.get(
                     value=new_event_type)
         return event_type
-
 
     def get_schema_fields_possible_values(self, schema):
         replacement_fields = schema_utils.get_replacement_fields_in_schema(
@@ -1286,6 +1291,25 @@ class PatrolSegmentEventSerializer(EventSerializerMixin, rest_framework.serializ
         return rep
 
 
+def which_field_search_for(application):
+    if application and application.client_id == "cybertracker":
+        return 'reported_by'
+    return None
+
+
+def auto_add_report_to_patrols(application, event):
+    field_to_search = which_field_search_for(application)
+
+    if field_to_search:
+        subject = getattr(event, field_to_search)
+
+        if subject:
+            segments = PatrolSegment.objects.filter(
+                leader_id=subject.id, patrol__state=PC_OPEN)
+            for segment in segments:
+                segment.events.add(event)
+
+
 class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
     serializer_choice_field = ChoiceField
     # Using PointField here provides the magic to convert between a
@@ -1326,6 +1350,20 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
     patrol_segments = rest_framework.serializers.PrimaryKeyRelatedField(many=True, required=False,
                                                                         queryset=PatrolSegment.objects.all())
+
+    def create(self, validated_data):
+        instance = super().create(validated_data)
+        request = self.context['request']
+        if hasattr(request, "auth"):
+            auto_add_report_to_patrols(request.auth.application, instance)
+        return instance
+
+    def update(self, instance, validated_data):
+        instance = super().update(instance, validated_data)
+        request = self.context["request"]
+        if hasattr(request, "auth"):
+            auto_add_report_to_patrols(request.auth.application, instance)
+        return instance
 
     def get_contains(self, event):
         return self.get_out_relation(event, 'contains')
