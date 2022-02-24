@@ -204,6 +204,33 @@ locals {
     "zcp"                     = "prod1"
     "grace"                   = "prod1"
     "tck9"                    = "prod1"
+    "mbuluzi"                 = "prod1"
+    "schoongezicht"           = "prod1"
+    "zcp-liuwa"               = "prod1"
+    "zcp-southluangwa"        = "prod1"
+    "baclip"                  = "prod1"
+    "wrti"                    = "prod1"
+    "bdr"                     = "prod1"
+    "yellowstone"             = "prod1"
+    "mpala"                   = "prod1"
+    "nstcg-tz"                = "prod1"
+    "ntap-tz"                 = "prod1"
+    "wilderblean"             = "prod1"
+    "careforwildrhino"        = "prod1"
+    "zinave"                  = "prod1"
+    "tintoumma"               = "prod1"
+    "khamab"                  = "prod1"
+    "luthuli"                 = "prod1"
+    "kbopt"                   = "prod1"
+    "siomangwezi"             = "prod1"
+    "jock"                    = "prod1"
+    "simalaha"                = "prod1"
+    "sandringham"             = "prod1"
+    "segera"                  = "prod1"
+    "sosian"                  = "prod1"
+    "elkarama"                = "prod1"
+    "noaa"                    = "prod1"
+    "nust"                    = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -303,6 +330,22 @@ locals {
     "ng26"                  = 1
     "matlabasreserve"       = 1
     "pantherakafue"         = 1
+    "baclip"                = 1
+    "schoongezicht"         = 1
+    "ntap-tz"               = 1
+    "tintoumma"             = 1
+    "khamab"                = 1
+    "luthuli"               = 1
+    "kbopt"                 = 1
+    "siomangwezi"           = 1
+    "jock"                  = 1
+    "simalaha"              = 1
+    "sandringham"           = 1
+    "segera"                = 1
+    "sosian"                = 1
+    "elkarama"              = 1
+    "noaa"                  = 1
+    "nust"                  = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)

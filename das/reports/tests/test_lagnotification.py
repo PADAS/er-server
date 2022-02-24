@@ -1,19 +1,32 @@
 import random
 from datetime import datetime, timedelta
 
-from django.test import TestCase
-from django.contrib.auth.models import Permission
-from django.core.management import call_command
-from django.contrib.gis.geos import Point
-from django.contrib.auth import get_user_model
+import pytest
 import pytz
-
 from accounts.models import PermissionSet
-from observations.models import Observation, Subject, SourceProvider, Source, SubjectGroup, SubjectSource
-from reports.observationlagnotification import get_lagging_providers, generate_lag_notification_email
-from reports.distribution import OBSERVATION_LAG_NOTIFY_PERMISSION_CODENAME, get_users_for_permission,\
-    create_lag_notify_permissionset
-from reports.subjectsilentnotification import get_silent_sources
+from activity.models import Event
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
+from django.contrib.gis.geos import Point
+from django.core.management import call_command
+from django.test import TestCase
+from django.utils import timezone
+from observations.models import (
+    Observation,
+    Source,
+    SourceProvider,
+    Subject,
+    SubjectSource,
+)
+from reports.distribution import (
+    OBSERVATION_LAG_NOTIFY_PERMISSION_CODENAME,
+    get_users_for_permission,
+)
+from reports.observationlagnotification import (
+    check_sources_threshold,
+    generate_lag_notification_email,
+    get_lagging_providers,
+)
 
 
 User = get_user_model()
@@ -117,7 +130,6 @@ class TestSubjectSourceReport(TestCase):
 
         return source, source2, recorded_at, recorded_late, location
 
-
     def test_lag_notify_permission(self):
         ps = Permission.objects.filter(
             codename=OBSERVATION_LAG_NOTIFY_PERMISSION_CODENAME)
@@ -165,40 +177,153 @@ class TestSubjectSourceReport(TestCase):
                     provider_config['lag_notification_threshold'], '00:10:00')
                 self.assertTrue('Dummy provider3' in email_body)
 
-    def test_subject_silent_notification(self):
-        """Test when one source is within the silent_notification_threshold."""
-        source, source2, recorded_at, recorded_late, location = self.create_observation_record()
 
-        obervation = Observation(source=source,
-                         recorded_at=recorded_at,
-                         location=location,
-                         additional={})
-        obervation.save()
-        observation2 = Observation(source=source2,
-                          recorded_at=recorded_late,
-                          location=location,
-                          additional={})
-        observation2.save()
-        eligible_sources = get_silent_sources()
-        # None of the above sources should be eligible.
-        self.assertEqual(eligible_sources, [])
+@pytest.mark.django_db
+class TestReportByTask:
+    def test_two_sources_with_same_provider_reach_the_provider_threshold(
+        self, five_subject_sources
+    ):
+        provider = five_subject_sources[0].source.provider
+        provider.additional = {"silence_notification_threshold": "00:30:00"}
+        provider.save()
+        source_a = five_subject_sources[0].source
+        source_a.provider = provider
+        source_a.save()
+        source_b = five_subject_sources[1].source
+        source_b.provider = provider
+        source_b.save()
 
+        Observation.objects.create(
+            recorded_at=timezone.now() - timedelta(hours=4),
+            source=source_a,
+            location=Point(0, 0),
+        )
+        Observation.objects.create(
+            recorded_at=timezone.now() - timedelta(hours=3),
+            source=source_b,
+            location=Point(0, 0),
+        )
+        check_sources_threshold()
 
-    def test_when_all_source_are_outside_the_silent_notification_threshold(self):
-        """Test when all source are outside the threshold"""
-        source, source2, recorded_at, recorded_late, location = self.create_observation_record()
+        events = Event.objects.all()
+        assert events.count() == 1
+        for event in events:
+            assert event.event_type.display == "Silent Source Provider"
 
-        obervation = Observation(source=source,
-                                 recorded_at=recorded_late,
-                                 location=location,
-                                 additional={})
-        obervation.save()
-        observation2 = Observation(source=source2,
-                                   recorded_at=recorded_late,
-                                   location=location,
-                                   additional={})
-        observation2.save()
-        eligible_sources = get_silent_sources()
-        # All the above sources should be eligible(since configured under one source-provider)
-        self.assertNotEqual(eligible_sources, [])
-        self.assertEqual(len(eligible_sources), 2)
+    def test_one_of_many_sources_with_same_provider_reach_the_provider_threshold(
+        self, five_subject_sources
+    ):
+        provider = five_subject_sources[0].source.provider
+        provider.additional = {"silence_notification_threshold": "00:30:00"}
+        provider.save()
+        source_a = five_subject_sources[0].source
+        source_a.provider = provider
+        source_a.save()
+        source_b = five_subject_sources[1].source
+        source_b.provider = provider
+        source_b.save()
+
+        Observation.objects.create(
+            recorded_at=timezone.now() - timedelta(hours=4),
+            source=source_a,
+            location=Point(0, 0),
+        )
+        Observation.objects.create(
+            recorded_at=timezone.now() - timedelta(minutes=10),
+            source=source_b,
+            location=Point(0, 0),
+        )
+        check_sources_threshold()
+
+        events = Event.objects.all()
+        assert events.count() == 0
+
+    def test_neither_sources_with_same_provider_reach_the_provider_threshold(
+        self, five_subject_sources
+    ):
+        provider = five_subject_sources[0].source.provider
+        provider.additional = {"silence_notification_threshold": "00:30:00"}
+        provider.save()
+        source_a = five_subject_sources[0].source
+        source_a.provider = provider
+        source_a.save()
+        source_b = five_subject_sources[1].source
+        source_b.provider = provider
+        source_b.save()
+
+        Observation.objects.create(
+            recorded_at=timezone.now() - timedelta(minutes=10),
+            source=source_a,
+            location=Point(0, 0),
+        )
+        Observation.objects.create(
+            recorded_at=timezone.now() - timedelta(minutes=15),
+            source=source_b,
+            location=Point(0, 0),
+        )
+        check_sources_threshold()
+
+        events = Event.objects.all()
+        assert events.count() == 0
+
+    def test_two_source_with_same_provider_reach_the_provider_default_threshold(
+        self, five_subject_sources
+    ):
+        provider = five_subject_sources[0].source.provider
+        provider.additional = {
+            "default_silent_notification_threshold": "00:30"}
+        provider.save()
+        source_a = five_subject_sources[0].source
+        source_a.provider = provider
+        source_a.save()
+        source_b = five_subject_sources[1].source
+        source_b.provider = provider
+        source_b.save()
+
+        Observation.objects.create(
+            recorded_at=timezone.now() - timedelta(hours=4),
+            source=source_a,
+            location=Point(0, 0),
+        )
+        Observation.objects.create(
+            recorded_at=timezone.now() - timedelta(hours=3),
+            source=source_b,
+            location=Point(0, 0),
+        )
+        check_sources_threshold()
+
+        events = Event.objects.all()
+        assert events.count() == 2
+        for event in events:
+            assert event.event_type.display == "Silent Source"
+
+    def test_two_source_with_different_providers_reach_the_provider_default_threshold(
+        self, five_subject_sources
+    ):
+        source_a = five_subject_sources[0].source
+        source_b = five_subject_sources[1].source
+        provider_a = five_subject_sources[0].source.provider
+        provider_a.additional = {
+            "default_silent_notification_threshold": "00:30"}
+        provider_a.save()
+        provider_b = five_subject_sources[1].source.provider
+        provider_b.additional = {
+            "default_silent_notification_threshold": "00:30"}
+        provider_b.save()
+
+        Observation.objects.create(
+            recorded_at=timezone.now() - timedelta(hours=4),
+            source=source_a,
+            location=Point(0, 0),
+        )
+        Observation.objects.create(
+            recorded_at=timezone.now() - timedelta(hours=3),
+            source=source_b,
+            location=Point(0, 0),
+        )
+        check_sources_threshold()
+
+        events = Event.objects.all()
+        assert events.count() == 2
+        for event in events:
+            assert event.event_type.display == "Silent Source"

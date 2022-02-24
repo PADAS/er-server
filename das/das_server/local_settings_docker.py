@@ -77,7 +77,7 @@ CORS_ORIGIN_ALLOW_ALL = env.bool('CORS_ORIGIN_ALLOW_ALL', False)
 
 # Rest and realtime API allowed hosts.
 CORS_ORIGIN_WHITELIST = [
-    f'{prefix}{servername}' for servername in SERVER_NAMES for prefix in ('', 'http://', 'https://')]
+    f'{prefix}{servername}' for servername in SERVER_NAMES for prefix in ('http://', 'https://')]
 
 
 CORS_REPLACE_HTTPS_REFERER = env.bool('CORS_REPLACE_HTTPS_REFERER', True)

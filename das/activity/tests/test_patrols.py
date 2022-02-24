@@ -1,30 +1,33 @@
 import datetime
 import json
 import os
-import pytz
-from urllib.parse import urlencode
-import tempfile
 import shutil
+import tempfile
+from urllib.parse import urlencode
 
-from django.db import connection
 import django.contrib.auth
-from django.core.management import call_command
-from django.urls import reverse
-from django.utils import lorem_ipsum
-from psycopg2.extras import DateTimeTZRange
-from django.test import Client
-from drf_extra_fields.geo_fields import PointField
 import pytest
-
-from activity import views
-from activity.models import Patrol, PatrolSegment, PatrolNote, PatrolType, StateFilters, Event, EventType, \
-    EventRelationship
-from core.tests import BaseAPITest
-from observations.models import Subject, Source, SubjectSource
-from observations.materialized_views import patrols_view
-from das_server.celery import app
+import pytz
 from accounts.models import PermissionSet
+from activity import views
+from activity.models import (PC_DONE, PC_OPEN, Event, EventRelationship,
+                             EventType, Patrol, PatrolConfiguration,
+                             PatrolNote, PatrolSegment, PatrolType,
+                             StateFilters)
+from activity.serializers.patrol_serializers import PatrolSerializer
 from client_http import HTTPClient
+from core.tests import BaseAPITest
+from das_server.celery import app
+from django.core.management import call_command
+from django.db import connection
+from django.test import Client
+from django.urls import reverse
+from django.utils import lorem_ipsum, timezone
+from drf_extra_fields.geo_fields import PointField
+from observations.materialized_views import patrols_view
+from observations.models import Source, Subject, SubjectSource
+from psycopg2.extras import DateTimeTZRange
+from rest_framework import status
 
 pytestmark = pytest.mark.django_db
 User = django.contrib.auth.get_user_model()
@@ -810,64 +813,22 @@ class TestPatrol(BaseAPITest):
             title='Overdue Patrol',
             patrol_segments=[{'scheduled_start': (self.now - datetime.timedelta(minutes=45)).isoformat()}])
         cancelled_patrol = dict(title='Cancelled Patrol', state='cancelled')
+        Patrol.objects.all().delete()
 
         for patrol in [scheduled_patrol, active_patrol, done_patrol, overdue_patrol, cancelled_patrol]:
             self._create_patrol(patrol)
 
         for st_filter in [e.value for e in StateFilters]:
-            filter_param = {"state": st_filter}
+            filter_param = {"status": st_filter}
             response = self._filter_patrol(filter_param)
             self.assertEqual(response.data.get('count'), 1)
 
         url = reverse('patrols') + \
-            f'?state=scheduled&state=active&state=done&state=cancelled'
+            f'?status=scheduled&status=active&status=done&status=cancelled'
         request = self.factory.get(self.api_base + url)
         self.force_authenticate(request, self.user)
         response = views.PatrolsView.as_view()(request)
         self.assertEqual(response.data.get('count'), 4)
-
-    def test_patrol_filter_by_patrol_type(self):
-        patrol = dict(title='Test Patrol', patrol_segments=[
-                      {'patrol_type': 'dog_patrol'}])
-        self._create_patrol(patrol)
-
-        filter_param = {"patrol_type": "routine_patrol"}
-        response = self._filter_patrol(filter_param)
-        self.assertEqual(response.data.get('count'), 0)
-
-        filter_param = {"patrol_type": "dog_patrol"}
-        response = self._filter_patrol(filter_param)
-        self.assertEqual(response.data.get('count'), 1)
-
-    def test_patrol_filter_by_tracked_subject(self):
-        subj = Subject.objects.create(
-            name='Heritage', subject_subtype_id='elephant')
-        patrol_data = dict(
-            title="Patrol with tracked subject",
-            patrol_segments=[{
-                "patrol_type": "dog_patrol",
-                "leader": {
-                    "content_type": "observations.subject",
-                    "id": subj.id,
-                    "name": "The Don Galaxy 5",
-                    "subject_type": "wildlife",
-                    "subject_subtype": "elephant",
-                    "additional": {
-                    },
-                    "created_at": "2020-08-05T01:31:42.474284+03:00",
-                    "updated_at": "2020-08-05T01:31:42.474315+03:00",
-                    "is_active": True,
-                    "tracks_available": False,
-                    "image_url": "/static/elephant-black.svg"
-                }
-            }]
-        )
-        self._create_patrol(patrol_data)
-        filter_param = {"subject": subj.id}
-        response = self._filter_patrol(filter_param)
-        self.assertEqual(response.data.get('count'), 1)
-        self.assertEqual(response.data.get('results')[
-                         0].get('title'), patrol_data.get('title'))
 
     def test_patrol_filter_with_null_end_time(self):
         start = self.start_of_today - datetime.timedelta(days=3)  # 3 days ago
@@ -893,7 +854,7 @@ class TestPatrol(BaseAPITest):
                 {'time_range': {"start_time": start.isoformat()},
                  'scheduled_end': scheduled_end.isoformat()}]
         )
-        patrol = self._create_patrol(patrol_data)
+        self._create_patrol(patrol_data)
         response = self._filter_patrol(self.sample_patrol_filter)
 
         # patrol is still displayed as current since its not marked as done or
@@ -1720,7 +1681,7 @@ def test_patrols_materialized_view(django_assert_max_num_queries, client):
     cursor = connection.cursor().cursor
 
     cursor.execute('select count(*) from patrols_view;')
-    data = cursor.fetchall()
+    cursor.fetchall()
     # assert data[0] == (1,)
 
 
@@ -2097,6 +2058,160 @@ class TestPatrolFilter:
         assert response.status_code == 200
         assert data.get("count", 0) == 1
 
+    @pytest.mark.parametrize("subject",
+                             ["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"])
+    def test_filter_by_subject_list_with_one_value(self, five_patrol_segment_user_with_leader_uuid, subject):
+        filters = {
+            "patrols_overlap_daterange": True,
+            "tracked_by": [subject]
+        }
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name="View Patrols Permissions"
+        )
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+        request = client.factory.get(
+            client.api_base + f"/patrols/?filter={json.dumps(filters)}"
+        )
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert data.get("count", 0) == 1
+
+    @pytest.mark.parametrize("subjects",
+                             [["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"],
+                              ["00000000-0000-0000-0000-000000000003", "00000000-0000-0000-0000-000000000004"]])
+    def test_filter_by_subject_list_with_many_values(self, five_patrol_segment_user_with_leader_uuid, subjects):
+        filters = {
+            "patrols_overlap_daterange": True,
+            "tracked_by": subjects
+        }
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name="View Patrols Permissions"
+        )
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+        request = client.factory.get(
+            client.api_base + f"/patrols/?filter={json.dumps(filters)}"
+        )
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert data.get("count", 0) == 2
+
+    @pytest.mark.parametrize("patrol_type", ["00000000-0000-0000-0000-000000000001"])
+    def test_filter_by_patrol_type_with_one_value(self, five_patrol_segment_patrol_type_uuid, patrol_type):
+        filters = {
+            "patrols_overlap_daterange": True,
+            "patrol_type": [patrol_type]
+        }
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name="View Patrols Permissions"
+        )
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+        request = client.factory.get(
+            client.api_base + f"/patrols/?filter={json.dumps(filters)}"
+        )
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert data.get("count", 0) == 1
+
+    @pytest.mark.parametrize("patrol_type",
+                             [["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"]])
+    def test_filter_by_patrol_types_with_many_values(self, five_patrol_segment_patrol_type_uuid, patrol_type):
+        filters = {
+            "patrols_overlap_daterange": True,
+            "patrol_type": patrol_type
+        }
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name="View Patrols Permissions"
+        )
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+        request = client.factory.get(
+            client.api_base + f"/patrols/?filter={json.dumps(filters)}"
+        )
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert data.get("count", 0) == 2
+
+    @pytest.mark.parametrize("statuses", [["active"], ["cancelled"]])
+    def test_filter_by_patrol_status_list_with_one_value(self, five_patrol_segment, statuses):
+        active_patrol = Patrol.objects.first()
+        tzr = DateTimeTZRange(timezone.now())
+        active_patrol_segment = active_patrol.patrol_segments.first()
+        active_patrol_segment.time_range = tzr
+        active_patrol_segment.save()
+
+        cancelled_patrol = Patrol.objects.last()
+        cancelled_patrol.state = "cancelled"
+        cancelled_patrol.save()
+
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name="View Patrols Permissions"
+        )
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+        request = client.factory.get(
+            client.api_base + f"/patrols/?status={'&status='.join(statuses)}"
+        )
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert data.get("count", 0) == 1
+
+    @pytest.mark.parametrize("statuses", [["active", "scheduled"], ["done", "cancelled"]])
+    def test_filter_by_patrol_status_list_with_many_values(self, five_patrol_segment, statuses):
+        cancelled_patrol = Patrol.objects.all()[0]
+        cancelled_patrol.state = "cancelled"
+        cancelled_patrol.save()
+
+        done_patrol = Patrol.objects.all()[1]
+        done_patrol.state = "cancelled"
+        done_patrol.save()
+
+        active_patrol = Patrol.objects.all()[2]
+        tzr = DateTimeTZRange(timezone.now())
+        active_patrol_segment = active_patrol.patrol_segments.first()
+        active_patrol_segment.time_range = tzr
+        active_patrol_segment.save()
+
+        scheduled_patrol = Patrol.objects.all()[3]
+        start_date = timezone.now() + timezone.timedelta(days=2)
+        end_date = timezone.now() + timezone.timedelta(days=4)
+        scheduled_patro_segment = scheduled_patrol.patrol_segments.first()
+        scheduled_patro_segment.scheduled_start = start_date
+        scheduled_patro_segment.scheduled_end = end_date
+        scheduled_patro_segment.save()
+
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name="View Patrols Permissions"
+        )
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+        request = client.factory.get(
+            client.api_base + f"/patrols/?status={'&status='.join(statuses)}"
+        )
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert data.get("count", 0) == 2
+
     def _arrange_patrol_serial_number_sql(self):
         with connection.cursor() as cursor:
             cursor.execute(
@@ -2105,3 +2220,141 @@ class TestPatrolFilter:
             cursor.execute(
                 "UPDATE activity_patrol SET serial_number=1001 WHERE id=(SELECT id FROM activity_patrol LIMIT 1 OFFSET 2)"
             )
+
+
+@pytest.mark.django_db
+class TestPatrolView:
+    def test_create_patrol_with_past_end_date(self):
+        now = datetime.datetime.now(tz=pytz.utc)
+        past_start_date = now - datetime.timedelta(days=6)
+        past_end_date = now - datetime.timedelta(days=3)
+        patrol_data = {
+            "patrol_segments":
+                [
+                    {
+                        "patrol_type": "routine_patrol",
+                        "time_range":
+                            {
+                                "start_time": past_start_date.isoformat(),
+                                "end_time": past_end_date.isoformat()
+                            },
+                    }
+                ],
+            "title": "Patrol with past date"
+        }
+
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name="Patrols Permissions - No Delete")
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+
+        request = client.factory.post(
+            client.api_base + f"/patrols/", data=patrol_data)
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolsView.as_view()(request)
+        data = dict(response.data)
+
+        assert data["state"] == PC_DONE
+
+    def test_update_patrol_with_past_end_date(self, five_patrol_segment):
+        now = datetime.datetime.now(tz=pytz.utc)
+        past_start_date = now - datetime.timedelta(days=6)
+        past_end_date = now - datetime.timedelta(days=3)
+
+        patrol = Patrol.objects.order_by('created_at').last()
+        assert patrol.state == PC_OPEN
+
+        segment = patrol.patrol_segments.first()
+        segment.time_range = DateTimeTZRange(
+            lower=past_start_date, upper=past_end_date)
+        segment.save()
+
+        data = PatrolSerializer(patrol).data
+
+        client = HTTPClient()
+        view_patrol_permissionset = PermissionSet.objects.get(
+            name="Patrols Permissions - No Delete")
+        client.app_user.permission_sets.add(view_patrol_permissionset)
+
+        request = client.factory.patch(
+            f"{client.api_base}/patrols/{patrol.id}", data=data)
+        client.force_authenticate(request, client.app_user)
+        response = views.PatrolView.as_view()(request, id=patrol.id)
+        data = dict(response.data)
+
+        assert data["state"] == PC_DONE
+
+
+@pytest.mark.django_db
+class TestPatrolModel:
+    @pytest.mark.parametrize("patrol_type", ["ff2f7da6-ade4-4dc1-bd7a-c2c5244017fa", "e62ca278-8687-455e-ba76-2c7dfa4d6b5f"])
+    def test_create_patrol_with_past_date(self, patrol_type):
+        patrol = Patrol(title="Created Patrol through model")
+        assert patrol.state == PC_OPEN
+
+        now = datetime.datetime.now(tz=pytz.utc)
+        past_start_date = now - datetime.timedelta(days=6)
+        past_end_date = now - datetime.timedelta(days=3)
+
+        time_range = DateTimeTZRange(
+            lower=past_start_date, upper=past_end_date)
+        segment = PatrolSegment.objects.create(
+            patrol=patrol, patrol_type_id=patrol_type, time_range=time_range)
+
+        patrol.patrol_segments.add(segment)
+        patrol.save()
+
+        assert patrol.state == PC_DONE
+
+    def test_filter_by_patrol_method(self, five_patrol_segment):
+        patrol = Patrol.objects.order_by("created_at").last()
+        patrol.title = "test"
+
+        segment = patrol.patrol_segments.first()
+        start_date = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(days=2)
+        segment.time_range = DateTimeTZRange(lower=start_date)
+
+        segment.save()
+        patrol.save()
+
+        filters = {
+            'date_range': {'lower': start_date.isoformat()},
+            'patrols_overlap_daterange': True,
+            'patrol_type': [],
+            'text': 'test',
+            'tracked_by': []
+        }
+        patrols = Patrol.objects.by_patrol_filter(filters)
+
+        assert patrols.first().id == patrol.id
+
+    def test_by_date_range_method(self, five_patrol_segment):
+        patrol = Patrol.objects.order_by("created_at").last()
+        segment = patrol.patrol_segments.first()
+
+        start_date = datetime.datetime.now(tz=pytz.utc) - datetime.timedelta(days=2)
+        segment.time_range = DateTimeTZRange(lower=start_date)
+        segment.save()
+
+        filters = {'lower': segment.time_range.lower.isoformat()}
+        patrols = Patrol.objects.by_date_range(filters, True)
+
+        assert patrols.first().id == patrol.id
+
+
+@pytest.mark.django_db
+class TestPatrolTrackedBySchemaView:
+    def test_trackedby_permissions_for_a_subjectgroup_viewer(self, django_assert_max_num_queries, client, two_subject_groups, ops_user):
+        a_subjectgroup, b_subjectgroup = two_subject_groups
+        a_subjectgroup.permission_sets.all()[0].user_set.add(ops_user)
+        PatrolConfiguration.objects.first().subject_groups.add(
+            *[a_subjectgroup, b_subjectgroup])
+
+        url = reverse('patrol-segments-schema')
+        client.force_login(ops_user)
+
+        with django_assert_max_num_queries(11):
+            response = client.get(url)
+            leaders = response.data["properties"]["leader"]["enum"]
+            assert not any(subject.name == leader["name"]
+                           for subject in b_subjectgroup.subjects.all() for leader in leaders)

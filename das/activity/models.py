@@ -1,3 +1,5 @@
+from django.db.models import CharField
+from django.db.models.functions import Cast
 import datetime
 import json
 import logging
@@ -24,16 +26,18 @@ from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.core.validators import RegexValidator
 from django.db import transaction
-from django.db.models import Case, Exists, F, OuterRef, Q, Subquery, Value, When
+from django.db.models import (Case, Exists, F, OuterRef, Q, Subquery, Value,
+                              When, Prefetch)
 from django.db.models.functions import Lower
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import dateparse, timezone
 from django.utils.encoding import force_text
 from django.utils.translation import ugettext_lazy as _
-from observations.models import Source, Subject, SubjectGroup
+from observations.models import Subject, SubjectGroup, SubjectStatus
 from observations.utils import dateparse as dparse
-from revision.manager import Revision, RevisionAdapter, RevisionMixin, relation_deleted
+from revision.manager import (Revision, RevisionAdapter, RevisionMixin,
+                              relation_deleted)
 from utils.html import clean_user_text
 from versatileimagefield.fields import VersatileImageField
 
@@ -152,7 +156,7 @@ def ensure_perms_exist(sender, **kwargs):
             app_label='activity', model='event')
         category_name = kwargs['instance'].value
 
-        category_display = kwargs['instance'].display
+        kwargs['instance'].display
         permissionset_name = kwargs['instance'].auto_permissionset_name
         permissionset, created = PermissionSet.objects.get_or_create(
             name=permissionset_name)
@@ -175,7 +179,7 @@ class FilterFieldMixin(object):
         if isinstance(field_data, (list, tuple)):
             field_q = None
             for value in field_data:
-                field_q = field_q | models.Q(**{field_name: value}) if field_q\
+                field_q = field_q | models.Q(**{field_name: value}) if field_q \
                     else models.Q(**{field_name: value})
         else:
             field_q = models.Q(**{field_name: field_data})
@@ -545,6 +549,7 @@ class EventManager(models.Manager):
                 # get subjects user has permission for.
                 for obj in staff_subject.by_user_subjects(user) if user else staff_subject:
                     yield (obj.name.lower(), obj)
+
             for staff in sorted(get_staff(), key=itemgetter(0)):
                 yield staff[1]
 
@@ -665,7 +670,6 @@ class EventFile(TimestampedModel, RevisionMixin):
 
 
 class EventRelationship(TimestampedModel):
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     type = models.ForeignKey('EventRelationshipType', on_delete=models.PROTECT)
     from_event = models.ForeignKey('Event', related_name='out_relationships', related_query_name='out_relationship',
@@ -709,7 +713,6 @@ class EventRelationship(TimestampedModel):
 
 
 class Event(RevisionMixin, TimestampedModel):
-
     objects = EventManager.from_queryset(EventFilteringQuerySet)()
     revision_ignore_fields = ('sort_at')
     revision_follow_relations = ('activity.EventPhoto',)
@@ -829,7 +832,7 @@ class Event(RevisionMixin, TimestampedModel):
 
     _usermodel = settings.AUTH_USER_MODEL.lower().split('.')
 
-    reported_by_limits = models.Q(app_label='observations', model='subject')\
+    reported_by_limits = models.Q(app_label='observations', model='subject') \
         | models.Q(app_label='observations', model='source') \
         | models.Q(app_label='activity', model='community') \
         | models.Q(app_label=_usermodel[0], model=_usermodel[1])
@@ -956,7 +959,7 @@ class Event(RevisionMixin, TimestampedModel):
         if self._state.adding and self.sort_at is not None:
             pass
         elif (len(update_fields) == 1 and 'state' in update_fields and
-                self.state == self.SC_ACTIVE and prev_state == self.SC_NEW):
+              self.state == self.SC_ACTIVE and prev_state == self.SC_NEW):
             pass
         else:
             self.sort_at = timezone.now()
@@ -997,7 +1000,9 @@ class Event(RevisionMixin, TimestampedModel):
         elif self.provenance and self.reported_by:
             raise ValidationError(
                 {'reported_by': ValidationError(
-                    _('Invalid value for provenance {0} and reported_by fields'.format(self.provenance)), code='invalid')})
+                    _('Invalid value for provenance {0} and reported_by fields'.format(
+                        self.provenance)),
+                    code='invalid')})
 
         self.message = clean_user_text(self.message, 'Event.message')
         self.title = clean_user_text(self.title, 'Event.title')
@@ -1035,7 +1040,6 @@ class EventRelatedSubjectManager(models.Manager):
 
 
 class EventRelatedSubject(models.Model):
-
     objects = EventRelatedSubjectManager()
 
     event = models.ForeignKey(Event, on_delete=models.CASCADE)
@@ -1175,7 +1179,6 @@ def upload_to(instance, filename):
 
 
 class EventPhoto(RevisionMixin, TimestampedModel):
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     created_by_user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
@@ -1233,7 +1236,6 @@ class EventFilterManager(models.Manager):
 
 
 class EventFilter(TimestampedModel):
-
     objects = EventFilterManager()
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     ordernum = models.SmallIntegerField(
@@ -1276,7 +1278,6 @@ class EventSourceManager(models.Manager):
 
 
 class EventSource(TimestampedModel):
-
     objects = EventSourceManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -1345,7 +1346,6 @@ class EventsourceEventManager(models.Manager):
 
 
 class EventsourceEvent(TimestampedModel):
-
     objects = EventsourceEventManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -1386,7 +1386,6 @@ NOTIFICATION_METHOD_EMAIL = "email"
 NOTIFICATION_METHOD_SMS = "sms"
 NOTIFICATION_METHOD_WHATSAPP = "whatsapp"
 
-
 NOTIFICATION_METHOD_CHOICES = (
     (NOTIFICATION_METHOD_EMAIL, _('Email')),
     (NOTIFICATION_METHOD_SMS, _('SMS')),
@@ -1395,7 +1394,6 @@ NOTIFICATION_METHOD_CHOICES = (
 
 
 class NotificationMethod(TimestampedModel):
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
     owner = models.ForeignKey(
@@ -1422,7 +1420,6 @@ class AlertRuleManager(models.Manager):
 
 
 class AlertRule(TimestampedModel):
-
     objects = AlertRuleManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -1439,12 +1436,12 @@ class AlertRule(TimestampedModel):
     schedule = JSONField(default=dict, blank=True)
 
     notification_methods = models.ManyToManyField(NotificationMethod, related_name='alert_rules',
-                                                  related_query_name='alert_rule',)
+                                                  related_query_name='alert_rule', )
 
     event_types = models.ManyToManyField(
-        EventType, related_name='alert_rules', related_query_name='alert_rule',)
+        EventType, related_name='alert_rules', related_query_name='alert_rule', )
 
-    is_active = models.BooleanField(default=True,)
+    is_active = models.BooleanField(default=True, )
 
     @property
     def is_conditional(self):
@@ -1457,7 +1454,7 @@ class AlertRule(TimestampedModel):
 
         n = self.event_types.count()
         if n > 1:
-            return f'Alert ({ n } report types)'
+            return f'Alert ({n} report types)'
 
         return f'{self.event_types.first().display} Reports'
 
@@ -1467,7 +1464,6 @@ class EventNotificationManager(models.Manager):
 
 
 class EventNotification(TimestampedModel):
-
     id = models.BigAutoField(primary_key=True)
 
     method = models.CharField(
@@ -1555,7 +1551,6 @@ class TeamMembershipManager(models.Manager):
 
 
 class TeamMembership(TimestampedModel):
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     type = models.ForeignKey('MembershipType', on_delete=models.PROTECT)
     team = models.ForeignKey('Team', related_name='members',
@@ -1582,14 +1577,14 @@ class StateFilters(Enum):
 
 class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_patrol_filter(self, filter):
-        queryset = self
-        if "date_range" in filter:
+        queryset = self._annotate_queryset_with_serial_number_string()
+        if filter.get("date_range"):
             patrols_overlap_daterange = filter.get(
                 "patrols_overlap_daterange", True)
-            queryset = self.by_date_range(
+            queryset = queryset.by_date_range(
                 filter.get("date_range"), patrols_overlap_daterange
             )
-        if "text" in filter:
+        if filter.get("text"):
             text = filter.get("text")
             if text:
                 subjects_id = self._get_match_subjects_id(text)
@@ -1613,6 +1608,17 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
                         patrol_segment__leader_content_type__model="user",
                     )
                 )
+
+        if filter.get("patrol_type"):
+            queryset = queryset.filter(
+                Q(patrol_segment__patrol_type__id__in=filter["patrol_type"])
+            )
+
+        if filter.get("tracked_by"):
+            queryset = queryset.filter(
+                Q(patrol_segment__leader_id__in=filter["tracked_by"])
+            )
+
         return queryset.distinct()
 
     def by_date_range(self, filter_param, patrols_overlap_daterange):
@@ -1696,8 +1702,8 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             Q(patrol_segment__time_range__startswith__isnull=True) & \
             Q(patrol_segment__scheduled_start__lt=set_time)
 
-        readyto_q = Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state=PC_OPEN) &  \
-            Q(patrol_segment__time_range__startswith__isnull=True) &  \
+        readyto_q = Q(patrol_segment__scheduled_start=F('patrol_segment__scheduled_start'), state=PC_OPEN) & \
+            Q(patrol_segment__time_range__startswith__isnull=True) & \
             Q(patrol_segment__scheduled_start__gte=set_time)
 
         return self.annotate(
@@ -1739,6 +1745,9 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             | Q(last_name__iregex=self._get_regex_istartswith(text))
         ).values_list("id", flat=True)
 
+    def _annotate_queryset_with_serial_number_string(self):
+        return self.annotate(serial_number_string=Cast("serial_number", CharField()))
+
 
 class Patrol(TimestampedModel, RevisionMixin):
     objects = models.Manager.from_queryset(PatrolFilteringQuerySet)()
@@ -1761,6 +1770,18 @@ class Patrol(TimestampedModel, RevisionMixin):
 
     def __str__(self):
         return self.title or f'Patrol #{self.serial_number}'
+
+    def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
+        self._update_patrol_state()
+        super().save(force_insert, force_update, using, update_fields)
+
+    def _update_patrol_state(self):
+        now = datetime.datetime.now(tz=pytz.utc)
+        for segment in self.patrol_segments.all():
+            if segment.time_range and segment.time_range.lower and segment.time_range.upper and segment.time_range.upper < now:
+                logger.debug(f"Updating status patrol due to segment.time_ranger.upper: "
+                             f"{segment.time_range.upper} is lower than {now}")
+                self.state = PC_DONE
 
 
 class PatrolNote(RevisionMixin, TimestampedModel):
@@ -1850,7 +1871,8 @@ class PatrolSegmentMembership(TimestampedModel):
     type = models.ForeignKey('MembershipType', on_delete=models.PROTECT)
     patrol_segment = models.ForeignKey(
         'PatrolSegment', related_name='members', related_query_name='member', on_delete=models.CASCADE)
-    person = models.ForeignKey('Person', related_name='patrolsegment_memberships', related_query_name='patrolsegment_membership',
+    person = models.ForeignKey('Person', related_name='patrolsegment_memberships',
+                               related_query_name='patrolsegment_membership',
                                on_delete=models.CASCADE)
     ordernum = models.SmallIntegerField(blank=True, null=True)
 
@@ -1868,7 +1890,8 @@ class PatrolSegmentManager(models.Manager):
     def get_leader_for_provenance(provenance, user=None):
         if PC_STAFF == provenance:
             def get_subjects():
-                active_subjects = Subject.objects.all().by_is_active()
+                active_subjects = Subject.objects.prefetch_related(Prefetch("subjectstatus_set", queryset=SubjectStatus.objects.filter(
+                    delay_hours=0))).select_related("subject_subtype", "subject_subtype__subject_type").all().by_is_active()
                 subject_grps = PatrolConfiguration.objects.first().subject_groups.all()
 
                 for o in active_subjects.by_subjectgroups(subject_grps, user=user):
@@ -1929,7 +1952,7 @@ class PatrolSegment(TimestampedModel, RevisionMixin):
 
     _usermodel = settings.AUTH_USER_MODEL.lower().split('.')
 
-    leader_limits = models.Q(app_label='observations', model='subject')\
+    leader_limits = models.Q(app_label='observations', model='subject') \
         | models.Q(app_label=_usermodel[0], model=_usermodel[1])
 
     leader_content_type = models.ForeignKey(
@@ -1948,7 +1971,6 @@ class PatrolConfiguration(SingletonModel):
     name = models.CharField(max_length=255)
     subject_groups = models.ManyToManyField(
         SubjectGroup, related_name='groups', blank=True)
-
 
 # class PatrolTemplate(models.Model):
 #     id = models.UUIDField(primary_key=True, default=uuid.uuid4)

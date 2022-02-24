@@ -1,7 +1,8 @@
-Project DAS - Domain Awareness System, EarthRanger
+Project EarthRanger aka DAS - Domain Awareness System
 =================================================================
 
-See [development](https://vulcan.atlassian.net/wiki/spaces/ER/pages/505775148/Developer+On-boarding)
+See the ER Onboarding documents hosted in Confluence for help on setting up your developer workstation.
+[OnBoarding](https://allenai.atlassian.net/wiki/spaces/ER/pages/19312935978/Onboarding)
 
 
 
