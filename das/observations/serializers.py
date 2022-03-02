@@ -1,4 +1,5 @@
 import json
+import logging
 from collections import OrderedDict
 from datetime import MAXYEAR, MINYEAR, datetime, timedelta
 from typing import NamedTuple
@@ -8,12 +9,8 @@ import rest_framework.serializers
 import utils.json
 from accounts.serializers import UserDisplaySerializer
 from core.fields import GEOPointField, choicefield_serializer, text_field
-from core.serializers import (
-    BaseSerializer,
-    ContentTypeField,
-    GenericRelatedField,
-    TimestampMixin,
-)
+from core.serializers import (BaseSerializer, ContentTypeField,
+                              GenericRelatedField, TimestampMixin)
 from django.conf import settings
 from django.contrib.gis.geos import Point
 from django.contrib.postgres.fields import jsonb
@@ -22,16 +19,15 @@ from django.urls import reverse
 from drf_extra_fields.fields import DateTimeRangeField
 from drf_extra_fields.geo_fields import PointField
 from observations import models
-from observations.utils import (
-    dateparse,
-    get_maximum_allowed_age,
-    get_minimum_allowed_age,
-    get_null_point,
-)
+from observations.models import transform_additional_data
+from observations.utils import (dateparse, get_maximum_allowed_age,
+                                get_minimum_allowed_age, get_null_point)
 from rest_framework.fields import DateTimeField
 from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from utils import add_base_url
 from utils.json import zeroout_microseconds
+
+logger = logging.getLogger(__name__)
 
 
 class RegionSerializer(rest_framework.serializers.ModelSerializer):
@@ -237,7 +233,8 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
         rep.update(additional)
         rep['tracks_available'] = False
         rep['image_url'] = instance.image_url
-        if self._is_static_sensor(instance):
+        is_stationary_subject = self._is_stationary_subject(instance)
+        if is_stationary_subject:
             rep["is_static"] = True
 
         if user and render_last_location:
@@ -313,7 +310,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                                 latest_observation.recorded_at
 
                             location = latest_observation.location
-                            if self._is_static_sensor(instance):
+                            if is_stationary_subject:
                                 location = instance.subjectsources.last().location
 
                             rep['last_position'] = make_feature(
@@ -343,7 +340,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                         'radio_state_at': None if statusvalues.radio_state_at == models.DEFAULT_STATUS_VALUE_DATE else statusvalues.radio_state_at,
                         'radio_state': statusvalues.radio_state
                     }
-                    if self._is_static_sensor(instance):
+                    if is_stationary_subject:
                         location = instance.subjectsources.last().location
 
                     if tracks_available:
@@ -355,7 +352,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
 
                 rep['device_status_properties'] = self._get_device_status_properties(
                     statusvalues)
-                if self._is_static_sensor(instance):
+                if is_stationary_subject:
                     rep['device_status_properties'] = self._get_device_properties_static_sensor(
                         statusvalues, instance)
                     rep["tracks_available"] = False
@@ -391,9 +388,9 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
 
         return models.Subject.objects.create_subject(**validated_data)
 
-    def _is_static_sensor(self, instance):
+    def _is_stationary_subject(self, instance):
         if (
-                instance.subject_subtype.subject_type.display == "Stationary subject"
+                instance.subject_subtype.subject_type.value == "stationary-object"
                 and instance.subjectsources.last()
                 and instance.subjectsources.last().location
         ):
@@ -729,11 +726,23 @@ class ObservationSerializer(rest_framework.serializers.ModelSerializer):
         geo_field = 'location'
 
     def to_representation(self, instance):
+        self.context
         rep = super(ObservationSerializer, self).to_representation(instance)
         if self.context.get('include_details'):
             rep['observation_details'] = rep['additional']
+        if instance.source.provider.transforms:
+            rep["device_status_properties"] = self._get_properties_device(
+                instance)
         rep.pop('additional')
         return rep
+
+    def _get_properties_device(self, observation):
+        try:
+            return transform_additional_data(observation.additional, observation.source.provider.transforms)
+        except Exception as exception:
+            logger.warning(
+                f"Failed to get properties for Observation {observation.id} {exception}")
+        return []
 
 
 class FlattenObservationSerializer(rest_framework.serializers.ModelSerializer):

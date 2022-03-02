@@ -38,7 +38,8 @@ from django.contrib.gis.geos import Point, Polygon
 from django.contrib.postgres.fields import DateTimeRangeField, JSONField
 from django.contrib.postgres.fields.hstore import KeyTransform
 from django.db import transaction
-from django.db.models import Case, F, FilteredRelation, Max, Q, Value, When
+from django.db.models import (BooleanField, Case, ExpressionWrapper, F,
+                              FilteredRelation, Max, Q, Value, When)
 from django.db.models.constraints import UniqueConstraint
 from django.db.models.functions import Greatest
 from django.utils.functional import cached_property
@@ -84,6 +85,10 @@ STATUS_COLORS = {'online-gps': 'green',
 
 def random_rgb():
     return ','.join([str(random.randint(0, 255)) for i in range(3)])
+
+
+def Condition(*args, **kwargs):
+    return ExpressionWrapper(Q(*args, **kwargs), output_field=BooleanField())
 
 
 class SourceGroupManager(HierarchyManager):
@@ -312,6 +317,9 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
                 qs = self.filter(exclusion_flags=filter_flag)
             return qs.exclude(location=EMPTY_POINT)
         return self
+
+    def annotate_transforms(self):
+        return self.annotate(source_transforms=F('source__provider__transforms'))
 
 
 class ObservationManager(models.Manager):

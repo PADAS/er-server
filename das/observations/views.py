@@ -26,39 +26,31 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from kombu import exceptions
 from observations import kmlutils, models
-from observations.filters import SubjectObjectPermissionsFilter, create_gp_filter_class
+from observations.filters import (SubjectObjectPermissionsFilter,
+                                  create_gp_filter_class)
 from observations.permissions import StandardObjectPermissions
 from observations.tasks import handle_outbox_message, process_gpxdata_api
-from observations.utils import (
-    VIEW_OBSERVATION_PERMS,
-    VIEW_SUBJECT_PERMS,
-    VIEW_SUBJECTGROUP_PERMS,
-    calculate_subject_view_window,
-    check_to_include_inactive_subjects,
-    dateparse,
-    get_minimum_allowed_age,
-    parse_comma,
-)
+from observations.utils import (VIEW_OBSERVATION_PERMS, VIEW_SUBJECT_PERMS,
+                                VIEW_SUBJECTGROUP_PERMS,
+                                calculate_subject_view_window,
+                                check_to_include_inactive_subjects, dateparse,
+                                get_minimum_allowed_age, parse_comma)
 from rest_framework import generics, status
-from rest_framework.exceptions import (
-    APIException,
-    ParseError,
-    PermissionDenied,
-    ValidationError,
-)
+from rest_framework.exceptions import (APIException, ParseError,
+                                       PermissionDenied, ValidationError)
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 from utils import add_base_url
-from utils.drf import (
-    OptionalResultsSetPagination,
-    StandardResultsSetGeoJsonPagination,
-    StandardResultsSetPagination,
-)
-from utils.json import ExtendedGEOJSONRenderer, parse_bool, zeroout_microseconds
-
+from utils.drf import (OptionalResultsSetPagination,
+                       StandardResultsSetGeoJsonPagination,
+                       StandardResultsSetPagination)
+from utils.json import (ExtendedGEOJSONRenderer, parse_bool,
+                        zeroout_microseconds)
 
 logger = logging.getLogger(__name__)
+
+STATIONARY_SUBJECT_VALUE = "stationary-subject"
 
 
 def get_track_days():
@@ -907,14 +899,13 @@ class ObservationsViewSchema(CustomSchema):
 
 
 class ObservationsView(generics.ListCreateAPIView):
-
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
-
     serializer_class = serializers.ObservationSerializer
     pagination_class = StandardResultsSetPagination
     permission_classes = (StandardObjectPermissions,)
     schema = ObservationsViewSchema()
+
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
         if not self.request.user.has_any_perms(VIEW_OBSERVATION_PERMS):
@@ -968,6 +959,7 @@ class ObservationsView(generics.ListCreateAPIView):
 
         queryset = queryset.select_related('source')
         queryset = queryset.select_related('source__provider')
+        queryset = queryset.annotate_transforms()
 
         return queryset
 
@@ -994,6 +986,7 @@ class ObservationsView(generics.ListCreateAPIView):
         # generating docs schema
         context['include_details'] = parse_bool(self.request.query_params.get(
             'include_details', False)) if self.request else False
+
         return context
 
     def get_serializer_class(self):
@@ -1066,12 +1059,12 @@ class KmlSubjectsView(generics.GenericAPIView):
         # verify date in YYYY-mm-dd
         try:
             dateutil.parser.parse(start_date)
-        except Exception as e:
+        except Exception:
             start_date = None
 
         try:
             dateutil.parser.parse(start_date)
-        except Exception as e:
+        except Exception:
             end_date = None
 
         if start_date or end_date:
