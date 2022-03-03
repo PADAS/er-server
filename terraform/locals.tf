@@ -231,6 +231,7 @@ locals {
     "elkarama"                = "prod1"
     "noaa"                    = "prod1"
     "nust"                    = "prod1"
+    "keoseima"                = "prod-asia"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
