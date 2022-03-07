@@ -111,7 +111,7 @@ class SubjectTypeRelatedField(rest_framework.serializers.RelatedField):
             try:
                 return models.SubjectType.objects.get(value=data)
             except models.SubjectType.DoesNotExist:
-                raise serializers.ValidationError(
+                raise rest_framework.serializers.ValidationError(
                     f'subject_type : {data} does not exist')
 
 
@@ -714,9 +714,8 @@ class SourceRelatedField(rest_framework.serializers.RelatedField):
 
 
 class ObservationSerializer(rest_framework.serializers.ModelSerializer):
-
+    source = rest_framework.serializers.UUIDField(source='source_id')
     location = PointField(required=False)
-    source = SourceRelatedField()
 
     class Meta:
         model = models.Observation
@@ -726,23 +725,28 @@ class ObservationSerializer(rest_framework.serializers.ModelSerializer):
         geo_field = 'location'
 
     def to_representation(self, instance):
-        self.context
         rep = super(ObservationSerializer, self).to_representation(instance)
-        if self.context.get('include_details'):
-            rep['observation_details'] = rep['additional']
-        if instance.source.provider.transforms:
-            rep["device_status_properties"] = self._get_properties_device(
-                instance)
-        rep.pop('additional')
+        self.dict_to_representation(rep, self.context)
         return rep
 
-    def _get_properties_device(self, observation):
-        try:
-            return transform_additional_data(observation.additional, observation.source.provider.transforms)
-        except Exception as exception:
-            logger.warning(
-                f"Failed to get properties for Observation {observation.id} {exception}")
-        return []
+    @staticmethod
+    def dict_to_representation(rep, params):
+        # Since the queryset returns a dict, modify it here
+        if not rep.get("source"):
+            # changing source_id to source
+            rep["source"] = rep.pop("source_id")
+
+        if rep.get("source_transforms") and rep.get("additional"):
+            rep["device_status_properties"] = transform_additional_data(
+                rep["additional"], rep["source_transforms"])
+
+        if params.get('include_details'):
+            # and adding observation details if requested.
+            rep['observation_details'] = rep['additional']
+
+        rep.pop('additional', None)
+        rep.pop('source_transforms', None)
+        return rep
 
 
 class FlattenObservationSerializer(rest_framework.serializers.ModelSerializer):

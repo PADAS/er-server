@@ -904,8 +904,20 @@ class ObservationsView(generics.ListCreateAPIView):
     permission_classes = (StandardObjectPermissions,)
     schema = ObservationsViewSchema()
 
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+
+        output = []
+        for item in page:
+            output.append(
+                self.serializer_class.dict_to_representation(
+                    item,
+                    request.query_params
+                )
+            )
+
+        return self.get_paginated_response(output)
 
     def get_queryset(self):
         if not self.request.user.has_any_perms(VIEW_OBSERVATION_PERMS):
@@ -957,11 +969,10 @@ class ObservationsView(generics.ListCreateAPIView):
         if created_after:
             queryset = queryset.by_created_after(created_after)
 
-        queryset = queryset.select_related('source')
-        queryset = queryset.select_related('source__provider')
         queryset = queryset.annotate_transforms()
+        queryset = queryset.prefetch_related('source__provider__transforms')
 
-        return queryset
+        return queryset.values()
 
     def create(self, request, *args, **kwargs):
         '''
