@@ -22,14 +22,10 @@ from typing import NamedTuple
 
 import pymet
 import pytz
-from accounts.mixins import (PermissionSetGroupMixin,
-                             PermissionSetHierarchyMixin)
-from accounts.models import PermissionSet
 from bitfield import BitField
-from core.models import HierarchyManager, HierarchyModel, TimestampedModel
-from core.utils import static_image_finder
-from das_server import settings
 from dateutil.parser import parse as parse_date
+from psycopg2.extras import DateTimeTZRange
+
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
@@ -38,17 +34,24 @@ from django.contrib.gis.geos import Point, Polygon
 from django.contrib.postgres.fields import DateTimeRangeField, JSONField
 from django.contrib.postgres.fields.hstore import KeyTransform
 from django.db import transaction
-from django.db.models import Case, F, FilteredRelation, Max, Q, Value, When
+from django.db.models import (BooleanField, Case, ExpressionWrapper, F,
+                              FilteredRelation, Max, Q, Value, When)
 from django.db.models.constraints import UniqueConstraint
 from django.db.models.functions import Greatest
 from django.utils.functional import cached_property
 from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
+
+from accounts.mixins import (PermissionSetGroupMixin,
+                             PermissionSetHierarchyMixin)
+from accounts.models import PermissionSet
+from core.models import HierarchyManager, HierarchyModel, TimestampedModel
+from core.utils import static_image_finder
+from das_server import settings
 from observations.mixins import FilterMixin
 from observations.utils import (VIEW_END_WINDOWS, calculate_track_range,
                                 ensure_timezone_aware, get_cyclic_subjectgroup,
                                 get_minimum_allowed_age)
-from psycopg2.extras import DateTimeTZRange
 from tracking.pubsub_registry import notify_subjectstatus_update
 from utils.json import zeroout_microseconds
 
@@ -84,6 +87,10 @@ STATUS_COLORS = {'online-gps': 'green',
 
 def random_rgb():
     return ','.join([str(random.randint(0, 255)) for i in range(3)])
+
+
+def Condition(*args, **kwargs):
+    return ExpressionWrapper(Q(*args, **kwargs), output_field=BooleanField())
 
 
 class SourceGroupManager(HierarchyManager):
@@ -312,6 +319,9 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
                 qs = self.filter(exclusion_flags=filter_flag)
             return qs.exclude(location=EMPTY_POINT)
         return self
+
+    def annotate_transforms(self):
+        return self.annotate(source_transforms=F('source__provider__transforms'))
 
 
 class ObservationManager(models.Manager):

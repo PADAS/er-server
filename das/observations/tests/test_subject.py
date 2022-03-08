@@ -648,7 +648,7 @@ class SubjectTestCase(BaseAPITest):
 @pytest.mark.django_db
 class TestSubjectsView:
 
-    def test_static_sensor_response(self, five_subject_source):
+    def test_static_sensor_response(self, five_subject_sources):
         now = datetime.now(tz=pytz.utc)
         first_subject_source = SubjectSource.objects.last()
         first_subject_source.location = Point(-103.6, 20.6)
@@ -707,7 +707,7 @@ class TestSubjectsView:
                     if device_property.get("label") == "speed":
                         assert device_property.get("default")
 
-    def test_static_sensor_response_with_many_observations(self, five_subject_source):
+    def test_static_sensor_response_with_many_observations(self, five_subject_sources):
         now = datetime.now(tz=pytz.utc)
         first_subject_source = SubjectSource.objects.last()
         first_subject_source.location = Point(-103.6, 20.6)

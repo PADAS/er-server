@@ -2344,7 +2344,8 @@ class TestPatrolModel:
 
 @pytest.mark.django_db
 class TestPatrolTrackedBySchemaView:
-    def test_trackedby_permissions_for_a_subjectgroup_viewer(self, django_assert_max_num_queries, client, two_subject_groups, ops_user):
+    def test_trackedby_permissions_for_a_subjectgroup_viewer(self, django_assert_max_num_queries, client,
+                                                             two_subject_groups, ops_user):
         a_subjectgroup, b_subjectgroup = two_subject_groups
         a_subjectgroup.permission_sets.all()[0].user_set.add(ops_user)
         PatrolConfiguration.objects.first().subject_groups.add(
@@ -2353,7 +2354,7 @@ class TestPatrolTrackedBySchemaView:
         url = reverse('patrol-segments-schema')
         client.force_login(ops_user)
 
-        with django_assert_max_num_queries(11):
+        with django_assert_max_num_queries(13):
             response = client.get(url)
             leaders = response.data["properties"]["leader"]["enum"]
             assert not any(subject.name == leader["name"]

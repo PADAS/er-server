@@ -29,6 +29,7 @@ from choices.models import Choice, DynamicChoice
 from client_http import HTTPClient
 from core.tests import BaseAPITest
 from django.contrib.auth.models import Permission
+from django.contrib.gis.geos import Point
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
@@ -689,7 +690,7 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventsView.as_view()(request)
-        response_data = response.data
+        response.data
         self.assertEqual(response.status_code, 200)
 
     def test_event_feed_category(self):
@@ -698,7 +699,7 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventsView.as_view()(request)
-        response_data = response.data
+        response.data
         self.assertEqual(response.status_code, 200)
 
     def test_event_feed_filter_contained_events(self):
@@ -730,7 +731,7 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventTypesView.as_view()(request)
-        response_data = response.data
+        response.data
         self.assertEqual(response.status_code, 200)
 
     def test_event_categories_list(self):
@@ -1840,7 +1841,7 @@ class TestEventView(BaseAPITest):
         response = views.EventSourcesView.as_view()(
             request, eventprovider_id=str(eventprovider.id))
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
+        response.data
 
         request = self.factory.post(
             f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
@@ -1850,7 +1851,7 @@ class TestEventView(BaseAPITest):
         response = views.EventSourcesView.as_view()(
             request, eventprovider_id=str(eventprovider.id))
         self.assertEqual(response.status_code, 400)
-        response_data = response.data
+        response.data
 
     def test_eventsourceview_update_permission_denied(self):
 
@@ -3352,7 +3353,7 @@ class TestParsing(TestCase):
     def test_bad_lower(self):
         val = dict(lower=0)
         with self.assertRaises(TypeError):
-            result = parse_date_range(val)
+            parse_date_range(val)
 
 
 @pytest.mark.django_db
@@ -3405,6 +3406,26 @@ class TestEventFilterQueryset:
         events = Event.objects.by_text_filter(term)
 
         assert events.count() >= 1
+
+    @pytest.mark.parametrize("known_location",
+                             [{"location": "20.668671, -103.527837", "known_distance_meters": 1200, "result": False, },
+                              {"location": "20.655429, -103.523242",
+                               "known_distance_meters": 2000, "result": False, },
+                              {"location": "20.669644, -103.520739",
+                               "known_distance_meters": 500, "result": True, },
+                              {"location": "20.671825, -103.519298", "known_distance_meters": 250, "result": True, }])
+    def test_by_location_filter(self, five_events, known_location, settings):
+        settings.GEO_PERMISSION_ENABLED = True
+        settings.GEO_PERMISSION_RADIUS_METERS = 1000
+        event = Event.objects.order_by("created_at").last()
+        location = "20.672398, -103.517015"
+        latitude = float(known_location['location'].split(",")[0].strip())
+        longitude = float(known_location['location'].split(",")[1].strip())
+        event.location = Point(longitude, latitude, srid=4326)
+        event.save()
+
+        assert Event.objects.by_location(
+            location).exists() == known_location['result']
 
 
 @pytest.mark.django_db

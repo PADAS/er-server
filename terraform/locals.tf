@@ -231,6 +231,8 @@ locals {
     "elkarama"                = "prod1"
     "noaa"                    = "prod1"
     "nust"                    = "prod1"
+    "keoseima"                = "prod-asia"
+    "sabiegamepark"           = "prod1"
     "chimanimani"             = "prod1"
     "ukraine"                 = "prod1"
   }
