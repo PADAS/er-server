@@ -213,6 +213,7 @@ class ObservationFactory(factory.django.DjangoModelFactory):
 class EventCategoryFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = EventCategory
+        django_get_or_create = ('value',)
 
     value = fuzzy.FuzzyText(length=20)
 
@@ -220,6 +221,7 @@ class EventCategoryFactory(factory.django.DjangoModelFactory):
 class EventTypeFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = EventType
+        django_get_or_create = ('value',)
 
     value = fuzzy.FuzzyText(length=20)
     display = fuzzy.FuzzyText(length=50)

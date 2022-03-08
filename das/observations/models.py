@@ -22,14 +22,10 @@ from typing import NamedTuple
 
 import pymet
 import pytz
-from accounts.mixins import (PermissionSetGroupMixin,
-                             PermissionSetHierarchyMixin)
-from accounts.models import PermissionSet
 from bitfield import BitField
-from core.models import HierarchyManager, HierarchyModel, TimestampedModel
-from core.utils import static_image_finder
-from das_server import settings
 from dateutil.parser import parse as parse_date
+from psycopg2.extras import DateTimeTZRange
+
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
@@ -45,11 +41,17 @@ from django.db.models.functions import Greatest
 from django.utils.functional import cached_property
 from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
+
+from accounts.mixins import (PermissionSetGroupMixin,
+                             PermissionSetHierarchyMixin)
+from accounts.models import PermissionSet
+from core.models import HierarchyManager, HierarchyModel, TimestampedModel
+from core.utils import static_image_finder
+from das_server import settings
 from observations.mixins import FilterMixin
 from observations.utils import (VIEW_END_WINDOWS, calculate_track_range,
                                 ensure_timezone_aware, get_cyclic_subjectgroup,
                                 get_minimum_allowed_age)
-from psycopg2.extras import DateTimeTZRange
 from tracking.pubsub_registry import notify_subjectstatus_update
 from utils.json import zeroout_microseconds
 
