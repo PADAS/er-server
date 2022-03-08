@@ -233,6 +233,8 @@ locals {
     "nust"                    = "prod1"
     "keoseima"                = "prod-asia"
     "sabiegamepark"           = "prod1"
+    "chimanimani"             = "prod1"
+    "ukraine"                 = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
