@@ -1,9 +1,3 @@
-import re
-
-from usercontent.serializers import get_stored_filename
-from activity.search import get_event_search_schema
-from activity.permissions import IsEventProviderOwnerPermission
-from django.shortcuts import get_object_or_404
 import copy
 import csv
 import itertools
@@ -11,16 +5,36 @@ import json
 import logging
 import mimetypes
 import platform
+import re
 from collections import OrderedDict
 from datetime import datetime, timedelta
 
-import accounts.serializers
 import dateutil.parser as dateparser
 import pytz
+import versatileimagefield.files
+from rest_framework_extensions.etag.decorators import etag
+
 import rest_framework.exceptions
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.contrib.postgres.aggregates import ArrayAgg, StringAgg
+from django.db import IntegrityError, transaction
+from django.db.models import CharField, Count, F, Max, Prefetch, Q, Value
+from django.db.models.functions import Cast, Concat
+from django.http.response import HttpResponse
+from django.shortcuts import get_object_or_404
+from django.template import Context, Template
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.translation import ugettext_lazy as _
+from rest_framework import generics, response, status, views
+from rest_framework.exceptions import APIException
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+import accounts.serializers
 import utils
 import utils.schema_utils as schema_utils
-import versatileimagefield.files
 from activity.filters import EventObjectPermissionsFilter
 from activity.models import (Community, Event, EventCategory, EventClass,
                              EventClassFactor, EventFactor, EventFile,
@@ -54,24 +68,7 @@ from activity.serializers.patrol_serializers import (PatrolFileSerializer,
 from activity.util import get_permitted_event_categories, return_409_response
 from choices.models import Choice
 from das_server.views import CustomSchema
-from django.conf import settings
-from django.contrib.auth import get_user_model
-from django.contrib.postgres.aggregates import ArrayAgg, StringAgg
-from django.db import IntegrityError, transaction
-from django.db.models import CharField, Count, F, Max, Prefetch, Q, Value
-from django.db.models.functions import Cast, Concat
-from django.http.response import HttpResponse
-from django.shortcuts import get_object_or_404
-from django.template import Context, Template
-from django.urls import reverse
-from django.utils import timezone
-from django.utils.translation import ugettext_lazy as _
 from observations.models import Subject
-from rest_framework import generics, response, status, views
-from rest_framework.exceptions import APIException
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework_extensions.etag.decorators import etag
 from usercontent.serializers import get_stored_filename
 from utils.drf import (StandardResultsSetGeoJsonPagination,
                        StandardResultsSetPagination)
@@ -464,7 +461,7 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
 
     def _get_json_schema(self, event_type):
         schema = event_type.schema
-        for expression in re.findall("{{.*?}}", event_type.schema):
+        for expression in set(re.findall("{{.*?}}", event_type.schema)):
             schema = schema.replace(expression, '"{}"'.format(expression))
         return json.loads(schema)
 
