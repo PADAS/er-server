@@ -1490,7 +1490,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
                 permission_name = 'activity.{0}_read'.format(
                     event.event_type.category.value)
                 if not request.user.has_perm(permission_name):
-                    return []
+                    rep = {'id': rep['id']}
+                    return rep
 
             rep['url'] = utils.add_base_url(request,
                                             reverse('event-view',

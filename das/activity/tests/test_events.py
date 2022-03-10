@@ -1637,7 +1637,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(len(response.data), 0)
+        self.assertEqual(len(response.data), 1)
 
     def test_radio_room_operator_permissions(self):
         results = self.do_all_operations_on_all_event_types(
@@ -3429,7 +3429,7 @@ class TestEventFilterQueryset:
 
 
 @pytest.mark.django_db
-class TestEventView:
+class TestEventView2:
     def test_auto_add_report_to_patrols(self, five_patrol_segment_subject):
         patrol = Patrol.objects.order_by("created_at").last()
         segment = patrol.patrol_segments.first()
@@ -3460,3 +3460,21 @@ class TestEventView:
         assert segment.events.count() >= 1
         assert segment.events.first(
         ).event_type.value == event_data["event_type"]
+
+    def test_create_event_with_only_create_permission(self):
+        event_data = {'title': 'test title', "event_type": "acoustic_detection"}
+        url = f"{reverse('events')}"
+        client = HTTPClient()
+
+        permission_set = PermissionSet.objects.create(name='Only create Events')
+        permission = Permission.objects.get(codename='analyzer_event_create')
+        permission_set.permissions.add(permission)
+        client.app_user.permission_sets.add(permission_set)
+
+        request = client.factory.post(url, data=event_data)
+        client.force_authenticate(request, client.app_user)
+        response = views.EventsView.as_view()(request)
+
+        assert response.status_code == 201
+        assert 'id' in response.data
+        assert len(response.data.keys()) == 1
