@@ -78,7 +78,7 @@ class RadioAgentHandlerView(BaseSensorsView):
 
     def post(self, request, provider_key=None):
         """ Add RadioAgent Observations """
-        return DasRadioAgentHandler.post(request, provider_key)
+        return DasRadioAgentHandler.post(request, DasRadioAgentHandler.SENSOR_TYPE, provider_key)
 
 
 class CameraTrapHandlerView(BaseSensorsView):
