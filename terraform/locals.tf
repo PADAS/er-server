@@ -236,6 +236,7 @@ locals {
     "chimanimani"             = "prod1"
     "ukraine"                 = "prod1"
     "sfggabon"                = "prod1"
+    "csah4h"                  = "prod1"
     "mkwc"                    = "prod1"
   }
 
