@@ -237,6 +237,7 @@ locals {
     "ukraine"                 = "prod1"
     "sfggabon"                = "prod1"
     "csah4h"                  = "prod1"
+    "mkwc"                    = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
