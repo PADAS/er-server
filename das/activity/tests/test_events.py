@@ -12,9 +12,20 @@ from datetime import datetime, timedelta
 from unittest import mock
 from urllib.parse import urlencode
 
-import django.contrib.auth
 import pytest
 import pytz
+from drf_extra_fields.geo_fields import PointField
+from kombu import Connection
+
+import django.contrib.auth
+from django.contrib.auth.models import Permission
+from django.contrib.gis.geos import Point
+from django.core.management import call_command
+from django.test import TestCase
+from django.urls import reverse
+from django.utils import dateparse, lorem_ipsum, timezone
+from rest_framework.fields import DateTimeField
+
 from accounts.models import PermissionSet
 from accounts.serializers import UserDisplaySerializer
 from activity import views
@@ -28,17 +39,8 @@ from activity.tests import schema_examples
 from choices.models import Choice, DynamicChoice
 from client_http import HTTPClient
 from core.tests import BaseAPITest
-from django.contrib.auth.models import Permission
-from django.contrib.gis.geos import Point
-from django.core.management import call_command
-from django.test import TestCase
-from django.urls import reverse
-from django.utils import dateparse, lorem_ipsum, timezone
-from drf_extra_fields.geo_fields import PointField
-from kombu import Connection
 from observations.models import Subject, SubjectSubType, SubjectType
 from observations.serializers import SubjectSerializer
-from rest_framework.fields import DateTimeField
 from utils.html import clean_user_text
 from utils.schema_utils import format_key_for_title
 
@@ -3461,12 +3463,159 @@ class TestEventView2:
         assert segment.events.first(
         ).event_type.value == event_data["event_type"]
 
+    def test_get_json_schema_method_without_repeated_dynamic_choice(self, event_type):
+        schema_waited = {
+            "schema": {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "title": "Rhino Sighting (rhino_sighting_rep)",
+                "type": "object",
+                "properties": {
+                    "rhinosightingrep_earnotchcount": {
+                        "type": "number",
+                        "title": "Ear notch count",
+                    },
+                    "rhinosightingrep_Rhino": {
+                        "type": "string",
+                        "title": "Individual Rhino ID",
+                        "enum": "{{query___blackRhinos___values}}",
+                        "enumNames": "{{query___blackRhinos___names}}",
+                    },
+                },
+            },
+            "definition": [
+                {"key": "rhinosightingrep_earnotchcount", "htmlClass": "col-lg-6"},
+                {"key": "rhinosightingrep_Rhino", "htmlClass": "col-lg-6"},
+            ],
+        }
+        schema = '''{
+            "schema": {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "title": "Rhino Sighting (rhino_sighting_rep)",
+              
+                "type": "object",
+        
+                "properties": 
+                {            
+                    "rhinosightingrep_earnotchcount": {
+                        "type":"number",
+                        "title": "Ear notch count"
+                    },           
+                    "rhinosightingrep_Rhino": {
+                        "type": "string",
+                        "title": "Individual Rhino ID",
+                        "enum": {{query___blackRhinos___values}},
+                        "enumNames": {{query___blackRhinos___names}}
+                    }
+                }
+            },
+            "definition": [ 
+            {
+                "key":         "rhinosightingrep_earnotchcount",
+                "htmlClass": "col-lg-6"
+            },     
+            {
+                "key":         "rhinosightingrep_Rhino",
+                "htmlClass": "col-lg-6"
+            }
+            ]
+        }'''
+        event_type.schema = schema
+        event_type.save()
+
+        events_view = views.EventTypeSchemaView()
+        json_schema = events_view._get_json_schema(event_type)
+
+        assert json_schema == schema_waited
+
+    def test_get_json_schema_method_with_repeated_dynamic_choice(self, event_type):
+        schema_waited = {
+            "schema": {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "title": "Rhino Sighting (rhino_sighting_rep)",
+                "type": "object",
+                "properties": {
+                    "rhinosightingrep_earnotchcount": {
+                        "type": "number",
+                        "title": "Ear notch count",
+                    },
+                    "rhinosightingrep_Rhino": {
+                        "type": "string",
+                        "title": "Individual Rhino ID",
+                        "enum": "{{query___blackRhinos___values}}",
+                        "enumNames": "{{query___blackRhinos___names}}",
+                    },
+                    "rhinosightingrep_Rhino2": {
+                        "type": "string",
+                        "title": "Individual Rhino ID 2",
+                        "enum": "{{query___blackRhinos___values}}",
+                        "enumNames": "{{query___blackRhinos___names}}",
+                    }
+                },
+            },
+            "definition": [
+                {"key": "rhinosightingrep_earnotchcount", "htmlClass": "col-lg-6"},
+                {"key": "rhinosightingrep_Rhino", "htmlClass": "col-lg-6"},
+                {"key": "rhinosightingrep_Rhino2", "htmlClass": "col-lg-6"},
+            ],
+        }
+        schema = '''{
+            "schema": {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "title": "Rhino Sighting (rhino_sighting_rep)",
+
+                "type": "object",
+
+                "properties": 
+                {            
+                    "rhinosightingrep_earnotchcount": {
+                        "type":"number",
+                        "title": "Ear notch count"
+                    },           
+                    "rhinosightingrep_Rhino": {
+                        "type": "string",
+                        "title": "Individual Rhino ID",
+                        "enum": {{query___blackRhinos___values}},
+                        "enumNames": {{query___blackRhinos___names}}
+                    },
+                    "rhinosightingrep_Rhino2": {
+                        "type": "string",
+                        "title": "Individual Rhino ID 2",
+                        "enum": {{query___blackRhinos___values}},
+                        "enumNames": {{query___blackRhinos___names}}
+                    }
+                }
+            },
+            "definition": [ 
+            {
+                "key":         "rhinosightingrep_earnotchcount",
+                "htmlClass": "col-lg-6"
+            },     
+            {
+                "key":         "rhinosightingrep_Rhino",
+                "htmlClass": "col-lg-6"
+            },
+            {
+                "key":         "rhinosightingrep_Rhino2",
+                "htmlClass": "col-lg-6"
+            }
+            ]
+        }'''
+        event_type.schema = schema
+        event_type.save()
+
+        events_view = views.EventTypeSchemaView()
+        json_schema = events_view._get_json_schema(event_type)
+
+        assert json_schema == schema_waited
+
     def test_create_event_with_only_create_permission(self):
-        event_data = {'title': 'test title', "event_type": "acoustic_detection"}
+        event_data = {'title': 'test title',
+                      "event_type": "acoustic_detection"}
         url = f"{reverse('events')}"
         client = HTTPClient()
 
-        permission_set = PermissionSet.objects.create(name='Only create Events')
+        permission_set = PermissionSet.objects.create(
+            name='Only create Events')
         permission = Permission.objects.get(codename='analyzer_event_create')
         permission_set.permissions.add(permission)
         client.app_user.permission_sets.add(permission_set)
