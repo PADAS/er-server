@@ -5,25 +5,27 @@ from datetime import MAXYEAR, MINYEAR, datetime, timedelta
 from typing import NamedTuple
 
 import pytz
+from drf_extra_fields.fields import DateTimeRangeField
+from drf_extra_fields.geo_fields import PointField
+from rest_framework_gis.serializers import GeoFeatureModelListSerializer
+
 import rest_framework.serializers
-import utils.json
-from accounts.serializers import UserDisplaySerializer
-from core.fields import GEOPointField, choicefield_serializer, text_field
-from core.serializers import (BaseSerializer, ContentTypeField,
-                              GenericRelatedField, TimestampMixin)
 from django.conf import settings
 from django.contrib.gis.geos import Point
 from django.contrib.postgres.fields import jsonb
 from django.db.models import Q
 from django.urls import reverse
-from drf_extra_fields.fields import DateTimeRangeField
-from drf_extra_fields.geo_fields import PointField
+from rest_framework.fields import DateTimeField
+
+import utils.json
+from accounts.serializers import UserDisplaySerializer
+from core.fields import GEOPointField, choicefield_serializer, text_field
+from core.serializers import (BaseSerializer, ContentTypeField,
+                              GenericRelatedField, TimestampMixin)
 from observations import models
 from observations.models import transform_additional_data
 from observations.utils import (dateparse, get_maximum_allowed_age,
                                 get_minimum_allowed_age, get_null_point)
-from rest_framework.fields import DateTimeField
-from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from utils import add_base_url
 from utils.json import zeroout_microseconds
 
@@ -579,7 +581,8 @@ class SourceSerializer(rest_framework.serializers.Serializer):
             request = self.context['request']
             validated_data['owner'] = request.user
 
-        return models.Source.objects.ensure_source(**validated_data)
+        source, created = models.Source.objects.get_source(**validated_data)
+        return source
 
 
 class SourceProviderSerializer(rest_framework.serializers.Serializer):

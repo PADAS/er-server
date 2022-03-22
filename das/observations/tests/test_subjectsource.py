@@ -1,14 +1,16 @@
+import datetime
 import random
 import uuid
-from datetime import datetime
 from urllib.parse import parse_qs, urlsplit
 
 import pytz
 from drf_extra_fields.compat import DateTimeTZRange
+from faker import Faker
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.urls import reverse
+from rest_framework import status
 
 from accounts.models import PermissionSet, User
 from core.tests import BaseAPITest
@@ -44,7 +46,7 @@ class SubjectSourceTestCase(BaseAPITest):
 
     def generate_observation_data(self, subject_id, source_id):
         # Generate random data for observation
-        observation_time = pytz.UTC.localize(datetime.now())
+        observation_time = pytz.UTC.localize(datetime.datetime.now())
         latitude = float(random.randint(3000, 3000)) / 100
         longitude = float(random.randint(2800, 4000)) / 100
 
@@ -82,7 +84,7 @@ class SubjectSourceTestCase(BaseAPITest):
         ss.refresh_from_db()
         assert not ss.assigned_range.isempty  # there is default lower & upper values
 
-        sample_date = datetime.now(tz=pytz.utc)
+        sample_date = datetime.datetime.now(tz=pytz.utc)
 
         assert sample_date in ss.assigned_range
         assert sample_date not in ss.safe_assigned_range
@@ -146,6 +148,22 @@ class SubjectSourceTestCase(BaseAPITest):
 
         self.assertEqual(listed_source_id, [uuid.UUID('0d9725c0-c186-464f-98f4-a45d31f81efd'),
                                             uuid.UUID('0a308294-7b80-4633-a967-ef4f8e1de79a')])
+
+    def test_create_source_api(self):
+        faker = Faker()
+        subject_count = Subject.objects.count()
+        provider_key = f"{faker.last_name()}_{faker.last_name()}"
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key=provider_key)
+        source_data = dict(manufacturer_id=faker.last_name(),
+                           provider=provider_key, additional={})
+        urlpath = reverse('sources-view')
+        request = self.factory.post(urlpath, source_data)
+
+        self.force_authenticate(request, self.user)
+        response = SourcesView.as_view()(request)
+        assert subject_count == Subject.objects.count()
+        assert response.status_code == status.HTTP_201_CREATED
 
     def test_sources_api(self):
         provider, _ = SourceProvider.objects.get_or_create(
