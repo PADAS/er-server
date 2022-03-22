@@ -191,8 +191,9 @@ class SourceManager(models.Manager):
     def get_source(self, *, provider=None, manufacturer_id=None, model_name=None,
                    source_type=None, additional=None, **kwargs):
         additional = additional or {}
-        provider = SourceProvider.objects.create_provider(
-            provider_key=provider)
+        if not isinstance(provider, SourceProvider):
+            provider = SourceProvider.objects.create_provider(
+                provider_key=provider)
 
         searchkey = dict(manufacturer_id=manufacturer_id, provider=provider)
         defaults = {
