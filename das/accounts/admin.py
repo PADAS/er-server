@@ -1,12 +1,20 @@
+from oauth2_provider.admin import (AccessTokenAdmin, GrantAdmin,
+                                   RefreshTokenAdmin)
+from oauth2_provider.models import (get_access_token_model,
+                                    get_application_model, get_grant_model,
+                                    get_refresh_token_model)
+
 import django.contrib.auth.models
 from django import forms
+from django.conf import settings
 from django.conf.urls import url
 from django.contrib import admin
-from django.contrib.admin.widgets import AdminDateWidget
-from django.contrib.admin.widgets import FilteredSelectMultiple
-from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin, GroupAdmin as DjangoGroupAdmin
-from django.contrib.auth.forms import PasswordResetForm, UserCreationForm, \
-    UserChangeForm
+from django.contrib.admin.widgets import (AdminDateWidget,
+                                          FilteredSelectMultiple)
+from django.contrib.auth.admin import GroupAdmin as DjangoGroupAdmin
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.contrib.auth.forms import (PasswordResetForm, UserChangeForm,
+                                       UserCreationForm)
 from django.contrib.sites.shortcuts import get_current_site
 from django.core.exceptions import PermissionDenied
 from django.core.mail import EmailMultiAlternatives
@@ -15,23 +23,18 @@ from django.shortcuts import get_object_or_404
 from django.template import loader
 from django.utils.crypto import get_random_string
 from django.utils.translation import ugettext_lazy as _
-from oauth2_provider.models import (get_access_token_model,
-                                    get_application_model, get_grant_model,
-                                    get_refresh_token_model)
-from oauth2_provider.admin import (AccessTokenAdmin, GrantAdmin,
-                                   RefreshTokenAdmin)
-from django.conf import settings
 
-from accounts.models import User, PermissionSet
+from accounts.models import PermissionSet, User
+from accounts.utils import patrol_mgmt_permissions
 from choices.models import Choice
+from core.common import TIMEZONE_USED
 from core.forms_utils import JSONFieldFormMixin
 from observations import kmlutils
 from utils.admin import DefaultFilterMixin
 from utils.html import make_html_list
-from core.common import TIMEZONE_USED
-from accounts.utils import patrol_mgmt_permissions
 
 PATROL_ENABLED = settings.PATROL_ENABLED
+
 
 class PermissionSetAdminForm(forms.ModelForm):
     filter_horizontal = ('permissions', 'children')
@@ -75,7 +78,8 @@ class PermissionSetAdminForm(forms.ModelForm):
                 exclude(permissions__in=patrol_mgmt_permissions())
 
             self.fields['permissions'].queryset = self.fields['permissions'].queryset.\
-                exclude(codename__in=patrol_mgmt_permissions().values_list('codename'))
+                exclude(
+                    codename__in=patrol_mgmt_permissions().values_list('codename'))
 
         self.fields['permissions'].queryset = self.fields['permissions'].queryset. \
             exclude(codename__in=patrol_mgmt_permissions(modelnames=('patrolsegment',
@@ -102,7 +106,7 @@ class PermissionSetAdmin(DjangoGroupAdmin):
                        )}
          ),
         (_('Acquire permissions from'), {
-          'fields': ('acquire_from', )
+            'fields': ('acquire_from', )
         }),
         (_('Grant permissions to'), {
             'fields': ('children', 'user_set')}),
@@ -142,6 +146,7 @@ class PermissionSetAdmin(DjangoGroupAdmin):
 ROLE_CHOICES = [('', 'Select One'),
                 ('community-liaison-officer', _('Community Liaison Officer')),
                 ('community-manager', _('Community Manager')),
+                ("deployment-partner", _("Deployment Partner")),
                 ('ecologist-scientist', _('Ecologist / Scientist')),
                 ('ecology-manager', _('Ecology Manager')),
                 ('gis-engineer', _('GIS Engineer')),
@@ -152,6 +157,7 @@ ROLE_CHOICES = [('', 'Select One'),
                 ('operations-manager', _('Operations Manager')),
                 ('protected-area-manager', _('Protected Area Manager')),
                 ('security-manager', _('Security Manager')),
+                ("support-team", _("Support Team")),
                 ('tech-partner', _('Tech Partner')),
                 ]
 
@@ -211,7 +217,8 @@ class CustomUserCreationForm(JSONFieldFormMixin, UserCreationForm):
         model = User
         json_fields = ('notes', 'expiry', 'moudatesigned', 'moutype', 'moufilename',
                        'organization', 'tech', 'role')
-        fields = ('first_name', 'last_name', 'email', 'phone', 'username') + json_fields
+        fields = ('first_name', 'last_name', 'email',
+                  'phone', 'username') + json_fields
 
     json_field = 'additional'
 
@@ -263,7 +270,8 @@ class UserAdditionalForm(JSONFieldFormMixin, UserChangeForm):
         json_fields = ('notes', 'expiry', 'moudatesigned', 'moutype', 'moufilename',
                        'organization', 'tech', 'role')
         json_date_fields = ('expiry', 'moudatesigned')
-        fields = ('first_name', 'last_name', 'email', 'phone', 'username') + json_fields
+        fields = ('first_name', 'last_name', 'email',
+                  'phone', 'username') + json_fields
 
     json_field = 'additional'
 
@@ -519,7 +527,7 @@ class AccessTokenAdmin(admin.ModelAdmin):
 class RefreshTokenAdmin(admin.ModelAdmin):
     form = RefreshForm
     list_display = ("token", "user", "application", '_revoked')
-    ordering =  ("token", "user", "application", "revoked")
+    ordering = ("token", "user", "application", "revoked")
     raw_id_fields = ("user", "access_token")
 
     def _revoked(self, o):
