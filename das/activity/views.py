@@ -1,9 +1,3 @@
-import re
-
-from usercontent.serializers import get_stored_filename
-from activity.search import get_event_search_schema
-from activity.permissions import IsEventProviderOwnerPermission
-from django.shortcuts import get_object_or_404
 import copy
 import csv
 import itertools
@@ -11,6 +5,7 @@ import json
 import logging
 import mimetypes
 import platform
+import re
 from collections import OrderedDict
 from datetime import datetime, timedelta
 
@@ -464,7 +459,7 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
 
     def _get_json_schema(self, event_type):
         schema = event_type.schema
-        for expression in re.findall("{{.*?}}", event_type.schema):
+        for expression in set(re.findall("{{.*?}}", event_type.schema)):
             schema = schema.replace(expression, '"{}"'.format(expression))
         return json.loads(schema)
 
