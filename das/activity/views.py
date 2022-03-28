@@ -9,13 +9,32 @@ import re
 from collections import OrderedDict
 from datetime import datetime, timedelta
 
-import accounts.serializers
 import dateutil.parser as dateparser
 import pytz
+import versatileimagefield.files
+from rest_framework_extensions.etag.decorators import etag
+
 import rest_framework.exceptions
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.contrib.postgres.aggregates import ArrayAgg, StringAgg
+from django.db import IntegrityError, transaction
+from django.db.models import CharField, Count, F, Max, Prefetch, Q, Value
+from django.db.models.functions import Cast, Concat
+from django.http.response import HttpResponse
+from django.shortcuts import get_object_or_404
+from django.template import Context, Template
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.translation import ugettext_lazy as _
+from rest_framework import generics, response, status, views
+from rest_framework.exceptions import APIException
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+import accounts.serializers
 import utils
 import utils.schema_utils as schema_utils
-import versatileimagefield.files
 from activity.filters import EventObjectPermissionsFilter
 from activity.models import (Community, Event, EventCategory, EventClass,
                              EventClassFactor, EventFactor, EventFile,
@@ -49,24 +68,7 @@ from activity.serializers.patrol_serializers import (PatrolFileSerializer,
 from activity.util import get_permitted_event_categories, return_409_response
 from choices.models import Choice
 from das_server.views import CustomSchema
-from django.conf import settings
-from django.contrib.auth import get_user_model
-from django.contrib.postgres.aggregates import ArrayAgg, StringAgg
-from django.db import IntegrityError, transaction
-from django.db.models import CharField, Count, F, Max, Prefetch, Q, Value
-from django.db.models.functions import Cast, Concat
-from django.http.response import HttpResponse
-from django.shortcuts import get_object_or_404
-from django.template import Context, Template
-from django.urls import reverse
-from django.utils import timezone
-from django.utils.translation import ugettext_lazy as _
 from observations.models import Subject
-from rest_framework import generics, response, status, views
-from rest_framework.exceptions import APIException
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework_extensions.etag.decorators import etag
 from usercontent.serializers import get_stored_filename
 from utils.drf import (StandardResultsSetGeoJsonPagination,
                        StandardResultsSetPagination)
@@ -1447,9 +1449,26 @@ class PatrolsView(generics.ListCreateAPIView):
             states = query_params.getlist("status")
             queryset = queryset.by_state(states)
 
+        queryset = self._exclude_unassigned_subjects(queryset)
+
         queryset = queryset.prefetch_related(
             "notes", "files", "patrol_segments__patrol_type", "patrol_segments__events")
         return queryset.sort_patrols()
+
+    def _exclude_unassigned_subjects(self, queryset):
+        user = self.request.user
+        patrols = queryset.filter(
+            patrol_segment__leader_content_type__app_label="observations",
+            patrol_segment__leader_content_type__model="subject",
+        )
+        subjects_id = self._get_subjects_id(patrols)
+        allowed_subjects = Subject.objects.filter(
+            id__in=subjects_id).by_user_subjects(user).values_list("id", flat=True)
+        subjects_id_exclude = set(subjects_id) - set(allowed_subjects)
+        return queryset.exclude(patrol_segment__leader_id__in=subjects_id_exclude)
+
+    def _get_subjects_id(self, patrols):
+        return [patrol.patrol_segments.last().leader_id for patrol in patrols if patrol.patrol_segments.last()]
 
 
 class PatrolView(generics.RetrieveUpdateDestroyAPIView):

@@ -251,7 +251,18 @@ class PatrolObjectPermissions(DjangoObjectPermissions):
             if not user.has_perms(read_perms, obj):
                 raise exceptions.PermissionDenied
             return False
+        if isinstance(obj, Patrol):
+            return self.has_tracked_subject_permission(obj, user)
         return True
+
+    def has_tracked_subject_permission(self, obj, user):
+        patrol_segments = obj.patrol_segments.last()
+        if patrol_segments and self._is_content_type_subject(patrol_segments.leader_content_type):
+            return Subject.objects.filter(id__in=[patrol_segments.leader_id]).by_user_subjects(user).exists()
+        return True
+
+    def _is_content_type_subject(self, content_type):
+        return content_type and content_type.app_label == "observations" and content_type.model == "subject"
 
 
 class PatrolTypePermissions(DjangoModelPermissions):

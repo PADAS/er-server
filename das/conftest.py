@@ -71,6 +71,23 @@ def two_subject_groups(view_subject_permissions):
 
 
 @pytest.fixture
+def subject_group(request):
+    permissions = []
+    for permission in request.param:
+        permission = permission.split(",")
+        try:
+            codename, app_label, model = permission[0], permission[1], permission[2]
+            permission = Permission.objects.get_by_natural_key(
+                codename, app_label, model
+            )
+            permissions.append(permission)
+        except Permission.DoesNotExist:
+            print(
+                f"Does not exits a permission with the next params {permission}")
+    return SubjectGroupFactory.create(permission_sets=[PermissionSetFactory.create(permissions=permissions)])
+
+
+@pytest.fixture
 def subject_source():
     return SubjectSourceFactory.create()
 
