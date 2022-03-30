@@ -1,5 +1,8 @@
 import pytest
+from pytest_factoryboy import register
+
 from django.contrib.auth.models import Permission
+
 from factories import (EventDetailsFactory, EventFactory, EventTypeFactory,
                        FeatureProximityAnalyzerConfigFactory,
                        GeofenceAnalyzerConfigFactory, PatrolFactory,
@@ -9,7 +12,6 @@ from factories import (EventDetailsFactory, EventFactory, EventTypeFactory,
                        SpatialFeatureGroupStaticFactory,
                        SpatialFeatureTypeFactory, SubjectFactory,
                        SubjectGroupFactory, SubjectSourceFactory, UserFactory)
-from pytest_factoryboy import register
 
 
 @pytest.fixture
@@ -71,6 +73,11 @@ def two_subject_groups(view_subject_permissions):
 
 
 @pytest.fixture
+def view_subjects_permission_set(view_subject_permissions):
+    return PermissionSetFactory.create(permissions=view_subject_permissions)
+
+
+@pytest.fixture()
 def subject_group(request):
     permissions = []
     for permission in request.param:

@@ -4,12 +4,11 @@ from datetime import datetime, timedelta
 from unittest.mock import patch
 
 import dateutil.parser as dateparser
-import django.contrib.auth
 import pytest
 import pytz
-from accounts.models import PermissionSet
-from client_http import HTTPClient
-from core.tests import BaseAPITest
+from pytz import UTC
+
+import django.contrib.auth
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
@@ -19,13 +18,16 @@ from django.db import transaction
 from django.http import QueryDict
 from django.test import RequestFactory, override_settings
 from django.urls import reverse
+
+from accounts.models import PermissionSet
+from client_http import HTTPClient
+from core.tests import BaseAPITest
 from observations.admin import GPXAdmin
 from observations.models import (GPXTrackFile, Observation, Source, Subject,
                                  SubjectSource, SubjectStatus, SubjectSubType)
 from observations.tasks import process_trackpoints
 from observations.utils import calculate_track_range
 from observations.views import GPXFileUploadView, SubjectsView
-from pytz import UTC
 
 User = django.contrib.auth.get_user_model()
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),
@@ -769,3 +771,56 @@ class TestSubjectsView:
                 for device_property in device_status_properties:
                     if device_property.get("label") == "speed":
                         assert device_property.get("default")
+
+
+@pytest.mark.django_db
+class TestSubjectsViewFilter:
+    @pytest.mark.parametrize(
+        "status_subjects_position, total",
+        [
+            (
+                [
+                    [-103.66424560546874, 20.619288994719977],
+                    [-103.61755371093749, 20.551151842360383],
+                    [-103.61000061035156, 20.699600246050323],
+                    [-103.4857177734375, 20.609648794045192],
+                    [-103.47885131835938, 20.732997212795915],
+                ],
+                5,
+            ),
+            (
+                [
+                    [-103.66424560546874, 20.619288994719977],
+                    [-103.61755371093749, 20.551151842360383],
+                    [-103.61000061035156, 20.699600246050323],
+                    [-103.4857177734375, 20.609648794045192],
+                    [-103.49807739257812, 20.44245526026025],
+                ],
+                4,
+            ),
+        ],
+    )
+    def test_by_bbox_using_last_known_locations(
+        self,
+        view_subjects_permission_set,
+        five_subject_sources,
+        status_subjects_position,
+        total,
+    ):
+        bbox = "-103.71599063163262,20.51126608854284,-103.36639645879019,20.780283984574012"
+        for position, source in zip(status_subjects_position, Source.objects.all()):
+            Observation.objects.create(
+                recorded_at=datetime.now(tz=pytz.UTC),
+                source=source,
+                location=Point(position),
+            )
+
+        client = HTTPClient()
+        client.app_user.permission_sets.add(view_subjects_permission_set)
+        request = client.factory.get(
+            client.api_base + f"/subjects/?bbox={bbox}&use_lkl=true"
+        )
+        client.force_authenticate(request, client.app_user)
+        response = SubjectsView.as_view()(request)
+
+        assert len(response.data) == total

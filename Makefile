@@ -19,7 +19,7 @@ get-api-pod:
 	kubectl -n ${NAMESPACE} get pods | grep "^api-"
 
 get-api-logs:
-	kubectl -n ${NAMESPACE} logs ${POD} -c das-api -f
+	./scripts_dev/get_api_logs.sh
 
 clean-pods:
 	kubectl -n ${NAMESPACE} delete pod -l das.configuration=server
@@ -37,7 +37,7 @@ test-class:
 	pytest -vv ${TEST_PATH}::${TEST_CLASS}
 
 format-file:
-	./formatter_py_files.sh ${FILE}
+	.scripts_dev/formatter_py_files.sh ${FILE}
 
 check-requirements:
 	safety check -r dependencies/requirements.txt

@@ -6,13 +6,11 @@ import re
 import urllib
 
 import dateutil.parser
-import django
-import observations.serializers as serializers
 import pytz
+from kombu import exceptions
+
+import django
 import rest_framework
-import utils
-from das_server import celery
-from das_server.views import CustomSchema
 from django.conf import settings
 from django.core.files.storage import default_storage
 from django.core.serializers.json import DjangoJSONEncoder
@@ -24,7 +22,17 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from kombu import exceptions
+from rest_framework import generics, status
+from rest_framework.exceptions import (APIException, ParseError,
+                                       PermissionDenied, ValidationError)
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.renderers import StaticHTMLRenderer
+from rest_framework.response import Response
+
+import observations.serializers as serializers
+import utils
+from das_server import celery
+from das_server.views import CustomSchema
 from observations import kmlutils, models
 from observations.filters import (SubjectObjectPermissionsFilter,
                                   create_gp_filter_class)
@@ -35,12 +43,6 @@ from observations.utils import (VIEW_OBSERVATION_PERMS, VIEW_SUBJECT_PERMS,
                                 calculate_subject_view_window,
                                 check_to_include_inactive_subjects, dateparse,
                                 get_minimum_allowed_age, parse_comma)
-from rest_framework import generics, status
-from rest_framework.exceptions import (APIException, ParseError,
-                                       PermissionDenied, ValidationError)
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.renderers import StaticHTMLRenderer
-from rest_framework.response import Response
 from utils import add_base_url
 from utils.drf import (OptionalResultsSetPagination,
                        StandardResultsSetGeoJsonPagination,
@@ -397,6 +399,9 @@ class SubjectsView(generics.ListCreateAPIView):
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
             raise UnauthorizedView
 
+        use_last_known_location = parse_bool(
+            self.request.query_params.get("use_lkl"))
+
         self.subject_linked_sources = {}
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
 
@@ -482,13 +487,26 @@ class SubjectsView(generics.ListCreateAPIView):
         bbox = self.request.query_params.get('bbox')
 
         if bbox:
-            bbox = bbox.split(',')
+            bbox = bbox.split(",")
             bbox = [float(v) for v in bbox]
             if len(bbox) != 4:
                 raise ValueError("invalid bbox param")
-            queryset = queryset.by_bbox(bbox, last_days=get_track_days(),
-                                        include_stationary_subjects=include_stationary_subjects_on_map(),
-                                        updated_since=updated_since, updated_until=updated_until)
+            if use_last_known_location:
+                queryset = queryset.by_bbox_last_known_locations(
+                    bbox,
+                    last_days=get_track_days(),
+                    include_stationary_subjects=include_stationary_subjects_on_map(),
+                    updated_since=updated_since,
+                    updated_until=updated_until,
+                )
+            else:
+                queryset = queryset.by_bbox(
+                    bbox,
+                    last_days=get_track_days(),
+                    include_stationary_subjects=include_stationary_subjects_on_map(),
+                    updated_since=updated_since,
+                    updated_until=updated_until,
+                )
 
         if self.request.query_params.get('name', None):
             queryset = queryset.by_name_search(
