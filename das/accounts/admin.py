@@ -146,7 +146,7 @@ class PermissionSetAdmin(DjangoGroupAdmin):
 ROLE_CHOICES = [('', 'Select One'),
                 ('community-liaison-officer', _('Community Liaison Officer')),
                 ('community-manager', _('Community Manager')),
-                ("deployment-partner", _("Deployment Partner")),
+                ("deployment-partner", _("EarthRanger Deployment Partner")),
                 ('ecologist-scientist', _('Ecologist / Scientist')),
                 ('ecology-manager', _('Ecology Manager')),
                 ('gis-engineer', _('GIS Engineer')),
@@ -157,7 +157,7 @@ ROLE_CHOICES = [('', 'Select One'),
                 ('operations-manager', _('Operations Manager')),
                 ('protected-area-manager', _('Protected Area Manager')),
                 ('security-manager', _('Security Manager')),
-                ("support-team", _("Support Team")),
+                ("support-team", _("EarthRanger Support Team")),
                 ('tech-partner', _('Tech Partner')),
                 ]
 
