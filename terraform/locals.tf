@@ -241,6 +241,7 @@ locals {
     "mkwc"                    = "prod1"
     "melorane"                = "prod1"
     "parcw-niger"             = "prod1"
+    "agriec"                  = "prod1"
     "madikwefutures"          = "prod1"
   }
 
