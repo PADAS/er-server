@@ -4,13 +4,32 @@ import logging
 import traceback
 from collections import OrderedDict
 
-import activity.models
-import django.db
 import drf_extra_fields.geo_fields
 import jsonschema
 import pytz
+from drf_extra_fields.geo_fields import PointField
+from rest_framework_gis.serializers import GeoFeatureModelListSerializer
+from versatileimagefield.serializers import VersatileImageFieldSerializer
+
+import django.db
 import rest_framework.serializers
 import rest_framework.status
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.gis.geos import Point
+from django.core.exceptions import PermissionDenied
+from django.core.validators import EmailValidator, RegexValidator
+from django.http import Http404
+from django.template.defaultfilters import truncatechars
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.encoding import force_text
+from rest_framework.exceptions import APIException, ValidationError
+from rest_framework.fields import DateTimeField
+from rest_framework.metadata import BaseMetadata
+from rest_framework.request import clone_request
+from rest_framework.utils.field_mapping import ClassLookupDict
+
+import activity.models
 import usercontent.serializers
 import utils
 import utils.schema_utils as schema_utils
@@ -25,28 +44,11 @@ from choices.serializers import ChoiceField
 from core.serializers import (ContentTypeField, GenericRelatedField,
                               PointValidator)
 from core.utils import OneWeekSchedule
-from django.contrib.contenttypes.models import ContentType
-from django.contrib.gis.geos import Point
-from django.core.exceptions import PermissionDenied
-from django.core.validators import EmailValidator, RegexValidator
-from django.http import Http404
-from django.template.defaultfilters import truncatechars
-from django.urls import reverse
-from django.utils import timezone
-from django.utils.encoding import force_text
-from drf_extra_fields.geo_fields import PointField
 from observations.serializers import SubjectSerializer
-from rest_framework.exceptions import APIException, ValidationError
-from rest_framework.fields import DateTimeField
-from rest_framework.metadata import BaseMetadata
-from rest_framework.request import clone_request
-from rest_framework.utils.field_mapping import ClassLookupDict
-from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from revision.manager import AC_RELATION_DELETED, AC_UPDATED
 from utils.json import parse_bool
 from utils.schema_utils import (get_schema_renderer_method,
                                 validate_rendered_schema_is_wellformed)
-from versatileimagefield.serializers import VersatileImageFieldSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -1354,7 +1356,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     def create(self, validated_data):
         instance = super().create(validated_data)
         request = self.context['request']
-        if hasattr(request, "auth"):
+        if hasattr(request, "auth") and request.auth:
             auto_add_report_to_patrols(request.auth.application, instance)
         return instance
 

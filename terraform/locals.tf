@@ -242,6 +242,7 @@ locals {
     "melorane"                = "prod1"
     "parcw-niger"             = "prod1"
     "agriec"                  = "prod1"
+    "madikwefutures"          = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
