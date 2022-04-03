@@ -369,7 +369,10 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                 # two_way_subject_sources is a dict by source_id
                 two_way_subject_sources = self.context["two_way_subject_sources"]
                 instance_id = instance.id
-                for ss in [ss_for_subject for ss_by_source in two_way_subject_sources.values() for ss_for_subject in ss_by_source.values() if ss_for_subject['subject_id'] == instance_id]:
+                for ss in [ss_for_subject
+                           for ss_by_source in two_way_subject_sources.values()
+                           for ss_for_subject in ss_by_source.values()
+                           if ss_for_subject['subject_id'] == instance_id]:
                     message_url = utils.add_base_url(
                         request, reverse('messages-view'))
                     data = {

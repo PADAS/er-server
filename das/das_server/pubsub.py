@@ -2,19 +2,19 @@
 message publishing module
 """
 
-from importlib import import_module
 import logging
 import re
 import signal
 import socket
 import uuid
+from functools import wraps
+from importlib import import_module
+
+from kombu import Connection, Consumer, Exchange, Queue
+from kombu.utils import nested
 
 from django.apps import apps
 from django.conf import settings
-from django.utils.module_loading import module_has_submodule
-from kombu import Consumer, Connection, Exchange, Queue
-from kombu.pools import producers, connections
-from kombu.utils import nested
 
 from utils import stats
 
@@ -54,7 +54,8 @@ def publish(message, routing_key='das'):
         logger.debug('publish received message: {}'
                      '  routing_key: {}'.format(message, routing_key))
 
-        stats.increment(f'pub.{routing_key}', sample_rate=1.0)
+        stats.increment("publish", tags=[
+                        f"routing_key:{routing_key}"], sample_rate=1.0)
         with get_pool().acquire(block=True, timeout=PUBLISH_TIMEOUT) as conn:
             producer = conn.Producer(exchange=das_exchange)
             producer.publish(message, routing_key=routing_key)
@@ -131,7 +132,7 @@ def installed_apps_subscriptions(submodule='pubsub_registry',
             logger.warning('{}.PUBSUB_SUBSCRIPTIONS should be a sequence of'
                            ' (routing_key, callback) sequences. {}'
                            ''.format(module_name, e))
-        except ImportError as e:
+        except ImportError:
             logger.debug('No pubsub registrations imported for app {}'
                          ''.format(app_config.name))
 
@@ -158,15 +159,15 @@ def get_consumer(connection, routing_key, callback, name=None):
 running = True
 
 
-from functools import wraps
-
 def stats_decorator(f, routing_key):
 
-    metric_name = f'mql.{f.__name__}'
-    tags = {'route': routing_key}
+    metric_type = "mql"
+    tags = [f"route:{routing_key}",
+            f"handler:{f.__name__}"]
+
     @wraps(f)
     def wrapper(*args, **kwargs):
-        stats.increment(metric_name, sample_rate=1.0, tags=tags)
+        stats.increment(metric_type, sample_rate=1.0, tags=tags)
         return f(*args, **kwargs)
     return wrapper
 
@@ -186,7 +187,8 @@ def start_message_queue_listeners():
         consumers = []
 
         for routing_key, callback, name in installed_apps_subscriptions():
-            consumer = get_consumer(conn, routing_key, stats_decorator(callback, routing_key), name)
+            consumer = get_consumer(
+                conn, routing_key, stats_decorator(callback, routing_key), name)
             consumers.append(consumer)
 
         with nested(*consumers):

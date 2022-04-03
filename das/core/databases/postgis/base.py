@@ -1,20 +1,17 @@
 import time
-import functools
 
-from utils.middleware import request_data
-
-from datadog import statsd
-
-from psycopg2.extensions import cursor
-from django.contrib.gis.db.backends.postgis.base import (
+from django.contrib.gis.db.backends.postgis.base import \
     DatabaseWrapper as DjangoDatabaseWrapper
-)
+
+import utils.stats
+from utils.middleware import request_data
 
 
 class _cursor_wrapper:
     '''
     A thin wrapper around psycopg2 cursor, to allow us to capture time for queries.
     '''
+
     def __init__(self, cursor):
         self.cursor = cursor
 
@@ -28,14 +25,13 @@ class _cursor_wrapper:
 
         result = self.cursor.execute(query, args)
         end = time.time()
-        statsd.histogram('das.query_time', end - start,
-                         tags=[
-                             f'verb:{verb}',
-                             f'view:{view_name}'
-                         ]
-                         )
+        utils.stats.histogram('db_query_time', end - start,
+                              tags=[
+                                  f'verb:{verb}',
+                                  f'view:{view_name}'
+                              ]
+                              )
         return result
-
 
     # def executemany(self, query, args):
     #     return self.cursor.executemany(query, args)
