@@ -24,20 +24,6 @@
             ]
         },
         {
-            "name": "Locust",
-            "type": "python",
-            "request": "launch",
-            "module": "locust",
-            "gevent": true,
-            "cwd": "${workspaceFolder}/tests/load_tests/",
-            "envFile": "${workspaceFolder}/tests/load_tests/locust.env",
-            "justMyCode": false,
-            "args": [
-                "--host",
-                "http://localhost:8000"
-            ]
-        },
-        {
             "name": "Django:Run",
             "type": "python",
             "request": "launch",
