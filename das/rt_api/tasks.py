@@ -1,26 +1,27 @@
 import datetime
 import json
 import logging
-import urllib
 from collections import namedtuple
 from functools import partial
 from uuid import UUID
+
+from celery_once import QueueOnce
+
+from django.db import close_old_connections
+from django.urls import reverse
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.request import Request
 
 from accounts.models.user import User
 from activity.models import Event, Patrol
 from activity.serializers import EventSerializer
 from activity.serializers.patrol_serializers import PatrolSerializer
 from activity.views import EventView, PatrolView
-from celery_once import QueueOnce
 from das_server import celery, pubsub
-from django.db import close_old_connections
-from django.urls import reverse
 from observations import servicesutils
 from observations.models import Announcement, Message, SocketClient
 from observations.serializers import AnnouncementSerializer, MessageSerializer
 from observations.views import ObservationsView, SubjectStatusView
-from rest_framework.exceptions import PermissionDenied
-from rest_framework.request import Request
 from rt_api import client
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from utils.stats import update_gauge
@@ -585,13 +586,12 @@ def handle_emit_data(event_id):
 @celery.app.task()
 def check_redis_queues():
     """
-    Periodic check of redis connections and queue sizes, so that we can expose them
-    to elasticsearch via a log message
+    Periodic check of redis connections and queue sizes, ship them to statsd
     """
-    logger.info('Checking redis connectivity')
+    logger.debug('Checking redis connectivity')
     conns = client.get_all_connections()
     conn_count = len(conns)
-    logger.info({'redis.conn.count': conn_count})
+    logger.debug({'redis.conn.count': conn_count})
 
     realtime_session_count = client.get_session_count()
 
@@ -600,20 +600,33 @@ def check_redis_queues():
     rt_p1 = client.list_len('realtime_p1')
     rt_p2 = client.list_len('realtime_p2')
     rt_p3 = client.list_len('realtime_p3')
-    logger.info({'rt.realtime.p1': rt_p1})
-    logger.info({'rt.realtime.p2': rt_p2})
-    logger.info({'rt.realtime.p3': rt_p3})
+    logger.debug({'rt.realtime.p1': rt_p1})
+    logger.debug({'rt.realtime.p2': rt_p2})
+    logger.debug({'rt.realtime.p3': rt_p3})
 
-    logger.info({'rt.realtime.client_count': realtime_session_count})
+    logger.debug({'rt.realtime.client_count': realtime_session_count})
 
     for key, value in [
         ('redis_connection_count', conn_count),
-        ('realtime_session_count', realtime_session_count),
-        ('realtime_p1_length', rt_p1),
-        ('realtime_p2_length', rt_p2),
-        ('realtime_p3_length', rt_p3),
+        ('rt_session_count', realtime_session_count),
     ]:
-        update_gauge(metric=key, value=value, tags=['realtime', ])
+        update_gauge(metric=key, value=value, tags=['service:rt_api'])
+
+    for key, value in [
+        ('realtime_p1', rt_p1),
+        ('realtime_p2', rt_p2),
+        ('realtime_p3', rt_p3),
+    ]:
+        update_gauge(metric="task_queue_length",
+                     value=value, tags=[f'queue:{key}'])
+
+    for key, value in [
+        ('default', client.list_len('default')),
+        ('analyzers',  client.list_len('analyzers')),
+        ('maintenance', client.list_len('maintenance')),
+    ]:
+        update_gauge(metric="task_queue_length",
+                     value=value, tags=[f'queue:{key}'])
 
     memory_info = client.info('memory')
 
@@ -625,7 +638,7 @@ def check_redis_queues():
 
     update_gauge('redis_memory_gauge', val)
 
-    logger.info('redis_memory_use', extra={
+    logger.debug('redis_memory_use', extra={
         'used_memory': memory_info.get('used_memory', -1),
         'maxmemory': memory_info.get('maxmemory', -1),
         'total_system_memory': memory_info.get('total_system_memory', -1),

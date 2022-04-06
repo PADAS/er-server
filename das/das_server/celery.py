@@ -5,9 +5,13 @@ from datetime import timedelta
 
 from celery import Celery
 from celery.schedules import crontab
-from celery.signals import setup_logging
-from django.conf import settings
+from celery.signals import (setup_logging, task_failure, task_postrun,
+                            task_prerun, task_revoked, task_success)
 from kombu import Exchange, Queue
+
+from django.conf import settings
+
+import utils.stats
 
 # set the default Django settings module for the 'celery' program.
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'das_server.settings')
@@ -190,3 +194,43 @@ def debug_task(self):
 def das_server_logging(loglevel, **kwargs):
     from das_server.log import init_logging
     init_logging()
+
+
+@task_prerun.connect
+def task_prerun_handler(task, *args, **kwargs):
+    utils.stats.increment("task",
+                          tags=[
+                              f"name:{task.name}",
+                              "state:prerun"])
+
+
+@task_postrun.connect
+def task_postrun_handler(task, *args, **kwargs):
+    utils.stats.increment("task",
+                          tags=[
+                              f"name:{task.name}",
+                              "state:postrun"])
+
+
+@task_success.connect
+def task_success_handler(sender, *args, **kwargs):
+    utils.stats.increment("task",
+                          tags=[
+                              f"name:{sender.name}",
+                              "state:success"])
+
+
+@task_failure.connect
+def task_failure_handler(sender, *args, **kwargs):
+    utils.stats.increment("task",
+                          tags=[
+                              f"name:{sender.name}",
+                              "state:failure"])
+
+
+@task_revoked.connect
+def task_revoked_handler(task, *args, **kwargs):
+    utils.stats.increment("task",
+                          tags=[
+                              f"name:{task.name}",
+                              "state:revoked"])

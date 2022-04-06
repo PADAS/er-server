@@ -929,9 +929,9 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         return self.filter(updated_since_filter, updated_until_filter)
 
     def by_bbox(self, bbox, last_days=None, include_stationary_subjects=False, updated_since=None, updated_until=None):
-        '''
+        """
         Filter by bbox, last_days.
-        Conditionally include subjects that have latest positions within the bbox but outside the time frame
+        Conditionally include subjects that have the latest positions within the bbox but outside the time frame
         indicated by last_days.
 
         :param updated_until:
@@ -940,7 +940,7 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         :param last_days:
         :param include_stationary_subjects:
         :return: queryset of Subjects.
-        '''
+        """
         geom = Polygon.from_bbox(bbox)
         sources = Observation.objects.filter(location__within=geom)
 
@@ -973,6 +973,43 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             return self.filter(Q(pk__in=subjects) | Q(pk__in=other_subjects))
         else:
             return self.filter(pk__in=subjects)
+
+    def by_bbox_last_known_locations(
+            self,
+            bbox,
+            last_days=None,
+            include_stationary_subjects=False,
+            updated_since=None,
+            updated_until=None,
+    ):
+        geometry = Polygon.from_bbox(bbox)
+        subject_statuses = SubjectStatus.objects.filter(
+            location__within=geometry, delay_hours=0, subject__is_active=True
+        )
+        stationary_subjects = Subject.objects.filter(
+            id__in=subject_statuses.values("subject"),
+            subject_subtype__subject_type__value="stationary-subject")
+        queryset = subject_statuses.exclude(
+            subject__subject_subtype__subject_type__value="stationary-subject"
+        )
+
+        if updated_since and updated_until:
+            queryset = queryset.filter(
+                recorded_at__range=(updated_since, updated_until))
+        elif updated_since:
+            queryset = queryset.filter(recorded_at__gte=updated_since)
+        elif updated_until:
+            queryset = queryset.filter(recorded_at__lte=updated_until)
+        elif last_days:
+            now = datetime.now(tz=pytz.UTC)
+            since = now - last_days
+            until = now + timedelta(minutes=10)
+            queryset = queryset.filter(recorded_at__range=(since, until))
+
+        subjects = Subject.objects.filter(id__in=queryset.values("subject"))
+        if include_stationary_subjects:
+            return subjects.union(stationary_subjects)
+        return subjects
 
     def get_staff(self):
         return self.filter(subject_subtype__subject_type__value='person')
@@ -1392,7 +1429,6 @@ class SubjectStatusManager(models.Manager):
                         observation, delay_hours=delay_hours)
 
     def ensure_for_subject(self, subject):
-
         for delay_hours in VIEW_END_WINDOWS:
             SubjectStatus.objects.get_or_create(
                 subject=subject, delay_hours=delay_hours[1] * 24,

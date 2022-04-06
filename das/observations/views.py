@@ -6,13 +6,10 @@ import re
 import urllib
 
 import dateutil.parser
-import django
-import observations.serializers as serializers
 import pytz
-import rest_framework
-import utils
-from das_server import celery
-from das_server.views import CustomSchema
+from kombu import exceptions
+
+import django
 from django.conf import settings
 from django.core.files.storage import default_storage
 from django.core.serializers.json import DjangoJSONEncoder
@@ -24,23 +21,29 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from kombu import exceptions
-from observations import kmlutils, models
-from observations.filters import (SubjectObjectPermissionsFilter,
-                                  create_gp_filter_class)
-from observations.permissions import StandardObjectPermissions
-from observations.tasks import handle_outbox_message, process_gpxdata_api
-from observations.utils import (VIEW_OBSERVATION_PERMS, VIEW_SUBJECT_PERMS,
-                                VIEW_SUBJECTGROUP_PERMS,
-                                calculate_subject_view_window,
-                                check_to_include_inactive_subjects, dateparse,
-                                get_minimum_allowed_age, parse_comma)
 from rest_framework import generics, status
 from rest_framework.exceptions import (APIException, ParseError,
                                        PermissionDenied, ValidationError)
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
+
+import observations.serializers as serializers
+import utils
+from das_server import celery
+from das_server.views import CustomSchema
+from observations import kmlutils, models
+from observations.filters import (SubjectObjectPermissionsFilter,
+                                  create_gp_filter_class)
+from observations.mixins import TwoWaySubjectSourceMixin
+from observations.permissions import StandardObjectPermissions
+from observations.serializers import TrackLimitSerializer
+from observations.tasks import handle_outbox_message, process_gpxdata_api
+from observations.utils import (VIEW_OBSERVATION_PERMS, VIEW_SUBJECT_PERMS,
+                                VIEW_SUBJECTGROUP_PERMS,
+                                calculate_subject_view_window,
+                                check_to_include_inactive_subjects, dateparse,
+                                get_minimum_allowed_age, parse_comma)
 from utils import add_base_url
 from utils.drf import (OptionalResultsSetPagination,
                        StandardResultsSetGeoJsonPagination,
@@ -183,7 +186,7 @@ class RegionView(generics.RetrieveAPIView):
     serializer_class = serializers.RegionSerializer
 
 
-class SubjectGroupsView(generics.ListAPIView):
+class SubjectGroupsView(generics.ListAPIView, TwoWaySubjectSourceMixin):
     """
     Returns all subjectgroups in the system.
     """
@@ -209,6 +212,7 @@ class SubjectGroupsView(generics.ListAPIView):
             queryset = queryset.by_name_search(qparams.get('group_name'))
 
         queryset = queryset.order_by('name')
+        self._get_two_way_sources(queryset)
         return queryset
 
     def get_serializer_class(self):
@@ -221,10 +225,12 @@ class SubjectGroupsView(generics.ListAPIView):
         context = super().get_serializer_context()
         context['render_last_location'] = True
         context['request'] = self.request
+        context['two_way_subject_sources'] = self.two_way_subject_sources
+
         return context
 
 
-class SubjectGroupView(generics.RetrieveAPIView):
+class SubjectGroupView(generics.RetrieveAPIView, TwoWaySubjectSourceMixin):
     """
     Returns a single SubjectGroup
     """
@@ -240,12 +246,15 @@ class SubjectGroupView(generics.RetrieveAPIView):
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['render_last_location'] = True
+        context['two_way_subject_sources'] = self.two_way_subject_sources
+
         return context
 
     def get_queryset(self):
         queryset = models.SubjectGroup.objects.get_non_cyclic_subjectgroups(
             single_sg=True)
         queryset.order_by('name')
+        self._get_two_way_sources(queryset)
         return queryset
 
 
@@ -285,7 +294,7 @@ class SourceGroupView(generics.ListAPIView):
         return None
 
 
-class RegionSubjectsView(generics.ListAPIView):
+class RegionSubjectsView(generics.ListAPIView, TwoWaySubjectSourceMixin):
     lookup_field = 'slug'
     serializer_class = serializers.SubjectSerializer
     permission_classes = (StandardObjectPermissions,)
@@ -299,7 +308,14 @@ class RegionSubjectsView(generics.ListAPIView):
         queryset = models.Subject.objects.all()
         queryset = check_to_include_inactive_subjects(self.request, queryset)
         subjects = queryset.by_region(region).annotate_with_subjectstatus()
+
         return subjects
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['two_way_subject_sources'] = self.two_way_subject_sources
+
+        return context
 
 
 class SubjectsViewSchema(InactiveSubjectsViewSchema):
@@ -364,7 +380,7 @@ class SubjectsViewSchema(InactiveSubjectsViewSchema):
         return operation
 
 
-class SubjectsView(generics.ListCreateAPIView):
+class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
     """
     get:
     Returns a list of Subject in the system.
@@ -397,15 +413,19 @@ class SubjectsView(generics.ListCreateAPIView):
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
             raise UnauthorizedView
 
+        use_last_known_location = parse_bool(
+            self.request.query_params.get("use_lkl"))
+
         self.subject_linked_sources = {}
+        self.subject_sources = {}
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
 
         mou_date = self.request.user.additional.get('expiry', None)
         mou_date = dateparse(mou_date) if mou_date else None
 
-        all_subjects = models.Subject.objects.all()
-        queryset = all_subjects \
-            .annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
+        queryset = models.Subject.objects.annotate_with_subjectstatus(
+            delay_hours=min_age_days * 24, mou_expiry_date=mou_date
+        )
         # need a stable sort for pagination. this needs to match the distinct
         # parameter set in by_user_subjects
         queryset = check_to_include_inactive_subjects(self.request, queryset)
@@ -414,7 +434,8 @@ class SubjectsView(generics.ListCreateAPIView):
         queryset = queryset.by_user_subjects(self.request.user)
 
         queryset = queryset.select_related(
-            'subject_subtype', 'subject_subtype__subject_type', 'common_name')
+            'subject_subtype', 'subject_subtype__subject_type', 'common_name'
+        )
 
         # Allow specifying a single subject group by 'id'.
         subject_group = self.request.query_params.get('subject_group')
@@ -443,18 +464,32 @@ class SubjectsView(generics.ListCreateAPIView):
             if not self.request.user.is_superuser:
                 # TODO: rather than this, can we get the latest & oldest observation for each subject? (needed in
                 #  serializer.to_representation)
-                subject_linked_sources = models.SubjectSource.objects.filter(source__groups__in=source_groups).annotate(
+                subject_linked_sources = models.SubjectSource.objects.filter(
+                    source__groups__in=source_groups
+                ).annotate(
                     latest_range=Window(expression=FirstValue(
                         F('assigned_range')), **self.window_desc),
                     latest_source=Window(expression=FirstValue(
                         F('source_id')), **self.window_desc),
                     oldest_range=Window(expression=FirstValue(
                         F('assigned_range')), **self.window_asc),
-                    oldest_source=Window(expression=FirstValue(F('source_id')), **self.window_asc)).distinct(
-                    'subject_id').values('subject_id', 'latest_range', 'oldest_range', 'latest_source', 'oldest_source')
+                    oldest_source=Window(expression=FirstValue(
+                        F('source_id')), **self.window_asc)
+                ).distinct(
+                    'subject_id'
+                ).values(
+                    'subject_id',
+                    'latest_range',
+                    'oldest_range',
+                    'latest_source',
+                    'oldest_source'
+                )
 
                 self.subject_linked_sources = {
-                    ss['subject_id']: ss for ss in subject_linked_sources}
+                    ss['subject_id']: ss for ss in subject_linked_sources
+                }
+
+            self._get_two_way_sources(queryset)
 
         # Apply request query filters that have are compatible with any of the
         # criteria above.
@@ -482,13 +517,26 @@ class SubjectsView(generics.ListCreateAPIView):
         bbox = self.request.query_params.get('bbox')
 
         if bbox:
-            bbox = bbox.split(',')
+            bbox = bbox.split(",")
             bbox = [float(v) for v in bbox]
             if len(bbox) != 4:
                 raise ValueError("invalid bbox param")
-            queryset = queryset.by_bbox(bbox, last_days=get_track_days(),
-                                        include_stationary_subjects=include_stationary_subjects_on_map(),
-                                        updated_since=updated_since, updated_until=updated_until)
+            if use_last_known_location:
+                queryset = queryset.by_bbox_last_known_locations(
+                    bbox,
+                    last_days=get_track_days(),
+                    include_stationary_subjects=include_stationary_subjects_on_map(),
+                    updated_since=updated_since,
+                    updated_until=updated_until,
+                )
+            else:
+                queryset = queryset.by_bbox(
+                    bbox,
+                    last_days=get_track_days(),
+                    include_stationary_subjects=include_stationary_subjects_on_map(),
+                    updated_since=updated_since,
+                    updated_until=updated_until,
+                )
 
         if self.request.query_params.get('name', None):
             queryset = queryset.by_name_search(
@@ -502,6 +550,7 @@ class SubjectsView(generics.ListCreateAPIView):
         context['render_last_location'] = True
         context['tracks'] = False
         context['subject_linked_sources'] = self.subject_linked_sources
+        context['two_way_subject_sources'] = self.two_way_subject_sources
 
         if request and parse_bool(request.query_params.get('tracks', None)):
             context['tracks'] = True
@@ -528,23 +577,32 @@ class SubjectsGeoJsonView(SubjectsView):
     renderer_classes = (ExtendedGEOJSONRenderer,)
 
 
-class SubjectView(generics.RetrieveUpdateDestroyAPIView):
+class SubjectView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixin):
     permission_classes = (StandardObjectPermissions,)
     serializer_class = serializers.SubjectSerializer
     lookup_field = 'id'
 
     def get_queryset(self):
+        subject_id = self.kwargs.get('id')
         subject = generics.get_object_or_404(
-            models.Subject.objects.all(), pk=self.kwargs.get('id'))
+            models.Subject.objects.all(), pk=subject_id)
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
             raise UnauthorizedView
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
-        queryset = models.Subject.objects.all()
+        queryset = models.Subject.objects.filter(id=subject_id)
         mou_date = self.request.user.additional.get('expiry', None)
         mou_date = dateparse(mou_date) if mou_date else None
         queryset = queryset.annotate_with_subjectstatus(
             delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
+        self._get_two_way_sources(queryset)
+
         return queryset
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['two_way_subject_sources'] = self.two_way_subject_sources
+
+        return context
 
 
 class SubjectSubjectSourcesView(generics.ListAPIView):
@@ -588,7 +646,7 @@ class SubjectSourcesView(generics.ListCreateAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
-class SourceSubjectsView(generics.ListCreateAPIView):
+class SourceSubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
     serializer_class = serializers.SubjectSerializer
     # schema = InactiveSubjectsViewSchema()
 
@@ -599,6 +657,7 @@ class SourceSubjectsView(generics.ListCreateAPIView):
         #     raise PermissionDenied
         queryset = models.Subject.objects.all()
         queryset = check_to_include_inactive_subjects(self.request, queryset)
+        self._get_two_way_sources(queryset)
         return queryset.filter(subjectsource__source=source).annotate_with_subjectstatus()
 
     def create(self, request, *args, **kwargs):
@@ -610,6 +669,12 @@ class SourceSubjectsView(generics.ListCreateAPIView):
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['two_way_subject_sources'] = self.two_way_subject_sources
+
+        return context
 
 
 class SubjectSourceView(generics.RetrieveAPIView):
@@ -669,11 +734,6 @@ class SubjectSourceTrackView(generics.RetrieveAPIView):
         context['times'] = times
         context['coordinates'] = coordinates
         return context
-
-
-class TrackLimitSerializer(rest_framework.serializers.Serializer):
-    limit = rest_framework.serializers.IntegerField(
-        default=None, required=False)
 
 
 class SubjectStatusView(generics.RetrieveAPIView):

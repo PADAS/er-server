@@ -3,6 +3,7 @@ repos:
     rev: 'v1.6.0'  # Use the sha / tag you want to point at
     hooks:
     -   id: autopep8
+        args: ['--in-place']
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.1.0  # Use the ref you want to point at
     hooks:
