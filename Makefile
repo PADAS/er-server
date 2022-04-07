@@ -37,7 +37,7 @@ test-class:
 	pytest -vv ${TEST_PATH}::${TEST_CLASS}
 
 format-file:
-	.scripts_dev/formatter_py_files.sh ${FILE}
+	./scripts_dev/formatter_py_files.sh ${FILE}
 
 check-requirements:
 	safety check -r dependencies/requirements.txt

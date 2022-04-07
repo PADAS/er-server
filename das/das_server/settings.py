@@ -471,7 +471,7 @@ KML_FEED_TITLE = 'EarthRanger KML Service'
 KML_OVERLAY_IMAGE = None
 KML_TOKEN_TTL_DAYS = 5 * 365
 
-SHOW_STATIONARY_SUBJECTS_ON_MAP = False
+SHOW_STATIONARY_SUBJECTS_ON_MAP = True
 
 # Default speed-threshold (in km/h) by subject-subtype. These are default values that maybe overridden in an
 # ObservationAnnotation instance.

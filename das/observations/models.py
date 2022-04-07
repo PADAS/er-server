@@ -55,6 +55,8 @@ from observations.utils import (VIEW_END_WINDOWS, calculate_track_range,
 from tracking.pubsub_registry import notify_subjectstatus_update
 from utils.json import zeroout_microseconds
 
+STATIONARY_SUBJECT_VALUE = "stationary-object"
+
 logger = logging.getLogger(__name__)
 GPX_FILES_FOLDER = getattr(
     settings, 'GPX_FILES_FOLDER', 'observations/gpxfile')
@@ -943,6 +945,9 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         """
         geom = Polygon.from_bbox(bbox)
         sources = Observation.objects.filter(location__within=geom)
+        sources = sources.exclude(
+            source__subjectsource__subject__subject_subtype__subject_type__value=STATIONARY_SUBJECT_VALUE
+        )
 
         if updated_since and updated_until:
             gt = updated_since
@@ -968,9 +973,11 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         subjects = subject_sources.values('subject')
 
         if include_stationary_subjects:
-            other_subjects = SubjectStatus.objects.filter(location__within=geom, delay_hours=0, subject__is_active=True)\
-                .exclude(subject__id__in=subjects).values('subject')
-            return self.filter(Q(pk__in=subjects) | Q(pk__in=other_subjects))
+            stationary_subjects = Subject.objects.filter(
+                subjectstatus__delay_hours=0,
+                is_active=True,
+                subjectsource__location__within=geom, subject_subtype__subject_type__value=STATIONARY_SUBJECT_VALUE)
+            return self.filter(Q(pk__in=subjects) | Q(pk__in=stationary_subjects))
         else:
             return self.filter(pk__in=subjects)
 
@@ -986,11 +993,15 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         subject_statuses = SubjectStatus.objects.filter(
             location__within=geometry, delay_hours=0, subject__is_active=True
         )
+
         stationary_subjects = Subject.objects.filter(
-            id__in=subject_statuses.values("subject"),
-            subject_subtype__subject_type__value="stationary-subject")
+            subjectstatus__delay_hours=0,
+            is_active=True,
+            subjectsource__location__within=geometry,
+            subject_subtype__subject_type__value=STATIONARY_SUBJECT_VALUE,
+        )
         queryset = subject_statuses.exclude(
-            subject__subject_subtype__subject_type__value="stationary-subject"
+            subject__subject_subtype__subject_type__value=STATIONARY_SUBJECT_VALUE
         )
 
         if updated_since and updated_until:

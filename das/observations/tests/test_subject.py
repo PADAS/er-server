@@ -235,7 +235,7 @@ class SubjectTestCase(BaseAPITest):
         self.force_authenticate(request, self.user)
         response = SubjectsView.as_view()(request)
         actual_size = len(response.data)
-        expected_size = 2
+        expected_size = 1
         self.assertEqual(response.status_code, 200)
         self.assertEqual(actual_size, expected_size)
 
@@ -775,6 +775,14 @@ class TestSubjectsView:
 
 @pytest.mark.django_db
 class TestSubjectsViewFilter:
+    position_observations = [
+        [-103.66424560546874, 20.619288994719977],
+        [-103.61000061035156, 20.699600246050323],
+        [-103.53652954101562, 20.680329417909377],
+        [-103.4857177734375, 20.609648794045192],
+        [-103.47885131835938, 20.732997212795915],
+    ]
+
     @pytest.mark.parametrize(
         "status_subjects_position, total",
         [
@@ -824,3 +832,65 @@ class TestSubjectsViewFilter:
         response = SubjectsView.as_view()(request)
 
         assert len(response.data) == total
+
+    def test_by_bbox_using_last_known_location_not_include_stationary_subjects(
+        self, view_subjects_permission_set, five_subject_sources, settings
+    ):
+        settings.SHOW_STATIONARY_SUBJECTS_ON_MAP = False
+        first_subject_source = SubjectSource.objects.last()
+        first_subject_source.location = Point(-103.6, 20.6)
+        first_subject_source.save()
+        subject_subtype = SubjectSubType.objects.get(display="Camera Trap")
+        first_subject = first_subject_source.subject
+        first_subject.subject_subtype = subject_subtype
+        first_subject.save()
+        for position, source in zip(self.position_observations, Source.objects.all()):
+            Observation.objects.create(
+                recorded_at=datetime.now(tz=pytz.UTC),
+                source=source,
+                location=Point(position),
+            )
+
+        bbox = "-103.7384033203125,20.52221649818549,-103.39714050292969,20.801694707706137"
+        client = HTTPClient()
+        client.app_user.permission_sets.add(view_subjects_permission_set)
+        request = client.factory.get(
+            client.api_base + f"/subjects/?bbox={bbox}&use_lkl=true"
+        )
+        client.force_authenticate(request, client.app_user)
+        response = SubjectsView.as_view()(request)
+
+        assert len(response.data) == 4
+        assert first_subject.id not in [
+            item.get("id") for item in response.data]
+
+    def test_by_bbox_using_last_known_location_include_stationary_subjects(
+        self, view_subjects_permission_set, five_subject_sources, settings
+    ):
+        settings.SHOW_STATIONARY_SUBJECTS_ON_MAP = True
+        first_subject_source = SubjectSource.objects.last()
+        first_subject_source.location = Point(-103.6, 20.6)
+        first_subject_source.save()
+        subject_subtype = SubjectSubType.objects.get(display="Camera Trap")
+        first_subject = first_subject_source.subject
+        first_subject.subject_subtype = subject_subtype
+        first_subject.save()
+        for position, source in zip(self.position_observations, Source.objects.all()):
+            Observation.objects.create(
+                recorded_at=datetime.now(tz=pytz.UTC),
+                source=source,
+                location=Point(position),
+            )
+
+        bbox = "-103.7384033203125,20.52221649818549,-103.39714050292969,20.801694707706137"
+        client = HTTPClient()
+        client.app_user.permission_sets.add(view_subjects_permission_set)
+        request = client.factory.get(
+            client.api_base + f"/subjects/?bbox={bbox}&use_lkl=true"
+        )
+        client.force_authenticate(request, client.app_user)
+        response = SubjectsView.as_view()(request)
+
+        assert len(response.data) == 5
+        assert str(first_subject.id) in [item.get("id")
+                                         for item in response.data]

@@ -24,7 +24,8 @@ from core.fields import GEOPointField, choicefield_serializer, text_field
 from core.serializers import (BaseSerializer, ContentTypeField,
                               GenericRelatedField, TimestampMixin)
 from observations import models
-from observations.models import transform_additional_data
+from observations.models import (STATIONARY_SUBJECT_VALUE,
+                                 transform_additional_data)
 from observations.utils import (dateparse, get_maximum_allowed_age,
                                 get_minimum_allowed_age, get_null_point)
 from utils import add_base_url
@@ -400,7 +401,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
 
     def _is_stationary_subject(self, instance):
         if (
-                instance.subject_subtype.subject_type.value == "stationary-object"
+                instance.subject_subtype.subject_type.value == STATIONARY_SUBJECT_VALUE
                 and instance.subjectsources.last()
                 and instance.subjectsources.last().location
         ):
