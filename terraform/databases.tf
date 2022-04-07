@@ -11,17 +11,19 @@ locals {
       db_instance_private_ip = data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_private_ip,
       db_password_path       = "earthranger_app_infra_postgres_server2_${local.db_secret_path}"
     }
+    #TODO add the info for kws and add the outputs
   ]
 
-  db_secret_path         = data.terraform_remote_state.earthranger_app_infra.outputs.db_secret_path
+  #TODO check this if the secret path will be prod1 or kws
+  db_secret_path         = terraform.workspace == "kws" ? "kws_path" : data.terraform_remote_state.earthranger_app_infra.outputs.db_secret_path
 
   sanitized_db_name      = lower(substr(replace(terraform.workspace, "/[^A-Za-z0-9_]/", "_"), 0, 24))
   unique_db_name         = "${local.sanitized_db_name}_${random_string.db_name_uniqueness.result}"
   app_role_name          = "${local.unique_db_name}_approle"
   app_user_name          = "${local.unique_db_name}_appuser"
-  db_instance            = element(local.db_instances, local.db_instance_index).db_instance
-  db_instance_private_ip = element(local.db_instances, local.db_instance_index).db_instance_private_ip
-  db_password_gsm_id     = replace(element(local.db_instances, local.db_instance_index).db_password_path, "/[^A-Za-z0-9_]/", "_")
+  db_instance            = terraform.workspace == "kws" ? "kws_instance" : element(local.db_instances, local.db_instance_index).db_instance
+  db_instance_private_ip = terraform.workspace == "kws" ? "kws_instance_ip" : element(local.db_instances, local.db_instance_index).db_instance_private_ip
+  db_password_gsm_id     = terraform.workspace == "kws" ? replace("db_password_path", "/[^A-Za-z0-9_]/", "_") : replace(element(local.db_instances, local.db_instance_index).db_password_path, "/[^A-Za-z0-9_]/", "_")
   migration_role_name = "${local.unique_db_name}_migrationrole"
   migration_user_name = "${local.unique_db_name}_migrationuser"
 
