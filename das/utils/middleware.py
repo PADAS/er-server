@@ -5,22 +5,25 @@ import uuid
 from datetime import timedelta
 from threading import local
 
+from google.auth.exceptions import DefaultCredentialsError
+from google.cloud import error_reporting
+from oauth2_provider.models import get_access_token_model
+
 from django.conf import settings
 from django.shortcuts import redirect
 from django.utils import timezone
-from google.cloud import error_reporting
-from google.auth.exceptions import DefaultCredentialsError
-from oauth2_provider.models import get_access_token_model
-from utils import add_base_url
+
+from utils import add_base_url, stats
 
 logger = logging.getLogger(__name__)
 
 
 request_data = local()
-error_reporting_client = None
+
 try:
     error_reporting_client = error_reporting.Client()
 except DefaultCredentialsError as ex:
+    error_reporting_client = None
     logger.warning(f"Initializing err_reporting_client: {ex}")
 
 
@@ -52,7 +55,6 @@ class RequestLoggingMiddleware(object):
 
     def process_response(self, request, response):
         try:
-            result = {}
 
             logname = '-'
             remote_addr = request.META.get('REMOTE_ADDR')
@@ -92,8 +94,15 @@ class RequestLoggingMiddleware(object):
                 status, content_length, referer, user_agent, req_time)
 
             self.logger.info('request', extra=extra)
+            stats.histogram('api_request_time', req_time,
+                            tags=[
+                                f'path:{path}',
+                                f'method:{method}'
+                                f'satus:{status}'
+                            ]
+                            )
 
-        except Exception as e:
+        except Exception:
             logging.exception('RequestLoggingMiddleware Error')
 
         # stats.increment_for_view(request.resolver_match.view_name)

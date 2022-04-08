@@ -8,13 +8,18 @@ import uuid
 from collections import OrderedDict
 
 import jsonschema
-from activity.exceptions import (SCHEMA_ERROR_MISSING_DOLLAR_SIGN_SCHEMA,
-                                 SchemaValidationError, UnmappableFormKeyError)
+from activity.exceptions import (
+    SCHEMA_ERROR_MISSING_DOLLAR_SIGN_SCHEMA,
+    SchemaValidationError,
+    UnmappableFormKeyError,
+)
+from activity.models import EventDetails
 from choices.models import Choice, DynamicChoice
 from django.apps import apps
 from django.template import Context, Template
 from django.template.base import TextNode, VariableNode
 from utils.memoize import memoize
+
 
 logger = logging.getLogger(__name__)
 
@@ -44,13 +49,13 @@ def get_replacement_fields_in_schema(schema):
     return fields
 
 
-def get_dynamic_choices(field_details, as_string=True):
+def get_dynamic_choices(field_details, as_string=True, event=None):
 
-    return_val = _get_dynamic_choices(field_details)
+    return_val = _get_dynamic_choices(field_details, event)
     return json.dumps(return_val) if as_string else return_val
 
 
-def _get_dynamic_choices(field_details):
+def _get_dynamic_choices(field_details, event=None):
 
     dynamic_choice = DynamicChoice.objects.filter(
         id=field_details['field']).first()
@@ -73,6 +78,15 @@ def _get_dynamic_choices(field_details):
         *choice_criteria).order_by(dynamic_choice.display_col)
     if dynamic_choice.model_name == "observations.subject":
         choices = choices.filter(is_active=True)
+
+        event_details = EventDetails.objects.filter(event__id=event)
+        if event_details:
+            event_detail = event_details.first()
+            object_id = event_detail.data.get("event_details").get(
+                field_details.get("event_detail"))
+            extra_objects = model_to_filter.objects.filter(id=object_id)
+            choices = choices | extra_objects
+
     for row in choices:
         value = getattr(row, dynamic_choice.value_col, None)
         display = getattr(row, dynamic_choice.display_col, None)

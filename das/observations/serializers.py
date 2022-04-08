@@ -1,37 +1,36 @@
 import json
+import logging
 from collections import OrderedDict
 from datetime import MAXYEAR, MINYEAR, datetime, timedelta
 from typing import NamedTuple
 
 import pytz
+from drf_extra_fields.fields import DateTimeRangeField
+from drf_extra_fields.geo_fields import PointField
+from rest_framework_gis.serializers import GeoFeatureModelListSerializer
+
+import rest_framework
 import rest_framework.serializers
-import utils.json
-from accounts.serializers import UserDisplaySerializer
-from core.fields import GEOPointField, choicefield_serializer, text_field
-from core.serializers import (
-    BaseSerializer,
-    ContentTypeField,
-    GenericRelatedField,
-    TimestampMixin,
-)
 from django.conf import settings
 from django.contrib.gis.geos import Point
 from django.contrib.postgres.fields import jsonb
 from django.db.models import Q
 from django.urls import reverse
-from drf_extra_fields.fields import DateTimeRangeField
-from drf_extra_fields.geo_fields import PointField
-from observations import models
-from observations.utils import (
-    dateparse,
-    get_maximum_allowed_age,
-    get_minimum_allowed_age,
-    get_null_point,
-)
 from rest_framework.fields import DateTimeField
-from rest_framework_gis.serializers import GeoFeatureModelListSerializer
+
+import utils.json
+from accounts.serializers import UserDisplaySerializer
+from core.fields import GEOPointField, choicefield_serializer, text_field
+from core.serializers import (BaseSerializer, ContentTypeField,
+                              GenericRelatedField, TimestampMixin)
+from observations import models
+from observations.models import transform_additional_data
+from observations.utils import (dateparse, get_maximum_allowed_age,
+                                get_minimum_allowed_age, get_null_point)
 from utils import add_base_url
 from utils.json import zeroout_microseconds
+
+logger = logging.getLogger(__name__)
 
 
 class RegionSerializer(rest_framework.serializers.ModelSerializer):
@@ -115,7 +114,7 @@ class SubjectTypeRelatedField(rest_framework.serializers.RelatedField):
             try:
                 return models.SubjectType.objects.get(value=data)
             except models.SubjectType.DoesNotExist:
-                raise serializers.ValidationError(
+                raise rest_framework.serializers.ValidationError(
                     f'subject_type : {data} does not exist')
 
 
@@ -229,15 +228,20 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
     def to_representation(self, instance):
         user = getattr(self.context.get('request', None), 'user', None)
         render_last_location = self.context.get('render_last_location', True)
-        model = self.Meta.model
 
         rep = super(SubjectSerializer, self).to_representation(instance)
         additional = instance.additional
-        additional = {k: additional[k] for k in self.additional_fields
-                      if k in additional}
+        additional = {
+            k: additional[k] for k in self.additional_fields if k in additional
+        }
         rep.update(additional)
         rep['tracks_available'] = False
         rep['image_url'] = instance.image_url
+        is_stationary_subject = self._is_stationary_subject(instance)
+        if is_stationary_subject:
+            rep["is_static"] = True
+
+        request = self.context.get('request')
 
         if user and render_last_location:
             # Find the user's allowed viewable date range
@@ -272,28 +276,25 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                 if linked_sources:
                     # Fetch latest & oldest Observations available to plot
                     # latest_position & tracks_range.
-                    latest_source, latest_range = linked_sources[
-                        'latest_source'], linked_sources['latest_range']
-                    oldest_source, oldest_range = linked_sources[
-                        'oldest_source'], linked_sources['oldest_range']
+                    latest_source = linked_sources['latest_source']
+                    latest_range = linked_sources['latest_range']
+                    linked_sources['oldest_source']
+                    oldest_range = linked_sources['oldest_range']
 
                     if latest_range and oldest_range:
-                        latest_observation = models.Observation.objects.filter(
+                        query = models.Observation.objects.filter(
                             source=latest_source,
                             recorded_at__range=[
                                 latest_range.lower,
                                 latest_range.upper
-                            ]).order_by('-recorded_at').first()
+                            ]
+                        )
+                        latest_observation = query.order_by(
+                            '-recorded_at').first()
+                        oldest_observation = query.order_by(
+                            'recorded_at').first()
 
-                        oldest_observation = models.Observation.objects.filter(
-                            source=oldest_source,
-                            recorded_at__range=[
-                                oldest_range.lower,
-                                oldest_range.upper
-                            ]).order_by('recorded_at').first()
-
-                        rep[
-                            'tracks_available'] = statusvalues.recorded_at and statusvalues.recorded_at > default_window_cutoff
+                        rep['tracks_available'] = statusvalues.recorded_at and statusvalues.recorded_at > default_window_cutoff
                         if latest_observation and oldest_observation:
                             additional = latest_observation.additional
                             if not isinstance(additional, dict):
@@ -302,26 +303,27 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                             # details.
                             rep['tracks_available'] = True
                             rep['last_position_status'] = {
-                                'last_voice_call_start_at': additional.get(
-                                    'last_voice_call_start_at'),
-                                'radio_state_at': additional.get(
-                                    'radio_state_at'),
+                                'last_voice_call_start_at': additional.get('last_voice_call_start_at'),
+                                'radio_state_at': additional.get('radio_state_at'),
                                 'radio_state': additional.get('radio_state'),
                             }
-                            rep['last_position_date'] = \
-                                latest_observation.recorded_at
+                            rep['last_position_date'] = latest_observation.recorded_at
+
+                            location = latest_observation.location
+                            if is_stationary_subject:
+                                location = instance.subjectsources.last().location
+
                             rep['last_position'] = make_feature(
-                                self.context['request'],
-                                latest_observation.location, instance,
+                                request,
+                                location,
+                                instance,
                                 time=latest_observation.recorded_at,
                                 image_url=rep['image_url'])
                 else:
                     # If no linked_sources are available then fetch
                     # latest_position from SubjectStatus as usual.
 
-                    request = self.context.get('request')
-                    if mou_expiry_date and (mou_expiry_date.replace(tzinfo=pytz.utc) <= datetime.now(tz=pytz.utc)) \
-                            and request.method == 'GET':
+                    if mou_expiry_date and (mou_expiry_date.replace(tzinfo=pytz.utc) <= datetime.now(tz=pytz.utc)) and request.method == 'GET':
                         observation = get_observation_location(
                             instance, mou_expiry_date, default_window_cutoff)
                         location = observation.location if observation else get_null_point()
@@ -337,32 +339,48 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                         'radio_state_at': None if statusvalues.radio_state_at == models.DEFAULT_STATUS_VALUE_DATE else statusvalues.radio_state_at,
                         'radio_state': statusvalues.radio_state
                     }
+                    if is_stationary_subject:
+                        location = instance.subjectsources.last().location
 
                     if tracks_available:
                         rep['last_position_date'] = recorded_at
                         rep['last_position'] = make_feature(
-                            self.context['request'], location, instance,
+                            request,
+                            location,
+                            instance,
                             time=recorded_at, image_url=rep['image_url']
                         )
-                rep['device_status_properties'] = \
-                    statusvalues.device_status_properties if hasattr(
-                        statusvalues, 'device_status_properties') else None
 
-        if 'request' in self.context:
-            request = self.context['request']
+                rep['device_status_properties'] = self._get_device_status_properties(
+                    statusvalues)
+                if is_stationary_subject:
+                    rep['device_status_properties'] = self._get_device_properties_static_sensor(
+                        statusvalues, instance)
+                    rep["tracks_available"] = False
+
+        if request:
             rep['url'] = utils.add_base_url(
                 request, reverse('subject-view', args=[instance.id, ]))
 
             message_content = []
 
-            for ss in get_subjectsources_with_2way_msg(instance):
-                message_url = utils.add_base_url(
-                    request, reverse('messages-view'))
-                data = {
-                    "source_provider": ss.source.provider.display_name,
-                    "url": f"{message_url}?subject_id={str(instance.id)}&source_id={str(ss.source_id)}"
-                }
-                message_content.append(data)
+            # for ss in get_subjectsources_with_2way_msg(instance):
+            if "two_way_subject_sources" in self.context.keys():
+                # two_way_subject_sources is a dict by source_id
+                two_way_subject_sources = self.context["two_way_subject_sources"]
+                instance_id = instance.id
+                for ss in [ss_for_subject
+                           for ss_by_source in two_way_subject_sources.values()
+                           for ss_for_subject in ss_by_source.values()
+                           if ss_for_subject['subject_id'] == instance_id]:
+                    message_url = utils.add_base_url(
+                        request, reverse('messages-view'))
+                    data = {
+                        "source_provider": ss["source__provider__display_name"],
+                        "url": f"{message_url}?subject_id={str(instance.id)}&source_id={str(ss['source_id'])}"
+                    }
+                    message_content.append(data)
+
             if message_content:
                 rep["messaging"] = message_content
 
@@ -370,6 +388,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
             track_serializer = SubjectTrackSerializer(
                 instance, context=self.context)
             rep['tracks'] = track_serializer.data
+
         return rep
 
     def create(self, validated_data):
@@ -378,6 +397,41 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
             validated_data['owner'] = request.user
 
         return models.Subject.objects.create_subject(**validated_data)
+
+    def _is_stationary_subject(self, instance):
+        if (
+                instance.subject_subtype.subject_type.value == "stationary-object"
+                and instance.subjectsources.last()
+                and instance.subjectsources.last().location
+        ):
+            return True
+        return False
+
+    def _get_device_status_properties(self, status_values):
+        if hasattr(status_values, 'device_status_properties'):
+            return status_values.device_status_properties
+        return None
+
+    def _get_device_properties_static_sensor(self, status_values, subject):
+        device_status_properties = self._get_device_status_properties(
+            status_values)
+        default_measure = self._get_default_measure(subject)
+        if device_status_properties:
+            for device in device_status_properties:
+                device["default"] = False
+                if device.get("label") == default_measure:
+                    device["default"] = True
+        return device_status_properties
+
+    def _get_default_measure(self, subject):
+        last_subject_source = subject.subjectsources.last()
+        if last_subject_source:
+            transforms = last_subject_source.source.provider.transforms
+            if transforms:
+                for transform in transforms:
+                    if transform.get("default"):
+                        return transform.get("label")
+        return ""
 
 
 def get_subjectsources_with_2way_msg(subject):
@@ -516,7 +570,7 @@ class SourceSerializer(rest_framework.serializers.Serializer):
         rep = super(SourceSerializer, self).to_representation(instance)
         rep.update(instance.additional)
         try:
-            subject_sources = self.context['view'].subject_sources
+            subject_sources = self.context['view'].two_way_subject_sources
             subject_source = subject_sources.get(source=instance)
             rep['assigned_range'] = subject_source.assigned_range
         except (AttributeError, KeyError):
@@ -535,7 +589,8 @@ class SourceSerializer(rest_framework.serializers.Serializer):
             request = self.context['request']
             validated_data['owner'] = request.user
 
-        return models.Source.objects.ensure_source(**validated_data)
+        source, created = models.Source.objects.get_source(**validated_data)
+        return source
 
 
 class SourceProviderSerializer(rest_framework.serializers.Serializer):
@@ -616,10 +671,6 @@ class SubjectTrackSerializer(rest_framework.serializers.BaseSerializer):
 
 class SubjectStatusSerializer(rest_framework.serializers.BaseSerializer):
     def to_representation(self, subject_status):
-
-        image_url = subject_status.subject.image_url
-        user = self.context['request'].user
-
         coordinates = Point(x=subject_status.location.x,
                             y=subject_status.location.y, srid=4326)
 
@@ -674,9 +725,8 @@ class SourceRelatedField(rest_framework.serializers.RelatedField):
 
 
 class ObservationSerializer(rest_framework.serializers.ModelSerializer):
-
+    source = rest_framework.serializers.UUIDField(source='source_id')
     location = PointField(required=False)
-    source = SourceRelatedField()
 
     class Meta:
         model = models.Observation
@@ -687,9 +737,31 @@ class ObservationSerializer(rest_framework.serializers.ModelSerializer):
 
     def to_representation(self, instance):
         rep = super(ObservationSerializer, self).to_representation(instance)
-        if self.context.get('include_details'):
+
+        if instance.source.provider.transforms:
+            rep["device_status_properties"] = self._get_properties_device(
+                instance)
+
+        self.dict_to_representation(rep, self.context)
+        return rep
+
+    @staticmethod
+    def dict_to_representation(rep, params):
+        # Since the queryset returns a dict, modify it here
+        if not rep.get("source"):
+            # changing source_id to source
+            rep["source"] = rep.pop("source_id")
+
+        if rep.get("source_transforms") and rep.get("additional"):
+            rep["device_status_properties"] = transform_additional_data(
+                rep["additional"], rep["source_transforms"])
+
+        if params.get('include_details'):
+            # and adding observation details if requested.
             rep['observation_details'] = rep['additional']
-        rep.pop('additional')
+
+        rep.pop('additional', None)
+        rep.pop('source_transforms', None)
         return rep
 
 
@@ -880,3 +952,8 @@ class AnnouncementSerializer(BaseSerializer):
 class ReadAnnouncementSerializer(rest_framework.serializers.Serializer):
     news_ids = rest_framework.serializers.ListField(
         child=rest_framework.serializers.UUIDField(), required=True)
+
+
+class TrackLimitSerializer(rest_framework.serializers.Serializer):
+    limit = rest_framework.serializers.IntegerField(
+        default=None, required=False)

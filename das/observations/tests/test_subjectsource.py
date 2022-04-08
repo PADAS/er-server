@@ -1,21 +1,25 @@
+import datetime
 import random
 import uuid
-from django.test import TestCase
-from drf_extra_fields.compat import DateTimeTZRange
-from datetime import datetime, timedelta
-from django.urls import reverse
-from django.contrib.auth import get_user_model
+from urllib.parse import parse_qs, urlsplit
+
 import pytz
-from observations.models import Subject, Source, SubjectSource, SourceProvider, DEFAULT_ASSIGNED_RANGE, SubjectStatus, \
-    SubjectGroup
+from drf_extra_fields.compat import DateTimeTZRange
+from faker import Faker
+
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
+from django.urls import reverse
+from rest_framework import status
+
+from accounts.models import PermissionSet, User
+from core.tests import BaseAPITest
+from observations.models import (DEFAULT_ASSIGNED_RANGE, Source,
+                                 SourceProvider, Subject, SubjectGroup,
+                                 SubjectSource, SubjectStatus)
 from observations.serializers import ObservationSerializer
 from observations.utils import parse_comma
-from urllib.parse import urlsplit, parse_qs
-from core.tests import BaseAPITest
 from observations.views import SourcesView, SubjectSourcesAssignmentView
-from accounts.models import User, PermissionSet
-from accounts.models import PermissionSet
-from django.contrib.auth.models import Permission
 
 User = get_user_model()
 
@@ -36,13 +40,13 @@ class SubjectSourceTestCase(BaseAPITest):
                                              is_staff=True, **self.user_const)
 
         self.non_superuser = User.objects.create_user(username='user_x',
-                                              email='user_x@test.com',
-                                              password=User.objects.make_random_password(),
-                                              **self.user_const)
+                                                      email='user_x@test.com',
+                                                      password=User.objects.make_random_password(),
+                                                      **self.user_const)
 
     def generate_observation_data(self, subject_id, source_id):
         # Generate random data for observation
-        observation_time = pytz.UTC.localize(datetime.now())
+        observation_time = pytz.UTC.localize(datetime.datetime.now())
         latitude = float(random.randint(3000, 3000)) / 100
         longitude = float(random.randint(2800, 4000)) / 100
 
@@ -71,8 +75,8 @@ class SubjectSourceTestCase(BaseAPITest):
             name='Assigned Subject')
         provider, created = SourceProvider.objects.get_or_create(
             provider_key='assignment-test-provider')
-        source, created = Source.objects.get_or_create(manufacturer_id='assignment-test-01',
-                                                       provider=provider)
+        source, created = Source.objects.get_source(manufacturer_id='assignment-test-01',
+                                                    provider=provider)
 
         ss = SubjectSource.objects.create(
             subject=subject, source=source, assigned_range='empty')
@@ -80,7 +84,7 @@ class SubjectSourceTestCase(BaseAPITest):
         ss.refresh_from_db()
         assert not ss.assigned_range.isempty  # there is default lower & upper values
 
-        sample_date = datetime.now(tz=pytz.utc)
+        sample_date = datetime.datetime.now(tz=pytz.utc)
 
         assert sample_date in ss.assigned_range
         assert sample_date not in ss.safe_assigned_range
@@ -111,9 +115,11 @@ class SubjectSourceTestCase(BaseAPITest):
 
     def test_subjectsource_with_only_lower_bound_assignedrange(self):
         subject, created = Subject.objects.get_or_create(name='#01-subject')
-        provider, created = SourceProvider.objects.get_or_create(provider_key='#01-provider')
+        provider, created = SourceProvider.objects.get_or_create(
+            provider_key='#01-provider')
 
-        source, created = Source.objects.get_or_create(manufacturer_id='#01-manufacurer_id', provider=provider)
+        source, created = Source.objects.get_or_create(
+            manufacturer_id='#01-manufacurer_id', provider=provider)
 
         ss = SubjectSource.objects.create(subject=subject, source=source,
                                           assigned_range=DateTimeTZRange(lower=DEFAULT_ASSIGNED_RANGE[0]))
@@ -129,7 +135,8 @@ class SubjectSourceTestCase(BaseAPITest):
         params = parse_qs(query)
         listed_manufacturer_id = parse_comma(params.get('manufacturer_id')[0])
 
-        self.assertEqual(listed_manufacturer_id, ['Garmin-001', 'Garmin-002', 'Garmin-005'])
+        self.assertEqual(listed_manufacturer_id, [
+                         'Garmin-001', 'Garmin-002', 'Garmin-005'])
 
         # pass comma-separated values (UUD4)
         urlpath2 = 'test.pamdas.org/api/v1.0/' \
@@ -142,9 +149,27 @@ class SubjectSourceTestCase(BaseAPITest):
         self.assertEqual(listed_source_id, [uuid.UUID('0d9725c0-c186-464f-98f4-a45d31f81efd'),
                                             uuid.UUID('0a308294-7b80-4633-a967-ef4f8e1de79a')])
 
+    def test_create_source_api(self):
+        faker = Faker()
+        subject_count = Subject.objects.count()
+        provider_key = f"{faker.last_name()}_{faker.last_name()}"
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key=provider_key)
+        source_data = dict(manufacturer_id=faker.last_name(),
+                           provider=provider_key, additional={})
+        urlpath = reverse('sources-view')
+        request = self.factory.post(urlpath, source_data)
+
+        self.force_authenticate(request, self.user)
+        response = SourcesView.as_view()(request)
+        assert subject_count == Subject.objects.count()
+        assert response.status_code == status.HTTP_201_CREATED
+
     def test_sources_api(self):
-        provider, _ = SourceProvider.objects.get_or_create(provider_key='#01-provider')
-        provider2, _ = SourceProvider.objects.get_or_create(provider_key='#02-provider')  # control
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key='#01-provider')
+        provider2, _ = SourceProvider.objects.get_or_create(
+            provider_key='#02-provider')  # control
 
         source, _ = Source.objects.get_or_create(id=uuid.UUID('1f199c72-7a52-4659-be86-4ac40231826f'),
                                                  manufacturer_id='#01-manufacurer_id', provider=provider)
@@ -152,7 +177,8 @@ class SubjectSourceTestCase(BaseAPITest):
         source2, _ = Source.objects.get_or_create(id=uuid.UUID('7cbbd57e-0026-46a2-9726-32849a527326'),
                                                   manufacturer_id='#02-manufacurer_id', provider=provider)
 
-        source3, _ = Source.objects.get_or_create(manufacturer_id='#02-Manf-ID', provider=provider2)
+        source3, _ = Source.objects.get_or_create(
+            manufacturer_id='#02-Manf-ID', provider=provider2)
 
         # Two sources with provider-key: #01-prvider
         urlpath = reverse('sources-view')
@@ -186,11 +212,15 @@ class SubjectSourceTestCase(BaseAPITest):
         subject, created = Subject.objects.get_or_create(name='#01-subject')
         subject2, created = Subject.objects.get_or_create(name='#02-subject')
 
-        provider, created = SourceProvider.objects.get_or_create(provider_key='#01-provider')
+        provider, created = SourceProvider.objects.get_or_create(
+            provider_key='#01-provider')
 
-        source, created = Source.objects.get_or_create(manufacturer_id='#01-manufacurer_id', provider=provider)
-        source2, created = Source.objects.get_or_create(manufacturer_id='#02-manufacurer_id', provider=provider)
-        source3, created = Source.objects.get_or_create(manufacturer_id='#03-manufacurer_id', provider=provider)
+        source, created = Source.objects.get_or_create(
+            manufacturer_id='#01-manufacurer_id', provider=provider)
+        source2, created = Source.objects.get_or_create(
+            manufacturer_id='#02-manufacurer_id', provider=provider)
+        source3, created = Source.objects.get_or_create(
+            manufacturer_id='#03-manufacurer_id', provider=provider)
 
         # assign subject (#01-subject) with different sources.
         ss = SubjectSource.objects.create(subject=subject, source=source,
@@ -228,7 +258,8 @@ class SubjectSourceTestCase(BaseAPITest):
         self.assertEqual(len(response.data.get('results')), 2)
 
         # filter by both subject_id and source_id
-        url = urlpath + f'?sources={str(source2.id)}&subjects={str(subject2.id)}'
+        url = urlpath + \
+            f'?sources={str(source2.id)}&subjects={str(subject2.id)}'
         request = self.factory.get(url)
         self.force_authenticate(request, self.user)
         response = SubjectSourcesAssignmentView.as_view()(request)
@@ -239,10 +270,13 @@ class SubjectSourceTestCase(BaseAPITest):
         view_subject_group_perm_name = 'view_subjectgroup'
         view_subject_source_perm_name = 'view_subjectsource'
 
-        view_subject_perm = Permission.objects.get(codename=view_subject_group_perm_name)
-        view_subject_source = Permission.objects.get(codename=view_subject_source_perm_name)
+        view_subject_perm = Permission.objects.get(
+            codename=view_subject_group_perm_name)
+        view_subject_source = Permission.objects.get(
+            codename=view_subject_source_perm_name)
         perm_set = PermissionSet.objects.create(name="View SG Group Perm set")
-        perm_set2 = PermissionSet.objects.create(name="View SubjectSource PermSet")
+        perm_set2 = PermissionSet.objects.create(
+            name="View SubjectSource PermSet")
         perm_set.permissions.add(view_subject_perm)
         perm_set2.permissions.add(view_subject_source)
         perm_set.save()

@@ -63,6 +63,21 @@ spec:
           value: "/etc/earthranger/google_credentials.json"
         - name: SERVICE_NAME
           value: "mql_server"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: aws-metrics-credentials
+              key: aws_access_key_id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aws-metrics-credentials
+              key: aws_secret_access_key
+        - name: GA_MEASUREMENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: ga-measurement-id
+              key: ga_measurement_id
         - name: DB_USER
           valueFrom:
             secretKeyRef:

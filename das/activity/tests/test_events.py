@@ -12,42 +12,37 @@ from datetime import datetime, timedelta
 from unittest import mock
 from urllib.parse import urlencode
 
-import django.contrib.auth
 import pytest
 import pytz
-from accounts.models import PermissionSet
-from accounts.serializers import UserDisplaySerializer
-from activity import views
-from activity.models import (
-    Event,
-    EventCategory,
-    EventDetails,
-    EventNote,
-    EventProvider,
-    EventRelationship,
-    EventSource,
-    EventsourceEvent,
-    EventType,
-    TSVectorModel,
-    parse_date_range,
-)
-from activity.serializers import EventDetailsSerializer
-from activity.tasks import automatically_update_event_state
-from activity.tests import schema_examples
-from choices.models import Choice, DynamicChoice
-from core.tests import BaseAPITest
+from drf_extra_fields.geo_fields import PointField
+from kombu import Connection
+
+import django.contrib.auth
 from django.contrib.auth.models import Permission
+from django.contrib.gis.geos import Point
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import dateparse, lorem_ipsum, timezone
-from drf_extra_fields.geo_fields import PointField
-from kombu import Connection
-from observations.models import Subject, SubjectSubType, SubjectType
 from rest_framework.fields import DateTimeField
+
+from accounts.models import PermissionSet
+from accounts.serializers import UserDisplaySerializer
+from activity import views
+from activity.models import (Event, EventCategory, EventDetails, EventNote,
+                             EventProvider, EventRelationship, EventSource,
+                             EventsourceEvent, EventType, Patrol,
+                             TSVectorModel, parse_date_range)
+from activity.serializers import EventDetailsSerializer
+from activity.tasks import automatically_update_event_state
+from activity.tests import schema_examples
+from choices.models import Choice, DynamicChoice
+from client_http import HTTPClient
+from core.tests import BaseAPITest
+from observations.models import Subject, SubjectSubType, SubjectType
+from observations.serializers import SubjectSerializer
 from utils.html import clean_user_text
 from utils.schema_utils import format_key_for_title
-
 
 logger = logging.getLogger(__name__)
 
@@ -697,7 +692,7 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventsView.as_view()(request)
-        response_data = response.data
+        response.data
         self.assertEqual(response.status_code, 200)
 
     def test_event_feed_category(self):
@@ -706,7 +701,7 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventsView.as_view()(request)
-        response_data = response.data
+        response.data
         self.assertEqual(response.status_code, 200)
 
     def test_event_feed_filter_contained_events(self):
@@ -738,7 +733,7 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventTypesView.as_view()(request)
-        response_data = response.data
+        response.data
         self.assertEqual(response.status_code, 200)
 
     def test_event_categories_list(self):
@@ -1644,7 +1639,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(len(response.data), 0)
+        self.assertEqual(len(response.data), 1)
 
     def test_radio_room_operator_permissions(self):
         results = self.do_all_operations_on_all_event_types(
@@ -1848,7 +1843,7 @@ class TestEventView(BaseAPITest):
         response = views.EventSourcesView.as_view()(
             request, eventprovider_id=str(eventprovider.id))
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
+        response.data
 
         request = self.factory.post(
             f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
@@ -1858,7 +1853,7 @@ class TestEventView(BaseAPITest):
         response = views.EventSourcesView.as_view()(
             request, eventprovider_id=str(eventprovider.id))
         self.assertEqual(response.status_code, 400)
-        response_data = response.data
+        response.data
 
     def test_eventsourceview_update_permission_denied(self):
 
@@ -3360,7 +3355,7 @@ class TestParsing(TestCase):
     def test_bad_lower(self):
         val = dict(lower=0)
         with self.assertRaises(TypeError):
-            result = parse_date_range(val)
+            parse_date_range(val)
 
 
 @pytest.mark.django_db
@@ -3413,3 +3408,222 @@ class TestEventFilterQueryset:
         events = Event.objects.by_text_filter(term)
 
         assert events.count() >= 1
+
+    @pytest.mark.parametrize("known_location",
+                             [{"location": "20.668671, -103.527837", "known_distance_meters": 1200, "result": False, },
+                              {"location": "20.655429, -103.523242",
+                               "known_distance_meters": 2000, "result": False, },
+                              {"location": "20.669644, -103.520739",
+                               "known_distance_meters": 500, "result": True, },
+                              {"location": "20.671825, -103.519298", "known_distance_meters": 250, "result": True, }])
+    def test_by_location_filter(self, five_events, known_location, settings):
+        settings.GEO_PERMISSION_ENABLED = True
+        settings.GEO_PERMISSION_RADIUS_METERS = 1000
+        event = Event.objects.order_by("created_at").last()
+        location = "20.672398, -103.517015"
+        latitude = float(known_location['location'].split(",")[0].strip())
+        longitude = float(known_location['location'].split(",")[1].strip())
+        event.location = Point(longitude, latitude, srid=4326)
+        event.save()
+
+        assert Event.objects.by_location(
+            location).exists() == known_location['result']
+
+
+@pytest.mark.django_db
+class TestEventView2:
+    def test_auto_add_report_to_patrols(self, five_patrol_segment_subject):
+        patrol = Patrol.objects.order_by("created_at").last()
+        segment = patrol.patrol_segments.first()
+        subject = patrol.patrol_segments.first().leader
+
+        event_data = {
+            "event_type": "acoustic_detection",
+            "reported_by": SubjectSerializer(subject).data,
+            "time": datetime.now().isoformat(),
+            "event_details": {
+                "type_accident": "1",
+                "number_people_involved": 5,
+                "animals_involved": "1"
+            }
+        }
+
+        url = f"{reverse('events')}"
+        client = HTTPClient()
+        client.app_user.is_superuser = True
+        client.app_user.save()
+        request = client.factory.post(url, data=event_data)
+        client.force_authenticate_with_cyber_tracker(request, client.app_user)
+        response = views.EventsView.as_view()(request)
+
+        segment.refresh_from_db()
+
+        assert response.status_code == 201
+        assert segment.events.count() >= 1
+        assert segment.events.first(
+        ).event_type.value == event_data["event_type"]
+
+    def test_get_json_schema_method_without_repeated_dynamic_choice(self, event_type):
+        schema_waited = {
+            "schema": {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "title": "Rhino Sighting (rhino_sighting_rep)",
+                "type": "object",
+                "properties": {
+                    "rhinosightingrep_earnotchcount": {
+                        "type": "number",
+                        "title": "Ear notch count",
+                    },
+                    "rhinosightingrep_Rhino": {
+                        "type": "string",
+                        "title": "Individual Rhino ID",
+                        "enum": "{{query___blackRhinos___values}}",
+                        "enumNames": "{{query___blackRhinos___names}}",
+                    },
+                },
+            },
+            "definition": [
+                {"key": "rhinosightingrep_earnotchcount", "htmlClass": "col-lg-6"},
+                {"key": "rhinosightingrep_Rhino", "htmlClass": "col-lg-6"},
+            ],
+        }
+        schema = '''{
+            "schema": {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "title": "Rhino Sighting (rhino_sighting_rep)",
+              
+                "type": "object",
+        
+                "properties": 
+                {            
+                    "rhinosightingrep_earnotchcount": {
+                        "type":"number",
+                        "title": "Ear notch count"
+                    },           
+                    "rhinosightingrep_Rhino": {
+                        "type": "string",
+                        "title": "Individual Rhino ID",
+                        "enum": {{query___blackRhinos___values}},
+                        "enumNames": {{query___blackRhinos___names}}
+                    }
+                }
+            },
+            "definition": [ 
+            {
+                "key":         "rhinosightingrep_earnotchcount",
+                "htmlClass": "col-lg-6"
+            },     
+            {
+                "key":         "rhinosightingrep_Rhino",
+                "htmlClass": "col-lg-6"
+            }
+            ]
+        }'''
+        event_type.schema = schema
+        event_type.save()
+
+        events_view = views.EventTypeSchemaView()
+        json_schema = events_view._get_json_schema(event_type)
+
+        assert json_schema == schema_waited
+
+    def test_get_json_schema_method_with_repeated_dynamic_choice(self, event_type):
+        schema_waited = {
+            "schema": {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "title": "Rhino Sighting (rhino_sighting_rep)",
+                "type": "object",
+                "properties": {
+                    "rhinosightingrep_earnotchcount": {
+                        "type": "number",
+                        "title": "Ear notch count",
+                    },
+                    "rhinosightingrep_Rhino": {
+                        "type": "string",
+                        "title": "Individual Rhino ID",
+                        "enum": "{{query___blackRhinos___values}}",
+                        "enumNames": "{{query___blackRhinos___names}}",
+                    },
+                    "rhinosightingrep_Rhino2": {
+                        "type": "string",
+                        "title": "Individual Rhino ID 2",
+                        "enum": "{{query___blackRhinos___values}}",
+                        "enumNames": "{{query___blackRhinos___names}}",
+                    }
+                },
+            },
+            "definition": [
+                {"key": "rhinosightingrep_earnotchcount", "htmlClass": "col-lg-6"},
+                {"key": "rhinosightingrep_Rhino", "htmlClass": "col-lg-6"},
+                {"key": "rhinosightingrep_Rhino2", "htmlClass": "col-lg-6"},
+            ],
+        }
+        schema = '''{
+            "schema": {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "title": "Rhino Sighting (rhino_sighting_rep)",
+
+                "type": "object",
+
+                "properties": 
+                {            
+                    "rhinosightingrep_earnotchcount": {
+                        "type":"number",
+                        "title": "Ear notch count"
+                    },           
+                    "rhinosightingrep_Rhino": {
+                        "type": "string",
+                        "title": "Individual Rhino ID",
+                        "enum": {{query___blackRhinos___values}},
+                        "enumNames": {{query___blackRhinos___names}}
+                    },
+                    "rhinosightingrep_Rhino2": {
+                        "type": "string",
+                        "title": "Individual Rhino ID 2",
+                        "enum": {{query___blackRhinos___values}},
+                        "enumNames": {{query___blackRhinos___names}}
+                    }
+                }
+            },
+            "definition": [ 
+            {
+                "key":         "rhinosightingrep_earnotchcount",
+                "htmlClass": "col-lg-6"
+            },     
+            {
+                "key":         "rhinosightingrep_Rhino",
+                "htmlClass": "col-lg-6"
+            },
+            {
+                "key":         "rhinosightingrep_Rhino2",
+                "htmlClass": "col-lg-6"
+            }
+            ]
+        }'''
+        event_type.schema = schema
+        event_type.save()
+
+        events_view = views.EventTypeSchemaView()
+        json_schema = events_view._get_json_schema(event_type)
+
+        assert json_schema == schema_waited
+
+    def test_create_event_with_only_create_permission(self):
+        event_data = {'title': 'test title',
+                      "event_type": "acoustic_detection"}
+        url = f"{reverse('events')}"
+        client = HTTPClient()
+
+        permission_set = PermissionSet.objects.create(
+            name='Only create Events')
+        permission = Permission.objects.get(codename='analyzer_event_create')
+        permission_set.permissions.add(permission)
+        client.app_user.permission_sets.add(permission_set)
+
+        request = client.factory.post(url, data=event_data)
+        client.force_authenticate(request, client.app_user)
+        response = views.EventsView.as_view()(request)
+
+        assert response.status_code == 201
+        assert 'id' in response.data
+        assert len(response.data.keys()) == 1

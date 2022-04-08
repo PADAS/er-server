@@ -6,12 +6,10 @@ import uuid
 from enum import Enum
 from operator import attrgetter, itemgetter
 
-import django.utils
 import pytz
-from accounts.models.permissionset import PermissionSet
-from accounts.models.user import User
-from core.models import SingletonModel, TimestampedModel
-from core.utils import static_image_finder
+from versatileimagefield.fields import VersatileImageField
+
+import django.utils
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
@@ -19,25 +17,31 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Polygon
+from django.contrib.gis.measure import Distance
 from django.contrib.postgres.fields import DateTimeRangeField, JSONField
 from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.core.validators import RegexValidator
 from django.db import transaction
-from django.db.models import (Case, Exists, F, OuterRef, Q, Subquery, Value,
-                              When)
-from django.db.models.functions import Lower
+from django.db.models import (Case, CharField, Exists, F, OuterRef, Prefetch,
+                              Q, Subquery, Value, When)
+from django.db.models.functions import Cast, Lower
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import dateparse, timezone
 from django.utils.encoding import force_text
 from django.utils.translation import ugettext_lazy as _
-from observations.models import Subject, SubjectGroup
+
+from accounts.models.permissionset import PermissionSet
+from accounts.models.user import User
+from core.models import SingletonModel, TimestampedModel
+from core.utils import static_image_finder
+from observations.models import Subject, SubjectGroup, SubjectStatus
 from observations.utils import dateparse as dparse
 from revision.manager import (Revision, RevisionAdapter, RevisionMixin,
                               relation_deleted)
+from utils.gis import convert_to_point
 from utils.html import clean_user_text
-from versatileimagefield.fields import VersatileImageField
 
 logger = logging.getLogger(__name__)
 
@@ -391,6 +395,10 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             return self
         return self.exclude(in_relationship__type__value='contains')
 
+    def by_location(self, location):
+        point = convert_to_point(location)
+        return self.filter(location__distance_lte=(point, Distance(m=settings.GEO_PERMISSION_RADIUS_METERS)))
+
     def by_event_filter(self, filter):
 
         queryset = self
@@ -440,6 +448,9 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         if filter.get('update_date'):
             lower, upper = parse_date_range(filter.get('update_date'))
             queryset = queryset.by_updated_date(lower=lower, upper=upper)
+
+        if filter.get('location'):
+            queryset = queryset.by_location(filter.get('location'))
 
         return queryset.distinct()
 
@@ -770,6 +781,42 @@ class Event(RevisionMixin, TimestampedModel):
             ('analyzer_event_read', 'View analyzer reports'),
             ('analyzer_event_update', 'Modify analyzer reports'),
             ('analyzer_event_delete', 'Delete analyzer reports'),
+
+            ('add_security_geographic_distance',
+             'Create security reports in a certain distance'),
+            ('view_security_geographic_distance',
+             'View security reports in a certain distance'),
+            ('change_security_geographic_distance',
+             'Modify security reports in a certain distance'),
+            ('delete_security_geographic_distance',
+             'Delete security reports in a certain distance'),
+
+            ('add_monitoring_geographic_distance',
+             'Create monitoring reports in a certain distance'),
+            ('view_monitoring_geographic_distance',
+             'View monitoring reports in a certain distance'),
+            ('change_monitoring_geographic_distance',
+             'Modify monitoring reports in a certain distance'),
+            ('delete_monitoring_geographic_distance',
+             'Delete monitoring reports in a certain distance'),
+
+            ('add_logistics_geographic_distance',
+             'Create logistics reports in a certain distance'),
+            ('view_logistics_geographic_distance',
+             'View logistics reports in a certain distance'),
+            ('change_logistics_geographic_distance',
+             'Modify logistics reports in a certain distance'),
+            ('delete_logistics_geographic_distance',
+             'Delete logistics reports in a certain distance'),
+
+            ('add_analyzer_event_geographic_distance',
+             'Create analyzer reports in a certain distance'),
+            ('view_analyzer_event_geographic_distance',
+             'View analyzer reports in a certain distance'),
+            ('change_analyzer_event_geographic_distance',
+             'Modify analyzer reports in a certain distance'),
+            ('delete_analyzer_event_geographic_distance',
+             'Delete analyzer reports in a certain distance'),
 
             # These 4 permissions are deprecated (obviously) and should
             # eventually be removed
@@ -1575,11 +1622,11 @@ class StateFilters(Enum):
 
 class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_patrol_filter(self, filter):
-        queryset = self
+        queryset = self._annotate_queryset_with_serial_number_string()
         if filter.get("date_range"):
             patrols_overlap_daterange = filter.get(
                 "patrols_overlap_daterange", True)
-            queryset = self.by_date_range(
+            queryset = queryset.by_date_range(
                 filter.get("date_range"), patrols_overlap_daterange
             )
         if filter.get("text"):
@@ -1743,6 +1790,9 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             | Q(last_name__iregex=self._get_regex_istartswith(text))
         ).values_list("id", flat=True)
 
+    def _annotate_queryset_with_serial_number_string(self):
+        return self.annotate(serial_number_string=Cast("serial_number", CharField()))
+
 
 class Patrol(TimestampedModel, RevisionMixin):
     objects = models.Manager.from_queryset(PatrolFilteringQuerySet)()
@@ -1885,7 +1935,8 @@ class PatrolSegmentManager(models.Manager):
     def get_leader_for_provenance(provenance, user=None):
         if PC_STAFF == provenance:
             def get_subjects():
-                active_subjects = Subject.objects.all().by_is_active()
+                active_subjects = Subject.objects.prefetch_related(Prefetch("subjectstatus_set", queryset=SubjectStatus.objects.filter(
+                    delay_hours=0))).select_related("subject_subtype", "subject_subtype__subject_type").all().by_is_active()
                 subject_grps = PatrolConfiguration.objects.first().subject_groups.all()
 
                 for o in active_subjects.by_subjectgroups(subject_grps, user=user):

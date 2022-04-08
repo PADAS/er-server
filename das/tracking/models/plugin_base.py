@@ -4,28 +4,21 @@ import uuid
 from datetime import datetime, timedelta
 from typing import NamedTuple
 
-from django.contrib.gis.db import models
-from django.contrib.postgres.fields import JSONField
-from django.contrib.gis.geos import Point, Polygon
-from django.contrib.contenttypes.fields import GenericRelation
-from core.models import TimestampedModel
-
 import pytz
 from dateutil.parser import parse as parse_date
 
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
+from django.contrib.gis.geos import Point
 from django.contrib.postgres.fields import JSONField
 
-from observations.models import Source, SourceProvider, get_default_source_provider_id
-from core.models import TimestampedModel
-
 import observations
-from utils import stats
-
+from core.models import TimestampedModel
+from observations.models import (Source, SourceProvider,
+                                 get_default_source_provider_id)
 from tracking.pubsub_registry import notify_new_tracks
-
+from utils import stats
 
 logger = logging.getLogger(__name__)
 
@@ -151,9 +144,10 @@ class SourcePlugin(TimestampedModel):
                 notify_new_tracks(str(self.source.id))
 
             stats_count = accumulator.get('created', 0) if accumulator else 0
-            counter_name = '_'.join(
-                ('plugin', self.plugin._meta.label_lower, 'created'))
-            stats.increment(counter_name, value=stats_count)
+
+            stats.increment("tracking", tags=[
+                f"name:{self.plugin._meta.label_lower}",
+                "state:created"], value=stats_count)
 
             return result
 
@@ -248,7 +242,7 @@ class TrackingPlugin(TimestampedModel):
             if (now - wait_interval) >= latest_timestamp:
                 return True
 
-        except Exception as e:
+        except Exception:
             logger.exception(
                 'Failed to determine whether source-plugin %s should run.', source_plugin)
 
@@ -268,7 +262,7 @@ class TrackingPlugin(TimestampedModel):
                 result = sp.execute()
                 logger.debug(
                     'Finished running plugin {} for source {} with result.count={}'.format(sp, sp.source, result.count))
-            except DasPluginException as dpe:
+            except DasPluginException:
                 logger.exception(
                     'Running plugin {} for source {}'.format(sp, sp.source))
 
@@ -298,7 +292,6 @@ class PluginTarget(object):
 
         def func():
             accumulator = {'count': 0, 'created': 0}
-            cnt = 0
             try:
 
                 while True:
@@ -309,7 +302,7 @@ class PluginTarget(object):
             except GeneratorExit:
                 self.logger.info("Target received %d messages, created %d items.", accumulator['count'],
                                  accumulator['created'])
-            except Exception as e:
+            except Exception:
                 self.logger.exception("Exception in plugin handler.")
 
         r = func()

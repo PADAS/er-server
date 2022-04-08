@@ -217,6 +217,32 @@ locals {
     "ntap-tz"                 = "prod1"
     "wilderblean"             = "prod1"
     "careforwildrhino"        = "prod1"
+    "zinave"                  = "prod1"
+    "tintoumma"               = "prod1"
+    "khamab"                  = "prod1"
+    "luthuli"                 = "prod1"
+    "kbopt"                   = "prod1"
+    "siomangwezi"             = "prod1"
+    "jock"                    = "prod1"
+    "simalaha"                = "prod1"
+    "sandringham"             = "prod1"
+    "segera"                  = "prod1"
+    "sosian"                  = "prod1"
+    "elkarama"                = "prod1"
+    "noaa"                    = "prod1"
+    "nust"                    = "prod1"
+    "keoseima"                = "prod-asia"
+    "sabiegamepark"           = "prod1"
+    "chimanimani"             = "prod1"
+    "ukraine"                 = "prod1"
+    "sfggabon"                = "prod1"
+    "kaingo"                  = "prod1"
+    "csah4h"                  = "prod1"
+    "mkwc"                    = "prod1"
+    "melorane"                = "prod1"
+    "parcw-niger"             = "prod1"
+    "agriec"                  = "prod1"
+    "madikwefutures"          = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -319,6 +345,19 @@ locals {
     "baclip"                = 1
     "schoongezicht"         = 1
     "ntap-tz"               = 1
+    "tintoumma"             = 1
+    "khamab"                = 1
+    "luthuli"               = 1
+    "kbopt"                 = 1
+    "siomangwezi"           = 1
+    "jock"                  = 1
+    "simalaha"              = 1
+    "sandringham"           = 1
+    "segera"                = 1
+    "sosian"                = 1
+    "elkarama"              = 1
+    "noaa"                  = 1
+    "nust"                  = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
