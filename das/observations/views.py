@@ -45,7 +45,9 @@ from observations.utils import (VIEW_OBSERVATION_PERMS, VIEW_SUBJECT_PERMS,
                                 check_to_include_inactive_subjects, dateparse,
                                 get_minimum_allowed_age, parse_comma)
 from utils import add_base_url
-from utils.drf import (OptionalResultsSetPagination,
+from utils.drf import (CachedCountStandardResultsSetPagination,
+                       OptionalResultsSetPagination,
+                       StandardResultsSetCursorPagination,
                        StandardResultsSetGeoJsonPagination,
                        StandardResultsSetPagination)
 from utils.json import (ExtendedGEOJSONRenderer, parse_bool,
@@ -956,11 +958,33 @@ class ObservationsViewSchema(CustomSchema):
         return operation
 
 
+class ObservationsCursorPagination(StandardResultsSetCursorPagination):
+    cursor_query_Param = "id"
+    ordering = "recorded_at"
+
+
 class ObservationsView(generics.ListCreateAPIView):
     serializer_class = serializers.ObservationSerializer
-    pagination_class = StandardResultsSetPagination
+    pagination_class = CachedCountStandardResultsSetPagination
     permission_classes = (StandardObjectPermissions,)
     schema = ObservationsViewSchema()
+
+    @property
+    def paginator(self):
+        """
+        The paginator instance associated with the view, or `None`.
+        """
+        if not hasattr(self, '_paginator'):
+            if self.pagination_class is None:
+                self._paginator = None
+            else:
+                use_cursor = parse_bool(
+                    self.request.query_params.get('use_cursor'))
+                if use_cursor:
+                    self._paginator = ObservationsCursorPagination()
+                else:
+                    self._paginator = self.pagination_class()
+        return self._paginator
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
