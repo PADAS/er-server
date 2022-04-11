@@ -8,10 +8,15 @@ from urllib.parse import quote as urlquote
 from uuid import UUID
 
 import humanize
+import observations.forms
+import observations.models as models
 import pytz
 from bitfield import BitField
 from bitfield.forms import BitFieldCheckboxSelectMultiple
-
+from core.admin import (HierarchyModelAdmin, InlineExtraDynamicMixin,
+                        SaveCoordinatesToCookieMixin)
+from core.common import TIMEZONE_USED
+from core.openlayers import OSMGeoExtendedAdmin
 from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
@@ -23,7 +28,8 @@ from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth import get_permission_codename
 from django.contrib.contenttypes.admin import GenericTabularInline
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.db import transaction
+from django.core.paginator import Paginator
+from django.db import connection, transaction
 from django.db.models import (Aggregate, BooleanField, Count, DateTimeField,
                               ExpressionWrapper, F, Max, Min, OuterRef, Q,
                               Subquery, Window)
@@ -38,13 +44,6 @@ from django.utils.functional import cached_property
 from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
-
-import observations.forms
-import observations.models as models
-from core.admin import (HierarchyModelAdmin, InlineExtraDynamicMixin,
-                        SaveCoordinatesToCookieMixin)
-from core.common import TIMEZONE_USED
-from core.openlayers import OSMGeoExtendedAdmin
 from observations.daterange_filter import DateRangeFilter
 from observations.forms import (GPXFileForm,
                                 MessageGenericForeignKeyRawIdWidget,
@@ -54,7 +53,6 @@ from observations.tasks import (maintain_subjectstatus_for_subject,
                                 process_gpxtrack_file)
 from observations.utils import assigned_range_dates, get_cyclic_subjectgroup
 from tracking.models import SourcePlugin
-from utils.drf import TimeLimitedPaginator
 from utils.html import make_html_list
 
 from .models import SOURCE_TYPES
@@ -340,6 +338,33 @@ class SourceIdFilter(InputFilter, ValidateFilterMixin):
             return queryset.filter(source__id=uuid)
 
 
+class LargeTablePaginator(Paginator):
+    '''
+    If the query has no filter, then get count from pg_class.
+    '''
+
+    def _get_count(self):
+        # Handle subsequent calls in same request.
+        if getattr(self, '_count', None) is not None:
+            return self._count
+
+        query = self.object_list.query
+        self._count = None
+
+        if not query.where:
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT reltuples FROM pg_class WHERE relname = %s",
+                                   [query.model._meta.db_table])
+                    self._count = int(cursor.fetchone()[0])
+            except:
+                pass
+
+        return self._count if self._count is not None else super().count
+
+    count = cached_property(_get_count)
+
+
 @admin.register(models.Observation)
 class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin):
     readonly_fields = ("created_at", "id")
@@ -353,7 +378,7 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
     show_full_result_count = False
     autocomplete_fields = ('source',)
 
-    paginator = TimeLimitedPaginator
+    paginator = LargeTablePaginator
     formfield_overrides = {
         BitField: {
             'widget': BitFieldCheckboxSelectMultiple
@@ -424,6 +449,11 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
         qs = qs.annotate(manufacturer_id=F('source__manufacturer_id'),
                          )
         qs = qs.select_related('source',)
+
+        if not self.is_date_range_set(request):
+            # Hard-limit at 180 days.
+            dt = datetime.now(tz=pytz.utc) - OBSERVATIONS_HISTORY_LIMIT
+            qs = qs.filter(recorded_at__gte=dt)
 
         return qs
 
