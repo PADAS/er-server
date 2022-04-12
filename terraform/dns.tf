@@ -20,6 +20,7 @@ locals {
     "africanparks"           = "greaterkafue"
     "zcp"                    = "zcp-kafue"
     "amboseli-np"            = "amboseli-np-archive"
+    "kws"                    = "kws-gcloud"
   }
 
   subdomain_name = lookup(local.alt_subdomains, terraform.workspace, kubernetes_namespace.this.metadata.0.name)

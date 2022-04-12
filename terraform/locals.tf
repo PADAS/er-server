@@ -243,6 +243,7 @@ locals {
     "parcw-niger"             = "prod1"
     "agriec"                  = "prod1"
     "madikwefutures"          = "prod1"
+    "kws"                     = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -358,6 +359,7 @@ locals {
     "elkarama"              = 1
     "noaa"                  = 1
     "nust"                  = 1
+    "kws"                   = 2
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
