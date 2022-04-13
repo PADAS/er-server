@@ -340,6 +340,7 @@ workflows:
             branches:
               ignore:
                 - 'develop'
+                - /das-2-.*-.*/
       - docker_build_image:
           requires:
             - 'build_sphinx_docs'
@@ -347,6 +348,7 @@ workflows:
             branches:
               ignore:
                 - 'develop'
+                - /das-2-.*-.*/
       - run_api_unittests:
           requires:
             - 'docker_build_image'
@@ -374,7 +376,7 @@ workflows:
           filters:
             branches:
               only:
-                - 'das-2-*-*'
+                - /das-2-.*-.*/
       - run_api_unittests:
           requires:
             - 'docker_build_image'
