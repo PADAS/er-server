@@ -367,7 +367,7 @@ workflows:
           filters:
             branches:
               only:
-                - 'das-2-*-*'
+                - /das-2-.*-.*/
       - docker_build_image:
           requires:
             - 'build_sphinx_docs'
