@@ -243,6 +243,9 @@ locals {
     "parcw-niger"             = "prod1"
     "agriec"                  = "prod1"
     "madikwefutures"          = "prod1"
+    "suyian"                  = "prod1"
+    "lolldaiga"               = "prod1"
+    "ncz-vultures"            = "prod1"
     "kws"                     = "prod1"
   }
 

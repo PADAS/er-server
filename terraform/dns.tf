@@ -20,6 +20,7 @@ locals {
     "africanparks"           = "greaterkafue"
     "zcp"                    = "zcp-kafue"
     "amboseli-np"            = "amboseli-np-archive"
+    "madikwefutures"         = "madikwewildlife"
     "kws"                    = "kws-gcloud"
   }
 
