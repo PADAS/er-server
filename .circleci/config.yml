@@ -196,12 +196,25 @@ jobs:
       - add_deploy_key_for_common_terraform_modules
       - run: 'cd infra-automation && make check_for_abandoned_workspaces'
   terraform_plan:
+    parameters:
+      terraform_workspace:
+        type: string
+        default: "develop"
+      init_args:
+        type: string
+        default: "-input=false"
+      plan_args:
+        type: string
+        default: '-input=false -out=tfplan -var "is_running_in_automation=true"'
     environment:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
     steps:
       - terraform_plan:
-          terraform_workspace: '$CIRCLE_BRANCH'
+          terraform_workspace: << parameters.terraform_workspace >>
+          init_args: << parameters.init_args >>
+          plan_args: << parameters.plan_args >>
+
   terraform_apply_dev:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
@@ -347,6 +360,31 @@ workflows:
       - terraform_apply_feature_branch:
           requires:
             - 'review_plan'
+
+  build_and_terraform_release_branch:
+    jobs:
+      - build_sphinx_docs:
+          filters:
+            branches:
+              only:
+                - 'das-2-*-*'
+      - docker_build_image:
+          requires:
+            - 'build_sphinx_docs'
+          filters:
+            branches:
+              only:
+                - 'das-2-*-*'
+      - run_api_unittests:
+          requires:
+            - 'docker_build_image'
+      - terraform_plan:
+          requires:
+            - 'docker_build_image'
+          terraform_workspace: "stage"
+        # add apply
+        # add verification
+        # add step to release to all sites
 
   audit:
     jobs:
