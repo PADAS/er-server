@@ -53,8 +53,6 @@ from utils.json import (ExtendedGEOJSONRenderer, parse_bool,
 
 logger = logging.getLogger(__name__)
 
-STATIONARY_SUBJECT_VALUE = "stationary-subject"
-
 
 def get_track_days():
     try:
@@ -68,7 +66,7 @@ ONE_YEAR = datetime.timedelta(days=365)
 
 
 def include_stationary_subjects_on_map():
-    return parse_bool(getattr(settings, 'SHOW_STATIONARY_SUBJECTS_ON_MAP', False))
+    return parse_bool(getattr(settings, 'SHOW_STATIONARY_SUBJECTS_ON_MAP', True))
 
 
 current_tz_name = timezone.get_current_timezone_name()
@@ -2061,7 +2059,6 @@ class AnnouncementsView(generics.ListCreateAPIView):
 
         queryset = models.Announcement.objects.filter(
             pk__in=serializer.data.get('news_ids'))
-        print(queryset.count())
         [q.related_users.add(request.user) for q in queryset]
 
         context = dict(request=self.request)

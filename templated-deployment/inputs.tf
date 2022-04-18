@@ -191,7 +191,7 @@ variable "mapping_features_v2" {
 
 variable "show_stationary_subjects_on_map" {
   type    = string
-  default = "False"
+  default = "True"
 }
 
 variable "patrol_enabled" {
@@ -229,4 +229,3 @@ variable "alt_server_names" {
   type    = list(string)
   default = []
 }
-

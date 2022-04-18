@@ -5,10 +5,12 @@ call your project be overriding the settings file
 
 """
 
-from .settings import *
 import os
 
 import environ
+
+from .settings import *
+
 env = environ.Env(
     # set casting, default value
     DEBUG=(bool, False)
@@ -43,7 +45,7 @@ DEV = env.bool('ENABLE_DEV', False)
 
 SHOW_TRACK_DAYS = env.int('SHOW_TRACK_DAYS', 14)
 SHOW_STATIONARY_SUBJECTS_ON_MAP = env.bool(
-    'SHOW_STATIONARY_SUBJECTS_ON_MAP', False)
+    'SHOW_STATIONARY_SUBJECTS_ON_MAP', True)
 
 TIME_ZONE = env.str('TIME_ZONE', 'US/Pacific')
 
