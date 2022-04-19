@@ -39,6 +39,7 @@ class ObservationAnnotator(Annotator):
             # executed without values in settings.
             max_speed = DEFAULT_SPEED_THRESHOLDS.get(
                 subject.subject_subtype_id, None)
+
             annotator, created = ObservationAnnotator.objects.get_or_create(subject_id=subject.id,
                                                                             defaults={'max_speed': max_speed})
             if created:
