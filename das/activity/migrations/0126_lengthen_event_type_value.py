@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('activity', '0124_event_time_index'),
+        ('activity', '0125_add_geographic_permissions_to_event_categories'),
     ]
 
     operations = [
