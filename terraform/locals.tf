@@ -246,6 +246,7 @@ locals {
     "suyian"                  = "prod1"
     "lolldaiga"               = "prod1"
     "ncz-vultures"            = "prod1"
+    "sucp"                    = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
