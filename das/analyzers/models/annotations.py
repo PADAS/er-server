@@ -1,16 +1,15 @@
 import logging
-
 from datetime import datetime, timedelta
-import pytz
 
 import psycopg2.extras
-import geopandas as gpd
+import pytz
+
+from django.conf import settings
 from django.contrib.gis.db import models
 from django.utils.translation import ugettext as _
-from django.conf import settings
-from observations.models import Observation, SubjectSource
 
 from analyzers.models.base import Annotator
+from observations.models import Observation, SubjectSource
 
 logger = logging.getLogger(__name__)
 
@@ -35,20 +34,24 @@ class ObservationAnnotator(Annotator):
     @classmethod
     def get_for_subject(self, subject):
 
-        if subject.subject_subtype_id not in DEFAULT_SPEED_THRESHOLDS:
-            return
+        if subject.subject_subtype_id in DEFAULT_SPEED_THRESHOLDS:
+            # Set the generic default max speed very high, in case this gets
+            # executed without values in settings.
+            max_speed = DEFAULT_SPEED_THRESHOLDS.get(
+                subject.subject_subtype_id, None)
+            annotator, created = ObservationAnnotator.objects.get_or_create(subject_id=subject.id,
+                                                                            defaults={'max_speed': max_speed})
+            if created:
+                logger.info(
+                    'Created ObseravtionAnnotator for Subject %s with max-speed-threshold: %s', subject, max_speed)
 
-        # Set the generic default max speed very high, in case this gets
-        # executed without values in settings.
-        max_speed = DEFAULT_SPEED_THRESHOLDS.get(subject.subject_subtype_id, None)
-        annotator, created = ObservationAnnotator.objects.get_or_create(subject_id=subject.id,
-                                                                        defaults={'max_speed': max_speed})
+            return annotator
 
-        if created:
-            logger.info(
-                'Created ObseravtionAnnotator for Subject %s with max-speed-threshold: %s', subject, max_speed)
-
-        return annotator
+        try:
+            return ObservationAnnotator.objects.get(subject_id=subject.id)
+        except ObservationAnnotator.DoesNotExist:
+            # This is acceptable, since no default is set for this Subject's sub-type.
+            pass
 
     # Maximum speed in kilometers per hour.
     max_speed = models.FloatField(

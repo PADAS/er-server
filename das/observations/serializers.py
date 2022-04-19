@@ -760,6 +760,9 @@ class ObservationSerializer(rest_framework.serializers.ModelSerializer):
         if params.get('include_details'):
             # and adding observation details if requested.
             rep['observation_details'] = rep['additional']
+        location = rep.get("location")
+        if location and not isinstance(location, dict):
+            rep["location"] = dict(longitude=location.x, latitude=location.y)
 
         rep.pop('additional', None)
         rep.pop('source_transforms', None)
