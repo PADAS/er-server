@@ -247,6 +247,7 @@ locals {
     "lolldaiga"               = "prod1"
     "ncz-vultures"            = "prod1"
     "binderlere"              = "prod1"
+    "termit"                  = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -363,6 +364,7 @@ locals {
     "noaa"                  = 1
     "nust"                  = 1
     "binderlere"            = 1
+    "termit"                = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
