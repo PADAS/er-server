@@ -363,6 +363,8 @@ locals {
     "elkarama"              = 1
     "noaa"                  = 1
     "nust"                  = 1
+    "sucp"                  = 1
+    "zellerzigaitis"        = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
