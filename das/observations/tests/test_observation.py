@@ -4,16 +4,18 @@ from datetime import datetime, timedelta, timezone
 from typing import NamedTuple
 
 import pytest
-from core.tests import BaseAPITest
+from pytz import UTC
+
 from django.contrib.auth import get_user_model
 from django.db.models import F
 from django.urls import reverse
+
+from core.tests import BaseAPITest
 from observations.models import (Observation, Source, SourceProvider, Subject,
                                  SubjectSource, SubjectStatus)
 from observations.serializers import ObservationSerializer
 from observations.views import (ObservationsView, SubjectStatusView,
                                 SubjectsView, TrackingDataCsvView)
-from pytz import UTC
 
 User = get_user_model()
 
@@ -333,8 +335,10 @@ class ObservationTestCase(BaseAPITest):
         self.force_authenticate(request, self.user)
         response = ObservationsView.as_view()(request, subject_id=subject_id)
         self.assertEqual(response.status_code, 200)
+        first_observation = response.data['results'][0]
         self.assertTrue(
-            len(response.data['results'][0].get('device_status_properties')), 2)
+            len(first_observation.get('device_status_properties')), 2)
+        assert first_observation['location']['latitude'] and first_observation['location']['longitude']
 
 
 def generate_observation(source, recorded_at=None):
