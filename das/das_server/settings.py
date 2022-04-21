@@ -484,6 +484,8 @@ ANNOTATION_SETTINGS = {
         'vehicle': 200.0,
         'plane': 500.0,
         'helicopter': 500.0,
+        'ranger': 200.0,
+        'ranger_team': 200.0,
     }
 }
 
