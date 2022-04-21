@@ -55,11 +55,15 @@ commands:
       network:
         type: string
         default: 'dev'
+      terraform_workspace:
+        type: string
+        default: 'develop'
     steps:
       - 'add_deploy_key_for_common_terraform_modules'
       - attach_workspace:
           at: './'
       - 'export_google_credentials'
+      - run: 'cd infra-automation && make tf_workspace_select workspace="<< parameters.terraform_workspace >>"'
       - 'toggle_firewall_for_build_agent_k8s_and_proxy_closure':
           inner_command: 'cd infra-automation && make tf_apply apply_options="<< parameters.apply_args >>"'
           network: '<< parameters.network >>'
@@ -218,6 +222,10 @@ jobs:
   terraform_apply_dev:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
+    parameters:
+      terraform_workspace:
+        type: string
+        default: "develop"
     executor: 'default'
     steps:
       - terraform_apply_dev:
@@ -384,9 +392,14 @@ workflows:
           requires:
             - 'docker_build_image'
           terraform_workspace: "stage"
-        # add apply
-        # add verification
-        # add step to release to all sites
+      - review_plan:
+          requires:
+            - 'terraform_plan'
+          type: 'approval'
+      - terraform_apply_dev:
+          requires:
+            - 'review_plan'
+          terraform_workspace: "stage"
 
   audit:
     jobs:
