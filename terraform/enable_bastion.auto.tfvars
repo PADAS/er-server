@@ -1,1 +1,1 @@
-need_bastion_server = true
+need_bastion_server = false
