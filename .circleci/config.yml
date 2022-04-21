@@ -72,7 +72,13 @@ commands:
           command: |
             cd infra-automation
             make generate_manifest current_branch="$CIRCLE_BRANCH"
-            make render_templates tfvars_environment="$CIRCLE_BRANCH"
+            regex="das-2-.*-.*"
+            ENVIRONMENT_BRANCH="${CIRCLE_BRANCH}"
+            if [[ $CIRCLE_BRANCH =~ $regex ]]; then
+              echo "Staging"
+              ENVIRONMENT_BRANCH="stage"
+            fi
+            make render_templates tfvars_environment="$ENVIRONMENT_BRANCH"
       - 'toggle_firewall_for_build_agent_k8s_closure':
           inner_command: 'cd infra-automation && make kubectl_apply_via_proxy'
       - persist_to_workspace:
