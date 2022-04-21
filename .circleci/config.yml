@@ -63,7 +63,6 @@ commands:
       - attach_workspace:
           at: './'
       - 'export_google_credentials'
-      - run: 'cd infra-automation && make tf_workspace_select workspace="<< parameters.terraform_workspace >>"'
       - 'toggle_firewall_for_build_agent_k8s_and_proxy_closure':
           inner_command: 'cd infra-automation && make tf_apply apply_options="<< parameters.apply_args >>"'
           network: '<< parameters.network >>'
