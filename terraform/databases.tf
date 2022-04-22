@@ -10,6 +10,11 @@ locals {
       db_instance            = data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_name,
       db_instance_private_ip = data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_private_ip,
       db_password_path       = "earthranger_app_infra_postgres_server2_${local.db_secret_path}"
+    },
+    {
+      db_instance            = terraform.workspace == "kws" ? data.terraform_remote_state.earthranger_app_infra.outputs.kws_instance_name : "",
+      db_instance_private_ip = terraform.workspace == "kws" ? data.terraform_remote_state.earthranger_app_infra.outputs.kws_instance_private_ip : "",
+      db_password_path       = terraform.workspace == "kws" ? "earthranger_app_infra_postgres_kws_${local.db_secret_path}" : ""
     }
   ]
 
