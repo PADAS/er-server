@@ -808,12 +808,23 @@ class TestSubjectsViewFilter:
             ),
         ],
     )
+    @pytest.mark.parametrize(
+        "subject_group",
+        [
+            [
+                "view_subjectgroup,observations,subjectgroup",
+                "view_subject,observations,subject",
+            ]
+        ],
+        indirect=True,
+    )
     def test_by_bbox_using_last_known_locations(
         self,
         view_subjects_permission_set,
         five_subject_sources,
         status_subjects_position,
         total,
+        subject_group,
     ):
         bbox = "-103.71599063163262,20.51126608854284,-103.36639645879019,20.780283984574012"
         for position, source in zip(status_subjects_position, Source.objects.all()):
@@ -822,9 +833,12 @@ class TestSubjectsViewFilter:
                 source=source,
                 location=Point(position),
             )
+        subject_group.subjects.add(*Subject.objects.all())
 
         client = HTTPClient()
         client.app_user.permission_sets.add(view_subjects_permission_set)
+        client.app_user.permission_sets.add(
+            subject_group.permission_sets.last())
         request = client.factory.get(
             client.api_base + f"/subjects/?bbox={bbox}&use_lkl=true"
         )
@@ -833,8 +847,22 @@ class TestSubjectsViewFilter:
 
         assert len(response.data) == total
 
+    @pytest.mark.parametrize(
+        "subject_group",
+        [
+            [
+                "view_subjectgroup,observations,subjectgroup",
+                "view_subject,observations,subject",
+            ]
+        ],
+        indirect=True,
+    )
     def test_by_bbox_using_last_known_location_not_include_stationary_subjects(
-        self, view_subjects_permission_set, five_subject_sources, settings
+        self,
+        view_subjects_permission_set,
+        five_subject_sources,
+        settings,
+        subject_group,
     ):
         settings.SHOW_STATIONARY_SUBJECTS_ON_MAP = False
         first_subject_source = SubjectSource.objects.last()
@@ -850,9 +878,12 @@ class TestSubjectsViewFilter:
                 source=source,
                 location=Point(position),
             )
+        subject_group.subjects.add(*Subject.objects.all())
 
         bbox = "-103.7384033203125,20.52221649818549,-103.39714050292969,20.801694707706137"
         client = HTTPClient()
+        client.app_user.permission_sets.add(
+            subject_group.permission_sets.last())
         client.app_user.permission_sets.add(view_subjects_permission_set)
         request = client.factory.get(
             client.api_base + f"/subjects/?bbox={bbox}&use_lkl=true"
@@ -864,8 +895,22 @@ class TestSubjectsViewFilter:
         assert first_subject.id not in [
             item.get("id") for item in response.data]
 
+    @pytest.mark.parametrize(
+        "subject_group",
+        [
+            [
+                "view_subjectgroup,observations,subjectgroup",
+                "view_subject,observations,subject",
+            ]
+        ],
+        indirect=True,
+    )
     def test_by_bbox_using_last_known_location_include_stationary_subjects(
-        self, view_subjects_permission_set, five_subject_sources, settings
+        self,
+        view_subjects_permission_set,
+        five_subject_sources,
+        settings,
+        subject_group,
     ):
         settings.SHOW_STATIONARY_SUBJECTS_ON_MAP = True
         first_subject_source = SubjectSource.objects.last()
@@ -881,9 +926,12 @@ class TestSubjectsViewFilter:
                 source=source,
                 location=Point(position),
             )
+        subject_group.subjects.add(*Subject.objects.all())
 
         bbox = "-103.7384033203125,20.52221649818549,-103.39714050292969,20.801694707706137"
         client = HTTPClient()
+        client.app_user.permission_sets.add(
+            subject_group.permission_sets.last())
         client.app_user.permission_sets.add(view_subjects_permission_set)
         request = client.factory.get(
             client.api_base + f"/subjects/?bbox={bbox}&use_lkl=true"
