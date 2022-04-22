@@ -293,7 +293,7 @@ SWAGGER_SETTINGS = {
     }
 }
 
-OAUTH2_PROVIDER = {'ACCESS_TOKEN_EXPIRE_SECONDS': 1800,    # half an hour
+OAUTH2_PROVIDER = {'ACCESS_TOKEN_EXPIRE_SECONDS': 3600 * 48, # two days
                    'REFRESH_TOKEN_EXPIRE_SECONDS': 31 * 24 * 3600,  # one month
                    }
 
