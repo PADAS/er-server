@@ -248,6 +248,7 @@ locals {
     "ncz-vultures"            = "prod1"
     "sucp"                    = "prod1"
     "zellerzigaitis"          = "prod1"
+    "kws"                     = "prod1"
     "ithala"                  = "prod1"
     "binderlere"              = "prod1"
     "termit"                  = "prod1"
@@ -366,6 +367,7 @@ locals {
     "elkarama"              = 1
     "noaa"                  = 1
     "nust"                  = 1
+    "kws"                   = 2
     "ithala"                = 1
     "binderlere"            = 1
     "termit"                = 1
