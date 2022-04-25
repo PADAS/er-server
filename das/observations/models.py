@@ -990,37 +990,35 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             updated_until=None,
     ):
         geometry = Polygon.from_bbox(bbox)
-        subject_statuses = SubjectStatus.objects.filter(
-            location__within=geometry, delay_hours=0, subject__is_active=True
-        )
-
-        stationary_subjects = Subject.objects.filter(
+        queryset = self.filter(
+            Q(subjectstatus__location__within=geometry) | Q(
+                subjectsource__location__within=geometry),
             subjectstatus__delay_hours=0,
-            is_active=True,
-            subjectsource__location__within=geometry,
-            subject_subtype__subject_type__value=STATIONARY_SUBJECT_VALUE,
-        )
-        queryset = subject_statuses.exclude(
-            subject__subject_subtype__subject_type__value=STATIONARY_SUBJECT_VALUE
+            subjectstatus__subject__is_active=True,
         )
 
         if updated_since and updated_until:
             queryset = queryset.filter(
-                recorded_at__range=(updated_since, updated_until))
+                subjectstatus__recorded_at__range=(updated_since, updated_until))
         elif updated_since:
-            queryset = queryset.filter(recorded_at__gte=updated_since)
+            queryset = queryset.filter(
+                subjectstatus__recorded_at__gte=updated_since)
         elif updated_until:
-            queryset = queryset.filter(recorded_at__lte=updated_until)
+            queryset = queryset.filter(
+                subjectstatus__recorded_at__lte=updated_until)
         elif last_days:
             now = datetime.now(tz=pytz.UTC)
             since = now - last_days
             until = now + timedelta(minutes=10)
-            queryset = queryset.filter(recorded_at__range=(since, until))
+            queryset = queryset.filter(
+                subjectstatus__recorded_at__range=(since, until))
 
-        subjects = Subject.objects.filter(id__in=queryset.values("subject"))
-        if include_stationary_subjects:
-            return subjects.union(stationary_subjects)
-        return subjects
+        if not include_stationary_subjects:
+            result = queryset.exclude(
+                subject_subtype__subject_type__value=STATIONARY_SUBJECT_VALUE
+            )
+            return result
+        return queryset
 
     def get_staff(self):
         return self.filter(subject_subtype__subject_type__value='person')
