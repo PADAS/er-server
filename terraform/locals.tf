@@ -246,6 +246,8 @@ locals {
     "suyian"                  = "prod1"
     "lolldaiga"               = "prod1"
     "ncz-vultures"            = "prod1"
+    "sucp"                    = "prod1"
+    "zellerzigaitis"          = "prod1"
     "kws"                     = "prod1"
     "ithala"                  = "prod1"
     "binderlere"              = "prod1"
