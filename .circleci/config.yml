@@ -198,12 +198,13 @@ executors:
 
 jobs:
   relyance: 
+    
     machine:
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2004:202010-02
     steps:
       - checkout
       # TODO: Add "RELYANCE_TOKEN" as circleCI environment variable. The token is available in Step 2 on the "Source Code Integration" tab in the platform.
-      - run: curl -f --header 'x-rel-access-token:$RELYANCE_TOKEN' 'https://allenai.relyance.ai/api/download?type=image' --output relyance_inspector.tar.gz && docker load --input relyance_inspector.tar.gz && docker run --rm -v `pwd`:/repo relyance_inspector:latest && docker image rm relyance_inspector:latest
+      - run: curl -f --header "x-rel-access-token:$RELYANCE_TOKEN" 'https://allenai.relyance.ai/api/download?type=image' --output relyance_inspector.tar.gz && docker load --input relyance_inspector.tar.gz && docker run --rm -v `pwd`:/repo relyance_inspector:latest && docker image rm relyance_inspector:latest
   check_for_abandoned_workspaces:
     executor: circleci_executor
     steps:
@@ -434,4 +435,5 @@ workflows:
                 - "develop" 
     jobs:
       - relyance:
-          context: relyance
+          context:
+            - relyance
