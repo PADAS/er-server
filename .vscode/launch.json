@@ -155,10 +155,10 @@
             "request": "launch",
             "justMyCode": false,
             "program": "${workspaceFolder}/das/manage.py",
-            "console": "internalConsole",
+            "console": "integratedTerminal",
             "cwd": "${workspaceFolder}/das",
             "args": [
-                "firms"
+                "shell"
             ],
             "django": true
         }

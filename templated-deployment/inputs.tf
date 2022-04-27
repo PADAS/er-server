@@ -216,7 +216,7 @@ variable "tableau_site_id" {
 
 variable "tableau_default_dashboard" {
   type     = string
-  default = "EarthRangerEventReportsSummary_demo" 
+  default = "er_standard_analytics/summary" 
 }
 
 variable "track_length" {

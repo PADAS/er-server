@@ -562,7 +562,7 @@ TABLEAU_VERSION = 3.9
 TABLEAU_API_TOKEN = None
 TABLEAU_API_USERNAME = "ER Server"
 TABLEAU_API_PASSWORD = None
-TABLEAU_DEFAULT_DASHBOARD = "EarthRangerEventReportsSummary_demo"
+TABLEAU_DEFAULT_DASHBOARD = "er_standard_analytics/summary"
 
 # Sensible default domain name.
 SERVER_FQDN = "tempuri.org"
