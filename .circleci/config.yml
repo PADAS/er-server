@@ -376,6 +376,7 @@ workflows:
       - terraform_plan:
           requires:
             - 'docker_build_image'
+          terraform_workspace: "$CIRCLE_BRANCH"
       - review_plan:
           requires:
             - 'terraform_plan'
