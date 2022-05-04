@@ -51,7 +51,8 @@ from das_server import settings
 from observations.mixins import FilterMixin
 from observations.utils import (VIEW_END_WINDOWS, calculate_track_range,
                                 ensure_timezone_aware, get_cyclic_subjectgroup,
-                                get_minimum_allowed_age)
+                                get_minimum_allowed_age,
+                                is_subject_stationary_subject)
 from tracking.pubsub_registry import notify_subjectstatus_update
 from utils.json import zeroout_microseconds
 
@@ -456,16 +457,20 @@ class ObservationManager(models.Manager):
             source=source).aggregate(Max('recorded_at'))
         return r.get('recorded_at__max')
 
-    def get_last_source_observation(self, source, delay_hours=0):
-
+    def get_last_source_observation(self, source, include_empty_location: bool = False, delay_hours: int = 0):
         try:
-            qs = Observation.objects.filter(source=source)
+            queryset = Observation.objects.filter(source=source)
+
             if delay_hours:
-                end_time = pytz.utc.localize(
-                    datetime.utcnow()) - timedelta(hours=delay_hours)
-                qs = qs.filter(recorded_at__lt=end_time)
-            qs = qs.exclude(location=EMPTY_POINT)
-            return qs.latest('recorded_at')
+                end_time = pytz.utc.localize(datetime.utcnow()) - timedelta(
+                    hours=delay_hours
+                )
+                queryset = queryset.filter(recorded_at__lt=end_time)
+
+            if not include_empty_location:
+                queryset = queryset.exclude(location=EMPTY_POINT)
+
+            return queryset.latest("recorded_at")
 
         except Observation.DoesNotExist:
             pass
@@ -1375,10 +1380,10 @@ class SubjectStatusManager(models.Manager):
     delayed_windows = list((item for item in VIEW_END_WINDOWS if item[1] > 0))
 
     @staticmethod
-    def update_current_from_source(source):
-
-        observation = Observation.objects.get_last_source_observation(source)
-
+    def update_current_from_source(source, include_empty_location=False):
+        observation = Observation.objects.get_last_source_observation(
+            source, include_empty_location
+        )
         if not observation:
             return
 
@@ -1399,8 +1404,14 @@ class SubjectStatusManager(models.Manager):
                 latest_observation, force=True)
 
     def update_current(self, subject):
-        for subjectsource in SubjectSource.objects.filter(subject=subject, assigned_range__contains=datetime.now(tz=pytz.utc)):
-            self.update_current_from_source(subjectsource.source)
+        for subject_source in SubjectSource.objects.filter(
+                subject=subject, assigned_range__contains=datetime.now(
+                    tz=pytz.utc)
+        ):
+            self.update_current_from_source(
+                subject_source.source,
+                include_empty_location=is_subject_stationary_subject(subject),
+            )
 
     def update_delayed_status(self, subject):
         '''

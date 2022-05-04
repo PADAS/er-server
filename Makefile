@@ -31,10 +31,10 @@ connect-db:
 	kubectl -n ${NAMESPACE} exec -it ${DB_POD} -- psql -U postgres
 
 test:
-	pytest -vv ${TEST_PATH}::${TEST_CLASS}::${TEST_METHOD}
+	pytest -vvrP ${TEST_PATH}::${TEST_CLASS}::${TEST_METHOD}
 
 test-class:
-	pytest -vv ${TEST_PATH}::${TEST_CLASS}
+	pytest -vvrP ${TEST_PATH}::${TEST_CLASS}
 
 format-file:
 	./scripts_dev/formatter_py_files.sh ${FILE}

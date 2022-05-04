@@ -5,13 +5,13 @@ from datetime import datetime, timedelta, timezone
 
 import dateutil.parser
 import pytz
-from django.core.exceptions import PermissionDenied
-from django.conf import settings
-from pytz import timezone
 from dateutil.parser import parse
+from pytz import timezone
+
+from django.conf import settings
+from django.core.exceptions import PermissionDenied
 from django.db import connection
 from django.db.models import Aggregate
-
 
 logger = logging.getLogger(__name__)
 
@@ -235,7 +235,7 @@ def get_chunk_file(file, chunksize=5120):
     return iter(lambda: file.read(chunksize), b'')
 
 
-def ensure_timezone_aware(dt: datetime, default_timezone: timezone=pytz.utc):
+def ensure_timezone_aware(dt: datetime, default_timezone: timezone = pytz.utc):
     if dt is None:
         return dt
 
@@ -285,7 +285,7 @@ def find_paths(item, accum=None, prefix=None):
 
     elif isinstance(item, dict):
         for k, v in item.items():
-            if isinstance(v, (list,dict)):
+            if isinstance(v, (list, dict)):
                 find_paths(v, accum=accum, prefix=prefix + [k])
             else:
                 accum.setdefault('.'.join(prefix + [k]), set()).add(v)
@@ -311,3 +311,14 @@ def parse_comma(q):
         except TypeError:
             return vals
     return
+
+
+def is_subject_stationary_subject(subject):
+    return subject.subject_subtype.subject_type.value == "stationary-object"
+
+
+def is_observation_stationary_subject(observation):
+    subject_source = observation.source.subjectsource_set.last()
+    if subject_source:
+        return is_subject_stationary_subject(subject_source.subject)
+    return False

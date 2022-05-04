@@ -54,12 +54,14 @@ register(UserFactory, "ops_user")
 
 @pytest.fixture
 def view_subject_permissions():
-    return [Permission.objects.get_by_natural_key(
-            'view_subjectgroup', 'observations', 'subjectgroup'
-            ), Permission.objects.get_by_natural_key(
-            'view_subject', 'observations', 'subject'
-            ),
-            ]
+    return [
+        Permission.objects.get_by_natural_key(
+            "view_subjectgroup", "observations", "subjectgroup"
+        ),
+        Permission.objects.get_by_natural_key(
+            "view_subject", "observations", "subject"
+        ),
+    ]
 
 
 @pytest.fixture
