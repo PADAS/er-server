@@ -1,18 +1,19 @@
 import logging
 
-import django.views.defaults
-from django.http import Http404, JsonResponse
-from django.utils.translation import ugettext_lazy as _
-import rest_framework
-from rest_framework import exceptions
-from rest_framework.views import set_rollback
-from rest_framework.response import Response
-from rest_framework.views import exception_handler
-from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import AllowAny, IsAuthenticated, BasePermission
-from rest_framework import serializers
 from rest_framework_gis.pagination import GeoJsonPagination
 
+import django.views.defaults
+import rest_framework
+from django.core.paginator import Paginator
+from django.db import OperationalError, connection, transaction
+from django.http import JsonResponse
+from django.utils.functional import cached_property
+from django.utils.translation import ugettext_lazy as _
+from rest_framework import exceptions
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import BasePermission
+from rest_framework.response import Response
+from rest_framework.views import exception_handler, set_rollback
 
 logger = logging.getLogger('django.request')
 
@@ -59,7 +60,7 @@ def api_exception_handler(exc, context):
     # without putting it in a new dictionary under the "datail" key which breaks fixup_api_response
     response = exception_handler(exc, context)
     if not response:
-        message = str(_('Internal Server Error'))
+        str(_('Internal Server Error'))
         detail = str(exc)
         data = {'detail': detail} if detail else {}
         set_rollback()
@@ -85,3 +86,26 @@ class AllowAnyGet(BasePermission):
     def has_permission(self, request, view):
         return request.method in ('GET', 'HEAD', 'OPTIONS') \
             or (request.user and request.user.is_authenticated)
+
+
+class TimeLimitedPaginator(Paginator):
+    """
+    Paginator that enforced a timeout on the count operation.
+    When the timeout is reached a "fake" large value is returned instead,
+    Why does this hack exist? On every admin list view, Django issues a
+    COUNT on the full queryset. There is no simple workaround. On big tables,
+    this COUNT is extremely slow and makes things unbearable. This solution
+    is what we came up with.
+    https://hakibenita.com/optimizing-the-django-admin-paginator
+    """
+
+    @cached_property
+    def count(self):
+        # We set the timeout in a db transaction to prevent it from
+        # affecting other transactions.
+        with transaction.atomic(), connection.cursor() as cursor:
+            cursor.execute('SET LOCAL statement_timeout TO 200;')
+            try:
+                return super().count
+            except OperationalError:
+                return 9999999999
