@@ -917,19 +917,6 @@ class SourceProvidersViewPartial(generics.UpdateAPIView):
         return context
 
 
-class SourceObservationsView(generics.ListAPIView):
-    serializer_class = serializers.ObservationSerializer
-    pagination_class = StandardResultsSetPagination
-
-    lookup_field = 'id'
-
-    def get_queryset(self):
-        source = generics.get_object_or_404(
-            models.Source.objects.all(), pk=self.kwargs['id'])
-        observations = models.Observation.objects.filter(source_id=source.id)
-        return observations
-
-
 class ObservationsViewSchema(CustomSchema):
     def get_operation(self, path, method):
         operation = super().get_operation(path, method)

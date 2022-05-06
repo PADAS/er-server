@@ -738,11 +738,6 @@ class ObservationSerializer(rest_framework.serializers.ModelSerializer):
 
     def to_representation(self, instance):
         rep = super(ObservationSerializer, self).to_representation(instance)
-
-        if instance.source.provider.transforms:
-            rep["device_status_properties"] = self._get_properties_device(
-                instance)
-
         self.dict_to_representation(rep, self.context)
         return rep
 
