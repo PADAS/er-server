@@ -1,16 +1,18 @@
+import hashlib
 import logging
 
 from rest_framework_gis.pagination import GeoJsonPagination
 
 import django.views.defaults
 import rest_framework
+from django.conf import settings
+from django.core.cache import caches
 from django.core.paginator import Paginator
 from django.db import OperationalError, connection, transaction
 from django.http import JsonResponse
 from django.utils.functional import cached_property
-from django.utils.translation import ugettext_lazy as _
 from rest_framework import exceptions
-from rest_framework.pagination import PageNumberPagination
+from rest_framework.pagination import CursorPagination, PageNumberPagination
 from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
 from rest_framework.views import exception_handler, set_rollback
@@ -60,7 +62,6 @@ def api_exception_handler(exc, context):
     # without putting it in a new dictionary under the "datail" key which breaks fixup_api_response
     response = exception_handler(exc, context)
     if not response:
-        str(_('Internal Server Error'))
         detail = str(exc)
         data = {'detail': detail} if detail else {}
         set_rollback()
@@ -74,12 +75,72 @@ class OptionalResultsSetPagination(PageNumberPagination):
 
 
 class StandardResultsSetPagination(OptionalResultsSetPagination):
-    page_size = 25
-    max_page_size = 4000
+    page_size = settings.REST_FRAMEWORK["OPTIONAL_PAGE_SIZE"]
+    max_page_size = settings.REST_FRAMEWORK["MAX_PAGE_SIZE"]
 
 
 class StandardResultsSetGeoJsonPagination(GeoJsonPagination):
-    page_size = 25
+    page_size = settings.REST_FRAMEWORK["OPTIONAL_PAGE_SIZE"]
+
+
+class StandardResultsSetCursorPagination(CursorPagination):
+    page_size_query_param = 'page_size'
+    page_size = settings.REST_FRAMEWORK["OPTIONAL_PAGE_SIZE"]
+
+    def get_custom_page_size(self, request, view):
+        try:
+            self.page_size = int(request.GET.get("page_size"))
+        except (ValueError, TypeError):
+            pass
+        return super().get_page_size(request)
+
+    def paginate_queryset(self, queryset, request, view=None):
+        self.page_size = self.get_custom_page_size(request, view)
+        return super().paginate_queryset(queryset, request, view)
+
+
+def patch_queryset_with_cached_count(queryset, timeout: int = 60*60, cache_name: str = 'default'):
+    """Return queryset with queryset.count() wrapped to cache the calculated count for `timeout` seconds.
+       Credit: jcushman https://github.com/encode/django-rest-framework/issues/2650
+
+    Args:
+        queryset: queryset that is to be patched with our own count function
+        timeout (int, optional): how long should the cache live in seconds. Defaults to 60*60.
+        cache_name (str, optional): allows to overide the django cache namespace used to store our queryset count. Defaults to 'default'.
+
+    Returns:
+        queryset: the same queryset, now patched with our own count function
+    """
+    cache = caches[cache_name]
+    queryset = queryset._chain()
+    real_count = queryset.count
+
+    def _get_query_count_key(queryset):
+        return f"query-count: {hashlib.md5(str(queryset.query).encode('utf8')).hexdigest()}"
+
+    def count(queryset):
+        cache_key = _get_query_count_key(queryset)
+
+        value = cache.get(cache_key)
+        if value or value == 0:
+            return value
+
+        value = real_count()
+        cache.set(cache_key, value, timeout)
+        return value
+
+    queryset.count = count.__get__(queryset, type(queryset))
+    return queryset
+
+
+class CachedCountStandardResultsSetPagination(StandardResultsSetPagination):
+    count_timeout = settings.REST_FRAMEWORK["COUNT_TIMEOUT"]
+
+    def paginate_queryset(self, queryset, *args, **kwargs):
+        if hasattr(queryset, 'count'):
+            queryset = patch_queryset_with_cached_count(
+                queryset, timeout=self.count_timeout)
+        return super().paginate_queryset(queryset, *args, **kwargs)
 
 
 class AllowAnyGet(BasePermission):

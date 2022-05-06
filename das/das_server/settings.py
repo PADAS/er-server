@@ -182,7 +182,11 @@ REST_FRAMEWORK = {
     },
 
     # Custom openapi autoschema
-    'DEFAULT_SCHEMA_CLASS': 'das_server.views.CustomSchema'
+    'DEFAULT_SCHEMA_CLASS': 'das_server.views.CustomSchema',
+    # Paginator overrides
+    "OPTIONAL_PAGE_SIZE": 25,
+    "MAX_PAGE_SIZE": 4000,
+    "COUNT_TIMEOUT": 60*5
 }
 
 AUTHENTICATION_BACKENDS = (

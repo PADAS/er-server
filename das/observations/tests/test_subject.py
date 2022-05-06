@@ -143,6 +143,8 @@ class SubjectTestCase(BaseAPITest):
         self.force_authenticate(request, self.user)
         response = SubjectsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
+        # no paging by default
+        assert "next" not in response.data
 
     def test_filter_subject_api_updated_since(self):
         url = reverse('subjects-list-view')
