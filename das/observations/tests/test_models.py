@@ -2,14 +2,16 @@ from datetime import datetime, timedelta
 
 import pytest
 import pytz
+from pytz import UTC
 
 from django.contrib.auth import get_permission_codename
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
+from django.db.models import F
 from django.test import TestCase
 
 from accounts.models import PermissionSet, User
-from observations.models import (Observation, Subject, SubjectGroup,
+from observations.models import (Observation, Source, Subject, SubjectGroup,
                                  SubjectMaximumSpeed)
 
 
@@ -198,3 +200,200 @@ class TestObservationManager:
         )
 
         assert observation is None
+
+
+class TestObservationTriggers:
+    def test_source_last_observation_relation_without_observation(self, subject_source):
+        source = subject_source.source
+
+        sources = (
+            Source.objects.filter(id__in=[source.id])
+            .annotate(last_observation=F("last_observation_source__observation"))
+            .annotate(
+                last_observation_recorded_at=F(
+                    "last_observation_source__recorded_at")
+            )
+        )
+
+        assert not sources.first().last_observation
+        assert not sources.first().last_observation_recorded_at
+
+    def test_insert_a_new_observation(self, subject_source):
+        source = subject_source.source
+
+        observation = Observation.objects.create(
+            source=source,
+            location=Point(0, 0),
+            recorded_at=datetime.now(tz=UTC),
+        )
+        sources = (
+            Source.objects.filter(id__in=[source.id])
+            .annotate(last_observation=F("last_observation_source__observation"))
+            .annotate(
+                last_observation_recorded_at=F(
+                    "last_observation_source__recorded_at")
+            )
+        )
+
+        assert sources.first().last_observation == observation.id
+        assert sources.first().last_observation_recorded_at == observation.recorded_at
+
+    def test_insert_a_observation_with_previous_observations_in_source(
+        self, subject_source
+    ):
+        source = subject_source.source
+        now = datetime.now(tz=UTC)
+        for item in range(1, 4):
+            Observation.objects.create(
+                source=source,
+                location=Point(0, 0),
+                recorded_at=now - timedelta(minutes=5 * item),
+            )
+
+        observation = Observation.objects.create(
+            source=source,
+            location=Point(0, 0),
+            recorded_at=now,
+        )
+
+        sources = (
+            Source.objects.filter(id__in=[source.id])
+            .annotate(last_observation=F("last_observation_source__observation"))
+            .annotate(
+                last_observation_recorded_at=F(
+                    "last_observation_source__recorded_at")
+            )
+        )
+
+        assert sources.first().last_observation == observation.id
+        assert sources.first().last_observation_recorded_at == observation.recorded_at
+
+    def test_edit_not_the_latest_observation_and_do_it_the_latest(self, subject_source):
+        source = subject_source.source
+        now = datetime.now(tz=UTC)
+        middle_observation_id = None
+        for item in range(1, 5):
+            tmp_observation = Observation.objects.create(
+                source=source,
+                location=Point(0, 0),
+                recorded_at=now - timedelta(minutes=5 * item),
+            )
+            if item == 3:
+                middle_observation_id = tmp_observation.id
+
+        observation = Observation.objects.get(id=middle_observation_id)
+        observation.recorded_at = now
+        observation.save()
+
+        sources = (
+            Source.objects.filter(id__in=[source.id])
+            .annotate(last_observation=F("last_observation_source__observation"))
+            .annotate(
+                last_observation_recorded_at=F(
+                    "last_observation_source__recorded_at")
+            )
+        )
+
+        assert sources.first().last_observation == observation.id
+        assert sources.first().last_observation_recorded_at == observation.recorded_at
+
+    def test_edit_latest_observation_and_keep_it_the_latest(self, subject_source):
+        source = subject_source.source
+        now = datetime.now(tz=UTC)
+        for item in range(1, 5):
+            Observation.objects.create(
+                source=source,
+                location=Point(0, 0),
+                recorded_at=now - timedelta(minutes=5 * item),
+            )
+
+        observations = Observation.objects.all().order_by("-recorded_at")
+        observation = observations.first()
+        observation.recorded_at = now
+        observation.save()
+
+        sources = (
+            Source.objects.filter(id__in=[source.id])
+            .annotate(last_observation=F("last_observation_source__observation"))
+            .annotate(
+                last_observation_recorded_at=F(
+                    "last_observation_source__recorded_at")
+            )
+        )
+        assert sources.first().last_observation == observations[0].id
+        assert sources.first().last_observation_recorded_at == now
+
+    def test_delete_not_latest_observation(self, subject_source):
+        source = subject_source.source
+        now = datetime.now(tz=UTC)
+        middle_observation_id = None
+        for item in range(1, 5):
+            tmp_observation = Observation.objects.create(
+                source=source,
+                location=Point(0, 0),
+                recorded_at=now - timedelta(minutes=5 * item),
+            )
+            if item == 3:
+                middle_observation_id = tmp_observation.id
+
+        Observation.objects.get(id=middle_observation_id).delete()
+
+        sources = (
+            Source.objects.filter(id__in=[source.id])
+            .annotate(last_observation=F("last_observation_source__observation"))
+            .annotate(
+                last_observation_recorded_at=F(
+                    "last_observation_source__recorded_at")
+            )
+        )
+        observation = Observation.objects.all().order_by("-recorded_at").first()
+        assert sources.first().last_observation == observation.id
+        assert sources.first().last_observation_recorded_at == observation.recorded_at
+
+    def test_delete_the_latest_observation(self, subject_source):
+        source = subject_source.source
+        now = datetime.now(tz=UTC)
+        for item in range(1, 5):
+            Observation.objects.create(
+                source=source,
+                location=Point(0, 0),
+                recorded_at=now - timedelta(minutes=5 * item),
+            )
+        observations = Observation.objects.all().order_by("-recorded_at")
+        new_latest_observation = observations[1]
+
+        observations[0].delete()
+
+        sources = (
+            Source.objects.filter(id__in=[source.id])
+            .annotate(last_observation=F("last_observation_source__observation"))
+            .annotate(
+                last_observation_recorded_at=F(
+                    "last_observation_source__recorded_at")
+            )
+        )
+        assert sources.first().last_observation == new_latest_observation.id
+        assert (
+            sources.first(
+            ).last_observation_recorded_at == new_latest_observation.recorded_at
+        )
+
+    def test_delete_the_only_and_latest_observation(self, subject_source):
+        source = subject_source.source
+        observation = Observation.objects.create(
+            source=source,
+            location=Point(0, 0),
+            recorded_at=datetime.now(tz=UTC),
+        )
+        observation.delete()
+        sources = (
+            Source.objects.filter(id__in=[source.id])
+            .annotate(last_observation=F("last_observation_source__observation"))
+            .annotate(
+                last_observation_recorded_at=F(
+                    "last_observation_source__recorded_at")
+            )
+        )
+
+        assert not sources.first().last_observation
+        assert not sources.first().last_observation_recorded_at

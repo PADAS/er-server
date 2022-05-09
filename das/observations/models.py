@@ -1986,3 +1986,18 @@ class Announcement(TimestampedModel):
 
     objects = AnnouncementManager.from_queryset(
         AnnouncementFilteringQuerySet)()
+
+
+class LatestObservationSource(models.Model):
+    """ Manage/keep the latest observation of each source.
+        The CRUD operations are managed by database triggers. """
+    source = models.ForeignKey('Source', on_delete=models.CASCADE, primary_key=True, unique=True,
+                               related_name="last_observation_sources", related_query_name="last_observation_source")
+    observation = models.ForeignKey('Observation', on_delete=models.CASCADE)
+    recorded_at = models.DateTimeField()
+
+    def save(self, *args, **kwargs):
+        raise NotImplementedError
+
+    def delete(self, using=None, keep_parents=False):
+        raise NotImplementedError

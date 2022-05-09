@@ -169,8 +169,3 @@ def five_patrol_segment_patrol_type_uuid():
 @pytest.fixture
 def source_provider():
     return ProviderFactory.create()
-
-
-@pytest.fixture
-def five_subject_source():
-    SubjectSourceFactory.create_batch(5)
