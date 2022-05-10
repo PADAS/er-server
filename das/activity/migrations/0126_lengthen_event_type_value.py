@@ -11,6 +11,8 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # Drop existing materialized view, to allow altering activity EventType model.
+        migrations.RunSQL(sql='drop materialized view if exists event_details_view;'),
         migrations.AlterField(
             model_name='eventtype',
             name='display',
