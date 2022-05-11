@@ -254,6 +254,7 @@ locals {
     "termit"                  = "prod1"
     "creaturehero"            = "prod1"
     "nzdoc"                   = "prod-asia"
+    "raptorrescue"            = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -374,6 +375,7 @@ locals {
     "binderlere"            = 1
     "termit"                = 1
     "creaturehero"          = 1
+    "raptorrescue"          = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
