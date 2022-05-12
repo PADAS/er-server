@@ -254,6 +254,7 @@ locals {
     "termit"                  = "prod1"
     "creaturehero"            = "prod1"
     "nzdoc"                   = "prod-asia"
+    "raptorrescue"            = "prod1"
     "kruger"                  = "prod1"
     "cdass"                   = "prod1"
     "rhinorevolution"         = "prod1"
@@ -377,6 +378,7 @@ locals {
     "binderlere"            = 1
     "termit"                = 1
     "creaturehero"          = 1
+    "raptorrescue"          = 1
     "kruger"                = 1
     "cdass"                 = 1
     "rhinorevolution"       = 1
