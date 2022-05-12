@@ -176,9 +176,8 @@ build_and_push: ## build and push
 	@ if [ "$$(dirname $(descriptive_server_gcr_path))" = "$$(dirname $(gcr_root))" ]; then (printf "\e[31m\tCould not construct a unique, sanitized GCR path.\e[0m\n" >&2; exit 1); fi
 	cd $(CURDIR)/.. \
 	&& echo BUILD_NUMBER = $(build_number) > das/das_server/version.py \
-	&& docker build  -f circleci-docker/Dockerfile --tag $(descriptive_server_gcr_path):$(latest_gcr_tag) --tag $(descriptive_server_gcr_path):$(semver_gcr_tag) --tag $(descriptive_server_gcr_path):$(sha_gcr_tag) --tag $(descriptive_server_gcr_path):$(unique_gcr_tag) .
+	&& docker build  -f circleci-docker/Dockerfile --tag $(descriptive_server_gcr_path):$(latest_gcr_tag) --tag $(descriptive_server_gcr_path):$(sha_gcr_tag) --tag $(descriptive_server_gcr_path):$(unique_gcr_tag) .
 	docker push $(descriptive_server_gcr_path):$(latest_gcr_tag)
-	docker push $(descriptive_server_gcr_path):$(semver_gcr_tag)
 	docker push $(descriptive_server_gcr_path):$(sha_gcr_tag)
 	docker push $(descriptive_server_gcr_path):$(unique_gcr_tag)
 
