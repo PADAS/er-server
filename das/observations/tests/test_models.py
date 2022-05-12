@@ -202,6 +202,7 @@ class TestObservationManager:
         assert observation is None
 
 
+@pytest.mark.django_db
 class TestObservationTriggers:
     def test_source_last_observation_relation_without_observation(self, subject_source):
         source = subject_source.source
