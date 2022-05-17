@@ -258,6 +258,8 @@ locals {
     "kruger"                  = "prod1"
     "cdass"                   = "prod1"
     "rhinorevolution"         = "prod1"
+    "birdlifebotswana"        = "prod1"
+    "birdlifezambia"          = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -382,6 +384,8 @@ locals {
     "kruger"                = 1
     "cdass"                 = 1
     "rhinorevolution"       = 1
+    "birdlifebotswana"      = 1
+    "birdlifezambia"        = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
