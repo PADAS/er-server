@@ -15,9 +15,9 @@ from django.dispatch import receiver
 
 from accounts.models import PermissionSet
 from das_server import pubsub
-from observations.models import (Announcement, Message, Observation,
-                                 SourceProvider, Subject, SubjectGroup,
-                                 SubjectSource, SubjectStatus)
+from observations.models import (Announcement, LatestObservationSource,
+                                 Message, Observation, SourceProvider, Subject,
+                                 SubjectGroup, SubjectSource, SubjectStatus)
 from observations.servicesutils import SOURCE_PROVIDER_2WAY_MSG_KEY
 from observations.utils import is_observation_stationary_subject
 
@@ -39,6 +39,7 @@ def observation_post_save(sender, instance, created, **kwargs):
 @receiver(post_delete, sender=Observation)
 def observation_post_delete(sender, instance, **kwargs):
     SubjectStatus.objects.update_current_from_deleted_observation(instance)
+    ensure_keep_latest_observation_source(instance)
 
 
 @receiver(post_save, sender=SubjectStatus)
@@ -175,3 +176,16 @@ def news_post_save(sender, instance, created, **kwargs):
         action = 'das.announcement.new'
         transaction.on_commit(lambda: pubsub.publish(
             {'announcement_id': str(instance.pk)}, action))
+
+
+def ensure_keep_latest_observation_source(observation):
+    if (
+            not LatestObservationSource.objects.filter(
+                source=observation.source).exists()
+            and observation.source.observation_set.count()
+    ):
+        latest_observation = observation.source.observation_set.order_by(
+            "-recorded_at")[0]
+        LatestObservationSource.objects.get_or_create(
+            source=observation.source, observation=latest_observation, recorded_at=latest_observation.recorded_at
+        )

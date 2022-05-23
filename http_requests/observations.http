@@ -23,3 +23,43 @@ Content-Type: application/json
 }
 
 ###
+# @name create_source
+POST https://{{host}}/sources
+Accept: application/json
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "manufacturer_id": "johnny_on_the_spot",
+  "source_type": "tracking-device",
+  "model_name": "collars",
+  "provider": "default",
+  "additional": {}
+}
+
+###
+# @name create_observation
+POST https://{{host}}/observations
+Accept: application/json
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "location": {
+    "latitude": "20.420935",
+    "longitude": "-103.313486"
+  },
+  "created_at": "{{$datetime iso8601}}",
+  "recorded_at": "{{$datetime iso8601}}",
+  "additional": {
+    "speed": 10,
+    "temperature": 20
+  },
+  "source": "{{create_source.response.body.$.data.id}}"
+}
+
+###
+DELETE https://{{host}}/source/{{create_source.response.body.$.data.id}}
+Accept: application/json
+Authorization: Bearer {{token}}
+Content-Type: application/json
