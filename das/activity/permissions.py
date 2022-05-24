@@ -8,6 +8,7 @@ from rest_framework.permissions import (SAFE_METHODS, BasePermission,
 
 from activity.models import Event, EventCategory, EventType, Patrol, PatrolType
 from observations.models import Subject
+from observations.utils import get_distance_points, is_banned
 from utils.gis import convert_to_point
 
 
@@ -126,22 +127,94 @@ class EventCategoryGeographicPermission(EventCategoryPermissions):
         "DELETE": "delete"
     }
 
+    def has_permission(self, request, view):
+        has_perm = super().has_permission(request, view)
+        if not has_perm:
+            if request.method in ["OPTIONS", "HEAD"]:
+                super().has_permission(request, view)
+            user = request.user
+            perms = {
+                "POST": "create",
+                "PATCH": "update",
+                "PUT": "update",
+                "GET": "read",
+                "DELETE": "delete",
+            }
+            for key, value in perms.items():
+                if request.method == key and (
+                        "event_type" in request.data
+                        or "id" in view.kwargs
+                        or "eventtype_id" in view.kwargs
+                ):
+                    try:
+                        if "event_type" in request.data:
+                            event_type = EventType.objects.get_by_natural_key(
+                                request.data["event_type"]
+                            )
+                        elif "eventtype_id" in view.kwargs:
+                            event_type = EventType.objects.get(
+                                id=view.kwargs["eventtype_id"]
+                            )
+                        else:
+                            event_type = Event.objects.get(
+                                id=view.kwargs["id"]).event_type
+                        geo_perm_name = (
+                            f"activity.{self.http_method_map[request.method]}_"
+                            f"{event_type.category.value}_geographic_distance"
+                        ).lower()
+                        permitted = user.has_perm(geo_perm_name) and not is_banned(
+                            request.user
+                        )
+                        if key == "GET" and not permitted and user.is_authenticated:
+                            return False
+                        elif key == "POST":
+                            obj_location = convert_to_point(
+                                request.data['location'])
+                            location = request.GET.get("location")
+                            if not location:
+                                return False
+                            user_location = convert_to_point(
+                                location=request.GET.get("location"))
+                            points = [
+                                {"position": {"latitude": point.y, "longitude": point.x}}
+                                for point in (user_location, obj_location)
+                            ]
+                            distance = get_distance_points(points)
+                            return distance.m <= settings.GEO_PERMISSION_RADIUS_METERS
+                        return permitted
+                    except EventType.DoesNotExist:
+                        pass
+        return has_perm
+
     def has_object_permission(self, request, view, obj):
-        if not settings.GEO_PERMISSION_ENABLED or request.user.is_superuser:
-            return super().has_object_permission(request, view, obj)
+        has_perm = super().has_object_permission(request, view, obj)
+        if not has_perm:
+            permission_name = (
+                f"activity.{self.http_method_map[request.method]}_"
+                f"{obj.event_type.category.value}_geographic_distance"
+            )
 
-        location = request.session.get("location")
-        if not location:
+            if request.user.is_superuser or not request.user.has_perm(permission_name):
+                return super().has_object_permission(request, view, obj)
+
+            location = request.GET.get("location")
+            if not location:
+                return False
+
+            point = convert_to_point(location)
+            if (
+                    obj.location
+                    and request.user.has_perm(permission_name)
+                    and not is_banned(request.user)
+            ):
+                points = [
+                    {"position": {"latitude": point.y, "longitude": point.x}}
+                    for point in (point, obj.location)
+                ]
+                distance = get_distance_points(points)
+                return distance.m <= settings.GEO_PERMISSION_RADIUS_METERS
             return False
-
-        point = convert_to_point(location)
-
-        permission_name = f"activity.{self.http_method_map[request.method]}_{obj.event_type.category.value}_geographic_distance"
-        if obj.location and request.user.has_perm(permission_name):
-            # Distance * 100 return distance in kilometers, the result * 1000 returns meters
-            distance = obj.location.distance(point) * 100 * 1000
-            return distance <= settings.GEO_PERMISSION_RADIUS_METERS
-        return False
+        return has_perm
 
 
 class EventNotesCategoryPermissions(EventCategoryPermissions):
@@ -161,6 +234,32 @@ class EventNotesCategoryPermissions(EventCategoryPermissions):
             return request.user.has_perm(permission_name)
 
         return super().has_permission(request, view)
+
+
+class EventNotesCategoryGeographicPermissions(EventNotesCategoryPermissions):
+    http_method_map = {
+        "GET": "view",
+        "OPTIONS": "view",
+        "HEAD": "view",
+        "POST": "add",
+        "PUT": "change",
+        "PATCH": "change",
+        "DELETE": "delete",
+    }
+
+    def has_permission(self, request, view):
+        has_perm = super().has_permission(request, view)
+        if not has_perm:
+            if request.method == "POST":
+                event = view.get_event()
+                event_type = event.event_type
+
+                geo_perm_name = (
+                    f"activity.{self.http_method_map[request.method]}_"
+                    f"{event_type.category.value}_geographic_distance"
+                )
+                return request.user.has_perm(geo_perm_name)
+        return has_perm
 
 
 class IsOwnerOrReadOnly(BasePermission):

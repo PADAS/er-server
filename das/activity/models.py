@@ -12,12 +12,11 @@ from versatileimagefield.fields import VersatileImageField
 import django.utils
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Polygon
-from django.contrib.gis.measure import Distance
+from django.contrib.gis.db.models.functions import Distance as D
 from django.contrib.postgres.fields import DateTimeRangeField, JSONField
 from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
@@ -26,8 +25,6 @@ from django.db import transaction
 from django.db.models import (Case, CharField, Exists, F, OuterRef, Prefetch,
                               Q, Subquery, Value, When)
 from django.db.models.functions import Cast, Lower
-from django.db.models.signals import post_save
-from django.dispatch import receiver
 from django.utils import dateparse, timezone
 from django.utils.encoding import force_text
 from django.utils.translation import ugettext_lazy as _
@@ -38,6 +35,7 @@ from core.models import SingletonModel, TimestampedModel
 from core.utils import static_image_finder
 from observations.models import Subject, SubjectGroup, SubjectStatus
 from observations.utils import dateparse as dparse
+from observations.utils import is_banned
 from revision.manager import (Revision, RevisionAdapter, RevisionMixin,
                               relation_deleted)
 from utils.gis import convert_to_point
@@ -150,27 +148,9 @@ class EventCategory(TimestampedModel):
     def auto_permissionset_name(self):
         return _('View {} Event Permissions').format(self.display)
 
-
-@receiver(post_save, sender=EventCategory)
-def ensure_perms_exist(sender, **kwargs):
-    if kwargs.get('created', False):
-        content_type = ContentType.objects.get(
-            app_label='activity', model='event')
-        category_name = kwargs['instance'].value
-
-        kwargs['instance'].display
-        permissionset_name = kwargs['instance'].auto_permissionset_name
-        permissionset, created = PermissionSet.objects.get_or_create(
-            name=permissionset_name)
-
-        for operation in ['create', 'read', 'update', 'delete']:
-            codename = '{0}_{1}'.format(category_name, operation)
-            defaults = {'name': 'Can {1} {0} events'.format(category_name, operation),
-                        'content_type': content_type}
-            permission, created = Permission.objects.get_or_create(
-                codename=codename, defaults=defaults)
-
-            permissionset.permissions.add(permission)
+    @property
+    def auto_geographic_permission_set_name(self):
+        return _(f'View {self.display} Event Geographic Permissions')
 
 
 class FilterFieldMixin(object):
@@ -395,9 +375,30 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             return self
         return self.exclude(in_relationship__type__value='contains')
 
-    def by_location(self, location):
-        point = convert_to_point(location)
-        return self.filter(location__distance_lte=(point, Distance(m=settings.GEO_PERMISSION_RADIUS_METERS)))
+    def by_location(self, location: str, user, categories_to_filter: dict):
+        if user.is_superuser:
+            return self
+        queryset = self
+
+        try:
+            point = convert_to_point(location)
+        except (TypeError, ValueError):
+            point = None
+
+        if point:
+            queryset = queryset.annotate(distance=D("location", point, spheroid=True))
+
+        queryset1 = queryset.filter(event_type__category__value__in=categories_to_filter['categories'])
+
+        if not is_banned(user) and point:
+            queryset2 = queryset.filter(
+                event_type__category__value__in=categories_to_filter['geo_categories'],
+                location__isnull=False,
+                distance__lt=settings.GEO_PERMISSION_RADIUS_METERS
+            )
+            results = queryset1.union(queryset2)
+            return results
+        return queryset1
 
     def by_event_filter(self, filter):
 
@@ -449,9 +450,6 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             lower, upper = parse_date_range(filter.get('update_date'))
             queryset = queryset.by_updated_date(lower=lower, upper=upper)
 
-        if filter.get('location'):
-            queryset = queryset.by_location(filter.get('location'))
-
         return queryset.distinct()
 
     def by_duration(self, duration):
@@ -502,9 +500,7 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
         return self
 
-    def by_updated_date(self,
-                        lower=None,
-                        upper=None):
+    def by_updated_date(self, lower=None, upper=None):
         if lower and upper:
             return self.filter(updated_at__range=(lower, upper))
         elif lower:

@@ -1,11 +1,24 @@
-import logging
 import datetime
+import logging
 
+from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
-from django.db.models.signals import post_save, post_delete, pre_save, m2m_changed
+from django.db.models.signals import m2m_changed, post_delete, post_save, pre_save
 from django.dispatch import receiver
 
-from activity.models import Event, EventPhoto, Patrol, PatrolSegment, PatrolNote, PatrolFile, PC_OPEN, PC_DONE
+from accounts.models.permissionset import PermissionSet
+from activity.models import (
+    PC_DONE,
+    PC_OPEN,
+    Event,
+    EventCategory,
+    EventPhoto,
+    Patrol,
+    PatrolFile,
+    PatrolNote,
+    PatrolSegment,
+)
 from das_server import celery, pubsub
 from usercontent.tasks import imagefile_rendered
 
@@ -14,7 +27,6 @@ logger = logging.getLogger(__name__)
 
 @receiver(post_save, sender=Event)
 def event_post_save(sender, instance, created, **kwargs):
-
     logger.info("saved event {}, created={}".format(instance.pk, str(created)))
     transaction.on_commit(lambda: pubsub.publish(
         {'event_id': str(instance.pk)},
@@ -137,3 +149,50 @@ def update_patrolstate(sender, instance, **kwargs):
     for o in instance.patrol_segments.all():
         if o.time_range and all([o.time_range.upper is None, instance.state == PC_DONE]):
             instance.state = PC_OPEN
+
+
+@receiver(post_save, sender=EventCategory)
+def ensure_perms_exist(sender, **kwargs):
+    if kwargs.get('created', False):
+        content_type = ContentType.objects.get(
+            app_label='activity', model='event')
+        category_name = kwargs['instance'].value
+
+        kwargs['instance'].display
+        permissionset_name = kwargs['instance'].auto_permissionset_name
+        permissionset, created = PermissionSet.objects.get_or_create(
+            name=permissionset_name)
+
+        for operation in ['create', 'read', 'update', 'delete']:
+            codename = '{0}_{1}'.format(category_name, operation)
+            defaults = {'name': 'Can {1} {0} events'.format(category_name, operation),
+                        'content_type': content_type}
+            permission, created = Permission.objects.get_or_create(
+                codename=codename, defaults=defaults)
+
+            permissionset.permissions.add(permission)
+
+
+@receiver(post_save, sender=EventCategory)
+def ensure_geographic_perms_exists(sender, **kwargs):
+    if kwargs.get("created", False):
+        content_type = ContentType.objects.get(
+            app_label="activity", model="event")
+        category_name = kwargs["instance"].value
+
+        permission_set_name = kwargs["instance"].auto_geographic_permission_set_name
+        permission_set, created = PermissionSet.objects.get_or_create(
+            name=permission_set_name
+        )
+
+        for operation in ["add", "view", "change", "delete"]:
+            codename = f"{operation}_{category_name}_geographic_distance"
+
+            defaults = {
+                "name": f'Can {operation} {category_name} reports in a certain distance',
+                "content_type": content_type,
+            }
+            permission, created = Permission.objects.get_or_create(
+                codename=codename, defaults=defaults
+            )
+            permission_set.permissions.add(permission)

@@ -1,34 +1,57 @@
 from collections import defaultdict
+
+from django.contrib import auth
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Q
-from django.contrib import auth
+
+from utils.categories import get_categories_and_geo_categories
 
 
 def patrol_mgmt_permissions(modelnames=None):
     modelnames = modelnames or ('patrol', 'patroltype', 'patrolsegment', 'patrolnote',
                                 'patrolfile', 'patrolsegmentmembership')
 
-    content_types = [ContentType.objects.get(app_label='activity', model=modelname) for modelname in modelnames]
+    content_types = [ContentType.objects.get(
+        app_label='activity', model=modelname) for modelname in modelnames]
     return Permission.objects.filter(content_type__in=content_types)
 
 
-def ignore_permission(resource, app_name):
+def ignore_permission(resource, app_name, perm=None, user=None):
     """state the condition for permission to be ignored or not."""
-    if resource in ['message']:
+    if resource in ["message"]:
         return False
-    elif any([resource in {'patrolsegment', 'patrolnote', 'patrolfile', 'patrolsegmentmembership'}, app_name not in {'activity'}]):
+    elif any(
+            [
+                resource
+                in {"patrolsegment", "patrolnote", "patrolfile", "patrolsegmentmembership"},
+                app_name not in {"activity"},
+            ]
+    ):
         return True
+    elif "geographic" in perm and user:
+        results = get_categories_and_geo_categories(user)
+        for category in results["categories"]:
+            if category in perm:
+                return True
+        return False
     else:
         return False
 
 
+method_map = {
+    "read": "view",
+    "create": "add",
+    "update": "change",
+    "delete": "delete",
+}
+
+
 def allowed_permissions(user_instance):
-    '''
+    """
     Get Permission from available backends.
     :param user_instance: The user who's permissions we're resolving.
     :return: a dictionary as content for our API.
-    '''
+    """
     permissions = set()
     for backend in auth.get_backends():
         if hasattr(backend, "get_all_permissions"):
@@ -36,15 +59,19 @@ def allowed_permissions(user_instance):
 
     container = defaultdict(list)
     for permission in permissions:
-        app_name, perm = permission.split('.', maxsplit=1)
-        verb, resource = perm.split('_', maxsplit=1)
+        app_name, perm = permission.split(".", maxsplit=1)
+        if perm.endswith(("create", "read", "update", "delete")):
+            resource, verb = perm.rsplit("_", maxsplit=1)
+        else:
+            verb, resource = perm.split("_", maxsplit=1)
 
-        if ignore_permission(resource, app_name):
+        if ignore_permission(resource, app_name, permission, user_instance):
             continue
 
         # The non-standard permissions are a bit messy, so limit to CRUD verbs.
-        if verb in ('add', 'change', 'view', 'delete'):
+        if verb in ("add", "change", "view", "delete") + tuple(method_map.keys()):
+            if verb in method_map:
+                verb = method_map[verb]
             container[resource].append(verb)
 
     return container
-

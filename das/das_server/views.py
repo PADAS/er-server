@@ -1,23 +1,28 @@
 import copy
-from pydoc import locate
+
+from drf_extra_fields.geo_fields import PointField
 
 import rest_framework.serializers
 from django.conf import settings
 from django.db import connection
-from django.shortcuts import render_to_response
-from django.template import RequestContext
-from django.utils import timezone
 from django.db.migrations.recorder import MigrationRecorder
-from rest_framework import generics, serializers
-from rest_framework.permissions import AllowAny, DjangoObjectPermissions
+from django.shortcuts import render_to_response
+from django.utils import timezone
+from rest_framework import generics
+from rest_framework.permissions import AllowAny
 from rest_framework.schemas.openapi import AutoSchema
+from rest_framework.serializers import ChoiceField
 
-from activity.alerts import has_alerts_permissionset, has_patrol_view_permission
-from observations.servicesutils import has_message_view_permission
+from activity.alerts import (has_alerts_permissionset,
+                             has_patrol_view_permission)
+from activity.serializers.fields import DateTimeRangeField
+from activity.serializers.patrol_serializers import (LeaderRelatedField,
+                                                     PatrolList)
 from core.utils import get_site_name
 # This import ensures we register user-login receivers.
-from das_server import __version__, metrics
+from das_server import __version__
 from observations import servicesutils
+from observations.servicesutils import has_message_view_permission
 from utils.json import parse_bool
 
 
@@ -67,10 +72,6 @@ class CustomSchema(AutoSchema):
         return result
 
     def _map_field(self, field):
-        from drf_extra_fields.geo_fields import PointField
-        from activity.serializers.fields import DateTimeRangeField
-        from activity.serializers.patrol_serializers import PatrolList, LeaderRelatedField
-        from rest_framework.serializers import ChoiceField
 
         if isinstance(field, PointField):
             return {
@@ -173,8 +174,8 @@ class StatusView(generics.RetrieveAPIView):
         resp['patrol_enabled'] = settings.PATROL_ENABLED and has_patrol_view_permission(
             self.request.user)
         resp['track_length'] = settings.TRACK_LENGTH
-        resp['messaging_enabled'] = has_message_view_permission(self.request.user)
-
+        resp['messaging_enabled'] = has_message_view_permission(
+            self.request.user)
 
         if self.get_support_settings():
             resp['eus_settings'] = self.get_support_settings()

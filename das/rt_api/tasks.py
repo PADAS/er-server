@@ -21,6 +21,7 @@ from das_server import celery, pubsub
 from observations import servicesutils
 from observations.models import Announcement, Message, SocketClient
 from observations.serializers import AnnouncementSerializer, MessageSerializer
+from observations.utils import get_position, LOCATION, get_user_key
 from observations.views import ObservationsView, SubjectStatusView
 from rt_api import client
 from rt_api.rest_api_interface.dummy_request import DummyRequest
@@ -73,36 +74,51 @@ def get_emit_data(**kwargs):
     return dict(emit_data)
 
 
-def _event_handler(event_id, type):
+def _event_handler(event_id, type_):
     try:
-        logger.debug('Processing type=%s on event=%s', type, event_id)
+        logger.debug("Processing type=%s on event=%s", type_, event_id)
         event_view = EventView()
 
         user_sids_map = get_username_sids_map()
-        logger.debug('user_sids_map: %s', user_sids_map)
+        logger.debug("user_sids_map: %s", user_sids_map)
 
         for username, user_sids in user_sids_map.items():
             user = get_sid_user(username, user_sids)
             if not user:
                 continue
 
-            logger.debug('Handling event for user: %s', username)
+            logger.debug("Handling event for user: %s", username)
             # TODO: update this logic to be a little more frugal with the per
             # user/event-filter query.
             for sid in user_sids:
                 emit_data = {}
                 matches_current_filter = False
 
-                if type == 'delete_event':
-                    emit_data = get_emit_data(type=type,
-                                              sid=sid,
-                                              object_id=event_id,
-                                              data={'type': type,  'event_id': event_id,  'event_data': None,
-                                                    'matches_current_filter': matches_current_filter})
+                if type_ == "delete_event":
+                    emit_data = get_emit_data(
+                        type=type_,
+                        sid=sid,
+                        object_id=event_id,
+                        data={
+                            "type": type_,
+                            "event_id": event_id,
+                            "event_data": None,
+                            "matches_current_filter": matches_current_filter,
+                        },
+                    )
                 else:
+                    key = get_user_key(user, LOCATION)
+                    location = get_position(key)
+                    query_params = {}
+                    if location:
+                        location = (
+                            f"{location.get('position').get('longitude')},{location.get('position').get('latitude')}"
+                        )
+                        query_params["location"] = location
 
                     request = DummyRequest(
-                        user=user, http_method='GET', query_parameters={})
+                        user=user, http_method="GET", query_parameters=query_params
+                    )
                     request = Request(request)  # Wrap in DRF Request
                     queryset = Event.objects.filter(id=event_id)
                     event = queryset.first()
@@ -111,43 +127,59 @@ def _event_handler(event_id, type):
                         event_count = 1
                         try:
                             event_view.check_object_permissions(
-                                request=request, obj=event)
+                                request=request, obj=event
+                            )
                         except PermissionDenied:
                             logger.debug(
-                                'Permission denied. user=%s, event=%s', username, event.id)
+                                "Permission denied. user=%s, event=%s",
+                                username,
+                                event.id,
+                            )
                         else:
                             matches_current_filter = True
                             should_annotate = False
                             try:
-                                socket_client = SocketClient.objects.get(
-                                    id=sid)
+                                socket_client = SocketClient.objects.get(id=sid)
                                 should_annotate = should_annotate_filtered_events(
-                                    socket_client.event_filter)
+                                    socket_client.event_filter
+                                )
                                 queryset = get_filtered_events(
-                                    socket_client.event_filter, queryset)
+                                    socket_client.event_filter, queryset
+                                )
                                 matches_current_filter = queryset.exists()
 
                             except SocketClient.DoesNotExist:
                                 logger.debug(
-                                    f'SocketClient does not exist for sid={sid}')
+                                    f"SocketClient does not exist for sid={sid}"
+                                )
 
                             if should_annotate or matches_current_filter:
-                                data = EventSerializer(event,
-                                                       context={'request': request,
-                                                                'include_related_events': True
-                                                                }).data
+                                data = EventSerializer(
+                                    event,
+                                    context={
+                                        "request": request,
+                                        "include_related_events": True,
+                                    },
+                                ).data
 
-                                emit_data = get_emit_data(type=type, sid=sid, object_id=event_id,
-                                                          data={'type': type,
-                                                                'event_id': event_id,
-                                                                'matches_current_filter': matches_current_filter,
-                                                                'event_data': data, 'count': event_count})
+                                emit_data = get_emit_data(
+                                    type=type_,
+                                    sid=sid,
+                                    object_id=event_id,
+                                    data={
+                                        "type": type_,
+                                        "event_id": event_id,
+                                        "matches_current_filter": matches_current_filter,
+                                        "event_data": data,
+                                        "count": event_count,
+                                    },
+                                )
 
                 if emit_data:
-                    logger.debug(
-                        'Publish das.realtime.emit.  data=%s', emit_data)
-                    pubsub.publish(json.dumps(
-                        emit_data, default=dumps_helper), 'das.realtime.emit')
+                    logger.debug("Publish das.realtime.emit.  data=%s", emit_data)
+                    pubsub.publish(
+                        json.dumps(emit_data, default=dumps_helper), "das.realtime.emit"
+                    )
 
     finally:
         close_old_connections()

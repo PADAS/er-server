@@ -61,7 +61,8 @@ def convert_to_point(location):
     """Convert the location to a Point geometry object.
 
     Args:
-        location (str, dict, Point): accept a string that is comma delimited latitude, longitude values. Alternatively aceepts a dictionary with "latitude" and "longitude" keys.
+        location (str, dict, Point): accept a string that is comma delimited longitude, latitude values.
+        Alternatively accepts a dictionary with "longitude" and "latitude" keys.
 
     Raises:
         TypeError: if location is not str, dict or Point
@@ -72,12 +73,11 @@ def convert_to_point(location):
     if isinstance(location, Point):
         pass
     elif isinstance(location, str):
-        latitude = float(location.split(",")[0].strip())
-        longitude = float(location.split(",")[1].strip())
+        longitude = float(location.split(",")[0].strip())
+        latitude = float(location.split(",")[1].strip())
         location = Point(longitude, latitude, srid=4326)
     elif isinstance(location, dict):
-        location = Point(location['longitude'],
-                         location['latitude'])
+        location = Point(location['longitude'], location['latitude'])
     else:
         raise TypeError(f"Unexpected type for location: {location}")
     return location
