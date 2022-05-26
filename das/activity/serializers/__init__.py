@@ -44,6 +44,17 @@ from choices.serializers import ChoiceField
 from core.serializers import (ContentTypeField, GenericRelatedField,
                               PointValidator)
 from core.utils import OneWeekSchedule
+from django.conf import settings
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.gis.geos import Point
+from django.core.exceptions import PermissionDenied
+from django.core.validators import EmailValidator, RegexValidator
+from django.http import Http404
+from django.template.defaultfilters import truncatechars
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.encoding import force_text
+from drf_extra_fields.geo_fields import PointField
 from observations.serializers import SubjectSerializer
 from revision.manager import AC_RELATION_DELETED, AC_UPDATED
 from utils.json import parse_bool
@@ -418,11 +429,26 @@ class EventSourceRelatedField(rest_framework.serializers.RelatedField):
 
 
 def get_allowed_actions_for_category(user, category_name):
-    allowed_actions = []
-    for action in ('create', 'update', 'read', 'delete'):
-        if user.has_perm('activity.{0}_{1}'.format(category_name, action)):
-            allowed_actions.append(action)
-    return allowed_actions
+    allowed_actions = set()
+    geo_perm_actions = ("view", "add", "change", "delete")
+
+    actions = {
+        "create": "create",
+        "update": "update",
+        "read": "read",
+        "delete": "delete",
+        "add": "create",
+        "change": "update",
+        "view": "read",
+    }
+
+    for action in ('create', 'update', 'read', 'delete') + geo_perm_actions:
+        perm_name = f"activity.{category_name}_{action}"
+        geo_perm_name = f"activity.{action}_{category_name}_geographic_distance"
+        if user.has_perm(perm_name) or user.has_perm(geo_perm_name):
+            action = actions[action]
+            allowed_actions.add(action)
+    return list(allowed_actions)
 
 
 class EventCategorySerializer(rest_framework.serializers.ModelSerializer):
@@ -1489,15 +1515,15 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
             if event.event_type and event.event_type.category:
                 rep['event_category'] = event.event_type.category.value
-                permission_name = 'activity.{0}_read'.format(
-                    event.event_type.category.value)
-                if not request.user.has_perm(permission_name):
+                permission_name = f'activity.{event.event_type.category.value}_read'
+                geo_permission_name = f"activity.view_{event.event_type.category.value}_geographic_distance"
+
+                if not request.user.has_perm(permission_name) and not request.user.has_perm(geo_permission_name):
                     rep = {'id': rep['id']}
                     return rep
 
-            rep['url'] = utils.add_base_url(request,
-                                            reverse('event-view',
-                                                    args=[event.id, ]))
+            rep['url'] = utils.add_base_url(
+                request, reverse('event-view', args=[event.id, ]))
             image_url = resolve_image_url(event)
             rep['image_url'] = utils.add_base_url(request, image_url)
 

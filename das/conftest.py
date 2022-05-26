@@ -11,7 +11,7 @@ from factories import (EventDetailsFactory, EventFactory, EventTypeFactory,
                        PermissionSetFactory, ProviderFactory,
                        SpatialFeatureGroupStaticFactory,
                        SpatialFeatureTypeFactory, SubjectFactory,
-                       SubjectGroupFactory, SubjectSourceFactory, UserFactory)
+                       SubjectGroupFactory, SubjectSourceFactory, UserFactory, EventCategoryFactory)
 
 
 @pytest.fixture
@@ -70,8 +70,10 @@ def two_subject_groups(view_subject_permissions):
         permissions=view_subject_permissions)
     view_sg_b_permissionset = PermissionSetFactory.create(
         permissions=view_subject_permissions)
-    return [SubjectGroupFactory.create(permission_sets=[view_sg_a_permissionset], subjects=SubjectFactory.create_batch(2)),
-            SubjectGroupFactory.create(permission_sets=[view_sg_b_permissionset], subjects=SubjectFactory.create_batch(2))]
+    return [
+        SubjectGroupFactory.create(permission_sets=[
+            view_sg_a_permissionset], subjects=SubjectFactory.create_batch(2)),
+        SubjectGroupFactory.create(permission_sets=[view_sg_b_permissionset], subjects=SubjectFactory.create_batch(2))]
 
 
 @pytest.fixture
@@ -169,3 +171,26 @@ def five_patrol_segment_patrol_type_uuid():
 @pytest.fixture
 def source_provider():
     return ProviderFactory.create()
+
+
+@pytest.fixture
+def events_with_category(request):
+    return [
+        EventFactory.create(
+            title=f"Title {category}", event_type__category__value=category
+        )
+        for category in request.param
+    ]
+
+
+@pytest.fixture
+def get_geo_permission_set(request):
+    permissions = Permission.objects.filter(codename__in=request.param)
+    return PermissionSetFactory.create(name="Test Geo Permissions - View", permissions=permissions)
+
+
+@pytest.fixture
+def basic_event_categories():
+    categories = ["analyzer_event", "logistics", "monitoring", "security"]
+    for category in categories:
+        EventCategoryFactory.create(value=category)

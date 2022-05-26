@@ -42,12 +42,12 @@ from activity.models import (Community, Event, EventCategory, EventClass,
                              EventRelationship, EventSource, EventType, Patrol,
                              PatrolFile, PatrolNote, PatrolSegment, PatrolType,
                              StateFilters)
-from activity.permissions import (EventCategoryObjectPermissions,
+from activity.permissions import (EventCategoryGeographicPermission,
+                                  EventCategoryObjectPermissions,
                                   EventCategoryPermissions,
-                                  EventNotesCategoryPermissions,
                                   IsEventProviderOwnerPermission, IsOwner,
                                   PatrolObjectPermissions,
-                                  PatrolTypePermissions)
+                                  PatrolTypePermissions, EventNotesCategoryGeographicPermissions)
 from activity.search import get_event_search_schema
 from activity.serializers import (EventCategorySerializer,
                                   EventClassFactorSerializer,
@@ -70,6 +70,7 @@ from choices.models import Choice
 from das_server.views import CustomSchema
 from observations.models import Subject
 from usercontent.serializers import get_stored_filename
+from utils.categories import get_categories_and_geo_categories
 from utils.drf import (StandardResultsSetGeoJsonPagination,
                        StandardResultsSetPagination)
 from utils.json import ExtendedGEOJSONRenderer, loads, parse_bool
@@ -172,10 +173,11 @@ class EventTypesView(generics.ListCreateAPIView):
                 'value').distinct()
             event_categories = [ec[0] for ec in event_categories]
             actions = ('create', 'update', 'read', 'delete')
+            geo_actions = ("view", "add", "change", "delete",)
 
             for event_category in event_categories:
-                permission_name = [
-                    f'activity.{event_category}_{action}' for action in actions]
+                permission_name = [f'activity.{event_category}_{action}' for action in actions]
+                permission_name += [f"activity.{action}_{event_category}_geographic_distance" for action in geo_actions]
                 if any([self.request.user.has_perm(perm) for perm in permission_name]):
                     allowed_categories.append(event_category)
 
@@ -885,7 +887,7 @@ class EventsView(generics.ListCreateAPIView):
     page_size, (default is {page_size}, max is {max_page_size})
     """.format(page_size=StandardResultsSetPagination.page_size,
                max_page_size=StandardResultsSetPagination.max_page_size)
-    permission_classes = (EventCategoryPermissions,)
+    permission_classes = (EventCategoryGeographicPermission,)
     filter_backends = (EventObjectPermissionsFilter,)
     serializer_class = EventSerializer
     pagination_class = StandardResultsSetPagination
@@ -1047,7 +1049,8 @@ class EventsView(generics.ListCreateAPIView):
         allowed_event_categories = []
         for event_category in event_categories:
             permission_name = 'activity.{0}_read'.format(event_category)
-            if self.request.user.has_perm(permission_name):
+            geo_permission_name = f"activity.view_{event_category}_geographic_distance"
+            if self.request.user.has_perm(permission_name) or self.request.user.has_perm(geo_permission_name):
                 allowed_event_categories.append(event_category)
 
         if len(allowed_event_categories) > 0:
@@ -1075,6 +1078,11 @@ class EventsView(generics.ListCreateAPIView):
         if parse_bool(query_params.get('include_files', False)):
             queryset = queryset.prefetch_related(Prefetch('files'))
 
+        queryset = queryset.by_location(
+            location=self.request.GET.get("location", ""),
+            user=self.request.user,
+            categories_to_filter=get_categories_and_geo_categories(self.request.user),
+        )
         return queryset
 
     def get_serializer_class(self):
@@ -1095,7 +1103,7 @@ class EventsGeoJsonView(EventsView):
 
 
 class EventView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = (EventCategoryPermissions,)
+    permission_classes = (EventCategoryGeographicPermission,)
     serializer_class = EventSerializer
 
     lookup_field = 'id'
@@ -1149,7 +1157,7 @@ class EventStateView(generics.RetrieveUpdateAPIView):
 
 
 class EventNotesView(generics.ListCreateAPIView):
-    permission_classes = (EventNotesCategoryPermissions,)
+    permission_classes = (EventNotesCategoryGeographicPermissions,)
     serializer_class = EventNoteSerializer
     pagination_class = StandardResultsSetPagination
 
@@ -1170,7 +1178,7 @@ class EventNotesView(generics.ListCreateAPIView):
 
 
 class EventNoteView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = (EventNotesCategoryPermissions,)
+    permission_classes = (EventNotesCategoryGeographicPermissions,)
     serializer_class = EventNoteSerializer
 
     def get_queryset(self):
@@ -1202,7 +1210,7 @@ def resolve_first(dicts, keys):
 
 
 class EventFilesView(generics.ListCreateAPIView):
-    permission_classes = (EventCategoryPermissions,)
+    permission_classes = (EventCategoryGeographicPermission,)
     serializer_class = EventFileSerializer
     pagination_class = StandardResultsSetPagination
 
@@ -1242,7 +1250,7 @@ class EventFilesView(generics.ListCreateAPIView):
 
 
 class EventFileView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = (EventCategoryPermissions,)
+    permission_classes = (EventCategoryGeographicPermission,)
     serializer_class = EventFileSerializer
 
     def get_queryset(self):

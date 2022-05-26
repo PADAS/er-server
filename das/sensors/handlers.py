@@ -41,7 +41,6 @@ class SensorPostParameters(serializers.Serializer):
 
 
 class GenericSensorHandler:
-
     DEFAULT_SOURCE_TYPE = 'gps-radio'
     DEFAULT_SUBJECT_SUBTYPE = 'ranger'
     DEFAULT_EVENT_ACTION = None
@@ -192,7 +191,8 @@ class GenericSensorHandler:
                             )
 
                 update_subject_status_from_post(existing_observation.source, recorded_at=recorded_at,
-                                                location=location, additional={'subject_name': subject_name, **additional})
+                                                location=location,
+                                                additional={'subject_name': subject_name, **additional})
 
             return False
         except Observation.DoesNotExist:
@@ -449,7 +449,7 @@ class DasRadioAgentHandler(GenericSensorHandler):
     DEFAULT_SOURCE_TYPE = SOURCE_TYPE = 'gps-radio'
     DEFAULT_SUBJECT_SUBTYPE = 'ranger'
     DEFAULT_EVENT_ACTION = 'unknown'
-    #serializer_class = DraObservationSerializer
+    # serializer_class = DraObservationSerializer
 
 
 class GsatHandler():

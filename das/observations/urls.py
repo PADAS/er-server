@@ -13,10 +13,10 @@ Including another URLconf
     1. Add an import:  from blog import urls as blog_urls
     2. Add a URL to urlpatterns:  url(r'^blog/', include(blog_urls))
 """
-from django.conf.urls import url, include
+from django.conf.urls import url
 from rest_framework.urlpatterns import format_suffix_patterns
-from observations import views
 
+from observations import views
 
 urlpatterns = [
     url(r'^regions/?$', views.RegionsView.as_view()),
@@ -68,7 +68,7 @@ urlpatterns = [
     url(r'^source/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/gpxdata/status/(?P<task_id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
         views.GPXTaskStatusView.as_view(), name='gpx-status'),
     url(r'^observation/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
-        views.ObservationView.as_view()),
+        views.ObservationView.as_view(), name="observation-view"),
     url(r'^observations/?$', views.ObservationsView.as_view(),
         name="observations-list-view"),
     url(r'^subjectgroups/?$', views.SubjectGroupsView.as_view()),
@@ -88,7 +88,8 @@ urlpatterns = [
         views.MessageView.as_view()),
     url(r'^news/?$', views.AnnouncementsView.as_view(), name="news-view",),
 
-    url(r'^subjectsources/?$', views.SubjectSourcesAssignmentView.as_view(), name='subject-sources-list-view'),
+    url(r'^subjectsources/?$', views.SubjectSourcesAssignmentView.as_view(),
+        name='subject-sources-list-view'),
 
 ]
 

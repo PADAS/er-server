@@ -2381,7 +2381,7 @@ class TestPatrolTrackedBySchemaView:
         url = reverse('patrol-segments-schema')
         client.force_login(ops_user)
 
-        with django_assert_max_num_queries(13):
+        with django_assert_max_num_queries(14):
             response = client.get(url)
             leaders = response.data["properties"]["leader"]["enum"]
             assert not any(subject.name == leader["name"]

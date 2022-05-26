@@ -85,7 +85,8 @@ MIDDLEWARE = (
     'oauth2_provider.middleware.OAuth2TokenMiddleware',
     'revision.middleware.RevisionMiddleware',
     'utils.middleware.RequestLoggingMiddleware',
-    'utils.middleware.EULARedirectMiddleware'
+    'utils.middleware.EULARedirectMiddleware',
+    'utils.middleware.GeographicMiddleware'
     # 'django.contrib.sites.middleware.CurrentSiteMiddleware',
 )
 
@@ -582,6 +583,12 @@ INREACH_INBOUND_ENDPOINT = 'https://explore.garmin.com/IPCInbound/V1/Messaging.s
 INREACH_USERNAME = os.getenv('INREACH_USERNAME', 'username')
 INREACH_PASSWORD = os.getenv('INREACH_PASSWORD', 'password')
 
-GEO_PERMISSION_ENABLED = False
-GEO_PERMISSION_RADIUS_METERS = 1000
-GEO_PERMISSION_SPEED_KM_H = None
+GEO_PERMISSION_RADIUS_METERS = 3704
+GEO_PERMISSION_SPEED_KM_H = 75
+GEO_PERMISSION_VIOLATION_BAN_DURATION_MIN = 10
+
+PERSISTENT_STORAGE = {
+    "CLIENT": "utils.persistent.RedisStorage",
+    "HOST": "redis",
+    "PORT": "6379"
+}

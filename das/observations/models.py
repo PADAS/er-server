@@ -1995,9 +1995,3 @@ class LatestObservationSource(models.Model):
                                related_name="last_observation_sources", related_query_name="last_observation_source")
     observation = models.ForeignKey('Observation', on_delete=models.CASCADE)
     recorded_at = models.DateTimeField()
-
-    def save(self, *args, **kwargs):
-        raise NotImplementedError
-
-    def delete(self, using=None, keep_parents=False):
-        raise NotImplementedError
