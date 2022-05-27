@@ -1,14 +1,15 @@
+from django.conf import settings
+from django.db import ProgrammingError
+from rest_framework import exceptions
 from rest_framework.permissions import (SAFE_METHODS, BasePermission,
                                         DjangoModelPermissions,
                                         DjangoObjectPermissions,
                                         IsAuthenticated)
-from rest_framework import exceptions
-from django.http import Http404
-from django.db import ProgrammingError, models
 
-from activity.models import EventType, Event, EventCategory, Patrol, PatrolType
-from observations.views import UnauthorizedView
+from activity.models import Event, EventCategory, EventType, Patrol, PatrolType
 from observations.models import Subject
+from observations.utils import get_distance_points, is_banned
+from utils.gis import convert_to_point
 
 
 class EventObjectPermissions(DjangoModelPermissions):
@@ -60,13 +61,17 @@ class EventCategoryPermissions(IsAuthenticated):
                     'event_type' in request.data or 'id' in view.kwargs or 'eventtype_id' in view.kwargs):
                 try:
                     if "event_type" in request.data:
-                        event_type = EventType.objects.get_by_natural_key(request.data['event_type'])
+                        event_type = EventType.objects.get_by_natural_key(
+                            request.data['event_type'])
                     elif "eventtype_id" in view.kwargs:
-                        event_type = EventType.objects.get(id=view.kwargs['eventtype_id'])
+                        event_type = EventType.objects.get(
+                            id=view.kwargs['eventtype_id'])
                     else:
-                        event_type = Event.objects.get(id=view.kwargs["id"]).event_type
+                        event_type = Event.objects.get(
+                            id=view.kwargs["id"]).event_type
 
-                    permission_name = 'activity.{0}_{1}'.format(event_type.category.value, v)
+                    permission_name = 'activity.{0}_{1}'.format(
+                        event_type.category.value, v)
 
                     permitted = user.has_perm(permission_name)
                     if k == 'GET' and not permitted and user.is_authenticated:
@@ -92,19 +97,124 @@ class EventCategoryPermissions(IsAuthenticated):
                 raise ProgrammingError(exc)
 
             else:
-                event_subjects = obj.related_subjects.values_list('id', flat=True)
+                event_subjects = obj.related_subjects.values_list(
+                    'id', flat=True)
                 if event_subjects:
-                    user_subjects = Subject.objects.by_user_subjects(request.user).values_list('id', flat=True)
+                    user_subjects = Subject.objects.by_user_subjects(
+                        request.user).values_list('id', flat=True)
                     is_subject = set(event_subjects) <= set(user_subjects)
 
-        permission_name = permission_fmt.format(value, EventCategoryPermissions.http_method_map[request.method])
+        permission_name = permission_fmt.format(
+            value, EventCategoryPermissions.http_method_map[request.method])
         return request.user.has_perm(permission_name) and is_subject
 
 
 class EventCategoryObjectPermissions(DjangoObjectPermissions):
     def has_object_permission(self, request, view, obj):
-        permission_name = 'activity.{0}_{1}'.format(obj.value, EventCategoryPermissions.http_method_map[request.method])
+        permission_name = 'activity.{0}_{1}'.format(
+            obj.value, EventCategoryPermissions.http_method_map[request.method])
         return request.user.has_perm(permission_name)
+
+
+class EventCategoryGeographicPermission(EventCategoryPermissions):
+    http_method_map = {
+        "GET": "view",
+        "OPTIONS": "view",
+        "HEAD": "view",
+        "POST": "add",
+        "PUT": "change",
+        "PATCH": "change",
+        "DELETE": "delete"
+    }
+
+    def has_permission(self, request, view):
+        has_perm = super().has_permission(request, view)
+        if not has_perm:
+            if request.method in ["OPTIONS", "HEAD"]:
+                super().has_permission(request, view)
+            user = request.user
+            perms = {
+                "POST": "create",
+                "PATCH": "update",
+                "PUT": "update",
+                "GET": "read",
+                "DELETE": "delete",
+            }
+            for key, value in perms.items():
+                if request.method == key and (
+                        "event_type" in request.data
+                        or "id" in view.kwargs
+                        or "eventtype_id" in view.kwargs
+                ):
+                    try:
+                        if "event_type" in request.data:
+                            event_type = EventType.objects.get_by_natural_key(
+                                request.data["event_type"]
+                            )
+                        elif "eventtype_id" in view.kwargs:
+                            event_type = EventType.objects.get(
+                                id=view.kwargs["eventtype_id"]
+                            )
+                        else:
+                            event_type = Event.objects.get(
+                                id=view.kwargs["id"]).event_type
+                        geo_perm_name = (
+                            f"activity.{self.http_method_map[request.method]}_"
+                            f"{event_type.category.value}_geographic_distance"
+                        ).lower()
+                        permitted = user.has_perm(geo_perm_name) and not is_banned(
+                            request.user
+                        )
+                        if key == "GET" and not permitted and user.is_authenticated:
+                            return False
+                        elif key == "POST":
+                            obj_location = convert_to_point(
+                                request.data['location'])
+                            location = request.GET.get("location")
+                            if not location:
+                                return False
+                            user_location = convert_to_point(
+                                location=request.GET.get("location"))
+                            points = [
+                                {"position": {"latitude": point.y, "longitude": point.x}}
+                                for point in (user_location, obj_location)
+                            ]
+                            distance = get_distance_points(points)
+                            return distance.m <= settings.GEO_PERMISSION_RADIUS_METERS
+                        return permitted
+                    except EventType.DoesNotExist:
+                        pass
+        return has_perm
+
+    def has_object_permission(self, request, view, obj):
+        has_perm = super().has_object_permission(request, view, obj)
+        if not has_perm:
+            permission_name = (
+                f"activity.{self.http_method_map[request.method]}_"
+                f"{obj.event_type.category.value}_geographic_distance"
+            )
+
+            if request.user.is_superuser or not request.user.has_perm(permission_name):
+                return super().has_object_permission(request, view, obj)
+
+            location = request.GET.get("location")
+            if not location:
+                return False
+
+            point = convert_to_point(location)
+            if (
+                    obj.location
+                    and request.user.has_perm(permission_name)
+                    and not is_banned(request.user)
+            ):
+                points = [
+                    {"position": {"latitude": point.y, "longitude": point.x}}
+                    for point in (point, obj.location)
+                ]
+                distance = get_distance_points(points)
+                return distance.m <= settings.GEO_PERMISSION_RADIUS_METERS
+            return False
+        return has_perm
 
 
 class EventNotesCategoryPermissions(EventCategoryPermissions):
@@ -124,6 +234,32 @@ class EventNotesCategoryPermissions(EventCategoryPermissions):
             return request.user.has_perm(permission_name)
 
         return super().has_permission(request, view)
+
+
+class EventNotesCategoryGeographicPermissions(EventNotesCategoryPermissions):
+    http_method_map = {
+        "GET": "view",
+        "OPTIONS": "view",
+        "HEAD": "view",
+        "POST": "add",
+        "PUT": "change",
+        "PATCH": "change",
+        "DELETE": "delete",
+    }
+
+    def has_permission(self, request, view):
+        has_perm = super().has_permission(request, view)
+        if not has_perm:
+            if request.method == "POST":
+                event = view.get_event()
+                event_type = event.event_type
+
+                geo_perm_name = (
+                    f"activity.{self.http_method_map[request.method]}_"
+                    f"{event_type.category.value}_geographic_distance"
+                )
+                return request.user.has_perm(geo_perm_name)
+        return has_perm
 
 
 class IsOwnerOrReadOnly(BasePermission):
@@ -214,7 +350,18 @@ class PatrolObjectPermissions(DjangoObjectPermissions):
             if not user.has_perms(read_perms, obj):
                 raise exceptions.PermissionDenied
             return False
+        if isinstance(obj, Patrol):
+            return self.has_tracked_subject_permission(obj, user)
         return True
+
+    def has_tracked_subject_permission(self, obj, user):
+        patrol_segments = obj.patrol_segments.last()
+        if patrol_segments and self._is_content_type_subject(patrol_segments.leader_content_type):
+            return Subject.objects.filter(id__in=[patrol_segments.leader_id]).by_user_subjects(user).exists()
+        return True
+
+    def _is_content_type_subject(self, content_type):
+        return content_type and content_type.app_label == "observations" and content_type.model == "subject"
 
 
 class PatrolTypePermissions(DjangoModelPermissions):

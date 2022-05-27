@@ -1,23 +1,20 @@
 import logging
-
 import time
-from datetime import datetime, timedelta
-import pytz
-import socket
 
 import eventlet
-from django.shortcuts import render
-from django.views.generic import View
-from django.conf import settings
 from socketio.kombu_manager import KombuManager
 from socketio.server import Server
+
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.db import close_old_connections
+from django.shortcuts import render
+from django.views.generic import View
 
-from rt_api.rest_api_interface.dummy_request import DummyRequest
-from rt_api import client
 import rt_api.pubsub_listener
 import utils.json
+from rt_api import client
+from rt_api.rest_api_interface.dummy_request import DummyRequest
 from utils import stats
 
 logger = logging.getLogger('rt_api')
@@ -51,7 +48,8 @@ def create_rt_socketio():
     global GLOBAL_SIO
     if GLOBAL_SIO is None:
 
-        connection_options = dict(transport_options=settings.REALTIME_BROKER_OPTIONS)
+        connection_options = dict(
+            transport_options=settings.REALTIME_BROKER_OPTIONS)
         client_mgr = KombuManager(url=settings.REALTIME_BROKER_URL,
                                   connection_options=connection_options
                                   )
@@ -379,13 +377,14 @@ def create_realtime_handler(sios):
                 else:
 
                     # Sample 10% of realtime messages per message-type.
-                    stats.increment(f'rt.emit.{message_type}', tags={
-                                    'service': 'realtime'}, sample_rate=0.1)
+                    stats.increment('rt.emit', tags=[
+                                    'service:realtime',
+                                    f"name:{message_type}"], sample_rate=0.1)
 
                     sios.emit(message_type, data, room=str(
                         socketid), namespace='/das', callback=receipt_callback)
 
-            except Exception as ex:
+            except Exception:
                 if socketid:
                     client.remove_client(socketid)
                     logger.exception(

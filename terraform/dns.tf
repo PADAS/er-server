@@ -19,6 +19,8 @@ locals {
     "matlabas"               = "matlabas-ci"
     "africanparks"           = "greaterkafue"
     "zcp"                    = "zcp-kafue"
+    "amboseli-np"            = "amboseli-np-archive"
+    "madikwefutures"         = "madikwewildlife"
   }
 
   subdomain_name = lookup(local.alt_subdomains, terraform.workspace, kubernetes_namespace.this.metadata.0.name)

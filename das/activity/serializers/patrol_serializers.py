@@ -119,11 +119,6 @@ class LeaderRelatedField(GenericRelatedField):
             if values:
                 yield provenance, values
 
-    def to_representation(self, value):
-        representation = super(
-            LeaderRelatedField, self).to_representation(value)
-        return representation if self.is_allowed_to_view(representation) else {'hidden': True}
-
 
 class PatrolTypeRelatedField(serializers.RelatedField):
 

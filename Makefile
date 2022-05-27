@@ -19,7 +19,7 @@ get-api-pod:
 	kubectl -n ${NAMESPACE} get pods | grep "^api-"
 
 get-api-logs:
-	kubectl -n ${NAMESPACE} logs ${POD} -c das-api -f
+	./scripts_dev/get_api_logs.sh
 
 clean-pods:
 	kubectl -n ${NAMESPACE} delete pod -l das.configuration=server
@@ -31,13 +31,13 @@ connect-db:
 	kubectl -n ${NAMESPACE} exec -it ${DB_POD} -- psql -U postgres
 
 test:
-	python -m pytest -vv ${TEST_PATH}::${TEST_CLASS}::${TEST_METHOD} --no-migrations
+	pytest -vvrP ${TEST_PATH}::${TEST_CLASS}::${TEST_METHOD}
 
 test-class:
-	python -m pytest -vv ${TEST_PATH}::${TEST_CLASS} --no-migrations
+	pytest -vvrP ${TEST_PATH}::${TEST_CLASS}
 
 format-file:
-	./formatter_py_files.sh ${FILE}
+	./scripts_dev/formatter_py_files.sh ${FILE}
 
 check-requirements:
 	safety check -r dependencies/requirements.txt

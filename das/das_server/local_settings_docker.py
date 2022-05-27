@@ -5,10 +5,12 @@ call your project be overriding the settings file
 
 """
 
-from .settings import *
 import os
 
 import environ
+
+from .settings import *
+
 env = environ.Env(
     # set casting, default value
     DEBUG=(bool, False)
@@ -43,7 +45,7 @@ DEV = env.bool('ENABLE_DEV', False)
 
 SHOW_TRACK_DAYS = env.int('SHOW_TRACK_DAYS', 14)
 SHOW_STATIONARY_SUBJECTS_ON_MAP = env.bool(
-    'SHOW_STATIONARY_SUBJECTS_ON_MAP', False)
+    'SHOW_STATIONARY_SUBJECTS_ON_MAP', True)
 
 TIME_ZONE = env.str('TIME_ZONE', 'US/Pacific')
 
@@ -182,6 +184,10 @@ TABLEAU_DEFAULT_DASHBOARD = env.str('TABLEAU_DEFAULT_DASHBOARD', None)
 TABLEAU_SITE_ID = env.str('TABLEAU_SITE_ID', None)
 TRACK_LENGTH = env.int('TRACK_LENGTH', 21)
 
-
 # Google Analytics
 GA_MEASUREMENT_ID = env.str('GA_MEASUREMENT_ID', '')
+
+GEO_PERMISSION_RADIUS_METERS = env.int("GEO_PERMISSION_RADIUS_METERS", 3704)
+GEO_PERMISSION_SPEED_KM_H = env.int("GEO_PERMISSION_SPEED_KM_H", 75)
+GEO_PERMISSION_VIOLATION_BAN_DURATION_MIN = env.int(
+    "GEO_PERMISSION_VIOLATION_BAN_DURATION_MIN", 10)

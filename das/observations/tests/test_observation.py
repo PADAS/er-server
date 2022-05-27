@@ -4,22 +4,18 @@ from datetime import datetime, timedelta, timezone
 from typing import NamedTuple
 
 import pytest
-from core.tests import BaseAPITest
+from pytz import UTC
+
 from django.contrib.auth import get_user_model
 from django.db.models import F
 from django.urls import reverse
-from observations.models import (
-    Observation,
-    Source,
-    SourceProvider,
-    Subject,
-    SubjectSource,
-    SubjectStatus,
-)
-from observations.serializers import ObservationSerializer
-from observations.views import SubjectStatusView, SubjectsView, TrackingDataCsvView
-from pytz import UTC
 
+from core.tests import BaseAPITest
+from observations.models import (Observation, Source, SourceProvider, Subject,
+                                 SubjectSource, SubjectStatus)
+from observations.serializers import ObservationSerializer
+from observations.views import (ObservationsView, SubjectStatusView,
+                                SubjectsView, TrackingDataCsvView)
 
 User = get_user_model()
 
@@ -62,8 +58,6 @@ class ObservationTestCase(BaseAPITest):
         self.assertEqual(actual, expected)
 
     def test_observation_get_source_range_observations_outside_range(self):
-        source_id = '04859b48-5665-4895-b7b1-64319f9812b0'
-
         subject_sources = SubjectSource.objects.all()
         until = datetime(3030, 11, 10, tzinfo=UTC)
         since = until - timedelta(days=2)
@@ -334,6 +328,17 @@ class ObservationTestCase(BaseAPITest):
         response = SubjectStatusView.as_view()(request, subject_id=subject_id)
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data.get('device_status_properties'))
+
+        # observations
+        url = reverse('observations-list-view')
+        request = self.factory.get(url, data=dict(subject_id=subject_id))
+        self.force_authenticate(request, self.user)
+        response = ObservationsView.as_view()(request, subject_id=subject_id)
+        self.assertEqual(response.status_code, 200)
+        first_observation = response.data['results'][0]
+        self.assertTrue(
+            len(first_observation.get('device_status_properties')), 2)
+        assert first_observation['location']['latitude'] and first_observation['location']['longitude']
 
 
 def generate_observation(source, recorded_at=None):

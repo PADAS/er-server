@@ -1,26 +1,23 @@
 import datetime
 import logging
-import pytz
-from dateutil.parser import parse as parse_date
 from datetime import datetime, timezone
 
-from rest_framework import status, serializers
-from rest_framework.response import Response
-
-from django.db import transaction
-
-from observations.models import SubjectSource, Source, Observation, Subject, SourceProvider
-from observations.serializers import ObservationSerializer
-from observations import servicesutils
-from observations.models import update_subject_status_from_post
-from tracking.models.er_track import SourceProviderConfiguration
-from tracking.pubsub_registry import notify_new_tracks
-from sensors.vehicle_tracker import SkylineObservations, SkylineAdapter, \
-    FollowltObservation, TractAdapter, TractVehicleData, EzytrackObservation, \
-    EzyTrackAdapter, DasObservation
+import pytz
 from analyzers import gfw_inbound
-# from sensors.tasks import handle_subject_and_source
+from dateutil.parser import parse as parse_date
+from django.db import transaction
+from observations import servicesutils
+from observations.models import (Observation, Source, Subject, SubjectSource,
+                                 update_subject_status_from_post)
+from observations.serializers import ObservationSerializer
+from rest_framework import serializers, status
+from rest_framework.response import Response
 from sensors.subject_name_change import mutate_ertrack_subject_assignment
+from sensors.vehicle_tracker import (DasObservation, EzyTrackAdapter,
+                                     EzytrackObservation, FollowltObservation,
+                                     SkylineAdapter, SkylineObservations,
+                                     TractAdapter, TractVehicleData)
+from tracking.pubsub_registry import notify_new_tracks
 
 logger = logging.getLogger(__name__)
 
@@ -44,15 +41,33 @@ class SensorPostParameters(serializers.Serializer):
 
 
 class GenericSensorHandler:
-
     DEFAULT_SOURCE_TYPE = 'gps-radio'
     DEFAULT_SUBJECT_SUBTYPE = 'ranger'
+    DEFAULT_EVENT_ACTION = None
     serializer_class = SensorPostParameters
 
     @classmethod
-    def post(cls, request, sensor_type, provider_key):
+    def handle_heartbeat(cls, data: dict, provider_key: str):
+        servicesutils.store_service_status(
+            provider_key=provider_key, data=data)
 
-        observations_json = request.data
+        extradata = {'data': {'provider_key': provider_key, **data}}
+        logger.info('DRA heartbeat', extra=extradata)
+
+        return Response(data, status=status.HTTP_200_OK)
+
+    @classmethod
+    def post(cls, request, sensor_type, provider_key):
+        data = request.data
+
+        if isinstance(data, dict):
+            # Default to 'observation' for backward compatibility.
+            key = data.get('message_key', 'observation')
+
+            if key == 'heartbeat':
+                return cls.handle_heartbeat(data, provider_key)
+
+        observations_json = data
         if isinstance(observations_json, dict):
             observations_json = [observations_json]
 
@@ -150,6 +165,8 @@ class GenericSensorHandler:
                                            )
         recorded_at = an_observation.get('recorded_at')
         additional = an_observation.get('additional', {})
+        event_action = an_observation.get('additional', {}).get(
+            'event_action', cls.DEFAULT_EVENT_ACTION)
         observation = {
             'location': location,
             'recorded_at': recorded_at,
@@ -159,11 +176,27 @@ class GenericSensorHandler:
 
         obs_key = (str(src.id), recorded_at)
         # Short-circuit if we already have this observation.
-        if obs_key in obs_cache or Observation.objects.filter(source=src, recorded_at=recorded_at).exists():
-            logger.info(f"Processed duplicate observation {src.manufacturer_id} @ {recorded_at}",
-                        extra={'obs.dup': provider_key, 'manufacturer_id': src.manufacturer_id, 'recorded_at': recorded_at.isoformat()})
-            errors.append({})
+        if obs_key in obs_cache:
             return False
+
+        try:
+            existing_observation = Observation.objects.get(
+                source=src, recorded_at=recorded_at)
+            logger.debug("Processed duplicate observation %s",
+                         subject_subtype, extra={'obs.dup': provider_key})
+            errors.append({})
+            if event_action:
+                logger.info("Processing new radio status", extra={'radio.status.update': provider_key,
+                                                                  'radio.event_action': event_action}
+                            )
+
+                update_subject_status_from_post(existing_observation.source, recorded_at=recorded_at,
+                                                location=location,
+                                                additional={'subject_name': subject_name, **additional})
+
+            return False
+        except Observation.DoesNotExist:
+            pass
 
         created = False
         obs_cache.add(obs_key)
@@ -211,7 +244,6 @@ class ErTrackHandler(GenericSensorHandler):
 
     @classmethod
     def ensure_source(cls, observation, user, subject_info, **kwargs):
-        provider_key = kwargs.get('provider')
         with transaction.atomic():
             source, source_created = Source.objects.get_source(**kwargs)
             if source_created and not subject_info:
@@ -409,121 +441,15 @@ class DraObservationSerializer(serializers.Serializer):
     additional = RadioAdditionalSerializer()
 
 
-class DasRadioAgentHandler:
+class DasRadioAgentHandler(GenericSensorHandler):
     '''
     Deprecated. I need to move das-radio-agent to the generic handler above.
     '''
     SENSOR_TYPE = 'dasradioagent'
-    SOURCE_TYPE = 'gps-radio'
+    DEFAULT_SOURCE_TYPE = SOURCE_TYPE = 'gps-radio'
     DEFAULT_SUBJECT_SUBTYPE = 'ranger'
-    serializer_class = DraObservationSerializer
-
-    @classmethod
-    def handle_heartbeat(cls, data, provider_key):
-        servicesutils.store_service_status(
-            provider_key=provider_key, data=data)
-
-        extradata = {'data': {'provider_key': provider_key, **data}}
-        logger.info('DRA heartbeat', extra=extradata)
-
-        return Response(data, status=status.HTTP_200_OK)
-
-    @classmethod
-    def post(cls, request, provider_key):
-        '''
-        Handle Post from Das Radio Agent. The payload should have a 'message_key' to idenfity the type of
-        status message.
-        :param request:
-        :param provider_key: The natural key found in SourceProvider.
-        :return:
-        '''
-        data = request.data
-
-        # Default to 'observation' for backward compatibility.
-        key = data.get('message_key', 'observation')
-
-        if key == 'heartbeat':
-            return cls.handle_heartbeat(data, provider_key)
-
-        if key == 'observation':
-            return cls.handle_observation(data, provider_key)
-
-    @classmethod
-    def handle_observation(cls, data, provider_key):
-
-        postdata = DraObservationSerializer(data=data)
-        if not postdata.is_valid():
-            return Response(data=postdata.errors, status=status.HTTP_400_BAD_REQUEST)
-        postdata = postdata.validated_data
-
-        logdata = {'provider_key': provider_key, **postdata}
-        logdata.pop('location', None)
-        logger.info('DRA observation', extra={'data': logdata})
-
-        location = {
-            'longitude': postdata['location']['lon'],
-            'latitude': postdata['location']['lat']
-        }
-
-        model_name = '{}:{}'.format(cls.SENSOR_TYPE, provider_key)
-        manufacturer_id = postdata['manufacturer_id']
-        subject_subtype = postdata.get(
-            'subject_subtype') or cls.DEFAULT_SUBJECT_SUBTYPE
-
-        src = Source.objects.ensure_source(source_type=cls.SOURCE_TYPE,
-                                           provider=provider_key,
-                                           manufacturer_id=manufacturer_id,
-                                           model_name=model_name,
-                                           subject={
-                                               'subject_subtype_id': subject_subtype,
-                                               'name': manufacturer_id,
-                                               'subject_groups': clean_subjectgroups(postdata.get('subject_groups'))
-                                           }
-                                           )
-
-        recorded_at = postdata['recorded_at']
-
-        event_action = data.get('additional', {}).get(
-            'event_action', 'unknown')
-        try:
-
-            existing_observation = Observation.objects.get(
-                source=src, recorded_at=recorded_at)
-
-        except Observation.DoesNotExist:
-
-            # Saving a new observation
-            observation = {
-                'location': location,
-                'recorded_at': recorded_at,
-                'source': str(src.id),
-                'additional': data['additional'],
-            }
-
-            # Anything else that was included in the posted object should move into
-            # additional.
-            observation['additional'].update(
-                dict((k, data[k]) for k in data if k not in observation.keys()))
-
-            serializer = ObservationSerializer(data=observation)
-            if serializer.is_valid():
-                serializer.save()
-                notify_new_tracks(src.id)
-                logger.info("Adding new radio observation", extra={'radio.obs.new': provider_key,
-                                                                   'radio.event_action': event_action})
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-            else:
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        else:
-            logger.info("Processing new radio status", extra={'radio.status.update': provider_key,
-                                                              'radio.event_action': event_action}
-                        )
-
-            update_subject_status_from_post(existing_observation.source, recorded_at=recorded_at,
-                                            location=location, additional={'subject_name': postdata['subject_name'], **data['additional']})
-
-        return Response({}, status=status.HTTP_200_OK)
+    DEFAULT_EVENT_ACTION = 'unknown'
+    # serializer_class = DraObservationSerializer
 
 
 class GsatHandler():
@@ -607,7 +533,7 @@ class GsatHandler():
         try:
             obj = GsatHandler._parse_gsat_request(request.query_params)
         # except ValueError as ve:
-        except Exception as e:
+        except Exception:
             if cls._validate_template_request(request.query_params):
                 return Response({'data': 'That looks like a valid template request'})
             else:
@@ -797,13 +723,7 @@ class SigFoxPushHandler():
             resp = Response(
                 data={'status': 404, 'message': params.errors}, status=status.HTTP_400_BAD_REQUEST)
         else:
-            unix_epoch = params['time']
-            obs_date_utc = datetime.fromtimestamp(unix_epoch, timezone.utc)
             device_id = params['device']
-            location = {
-                'longitude': params['loc']['lng'],
-                'latitude': params['loc']['lat']
-            }
 
             src, created = Source.objects.ensure_source(cls.SOURCE_TYPE,
                                                         provider=provider_key,

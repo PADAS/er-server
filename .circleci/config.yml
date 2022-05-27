@@ -55,6 +55,9 @@ commands:
       network:
         type: string
         default: 'dev'
+      terraform_workspace:
+        type: string
+        default: 'develop'
     steps:
       - 'add_deploy_key_for_common_terraform_modules'
       - attach_workspace:
@@ -68,7 +71,13 @@ commands:
           command: |
             cd infra-automation
             make generate_manifest current_branch="$CIRCLE_BRANCH"
-            make render_templates tfvars_environment="$CIRCLE_BRANCH"
+            regex="das-2-.*-.*"
+            ENVIRONMENT_BRANCH="${CIRCLE_BRANCH}"
+            if [[ $CIRCLE_BRANCH =~ $regex ]]; then
+              echo "Staging"
+              ENVIRONMENT_BRANCH="stage"
+            fi
+            make render_templates tfvars_environment="$ENVIRONMENT_BRANCH"
       - 'toggle_firewall_for_build_agent_k8s_closure':
           inner_command: 'cd infra-automation && make kubectl_apply_via_proxy'
       - persist_to_workspace:
@@ -188,6 +197,14 @@ executors:
               password: $DOCKERHUB_PASSWORD
 
 jobs:
+  relyance: 
+    
+    machine:
+      image: ubuntu-2004:202010-01
+    steps:
+      - checkout
+      # TODO: Add "RELYANCE_TOKEN" as circleCI environment variable. The token is available in Step 2 on the "Source Code Integration" tab in the platform.
+      - run: curl -f --header "x-rel-access-token:$RELYANCE_TOKEN" 'https://allenai.relyance.ai/api/download?type=image' --output relyance_inspector.tar.gz && docker load --input relyance_inspector.tar.gz && docker run --rm -v `pwd`:/repo relyance_inspector:latest && docker image rm relyance_inspector:latest
   check_for_abandoned_workspaces:
     executor: circleci_executor
     steps:
@@ -196,15 +213,32 @@ jobs:
       - add_deploy_key_for_common_terraform_modules
       - run: 'cd infra-automation && make check_for_abandoned_workspaces'
   terraform_plan:
+    parameters:
+      terraform_workspace:
+        type: string
+        default: "develop"
+      init_args:
+        type: string
+        default: "-input=false"
+      plan_args:
+        type: string
+        default: '-input=false -out=tfplan -var "is_running_in_automation=true"'
     environment:
       TF_IN_AUTOMATION: 'not-empty'
     executor: 'default'
     steps:
       - terraform_plan:
-          terraform_workspace: '$CIRCLE_BRANCH'
+          terraform_workspace: << parameters.terraform_workspace >>
+          init_args: << parameters.init_args >>
+          plan_args: << parameters.plan_args >>
+
   terraform_apply_dev:
     environment:
       TF_IN_AUTOMATION: 'not-empty'
+    parameters:
+      terraform_workspace:
+        type: string
+        default: "develop"
     executor: 'default'
     steps:
       - terraform_apply_dev:
@@ -327,6 +361,7 @@ workflows:
             branches:
               ignore:
                 - 'develop'
+                - /das-2-.*-.*/
       - docker_build_image:
           requires:
             - 'build_sphinx_docs'
@@ -334,12 +369,14 @@ workflows:
             branches:
               ignore:
                 - 'develop'
+                - /das-2-.*-.*/
       - run_api_unittests:
           requires:
             - 'docker_build_image'
       - terraform_plan:
           requires:
             - 'docker_build_image'
+          terraform_workspace: "$CIRCLE_BRANCH"
       - review_plan:
           requires:
             - 'terraform_plan'
@@ -347,6 +384,36 @@ workflows:
       - terraform_apply_feature_branch:
           requires:
             - 'review_plan'
+
+  build_and_terraform_release_branch:
+    jobs:
+      - build_sphinx_docs:
+          filters:
+            branches:
+              only:
+                - /das-2-.*-.*/
+      - docker_build_image:
+          requires:
+            - 'build_sphinx_docs'
+          filters:
+            branches:
+              only:
+                - /das-2-.*-.*/
+      - run_api_unittests:
+          requires:
+            - 'docker_build_image'
+      - terraform_plan:
+          requires:
+            - 'docker_build_image'
+          terraform_workspace: "stage"
+      - review_plan:
+          requires:
+            - 'terraform_plan'
+          type: 'approval'
+      - terraform_apply_dev:
+          requires:
+            - 'review_plan'
+          terraform_workspace: "stage"
 
   audit:
     jobs:
@@ -358,3 +425,16 @@ workflows:
             branches:
               only:
                 - "develop"
+  nightly:
+    triggers:
+      - schedule:
+          # Run against your stable branch nightly
+          cron: '0 7 * * *'
+          filters:
+            branches:
+              only:
+                - "develop" 
+    jobs:
+      - relyance:
+          context:
+            - relyance

@@ -1,4 +1,3 @@
-from django.conf import settings
 from rest_framework import generics
 from rest_framework.parsers import (FileUploadParser, FormParser, JSONParser,
                                     MultiPartParser)
@@ -8,14 +7,15 @@ from das_server.views import CustomSchema
 from observations.serializers import ObservationSerializer
 from sensors.camera_trap import CameraTrapSensorHandler
 from sensors.capturs import CaptursPushHandler
-from sensors.handlers import (DasRadioAgentHandler, EzyTrackHandler,
-                              FollowltTrackerHandler, GateHandler,
-                              GenericSensorHandler, GFWAlertHandler,
-                              GsatHandler, InreachPushHandler,
+from sensors.handlers import (DasRadioAgentHandler, ErTrackHandler,
+                              EzyTrackHandler, FollowltTrackerHandler,
+                              GateHandler, GenericSensorHandler,
+                              GFWAlertHandler, GsatHandler, InreachPushHandler,
                               SigFoxPushHandler, SkylineVehicleTrackerHandler,
-                              TestHandler, TractVehicleHandler, ErTrackHandler)
-from sensors.sigfox_foundation_push_handler import SigfoxV1Handler, SigfoxV2Handler
+                              TestHandler, TractVehicleHandler)
 from sensors.kerlink_push_handler import KerlinkHandler
+from sensors.sigfox_foundation_push_handler import (SigfoxV1Handler,
+                                                    SigfoxV2Handler)
 from utils.drf import AllowAnyGet
 from utils.json import JSONTextParser
 from utils.stats import increment
@@ -34,8 +34,8 @@ class GenericSensorHandlerView(BaseSensorsView):
     def post(self, request, *args, sensor_type=None, provider_key=None, **kwargs):
         """ Add Generic Sensor Observations """
 
-        increment(f'sensor_{sensor_type}')
-        increment(f'sensor_{sensor_type}_{provider_key}')
+        increment("sensor", tags={
+                  "type": sensor_type, "provider": provider_key})
         return GenericSensorHandler.post(request, sensor_type=sensor_type, provider_key=provider_key)
 
 
@@ -46,20 +46,26 @@ class ERTrackHandlerView(BaseSensorsView):
         """ Add ER Track Observations """
         return ErTrackHandler.post(request, provider_key=provider_key)
 
+
 class GsatSchema(CustomSchema):
     def get_operation(self, path, method):
         operation = super().get_operation(path, method)
         if method == 'GET':
             query_params = [
                 {'name': 'uniqueid', 'in': 'query', 'required': True},
-                {'name': 'lat', 'in': 'query', 'required': True, 'description': 'latitude'},
-                {'name': 'lng', 'in': 'query', 'required': True, 'description': 'longitude'},
-                {'name': 'time', 'in': 'query', 'required': True, 'description': 'recorded time'},
+                {'name': 'lat', 'in': 'query', 'required': True,
+                    'description': 'latitude'},
+                {'name': 'lng', 'in': 'query', 'required': True,
+                    'description': 'longitude'},
+                {'name': 'time', 'in': 'query', 'required': True,
+                    'description': 'recorded time'},
                 {'name': 'alt', 'in': 'query', 'description': 'altitude'},
-                {'name': 'heading', 'in': 'query', 'description': 'Direction subject is headed'},
+                {'name': 'heading', 'in': 'query',
+                    'description': 'Direction subject is headed'},
                 {'name': 'speed', 'in': 'query', 'description': 'subject speed'},
-                {'name': 'emer', 'in': 'query', 'description': 'If emergency', 'schema': {'type': 'bool'}},
-                ]
+                {'name': 'emer', 'in': 'query', 'description': 'If emergency',
+                    'schema': {'type': 'bool'}},
+            ]
             operation['parameters'].extend(query_params)
         return operation
 
@@ -78,7 +84,7 @@ class RadioAgentHandlerView(BaseSensorsView):
 
     def post(self, request, provider_key=None):
         """ Add RadioAgent Observations """
-        return DasRadioAgentHandler.post(request, provider_key)
+        return DasRadioAgentHandler.post(request, DasRadioAgentHandler.SENSOR_TYPE, provider_key)
 
 
 class CameraTrapHandlerView(BaseSensorsView):
@@ -144,6 +150,7 @@ class SigfoxV2FoundationHandlerView(BaseSensorsView):
         """ Add Sigfox V2 Foundation Observations """
         return SigfoxV2Handler.post(request, provider_key)
 
+
 class GateHandlerView(BaseSensorsView):
     serializer_class = None
 
@@ -190,4 +197,3 @@ class KerlinkHandlerView(BaseSensorsView):
 
     def post(self, request, provider_key=None):
         return KerlinkHandler.post(request, provider_key)
-

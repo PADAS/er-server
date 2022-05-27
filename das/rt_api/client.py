@@ -8,8 +8,10 @@ import signal
 
 from django.contrib.gis.geos import Polygon, MultiPolygon
 from psycopg2.extras import DateTimeTZRange
-
 from django.conf import settings
+
+from observations.models import SocketClient
+from observations.models import UserSession
 from utils import json
 
 logger = logging.getLogger(__name__)
@@ -24,7 +26,8 @@ def get_ip_address():
     return s.getsockname()[0]
 
 
-SERVICE_ID = socket.gethostbyname(socket.gethostname()) or str(get_ip_address())
+SERVICE_ID = socket.gethostbyname(
+    socket.gethostname()) or str(get_ip_address())
 CLIENT_LIST_KEY = 'rt_api.{}'.format(SERVICE_ID)
 EXPIRED_CLIENT_TRACES_LIST = 'rt_api.expired_traces'
 REALTIME_SERVICES_KEY = 'rt_api.services'
@@ -41,13 +44,18 @@ Bbox = collections.namedtuple('Bbox', BBOX_FIELDS)
 SID_SUBJECTS_TIMESTAMPS_KEY = 'sid-subject-timestamps-{}'
 SID_SESSION_TIMESTAMP_KEY = 'sid-session-timestamp-{}'
 
+
 def init_redis_storage():
     logger.info("Initializing redis storage")
     # first, remove existing key to remove stale clients
     redis_client.delete(CLIENT_LIST_KEY)
 
-    [redis_client.delete(key) for key in redis_client.scan_iter(SID_SESSION_TIMESTAMP_KEY.format('*'))]
-    [redis_client.delete(key) for key in redis_client.scan_iter(SID_SUBJECTS_TIMESTAMPS_KEY.format('*'))]
+    [redis_client.delete(key) for key in redis_client.scan_iter(
+        SID_SESSION_TIMESTAMP_KEY.format('*'))]
+    [redis_client.delete(key) for key in redis_client.scan_iter(
+        SID_SUBJECTS_TIMESTAMPS_KEY.format('*'))]
+
+    cleanup_socketclient()
 
     # add the service as a member of services set
     redis_client.sadd(REALTIME_SERVICES_KEY, CLIENT_LIST_KEY)
@@ -81,18 +89,17 @@ def update_client(sid, bbox=None, event_filter=None, patrol_filter=None):
             update_values['patrol_filter'] = patrol_filter
 
         if update_values:
-            from observations.models import SocketClient
             update_values['username'] = client_data.username
             socket_client, created = SocketClient.objects.update_or_create(
                 id=sid, defaults=update_values)
 
 
 def create_update_user_session(sid):
-    from observations.models import UserSession
-    socket_client, created = UserSession.objects.update_or_create(id=sid)
+    user_session, created = UserSession.objects.update_or_create(id=sid)
     if created:
-        socket_client.time_range = DateTimeTZRange(lower=datetime.datetime.now(tz=pytz.utc))
-        socket_client.save()
+        user_session.time_range = DateTimeTZRange(
+            lower=datetime.datetime.now(tz=pytz.utc))
+        user_session.save()
 
 
 def get_all_connections():
@@ -106,6 +113,19 @@ def get_all_connections_list():
         conn = redis_client.hgetall(list_key)
         all_conns.update(conn)
     return all_conns
+
+
+def get_all_connections_list_decoded():
+    sids_map = {}
+    for sid, session_data in get_all_connections_list().items():
+        try:
+            session_data = json.loads(session_data.decode('utf-8'))
+            sid = sid.decode('UTF-8')
+            sids_map[sid] = session_data
+
+        except (UnicodeDecodeError, KeyError):
+            logger.warning('Failed to parse session_data=%s', session_data)
+    return sids_map
 
 
 def get_session_count():
@@ -196,11 +216,10 @@ def remove_clients(*sids):
     redis_client.delete(*[f'mid-{sid}' for sid in sids])
 
     logger.info('Deleteing session timestamp keys for sids %s.', sids)
-    redis_client.delete(*[SID_SESSION_TIMESTAMP_KEY.format(sid) for sid in sids])
-    redis_client.delete(*[SID_SUBJECTS_TIMESTAMPS_KEY.format(sid) for sid in sids])
-
-
-    from observations.models import SocketClient
+    redis_client.delete(*[SID_SESSION_TIMESTAMP_KEY.format(sid)
+                        for sid in sids])
+    redis_client.delete(
+        *[SID_SUBJECTS_TIMESTAMPS_KEY.format(sid) for sid in sids])
 
     try:
         SocketClient.objects.filter(id__in=sids).delete()
@@ -208,16 +227,24 @@ def remove_clients(*sids):
         logger.exception('Failed to remove SocketClients for sids: %s', sids)
 
 
+def cleanup_socketclient():
+
+    live_sids = get_all_connections_list_decoded()
+    for socket_client in SocketClient.objects.values("id", "username"):
+        sid = socket_client["id"]
+        if not sid in live_sids:
+            remove_client(sid)
+
+
 def update_user_session(sid):
-    from observations.models import UserSession
     try:
-        socket_client = UserSession.objects.get(id=sid)
+        user_session = UserSession.objects.get(id=sid)
     except UserSession.DoesNotExist:
         logger.info(f"sid {sid} not found in UserSession")
     else:
-        socket_client.time_range = DateTimeTZRange(upper=datetime.datetime.now(pytz.utc),
-                                                   lower=socket_client.time_range.lower)
-        socket_client.save()
+        user_session.time_range = DateTimeTZRange(upper=datetime.datetime.now(pytz.utc),
+                                                  lower=user_session.time_range.lower)
+        user_session.save()
 
 
 def get_rt_service_list():
@@ -277,7 +304,8 @@ def start_trace_consumer():
 
 
 def shutdown_cleanup(*args):
-    logger.info('Shutdown cleanup for realtime client list: %s', CLIENT_LIST_KEY)
+    logger.info('Shutdown cleanup for realtime client list: %s',
+                CLIENT_LIST_KEY)
     remove_rt_service(CLIENT_LIST_KEY)
     signal.signal(signal.SIGINT, shutdown_cleanup)
     signal.signal(signal.SIGTERM, shutdown_cleanup)
@@ -302,7 +330,8 @@ def save_session_timestamp(sid, subject_id=None, timestamp=None):
     timestamp = timestamp or datetime.datetime.now(tz=pytz.utc)
 
     if subject_id:
-        redis_client.hset(SID_SUBJECTS_TIMESTAMPS_KEY.format(sid), subject_id, timestamp)
+        redis_client.hset(SID_SUBJECTS_TIMESTAMPS_KEY.format(
+            sid), subject_id, timestamp)
 
     # Always set the session's default timestamp.
     redis_client.set(SID_SESSION_TIMESTAMP_KEY.format(sid), timestamp)

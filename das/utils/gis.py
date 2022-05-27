@@ -1,5 +1,6 @@
 import logging
-from django.contrib.gis.geos import Polygon, MultiPolygon
+
+from django.contrib.gis.geos import MultiPolygon, Point, Polygon
 
 logger = logging.getLogger(__name__)
 
@@ -54,3 +55,29 @@ def points_cross_idl(point1, point2):
     '''
 
     return (point2[0] - point1[0]) > 180
+
+
+def convert_to_point(location):
+    """Convert the location to a Point geometry object.
+
+    Args:
+        location (str, dict, Point): accept a string that is comma delimited longitude, latitude values.
+        Alternatively accepts a dictionary with "longitude" and "latitude" keys.
+
+    Raises:
+        TypeError: if location is not str, dict or Point
+
+    Returns:
+        Point: the converted value
+    """
+    if isinstance(location, Point):
+        pass
+    elif isinstance(location, str):
+        longitude = float(location.split(",")[0].strip())
+        latitude = float(location.split(",")[1].strip())
+        location = Point(longitude, latitude, srid=4326)
+    elif isinstance(location, dict):
+        location = Point(location['longitude'], location['latitude'])
+    else:
+        raise TypeError(f"Unexpected type for location: {location}")
+    return location

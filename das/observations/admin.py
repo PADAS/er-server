@@ -1,5 +1,5 @@
+import copy
 import csv
-import json
 import random
 import urllib
 from datetime import datetime, timedelta
@@ -11,55 +11,53 @@ import humanize
 import pytz
 from bitfield import BitField
 from bitfield.forms import BitFieldCheckboxSelectMultiple
+
 from django import forms
 from django.conf import settings
-from django.contrib import admin
-from django.contrib import messages
+from django.contrib import admin, messages
+from django.contrib.admin import SimpleListFilter
+from django.contrib.admin.options import FORMFIELD_FOR_DBFIELD_DEFAULTS
 from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
 from django.contrib.admin.utils import quote
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.auth import get_permission_codename
 from django.contrib.contenttypes.admin import GenericTabularInline
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.core.paginator import Paginator
-from django.db import connection
 from django.db import transaction
-from django.db.models import Aggregate
-from django.db.models import BooleanField, OuterRef, Subquery, DateTimeField
-from django.db.models import ExpressionWrapper, Max, Min
-from django.db.models import F, Q, Window, RowRange, Count
-from django.db.models.functions import FirstValue, Trunc
-from django.db.models.functions import Now
+from django.db.models import (Aggregate, BooleanField, Count, DateTimeField,
+                              ExpressionWrapper, F, Max, Min, OuterRef, Q,
+                              Subquery, Window)
+from django.db.models.functions import FirstValue, Now, Trunc
 from django.db.utils import IntegrityError
-from django.forms import modelformset_factory, BaseModelFormSet
+from django.forms import BaseModelFormSet, modelformset_factory
 from django.http import HttpResponse
 from django.http.response import HttpResponseRedirect
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.functional import cached_property
-from django.utils.html import escape
-from django.utils.html import format_html
+from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
-from pygments import highlight
-from pygments.formatters.html import HtmlFormatter
-from pygments.lexers.data import JsonLexer
 
 import observations.forms
 import observations.models as models
-from core.admin import HierarchyModelAdmin, InlineExtraDynamicMixin, \
-    SaveCoordinatesToCookieMixin
+from core.admin import (HierarchyModelAdmin, InlineExtraDynamicMixin,
+                        SaveCoordinatesToCookieMixin)
 from core.common import TIMEZONE_USED
 from core.openlayers import OSMGeoExtendedAdmin
 from observations.daterange_filter import DateRangeFilter
-from observations.forms import SubjectChangeListForm, SubjectSourceForm, SourceProviderForm, GPXFileForm, \
-    MessageGenericForeignKeyRawIdWidget, MessagesForm
-from observations.tasks import process_gpxtrack_file, maintain_subjectstatus_for_subject
-from observations.utils import assigned_range_dates, get_cyclic_subjectgroup, find_paths
+from observations.forms import (GPXFileForm,
+                                MessageGenericForeignKeyRawIdWidget,
+                                MessagesForm, SourceProviderForm,
+                                SubjectChangeListForm, SubjectSourceForm)
+from observations.tasks import (maintain_subjectstatus_for_subject,
+                                process_gpxtrack_file)
+from observations.utils import assigned_range_dates, get_cyclic_subjectgroup
 from tracking.models import SourcePlugin
+from utils.drf import TimeLimitedPaginator
 from utils.html import make_html_list
+
 from .models import SOURCE_TYPES
-from django.contrib.admin import SimpleListFilter
 
 site_title = _('EarthRanger Administration (advanced view)')
 admin.site.site_title = site_title
@@ -130,8 +128,8 @@ class ValidateFilterMixin:
 
     def check_uuid(self, uuid):
         try:
-            uuid_version = UUID(uuid).version
-        except Exception as exc:
+            UUID(uuid).version
+        except Exception:
             return
         return uuid
 
@@ -191,43 +189,76 @@ class SubjectSubTypeAdmin(admin.ModelAdmin):
     )
 
 
-class SubjectSourceInline(InlineExtraDynamicMixin, admin.StackedInline):
+class SubjectSourceInline(InlineExtraDynamicMixin, OSMGeoExtendedAdmin, admin.StackedInline):
+    can_delete = True
+    fk_name = "subject"
+    form = SubjectSourceForm
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    (
+                        "subject",
+                        "source",
+                    ),
+                )
+            },
+        ),
+        (None, {"classes": ("wide",), "fields": ("assigned_range",)}),
+        (None, {"fields": ("location",)}),
+        (
+            "Source Assignment Attributes",
+            {
+                "classes": (
+                    "wide",
+                    "collapse",
+                ),
+                "fields": (
+                    "chronofile",
+                    "data_status",
+                    "data_starts_source",
+                    "data_stops_source",
+                    "data_stops_reason",
+                    "date_off_or_removed",
+                    "comments",
+                ),
+            },
+        ),
+        (
+            "Raw Attributes Data",
+            {
+                "classes": (
+                    "wide",
+                    "collapse",
+                ),
+                "fields": ("additional", "id"),
+            },
+        ),
+    )
     model = models.SubjectSource
+    readonly_fields = ("additional",)
+    show_change_link = True
+    template = "admin/observations/subjectsource/edit_inline/stacked.html"
+    verbose_name = _("Source Assignment")
+    verbose_name_plural = _("Source Assignments")
+
+    def __init__(self, parent_model, admin_site):
+        self.admin_site = admin_site
+        self.parent_model = parent_model
+        self.opts = self.model._meta
+        self.has_registered_model = admin_site.is_registered(self.model)
+        overrides = copy.deepcopy(FORMFIELD_FOR_DBFIELD_DEFAULTS)
+        for k, v in self.formfield_overrides.items():
+            overrides.setdefault(k, {}).update(v)
+        self.formfield_overrides = overrides
+        if self.verbose_name is None:
+            self.verbose_name = self.model._meta.verbose_name
+        if self.verbose_name_plural is None:
+            self.verbose_name_plural = self.model._meta.verbose_name_plural
 
     def get_queryset(self, request):
-        return super().get_queryset(request).order_by('-assigned_range__startswith')
-
-    can_delete = True
-    verbose_name = _('Source Assignment')
-    verbose_name_plural = _('Source Assignments')
-    show_change_link = True
-    fk_name = 'subject'
-    readonly_fields = ('additional', )
-    template = 'admin/observations/subjectsource/edit_inline/stacked.html'
-
-    form = SubjectSourceForm
-
-    fieldsets = (
-        (None, {
-            'fields': (('subject', 'source',),)
-        }
-        ),
-        (None, {
-            'classes': ('wide',),
-            'fields': ('assigned_range',)
-        }
-        ),
-        ('Source Assignment Attributes', {
-            'classes': ('wide', 'collapse',),
-            'fields': ('chronofile', 'data_status', 'data_starts_source', 'data_stops_source', 'data_stops_reason', 'date_off_or_removed', 'comments')
-        }
-        ),
-        ('Raw Attributes Data', {
-            'classes': ('wide', 'collapse',),
-            'fields': ('additional', 'id')
-        }
-        )
-    )
+        return super().get_queryset(request).order_by("-assigned_range__startswith")
 
 
 class SourceGenericInline(GenericTabularInline):
@@ -309,33 +340,6 @@ class SourceIdFilter(InputFilter, ValidateFilterMixin):
             return queryset.filter(source__id=uuid)
 
 
-class LargeTablePaginator(Paginator):
-    '''
-    If the query has no filter, then get count from pg_class.
-    '''
-
-    def _get_count(self):
-        # Handle subsequent calls in same request.
-        if getattr(self, '_count', None) is not None:
-            return self._count
-
-        query = self.object_list.query
-        self._count = None
-
-        if not query.where:
-            try:
-                with connection.cursor() as cursor:
-                    cursor.execute("SELECT reltuples FROM pg_class WHERE relname = %s",
-                                   [query.model._meta.db_table])
-                    self._count = int(cursor.fetchone()[0])
-            except:
-                pass
-
-        return self._count if self._count is not None else super().count
-
-    count = cached_property(_get_count)
-
-
 @admin.register(models.Observation)
 class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin):
     readonly_fields = ("created_at", "id")
@@ -349,7 +353,7 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
     show_full_result_count = False
     autocomplete_fields = ('source',)
 
-    paginator = LargeTablePaginator
+    paginator = TimeLimitedPaginator
     formfield_overrides = {
         BitField: {
             'widget': BitFieldCheckboxSelectMultiple
@@ -420,11 +424,6 @@ class ObservationAdmin(ExportCsvMixin, ValidateFilterMixin, OSMGeoExtendedAdmin)
         qs = qs.annotate(manufacturer_id=F('source__manufacturer_id'),
                          )
         qs = qs.select_related('source',)
-
-        if not self.is_date_range_set(request):
-            # Hard-limit at 180 days.
-            dt = datetime.now(tz=pytz.utc) - OBSERVATIONS_HISTORY_LIMIT
-            qs = qs.filter(recorded_at__gte=dt)
 
         return qs
 
@@ -1665,7 +1664,7 @@ class SubjectPositionSummaryAdmin(admin.ModelAdmin):
         )
 
         try:
-            qs = response.context_data['cl'].queryset
+            response.context_data['cl'].queryset
         except (AttributeError, KeyError):
             return response
 

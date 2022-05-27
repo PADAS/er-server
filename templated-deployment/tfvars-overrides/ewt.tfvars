@@ -1,2 +1,2 @@
 time_zone           = "Africa/Johannesburg"
-show_track_days      = "365"
+show_track_days      = "100"

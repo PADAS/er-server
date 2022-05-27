@@ -1,0 +1,8 @@
+GET https://{{host}}
+    /subjects
+    ?bbox=-103.44734278196135,20.613171084730354,-103.40873581607786,20.63446063750607
+    &use_lkl=true
+Accept: application/json
+Authorization: Bearer {{token}}
+
+###

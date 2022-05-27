@@ -10,44 +10,42 @@ import string
 import tempfile
 from datetime import datetime, timedelta
 from unittest import mock
+from unittest.mock import MagicMock, patch
 from urllib.parse import urlencode
 
-import django.contrib.auth
 import pytest
 import pytz
-from accounts.models import PermissionSet
-from accounts.serializers import UserDisplaySerializer
-from activity import views
-from activity.models import (
-    Event,
-    EventCategory,
-    EventDetails,
-    EventNote,
-    EventProvider,
-    EventRelationship,
-    EventSource,
-    EventsourceEvent,
-    EventType,
-    TSVectorModel,
-    parse_date_range,
-)
-from activity.serializers import EventDetailsSerializer
-from activity.tasks import automatically_update_event_state
-from activity.tests import schema_examples
-from choices.models import Choice, DynamicChoice
-from core.tests import BaseAPITest
+from drf_extra_fields.geo_fields import PointField
+from kombu import Connection
+
+import django.contrib.auth
 from django.contrib.auth.models import Permission
+from django.contrib.gis.geos import Point
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import dateparse, lorem_ipsum, timezone
-from drf_extra_fields.geo_fields import PointField
-from kombu import Connection
-from observations.models import Subject, SubjectSubType, SubjectType
 from rest_framework.fields import DateTimeField
+
+from accounts.models import PermissionSet
+from accounts.serializers import UserDisplaySerializer
+from activity import views
+from activity.models import (Event, EventCategory, EventDetails, EventNote,
+                             EventProvider, EventRelationship, EventSource,
+                             EventsourceEvent, EventType, Patrol,
+                             TSVectorModel, parse_date_range)
+from activity.serializers import EventDetailsSerializer
+from activity.tasks import automatically_update_event_state
+from activity.tests import schema_examples
+from choices.models import Choice, DynamicChoice
+from client_http import HTTPClient
+from core.tests import BaseAPITest
+from observations.models import Subject, SubjectSubType, SubjectType
+from observations.serializers import SubjectSerializer
+from utils.categories import get_categories_and_geo_categories
+from utils.gis import convert_to_point
 from utils.html import clean_user_text
 from utils.schema_utils import format_key_for_title
-
 
 logger = logging.getLogger(__name__)
 
@@ -692,24 +690,30 @@ class TestEventView(BaseAPITest):
         self.assertIn('provenance', response_data['properties'])
         assert 'enum' not in response_data['properties']['patrol_segments']
 
-    def test_event_feed(self):
+    @patch("activity.models.is_banned")
+    def test_event_feed(self, is_banned):
+        is_banned.return_value = False
         request = self.factory.get(self.api_base + '/events')
         self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventsView.as_view()(request)
-        response_data = response.data
+        response.data
         self.assertEqual(response.status_code, 200)
 
-    def test_event_feed_category(self):
+    @patch("activity.models.is_banned")
+    def test_event_feed_category(self, is_banned):
+        is_banned.return_value = False
         request = self.factory.get(
             self.api_base + '/events?event_category=monitoring&event_category=security')
         self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventsView.as_view()(request)
-        response_data = response.data
+        response.data
         self.assertEqual(response.status_code, 200)
 
-    def test_event_feed_filter_contained_events(self):
+    @patch("activity.models.is_banned")
+    def test_event_feed_filter_contained_events(self, is_banned):
+        is_banned.return_value = False
         incident_data = copy.deepcopy(self.event_data)
         incident_data['event_type'] = 'incident_collection'
 
@@ -738,7 +742,7 @@ class TestEventView(BaseAPITest):
         self.force_authenticate(request, self.all_perms_user)
 
         response = views.EventTypesView.as_view()(request)
-        response_data = response.data
+        response.data
         self.assertEqual(response.status_code, 200)
 
     def test_event_categories_list(self):
@@ -1050,8 +1054,9 @@ class TestEventView(BaseAPITest):
         # clean the generated title from above as that is happening in the ORM
         self.assertIn('Species', response.data['updates'][0]['message'])
 
-    def test_event_with_search_filter(self):
-
+    @patch("activity.models.is_banned")
+    def test_event_with_search_filter(self, is_banned):
+        is_banned.return_value = False
         title_text = 'Testing search/filter API'
         search_text = title_text[5:-5]
 
@@ -1259,7 +1264,9 @@ class TestEventView(BaseAPITest):
             response.content.decode("utf-8"))
         assert len(rendered_dict) == 0
 
-    def test_filter_events_with_update_date(self):
+    @patch("activity.models.is_banned")
+    def test_filter_events_with_update_date(self, is_banned):
+        is_banned.return_value = False
         url = """/activity/events?"""
         q_params = json.dumps(
             {"update_date": {
@@ -1644,7 +1651,7 @@ class TestEventView(BaseAPITest):
 
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(len(response.data), 0)
+        self.assertEqual(len(response.data), 1)
 
     def test_radio_room_operator_permissions(self):
         results = self.do_all_operations_on_all_event_types(
@@ -1848,7 +1855,7 @@ class TestEventView(BaseAPITest):
         response = views.EventSourcesView.as_view()(
             request, eventprovider_id=str(eventprovider.id))
         self.assertEqual(response.status_code, 201)
-        response_data = response.data
+        response.data
 
         request = self.factory.post(
             f'{self.api_base}/activity/eventprovider/{str(eventprovider.id)}/eventsources',
@@ -1858,7 +1865,7 @@ class TestEventView(BaseAPITest):
         response = views.EventSourcesView.as_view()(
             request, eventprovider_id=str(eventprovider.id))
         self.assertEqual(response.status_code, 400)
-        response_data = response.data
+        response.data
 
     def test_eventsourceview_update_permission_denied(self):
 
@@ -2585,9 +2592,11 @@ class TestEventView(BaseAPITest):
         tsvector = self.get_ts_token(uuid)
         self.assertTrue(tsvector)
 
-    def test_search_event_by_event_title(self):
-        title_text = 'EventTitle'
-        self.event_data['title'] = title_text
+    @patch("activity.models.is_banned")
+    def test_search_event_by_event_title(self, is_banned):
+        is_banned.return_value = False
+        title_text = "EventTitle"
+        self.event_data["title"] = title_text
 
         request = self.factory.post(
             self.api_base + '/events/', [self.event_data, self.event_data])
@@ -2602,9 +2611,11 @@ class TestEventView(BaseAPITest):
         self.assertTrue(response.data)
         self.assertEqual(response.status_code, 200)
 
-    def test_search_filter_with_one_event_id_returns_none(self):
-        title_text = 'EventTitle'
-        title_search_text = 'NoMatch'
+    @patch("activity.models.is_banned")
+    def test_search_filter_with_one_event_id_returns_none(self, is_banned):
+        is_banned.return_value = False
+        title_text = "EventTitle"
+        title_search_text = "NoMatch"
         event_data = copy.copy(self.event_data)
         event_data['title'] = title_text
 
@@ -2625,9 +2636,11 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.data['count'], 0)
         self.assertEqual(response.status_code, 200)
 
-    def test_search_filter_with_two_event_id_returns_one(self):
-        title_text = 'EventTitle'
-        title_search_text = 'NoMatch'
+    @patch("activity.models.is_banned")
+    def test_search_filter_with_two_event_id_returns_one(self, is_banned):
+        is_banned.return_value = False
+        title_text = "EventTitle"
+        title_search_text = "NoMatch"
         event_data = copy.copy(self.event_data)
         event_data_two = copy.copy(self.event_data)
         event_data['title'] = title_text
@@ -2651,10 +2664,11 @@ class TestEventView(BaseAPITest):
         self.assertEqual(response.data['results'][0]['id'], event_ids[1])
         self.assertEqual(response.status_code, 200)
 
-    def test_can_search_event_by_eventtype_schema_used(self):
+    @patch("activity.models.is_banned")
+    def test_can_search_event_by_eventtype_schema_used(self, is_banned):
         # schema used has some of its titles named: conservancy, Name Of
         # Ranger, Beginning of Incident etc.
-
+        is_banned.return_value = False
         request = self.factory.post(
             self.api_base + '/events/', [self.event_data, self.event_data])
         self.force_authenticate(request, self.all_perms_user)
@@ -2679,8 +2693,9 @@ class TestEventView(BaseAPITest):
         self.assertTrue(response.data)
         self.assertEqual(response.status_code, 200)
 
-    def test_eventnote_generate_tsvector_doc(self):
-        self.event_data['title'] = 'ETitle'
+    @patch("activity.models.is_banned")
+    def test_eventnote_generate_tsvector_doc(self, is_banned):
+        is_banned.return_value = False
 
         request = self.factory.post(
             self.api_base + '/events/', [self.event_data])
@@ -2703,10 +2718,10 @@ class TestEventView(BaseAPITest):
         tsvector = self.get_ts_token(uuid)
         self.assertTrue(tsvector)
 
-    def test_event_note_text_search(self):
-
-        request = self.factory.post(
-            self.api_base + '/events/', [self.event_data])
+    @patch("activity.models.is_banned")
+    def test_event_note_text_search(self, is_banned):
+        is_banned.return_value = False
+        request = self.factory.post(self.api_base + "/events/", [self.event_data])
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
@@ -3360,7 +3375,7 @@ class TestParsing(TestCase):
     def test_bad_lower(self):
         val = dict(lower=0)
         with self.assertRaises(TypeError):
-            result = parse_date_range(val)
+            parse_date_range(val)
 
 
 @pytest.mark.django_db
@@ -3413,3 +3428,345 @@ class TestEventFilterQueryset:
         events = Event.objects.by_text_filter(term)
 
         assert events.count() >= 1
+
+    @pytest.mark.parametrize(
+        "known_location",
+        [
+            {
+                "location": "-103.527837, 20.668671",
+                "known_distance_meters": 1200,
+                "result": False,
+            },
+            {
+                "location": "-103.523242, 20.655429",
+                "known_distance_meters": 2000,
+                "result": False,
+            },
+            {
+                "location": "-103.520739, 20.669644",
+                "known_distance_meters": 500,
+                "result": True,
+            },
+            {
+                "location": "-103.519298, 20.671825",
+                "known_distance_meters": 250,
+                "result": True,
+            },
+        ],
+    )
+    @pytest.mark.parametrize(
+        "get_geo_permission_set",
+        [
+            [
+                "view_analyzer_event_geographic_distance",
+                "view_logistics_geographic_distance",
+                "view_monitoring_geographic_distance",
+                "view_security_geographic_distance",
+            ]
+        ],
+        indirect=True,
+    )
+    @pytest.mark.parametrize(
+        "events_with_category",
+        [["analyzer_event", "logistics", "monitoring", "security"]],
+        indirect=True,
+    )
+    def test_by_location_filter(
+            self,
+            events_with_category,
+            get_geo_permission_set,
+            known_location,
+            settings,
+            rf,
+            monkeypatch,
+    ):
+        is_banned = MagicMock(return_value=False)
+        monkeypatch.setattr("activity.models.is_banned", is_banned)
+
+        settings.GEO_PERMISSION_RADIUS_METERS = 1000
+        event = events_with_category[-1]
+        user_location = "-103.517015,20.672398"
+
+        url = f"{reverse('events')}?location={user_location}"
+        request = rf.get(url)
+        client = HTTPClient()
+        client.app_user.permission_sets.add(get_geo_permission_set)
+        request.user = client.app_user
+
+        event.location = convert_to_point(known_location["location"])
+        event.save()
+        categories_to_search = get_categories_and_geo_categories(request.user)
+        assert Event.objects.by_location(
+            request.GET.get("location", ""),
+            request.user,
+            categories_to_search
+        ).exists() == known_location["result"]
+
+
+@pytest.mark.django_db
+class TestEventView2:
+    def test_auto_add_report_to_patrols(self, five_patrol_segment_subject):
+        patrol = Patrol.objects.order_by("created_at").last()
+        segment = patrol.patrol_segments.first()
+        subject = patrol.patrol_segments.first().leader
+
+        event_data = {
+            "event_type": "acoustic_detection",
+            "reported_by": SubjectSerializer(subject).data,
+            "time": datetime.now().isoformat(),
+            "event_details": {
+                "type_accident": "1",
+                "number_people_involved": 5,
+                "animals_involved": "1"
+            }
+        }
+
+        url = f"{reverse('events')}"
+        client = HTTPClient()
+        client.app_user.is_superuser = True
+        client.app_user.save()
+        request = client.factory.post(url, data=event_data)
+        client.force_authenticate_with_cyber_tracker(request, client.app_user)
+        response = views.EventsView.as_view()(request)
+
+        segment.refresh_from_db()
+
+        assert response.status_code == 201
+        assert segment.events.count() >= 1
+        assert segment.events.first(
+        ).event_type.value == event_data["event_type"]
+
+    @pytest.mark.parametrize(
+        "known_locations",
+        [
+            [
+                {"location": "0, 0", "distance": 500},
+                {"location": "0.002711,  -0.000000", "distance": 300},
+                {"location": "-0.000006, 0.000943", "distance": 100},
+                {"location": "-0.001804, 0.000338", "distance": 200},
+            ]
+        ],
+    )
+    @pytest.mark.parametrize(
+        "events_with_category",
+        [["analyzer_event", "logistics", "monitoring", "security"]],
+        indirect=True,
+    )
+    def test_list_events(self, known_locations, events_with_category, settings, monkeypatch):
+        mock = MagicMock(return_value=False)
+        monkeypatch.setattr("activity.models.is_banned", mock)
+
+        settings.GEO_PERMISSION_RADIUS_METERS = 1000
+        events = Event.objects.order_by("-created_at")[:4]
+
+        for event, data in zip(events, known_locations):
+            event.location = convert_to_point(data["location"])
+            event.save()
+
+        permissions = ["analyzer_event", "logistics"]
+        geojson_set = PermissionSet.objects.create(name="geojson_set")
+
+        for permission in permissions:
+            permission_name = f"view_{permission}_geographic_distance"
+            geojson_set.permissions.add(Permission.objects.get(codename=permission_name))
+
+        url = f"{reverse('events')}?location=0,0"
+        client = HTTPClient()
+        request = client.factory.get(url)
+        client.force_authenticate(request, client.app_user)
+        client.app_user.permission_sets.add(geojson_set)
+        response = views.EventsView.as_view()(request)
+
+        assert response.data["count"] == 2
+        assert response.status_code == 200
+        for event in response.data["results"]:
+            assert event["event_category"] in permissions
+
+    def test_events_view_with_no_location(self, settings, monkeypatch):
+        is_banned = MagicMock(return_value=False)
+        monkeypatch.setattr("activity.models.is_banned", is_banned)
+
+        settings.GEO_PERMISSION_RADIUS_METERS = 1000
+
+        permissions = ["analyzer_event", "logistics", "monitoring", "security"]
+        geojson_set = PermissionSet.objects.create(name="geojson_set")
+
+        for permission in permissions:
+            permission_name = f"view_{permission}_geographic_distance"
+            geojson_set.permissions.add(
+                Permission.objects.get(codename=permission_name))
+
+        url = f"{reverse('events')}"
+        client = HTTPClient()
+        request = client.factory.get(url)
+        client.force_authenticate(request, client.app_user)
+        client.app_user.permission_sets.add(geojson_set)
+        response = views.EventsView.as_view()(request)
+
+        assert response.status_code == 200
+        assert response.data["count"] == 0
+
+    def test_get_json_schema_method_without_repeated_dynamic_choice(self, event_type):
+        schema_waited = {
+            "schema": {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "title": "Rhino Sighting (rhino_sighting_rep)",
+                "type": "object",
+                "properties": {
+                    "rhinosightingrep_earnotchcount": {
+                        "type": "number",
+                        "title": "Ear notch count",
+                    },
+                    "rhinosightingrep_Rhino": {
+                        "type": "string",
+                        "title": "Individual Rhino ID",
+                        "enum": "{{query___blackRhinos___values}}",
+                        "enumNames": "{{query___blackRhinos___names}}",
+                    },
+                },
+            },
+            "definition": [
+                {"key": "rhinosightingrep_earnotchcount", "htmlClass": "col-lg-6"},
+                {"key": "rhinosightingrep_Rhino", "htmlClass": "col-lg-6"},
+            ],
+        }
+        schema = '''{
+            "schema": {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "title": "Rhino Sighting (rhino_sighting_rep)",
+              
+                "type": "object",
+        
+                "properties": 
+                {            
+                    "rhinosightingrep_earnotchcount": {
+                        "type":"number",
+                        "title": "Ear notch count"
+                    },           
+                    "rhinosightingrep_Rhino": {
+                        "type": "string",
+                        "title": "Individual Rhino ID",
+                        "enum": {{query___blackRhinos___values}},
+                        "enumNames": {{query___blackRhinos___names}}
+                    }
+                }
+            },
+            "definition": [ 
+            {
+                "key":         "rhinosightingrep_earnotchcount",
+                "htmlClass": "col-lg-6"
+            },     
+            {
+                "key":         "rhinosightingrep_Rhino",
+                "htmlClass": "col-lg-6"
+            }
+            ]
+        }'''
+        event_type.schema = schema
+        event_type.save()
+
+        events_view = views.EventTypeSchemaView()
+        json_schema = events_view._get_json_schema(event_type)
+
+        assert json_schema == schema_waited
+
+    def test_get_json_schema_method_with_repeated_dynamic_choice(self, event_type):
+        schema_waited = {
+            "schema": {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "title": "Rhino Sighting (rhino_sighting_rep)",
+                "type": "object",
+                "properties": {
+                    "rhinosightingrep_earnotchcount": {
+                        "type": "number",
+                        "title": "Ear notch count",
+                    },
+                    "rhinosightingrep_Rhino": {
+                        "type": "string",
+                        "title": "Individual Rhino ID",
+                        "enum": "{{query___blackRhinos___values}}",
+                        "enumNames": "{{query___blackRhinos___names}}",
+                    },
+                    "rhinosightingrep_Rhino2": {
+                        "type": "string",
+                        "title": "Individual Rhino ID 2",
+                        "enum": "{{query___blackRhinos___values}}",
+                        "enumNames": "{{query___blackRhinos___names}}",
+                    }
+                },
+            },
+            "definition": [
+                {"key": "rhinosightingrep_earnotchcount", "htmlClass": "col-lg-6"},
+                {"key": "rhinosightingrep_Rhino", "htmlClass": "col-lg-6"},
+                {"key": "rhinosightingrep_Rhino2", "htmlClass": "col-lg-6"},
+            ],
+        }
+        schema = '''{
+            "schema": {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "title": "Rhino Sighting (rhino_sighting_rep)",
+
+                "type": "object",
+
+                "properties": 
+                {            
+                    "rhinosightingrep_earnotchcount": {
+                        "type":"number",
+                        "title": "Ear notch count"
+                    },           
+                    "rhinosightingrep_Rhino": {
+                        "type": "string",
+                        "title": "Individual Rhino ID",
+                        "enum": {{query___blackRhinos___values}},
+                        "enumNames": {{query___blackRhinos___names}}
+                    },
+                    "rhinosightingrep_Rhino2": {
+                        "type": "string",
+                        "title": "Individual Rhino ID 2",
+                        "enum": {{query___blackRhinos___values}},
+                        "enumNames": {{query___blackRhinos___names}}
+                    }
+                }
+            },
+            "definition": [ 
+            {
+                "key":         "rhinosightingrep_earnotchcount",
+                "htmlClass": "col-lg-6"
+            },     
+            {
+                "key":         "rhinosightingrep_Rhino",
+                "htmlClass": "col-lg-6"
+            },
+            {
+                "key":         "rhinosightingrep_Rhino2",
+                "htmlClass": "col-lg-6"
+            }
+            ]
+        }'''
+        event_type.schema = schema
+        event_type.save()
+
+        events_view = views.EventTypeSchemaView()
+        json_schema = events_view._get_json_schema(event_type)
+
+        assert json_schema == schema_waited
+
+    def test_create_event_with_only_create_permission(self):
+        event_data = {'title': 'test title',
+                      "event_type": "acoustic_detection"}
+        url = f"{reverse('events')}"
+        client = HTTPClient()
+
+        permission_set = PermissionSet.objects.create(
+            name='Only create Events')
+        permission = Permission.objects.get(codename='analyzer_event_create')
+        permission_set.permissions.add(permission)
+        client.app_user.permission_sets.add(permission_set)
+
+        request = client.factory.post(url, data=event_data)
+        client.force_authenticate(request, client.app_user)
+        response = views.EventsView.as_view()(request)
+
+        assert response.status_code == 201
+        assert 'id' in response.data
+        assert len(response.data.keys()) == 1

@@ -24,20 +24,6 @@
             ]
         },
         {
-            "name": "Locust",
-            "type": "python",
-            "request": "launch",
-            "module": "locust",
-            "gevent": true,
-            "cwd": "${workspaceFolder}/tests/load_tests/",
-            "envFile": "${workspaceFolder}/tests/load_tests/locust.env",
-            "justMyCode": false,
-            "args": [
-                "--host",
-                "http://localhost:8000"
-            ]
-        },
-        {
             "name": "Django:Run",
             "type": "python",
             "request": "launch",
@@ -51,7 +37,8 @@
                 "runserver",
                 "--noreload"
             ],
-            "django": true
+            "django": true,
+            "justMyCode": false
         },
         {
             "name": "Django:Gunicorn",
@@ -117,14 +104,14 @@
                 "-A",
                 "das_server",
                 "worker",
+                "--beat",
                 "-Q",
                 "realtime_p1,realtime_p2,realtime_p3,default,maintenance",
                 "-l",
                 "info",
                 "-c",
-                "15",
-                "-P",
-                "gevent",
+                "5",
+                
                 "--without-gossip",
                 "-n",
                 "priority"
@@ -132,6 +119,7 @@
             //"postDebugTask": "killdebugger",
             "env":{
                 "DJANGO_SETTINGS_MODULE": "das_server.local_settings",
+                "GEVENT_SUPPORT": "True"
             }
         },
         {
@@ -167,42 +155,13 @@
             "request": "launch",
             "justMyCode": false,
             "program": "${workspaceFolder}/das/manage.py",
-            "console": "internalConsole",
-            "cwd": "${workspaceFolder}/das",
-            "args": [
-                "firms"
-            ],
-            "django": true
-        },
-        {
-            "name": "Django UnitTest",
-            "type": "python",
-            "request": "launch",
-            "program": "${workspaceFolder}/das/manage.py",
-            "cwd": "${workspaceFolder}/das",
-            "args": [
-                "test"
-            ],
-            "django": true
-        },
-        {
-            "name": "Django UnitTest File",
-            "type": "python",
-            "request": "launch",
-            "program": "${workspaceFolder}/das/manage.py",
-            "cwd": "${workspaceFolder}/das",
-            "args": [
-                "test",
-                "activity.tests.test_events.TestEventView.test_bad_request_with_empty_string_location"
-            ],
-            "django": true
-        },
-        {
-            "name": "Debug Tests",
-            "type": "python",
-            "request": "launch",
             "console": "integratedTerminal",
-            "justMyCode": false
+            "cwd": "${workspaceFolder}/das",
+            "args": [
+                "shell"
+            ],
+            "django": true
         }
+        
     ]
 }

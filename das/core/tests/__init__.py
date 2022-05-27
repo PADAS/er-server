@@ -2,12 +2,13 @@ import datetime
 import uuid
 
 import pytest
-import django.contrib.auth
-from django.utils import timezone
-from django.test import TestCase
-from rest_framework.test import APIRequestFactory, force_authenticate
-from oauth2_provider.models import Application, AccessToken
 from kombu import Connection
+from oauth2_provider.models import AccessToken, Application
+
+import django.contrib.auth
+from django.test import TestCase
+from django.utils import timezone
+from rest_framework.test import APIRequestFactory, force_authenticate
 
 pytestmark = pytest.mark.django_db
 
@@ -15,12 +16,20 @@ User = django.contrib.auth.get_user_model()
 
 API_BASE = '/api/v1.0'
 
+
 def fake_get_pool():
     return Connection("memory://").Pool(20)
 
 
 class BaseAPITest(TestCase):
+    use_atomic_transaction = True
     api_base = API_BASE
+
+    @classmethod
+    def _databases_support_transactions(cls):
+        if not cls.use_atomic_transaction:
+            return False
+        return super()._databases_support_transactions()
 
     def setUp(self):
         user_const = dict(last_name='last', first_name='first')

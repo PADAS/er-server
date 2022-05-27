@@ -85,7 +85,8 @@ MIDDLEWARE = (
     'oauth2_provider.middleware.OAuth2TokenMiddleware',
     'revision.middleware.RevisionMiddleware',
     'utils.middleware.RequestLoggingMiddleware',
-    'utils.middleware.EULARedirectMiddleware'
+    'utils.middleware.EULARedirectMiddleware',
+    'utils.middleware.GeographicMiddleware'
     # 'django.contrib.sites.middleware.CurrentSiteMiddleware',
 )
 
@@ -182,7 +183,11 @@ REST_FRAMEWORK = {
     },
 
     # Custom openapi autoschema
-    'DEFAULT_SCHEMA_CLASS': 'das_server.views.CustomSchema'
+    'DEFAULT_SCHEMA_CLASS': 'das_server.views.CustomSchema',
+    # Paginator overrides
+    "OPTIONAL_PAGE_SIZE": 25,
+    "MAX_PAGE_SIZE": 4000,
+    "COUNT_TIMEOUT": 60*5
 }
 
 AUTHENTICATION_BACKENDS = (
@@ -471,7 +476,7 @@ KML_FEED_TITLE = 'EarthRanger KML Service'
 KML_OVERLAY_IMAGE = None
 KML_TOKEN_TTL_DAYS = 5 * 365
 
-SHOW_STATIONARY_SUBJECTS_ON_MAP = False
+SHOW_STATIONARY_SUBJECTS_ON_MAP = True
 
 # Default speed-threshold (in km/h) by subject-subtype. These are default values that maybe overridden in an
 # ObservationAnnotation instance.
@@ -484,6 +489,8 @@ ANNOTATION_SETTINGS = {
         'vehicle': 200.0,
         'plane': 500.0,
         'helicopter': 500.0,
+        'ranger': 200.0,
+        'ranger_team': 200.0,
     }
 }
 
@@ -560,7 +567,7 @@ TABLEAU_VERSION = 3.9
 TABLEAU_API_TOKEN = None
 TABLEAU_API_USERNAME = "ER Server"
 TABLEAU_API_PASSWORD = None
-TABLEAU_DEFAULT_DASHBOARD = "EarthRangerEventReportsSummary_demo"
+TABLEAU_DEFAULT_DASHBOARD = "er_standard_analytics/summary"
 
 # Sensible default domain name.
 SERVER_FQDN = "tempuri.org"
@@ -575,3 +582,13 @@ PATROL_VIEW_REFRESH_HOURS = 1
 INREACH_INBOUND_ENDPOINT = 'https://explore.garmin.com/IPCInbound/V1/Messaging.svc/Message'
 INREACH_USERNAME = os.getenv('INREACH_USERNAME', 'username')
 INREACH_PASSWORD = os.getenv('INREACH_PASSWORD', 'password')
+
+GEO_PERMISSION_RADIUS_METERS = 3704
+GEO_PERMISSION_SPEED_KM_H = 75
+GEO_PERMISSION_VIOLATION_BAN_DURATION_MIN = 10
+
+PERSISTENT_STORAGE = {
+    "CLIENT": "utils.persistent.RedisStorage",
+    "HOST": "redis",
+    "PORT": "6379"
+}

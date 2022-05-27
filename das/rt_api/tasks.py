@@ -1,26 +1,28 @@
 import datetime
 import json
 import logging
-import urllib
 from collections import namedtuple
 from functools import partial
 from uuid import UUID
+
+from celery_once import QueueOnce
+
+from django.db import close_old_connections
+from django.urls import reverse
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.request import Request
 
 from accounts.models.user import User
 from activity.models import Event, Patrol
 from activity.serializers import EventSerializer
 from activity.serializers.patrol_serializers import PatrolSerializer
 from activity.views import EventView, PatrolView
-from celery_once import QueueOnce
 from das_server import celery, pubsub
-from django.db import close_old_connections
-from django.urls import reverse
 from observations import servicesutils
 from observations.models import Announcement, Message, SocketClient
 from observations.serializers import AnnouncementSerializer, MessageSerializer
+from observations.utils import get_position, LOCATION, get_user_key
 from observations.views import ObservationsView, SubjectStatusView
-from rest_framework.exceptions import PermissionDenied
-from rest_framework.request import Request
 from rt_api import client
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from utils.stats import update_gauge
@@ -72,36 +74,51 @@ def get_emit_data(**kwargs):
     return dict(emit_data)
 
 
-def _event_handler(event_id, type):
+def _event_handler(event_id, type_):
     try:
-        logger.debug('Processing type=%s on event=%s', type, event_id)
+        logger.debug("Processing type=%s on event=%s", type_, event_id)
         event_view = EventView()
 
         user_sids_map = get_username_sids_map()
-        logger.debug('user_sids_map: %s', user_sids_map)
+        logger.debug("user_sids_map: %s", user_sids_map)
 
         for username, user_sids in user_sids_map.items():
             user = get_sid_user(username, user_sids)
             if not user:
                 continue
 
-            logger.debug('Handling event for user: %s', username)
+            logger.debug("Handling event for user: %s", username)
             # TODO: update this logic to be a little more frugal with the per
             # user/event-filter query.
             for sid in user_sids:
                 emit_data = {}
                 matches_current_filter = False
 
-                if type == 'delete_event':
-                    emit_data = get_emit_data(type=type,
-                                              sid=sid,
-                                              object_id=event_id,
-                                              data={'type': type,  'event_id': event_id,  'event_data': None,
-                                                    'matches_current_filter': matches_current_filter})
+                if type_ == "delete_event":
+                    emit_data = get_emit_data(
+                        type=type_,
+                        sid=sid,
+                        object_id=event_id,
+                        data={
+                            "type": type_,
+                            "event_id": event_id,
+                            "event_data": None,
+                            "matches_current_filter": matches_current_filter,
+                        },
+                    )
                 else:
+                    key = get_user_key(user, LOCATION)
+                    location = get_position(key)
+                    query_params = {}
+                    if location:
+                        location = (
+                            f"{location.get('position').get('longitude')},{location.get('position').get('latitude')}"
+                        )
+                        query_params["location"] = location
 
                     request = DummyRequest(
-                        user=user, http_method='GET', query_parameters={})
+                        user=user, http_method="GET", query_parameters=query_params
+                    )
                     request = Request(request)  # Wrap in DRF Request
                     queryset = Event.objects.filter(id=event_id)
                     event = queryset.first()
@@ -110,43 +127,59 @@ def _event_handler(event_id, type):
                         event_count = 1
                         try:
                             event_view.check_object_permissions(
-                                request=request, obj=event)
+                                request=request, obj=event
+                            )
                         except PermissionDenied:
                             logger.debug(
-                                'Permission denied. user=%s, event=%s', username, event.id)
+                                "Permission denied. user=%s, event=%s",
+                                username,
+                                event.id,
+                            )
                         else:
                             matches_current_filter = True
                             should_annotate = False
                             try:
-                                socket_client = SocketClient.objects.get(
-                                    id=sid)
+                                socket_client = SocketClient.objects.get(id=sid)
                                 should_annotate = should_annotate_filtered_events(
-                                    socket_client.event_filter)
+                                    socket_client.event_filter
+                                )
                                 queryset = get_filtered_events(
-                                    socket_client.event_filter, queryset)
+                                    socket_client.event_filter, queryset
+                                )
                                 matches_current_filter = queryset.exists()
 
                             except SocketClient.DoesNotExist:
                                 logger.debug(
-                                    f'SocketClient does not exist for sid={sid}')
+                                    f"SocketClient does not exist for sid={sid}"
+                                )
 
                             if should_annotate or matches_current_filter:
-                                data = EventSerializer(event,
-                                                       context={'request': request,
-                                                                'include_related_events': True
-                                                                }).data
+                                data = EventSerializer(
+                                    event,
+                                    context={
+                                        "request": request,
+                                        "include_related_events": True,
+                                    },
+                                ).data
 
-                                emit_data = get_emit_data(type=type, sid=sid, object_id=event_id,
-                                                          data={'type': type,
-                                                                'event_id': event_id,
-                                                                'matches_current_filter': matches_current_filter,
-                                                                'event_data': data, 'count': event_count})
+                                emit_data = get_emit_data(
+                                    type=type_,
+                                    sid=sid,
+                                    object_id=event_id,
+                                    data={
+                                        "type": type_,
+                                        "event_id": event_id,
+                                        "matches_current_filter": matches_current_filter,
+                                        "event_data": data,
+                                        "count": event_count,
+                                    },
+                                )
 
                 if emit_data:
-                    logger.debug(
-                        'Publish das.realtime.emit.  data=%s', emit_data)
-                    pubsub.publish(json.dumps(
-                        emit_data, default=dumps_helper), 'das.realtime.emit')
+                    logger.debug("Publish das.realtime.emit.  data=%s", emit_data)
+                    pubsub.publish(
+                        json.dumps(emit_data, default=dumps_helper), "das.realtime.emit"
+                    )
 
     finally:
         close_old_connections()
@@ -585,13 +618,12 @@ def handle_emit_data(event_id):
 @celery.app.task()
 def check_redis_queues():
     """
-    Periodic check of redis connections and queue sizes, so that we can expose them
-    to elasticsearch via a log message
+    Periodic check of redis connections and queue sizes, ship them to statsd
     """
-    logger.info('Checking redis connectivity')
+    logger.debug('Checking redis connectivity')
     conns = client.get_all_connections()
     conn_count = len(conns)
-    logger.info({'redis.conn.count': conn_count})
+    logger.debug({'redis.conn.count': conn_count})
 
     realtime_session_count = client.get_session_count()
 
@@ -600,20 +632,33 @@ def check_redis_queues():
     rt_p1 = client.list_len('realtime_p1')
     rt_p2 = client.list_len('realtime_p2')
     rt_p3 = client.list_len('realtime_p3')
-    logger.info({'rt.realtime.p1': rt_p1})
-    logger.info({'rt.realtime.p2': rt_p2})
-    logger.info({'rt.realtime.p3': rt_p3})
+    logger.debug({'rt.realtime.p1': rt_p1})
+    logger.debug({'rt.realtime.p2': rt_p2})
+    logger.debug({'rt.realtime.p3': rt_p3})
 
-    logger.info({'rt.realtime.client_count': realtime_session_count})
+    logger.debug({'rt.realtime.client_count': realtime_session_count})
 
     for key, value in [
         ('redis_connection_count', conn_count),
-        ('realtime_session_count', realtime_session_count),
-        ('realtime_p1_length', rt_p1),
-        ('realtime_p2_length', rt_p2),
-        ('realtime_p3_length', rt_p3),
+        ('rt_session_count', realtime_session_count),
     ]:
-        update_gauge(metric=key, value=value, tags=['realtime', ])
+        update_gauge(metric=key, value=value, tags=['service:rt_api'])
+
+    for key, value in [
+        ('realtime_p1', rt_p1),
+        ('realtime_p2', rt_p2),
+        ('realtime_p3', rt_p3),
+    ]:
+        update_gauge(metric="task_queue_length",
+                     value=value, tags=[f'queue:{key}'])
+
+    for key, value in [
+        ('default', client.list_len('default')),
+        ('analyzers',  client.list_len('analyzers')),
+        ('maintenance', client.list_len('maintenance')),
+    ]:
+        update_gauge(metric="task_queue_length",
+                     value=value, tags=[f'queue:{key}'])
 
     memory_info = client.info('memory')
 
@@ -625,7 +670,7 @@ def check_redis_queues():
 
     update_gauge('redis_memory_gauge', val)
 
-    logger.info('redis_memory_use', extra={
+    logger.debug('redis_memory_use', extra={
         'used_memory': memory_info.get('used_memory', -1),
         'maxmemory': memory_info.get('maxmemory', -1),
         'total_system_memory': memory_info.get('total_system_memory', -1),

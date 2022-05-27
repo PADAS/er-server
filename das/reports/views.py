@@ -1,22 +1,20 @@
-import requests
 import datetime
 import json
 import logging
 
 import requests
+
 from django.conf import settings
 from django.template.response import TemplateResponse
 from django.utils import timezone
-from django.views.generic.base import TemplateResponseMixin, ContextMixin
-from rest_framework import generics
-from rest_framework import status, serializers
-from rest_framework import views, permissions
+from django.views.generic.base import ContextMixin, TemplateResponseMixin
+from rest_framework import generics, permissions, serializers, status, views
 from rest_framework.response import Response
 
+from activity.models import EventCategory
+from activity.permissions import EventCategoryPermissions
 from core.utils import get_site_name
 from reports.reports import get_daily_report_data
-from activity.permissions import EventCategoryPermissions
-from activity.models import EventCategory
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +60,6 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
             if request.user.has_perm(permission_name):
                 permitted_categories.append(category)
         return permitted_categories
-
 
     def get(self, request, *args, **kwargs):
 
@@ -162,23 +159,25 @@ class TableauAPI:
                    'accept': 'application/json'}
         try:
             response = requests.post(url, json=data, headers=headers)
-        except requests.exceptions.ConnectionError as cn:
-            logger.exception(
-                f"ConnectionFailure: {cn} occured for endpoint: {url}")
+        except requests.exceptions.ConnectionError as ce:
+            message = f"ConnectionFailure: {ce} occured for endpoint: {url}"
+            raise TableauAPIError(message) from ce
         except requests.exceptions.RequestException as exc:
-            logger.exception(
-                f"Exception raised: {exc} when processing request: {url}")
+            message = f"Exception raised: {exc} when processing request: {url}"
+            raise TableauAPIError(message) from exc
         else:
             response = json.loads(response.text)
 
             error = response.get('error')
-            credentials = response.get('credentials')
             if error:
-                logger.info(f"Authentication failed with error: {error}")
-                raise TableauAPIError(error)
-            elif credentials:
-                self.token = credentials['token']
-                self.site_id = credentials['site'].get('id')
+                raise TableauAPIError(
+                    f"Authentication failed with error: {error}")
+
+            credentials = response.get('credentials')
+            if not credentials:
+                raise TableauAPIError("No credentials found in signin request")
+            self.token = credentials['token']
+            self.site_id = credentials['site'].get('id')
 
     def make_get_request(self, path_component):
         headers = {'content-type': 'application/json',
@@ -187,12 +186,18 @@ class TableauAPI:
         url = f'{self.baseURL}/{path_component}'
         try:
             response = requests.get(url, headers=headers)
-        except requests.exceptions.ConnectionError as cn:
-            return json.dumps({'error': {'Summary': 'Connection Error', 'detail': f'{cn}'}})
+        except requests.exceptions.ConnectionError as ce:
+            message = f"ConnectionFailure: {ce} occured for endpoint: {url}"
+            raise TableauAPIError(message) from ce
         except requests.exceptions.RequestException as exc:
-            return json.dumps({'error': {'Summary': 'RequestException Error', 'detail': f'{exc}'}})
-        else:
-            return response.text
+            message = f"Exception raised: {exc} when processing request: {url}"
+            raise TableauAPIError(message) from exc
+        response = json.loads(response.text)
+        error = response.get('error')
+        if error:
+            raise TableauAPIError(
+                f"Tableau API request failed with error: {error}")
+        return response
 
     def get_views(self):
         """
@@ -200,8 +205,22 @@ class TableauAPI:
         GET /api/api-version/sites/site-id/views?pageSize=page-size&pageNumber=page-number
         """
         path = f'sites/{self.site_id}/views?pageSize=1000'
-        response = self.make_get_request(path)
-        return response
+        for view in self.make_get_request(path)['views']['view']:
+            yield view
+
+    def get_workbooks(self):
+        """
+        Returns all the workbooks for the site.
+        GET /api/api-version/sites/site-id/workbooks?pageSize=page-size&pageNumber=page-number
+        """
+        path = f'sites/{self.site_id}/workbooks?pageSize=1000'
+        for workbook in self.make_get_request(path)["workbooks"]["workbook"]:
+            yield workbook
+
+    def get_workbook_by(self, field, value):
+        for wb in self.get_workbooks():
+            if wb[field] == value:
+                return wb
 
     def get_workbook(self, workbook_id):
         """
@@ -209,27 +228,52 @@ class TableauAPI:
         GET /api/api-version/sites/site-id/workbooks/workbook-id
         """
         path = f'sites/{self.site_id}/workbooks/{workbook_id}'
-        response = self.make_get_request(path)
-        return response
+        return self.make_get_request(path)["workbook"]
 
-    def get_view_specific_view(self, view_id):
+    def get_view(self, view_id):
         """
         Gets the details of a specific view.
         GET /api/api-version/sites/site-id/views/view-id
         """
         path = f'sites/{self.site_id}/views/{view_id}'
-        response = self.make_get_request(path)
-        return response
+        return self.make_get_request(path)["view"]
 
-    def get_dashboard(self, name):
-        views = json.loads(self.get_views())
-        for view in views['views']['view']:
+    def get_dashboard(self, name, workbook=None):
+        """Get the dashboard, which is really a view. Optionally include the workbook name if there are more than one view with the same name in a site
+
+        Args:
+            name (str): view name
+            workbook (str, optional): workbook name. Defaults to None.
+
+        Returns:
+            _type_: _description_
+        """
+        if workbook:
+            workbook = self.get_workbook_by("name", workbook)
+
+        for view in self.get_views():
+            if workbook and workbook["id"] != view["workbook"]["id"]:
+                continue
+
             if view["name"] == name:
                 return view
 
-    def get_dashboard_by_urlname(self, name):
-        views = json.loads(self.get_views())
-        for view in views['views']['view']:
+    def get_dashboard_by_urlname(self, name, workbook=None):
+        """Get the dashboard view using the view id as encoded in a Tableau Url referencing the view.
+
+        Args:
+            name (str): the view id
+            workbook (_type_, optional): workbook name, additionaly match on workbook name as it's possible to use the same view name in multiple workbooks. Defaults to None.
+
+        Returns:
+            _type_: _description_
+        """
+        if workbook:
+            workbook = self.get_workbook_by("contentUrl", workbook)
+
+        for view in self.get_views():
+            if workbook and view["workbook"]["id"] != workbook["id"]:
+                continue
             if view["viewUrlName"] == name:
                 return view
 
@@ -239,8 +283,7 @@ class TableauAPI:
         GET /api/api-version/sites/site-id
         """
         path = f'sites/{self.site_id}'
-        response = self.make_get_request(path)
-        return response
+        return self.make_get_request(path)
 
     def get_ticket(self):
         data = {'username': self.trusted_username,
@@ -255,23 +298,38 @@ class DashboardSerializer(serializers.Serializer):
     server = serializers.CharField()
 
 
-class TableauDashboard(generics.GenericAPIView):
-    permission_classes = (IsSuperAdminUser,)
-    serializer_class = DashboardSerializer
+class TableauViewTicketGenerator:
+    def get_ticket_for_dashboard(self, dashboard_id):
+        workbook_id, view_id = self.split_view(dashboard_id)
 
-    def get(self, request, *args, **kwargs):
-        dashboard_id = kwargs.get('dashboard_id')
-        if dashboard_id == 'default':
-            dashboard_id = settings.TABLEAU_DEFAULT_DASHBOARD
-        instance = get_tableau_api()
+        try:
+            instance = get_tableau_api()
+            view = instance.get_dashboard_by_urlname(view_id, workbook_id)
+            if not view:
+                message = f"Tableau dashboard with viewUrlName={view_id} in workbook={workbook_id} not found"
+                return Response(data=message, status=status.HTTP_400_BAD_REQUEST)
 
-        view = instance.get_dashboard_by_urlname(dashboard_id)
-        if not view:
-            message = f"Tableau dashboard with viewUrlName={dashboard_id} not found"
+            return self._get_ticket_for_view(instance, view)
+        except TableauAPIError as t_api:
+            message = f"Tableau dashboard with viewUrlName={view_id} in workbook={workbook_id} not found, error {t_api}"
             return Response(data=message, status=status.HTTP_400_BAD_REQUEST)
 
-        workbook = json.loads(instance.get_workbook(
-            view['workbook']['id']))['workbook']
+    def get_ticket_for_view(self, view_id):
+        try:
+            instance = get_tableau_api()
+            view = instance.get_view(view_id)
+            if not view:
+                message = f"Tableau dashboard with viewUrlName={view_id}not found"
+                return Response(data=message, status=status.HTTP_400_BAD_REQUEST)
+
+            return self._get_ticket_for_view(instance, view)
+        except TableauAPIError as t_api:
+            message = f"Tableau dashboard with view_id={view_id} not found, error {t_api}"
+            return Response(data=message, status=status.HTTP_400_BAD_REQUEST)
+
+    def _get_ticket_for_view(self, instance, view):
+
+        workbook = instance.get_workbook(view['workbook']['id'])
 
         ticket = instance.get_ticket()
         if ticket == '-1':
@@ -284,48 +342,40 @@ class TableauDashboard(generics.GenericAPIView):
             'ticket': ticket,
             'display_url': url,
             'server': instance.server}
-
         return Response(response)
 
+    def split_view(self, view_id):
+        """Support splitting the encoding of the workbook and view ids together in one string.
 
-class TableauView(generics.GenericAPIView):
+        Args:
+            view_id (_type_): view_id, optionally including workbook_id as "workbook_id/view_id"
+
+        Returns:
+            tuple: workbook_id, view_id
+        """
+        if "/" in view_id:
+            return view_id.split("/")
+        return None, view_id
+
+
+class TableauDashboard(generics.GenericAPIView, TableauViewTicketGenerator):
+    permission_classes = (IsSuperAdminUser,)
+    serializer_class = DashboardSerializer
+
+    def get(self, request, *args, **kwargs):
+        dashboard_id = kwargs.get('dashboard_id')
+        if dashboard_id == 'default':
+            dashboard_id = settings.TABLEAU_DEFAULT_DASHBOARD
+        return self.get_ticket_for_dashboard(dashboard_id)
+
+
+class TableauView(generics.GenericAPIView, TableauViewTicketGenerator):
     permission_classes = (IsSuperAdminUser,)
 
     def get(self, request, *args, **kwargs):
         view_id = kwargs.get('view_id')
-        instance = get_tableau_api()
 
-        response = json.loads(instance.get_view_specific_view(view_id))
-
-        view = response.get('view')
-        if not view:
-            return Response(response, status=status.HTTP_400_BAD_REQUEST)
-
-        workbook_id = view['workbook'].get('id')
-        view_urlname = view.get('viewUrlName') if view else None
-
-        response = json.loads(instance.get_workbook(workbook_id))
-        if not response.get('workbook'):
-            return Response(response, status=status.HTTP_400_BAD_REQUEST)
-
-        site_response = json.loads(instance.get_site())
-        if not site_response.get('site'):
-            return Response(site_response, status=status.HTTP_400_BAD_REQUEST)
-
-        site_name = site_response['site']['name']
-        workbook_contenturl = response['workbook']['contentUrl']
-
-        ticket = instance.get_ticket()
-        if ticket == '-1':
-            data = {'ticket': ticket,
-                    'status': 'failed to retrieve tableau ticket'}
-            return Response(data, status=status.HTTP_400_BAD_REQUEST)
-
-        url = f'{settings.TABLEAU_SERVER}/trusted/{ticket}/t/{site_name}/views/{workbook_contenturl}/{view_urlname}'
-        response = {'ticket': ticket, 'display_url': url,
-                    'server': instance.server}
-
-        return Response(response)
+        return self.get_ticket_for_view(view_id)
 
 
 class TableauAPIView(generics.GenericAPIView):
@@ -333,5 +383,4 @@ class TableauAPIView(generics.GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         instance = get_tableau_api()
-        views = json.loads(instance.get_views())
-        return Response(views)
+        return Response(list(instance.get_views()))

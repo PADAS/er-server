@@ -6,38 +6,40 @@ import uuid
 from enum import Enum
 from operator import attrgetter, itemgetter
 
-import django.utils
 import pytz
-from accounts.models.permissionset import PermissionSet
-from accounts.models.user import User
-from core.models import SingletonModel, TimestampedModel
-from core.utils import static_image_finder
+from versatileimagefield.fields import VersatileImageField
+
+import django.utils
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Polygon
+from django.contrib.gis.db.models.functions import Distance as D
 from django.contrib.postgres.fields import DateTimeRangeField, JSONField
 from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.core.validators import RegexValidator
 from django.db import transaction
-from django.db.models import (Case, Exists, F, OuterRef, Q, Subquery, Value,
-                              When)
-from django.db.models.functions import Lower
-from django.db.models.signals import post_save
-from django.dispatch import receiver
+from django.db.models import (Case, CharField, Exists, F, OuterRef, Prefetch,
+                              Q, Subquery, Value, When)
+from django.db.models.functions import Cast, Lower
 from django.utils import dateparse, timezone
 from django.utils.encoding import force_text
 from django.utils.translation import ugettext_lazy as _
-from observations.models import Subject, SubjectGroup
+
+from accounts.models.permissionset import PermissionSet
+from accounts.models.user import User
+from core.models import SingletonModel, TimestampedModel
+from core.utils import static_image_finder
+from observations.models import Subject, SubjectGroup, SubjectStatus
 from observations.utils import dateparse as dparse
+from observations.utils import is_banned
 from revision.manager import (Revision, RevisionAdapter, RevisionMixin,
                               relation_deleted)
+from utils.gis import convert_to_point
 from utils.html import clean_user_text
-from versatileimagefield.fields import VersatileImageField
 
 logger = logging.getLogger(__name__)
 
@@ -146,27 +148,9 @@ class EventCategory(TimestampedModel):
     def auto_permissionset_name(self):
         return _('View {} Event Permissions').format(self.display)
 
-
-@receiver(post_save, sender=EventCategory)
-def ensure_perms_exist(sender, **kwargs):
-    if kwargs.get('created', False):
-        content_type = ContentType.objects.get(
-            app_label='activity', model='event')
-        category_name = kwargs['instance'].value
-
-        kwargs['instance'].display
-        permissionset_name = kwargs['instance'].auto_permissionset_name
-        permissionset, created = PermissionSet.objects.get_or_create(
-            name=permissionset_name)
-
-        for operation in ['create', 'read', 'update', 'delete']:
-            codename = '{0}_{1}'.format(category_name, operation)
-            defaults = {'name': 'Can {1} {0} events'.format(category_name, operation),
-                        'content_type': content_type}
-            permission, created = Permission.objects.get_or_create(
-                codename=codename, defaults=defaults)
-
-            permissionset.permissions.add(permission)
+    @property
+    def auto_geographic_permission_set_name(self):
+        return _(f'View {self.display} Event Geographic Permissions')
 
 
 class FilterFieldMixin(object):
@@ -231,11 +215,11 @@ class EventTypeManager(EventBaseManager):
 
 class EventType(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    value = models.CharField(max_length=40, unique=True, validators=[RegexValidator(
+    value = models.CharField(max_length=255, unique=True, validators=[RegexValidator(
         regex="^[A-Za-z0-9-_]*$",
         message='''An invalid character was detected in the Event type Value field.
         Supported characters are: Letters a-z (lowercase), Numbers 0-9 and Underscore''')])
-    display = models.CharField(max_length=100, blank=True)
+    display = models.CharField(max_length=255, blank=True)
     category = models.ForeignKey(EventCategory, null=True,
                                  on_delete=models.PROTECT)
     ordernum = models.SmallIntegerField(blank=True, null=True)
@@ -391,6 +375,31 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             return self
         return self.exclude(in_relationship__type__value='contains')
 
+    def by_location(self, location: str, user, categories_to_filter: dict):
+        if user.is_superuser:
+            return self
+        queryset = self
+
+        try:
+            point = convert_to_point(location)
+        except (TypeError, ValueError):
+            point = None
+
+        if point:
+            queryset = queryset.annotate(distance=D("location", point, spheroid=True))
+
+        queryset1 = queryset.filter(event_type__category__value__in=categories_to_filter['categories'])
+
+        if not is_banned(user) and point:
+            queryset2 = queryset.filter(
+                event_type__category__value__in=categories_to_filter['geo_categories'],
+                location__isnull=False,
+                distance__lt=settings.GEO_PERMISSION_RADIUS_METERS
+            )
+            results = queryset1.union(queryset2)
+            return results
+        return queryset1
+
     def by_event_filter(self, filter):
 
         queryset = self
@@ -491,9 +500,7 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
         return self
 
-    def by_updated_date(self,
-                        lower=None,
-                        upper=None):
+    def by_updated_date(self, lower=None, upper=None):
         if lower and upper:
             return self.filter(updated_at__range=(lower, upper))
         elif lower:
@@ -770,6 +777,42 @@ class Event(RevisionMixin, TimestampedModel):
             ('analyzer_event_read', 'View analyzer reports'),
             ('analyzer_event_update', 'Modify analyzer reports'),
             ('analyzer_event_delete', 'Delete analyzer reports'),
+
+            ('add_security_geographic_distance',
+             'Create security reports in a certain distance'),
+            ('view_security_geographic_distance',
+             'View security reports in a certain distance'),
+            ('change_security_geographic_distance',
+             'Modify security reports in a certain distance'),
+            ('delete_security_geographic_distance',
+             'Delete security reports in a certain distance'),
+
+            ('add_monitoring_geographic_distance',
+             'Create monitoring reports in a certain distance'),
+            ('view_monitoring_geographic_distance',
+             'View monitoring reports in a certain distance'),
+            ('change_monitoring_geographic_distance',
+             'Modify monitoring reports in a certain distance'),
+            ('delete_monitoring_geographic_distance',
+             'Delete monitoring reports in a certain distance'),
+
+            ('add_logistics_geographic_distance',
+             'Create logistics reports in a certain distance'),
+            ('view_logistics_geographic_distance',
+             'View logistics reports in a certain distance'),
+            ('change_logistics_geographic_distance',
+             'Modify logistics reports in a certain distance'),
+            ('delete_logistics_geographic_distance',
+             'Delete logistics reports in a certain distance'),
+
+            ('add_analyzer_event_geographic_distance',
+             'Create analyzer reports in a certain distance'),
+            ('view_analyzer_event_geographic_distance',
+             'View analyzer reports in a certain distance'),
+            ('change_analyzer_event_geographic_distance',
+             'Modify analyzer reports in a certain distance'),
+            ('delete_analyzer_event_geographic_distance',
+             'Delete analyzer reports in a certain distance'),
 
             # These 4 permissions are deprecated (obviously) and should
             # eventually be removed
@@ -1575,11 +1618,11 @@ class StateFilters(Enum):
 
 class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_patrol_filter(self, filter):
-        queryset = self
+        queryset = self._annotate_queryset_with_serial_number_string()
         if filter.get("date_range"):
             patrols_overlap_daterange = filter.get(
                 "patrols_overlap_daterange", True)
-            queryset = self.by_date_range(
+            queryset = queryset.by_date_range(
                 filter.get("date_range"), patrols_overlap_daterange
             )
         if filter.get("text"):
@@ -1743,6 +1786,9 @@ class PatrolFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             | Q(last_name__iregex=self._get_regex_istartswith(text))
         ).values_list("id", flat=True)
 
+    def _annotate_queryset_with_serial_number_string(self):
+        return self.annotate(serial_number_string=Cast("serial_number", CharField()))
+
 
 class Patrol(TimestampedModel, RevisionMixin):
     objects = models.Manager.from_queryset(PatrolFilteringQuerySet)()
@@ -1885,7 +1931,8 @@ class PatrolSegmentManager(models.Manager):
     def get_leader_for_provenance(provenance, user=None):
         if PC_STAFF == provenance:
             def get_subjects():
-                active_subjects = Subject.objects.all().by_is_active()
+                active_subjects = Subject.objects.prefetch_related(Prefetch("subjectstatus_set", queryset=SubjectStatus.objects.filter(
+                    delay_hours=0))).select_related("subject_subtype", "subject_subtype__subject_type").all().by_is_active()
                 subject_grps = PatrolConfiguration.objects.first().subject_groups.all()
 
                 for o in active_subjects.by_subjectgroups(subject_grps, user=user):

@@ -5,12 +5,16 @@ from datetime import datetime, timedelta, timezone
 
 import dateutil.parser
 import pytz
-from django.core.exceptions import PermissionDenied
-from django.conf import settings
-from pytz import timezone
 from dateutil.parser import parse
+from geopy.distance import geodesic
+from pytz import timezone
+
+from django.conf import settings
+from django.core.exceptions import PermissionDenied
 from django.db import connection
 from django.db.models import Aggregate
+
+from core import persistent_storage
 
 
 logger = logging.getLogger(__name__)
@@ -41,6 +45,9 @@ VIEW_SUBJECT_PERMS = ('observations.view_subject',) + \
 VIEW_SUBJECTGROUP_PERMS = ('observations.view_subjectgroup', )
 
 VIEW_OBSERVATION_PERMS = ('observations.view_observation', )
+
+LOCATION = "location"
+GEO_BANNED = "geo-banned"
 
 
 def get_maximum_allowed_age(user):
@@ -235,7 +242,7 @@ def get_chunk_file(file, chunksize=5120):
     return iter(lambda: file.read(chunksize), b'')
 
 
-def ensure_timezone_aware(dt: datetime, default_timezone: timezone=pytz.utc):
+def ensure_timezone_aware(dt: datetime, default_timezone: timezone = pytz.utc):
     if dt is None:
         return dt
 
@@ -285,7 +292,7 @@ def find_paths(item, accum=None, prefix=None):
 
     elif isinstance(item, dict):
         for k, v in item.items():
-            if isinstance(v, (list,dict)):
+            if isinstance(v, (list, dict)):
                 find_paths(v, accum=accum, prefix=prefix + [k])
             else:
                 accum.setdefault('.'.join(prefix + [k]), set()).add(v)
@@ -311,3 +318,101 @@ def parse_comma(q):
         except TypeError:
             return vals
     return
+
+
+def has_exceed_speed(user):
+    speed = calculate_speed(user)
+    exceed = speed > settings.GEO_PERMISSION_SPEED_KM_H
+    if exceed:
+        logger.info(
+            f"Speed exceed for user {user.username} with id {user.id}, speed {speed}")
+    return exceed
+
+
+def get_position(key):
+    value = persistent_storage.get_latest_item_in_sorted_set(key)
+    if value:
+        decoded_value = value[0].decode("utf8")
+        return json.loads(decoded_value)
+    return None
+
+
+def calculate_speed(user):
+    remove_outdated_positions(user)
+    key = get_user_key(user, LOCATION)
+    positions = get_parsed_positions(key)
+    if positions:
+        distance = get_distance_points(positions)
+        lag_in_hour = get_lag_hours(
+            first_datetime=positions[0].get("datetime"),
+            second_datetime=positions[-1].get("datetime"),
+        )
+        if distance and lag_in_hour:
+            return distance.km / lag_in_hour
+    return 0
+
+
+def remove_outdated_positions(user):
+    key = get_user_key(user, LOCATION)
+    now_before_two_hours = datetime.timestamp(
+        datetime.now() - timedelta(hours=2))
+    persistent_storage.slice_sorted_set(key, now_before_two_hours)
+
+
+def get_parsed_positions(key):
+    positions = persistent_storage.get_sorted_set(key)
+    return [
+        json.loads(position.decode("utf8")) for position in positions
+    ]
+
+
+def get_distance_points(positions):
+    points = tuple(
+        (
+            position.get("position").get("latitude"),
+            position.get("position").get("longitude"),
+        )
+        for position in positions
+    )
+    if len(points) > 1:
+        return geodesic(*points)
+    return 0
+
+
+def get_lag_hours(first_datetime: float, second_datetime: float):
+    """
+    Return the difference of two timestamp in hours, rounded two decimals
+    """
+    lag = datetime.fromtimestamp(first_datetime) - \
+        datetime.fromtimestamp(second_datetime)
+    return round(((lag.seconds / 60) / 60), 2)
+
+
+def block_user_temp(user):
+    if has_exceed_speed(user):
+        key = get_user_key(user, GEO_BANNED)
+        persistent_storage.insert_key(
+            key, True, settings.GEO_PERMISSION_VIOLATION_BAN_DURATION_MIN * 60)
+        logger.info(
+            f"Banning user {user.username} with ID {user.id} for {settings.GEO_PERMISSION_VIOLATION_BAN_DURATION_MIN} minutes.")
+        persistent_storage.delete_key(get_user_key(user, LOCATION))
+
+
+def get_user_key(user, key: str):
+    return f"{key}:{user.id}"
+
+
+def is_banned(user):
+    key = get_user_key(user, GEO_BANNED)
+    return persistent_storage.get_key(key)
+
+
+def is_subject_stationary_subject(subject):
+    return subject.subject_subtype.subject_type.value == "stationary-object"
+
+
+def is_observation_stationary_subject(observation):
+    subject_source = observation.source.subjectsource_set.last()
+    if subject_source:
+        return is_subject_stationary_subject(subject_source.subject)
+    return False

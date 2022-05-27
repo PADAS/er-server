@@ -1,20 +1,17 @@
 import pytest
-from factories import (
-    EventDetailsFactory,
-    EventFactory,
-    EventTypeFactory,
-    FeatureProximityAnalyzerConfigFactory,
-    GeofenceAnalyzerConfigFactory,
-    PatrolFactory,
-    PatrolNoteFactory,
-    PatrolSegmentFactory,
-    PatrolSegmentSubjectFactory,
-    PatrolSegmentUserFactory,
-    ProviderFactory,
-    SpatialFeatureGroupStaticFactory,
-    SpatialFeatureTypeFactory,
-    SubjectSourceFactory,
-)
+from pytest_factoryboy import register
+
+from django.contrib.auth.models import Permission
+
+from factories import (EventDetailsFactory, EventFactory, EventTypeFactory,
+                       FeatureProximityAnalyzerConfigFactory,
+                       GeofenceAnalyzerConfigFactory, PatrolFactory,
+                       PatrolNoteFactory, PatrolSegmentFactory,
+                       PatrolSegmentSubjectFactory, PatrolSegmentUserFactory,
+                       PermissionSetFactory, ProviderFactory,
+                       SpatialFeatureGroupStaticFactory,
+                       SpatialFeatureTypeFactory, SubjectFactory,
+                       SubjectGroupFactory, SubjectSourceFactory, UserFactory, EventCategoryFactory)
 
 
 @pytest.fixture
@@ -45,6 +42,60 @@ def five_patrol_segment_subject():
 @pytest.fixture
 def five_patrol_segment_user():
     PatrolSegmentUserFactory.create_batch(5)
+
+
+@pytest.fixture
+def five_subjects():
+    SubjectFactory.create_batch(5)
+
+
+register(UserFactory, "ops_user")
+
+
+@pytest.fixture
+def view_subject_permissions():
+    return [
+        Permission.objects.get_by_natural_key(
+            "view_subjectgroup", "observations", "subjectgroup"
+        ),
+        Permission.objects.get_by_natural_key(
+            "view_subject", "observations", "subject"
+        ),
+    ]
+
+
+@pytest.fixture
+def two_subject_groups(view_subject_permissions):
+    view_sg_a_permissionset = PermissionSetFactory.create(
+        permissions=view_subject_permissions)
+    view_sg_b_permissionset = PermissionSetFactory.create(
+        permissions=view_subject_permissions)
+    return [
+        SubjectGroupFactory.create(permission_sets=[
+            view_sg_a_permissionset], subjects=SubjectFactory.create_batch(2)),
+        SubjectGroupFactory.create(permission_sets=[view_sg_b_permissionset], subjects=SubjectFactory.create_batch(2))]
+
+
+@pytest.fixture
+def view_subjects_permission_set(view_subject_permissions):
+    return PermissionSetFactory.create(permissions=view_subject_permissions)
+
+
+@pytest.fixture()
+def subject_group(request):
+    permissions = []
+    for permission in request.param:
+        permission = permission.split(",")
+        try:
+            codename, app_label, model = permission[0], permission[1], permission[2]
+            permission = Permission.objects.get_by_natural_key(
+                codename, app_label, model
+            )
+            permissions.append(permission)
+        except Permission.DoesNotExist:
+            print(
+                f"Does not exits a permission with the next params {permission}")
+    return SubjectGroupFactory.create(permission_sets=[PermissionSetFactory.create(permissions=permissions)])
 
 
 @pytest.fixture
@@ -116,6 +167,30 @@ def five_patrol_segment_patrol_type_uuid():
             patrol_type__id=f"00000000-0000-0000-0000-00000000000{i}"
         )
 
+
 @pytest.fixture
 def source_provider():
     return ProviderFactory.create()
+
+
+@pytest.fixture
+def events_with_category(request):
+    return [
+        EventFactory.create(
+            title=f"Title {category}", event_type__category__value=category
+        )
+        for category in request.param
+    ]
+
+
+@pytest.fixture
+def get_geo_permission_set(request):
+    permissions = Permission.objects.filter(codename__in=request.param)
+    return PermissionSetFactory.create(name="Test Geo Permissions - View", permissions=permissions)
+
+
+@pytest.fixture
+def basic_event_categories():
+    categories = ["analyzer_event", "logistics", "monitoring", "security"]
+    for category in categories:
+        EventCategoryFactory.create(value=category)

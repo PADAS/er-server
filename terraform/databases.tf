@@ -10,6 +10,11 @@ locals {
       db_instance            = data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_name,
       db_instance_private_ip = data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_private_ip,
       db_password_path       = "earthranger_app_infra_postgres_server2_${local.db_secret_path}"
+    },
+    {
+      db_instance            = terraform.workspace == "kws" ? data.terraform_remote_state.earthranger_app_infra.outputs.kws_instance_name : "",
+      db_instance_private_ip = terraform.workspace == "kws" ? data.terraform_remote_state.earthranger_app_infra.outputs.kws_instance_private_ip : "",
+      db_password_path       = terraform.workspace == "kws" ? "earthranger_app_infra_postgres_kws_${local.db_secret_path}" : ""
     }
   ]
 
@@ -174,4 +179,23 @@ resource "google_sql_user" "app_user" {
   depends_on = [
     random_password.app_user_pass
   ]
+}
+
+resource "google_secret_manager_secret" "er_sql_analytics_info" {
+  secret_id = "er_${local.sanitized_db_name}_sql_analytics_info"
+  project   = data.google_project.earthranger.project_id
+
+  labels = {
+    app      = "earthranger"
+    consumer = "tableau_bi_api"
+  }
+  replication {
+    automatic = true
+  }
+}
+
+resource "google_secret_manager_secret_version" "secret-version-basic" {
+  secret = google_secret_manager_secret.er_sql_analytics_info.id
+
+  secret_data = "{\"user\":\"${google_sql_user.analytics_user.name}\", \"password\":\"${random_password.analytics_user_pass.result}\"}"
 }
