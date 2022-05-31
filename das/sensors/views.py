@@ -36,7 +36,7 @@ class GenericSensorHandlerView(BaseSensorsView):
 
         increment("sensor", tags={
                   "type": sensor_type, "provider": provider_key})
-        return GenericSensorHandler.post(request, sensor_type=sensor_type, provider_key=provider_key)
+        return GenericSensorHandler.post(request, provider_key=provider_key, sensor_type=sensor_type)
 
 
 class ERTrackHandlerView(BaseSensorsView):
@@ -84,7 +84,7 @@ class RadioAgentHandlerView(BaseSensorsView):
 
     def post(self, request, provider_key=None):
         """ Add RadioAgent Observations """
-        return DasRadioAgentHandler.post(request, DasRadioAgentHandler.SENSOR_TYPE, provider_key)
+        return DasRadioAgentHandler.post(request, provider_key)
 
 
 class CameraTrapHandlerView(BaseSensorsView):
