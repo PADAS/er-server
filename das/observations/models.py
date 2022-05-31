@@ -555,20 +555,25 @@ class SubjectSourceManager(models.Manager):
 
         return queryset
 
-    def ensure(self, source, subject, assigned_range=None):
-        '''
-        :param source:
-        :param subject:
-        :param assigned_range:
-        :return:
-        '''
+    def ensure(self, source, subject, assigned_range=None, location=None):
+        """
+        :param source: Source object
+        :param subject: Subject object
+        :param assigned_range: List datetime objects
+        :param location: Dict {"latitude": 12.0, "longitude"}
+        :return: SubjectSource object
+        """
         assigned_range = assigned_range or DEFAULT_ASSIGNED_RANGE
 
-        subject_source, created = SubjectSource.objects.get_or_create(source=source, subject=subject,
-                                                                      assigned_range=assigned_range,
-                                                                      defaults=dict(
-                                                                          additional={},)
-                                                                      )
+        subject_source, created = SubjectSource.objects.get_or_create(
+            source=source,
+            subject=subject,
+            assigned_range=assigned_range,
+            defaults=dict(
+                additional={},
+            ),
+            location=location
+        )
 
         return subject_source
 

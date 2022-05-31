@@ -5,26 +5,22 @@ from typing import NamedTuple
 from urllib.parse import urlencode
 
 import dateutil.parser
-
-import observations.views as views
 import pytest
 import pytz
-from accounts.models import PermissionSet, User
-from client_http import HTTPClient
-from core.tests import API_BASE, BaseAPITest
+
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
 from django.test import override_settings
 from django.urls import reverse
-from observations.models import (
-    DEFAULT_ASSIGNED_RANGE,
-    Observation,
-    Source,
-    SourceGroup,
-    Subject,
-    SubjectGroup,
-    SubjectSource,
-)
+
+from accounts.models import PermissionSet, User
+from client_http import HTTPClient
+from core.tests import API_BASE, BaseAPITest
+from observations import views
+from observations.models import (DEFAULT_ASSIGNED_RANGE, Observation, Source,
+                                 SourceGroup, Subject, SubjectGroup,
+                                 SubjectSource)
+from observations.views import SourceSubjectsView
 
 
 def random_string(length=10):
@@ -759,3 +755,34 @@ class TestSourceProvider:
         assert response.data.get("provider_key") == "New provider key"
         assert response.data.get("display_name") == "This is a provider key"
         assert response.data.get("additional") == {}
+
+
+@pytest.mark.django_db
+class TestSourceSubjectsView:
+
+    def test_create_subject_source(self, subject_source):
+        subject = subject_source.subject
+        source = subject_source.source
+        url = f"{reverse('source-subjects-view', kwargs={'id': source.id})}"
+        client = HTTPClient()
+        data = {
+            "assigned_range": {
+                "lower": "2022-05-01T17:00:00-07:00",
+                "upper": "2022-05-05T16:59:59-07:00"
+            },
+            "source": source.id,
+            "subject": subject.id,
+            "additional": {},
+            "location": {
+                "latitude": 20.420935,
+                "longitude": -103.313486
+            }
+        }
+        subject_source_count = SubjectSource.objects.all().count()
+
+        request = client.factory.post(url, data=data)
+        client.force_authenticate(request, client.app_user)
+        response = SourceSubjectsView.as_view()(request, id=str(subject.id))
+
+        assert response.status_code == 201
+        assert SubjectSource.objects.all().count() == subject_source_count + 1

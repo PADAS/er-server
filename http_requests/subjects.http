@@ -1,3 +1,51 @@
+POST https://{{host}}/source/fc58211f-fffa-4dd2-a790-6b00f61c3cb5/subjects/
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "assigned_range": {
+		"lower": "2022-05-01T17:00:00-07:00",
+		"upper": "2022-05-05T16:59:59-07:00"
+	},
+	"source": "4588c557-e2bf-4a72-b1eb-9ca0835613dc",
+	"subject": "fc58211f-fffa-4dd2-a790-6b00f61c3cb5",
+	"additional": {},
+	"location": {
+		"latitude": 20.420935,
+		"longitude": -103.313486
+	}
+}
+
+###
+GET https://{{host}}/subject/f32e4388-35be-4320-a72c-de1f1d156a27/sources/
+Accept: application/json
+Authorization: Bearer {{token}}
+
+###
+POST https://{{host}}/subject/f32e4388-35be-4320-a72c-de1f1d156a27/sources/
+Accept: application/json
+Authorization: Bearer {{token}}
+
+{
+  "assigned_range": {
+		"lower": "2022-05-01T17:00:00-07:00",
+		"upper": "2022-05-05T16:59:59-07:00"
+	},
+	"source": "4588c557-e2bf-4a72-b1eb-9ca0835613dc",
+	"subject": "fc58211f-fffa-4dd2-a790-6b00f61c3cb5",
+	"additional": {},
+	"location": {
+		"latitude": 20.420935,
+		"longitude": -103.313486
+	}
+}
+
+###
+GET https://{{host}}/subject/f32e4388-35be-4320-a72c-de1f1d156a27/subjectsources/
+Accept: application/json
+Authorization: Bearer {{token}}
+
+###
 GET https://{{host}}
     /subjects
     ?bbox=-103.44734278196135,20.613171084730354,-103.40873581607786,20.63446063750607
