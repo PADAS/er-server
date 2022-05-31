@@ -313,16 +313,26 @@ class ObservationQuerySet(models.QuerySet, FilterMixin):
     def by_created_after(self, timestamp):
         return self.filter(Q(created_at__gte=timestamp))
 
-    def by_exclusion_flags(self, filter_flag=None):
-        """Works with more than one filter flag, for example 3 which is manual and automatic exclusion"""
+    def by_exclusion_flags(self, filter_flag=None, include_empty_location: bool = False):
+        """Works with more than one filter flag, for example 3 which is manual and automatic exclusion.
+
+        Args:
+            filter_flag (optional): the exclusion filter flag, think bits. 0 is a valid value. Defaults to None.
+            include_empty_location (bool, optional): don't filter out locations that are 0,0. Defaults to False.
+
+        Returns:
+            queryset: a further filtered queryset
+        """
+        queryset = self
         if filter_flag is not None:
             if filter_flag > 0:
-                qs = self.annotate(exclusion_filter=F('exclusion_flags').bitand(
+                queryset = queryset.annotate(exclusion_filter=F('exclusion_flags').bitand(
                     filter_flag)).filter(exclusion_filter__gt=0)
             else:
-                qs = self.filter(exclusion_flags=filter_flag)
-            return qs.exclude(location=EMPTY_POINT)
-        return self
+                queryset = queryset.filter(exclusion_flags=filter_flag)
+            if not include_empty_location:
+                queryset = queryset.exclude(Q(location=EMPTY_POINT))
+        return queryset
 
     def annotate_transforms(self):
         return self.annotate(source_transforms=F('source__provider__transforms'))
@@ -337,9 +347,9 @@ class ObservationManager(models.Manager):
                                               source__subjectsource__assigned_range__contains=F(
                                                   'recorded_at'))
 
-        queryset = queryset.by_exclusion_flags(filter_flag)
-
         queryset = queryset.by_since_until(since, until)
+
+        queryset = queryset.by_exclusion_flags(filter_flag)
 
         if order_by:
             queryset = queryset.order_by(order_by)
@@ -357,9 +367,10 @@ class ObservationManager(models.Manager):
             filter_flag=0, order_by=None):
         queryset = Observation.objects.filter(
             source=source)
-        queryset = queryset.by_exclusion_flags(filter_flag)
 
         queryset = queryset.by_since_until(since, until)
+
+        queryset = queryset.by_exclusion_flags(filter_flag)
 
         if order_by:
             queryset = queryset.order_by(order_by)
@@ -381,7 +392,11 @@ class ObservationManager(models.Manager):
 
         queryset = queryset.by_since_until(since, until)
 
-        queryset = queryset.by_exclusion_flags(filter_flag)
+        if not isinstance(subject, Subject):
+            subject = Subject.objects.get(id=subject)
+
+        queryset = queryset.by_exclusion_flags(
+            filter_flag, include_empty_location=subject.is_stationary_subject)
 
         if order_by:
             queryset = queryset.order_by(order_by)
@@ -1148,6 +1163,10 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     def subject_type(self):
         return self.subject_subtype.subject_type.value
 
+    @property
+    def is_stationary_subject(self):
+        return self.subject_type == STATIONARY_SUBJECT_VALUE
+
     class Meta:
         permissions = (
             ('view_last_position',
@@ -1380,7 +1399,7 @@ class SubjectStatusManager(models.Manager):
     delayed_windows = list((item for item in VIEW_END_WINDOWS if item[1] > 0))
 
     @staticmethod
-    def update_current_from_source(source, include_empty_location=False):
+    def update_current_from_source(source, include_empty_location: bool = False):
         observation = Observation.objects.get_last_source_observation(
             source, include_empty_location
         )

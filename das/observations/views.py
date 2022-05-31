@@ -1015,8 +1015,12 @@ class ObservationsView(generics.ListCreateAPIView):
             raise ValueError(
                 "Can only specify one of: subject_id and source_id and subjectsource_id")
         elif subject_id:
+            subject = get_object_or_404(models.Subject, pk=subject_id)
+            if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
+                raise PermissionDenied
+
             queryset = models.Observation.objects.get_subject_observations(
-                subject_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag, order_by='recorded_at')
+                subject, since=recorded_since, until=recorded_until, filter_flag=filter_flag, order_by='recorded_at')
         elif source_id:
             queryset = models.Observation.objects.get_source_observations(
                 source_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag, order_by='recorded_at')
@@ -1026,8 +1030,8 @@ class ObservationsView(generics.ListCreateAPIView):
         else:
             queryset = models.Observation.objects.by_since_until(
                 recorded_since, recorded_until)
-            queryset = queryset.order_by('recorded_at')
             queryset = queryset.by_exclusion_flags(filter_flag)
+            queryset = queryset.order_by('recorded_at')
 
         mou_date = self.request.user.additional.get('expiry', None)
         mou_expiry_date = dateparse(mou_date) if mou_date else None
