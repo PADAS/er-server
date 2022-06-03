@@ -3,15 +3,18 @@ import logging
 from datetime import datetime, timezone
 
 import pytz
-from analyzers import gfw_inbound
 from dateutil.parser import parse as parse_date
+from psycopg2.errors import UniqueViolation
+
 from django.db import transaction
+from rest_framework import serializers, status
+from rest_framework.response import Response
+
+from analyzers import gfw_inbound
 from observations import servicesutils
 from observations.models import (Observation, Source, Subject, SubjectSource,
                                  update_subject_status_from_post)
 from observations.serializers import ObservationSerializer
-from rest_framework import serializers, status
-from rest_framework.response import Response
 from sensors.subject_name_change import mutate_ertrack_subject_assignment
 from sensors.vehicle_tracker import (DasObservation, EzyTrackAdapter,
                                      EzytrackObservation, FollowltObservation,
@@ -41,6 +44,7 @@ class SensorPostParameters(serializers.Serializer):
 
 
 class GenericSensorHandler:
+    SENSOR_TYPE = 'generic'
     DEFAULT_SOURCE_TYPE = 'gps-radio'
     DEFAULT_SUBJECT_SUBTYPE = 'ranger'
     DEFAULT_EVENT_ACTION = None
@@ -57,9 +61,11 @@ class GenericSensorHandler:
         return Response(data, status=status.HTTP_200_OK)
 
     @classmethod
-    def post(cls, request, sensor_type, provider_key):
-        data = request.data
+    def post(cls, request, provider_key, sensor_type=None):
+        if not sensor_type:
+            sensor_type = cls.SENSOR_TYPE
 
+        data = request.data
         if isinstance(data, dict):
             # Default to 'observation' for backward compatibility.
             key = data.get('message_key', 'observation')
@@ -74,8 +80,8 @@ class GenericSensorHandler:
         params = SensorPostParameters(data=observations_json, many=True)
         if not params.is_valid():
             return Response(data=params.errors, status=status.HTTP_400_BAD_REQUEST)
-        # TODO: pass deserialized observations
-        return cls.process_observations(params.validated_data, provider_key, sensor_type)
+
+        return cls.process_all_observations(params.validated_data, provider_key, sensor_type, request.user)
 
     @classmethod
     def generate_batches(cls, observations, batch_size):
@@ -105,20 +111,30 @@ class GenericSensorHandler:
                 return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
     @classmethod
-    def process_observations(cls, observations_json, provider_key, sensor_type, batch_size=128):
+    def process_all_observations(cls, data: list, provider_key: str, sensor_type: str, user, batch_size: int = 128):
+        try:
+            try:
+                return cls.process_observations(data, provider_key, sensor_type, user, batch_size)
+            except UniqueViolation:
+                return cls.process_observations(data, provider_key, sensor_type, user, batch_size)
+        except UniqueViolation:
+            return Response({}, status=status.HTTP_409_CONFLICT)
+
+    @classmethod
+    def process_observations(cls, data: list, provider_key: str, sensor_type: str, user, batch_size):
         created = False
         obs_to_persist, errors, obs_cache = [], [], set()
-        batches = cls.generate_batches(observations_json, batch_size)
+        batches = cls.generate_batches(data, batch_size)
         for batch in batches:
             for an_observation in batch:
                 created |= cls.process_one_observation(
-                    an_observation, provider_key, sensor_type, obs_to_persist, obs_cache, errors)
+                    an_observation, provider_key, sensor_type, obs_to_persist, obs_cache, errors, user)
         cls.save_and_notify_tracks_listeners(obs_to_persist, errors, obs_cache)
 
         return Response({}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     @classmethod
-    def process_one_observation(cls, an_observation, provider_key, sensor_type, obs_to_persist, obs_cache, errors):
+    def process_one_observation(cls, an_observation: dict, provider_key: str, sensor_type: str, obs_to_persist, obs_cache, errors, user):
         """return True if an observation was created
 
         Args:
@@ -216,10 +232,12 @@ class GenericSensorHandler:
 
 
 class ErTrackHandler(GenericSensorHandler):
-    sensor_type = 'ertrack'
+    SENSOR_TYPE = 'ertrack'
 
     @classmethod
-    def post(cls, request, provider_key):
+    def post(cls, request, provider_key, sensor_type=None):
+        if not sensor_type:
+            sensor_type = cls.SENSOR_TYPE
 
         observations_json = request.data
         if isinstance(observations_json, dict):
@@ -228,19 +246,20 @@ class ErTrackHandler(GenericSensorHandler):
         params = SensorPostParameters(data=observations_json, many=True)
         if not params.is_valid():
             return Response(data=params.errors, status=status.HTTP_400_BAD_REQUEST)
-        return cls.process_observations(params.validated_data, provider_key, cls.sensor_type, request.user)
+        return cls.process_all_observations(params.validated_data, provider_key, sensor_type, request.user)
 
     @classmethod
-    def process_observations(cls, observations_json, provider_key, sensor_type, user=None, batch_size=128):
+    def process_observations(cls, data: list, provider_key: str, sensor_type: str, user, batch_size=128):
         obs_to_persist, errors, obs_cache = [], [], set()
-        batches = cls.generate_batches(observations_json, batch_size)
+        batches = cls.generate_batches(data, batch_size)
+        created = False
         for batch in batches:
             for an_observation in batch:
-                cls.process_one_observation(
+                created |= cls.process_one_observation(
                     an_observation, provider_key, sensor_type, obs_to_persist, obs_cache, errors, user)
         cls.save_and_notify_tracks_listeners(obs_to_persist, errors, obs_cache)
 
-        return Response({}, status=status.HTTP_201_CREATED)
+        return Response({}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     @classmethod
     def ensure_source(cls, observation, user, subject_info, **kwargs):
@@ -265,7 +284,7 @@ class ErTrackHandler(GenericSensorHandler):
             return source
 
     @classmethod
-    def process_one_observation(cls, an_observation, provider_key, sensor_type, obs_to_persist, obs_cache, errors, user):
+    def process_one_observation(cls, an_observation: dict, provider_key: str, sensor_type: str, obs_to_persist, obs_cache, errors, user):
         manufacturer_id = an_observation['manufacturer_id']
         location = an_observation['location']
         lat = location.get('lat', None)
@@ -315,8 +334,9 @@ class ErTrackHandler(GenericSensorHandler):
             logger.debug("Processed duplicate observation %s",
                          subject_subtype, extra={'obs.dup': provider_key})
             errors.append({})
-            return
+            return False
 
+        created = False
         obs_cache.add(obs_key)
         validator = ObservationSerializer(data=observation)
         if validator.is_valid():
@@ -324,8 +344,10 @@ class ErTrackHandler(GenericSensorHandler):
             logger.debug("Added new observation %s", observation,
                          extra={'obs.new': provider_key})
             errors.append({})
+            created = True
         else:
             errors.append(validator.errors)
+        return created
 
 
 class FollowltTrackerHandler:
@@ -354,8 +376,10 @@ class FollowltTrackerHandler:
                     additional=additional)
 
     @classmethod
-    def post(cls, request, provider_key):
-        logger.info("Recieved new push message from {}: {}".format(cls.SENSOR_TYPE,
+    def post(cls, request, provider_key, sensor_type=None):
+        if not sensor_type:
+            sensor_type = cls.SENSOR_TYPE
+        logger.info("Recieved new push message from {}: {}".format(sensor_type,
                                                                    request.data))
         sensor_observations = request.data
         # Check if received data is in list format or not
@@ -526,7 +550,9 @@ class GsatHandler():
             return True
 
     @classmethod
-    def post(cls, request, provider_key):
+    def post(cls, request, provider_key, sensor_type=None):
+        if not sensor_type:
+            sensor_type = cls.SENSOR_TYPE
 
         logger.info('Gsat request: %s', request.query_params)
 
@@ -580,7 +606,9 @@ class SkylineVehicleTrackerHandler():
     serializer_class = SkylineObservations
 
     @classmethod
-    def post(cls, request, provider_key):
+    def post(cls, request, provider_key, sensor_type=None):
+        if not sensor_type:
+            sensor_type = cls.SENSOR_TYPE
 
         logger.info("Recieved new push message %s", request.data,
                     extra={'msg.data': request.data})
@@ -643,7 +671,9 @@ class TractVehicleHandler():
     serializer_class = TractVehicleData
 
     @classmethod
-    def post(cls, request, provider_key):
+    def post(cls, request, provider_key, sensor_type=None):
+        if not sensor_type:
+            sensor_type = cls.SENSOR_TYPE
 
         logger.info("Recieved new push message %s", request.data)
         params = TractVehicleData.parse_observations(request.data)
@@ -712,7 +742,9 @@ class SigFoxPushHandler():
     serializer_class = SigFoxCallback
 
     @classmethod
-    def post(cls, request, provider_key):
+    def post(cls, request, provider_key, sensor_type=None):
+        if not sensor_type:
+            sensor_type = cls.SENSOR_TYPE
 
         params = SigFoxCallback(data=request.data)
 
@@ -728,7 +760,7 @@ class SigFoxPushHandler():
             src, created = Source.objects.ensure_source(cls.SOURCE_TYPE,
                                                         provider=provider_key,
                                                         manufacturer_id=device_id,
-                                                        model_name='{}:{}'.format(cls.SENSOR_TYPE, provider_key))
+                                                        model_name='{}:{}'.format(sensor_type, provider_key))
 
         status_ok = {'status': 200, 'message': 'success',
                      'handler': 'sigfox-push'}
@@ -740,12 +772,15 @@ class GateHandler:
     SENSOR_TYPE = 'gate'
 
     @classmethod
-    def post(cls, request, provider_key):
-        logger.info(f"{cls.SENSOR_TYPE} observation {request.data} for provider {provider_key}",
-                    extra={'data': request.data, 'provider_key': provider_key, 'sensor_type': cls.SENSOR_TYPE})
+    def post(cls, request, provider_key, sensor_type=None):
+        if not sensor_type:
+            sensor_type = cls.SENSOR_TYPE
+
+        logger.info(f"{sensor_type} observation {request.data} for provider {provider_key}",
+                    extra={'data': request.data, 'provider_key': provider_key, 'sensor_type': sensor_type})
 
         status_ok = {'status': 200, 'message': 'success',
-                     'handler': f'{cls.SENSOR_TYPE}'}
+                     'handler': f'{sensor_type}'}
 
         return Response(data=status_ok, status=status.HTTP_200_OK)
 
@@ -754,12 +789,15 @@ class TestHandler:
     SENSOR_TYPE = 'test'
 
     @classmethod
-    def post(cls, request, provider_key):
-        logger.info(f"{cls.SENSOR_TYPE} observation {request.data} for provider {provider_key}",
-                    extra={'data': request.data, 'provider_key': provider_key, 'sensor_type': cls.SENSOR_TYPE})
+    def post(cls, request, provider_key, sensor_type=None):
+        if not sensor_type:
+            sensor_type = cls.SENSOR_TYPE
+
+        logger.info(f"{sensor_type} observation {request.data} for provider {provider_key}",
+                    extra={'data': request.data, 'provider_key': provider_key, 'sensor_type': sensor_type})
 
         status_ok = {'status': 200, 'message': 'success',
-                     'handler': f'{cls.SENSOR_TYPE}'}
+                     'handler': f'{sensor_type}'}
 
         return Response(data=status_ok, status=status.HTTP_200_OK)
 
@@ -779,7 +817,10 @@ class EzyTrackHandler:
     serializer_class = EzytrackObservation
 
     @classmethod
-    def post(cls, request, provider_key):
+    def post(cls, request, provider_key, sensor_type=None):
+        if not sensor_type:
+            sensor_type = cls.SENSOR_TYPE
+
         logger.info(f"Received new push message {request.data}")
 
         serializer_ = EzytrackObservation(data=request.data)
@@ -861,7 +902,10 @@ class InreachPushHandler:
     serializer_class = InreachObservation
 
     @classmethod
-    def post(cls, request, provider_key):
+    def post(cls, request, provider_key, sensor_type=None):
+        if not sensor_type:
+            sensor_type = cls.SENSOR_TYPE
+
         logger.info("Recieved new push message %s", request.data)
         cls.provider_key = provider_key
         cls.new_observations = 0

@@ -8,7 +8,7 @@ from factories import (EventDetailsFactory, EventFactory, EventTypeFactory,
                        GeofenceAnalyzerConfigFactory, PatrolFactory,
                        PatrolNoteFactory, PatrolSegmentFactory,
                        PatrolSegmentSubjectFactory, PatrolSegmentUserFactory,
-                       PermissionSetFactory, ProviderFactory,
+                       PermissionSetFactory, ProviderFactory, SourceFactory,
                        SpatialFeatureGroupStaticFactory,
                        SpatialFeatureTypeFactory, SubjectFactory,
                        SubjectGroupFactory, SubjectSourceFactory, UserFactory, EventCategoryFactory)
@@ -17,6 +17,16 @@ from factories import (EventDetailsFactory, EventFactory, EventTypeFactory,
 @pytest.fixture
 def patrol():
     PatrolFactory()
+
+
+@pytest.fixture
+def subject():
+    return SubjectFactory()
+
+
+@pytest.fixture
+def source():
+    return SourceFactory()
 
 
 @pytest.fixture

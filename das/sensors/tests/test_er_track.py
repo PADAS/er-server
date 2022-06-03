@@ -1,16 +1,21 @@
-import json
 import copy
 import datetime
+import json
 from unittest import mock
+
 import pytz
+
+from django.db import transaction
+from django.test import override_settings
 from rest_framework import status
 
-from core.tests import BaseAPITest, fake_get_pool
-from sensors.views import ERTrackHandlerView
-from observations.models import Subject, SourceProvider, Source, SubjectSource, Observation, SubjectSubType, SubjectType
-from tracking.models.er_track import SourceProviderConfiguration, CREATE_NEW, UPDATE_NAME
 from accounts.models import User
-from django.test import override_settings
+from core.tests import BaseAPITest, fake_get_pool
+from observations.models import (Observation, Source, SourceProvider, Subject,
+                                 SubjectSource, SubjectSubType, SubjectType)
+from sensors.views import ERTrackHandlerView
+from tracking.models.er_track import (CREATE_NEW, UPDATE_NAME,
+                                      SourceProviderConfiguration)
 
 
 class ErTrackHandlerTest(BaseAPITest):
@@ -22,7 +27,16 @@ class ErTrackHandlerTest(BaseAPITest):
     one_observation = {
         "subject_name": "test_subject",
         "manufacturer_id": manufacturer_id,
-        "recorded_at": "2019-04-09T12:01:00",
+        "recorded_at": "2019-04-09T12:01:00Z",
+        "location": {
+            "lon": "31.19239",
+            "lat": "-24.43071"},
+    }
+
+    second_observation = {
+        "subject_name": "test_subject",
+        "manufacturer_id": manufacturer_id,
+        "recorded_at": "2019-04-09T12:02:00Z",
         "location": {
             "lon": "31.19239",
             "lat": "-24.43071"},
@@ -43,6 +57,24 @@ class ErTrackHandlerTest(BaseAPITest):
                                                         password="adfsfds32423",
                                                         email="super@user.com")
         self.config = SourceProviderConfiguration.objects.get(is_default=True)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_post_a_duplicate_observation(self):
+        response = self._post_data(json.dumps(self.one_observation))
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        response = self._post_data(json.dumps(self.one_observation))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_post_duplicate_in_a_batch_of_observations(self):
+        response = self._post_data(json.dumps(
+            [self.one_observation, self.one_observation, self.one_observation]))
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        response = self._post_data(json.dumps(
+            [self.second_observation, self.one_observation, self.one_observation]))
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_post_new_device_handling_with_create_new_config(self):
@@ -285,3 +317,22 @@ class ErTrackHandlerTest(BaseAPITest):
         self.force_authenticate(request, user or self.app_user)
         response = ERTrackHandlerView.as_view()(request, provider_key=provider)
         return response
+
+    @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
+    def run_transaction_hooks(self):
+        """
+        Mock transaction hooks to validate code for delayed on_commit functions.
+        :return: None
+
+        This supports validating a fix for https://vulcan.atlassian.net/browse/DAS-4052 whereby we didn't catch
+        an invalid call to an on_commit handler. This Mock allows us "execute" our transaction on_commit code but
+        without using TransactionTestCase which can be prohibitively slow.
+        """
+        for db_name in reversed(self._databases_names()):
+            with mock.patch('django.db.backends.base.base.BaseDatabaseWrapper.validate_no_atomic_block',
+                            lambda a: False):
+                transaction.get_connection(
+                    using=db_name).run_and_clear_commit_hooks()
+
+    def tearDown(self):
+        self.run_transaction_hooks()

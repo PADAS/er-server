@@ -2,7 +2,6 @@ import logging
 import logging.config
 import sys
 
-
 try:
     # local_log.py should contain an override of DEFAULT_LOGGING as seen below
     from . import local_log
@@ -18,7 +17,7 @@ DEFAULT_LOGGING = {
     'formatters': {
         'json': {
             'format': '%(asctime)s %(levelname)s %(processName)s %(thread)d %(name)s %(message)s',
-            'class': 'pythonjsonlogger.jsonlogger.JsonFormatter',
+            'class': 'utils.log.CloudLogsJsonFormatter',
         },
     },
     'handlers': {

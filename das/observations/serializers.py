@@ -24,10 +24,11 @@ from core.fields import GEOPointField, choicefield_serializer, text_field
 from core.serializers import (BaseSerializer, ContentTypeField,
                               GenericRelatedField, TimestampMixin)
 from observations import models
-from observations.models import (STATIONARY_SUBJECT_VALUE,
+from observations.models import (STATIONARY_SUBJECT_VALUE, SubjectSource,
                                  transform_additional_data)
 from observations.utils import (dateparse, get_maximum_allowed_age,
-                                get_minimum_allowed_age, get_null_point)
+                                get_minimum_allowed_age, get_null_point,
+                                is_subject_stationary_subject)
 from utils import add_base_url
 from utils.json import zeroout_microseconds
 
@@ -165,19 +166,28 @@ class TimezoneOverflowAwareDateTimeField(DateTimeField):
 
 
 class SubjectSourceSerializer(rest_framework.serializers.ModelSerializer):
-
     assigned_range = DateTimeRangeField(
         child=TimezoneOverflowAwareDateTimeField())
+    location = PointField(required=False)
 
     class Meta:
-        model = models.SubjectSource
-        fields = ('id', 'assigned_range', 'source', 'subject',
-                  'additional')
+        model = SubjectSource
+        fields = ("id", "assigned_range", "source",
+                  "subject", "additional", "location")
 
     def create(self, validated_data):
-        return models.SubjectSource.objects.ensure(subject=validated_data['subject'],
-                                                   source=validated_data['source'],
-                                                   assigned_range=validated_data['assigned_range'])
+        return SubjectSource.objects.ensure(
+            subject=validated_data["subject"],
+            source=validated_data["source"],
+            assigned_range=validated_data["assigned_range"],
+            location=validated_data.get("location", None),
+        )
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if not is_subject_stationary_subject(instance.subject):
+            representation["location"] = None
+        return representation
 
 
 class SubjectSerializer(rest_framework.serializers.Serializer):

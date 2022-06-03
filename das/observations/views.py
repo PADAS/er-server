@@ -28,16 +28,17 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.renderers import StaticHTMLRenderer
 from rest_framework.response import Response
 
-import observations.serializers as serializers
 import utils
 from das_server import celery
 from das_server.views import CustomSchema
-from observations import kmlutils, models
+from observations import kmlutils, models, serializers
 from observations.filters import (SubjectObjectPermissionsFilter,
                                   create_gp_filter_class)
 from observations.mixins import TwoWaySubjectSourceMixin
+from observations.models import Subject, SubjectSource
 from observations.permissions import StandardObjectPermissions
-from observations.serializers import TrackLimitSerializer
+from observations.serializers import (SubjectSourceSerializer,
+                                      TrackLimitSerializer)
 from observations.tasks import handle_outbox_message, process_gpxdata_api
 from observations.utils import (VIEW_OBSERVATION_PERMS, VIEW_SUBJECT_PERMS,
                                 VIEW_SUBJECTGROUP_PERMS,
@@ -606,18 +607,14 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixi
 
 
 class SubjectSubjectSourcesView(generics.ListAPIView):
-    """View for a Subject's SubjectSource records
-    """
-    serializer_class = serializers.SubjectSourceSerializer
+    """View for a Subject's SubjectSource records"""
+    serializer_class = SubjectSourceSerializer
 
-    def get_queryset(self):
-        subject = generics.get_object_or_404(
-            models.Subject.objects.all(), pk=self.kwargs['id'])  # <-- Maybe annotate with subject_status
+    def get_queryset(self, *args, **kwargs):
+        subject = get_object_or_404(Subject, pk=self.kwargs["id"])
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
             raise PermissionDenied
-        subject_sources = models.SubjectSource.objects.get_subject_sources(
-            subject)
-        return subject_sources
+        return SubjectSource.objects.get_subject_sources(subject)
 
 
 class SubjectSourcesView(generics.ListCreateAPIView):
@@ -635,20 +632,19 @@ class SubjectSourcesView(generics.ListCreateAPIView):
         return sources
 
     def create(self, request, *args, **kwargs):
-
-        # /{id}/ contains subject_id.
-        request.data['subject'] = self.kwargs['id']
-        serializer = serializers.SubjectSourceSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST, )
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        request.data["subject"] = self.kwargs["id"]
+        serializer = SubjectSourceSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            headers = self.get_success_headers(serializer.data)
+            return Response(
+                serializer.data, status=status.HTTP_201_CREATED, headers=headers
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class SourceSubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
     serializer_class = serializers.SubjectSerializer
-    # schema = InactiveSubjectsViewSchema()
 
     def get_queryset(self):
         source = generics.get_object_or_404(
@@ -661,19 +657,19 @@ class SourceSubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         return queryset.filter(subjectsource__source=source).annotate_with_subjectstatus()
 
     def create(self, request, *args, **kwargs):
-        # /{id}/ contains subject_id.
-        request.data['subject'] = self.kwargs['id']
-        serializer = serializers.SubjectSourceSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST, )
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        request.data["subject"] = self.kwargs["id"]
+        serializer = SubjectSourceSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            headers = self.get_success_headers(serializer.data)
+            return Response(
+                serializer.data, status=status.HTTP_201_CREATED, headers=headers
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['two_way_subject_sources'] = self.two_way_subject_sources
-
         return context
 
 
@@ -1015,8 +1011,12 @@ class ObservationsView(generics.ListCreateAPIView):
             raise ValueError(
                 "Can only specify one of: subject_id and source_id and subjectsource_id")
         elif subject_id:
+            subject = get_object_or_404(models.Subject, pk=subject_id)
+            if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS, subject):
+                raise PermissionDenied
+
             queryset = models.Observation.objects.get_subject_observations(
-                subject_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag, order_by='recorded_at')
+                subject, since=recorded_since, until=recorded_until, filter_flag=filter_flag, order_by='recorded_at')
         elif source_id:
             queryset = models.Observation.objects.get_source_observations(
                 source_id, since=recorded_since, until=recorded_until, filter_flag=filter_flag, order_by='recorded_at')
@@ -1026,8 +1026,8 @@ class ObservationsView(generics.ListCreateAPIView):
         else:
             queryset = models.Observation.objects.by_since_until(
                 recorded_since, recorded_until)
-            queryset = queryset.order_by('recorded_at')
             queryset = queryset.by_exclusion_flags(filter_flag)
+            queryset = queryset.order_by('recorded_at')
 
         mou_date = self.request.user.additional.get('expiry', None)
         mou_expiry_date = dateparse(mou_date) if mou_date else None
