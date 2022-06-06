@@ -53,7 +53,7 @@ class SubjectSourceForm(JSONFieldFormMixin, forms.ModelForm):
     comments = forms.CharField(
         required=False, label="Comments", widget=forms.Textarea)
     assigned_range = AssignedDateTimeRangeField(
-        label=f"Assigned Range in {TIMEZONE_USED}",
+        label=f"Assigned Range in GMT",
         required=True,
         validators=[validate_assigned_range],
     )

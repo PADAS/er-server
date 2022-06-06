@@ -261,6 +261,7 @@ locals {
     "birdlifebotswana"        = "prod1"
     "birdlifezambia"          = "prod1"
     "borana"                  = "prod1"
+    "iona"                    = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -388,6 +389,7 @@ locals {
     "birdlifebotswana"      = 1
     "birdlifezambia"        = 1
     "borana"                = 1
+    "iona"                  = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
