@@ -142,7 +142,6 @@ server_manifest_key := SERVER_VERSION
 gcr_root := gcr.io/padas-app/circleci/das-server
 server_default_branch := develop
 server_gcr_path_default_branch := $(gcr_root)/$(server_default_branch)
-server_semver_file := $(CURDIR)/../SERVER_VERSION
 
 web_react_manifest_key := WEB_REACT_VERSION
 gcr_web_react_root := gcr.io/padas-app/circleci/das-web-react
@@ -168,20 +167,17 @@ descriptive_ingress_gcr_path := $(gcr_ingress_root)/$(shell echo $(current_branc
 
 .PHONY: build_and_push
 build_and_push: latest_gcr_tag := latest
-build_and_push: semver_gcr_tag := $(shell cat "$(server_semver_file)" || exit 1)
 build_and_push: sha_gcr_tag := $(shell git rev-parse --quiet --verify HEAD || exit 1)
 build_and_push: unique_gcr_tag := $(shell date +%s || exit 1)
 build_and_push: build_number   := 0
 build_and_push: ## build and push
-	@ if [ -z "$(semver_gcr_tag)" ]; then (printf "\e[31m\tCould not resolve semver_gcr_tag by cat'ing '$(server_semver_file)'.\e[0m\n" >&2; exit 1); fi
 	@ if [ -z "$(sha_gcr_tag)" ]; then (printf "\e[31m\tCould not resolve sha_gcr_tag with git rev-parse.\e[0m\n" >&2; exit 1); fi
 	@ if [ -z "$(unique_gcr_tag)" ]; then (printf "\e[31m\tCould not resolve unique_gcr_tag with 'date'.\e[0m\n" >&2; exit 1); fi
 	@ if [ "$$(dirname $(descriptive_server_gcr_path))" = "$$(dirname $(gcr_root))" ]; then (printf "\e[31m\tCould not construct a unique, sanitized GCR path.\e[0m\n" >&2; exit 1); fi
 	cd $(CURDIR)/.. \
 	&& echo BUILD_NUMBER = $(build_number) > das/das_server/version.py \
-	&& docker build  -f circleci-docker/Dockerfile --tag $(descriptive_server_gcr_path):$(latest_gcr_tag) --tag $(descriptive_server_gcr_path):$(semver_gcr_tag) --tag $(descriptive_server_gcr_path):$(sha_gcr_tag) --tag $(descriptive_server_gcr_path):$(unique_gcr_tag) .
+	&& docker build  -f circleci-docker/Dockerfile --tag $(descriptive_server_gcr_path):$(latest_gcr_tag) --tag $(descriptive_server_gcr_path):$(sha_gcr_tag) --tag $(descriptive_server_gcr_path):$(unique_gcr_tag) .
 	docker push $(descriptive_server_gcr_path):$(latest_gcr_tag)
-	docker push $(descriptive_server_gcr_path):$(semver_gcr_tag)
 	docker push $(descriptive_server_gcr_path):$(sha_gcr_tag)
 	docker push $(descriptive_server_gcr_path):$(unique_gcr_tag)
 

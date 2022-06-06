@@ -251,3 +251,4 @@ locust.env
 docker/keys/default/application_default_credentials.json
 
 http_requests/http-client.env.json
+utils/*
