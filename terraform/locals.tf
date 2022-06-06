@@ -260,6 +260,7 @@ locals {
     "rhinorevolution"         = "prod1"
     "birdlifebotswana"        = "prod1"
     "birdlifezambia"          = "prod1"
+    "borana"                  = "prod1"
     "iona"                    = "prod1"
   }
 
@@ -387,6 +388,7 @@ locals {
     "rhinorevolution"       = 1
     "birdlifebotswana"      = 1
     "birdlifezambia"        = 1
+    "borana"                = 1
     "iona"                  = 1
   }
 
