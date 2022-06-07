@@ -1,1 +1,1 @@
-time_zone = "Etc/GMT+2"
+time_zone = "Africa/Harare"
