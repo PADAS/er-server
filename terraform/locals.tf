@@ -263,6 +263,7 @@ locals {
     "borana"                  = "prod1"
     "iona"                    = "prod1"
     "thuma"                   = "prod1"
+    "maputo"                  = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -392,6 +393,7 @@ locals {
     "borana"                = 1
     "iona"                  = 1
     "thuma"                 = 1
+    "maputo"                = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
