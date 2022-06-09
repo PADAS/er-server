@@ -377,6 +377,28 @@ class ObservationTestCase(BaseAPITest):
         assert response.status_code == 200
         assert len(response.data['results']) == observation_test_count
 
+        second_observation_test_count = 5
+        observation_time = datetime.now(tz=timezone.utc)
+        for i in range(second_observation_test_count):
+
+            observation = {
+                'location': fixed_location,
+                'recorded_at': observation_time + timedelta(seconds=i),
+                'source': source_id,
+                'additional': {}
+            }
+            serializer = ObservationSerializer(data=observation)
+            assert serializer.is_valid()
+            serializer.save()
+
+        url = reverse('observations-list-view')
+        request = self.factory.get(url, data=dict(subject_id=subject_id))
+        self.force_authenticate(request, self.user)
+        response = ObservationsView.as_view()(request, subject_id=subject_id)
+        assert response.status_code == 200
+        assert len(
+            response.data['results']) == observation_test_count + second_observation_test_count
+
 
 def generate_observation(source, recorded_at=None):
     observation_time = recorded_at if recorded_at else datetime.now(

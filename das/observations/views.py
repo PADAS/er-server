@@ -46,8 +46,7 @@ from observations.utils import (VIEW_OBSERVATION_PERMS, VIEW_SUBJECT_PERMS,
                                 check_to_include_inactive_subjects, dateparse,
                                 get_minimum_allowed_age, parse_comma)
 from utils import add_base_url
-from utils.drf import (CachedCountStandardResultsSetPagination,
-                       OptionalResultsSetPagination,
+from utils.drf import (OptionalResultsSetPagination,
                        StandardResultsSetCursorPagination,
                        StandardResultsSetGeoJsonPagination,
                        StandardResultsSetPagination)
@@ -950,7 +949,7 @@ class ObservationsCursorPagination(StandardResultsSetCursorPagination):
 
 class ObservationsView(generics.ListCreateAPIView):
     serializer_class = serializers.ObservationSerializer
-    pagination_class = CachedCountStandardResultsSetPagination
+    pagination_class = StandardResultsSetPagination
     permission_classes = (StandardObjectPermissions,)
     schema = ObservationsViewSchema()
 
