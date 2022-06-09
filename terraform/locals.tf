@@ -262,6 +262,7 @@ locals {
     "birdlifezambia"          = "prod1"
     "borana"                  = "prod1"
     "iona"                    = "prod1"
+    "thuma"                   = "prod1"
     "maputo"                  = "prod1"
   }
 
@@ -391,6 +392,7 @@ locals {
     "birdlifezambia"        = 1
     "borana"                = 1
     "iona"                  = 1
+    "thuma"                 = 1
     "maputo"                = 1
   }
 
