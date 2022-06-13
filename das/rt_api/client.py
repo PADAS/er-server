@@ -1,17 +1,17 @@
-import logging
 import collections
-import redis
 import datetime
-import pytz
-import socket
+import logging
 import signal
+import socket
 
-from django.contrib.gis.geos import Polygon, MultiPolygon
+import pytz
+import redis
 from psycopg2.extras import DateTimeTZRange
-from django.conf import settings
 
-from observations.models import SocketClient
-from observations.models import UserSession
+from django.conf import settings
+from django.contrib.gis.geos import MultiPolygon, Polygon
+
+from observations.models import SocketClient, UserSession
 from utils import json
 
 logger = logging.getLogger(__name__)
@@ -190,32 +190,44 @@ def list_len(key):
     return redis_client.llen(key)
 
 
-def remove_client(sid):
-    remove_clients(sid)
+def remove_client(sid: str):
+    sids = set()
+    sids.add(sid)
+    remove_clients(sids)
 
 
-def remove_clients(*sids):
-    '''
+def remove_clients(sids: set):
+    """
     Handle a list of sids to delete them from both the database and cache.
     :param sids:
     :return:
-    '''
+    """
     if not sids:
         return
 
-    sids = set((str(sid) for sid in sids))
-    logger.info('Removing clients for sids: %s', sids)
+    logger.info("Removing clients for sids: %s from key %s",
+                sids, CLIENT_LIST_KEY)
     count = redis_client.hdel(CLIENT_LIST_KEY, *sids)
     logger.info(
-        f'Removed {count} clients (of {len(sids)} listed) from {CLIENT_LIST_KEY}')
+        "Removed %s clients (of %s listed) from %s", count, len(
+            sids), CLIENT_LIST_KEY
+    )
+
+    logger.info(
+        "Removing clients for sids: %s from key %s", sids, EXPIRED_CLIENT_TRACES_LIST
+    )
     count = redis_client.hdel(EXPIRED_CLIENT_TRACES_LIST, *sids)
     logger.info(
-        f'Removed {count} clients (of {len(sids)} listed) from {EXPIRED_CLIENT_TRACES_LIST}')
+        "Removed %s clients (of %s listed) from %s",
+        count,
+        len(sids),
+        EXPIRED_CLIENT_TRACES_LIST,
+    )
 
-    logger.info('Deleteing mid keys for sids %s.', sids)
-    redis_client.delete(*[f'mid-{sid}' for sid in sids])
+    logger.info("Deleteing mid keys for sids %s.", sids)
+    redis_client.delete(*[f"mid-{sid}" for sid in sids])
 
-    logger.info('Deleteing session timestamp keys for sids %s.', sids)
+    logger.info("Deleteing session timestamp keys for sids %s.", sids)
     redis_client.delete(*[SID_SESSION_TIMESTAMP_KEY.format(sid)
                         for sid in sids])
     redis_client.delete(
@@ -224,7 +236,7 @@ def remove_clients(*sids):
     try:
         SocketClient.objects.filter(id__in=sids).delete()
     except ValueError:
-        logger.exception('Failed to remove SocketClients for sids: %s', sids)
+        logger.exception("Failed to remove SocketClients for sids: %s", sids)
 
 
 def cleanup_socketclient():
@@ -233,7 +245,7 @@ def cleanup_socketclient():
     for socket_client in SocketClient.objects.values("id", "username"):
         sid = socket_client["id"]
         if not sid in live_sids:
-            remove_client(sid)
+            remove_client(str(sid))
 
 
 def update_user_session(sid):

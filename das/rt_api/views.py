@@ -144,7 +144,7 @@ def cleanup_disconnected_clients(sios):
                     f'Clients to cleanup and disconnect {len(remove_these_clients)}')
 
                 client.remove_clients(
-                    *[x.sid for x in remove_these_clients])
+                    set([str(x.sid) for x in remove_these_clients]))
 
                 for sid in disconnect_these_sids:
                     sios.disconnect(sid)
