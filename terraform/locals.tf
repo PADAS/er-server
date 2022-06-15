@@ -264,6 +264,8 @@ locals {
     "iona"                    = "prod1"
     "thuma"                   = "prod1"
     "maputo"                  = "prod1"
+    "naturalstate"            = "prod1"
+    "umkhuze"                 = "prod1"
     "mtmulanje"               = "prod1"
   }
 
@@ -395,6 +397,8 @@ locals {
     "iona"                  = 1
     "thuma"                 = 1
     "maputo"                = 1
+    "naturalstate"          = 1
+    "umkhuze"               = 1
     "mtmulanje"             = 1
   }
 
