@@ -4,7 +4,8 @@ from activity.models import EventCategory
 
 def get_categories_and_geo_categories(user: User):
     results = {"categories": [], "geo_categories": []}
-    events_categories = list(EventCategory.objects.values_list("value", flat=True))
+    events_categories = list(
+        EventCategory.objects.values_list("value", flat=True))
 
     for event_category in events_categories:
         for action in ["read", "create", "update", "delete"]:
@@ -22,3 +23,11 @@ def get_categories_and_geo_categories(user: User):
             ):
                 results["geo_categories"].append(event_category)
     return results
+
+
+def should_apply_geographic_features(user: User) -> list:
+    if user.is_anonymous or user.is_superuser:
+        return []
+
+    results = get_categories_and_geo_categories(user)
+    return results["geo_categories"]

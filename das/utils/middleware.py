@@ -20,6 +20,7 @@ from core import persistent_storage
 from observations.utils import (LOCATION, block_user_temp, get_position,
                                 get_user_key, is_banned)
 from utils import add_base_url, stats
+from utils.categories import should_apply_geographic_features
 from utils.gis import convert_to_point
 
 logger = logging.getLogger(__name__)
@@ -128,8 +129,9 @@ class RequestLoggingMiddleware(object):
 
     def _save_location(self, request):
         if (
-                re.search(ACTIVITY_EVENTS_PATH_REGEX, request.path)
-                and request.user
+                request.user
+                and should_apply_geographic_features(request.user)
+                and re.search(ACTIVITY_EVENTS_PATH_REGEX, request.path)
                 and "location" in request.GET
         ):
             now = timezone.now()
@@ -226,16 +228,10 @@ class GeographicMiddleware:
 
         if user.is_superuser:
             return response
-        has_perms = False
-
-        if not user.is_anonymous:
-            has_perms = user.permission_sets.filter(
-                permissions__codename__icontains="geographic_distance"
-            ).exists()
 
         if (
                 request.method == 'GET'
-                and has_perms
+                and should_apply_geographic_features(user)
                 and not request.GET.get("location")
                 and re.search(ACTIVITY_EVENTS_PATH_REGEX, request.path)
         ):

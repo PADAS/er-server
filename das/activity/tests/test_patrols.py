@@ -5,9 +5,19 @@ import shutil
 import tempfile
 from urllib.parse import urlencode
 
-import django.contrib.auth
 import pytest
 import pytz
+from drf_extra_fields.geo_fields import PointField
+from psycopg2.extras import DateTimeTZRange
+
+import django.contrib.auth
+from django.core.management import call_command
+from django.db import connection
+from django.test import Client
+from django.urls import reverse
+from django.utils import lorem_ipsum, timezone
+from rest_framework import status
+
 from accounts.models import PermissionSet
 from activity import views
 from activity.models import (PC_DONE, PC_OPEN, Event, EventRelationship,
@@ -18,16 +28,8 @@ from activity.serializers.patrol_serializers import PatrolSerializer
 from client_http import HTTPClient
 from core.tests import BaseAPITest
 from das_server.celery import app
-from django.core.management import call_command
-from django.db import connection
-from django.test import Client
-from django.urls import reverse
-from django.utils import lorem_ipsum, timezone
-from drf_extra_fields.geo_fields import PointField
 from observations.materialized_views import patrols_view
 from observations.models import Source, Subject, SubjectSource
-from psycopg2.extras import DateTimeTZRange
-from rest_framework import status
 
 pytestmark = pytest.mark.django_db
 User = django.contrib.auth.get_user_model()
@@ -2381,7 +2383,7 @@ class TestPatrolTrackedBySchemaView:
         url = reverse('patrol-segments-schema')
         client.force_login(ops_user)
 
-        with django_assert_max_num_queries(14):
+        with django_assert_max_num_queries(18):
             response = client.get(url)
             leaders = response.data["properties"]["leader"]["enum"]
             assert not any(subject.name == leader["name"]
