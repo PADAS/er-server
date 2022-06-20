@@ -267,6 +267,9 @@ locals {
     "naturalstate"            = "prod1"
     "umkhuze"                 = "prod1"
     "mtmulanje"               = "prod1"
+    "carnivoreresearchmalawi" = "prod1"
+    "kuduland"                = "prod1"
+    "nambiti"                 = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -400,6 +403,9 @@ locals {
     "naturalstate"          = 1
     "umkhuze"               = 1
     "mtmulanje"             = 1
+    "carnivoreresearchmalawi" = 1
+    "kuduland"              = 1
+    "nambiti"               = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
