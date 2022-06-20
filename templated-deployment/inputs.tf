@@ -229,3 +229,9 @@ variable "alt_server_names" {
   type    = list(string)
   default = []
 }
+
+variable "geo_permission_speed_km_h" {
+  description = "Speed in km/h for geo permissions"
+  type        = string
+  default     = "75"
+}

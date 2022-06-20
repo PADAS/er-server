@@ -41,6 +41,7 @@ resource "template_dir" "deployments" {
     EUS_TYPE                        = var.eus_type
     FQDN                            = var.fqdn
     FROM_EMAIL                      = local.from_email
+    GEO_PERMISSION_SPEED_KM_H       = var.geo_permission_speed_km_h
     GFW_CLUSTER_RADIUS              = var.gfw_cluster_radius
     GFW_BACKFILL_INTERVAL_DAYS      = var.gfw_backfill_interval_days
     GS_BUCKET_NAME                  = var.gs_bucket_name
