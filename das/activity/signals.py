@@ -4,21 +4,15 @@ import logging
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
-from django.db.models.signals import m2m_changed, post_delete, post_save, pre_save
+from django.db.models.signals import (m2m_changed, post_delete, post_save,
+                                      pre_save)
 from django.dispatch import receiver
+from django.utils.text import slugify
 
 from accounts.models.permissionset import PermissionSet
-from activity.models import (
-    PC_DONE,
-    PC_OPEN,
-    Event,
-    EventCategory,
-    EventPhoto,
-    Patrol,
-    PatrolFile,
-    PatrolNote,
-    PatrolSegment,
-)
+from activity.models import (PC_DONE, PC_OPEN, Event, EventCategory,
+                             EventPhoto, Patrol, PatrolFile, PatrolNote,
+                             PatrolSegment)
 from das_server import celery, pubsub
 from usercontent.tasks import imagefile_rendered
 
@@ -196,3 +190,9 @@ def ensure_geographic_perms_exists(sender, **kwargs):
                 codename=codename, defaults=defaults
             )
             permission_set.permissions.add(permission)
+
+
+@receiver(pre_save, sender=EventCategory)
+def slugify_category_value_field(sender, instance, **kwargs):
+    if instance._state.adding:
+        instance.value = slugify(instance.value)
