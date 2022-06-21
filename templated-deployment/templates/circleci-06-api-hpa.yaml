@@ -2,6 +2,7 @@ apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
   name: api
+  namespace: "${KUBERNETES_NAMESPACE}"
 spec:
   maxReplicas: 5
   minReplicas: 1
