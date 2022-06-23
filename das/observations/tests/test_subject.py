@@ -652,17 +652,16 @@ class SubjectTestCase(BaseAPITest):
 @pytest.mark.django_db
 class TestSubjectsView:
 
-    def test_static_sensor_response(self, five_subject_sources):
+    def test_static_sensor_response(self, subject_source):
         now = datetime.now(tz=pytz.utc)
-        first_subject_source = SubjectSource.objects.last()
-        first_subject_source.location = Point(-103.6, 20.6)
-        first_subject_source.save()
-        subject = first_subject_source.subject
+        subject_source.location = Point(-103.6, 20.6)
+        subject_source.save()
+        subject = subject_source.subject
         subject.name = "Subject test"
         subject.subject_subtype = SubjectSubType.objects.get(
             display="Camera Trap")
         subject.save()
-        source_provider = first_subject_source.source.provider
+        source_provider = subject_source.source.provider
         source_provider.transforms = [
             {
                 "default": False,
@@ -680,20 +679,14 @@ class TestSubjectsView:
             }
         ]
         source_provider.save()
-        Observation.objects.create(source=first_subject_source.source, location=Point(
+        Observation.objects.create(source=subject_source.source, location=Point(
             -103.5, 20.5), recorded_at=now, additional={"speed": 50, "temperature": 15})
         for subject_status in SubjectStatus.objects.all():
             subject_status.additional = {"device_status_properties": [
                 {"label": "temp", "units": "c", "value": 15}, {"label": "speed", "units": "km", "value": 50}]}
             subject_status.save()
 
-        client = HTTPClient()
-        client.app_user.is_superuser = True
-        client.app_user.save()
-        request = client.factory.get(
-            client.api_base + f"/subjects"
-        )
-        client.force_authenticate(request, client.app_user)
+        request = self._get_request()
         response = SubjectsView.as_view()(request)
         data = list(response.data)
 
@@ -711,17 +704,51 @@ class TestSubjectsView:
                     if device_property.get("label") == "speed":
                         assert device_property.get("default")
 
-    def test_static_sensor_response_with_many_observations(self, five_subject_sources):
+    def test_response_stationary_subject_without_location(self, subject_source):
         now = datetime.now(tz=pytz.utc)
-        first_subject_source = SubjectSource.objects.last()
-        first_subject_source.location = Point(-103.6, 20.6)
-        first_subject_source.save()
-        subject = first_subject_source.subject
+        subject = subject_source.subject
         subject.name = "Subject test"
         subject.subject_subtype = SubjectSubType.objects.get(
             display="Camera Trap")
         subject.save()
-        source_provider = first_subject_source.source.provider
+
+        Observation.objects.create(source=subject_source.source, location=Point(
+            -103.5, 20.5), recorded_at=now, additional={"speed": 50, "temperature": 15})
+
+        request = self._get_request()
+        response = SubjectsView.as_view()(request)
+        data = list(response.data)
+
+        last_position = data[0].get("last_position")
+        assert data[0].get("is_static")
+        assert last_position.get("geometry").get("coordinates")[0] == -103.5
+        assert last_position.get("geometry").get("coordinates")[1] == 20.5
+
+    def test_response_stationary_subject_without_location_and_observation(self, subject_source):
+        subject = subject_source.subject
+        subject.name = "Subject test"
+        subject.subject_subtype = SubjectSubType.objects.get(
+            display="Camera Trap")
+        subject.save()
+
+        request = self._get_request()
+        response = SubjectsView.as_view()(request)
+        data = list(response.data)
+
+        last_position = data[0].get("last_position")
+        assert data[0].get("is_static")
+        assert last_position is None
+
+    def test_static_sensor_response_with_many_observations(self, subject_source):
+        now = datetime.now(tz=pytz.utc)
+        subject_source.location = Point(-103.6, 20.6)
+        subject_source.save()
+        subject = subject_source.subject
+        subject.name = "Subject test"
+        subject.subject_subtype = SubjectSubType.objects.get(
+            display="Camera Trap")
+        subject.save()
+        source_provider = subject_source.source.provider
         source_provider.transforms = [
             {
                 "default": False,
@@ -739,24 +766,18 @@ class TestSubjectsView:
             }
         ]
         source_provider.save()
-        Observation.objects.create(source=first_subject_source.source, location=Point(
+        Observation.objects.create(source=subject_source.source, location=Point(
             -103.5, 20.5), recorded_at=now, additional={"speed": 50, "temperature": 150})
-        Observation.objects.create(source=first_subject_source.source, location=Point(
+        Observation.objects.create(source=subject_source.source, location=Point(
             -103.4, 20.4), recorded_at=now - timedelta(minutes=5), additional={"speed": 100, "temperature": 200})
-        Observation.objects.create(source=first_subject_source.source, location=Point(
+        Observation.objects.create(source=subject_source.source, location=Point(
             -103.3, 20.3), recorded_at=now - timedelta(minutes=10), additional={"speed": 150, "temperature": 250})
         for subject_status in SubjectStatus.objects.all():
             subject_status.additional = {"device_status_properties": [
                 {"label": "temp", "units": "c", "value": 15}, {"label": "speed", "units": "km", "value": 50}]}
             subject_status.save()
 
-        client = HTTPClient()
-        client.app_user.is_superuser = True
-        client.app_user.save()
-        request = client.factory.get(
-            client.api_base + f"/subjects"
-        )
-        client.force_authenticate(request, client.app_user)
+        request = self._get_request()
         response = SubjectsView.as_view()(request)
         data = list(response.data)
 
@@ -773,6 +794,16 @@ class TestSubjectsView:
                 for device_property in device_status_properties:
                     if device_property.get("label") == "speed":
                         assert device_property.get("default")
+
+    def _get_request(self):
+        client = HTTPClient()
+        client.app_user.is_superuser = True
+        client.app_user.save()
+        request = client.factory.get(
+            client.api_base + f"/subjects"
+        )
+        client.force_authenticate(request, client.app_user)
+        return request
 
 
 @pytest.mark.django_db

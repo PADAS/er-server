@@ -321,7 +321,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                             rep['last_position_date'] = latest_observation.recorded_at
 
                             location = latest_observation.location
-                            if is_stationary_subject:
+                            if is_stationary_subject and instance.subjectsources.last().location:
                                 location = instance.subjectsources.last().location
 
                             rep['last_position'] = make_feature(
@@ -350,7 +350,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                         'radio_state_at': None if statusvalues.radio_state_at == models.DEFAULT_STATUS_VALUE_DATE else statusvalues.radio_state_at,
                         'radio_state': statusvalues.radio_state
                     }
-                    if is_stationary_subject:
+                    if is_stationary_subject and instance.subjectsources.last().location:
                         location = instance.subjectsources.last().location
 
                     if tracks_available:
@@ -413,7 +413,6 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
         if (
                 instance.subject_subtype.subject_type.value == STATIONARY_SUBJECT_VALUE
                 and instance.subjectsources.last()
-                and instance.subjectsources.last().location
         ):
             return True
         return False
