@@ -18,7 +18,7 @@ import uuid
 from datetime import datetime, timedelta
 from functools import reduce
 from operator import getitem
-from typing import NamedTuple
+from typing import NamedTuple, Set
 
 import pymet
 import pytz
@@ -790,7 +790,7 @@ class SubjectGroupManager(HierarchyManager):
     def get_by_natural_key(self, name):
         return self.get(**{'name': name})
 
-    def get_nested_groups(self, parent_id):
+    def get_nested_groups(self, parent_id: str) -> Set[str]:
         parent = self.get(**{'id': parent_id})
         groups = set(parent.get_descendants())
         groups.add(parent)

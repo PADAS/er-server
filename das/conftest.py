@@ -3,15 +3,15 @@ from pytest_factoryboy import register
 
 from django.contrib.auth.models import Permission
 
-from factories import (EventDetailsFactory, EventFactory, EventTypeFactory,
-                       FeatureProximityAnalyzerConfigFactory,
+from factories import (EventCategoryFactory, EventDetailsFactory, EventFactory,
+                       EventTypeFactory, FeatureProximityAnalyzerConfigFactory,
                        GeofenceAnalyzerConfigFactory, PatrolFactory,
                        PatrolNoteFactory, PatrolSegmentFactory,
                        PatrolSegmentSubjectFactory, PatrolSegmentUserFactory,
                        PermissionSetFactory, ProviderFactory, SourceFactory,
                        SpatialFeatureGroupStaticFactory,
                        SpatialFeatureTypeFactory, SubjectFactory,
-                       SubjectGroupFactory, SubjectSourceFactory, UserFactory, EventCategoryFactory)
+                       SubjectGroupFactory, SubjectSourceFactory, UserFactory)
 
 
 @pytest.fixture
@@ -72,6 +72,22 @@ def view_subject_permissions():
             "view_subject", "observations", "subject"
         ),
     ]
+
+
+@pytest.fixture
+def subject_group_tree():
+    """
+    Tamed
+     |- Dogs
+    """
+    root = SubjectGroupFactory(name="Tamed")
+    root.children.add(SubjectGroupFactory(name="Dogs"))
+    return root
+
+
+@pytest.fixture
+def subject_group_empty():
+    return SubjectGroupFactory.create()
 
 
 @pytest.fixture
