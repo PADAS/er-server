@@ -108,7 +108,7 @@ def view_subjects_permission_set(view_subject_permissions):
 
 
 @pytest.fixture()
-def subject_group(request):
+def subject_group_with_perms(request):
     permissions = []
     for permission in request.param:
         permission = permission.split(",")
@@ -122,6 +122,11 @@ def subject_group(request):
             print(
                 f"Does not exits a permission with the next params {permission}")
     return SubjectGroupFactory.create(permission_sets=[PermissionSetFactory.create(permissions=permissions)])
+
+
+@pytest.fixture
+def subject_group_without_permissions():
+    return SubjectGroupFactory.create()
 
 
 @pytest.fixture

@@ -1914,23 +1914,34 @@ class TestPatrolFilter:
         assert data.get("count", 0) == 1
 
     @pytest.mark.parametrize("text", ["good", "Good", "GOOD"])
-    @pytest.mark.parametrize("subject_group", [["view_subjectgroup,observations,subjectgroup", "view_subject,observations,subject"]], indirect=True)
-    def test_filter_by_tracked_subject_name(self, five_patrol_segment_subject, text, subject_group):
+    @pytest.mark.parametrize(
+        "subject_group_with_perms",
+        [
+            [
+                "view_subjectgroup,observations,subjectgroup",
+                "view_subject,observations,subject",
+            ]
+        ],
+        indirect=True,
+    )
+    def test_filter_by_tracked_subject_name(
+            self, five_patrol_segment_subject, text, subject_group_with_perms
+    ):
         subject = Subject.objects.first()
         subject.name = f"This is my name as a {text} subject"
         subject.save()
         subject2 = Subject.objects.last()
         subject2.name = f"{text} subject this name my is"
         subject2.save()
-        subject_group.subjects.add(subject, subject2)
-
-        filter = {'patrols_overlap_daterange': True, 'text': "good"}
+        subject_group_with_perms.subjects.add(subject, subject2)
+        filter = {"patrols_overlap_daterange": True, "text": "good"}
         client = HTTPClient()
         view_patrol_permissionset = PermissionSet.objects.get(
-            name='View Patrols Permissions')
+            name="View Patrols Permissions"
+        )
         client.app_user.permission_sets.add(view_patrol_permissionset)
         client.app_user.permission_sets.add(
-            subject_group.permission_sets.last())
+            subject_group_with_perms.permission_sets.last())
         request = client.factory.get(
             client.api_base + f"/patrols/?filter={json.dumps(filter)}"
         )
@@ -1941,9 +1952,18 @@ class TestPatrolFilter:
         assert response.status_code == 200
         assert data.get("count", 0) == 2
 
-    @pytest.mark.parametrize("subject_group", [["view_subjectgroup,observations,subjectgroup", "view_subject,observations,subject"]], indirect=True)
+    @pytest.mark.parametrize(
+        "subject_group_with_perms",
+        [
+            [
+                "view_subjectgroup,observations,subjectgroup",
+                "view_subject,observations,subject",
+            ]
+        ],
+        indirect=True,
+    )
     def test_filter_by_tracked_subject_name_not_include_middle_string(
-        self, five_patrol_segment_subject, subject_group
+            self, five_patrol_segment_subject, subject_group_with_perms
     ):
         subject = Subject.objects.first()
         subject.name = "I will be a subject for this test"
@@ -1951,29 +1971,37 @@ class TestPatrolFilter:
         subject2 = Subject.objects.last()
         subject2.name = "iwillbeasubjectinthistest"
         subject2.save()
-        subject_group.subjects.add(subject, subject2)
-
-        filter = {'patrols_overlap_daterange': True, 'text': "subject"}
+        subject_group_with_perms.subjects.add(subject, subject2)
+        filter = {"patrols_overlap_daterange": True, "text": "subject"}
         client = HTTPClient()
         view_patrol_permissionset = PermissionSet.objects.get(
-            name='View Patrols Permissions')
+            name="View Patrols Permissions"
+        )
         client.app_user.permission_sets.add(view_patrol_permissionset)
         client.app_user.permission_sets.add(
-            subject_group.permission_sets.last())
+            subject_group_with_perms.permission_sets.last())
         request = client.factory.get(
             client.api_base + f"/patrols/?filter={json.dumps(filter)}"
         )
         client.force_authenticate(request, client.app_user)
         response = views.PatrolsView.as_view()(request)
         data = dict(response.data)
-
         assert response.status_code == 200
         assert data.get("count", 0) == 1
 
     @pytest.mark.parametrize("text", ["i will name", "this subject", "a new subject"])
-    @pytest.mark.parametrize("subject_group", [["view_subjectgroup,observations,subjectgroup", "view_subject,observations,subject"], ], indirect=True)
+    @pytest.mark.parametrize(
+        "subject_group_with_perms",
+        [
+            [
+                "view_subjectgroup,observations,subjectgroup",
+                "view_subject,observations,subject",
+            ],
+        ],
+        indirect=True,
+    )
     def test_filter_by_tracked_subject_name_with_two_or_more_words(
-        self, five_patrol_segment_subject, text, subject_group
+            self, five_patrol_segment_subject, text, subject_group_with_perms
     ):
         patrol_segment_subjects = PatrolSegment.objects.first()
         patrol_segment_subjects.leader.name = "I will name this subject"
@@ -1981,22 +2009,21 @@ class TestPatrolFilter:
         patrol_segment_subjects2 = PatrolSegment.objects.last()
         patrol_segment_subjects2.leader.name = "a new subject will be here"
         patrol_segment_subjects2.leader.save()
-        subject_group.subjects.add(*Subject.objects.all())
-
-        filter = {'patrols_overlap_daterange': True, 'text': text}
+        subject_group_with_perms.subjects.add(*Subject.objects.all())
+        filter = {"patrols_overlap_daterange": True, "text": text}
         client = HTTPClient()
         view_patrol_permissionset = PermissionSet.objects.get(
-            name='View Patrols Permissions')
+            name="View Patrols Permissions"
+        )
         client.app_user.permission_sets.add(view_patrol_permissionset)
         client.app_user.permission_sets.add(
-            subject_group.permission_sets.last())
+            subject_group_with_perms.permission_sets.last())
         request = client.factory.get(
             client.api_base + f"/patrols/?filter={json.dumps(filter)}"
         )
         client.force_authenticate(request, client.app_user)
         response = views.PatrolsView.as_view()(request)
         data = dict(response.data)
-
         assert response.status_code == 200
         assert data.get("count", 0) == 1
 
@@ -2071,62 +2098,83 @@ class TestPatrolFilter:
         assert response.status_code == 200
         assert data.get("count", 0) == 1
 
-    @pytest.mark.parametrize("subject",
-                             ["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"])
-    @pytest.mark.parametrize("subject_group",
-                             [["view_subjectgroup,observations,subjectgroup",
-                                 "view_subject,observations,subject"]],
-                             indirect=True)
-    def test_filter_by_subject_list_with_one_value(self, five_patrol_segment_user_with_leader_uuid, subject, subject_group):
-        subject_group.subjects.add(*Subject.objects.all())
-        filters = {
-            "patrols_overlap_daterange": True,
-            "tracked_by": [subject]
-        }
+    @pytest.mark.parametrize(
+        "subject",
+        ["00000000-0000-0000-0000-000000000001",
+            "00000000-0000-0000-0000-000000000002"],
+    )
+    @pytest.mark.parametrize(
+        "subject_group_with_perms",
+        [
+            [
+                "view_subjectgroup,observations,subjectgroup",
+                "view_subject,observations,subject",
+            ]
+        ],
+        indirect=True,
+    )
+    def test_filter_by_subject_list_with_one_value(
+            self, five_patrol_segment_user_with_leader_uuid, subject, subject_group_with_perms
+    ):
+        subject_group_with_perms.subjects.add(*Subject.objects.all())
+        filters = {"patrols_overlap_daterange": True, "tracked_by": [subject]}
         client = HTTPClient()
         view_patrol_permissionset = PermissionSet.objects.get(
             name="View Patrols Permissions"
         )
         client.app_user.permission_sets.add(view_patrol_permissionset)
         client.app_user.permission_sets.add(
-            subject_group.permission_sets.last())
+            subject_group_with_perms.permission_sets.last())
         request = client.factory.get(
             client.api_base + f"/patrols/?filter={json.dumps(filters)}"
         )
         client.force_authenticate(request, client.app_user)
         response = views.PatrolsView.as_view()(request)
         data = dict(response.data)
-
         assert response.status_code == status.HTTP_200_OK
         assert data.get("count", 0) == 1
 
-    @pytest.mark.parametrize("subjects",
-                             [["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"],
-                              ["00000000-0000-0000-0000-000000000003", "00000000-0000-0000-0000-000000000004"]])
-    @pytest.mark.parametrize("subject_group",
-                             [["view_subjectgroup,observations,subjectgroup",
-                                 "view_subject,observations,subject"]],
-                             indirect=True)
-    def test_filter_by_subject_list_with_many_values(self, five_patrol_segment_user_with_leader_uuid, subjects, subject_group):
-        subject_group.subjects.add(*Subject.objects.all())
-        filters = {
-            "patrols_overlap_daterange": True,
-            "tracked_by": subjects
-        }
+    @pytest.mark.parametrize(
+        "subjects",
+        [
+            [
+                "00000000-0000-0000-0000-000000000001",
+                "00000000-0000-0000-0000-000000000002",
+            ],
+            [
+                "00000000-0000-0000-0000-000000000003",
+                "00000000-0000-0000-0000-000000000004",
+            ],
+        ],
+    )
+    @pytest.mark.parametrize(
+        "subject_group_with_perms",
+        [
+            [
+                "view_subjectgroup,observations,subjectgroup",
+                "view_subject,observations,subject",
+            ]
+        ],
+        indirect=True,
+    )
+    def test_filter_by_subject_list_with_many_values(
+            self, five_patrol_segment_user_with_leader_uuid, subjects, subject_group_with_perms
+    ):
+        subject_group_with_perms.subjects.add(*Subject.objects.all())
+        filters = {"patrols_overlap_daterange": True, "tracked_by": subjects}
         client = HTTPClient()
         view_patrol_permissionset = PermissionSet.objects.get(
             name="View Patrols Permissions"
         )
         client.app_user.permission_sets.add(view_patrol_permissionset)
         client.app_user.permission_sets.add(
-            subject_group.permission_sets.last())
+            subject_group_with_perms.permission_sets.last())
         request = client.factory.get(
             client.api_base + f"/patrols/?filter={json.dumps(filters)}"
         )
         client.force_authenticate(request, client.app_user)
         response = views.PatrolsView.as_view()(request)
         data = dict(response.data)
-
         assert response.status_code == status.HTTP_200_OK
         assert data.get("count", 0) == 2
 
