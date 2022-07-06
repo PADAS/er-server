@@ -44,17 +44,6 @@ from choices.serializers import ChoiceField
 from core.serializers import (ContentTypeField, GenericRelatedField,
                               PointValidator)
 from core.utils import OneWeekSchedule
-from django.conf import settings
-from django.contrib.contenttypes.models import ContentType
-from django.contrib.gis.geos import Point
-from django.core.exceptions import PermissionDenied
-from django.core.validators import EmailValidator, RegexValidator
-from django.http import Http404
-from django.template.defaultfilters import truncatechars
-from django.urls import reverse
-from django.utils import timezone
-from django.utils.encoding import force_text
-from drf_extra_fields.geo_fields import PointField
 from observations.serializers import SubjectSerializer
 from revision.manager import AC_RELATION_DELETED, AC_UPDATED
 from utils.json import parse_bool
@@ -1004,12 +993,6 @@ class EventSerializerMixin:
 
         EventDetailsSerializer().update(new_event, details_data)
 
-        # edser = EventDetailsSerializer(data=dict(event=new_event, data=details_data))
-        # if edser.is_valid():
-        #     edser.create(edser.validated_data)
-        # else:
-        #     raise ValueError()
-
         if eventsource and external_event_id:
             try:
                 activity.models.EventsourceEvent.objects.add_relation(new_event,
@@ -1129,7 +1112,13 @@ class EventSerializerMixin:
             return revision.get_action_display()
 
         result = []
-        revisions = list(iter(event.revision.all_user().order_by('sequence')))
+
+        if hasattr(event, "revisions"):
+            revisions = list(iter(event.revisions))
+        else:
+            revisions = list(
+                iter(event.revision.all_user().order_by('sequence')))
+
         while revisions:
             revision = revisions.pop()
             record = dict(
@@ -1394,13 +1383,38 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         return instance
 
     def get_contains(self, event):
-        return self.get_out_relation(event, 'contains')
+        self.context["event_relationship_direction"] = "out"
+        return self._get_event_relationship(event=event, relationship_name="relationship_out_contains")
 
     def get_is_linked_to(self, event):
-        return self.get_out_relation(event, 'is_linked_to')
+        self.context["event_relationship_direction"] = "out"
+        return self._get_event_relationship(event=event, relationship_name="relationship_out_is_linked_to")
 
     def get_is_contained_in(self, event):
-        return self.get_in_relation(event, 'contains')
+        self.context["event_relationship_direction"] = "in"
+        return self._get_event_relationship(event=event, relationship_name="relationship_in_contains")
+
+    def _get_event_relationship(self, event: "Event", relationship_name: str) -> EventRelationshipSerializer:
+
+        if not hasattr(event, f"{relationship_name}"):
+            fallback_events_mapping = {
+                "relationship_in_contains": "contains",
+                "relationship_out_is_linked_to": "is_linked_to",
+                "relationship_out_contains": "contains",
+            }
+            return (
+                self.get_in_relation(
+                    event=event, value=fallback_events_mapping[relationship_name])
+                if relationship_name == "relationship_in_contains"
+                else self.get_out_relation(event=event, value=fallback_events_mapping[relationship_name])
+            )
+
+        events_mapping = {
+            "relationship_in_contains": event.relationship_in_contains,
+            "relationship_out_is_linked_to": event.relationship_out_is_linked_to,
+            "relationship_out_contains": event.relationship_out_contains,
+        }
+        return EventRelationshipSerializer(events_mapping[relationship_name], many=True, context=self.context).data
 
     def validate(self, attrs):
 
@@ -1497,10 +1511,41 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     def to_representation(self, event):
         self.fields.pop('eventsource', None)
 
+        set_prefetched = hasattr(event, 'event_details_set')
+
+        if set_prefetched:
+            # pop the following out of the representation if we've prefetched using the _set
+            self.fields.pop('event_details', None)
+            self.fields.pop('files', None)
+            self.fields.pop('related_subjects', None)
+
         rep = super().to_representation(event)
 
+        details_updates = ""
+
+        if set_prefetched:
+            # Apply the prefetched data back to the representation
+            try:
+                rep["event_details"] = list(EventDetailsSerializer(
+                    event.event_details_set, many=True).data)
+                rep["files"] = list(EventFileSerializer(
+                    event.files_set, many=True).data)
+                rep["related_subjects"] = list(SubjectSerializer(
+                    event.related_subjects_set, many=True).data)
+
+                event_details = rep["event_details"]
+                if event_details:
+                    details_updates = event_details[0].get("updates")
+            except Exception as ex:
+                print(ex)
+        else:
+            event_details = rep['event_details']
+
+            if rep['event_details'] is not None:
+                details_updates = rep['event_details'].pop('updates')
+
         try:
-            eventsource = event.eventsource_event_refs.first().eventsource
+            eventsource = event.eventsource[0]
         except:
             pass
         else:
@@ -1514,8 +1559,9 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             request = self.context['request']
 
             if event.event_type and event.event_type.category:
-                rep['event_category'] = event.event_type.category.value
-                permission_name = f'activity.{event.event_type.category.value}_read'
+                category_name = event.event_type.category.value
+                rep['event_category'] = category_name
+                permission_name = f'activity.{category_name}_read'
                 geo_permission_name = f"activity.view_{event.event_type.category.value}_geographic_distance"
 
                 if not request.user.has_perm(permission_name) and not request.user.has_perm(geo_permission_name):
@@ -1543,14 +1589,10 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
                 updates.extend(note['updates'])
             for f in rep.get('files', []):
                 updates.extend(f['updates'])
-            if rep.get('event_details'):
-                details_updates = rep['event_details'].pop('updates')
+            if event_details:
                 updates.extend(details_updates)
             rep['updates'] = sorted(
                 updates, key=lambda u: u['time'], reverse=True)
-        else:
-            if rep.get('event_details'):
-                rep['event_details'].pop('updates')
 
         patrol_ids = event.patrol_ids if hasattr(event, 'patrol_ids') \
             else activity.models.Event.objects.get_related_patrol_ids(event=event)

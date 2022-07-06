@@ -1,16 +1,16 @@
-import django.dispatch
 import logging
 import uuid
 
-import django.db.transaction as transaction
 import simplejson as json
+
+import django.db.transaction as transaction
+import django.dispatch
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.postgres.fields import JSONField
 from django.core import serializers
 from django.db.models import Max
-from django.db.models import Prefetch
 
 logger = logging.getLogger(__name__)
 
@@ -204,7 +204,6 @@ class Revision(object):
                              relation=relation, **kwargs)
 
     def post_init(self, instance, **kwargs):
-        manager = getattr(instance, self.manager_name)
         instance.revision_sequence = 0
         if instance.id:
             adapter = RevisionAdapter(type(instance))
@@ -247,7 +246,7 @@ class Revision(object):
 
         return {
             'id': models.UUIDField(primary_key=True, default=uuid.uuid4),
-            'object_id': models.UUIDField(),
+            'object': models.ForeignKey(model, on_delete=models.DO_NOTHING, related_name='related_revisions'),
             'action': models.CharField(max_length=10, choices=ACTION_CHOICES,
                                        default=AC_ADDED),
             'revision_at': models.DateTimeField(auto_now_add=True),
@@ -260,7 +259,7 @@ class Revision(object):
 
     def get_meta_options(self, model):
         result = {
-            'unique_together': ('object_id', 'sequence',),
+            'unique_together': ('object', 'sequence',),
             'app_label': model._meta.app_label,
         }
         from django.db.models.options import DEFAULT_NAMES
@@ -272,7 +271,11 @@ class Revision(object):
         attrs = self.get_table_fields(model)
         attrs.update(Meta=type(str('Meta'), (), self.get_meta_options(model)))
         name = make_revision_model_name(model)
-        return type(name, (models.Model,), attrs)
+        revision_model = type(name, (models.Model,), attrs)
+        # Add back the RevisionManager
+        revision_model.revisions = self.manager_class(model=revision_model)
+
+        return revision_model
 
 
 class RevisionMixin(object):

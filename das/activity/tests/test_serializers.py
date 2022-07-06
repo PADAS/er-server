@@ -1,17 +1,12 @@
-import datetime
-import json
 import logging
 
-from django.test import TestCase
 import jsonschema
-from rest_framework.exceptions import ValidationError
 
-from activity.serializers.fields import (CoordinateField)
-from activity.serializers.patrol_serializers import (PatrolNoteSerializer,
-                                                     PatrolSerializer,
-                                                     PatrolSegmentSerializer)
+from django.test import TestCase
+
 from activity.models import Patrol
-
+from activity.serializers.fields import CoordinateField
+from activity.serializers.patrol_serializers import PatrolSerializer
 
 logger = logging.getLogger(__name__)
 

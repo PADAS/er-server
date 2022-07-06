@@ -3,8 +3,14 @@ import datetime
 import json
 from collections import OrderedDict
 
-import activity.models
 import pytz
+
+from django.contrib.contenttypes.models import ContentType
+from django.utils.dateparse import parse_datetime
+from rest_framework import serializers
+from rest_framework.fields import DateTimeField
+
+import activity.models
 import usercontent.serializers
 import utils
 from accounts.serializers import UserDisplaySerializer, get_user_display
@@ -17,10 +23,6 @@ from activity.serializers.base import FileSerializerMixin, RevisionMixin
 from core.fields import GEOPointField, choicefield_serializer, text_field
 from core.serializers import (BaseSerializer, GenericRelatedField,
                               PointValidator, TimestampMixin)
-from django.contrib.contenttypes.models import ContentType
-from django.utils.dateparse import parse_datetime
-from rest_framework import serializers
-from rest_framework.fields import DateTimeField
 from revision.manager import AC_ADDED, AC_RELATION_DELETED, AC_UPDATED
 
 priority_choices_serializer = choicefield_serializer(
@@ -408,7 +410,12 @@ class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
             last_state = state
             return user
 
-        revisions = list(iter(patrol.revision.all_user().order_by('sequence')))
+        if hasattr(patrol, "revisions"):
+            revisions = list(patrol.revisions)
+        else:
+            revisions = list(
+                iter(patrol.revision.all_user().order_by('sequence')))
+
         result = [
             dict(
                 message='{action}'.format(

@@ -45,9 +45,10 @@ from activity.models import (Community, Event, EventCategory, EventClass,
 from activity.permissions import (EventCategoryGeographicPermission,
                                   EventCategoryObjectPermissions,
                                   EventCategoryPermissions,
+                                  EventNotesCategoryGeographicPermissions,
                                   IsEventProviderOwnerPermission, IsOwner,
                                   PatrolObjectPermissions,
-                                  PatrolTypePermissions, EventNotesCategoryGeographicPermissions)
+                                  PatrolTypePermissions)
 from activity.search import get_event_search_schema
 from activity.serializers import (EventCategorySerializer,
                                   EventClassFactorSerializer,
@@ -176,8 +177,10 @@ class EventTypesView(generics.ListCreateAPIView):
             geo_actions = ("view", "add", "change", "delete",)
 
             for event_category in event_categories:
-                permission_name = [f'activity.{event_category}_{action}' for action in actions]
-                permission_name += [f"activity.{action}_{event_category}_geographic_distance" for action in geo_actions]
+                permission_name = [
+                    f'activity.{event_category}_{action}' for action in actions]
+                permission_name += [
+                    f"activity.{action}_{event_category}_geographic_distance" for action in geo_actions]
                 if any([self.request.user.has_perm(perm) for perm in permission_name]):
                     allowed_categories.append(event_category)
 
@@ -1070,6 +1073,64 @@ class EventsView(generics.ListCreateAPIView):
         queryset = queryset.prefetch_related(Prefetch('out_relationships'))
         queryset = queryset.prefetch_related(Prefetch('patrol_segments'))
 
+        permitted_categories = get_permitted_event_categories(self.request)
+
+        queryset = queryset.prefetch_related(
+            Prefetch(
+                'related_revisions',
+                queryset=Event.revision.all_user().order_by('sequence'),
+                to_attr="revisions"
+            ),
+            Prefetch(
+                'eventsource_event_refs',
+                to_attr="eventsource"
+            ),
+            Prefetch(
+                'event_details',
+                to_attr="event_details_set"
+            ),
+            Prefetch(
+                'related_subjects',
+                to_attr="related_subjects_set"
+            ),
+            Prefetch(
+                'files',
+                to_attr="files_set"
+            ),
+            Prefetch(
+                'in_relationships',
+                to_attr='relationship_in_contains',
+                queryset=EventRelationship.objects.filter(
+                    type__value='contains'
+                ).order_by(
+                    'ordernum',
+                    'to_event__created_at'
+                ).all()
+            ),
+            Prefetch(
+                'out_relationships',
+                to_attr='relationship_out_contains',
+                queryset=EventRelationship.objects.filter(
+                    to_event__event_type__category__in=permitted_categories,
+                    type__value='contains'
+                ).order_by(
+                    'ordernum',
+                    'to_event__created_at'
+                ).all()
+            ),
+            Prefetch(
+                'out_relationships',
+                to_attr='relationship_out_is_linked_to',
+                queryset=EventRelationship.objects.filter(
+                    to_event__event_type__category__in=permitted_categories,
+                    type__value='is_linked_to'
+                ).order_by(
+                    'ordernum',
+                    'to_event__created_at'
+                ).all()
+            )
+        )
+
         queryset = queryset.annotate(
             patrol_ids=ArrayAgg('patrol_segments__patrol_id'))
 
@@ -1081,7 +1142,8 @@ class EventsView(generics.ListCreateAPIView):
         queryset = queryset.by_location(
             location=self.request.GET.get("location", ""),
             user=self.request.user,
-            categories_to_filter=get_categories_and_geo_categories(self.request.user),
+            categories_to_filter=get_categories_and_geo_categories(
+                self.request.user),
         )
         return queryset
 
@@ -1461,6 +1523,10 @@ class PatrolsView(generics.ListCreateAPIView):
 
         queryset = queryset.prefetch_related(
             "notes", "files", "patrol_segments__patrol_type", "patrol_segments__events")
+        queryset = queryset.prefetch_related(
+            Prefetch("related_revisions", to_attr='revisions')
+        )
+
         return queryset.sort_patrols()
 
     def _exclude_unassigned_subjects(self, queryset):
@@ -1473,7 +1539,11 @@ class PatrolsView(generics.ListCreateAPIView):
         allowed_subjects = Subject.objects.filter(
             id__in=subjects_id).by_user_subjects(user).values_list("id", flat=True)
         subjects_id_exclude = set(subjects_id) - set(allowed_subjects)
-        return queryset.exclude(patrol_segment__leader_id__in=subjects_id_exclude)
+        queryset = queryset.prefetch_related(
+            Prefetch("related_revisions", to_attr='revisions')
+        )
+        return queryset.exclude(
+            patrol_segment__leader_id__in=subjects_id_exclude)
 
     def _get_subjects_id(self, patrols):
         return [patrol.patrol_segments.last().leader_id for patrol in patrols if patrol.patrol_segments.last()]
