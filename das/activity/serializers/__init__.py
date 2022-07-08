@@ -1527,11 +1527,11 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             # Apply the prefetched data back to the representation
             try:
                 rep["event_details"] = list(EventDetailsSerializer(
-                    event.event_details_set, many=True).data)
+                    event.event_details_set, many=True, context=self.context).data)
                 rep["files"] = list(EventFileSerializer(
-                    event.files_set, many=True).data)
+                    event.files_set, many=True, context=self.context).data)
                 rep["related_subjects"] = list(SubjectSerializer(
-                    event.related_subjects_set, many=True).data)
+                    event.related_subjects_set, many=True, context=self.context).data)
 
                 event_details = rep["event_details"]
                 if event_details:
