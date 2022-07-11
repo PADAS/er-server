@@ -275,6 +275,7 @@ locals {
     "sapi"                    = "prod1"
     "kes"                     = "prod1"
     "tembe"                   = "prod1"
+    "fundacioncerroguido"     = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
