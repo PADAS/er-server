@@ -1,31 +1,19 @@
 import factory
-from django.contrib.auth.hashers import make_password
 from factory import fuzzy
+
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import make_password
 
 from accounts.models.permissionset import PermissionSet
-from activity.models import (
-    EventCategory,
-    EventType,
-    Patrol,
-    PatrolNote,
-    PatrolSegment,
-    PatrolType,
-    Event,
-    EventDetails,
-)
-from analyzers.models import FeatureProximityAnalyzerConfig, GeofenceAnalyzerConfig
+from activity.models import (Event, EventCategory, EventDetails, EventNote,
+                             EventType, Patrol, PatrolNote, PatrolSegment,
+                             PatrolType)
+from analyzers.models import (FeatureProximityAnalyzerConfig,
+                              GeofenceAnalyzerConfig)
 from mapping.models import SpatialFeatureGroupStatic, SpatialFeatureType
-from observations.models import (
-    Observation,
-    Source,
-    SourceProvider,
-    Subject,
-    SubjectGroup,
-    SubjectSource,
-    SubjectSubType,
-    SubjectType,
-)
+from observations.models import (Observation, Source, SourceProvider, Subject,
+                                 SubjectGroup, SubjectSource, SubjectSubType,
+                                 SubjectType)
 
 User = get_user_model()
 
@@ -241,4 +229,13 @@ class EventDetailsFactory(factory.django.DjangoModelFactory):
         model = EventDetails
 
     event = factory.SubFactory(EventFactory)
-    data = factory.LazyAttribute(lambda data: {})
+    data = factory.LazyAttribute(lambda data: {"event_details": {}})
+
+
+class EventNoteFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = EventNote
+
+    text = fuzzy.FuzzyText(length=20)
+    event = factory.SubFactory(EventFactory)
+    created_by_user = factory.SubFactory(UserFactory)
