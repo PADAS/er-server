@@ -195,7 +195,6 @@ class TestEventSerializer:
         assert serialized_event["priority"] == 0
         assert serialized_event["priority_label"] == "Gray"
         assert serialized_event["attributes"] == {}
-        assert serialized_event["serial_number"] == 1
         assert len(serialized_event["notes"]) == 5
         assert serialized_event["is_contained_in"] == []
         assert serialized_event["files"] == []
