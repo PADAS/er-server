@@ -1528,7 +1528,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             try:
                 event_details_serialized = EventDetailsSerializer(event.event_details_set, many=True,
                                                                   context=self.context).data
-                rep["event_details"] = []
+                rep["event_details"] = {}
                 if event_details_serialized:
                     rep["event_details"] = event_details_serialized[0]
                 rep["files"] = list(EventFileSerializer(
