@@ -1540,7 +1540,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
                 if event_details:
                     details_updates = event_details.get("updates")
             except Exception as ex:
-                print(ex)
+                logger.warning("Event prefetched exception {}".format(ex))
         else:
             event_details = rep['event_details']
 
