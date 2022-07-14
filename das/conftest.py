@@ -4,7 +4,8 @@ from pytest_factoryboy import register
 from django.contrib.auth.models import Permission
 
 from factories import (EventCategoryFactory, EventDetailsFactory, EventFactory,
-                       EventTypeFactory, FeatureProximityAnalyzerConfigFactory,
+                       EventNoteFactory, EventTypeFactory,
+                       FeatureProximityAnalyzerConfigFactory,
                        GeofenceAnalyzerConfigFactory, PatrolFactory,
                        PatrolNoteFactory, PatrolSegmentFactory,
                        PatrolSegmentSubjectFactory, PatrolSegmentUserFactory,
@@ -179,8 +180,18 @@ def five_events():
 
 
 @pytest.fixture
+def event_with_detail():
+    return EventDetailsFactory()
+
+
+@pytest.fixture
 def five_events_with_details():
     EventDetailsFactory.create_batch(5)
+
+
+@pytest.fixture
+def five_event_notes():
+    return EventNoteFactory.create_batch(5)
 
 
 @pytest.fixture

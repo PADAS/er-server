@@ -1526,8 +1526,11 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         if set_prefetched:
             # Apply the prefetched data back to the representation
             try:
-                rep["event_details"] = list(EventDetailsSerializer(
-                    event.event_details_set, many=True, context=self.context).data)
+                event_details_serialized = EventDetailsSerializer(event.event_details_set, many=True,
+                                                                  context=self.context).data
+                rep["event_details"] = {}
+                if event_details_serialized:
+                    rep["event_details"] = event_details_serialized[0]
                 rep["files"] = list(EventFileSerializer(
                     event.files_set, many=True, context=self.context).data)
                 rep["related_subjects"] = list(SubjectSerializer(
@@ -1535,9 +1538,9 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
                 event_details = rep["event_details"]
                 if event_details:
-                    details_updates = event_details[0].get("updates")
+                    details_updates = event_details.get("updates")
             except Exception as ex:
-                print(ex)
+                logger.exception("Failed Event pre-fetched  {}".format(ex))
         else:
             event_details = rep['event_details']
 
