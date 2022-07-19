@@ -183,6 +183,7 @@ executors:
         auth:
               username: erdockerhub
               password: $DOCKERHUB_PASSWORD
+    resource_class: xlarge
   circleci_executor:
     docker:
       - image: 'circleci/buildpack-deps:stretch'
@@ -268,6 +269,7 @@ jobs:
             - 'html'
   run_api_unittests:
     executor: 'default'
+    resource_class: xlarge
     steps:
       - setup_remote_docker:
           docker_layer_caching: true
