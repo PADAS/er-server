@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 function echo_b() {
   echo "";
@@ -48,8 +48,15 @@ python3 -m pip install -r /workspace/dependencies/requirements-dev.txt \
 export DJANGO_SETTINGS_MODULE=unittest_settings
 
 # Execute based on number of Circle CI nodes, and which Circle CI node is running
-case $CIRCLE_NODE_TOTAL in
-  "" | 1 )
+case "$CIRCLE_NODE_TOTAL" in
+  "")
+    echo_b "Will run all tests";
+    run_test_suite_one &&
+    run_test_suite_two &&
+    run_test_suite_three &&
+    run_test_suite_four;
+    ;;
+  1 )
     # This case is triggered when there is only one Circle CI node, or when run locally
     echo_b "Will run all tests";
     run_test_suite_one &&
