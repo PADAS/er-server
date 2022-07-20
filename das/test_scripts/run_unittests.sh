@@ -10,4 +10,4 @@ python3 -m pip install -r /workspace/dependencies/requirements-dev.txt \
    --find-links /workspace/dependencies/wheelhouse/ --upgrade
 
 export DJANGO_SETTINGS_MODULE=unittest_settings
-pytest --create-db --junitxml=/testresults/result.xml
+pytest --create-db --junitxml=/testresults/result.xml /workspace/das/accounts/tests/
