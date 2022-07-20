@@ -293,8 +293,7 @@ jobs:
             echo ${CIRCLE_NODE_INDEX}
             export SANITIZED_CIRCLE_BRANCH=$(echo $CIRCLE_BRANCH | tr "[:upper:]." "[:lower:]_")
             docker-compose -f test_scripts/compose-unittests.yaml up -d --remove-orphans --force-recreate --quiet-pull dbserver redis
-            docker-compose -f test_scripts/compose-unittests.yaml up -e CIRCLE_NODE_TOTAL=${CIRCLE_NODE_TOTAL} -e CIRCLE_NODE_INDEX=${CIRCLE_NODE_INDEX} \
-              --remove-orphans --force-recreate --quiet-pull api
+            docker-compose -f test_scripts/compose-unittests.yaml up --remove-orphans --force-recreate --quiet-pull api
             TEST_EXIT_CODE=$?
             docker cp dbserver-test:/testresults/result.xml ~/unittest-output/result.xml
             docker-compose -f test_scripts/compose-unittests.yaml down
