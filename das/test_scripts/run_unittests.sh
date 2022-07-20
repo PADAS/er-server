@@ -13,20 +13,19 @@ function run_test_suite_one() {
   pytest --create-db --junitxml=/testresults/result.xml accounts/tests
   pytest --create-db --junitxml=/testresults/result.xml mapping/tests
   pytest --create-db --junitxml=/testresults/result.xml reports/tests
+  pytest --create-db --junitxml=/testresults/result.xml rt_api/tests
+  pytest --create-db --junitxml=/testresults/result.xml tracking/tests
 }
 
 function run_test_suite_two() {
   echo_b "Running test suite two...";
   pytest --create-db --junitxml=/testresults/result.xml activity/tests
-  pytest --create-db --junitxml=/testresults/result.xml rt_api/tests
-  pytest --create-db --junitxml=/testresults/result.xml tracking/tests
 }
 
 function run_test_suite_three() {
   echo_b "Running test suite three...";
   pytest --create-db --junitxml=/testresults/result.xml analyzers/tests
   pytest --create-db --junitxml=/testresults/result.xml utils/tests
-  pytest --create-db --junitxml=/testresults/result.xml core/tests
 }
 
 function run_test_suite_four() {
@@ -34,6 +33,7 @@ function run_test_suite_four() {
   pytest --create-db --junitxml=/testresults/result.xml choices/tests
   pytest --create-db --junitxml=/testresults/result.xml das_server/tests
   pytest --create-db --junitxml=/testresults/result.xml observations/tests
+  pytest --create-db --junitxml=/testresults/result.xml core/tests
 }
 
 . $(dirname "$0")/../start_scripts/wait_for.sh
