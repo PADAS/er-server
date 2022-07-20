@@ -12,4 +12,4 @@ python3 -m pip install -r /workspace/dependencies/requirements-dev.txt \
 export DJANGO_SETTINGS_MODULE=unittest_settings
 pwd
 ls
-pytest --create-db --junitxml=/testresults/result.xml ./das/accounts/tests
+pytest --create-db --junitxml=/testresults/result.xml accounts/tests
