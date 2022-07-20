@@ -268,7 +268,7 @@ jobs:
             - 'html'
   run_api_unittests:
     executor: 'default'
-    # parallelism: 4
+    parallelism: 4
     steps:
       - setup_remote_docker:
           docker_layer_caching: true

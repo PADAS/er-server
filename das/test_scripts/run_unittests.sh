@@ -1,5 +1,41 @@
 #!/bin/sh
 
+function echo_b() {
+  echo "";
+  echo ">>> ===============================================";
+  echo ">>> $1";
+  echo ">>> ===============================================";
+}
+
+
+function run_test_suite_one() {
+  echo_b "Running test suite one...";
+  pytest --create-db --junitxml=/testresults/result.xml accounts/tests
+  pytest --create-db --junitxml=/testresults/result.xml mapping/tests
+  pytest --create-db --junitxml=/testresults/result.xml reports/tests
+}
+
+function run_test_suite_two() {
+  echo_b "Running test suite two...";
+  pytest --create-db --junitxml=/testresults/result.xml activity/tests
+  pytest --create-db --junitxml=/testresults/result.xml rt_api/tests
+  pytest --create-db --junitxml=/testresults/result.xml tracking/tests
+}
+
+function run_test_suite_three() {
+  echo_b "Running test suite three...";
+  pytest --create-db --junitxml=/testresults/result.xml analyzers/tests
+  pytest --create-db --junitxml=/testresults/result.xml utils/tests
+  pytest --create-db --junitxml=/testresults/result.xml core/tests
+}
+
+function run_test_suite_four() {
+  echo_b "Running test suite four...";
+  pytest --create-db --junitxml=/testresults/result.xml choices/tests
+  pytest --create-db --junitxml=/testresults/result.xml das_server/tests
+  pytest --create-db --junitxml=/testresults/result.xml observations/tests
+}
+
 . $(dirname "$0")/../start_scripts/wait_for.sh
 wait_for $DB_HOST $DB_PORT
 
@@ -10,6 +46,82 @@ python3 -m pip install -r /workspace/dependencies/requirements-dev.txt \
    --find-links /workspace/dependencies/wheelhouse/ --upgrade
 
 export DJANGO_SETTINGS_MODULE=unittest_settings
-pwd
-ls
-pytest --create-db --junitxml=/testresults/result.xml accounts/tests
+
+# Execute based on number of Circle CI nodes, and which Circle CI node is running
+case $CIRCLE_NODE_TOTAL in
+  "" | 1 )
+    # This case is triggered when there is only one Circle CI node, or when run locally
+    echo_b "Will run all tests";
+    run_test_suite_one &&
+    run_test_suite_two &&
+    run_test_suite_three &&
+    run_test_suite_four;
+    ;;
+  2 )
+    # This case is triggered when there are two Circle CI nodes
+    case $CIRCLE_NODE_INDEX in
+      0 )
+        # These commands will run on the first Circle CI node
+        echo_b "Will run linter, test suite one, and test suite two";
+        run_test_suite_one &&
+        run_test_suite_two;
+        ;;
+      1 )
+        # These commands will run on the second Circle CI node
+        echo_b "Will run test suite three and test suite four";
+        run_test_suite_three &&
+        run_test_suite_four;
+        ;;
+    esac
+    ;;
+  3 )
+    # This case is triggered when there are three Circle CI nodes
+    case $CIRCLE_NODE_INDEX in
+      0 )
+        # These commands will run on the first Circle CI node
+        echo_b "Will run linter, test suite one, and test suite two";
+        run_test_suite_one &&
+        run_test_suite_two;
+        ;;
+      1 )
+        # These commands will run on the second Circle CI node
+        echo_b "Will run test suite three";
+        run_test_suite_three;
+        ;;
+      2 )
+        # These commands will run on the third Circle CI node
+        echo_b "Will run test suite four";
+        run_test_suite_four;
+        ;;
+    esac
+    ;;
+  * )
+    # This case is triggered when there are four or more Circle CI nodes
+    case $CIRCLE_NODE_INDEX in
+      0 )
+        # These commands will run on the first Circle CI node
+        echo_b "Will run linter and test suite one";
+        run_test_suite_one;
+        ;;
+      1 )
+        # These commands will run on the second Circle CI node
+        echo_b "Will run test suite two";
+        run_test_suite_two;
+        ;;
+      2 )
+        # These commands will run on the third Circle CI node
+        echo_b "Will run test suite three";
+        run_test_suite_three;
+        ;;
+      3 )
+        # These commands will run on the fourth Circle CI node
+        echo_b "Will run test suite four";
+        run_test_suite_four;
+        ;;
+      * )
+        # This warning will display on the fifth or any later Circle CI node
+        echo_b "We only split tests across a maximum of 4 nodes";
+        exit 0;
+    esac
+    ;;
+esac
