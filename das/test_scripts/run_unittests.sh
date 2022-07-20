@@ -47,6 +47,9 @@ python3 -m pip install -r /workspace/dependencies/requirements-dev.txt \
 
 export DJANGO_SETTINGS_MODULE=unittest_settings
 
+echo "${CIRCLE_NODE_TOTAL}"
+echo "${CIRCLE_NODE_INDEX}"
+
 # Execute based on number of Circle CI nodes, and which Circle CI node is running
 case "$CIRCLE_NODE_TOTAL" in
   "")
