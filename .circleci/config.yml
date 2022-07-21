@@ -294,20 +294,7 @@ jobs:
             export SANITIZED_CIRCLE_BRANCH=$(echo $CIRCLE_BRANCH | tr "[:upper:]." "[:lower:]_")
             docker-compose -f test_scripts/compose-unittests.yaml up -d --remove-orphans --force-recreate --quiet-pull dbserver redis
             docker-compose -f test_scripts/compose-unittests.yaml up --remove-orphans --force-recreate --quiet-pull api
-            TEST_EXIT_CODE=$?
-            docker cp dbserver-test:/testresults/result.xml ~/unittest-output/result.xml
             docker-compose -f test_scripts/compose-unittests.yaml down
-            exit ${TEST_EXIT_CODE}
-      - store_test_results:
-          path: ~/unittest-output
-      - run: 
-          name: Grep Exit Code from test results
-          command: |
-            if grep -i 'failures="0"' ~/unittest-output/result.xml; then
-                exit 0
-            else
-                exit 1
-            fi
   docker_build_image:
     executor: 'default'
     steps:

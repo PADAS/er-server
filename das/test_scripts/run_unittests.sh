@@ -7,34 +7,53 @@ function echo_b() {
   echo ">>> ===============================================";
 }
 
+function review_results() {
+  if grep -i 'failures="0"' /testresults/result.xml; then
+    echo "Suite executed successfully"
+  else
+    exit 1
+  fi
+}
 
 function run_test_suite_one() {
   echo_b "Running test suite one...";
   exit 1
   pytest --create-db --junitxml=/testresults/result.xml accounts/tests
+  review_results
   pytest --create-db --junitxml=/testresults/result.xml mapping/tests
+  review_results
   pytest --create-db --junitxml=/testresults/result.xml reports/tests
+  review_results
   pytest --create-db --junitxml=/testresults/result.xml rt_api/tests
+  review_results
   pytest --create-db --junitxml=/testresults/result.xml tracking/tests
+  review_results
 }
 
 function run_test_suite_two() {
   echo_b "Running test suite two...";
   pytest --create-db --junitxml=/testresults/result.xml activity/tests
+  review_results
 }
 
 function run_test_suite_three() {
   echo_b "Running test suite three...";
   pytest --create-db --junitxml=/testresults/result.xml analyzers/tests
+  review_results
   pytest --create-db --junitxml=/testresults/result.xml utils/tests
+  review_results
 }
 
 function run_test_suite_four() {
   echo_b "Running test suite four...";
   pytest --create-db --junitxml=/testresults/result.xml choices/tests
+  review_results
   pytest --create-db --junitxml=/testresults/result.xml das_server/tests
+  review_results
   pytest --create-db --junitxml=/testresults/result.xml observations/tests
+  review_results
   pytest --create-db --junitxml=/testresults/result.xml core/tests
+  review_results
 }
 
 . $(dirname "$0")/../start_scripts/wait_for.sh
