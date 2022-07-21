@@ -10,6 +10,7 @@ function echo_b() {
 
 function run_test_suite_one() {
   echo_b "Running test suite one...";
+  exit 1
   pytest --create-db --junitxml=/testresults/result.xml accounts/tests
   pytest --create-db --junitxml=/testresults/result.xml mapping/tests
   pytest --create-db --junitxml=/testresults/result.xml reports/tests
