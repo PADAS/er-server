@@ -294,13 +294,8 @@ jobs:
             export SANITIZED_CIRCLE_BRANCH=$(echo $CIRCLE_BRANCH | tr "[:upper:]." "[:lower:]_")
             docker-compose -f test_scripts/compose-unittests.yaml up -d --remove-orphans --force-recreate --quiet-pull dbserver redis
             docker-compose -f test_scripts/compose-unittests.yaml up --remove-orphans --force-recreate --quiet-pull api
-            TEST_EXIT_CODE=$?
-            ACTUAL_EXIT_STATUS=$(docker inspect api --format='{{.State.ExitCode}}')
-            echo "Exit status"
-            echo ${TEST_EXIT_CODE}
-            echo "Container exit status"
-            echo ${ACTUAL_EXIT_STATUS}
-            exit ${TEST_EXIT_CODE}
+            TEST_EXIT_STATUS=$(docker inspect api --format='{{.State.ExitCode}}')
+            exit ${TEST_EXIT_STATUS}
   docker_build_image:
     executor: 'default'
     steps:
