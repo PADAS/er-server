@@ -246,7 +246,7 @@ class Revision(object):
 
         return {
             'id': models.UUIDField(primary_key=True, default=uuid.uuid4),
-            'object': models.ForeignKey(model, on_delete=models.DO_NOTHING, related_name='related_revisions'),
+            'object_id': models.UUIDField(),
             'action': models.CharField(max_length=10, choices=ACTION_CHOICES,
                                        default=AC_ADDED),
             'revision_at': models.DateTimeField(auto_now_add=True),
@@ -259,7 +259,7 @@ class Revision(object):
 
     def get_meta_options(self, model):
         result = {
-            'unique_together': ('object', 'sequence',),
+            'unique_together': ('object_id', 'sequence',),
             'app_label': model._meta.app_label,
         }
         from django.db.models.options import DEFAULT_NAMES
@@ -271,11 +271,7 @@ class Revision(object):
         attrs = self.get_table_fields(model)
         attrs.update(Meta=type(str('Meta'), (), self.get_meta_options(model)))
         name = make_revision_model_name(model)
-        revision_model = type(name, (models.Model,), attrs)
-        # Add back the RevisionManager
-        revision_model.revisions = self.manager_class(model=revision_model)
-
-        return revision_model
+        return type(name, (models.Model,), attrs)
 
 
 class RevisionMixin(object):

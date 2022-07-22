@@ -1077,11 +1077,6 @@ class EventsView(generics.ListCreateAPIView):
 
         queryset = queryset.prefetch_related(
             Prefetch(
-                'related_revisions',
-                queryset=Event.revision.all_user().order_by('sequence'),
-                to_attr="revisions"
-            ),
-            Prefetch(
                 'eventsource_event_refs',
                 to_attr="eventsource"
             ),
