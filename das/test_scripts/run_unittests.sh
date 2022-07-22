@@ -7,52 +7,32 @@ function echo_b() {
   echo ">>> ===============================================";
 }
 
-function review_results() {
-  if grep -i 'failures="0"' /testresults/result.xml; then
-    echo "Suite executed successfully"
-  else
-    exit 1
-  fi
-}
-
 function run_test_suite_one() {
   echo_b "Running test suite one...";
   pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 accounts/tests
-  review_results
   pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 mapping/tests
-  review_results
   pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 reports/tests
-  review_results
   pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 rt_api/tests
-  review_results
   pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 tracking/tests
-  review_results
 }
 
 function run_test_suite_two() {
   echo_b "Running test suite two...";
   pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 activity/tests
-  review_results
 }
 
 function run_test_suite_three() {
   echo_b "Running test suite three...";
   pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 analyzers/tests
-  review_results
   pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 utils/tests
-  review_results
 }
 
 function run_test_suite_four() {
   echo_b "Running test suite four...";
   pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 choices/tests
-  review_results
   pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 das_server/tests
-  review_results
   pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 observations/tests
-  review_results
   pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 core/tests
-  review_results
 }
 
 . $(dirname "$0")/../start_scripts/wait_for.sh
