@@ -1518,9 +1518,6 @@ class PatrolsView(generics.ListCreateAPIView):
 
         queryset = queryset.prefetch_related(
             "notes", "files", "patrol_segments__patrol_type", "patrol_segments__events")
-        queryset = queryset.prefetch_related(
-            Prefetch("related_revisions", to_attr='revisions')
-        )
 
         return queryset.sort_patrols()
 
@@ -1534,9 +1531,6 @@ class PatrolsView(generics.ListCreateAPIView):
         allowed_subjects = Subject.objects.filter(
             id__in=subjects_id).by_user_subjects(user).values_list("id", flat=True)
         subjects_id_exclude = set(subjects_id) - set(allowed_subjects)
-        queryset = queryset.prefetch_related(
-            Prefetch("related_revisions", to_attr='revisions')
-        )
         return queryset.exclude(
             patrol_segment__leader_id__in=subjects_id_exclude)
 
