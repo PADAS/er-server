@@ -9,30 +9,30 @@ function echo_b() {
 
 function run_test_suite_one() {
   echo_b "Running test suite one...";
-  pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 accounts/tests
-  pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 mapping/tests
-  pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 reports/tests
-  pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 rt_api/tests
-  pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 tracking/tests
+  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 accounts/tests
+  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 mapping/tests
+  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 reports/tests
+  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 rt_api/tests
+  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 tracking/tests
 }
 
 function run_test_suite_two() {
   echo_b "Running test suite two...";
-  pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 activity/tests
+  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 activity/tests
 }
 
 function run_test_suite_three() {
   echo_b "Running test suite three...";
-  pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 analyzers/tests
-  pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 utils/tests
+  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 analyzers/tests
+  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 utils/tests
 }
 
 function run_test_suite_four() {
   echo_b "Running test suite four...";
-  pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 choices/tests
-  pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 das_server/tests
-  pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 observations/tests
-  pytest --create-db --junitxml=/testresults/result.xml -n auto --maxfail=1 core/tests
+  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 choices/tests
+  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 das_server/tests
+  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 observations/tests
+  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 core/tests
 }
 
 . $(dirname "$0")/../start_scripts/wait_for.sh
