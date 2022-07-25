@@ -10,13 +10,14 @@ RUN apt-get install -y \
     python-numpy \
     python-numpy-dev \
     libgdal-dev \
+    python-gdal\
     curl \
     python3-openssl \
     libssl-dev \
     wget \
     gnupg \
     locales locales-all \
-    && apt-get autoremove 
+    && apt-get autoremove
 
 WORKDIR /workspace
 
@@ -29,6 +30,15 @@ ENV LD_LIBRARY_PATH "/usr/local/lib"
 RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
 RUN /bin/sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg main" >> /etc/apt/sources.list.d/postgresql.list'
 RUN apt-get update
+
+RUN apt-get -y purge python3.6
+RUN apt-get -y install python3-pip python3.7-dev
+RUN apt-get -y install python3.7
+RUN python3 -m pip install pip
+
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.7 2
+RUN /bin/sh -c 'python3 -V'
+
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y postgresql-9.6-postgis-2.4
 RUN apt-get install -y postgresql-9.6-postgis-2.4-scripts
 RUN apt-get clean

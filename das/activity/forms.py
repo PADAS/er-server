@@ -1,37 +1,30 @@
-import logging
-import os
-from abc import ABC
+import json
+
+import jsonschema
 
 from django import forms
 from django.contrib import messages
-from django.contrib.staticfiles.storage import staticfiles_storage
-from django.forms.widgets import Widget
-from django.utils.translation import ugettext_lazy as _
-from django.forms import TextInput
-from django.contrib.admin.widgets import FilteredSelectMultiple, AdminSplitDateTime
-from django.contrib.gis import forms as gisforms
+from django.contrib.admin.widgets import (AdminSplitDateTime,
+                                          FilteredSelectMultiple)
 from django.contrib.auth import get_user_model
+from django.forms import TextInput
 from django.template.loader import render_to_string
+from django.utils.translation import gettext_lazy as _
 
-
-from activity.exceptions import SchemaValidationError, \
-    SCHEMA_ERROR_INCORRECT_RENDER_TAG, SCHEMA_ERROR_JSON_DECODE_ERROR
-from core.forms_utils import JSONFieldFormMixin
-
-import json
-import jsonschema
-from core.utils import OneWeekSchedule
 from activity.alerting.conditions import Conditions
-from activity.models import EventProvider, NotificationMethod, EventType, \
-    Event, Patrol, PatrolType, PatrolSegment, PROVENANCE_CHOICES
-from utils.schema_utils import get_schema_renderer_method, \
-    validate_rendered_schema_is_wellformed
-from core.widget import IconKeyInput, get_icon_select_list
+from activity.exceptions import (SCHEMA_ERROR_JSON_DECODE_ERROR,
+                                 SchemaValidationError)
+from activity.models import (PROVENANCE_CHOICES, Community, EventProvider,
+                             EventType, NotificationMethod, Patrol,
+                             PatrolSegment, PatrolType)
 from core.common import TIMEZONE_USED
-from django.utils.html import format_html
-from observations.models import Subject
-from activity.models import Community
+from core.forms_utils import JSONFieldFormMixin
 from core.inline_openlayer import InlineOSMGeoAdmin
+from core.utils import OneWeekSchedule
+from core.widget import IconKeyInput, get_icon_select_list
+from observations.models import Subject
+from utils.schema_utils import (get_schema_renderer_method,
+                                validate_rendered_schema_is_wellformed)
 
 
 class MonospaceTextWidget(forms.Textarea):
@@ -75,7 +68,8 @@ class AutoResolveWidget(forms.MultiWidget):
         forms.MultiWidget.__init__(self, widgets, attrs)
 
     def get_context(self, name, value, attrs):
-        context = super(AutoResolveWidget, self).get_context(name, value, attrs)
+        context = super(AutoResolveWidget, self).get_context(
+            name, value, attrs)
         return context
 
     def decompress(self, value):
@@ -141,7 +135,10 @@ class EventTypeForm(forms.ModelForm):
         instance = kwargs.get('instance')
 
         if instance and instance.auto_resolve:
-            self.fields['auto_eventtype_resolve'].initial = [instance.auto_resolve, instance.resolve_time]
+            self.fields["auto_eventtype_resolve"].initial = [
+                instance.auto_resolve,
+                instance.resolve_time,
+            ]
 
     def clean_schema(self):
         schema = self.cleaned_data.get('schema')
@@ -151,16 +148,19 @@ class EventTypeForm(forms.ModelForm):
             rendered_schema = get_schema_renderer_method()(schema)
         except NameError as ne:
             schema_warning += f'Received the following error: {ne}'
-            messages.add_message(self.request, messages.WARNING, schema_warning)
+            messages.add_message(
+                self.request, messages.WARNING, schema_warning)
         except Exception as exc:
             schema_warning += f'Received the following error: {exc}'
-            messages.add_message(self.request, messages.WARNING, schema_warning)
+            messages.add_message(
+                self.request, messages.WARNING, schema_warning)
         else:
             try:
                 validate_rendered_schema_is_wellformed(rendered_schema)
             except SchemaValidationError as e:
                 schema_warning += f'Received the following error: {e}'
-                messages.add_message(self.request, messages.WARNING, schema_warning)
+                messages.add_message(
+                    self.request, messages.WARNING, schema_warning)
         return schema
 
     def clean_auto_eventtype_resolve(self):
@@ -306,8 +306,11 @@ def queryset_chain(iterables):
 
 
 def chained_tracked_by(user=None):
-    query_list = [PatrolSegment.objects.get_leader_for_provenance(p[0], user) for p in PROVENANCE_CHOICES]
-    choices = [(None, '-----------')] + list(queryset_chain(query_list))
+    query_list = [
+        PatrolSegment.objects.get_leader_for_provenance(p[0], user)
+        for p in PROVENANCE_CHOICES
+    ]
+    choices = [(None, "-----------")] + list(queryset_chain(query_list))
     return choices
 
 
@@ -321,9 +324,14 @@ class OverrideChoiceField(forms.ChoiceField):
 
 
 class PatrolSegmentForm(forms.ModelForm):
-    start_time = forms.SplitDateTimeField(widget=AdminSplitDateTime(), label='Actual start date', required=False)
-    end_time = forms.SplitDateTimeField(widget=AdminSplitDateTime(), label='Actual end date', required=False)
-    tracked_subject = OverrideChoiceField(label='Tracked subject name', required=False)
+    start_time = forms.SplitDateTimeField(
+        widget=AdminSplitDateTime(), label="Actual start date", required=False
+    )
+    end_time = forms.SplitDateTimeField(
+        widget=AdminSplitDateTime(), label="Actual end date", required=False
+    )
+    tracked_subject = OverrideChoiceField(
+        label="Tracked subject name", required=False)
 
     class Meta:
         model = PatrolSegment

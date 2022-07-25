@@ -52,8 +52,8 @@ class TestObservationSerializer:
 
         assert serialized_observation_data["id"] == str(observation.id)
         assert serialized_observation_data["location"] == {
-            "latitude": str(float(coordinates[1])),
-            "longitude": str(float(coordinates[0])),
+            "latitude": float(coordinates[1]),
+            "longitude": float(coordinates[0]),
         }
         assert serialized_observation_data["recorded_at"] == now.astimezone(
         ).isoformat()

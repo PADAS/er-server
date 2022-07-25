@@ -1,22 +1,22 @@
+import json
 import logging
 import uuid
 
 import pymet
-from activity.models import Event, EventType, EventCategory
+from osgeo import ogr
+from pymet.proximity import ProximityAnalysis, ProximityAnalysisParams
+
 from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
 from django.contrib.gis.geos import Point as DjangoPoint
-from django.utils.translation import ugettext_lazy as _
-from osgeo import ogr
-from pymet.proximity import (ProximityAnalysis, ProximityAnalysisParams,
-                             ProximityAnalysisResult, ProximityEvent)
+from django.utils.translation import gettext_lazy as _
 
+from activity.models import Event, EventCategory, EventType
 from analyzers.base import SubjectAnalyzer
 from analyzers.models import (CRITICAL, WARNING,
                               FeatureProximityAnalyzerConfig,
                               SubjectAnalyzerResult)
 from analyzers.models.base import EVENT_PRIORITY_MAP
 from analyzers.utils import save_analyzer_event
-import json
 
 
 class ProximityAnalyzer(SubjectAnalyzer):
@@ -59,7 +59,8 @@ class ProximityAnalyzer(SubjectAnalyzer):
         return value
 
     def verify_event_type(self, this_result):
-        from analyzers.subject_proximity import SubjectProximityAnalyzerConfig, SUBJECT_PROXIMITY_SCHEMA
+        from analyzers.subject_proximity import (
+            SUBJECT_PROXIMITY_SCHEMA, SubjectProximityAnalyzerConfig)
         et_value = this_result.subject_analyzer.analyzer_category
         et_display = self.value_to_display(et_value)
         et_defaults_dict = dict(display=et_display)
@@ -71,7 +72,8 @@ class ProximityAnalyzer(SubjectAnalyzer):
             defaults=et_defaults_dict)
 
         if created and isinstance(this_result.subject_analyzer, SubjectProximityAnalyzerConfig):
-            et.schema = json.dumps(SUBJECT_PROXIMITY_SCHEMA, indent=2, default=str)
+            et.schema = json.dumps(
+                SUBJECT_PROXIMITY_SCHEMA, indent=2, default=str)
             et.save()
         return et_value
 
@@ -96,7 +98,8 @@ class ProximityAnalyzer(SubjectAnalyzer):
         relate_subjects = [{'id': self.subject.id}]
 
         if this_result.values.get('subject_2_id'):
-            subject_2_id = self.evaluate_return_value(this_result.values.get('subject_2_id'))
+            subject_2_id = self.evaluate_return_value(
+                this_result.values.get('subject_2_id'))
             relate_subjects.append({'id': uuid.UUID(subject_2_id)})
 
         # Notify if result is critical or warning

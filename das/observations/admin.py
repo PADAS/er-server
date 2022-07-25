@@ -37,7 +37,7 @@ from django.urls import reverse
 from django.utils.functional import cached_property
 from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 import observations.forms
 import observations.models as models
@@ -46,13 +46,12 @@ from core.admin import (HierarchyModelAdmin, InlineExtraDynamicMixin,
 from core.common import TIMEZONE_USED
 from core.openlayers import OSMGeoExtendedAdmin
 from observations.daterange_filter import DateRangeFilter
-from observations.forms import (GPXFileForm,
-                                MessageGenericForeignKeyRawIdWidget,
-                                MessagesForm, SourceProviderForm,
+from observations.forms import (GPXFileForm, MessagesForm, SourceProviderForm,
                                 SubjectChangeListForm, SubjectSourceForm)
 from observations.tasks import (maintain_subjectstatus_for_subject,
                                 process_gpxtrack_file)
 from observations.utils import assigned_range_dates, get_cyclic_subjectgroup
+from observations.widgets import MessageGenericForeignKeyRawIdWidget
 from tracking.models import SourcePlugin
 from utils.drf import TimeLimitedPaginator
 from utils.html import make_html_list
@@ -1575,7 +1574,7 @@ class SourceProviderAdmin(admin.ModelAdmin):
 
         ('Subject Details Configuration', {
             'classes': ('wide', 'collapse',),
-            'fields': ('tranformation_rule', 'transforms')
+            'fields': ('transformation_rule', 'transforms')
         }
         )
     )

@@ -7,7 +7,7 @@ from oauth2_provider.models import (get_access_token_model,
 import django.contrib.auth.models
 from django import forms
 from django.conf import settings
-from django.conf.urls import url
+from django.conf.urls import re_path
 from django.contrib import admin
 from django.contrib.admin.widgets import (AdminDateWidget,
                                           FilteredSelectMultiple)
@@ -22,7 +22,7 @@ from django.http.response import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.template import loader
 from django.utils.crypto import get_random_string
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from accounts.models import PermissionSet, User
 from accounts.utils import patrol_mgmt_permissions
@@ -432,7 +432,7 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
                             or not obj.has_usable_password())):
             # Django's PasswordResetForm won't let us reset an unusable
             # password. We set it above super() so we don't have to save twice.
-            obj.set_password(get_random_string())
+            obj.set_password(get_random_string(length=12))
             should_reset_password = True
         else:
             should_reset_password = False
@@ -470,10 +470,10 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
 
     def get_urls(self):
         urls = super(UserAdmin, self).get_urls()
-        my_urls = [url(r'^(.+)/change/reset-password/?$',
-                       self.admin_site.admin_view(self.reset_password)),
-                   url(r'^(.+)/change/get-kml-link/?$',
-                       self.admin_site.admin_view(self.get_kml_master_link))
+        my_urls = [re_path(r'^(.+)/change/reset-password/?$',
+                           self.admin_site.admin_view(self.reset_password)),
+                   re_path(r'^(.+)/change/get-kml-link/?$',
+                           self.admin_site.admin_view(self.get_kml_master_link))
                    ]
         return my_urls + urls
 

@@ -1,23 +1,24 @@
-from datetime import datetime, timedelta
 import logging
+from datetime import datetime, timedelta
 
-from shapely.ops import unary_union
-from django.contrib.gis.geos import Polygon, MultiPolygon
-from dateutil.parser import parse as parse_date
 import pytz
 import requests
-from django.db import transaction
-from django.contrib.gis.db import models
-from django.contrib.contenttypes.models import ContentType
-from django.utils import dateparse
-from django.contrib.gis.geos import Point
-from django.utils.translation import ugettext_lazy as _
-from django.contrib.contenttypes.fields import GenericRelation
+from dateutil.parser import parse as parse_date
+from shapely.ops import unary_union
 
-from activity.models import Event, EventType, EventDetails
+from django.contrib.contenttypes.fields import GenericRelation
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.gis.db import models
+from django.contrib.gis.geos import Point
+from django.db import transaction
+from django.utils import dateparse
+from django.utils.translation import gettext_lazy as _
+
+from activity.models import Event, EventDetails, EventType
 from mapping.models import SpatialFeatureGroupStatic
-from tracking.models.plugin_base import Obs, TrackingPlugin, DasFireEventTarget, SourcePlugin
 from observations.models import Source
+from tracking.models.plugin_base import (DasFireEventTarget, Obs, SourcePlugin,
+                                         TrackingPlugin)
 
 logger = logging.getLogger(__name__)
 
@@ -113,8 +114,6 @@ class FirmsClient:
             from_date=(datetime.now(tz=pytz.utc) - timedelta(days=1)))
         stored_dateindex = self.extract_date_index(
             stored_headers) if stored_headers else 0
-
-        process_these = []
 
         # Start fresh, on today's file.
         if stored_dateindex is None or stored_dateindex < yesterdays_index or stored_dateindex > todays_index:

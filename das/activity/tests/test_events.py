@@ -20,7 +20,6 @@ from kombu import Connection
 
 import django.contrib.auth
 from django.contrib.auth.models import Permission
-from django.contrib.gis.geos import Point
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
@@ -146,7 +145,7 @@ class TestEventView(BaseAPITest):
             provenance=Event.PC_SYSTEM,
             event_type=ET_OTHER,
             priority=Event.PRI_REFERENCE,
-            location=dict(longitude='40.1353', latitude='-1.891517'),
+            location=dict(longitude=40.1353, latitude=-1.891517),
         )
 
         self.event_data_with_notes = copy.deepcopy(self.event_data)
@@ -2721,7 +2720,8 @@ class TestEventView(BaseAPITest):
     @patch("activity.models.is_banned")
     def test_event_note_text_search(self, is_banned):
         is_banned.return_value = False
-        request = self.factory.post(self.api_base + "/events/", [self.event_data])
+        request = self.factory.post(
+            self.api_base + "/events/", [self.event_data])
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
@@ -3568,7 +3568,8 @@ class TestEventView2:
 
         for permission in permissions:
             permission_name = f"view_{permission}_geographic_distance"
-            geojson_set.permissions.add(Permission.objects.get(codename=permission_name))
+            geojson_set.permissions.add(
+                Permission.objects.get(codename=permission_name))
 
         url = f"{reverse('events')}?location=0,0"
         client = HTTPClient()

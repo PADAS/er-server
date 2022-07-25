@@ -1,29 +1,31 @@
 from __future__ import unicode_literals
+
+import atexit
+import errno
+import logging
+import os
+import socket
+import sys
+from datetime import datetime
+
+import six
+
+from django.conf import settings
+from django.core.management.commands.runserver import Command as RunCommand
+from django.core.management.commands.runserver import run
+from django.db import close_old_connections
+from django.utils import autoreload
+from django.utils.encoding import get_system_encoding
+
+import rt_api.client as client
+from rt_api.views import create_rt_socketio
+
 # this comes too late when using manage.py
 # set environment variable EVENTLET_SHOULDPATCH=True
 # eventlet.monkey_patch()
 
-import errno
-import sys
-import os
-import socket
-import logging
-from datetime import datetime
-import atexit
-
-import eventlet
-from django.conf import settings
-from django.core.management.commands.runserver import Command as RunCommand, run
-from django.utils import autoreload, six
-from django.utils.encoding import force_text, get_system_encoding
-from django.db import close_old_connections
-
-from rt_api.views import create_rt_socketio
-import rt_api.client as client
-
 
 logger = logging.getLogger('rt_api')
-
 
 # allow 50 or so socket connections
 MAX_GREEN_THREADS = 50
@@ -79,6 +81,7 @@ class Command(RunCommand):
                 # deploy with eventlet
                 import eventlet
                 import eventlet.wsgi
+
                 from das_server.rt_wsgi import application
                 eventlet.wsgi.server(eventlet.listen((self.addr, int(self.port))),
                                      application,
@@ -86,6 +89,7 @@ class Command(RunCommand):
             elif sio.async_mode == 'gevent':
                 # deploy with gevent
                 from gevent import pywsgi
+
                 from das_server.rt_wsgi import application
                 try:
                     from geventwebsocket.handler import WebSocketHandler
@@ -118,7 +122,7 @@ class Command(RunCommand):
             try:
                 error_text = ERRORS[e.errno]
             except KeyError:
-                error_text = force_text(e)
+                error_text = force_str(e)
             self.stderr.write("Error: %s" % error_text)
             # Need to use an OS exit because sys.exit doesn't work in a thread
             os._exit(1)

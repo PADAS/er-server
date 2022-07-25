@@ -1,34 +1,33 @@
 import logging
 from functools import reduce
-from urllib.parse import quote as urlquote
 
 from django.contrib import admin as django_admin
 from django.contrib import messages
 from django.contrib.admin import helpers
+from django.contrib.admin.actions import delete_selected
 from django.contrib.admin.exceptions import DisallowedModelAdminToField
 from django.contrib.admin.options import IS_POPUP_VAR, TO_FIELD_VAR
-from django.contrib.admin.actions import delete_selected
-from django.contrib.admin.utils import (get_deleted_objects, model_ngettext,
-                                        unquote, quote, NestedObjects, capfirst)
+from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
+from django.contrib.admin.utils import (NestedObjects, capfirst,
+                                        get_deleted_objects, model_ngettext,
+                                        quote, unquote)
 from django.contrib.gis import admin
 from django.core.exceptions import PermissionDenied
-from django.db import transaction, router
+from django.db import router, transaction
 from django.db.models import Q
 from django.db.models.expressions import RawSQL
 from django.http import HttpResponseRedirect
 from django.template.response import TemplateResponse
-from django.urls import reverse, NoReverseMatch
+from django.urls import reverse
 from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
-from django.utils.translation import ugettext_lazy as _
-from django.contrib.admin.templatetags.admin_urls import add_preserved_filters
+from django.utils.translation import gettext_lazy as _
 
 import mapping.models as models
 from core.openlayers import OSMGeoExtendedAdmin
 from mapping.esri_integration import arcgis_integration, update_db_groups
 from mapping.forms import (ArcgisConfigurationForm, DisplayCategoryForm,
-                           FeatureTypeForm, MapCenterForm,
-                           SpatialFeatureGroupStaticForm,
+                           MapCenterForm, SpatialFeatureGroupStaticForm,
                            SpatialFeatureTypeForm, TileLayerFormWithAttributes)
 from mapping.tasks import load_spatial_features_from_files
 from mapping.utils import clear_features, construct_url_param
@@ -100,6 +99,7 @@ class SpatialFeaturesInline(admin.TabularInline):
     model._meta.verbose_name_plural = "Member of feature groups"
     extra = 1
     verbose_name = "Feature Group"
+
 
 @admin.register(models.DisplayCategory)
 class DisplayCategoryAdmin(admin.ModelAdmin):
@@ -218,10 +218,9 @@ def delete_selected_spatialfiles(modeladmin, request, queryset):
 
             modeladmin.message_user(request, _(
                 "Successfully deleted %(count)d %(items)s.") % {
-                                        "count": n,
-                                        "items": model_ngettext(modeladmin.opts,
-                                                                n)
-                                    }, messages.SUCCESS)
+                "count": n,
+                "items": model_ngettext(modeladmin.opts, n)
+            }, messages.SUCCESS)
         # Return None to display the change list page again.
         return None
 
@@ -249,13 +248,17 @@ def delete_selected_spatialfiles(modeladmin, request, queryset):
     request.current_app = modeladmin.admin_site.name
 
     # Display the confirmation page
-    return TemplateResponse(request,
-                            modeladmin.delete_selected_confirmation_template or [
-                                "admin/%s/%s/delete_selected_confirmation.html" % (
-                                app_label, opts.model_name),
-                                "admin/%s/delete_selected_confirmation.html" % app_label,
-                                "admin/delete_selected_confirmation.html"
-                            ], context)
+    return TemplateResponse(
+        request,
+        modeladmin.delete_selected_confirmation_template
+        or [
+            "admin/%s/%s/delete_selected_confirmation.html" % (
+                app_label, opts.model_name),
+            "admin/%s/delete_selected_confirmation.html" % app_label,
+            "admin/delete_selected_confirmation.html",
+        ],
+        context,
+    )
 
 
 class BaseSpatialFileAdmin(admin.ModelAdmin):
@@ -280,7 +283,8 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
 
         if not change:
             # load features if a new object or feature attributes are updated
-            transaction.on_commit(lambda: load_spatial_features_from_files.apply_async(args=(str(obj.id),)))
+            transaction.on_commit(
+                lambda: load_spatial_features_from_files.apply_async(args=(str(obj.id),)))
 
         super().save_model(request, obj, form, change)
 
@@ -289,9 +293,11 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
         opts = self.model._meta
         app_label = opts.app_label
 
-        to_field = request.POST.get(TO_FIELD_VAR, request.GET.get(TO_FIELD_VAR))
+        to_field = request.POST.get(
+            TO_FIELD_VAR, request.GET.get(TO_FIELD_VAR))
         if to_field and not self.to_field_allowed(request, to_field):
-            raise DisallowedModelAdminToField("The field %s cannot be referenced." % to_field)
+            raise DisallowedModelAdminToField(
+                "The field %s cannot be referenced." % to_field)
 
         obj = self.get_object(request, unquote(object_id), to_field)
 
@@ -307,7 +313,8 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
             [obj], request, self.admin_site)
 
         # get related features
-        spatial_features = models.SpatialFeature.objects.filter(spatialfile=obj)
+        spatial_features = models.SpatialFeature.objects.filter(
+            spatialfile=obj)
         model_count['spatial features'] = spatial_features.count()
 
         if request.POST and not protected:  # The user has confirmed the deletion.
@@ -382,12 +389,12 @@ class SpatialFeatureFileAdmin(BaseSpatialFileAdmin):
             'classes': ('wide', 'shapefile',),
             'fields': ('layer_number',)
         }
-         ),
+        ),
         ('GeoJSON Optional Attributes', {
             'classes': ('wide', 'geojson',),
             'fields': ('feature_types_file',)
         }
-         ),)
+        ),)
     readonly_fields = ('id', 'status',)
 
     class Media:
@@ -409,11 +416,14 @@ class SpatialFeatureFileAdmin(BaseSpatialFileAdmin):
 
     def add_background_download_message(self, obj, request, action):
         msg_dict = {
-                'obj': format_html(f'<a href="{reverse("admin:mapping_spatialfeaturefile_change", args=(obj.id,))}">{obj}</a>'),
-                'features': format_html(f'<a href="{reverse("admin:mapping_spatialfeature_changelist")}">features</a>'),
-                'action': action
-            }
-        msg = format_html(_('The Feature Import File "{obj}" {action} successfully. Feature download in progress, check loaded {features} after a few minutes'),**msg_dict)
+            'obj': format_html(
+                f'<a href="{reverse("admin:mapping_spatialfeaturefile_change", args=(obj.id,))}">{obj}</a>'),
+            'features': format_html(f'<a href="{reverse("admin:mapping_spatialfeature_changelist")}">features</a>'),
+            'action': action
+        }
+        msg = format_html(
+            _('The Feature Import File "{obj}" {action} successfully. Feature download in progress, check loaded {features} after a few minutes'),
+            **msg_dict)
         self.message_user(request, msg, messages.SUCCESS)
 
 
@@ -445,7 +455,8 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
         opts = self.model._meta
         if 'delete_config_and_associated_features' in request.POST:
             # Delete related arcgis item, that deletes the associated features
-            deleted_items = models.ArcgisItem.objects.filter(arcgis_config=obj).delete()
+            deleted_items = models.ArcgisItem.objects.filter(
+                arcgis_config=obj).delete()
             features_count = deleted_items[1].get('mapping.SpatialFeature', 0)
             messages.success(
                 request,
@@ -505,7 +516,8 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
 
                 features_to_delete = []
                 for arc_item in models.ArcgisItem.objects.filter(arcgis_config=obj):
-                    features_to_delete.extend([get_url(ft) for ft in arc_item.features])
+                    features_to_delete.extend(
+                        [get_url(ft) for ft in arc_item.features])
                 return (config_url, features_to_delete) if features_to_delete else config_url
             else:
                 return no_edit_link
@@ -522,7 +534,8 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
                 to_delete.extend([obj for obj in deletable_obj])
 
         protected = [format_callback(obj) for obj in collector.protected]
-        model_count = {model._meta.verbose_name_plural: len(objs) for model, objs in collector.model_objs.items()}
+        model_count = {model._meta.verbose_name_plural: len(
+            objs) for model, objs in collector.model_objs.items()}
         model_count["Features"] = features_count
 
         return to_delete, model_count, perms_needed, protected
@@ -530,7 +543,8 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
     def delete_selected_arcgisconfigs(self, modeladmin, request, queryset):
         features_count = 0
 
-        deletable_objects, model_count, perms_needed, protected = modeladmin.get_deleted_objects(queryset, request)
+        deletable_objects, model_count, perms_needed, protected = modeladmin.get_deleted_objects(
+            queryset, request)
         if request.POST.get('post') and not protected:
             if perms_needed:
                 raise PermissionDenied
@@ -542,9 +556,12 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
 
                     if 'delete_config_and_associated_features' in request.POST:
                         # Delete related arcgis item, that deletes the associated features
-                        deleted_items = models.ArcgisItem.objects.filter(arcgis_config=obj).delete()
-                        features_count = deleted_items[1].get('mapping.SpatialFeature', 0)
-                    models.ArcgisGroup.objects.filter(config_id=obj.id).delete()
+                        deleted_items = models.ArcgisItem.objects.filter(
+                            arcgis_config=obj).delete()
+                        features_count = deleted_items[1].get(
+                            'mapping.SpatialFeature', 0)
+                    models.ArcgisGroup.objects.filter(
+                        config_id=obj.id).delete()
 
                 modeladmin.delete_queryset(request, queryset)
                 del_msg = _("Successfully deleted %(count)d %(items)s and %(features_count)d features") % {
@@ -602,5 +619,6 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
             object_id = request.resolver_match.kwargs.get('object_id')
             if object_id:
                 obj = self.model.objects.get(id=int(object_id))
-                kwargs['queryset'] = models.ArcgisGroup.objects.filter(config_id=obj.id)
+                kwargs['queryset'] = models.ArcgisGroup.objects.filter(
+                    config_id=obj.id)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)

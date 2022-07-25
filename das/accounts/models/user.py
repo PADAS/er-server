@@ -1,21 +1,17 @@
-import pytz
-import uuid
 import logging
-from datetime import datetime
-import pytz
+import uuid
+
 import dateutil.parser
+from sendsms import api
 
 from django.contrib import auth
-from django.contrib.gis.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
-from django.contrib.postgres.fields import JSONField
-from django.utils.translation import ugettext_lazy as _
-from django.core.mail import send_mail
-from django.core.exceptions import PermissionDenied, ValidationError
+from django.contrib.gis.db import models
 from django.core import validators
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.mail import send_mail
 from django.utils import timezone
-
-from sendsms import api
+from django.utils.translation import gettext_lazy as _
 
 from accounts.mixins import PermissionsMixin
 
@@ -152,8 +148,8 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         ),
     )
     date_joined = models.DateTimeField(_('date joined'), default=timezone.now)
-    additional = JSONField('additional data', default=dict,
-                           null=True, blank=True)
+    additional = models.JSONField(
+        'additional data', default=dict, null=True, blank=True)
     is_nologin = models.BooleanField(
         _('no login'),
         default=False,
@@ -208,6 +204,7 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
 
     _mou_expiry_date = None
     _mou_expiry_date_is_set = False
+
     @property
     def mou_expiry_date(self):
         '''
@@ -230,8 +227,9 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
                 value = dateutil.parser.parse(mou_expiry_date)
                 self._mou_expiry_date = value
 
-        except (ValueError, OverflowError) as ex:
-            logger.warning('Error parsing mou_expiry_date string "%s" for user %s', mou_expiry_date, self.username)
+        except (ValueError, OverflowError):
+            logger.warning(
+                'Error parsing mou_expiry_date string "%s" for user %s', mou_expiry_date, self.username)
         finally:
             self._mou_expiry_date_is_set = True
 

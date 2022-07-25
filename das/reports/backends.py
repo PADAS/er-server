@@ -1,21 +1,20 @@
 # Since this package contains a "django" module, this is required on Python 2.
 from __future__ import absolute_import
 
+import io
 import sys
 
 import jinja2
+import six
 
 from django.conf import settings
 from django.template import TemplateDoesNotExist, TemplateSyntaxError
-from django.utils import six
-from django.utils.module_loading import import_string
-
 from django.template.backends.base import BaseEngine
 from django.template.backends.utils import csrf_input_lazy, csrf_token_lazy
-
-from docxtpl import DocxTemplate
+from django.utils.module_loading import import_string
 
 from reports.loaders import DocxFileSystemLoader
+
 
 class DocxBackend(BaseEngine):
 
@@ -26,7 +25,10 @@ class DocxBackend(BaseEngine):
         options = params.pop('OPTIONS').copy()
         super(DocxBackend, self).__init__(params)
 
-        environment = options.pop('environment', 'reports.environment.Environment')
+        environment = options.pop(
+            'environment',
+            'reports.environment.Environment'
+        )
         environment_cls = import_string(environment)
 
         options.setdefault('autoescape', True)
@@ -55,9 +57,10 @@ class DocxBackend(BaseEngine):
             new = TemplateSyntaxError(exc.args)
             new.template_debug = get_exception_info(exc)
             six.reraise(TemplateSyntaxError, new, sys.exc_info()[2])
-        except Exception as e:
+        except Exception:
             raise
-import io
+
+
 class Template(object):
 
     def __init__(self, template):
@@ -86,11 +89,13 @@ class Template(object):
         except Exception as e:
             print(e)
 
+
 class Origin(object):
     """
     A container to hold debug information as described in the template API
     documentation.
     """
+
     def __init__(self, name, template_name):
         self.name = name
         self.template_name = template_name

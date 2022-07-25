@@ -15,9 +15,9 @@ from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
-from django.contrib.gis.geos import Polygon
 from django.contrib.gis.db.models.functions import Distance as D
-from django.contrib.postgres.fields import DateTimeRangeField, JSONField
+from django.contrib.gis.geos import Polygon
+from django.contrib.postgres.fields import DateTimeRangeField
 from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.core.validators import RegexValidator
@@ -26,8 +26,8 @@ from django.db.models import (Case, CharField, Exists, F, OuterRef, Prefetch,
                               Q, Subquery, Value, When)
 from django.db.models.functions import Cast, Lower
 from django.utils import dateparse, timezone
-from django.utils.encoding import force_text
-from django.utils.translation import ugettext_lazy as _
+from django.utils.encoding import force_str
+from django.utils.translation import gettext_lazy as _
 
 from accounts.models.permissionset import PermissionSet
 from accounts.models.user import User
@@ -331,7 +331,7 @@ class RefreshRecreateEventDetailView(models.Model):
     ended_at = models.DateTimeField(blank=True, null=True)
 
     maintenance_status = models.CharField(max_length=255)
-    error_details = JSONField('error details', default=list, blank=True)
+    error_details = models.JSONField('error details', default=list, blank=True)
 
     objects = RefreshRecreateEventDetailViewQuery.as_manager()
 
@@ -386,9 +386,11 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             point = None
 
         if point:
-            queryset = queryset.annotate(distance=D("location", point, spheroid=True))
+            queryset = queryset.annotate(
+                distance=D("location", point, spheroid=True))
 
-        queryset1 = queryset.filter(event_type__category__value__in=categories_to_filter['categories'])
+        queryset1 = queryset.filter(
+            event_type__category__value__in=categories_to_filter['categories'])
 
         if not is_banned(user) and point:
             queryset2 = queryset.filter(
@@ -864,7 +866,7 @@ class Event(RevisionMixin, TimestampedModel):
 
     priority = models.PositiveSmallIntegerField(default=PRI_NONE,
                                                 choices=PRIORITY_CHOICES)
-    attributes = JSONField(default=dict, blank=True)
+    attributes = models.JSONField(default=dict, blank=True)
 
     related_subjects = models.ManyToManyField(
         Subject, through='EventRelatedSubject')
@@ -1051,12 +1053,12 @@ class Event(RevisionMixin, TimestampedModel):
     def get_display_value(self, field_name, value):
         field = self._meta.get_field(field_name)
         if hasattr(self, 'get_{0}_display'.format(field_name)):
-            return force_text(dict(field.flatchoices).get(value, value),
-                              strings_only=True)
+            return force_str(dict(field.flatchoices).get(value, value),
+                             strings_only=True)
         if field_name == 'event_type':
             try:
-                return force_text(EventType.objects.get(value=value).display,
-                                  strings_only=True)
+                return force_str(EventType.objects.get(value=value).display,
+                                 strings_only=True)
             except EventType.DoesNotExist:
                 pass
         return value
@@ -1192,7 +1194,7 @@ class EventDetails(RevisionMixin, TimestampedModel):
     event = models.ForeignKey(Event, on_delete=models.CASCADE,
                               related_name='event_details',
                               related_query_name='event_details')
-    data = JSONField()
+    data = models.JSONField()
     revision = Revision()
 
     def save(self, *args, update_parent_event=True, **kwargs):
@@ -1285,7 +1287,8 @@ class EventFilter(TimestampedModel):
         verbose_name='Hide this filter', default=True)
     filter_name = models.CharField(verbose_name='Display name that is meaningful to a user',
                                    null=False, max_length=100)
-    filter_spec = JSONField(verbose_name='Filter specification', default=dict)
+    filter_spec = models.JSONField(
+        verbose_name='Filter specification', default=dict)
 
 
 class EventProviderManager(models.Manager):
@@ -1308,7 +1311,7 @@ class EventProvider(TimestampedModel):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='eventproviders', related_query_name='eventprovider')
 
-    additional = JSONField(default=dict, blank=True)
+    additional = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         return self.display
@@ -1341,7 +1344,7 @@ class EventSource(TimestampedModel):
                                       related_name='eventsources', related_query_name='eventsource'
                                       )
 
-    additional = JSONField(default=dict, blank=True)
+    additional = models.JSONField(default=dict, blank=True)
 
     @property
     def is_ready(self):
@@ -1473,8 +1476,8 @@ class AlertRule(TimestampedModel):
         'A user friendly name for this alert.'))
     ordernum = models.SmallIntegerField(blank=True, null=True, default=0)
 
-    conditions = JSONField(default=dict, blank=True)
-    schedule = JSONField(default=dict, blank=True)
+    conditions = models.JSONField(default=dict, blank=True)
+    schedule = models.JSONField(default=dict, blank=True)
 
     notification_methods = models.ManyToManyField(NotificationMethod, related_name='alert_rules',
                                                   related_query_name='alert_rule', )

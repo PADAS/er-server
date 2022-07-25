@@ -1,11 +1,11 @@
 import jsonschema
-from rest_framework import serializers
-from rest_framework.fields import empty, DateTimeField
-from rest_framework.utils import html
-from django.core.exceptions import ValidationError
-from drf_extra_fields.compat import DateTimeTZRange
-from drf_extra_fields.fields import RangeField
 from dateutil.parser import parse as parse_date
+from drf_extra_fields.fields import DateTimeTZRange, RangeField
+
+from django.core.exceptions import ValidationError
+from rest_framework import serializers
+from rest_framework.fields import DateTimeField
+from rest_framework.utils import html
 
 
 class CoordinateField(serializers.Field):
@@ -52,7 +52,8 @@ class _RangeField(RangeField):
 
     def validate_time_range(self, lower, upper):
         if lower and upper and parse_date(lower) > parse_date(upper):
-            raise ValidationError('start_time must be an earlier date than the end_time')
+            raise ValidationError(
+                'start_time must be an earlier date than the end_time')
 
     def to_representation(self, value):
         """
@@ -60,8 +61,10 @@ class _RangeField(RangeField):
         """
         if value.isempty:
             return {'empty': True}
-        lower = self.child.to_representation(value.lower) if value.lower is not None else None
-        upper = self.child.to_representation(value.upper) if value.upper is not None else None
+        lower = self.child.to_representation(
+            value.lower) if value.lower is not None else None
+        upper = self.child.to_representation(
+            value.upper) if value.upper is not None else None
         return {'start_time': lower,
                 'end_time': upper
                 }

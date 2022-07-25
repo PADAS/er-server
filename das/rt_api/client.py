@@ -325,7 +325,7 @@ def shutdown_cleanup(*args):
 
 def push_trace(trace_id, data):
     logger.info('TRACE', extra={'action': 'push', 'trace_id': trace_id})
-    redis_client.setex(trace_id, data, TRACE_TTL)
+    redis_client.setex(trace_id, TRACE_TTL, json.dumps(data))
 
 
 def pop_trace(trace_id):
@@ -340,6 +340,8 @@ def message_index(sid, message_type):
 def save_session_timestamp(sid, subject_id=None, timestamp=None):
 
     timestamp = timestamp or datetime.datetime.now(tz=pytz.utc)
+    if isinstance(timestamp, datetime.datetime):
+        timestamp = timestamp.timestamp()
 
     if subject_id:
         redis_client.hset(SID_SUBJECTS_TIMESTAMPS_KEY.format(
@@ -355,4 +357,8 @@ def get_sid_subject_timestamp(sid, subject_id):
     sid_ts = redis_client.get(SID_SESSION_TIMESTAMP_KEY.format(sid))
     ts = ts or sid_ts
 
-    return ts.decode() if ts else datetime.datetime.now(tz=pytz.utc).isoformat()
+    return (
+        datetime.datetime.fromtimestamp(float(ts.decode()))
+        if ts
+        else datetime.datetime.now(tz=pytz.utc).isoformat()
+    )

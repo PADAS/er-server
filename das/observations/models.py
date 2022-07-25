@@ -31,7 +31,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.gis.db import models as dbmodels
 from django.contrib.gis.geos import Point, Polygon
-from django.contrib.postgres.fields import DateTimeRangeField, JSONField
+from django.contrib.postgres.fields import DateTimeRangeField
 from django.contrib.postgres.fields.hstore import KeyTransform
 from django.db import transaction
 from django.db.models import (BooleanField, Case, ExpressionWrapper, F,
@@ -40,7 +40,7 @@ from django.db.models.constraints import UniqueConstraint
 from django.db.models.functions import Greatest
 from django.utils.functional import cached_property
 from django.utils.text import slugify
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from accounts.mixins import (PermissionSetGroupMixin,
                              PermissionSetHierarchyMixin)
@@ -239,8 +239,8 @@ class SourceProvider(TimestampedModel):
     display_name = models.CharField('Display name for source provider.',
                                     max_length=100, null=False,)
     notes = models.TextField(blank=True, null=True)
-    additional = JSONField('additional data', default=dict, blank=True)
-    transforms = JSONField(
+    additional = models.JSONField('additional data', default=dict, blank=True)
+    transforms = models.JSONField(
         name="transforms", default=list, blank=True, null=True)
     objects = SourceProviderManager()
 
@@ -268,7 +268,7 @@ class Source(TimestampedModel):
                                        null=True)
     model_name = models.CharField(
         'device model name', max_length=201, null=True)
-    additional = JSONField('additional data', default=dict, blank=True)
+    additional = models.JSONField('additional data', default=dict, blank=True)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='sources', related_query_name='source')
@@ -515,7 +515,7 @@ class Observation(models.Model):
     created_at = models.DateTimeField(
         'row created at', auto_now_add=True, db_index=True)  # date/time this row created
     source = models.ForeignKey('Source', on_delete=models.CASCADE)
-    additional = JSONField(null=True, blank=True)
+    additional = models.JSONField(null=True, blank=True)
 
     exclusion_flags = BitField(flags=BITMAP_FILTER_CHOICES, default=0)
     objects = ObservationManager.from_queryset(ObservationQuerySet)()
@@ -633,7 +633,7 @@ class SubjectSource(models.Model):
     source = models.ForeignKey('Source', on_delete=models.CASCADE)
     subject = models.ForeignKey('Subject', on_delete=models.CASCADE, related_name='subjectsources',
                                 related_query_name='subjectsource')
-    additional = JSONField('additional', default=dict, blank=True)
+    additional = models.JSONField('additional', default=dict, blank=True)
     """EXCLUDE USING gist (source_id WITH =, assigned_range WITH &&)"""
     location = models.PointField(
         verbose_name="Assigned location", blank=True, null=True)
@@ -771,7 +771,7 @@ class SubjectTrackSegmentFilter(TimestampedModel):
     subject_subtype = models.ForeignKey(
         SubjectSubType, on_delete=models.PROTECT)
     speed_KmHr = models.FloatField(default=7.0)
-    additional = JSONField(default=dict, blank=True)
+    additional = models.JSONField(default=dict, blank=True)
     objects = SubjectTrackSegmentFilterManager()
 
 
@@ -1146,7 +1146,7 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='subjects', related_query_name='subject')
 
-    additional = JSONField('additional data', default=dict, blank=True)
+    additional = models.JSONField('additional data', default=dict, blank=True)
     is_active = models.BooleanField(
         _('active'),
         default=True,
@@ -1764,7 +1764,7 @@ class SubjectStatus(PermissionSetGroupMixin, TimestampedModel):
     location = models.PointField('location')
     recorded_at = models.DateTimeField('location at',)
     delay_hours = models.IntegerField('delay in hours')
-    additional = JSONField('additional', blank=True, default=dict)
+    additional = models.JSONField('additional', blank=True, default=dict)
 
     radio_state = models.CharField(
         'state', null=False, choices=RADIO_STATE_CHOICES, default=UNKNOWN, max_length=20)
@@ -1831,8 +1831,8 @@ class SocketClient(TimestampedModel):
         'Das username associated with session', max_length=30)
     bbox = models.MultiPolygonField(
         'Viewport bounding box.', null=True, blank=True)
-    event_filter = JSONField('Event filter', default=dict)
-    patrol_filter = JSONField('Patrol filter', default=dict)
+    event_filter = models.JSONField('Event filter', default=dict)
+    patrol_filter = models.JSONField('Patrol filter', default=dict)
 
 
 class UserSession(TimestampedModel):
@@ -1948,37 +1948,53 @@ class MessagesManager(models.Manager):
 
 class Message(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    _limits = models.Q(app_label='observations', model='subject') | models.Q(
-        app_label='accounts', model='user')
+    _limits = models.Q(app_label="observations", model="subject") | models.Q(
+        app_label="accounts", model="user"
+    )
 
     sender_content_type = models.ForeignKey(
-        ContentType, on_delete=models.CASCADE, limit_choices_to=_limits, null=True, blank=True, related_name='sender_content_type')
+        ContentType,
+        on_delete=models.CASCADE,
+        limit_choices_to=_limits,
+        null=True,
+        blank=True,
+        related_name="sender_content_type",
+    )
     receiver_content_type = models.ForeignKey(
-        ContentType, on_delete=models.CASCADE, limit_choices_to=_limits, null=True, blank=True, related_name='receiver_content_type')
-
+        ContentType,
+        on_delete=models.CASCADE,
+        limit_choices_to=_limits,
+        null=True,
+        blank=True,
+        related_name="receiver_content_type",
+    )
     sender_id = models.UUIDField(null=True, blank=True, default=None)
     receiver_id = models.UUIDField(null=True, blank=True, default=None)
-
-    sender = GenericForeignKey('sender_content_type', 'sender_id')
-    receiver = GenericForeignKey('receiver_content_type', 'receiver_id')
-    device = models.ForeignKey('Source', null=True, on_delete=models.SET_NULL)
+    sender = GenericForeignKey("sender_content_type", "sender_id")
+    receiver = GenericForeignKey("receiver_content_type", "receiver_id")
+    device = models.ForeignKey("Source", null=True, on_delete=models.SET_NULL)
     message_type = models.CharField(
-        max_length=40, choices=MESSAGE_TYPES, default=OUTBOX)
+        max_length=40, choices=MESSAGE_TYPES, default=OUTBOX
+    )
     text = models.TextField(blank=True)
     status = models.CharField(
-        max_length=40, choices=MESSAGE_STATE_CHOICES, default=PENDING)
+        max_length=40, choices=MESSAGE_STATE_CHOICES, default=PENDING
+    )
     device_location = models.PointField(blank=True, null=True)
     message_time = models.DateTimeField(null=False, blank=False)
     read = models.BooleanField(default=False)
-    additional = JSONField(
-        'additional data', default=dict, blank=True, null=True)
+    additional = models.JSONField(
+        "additional data", default=dict, blank=True, null=True
+    )
 
     objects = MessagesManager.from_queryset(MessageFilteringQuerySet)()
 
     class Meta:
-        index_together = [('sender_id', 'message_time'),
-                          ('receiver_id', 'message_time')]
-        ordering = ('-message_time', )
+        index_together = [
+            ("sender_id", "message_time"),
+            ("receiver_id", "message_time"),
+        ]
+        ordering = ("-message_time",)
 
 
 class AnnouncementManager(models.Manager):
@@ -2003,7 +2019,7 @@ class Announcement(TimestampedModel):
         settings.AUTH_USER_MODEL, blank=True)
     title = models.CharField(null=True, max_length=255)
     description = models.TextField(null=True)
-    additional = JSONField(null=True, blank=True, default=dict)
+    additional = models.JSONField(null=True, blank=True, default=dict)
     link = models.URLField(verbose_name="Link to topic", null=True)
     announcement_at = models.DateTimeField(
         db_index=True, null=True, blank=True)

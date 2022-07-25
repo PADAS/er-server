@@ -22,7 +22,7 @@ from django.http import Http404
 from django.template.defaultfilters import truncatechars
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.encoding import force_text
+from django.utils.encoding import force_str
 from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.fields import DateTimeField
 from rest_framework.metadata import BaseMetadata
@@ -65,7 +65,7 @@ class DuplicateResourceError(APIException):
         self.status_code = status_code or self.default_status_code
 
         self.detail = {
-            fieldname or self.default_fieldname: force_text(detail or self.default_detail)
+            fieldname or self.default_fieldname: force_str(detail or self.default_detail)
         }
 
 
@@ -260,7 +260,7 @@ class EventJSONSchema(BaseMetadata):
                     field_info['enum_ext'] = [
                         {
                             'value': choice_value,
-                            'title': force_text(choice_name, strings_only=True)
+                            'title': force_str(choice_name, strings_only=True)
                         }
                         for choice_value, choice_name in filter_blank_choice(choices)
                     ]
@@ -279,16 +279,15 @@ class EventJSONSchema(BaseMetadata):
                             enum_ext[group] = [
                                 {
                                     'value': choice_value,
-                                    'title': force_text(choice_name,
-                                                        strings_only=True)
+                                    'title': force_str(choice_name,
+                                                       strings_only=True)
                                 }
                                 for choice_value, choice_name in filter_blank_choice(values_iter)
                             ]
                         else:
                             unassigned.append({
                                 'value': group,
-                                'title': force_text(values,
-                                                    strings_only=True)
+                                'title': force_str(values, strings_only=True)
                             })
                     if not enum_ext:
                         enum_ext = unassigned
@@ -296,7 +295,7 @@ class EventJSONSchema(BaseMetadata):
                     enum_ext = [
                         {
                             'value': choice_value,
-                            'title': force_text(choice_name, strings_only=True)
+                            'title': force_str(choice_name, strings_only=True)
                         }
                         for choice_value, choice_name in filter_blank_choice(object_choices)
                     ]

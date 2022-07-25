@@ -2,23 +2,26 @@ import logging
 from datetime import datetime
 
 import pytz
+
 from django.conf import settings
 from django.contrib.gis.geos import Point
 from django.db import transaction
 from django.db.models import signals
 from django.http.request import HttpRequest
 from django.utils.dateparse import parse_datetime
-from django.utils.translation import ugettext_lazy as _
-from rest_framework import status, serializers
+from django.utils.translation import gettext_lazy as _
+from rest_framework import serializers, status
 from rest_framework.response import Response
 
 from accounts.models import User
 from activity.models import EventDetails
 from activity.serializers import EventSerializer
 from analyzers.clustering_utils import cluster_alerts
-from analyzers.gfw_alert_schema import ensure_gfw_event_types, GFW_EVENT_TYPES_MAP
-from analyzers.gfw_utils import (prepare_downloadable_url, sub_id_from_unsubscribe_url,
-                                 rebuild_glad_download_url)
+from analyzers.gfw_alert_schema import (GFW_EVENT_TYPES_MAP,
+                                        ensure_gfw_event_types)
+from analyzers.gfw_utils import (prepare_downloadable_url,
+                                 rebuild_glad_download_url,
+                                 sub_id_from_unsubscribe_url)
 from analyzers.models import GlobalForestWatchSubscription
 from das_server import celery
 from revision.manager import RevisionMixin
@@ -111,9 +114,11 @@ def process_handler_post(request):
 
     ensure_gfw_event_types()
 
-    subscription_id = sub_id_from_unsubscribe_url(deserialized.validated_data.get('unsubscribe_url'))
+    subscription_id = sub_id_from_unsubscribe_url(
+        deserialized.validated_data.get('unsubscribe_url'))
 
-    subscriptions_qs = GlobalForestWatchSubscription.objects.filter(subscription_id=subscription_id)
+    subscriptions_qs = GlobalForestWatchSubscription.objects.filter(
+        subscription_id=subscription_id)
     if subscriptions_qs.exists():
         subscription_ids = [subscription_id]
     else:
@@ -148,7 +153,8 @@ def process_alert_for_subscription(layer_slug, subscription_id, validated_data, 
 
     # todo: cleanup.
     if event_dict.get('event_type') == 'gfw_activefire_alert':
-        validated_data['downloadUrls'] = prepare_downloadable_url(validated_data, subscription_id)
+        validated_data['downloadUrls'] = prepare_downloadable_url(
+            validated_data, subscription_id)
 
     download_urls = validated_data.get('downloadUrls')
     download_url = download_urls.get('json')
@@ -160,13 +166,16 @@ def process_alert_for_subscription(layer_slug, subscription_id, validated_data, 
     result = celery.app.send_task('analyzers.tasks.download_gfw_alerts', args=(download_url,
                                                                                event_dict,
                                                                                user_id))
-    logger.info('Submitted task for downloading GFW Alerts. Celery Async result: %s', result)
+    logger.info(
+        'Submitted task for downloading GFW Alerts. Celery Async result: %s', result)
 
 
 def process_downloaded_alerts(payload, common_event_fields, user_id):
     counts = {PROCESSED_COUNTER: 0, ERROR_COUNTER: 0}
-    filtered_alerts = filter_alert_based_on_confidence(payload, common_event_fields)
-    clustered_alerts = cluster_alerts(filtered_alerts, settings.GFW_CLUSTER_RADIUS, 1)
+    filtered_alerts = filter_alert_based_on_confidence(
+        payload, common_event_fields)
+    clustered_alerts = cluster_alerts(
+        filtered_alerts, settings.GFW_CLUSTER_RADIUS, 1)
     errors = [create_event_from_downloadedalert(alert, common_event_fields, user_id, counts)
               for alert in clustered_alerts]
     errors = filter(lambda x: len(list(x)) > 0, errors)
@@ -182,7 +191,8 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
     request.user = User.objects.get(id=user_id)
 
     if common_event_fields.get('event_type') == 'gfw_activefire_alert':
-        downloaded_sample['acq_date'] = parse_datetime(downloaded_sample['acq_date'])
+        downloaded_sample['acq_date'] = parse_datetime(
+            downloaded_sample['acq_date'])
         deserialized_sample = FireAlertSampleDownloaded(data=downloaded_sample)
         # logger.info("Processed deserialized sample %s", deserialized_sample)
     else:
@@ -216,9 +226,11 @@ def create_event_from_downloadedalert(downloaded_sample, common_event_fields, us
         confidence = deserialized_sample.validated_data.get('confidence', -1)
         latitude = deserialized_sample.validated_data.get('latitude')
         longitude = deserialized_sample.validated_data.get('longitude')
-        time = pytz.utc.localize(datetime.strptime(f'{julian_day}{year}', '%j%Y'))
+        time = pytz.utc.localize(
+            datetime.strptime(f'{julian_day}{year}', '%j%Y'))
 
-    num_clustered_alerts = deserialized_sample.validated_data.get('num_clustered_alerts')
+    num_clustered_alerts = deserialized_sample.validated_data.get(
+        'num_clustered_alerts')
 
     common_event_fields['event_details'][
         'num_clustered_alerts'] = num_clustered_alerts
@@ -251,17 +263,18 @@ def filter_alert_based_on_confidence(alerts, common_event_fields):
             if common_event_fields.get('event_type') == 'gfw_activefire_alert':
                 conf_confidence = gfw_query.Fire_confidence
                 superset_confidence = {i.strip() for i in
-                                      conf_confidence.split(',')}
+                                       conf_confidence.split(',')}
             else:
                 conf_confidence = gfw_query.Deforestation_confidence
                 superset_confidence = {int(i) for i in
-                                      conf_confidence.split(',')}
+                                       conf_confidence.split(',')}
 
             # Checks if confidence level from glad alerts is a subset of confidence level specified in ER.
             if {confidence} <= superset_confidence:
                 filtered_alerts.append(alert)
             else:
-                logger.debug("GLAD Alert %s not within the confidence level" % alert)
+                logger.debug(
+                    "GLAD Alert %s not within the confidence level" % alert)
         except KeyError:
             pass
 
@@ -288,7 +301,8 @@ def persist_event(event_fields, request, counts):
             if saved_conf != confidence:
                 evt_details.data['event_details']['confidence'] = confidence
                 evt_details.save()
-                logger.info(f'event details id: {evt_details.id} GLAD confidence updated from {saved_conf} to {confidence}')
+                logger.info(
+                    f'event details id: {evt_details.id} GLAD confidence updated from {saved_conf} to {confidence}')
             else:
                 logger.debug('Ignoring duplicate event')
         else:

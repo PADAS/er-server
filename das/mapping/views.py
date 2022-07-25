@@ -3,24 +3,24 @@ import logging
 from itertools import chain
 
 import simplejson as json
+from rest_framework_extensions.etag.decorators import etag
+
 from django.core.serializers import serialize
 from django.db.models import F
-from django.http import HttpResponse, Http404
+from django.http import Http404, HttpResponse
 from django.urls import reverse
-from django.utils.translation import ugettext_lazy as _
-from rest_framework import generics
-from rest_framework import status
+from django.utils.translation import gettext_lazy as _
+from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.parsers import JSONParser
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_extensions.etag.decorators import etag
 
 import mapping.serializers as serializers
 from mapping import app_settings
-from mapping.models import MBTiles, MBTilesNotFoundError, MissingTileError, Map, TileLayer
-from mapping.models import SpatialFeature, DisplayCategory
+from mapping.models import (DisplayCategory, Map, MBTiles,
+                            MBTilesNotFoundError, MissingTileError,
+                            SpatialFeature, TileLayer)
 from mapping.permissions import LayerObjectPermissions
 from utils.json import parse_bool
 
@@ -43,6 +43,7 @@ class FeatureListJsonView(APIView):
             type_dict = dict(name=feature.feature_type.name,
                              id=str(feature.feature_type.id))
 
+            print(f"\nHEX: {feature.id.hex}\n")
             response_data['features'].append({
                 'name': feature.name,
                 'type': type_dict,
@@ -190,7 +191,7 @@ def tile(request, name, z, x, y, catalog=None):
         return response
     except MBTilesNotFoundError as e:
         logger.warning(e)
-    except MissingTileError as e:
+    except MissingTileError:
         logger.warning(_("Tile %s not available in %s") % ((z, x, y), name))
         if not app_settings.MBTILES['missing_tile_404']:
             return HttpResponse(content_type="image/png")

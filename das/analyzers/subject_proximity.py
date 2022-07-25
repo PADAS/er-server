@@ -6,7 +6,7 @@ from pymet.proximity import ProximityAnalysisResult
 
 from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
 from django.contrib.gis.geos import Point as DjangoPoint
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from analyzers.models import (CRITICAL, SubjectAnalyzerResult,
                               SubjectProximityAnalyzerConfig)
@@ -182,9 +182,7 @@ class SubjectProximityAnalysis:
                                         seg.heading, 2),
                                     subject_2_travel_heading=round(
                                         seg2.heading, 2),
-
                                     proximal_fix=seg.end_fix,
-
                                     proximity_distance_meters=proximity_dist
                                 )
                                 # Add this given crossing to the result

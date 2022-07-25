@@ -8,7 +8,6 @@ import django.dispatch
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
-from django.contrib.postgres.fields import JSONField
 from django.core import serializers
 from django.db.models import Max
 
@@ -252,7 +251,7 @@ class Revision(object):
             'revision_at': models.DateTimeField(auto_now_add=True),
             'sequence': models.IntegerField(help_text='Revision sequence'),
             'user': user_field,
-            'data': JSONField(default=dict),
+            'data': models.JSONField(default=dict),
             '__str__': to_str,
             '__module__': model.__module__,
         }

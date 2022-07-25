@@ -3,38 +3,33 @@ import logging
 from abc import ABC
 from enum import Enum
 
-import activity.models as models
-from activity.forms import (
-    AlertRuleForm,
-    EventForm,
-    EventProviderForm,
-    EventTypeForm,
-    PatrolForm,
-    PatrolSegmentForm,
-    PatrolSegmentStackedInline,
-    PatrolTypeForm,
-    PrettyReadOnlyJSONWidget,
-    chained_tracked_by,
-)
-from activity.tasks import recreate_event_details_view, refresh_event_details_view
 from celery_once import AlreadyQueued
-from core.admin import InlineExtraDynamicMixin
-from core.common import TIMEZONE_USED, AdminFeatureFlag
-from core.openlayers import OSMGeoExtendedAdmin
+from psycopg2.extras import DateTimeTZRange
+
 from django.contrib import messages
 from django.contrib.admin import FieldListFilter, SimpleListFilter
 from django.contrib.auth import get_permission_codename, get_user_model
 from django.contrib.gis import admin
-from django.contrib.postgres.fields import JSONField
-from django.db.models import Case, CharField, F, OuterRef, Q, Subquery, Value, When
+from django.db.models import (Case, CharField, F, OuterRef, Q, Subquery, Value,
+                              When)
 from django.db.utils import DataError
+from django.forms.fields import JSONField
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.safestring import mark_safe
-from django.utils.translation import ugettext as _
-from psycopg2.extras import DateTimeTZRange
+from django.utils.translation import gettext as _
 
+import activity.models as models
+from activity.forms import (AlertRuleForm, EventForm, EventProviderForm,
+                            EventTypeForm, PatrolForm, PatrolSegmentForm,
+                            PatrolSegmentStackedInline, PatrolTypeForm,
+                            PrettyReadOnlyJSONWidget, chained_tracked_by)
+from activity.tasks import (recreate_event_details_view,
+                            refresh_event_details_view)
+from core.admin import InlineExtraDynamicMixin
+from core.common import TIMEZONE_USED, AdminFeatureFlag
+from core.openlayers import OSMGeoExtendedAdmin
 
 logger = logging.getLogger(__name__)
 
@@ -683,9 +678,9 @@ class PatrolAdmin(PatrolPermissionMixin, OSMGeoExtendedAdmin):
     def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
         try:
             return super().changeform_view(request, object_id, form_url, extra_context)
-        except DataError as exc:
+        except DataError:
             self.message_user(request,
-                              "Actual start date must be earlier or equal to Actual end date",
+                              _("Actual start date must be earlier or equal to Actual end date"),
                               level=messages.ERROR)
             return HttpResponseRedirect(request.get_full_path())
 

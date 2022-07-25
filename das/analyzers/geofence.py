@@ -1,28 +1,27 @@
-import pymet
-from datetime import timedelta
-from django.utils.translation import ugettext_lazy as _
-from django.contrib.gis.geos import Point as DjangoPoint
-from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
-
-from analyzers.geofence_crossings_analysis import DasGeofenceAnalysis
-from mapping.models import SpatialFeature
-from activity.models import Event, EventType
-from analyzers.utils import save_analyzer_event
-from analyzers.models import SubjectAnalyzerResult, GeofenceAnalyzerConfig, WARNING, CRITICAL
-from analyzers.models.base import EVENT_PRIORITY_MAP
-from analyzers.exceptions import InsufficientDataAnalyzerException
-from analyzers.base import SubjectAnalyzer
 import logging
 
+import pymet
 from osgeo import ogr
-logger = logging.getLogger(__name__)
 
+from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
+from django.contrib.gis.geos import Point as DjangoPoint
+from django.utils.translation import gettext_lazy as _
+
+from activity.models import Event, EventType
+from analyzers.base import SubjectAnalyzer
+from analyzers.geofence_crossings_analysis import DasGeofenceAnalysis
+from analyzers.models import (CRITICAL, WARNING, GeofenceAnalyzerConfig,
+                              SubjectAnalyzerResult)
+from analyzers.models.base import EVENT_PRIORITY_MAP
+from analyzers.utils import save_analyzer_event
+from mapping.models import SpatialFeature
+
+logger = logging.getLogger(__name__)
 
 geofence_eventtype_natural_key = 'geofence_break'
 
 
 class GeofenceAnalyzer(SubjectAnalyzer):
-
     """ Geofence analyzer to determine locations and estimated times where a subject's trajectory
      crosses a set of virtual fences.
      Return: a list of GeofenceAnalyzerResult
@@ -95,7 +94,8 @@ class GeofenceAnalyzer(SubjectAnalyzer):
         _analysis_params = self._create_geofence_analysis_param()
 
         # Generate a list of crossings
-        cross_results = DasGeofenceAnalysis.calc_crossings(_analysis_params, [traj])
+        cross_results = DasGeofenceAnalysis.calc_crossings(
+            _analysis_params, [traj])
 
         das_analyzer_results = []
         for cross in cross_results.geofence_crossings:
@@ -162,7 +162,8 @@ class GeofenceAnalyzer(SubjectAnalyzer):
 
         try:
             Event.objects.get(related_subjects=self.subject,
-                              event_type=EventType.objects.get(value=geofence_eventtype_natural_key),
+                              event_type=EventType.objects.get(
+                                  value=geofence_eventtype_natural_key),
                               event_time=this_result.estimated_time,
                               location=this_result.geometry_collection[0])
 
@@ -170,7 +171,8 @@ class GeofenceAnalyzer(SubjectAnalyzer):
             return
         except Event.DoesNotExist:
 
-            event_priority = EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_URGENT)
+            event_priority = EVENT_PRIORITY_MAP.get(
+                this_result.level, Event.PRI_URGENT)
 
             event_details = {'name': self.subject.name}
             event_details.update(this_result.values)

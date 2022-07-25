@@ -1,5 +1,6 @@
 from django.contrib.gis.db import models
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
+
 from analyzers.models.base import SubjectAnalyzerConfig
 from mapping.models import SpatialFeatureGroupStatic
 from observations.models import SubjectGroup

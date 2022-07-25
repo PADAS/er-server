@@ -11,7 +11,6 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point
-from django.contrib.postgres.fields import JSONField
 
 import observations
 from core.models import TimestampedModel
@@ -106,7 +105,7 @@ class SourcePlugin(TimestampedModel):
                                related_name='source_plugins',
                                related_query_name='source_plugin')
 
-    cursor_data = JSONField(blank=True, default=dict,)
+    cursor_data = models.JSONField(blank=True, default=dict,)
     status = models.CharField(max_length=15, default=STATUS_ENABLED)
 
     # last_run: datetime.min implies it hasn't ever been executed.
@@ -197,7 +196,7 @@ class TrackingPlugin(TimestampedModel):
                             verbose_name='Unique name to identify the plugin.')
     status = models.CharField(
         max_length=15, default=STATUS_ENABLED, choices=STATUS_CHOICES)
-    additional = JSONField(blank=True, default=dict)
+    additional = models.JSONField(blank=True, default=dict)
 
     provider = models.ForeignKey(
         SourceProvider, related_name='+', null=False, default=get_default_source_provider_id,

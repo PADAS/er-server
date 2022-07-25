@@ -4,7 +4,7 @@ import uuid
 from urllib.parse import parse_qs, urlsplit
 
 import pytz
-from drf_extra_fields.compat import DateTimeTZRange
+from drf_extra_fields.fields import DateTimeTZRange
 from faker import Faker
 
 from django.contrib.auth import get_user_model

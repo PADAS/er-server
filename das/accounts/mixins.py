@@ -1,8 +1,9 @@
 from itertools import chain
+
 import django.db.models as models
-from django.core.exceptions import PermissionDenied
-from django.utils.translation import ugettext_lazy as _
 from django.contrib import auth
+from django.core.exceptions import PermissionDenied
+from django.utils.translation import gettext_lazy as _
 
 from accounts.models.permissionset import PermissionSet
 

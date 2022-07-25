@@ -1,23 +1,23 @@
-import json
 import copy
 import datetime
-from uuid import uuid4
+import json
 from unittest import mock
-import pytz
+from uuid import uuid4
 
+import pytz
 from dateutil import parser as dateparser
+
 import django.contrib.auth
-from django.utils import timezone
 from django.db import transaction
 from django.test import Client
 from django.urls import reverse
-from rest_framework import status
 from django.utils import lorem_ipsum
-import pytest
+from rest_framework import status
 
 from core.tests import BaseAPITest, fake_get_pool
+from observations.models import (Observation, Source, SourceProvider, Subject,
+                                 SubjectGroup, SubjectSubType)
 from sensors.views import GenericSensorHandlerView
-from observations.models import Subject, SourceProvider, Source, Observation, SubjectGroup, SubjectSubType
 
 User = django.contrib.auth.get_user_model()
 
@@ -99,7 +99,7 @@ class GenericSensorHandlerTest(BaseAPITest):
             manufacturer_id=self.manufacturer_id)
 
         self.api_path = '/'.join((self.api_base, 'sensors',
-                                  self.sensor_type, self.provider, 'status'))
+                                  self.sensor_type, self.provider, 'status/'))
 
     @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def run_transaction_hooks(self):
@@ -158,7 +158,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         client = Client()
         client.force_login(self.super_user)
         response = client.get(
-            reverse("subjects-list-view") + "/?updated_since=2019-01-01")
+            reverse("subjects-list-view") + "?updated_since=2019-01-01")
         assert response.status_code == 200
         first_subject = response.data[0]
         assert not first_subject["tracks_available"]
@@ -417,12 +417,13 @@ class GenericSensorHandlerTest(BaseAPITest):
 
         response = client.post(
             self.api_path, self.one_observation, content_type="application/json")
-
+        print(f"\npath: {self.api_path}\n")
         assert response.status_code == 201
 
         provider = lorem_ipsum.words(200).replace(" ", "")[:200]
         url = '/'.join((self.api_base, 'sensors',
                         self.sensor_type, provider, 'status'))
+        print(f"\nURL: {url}\n")
 
         response = client.post(url, self.one_observation,
                                content_type="application/json")

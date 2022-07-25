@@ -1,10 +1,9 @@
 import logging
 
-from django.core.mail import EmailMultiAlternatives
 import django.contrib.auth
 from django.contrib.contenttypes.models import ContentType
-from django.conf import settings
-from django.utils.translation import ugettext_lazy as _
+from django.core.mail import EmailMultiAlternatives
+from django.utils.translation import gettext_lazy as _
 
 import accounts
 
@@ -62,6 +61,7 @@ def create_report_permissionset():
         name='Receive Source Report')
     permission_set.permissions.add(perm)
 
+
 def create_lag_notify_permissionset():
     '''
     This should run once (probably as part of a migration) to add the proper permission and permissionset that
@@ -80,6 +80,7 @@ def create_lag_notify_permissionset():
         name='Receive observation lag notification')
     permission_set.permissions.add(perm)
 
+
 def create_silent_source_notify_permissionset():
     '''
     This should run once (probably as part of a migration) to add the proper permission and permissionset that
@@ -89,7 +90,7 @@ def create_silent_source_notify_permissionset():
     User = django.contrib.auth.get_user_model()
     content_type = ContentType.objects.get_for_model(User)
     perm, created = django.contrib.auth.models.Permission.objects.get_or_create(
-        codename= SILENT_SOURCE_NOTIFY_PERMISSION_CODENAME,
+        codename=SILENT_SOURCE_NOTIFY_PERMISSION_CODENAME,
         content_type=content_type,
         defaults=dict(name=_('Receive silent source notification'), )
     )

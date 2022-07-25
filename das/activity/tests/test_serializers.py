@@ -189,8 +189,8 @@ class TestEventSerializer:
             "event_details"
         )
         assert serialized_event["location"] == {
-            "latitude": "20.420935",
-            "longitude": "-103.313486",
+            "latitude": 20.420935,
+            "longitude": -103.313486,
         }
         assert serialized_event["priority"] == 0
         assert serialized_event["priority_label"] == "Gray"

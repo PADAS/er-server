@@ -1,18 +1,14 @@
 import logging
 
-from das_server import celery
 from django.template.loader import render_to_string
-from django.utils.translation import ugettext_lazy as _
-from reports.distribution import (
-    SOURCE_REPORT_PERMISSION_CODENAME,
-    get_users_for_permission,
-    send_report,
-)
-from reports.observationlagnotification import (
-    check_sources_threshold,
-    get_lagging_providers,
-    send_lag_delay_alert,
-)
+from django.utils.translation import gettext_lazy as _
+
+from das_server import celery
+from reports.distribution import (SOURCE_REPORT_PERMISSION_CODENAME,
+                                  get_users_for_permission, send_report)
+from reports.observationlagnotification import (check_sources_threshold,
+                                                get_lagging_providers,
+                                                send_lag_delay_alert)
 from reports.subjectsourcereport import generate_user_reports
 
 logger = logging.getLogger(__name__)
@@ -20,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 @celery.app.task(bind=True)
 def subjectsource_report(self, usernames=None):
-
     # Limit recipients to those identified by usernames argument.
     recipients = get_users_for_permission(
         SOURCE_REPORT_PERMISSION_CODENAME, usernames=usernames)

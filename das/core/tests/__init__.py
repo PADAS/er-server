@@ -47,7 +47,7 @@ class BaseAPITest(TestCase):
         )
         self.application.save()
 
-        self.factory = APIRequestFactory(enforce_csrf_checks=True)
+        self.factory = APIRequestFactory(enforce_csrf_checks=False)
 
     def create_access_token(self, user):
         tok = AccessToken.objects.create(

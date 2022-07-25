@@ -13,20 +13,29 @@ Including another URLconf
     1. Add an import:  from blog import urls as blog_urls
     2. Add a URL to urlpatterns:  url(r'^blog/', include(blog_urls))
 """
-from django.conf.urls import url
+from django.conf.urls import re_path
+from django.urls import path
 from rest_framework.urlpatterns import format_suffix_patterns
 
-from accounts import views
+from accounts.views import (AcceptEulaAPIView, GetActiveEulaAPIView,
+                            UserProfilesView, UsersCsvView, UsersView,
+                            UserView)
 
-app_name = 'accounts'
+app_name = "accounts"
 
 urlpatterns = [
-    url(r'^users/?$', views.UsersView.as_view()),
-    url(r'^users/csv/?$', views.UsersCsvView.as_view()),
-    url(r'^user/(?P<id>me|[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.UserView.as_view()),
-    url(r'^user/(?P<id>me|[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/profiles/?$', views.UserProfilesView.as_view()),
-    url(r'^user/eula/?$', views.GetActiveEulaAPIView.as_view()),
-    url(r'^user/eula/accept/?$', views.AcceptEulaAPIView.as_view()),
+    path("users/", UsersView.as_view()),
+    path("users/csv/", UsersCsvView.as_view()),
+    re_path(
+        "user/(?P<id>me|[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$",
+        UserView.as_view(),
+    ),
+    re_path(
+        r"^user/(?P<id>me|[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/profiles/?$",
+        UserProfilesView.as_view(),
+    ),
+    path("user/eula/", GetActiveEulaAPIView.as_view()),
+    path("user/eula/accept", AcceptEulaAPIView.as_view()),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

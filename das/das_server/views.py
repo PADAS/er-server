@@ -6,7 +6,7 @@ import rest_framework.serializers
 from django.conf import settings
 from django.db import connection
 from django.db.migrations.recorder import MigrationRecorder
-from django.shortcuts import render_to_response
+from django.shortcuts import render
 from django.utils import timezone
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
@@ -27,7 +27,7 @@ from utils.json import parse_bool
 
 
 def index(request):
-    return render_to_response('www/index.html')
+    return render('www/index.html', request)
 
 
 class CustomSchema(AutoSchema):
@@ -72,7 +72,6 @@ class CustomSchema(AutoSchema):
         return result
 
     def _map_field(self, field):
-
         if isinstance(field, PointField):
             return {
                 'type': 'object',

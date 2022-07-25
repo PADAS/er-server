@@ -74,7 +74,7 @@ MIDDLEWARE = (
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
+    'das_server.middleware.CommonMiddlewareAppendSlashWithoutRedirect',
     'django.middleware.locale.LocaleMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'corsheaders.middleware.CorsPostCsrfMiddleware',
@@ -124,14 +124,13 @@ TEMPLATES = [
     },
 ]
 
-
 AUTH_USER_MODEL = 'accounts.User'
 LOGIN_URL = '/login'
 LOGOUT_URL = '/logout'
 LOGIN_REDIRECT_URL = '/'
 
-# The number of days a password reset link is valid for
-PASSWORD_RESET_TIMEOUT_DAYS = 3
+# The number of days a password reset link is valid for (259200 secs are 3 days)
+PASSWORD_RESET_TIMEOUT = 259200
 WSGI_APPLICATION = 'das_server.wsgi.application'
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -592,3 +591,4 @@ PERSISTENT_STORAGE = {
     "HOST": "redis",
     "PORT": "6379"
 }
+APPEND_SLASH = True
