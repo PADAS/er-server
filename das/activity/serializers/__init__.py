@@ -1547,16 +1547,16 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
                 details_updates = rep['event_details'].pop('updates')
 
         try:
-            eventsource = event.eventsource[0]
+            event_source = event.eventsource_event_refs.first().eventsource
         except:
             pass
         else:
-            rep['external_source'] = {
-                "url": eventsource.eventprovider.additional.get('external_event_url'),
-                "text": eventsource.eventprovider.display,
-                "icon_url": eventsource.eventprovider.additional.get('icon_url')
-            }
-
+            if event_source:
+                rep['external_source'] = {
+                    "url": event_source.eventprovider.additional.get('external_event_url'),
+                    "text": event_source.eventprovider.display,
+                    "icon_url": event_source.eventprovider.additional.get('icon_url')
+                }
         if 'request' in self.context:
             request = self.context['request']
 

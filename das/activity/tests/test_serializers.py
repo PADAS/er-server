@@ -7,6 +7,7 @@ import pytest
 from django.contrib.gis.geos import Point
 from django.test import TestCase
 
+from activity.libs import constants as activities_constants
 from activity.models import Patrol
 from activity.serializers import EventSerializer
 from activity.serializers.fields import CoordinateField
@@ -202,3 +203,15 @@ class TestEventSerializer:
         assert serialized_event["patrol_segments"] == []
         assert serialized_event["is_collection"] is False
         assert serialized_event["patrols"] == []
+
+    def test_event_serializer_with_external_sources(self, event_with_event_source_event):
+        serialized_event = EventSerializer(event_with_event_source_event).data
+
+        assert "external_source" in serialized_event
+        assert serialized_event["external_source"]["url"] == activities_constants.EventTestsConstants.url
+        assert serialized_event["external_source"]["icon_url"] == activities_constants.EventTestsConstants.icon_url
+
+    def test_event_serializer_without_external_source(self, base_event):
+        serialized_event = EventSerializer(base_event).data
+
+        assert "external_source" not in serialized_event
