@@ -278,6 +278,8 @@ locals {
     "fundacioncerroguido"     = "prod1"
     "agriwc"                  = "prod1"
     "tintswalosafari"         = "prod1"
+    "harnas"                  = "prod1"
+    "zannier"                 = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
