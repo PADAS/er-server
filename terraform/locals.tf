@@ -280,6 +280,7 @@ locals {
     "tintswalosafari"         = "prod1"
     "harnas"                  = "prod1"
     "zannier"                 = "prod1"
+    "mara"                    = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -420,6 +421,7 @@ locals {
     "chemchem"                = 1
     "sapi"                    = 1
     "kes"                     = 1
+    "mara"                    = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
