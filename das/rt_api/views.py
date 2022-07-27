@@ -1,7 +1,7 @@
 import logging
 import time
 
-import eventlet
+import gevent
 from socketio.kombu_manager import KombuManager
 from socketio.server import Server
 
@@ -97,7 +97,7 @@ def confirm_authorzation(sid, sios):
     extra = dict(sid=sid)
     logger.debug('Confirming auth for new socket connection (waiting %s seconds).',
                  AUTH_CHECK_SLEEP_TIME, extra=extra)
-    eventlet.sleep(AUTH_CHECK_SLEEP_TIME)
+    gevent.sleep(AUTH_CHECK_SLEEP_TIME)
     if not client.is_client(sid):
         logger.debug(
             "Disconnecting unauthenticated socket connection %s", sid, extra=extra)
@@ -110,7 +110,7 @@ def confirm_authorzation(sid, sios):
 def connect_ack(sid, sios):
 
     logger.debug('Acknowledge connection for sid: %s', sid)
-    eventlet.sleep(1.0)
+    gevent.sleep(1.0)
     sios.emit('connect_ack', {
               'type': 'connect_ack', 'message': 'Connect acknowledgment.'}, room=str(sid), namespace='/das')
 
@@ -156,9 +156,8 @@ def cleanup_disconnected_clients(sios):
                     f'No sockets to clean up. {len(environ)} Existing sockets connected')
 
     finally:
-
-        eventlet.spawn_after(CLIENT_CLEANUP_INTERVAL,
-                             cleanup_disconnected_clients, sios)
+        gevent.spawn_later(CLIENT_CLEANUP_INTERVAL,
+                           cleanup_disconnected_clients, sios)
 
 
 def create_realtime_handler(sios):
@@ -181,10 +180,10 @@ def create_realtime_handler(sios):
                 'sid': str(sid), 'socket': repr(socket)})
 
             # Send a connect acknowledgment (helpful for troubleshooting).
-            eventlet.spawn(connect_ack, sid, sios)
+            gevent.spawn(connect_ack, sid, sios)
 
             # Make sure the connection authenticates immediately
-            eventlet.spawn(confirm_authorzation, sid, sios)
+            gevent.spawn(confirm_authorzation, sid, sios)
 
         @sios.on('disconnect')
         def on_disconnect(sid, *args):
@@ -407,8 +406,8 @@ def create_realtime_handler(sios):
                              message_data['type'])
 
     # Start up recursive calls to clean up disconnected clients.
-    eventlet.spawn_after(CLIENT_CLEANUP_INTERVAL,
-                         cleanup_disconnected_clients, sios)
+    gevent.spawn_later(CLIENT_CLEANUP_INTERVAL,
+                       cleanup_disconnected_clients, sios)
 
     return RealtimeServices
 
