@@ -380,15 +380,15 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                 # two_way_subject_sources is a dict by source_id
                 two_way_subject_sources = self.context["two_way_subject_sources"]
                 instance_id = instance.id
-                for ss in [ss_for_subject
-                           for ss_by_source in two_way_subject_sources.values()
-                           for ss_for_subject in ss_by_source.values()
-                           if ss_for_subject['subject_id'] == instance_id]:
+                for subject_source in [ss_for_subject
+                                       for ss_by_source in two_way_subject_sources.values()
+                                       for ss_for_subject in ss_by_source.values()
+                                       if ss_for_subject['subject_id'] == instance_id]:
                     message_url = utils.add_base_url(
                         request, reverse('messages-view'))
                     data = {
-                        "source_provider": ss["source__provider__display_name"],
-                        "url": f"{message_url}?subject_id={str(instance.id)}&source_id={str(ss['source_id'])}"
+                        "source_provider": subject_source["source__provider__display_name"],
+                        "url": f"{message_url}?subject_id={str(instance.id)}&source_id={str(subject_source['source_id'])}"
                     }
                     message_content.append(data)
 
@@ -652,26 +652,38 @@ class SubjectTrackSerializer(rest_framework.serializers.BaseSerializer):
             for source in subject_linked_sources:
                 subject_source = models.SubjectSource.objects.get(
                     source=source,
-                    subject=subject)
+                    subject=subject
+                )
+
                 lower = subject_source.safe_assigned_range.lower
                 upper = subject_source.safe_assigned_range.upper
-                queryset = models.Observation.objects.filter(
-                    source__subjectsource__subject=subject,
-                    source__subjectsource__source=source,
-                    recorded_at__range=[lower, upper])
+
+                queryset = models.Observation.objects.get_subjectsource_observations(
+                    subject_source,
+                    since=lower,
+                    until=upper,
+                )
                 queryset = queryset.exclude(location=EMPTY_POINT)
-                # queryset = list(queryset)
-                for observation in queryset:
-                    coordinates.append(observation.location.coords)
+                queryset = queryset.values("location", "recorded_at")
+                for observation in list(queryset):
+                    coordinates.append(observation["location"].coords)
                     times.append(zeroout_microseconds(
-                        observation.recorded_at))
+                        observation["recorded_at"]))
         else:
             coordinates, times = subject.get_track(
-                user, tracks_since, tracks_until, tracks_limit)
+                user,
+                tracks_since,
+                tracks_until,
+                tracks_limit
+            )
 
-        feature = make_feature(self.context['request'],
-                               coordinates, subject,
-                               times, image_url=image_url)
+        feature = make_feature(
+            self.context['request'],
+            coordinates,
+            subject,
+            times,
+            image_url=image_url
+        )
 
         rep = utils.json.empty_geojson_featurecollection()
         rep['features'].append(feature)

@@ -417,7 +417,7 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
             self.request.query_params.get("use_lkl"))
 
         self.subject_linked_sources = {}
-        self.subject_sources = {}
+
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
 
         mou_date = self.request.user.additional.get('expiry', None)
@@ -763,7 +763,9 @@ class SubjectTracksView(generics.RetrieveAPIView):
 
         queryset = models.Subject.objects.all()
         queryset = queryset.annotate_with_subjectstatus(
-            delay_hours=min_age_days * 24)
+            delay_hours=min_age_days * 24
+        )
+
         return queryset
 
     def check_object_permissions(self, request, obj):
@@ -805,13 +807,21 @@ class SubjectTracksView(generics.RetrieveAPIView):
         tracks_limits.is_valid(raise_exception=True)
         context['tracks_limit'] = tracks_limits.validated_data['limit']
 
-        context['tracks_since'] = self.request.query_params.get('since', None)
-        context['tracks_until'] = self.request.query_params.get('until', None)
-        context['subject_linked_sources'] = getattr(
-            self, 'subject_linked_sources', None)
+        since = self.request.query_params.get('since', None)
+        until = self.request.query_params.get('until', None)
 
-        for key in ('tracks_since', 'tracks_until'):
-            context[key] = dateparse(context[key]) if context[key] else None
+        linked_sources = getattr(self, 'subject_linked_sources', None)
+
+        context['tracks_since'] = None
+        context['tracks_until'] = None
+
+        if since is not None:
+            context['tracks_since'] = dateparse(since)
+
+        if until is not None:
+            context['tracks_until'] = dateparse(until)
+
+        context['subject_linked_sources'] = linked_sources
 
         return context
 

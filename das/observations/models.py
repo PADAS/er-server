@@ -532,6 +532,27 @@ DEFAULT_ASSIGNED_RANGE = list((pytz.utc.localize(datetime.min),
                                pytz.utc.localize(datetime.max)))
 
 
+class SubjectSourceQuerySet(models.QuerySet, FilterMixin):
+    def by_two_way_messaging_enabled(self):
+        return self.annotate(
+            two_way_messaging=jsonb.KeyTransform(
+                'two_way_messaging', 'source__provider__additional'),
+            source_two_way_messaging=jsonb.KeyTransform(
+                'two_way_messaging', 'source__additional')
+        ).exclude(
+            Q(two_way_messaging__isnull=True) | Q(two_way_messaging=False) | (
+                Q(two_way_messaging=True) & (
+                    Q(source_two_way_messaging=False,
+                        source_two_way_messaging__isnull=False)
+                )
+            )
+
+        ).prefetch_related(
+            'source',
+            'source__provider'
+        )
+
+
 class SubjectSourceManager(models.Manager):
     def get_subject_sources(self, subject):
         sds = SubjectSource.objects.filter(subject_id=subject.id)
@@ -637,7 +658,7 @@ class SubjectSource(models.Model):
     """EXCLUDE USING gist (source_id WITH =, assigned_range WITH &&)"""
     location = models.PointField(
         verbose_name="Assigned location", blank=True, null=True)
-    objects = SubjectSourceManager()
+    objects = SubjectSourceManager.from_queryset(SubjectSourceQuerySet)()
 
     def __str__(self):
         ind = ' (expired)' if datetime.now(

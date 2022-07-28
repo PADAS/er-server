@@ -1,12 +1,17 @@
 from datetime import datetime, timedelta
 
 import pytest
+import pytz
 
 from django.contrib.gis.geos import Point
+from django.urls import reverse
+from rest_framework.test import APIRequestFactory
 
+from factories import SubjectFactory, UserFactory
 from observations.models import (STATIONARY_SUBJECT_VALUE, SubjectSource,
                                  SubjectType)
-from observations.serializers import SubjectSourceSerializer
+from observations.serializers import (SubjectSourceSerializer,
+                                      SubjectTrackSerializer)
 
 
 @pytest.mark.django_db
@@ -156,3 +161,55 @@ class TestSubjectSourceSerializer:
         serializer.save()
 
         assert SubjectSource.objects.count() == 1
+
+
+@pytest.mark.django_db
+class TestSubjectTrackSerializer:
+    @pytest.fixture()
+    def subject(self):
+        return SubjectFactory()
+
+    @pytest.fixture()
+    def subject_serialized(self, subject):
+        factory = APIRequestFactory()
+        url = reverse("subject-view-tracks", kwargs={"subject_id": subject.id})
+        request = factory.get(url)
+        request.user = UserFactory(is_superuser=True)
+        now = pytz.utc.localize(datetime.utcnow())
+        context = {
+            "tracks_since": now - timedelta(days=5),
+            "tracks_until": now,
+            "tracks_limit": 2,
+            "request": request,
+        }
+        return SubjectTrackSerializer(subject, context=context).data
+
+    def test_serialized_fields(self, subject_serialized, subject):
+        assert "features" in subject_serialized
+        assert "properties" in subject_serialized["features"][0]
+        assert subject_serialized["features"][0]["type"] == "Feature"
+        assert subject_serialized["features"][0]["properties"]["title"] == subject.name
+        assert (
+            subject_serialized["features"][0]["properties"]["subject_type"]
+            == subject.subject_subtype.subject_type.value
+        )
+        assert (
+            subject_serialized["features"][0]["properties"]["subject_subtype"]
+            == subject.subject_subtype.value
+        )
+        assert subject_serialized["features"][0]["properties"]["id"] == subject.id
+        assert (
+            subject_serialized["features"][0]["properties"]["stroke"] == subject.color
+        )
+        assert (
+            subject.image_url
+            in subject_serialized["features"][0]["properties"]["image"]
+        )
+
+    def test_serialized_format(self, subject_serialized):
+        assert isinstance(subject_serialized["features"], list)
+        assert len(subject_serialized["features"])
+        assert isinstance(
+            subject_serialized["features"][0]["properties"], dict)
+        assert isinstance(
+            subject_serialized["features"][0]["properties"]["title"], str)
