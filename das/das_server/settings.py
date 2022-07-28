@@ -302,7 +302,7 @@ OAUTH2_PROVIDER = {'ACCESS_TOKEN_EXPIRE_SECONDS': 3600 * 48,    # two days
                    }
 
 # RT API settings
-ASYNC_MODE = 'eventlet'
+ASYNC_MODE = 'gevent'
 
 # override these if your libraries are in a different place
 GEOS_LIBRARY_PATH = '/usr/local/lib/libgeos_c.so'
