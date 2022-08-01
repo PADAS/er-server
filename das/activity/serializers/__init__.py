@@ -1551,7 +1551,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         except:
             pass
         else:
-            if event_source:
+            if event_source and event_source.eventprovider:
                 rep['external_source'] = {
                     "url": event_source.eventprovider.additional.get('external_event_url'),
                     "text": event_source.eventprovider.display,
