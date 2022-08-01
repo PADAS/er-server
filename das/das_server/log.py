@@ -45,20 +45,20 @@ DEFAULT_LOGGING = {
             'level': 'INFO',
         },
         'rt_api': {
-            'level': 'INFO',
+            'level': 'WARNING',
         },
         'rt_api.socketio': {
-            'level': 'INFO',
+            'level': 'WARNING',
         },
         'rt_api.pubsub_listener': {
-            'level': 'INFO',
+            'level': 'WARNING',
         },
         '': {
             'handlers': ['console'],
-            'level': 'INFO',
+            'level': 'WARNING',
         },
         'PIL.Image': {
-            'level': 'INFO',
+            'level': 'WARNING',
         },
     }
 }
