@@ -215,3 +215,12 @@ class TestEventSerializer:
         serialized_event = EventSerializer(base_event).data
 
         assert "external_source" not in serialized_event
+
+    def test_event_serializer_without_external_sources_and_provider(self, event_with_event_source_event):
+        event_source = event_with_event_source_event.eventsource_event_refs.first().eventsource
+        event_source.eventprovider = None
+        event_source.save(update_fields=["eventprovider"])
+
+        serialized_event = EventSerializer(event_with_event_source_event).data
+
+        assert "external_source" not in serialized_event
