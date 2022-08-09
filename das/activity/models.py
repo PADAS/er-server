@@ -2016,14 +2016,14 @@ class PatrolConfiguration(SingletonModel):
     subject_groups = models.ManyToManyField(
         SubjectGroup, related_name='groups', blank=True)
 
-# class PatrolTemplate(models.Model):
-#     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-#     title = models.CharField(max_length=255, blank=True, null=True)
-#     objective = models.CharField(max_length=255, blank=True, null=True)
-#     patrol_type = models.ForeignKey(PatrolType, on_delete=models.SET_NULL, blank=True, null=True)
-#     team = models.ForeignKey(Team, on_delete=models.SET_NULL, blank=True, null=True)
-#     length = models.IntegerField(blank=True, null=True)
-#     source = models.ForeignKey(Source, on_delete=models.CASCADE, blank=True,
-#                                null=True,
-#                                related_name='sources_assigned',
-#                                related_query_name='source_assigned')
+
+class EventGeometry(RevisionMixin, TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    geometry = models.GeometryField(srid=4326)
+    event = models.ForeignKey(
+        "Event",
+        on_delete=models.PROTECT,
+        related_name="geometries",
+        related_query_name="geometries",
+    )
+    revision = Revision()
