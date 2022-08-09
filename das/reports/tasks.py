@@ -46,7 +46,7 @@ def subjectsource_report(self, usernames=None):
 
 
 @celery.app.task(bind=True)
-def alert_lag_delay():
+def alert_lag_delay(self):
     lagging_providers = get_lagging_providers()
 
     for lagging_provider in lagging_providers:

@@ -31,7 +31,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.contrib.gis.db import models as dbmodels
 from django.contrib.gis.geos import Point, Polygon
-from django.contrib.postgres.fields import DateTimeRangeField
+from django.contrib.postgres.fields import DateTimeRangeField, jsonb
 from django.contrib.postgres.fields.hstore import KeyTransform
 from django.db import transaction
 from django.db.models import (BooleanField, Case, ExpressionWrapper, F,

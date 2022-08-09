@@ -75,8 +75,8 @@ INSTALLED_APPS = (
 MIDDLEWARE = (
     'utils.middleware.RequestDataMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'das_server.middleware.CommonMiddlewareAppendSlashWithoutRedirect',
     'django.middleware.locale.LocaleMiddleware',
@@ -306,7 +306,7 @@ OAUTH2_PROVIDER = {'ACCESS_TOKEN_EXPIRE_SECONDS': 3600 * 48,    # two days
                    }
 
 # RT API settings
-ASYNC_MODE = 'gevent'
+ASYNC_MODE = 'eventlet'
 
 # override these if your libraries are in a different place
 GEOS_LIBRARY_PATH = '/usr/local/lib/libgeos_c.so'

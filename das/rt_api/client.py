@@ -56,6 +56,7 @@ def init_redis_storage():
         SID_SUBJECTS_TIMESTAMPS_KEY.format('*'))]
 
     cleanup_socketclient()
+    cleanup_usersessions()
 
     # add the service as a member of services set
     redis_client.sadd(REALTIME_SERVICES_KEY, CLIENT_LIST_KEY)
@@ -95,11 +96,10 @@ def update_client(sid, bbox=None, event_filter=None, patrol_filter=None):
 
 
 def create_update_user_session(sid):
-    user_session, created = UserSession.objects.update_or_create(id=sid)
-    if created:
-        user_session.time_range = DateTimeTZRange(
-            lower=datetime.datetime.now(tz=pytz.utc))
-        user_session.save()
+    defaults = {"time_range": DateTimeTZRange(
+        lower=datetime.datetime.now(tz=pytz.utc))}
+    user_session, created = UserSession.objects.update_or_create(
+        id=sid, defaults=defaults)
 
 
 def get_all_connections():
@@ -224,10 +224,10 @@ def remove_clients(sids: set):
         EXPIRED_CLIENT_TRACES_LIST,
     )
 
-    logger.info("Deleteing mid keys for sids %s.", sids)
+    logger.info("Deleting mid keys for sids %s.", sids)
     redis_client.delete(*[f"mid-{sid}" for sid in sids])
 
-    logger.info("Deleteing session timestamp keys for sids %s.", sids)
+    logger.info("Deleting session timestamp keys for sids %s.", sids)
     redis_client.delete(*[SID_SESSION_TIMESTAMP_KEY.format(sid)
                         for sid in sids])
     redis_client.delete(
@@ -237,6 +237,13 @@ def remove_clients(sids: set):
         SocketClient.objects.filter(id__in=sids).delete()
     except ValueError:
         logger.exception("Failed to remove SocketClients for sids: %s", sids)
+
+
+def cleanup_usersessions():
+    older_than_one_week = datetime.datetime.now(
+        tz=pytz.utc) - datetime.timedelta(days=7)
+    UserSession.objects.filter(
+        time_range__startswith__lte=older_than_one_week).delete()
 
 
 def cleanup_socketclient():
@@ -252,10 +259,17 @@ def update_user_session(sid):
     try:
         user_session = UserSession.objects.get(id=sid)
     except UserSession.DoesNotExist:
-        logger.info(f"sid {sid} not found in UserSession")
+        logger.warning(f"sid {sid} not found in UserSession")
     else:
         user_session.time_range = DateTimeTZRange(upper=datetime.datetime.now(pytz.utc),
                                                   lower=user_session.time_range.lower)
+        if not user_session.time_range:
+            logger.warning(f"UserSession missing time_range: {user_session}")
+            user_session.time_range = DateTimeTZRange(
+                lower=datetime.datetime.now(tz=pytz.utc))
+        else:
+            user_session.time_range = DateTimeTZRange(upper=datetime.datetime.now(pytz.utc),
+                                                      lower=user_session.time_range.lower)
         user_session.save()
 
 

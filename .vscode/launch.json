@@ -73,6 +73,8 @@
             "program": "/usr/local/bin/gunicorn",
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
+            "gevent":true,
+            "justMyCode": false,
             "args": [
                 "das_server.rt_wsgi",
                 "--name",
@@ -105,16 +107,17 @@
                 "das_server",
                 "worker",
                 "--beat",
+                "-s",
+                "/tmp/celerybeat-schedule",
                 "-Q",
-                "realtime_p1,realtime_p2,realtime_p3,default,maintenance",
+                "realtime_p1,realtime_p2,realtime_p3,default,analyzers,maintenance",
                 "-l",
                 "info",
                 "-c",
-                "5",
-                
+                "2",
                 "--without-gossip",
                 "-n",
-                "priority"
+                "all-in-one"
             ],
             //"postDebugTask": "killdebugger",
             "env":{
@@ -141,6 +144,7 @@
             "program": "${workspaceFolder}/das/async_manage.py",
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
+            "gevent": true,
             "args": [
                 "rtserver",
                 "localhost:8000",
