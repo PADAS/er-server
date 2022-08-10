@@ -1,6 +1,9 @@
 FROM ubuntu:18.04
 LABEL maintainer="EarthRanger Developers developers@earthranger.com"
 
+ARG PYTHON_VERSION_ID="3.7"
+ARG CP_VER="cp37"
+
 RUN apt-get update
 
 RUN apt-get install -y \
@@ -22,9 +25,20 @@ RUN apt-get install -y \
 WORKDIR /workspace
 
 ADD ./dependencies /workspace/dependencies
-RUN dpkg -i --force-all /workspace/dependencies/gdal_3.2.3-1_cp36_amd64.deb
-RUN dpkg -i --force-all /workspace/dependencies/geos_3.9.1-1_cp36_amd64.deb
-RUN dpkg -i --force-all /workspace/dependencies/proj_7.2.1-1_cp36_amd64.deb
+
+SHELL ["/bin/bash", "-c"]
+
+RUN arch=$(uname -i); \
+ if [[ $arch == x86_64* ]]; then \
+   export arch_name="amd64"; \
+ elif  ([[ $arch == arm* ]] || [[ $arch == aarch* ]]); then \
+    export arch_name="arm64"; \
+ fi ; \
+ curl https://storage.googleapis.com/er-dependencies/geos_3.9.1-1_${CP_VER}_${arch_name}.deb -o geos.deb -s && dpkg -i --force-all geos.deb ; \
+ curl https://storage.googleapis.com/er-dependencies/proj_7.2.1-1_${CP_VER}_${arch_name}.deb -o proj.deb -s && dpkg -i --force-all proj.deb ; \
+ curl https://storage.googleapis.com/er-dependencies/gdal_3.4.1-1_${CP_VER}_${arch_name}.deb -o gdal.deb -s && dpkg -i --force-all gdal.deb
+
+
 ENV LD_LIBRARY_PATH "/usr/local/lib"
 
 RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -

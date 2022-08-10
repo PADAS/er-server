@@ -294,7 +294,7 @@ future==0.17.1
     # via
     #   -r ./requirements.txt
     #   django-ses
-gdal==3.2.3
+pygdal==3.4.1.10
     # via
     #   -r ./requirements.txt
     #   pymet
@@ -582,7 +582,7 @@ ntlm-auth==1.4.0
     # via
     #   -r ./requirements.txt
     #   requests-ntlm
-numpy==1.16.4
+numpy==1.19.5
     # via
     #   -r ./requirements.txt
     #   arcgis
@@ -720,7 +720,7 @@ pyflakes==2.4.0
     # via
     #   autoflake
     #   flake8
-pygdal==3.2.3.10
+pygdal==3.4.1.10
     # via -r ./requirements.txt
 pygments==2.5.2
     # via

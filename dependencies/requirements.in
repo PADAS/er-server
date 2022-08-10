@@ -63,10 +63,11 @@ django-extensions==2.2.6
 #oauth
 oauthlib==3.1.0
 
-numpy==1.16.4
+numpy==1.19.5
 
-GDAL==3.2.3
-pygdal==3.2.3.10
+GDAL==3.4.1
+pygdal==3.4.1.10
+
 pyproj==3.0.1
 geopy==2.1.0
 Fiona==1.8.19

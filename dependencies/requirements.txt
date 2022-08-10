@@ -210,7 +210,7 @@ fiona==1.8.19
     #   rasterstats
 future==0.17.1
     # via django-ses
-gdal==3.2.3
+GDAL==3.4.1
     # via
     #   -r requirements.in
     #   pymet
@@ -402,7 +402,7 @@ notebook==6.1.5
     #   widgetsnbextension
 ntlm-auth==1.4.0
     # via requests-ntlm
-numpy==1.16.4
+numpy==1.19.5
     # via
     #   -r requirements.in
     #   arcgis
@@ -492,7 +492,7 @@ pycparser==2.19
     # via cffi
 pycryptodome==3.11.0
     # via -r requirements.in
-pygdal==3.2.3.10
+pygdal==3.4.1.10
     # via -r requirements.in
 pygments==2.5.2
     # via

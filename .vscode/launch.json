@@ -81,6 +81,7 @@
                 "das_rt",
                 "--limit-request-line",
                 "6000",
+                "--preload",
                 "--bind",
                 "127.0.0.1:8000",
                 "--workers",
@@ -88,11 +89,15 @@
                 "--worker-tmp-dir",
                 "/dev/shm",
                 "--worker-class",
-                "eventlet",
+                "gevent",
                 "--timeout",
                 "90",
                 "--log-level",
-                "info"
+                "info",
+                "--max-requests",
+                "500",
+                "--max-requests-jitter",
+                "1"
             ]
         },
         {
