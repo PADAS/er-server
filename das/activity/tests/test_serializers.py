@@ -4,12 +4,12 @@ from datetime import datetime, timedelta
 import jsonschema
 import pytest
 
-from django.contrib.gis.geos import Point
+from django.contrib.gis.geos import Point, Polygon
 from django.test import TestCase
 
 from activity.libs import constants as activities_constants
-from activity.models import Patrol
-from activity.serializers import EventSerializer
+from activity.models import EventGeometry, Patrol
+from activity.serializers import EventGeometrySerializer, EventSerializer
 from activity.serializers.fields import CoordinateField
 from activity.serializers.patrol_serializers import PatrolSerializer
 
@@ -224,3 +224,57 @@ class TestEventSerializer:
         serialized_event = EventSerializer(event_with_event_source_event).data
 
         assert "external_source" not in serialized_event
+
+
+@pytest.mark.django_db
+class TestEventGeometrySerializer:
+    def test_serialized_event_geometry_format(self, event_with_detail):
+        event_geometry = EventGeometry.objects.create(
+            event=event_with_detail.event,
+            geometry=Polygon(
+                (
+                    (-103.41898441314697, 20.638567565077864),
+                    (-103.41387748718262, 20.63499318125139),
+                    (-103.40585231781006, 20.646840535793658),
+                    (-103.41898441314697, 20.638567565077864)
+                )
+            )
+        )
+
+        serialized_event_geometry = EventGeometrySerializer(
+            event_geometry).data
+
+        assert isinstance(serialized_event_geometry["type"], str)
+        assert isinstance(serialized_event_geometry["geometry"], dict)
+        assert isinstance(serialized_event_geometry["geometry"]["type"], str)
+        assert isinstance(
+            serialized_event_geometry["geometry"]["coordinates"], list)
+        assert isinstance(serialized_event_geometry["properties"], dict)
+
+    def test_serialized_event_geometry(self, event_with_detail):
+        event_geometry = EventGeometry.objects.create(
+            event=event_with_detail.event,
+            geometry=Polygon(
+                (
+                    (-103.41898441314697, 20.638567565077864),
+                    (-103.41387748718262, 20.63499318125139),
+                    (-103.40585231781006, 20.646840535793658),
+                    (-103.41898441314697, 20.638567565077864)
+                )
+            )
+        )
+
+        serialized_event_geometry = EventGeometrySerializer(
+            event_geometry).data
+
+        assert serialized_event_geometry["type"] == "Feature"
+        assert serialized_event_geometry["geometry"]["type"] == "Polygon"
+        assert serialized_event_geometry["geometry"]["coordinates"] == [
+            [
+                [-103.41898441314697, 20.638567565077864],
+                [-103.41387748718262, 20.63499318125139],
+                [-103.40585231781006, 20.646840535793658],
+                [-103.41898441314697, 20.638567565077864]
+            ]
+        ]
+        assert serialized_event_geometry["properties"] == {}

@@ -1077,6 +1077,10 @@ class EventsView(generics.ListCreateAPIView):
 
         queryset = queryset.prefetch_related(
             Prefetch(
+                "geometries",
+                to_attr="geometries_set"
+            ),
+            Prefetch(
                 'eventsource_event_refs',
                 to_attr="eventsource"
             ),

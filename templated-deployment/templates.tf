@@ -39,6 +39,7 @@ resource "template_dir" "deployments" {
     EUS_NAME                        = var.eus_name
     EUS_ORG                         = local.resolved_eus_organization
     EUS_TYPE                        = var.eus_type
+    FEATURE_GEOMETRIES              = var.feature_geometries
     FQDN                            = var.fqdn
     FROM_EMAIL                      = local.from_email
     GEO_PERMISSION_SPEED_KM_H       = var.geo_permission_speed_km_h

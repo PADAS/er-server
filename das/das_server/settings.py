@@ -15,10 +15,6 @@ import os
 
 from corsheaders.defaults import default_headers
 
-from .features import FeatureFlags
-
-FEATURE_FLAGS = FeatureFlags()
-
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOCS_ROOT = os.path.join(BASE_DIR, '../docs/_build/html')
 
@@ -51,6 +47,7 @@ INSTALLED_APPS = (
     'corsheaders',
     'oauth2_provider',
     'rest_framework',
+    "rest_framework_gis",
     'rest_framework_swagger',
     'observations.apps.ObservationsConfig',
     'analyzers.apps.AnalyzersConfig',

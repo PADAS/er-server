@@ -235,3 +235,9 @@ variable "geo_permission_speed_km_h" {
   type        = string
   default     = "75"
 }
+
+variable "feature_geometries" {
+  description = "Enable feature geometries flag"
+  type        = string
+  default     = "True"
+}

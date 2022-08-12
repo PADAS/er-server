@@ -8,7 +8,8 @@ import drf_extra_fields.geo_fields
 import jsonschema
 import pytz
 from drf_extra_fields.geo_fields import PointField
-from rest_framework_gis.serializers import GeoFeatureModelListSerializer
+from rest_framework_gis.serializers import (GeoFeatureModelListSerializer,
+                                            GeoFeatureModelSerializer)
 from versatileimagefield.serializers import VersatileImageFieldSerializer
 
 import django.db
@@ -27,6 +28,7 @@ from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.fields import DateTimeField
 from rest_framework.metadata import BaseMetadata
 from rest_framework.request import clone_request
+from rest_framework.serializers import SerializerMethodField
 from rest_framework.utils.field_mapping import ClassLookupDict
 
 import activity.models
@@ -37,7 +39,7 @@ from accounts.serializers import (UserDisplaySerializer, UserSerializer,
                                   get_user_display)
 from activity.alerting.conditions import Conditions
 from activity.exceptions import SchemaValidationError
-from activity.models import PC_OPEN, PatrolSegment
+from activity.models import PC_OPEN, EventGeometry, PatrolSegment
 from activity.serializers.base import FileSerializerMixin
 from activity.util import get_permitted_event_categories
 from choices.serializers import ChoiceField
@@ -46,6 +48,8 @@ from core.serializers import (ContentTypeField, GenericRelatedField,
 from core.utils import OneWeekSchedule
 from observations.serializers import SubjectSerializer
 from revision.manager import AC_RELATION_DELETED, AC_UPDATED
+from utils.feature_representation import FeatureRepresentation
+from utils.features import features
 from utils.json import parse_bool
 from utils.schema_utils import (get_schema_renderer_method,
                                 validate_rendered_schema_is_wellformed)
@@ -1326,12 +1330,23 @@ def auto_add_report_to_patrols(application, event):
                 segment.events.add(event)
 
 
+class EventGeometrySerializer(GeoFeatureModelSerializer):
+    class Meta:
+        model = EventGeometry
+        geo_field = 'geometry'
+        fields = ["geometry", ]
+
+
 class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
+
     serializer_choice_field = ChoiceField
     # Using PointField here provides the magic to convert between a
     #  json {lat/lon} and our internal representation.
     location = PointField(required=False, allow_null=True,
                           validators=[PointValidator(), ])
+
+    if features.geometries.is_on():
+        geometry = SerializerMethodField()
     time = DateTimeField(source='event_time', required=False)
     created_at = DateTimeField(required=False)
     updated_at = DateTimeField(source='sort_at', required=False)
@@ -1366,6 +1381,13 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
     patrol_segments = rest_framework.serializers.PrimaryKeyRelatedField(many=True, required=False,
                                                                         queryset=PatrolSegment.objects.all())
+    feature_representation = FeatureRepresentation()
+
+    if features.geometries.is_on():
+        def get_geometry(self, event):
+            if event.geometries.last():
+                return EventGeometrySerializer(event.geometries.all(), many=True, read_only=True).data
+            return None
 
     def create(self, validated_data):
         instance = super().create(validated_data)
@@ -1477,6 +1499,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     class Meta:
         model = activity.models.Event
         read_only_fields = ('updated_at', 'created_at', 'icon_id',)
+        if features.geometries.is_on():
+            read_only_fields = (*read_only_fields, "geometry")
         fields = (
             'id', 'location', 'time', 'end_time', 'serial_number', 'message', 'provenance',
             'event_type', 'priority', 'priority_label', 'attributes', 'comment', 'title',
@@ -1575,9 +1599,17 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             image_url = resolve_image_url(event)
             rep['image_url'] = utils.add_base_url(request, image_url)
 
-            if event.location is not None:
-                geodata = make_feature(self.context['request'], event)
-                rep['geojson'] = geodata
+            if features.geometries.is_on():
+                if self._has_instance_feature(event):
+                    rep["geojson"] = self._get_geojson(request, event)
+                    if self._has_both_features(event):
+                        rep["geojson"] = self._append_point_feature(
+                            request, event, rep)
+            else:
+                if event.location is not None:
+                    geodata = make_feature(self.context['request'], event)
+                    rep['geojson'] = geodata
+
         if event.event_type:
             rep['is_collection'] = event.event_type.is_collection
 
@@ -1602,6 +1634,25 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         rep['patrols'] = [item for item in patrol_ids if item is not None]
 
         return rep
+
+    def _has_both_features(self, instance):
+        return hasattr(instance, "location") and instance.location and instance.geometries.last()
+
+    def _has_instance_feature(self, instance):
+        return hasattr(instance, "location") and instance.location or instance.geometries.last()
+
+    def _get_geojson(self, request, instance):
+        if hasattr(instance, "location") and instance.location:
+            pass
+        elif instance.geometries.last():
+            instance = instance.geometries.last()
+        return self.feature_representation.get_feature(request, instance)
+
+    def _append_point_feature(self, request, instance, representation):
+        geometry_rep = representation.get("geometry", {})
+        geometry_rep["features"].append(
+            self.feature_representation.get_feature(request, instance))
+        return geometry_rep
 
 
 class EventGeoJsonSerializer(EventSerializer):
