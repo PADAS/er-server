@@ -30,6 +30,8 @@ from activity.tasks import (recreate_event_details_view,
 from core.admin import InlineExtraDynamicMixin
 from core.common import TIMEZONE_USED, AdminFeatureFlag
 from core.openlayers import OSMGeoExtendedAdmin
+from mapping.models import TileLayer
+from utils.features import features
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +43,34 @@ class EventRelationshipInline(admin.TabularInline):
 
 class EventDetailsInline(admin.TabularInline):
     model = models.EventDetails
+
+
+class EventGeometryInline(admin.OSMGeoAdmin, admin.StackedInline):
+    model = models.EventGeometry
+    max_num = 1
+    can_delete = True
+    wms_layer = 'terrain,overlay'
+    wms_url = 'http://tiles.maps.eox.at/wms/'
+    map_srid = 4326
+    display_wkt = True
+    num_zoom = 19
+    map_width = 800
+    map_height = 600
+    units = 'degrees'
+    verbose_name = _("Event Geometry")
+    verbose_name_plural = _("Event Geometries")
+
+    def get_map_widget(self, db_field):
+        OLMap = super().get_map_widget(db_field)
+        OLMap.params['tile_layers'] = list(
+            TileLayer.objects.values('attributes'))
+        return OLMap
+
+    def __init__(self, parent_model, admin_site):
+        self.admin_site = admin_site
+        self.parent_model = parent_model
+        self.opts = self.model._meta
+        self.has_registered_model = admin_site.is_registered(self.model)
 
 
 @admin.register(models.Event)
@@ -71,9 +101,9 @@ class EventAdmin(OSMGeoExtendedAdmin):
     search_fields = ('title', 'serial_number')
     list_filter = ('state', 'event_type', )
     actions = ('resolve_event',)
-    inlines = [
+    inlines = (
         EventDetailsInline,
-    ]
+    )
 
     fieldsets = (
         (None, {
@@ -84,6 +114,11 @@ class EventAdmin(OSMGeoExtendedAdmin):
             'fields': ('state', 'priority', 'location', 'id', 'created_at', 'updated_at',)
         })
     )
+
+    def __init__(self, model, admin_site):
+        super().__init__(model, admin_site)
+        if features.geometries.is_on():
+            self.inlines = (EventGeometryInline, *self.inlines)
 
     def resolve_event(self, request, queryset):
         queryset.update(state=models.Event.SC_RESOLVED)
