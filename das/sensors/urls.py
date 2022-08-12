@@ -89,7 +89,7 @@ urlpatterns = [
         name="er-track-view",
     ),
     re_path(
-        r"^(?P<sensor_type>[\w-]{3,100})/(?P<provider_key>[\w-]{3,100})/status/?$",
+        r"^(?P<sensor_type>[\w-]{3,100})/(?P<provider_key>[\w-]{3,100})/status/",
         views.GenericSensorHandlerView.as_view(),
     ),
 ]

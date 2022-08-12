@@ -1,22 +1,25 @@
-import logging
 import base64
-from io import BytesIO
 import datetime
+import logging
+from io import BytesIO
 
-from PIL import Image
-import pytz
 import piexif
+import pytz
+from PIL import Image
+
+import django.contrib.auth
 from django.contrib.auth.models import Permission
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test.testcases import TestCase
 from django.core.management import call_command
-import django.contrib.auth
+from django.http import HttpResponse
+from django.urls import resolve
 
-from utils import json
 from accounts.models import PermissionSet
 from core.tests import BaseAPITest
-from sensors.views import CameraTrapHandlerView
+from das_server.middleware import CommonMiddlewareAppendSlashWithoutRedirect
 from sensors import camera_trap
+from sensors.views import CameraTrapHandlerView
+from utils import json
 
 logger = logging.getLogger(__name__)
 User = django.contrib.auth.get_user_model()
@@ -88,8 +91,18 @@ class CameraTrapTest(BaseAPITest):
                          self.sensor_type, provider, 'status'))
         request = self.factory.post(path, data=data, format='multipart')
 
+        common_middleware = CommonMiddlewareAppendSlashWithoutRedirect(
+            self.get_response)
+        common_middleware(request)
+        resolver = resolve(request.path)
+
+        self.assertEqual(resolver.func.cls, CameraTrapHandlerView)
         self.force_authenticate(request, self.sensor_user)
         return CameraTrapHandlerView.as_view()(request, provider)
+
+    def get_response(self, request):
+        response = HttpResponse()
+        return response
 
     def test_post_image(self):
         for sample in SAMPLES:

@@ -20,7 +20,6 @@ from django.conf import settings
 from django.conf.urls import include
 from django.contrib import admin
 from django.urls import path, re_path
-from django.views.generic import TemplateView
 from rest_framework.renderers import JSONOpenAPIRenderer
 from rest_framework.schemas import get_schema_view
 
@@ -32,10 +31,6 @@ admin.site.enable_nav_sidebar = False
 
 schema_view = get_schema_view(
     title="EarthRanger API Documentation", renderer_classes=[JSONOpenAPIRenderer]
-)
-
-template_view = TemplateView.as_view(
-    template_name="swagger-ui.html", extra_context={"schema_url": "openapi-schema"}
 )
 
 urlpatterns = [
@@ -52,7 +47,7 @@ urlpatterns = [
                                       namespace="rest_framework")
     ),
     path("api/v1.0/api-schema/", schema_view, name="openapi-schema"),
-    path("api/v1.0/docs/interactive/", template_view),
+    path("api/v1.0/docs/interactive/", views.SwaggerTemplate.as_view()),
     path("api/v1.0/docs/", include("docs.urls")),
     path("admin/", admin.site.urls),
     path("dasadmin/", dasadmin_site.urls),

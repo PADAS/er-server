@@ -1,6 +1,10 @@
 import copy
+from datetime import datetime, timedelta
 
+import pytz
 from drf_extra_fields.geo_fields import PointField
+from oauth2_provider.models import AccessToken, Application
+from oauthlib.common import generate_token
 
 import rest_framework.serializers
 from django.conf import settings
@@ -8,6 +12,7 @@ from django.db import connection
 from django.db.migrations.recorder import MigrationRecorder
 from django.shortcuts import render
 from django.utils import timezone
+from django.views.generic import TemplateView
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
 from rest_framework.schemas.openapi import AutoSchema
@@ -24,6 +29,8 @@ from das_server import __version__
 from observations import servicesutils
 from observations.servicesutils import has_message_view_permission
 from utils.json import parse_bool
+
+CLIENT_ID = "das_web_client"
 
 
 def index(request):
@@ -205,3 +212,29 @@ class StatusView(generics.RetrieveAPIView):
 
     def get_last_migration(self):
         return MigrationRecorder.Migration.objects.latest('id')
+
+
+class SwaggerTemplate(TemplateView):
+    template_name = "swagger-ui.html"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.application = Application.objects.get(client_id=CLIENT_ID)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        token = None
+        if self.request.user.is_authenticated:
+            token = self._get_token()
+        context['token'] = token
+        context['schema_url'] = "openapi-schema"
+        return context
+
+    def _get_token(self):
+        ttl = getattr(settings, 'ACCESS_TOKEN_EXPIRE_SECONDS', 3600 * 48)
+        expire = datetime.now(tz=pytz.utc) + timedelta(days=ttl)
+        return AccessToken.objects.create(
+            user=self.request.user, token=generate_token(),
+            application=self.application, scope='read write',
+            expires=expire,
+        )

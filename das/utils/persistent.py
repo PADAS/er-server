@@ -52,7 +52,7 @@ class RedisStorage(PersistentStorageWitSortedSet):
         return self._connection.delete(key)
 
     def insert_in_sorted_set(self, key, value, score):
-        self._connection.zadd(key, value, score)
+        self._connection.zadd(key, {value: score})
 
     def get_size_sorted_set(self, key):
         data = self._connection.zrange(key, 0, -1)
