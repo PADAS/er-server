@@ -283,6 +283,7 @@ locals {
     "mara"                    = "prod1"
     "bluerhino"               = "prod1"
     "qwabi"                   = "prod1"
+    "tsavoecosystem"          = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
