@@ -523,10 +523,10 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
 
     def clean_default_silent_notification_threshold(self):
         data = self.cleaned_data["default_silent_notification_threshold"]
-        pattern = re.compile(r"^((?:[01]\d|2[0-3]):[0-5]\d$)")
+        pattern = re.compile(r"^(\d{2}:[0-5]\d$)")
         if data and not re.fullmatch(pattern, data):
             raise forms.ValidationError(
-                _("This field should follow the format HH:MM"))
+                _("This field should follow the format HH:MM and have to be lower than 99:59"))
         return data
 
 
