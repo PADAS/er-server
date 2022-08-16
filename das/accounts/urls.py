@@ -27,11 +27,11 @@ urlpatterns = [
     path("users/", UsersView.as_view()),
     path("users/csv/", UsersCsvView.as_view()),
     re_path(
-        "user/(?P<id>me|[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$",
+        "user/(?P<id>me|[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/$",
         UserView.as_view(),
     ),
     re_path(
-        r"^user/(?P<id>me|[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/profiles/?$",
+        r"^user/(?P<id>me|[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/profiles/$",
         UserProfilesView.as_view(),
     ),
     path("user/eula/", GetActiveEulaAPIView.as_view()),

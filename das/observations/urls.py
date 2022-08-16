@@ -71,7 +71,7 @@ urlpatterns = [
         name="source-subjects-view",
     ),
     re_path(
-        r"^source/(?P<manufacturer_id>[0-9a-zA-Z\-\.]{1,80})/?$",
+        r"^source/(?P<manufacturer_id>[0-9a-zA-Z\-\.]{1,80})/$",
         views.SourceView.as_view(),
     ),
     path(

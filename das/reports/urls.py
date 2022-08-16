@@ -28,7 +28,7 @@ urlpatterns = [
         ),
     ),
     re_path(
-        r"^tableau-dashboards/(?P<dashboard_id>default)/?$",
+        r"^tableau-dashboards/(?P<dashboard_id>default)/$",
         views.TableauDashboard.as_view(),
     ),
     path("tableau-views/", views.TableauAPIView.as_view()),

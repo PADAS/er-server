@@ -470,9 +470,9 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
 
     def get_urls(self):
         urls = super(UserAdmin, self).get_urls()
-        my_urls = [re_path(r'^(.+)/change/reset-password/?$',
+        my_urls = [re_path(r'^(.+)/change/reset-password/$',
                            self.admin_site.admin_view(self.reset_password)),
-                   re_path(r'^(.+)/change/get-kml-link/?$',
+                   re_path(r'^(.+)/change/get-kml-link/$',
                            self.admin_site.admin_view(self.get_kml_master_link))
                    ]
         return my_urls + urls
