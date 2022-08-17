@@ -74,6 +74,7 @@ from usercontent.serializers import get_stored_filename
 from utils.categories import get_categories_and_geo_categories
 from utils.drf import (StandardResultsSetGeoJsonPagination,
                        StandardResultsSetPagination)
+from utils.features import features
 from utils.json import ExtendedGEOJSONRenderer, loads, parse_bool
 
 logger = logging.getLogger(__name__)
@@ -398,6 +399,9 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
         else:
             schema = loads(eventtype.schema, object_pairs_hook=OrderedDict)
 
+        if features.geometries.is_on():
+            self._append_enable_geometry(eventtype, schema)
+
         if 'schema' not in schema:
             return generics.views.Response(None)
 
@@ -472,6 +476,13 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
 
     def _clean_curly_brackets(self, value):
         return value.replace("{{", "").replace("}}", "")
+
+    def _append_enable_geometry(self, event_type, schema):
+        try:
+            schema["schema"]["enable_geometry"] = event_type.enable_geometry
+        except KeyError:
+            logger.exception(
+                f"Field enable_geometry cannot be set on event type.")
 
 
 class EventFilterSchemaView(generics.RetrieveAPIView):

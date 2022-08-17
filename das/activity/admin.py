@@ -165,22 +165,46 @@ class EventTypeAdmin(admin.ModelAdmin):
     list_editable = ('ordernum', 'default_state',)
     list_display_links = ('display',)
     search_fields = ('display', 'value',)
-
     fieldsets = (
-        (None, {
-            'fields': ('display', 'value', 'category', 'is_collection', 'icon', 'ordernum', 'auto_eventtype_resolve')
-        }
+        (
+            None,
+            {
+                "fields": (
+                    "display",
+                    "value",
+                    "category",
+                    "is_collection",
+                    "icon",
+                    "ordernum",
+                    "auto_eventtype_resolve",
+                    "enable_geometry",
+                )
+            },
         ),
-        ('Default Values', {
-            'fields': ('default_priority', 'default_state', 'is_active')
-        }
+        ("Default Values", {
+         "fields": ("default_priority", "default_state", "is_active")}),
+        (
+            "Schema & Form Definition",
+            {
+                "classes": ("wide",),
+                "fields": ("schema",),
+            },
         ),
-        ('Schema & Form Definition',
-         {
-             "classes": ('wide',),
-             'fields': ('schema',),
-         })
     )
+
+    def get_fieldsets(self, request, obj=None):
+        fieldsets = super().get_fieldsets(request, obj)
+        if not features.geometries.is_on():
+            fields_to_remove = [
+                "enable_geometry",
+            ]
+            new_fields = tuple(
+                field
+                for field in fieldsets[0][1].get("fields")
+                if field not in fields_to_remove
+            )
+            fieldsets[0][1]["fields"] = new_fields
+        return fieldsets
 
     def _icon_display(self, obj):
         url = models.Event.marker_icon(

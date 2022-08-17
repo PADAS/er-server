@@ -23,11 +23,11 @@ class FeatureFlags:
             )
         }
 
-    def __getattr__(self, item):
+    def __getattr__(self, feature_name):
         try:
-            return self._features[item]
+            return self._features[feature_name]
         except KeyError:
-            raise Exception(f"Feature {item} is not defined yet.")
+            raise Exception(f"Feature {feature_name} is not defined yet.")
 
     def _get_flag(self, flag_name):
         try:

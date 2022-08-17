@@ -1,13 +1,16 @@
-import os
 import json
-from typing import NamedTuple, Any
+import os
+from typing import Any, NamedTuple
 
 import pytest
+
 from django.urls import reverse
 
-from activity.models import EventType, EventCategory
+from activity.models import EventCategory, EventType
 from activity.tests import schema_examples
-from rest_framework.exceptions import ErrorDetail
+from activity.views import EventTypeSchemaView
+from client_http import HTTPClient
+from utils.features import features
 
 pytestmark = pytest.mark.django_db
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tests')
@@ -196,3 +199,30 @@ def test_readonly_eventtype(eventtype_fixture, client):
     response = client.get(response.data.get('url'))
     assert response.status_code == 200
     assert response.data['readonly']
+
+
+@pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag")
+class TestEventTypeAPI:
+
+    def test_response_event_type_turn_on_geometry(self, event_type):
+        event_type.enable_geometry = True
+        event_type.save()
+
+        data = self._get_response(event_type).data
+
+        assert data["schema"]["enable_geometry"] is True
+
+    def test_response_event_type_turn_off_geometry(self, event_type):
+
+        data = self._get_response(event_type).data
+
+        assert data["schema"]["enable_geometry"] is False
+
+    def _get_response(self, event_type):
+        client = HTTPClient()
+        url = f"{reverse('event-schema-eventtype', kwargs={'eventtype': event_type.value})}"
+        request = client.factory.get(url)
+        client.force_authenticate(request, client.app_user)
+        return EventTypeSchemaView.as_view()(
+            request, eventtype=event_type.value
+        )

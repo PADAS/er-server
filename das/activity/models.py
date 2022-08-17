@@ -249,6 +249,7 @@ class EventType(TimestampedModel):
     auto_resolve = models.BooleanField(default=False)
     # Specify integer of hour(s).
     resolve_time = models.PositiveSmallIntegerField(blank=True, null=True)
+    enable_geometry = models.BooleanField(default=False)
 
     class Meta:
         constraints = [models.CheckConstraint(check=Q(auto_resolve=False, resolve_time__isnull=True) |
