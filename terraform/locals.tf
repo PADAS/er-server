@@ -430,6 +430,7 @@ locals {
     "mara"                    = 1
     "qwabi"                   = 1
     "ukulima"                 = 1
+    "limpopo"                 = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
