@@ -7,6 +7,7 @@ import pytz
 
 from django.db import transaction
 from django.test import override_settings
+from django.urls import resolve
 from rest_framework import status
 
 from accounts.models import User
@@ -57,6 +58,10 @@ class ErTrackHandlerTest(BaseAPITest):
                                                         password="adfsfds32423",
                                                         email="super@user.com")
         self.config = SourceProviderConfiguration.objects.get(is_default=True)
+
+    def test_url_handler(self):
+        resolver = resolve(self.api_path + "/")
+        assert resolver.func.cls == ERTrackHandlerView
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_post_a_duplicate_observation(self):

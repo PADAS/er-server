@@ -1,12 +1,12 @@
 import json
 from unittest import mock
 
-from django.urls import reverse
+from django.urls import resolve, reverse
 from rest_framework import status
 
+from core.tests import BaseAPITest, fake_get_pool
+from sensors.kerlink_push_handler import KerlinkMixin, KerlinkPushDataUp
 from sensors.views import KerlinkHandlerView
-from sensors.kerlink_push_handler import KerlinkPushDataUp, KerlinkMixin
-from core.tests import fake_get_pool, User, BaseAPITest
 
 test_data2 = {
     "id": "5f58ac3077d8d40001cf1103",
@@ -117,13 +117,18 @@ class KerlinkHandlerTest(BaseAPITest):
         provider_key = self.PROVIDER_KEY
         path = reverse('kerlink-view',
                        kwargs={'provider_key': provider_key})
-        return ''.join([self.api_base, path])
+        return path
 
     def _post_kerlink_dataup(self, payload):
-        request = self.factory.post(self.api_path, data=payload, content_type='application/json')
+        request = self.factory.post(
+            self.api_path, data=payload, content_type='application/json')
         self.force_authenticate(request, self.app_user)
         response = KerlinkHandlerView.as_view()(request, self.PROVIDER_KEY)
         return response
+
+    def test_url_handler(self):
+        resolver = resolve(self.api_path)
+        assert resolver.func.cls == KerlinkHandlerView
 
     def test_kerlink_serializer(self):
         serializer = KerlinkPushDataUp(data=self.test_data)
@@ -146,9 +151,9 @@ class KerlinkHandlerTest(BaseAPITest):
     @mock.patch.object(KerlinkMixin, 'endDevice_info')
     def test_decode_globalsat_payload(self, mock_method):
         mock_method.return_value = {
-                "profile": "VEHICLE",
-                "name": "DFP-429 FZS BENZ",
-                "appEui": "0000000000010203"
-            }
+            "profile": "VEHICLE",
+            "name": "DFP-429 FZS BENZ",
+            "appEui": "0000000000010203"
+        }
         response = self._post_kerlink_dataup(json.dumps(test_data2))
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)

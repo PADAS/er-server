@@ -9,7 +9,7 @@ from dateutil import parser as dateparser
 
 import django.contrib.auth
 from django.db import transaction
-from django.test import Client
+from django.test import Client, override_settings
 from django.urls import reverse
 from django.utils import lorem_ipsum
 from rest_framework import status
@@ -138,6 +138,7 @@ class GenericSensorHandlerTest(BaseAPITest):
         response = self._post_data(json.dumps(local_obs))
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    @override_settings(SHOW_TRACK_DAYS=365)
     def test_post_one(self):
         """If the subject has only a couple of observations and they are over a year old
         we shouldn't see tracks available and we shouldn't see the last_position field
@@ -417,13 +418,14 @@ class GenericSensorHandlerTest(BaseAPITest):
 
         response = client.post(
             self.api_path, self.one_observation, content_type="application/json")
-        print(f"\npath: {self.api_path}\n")
+
+        self.assertEqual(response.resolver_match.func.cls,
+                         GenericSensorHandlerView)
         assert response.status_code == 201
 
         provider = lorem_ipsum.words(200).replace(" ", "")[:200]
         url = '/'.join((self.api_base, 'sensors',
                         self.sensor_type, provider, 'status'))
-        print(f"\nURL: {url}\n")
 
         response = client.post(url, self.one_observation,
                                content_type="application/json")
