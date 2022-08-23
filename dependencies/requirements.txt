@@ -210,7 +210,7 @@ fiona==1.8.19
     #   rasterstats
 future==0.17.1
     # via django-ses
-GDAL==3.4.1
+gdal==3.4.1
     # via
     #   -r requirements.in
     #   pymet

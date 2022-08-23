@@ -16,7 +16,6 @@ from django.db.models import Aggregate
 
 from core import persistent_storage
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -225,7 +224,7 @@ def convert_date_string(date_str):
     return utc_date.isoformat()
 
 
-def dateparse(date_str, default_tz=pytz.utc):
+def dateparse(date_str: str, default_tz=pytz.utc):
     dt = dateutil.parser.parse(date_str)
     if not dt.tzinfo:
         dt = dt.replace(tzinfo=default_tz)
