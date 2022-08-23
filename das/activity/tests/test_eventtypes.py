@@ -11,6 +11,7 @@ from activity.tests import schema_examples
 from activity.views import EventTypeSchemaView
 from client_http import HTTPClient
 from utils.features import features
+from utils.tests_tools import is_url_resolved
 
 pytestmark = pytest.mark.django_db
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tests')
@@ -203,6 +204,10 @@ def test_readonly_eventtype(eventtype_fixture, client):
 
 @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag")
 class TestEventTypeAPI:
+    def test_url_resolver(self, event_type) -> None:
+        api_path = f"activity/events/schema/eventtype/{event_type.value}/"
+
+        assert is_url_resolved(api_path=api_path, view=EventTypeSchemaView)
 
     def test_response_event_type_turn_on_geometry(self, event_type):
         event_type.enable_geometry = True

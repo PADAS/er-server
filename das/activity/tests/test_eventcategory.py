@@ -1,9 +1,9 @@
 import django.contrib.auth
 from django.urls import reverse
 
+from accounts.views import UserView
 from activity.models import EventCategory
 from activity.views import EventCategoriesView, EventCategoryView
-from accounts.views import UserView
 from core.tests import BaseAPITest
 
 User = django.contrib.auth.get_user_model()
@@ -13,7 +13,8 @@ class EventCategoryTest(BaseAPITest):
 
     def setUp(self):
         super().setUp()
-        self.event_category_url = reverse('admin:activity_eventcategory_changelist')
+        self.event_category_url = reverse(
+            'admin:activity_eventcategory_changelist')
         user_const = dict(last_name='last', first_name='first')
         self.user = User.objects.create_user('user', 'user@test.com', 'all_perms_user', is_superuser=True,
                                              is_staff=True, **user_const)
@@ -70,27 +71,32 @@ class EventCategoryTest(BaseAPITest):
 
     def test_retrieve_event_category(self):
         eventcategory_id = str(EventCategory.objects.first().id)
-        url = reverse('event-category', kwargs={'eventcategory_id': eventcategory_id})
+        url = reverse('event-category',
+                      kwargs={'eventcategory_id': eventcategory_id})
         request = self.factory.get(url)
         self.force_authenticate(request, self.user)
-        response = EventCategoryView.as_view()(request, eventcategory_id=eventcategory_id)
+        response = EventCategoryView.as_view()(
+            request, eventcategory_id=eventcategory_id)
         self.assertEqual(response.status_code, 200)
 
     def test_patch_event_category(self):
         eventcategory_id = str(EventCategory.objects.first().id)
-        url = reverse('event-category', kwargs={'eventcategory_id': eventcategory_id})
+        url = reverse('event-category',
+                      kwargs={'eventcategory_id': eventcategory_id})
         data = {'value': "new-value"}
         request = self.factory.patch(url, data)
         self.force_authenticate(request, self.user)
-        response = EventCategoryView.as_view()(request, eventcategory_id=eventcategory_id)
+        response = EventCategoryView.as_view()(
+            request, eventcategory_id=eventcategory_id)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data.get('value'), data.get('value'))
 
     def test_delete_event_category(self):
         eventcategory_id = str(EventCategory.objects.first().id)
-        url = reverse('event-category', kwargs={'eventcategory_id': eventcategory_id})
+        url = reverse('event-category',
+                      kwargs={'eventcategory_id': eventcategory_id})
         request = self.factory.delete(url)
         self.force_authenticate(request, self.user)
-        response = EventCategoryView.as_view()(request, eventcategory_id=eventcategory_id)
+        response = EventCategoryView.as_view()(
+            request, eventcategory_id=eventcategory_id)
         self.assertEqual(response.status_code, 204)
-

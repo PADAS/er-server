@@ -522,7 +522,7 @@ class PatrolTypeAdmin(admin.ModelAdmin):
 class PatrolPermissionMixin:
     patrol_opts = models.Patrol._meta
 
-    def has_add_permission(self, request):
+    def has_add_permission(self, request, obj=None):
         opts = self.patrol_opts
         codename = get_permission_codename('add', opts)
         return request.user.has_perm(f"{opts.app_label}.{codename}")
@@ -722,7 +722,7 @@ class PatrolAdmin(PatrolPermissionMixin, OSMGeoExtendedAdmin):
         return f'{o.end_location.x:0.4} / {o.end_location.y:0.4}' if o.end_location else None
     end_location.short_description = 'end location (lon/lat)'
 
-    def has_add_permission(self, request):
+    def has_add_permission(self, request, obj=None):
         return False
 
     def get_form(self, request, obj=None, change=False, **kwargs):
