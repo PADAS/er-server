@@ -32,6 +32,7 @@ from core.common import TIMEZONE_USED, AdminFeatureFlag
 from core.openlayers import OSMGeoExtendedAdmin
 from mapping.models import TileLayer
 from utils.features import features
+from django.templatetags.static import static
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,7 @@ class EventGeometryInline(admin.OSMGeoAdmin, admin.StackedInline):
     units = 'degrees'
     verbose_name = _("Event Geometry")
     verbose_name_plural = _("Event Geometries")
+    extra_js = [static('js/prevent_default_events.js')]
 
     def get_map_widget(self, db_field):
         OLMap = super().get_map_widget(db_field)
