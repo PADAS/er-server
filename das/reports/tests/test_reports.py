@@ -1,17 +1,17 @@
 import datetime
+import uuid
 
-from django.test import TestCase
-from django.contrib.auth.models import Permission
 from django.core.management import call_command
 from django.http.request import HttpRequest
+from django.test import TestCase
 
-
+import reports.views as views
 import utils.schema_utils as schema_utils
-from activity.serializers import EventSerializer
-from accounts.models import PermissionSet, User
-from observations.models import SubjectGroup, Subject
+from accounts.models import User
 from activity.models import *
-from reports.reports import get_daily_report_data, get_conservancies
+from activity.serializers import EventSerializer
+from reports.reports import get_conservancies, get_daily_report_data
+from utils.tests_tools import is_url_resolved
 
 
 class TestReportUtils(TestCase):
@@ -28,6 +28,13 @@ class TestReportUtils(TestCase):
 
     def test_report_foo(self):
         self.assertTrue(EventType.objects.filter(value='carcass_rep').exists())
+
+    def test_tableau_urls(self):
+        assert is_url_resolved(
+            "reports/tableau-dashboards/default/", views.TableauDashboard)
+        assert is_url_resolved("reports/tableau-views/", views.TableauAPIView)
+        assert is_url_resolved(
+            f"reports/tableau-views/{uuid.uuid4()}/", views.TableauView)
 
     def test_render_eventdetails(self):
         edetails = {
