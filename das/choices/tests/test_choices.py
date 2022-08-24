@@ -1,11 +1,14 @@
 import json
 import os
-from typing import NamedTuple, Any
+from typing import Any, NamedTuple
 
 import pytest
+
 from django.urls import reverse
 
 from choices.models import Choice
+from choices.views import ChoiceView
+from utils.tests_tools import is_url_resolved
 
 pytestmark = pytest.mark.django_db
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tests')
@@ -106,6 +109,10 @@ def test_softdelete_choice(choices_fixture, client):
 
 @pytest.mark.django_db(transaction=True)
 class TestChoicesViews:
+    def test_url_resolving(self, choice):
+        api_path = f"choices/{choice.pk}/"
+        assert is_url_resolved(api_path=api_path, view=ChoiceView)
+
     def test_read_inactive_choice(self, choices_fixture, client):
         choices, user = choices_fixture.choices, choices_fixture.user
         inactive_choice = choices.filter(value='rhino').update(is_active=False)
