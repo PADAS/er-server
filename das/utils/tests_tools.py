@@ -7,7 +7,8 @@ API_BASE = '/api/v1.0'
 
 def is_url_resolved(api_path: str, view: Any) -> bool:
     """Resolve a URL path and try to get their related function. """
-    url_path = f"{API_BASE}/{api_path}"
+    url_path = api_path if api_path.startswith(
+        API_BASE) else f"{API_BASE}/{api_path}"
     resolver = resolve(url_path)
     return resolver.func.cls == view
 
