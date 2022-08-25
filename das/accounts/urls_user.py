@@ -1,4 +1,3 @@
-from django.conf.urls import re_path
 from django.contrib.auth import login, logout, views
 from django.urls import path
 
@@ -19,11 +18,8 @@ urlpatterns = [
         views.PasswordResetDoneView.as_view(),
         name="password_reset_done",
     ),
-    re_path(
-        r"^reset/(?P<uidb64>[0-9A-Za-z_\-]+)/(?P<token>[0-9A-Za-z]{1,13}-[0-9A-Za-z]{1,20})/$",
-        views.PasswordResetConfirmView.as_view(),
-        name="password_reset_confirm",
-    ),
+    path('reset/<uidb64>/<token>/', views.PasswordResetConfirmView.as_view(),
+         name='password_reset_confirm'),
     path(
         "reset/done/",
         views.PasswordResetCompleteView.as_view(),
