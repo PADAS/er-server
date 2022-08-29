@@ -178,6 +178,5 @@ spec:
           value: "api_server"
         resources:
           requests:
-            cpu: "200m"
-            memory: "250Mi"
-
+            cpu: "5m"
+            memory: "15Mi"

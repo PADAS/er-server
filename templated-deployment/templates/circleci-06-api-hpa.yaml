@@ -1,13 +1,27 @@
-apiVersion: autoscaling/v1
+apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
   name: api
   namespace: "${KUBERNETES_NAMESPACE}"
 spec:
-  maxReplicas: 5
+  maxReplicas: 4
   minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: api
-  targetCPUUtilizationPercentage: 50
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 100
+  behavior:
+    scaleDown:
+      selectPolicy: Max
+      stabilizationWindowSeconds: 300
+    scaleUp:
+      selectPolicy: Min
+      stabilizationWindowSeconds: 60
+      
