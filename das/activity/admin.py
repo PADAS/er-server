@@ -29,10 +29,8 @@ from activity.tasks import (recreate_event_details_view,
                             refresh_event_details_view)
 from core.admin import InlineExtraDynamicMixin
 from core.common import TIMEZONE_USED, AdminFeatureFlag
-from core.openlayers import OSMGeoExtendedAdmin
-from mapping.models import TileLayer
+from core.openlayers import OSMGeoExtendedAdmin, PropsOSMGeoAdminMixin
 from utils.features import features
-from django.templatetags.static import static
 
 logger = logging.getLogger(__name__)
 
@@ -46,27 +44,13 @@ class EventDetailsInline(admin.TabularInline):
     model = models.EventDetails
 
 
-class EventGeometryInline(admin.OSMGeoAdmin, admin.StackedInline):
+class EventGeometryInline(PropsOSMGeoAdminMixin, admin.StackedInline):
     model = models.EventGeometry
     max_num = 1
     can_delete = True
-    wms_layer = 'terrain,overlay'
-    wms_url = 'http://tiles.maps.eox.at/wms/'
-    map_srid = 4326
-    display_wkt = True
-    num_zoom = 19
-    map_width = 800
-    map_height = 600
-    units = 'degrees'
     verbose_name = _("Event Geometry")
     verbose_name_plural = _("Event Geometries")
-    extra_js = [static('js/prevent_default_events.js')]
-
-    def get_map_widget(self, db_field):
-        OLMap = super().get_map_widget(db_field)
-        OLMap.params['tile_layers'] = list(
-            TileLayer.objects.values('attributes'))
-        return OLMap
+    map_template = 'admin/openlayer/ol_geometry.html'
 
     def __init__(self, parent_model, admin_site):
         self.admin_site = admin_site
@@ -114,7 +98,7 @@ class EventAdmin(OSMGeoExtendedAdmin):
         ('Advanced', {
             'classes': ('wide', 'collapse',),
             'fields': ('state', 'priority', 'location', 'id', 'created_at', 'updated_at',)
-        })
+        }),
     )
 
     def __init__(self, model, admin_site):
