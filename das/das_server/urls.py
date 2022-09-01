@@ -34,7 +34,7 @@ schema_view = get_schema_view(
 )
 
 urlpatterns = [
-    path("api/v1.0/status/", views.StatusView.as_view()),
+    re_path("api/v1.0/status/?$", views.StatusView.as_view()),
     path("api/v1.0/", include("accounts.urls")),
     path("api/v1.0/", include("observations.urls")),
     path("api/v1.0/", include("mapping.urls")),
@@ -53,7 +53,7 @@ urlpatterns = [
     path("dasadmin/", dasadmin_site.urls),
     path("accounts/", include("accounts.urls_user")),
     path("oauth2/", include("oauth2_provider.urls", namespace="oauth2_provider")),
-    path("oauth2/token", oauth2_views.TokenView.as_view(), name="token"),
+    re_path("oauth2/token$", oauth2_views.TokenView.as_view(), name="token"),
     path("api/v1.0/reports/", include(("reports.urls", "reports"))),
     path("api/v1.0/usercontent/", include(("usercontent.urls", "usercontent"))),
     path("api/v1.0/", include("choices.urls")),
@@ -70,7 +70,7 @@ if settings.DEV:
             django.contrib.staticfiles.views.serve,
             kwargs={"path": "index.html"},
         ),
-        path("<str:path>", django.contrib.staticfiles.views.serve),
+        re_path(r"^(?P<path>.*)$", django.contrib.staticfiles.views.serve),
     ]
 
     try:
@@ -84,5 +84,5 @@ if settings.DEV:
 
 else:
     urlpatterns += [
-        path("", views.index),
+        re_path(r"^$", views.index),
     ]
