@@ -287,6 +287,7 @@ locals {
     "bioventurabrazil"        = "prod1"
     "limpopo"                 = "prod1"
     "ukulima"                 = "prod1"
+    "currumbin"               = "prod-asia"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
