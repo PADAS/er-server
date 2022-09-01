@@ -84,7 +84,7 @@ class MessagesTestCase(BaseAPITest):
 
         assert messaging.get('source_provider') == "Default"
         assert messaging.get(
-            'url') == "http://testserver/api/v1.0/messages/?subject_id=269524d5-a434-4377-9ea9-2a7946dbd9c4&source_id=56b1cf14-ef97-4054-8fbd-1342f265b2a9"
+            'url') == "http://testserver/api/v1.0/messages?subject_id=269524d5-a434-4377-9ea9-2a7946dbd9c4&source_id=56b1cf14-ef97-4054-8fbd-1342f265b2a9"
 
         # Post a message to the subject using url given in the payload
         message_data = dict(text="Left the outpost?")
