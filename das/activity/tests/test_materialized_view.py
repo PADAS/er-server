@@ -22,7 +22,7 @@ class MockSuperUser:
         return True
 
 
-class details_view_models(models.Model):
+class details_view(models.Model):
     # Test model to view records saved to event_details materialized view
     event_id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     event_type = models.CharField(max_length=50)
