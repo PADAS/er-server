@@ -20,6 +20,7 @@ from rest_framework.urlpatterns import format_suffix_patterns
 from accounts.views import (AcceptEulaAPIView, GetActiveEulaAPIView,
                             UserProfilesView, UsersCsvView, UsersView,
                             UserView)
+from utils.constants import regex
 
 app_name = "accounts"
 
@@ -27,13 +28,12 @@ urlpatterns = [
     path("users/", UsersView.as_view()),
     path("users/csv/", UsersCsvView.as_view()),
     re_path(
-        "user/(?P<id>me|[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/$",
+        rf"user/(?P<id>me|{regex.UUID})/?$",
         UserView.as_view(),
     ),
-    re_path(
-        r"^user/(?P<id>me|[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/profiles/$",
-        UserProfilesView.as_view(),
-    ),
+    re_path(rf'^user/(?P<id>me|{regex.UUID})/profiles/?$',
+            UserProfilesView.as_view()),
+
     path("user/eula/", GetActiveEulaAPIView.as_view()),
     path("user/eula/accept", AcceptEulaAPIView.as_view()),
 ]
