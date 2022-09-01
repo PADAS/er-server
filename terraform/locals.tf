@@ -287,7 +287,7 @@ locals {
     "bioventurabrazil"        = "prod1"
     "limpopo"                 = "prod1"
     "ukulima"                 = "prod1"
-    "currumbin"               = "prod1"
+    "currumbin"               = "prod-asia"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -432,7 +432,6 @@ locals {
     "qwabi"                   = 1
     "ukulima"                 = 1
     "limpopo"                 = 1
-    "currumbin"               = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
