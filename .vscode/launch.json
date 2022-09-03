@@ -89,15 +89,11 @@
                 "--worker-tmp-dir",
                 "/dev/shm",
                 "--worker-class",
-                "gevent",
+                "eventlet",
                 "--timeout",
-                "90",
+                "60",
                 "--log-level",
-                "info",
-                "--max-requests",
-                "500",
-                "--max-requests-jitter",
-                "1"
+                "info"
             ]
         },
         {

@@ -185,17 +185,17 @@ executors:
               password: $DOCKERHUB_PASSWORD
   circleci_executor:
     docker:
-      - image: 'circleci/buildpack-deps:stretch'
+      - image: 'cimg/base:current'
         auth:
               username: erdockerhub
               password: $DOCKERHUB_PASSWORD
+      
   docs_executor:
     docker:
-      - image: 'circleci/python:3.6.4'
+      - image: 'cimg/python:3.7'
         auth:
               username: erdockerhub
               password: $DOCKERHUB_PASSWORD
-
 jobs:
   relyance: 
     
@@ -258,7 +258,7 @@ jobs:
           name: "Generate build files"
           command: |
             mkdir sphinx-docs
-            sudo pip3 install -r dependencies/requirements-docs.txt 
+            pip3 install -r dependencies/requirements-docs.txt 
             cd docs
             make html
             cp -rf /home/circleci/project/docs/_build/ /home/circleci/project/sphinx-docs

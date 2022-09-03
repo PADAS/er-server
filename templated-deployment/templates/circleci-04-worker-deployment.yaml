@@ -37,11 +37,8 @@ spec:
         name: das-worker
         resources:
           requests:
-            cpu: "50m"
-            memory: "200Mi"
-#          limits:
-#            cpu: "500m"
-#            memory: "4000Mi"
+            cpu: "200m"
+            memory: "500Mi"
         livenessProbe:
           exec:
             command:
@@ -136,3 +133,7 @@ spec:
         env:
         - name: SERVICE_NAME
           value: "default_worker"
+        resources:
+          requests:
+            cpu: "5m"
+            memory: "15Mi"

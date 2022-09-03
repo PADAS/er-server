@@ -38,10 +38,7 @@ spec:
         resources:
           requests:
             cpu: "200m"
-            memory: "500Mi"
-#          limits:
-#            cpu: "600m"
-#            memory: "4000Mi"
+            memory: "373Mi"
         ports:
           - containerPort: 8000
         readinessProbe:
@@ -178,6 +175,5 @@ spec:
           value: "api_server"
         resources:
           requests:
-            cpu: "200m"
-            memory: "250Mi"
-
+            cpu: "5m"
+            memory: "15Mi"

@@ -51,9 +51,9 @@ INSTALLED_APPS = (
     'rest_framework_swagger',
     'observations.apps.ObservationsConfig',
     'analyzers.apps.AnalyzersConfig',
-    'das_server',
+    'das_server.apps.DasServerConfig',
     'tracking',
-    'sensors',
+    'sensors.apps.SensorsConfig',
     'mapping.apps.MappingConfig',
     'activity.apps.ActivityConfig',
     'rt_api.apps.RTAPIConfig',
@@ -62,7 +62,7 @@ INSTALLED_APPS = (
     'choices',
     'reports.apps.ReportsConfig',
     'django_readonly_field',
-    'usercontent',
+    'usercontent.apps.UsercontentConfig',
     'django.contrib.postgres',
     'django.contrib.humanize',
     'django_extensions',
@@ -593,3 +593,4 @@ PERSISTENT_STORAGE = {
     "PORT": "6379"
 }
 APPEND_SLASH = True
+DISABLE_STATSD = True

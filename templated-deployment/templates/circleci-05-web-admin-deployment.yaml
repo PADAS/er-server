@@ -31,8 +31,8 @@ spec:
         image: "${WEB_ADMIN_VERSION}"
         resources:
           requests:
-            cpu: "75m"
-            memory: "100Mi"
+            cpu: "5m"
+            memory: "11Mi"
           limits:
             cpu: "150m"
             memory: "200Mi"

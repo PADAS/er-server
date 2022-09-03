@@ -44,8 +44,15 @@
 
 	// Add the IDs of extensions you want installed when the container is created.
 	"extensions": [
-		"ms-python.python@2022.8.1",
-		"ms-python.vscode-pylance@2022.06.30"
+		"ms-python.python",
+		"ms-python.vscode-pylance",
+		"eamodio.gitlens",
+		"yzhang.markdown-all-in-one",
+		"njpwerner.autodocstring",
+		"ms-python.isort",
+		"humao.rest-client",
+		"visualstudioexptteam.vscodeintellicode",
+		"marklarah.pre-commit-vscode"
 	],
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
