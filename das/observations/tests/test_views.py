@@ -11,7 +11,7 @@ import pytz
 from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
 from django.test import override_settings
-from django.urls import reverse
+from django.urls import resolve, reverse
 
 from accounts.models import PermissionSet, User
 from client_http import HTTPClient
@@ -20,7 +20,7 @@ from observations import views
 from observations.models import (DEFAULT_ASSIGNED_RANGE, Observation, Source,
                                  SourceGroup, Subject, SubjectGroup,
                                  SubjectSource)
-from observations.views import SourceSubjectsView
+from observations.views import SourceSubjectsView, SourceView
 
 
 def random_string(length=10):
@@ -786,3 +786,12 @@ class TestSourceSubjectsView:
 
         assert response.status_code == 201
         assert SubjectSource.objects.all().count() == subject_source_count + 1
+
+
+@pytest.mark.django_db
+class TestSourceView:
+
+    def test_resolve_url(self):
+        resolver = resolve("/api/v1.0/source/manufacturer/")
+
+        assert resolver.func.cls == SourceView

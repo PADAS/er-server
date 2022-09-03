@@ -1,11 +1,8 @@
-from django.conf.urls import re_path
-from django.urls import path, register_converter
+from django.urls import re_path
 from rest_framework.renderers import JSONOpenAPIRenderer
 from rest_framework.schemas import get_schema_view
 
 from sensors import views
-
-from .url_converters import SensorKeyConverter
 
 schema_view = get_schema_view(
     title="EarthRanger API Documentation",
@@ -15,81 +12,82 @@ schema_view = get_schema_view(
     renderer_classes=[JSONOpenAPIRenderer],
 )
 
-register_converter(SensorKeyConverter, "sensor_key")
+SENSOR_TYPE: str = r"(?P<sensor_type>[\w-]{3,100})"
+PROVIDER_KEY_SUFFIX: str = r"(?P<provider_key>[\w-]{3,100})/status/?$"
 
 
 urlpatterns = [
-    path("openapi-schema/", schema_view, name="openapi-schema"),
-    path("gsat/<sensor_key:provider_key>/status/",
-         views.GsatHandlerView.as_view()),
-    path(
-        "dasradioagent/<sensor_key:provider_key>/status/",
+    re_path(r"^openapi-schema/?$", schema_view, name="openapi-schema"),
+    re_path(rf"^gsat/{PROVIDER_KEY_SUFFIX}",
+            views.GsatHandlerView.as_view()),
+    re_path(
+        rf"^dasradioagent/{PROVIDER_KEY_SUFFIX}",
         views.RadioAgentHandlerView.as_view(),
     ),
-    path(
-        "camera-trap/<sensor_key:provider_key>/status/",
+    re_path(
+        rf"^camera-trap/{PROVIDER_KEY_SUFFIX}",
         views.CameraTrapHandlerView.as_view(),
     ),
-    path(
-        "vehicle-tracker-push/<sensor_key:provider_key>/status/",
+    re_path(
+        rf"^vehicle-tracker-push/{PROVIDER_KEY_SUFFIX}",
         views.SkylineVehicleHandlerView.as_view(),
     ),
-    path(
-        "vehicle-observation/<sensor_key:provider_key>/status/",
+    re_path(
+        rf"^vehicle-observation/{PROVIDER_KEY_SUFFIX}",
         views.TractVehicleHandlerView.as_view(),
     ),
-    path(
-        "animal-collar-push/<sensor_key:provider_key>/status/",
+    re_path(
+        rf"^animal-collar-push/{PROVIDER_KEY_SUFFIX}",
         views.FollowltHandlerView.as_view(),
     ),
-    path(
-        "sf-animal-tracker/<sensor_key:provider_key>/status/",
+    re_path(
+        rf"^sf-animal-tracker/{PROVIDER_KEY_SUFFIX}",
         views.SigFoxHandlerView.as_view(),
     ),
-    path(
-        "gfw-alert/<sensor_key:provider_key>/status/",
+    re_path(
+        rf"^gfw-alert/{PROVIDER_KEY_SUFFIX}",
         views.GFWAlertHandlerView.as_view(),
         name="gfahandler-view",
     ),
-    path(
-        "sff-tracker/<sensor_key:provider_key>/status/",
+    re_path(
+        rf"^sff-tracker/{PROVIDER_KEY_SUFFIX}",
         views.SigfoxFoundationHandlerView.as_view(),
         name="sigfox-v1-view",
     ),
-    path(
-        "sff-tracker-v2/<sensor_key:provider_key>/status/",
+    re_path(
+        rf"^sff-tracker-v2/{PROVIDER_KEY_SUFFIX}",
         views.SigfoxV2FoundationHandlerView.as_view(),
         name="sigfox-v2-view",
     ),
-    path("gate/<sensor_key:provider_key>/status/",
-         views.GateHandlerView.as_view()),
-    path("test/<sensor_key:provider_key>/status/",
-         views.TestHandlerView.as_view()),
-    path(
-        "capturs-tracker/<sensor_key:provider_key>/status/",
+    re_path(rf"^gate/{PROVIDER_KEY_SUFFIX}",
+            views.GateHandlerView.as_view()),
+    re_path(rf"^test/{PROVIDER_KEY_SUFFIX}",
+            views.TestHandlerView.as_view()),
+    re_path(
+        rf"^capturs-tracker/{PROVIDER_KEY_SUFFIX}",
         views.CaptursHandlerView.as_view(),
     ),
-    path(
-        "ezytrack-tracker/<sensor_key:provider_key>/status/",
+    re_path(
+        rf"^ezytrack-tracker/{PROVIDER_KEY_SUFFIX}",
         views.EzyTrackHandlerView.as_view(),
         name="ezytrack-view",
     ),
-    path(
-        "inreach-tracker/<sensor_key:provider_key>/status/",
+    re_path(
+        rf"^inreach-tracker/{PROVIDER_KEY_SUFFIX}",
         views.InreachHandlerView.as_view(),
     ),
-    path(
-        "kerlink-push/<sensor_key:provider_key>/status/",
+    re_path(
+        rf"^kerlink-push/{PROVIDER_KEY_SUFFIX}",
         views.KerlinkHandlerView.as_view(),
         name="kerlink-view",
     ),
-    path(
-        "ertrack/<sensor_key:provider_key>/status/",
+    re_path(
+        rf"^ertrack/{PROVIDER_KEY_SUFFIX}",
         views.ERTrackHandlerView.as_view(),
         name="er-track-view",
     ),
     re_path(
-        r"^(?P<sensor_type>[\w-]{3,100})/(?P<provider_key>[\w-]{3,100})/status/",
+        rf"^{SENSOR_TYPE}/{PROVIDER_KEY_SUFFIX}",
         views.GenericSensorHandlerView.as_view(),
     ),
 ]

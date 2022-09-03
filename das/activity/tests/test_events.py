@@ -45,6 +45,7 @@ from utils.categories import get_categories_and_geo_categories
 from utils.gis import convert_to_point
 from utils.html import clean_user_text
 from utils.schema_utils import format_key_for_title
+from utils.tests_tools import BaseTestToolMixin
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +100,7 @@ def fake_get_pool():
     return Connection("memory://").Pool(20)
 
 
-class TestEventView(BaseAPITest):
+class TestEventView(BaseTestToolMixin, BaseAPITest):
     user_const = dict(last_name='last', first_name='first')
 
     def setUp(self):
@@ -206,6 +207,8 @@ class TestEventView(BaseAPITest):
             hour=0, minute=0, second=0, microsecond=0)
         self.end_of_today = self.start_of_today + \
             timedelta(hours=23, minutes=59, seconds=59)
+        self.api_path = f"activity/event/{self.sample_event.pk}/"
+        self.view = views.EventView
 
     def tearDown(self):
         shutil.rmtree(self.temporary_folder)
@@ -3504,7 +3507,10 @@ class TestEventFilterQueryset:
 
 
 @pytest.mark.django_db
-class TestEventView2:
+class TestEventView2(BaseTestToolMixin):
+    api_path = "activity/events/"
+    view = views.EventsView
+
     def test_auto_add_report_to_patrols(self, five_patrol_segment_subject):
         patrol = Patrol.objects.order_by("created_at").last()
         segment = patrol.patrol_segments.first()

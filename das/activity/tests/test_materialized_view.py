@@ -1,5 +1,6 @@
 import json
 import uuid
+from collections import namedtuple
 
 import django.db.models as models
 from django.contrib.admin.sites import AdminSite
@@ -11,10 +12,10 @@ from activity.admin import RefreshRecreateEventDetailViewAdmin
 from activity.materialized_view import (check_db_view_exists, generate_DDL,
                                         re_create_view,
                                         refresh_materialized_view)
-from activity.models import (Event, EventCategory, EventDetails,
-                             EventType, RefreshRecreateEventDetailView)
+from activity.models import (Event, EventDetails, EventType,
+                             RefreshRecreateEventDetailView)
 from core.tests import BaseAPITest
-from collections import namedtuple
+
 
 class MockSuperUser:
     def has_perm(self, perm):
@@ -88,9 +89,12 @@ class TestMaterializedView(BaseAPITest):
                                       'subjects_name behavior_choice behavior sample_attr expected_report_tuple')
 
         event1 = EventDetailsItem(subjects_name='event1 subjects',
-                                    behavior_choice={"name": "Ambushed", "value": "ambushed"},
-                                    behavior=[{"name": "sleeping", "value": "b1"}, {"name": "eating", "value": "b2"}],
-                                    sample_attr={"name": "Sample_attr Name", "value": "sample_attr 1"},
+                                  behavior_choice={
+                                      "name": "Ambushed", "value": "ambushed"},
+                                  behavior=[{"name": "sleeping", "value": "b1"}, {
+                                      "name": "eating", "value": "b2"}],
+                                  sample_attr={
+                                      "name": "Sample_attr Name", "value": "sample_attr 1"},
                                   expected_report_tuple=EventDetailsItem(
                                       subjects_name='event1 subjects',
                                       behavior_choice='ambushed',
@@ -100,13 +104,14 @@ class TestMaterializedView(BaseAPITest):
                                   ))
 
         event2 = EventDetailsItem(subjects_name='event2 subjects',
-                                    behavior_choice="ambushed",
-                                    behavior=[{"name": "Eating", "value": "eating"}, {"name": "Sleeping", "value": "sleeping"}],
-                                    sample_attr="sample_attr 2",
+                                  behavior_choice="ambushed",
+                                  behavior=[{"name": "Eating", "value": "eating"}, {
+                                      "name": "Sleeping", "value": "sleeping"}],
+                                  sample_attr="sample_attr 2",
                                   expected_report_tuple=EventDetailsItem(
                                       subjects_name='event2 subjects',
                                       behavior_choice='ambushed',
-                                      behavior=['eating', 'sleeping',],
+                                      behavior=['eating', 'sleeping', ],
                                       sample_attr='sample_attr 2',
                                       expected_report_tuple=None
 
@@ -123,9 +128,9 @@ class TestMaterializedView(BaseAPITest):
                     "behavior": {"type": "array", "title": "array test"},
                     "sample_attr": {"type": "string", "title": "name and value test"}},
                     "$schema": "http://json-schema.org/draft-04/schema#",
-                },
+                 },
             "definition": ["behavior_choice", "sample_attr"]
-            })
+        })
 
         self.event_type = EventType.objects.filter(value="immobility").first()
         self.event_type.schema = schema
@@ -141,8 +146,8 @@ class TestMaterializedView(BaseAPITest):
                     "behavior": event1.behavior}
             },
             event=Event.objects.create(
-            title="test event with new format", event_type=self.event_type,
-            created_by_user=self.app_user, state="new"))
+                title="test event with new format", event_type=self.event_type,
+                created_by_user=self.app_user, state="new"))
 
         EventDetails.objects.create(
             data={
@@ -153,8 +158,8 @@ class TestMaterializedView(BaseAPITest):
                     "behavior": event2.behavior}
             },
             event=Event.objects.create(
-            title="test event old format", event_type=self.event_type,
-            created_by_user=self.app_user, state="new"))
+                title="test event old format", event_type=self.event_type,
+                created_by_user=self.app_user, state="new"))
 
         # clear all eventtypes to focus ddl generation on one eventtype
         EventType.objects.exclude(value="immobility").delete()
@@ -174,6 +179,6 @@ class TestMaterializedView(BaseAPITest):
                 (test_event.expected_report_tuple.behavior,
                  test_event.expected_report_tuple.behavior_choice,
                  test_event.expected_report_tuple.sample_attr),
-                (event_details.behavior, event_details.behavior_choice, event_details.sample_attr)
+                (event_details.behavior, event_details.behavior_choice,
+                 event_details.sample_attr)
             )
-

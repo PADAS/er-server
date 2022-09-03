@@ -261,8 +261,6 @@ def update_user_session(sid):
     except UserSession.DoesNotExist:
         logger.warning(f"sid {sid} not found in UserSession")
     else:
-        user_session.time_range = DateTimeTZRange(upper=datetime.datetime.now(pytz.utc),
-                                                  lower=user_session.time_range.lower)
         if not user_session.time_range:
             logger.warning(f"UserSession missing time_range: {user_session}")
             user_session.time_range = DateTimeTZRange(
@@ -351,11 +349,9 @@ def message_index(sid, message_type):
     return redis_client.hincrby(f'mid-{sid}', message_type, 1)
 
 
-def save_session_timestamp(sid, subject_id=None, timestamp=None):
+def save_session_timestamp(sid, subject_id=None):
 
-    timestamp = timestamp or datetime.datetime.now(tz=pytz.utc)
-    if isinstance(timestamp, datetime.datetime):
-        timestamp = timestamp.timestamp()
+    timestamp = datetime.datetime.now(tz=pytz.utc).isoformat()
 
     if subject_id:
         redis_client.hset(SID_SUBJECTS_TIMESTAMPS_KEY.format(
@@ -370,9 +366,4 @@ def get_sid_subject_timestamp(sid, subject_id):
     ts = redis_client.hget(SID_SUBJECTS_TIMESTAMPS_KEY.format(sid), subject_id)
     sid_ts = redis_client.get(SID_SESSION_TIMESTAMP_KEY.format(sid))
     ts = ts or sid_ts
-
-    return (
-        datetime.datetime.fromtimestamp(float(ts.decode()))
-        if ts
-        else datetime.datetime.now(tz=pytz.utc).isoformat()
-    )
+    return ts.decode() if ts else datetime.datetime.now(tz=pytz.utc).isoformat()

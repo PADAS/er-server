@@ -75,7 +75,7 @@ MIDDLEWARE = (
     'corsheaders.middleware.CorsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'das_server.middleware.CommonMiddlewareAppendSlashWithoutRedirect',
+    'django.middleware.common.CommonMiddleware',
     'django.middleware.locale.LocaleMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'corsheaders.middleware.CorsPostCsrfMiddleware',
@@ -592,5 +592,4 @@ PERSISTENT_STORAGE = {
     "HOST": "redis",
     "PORT": "6379"
 }
-APPEND_SLASH = True
 DISABLE_STATSD = True

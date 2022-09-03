@@ -1,9 +1,10 @@
-from django.contrib.gis.db import models
 from django.test import TestCase
-from analyzers.models import EnvironmentalSubjectAnalyzerConfig, SubjectAnalyzerResult
+
 from activity.models import Event
+from analyzers.models import EnvironmentalSubjectAnalyzerConfig
 from analyzers.tasks import analyze_subject
-from .analyzer_test_utils import *
+from analyzers.tests.analyzer_test_utils import generate_random_positions
+from observations import models
 
 
 class TestEnvironmentAnalyzer(TestCase):
@@ -27,7 +28,6 @@ class TestEnvironmentAnalyzer(TestCase):
         pass
 
     def test_environmental_analyzer(self):
-
         # Create models (Subject, SubjectSource and Source)
         sub = models.Subject.objects.create_subject(
             name='RandomWalkElephant', subject_subtype_id='elephant')
@@ -65,9 +65,6 @@ class TestEnvironmentAnalyzer(TestCase):
                 source=source, additional={})
 
         analyze_subject(str(sub.id))
-
-        # self.assertTrue(
-        #     SubjectAnalyzerResult.objects.filter(subject=sub).exists())
 
         for e in Event.objects.all():
             self.assertTrue(e.event_details.all().exists())

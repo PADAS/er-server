@@ -45,41 +45,44 @@ class DasSocketServer(Server):
 
 
 def create_rt_socketio():
-    try:
-        client.init_redis_storage()
-        client.start_trace_consumer()
+    client.init_redis_storage()
+    client.start_trace_consumer()
 
-        global GLOBAL_SIO
-        if GLOBAL_SIO is None:
+    global GLOBAL_SIO
+    if GLOBAL_SIO is None:
 
-            connection_options = dict(
-                transport_options=settings.REALTIME_BROKER_OPTIONS)
-            client_mgr = KombuManager(url=settings.REALTIME_BROKER_URL,
-                                      connection_options=connection_options
-                                      )
-            server_options = dict(async_mode=settings.ASYNC_MODE)
-            server_options['cors_credentials'] = \
-                getattr(settings, 'CORS_ALLOW_CREDENTIALS', False)
+        connection_options = dict(
+            transport_options=settings.REALTIME_BROKER_OPTIONS)
+        client_mgr = KombuManager(
+            url=settings.REALTIME_BROKER_URL, connection_options=connection_options
+        )
+        server_options = dict(async_mode=settings.ASYNC_MODE)
+        server_options["cors_credentials"] = getattr(
+            settings, "CORS_ALLOW_CREDENTIALS", False
+        )
 
-            if getattr(settings, 'CORS_ORIGIN_ALLOW_ALL', False):
-                server_options['cors_allowed_origins'] = '*'
-            else:
-                server_options['cors_allowed_origins'] = \
-                    getattr(settings, 'CORS_ORIGIN_WHITELIST', None)
+        if getattr(settings, "CORS_ORIGIN_ALLOW_ALL", False):
+            server_options["cors_allowed_origins"] = "*"
+        else:
+            server_options["cors_allowed_origins"] = getattr(
+                settings, "CORS_ORIGIN_WHITELIST", None
+            )
 
-            socketio_logger = logging.getLogger('rt_api.socketio')
-            sio = DasSocketServer(client_manager=client_mgr,
-                                  json=utils.json,
-                                  logger=socketio_logger,
-                                  engineio_logger=socketio_logger,
-                                  async_handlers=False,
-                                  **server_options)
+        socketio_logger = logging.getLogger("rt_api.socketio")
+        sio = DasSocketServer(
+            client_manager=client_mgr,
+            json=utils.json,
+            logger=socketio_logger,
+            engineio_logger=socketio_logger,
+            async_handlers=False,
+            **server_options
+        )
 
-            realtime_services = create_realtime_handler(sio)
-            rt_api.pubsub_listener.start(realtime_services)
-            GLOBAL_SIO = sio
-    finally:
-        close_old_connections()
+        realtime_services = create_realtime_handler(sio)
+        rt_api.pubsub_listener.start(realtime_services)
+        GLOBAL_SIO = sio
+
+    close_old_connections()
 
     return GLOBAL_SIO
 
