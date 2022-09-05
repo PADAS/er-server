@@ -31,7 +31,7 @@ class FeatureFlags:
 
     def _get_flag(self, flag_name):
         try:
-            return os.getenv(f"FEATURE_{flag_name}".upper(), "False").lower() in ["true"]
+            return os.getenv(f"FEATURE_{flag_name}".upper(), "True").lower() in ["true"]
         except ValueError:
             return False
 

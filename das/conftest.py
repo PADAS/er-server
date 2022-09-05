@@ -1,9 +1,12 @@
 import pytest
+from oauth2_provider.models import Application
 from pytest_factoryboy import register
 
 from django.contrib.auth.models import Permission
+from rest_framework.test import APIClient
 
-from factories import (EventCategoryFactory, EventDetailsFactory, EventFactory,
+from factories import (AccessTokenFactory, EventCategoryFactory,
+                       EventDetailsFactory, EventFactory, EventGeometryFactory,
                        EventNoteFactory, EventTypeFactory,
                        FeatureProximityAnalyzerConfigFactory,
                        GeofenceAnalyzerConfigFactory, PatrolFactory,
@@ -236,3 +239,29 @@ def basic_event_categories():
     categories = ["analyzer_event", "logistics", "monitoring", "security"]
     for category in categories:
         EventCategoryFactory.create(value=category)
+
+
+@pytest.fixture
+def application():
+    application, _ = Application.objects.get_or_create(
+        client_id="das_web_client")
+    return application
+
+
+@pytest.fixture
+def superuser():
+    return UserFactory(is_superuser=True)
+
+
+@pytest.fixture
+def superuser_client(application, superuser):
+    token = AccessTokenFactory(user=superuser, application=application).token
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION='Bearer ' + token)
+    client.force_login(user=superuser)
+    return client
+
+
+@pytest.fixture
+def event_geometry_with_polygon():
+    return EventGeometryFactory.create()

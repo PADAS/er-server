@@ -1,6 +1,8 @@
 import logging
+from abc import ABC, abstractmethod
 from typing import Union
 
+from geojson import Feature, Polygon
 from rest_framework_gis.serializers import GeoFeatureModelSerializer
 
 from rest_framework.request import Request
@@ -40,6 +42,8 @@ class FeatureRepresentation:
                     instance, image_url)
                 if image_url:
                     feature["properties"]["icon"] = self._get_icon(image_url)
+            elif model_name == "EventGeometry":
+                feature["properties"] = instance.properties
             return feature
         except Exception as e:
             logger.exception("TODO Error creating feature  %s", e)
@@ -65,3 +69,26 @@ class FeatureRepresentation:
             "popupAncor": [0, -13],
             "className": "dot",
         }
+
+
+class GeometryFeature(ABC):
+    @abstractmethod
+    def get(self, coordinates: dict, properties: dict) -> Feature:
+        pass
+
+
+class PolygonFeature(GeometryFeature):
+    def get(self, coordinates: tuple, properties: dict) -> Feature:
+        return Feature(geometry=Polygon(coordinates), properties=properties)
+
+
+class FeatureFactory:
+    _features = {
+        "Polygon": PolygonFeature()
+    }
+
+    def get_for_feature(self, sort):
+        try:
+            return self._features[sort]
+        except KeyError:
+            raise ValueError(f"Type {sort} not supported for FeatureFactory")

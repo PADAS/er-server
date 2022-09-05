@@ -2027,4 +2027,5 @@ class EventGeometry(RevisionMixin, TimestampedModel):
         related_name="geometries",
         related_query_name="geometries",
     )
+    properties = models.JSONField(default=dict)
     revision = Revision()

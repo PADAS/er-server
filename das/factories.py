@@ -1,13 +1,20 @@
+import datetime
+import uuid
+
 import factory
 from factory import fuzzy
+from factory.fuzzy import BaseFuzzyAttribute
+from oauth2_provider.models import AccessToken
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
+from django.contrib.gis.geos import Polygon
+from django.utils import timezone
 
 from accounts.models.permissionset import PermissionSet
-from activity.models import (Event, EventCategory, EventDetails, EventNote,
-                             EventType, Patrol, PatrolNote, PatrolSegment,
-                             PatrolType)
+from activity.models import (Event, EventCategory, EventDetails, EventGeometry,
+                             EventNote, EventType, Patrol, PatrolNote,
+                             PatrolSegment, PatrolType)
 from analyzers.models import (FeatureProximityAnalyzerConfig,
                               GeofenceAnalyzerConfig)
 from mapping.models import SpatialFeatureGroupStatic, SpatialFeatureType
@@ -239,3 +246,40 @@ class EventNoteFactory(factory.django.DjangoModelFactory):
     text = fuzzy.FuzzyText(length=20)
     event = factory.SubFactory(EventFactory)
     created_by_user = factory.SubFactory(UserFactory)
+
+
+class FuzzyPolygon(BaseFuzzyAttribute):
+    def fuzz(self):
+        return Polygon(
+            (
+                (-114.82910156249999, 33.17434155100208),
+                (-80.5517578125, 25.443274612305746),
+                (-104.2822265625, 48.86471476180277),
+                (-114.82910156249999, 33.17434155100208),
+            )
+        )
+
+
+class EventGeometryFactory(factory.django.DjangoModelFactory):
+
+    class Meta:
+        model = EventGeometry
+
+    geometry = FuzzyPolygon()
+    event = factory.SubFactory(EventFactory)
+
+
+class AccessTokenFactory(factory.django.DjangoModelFactory):
+
+    class Meta:
+        model = AccessToken
+
+    scope = "read write"
+
+    @factory.lazy_attribute
+    def token(self):
+        return str(uuid.uuid4())
+
+    @factory.lazy_attribute
+    def expires(self):
+        return timezone.now() + datetime.timedelta(days=1)

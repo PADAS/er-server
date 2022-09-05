@@ -8,15 +8,14 @@ import drf_extra_fields.geo_fields
 import jsonschema
 import pytz
 from drf_extra_fields.geo_fields import PointField
-from rest_framework_gis.serializers import (GeoFeatureModelListSerializer,
-                                            GeoFeatureModelSerializer)
+from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 from versatileimagefield.serializers import VersatileImageFieldSerializer
 
 import django.db
 import rest_framework.serializers
 import rest_framework.status
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.gis.geos import Point
+from django.contrib.gis.geos import Point, Polygon
 from django.core.exceptions import PermissionDenied
 from django.core.validators import EmailValidator, RegexValidator
 from django.http import Http404
@@ -28,7 +27,6 @@ from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.fields import DateTimeField
 from rest_framework.metadata import BaseMetadata
 from rest_framework.request import clone_request
-from rest_framework.serializers import SerializerMethodField
 from rest_framework.utils.field_mapping import ClassLookupDict
 
 import activity.models
@@ -38,9 +36,11 @@ import utils.schema_utils as schema_utils
 from accounts.serializers import (UserDisplaySerializer, UserSerializer,
                                   get_user_display)
 from activity.alerting.conditions import Conditions
+from activity.event_geometries import GenericGeometryFactory
 from activity.exceptions import SchemaValidationError
-from activity.models import PC_OPEN, EventGeometry, PatrolSegment
+from activity.models import PC_OPEN, Event, EventGeometry, PatrolSegment
 from activity.serializers.base import FileSerializerMixin
+from activity.serializers.fields import EventGeometryField
 from activity.util import get_permitted_event_categories
 from choices.serializers import ChoiceField
 from core.serializers import (ContentTypeField, GenericRelatedField,
@@ -1330,13 +1330,6 @@ def auto_add_report_to_patrols(application, event):
                 segment.events.add(event)
 
 
-class EventGeometrySerializer(GeoFeatureModelSerializer):
-    class Meta:
-        model = EventGeometry
-        geo_field = 'geometry'
-        fields = ["geometry", ]
-
-
 class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSerializer):
 
     serializer_choice_field = ChoiceField
@@ -1346,7 +1339,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
                           validators=[PointValidator(), ])
 
     if features.geometries.is_on():
-        geometry = SerializerMethodField()
+        geometry = EventGeometryField(source="geometries", required=False)
+
     time = DateTimeField(source='event_time', required=False)
     created_at = DateTimeField(required=False)
     updated_at = DateTimeField(source='sort_at', required=False)
@@ -1383,21 +1377,25 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
                                                                         queryset=PatrolSegment.objects.all())
     feature_representation = FeatureRepresentation()
 
-    if features.geometries.is_on():
-        def get_geometry(self, event):
-            if event.geometries.last():
-                return EventGeometrySerializer(event.geometries.all(), many=True, read_only=True).data
-            return None
-
     def create(self, validated_data):
+        geometries = validated_data.pop("geometries", None)
         instance = super().create(validated_data)
+
+        if geometries:
+            self._create_geometries(instance, geometries)
+
         request = self.context['request']
         if hasattr(request, "auth") and request.auth:
             auto_add_report_to_patrols(request.auth.application, instance)
         return instance
 
     def update(self, instance, validated_data):
+        geometries = validated_data.pop("geometries", None)
         instance = super().update(instance, validated_data)
+
+        if geometries:
+            self._update_latest_geometry(instance, geometries)
+
         request = self.context["request"]
         if hasattr(request, "auth"):
             auto_add_report_to_patrols(request.auth.application, instance)
@@ -1438,7 +1436,6 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         return EventRelationshipSerializer(events_mapping[relationship_name], many=True, context=self.context).data
 
     def validate(self, attrs):
-
         end_time = attrs.get('end_time')
         if end_time is not None and end_time < self.instance.time:
             raise rest_framework.serializers.ValidationError(
@@ -1499,17 +1496,20 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     class Meta:
         model = activity.models.Event
         read_only_fields = ('updated_at', 'created_at', 'icon_id',)
-        if features.geometries.is_on():
-            read_only_fields = (*read_only_fields, "geometry")
-        fields = (
+        default_fields = (
             'id', 'location', 'time', 'end_time', 'serial_number', 'message', 'provenance',
             'event_type', 'priority', 'priority_label', 'attributes', 'comment', 'title',
             'created_by_user', 'notes', 'reported_by',
             'state', 'event_details', 'contains', 'is_linked_to', 'is_contained_in',
             'files', 'related_subjects', 'eventsource', 'external_event_id', 'sort_at',
-            'patrol_segments') + read_only_fields
+            'patrol_segments',)
+        if features.geometries.is_on():
+            fields = (*default_fields, "geometry")
+        fields = (*fields, *read_only_fields)
 
     def __init__(self, *args, **kwargs):
+        self._event_geometry_factory = GenericGeometryFactory()
+
         super().__init__(*args, **kwargs)
 
         if self.context.get('include_files', True):
@@ -1653,6 +1653,49 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         geometry_rep["features"].append(
             self.feature_representation.get_feature(request, instance))
         return geometry_rep
+
+    def _create_geometries(self, event: Event, geometry: dict):
+        geometry_type = geometry.get("type")
+
+        if geometry_type == "Feature":
+            self._create_geometry(event, geometry)
+        elif geometry_type == "FeatureCollection":
+            for feature in geometry.get("features"):
+                self._create_geometry(event, feature)
+
+    def _create_geometry(self, event: Event, geometry: dict):
+        sort = geometry.get("geometry", {}).get("type")
+        coordinates = geometry.get("geometry").get("coordinates", [[]])[0]
+        properties = geometry.get("properties", {})
+
+        event_geometry = self._event_geometry_factory.create_event_geometry(
+            sort)
+        event_geometry.create(event, coordinates, properties)
+
+    def _update_latest_geometry(self, event: Event, geometry: dict):
+        latest_event_geometry = EventGeometry.objects.filter(
+            event=event).last()
+
+        if latest_event_geometry:
+            feature_type = geometry.get("type")
+            if feature_type == "Feature":
+                self._update_geometry(geometry, latest_event_geometry)
+            elif feature_type == "FeatureCollection":
+                for feature in geometry.get("features"):
+                    self._update_geometry(feature, latest_event_geometry)
+        else:
+            self._create_geometries(event, geometry)
+
+    def _update_geometry(self, geometry: dict, event_geometry: EventGeometry):
+        coordinates = geometry.get("geometry").get("coordinates")[0]
+        properties = geometry.get("properties", {})
+
+        try:
+            event_geometry.properties = properties
+            event_geometry.geometry = Polygon(coordinates)
+            event_geometry.save()
+        except Exception as e:
+            logger.exception(f"Error {e} trying to update a EventGeometry.")
 
 
 class EventGeoJsonSerializer(EventSerializer):

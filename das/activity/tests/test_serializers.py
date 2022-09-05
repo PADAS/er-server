@@ -1,17 +1,19 @@
+import json
 import logging
 from datetime import datetime, timedelta
 
 import jsonschema
 import pytest
 
-from django.contrib.gis.geos import Point, Polygon
+from django.contrib.gis.geos import Point
 from django.test import TestCase
 
 from activity.libs import constants as activities_constants
-from activity.models import EventGeometry, Patrol
-from activity.serializers import EventGeometrySerializer, EventSerializer
+from activity.models import Event, EventGeometry, Patrol
+from activity.serializers import EventSerializer
 from activity.serializers.fields import CoordinateField
 from activity.serializers.patrol_serializers import PatrolSerializer
+from utils.features import features
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +151,64 @@ class TestPatrolSerializer(TestCase):
 
 @pytest.mark.django_db
 class TestEventSerializer:
+    feature = {
+        "type": "Feature",
+        "properties": {"size": 10, "large": 20},
+        "geometry": {
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [-121.77246093750001, 47.96050238891509],
+                    [-118.037109375, 32.879587173066305],
+                    [-83.75976562499999, 30.826780904779774],
+                    [-84.5947265625, 45.1510532655634],
+                    [-95.5810546875, 48.719961222646276],
+                    [-121.77246093750001, 47.96050238891509],
+                ]
+            ],
+        },
+    }
+    feature_collection = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {"size": 45, "large": 55, "color": "green"},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [-103.64158630371094, 20.67037186452816],
+                            [-103.64398956298828, 20.652382371230658],
+                            [-103.63197326660155, 20.653667405666592],
+                            [-103.64158630371094, 20.67037186452816],
+                        ]
+                    ],
+                },
+            }
+        ],
+    }
+    wrong_feature = {
+        "type": "Feature",
+        "properties": {"size": 10, "large": 20},
+        "geometry": {
+            "type": "Unknown",
+            "coordinates": [
+                [
+                    [-121.77246093750001, 47.96050238891509],
+                    [-118.037109375, 32.879587173066305],
+                    [-83.75976562499999, 30.826780904779774],
+                    [-84.5947265625, 45.1510532655634],
+                    [-95.5810546875, 48.719961222646276],
+                    [-121.77246093750001, 47.96050238891509],
+                ]
+            ],
+        },
+    }
+    wrong_feature_collection = {
+
+    }
+
     # TODO Pending some fields like files, updates, as they are part of nested serializers or other methods.
     def test_serialized_event(self, event_with_detail, five_event_notes):
         now = datetime.now()
@@ -204,19 +264,19 @@ class TestEventSerializer:
         assert serialized_event["is_collection"] is False
         assert serialized_event["patrols"] == []
 
-    def test_event_serializer_with_external_sources(self, event_with_event_source_event):
+    def test_serialized_event_with_external_sources(self, event_with_event_source_event):
         serialized_event = EventSerializer(event_with_event_source_event).data
 
         assert "external_source" in serialized_event
         assert serialized_event["external_source"]["url"] == activities_constants.EventTestsConstants.url
         assert serialized_event["external_source"]["icon_url"] == activities_constants.EventTestsConstants.icon_url
 
-    def test_event_serializer_without_external_source(self, base_event):
+    def test_serialized_event_without_external_source(self, base_event):
         serialized_event = EventSerializer(base_event).data
 
         assert "external_source" not in serialized_event
 
-    def test_event_serializer_without_external_sources_and_provider(self, event_with_event_source_event):
+    def test_serialized_event_without_external_sources_and_provider(self, event_with_event_source_event):
         event_source = event_with_event_source_event.eventsource_event_refs.first().eventsource
         event_source.eventprovider = None
         event_source.save(update_fields=["eventprovider"])
@@ -225,56 +285,94 @@ class TestEventSerializer:
 
         assert "external_source" not in serialized_event
 
+    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
+    def test_create_event_with_geometry_using_a_feature(self, event_type, rf, admin_user):
+        data = {
+            "event_type": event_type.value,
+            "title": "Title",
+            "geometry": self.feature,
+        }
 
-@pytest.mark.django_db
-class TestEventGeometrySerializer:
-    def test_serialized_event_geometry_format(self, event_with_detail):
-        event_geometry = EventGeometry.objects.create(
-            event=event_with_detail.event,
-            geometry=Polygon(
-                (
-                    (-103.41898441314697, 20.638567565077864),
-                    (-103.41387748718262, 20.63499318125139),
-                    (-103.40585231781006, 20.646840535793658),
-                    (-103.41898441314697, 20.638567565077864)
-                )
-            )
-        )
+        serialized_event = EventSerializer(
+            data=data, context=self._get_context(rf, admin_user))
+        serialized_event.is_valid()
+        serialized_event.save()
 
-        serialized_event_geometry = EventGeometrySerializer(
-            event_geometry).data
+        assert Event.objects.all()
+        assert EventGeometry.objects.all()
 
-        assert isinstance(serialized_event_geometry["type"], str)
-        assert isinstance(serialized_event_geometry["geometry"], dict)
-        assert isinstance(serialized_event_geometry["geometry"]["type"], str)
-        assert isinstance(
-            serialized_event_geometry["geometry"]["coordinates"], list)
-        assert isinstance(serialized_event_geometry["properties"], dict)
+    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
+    def test_create_event_with_geometry_using_a_feature_collection(
+            self, event_type, rf, admin_user
+    ):
+        data = {
+            "event_type": event_type.value,
+            "title": "Title",
+            "geometry": self.feature_collection,
+        }
 
-    def test_serialized_event_geometry(self, event_with_detail):
-        event_geometry = EventGeometry.objects.create(
-            event=event_with_detail.event,
-            geometry=Polygon(
-                (
-                    (-103.41898441314697, 20.638567565077864),
-                    (-103.41387748718262, 20.63499318125139),
-                    (-103.40585231781006, 20.646840535793658),
-                    (-103.41898441314697, 20.638567565077864)
-                )
-            )
-        )
+        serialized_event = EventSerializer(
+            data=data, context=self._get_context(rf, admin_user))
+        serialized_event.is_valid()
+        serialized_event.save()
 
-        serialized_event_geometry = EventGeometrySerializer(
-            event_geometry).data
+        assert Event.objects.all()
+        assert EventGeometry.objects.all()
 
-        assert serialized_event_geometry["type"] == "Feature"
-        assert serialized_event_geometry["geometry"]["type"] == "Polygon"
-        assert serialized_event_geometry["geometry"]["coordinates"] == [
-            [
-                [-103.41898441314697, 20.638567565077864],
-                [-103.41387748718262, 20.63499318125139],
-                [-103.40585231781006, 20.646840535793658],
-                [-103.41898441314697, 20.638567565077864]
-            ]
-        ]
-        assert serialized_event_geometry["properties"] == {}
+    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
+    def test_edit_event_with_geometry_using_a_feature(self, rf, admin_user, event_geometry_with_polygon):
+        event = event_geometry_with_polygon.event
+
+        serialized_event = EventSerializer(instance=event, data={
+                                           "geometry": self.feature}, context=self._get_context(rf, admin_user))
+        serialized_event.is_valid()
+        serialized_event.save()
+        event_geometry_with_polygon.refresh_from_db()
+
+        assert json.loads(
+            event_geometry_with_polygon.geometry.geojson) == self.feature["geometry"]
+        assert EventGeometry.objects.count() == 1
+
+    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
+    def test_edit_event_with_geometry_using_a_feature_collection(self, rf, admin_user, event_geometry_with_polygon):
+        event = event_geometry_with_polygon.event
+
+        serialized_event = EventSerializer(instance=event, data={
+                                           "geometry": self.feature_collection}, context=self._get_context(rf, admin_user))
+        serialized_event.is_valid()
+        serialized_event.save()
+        event_geometry_with_polygon.refresh_from_db()
+
+        assert json.loads(
+            event_geometry_with_polygon.geometry.geojson) == self.feature_collection["features"][0]["geometry"]
+        assert EventGeometry.objects.count() == 1
+
+    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
+    def test_create_event_with_geometry_using_wrong_feature_handler_exception(self, rf, admin_user, event_type):
+        data = {
+            "event_type": event_type.value,
+            "title": "Title",
+            "geometry": self.wrong_feature,
+        }
+
+        serialized_event = EventSerializer(
+            data=data, context=self._get_context(rf, admin_user))
+
+        assert not serialized_event.is_valid()
+
+    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
+    def test_create_event_with_geometry_using_wrong_feature_collection_handler_exception(self, rf, admin_user, event_type):
+        data = {
+            "event_type": event_type.value,
+            "title": "Title",
+            "geometry": self.wrong_feature_collection,
+        }
+
+        serialized_event = EventSerializer(
+            data=data, context=self._get_context(rf, admin_user))
+
+        assert not serialized_event.is_valid()
+
+    def _get_context(self, request, user):
+        request.user = user
+        return {"request": request}
