@@ -288,6 +288,7 @@ locals {
     "limpopo"                 = "prod1"
     "ukulima"                 = "prod1"
     "currumbin"               = "prod-asia"
+    "mukutan"                 = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
