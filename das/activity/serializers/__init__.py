@@ -1504,8 +1504,9 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             'files', 'related_subjects', 'eventsource', 'external_event_id', 'sort_at',
             'patrol_segments',)
         if features.geometries.is_on():
-            fields = (*default_fields, "geometry")
-        fields = (*fields, *read_only_fields)
+            fields = (*default_fields, "geometry", *read_only_fields)
+        else:
+            fields = (*default_fields, *read_only_fields)
 
     def __init__(self, *args, **kwargs):
         self._event_geometry_factory = GenericGeometryFactory()
