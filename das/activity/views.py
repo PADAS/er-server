@@ -29,6 +29,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from rest_framework import generics, response, status, views
 from rest_framework.exceptions import APIException
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -38,10 +39,10 @@ import utils.schema_utils as schema_utils
 from activity.filters import EventObjectPermissionsFilter
 from activity.models import (Community, Event, EventCategory, EventClass,
                              EventClassFactor, EventFactor, EventFile,
-                             EventFilter, EventNote, EventProvider,
-                             EventRelationship, EventSource, EventType, Patrol,
-                             PatrolFile, PatrolNote, PatrolSegment, PatrolType,
-                             StateFilters)
+                             EventFilter, EventGeometry, EventNote,
+                             EventProvider, EventRelationship, EventSource,
+                             EventType, Patrol, PatrolFile, PatrolNote,
+                             PatrolSegment, PatrolType, StateFilters)
 from activity.permissions import (EventCategoryGeographicPermission,
                                   EventCategoryObjectPermissions,
                                   EventCategoryPermissions,
@@ -61,6 +62,7 @@ from activity.serializers import (EventCategorySerializer,
                                   EventTypeSerializer,
                                   PatrolSegmentEventSerializer,
                                   PatrolTypeSerializer)
+from activity.serializers.geometries import EventGeometryRevisionSerializer
 from activity.serializers.patrol_serializers import (PatrolFileSerializer,
                                                      PatrolNoteSerializer,
                                                      PatrolSegmentSerializer,
@@ -1735,3 +1737,14 @@ class TrackedBySchema(generics.ListCreateAPIView):
 
     def post(self, request, *args, **kwargs):
         raise rest_framework.exceptions.MethodNotAllowed('For Schema')
+
+
+class EventGeometryView(ListAPIView):
+    serializer_class = EventGeometryRevisionSerializer
+
+    def get_queryset(self):
+        queryset = EventGeometry.objects.filter(
+            event__id=self.kwargs["event_id"]).last()
+        if queryset:
+            return queryset.revision.all().order_by("sequence")
+        return []

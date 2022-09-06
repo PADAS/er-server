@@ -5,13 +5,14 @@ from datetime import datetime, timedelta
 import jsonschema
 import pytest
 
-from django.contrib.gis.geos import Point
+from django.contrib.gis.geos import Point, Polygon
 from django.test import TestCase
 
 from activity.libs import constants as activities_constants
 from activity.models import Event, EventGeometry, Patrol
 from activity.serializers import EventSerializer
 from activity.serializers.fields import CoordinateField
+from activity.serializers.geometries import EventGeometryRevisionSerializer
 from activity.serializers.patrol_serializers import PatrolSerializer
 from utils.features import features
 
@@ -376,3 +377,95 @@ class TestEventSerializer:
     def _get_context(self, request, user):
         request.user = user
         return {"request": request}
+
+
+@pytest.mark.django_db
+class TestEventGeometrySerializer:
+    def test_serialized_event_geometry_updates_format(
+        self, event_geometry_with_polygon
+    ):
+        serialized_event_geometry_revision = EventGeometryRevisionSerializer(
+            event_geometry_with_polygon.revision.last()
+        ).data
+
+        assert isinstance(serialized_event_geometry_revision["message"], str)
+        assert isinstance(serialized_event_geometry_revision["time"], str)
+        assert isinstance(serialized_event_geometry_revision["type"], str)
+        assert isinstance(serialized_event_geometry_revision["user"], dict)
+
+    def test_serialized_event_geometry_updates(self, event_geometry_with_polygon):
+        event_geometry_revision = event_geometry_with_polygon.revision.last()
+        serialized_event_geometry_revision = EventGeometryRevisionSerializer(
+            event_geometry_revision
+        ).data
+
+        assert serialized_event_geometry_revision["message"] == "Added"
+        assert (
+            serialized_event_geometry_revision["time"]
+            == event_geometry_revision.revision_at.isoformat()
+        )
+        assert serialized_event_geometry_revision["type"] == "add_eventgeometry"
+        assert serialized_event_geometry_revision["user"] == {
+            "first_name": "",
+            "last_name": "",
+            "username": "",
+        }
+
+    def test_serialized_event_geometry_updates_properties(
+        self, event_geometry_with_polygon
+    ):
+        event_geometry_with_polygon.properties = {"key": "value"}
+        event_geometry_with_polygon.save()
+        event_geometry_revisions = event_geometry_with_polygon.revision.all()
+        latest_event_geometry_revision = event_geometry_with_polygon.revision.order_by(
+            "-sequence"
+        )[0]
+
+        serialized_event_geometry_revision = EventGeometryRevisionSerializer(
+            event_geometry_revisions, many=True
+        ).data
+
+        assert serialized_event_geometry_revision[1]["message"] == "Updated"
+        assert (
+            serialized_event_geometry_revision[1]["time"]
+            == latest_event_geometry_revision.revision_at.isoformat()
+        )
+        assert serialized_event_geometry_revision[1]["type"] == "update_properties"
+        assert serialized_event_geometry_revision[1]["user"] == {
+            "first_name": "",
+            "last_name": "",
+            "username": "",
+        }
+
+    def test_serialized_event_geometry_updates_geometry(
+        self, event_geometry_with_polygon
+    ):
+        event_geometry_with_polygon.geometry = Polygon(
+            (
+                (-103.41898441314697, 20.638567565077864),
+                (-103.41387748718262, 20.63499318125139),
+                (-103.40585231781006, 20.646840535793658),
+                (-103.41898441314697, 20.638567565077864),
+            )
+        )
+        event_geometry_with_polygon.save()
+        event_geometry_revisions = event_geometry_with_polygon.revision.all()
+        latest_event_geometry_revision = event_geometry_with_polygon.revision.order_by(
+            "-sequence"
+        )[0]
+
+        serialized_event_geometry_revision = EventGeometryRevisionSerializer(
+            event_geometry_revisions, many=True
+        ).data
+
+        assert serialized_event_geometry_revision[1]["message"] == "Updated"
+        assert (
+            serialized_event_geometry_revision[1]["time"]
+            == latest_event_geometry_revision.revision_at.isoformat()
+        )
+        assert serialized_event_geometry_revision[1]["type"] == "update_geometry"
+        assert serialized_event_geometry_revision[1]["user"] == {
+            "first_name": "",
+            "last_name": "",
+            "username": "",
+        }

@@ -1,4 +1,5 @@
 from django.conf.urls import re_path
+from django.urls import path
 
 from activity import alerts_views, views
 from utils.constants import regex
@@ -207,4 +208,6 @@ urlpatterns = [
         views.PatrolsegmentsView.as_view(),
         name="event-segments-view",
     ),
+    path("event/<uuid:event_id>/geometry/",
+         views.EventGeometryView.as_view(), name="event-geometries")
 ]

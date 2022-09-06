@@ -161,3 +161,35 @@ class TestEventView:
 
         assert response.status_code == status.HTTP_200_OK
         assert EventGeometry.objects.all().count()
+
+
+@pytest.mark.django_db
+class TestEventGeometryView:
+
+    def test_get_event_geometry_updates(self, event_geometry_with_polygon,  superuser_client):
+        event = event_geometry_with_polygon.event
+
+        url = reverse("event-geometries", args=[event.id])
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data) == 1
+
+    def test_get_event_geometry_updates_properties(self, event_geometry_with_polygon,  superuser_client):
+        event_geometry_with_polygon.properties = {"key": "value"}
+        event_geometry_with_polygon.save()
+        event = event_geometry_with_polygon.event
+
+        url = reverse("event-geometries", args=[event.id])
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data) == 2
+
+    def test_get_event_geometry_update_without_revisions(self, event_with_detail, superuser_client):
+
+        url = reverse("event-geometries", args=[event_with_detail.event.id])
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert not response.data
