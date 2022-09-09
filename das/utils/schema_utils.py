@@ -8,18 +8,16 @@ import uuid
 from collections import OrderedDict
 
 import jsonschema
-from activity.exceptions import (
-    SCHEMA_ERROR_MISSING_DOLLAR_SIGN_SCHEMA,
-    SchemaValidationError,
-    UnmappableFormKeyError,
-)
-from activity.models import EventDetails
-from choices.models import Choice, DynamicChoice
+
 from django.apps import apps
 from django.template import Context, Template
 from django.template.base import TextNode, VariableNode
-from utils.memoize import memoize
 
+from activity.exceptions import (SCHEMA_ERROR_MISSING_DOLLAR_SIGN_SCHEMA,
+                                 SchemaValidationError, UnmappableFormKeyError)
+from activity.models import EventDetails
+from choices.models import Choice, DynamicChoice
+from utils.memoize import memoize
 
 logger = logging.getLogger(__name__)
 
@@ -747,8 +745,10 @@ def schema_property_choices(schema, rendered_schema):
                     yield field_details[1], field_details[0]
 
     iter_values = template_values(schema)
-
     for prop_name, props in _schema_properties(rendered_schema):
         if bool({'enum', 'query', 'table'} & props.keys()):
-            field_name, lookup = next(iter_values)
+            try:
+                field_name, lookup = next(iter_values)
+            except StopIteration:
+                return
             yield SchemaChoiceProperty(prop_name, props, field_name, lookup)
