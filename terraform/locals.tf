@@ -289,6 +289,7 @@ locals {
     "ukulima"                 = "prod1"
     "currumbin"               = "prod-asia"
     "zoologicogdl"            = "prod1"
+    "grevyzebra"              = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
