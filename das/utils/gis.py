@@ -1,6 +1,6 @@
 import logging
 
-from django.contrib.gis.geos import MultiPolygon, Point, Polygon
+from django.contrib.gis.geos import GEOSGeometry, MultiPolygon, Point, Polygon
 
 logger = logging.getLogger(__name__)
 
@@ -81,3 +81,15 @@ def convert_to_point(location):
     else:
         raise TypeError(f"Unexpected type for location: {location}")
     return location
+
+
+def get_polygon_info(geom: GEOSGeometry, key: str = "area", epsg: int = 3857) -> float:
+    """
+    It takes a geometry, transforms it to a given EPSG, and returns the value of a given attribute.
+    NOTE: For get the perimeter us the key "length"
+
+    Returns:
+      The perimeter or area of the polygon in meters or square meters.
+    """
+    transformed_geo = geom.transform(epsg, clone=True)
+    return getattr(transformed_geo, key)

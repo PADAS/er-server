@@ -14,15 +14,16 @@ from django.utils.translation import gettext_lazy as _
 from activity.alerting.conditions import Conditions
 from activity.exceptions import (SCHEMA_ERROR_JSON_DECODE_ERROR,
                                  SchemaValidationError)
-from activity.models import (PROVENANCE_CHOICES, Community, EventProvider,
-                             EventType, NotificationMethod, Patrol,
-                             PatrolSegment, PatrolType)
+from activity.models import (PROVENANCE_CHOICES, Community, EventGeometry,
+                             EventProvider, EventType, NotificationMethod,
+                             Patrol, PatrolSegment, PatrolType)
 from core.common import TIMEZONE_USED
 from core.forms_utils import JSONFieldFormMixin
 from core.inline_openlayer import InlineOSMGeoAdmin
 from core.utils import OneWeekSchedule
 from core.widget import IconKeyInput, get_icon_select_list
 from observations.models import Subject
+from utils.gis import get_polygon_info
 from utils.schema_utils import (get_schema_renderer_method,
                                 validate_rendered_schema_is_wellformed)
 
@@ -272,6 +273,20 @@ class EventForm(forms.ModelForm):
             'event_time': f'Event time in {TIMEZONE_USED}',
             'end_time': f'End Time in {TIMEZONE_USED}'
         }
+
+
+class EventGeometryForm(forms.ModelForm):
+    class Meta:
+        model = EventGeometry
+        fields = "__all__"
+
+    def save(self, commit=True):
+        if "geometry" in self.changed_data or "area" in self.changed_data:
+            self.instance.properties["area"] = get_polygon_info(
+                self.instance.geometry, "area")
+            self.instance.properties["perimeter"] = get_polygon_info(
+                self.instance.geometry, "length")
+        return super().save(commit)
 
 
 def reported_by_lookup():

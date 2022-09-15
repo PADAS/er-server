@@ -50,6 +50,7 @@ from observations.serializers import SubjectSerializer
 from revision.manager import AC_RELATION_DELETED, AC_UPDATED
 from utils.feature_representation import FeatureRepresentation
 from utils.features import features
+from utils.gis import get_polygon_info
 from utils.json import parse_bool
 from utils.schema_utils import (get_schema_renderer_method,
                                 validate_rendered_schema_is_wellformed)
@@ -1690,10 +1691,13 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     def _update_geometry(self, geometry: dict, event_geometry: EventGeometry):
         coordinates = geometry.get("geometry").get("coordinates")[0]
         properties = geometry.get("properties", {})
+        polygon = Polygon(coordinates, srid=4326)
+        properties["area"] = get_polygon_info(polygon, "area")
+        properties["perimeter"] = get_polygon_info(polygon, "length")
 
         try:
             event_geometry.properties = properties
-            event_geometry.geometry = Polygon(coordinates)
+            event_geometry.geometry = polygon
             event_geometry.save()
         except Exception as e:
             logger.exception(f"Error {e} trying to update a EventGeometry.")

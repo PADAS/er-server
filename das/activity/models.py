@@ -2020,10 +2020,10 @@ class PatrolConfiguration(SingletonModel):
 
 class EventGeometry(RevisionMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    geometry = models.GeometryField(srid=4326)
+    geometry = models.GeometryField(srid=4326, geography=True)
     event = models.ForeignKey(
         "Event",
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="geometries",
         related_query_name="geometries",
     )

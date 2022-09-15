@@ -48,6 +48,24 @@ class TestEventsView:
         ],
     }
 
+    # Area = 18876, Perimeter = 551
+    feature_with_know_dimensions = {
+        "type": "Feature",
+        "properties": {},
+        "geometry": {
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [-103.3813151344657, 20.67669767171168],
+                    [-103.38131647557019, 20.67563084151954],
+                    [-103.3799860998988, 20.675623940505954],
+                    [-103.37997503578663, 20.676691711787292],
+                    [-103.3813151344657, 20.67669767171168],
+                ]
+            ],
+        },
+    }
+
     @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_create_an_event_with_a_feature_collection_as_geometry(
         self, event_type, superuser_client
@@ -85,6 +103,26 @@ class TestEventsView:
         assert response.status_code == status.HTTP_201_CREATED
         assert Event.objects.all().count()
         assert EventGeometry.objects.all().count()
+        assert "area" in response.data["geometry"]["features"][0]["properties"]
+
+    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
+    def test_calculate_geometry_area_and_perimeter(self, event_type, superuser_client):
+        url = reverse("events")
+
+        response = superuser_client.post(
+            url,
+            {
+                "title": "Event number five",
+                "event_type": event_type.value,
+                "geometry": self.feature_with_know_dimensions,
+            },
+        )
+        area = response.data['geometry'][0]['properties']["area"]
+        perimeter = response.data['geometry'][0]['properties']["perimeter"]
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert int(area) == 18876
+        assert int(perimeter) == 551
 
 
 @pytest.mark.django_db
@@ -128,9 +166,16 @@ class TestEventView:
         ],
     }
 
-    @pytest.mark.parametrize("geometry", (feature, feature_collection))
+    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
+    @pytest.mark.parametrize(
+        "geometry, expected",
+        (
+            (feature, {"area": 15215947073297, "perimeter": 15852270}),
+            (feature_collection, {"area": 1410992, "perimeter": 5760}),
+        ),
+    )
     def test_updated_geometry_of_event_that_contains_a_previous_geometry(
-        self, geometry, event_with_detail, superuser_client
+        self, geometry, expected, event_with_detail, superuser_client
     ):
         EventGeometry.objects.create(
             event=event_with_detail.event,
@@ -150,16 +195,31 @@ class TestEventView:
         url = reverse("event-view", args=[event_with_detail.event.pk])
         response = superuser_client.patch(url, {"geometry": geometry})
 
+        area = response.data['geometry'][0]['properties']["area"]
+        perimeter = response.data['geometry'][0]['properties']["perimeter"]
+
         assert response.status_code == status.HTTP_200_OK
+        assert int(area) == expected["area"]
+        assert int(perimeter) == expected["perimeter"]
 
     @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
-    @pytest.mark.parametrize("geometry", (feature, feature_collection))
-    def test_update_geometry_of_event_that_does_not_contains_a_geometry(self, geometry, event_with_detail, superuser_client):
-
+    @pytest.mark.parametrize("geometry, expected",
+                             (
+                                 (feature, {"area": 15215947073297,
+                                  "perimeter": 15852270}),
+                                 (feature_collection, {
+                                  "area": 1410992, "perimeter": 5760}),
+                             ))
+    def test_update_geometry_of_event_that_does_not_contains_a_geometry(self, geometry, expected, event_with_detail, superuser_client):
         url = reverse("event-view", args=[event_with_detail.event.pk])
         response = superuser_client.patch(url, {"geometry": geometry})
 
+        area = response.data['geometry'][0]['properties']["area"]
+        perimeter = response.data['geometry'][0]['properties']["perimeter"]
+
         assert response.status_code == status.HTTP_200_OK
+        assert int(area) == expected["area"]
+        assert int(perimeter) == expected["perimeter"]
         assert EventGeometry.objects.all().count()
 
 

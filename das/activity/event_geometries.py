@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from django.contrib.gis.geos import Polygon
 
 from activity.models import Event, EventGeometry
+from utils.gis import get_polygon_info
 
 
 class EventGeometryCreator(ABC):
@@ -13,9 +14,14 @@ class EventGeometryCreator(ABC):
 
 class PolygonEventGeometry(EventGeometryCreator):
     def create(self, event: Event, coordinates: list, properties: dict) -> EventGeometry:
-        return EventGeometry.objects.create(
+        instance = EventGeometry(
             event=event, geometry=Polygon(coordinates), properties=properties
         )
+        instance.properties["area"] = get_polygon_info(
+            instance.geometry, "area")
+        instance.properties["perimeter"] = get_polygon_info(
+            instance.geometry, "length")
+        return instance.save()
 
 
 class EventGeometryFactory(ABC):
