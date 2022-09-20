@@ -6,6 +6,7 @@ from rest_framework import status
 
 from activity.models import Event, EventGeometry
 from utils.features import features
+from utils.gis import get_polygon_info
 
 
 @pytest.mark.django_db
@@ -49,7 +50,7 @@ class TestEventsView:
     }
 
     # Area = 18876, Perimeter = 551
-    feature_with_know_dimensions = {
+    feature_with_known_dimensions = {
         "type": "Feature",
         "properties": {},
         "geometry": {
@@ -114,7 +115,7 @@ class TestEventsView:
             {
                 "title": "Event number five",
                 "event_type": event_type.value,
-                "geometry": self.feature_with_know_dimensions,
+                "geometry": self.feature_with_known_dimensions,
             },
         )
         area = response.data['geometry'][0]['properties']["area"]
@@ -253,3 +254,21 @@ class TestEventGeometryView:
 
         assert response.status_code == status.HTTP_200_OK
         assert not response.data
+
+    def test_export_events_csv(self, event_geometry_with_polygon, superuser_client):
+        url = reverse("events-export")
+        event_geometry_with_polygon.properties["area"] = get_polygon_info(
+            event_geometry_with_polygon.geometry, "area"
+        )
+        event_geometry_with_polygon.properties["perimeter"] = get_polygon_info(
+            event_geometry_with_polygon.geometry, "length"
+        )
+        event_geometry_with_polygon.save()
+        response = superuser_client.get(url)
+        content = response.content.decode("utf-8")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "Area" in content
+        assert "5032048880654.67" in content
+        assert "Perimeter" in content
+        assert "10797827.42" in content

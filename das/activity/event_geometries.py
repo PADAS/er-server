@@ -13,15 +13,17 @@ class EventGeometryCreator(ABC):
 
 
 class PolygonEventGeometry(EventGeometryCreator):
-    def create(self, event: Event, coordinates: list, properties: dict) -> EventGeometry:
-        instance = EventGeometry(
-            event=event, geometry=Polygon(coordinates), properties=properties
+    def create(
+        self, event: Event, coordinates: list, properties: dict
+    ) -> EventGeometry:
+        polygon = Polygon(coordinates)
+
+        properties["area"] = get_polygon_info(polygon, "area")
+        properties["perimeter"] = get_polygon_info(polygon, "length")
+
+        return EventGeometry.objects.create(
+            event=event, geometry=polygon, properties=properties
         )
-        instance.properties["area"] = get_polygon_info(
-            instance.geometry, "area")
-        instance.properties["perimeter"] = get_polygon_info(
-            instance.geometry, "length")
-        return instance.save()
 
 
 class EventGeometryFactory(ABC):

@@ -8,6 +8,7 @@ import platform
 import re
 from collections import OrderedDict
 from datetime import datetime, timedelta
+from typing import Union
 
 import dateutil.parser as dateparser
 import pytz
@@ -600,31 +601,48 @@ class EventsExportView(views.APIView):
         tz_offset = 'GMT' + ('+' if tz_difference >= 0 else '') + str(
             int(tz_difference)) + ':' + str(
             int((tz_difference - int(tz_difference)) * 60))
-        reported_at = 'Reported At ({})'.format(tz_offset)
+        reported_at = f"Reported At ({tz_offset})"
         default_headers = [
             'Report Type', 'Report Type Internal Value', 'Report Id', 'Title',
             'Priority', 'Priority Internal Value', 'Report Status', 'Reported By',
             reported_at, 'Latitude', 'Longitude',
             'Number of Notes', 'Notes', 'Number of Related Subjects',
-            'Collection Report IDs', 'CUSTOM FIELDS BEGIN HERE'
+            'Collection Report IDs', "Area", "Perimeter", 'CUSTOM FIELDS BEGIN HERE'
         ]
         custom_headers = []
         combined_headers = []
 
         reported_by_map = generate_reported_by_lookup()
-
         event_type_map = generate_event_type_cache()
 
-        for event in self.get_queryset() \
-            .annotate(notes_count=Count('note')) \
-            .annotate(full_notes=StringAgg('note__text', delimiter='\n')) \
-            .annotate(related_subjects_count=Count('related_subjects')) \
-            .annotate(parent_event_serial_numbers=ArrayAgg('in_relationship__from_event__serial_number', distinct=True)) \
-            .values('id', 'serial_number', 'priority', 'state',
-                    'title', 'event_type_id', 'event_details__data',
-                    'notes_count', 'full_notes', 'parent_event_serial_numbers',
-                    'location', 'event_time', 'reported_by_id',
-                    'related_subjects_count'):
+        for event in (
+                self.get_queryset()
+                .annotate(notes_count=Count("note"))
+                .annotate(full_notes=StringAgg("note__text", delimiter="\n"))
+                .annotate(related_subjects_count=Count("related_subjects"))
+                .annotate(
+                    parent_event_serial_numbers=ArrayAgg(
+                        "in_relationship__from_event__serial_number", distinct=True
+                    )
+                ).prefetch_related("geometries")
+                .values(
+                    "id",
+                    "serial_number",
+                    "priority",
+                    "state",
+                    "title",
+                    "event_type_id",
+                    "event_details__data",
+                    "notes_count",
+                    "full_notes",
+                    "parent_event_serial_numbers",
+                    "location",
+                    "event_time",
+                    "reported_by_id",
+                    "related_subjects_count",
+                    "geometries__properties"
+                )
+        ):
 
             if event['event_type_id'] != current_event_type_data['id']:
                 event_type = event_type_map[event['event_type_id']]
@@ -712,6 +730,8 @@ class EventsExportView(views.APIView):
                     (str(x) for x in event['parent_event_serial_numbers'] if
                      x is not None)),
                 "CUSTOM_FIELDS_BEGIN_HERE": "",
+                "Area": self._get_polygon_property(event, "area"),
+                "Perimeter": self._get_polygon_property(event, "perimeter"),
             }
 
             # Use cached reported_by map
@@ -741,6 +761,14 @@ class EventsExportView(views.APIView):
                                  combined_headers],
             'custom_headers': custom_headers
         }
+
+    def _get_polygon_property(self, event: dict, key: str) -> Union[float, str]:
+        properties = event.get("geometries__properties", {})
+        if properties:
+            result = properties.get(key, 0)
+            if result:
+                return round(float(result), 2)
+        return ""
 
     def escape_string(self, string):
         if not isinstance(string, str) or not string:
