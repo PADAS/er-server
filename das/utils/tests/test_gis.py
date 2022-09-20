@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 
 from django.contrib.gis.geos import Polygon
@@ -28,3 +30,8 @@ class TestGis:
 
         assert int(area) == expected["area"]
         assert int(perimeter) == expected["perimeter"]
+        assert self._get_decimals_count(area) == 2
+        assert self._get_decimals_count(perimeter) == 2
+
+    def _get_decimals_count(self, number: float) -> int:
+        return abs(Decimal(str(number)).as_tuple().exponent)

@@ -16,7 +16,7 @@ class PolygonEventGeometry(EventGeometryCreator):
     def create(
         self, event: Event, coordinates: list, properties: dict
     ) -> EventGeometry:
-        polygon = Polygon(coordinates)
+        polygon = Polygon(coordinates, srid=4326)
 
         properties["area"] = get_polygon_info(polygon, "area")
         properties["perimeter"] = get_polygon_info(polygon, "length")

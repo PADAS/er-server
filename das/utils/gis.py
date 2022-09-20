@@ -92,4 +92,4 @@ def get_polygon_info(geom: GEOSGeometry, key: str = "area", epsg: int = 3857) ->
       The perimeter or area of the polygon in meters or square meters.
     """
     transformed_geo = geom.transform(epsg, clone=True)
-    return getattr(transformed_geo, key)
+    return round(getattr(transformed_geo, key), 2)
