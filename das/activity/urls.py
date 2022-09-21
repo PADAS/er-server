@@ -7,7 +7,8 @@ from utils.constants import regex
 urlpatterns = [
     re_path(r"^events/?$", views.EventsView.as_view(), name="events"),
     re_path(r"^events/geojson/?$", views.EventsGeoJsonView.as_view()),
-    re_path(r"^events/export/?$", views.EventsExportView.as_view()),
+    re_path(r"^events/export/?$", views.EventsExportView.as_view(),
+            name="events-export"),
     re_path(r"^events/schema/?$", views.EventSchemaView.as_view()),
     re_path(
         rf"^events/schema/eventtype/(?P<eventtype>{regex.SLUG})/?$",

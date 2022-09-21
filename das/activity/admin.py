@@ -21,10 +21,11 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import gettext as _
 
 import activity.models as models
-from activity.forms import (AlertRuleForm, EventForm, EventProviderForm,
-                            EventTypeForm, PatrolForm, PatrolSegmentForm,
-                            PatrolSegmentStackedInline, PatrolTypeForm,
-                            PrettyReadOnlyJSONWidget, chained_tracked_by)
+from activity.forms import (AlertRuleForm, EventForm, EventGeometryForm,
+                            EventProviderForm, EventTypeForm, PatrolForm,
+                            PatrolSegmentForm, PatrolSegmentStackedInline,
+                            PatrolTypeForm, PrettyReadOnlyJSONWidget,
+                            chained_tracked_by)
 from activity.tasks import (recreate_event_details_view,
                             refresh_event_details_view)
 from core.admin import InlineExtraDynamicMixin
@@ -51,6 +52,7 @@ class EventGeometryInline(PropsOSMGeoAdminMixin, admin.StackedInline):
     verbose_name = _("Event Geometry")
     verbose_name_plural = _("Event Geometries")
     map_template = 'admin/openlayer/ol_geometry.html'
+    form = EventGeometryForm
 
     def __init__(self, parent_model, admin_site):
         self.admin_site = admin_site
