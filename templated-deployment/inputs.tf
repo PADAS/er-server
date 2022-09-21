@@ -239,5 +239,5 @@ variable "geo_permission_speed_km_h" {
 variable "feature_geometries" {
   description = "Enable feature geometries flag"
   type        = string
-  default     = "True"
+  default     = "False"
 }
