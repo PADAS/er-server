@@ -288,6 +288,7 @@ locals {
     "limpopo"                 = "prod1"
     "ukulima"                 = "prod1"
     "currumbin"               = "prod-asia"
+    "mpilo"                   = "prod1"
     "zoologicogdl"            = "prod1"
     "grevyzebra"              = "prod1"
     "tanglewood"              = "prod1"
@@ -437,6 +438,7 @@ locals {
     "qwabi"                   = 1
     "ukulima"                 = 1
     "limpopo"                 = 1
+    "mpilo"                   = 1
     "zoologicogdl"            = 1
     "tanglewood"              = 1
     "pangolinconservation"    = 1
