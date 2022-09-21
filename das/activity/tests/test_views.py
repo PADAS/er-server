@@ -223,6 +223,25 @@ class TestEventView:
         assert int(perimeter) == expected["perimeter"]
         assert EventGeometry.objects.all().count()
 
+    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
+    def test_delete_event_geometry_of_event(self, event_geometry_with_polygon, superuser_client):
+        url = reverse(
+            "event-view", args=[event_geometry_with_polygon.event.pk])
+
+        response = superuser_client.patch(url, {"geometry": None})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert event_geometry_with_polygon.event.geometries.count() == 0
+
+    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
+    def test_delete_event_geometry_of_event_without_geometry(self, event_with_detail, superuser_client):
+        url = reverse("event-view", args=[event_with_detail.event.pk])
+
+        response = superuser_client.patch(url, {"geometry": None})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert event_with_detail.event.geometries.count() == 0
+
 
 @pytest.mark.django_db
 class TestEventGeometryView:
