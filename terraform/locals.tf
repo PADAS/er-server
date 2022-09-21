@@ -212,7 +212,7 @@ locals {
     "wrti"                    = "prod1"
     "bdr"                     = "prod1"
     "yellowstone"             = "prod1"
-    "mpilo"                   = "prod1"
+    "mpala"                   = "prod1"
     "nstcg-tz"                = "prod1"
     "ntap-tz"                 = "prod1"
     "wilderblean"             = "prod1"
