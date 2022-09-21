@@ -214,6 +214,10 @@ class EventTypeManager(EventBaseManager):
 
 
 class EventType(TimestampedModel):
+    class GeometryTypesChoices(models.TextChoices):
+        POINT = "Point"
+        POLYGON = "Polygon"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     value = models.CharField(max_length=255, unique=True, validators=[RegexValidator(
         regex="^[A-Za-z0-9-_]*$",
@@ -249,7 +253,8 @@ class EventType(TimestampedModel):
     auto_resolve = models.BooleanField(default=False)
     # Specify integer of hour(s).
     resolve_time = models.PositiveSmallIntegerField(blank=True, null=True)
-    enable_geometry = models.BooleanField(default=False)
+    geometry_type = models.CharField(
+        choices=GeometryTypesChoices.choices, default=GeometryTypesChoices.POINT, max_length=20)
 
     class Meta:
         constraints = [models.CheckConstraint(check=Q(auto_resolve=False, resolve_time__isnull=True) |
@@ -258,6 +263,11 @@ class EventType(TimestampedModel):
                                               name='auto_resolve_constraint')]
 
         ordering = ['display']
+        indexes = [
+            models.Index(fields=['geometry_type']),
+            models.Index(fields=['is_active']),
+            models.Index(fields=['is_collection']),
+        ]
 
     objects = EventTypeManager.from_queryset(EventTypeFilteringQuerySet)()
 

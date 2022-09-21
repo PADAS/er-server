@@ -403,7 +403,7 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
             schema = loads(eventtype.schema, object_pairs_hook=OrderedDict)
 
         if features.geometries.is_on():
-            self._append_enable_geometry(eventtype, schema)
+            self._append_geometry_type(eventtype, schema)
 
         if 'schema' not in schema:
             return generics.views.Response(None)
@@ -480,12 +480,12 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
     def _clean_curly_brackets(self, value):
         return value.replace("{{", "").replace("}}", "")
 
-    def _append_enable_geometry(self, event_type, schema):
+    def _append_geometry_type(self, event_type, schema):
         try:
-            schema["schema"]["enable_geometry"] = event_type.enable_geometry
+            schema["schema"]["geometry_type"] = event_type.geometry_type
         except KeyError:
             logger.exception(
-                f"Field enable_geometry cannot be set on event type.")
+                f"Field geometry_type cannot be set on event type.")
 
 
 class EventFilterSchemaView(generics.RetrieveAPIView):
@@ -927,7 +927,7 @@ class EventsView(generics.ListCreateAPIView):
     * default is by '-sort_at' which is a special value representing reverse by updated_at.
 
     page, page number
-    
+
     page_size, (default is {page_size}, max is {max_page_size})
     """.format(page_size=StandardResultsSetPagination.page_size,
                max_page_size=StandardResultsSetPagination.max_page_size)

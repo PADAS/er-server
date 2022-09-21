@@ -8,6 +8,7 @@ from django.contrib.admin.widgets import (AdminSplitDateTime,
                                           FilteredSelectMultiple)
 from django.contrib.auth import get_user_model
 from django.forms import TextInput
+from django.forms.boundfield import mark_safe
 from django.template.loader import render_to_string
 from django.utils.translation import gettext_lazy as _
 
@@ -130,6 +131,9 @@ class EventTypeForm(forms.ModelForm):
     class Meta:
         model = EventType
         fields = ['icon', 'display', 'schema', 'auto_eventtype_resolve']
+        help_texts = {
+            'geometry_type': mark_safe(f"<strong>{_('WARNING: After this event type is created, its geometry type cannot be changed.')}</strong>"),
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

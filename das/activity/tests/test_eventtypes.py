@@ -88,11 +88,11 @@ def test_post_eventtype_with_schema(eventtype_fixture, client):
     url = reverse('eventtypes')
     schema = """
         {
-        "schema": 
+        "schema":
             {
                 "$schema": "http://json-schema.org/draft-04/schema#",
                 "title": "Simple Schema Report",
-                
+
                 "type": "object",
                 "properties": {}
             },
@@ -170,7 +170,7 @@ def test_readonly_eventtype(eventtype_fixture, client):
     url = reverse('eventtypes')
     schema = """
         {
-        "schema": 
+        "schema":
             {
                 "$schema": "http://json-schema.org/draft-04/schema#",
                 "title": "Simple Schema Report",
@@ -209,19 +209,19 @@ class TestEventTypeAPI:
 
         assert is_url_resolved(api_path=api_path, view=EventTypeSchemaView)
 
-    def test_response_event_type_turn_on_geometry(self, event_type):
-        event_type.enable_geometry = True
-        event_type.save()
+    @pytest.mark.parametrize("mocked_gemetry_type",
+                             (
+                                 EventType.GeometryTypesChoices.POINT,
+                                 EventType.GeometryTypesChoices.POLYGON,
+                             )
+                             )
+    def test_response_event_type_has_geometry_type(self, mocked_gemetry_type, event_type):
+        event_type.geometry_type = mocked_gemetry_type
+        event_type.save(update_fields=["geometry_type"])
 
         data = self._get_response(event_type).data
 
-        assert data["schema"]["enable_geometry"] is True
-
-    def test_response_event_type_turn_off_geometry(self, event_type):
-
-        data = self._get_response(event_type).data
-
-        assert data["schema"]["enable_geometry"] is False
+        assert data["schema"]["geometry_type"] == mocked_gemetry_type
 
     def _get_response(self, event_type):
         client = HTTPClient()

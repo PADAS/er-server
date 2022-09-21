@@ -165,7 +165,7 @@ class EventTypeAdmin(admin.ModelAdmin):
                     "icon",
                     "ordernum",
                     "auto_eventtype_resolve",
-                    "enable_geometry",
+                    "geometry_type"
                 )
             },
         ),
@@ -184,7 +184,7 @@ class EventTypeAdmin(admin.ModelAdmin):
         fieldsets = super().get_fieldsets(request, obj)
         if not features.geometries.is_on():
             fields_to_remove = [
-                "enable_geometry",
+                "geometry_type",
             ]
             new_fields = tuple(
                 field
@@ -193,6 +193,11 @@ class EventTypeAdmin(admin.ModelAdmin):
             )
             fieldsets[0][1]["fields"] = new_fields
         return fieldsets
+
+    def get_readonly_fields(self, request, obj=None):
+        if features.geometries.is_on() and obj:
+            return ["geometry_type"]
+        return []
 
     def _icon_display(self, obj):
         url = models.Event.marker_icon(
