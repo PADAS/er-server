@@ -1340,7 +1340,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
                           validators=[PointValidator(), ])
 
     if features.geometries.is_on():
-        geometry = EventGeometryField(source="geometries", required=False)
+        geometry = EventGeometryField(
+            source="geometries", required=False, allow_null=True)
 
     time = DateTimeField(source='event_time', required=False)
     created_at = DateTimeField(required=False)
@@ -1391,11 +1392,15 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         return instance
 
     def update(self, instance, validated_data):
+        geometries_exits = "geometries" in validated_data
         geometries = validated_data.pop("geometries", None)
         instance = super().update(instance, validated_data)
 
         if geometries:
             self._update_latest_geometry(instance, geometries)
+        else:
+            if geometries_exits:
+                self._delete_event_geometries(instance)
 
         request = self.context["request"]
         if hasattr(request, "auth"):
@@ -1701,6 +1706,9 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             event_geometry.save()
         except Exception as e:
             logger.exception(f"Error {e} trying to update a EventGeometry.")
+
+    def _delete_event_geometries(self, event):
+        event.geometries.all().delete()
 
 
 class EventGeoJsonSerializer(EventSerializer):
