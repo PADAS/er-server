@@ -290,6 +290,9 @@ locals {
     "currumbin"               = "prod-asia"
     "zoologicogdl"            = "prod1"
     "grevyzebra"              = "prod1"
+    "tanglewood"              = "prod1"
+    "mukutan"                 = "prod1"
+    "pangolinconservation"    = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -435,6 +438,8 @@ locals {
     "ukulima"                 = 1
     "limpopo"                 = 1
     "zoologicogdl"            = 1
+    "tanglewood"              = 1
+    "pangolinconservation"    = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
