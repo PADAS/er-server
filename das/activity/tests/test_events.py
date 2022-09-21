@@ -3224,6 +3224,46 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
             request, eventtype=event_type.value)
         assert response.status_code == 400
 
+    def test_schema_with_string_arrays(self):
+        choice = Choice.objects.create(
+            model='activity.event',
+            field='wildlifesighting_species',
+            value='elephant',
+            display='Elephant',
+        )
+
+        base_schema = {
+            "schema": {
+                "properties": {
+                    "MusthBull": {
+                        "title": "Musth Bull Present",
+                        "type": "string",
+                        "enum": [
+                            "yes",
+                            "no"
+                        ]
+                    }
+                },
+                "definition": [
+                    "MusthBull"
+                ]
+            }
+        }
+        event_type = self.sample_event.event_type
+        event_type.schema = json.dumps(base_schema)
+        event_type.save()
+
+        url = f"{self.api_base}/events/schema/eventtype/{event_type.id}/"
+        request = self.factory.get(url)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventTypeSchemaView.as_view()(
+            request, eventtype=event_type.value)
+
+        assert response.status_code == 200
+
+        assert response.data["schema"]["properties"]["MusthBull"]["title"] == base_schema["schema"]["properties"]["MusthBull"]["title"]
+        assert response.data["schema"]["definition"][0] == base_schema["schema"]["definition"][0]
+
     def test_schema_with_different_inactive_choices(self):
 
         Choice.objects.all().delete()
@@ -3641,15 +3681,15 @@ class TestEventView2(BaseTestToolMixin):
             "schema": {
                 "$schema": "http://json-schema.org/draft-04/schema#",
                 "title": "Rhino Sighting (rhino_sighting_rep)",
-              
+
                 "type": "object",
-        
-                "properties": 
-                {            
+
+                "properties":
+                {
                     "rhinosightingrep_earnotchcount": {
                         "type":"number",
                         "title": "Ear notch count"
-                    },           
+                    },
                     "rhinosightingrep_Rhino": {
                         "type": "string",
                         "title": "Individual Rhino ID",
@@ -3658,11 +3698,11 @@ class TestEventView2(BaseTestToolMixin):
                     }
                 }
             },
-            "definition": [ 
+            "definition": [
             {
                 "key":         "rhinosightingrep_earnotchcount",
                 "htmlClass": "col-lg-6"
-            },     
+            },
             {
                 "key":         "rhinosightingrep_Rhino",
                 "htmlClass": "col-lg-6"
@@ -3715,12 +3755,12 @@ class TestEventView2(BaseTestToolMixin):
 
                 "type": "object",
 
-                "properties": 
-                {            
+                "properties":
+                {
                     "rhinosightingrep_earnotchcount": {
                         "type":"number",
                         "title": "Ear notch count"
-                    },           
+                    },
                     "rhinosightingrep_Rhino": {
                         "type": "string",
                         "title": "Individual Rhino ID",
@@ -3735,11 +3775,11 @@ class TestEventView2(BaseTestToolMixin):
                     }
                 }
             },
-            "definition": [ 
+            "definition": [
             {
                 "key":         "rhinosightingrep_earnotchcount",
                 "htmlClass": "col-lg-6"
-            },     
+            },
             {
                 "key":         "rhinosightingrep_Rhino",
                 "htmlClass": "col-lg-6"
