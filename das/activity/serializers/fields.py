@@ -1,11 +1,21 @@
+import json
+import logging
+
+import geojson
 import jsonschema
 from dateutil.parser import parse as parse_date
 from drf_extra_fields.fields import DateTimeTZRange, RangeField
+from geojson import Feature, FeatureCollection
 
 from django.core.exceptions import ValidationError
 from rest_framework import serializers
 from rest_framework.fields import DateTimeField
 from rest_framework.utils import html
+
+from activity.models import EventGeometry
+from utils.feature_representation import FeatureFactory
+
+logger = logging.getLogger(__name__)
 
 
 class CoordinateField(serializers.Field):
@@ -73,3 +83,61 @@ class _RangeField(RangeField):
 class DateTimeRangeField(_RangeField):
     child = DateTimeField(allow_null=True)
     range_type = DateTimeTZRange
+
+
+class EventGeometryField(serializers.RelatedField):
+    def __init__(self, **kwargs):
+        self._feature_factory = FeatureFactory()
+        super().__init__(**kwargs)
+
+    def get_queryset(self):
+        queryset = EventGeometry.objects.all()
+        return queryset
+
+    def to_representation(self, value):
+        events_geometries = value.all()
+        if events_geometries:
+            return FeatureCollection(
+                [
+                    self._feature_factory.get_for_feature(
+                        self._get_geometry_type(event_geometry.geometry)
+                    ).get(
+                        self._get_geometry_coordinates(
+                            event_geometry.geometry),
+                        event_geometry.properties,
+                    )
+                    for event_geometry in events_geometries
+                ]
+            )
+        return None
+
+    def to_internal_value(self, data):
+        try:
+            feature = geojson.loads(geojson.dumps(data))
+            if not isinstance(feature, FeatureCollection) and not isinstance(
+                feature, Feature
+            ):
+                raise ValidationError(
+                    {
+                        "geometry": "Error in format of geometry field, it should be a Feature or a FeatureCollection."
+                    }
+                )
+        except Exception as e:
+            raise ValidationError(
+                {"geometry": f"Error parsing geometry field {e}"})
+        return data
+
+    def _get_geometry_type(self, geometry):
+        try:
+            geometry_json = json.loads(geometry.json)
+            return geometry_json.get("type")
+        except TypeError:
+            logger.exception(
+                f"Trying to parse a wrong type of geometry {geometry}.")
+
+    def _get_geometry_coordinates(self, geometry):
+        try:
+            return geometry.coords
+        except AttributeError:
+            logger.exception(
+                f"Was tried to get an attribute that does not exist.")

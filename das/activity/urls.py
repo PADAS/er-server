@@ -1,4 +1,5 @@
 from django.conf.urls import re_path
+from django.urls import path
 
 from activity import alerts_views, views
 from utils.constants import regex
@@ -6,7 +7,8 @@ from utils.constants import regex
 urlpatterns = [
     re_path(r"^events/?$", views.EventsView.as_view(), name="events"),
     re_path(r"^events/geojson/?$", views.EventsGeoJsonView.as_view()),
-    re_path(r"^events/export/?$", views.EventsExportView.as_view()),
+    re_path(r"^events/export/?$", views.EventsExportView.as_view(),
+            name="events-export"),
     re_path(r"^events/schema/?$", views.EventSchemaView.as_view()),
     re_path(
         rf"^events/schema/eventtype/(?P<eventtype>{regex.SLUG})/?$",
@@ -207,4 +209,6 @@ urlpatterns = [
         views.PatrolsegmentsView.as_view(),
         name="event-segments-view",
     ),
+    path("event/<uuid:event_id>/geometry/",
+         views.EventGeometryView.as_view(), name="event-geometries")
 ]
