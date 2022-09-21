@@ -212,7 +212,7 @@ locals {
     "wrti"                    = "prod1"
     "bdr"                     = "prod1"
     "yellowstone"             = "prod1"
-    "mpala"                   = "prod1"
+    "mpilo"                   = "prod1"
     "nstcg-tz"                = "prod1"
     "ntap-tz"                 = "prod1"
     "wilderblean"             = "prod1"
@@ -288,7 +288,7 @@ locals {
     "limpopo"                 = "prod1"
     "ukulima"                 = "prod1"
     "currumbin"               = "prod-asia"
-    "mpala"                   = "prod1"
+    "mpilo"                   = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -433,7 +433,7 @@ locals {
     "qwabi"                   = 1
     "ukulima"                 = 1
     "limpopo"                 = 1
-    "mpala"                   = 1
+    "mpilo"                   = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
