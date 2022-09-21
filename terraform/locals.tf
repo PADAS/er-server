@@ -288,6 +288,7 @@ locals {
     "limpopo"                 = "prod1"
     "ukulima"                 = "prod1"
     "currumbin"               = "prod-asia"
+    "mukutan"                 = "prod1"
     "pangolinconservation"    = "prod1"
   }
 
