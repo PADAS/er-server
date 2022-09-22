@@ -20,6 +20,7 @@ from kombu import Connection
 
 import django.contrib.auth
 from django.contrib.auth.models import Permission
+from django.contrib.gis.geos import Point, Polygon
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
@@ -3544,6 +3545,97 @@ class TestEventFilterQueryset:
             request.user,
             categories_to_search
         ).exists() == known_location["result"]
+
+
+@pytest.mark.django_db
+class TestEventFilterQuerysetByBbox:
+    @pytest.fixture
+    def _events_with_geometries(self, five_events, five_event_geometries):
+        FLOWER_MILL_PARK = Polygon((
+            (-98.8345742225647, 19.51572603509693),
+            (-98.84262084960938, 19.51813278329343),
+            (-98.84324312210083, 19.516454130768803),
+            (-98.84146213531494, 19.515988958912285),
+            (-98.84139776229858, 19.514290059021565),
+            (-98.8444447517395, 19.514775460812128),
+            (-98.84530305862427, 19.513400151953725),
+            (-98.84008884429932, 19.509678669328427),
+            (-98.83386611938475, 19.512247310514844),
+            (-98.83571147918701, 19.514087807845353),
+            (-98.8345742225647, 19.51572603509693)
+        ))
+        TEXCOCO_DOWNTOWN = Point((-98.8826984167099, 19.514676863691378))
+        TEXCOCO_LAKE = Polygon((
+            (-98.95462989807129, 19.483019024382198),
+            (-98.9934253692627, 19.46982917028777),
+            (-98.98527145385742, 19.448747451000244),
+            (-98.94621849060059, 19.46311245167841),
+            (-98.95462989807129, 19.483019024382198)
+        ))
+
+        town = five_events[0]
+        town.location = TEXCOCO_DOWNTOWN
+        town.save()
+        expected_events = [town]
+
+        park, lake = five_event_geometries[:2]
+        for event_geometry, polygon in [(park, FLOWER_MILL_PARK),
+                                        (lake, TEXCOCO_LAKE)]:
+            event_geometry.geometry = polygon
+            event_geometry.save()
+            expected_events.append(event_geometry.event)
+
+        return expected_events
+
+    def test_bbox_includes_both_geometries_and_locations(
+        self,
+        _events_with_geometries
+    ):
+        MEXICO_CITY_EAST = (-99.179592, 19.398440, -98.747349, 19.606854)
+        events = Event.objects.by_bbox(MEXICO_CITY_EAST)
+        town, park, lake = _events_with_geometries
+
+        expected_ids = set([town.id, park.id, lake.id])
+        actual_ids = set(events.values_list("id", flat=True))
+
+        assert events.count() == 3
+        assert expected_ids == actual_ids
+
+    def test_bbox_excludes_geometries_out_of_boundaries(
+        self,
+        _events_with_geometries
+    ):
+        TEXCOCO_CITY = (-98.920469, 19.485446, -98.812408, 19.537547)
+        events = Event.objects.by_bbox(TEXCOCO_CITY)
+        town, park = _events_with_geometries[:2]
+
+        expected_ids = set([town.id, park.id])
+        actual_ids = set(events.values_list("id", flat=True))
+
+        assert events.count() == 2
+        assert expected_ids == actual_ids
+
+    def test_bbox_includes_partial_overlapping_event(
+        self,
+        _events_with_geometries
+    ):
+        MEXICO_CITY_AIRPORT = (-99.117622, 19.370426, -98.974285, 19.494751)
+        events = Event.objects.by_bbox(MEXICO_CITY_AIRPORT)
+
+        expected_ids = set([_events_with_geometries[2].id])
+        actual_ids = set(events.values_list("id", flat=True))
+
+        assert events.count() == 1
+        assert expected_ids == actual_ids
+
+    def test_bbox_excludes_all_geometries_and_locations(
+        self,
+        _events_with_geometries
+    ):
+        DESERT_OF_LIONS = (-99.387732, 19.223557, -99.171610, 19.327910)
+        events = Event.objects.by_bbox(DESERT_OF_LIONS)
+
+        assert events.count() == 0
 
 
 @pytest.mark.django_db

@@ -357,7 +357,9 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
     def by_bbox(self, bbox, last_days=None):
         geom = Polygon.from_bbox(bbox)
-        events = self.filter(location__within=geom).order_by(
+        events = self.filter(
+            Q(location__within=geom) | Q(geometries__geometry__intersects=geom)
+        ).order_by(
             '-created_at')
         if last_days:
             lt = timezone.now()

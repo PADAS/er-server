@@ -179,7 +179,7 @@ def dummy_cache(settings):
 
 @pytest.fixture
 def five_events():
-    EventFactory.create_batch(5)
+    return EventFactory.create_batch(5)
 
 
 @pytest.fixture
@@ -265,3 +265,8 @@ def superuser_client(application, superuser):
 @pytest.fixture
 def event_geometry_with_polygon():
     return EventGeometryFactory.create()
+
+
+@pytest.fixture
+def five_event_geometries():
+    return EventGeometryFactory.create_batch(5)
