@@ -44,7 +44,7 @@ spec:
             command:
               - "/bin/sh"
               - "-c"
-              - "celery inspect ping -A das_server -d celery@analyzers"
+              - "celery inspect ping -b redis://redis:6379 -d celery@analyzers --timeout=5"
           initialDelaySeconds: 20
           timeoutSeconds: 20
           periodSeconds: 180
