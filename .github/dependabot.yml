@@ -1,7 +1,8 @@
 version: 2
 updates:
   - package-ecosystem: "pip"
-    directory: "/das/dependencies"
+    directory: "/dependencies"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
       day: "monday"
