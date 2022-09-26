@@ -294,6 +294,7 @@ locals {
     "tanglewood"              = "prod1"
     "mukutan"                 = "prod1"
     "pangolinconservation"    = "prod1"
+    "zingela"                 = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
