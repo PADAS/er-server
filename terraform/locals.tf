@@ -294,6 +294,7 @@ locals {
     "tanglewood"              = "prod1"
     "mukutan"                 = "prod1"
     "pangolinconservation"    = "prod1"
+    "cwf-hwange"              = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -442,6 +443,7 @@ locals {
     "zoologicogdl"            = 1
     "tanglewood"              = 1
     "pangolinconservation"    = 1
+    "cwf-hwange"              = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
