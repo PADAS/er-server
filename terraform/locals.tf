@@ -295,6 +295,7 @@ locals {
     "mukutan"                 = "prod1"
     "pangolinconservation"    = "prod1"
     "zingela"                 = "prod1"
+    "damai"                   = "prod-asia"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
