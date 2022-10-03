@@ -38,7 +38,8 @@ from accounts.serializers import (UserDisplaySerializer, UserSerializer,
 from activity.alerting.conditions import Conditions
 from activity.event_geometries import GenericGeometryFactory
 from activity.exceptions import SchemaValidationError
-from activity.models import PC_OPEN, Event, EventGeometry, PatrolSegment
+from activity.models import (PC_OPEN, Event, EventGeometry, EventsourceEvent,
+                             EventType, PatrolSegment)
 from activity.serializers.base import FileSerializerMixin
 from activity.serializers.fields import EventGeometryField
 from activity.util import get_permitted_event_categories
@@ -1442,41 +1443,47 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         return EventRelationshipSerializer(events_mapping[relationship_name], many=True, context=self.context).data
 
     def validate(self, attrs):
-        end_time = attrs.get('end_time')
-        if end_time is not None and end_time < self.instance.time:
-            raise rest_framework.serializers.ValidationError(
+        event_type = attrs.get("event_type")
+        event_source = attrs.get("eventsource")
+        location = attrs.get("location")
+        geometries = attrs.get("geometries")
+        end_time = attrs.get("end_time")
+        priority = attrs.get("priority")
+        state = attrs.get("state")
+        external_event_id = attrs.get("external_event_id")
+
+        if event_type and self._is_event_type_geometry(event_type) and location:
+            raise ValidationError(
+                {"location": "This field is not allowed for events with polygon type."})
+
+        if event_type and self._is_event_type_point(event_type) and geometries:
+            raise ValidationError(
+                {"geometry": "This field is not allowed for events with point type."})
+
+        if end_time and end_time < self.instance.time:
+            raise ValidationError(
                 'Event end_time must not be earlier than event time.')
 
-        # If we're creating an event, and event_type is not present in the
-        # request, raise ValidationError.
-
-        if self.instance is None:
-            event_type = attrs.get('event_type')
-            if event_type is None:
-                eventsource = attrs.get('eventsource')
-                if eventsource:
-                    event_type = eventsource.event_type
-
-                if activity.models.EventsourceEvent.objects.filter(eventsource=eventsource,
-                                                                   external_event_id=attrs.get(
-                                                                       'external_event_id')
-                                                                   ).exists():
-                    error = DuplicateResourceError(
-                        fieldname='external_event_id', detail='External event ID already exists.'
-                    )
-                    raise error
+        # For creating an event, if event_type is not present in the request, raise ValidationError.
+        if not self.instance:
             if not event_type:
-                raise rest_framework.serializers.ValidationError(
-                    {'event_type': 'Event type must be provided.'})
-            else:
-                attrs['event_type'] = event_type
+                if event_source and event_source.event_type:
+                    attrs["event_type"] = event_source.event_type
+                else:
+                    raise ValidationError(
+                        {"event_type": "Event type must be provided."})
 
-        # Default priority from Event-Type if it's not provided in POST.
-        if self.instance is None:
-            if attrs.get('priority') is None:
-                attrs['priority'] = attrs['event_type'].default_priority
-            if attrs.get('state') is None:
-                attrs['state'] = attrs['event_type'].default_state
+            if self._is_event_source_duplicated(event_source, external_event_id):
+                raise DuplicateResourceError(
+                    fieldname='external_event_id',
+                    detail='External event ID already exists.'
+                )
+
+            # Set default priority from event type if not provided in POST.
+            if not priority and event_type:
+                attrs["priority"] = event_type.default_priority
+            if not state and event_type:
+                attrs["state"] = event_type.default_state
         return super().validate(attrs)
 
     def get_out_relation(self, event, value):
@@ -1709,6 +1716,15 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
     def _delete_event_geometries(self, event):
         event.geometries.all().delete()
+
+    def _is_event_type_geometry(self, event_type: EventType):
+        return event_type.geometry_type == EventType.GeometryTypesChoices.POLYGON.label
+
+    def _is_event_type_point(self, event_type: EventType):
+        return event_type.geometry_type == EventType.GeometryTypesChoices.POINT.label
+
+    def _is_event_source_duplicated(self, event_source, external_event_id):
+        return EventsourceEvent.objects.filter(eventsource=event_source, external_event_id=external_event_id).exists()
 
 
 class EventGeoJsonSerializer(EventSerializer):
