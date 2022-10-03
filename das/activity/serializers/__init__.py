@@ -1663,7 +1663,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         return self.feature_representation.get_feature(request, instance)
 
     def _append_point_feature(self, request, instance, representation):
-        geometry_rep = representation.get("geometry", {})
+        geometry_rep = copy.deepcopy(representation.get("geometry", {}))
         geometry_rep["features"].append(
             self.feature_representation.get_feature(request, instance))
         return geometry_rep

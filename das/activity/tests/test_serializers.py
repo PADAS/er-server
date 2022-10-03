@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timedelta
+from unittest.mock import MagicMock
 
 import jsonschema
 import pytest
@@ -261,6 +262,22 @@ class TestEventSerializer:
         assert serialized_event["patrol_segments"] == []
         assert serialized_event["is_collection"] is False
         assert serialized_event["patrols"] == []
+
+    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
+    def test_serialized_geometry_of_event_with_both_location_and_geometry(self, event_geometry_with_polygon, monkeypatch, rf, ops_user):
+        ops_user.is_superuser = True
+        ops_user.save()
+        event = event_geometry_with_polygon.event
+        event.location = Point(-103.313486, 20.420935)
+        event.save()
+        request = MagicMock()
+        request.build_absolute_uri = MagicMock()
+
+        serialized_event = EventSerializer(
+            event, context=self._get_context(request, ops_user)).data
+
+        assert len(serialized_event["geometry"]["features"]) == 1
+        assert serialized_event["geometry"]["features"][0]["geometry"]["type"] == "Polygon"
 
     def test_serialized_event_with_external_sources(self, event_with_event_source_event):
         serialized_event = EventSerializer(event_with_event_source_event).data
