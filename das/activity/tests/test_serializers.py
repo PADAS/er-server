@@ -1,5 +1,4 @@
 import json
-import logging
 from datetime import datetime, timedelta
 
 import jsonschema
@@ -9,14 +8,12 @@ from django.contrib.gis.geos import Point, Polygon
 from django.test import TestCase
 
 from activity.libs import constants as activities_constants
-from activity.models import Event, EventGeometry, Patrol
-from activity.serializers import EventSerializer
+from activity.models import Event, EventGeometry, EventType, Patrol
+from activity.serializers import DuplicateResourceError, EventSerializer
 from activity.serializers.fields import CoordinateField
 from activity.serializers.geometries import EventGeometryRevisionSerializer
 from activity.serializers.patrol_serializers import PatrolSerializer
 from utils.features import features
-
-logger = logging.getLogger(__name__)
 
 
 class TestCoordinateField(TestCase):
@@ -320,6 +317,40 @@ class TestEventSerializer:
         assert Event.objects.all()
         assert EventGeometry.objects.all()
 
+    def test_create_event_with_default_priority_and_state(self, rf, monkeypatch, ops_user, event_type):
+        monkeypatch.user = ops_user
+
+        serialized = EventSerializer(
+            data={
+                "title": "Title",
+                "event_type": event_type.value
+            },
+            context=self._get_context(rf, ops_user)
+        )
+        serialized.is_valid()
+        event = serialized.save()
+
+        assert event.priority == event_type.default_priority
+        assert event.state == event_type.default_state
+
+    def test_create_event_with_custom_priority_and_state(self, rf, monkeypatch, ops_user, event_type):
+        monkeypatch.user = ops_user
+
+        serialized = EventSerializer(
+            data={
+                "title": "Title",
+                "event_type": event_type.value,
+                "priority": 100,
+                "state": "active"
+            },
+            context=self._get_context(rf, ops_user)
+        )
+        serialized.is_valid()
+        event = serialized.save()
+
+        assert event.priority == 100
+        assert event.state == "active"
+
     @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_edit_event_with_geometry_using_a_feature(self, rf, admin_user, event_geometry_with_polygon):
         event = event_geometry_with_polygon.event
@@ -373,6 +404,139 @@ class TestEventSerializer:
             data=data, context=self._get_context(rf, admin_user))
 
         assert not serialized_event.is_valid()
+
+    def test_validation_when_saving_point_for_events_type_with_polygon_geometry_type(self, rf, monkeypatch, event_type, ops_user):
+        event_type.geometry_type = EventType.GeometryTypesChoices.POLYGON
+        event_type.save()
+        monkeypatch.user = ops_user
+
+        serialized = EventSerializer(
+            data={
+                "location": {
+                    "latitude": 41.8568816599531,
+                    "longitude": -105.61289437001126,
+                },
+                "event_type": event_type.value,
+                "title": "Title",
+            },
+            context=self._get_context(rf, ops_user)
+        )
+
+        assert not serialized.is_valid()
+        assert "location" in serialized.errors
+        assert serialized.errors["location"][0] == "This field is not allowed for events with polygon type."
+
+    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
+    def test_validation_when_saving_polygon_for_events_type_with_point_geometry_type(self, rf, monkeypatch, event_type, ops_user):
+        event_type.geometry_type = EventType.GeometryTypesChoices.POINT
+        event_type.save()
+        monkeypatch.user = ops_user
+
+        serialized = EventSerializer(
+            data={
+                "geometry": {
+                    "type": "Feature",
+                    "properties": {
+                        "size": 10,
+                        "large": 20
+                    },
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [
+                                [
+                                    -103.42475652694702,
+                                    20.621970067076848
+                                ],
+                                [
+                                    -103.42286825180052,
+                                    20.624661133427434
+                                ],
+                                [
+                                    -103.42717051506042,
+                                    20.623235275838002
+                                ],
+                                [
+                                    -103.42475652694702,
+                                    20.621970067076848
+                                ]
+                            ]
+                        ]
+                    }
+                },
+                "event_type": event_type.value,
+                "title": "Title",
+            },
+            context=self._get_context(rf, ops_user)
+        )
+
+        assert not serialized.is_valid()
+        assert "geometry" in serialized.errors
+        assert serialized.errors["geometry"][0] == "This field is not allowed for events with point type."
+
+    def test_validation_when_end_time_is_lower_than_instance_saved(self, rf, monkeypatch, event_with_detail, ops_user):
+        event = event_with_detail.event
+        end_time = event.time - timedelta(hours=1)
+        monkeypatch.user = ops_user
+
+        serialized = EventSerializer(instance=event, data={
+                                     "end_time": end_time}, context=self._get_context(rf, ops_user))
+
+        assert not serialized.is_valid()
+        assert "non_field_errors" in serialized.errors
+        assert serialized.errors["non_field_errors"][0] == "Event end_time must not be earlier than event time."
+
+    def test_validation_when_not_event_type_in_payload(self, rf, ops_user, monkeypatch):
+        monkeypatch.user = ops_user
+
+        serialized = EventSerializer(
+            data={
+                "title": "Title"
+            },
+            context={"request": monkeypatch}
+        )
+
+        assert not serialized.is_valid()
+        assert "event_type" in serialized.errors
+        assert serialized.errors["event_type"][0] == "Event type must be provided."
+
+    def test_validation_when_not_event_type_in_payload_and_not_in_event_source(self, rf, ops_user, monkeypatch, event_source):
+        monkeypatch.user = ops_user
+        event_source.eventprovider.owner = ops_user
+        event_source.eventprovider.save()
+
+        serialized = EventSerializer(
+            data={
+                "title": "Title",
+                "eventsource": event_source.id
+            },
+            context=self._get_context(rf, ops_user)
+        )
+
+        assert not serialized.is_valid()
+        assert "event_type" in serialized.errors
+        assert serialized.errors["event_type"][0] == "Event type must be provided."
+
+    def test_validation_duplicated_event_source_event(self, rf, monkeypatch, ops_user, event_source, event_type, event_source_event):
+        monkeypatch.user = ops_user
+        event_source.eventprovider.owner = ops_user
+        event_source.eventprovider.save()
+        event_source_event.external_event_id = "this"
+        event_source_event.eventsource = event_source
+        event_source_event.save()
+
+        serialized = EventSerializer(
+            data={
+                "title": "Title",
+                "event_type": event_type.value,
+                "eventsource": event_source.id,
+                "external_event_id": "this"
+            },
+            context=self._get_context(rf, ops_user)
+        )
+
+        with pytest.raises(DuplicateResourceError):
+            serialized.is_valid()
 
     def _get_context(self, request, user):
         request.user = user
