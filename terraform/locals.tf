@@ -295,6 +295,7 @@ locals {
     "mukutan"                 = "prod1"
     "pangolinconservation"    = "prod1"
     "zingela"                 = "prod1"
+    "laossi"                  = "prod-asia"
     "kirkmanskamp"            = "prod1"
     "accalosamigos"           = "prod1"
   }
