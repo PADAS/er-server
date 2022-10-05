@@ -50,7 +50,6 @@ from core.utils import OneWeekSchedule
 from observations.serializers import SubjectSerializer
 from revision.manager import AC_RELATION_DELETED, AC_UPDATED
 from utils.feature_representation import FeatureRepresentation
-from utils.features import features
 from utils.gis import get_polygon_info
 from utils.json import parse_bool
 from utils.schema_utils import (get_schema_renderer_method,
@@ -1339,11 +1338,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     #  json {lat/lon} and our internal representation.
     location = PointField(required=False, allow_null=True,
                           validators=[PointValidator(), ])
-
-    if features.geometries.is_on():
-        geometry = EventGeometryField(
-            source="geometries", required=False, allow_null=True)
-
+    geometry = EventGeometryField(
+        source="geometries", required=False, allow_null=True)
     time = DateTimeField(source='event_time', required=False)
     created_at = DateTimeField(required=False)
     updated_at = DateTimeField(source='sort_at', required=False)
@@ -1515,11 +1511,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             'created_by_user', 'notes', 'reported_by',
             'state', 'event_details', 'contains', 'is_linked_to', 'is_contained_in',
             'files', 'related_subjects', 'eventsource', 'external_event_id', 'sort_at',
-            'patrol_segments',)
-        if features.geometries.is_on():
-            fields = (*default_fields, "geometry", *read_only_fields)
-        else:
-            fields = (*default_fields, *read_only_fields)
+            'patrol_segments', "geometry")
+        fields = (*default_fields, *read_only_fields)
 
     def __init__(self, *args, **kwargs):
         self._event_geometry_factory = GenericGeometryFactory()
@@ -1613,16 +1606,11 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             image_url = resolve_image_url(event)
             rep['image_url'] = utils.add_base_url(request, image_url)
 
-            if features.geometries.is_on():
-                if self._has_instance_feature(event):
-                    rep["geojson"] = self._get_geojson(request, event)
-                    if self._has_both_features(event):
-                        rep["geojson"] = self._append_point_feature(
-                            request, event, rep)
-            else:
-                if event.location is not None:
-                    geodata = make_feature(self.context['request'], event)
-                    rep['geojson'] = geodata
+            if self._has_instance_feature(event):
+                rep["geojson"] = self._get_geojson(request, event)
+                if self._has_both_features(event):
+                    rep["geojson"] = self._append_point_feature(
+                        request, event, rep)
 
         if event.event_type:
             rep['is_collection'] = event.event_type.is_collection

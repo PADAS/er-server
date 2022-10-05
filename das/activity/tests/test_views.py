@@ -4,8 +4,7 @@ from django.contrib.gis.geos import Polygon
 from django.urls import reverse
 from rest_framework import status
 
-from activity.models import Event, EventGeometry
-from utils.features import features
+from activity.models import Event, EventGeometry, EventType
 from utils.gis import get_polygon_info
 
 
@@ -67,10 +66,11 @@ class TestEventsView:
         },
     }
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_create_an_event_with_a_feature_collection_as_geometry(
         self, event_type, superuser_client
     ):
+        event_type.geometry_type = EventType.GeometryTypesChoices.POLYGON
+        event_type.save()
         url = reverse("events")
 
         response = superuser_client.post(
@@ -86,10 +86,11 @@ class TestEventsView:
         assert Event.objects.all().count()
         assert EventGeometry.objects.all().count() == 1
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_create_an_event_with_a_feature_as_geometry(
         self, event_type, superuser_client
     ):
+        event_type.geometry_type = EventType.GeometryTypesChoices.POLYGON
+        event_type.save()
         url = reverse("events")
 
         response = superuser_client.post(
@@ -106,8 +107,9 @@ class TestEventsView:
         assert EventGeometry.objects.all().count()
         assert "area" in response.data["geometry"]["features"][0]["properties"]
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_calculate_geometry_area_and_perimeter(self, event_type, superuser_client):
+        event_type.geometry_type = EventType.GeometryTypesChoices.POLYGON
+        event_type.save()
         url = reverse("events")
 
         response = superuser_client.post(
@@ -167,7 +169,6 @@ class TestEventView:
         ],
     }
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     @pytest.mark.parametrize(
         "geometry, expected",
         (
@@ -203,7 +204,6 @@ class TestEventView:
         assert int(area) == expected["area"]
         assert int(perimeter) == expected["perimeter"]
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     @pytest.mark.parametrize("geometry, expected",
                              (
                                  (feature, {"area": 15215947073297,
@@ -223,7 +223,6 @@ class TestEventView:
         assert int(perimeter) == expected["perimeter"]
         assert EventGeometry.objects.all().count()
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_delete_event_geometry_of_event(self, event_geometry_with_polygon, superuser_client):
         url = reverse(
             "event-view", args=[event_geometry_with_polygon.event.pk])
@@ -233,7 +232,6 @@ class TestEventView:
         assert response.status_code == status.HTTP_200_OK
         assert event_geometry_with_polygon.event.geometries.count() == 0
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_delete_event_geometry_of_event_without_geometry(self, event_with_detail, superuser_client):
         url = reverse("event-view", args=[event_with_detail.event.pk])
 

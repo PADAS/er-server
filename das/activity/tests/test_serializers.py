@@ -14,7 +14,6 @@ from activity.serializers import DuplicateResourceError, EventSerializer
 from activity.serializers.fields import CoordinateField
 from activity.serializers.geometries import EventGeometryRevisionSerializer
 from activity.serializers.patrol_serializers import PatrolSerializer
-from utils.features import features
 
 
 class TestCoordinateField(TestCase):
@@ -300,8 +299,9 @@ class TestEventSerializer:
 
         assert "external_source" not in serialized_event
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_create_event_with_geometry_using_a_feature(self, event_type, rf, admin_user):
+        event_type.geometry_type = EventType.GeometryTypesChoices.POLYGON
+        event_type.save()
         data = {
             "event_type": event_type.value,
             "title": "Title",
@@ -316,10 +316,11 @@ class TestEventSerializer:
         assert Event.objects.all()
         assert EventGeometry.objects.all()
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_create_event_with_geometry_using_a_feature_collection(
             self, event_type, rf, admin_user
     ):
+        event_type.geometry_type = EventType.GeometryTypesChoices.POLYGON
+        event_type.save()
         data = {
             "event_type": event_type.value,
             "title": "Title",
@@ -368,7 +369,6 @@ class TestEventSerializer:
         assert event.priority == 100
         assert event.state == "active"
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_edit_event_with_geometry_using_a_feature(self, rf, admin_user, event_geometry_with_polygon):
         event = event_geometry_with_polygon.event
 
@@ -382,7 +382,6 @@ class TestEventSerializer:
             event_geometry_with_polygon.geometry.geojson) == self.feature["geometry"]
         assert EventGeometry.objects.count() == 1
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_edit_event_with_geometry_using_a_feature_collection(self, rf, admin_user, event_geometry_with_polygon):
         event = event_geometry_with_polygon.event
 
@@ -396,7 +395,6 @@ class TestEventSerializer:
             event_geometry_with_polygon.geometry.geojson) == self.feature_collection["features"][0]["geometry"]
         assert EventGeometry.objects.count() == 1
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_create_event_with_geometry_using_wrong_feature_handler_exception(self, rf, admin_user, event_type):
         data = {
             "event_type": event_type.value,
@@ -409,7 +407,6 @@ class TestEventSerializer:
 
         assert not serialized_event.is_valid()
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_create_event_with_geometry_using_wrong_feature_collection_handler_exception(self, rf, admin_user, event_type):
         data = {
             "event_type": event_type.value,
@@ -443,7 +440,6 @@ class TestEventSerializer:
         assert "location" in serialized.errors
         assert serialized.errors["location"][0] == "This field is not allowed for events with polygon type."
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_validation_when_saving_polygon_for_events_type_with_point_geometry_type(self, rf, monkeypatch, event_type, ops_user):
         event_type.geometry_type = EventType.GeometryTypesChoices.POINT
         event_type.save()

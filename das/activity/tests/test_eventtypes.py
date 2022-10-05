@@ -1,11 +1,8 @@
 import json
 import os
 from typing import Any, NamedTuple
-
 import pytest
-
 from django.urls import reverse
-
 from activity.models import EventCategory, EventType
 from activity.tests import schema_examples
 from activity.views import EventTypeView
