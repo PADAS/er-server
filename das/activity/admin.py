@@ -31,7 +31,6 @@ from activity.tasks import (recreate_event_details_view,
 from core.admin import InlineExtraDynamicMixin
 from core.common import TIMEZONE_USED, AdminFeatureFlag
 from core.openlayers import OSMGeoExtendedAdmin, PropsOSMGeoAdminMixin
-from utils.features import features
 
 logger = logging.getLogger(__name__)
 
@@ -105,8 +104,7 @@ class EventAdmin(OSMGeoExtendedAdmin):
 
     def __init__(self, model, admin_site):
         super().__init__(model, admin_site)
-        if features.geometries.is_on():
-            self.inlines = (EventGeometryInline, *self.inlines)
+        self.inlines = (EventGeometryInline, *self.inlines)
 
     def resolve_event(self, request, queryset):
         queryset.update(state=models.Event.SC_RESOLVED)
@@ -180,22 +178,8 @@ class EventTypeAdmin(admin.ModelAdmin):
         ),
     )
 
-    def get_fieldsets(self, request, obj=None):
-        fieldsets = super().get_fieldsets(request, obj)
-        if not features.geometries.is_on():
-            fields_to_remove = [
-                "geometry_type",
-            ]
-            new_fields = tuple(
-                field
-                for field in fieldsets[0][1].get("fields")
-                if field not in fields_to_remove
-            )
-            fieldsets[0][1]["fields"] = new_fields
-        return fieldsets
-
     def get_readonly_fields(self, request, obj=None):
-        if features.geometries.is_on() and obj:
+        if obj:
             return ["geometry_type"]
         return []
 

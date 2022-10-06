@@ -6,12 +6,10 @@ from django.contrib.gis.geos import Polygon
 
 from activity.models import EventGeometry
 from activity.serializers import EventGeometryField
-from utils.features import features
 
 
 @pytest.mark.django_db
 class TestEventGeometryField:
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_serialized_geometry_format(self, event_with_detail):
         event = event_with_detail.event
         EventGeometry.objects.create(
@@ -55,7 +53,6 @@ class TestEventGeometryField:
         assert isinstance(coordinates[0], list)
         assert isinstance(coordinates[0][0], list)
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_serialized_geometry(self, event_with_detail):
         event = event_with_detail.event
         event_geometry = EventGeometry.objects.create(
@@ -84,7 +81,6 @@ class TestEventGeometryField:
         assert feature.get("geometry") == json.loads(
             event_geometry.geometry.geojson)
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_serialized_empty_geometry(self, event_with_detail):
 
         serialized_geometry = EventGeometryField().to_representation(

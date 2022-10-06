@@ -38,7 +38,8 @@ from accounts.serializers import (UserDisplaySerializer, UserSerializer,
 from activity.alerting.conditions import Conditions
 from activity.event_geometries import GenericGeometryFactory
 from activity.exceptions import SchemaValidationError
-from activity.models import PC_OPEN, Event, EventGeometry, PatrolSegment
+from activity.models import (PC_OPEN, Event, EventGeometry, EventsourceEvent,
+                             EventType, PatrolSegment)
 from activity.serializers.base import FileSerializerMixin
 from activity.serializers.fields import EventGeometryField
 from activity.util import get_permitted_event_categories
@@ -49,7 +50,6 @@ from core.utils import OneWeekSchedule
 from observations.serializers import SubjectSerializer
 from revision.manager import AC_RELATION_DELETED, AC_UPDATED
 from utils.feature_representation import FeatureRepresentation
-from utils.features import features
 from utils.gis import get_polygon_info
 from utils.json import parse_bool
 from utils.schema_utils import (get_schema_renderer_method,
@@ -510,7 +510,7 @@ class EventTypeSerializer(rest_framework.serializers.ModelSerializer):
         write_only_fields = ('icon',)
         fields = read_only_fields + write_only_fields + ('value', 'display', 'ordernum',
                                                          'is_collection', 'category', 'icon_id', 'is_active', 'schema',
-                                                         'default_priority')
+                                                         'default_priority', 'geometry_type')
 
     def __init__(self, *args, **kwargs):
         super(EventTypeSerializer, self).__init__(*args, **kwargs)
@@ -1338,11 +1338,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
     #  json {lat/lon} and our internal representation.
     location = PointField(required=False, allow_null=True,
                           validators=[PointValidator(), ])
-
-    if features.geometries.is_on():
-        geometry = EventGeometryField(
-            source="geometries", required=False, allow_null=True)
-
+    geometry = EventGeometryField(
+        source="geometries", required=False, allow_null=True)
     time = DateTimeField(source='event_time', required=False)
     created_at = DateTimeField(required=False)
     updated_at = DateTimeField(source='sort_at', required=False)
@@ -1442,41 +1439,47 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         return EventRelationshipSerializer(events_mapping[relationship_name], many=True, context=self.context).data
 
     def validate(self, attrs):
-        end_time = attrs.get('end_time')
-        if end_time is not None and end_time < self.instance.time:
-            raise rest_framework.serializers.ValidationError(
+        event_type = attrs.get("event_type")
+        event_source = attrs.get("eventsource")
+        location = attrs.get("location")
+        geometries = attrs.get("geometries")
+        end_time = attrs.get("end_time")
+        priority = attrs.get("priority")
+        state = attrs.get("state")
+        external_event_id = attrs.get("external_event_id")
+
+        if event_type and self._is_event_type_geometry(event_type) and location:
+            raise ValidationError(
+                {"location": "This field is not allowed for events with polygon type."})
+
+        if event_type and self._is_event_type_point(event_type) and geometries:
+            raise ValidationError(
+                {"geometry": "This field is not allowed for events with point type."})
+
+        if end_time and end_time < self.instance.time:
+            raise ValidationError(
                 'Event end_time must not be earlier than event time.')
 
-        # If we're creating an event, and event_type is not present in the
-        # request, raise ValidationError.
-
-        if self.instance is None:
-            event_type = attrs.get('event_type')
-            if event_type is None:
-                eventsource = attrs.get('eventsource')
-                if eventsource:
-                    event_type = eventsource.event_type
-
-                if activity.models.EventsourceEvent.objects.filter(eventsource=eventsource,
-                                                                   external_event_id=attrs.get(
-                                                                       'external_event_id')
-                                                                   ).exists():
-                    error = DuplicateResourceError(
-                        fieldname='external_event_id', detail='External event ID already exists.'
-                    )
-                    raise error
+        # For creating an event, if event_type is not present in the request, raise ValidationError.
+        if not self.instance:
             if not event_type:
-                raise rest_framework.serializers.ValidationError(
-                    {'event_type': 'Event type must be provided.'})
-            else:
-                attrs['event_type'] = event_type
+                if event_source and event_source.event_type:
+                    attrs["event_type"] = event_source.event_type
+                else:
+                    raise ValidationError(
+                        {"event_type": "Event type must be provided."})
 
-        # Default priority from Event-Type if it's not provided in POST.
-        if self.instance is None:
-            if attrs.get('priority') is None:
-                attrs['priority'] = attrs['event_type'].default_priority
-            if attrs.get('state') is None:
-                attrs['state'] = attrs['event_type'].default_state
+            if self._is_event_source_duplicated(event_source, external_event_id):
+                raise DuplicateResourceError(
+                    fieldname='external_event_id',
+                    detail='External event ID already exists.'
+                )
+
+            # Set default priority from event type if not provided in POST.
+            if not priority and event_type:
+                attrs["priority"] = event_type.default_priority
+            if not state and event_type:
+                attrs["state"] = event_type.default_state
         return super().validate(attrs)
 
     def get_out_relation(self, event, value):
@@ -1508,11 +1511,8 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             'created_by_user', 'notes', 'reported_by',
             'state', 'event_details', 'contains', 'is_linked_to', 'is_contained_in',
             'files', 'related_subjects', 'eventsource', 'external_event_id', 'sort_at',
-            'patrol_segments',)
-        if features.geometries.is_on():
-            fields = (*default_fields, "geometry", *read_only_fields)
-        else:
-            fields = (*default_fields, *read_only_fields)
+            'patrol_segments', "geometry")
+        fields = (*default_fields, *read_only_fields)
 
     def __init__(self, *args, **kwargs):
         self._event_geometry_factory = GenericGeometryFactory()
@@ -1606,16 +1606,11 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             image_url = resolve_image_url(event)
             rep['image_url'] = utils.add_base_url(request, image_url)
 
-            if features.geometries.is_on():
-                if self._has_instance_feature(event):
-                    rep["geojson"] = self._get_geojson(request, event)
-                    if self._has_both_features(event):
-                        rep["geojson"] = self._append_point_feature(
-                            request, event, rep)
-            else:
-                if event.location is not None:
-                    geodata = make_feature(self.context['request'], event)
-                    rep['geojson'] = geodata
+            if self._has_instance_feature(event):
+                rep["geojson"] = self._get_geojson(request, event)
+                if self._has_both_features(event):
+                    rep["geojson"] = self._append_point_feature(
+                        request, event, rep)
 
         if event.event_type:
             rep['is_collection'] = event.event_type.is_collection
@@ -1656,7 +1651,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
         return self.feature_representation.get_feature(request, instance)
 
     def _append_point_feature(self, request, instance, representation):
-        geometry_rep = representation.get("geometry", {})
+        geometry_rep = copy.deepcopy(representation.get("geometry", {}))
         geometry_rep["features"].append(
             self.feature_representation.get_feature(request, instance))
         return geometry_rep
@@ -1709,6 +1704,15 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
 
     def _delete_event_geometries(self, event):
         event.geometries.all().delete()
+
+    def _is_event_type_geometry(self, event_type: EventType):
+        return event_type.geometry_type == EventType.GeometryTypesChoices.POLYGON.label
+
+    def _is_event_type_point(self, event_type: EventType):
+        return event_type.geometry_type == EventType.GeometryTypesChoices.POINT.label
+
+    def _is_event_source_duplicated(self, event_source, external_event_id):
+        return EventsourceEvent.objects.filter(eventsource=event_source, external_event_id=external_event_id).exists()
 
 
 class EventGeoJsonSerializer(EventSerializer):
