@@ -299,6 +299,7 @@ locals {
     "laossi"                  = "prod-asia"
     "kirkmanskamp"            = "prod1"
     "accalosamigos"           = "prod1"
+    "khaoyai"                 = "prod-asia"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
