@@ -1,4 +1,5 @@
 import logging
+import math
 
 from django.contrib.gis.geos import GEOSGeometry, MultiPolygon, Point, Polygon
 
@@ -83,7 +84,14 @@ def convert_to_point(location):
     return location
 
 
-def get_polygon_info(geom: GEOSGeometry, key: str = "area", epsg: int = 3857) -> float:
+def get_utm_by_wgs_84(longitude: float, latitude: float) -> int:
+    utm_zone_num = int(math.floor((longitude + 180) / 6) + 1)
+    utm_zone_hemi = 6 if latitude >= 0 else 7
+    utm_epsg = 32000 + utm_zone_hemi * 100 + utm_zone_num
+    return utm_epsg
+
+
+def get_polygon_info(geom: GEOSGeometry, key: str = "area") -> float:
     """
     It takes a geometry, transforms it to a given EPSG, and returns the value of a given attribute.
     NOTE: For get the perimeter us the key "length"
@@ -91,5 +99,6 @@ def get_polygon_info(geom: GEOSGeometry, key: str = "area", epsg: int = 3857) ->
     Returns:
       The perimeter or area of the polygon in meters or square meters.
     """
+    epsg = get_utm_by_wgs_84(geom.centroid.x, geom.centroid.y)
     transformed_geo = geom.transform(epsg, clone=True)
     return round(getattr(transformed_geo, key), 2)

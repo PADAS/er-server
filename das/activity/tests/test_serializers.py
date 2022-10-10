@@ -262,7 +262,6 @@ class TestEventSerializer:
         assert serialized_event["is_collection"] is False
         assert serialized_event["patrols"] == []
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_serialized_geometry_of_event_with_both_location_and_geometry(self, event_geometry_with_polygon, monkeypatch, rf, ops_user):
         ops_user.is_superuser = True
         ops_user.save()

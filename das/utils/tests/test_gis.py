@@ -7,6 +7,7 @@ from django.contrib.gis.geos import Polygon
 from utils.gis import get_polygon_info
 
 
+@pytest.mark.django_db
 class TestGis:
     @pytest.mark.parametrize(
         "coordinates,expected",
@@ -19,11 +20,11 @@ class TestGis:
                     [-103.38129937648773, 20.67551383792851],
                     [-103.38129937648773, 20.674454841539493],
                 ],
-                {"area": 18096, "perimeter": 539},
+                {"area": 15759, "perimeter": 503},
             ),
         ),
     )
-    def test_get_polygon_info(self, coordinates, expected):
+    def test_get_polygon_info(self, coordinates, expected, event_geometry_with_polygon):
         polygon = Polygon(coordinates, srid=4326)
         area = get_polygon_info(polygon, "area")
         perimeter = get_polygon_info(polygon, "length")
