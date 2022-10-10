@@ -24,7 +24,7 @@ class TestGis:
             ),
         ),
     )
-    def test_get_polygon_info(self, coordinates, expected, event_geometry_with_polygon):
+    def test_get_polygon_info(self, coordinates, expected):
         polygon = Polygon(coordinates, srid=4326)
         area = get_polygon_info(polygon, "area")
         perimeter = get_polygon_info(polygon, "length")

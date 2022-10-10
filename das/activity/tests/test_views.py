@@ -124,8 +124,8 @@ class TestEventsView:
         perimeter = response.data['geometry'][0]['properties']["perimeter"]
 
         assert response.status_code == status.HTTP_201_CREATED
-        assert int(area) == 18876
-        assert int(perimeter) == 551
+        assert int(area) == 16438
+        assert int(perimeter) == 514
 
 
 @pytest.mark.django_db
@@ -172,8 +172,8 @@ class TestEventView:
     @pytest.mark.parametrize(
         "geometry, expected",
         (
-            (feature, {"area": 15215947073297, "perimeter": 15852270}),
-            (feature_collection, {"area": 1410992, "perimeter": 5760}),
+            (feature, {"area": 3846072269393, "perimeter": 8185448}),
+            (feature_collection, {"area": 1228789, "perimeter": 5370}),
         ),
     )
     def test_updated_geometry_of_event_that_contains_a_previous_geometry(
@@ -204,13 +204,13 @@ class TestEventView:
         assert int(area) == expected["area"]
         assert int(perimeter) == expected["perimeter"]
 
-    @pytest.mark.parametrize("geometry, expected",
-                             (
-                                 (feature, {"area": 15215947073297,
-                                  "perimeter": 15852270}),
-                                 (feature_collection, {
-                                  "area": 1410992, "perimeter": 5760}),
-                             ))
+    @pytest.mark.parametrize(
+        "geometry, expected",
+        (
+            (feature, {"area": 3846072269393, "perimeter": 8185448}),
+            (feature_collection, {"area": 1228789, "perimeter": 5370}),
+        ),
+    )
     def test_update_geometry_of_event_that_does_not_contains_a_geometry(self, geometry, expected, event_with_detail, superuser_client):
         url = reverse("event-view", args=[event_with_detail.event.pk])
         response = superuser_client.patch(url, {"geometry": geometry})
@@ -286,6 +286,6 @@ class TestEventGeometryView:
 
         assert response.status_code == status.HTTP_200_OK
         assert "Area" in content
-        assert "5032048880654.67" in content
+        assert "3215419796603.78" in content
         assert "Perimeter" in content
-        assert "10797827.42" in content
+        assert "8791536.63" in content
