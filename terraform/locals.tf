@@ -300,6 +300,7 @@ locals {
     "kirkmanskamp"            = "prod1"
     "accalosamigos"           = "prod1"
     "khaoyai"                 = "prod-asia"
+    "tumbeta"                 = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -449,6 +450,7 @@ locals {
     "tanglewood"              = 1
     "pangolinconservation"    = 1
     "accalosamigos"           = 1
+    "tumbeta"                 = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
