@@ -85,6 +85,10 @@ def convert_to_point(location):
 
 
 def get_utm_by_wgs_84(longitude: float, latitude: float) -> int:
+    """
+    This solution was taken from:
+    Source: https://stackoverflow.com/questions/68220763/geodjango-calculate-and-save-polygon-area-in-units-upon-object-creation
+    """
     utm_zone_num = int(math.floor((longitude + 180) / 6) + 1)
     utm_zone_hemi = 6 if latitude >= 0 else 7
     utm_epsg = 32000 + utm_zone_hemi * 100 + utm_zone_num

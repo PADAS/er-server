@@ -4,10 +4,9 @@ import pytest
 
 from django.contrib.gis.geos import Polygon
 
-from utils.gis import get_polygon_info
+from utils.gis import get_polygon_info, get_utm_by_wgs_84
 
 
-@pytest.mark.django_db
 class TestGis:
     @pytest.mark.parametrize(
         "coordinates,expected",
@@ -36,3 +35,16 @@ class TestGis:
 
     def _get_decimals_count(self, number: float) -> int:
         return abs(Decimal(str(number)).as_tuple().exponent)
+
+    @pytest.mark.parametrize(
+        "coors,expected",
+        [
+            [{"latitude": 42.63417745560095, "longitude": -121.92225552234876}, 32610],
+            [{"latitude": 20.927367751332778, "longitude": -102.45120663435452}, 32613],
+            [{"latitude": -8.112994941042723, "longitude": -40.63553313639657}, 32724],
+            [{"latitude": -42.141059503358996, "longitude": -66.01585547197922}, 32719],
+        ],
+    )
+    def test_get_utm_by_wgs_84(self, coors, expected):
+        epsg = get_utm_by_wgs_84(**coors)
+        assert epsg == expected
