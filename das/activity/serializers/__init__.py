@@ -1606,6 +1606,7 @@ class EventSerializer(EventSerializerMixin, rest_framework.serializers.ModelSeri
             image_url = resolve_image_url(event)
             rep['image_url'] = utils.add_base_url(request, image_url)
 
+            rep["geojson"] = None
             if self._has_instance_feature(event):
                 rep["geojson"] = self._get_geojson(request, event)
                 if self._has_both_features(event):
