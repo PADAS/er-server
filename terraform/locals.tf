@@ -302,6 +302,7 @@ locals {
     "khaoyai"                 = "prod-asia"
     "tumbeta"                 = "prod1"
     "iberianhighlands"        = "prod1"
+    "jaguarcaatinga"          = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
