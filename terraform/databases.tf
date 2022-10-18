@@ -199,3 +199,18 @@ resource "google_secret_manager_secret_version" "secret-version-basic" {
 
   secret_data = "{\"user\":\"${google_sql_user.analytics_user.name}\", \"password\":\"${random_password.analytics_user_pass.result}\"}"
 }
+
+# Grants cloud build identity on earthranger-tools project access to *_sql_analytics_info secret
+resource "google_secret_manager_secret_iam_member" "ertools_cloud_build_secret_accesor" {
+  project   = data.google_project.earthranger.project_id
+  role      = "roles/secretmanager.secretAccessor"
+  secret_id = google_secret_manager_secret.er_sql_analytics_info.id
+  member    = "serviceAccount:${var.ertools_cloud_build_identity}"
+}
+
+resource "google_secret_manager_secret_iam_member" "ertools_cloud_build_secret_viewer" {
+  project   = data.google_project.earthranger.project_id
+  role      = "roles/secretmanager.viewer"
+  secret_id = google_secret_manager_secret.er_sql_analytics_info.id
+  member    = "serviceAccount:${var.ertools_cloud_build_identity}"
+}
