@@ -1,0 +1,102 @@
+[
+  {
+    "fields": {
+      "provider_key": "awt",
+      "display_name": "Awt Provider",
+      "additional": {
+      },
+      "created_at": "2015-11-01T00:00:00+00:00",
+      "updated_at": "2015-11-01T00:00:00+00:00"
+    },
+    "pk": "a91e0366-898c-475b-830f-e0fae46e6efe",
+    "model": "observations.sourceprovider"
+  },
+  {
+    "fields": {
+      "provider_id": "a91e0366-898c-475b-830f-e0fae46e6efe",
+      "manufacturer_id": "2543",
+      "additional": {
+        "a": 1
+      },
+      "created_at": "2017-01-01T00:00:00+00:00",
+      "updated_at": "2017-01-01T00:00:00+00:00",
+      "source_type": "tracking-device"
+    },
+    "pk": "56b1cf14-ef97-4054-8fbd-1342f265b2a9",
+    "model": "observations.source"
+  },
+  {
+    "fields": {
+      "username": "random",
+      "password": "random",
+      "host": "http://random-host.domain_name",
+      "subscription_token": "3263633830333236623937353538393163353836633966396533353966386636",
+      "provider_id": "a91e0366-898c-475b-830f-e0fae46e6efe",
+      "status": "enabled",
+      "name": "Africa Wildlife Tracking",
+      "created_at": "2017-01-01T00:00:00+00:00",
+      "updated_at": "2017-01-01T00:00:00+00:00"
+    },
+    "pk": "2e47839d-0277-4398-904d-91da8b0698f4",
+    "model": "tracking.awtplugin"
+  },
+  {
+    "fields": {
+      "value": "wildlife",
+      "display": "wildlife",
+      "created_at": "2017-01-01T00:00:00+00:00",
+      "updated_at": "2017-01-01T00:00:00+00:00"
+    },
+    "pk": "2e47839d-0277-4398-904d-91da8b0698f4",
+    "model": "observations.subjecttype"
+  },
+  {
+    "fields": {
+      "username": "random",
+      "password": "random",
+      "host": "http://random-host.domain_name",
+      "subscription_token": "3263633830333236623937353538393163353836633966396533353966386636",
+      "provider_id": "a91e0366-898c-475b-830f-e0fae46e6efe",
+      "status": "enabled",
+      "name": "Africa Wildlife Tracking",
+      "created_at": "2017-01-01T00:00:00+00:00",
+      "updated_at": "2017-01-01T00:00:00+00:00"
+    },
+    "pk": "2e47839d-0277-4398-904d-91da8b0698f4",
+    "model": "tracking.awtplugin"
+  },
+  {
+    "fields": {
+      "created_at": "2015-05-04T00:00:00+00:00",
+      "updated_at": "2015-05-04T00:00:00+00:00",
+      "value": "elephant",
+      "subject_type": "wildlife",
+      "display": "Elephant"
+    },
+    "pk": "c6b6a0ec-5928-44ba-8f84-0690edc61baf",
+    "model": "observations.subjectsubtype"
+  },
+  {
+    "fields": {
+      "additional": {
+        "note": "test for junk fix"
+      },
+      "created_at": "2015-05-04T00:00:00+00:00",
+      "updated_at": "2015-05-04T00:00:00+00:00",
+      "name": "Henry",
+      "subject_subtype_id": "elephant"
+    },
+    "pk": "0fa8ec9a-7e92-4575-9575-df202d5dde25",
+    "model": "observations.subject"
+  },
+  {
+    "pk": "001fb89e-9308-48d5-a068-d71df9c62634",
+    "model": "observations.subjectsource",
+    "fields": {
+      "assigned_range": "{\"bounds\": \"[)\", \"lower\": \"1999-09-01T00:00:00+00:00\", \"upper\": \"2100-01-01T00:00:00+00:00\"}",
+      "source": "56b1cf14-ef97-4054-8fbd-1342f265b2a9",
+      "subject": "0fa8ec9a-7e92-4575-9575-df202d5dde25",
+      "additional": {"note": "Testing for AwtPlugin"}
+    }
+  }
+]

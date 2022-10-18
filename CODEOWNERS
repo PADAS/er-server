@@ -1,0 +1,13 @@
+# See https://help.github.com/en/github/creating-cloning-and-archiving-repositories/about-code-owners
+
+# These owners will be the default owners for everything in
+# the repo. Unless a later match takes precedence, they will
+# be requested for review when someone opens a pull request.
+#* @PADAS/padas_admins
+
+# Here's an example by filename pattern
+#*.py @PADAS/padas_admins @PADAS/andela
+
+# Just another example by filename pattern
+#*.tf @PADAS/padas_admins @daumie
+

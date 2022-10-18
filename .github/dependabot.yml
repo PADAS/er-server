@@ -1,0 +1,15 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/dependencies"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "chrisj-er"
+      - "juanearthranger"
+      - "tarkin88"
+      - "Azarael-Romero"
+      - "diacus"

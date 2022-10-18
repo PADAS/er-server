@@ -1,5 +1,4 @@
 from django.core.management.base import BaseCommand
-
 import rt_api.client as client
 
 

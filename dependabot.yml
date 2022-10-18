@@ -1,0 +1,15 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/dependencies"
+    schedule:
+       interval: "weekly"
+       day: "tuesday"
+       time: "16:00"
+    target-branch: "develop"
+    reviewers:
+      - "chrisjvulcan"
+      - "chrisdoehring"
+    allow:
+      - dependency-name: "django*"
+        dependency-type: "direct"
