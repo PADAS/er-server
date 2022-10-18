@@ -205,12 +205,12 @@ resource "google_secret_manager_secret_iam_member" "ertools_cloud_build_secret_a
   project   = data.google_project.earthranger.project_id
   role      = "roles/secretmanager.secretAccessor"
   secret_id = google_secret_manager_secret.er_sql_analytics_info.id
-  member    = "serviceAccount:${variable.ertools_cloud_build_identity}"
+  member    = "serviceAccount:${var.ertools_cloud_build_identity}"
 }
 
 resource "google_secret_manager_secret_iam_member" "ertools_cloud_build_secret_viewer" {
   project   = data.google_project.earthranger.project_id
   role      = "roles/secretmanager.secretViewer"
   secret_id = google_secret_manager_secret.er_sql_analytics_info.id
-  member    = "serviceAccount:${variable.ertools_cloud_build_identity}"
+  member    = "serviceAccount:${var.ertools_cloud_build_identity}"
 }
