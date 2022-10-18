@@ -210,7 +210,7 @@ resource "google_secret_manager_secret_iam_member" "ertools_cloud_build_secret_a
 
 resource "google_secret_manager_secret_iam_member" "ertools_cloud_build_secret_viewer" {
   project   = data.google_project.earthranger.project_id
-  role      = "roles/secretmanager.secretViewer"
+  role      = "roles/secretmanager.viewer"
   secret_id = google_secret_manager_secret.er_sql_analytics_info.id
   member    = "serviceAccount:${var.ertools_cloud_build_identity}"
 }
