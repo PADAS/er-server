@@ -101,7 +101,7 @@ urlpatterns = [
         name="eventsource-view",
     ),
     re_path(
-        r"^event/(?P<id>{regex.UUID})/state/?$",
+        rf"^event/(?P<id>{regex.UUID})/state/?$",
         views.EventStateView.as_view(),
         name="event-view-state",
     ),
