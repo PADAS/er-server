@@ -9,7 +9,8 @@ BASE_MODULE_NAME = "activity"
 
 @pytest.mark.django_db
 @pytest.mark.parametrize(
-    ("path", "view"), (
+    ("path", "view"),
+    (
         ("alerts/", AlertRuleListView),
         ("events/categories/", views.EventCategoriesView),
         ("eventfilters/", views.EventFiltersView),
@@ -18,9 +19,9 @@ BASE_MODULE_NAME = "activity"
         ("eventproviders/", views.EventProvidersView),
         ("patrols/", views.PatrolsView),
         ("patrols/types/", views.PatrolTypesView),
-        ("patrols/segments/", views.PatrolsegmentsView),
+        ("patrols/segments/", views.PatrolSegmentsView),
         ("patrols/trackedby/", views.TrackedBySchema),
-    )
+    ),
 )
 def test_urls_test_cases(path, view):
     api_path = f"{BASE_MODULE_NAME}/{path}"

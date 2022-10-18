@@ -1,0 +1,31 @@
+# pg_dump -U postgres --format=plain --no-owner --no-acl -d earthranger --verbose > /tmp/db-backup.sql
+# kubectl cp postgresql-0:/tmp/db-backup.sql ./db-backup.sql -n <namespace>
+#
+# To update the db backup in GCS (run from repo root):
+#   gsutil cp circleci-docker/db-backup.sql gs://padas-app-db-backups/postgresql-init/db-backup.sql
+
+# TODO: find new base image since bitnami has gone commercial
+FROM docker.io/bitnamilegacy/postgresql:16.5.0-debian-12-r0
+
+
+USER root
+
+# Install build dependencies and pg_partman 5.2.4
+# Note: Use Bitnami's pg_config to install extension to correct location
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    ca-certificates \
+    wget \
+    && wget -O /tmp/pg_partman.tar.gz https://github.com/pgpartman/pg_partman/archive/refs/tags/v5.2.4.tar.gz \
+    && tar -xzf /tmp/pg_partman.tar.gz -C /tmp \
+    && cd /tmp/pg_partman-5.2.4 \
+    && make PG_CONFIG=/opt/bitnami/postgresql/bin/pg_config \
+    && make PG_CONFIG=/opt/bitnami/postgresql/bin/pg_config install \
+    && rm -rf /var/lib/apt/lists/* /tmp/pg_partman* \
+    && apt-get purge -y --auto-remove build-essential wget \
+    && apt-get clean
+
+USER 1001
+
+# db-backup.sql is downloaded from GCS during CI build (see build-postgresql.yml)
+COPY circleci-docker/db-backup.sql /docker-entrypoint-initdb.d/

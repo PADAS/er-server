@@ -3,50 +3,71 @@
 from __future__ import unicode_literals
 
 import datetime
-from django.conf import settings
+
 import django.contrib.postgres.fields.jsonb
 import django.contrib.postgres.fields.ranges
-from django.db import migrations, models
 import django.db.models.deletion
+from django.conf import settings
+from django.db import migrations, models
 from django.utils.timezone import utc
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('observations', '0028_merge'),
+        ("accounts", "0026_deleting_longer_active_access_token"),
+        ("observations", "0028_merge"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='source',
-            name='owner',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='sources', related_query_name='source', to=settings.AUTH_USER_MODEL),
+            model_name="source",
+            name="owner",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="sources",
+                related_query_name="source",
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
         migrations.AddField(
-            model_name='subject',
-            name='owner',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='subjects', related_query_name='subject', to=settings.AUTH_USER_MODEL),
+            model_name="subject",
+            name="owner",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="subjects",
+                related_query_name="subject",
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
         migrations.AlterField(
-            model_name='source',
-            name='additional',
-            field=django.contrib.postgres.fields.jsonb.JSONField(default={}, verbose_name='additional data'),
+            model_name="source",
+            name="additional",
+            field=django.contrib.postgres.fields.jsonb.JSONField(default={}, verbose_name="additional data"),
         ),
         migrations.AlterField(
-            model_name='subject',
-            name='additional',
-            field=django.contrib.postgres.fields.jsonb.JSONField(default={}, verbose_name='additional data'),
+            model_name="subject",
+            name="additional",
+            field=django.contrib.postgres.fields.jsonb.JSONField(default={}, verbose_name="additional data"),
         ),
         migrations.AlterField(
-            model_name='subjectsource',
-            name='additional',
-            field=django.contrib.postgres.fields.jsonb.JSONField(default={}, verbose_name='additional'),
+            model_name="subjectsource",
+            name="additional",
+            field=django.contrib.postgres.fields.jsonb.JSONField(default={}, verbose_name="additional"),
         ),
         migrations.AlterField(
-            model_name='subjectsource',
-            name='assigned_range',
-            field=django.contrib.postgres.fields.ranges.DateTimeRangeField(default=[datetime.datetime(1, 1, 1, 0, 0, tzinfo=utc), datetime.datetime(9999, 12, 31, 23, 59, 59, 999999, tzinfo=utc)], verbose_name='time assigned to subject'),
+            model_name="subjectsource",
+            name="assigned_range",
+            field=django.contrib.postgres.fields.ranges.DateTimeRangeField(
+                default=[
+                    datetime.datetime(1, 1, 1, 0, 0, tzinfo=utc),
+                    datetime.datetime(9999, 12, 31, 23, 59, 59, 999999, tzinfo=utc),
+                ],
+                verbose_name="time assigned to subject",
+            ),
         ),
     ]

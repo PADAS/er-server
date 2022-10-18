@@ -1,2 +1,2 @@
-time_zone       = "Africa/Nairobi"
-tableau_enabled = "True"
+time_zone = "Africa/Nairobi"
+

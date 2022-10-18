@@ -1,0 +1,9 @@
+name: Cleanup Stale PR Environments
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    uses: PADAS/.github/.github/workflows/pipeline-cleanup-stale-pr-envs.yml@main

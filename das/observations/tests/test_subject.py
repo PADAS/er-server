@@ -1,11 +1,17 @@
 import json
+import logging
 import os
-from datetime import datetime, timedelta
-from unittest.mock import patch
+import random
+import urllib.parse
+import uuid
+from datetime import datetime, timedelta, timezone
+from unittest import mock
+from unittest.mock import MagicMock, patch
 
 import dateutil.parser as dateparser
 import pytest
 import pytz
+from faker import Faker
 from pytz import UTC
 
 import django.contrib.auth
@@ -14,51 +20,86 @@ from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
 from django.contrib.messages.storage.cookie import CookieStorage
 from django.core.files import File
+from django.core.management import call_command
 from django.db import transaction
 from django.http import QueryDict
 from django.test import RequestFactory, override_settings
 from django.urls import reverse
 
 from accounts.models import PermissionSet
+from activity.tools.createevents import gen_random_point
 from client_http import HTTPClient
+from conftest import TENANT_RESPONSE
 from core.tests import BaseAPITest
+from factories import SubjectFactory
 from observations.admin import GPXAdmin
-from observations.models import (GPXTrackFile, Observation, Source, Subject,
-                                 SubjectSource, SubjectStatus, SubjectSubType)
+from observations.models import (
+    SEX_MALE,
+    SEX_UNKNOWN,
+    GPXTrackFile,
+    Observation,
+    Source,
+    SourceGroup,
+    Subject,
+    SubjectGroup,
+    SubjectSource,
+    SubjectStatus,
+    SubjectSubType,
+)
 from observations.tasks import process_trackpoints
 from observations.utils import calculate_track_range
-from observations.views import GPXFileUploadView, SubjectsView
+from observations.views import (
+    GPXFileUploadView,
+    SubjectGroupsView,
+    SubjectsView,
+    SubjectView,
+)
+from utils.tenant import Tenant
 
 User = django.contrib.auth.get_user_model()
-TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                          'tests')
+TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tests")
+faker = Faker()
+logger = logging.getLogger(__name__)
+
+
+def random_date(start_date, end_date):
+    return start_date + timedelta(
+        seconds=random.randint(0, int((end_date - start_date).total_seconds())),
+    )
 
 
 class SubjectTestCase(BaseAPITest):
-    fixtures = [
-        'test/user_and_usergroup.yaml',
-        'test/source_group.json',
-        'test/observations_source.json',
-        'test/observations_subject.json',
-        'test/observations_subject_source.json',
-        'test/observations_observation.json',
-    ]
-
     def setUp(self):
         super().setUp()
-        user_const = dict(last_name='last', first_name='first')
-        self.user = User.objects.create_user('user', 'user@test.com', 'all_perms_user', is_superuser=True,
-                                             is_staff=True, **user_const)
-        self.no_perms_user = User.objects.create_user('no_perms_user',
-                                                      'das_no_perms@vulcan.com',
-                                                      'noperms',
-                                                      **user_const)
+        call_command("loaddata_with_tenant", "test/user_and_usergroup.yaml", tenant_domain=self.tenant_settings.domain)
+        call_command("loaddata_with_tenant", "test/source_group.json", tenant_domain=self.tenant_settings.domain)
+        call_command("loaddata_with_tenant", "test/observations_source.json", tenant_domain=self.tenant_settings.domain)
+        call_command(
+            "loaddata_with_tenant", "test/observations_subject.json", tenant_domain=self.tenant_settings.domain
+        )
+        call_command(
+            "loaddata_with_tenant", "test/observations_subject_source.json", tenant_domain=self.tenant_settings.domain
+        )
+        call_command(
+            "loaddata_with_tenant", "test/observations_observation.json", tenant_domain=self.tenant_settings.domain
+        )
+        user_const = dict(last_name="last", first_name="first")
+        self.user = User.objects.create_user(
+            "user", "user@test.com", "all_perms_user", is_superuser=True, is_staff=True, **user_const
+        )
+        self.no_perms_user = User.objects.create_user(
+            "no_perms_user", "das_no_perms@vulcan.com", "noperms", **user_const
+        )
         self.site = AdminSite()
         self.request = RequestFactory()
         self.admin = GPXAdmin(model=GPXTrackFile, admin_site=self.site)
+        self.tenant = Tenant.from_dict(TENANT_RESPONSE)
+        self.thread = MagicMock()
+        self.thread.tenant_object = self.tenant
 
     def test_empty_point_not_included_in_subject_tracks(self):
         from django.contrib.gis.geos import Point
+
         coordinates = self.get_coordinates_returned()
         # Existing trackpoint from fixtures
         monitored_location = Point(50.7586930900307, 40.3297162190965)
@@ -66,8 +107,7 @@ class SubjectTestCase(BaseAPITest):
         self.assertIn(monitored_location.coords, coordinates)
 
         # Update one coordinate to an empty point
-        Observation.objects.filter(
-            location=monitored_location).update(location=Point(0, 0))
+        Observation.objects.filter(location=monitored_location).update(location=Point(0, 0))
         new_coordinates = self.get_coordinates_returned()
         self.assertNotIn(monitored_location.coords, new_coordinates)
         # Track not included in tracks
@@ -75,69 +115,248 @@ class SubjectTestCase(BaseAPITest):
 
     def get_coordinates_returned(self):
         from observations import views
-        self.satellite_user = User.objects.get(username='satellite-user')
-        self.henry = Subject.objects.get(name='Henry')
 
-        request = self.factory.get(
-            self.api_base + '/subject/{}/tracks/'.format(self.henry.id))
+        self.satellite_user = User.objects.get(username="satellite-user")
+        self.henry = Subject.objects.get(name="Henry")
+
+        request = self.factory.get(self.api_base + "/subject/{}/tracks/".format(self.henry.id))
         self.force_authenticate(request, self.satellite_user)
         response = views.SubjectTracksView.as_view()(request, subject_id=self.henry.id)
-        return response.data['features'][0]['geometry']['coordinates']
+        return response.data["features"][0]["geometry"]["coordinates"]
 
     def test_subject_observations(self):
-        subject = Subject.objects.get(name='Topsy')
+        subject = Subject.objects.get(name="Topsy")
         actual = len(subject.observations())
         expected = 1
 
         self.assertEqual(actual, expected)
 
     def test_subject_observations_last_days(self):
-        subject = Subject.objects.get(name='Topsy')
+        subject = Subject.objects.get(name="Topsy")
         point = Point((0.000001, 0.000001))  # really close to Null Island
         t1 = datetime.now(tz=UTC) - timedelta(days=2)
         t2 = datetime.now(tz=UTC) - timedelta(days=20)
 
-        Observation.objects.create(
-            source=subject.source,
-            location=point,
-            recorded_at=t1,
-            additional={}
-        )
+        Observation.objects.create(source=subject.source, location=point, recorded_at=t1, additional={})
 
-        Observation.objects.create(
-            source=subject.source,
-            location=point,
-            recorded_at=t2,
-            additional={}
-        )
+        Observation.objects.create(source=subject.source, location=point, recorded_at=t2, additional={})
 
-        actual = len(subject.observations(last_hours=3*24))
+        actual = len(subject.observations(last_hours=3 * 24))
         expected = 1
 
         self.assertEqual(actual, expected)
 
-        actual = len(subject.observations(last_hours=30*24))
+        actual = len(subject.observations(last_hours=30 * 24))
         expected = 2
 
         self.assertEqual(actual, expected)
 
-    def test_add_subject(self):
+    @patch("utils.tenant.thread._get_local_thread")
+    def test_add_subject(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         data = {
             "name": "testCheetah",
             "subject_type": "wildlife",
             "subject_subtype": "cheetah",
             "additional": {},
-            "is_active": True
+            "is_active": True,
         }
-        url = reverse('subjects-list-view')
+        url = reverse("subjects-list-view")
         request = self.factory.post(url, data)
 
         self.force_authenticate(request, self.user)
         response = SubjectsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
-    def test_call_subject_api(self):
-        url = reverse('subjects-list-view')
+    @patch("utils.tenant.thread._get_local_thread")
+    def test_add_subject_with_id(self, get_main_thread):
+        get_main_thread.return_value = self.thread
+        data = {
+            "id": uuid.uuid4(),
+            "name": "testCheetah",
+            "subject_type": "wildlife",
+            "subject_subtype": "cheetah",
+            "additional": {},
+            "is_active": True,
+        }
+        url = reverse("subjects-list-view")
+        request = self.factory.post(url, data)
+
+        self.force_authenticate(request, self.user)
+        response = SubjectsView.as_view()(request)
+        assert response.status_code == 201
+
+    @patch("utils.tenant.thread._get_local_thread")
+    def test_fail_add_subject_with_existing_id(self, get_main_thread):
+        get_main_thread.return_value = self.thread
+        data = {
+            "id": uuid.uuid4(),
+            "name": "testCheetah",
+            "subject_type": "wildlife",
+            "subject_subtype": "cheetah",
+            "additional": {},
+            "is_active": True,
+        }
+        url = reverse("subjects-list-view")
+        request = self.factory.post(url, data)
+
+        self.force_authenticate(request, self.user)
+        response = SubjectsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+
+        data_two = {
+            "id": data["id"],
+            "name": "testCheetah Two",
+            "subject_type": "wildlife",
+            "subject_subtype": "cheetah",
+            "additional": {},
+            "is_active": True,
+        }
+        url = reverse("subjects-list-view")
+        request = self.factory.post(url, data_two)
+
+        self.force_authenticate(request, self.user)
+        response = SubjectsView.as_view()(request)
+        assert response.status_code == 409
+
+    @patch("utils.tenant.thread._get_local_thread")
+    def test_update_subject(self, get_main_thread):
+        get_main_thread.return_value = self.thread
+        data = {
+            "name": "testCheetah",
+            "subject_type": "wildlife",
+            "subject_subtype": "cheetah",
+            "additional": {},
+            "is_active": True,
+        }
+        url = reverse("subjects-list-view")
+        request = self.factory.post(url, data)
+
+        self.force_authenticate(request, self.user)
+        response = SubjectsView.as_view()(request)
+        assert response.status_code == 201
+
+        subject_id = response.data["id"]
+        data_update = {
+            "id": subject_id,
+            "name": response.data["name"] + " updated",
+        }
+
+        url = reverse("subject-view", args=[subject_id])
+        request = self.factory.patch(url, data_update)
+
+        self.force_authenticate(request, self.user)
+        response = SubjectView.as_view()(request, id=subject_id)
+        assert response.status_code == 200
+
+        assert subject_id == response.data["id"]
+        assert response.data["name"] == data_update["name"]
+
+    @patch("utils.tenant.thread._get_local_thread")
+    def test_update_subject_change_id(self, get_main_thread):
+        get_main_thread.return_value = self.thread
+        data = {
+            "name": "testCheetah",
+            "subject_type": "wildlife",
+            "subject_subtype": "cheetah",
+            "additional": {},
+            "is_active": True,
+        }
+        url = reverse("subjects-list-view")
+        request = self.factory.post(url, data)
+
+        self.force_authenticate(request, self.user)
+        response = SubjectsView.as_view()(request)
+        assert response.status_code == 201
+
+        subject_id = response.data["id"]
+        data_update = {
+            "id": uuid.uuid4(),  # using a different id to see if patch could change it.
+            "name": response.data["name"] + " updated",
+        }
+
+        url = reverse("subject-view", args=[subject_id])
+        request = self.factory.patch(url, data_update)
+
+        self.force_authenticate(request, self.user)
+        response = SubjectView.as_view()(request, id=subject_id)
+        assert response.status_code == 400
+
+    @patch("utils.tenant.thread._get_local_thread")
+    def test_subject_sex_male(self, get_main_thread):
+        get_main_thread.return_value = self.thread
+        data = {
+            "name": "testCheetah",
+            "subject_type": "wildlife",
+            "subject_subtype": "elephant",
+            "additional": {"sex": SEX_MALE},
+            "is_active": True,
+        }
+        url = reverse("subjects-list-view")
+        request = self.factory.post(url, data)
+
+        self.force_authenticate(request, self.user)
+        response = SubjectsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        assert "/static/elephant-black-male.svg" in response.data["image_url"]
+
+    @patch("utils.tenant.thread._get_local_thread")
+    def test_subject_sex_empty(self, get_main_thread):
+        get_main_thread.return_value = self.thread
+        data = {
+            "name": "testCheetah",
+            "subject_type": "wildlife",
+            "subject_subtype": "elephant",
+            "additional": {"sex": ""},
+            "is_active": True,
+        }
+        url = reverse("subjects-list-view")
+        request = self.factory.post(url, data)
+
+        self.force_authenticate(request, self.user)
+        response = SubjectsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        assert "/static/elephant-black-male.svg" in response.data["image_url"]
+
+    @patch("utils.tenant.thread._get_local_thread")
+    def test_subject_sex_unknown(self, get_main_thread):
+        get_main_thread.return_value = self.thread
+        data = {
+            "name": "testCheetah",
+            "subject_type": "wildlife",
+            "subject_subtype": "elephant",
+            "additional": {"sex": SEX_UNKNOWN},
+            "is_active": True,
+        }
+        url = reverse("subjects-list-view")
+        request = self.factory.post(url, data)
+
+        self.force_authenticate(request, self.user)
+        response = SubjectsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        assert "/static/elephant-black-male.svg" in response.data["image_url"]
+
+    @patch("utils.tenant.thread._get_local_thread")
+    def test_subject_vehicle_sex_empty(self, get_main_thread):
+        get_main_thread.return_value = self.thread
+        data = {
+            "name": "testCheetah",
+            "subject_subtype": "security_vehicle",
+            "additional": {"sex": ""},
+            "is_active": True,
+        }
+        url = reverse("subjects-list-view")
+        request = self.factory.post(url, data)
+
+        self.force_authenticate(request, self.user)
+        response = SubjectsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        assert "/static/security_vehicle-black.svg" in response.data["image_url"]
+
+    @patch("utils.tenant.thread._get_local_thread")
+    def test_call_subject_api(self, get_main_thread):
+        get_main_thread.return_value = self.thread
+        url = reverse("subjects-list-view")
         request = self.factory.get(url)
 
         self.force_authenticate(request, self.user)
@@ -147,8 +366,8 @@ class SubjectTestCase(BaseAPITest):
         assert "next" not in response.data
 
     def test_filter_subject_api_updated_since(self):
-        url = reverse('subjects-list-view')
-        url += '?updated_since=2019-02-03'
+        url = reverse("subjects-list-view")
+        url += "?updated_since=2019-02-03"
         request = self.factory.get(url)
 
         self.force_authenticate(request, self.user)
@@ -156,8 +375,8 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
     def test_filter_subject_api_using_updated_until_param(self):
-        url = reverse('subjects-list-view')
-        url += '?updated_since=2019-04-02'
+        url = reverse("subjects-list-view")
+        url += "?updated_since=2019-04-02"
         request = self.factory.get(url)
 
         self.force_authenticate(request, self.user)
@@ -165,44 +384,34 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
     def test_filter_subject_api_using_updated_since_and_updated_until_param(self):
-        url = reverse('subjects-list-view')
-        url += '?updated_since=2019-04-02&updated_until=2019-03-02'
+        url = reverse("subjects-list-view")
+        url += "?updated_since=2019-04-02&updated_until=2019-03-02"
         request = self.factory.get(url)
 
         self.force_authenticate(request, self.user)
         response = SubjectsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
 
-    @override_settings(SHOW_STATIONARY_SUBJECTS_ON_MAP=True)
-    @override_settings(SHOW_TRACK_DAYS=16)
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    def test_date_range_filter_works(self):
-        url = reverse('subjects-list-view')
+    @patch("utils.tenant.thread._get_local_thread")
+    def test_date_range_filter_works(self, get_main_thread):
+        get_main_thread.return_value = self.thread
+        url = reverse("subjects-list-view")
 
-        subject = Subject.objects.get(name='Topsy')
-        subject2 = Subject.objects.get(name='Turvey')
+        subject = Subject.objects.get(name="Topsy")
+        subject2 = Subject.objects.get(name="Turvey")
 
         point = Point((-122.334, 47.598))
         t2 = datetime.now(tz=UTC)
         t1 = datetime.now(tz=UTC) - timedelta(days=3)
 
-        Observation.objects.create(
-            source=subject.source,
-            location=point,
-            recorded_at=t1,
-            additional={}
-        )
+        Observation.objects.create(source=subject.source, location=point, recorded_at=t1, additional={})
 
-        Observation.objects.create(
-            source=subject2.source,
-            location=point,
-            recorded_at=t2,
-            additional={}
-        )
+        Observation.objects.create(source=subject2.source, location=point, recorded_at=t2, additional={})
 
         updated_since = t1.date().isoformat()
         updated_until = t2.date().isoformat()
-        url += f'?updated_since={updated_since}&updated_until={updated_until}'
+        url += f"?updated_since={updated_since}&updated_until={updated_until}"
         request = self.factory.get(url)
 
         self.force_authenticate(request, self.user)
@@ -212,26 +421,21 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(actual, expected)
 
-        last_positon_date_subject = json.loads(response.render().content.decode())[
-            'data'][0]['last_position_date']
-        last_positon_date_subject2 = json.loads(response.render().content.decode())[
-            'data'][1]['last_position_date']
+        last_positon_date_subject = json.loads(response.render().content.decode())["data"][0]["last_position_date"]
+        last_positon_date_subject2 = json.loads(response.render().content.decode())["data"][1]["last_position_date"]
 
-        last_positon_date_subject = dateparser.parse(
-            last_positon_date_subject).date().isoformat()
-        last_positon_date_subject2 = dateparser.parse(
-            last_positon_date_subject2).date().isoformat()
+        last_positon_date_subject = dateparser.parse(last_positon_date_subject).date().isoformat()
+        last_positon_date_subject2 = dateparser.parse(last_positon_date_subject2).date().isoformat()
 
         t1 = updated_since
         t2 = updated_until
 
-        self.assertEqual(
-            {t1, t2}, {last_positon_date_subject, last_positon_date_subject2})
+        self.assertEqual({t1, t2}, {last_positon_date_subject, last_positon_date_subject2})
 
         # Use url above together with bbox param
         # the 'point' lies within this bbox.
-        bbox = '-122.49866134971379, 47.40051600277377, -122.225591570732, 47.67666096382156'
-        url += '&bbox={}'.format(bbox)
+        bbox = "-122.49866134971379, 47.40051600277377, -122.225591570732, 47.67666096382156"
+        url += "&bbox={}".format(bbox)
         request = self.factory.get(url)
 
         self.force_authenticate(request, self.user)
@@ -242,38 +446,29 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(actual_size, expected_size)
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    @override_settings(SHOW_TRACK_DAYS=16)
-    def test_date_range_filter_works_with_bbox(self):
-        url = reverse('subjects-list-view')
+    @patch("utils.tenant.thread._get_local_thread")
+    def test_date_range_filter_works_with_bbox(self, get_main_thread):
+        get_main_thread.return_value = self.thread
+        url = reverse("subjects-list-view")
 
-        subject = Subject.objects.get(name='Topsy')
-        subject2 = Subject.objects.get(name='Turvey')
+        subject = Subject.objects.get(name="Topsy")
+        subject2 = Subject.objects.get(name="Turvey")
 
         point = Point((-122.334, 47.598))
         t1 = datetime.now(tz=UTC)
         t2 = datetime.now(tz=UTC) + timedelta(days=3)
 
-        Observation.objects.create(
-            source=subject.source,
-            location=point,
-            recorded_at=t1,
-            additional={}
-        )
+        Observation.objects.create(source=subject.source, location=point, recorded_at=t1, additional={})
 
-        Observation.objects.create(
-            source=subject2.source,
-            location=point,
-            recorded_at=t2,
-            additional={}
-        )
+        Observation.objects.create(source=subject2.source, location=point, recorded_at=t2, additional={})
 
         day = timedelta(days=1)
         updated_since = (t1.date() - day).isoformat()
         updated_until = (t2.date() + day).isoformat()
-        url += f'?updated_since={updated_since}&updated_until={updated_until}'
+        url += f"?updated_since={updated_since}&updated_until={updated_until}"
 
-        bbox = '-122.49866134971379, 47.40051600277377, -122.225591570732, 47.67666096382156'
-        url += '&bbox={}'.format(bbox)
+        bbox = "-122.49866134971379, 47.40051600277377, -122.225591570732, 47.67666096382156"
+        url += "&bbox={}".format(bbox)
         request = self.factory.get(url)
 
         self.force_authenticate(request, self.user)
@@ -290,192 +485,162 @@ class SubjectTestCase(BaseAPITest):
         Returns:
             [type]: [description]
         """
-        expiry_date = (datetime.now(tz=UTC) -
-                       timedelta(days=5)).date().isoformat()
-        mou_datesigned = (datetime.now(tz=UTC) -
-                          timedelta(days=50)).date().isoformat()
+        expiry_date = (datetime.now(tz=UTC) - timedelta(days=5)).date().isoformat()
+        mou_datesigned = (datetime.now(tz=UTC) - timedelta(days=50)).date().isoformat()
         additional_data = {
-            'notes': 'Testing Notes',
-            'expiry': expiry_date,
-            'moudatesigned': mou_datesigned,
-            'moutype': 'Sample MoU Type',
-            'tech': ['iOS'],
-            'organization': 'KWS',
+            "notes": "Testing Notes",
+            "expiry": expiry_date,
+            "moudatesigned": mou_datesigned,
+            "moutype": "Sample MoU Type",
+            "tech": ["iOS"],
+            "organization": "KWS",
         }
         return additional_data
 
-    @override_settings(SHOW_TRACK_DAYS=16)
-    def test_subject_api_returning_last_position_per_MOU_expiry(self):
-        url = reverse('subjects-list-view')
+    @patch("utils.tenant.thread._get_local_thread")
+    def test_subject_api_returning_last_position_per_MOU_expiry(self, get_main_thread):
+        get_main_thread.return_value = self.thread
+        url = reverse("subjects-list-view")
 
         password = User.objects.make_random_password()
         extra_fields = dict(additional=self.additional_data_for_user)
-        user = User.objects.create_user(username='Capt.America',
-                                        email='Capt.American@avenger.com',
-                                        password=password,
-                                        is_superuser=True,
-                                        is_staff=True,
-                                        **extra_fields)
+        user = User.objects.create_user(
+            username="Capt.America",
+            email="Capt.American@avenger.com",
+            password=password,
+            is_superuser=True,
+            is_staff=True,
+            **extra_fields,
+        )
 
-        subject = Subject.objects.get(name='Topsy')
-        subject2 = Subject.objects.get(name='Turvey')
-        subject3 = Subject.objects.get(name='StatusGuy')
+        subject = Subject.objects.get(name="Topsy")
+        subject2 = Subject.objects.get(name="Turvey")
+        subject3 = Subject.objects.get(name="StatusGuy")
 
         point = Point((-122.334, 47.598))
         t1 = datetime.now(tz=UTC) - timedelta(days=10)
         t2 = datetime.now(tz=UTC) - timedelta(days=7)
         t3 = datetime.now(tz=UTC) - timedelta(days=4)
 
-        Observation.objects.create(
-            source=subject.source,
-            location=point,
-            recorded_at=t1,
-            additional={}
-        )
+        Observation.objects.create(source=subject.source, location=point, recorded_at=t1, additional={})
 
-        Observation.objects.create(
-            source=subject2.source,
-            location=point,
-            recorded_at=t2,
-            additional={}
-        )
+        Observation.objects.create(source=subject2.source, location=point, recorded_at=t2, additional={})
 
-        Observation.objects.create(
-            source=subject3.source,
-            location=point,
-            recorded_at=t3,
-            additional={}
-        )
+        Observation.objects.create(source=subject3.source, location=point, recorded_at=t3, additional={})
         request = self.factory.get(url)
 
         self.force_authenticate(request, user)
         response = SubjectsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
 
-        response_data = json.loads(response.render().content.decode())['data']
+        response_data = json.loads(response.render().content.decode())["data"]
         extracted_data = {}
         for o in response_data:
-            if o['id'] == str(subject.id):
-                extracted_data['subject_last_position'] = o['last_position_date']
-            elif o['id'] == str(subject2.id):
-                extracted_data['subject2_last_position'] = o['last_position_date']
-            elif o['id'] == str(subject3.id):
+            if o["id"] == str(subject.id):
+                extracted_data["subject_last_position"] = o["last_position_date"]
+            elif o["id"] == str(subject2.id):
+                extracted_data["subject2_last_position"] = o["last_position_date"]
+            elif o["id"] == str(subject3.id):
                 # Past MOU expiry date, should not retrieve observation past mou expiry date.
-                assert 'last_position' not in o
-                assert not o['tracks_available']
+                assert "last_position" not in o
+                assert not o["tracks_available"]
 
         # subject1 and subject2 are within MOU expiry date.
-        subject_last_position = dateparser.parse(
-            extracted_data.get('subject_last_position')).date().isoformat()
-        subject2_last_postion = dateparser.parse(
-            extracted_data.get('subject2_last_position')).date().isoformat()
+        subject_last_position = dateparser.parse(extracted_data.get("subject_last_position")).date().isoformat()
+        subject2_last_postion = dateparser.parse(extracted_data.get("subject2_last_position")).date().isoformat()
         self.assertEqual(t1.date().isoformat(), subject_last_position)
         self.assertEqual(t2.date().isoformat(), subject2_last_postion)
 
-    @override_settings(SHOW_TRACK_DAYS=16)
-    def test_return_no_last_position_past_mou_expiry(self):
-        url = reverse('subjects-list-view')
+    @patch("utils.tenant.thread._get_local_thread")
+    def test_return_no_last_position_past_mou_expiry(self, get_main_thread):
+        get_main_thread.return_value = self.thread
+        url = reverse("subjects-list-view")
 
         password = User.objects.make_random_password()
         extra_fields = dict(additional=self.additional_data_for_user)
-        user = User.objects.create_user(username='Capt.America',
-                                        email='Capt.American@avenger.com',
-                                        password=password,
-                                        is_superuser=True,
-                                        is_staff=True,
-                                        **extra_fields)
+        user = User.objects.create_user(
+            username="Capt.America",
+            email="Capt.American@avenger.com",
+            password=password,
+            is_superuser=True,
+            is_staff=True,
+            **extra_fields,
+        )
 
-        subject = Subject.objects.get(name='StatusGuy')
+        subject = Subject.objects.get(name="StatusGuy")
         point = Point((-122.334, 47.598))
         t1 = datetime.now(tz=UTC)
 
         # this observation is past mou date
-        Observation.objects.create(
-            source=subject.source,
-            location=point,
-            recorded_at=t1,
-            additional={}
-        )
+        Observation.objects.create(source=subject.source, location=point, recorded_at=t1, additional={})
 
         request = self.factory.get(url)
 
         self.force_authenticate(request, user)
         response = SubjectsView.as_view()(request)
-        response_data = json.loads(response.render().content.decode())['data']
+        response_data = json.loads(response.render().content.decode())["data"]
 
         for o in response_data:
-            if o['id'] == str(subject.id):
-                assert 'last_postion' not in o
-                assert not o['tracks_available']
+            if o["id"] == str(subject.id):
+                assert "last_postion" not in o
+                assert not o["tracks_available"]
 
     def test_gpx_file_model(self):
-
-        subject = Subject.objects.get(name='Topsy')
+        subject = Subject.objects.get(name="Topsy")
         subject_source = SubjectSource.objects.get(subject=subject)
-        data = File(
-            open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
-        GPXTrackFile.objects.create(
-            data=data, source_assignment=subject_source)
+        data = File(open(os.path.join(TESTS_PATH, "testdata/gpsmap_data.gpx"), "rb"))
+        GPXTrackFile.objects.create(data=data, source_assignment=subject_source)
 
         self.assertEqual(GPXTrackFile.objects.count(), 1)
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    def test_gpxfile_upload_on_adminpage(self):
-
-        subject = Subject.objects.get(name='Topsy')
+    @patch("utils.tenant.thread._get_local_thread")
+    def test_gpxfile_upload_on_adminpage(self, get_main_thread):
+        get_main_thread.return_value = self.thread
+        subject = Subject.objects.get(name="Topsy")
         subject_source = SubjectSource.objects.get(subject=subject)
-        data = File(
-            open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
+        data = File(open(os.path.join(TESTS_PATH, "testdata/gpsmap_data.gpx"), "rb"))
 
-        url = reverse('admin:observations_gpxtrackfile_add')
-        url += f'?subject_id={subject.id}'
-        request = self.factory.post(
-            url, data={'source_assignment': subject_source.id, '_save': 'Save'})
+        url = reverse("admin:observations_gpxtrackfile_add")
+        url += f"?subject_id={subject.id}"
+        request = self.factory.post(url, data={"source_assignment": subject_source.id, "_save": "Save"})
 
         self.force_authenticate(request, self.user)
-        query_dict = QueryDict('', mutable=True)
-        post_data = {'source_assignment': subject_source.id, '_save': 'Save',
-                     'csrfmiddlewaretoken': 'y3WZXVzvwNlEAYd76nA4MvdvVKSaGSiS91Q2HGwV8ag99etBRgAXs2FgLO49XU3e',
-                     'description': ''}
+        query_dict = QueryDict("", mutable=True)
+        post_data = {
+            "source_assignment": subject_source.id,
+            "_save": "Save",
+            "csrfmiddlewaretoken": "y3WZXVzvwNlEAYd76nA4MvdvVKSaGSiS91Q2HGwV8ag99etBRgAXs2FgLO49XU3e",
+            "description": "",
+        }
         query_dict.update(post_data)
 
-        request.FILES['data'] = data
+        request.FILES["data"] = data
         request.POST = query_dict
-        request.META['CSRF_COOKIE'] = 'y3WZXVzvwNlEAYd76nA4MvdvVKSaGSiS91Q2HGwV8ag99etBRgAXs2FgLO49XU3e'
+        request.META["CSRF_COOKIE"] = "y3WZXVzvwNlEAYd76nA4MvdvVKSaGSiS91Q2HGwV8ag99etBRgAXs2FgLO49XU3e"
 
         messages = CookieStorage(request)
-        setattr(request, '_messages', messages)
+        setattr(request, "_messages", messages)
 
         self.assertFalse(GPXTrackFile.objects.all())  # No gpx on database.
 
-        with patch('django.db.backends.base.base.BaseDatabaseWrapper.validate_no_atomic_block',
-                   lambda a: False):
-
+        with patch("django.db.backends.base.base.BaseDatabaseWrapper.validate_no_atomic_block", lambda a: False):
             template_response = self.admin.changeform_view(request)
             transaction.get_connection().run_and_clear_commit_hooks()
 
             gpx_object = GPXTrackFile.objects.all()
-            processed_status = gpx_object.values('processed_status')
+            processed_status = gpx_object.values("processed_status")
             self.assertEqual(template_response.status_code, 302)
-            self.assertTrue(
-                "was successfully uploaded for processing" in messages._queued_messages[0].message)
+            self.assertTrue("was successfully uploaded for processing" in messages._queued_messages[0].message)
             self.assertEqual(gpx_object.count(), 1)
-            self.assertEqual(processed_status[0].get(
-                'processed_status'), 'success')
+            self.assertEqual(processed_status[0].get("processed_status"), "success")
 
-            # This is an example of trackpoint that we expect to be saved in the observation table.
-            # <trkpt lat="-2.573374444618821" lon="37.896002875640988">
-            #     <ele>1244.769999999999982</ele>
-            #     <time>2020-06-06T05:17:26Z</time>
-            #  </trkpt>
-
-            trkpoint_lat = '-2.573374444618821'
-            trkpoint_lon = '37.896002875640988'
-            trkpoint_time = dateparser.parse('2020-06-06T05:17:26Z')
+            trkpoint_lat = "-2.573374444618821"
+            trkpoint_lon = "37.896002875640988"
+            trkpoint_time = dateparser.parse("2020-06-06T05:17:26Z")
 
             # trackpoint saved in observation table.
-            trkpoint_obs = Observation.objects.filter(
-                recorded_at=trkpoint_time, source__id=subject_source.source_id)
+            trkpoint_obs = Observation.objects.filter(recorded_at=trkpoint_time, source__id=subject_source.source_id)
             self.assertTrue(trkpoint_obs.exists())
 
             obs_latitude = trkpoint_obs[0].location.y
@@ -483,49 +648,47 @@ class SubjectTestCase(BaseAPITest):
             self.assertEqual(float(trkpoint_lat), obs_latitude)
             self.assertEqual(float(trkpoint_lon), obs_longitude)
 
-    @pytest.mark.skip(msg="After migration to Django 3.1 this test is not working anymore.")
+    @pytest.mark.skip(reason="After migration to Django 3.1 this test is not working anymore.")
     def test_gpx_upload_fails(self):
         # TODO FIXME: find a way to fix it.
         # It works on Django 2.2 but not on Django 3.1
         # It expect that the method GPXAdmin.changeform_view catch the exception,
         # but the exception doesn't happened in V3.0
-        subject = Subject.objects.get(name='Topsy')
+        subject = Subject.objects.get(name="Topsy")
         subject_source = SubjectSource.objects.get(subject=subject)
-        data = File(
-            open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
+        data = File(open(os.path.join(TESTS_PATH, "testdata/gpsmap_data.gpx"), "rb"))
 
-        url = reverse('admin:observations_gpxtrackfile_add')
-        request = self.factory.post(
-            url, data={'source_assignment': subject_source.id, '_save': 'Save'})
+        url = reverse("admin:observations_gpxtrackfile_add")
+        request = self.factory.post(url, data={"source_assignment": subject_source.id, "_save": "Save"})
         self.force_authenticate(request, self.user)
-        query_ = QueryDict('', mutable=True)
-        post_data = {'source_assignment': subject_source.id, '_save': 'Save',
-                     'csrfmiddlewaretoken': ['y3WZXVzvwNlEAYd76nA4MvdvVKSaGSiS91Q2HGwV8ag99etBRgAXs2FgLO49XU3e'],
-                     'description': ''}
+        query_ = QueryDict("", mutable=True)
+        post_data = {
+            "source_assignment": subject_source.id,
+            "_save": "Save",
+            "csrfmiddlewaretoken": ["y3WZXVzvwNlEAYd76nA4MvdvVKSaGSiS91Q2HGwV8ag99etBRgAXs2FgLO49XU3e"],
+            "description": "",
+        }
         query_.update(post_data)
 
         # with ContexT() as c:
-        request.FILES['data'] = data
+        request.FILES["data"] = data
         request.POST = query_
-        request.META['CSRF_COOKIE'] = 'y3WZXVzvwNlEAYd76nA4MvdvVKSaGSiS91Q2HGwV8ag99etBRgAXs2FgLO49XU3e'
+        request.META["CSRF_COOKIE"] = "y3WZXVzvwNlEAYd76nA4MvdvVKSaGSiS91Q2HGwV8ag99etBRgAXs2FgLO49XU3e"
 
         messages = CookieStorage(request)
-        setattr(request, '_messages', messages)
+        setattr(request, "_messages", messages)
 
         gpx_object = GPXTrackFile.objects.all()
-        processed_status = gpx_object.values('processed_status')
+        processed_status = gpx_object.values("processed_status")
         template_response = self.admin.changeform_view(request)
         self.assertEqual(template_response.status_code, 302)
-        self.assertTrue(
-            "failed to be processed" in messages._queued_messages[0].message)
-        self.assertEqual(processed_status[0].get(
-            'processed_status'), 'failure')
+        self.assertTrue("failed to be processed" in messages._queued_messages[0].message)
+        self.assertEqual(processed_status[0].get("processed_status"), "failure")
 
     def test_calculate_track_range_fn(self):
         user = self.user
         t1 = datetime.now(tz=UTC) - timedelta(days=3, hours=2, minutes=30)
-        since, until, limit = calculate_track_range(
-            user=user, since=t1, until=None, limit=None)
+        since, until, limit = calculate_track_range(user=user, since=t1, until=None, limit=None)
 
         expected_since = t1.replace(microsecond=0, second=0).isoformat()
         returned_since = since.replace(microsecond=0, second=0).isoformat()
@@ -533,48 +696,51 @@ class SubjectTestCase(BaseAPITest):
 
         # when since greater than today
         t2 = datetime.now(tz=UTC) + timedelta(days=3, hours=7, minutes=30)
-        since, until, limit = calculate_track_range(
-            user=user, since=t2, until=None, limit=None)
+        since, until, limit = calculate_track_range(user=user, since=t2, until=None, limit=None)
 
         expected_since = t2.replace(microsecond=0, second=0).isoformat()
         returned_since = since.replace(microsecond=0, second=0).isoformat()
         self.assertEqual(returned_since, expected_since)
 
     def test_calculate_track_range_fn_today(self):
-        t1 = datetime.combine(datetime.today(), datetime.min.time()).replace(
-            tzinfo=UTC)  # midnight
-        since, until, limit = calculate_track_range(
-            user=self.user, since=t1, until=None, limit=None)
+        t1 = datetime.combine(datetime.today(), datetime.min.time()).replace(tzinfo=UTC)  # midnight
+        since, until, limit = calculate_track_range(user=self.user, since=t1, until=None, limit=None)
 
         expected_since = t1.replace(microsecond=0, second=0).isoformat()
         returned_since = since.replace(microsecond=0).isoformat()
         self.assertEqual(returned_since, expected_since)
 
-        t2 = t1.replace(hour=5, minute=45, second=0,
-                        microsecond=0)  # past midnight
-        since, until, limit = calculate_track_range(
-            user=self.user, since=t2, until=None, limit=None)
+        t2 = t1.replace(hour=5, minute=45, second=0, microsecond=0)  # past midnight
+        since, until, limit = calculate_track_range(user=self.user, since=t2, until=None, limit=None)
 
         expected_since = t2.isoformat()
         returned_since = since.replace(microsecond=0, second=0).isoformat()
         self.assertEqual(returned_since, expected_since)
 
+    def test_calculate_track_range_fn_tomorrow(self):
+        t1 = datetime.now(tz=timezone.utc) + timedelta(days=1)
+        t1_until = t1 + timedelta(days=5)
+        since, until, limit = calculate_track_range(user=self.user, since=t1, until=t1_until, limit=None)
+
+        assert since < until
+        assert since == t1
+        assert until == t1_until
+
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    def test_process_gpx_file_upload_via_api(self):
-        subject = Subject.objects.get(name='Topsy')
+    @patch("utils.tenant.thread._get_local_thread")
+    def test_process_gpx_file_upload_via_api(self, get_main_thread):
+        get_main_thread.return_value = self.thread
+        subject = Subject.objects.get(name="Topsy")
         subject_source = SubjectSource.objects.get(subject=subject)
-        file = File(
-            open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
+        file = File(open(os.path.join(TESTS_PATH, "testdata/gpsmap_data.gpx"), "rb"))
 
         data = dict(gpx_file=file)
 
-        url = reverse(
-            'gpx-upload', kwargs={'id': str(subject_source.source_id)})
-        request = self.factory.post(url, data, format='multipart')
+        url = reverse("gpx-upload", kwargs={"id": str(subject_source.source_id)})
+        request = self.factory.post(url, data, format="multipart")
         self.force_authenticate(request, self.user)
 
-        response = GPXFileUploadView.as_view()(
-            request, id=str(subject_source.source_id))
+        response = GPXFileUploadView.as_view()(request, id=str(subject_source.source_id))
         self.assertEqual(response.status_code, 201)
 
         # This is an example of trackpoint that we expect to be saved in the observation table.
@@ -583,13 +749,12 @@ class SubjectTestCase(BaseAPITest):
         #     <time>2020-06-06T05:17:26Z</time>
         #  </trkpt>
 
-        trkpoint_lat = '-2.573374444618821'
-        trkpoint_lon = '37.896002875640988'
-        trkpoint_time = dateparser.parse('2020-06-06T05:17:26Z')
+        trkpoint_lat = "-2.573374444618821"
+        trkpoint_lon = "37.896002875640988"
+        trkpoint_time = dateparser.parse("2020-06-06T05:17:26Z")
 
         # trackpoint saved in observation table.
-        trkpoint_obs = Observation.objects.filter(
-            recorded_at=trkpoint_time, source__id=subject_source.source_id)
+        trkpoint_obs = Observation.objects.filter(recorded_at=trkpoint_time, source__id=subject_source.source_id)
         self.assertTrue(trkpoint_obs.exists())
 
         obs_latitude = trkpoint_obs[0].location.y
@@ -600,95 +765,89 @@ class SubjectTestCase(BaseAPITest):
     def test_process_gpx_file_upload_with_no_trackpoints_time(self):
         source = Source.objects.first()
         trkpoints = [
-            {'@lat': '-2.86950624063618', '@lon': '38.968550268933178',
-                'ele': '506.110000000000018', 'time': '2020-06-06T04:17:28Z'},
-            {'@lat': '-2.76951453872028', '@lon': '38.268555130437018', 'ele': '503.029999999999978'}]  # No trackpoints time
+            {
+                "@lat": "-2.86950624063618",
+                "@lon": "38.968550268933178",
+                "ele": "506.110000000000018",
+                "time": "2020-06-06T04:17:28Z",
+            },
+            {"@lat": "-2.76951453872028", "@lon": "38.268555130437018", "ele": "503.029999999999978"},
+        ]  # No trackpoints time
         file_name = "test_file.gpx"
-        _, obs_errors = process_trackpoints(
-            source, source.id, trkpoints, file_name)
-        assert obs_errors == 'Points are missing timestamps in GPX file test_file.gpx'
+        _, obs_errors = process_trackpoints(source, source.id, trkpoints, file_name)
+        assert obs_errors == "Points are missing timestamps in GPX file test_file.gpx"
 
     def test_process_gpx_upload_nopermission(self):
         # user that does not have permissions to create Observations records
         # cant import gpx file.
-        subject = Subject.objects.get(name='Topsy')
+        subject = Subject.objects.get(name="Topsy")
         subject_source = SubjectSource.objects.get(subject=subject)
-        file = File(
-            open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
+        file = File(open(os.path.join(TESTS_PATH, "testdata/gpsmap_data.gpx"), "rb"))
 
         data = dict(gpx_file=file)
 
-        url = reverse(
-            'gpx-upload', kwargs={'id': str(subject_source.source_id)})
-        request = self.factory.post(url, data, format='multipart')
+        url = reverse("gpx-upload", kwargs={"id": str(subject_source.source_id)})
+        request = self.factory.post(url, data, format="multipart")
 
         self.force_authenticate(request, self.no_perms_user)
-        response = GPXFileUploadView.as_view()(
-            request, id=str(subject_source.source_id))
+        response = GPXFileUploadView.as_view()(request, id=str(subject_source.source_id))
         self.assertEqual(response.status_code, 403)
 
+    @mock.patch("observations.views.get_tenant_settings")
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    def test_process_gpx_upload_with_create_observation_perm(self):
+    def test_process_gpx_upload_with_create_observation_perm(self, get_tenant_settings):
+        get_tenant_settings.return_value = Tenant.from_dict(TENANT_RESPONSE)
         # give user with no permission, permission to create observation.
-        subject = Subject.objects.get(name='Topsy')
+        subject = Subject.objects.get(name="Topsy")
         subject_source = SubjectSource.objects.get(subject=subject)
-        file = File(
-            open(os.path.join(TESTS_PATH, 'testdata/gpsmap_data.gpx'), 'rb'))
+        file = File(open(os.path.join(TESTS_PATH, "testdata/gpsmap_data.gpx"), "rb"))
         data = dict(gpx_file=file)
 
-        observation_permission = ('add_observation',)
-        permset = PermissionSet.objects.create(name='observation Permission')
+        observation_permission = ("add_observation",)
+        permset = PermissionSet.objects.create(name="observation Permission")
         for perm in observation_permission:
             permset.permissions.add(Permission.objects.get(codename=perm))
         self.no_perms_user.permission_sets.add(permset)
 
-        url = reverse(
-            'gpx-upload', kwargs={'id': str(subject_source.source_id)})
-        request = self.factory.post(url, data, format='multipart')
+        url = reverse("gpx-upload", kwargs={"id": str(subject_source.source_id)})
+        request = self.factory.post(url, data, format="multipart")
 
         self.force_authenticate(request, self.no_perms_user)
-        response = GPXFileUploadView.as_view()(
-            request, id=str(subject_source.source_id))
-        self.assertTrue(self.no_perms_user.has_perm(
-            'observations.add_observation'))
+        response = GPXFileUploadView.as_view()(request, id=str(subject_source.source_id))
+        self.assertTrue(self.no_perms_user.has_perm("observations.add_observation"))
         self.assertEqual(response.status_code, 201)
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestSubjectsView:
-
     def test_static_sensor_response(self, subject_source):
         now = datetime.now(tz=pytz.utc)
         subject_source.location = Point(-103.6, 20.6)
         subject_source.save()
         subject = subject_source.subject
         subject.name = "Subject test"
-        subject.subject_subtype = SubjectSubType.objects.get(
-            display="Camera Trap")
+        subject.subject_subtype = SubjectSubType.objects.get(display="Camera Trap")
         subject.save()
         source_provider = subject_source.source.provider
         source_provider.transforms = [
-            {
-                "default": False,
-                "dest": "temperature",
-                "label": "temp",
-                "source": "temperature",
-                "units": "c"
-            },
-            {
-                "default": True,
-                "dest": "speed",
-                "label": "speed",
-                "source": "speed",
-                "units": "km"
-            }
+            {"default": False, "dest": "temperature", "label": "temp", "source": "temperature", "units": "c"},
+            {"default": True, "dest": "speed", "label": "speed", "source": "speed", "units": "km"},
         ]
         source_provider.save()
-        Observation.objects.create(source=subject_source.source, location=Point(
-            -103.5, 20.5), recorded_at=now, additional={"speed": 50, "temperature": 15})
+        Observation.objects.create(
+            source=subject_source.source,
+            location=Point(-103.5, 20.5),
+            recorded_at=now,
+            additional={"speed": 50, "temperature": 15},
+        )
         for subject_status in SubjectStatus.objects.all():
-            subject_status.additional = {"device_status_properties": [
-                {"label": "temp", "units": "c", "value": 15}, {"label": "speed", "units": "km", "value": 50}]}
+            subject_status.additional = {
+                "device_status_properties": [
+                    {"label": "temp", "units": "c", "value": 15},
+                    {"label": "speed", "units": "km", "value": 50},
+                ]
+            }
             subject_status.save()
 
         request = self._get_request()
@@ -700,8 +859,7 @@ class TestSubjectsView:
             if item.get("name") == "Subject test":
                 last_location = item.get("last_position")
                 device_status_properties = item.get("device_status_properties")
-                assert last_location.get("geometry").get(
-                    "coordinates", {}) == (-103.6, 20.6)
+                assert last_location.get("geometry").get("coordinates", {}) == (-103.6, 20.6)
                 assert last_location.get("geometry").get("type", {}) == "Point"
                 assert item.get("is_static")
                 assert not item.get("tracks_available")
@@ -713,12 +871,15 @@ class TestSubjectsView:
         now = datetime.now(tz=pytz.utc)
         subject = subject_source.subject
         subject.name = "Subject test"
-        subject.subject_subtype = SubjectSubType.objects.get(
-            display="Camera Trap")
+        subject.subject_subtype = SubjectSubType.objects.get(display="Camera Trap")
         subject.save()
 
-        Observation.objects.create(source=subject_source.source, location=Point(
-            -103.5, 20.5), recorded_at=now, additional={"speed": 50, "temperature": 15})
+        Observation.objects.create(
+            source=subject_source.source,
+            location=Point(-103.5, 20.5),
+            recorded_at=now,
+            additional={"speed": 50, "temperature": 15},
+        )
 
         request = self._get_request()
         response = SubjectsView.as_view()(request)
@@ -732,17 +893,16 @@ class TestSubjectsView:
     def test_response_stationary_subject_without_location_and_observation(self, subject_source):
         subject = subject_source.subject
         subject.name = "Subject test"
-        subject.subject_subtype = SubjectSubType.objects.get(
-            display="Camera Trap")
+        subject.subject_subtype = SubjectSubType.objects.get(display="Camera Trap")
         subject.save()
 
         request = self._get_request()
         response = SubjectsView.as_view()(request)
+        assert response.status_code == 200
         data = list(response.data)
 
-        last_position = data[0].get("last_position")
         assert data[0].get("is_static")
-        assert last_position is None
+        assert not data[0].get("tracks_available")
 
     def test_static_sensor_response_with_many_observations(self, subject_source):
         now = datetime.now(tz=pytz.utc)
@@ -750,36 +910,39 @@ class TestSubjectsView:
         subject_source.save()
         subject = subject_source.subject
         subject.name = "Subject test"
-        subject.subject_subtype = SubjectSubType.objects.get(
-            display="Camera Trap")
+        subject.subject_subtype = SubjectSubType.objects.get(display="Camera Trap")
         subject.save()
         source_provider = subject_source.source.provider
         source_provider.transforms = [
-            {
-                "default": False,
-                "dest": "temperature",
-                "label": "temp",
-                "source": "temperature",
-                "units": "c"
-            },
-            {
-                "default": True,
-                "dest": "speed",
-                "label": "speed",
-                "source": "speed",
-                "units": "km"
-            }
+            {"default": False, "dest": "temperature", "label": "temp", "source": "temperature", "units": "c"},
+            {"default": True, "dest": "speed", "label": "speed", "source": "speed", "units": "km"},
         ]
         source_provider.save()
-        Observation.objects.create(source=subject_source.source, location=Point(
-            -103.5, 20.5), recorded_at=now, additional={"speed": 50, "temperature": 150})
-        Observation.objects.create(source=subject_source.source, location=Point(
-            -103.4, 20.4), recorded_at=now - timedelta(minutes=5), additional={"speed": 100, "temperature": 200})
-        Observation.objects.create(source=subject_source.source, location=Point(
-            -103.3, 20.3), recorded_at=now - timedelta(minutes=10), additional={"speed": 150, "temperature": 250})
+        Observation.objects.create(
+            source=subject_source.source,
+            location=Point(-103.5, 20.5),
+            recorded_at=now,
+            additional={"speed": 50, "temperature": 150},
+        )
+        Observation.objects.create(
+            source=subject_source.source,
+            location=Point(-103.4, 20.4),
+            recorded_at=now - timedelta(minutes=5),
+            additional={"speed": 100, "temperature": 200},
+        )
+        Observation.objects.create(
+            source=subject_source.source,
+            location=Point(-103.3, 20.3),
+            recorded_at=now - timedelta(minutes=10),
+            additional={"speed": 150, "temperature": 250},
+        )
         for subject_status in SubjectStatus.objects.all():
-            subject_status.additional = {"device_status_properties": [
-                {"label": "temp", "units": "c", "value": 15}, {"label": "speed", "units": "km", "value": 50}]}
+            subject_status.additional = {
+                "device_status_properties": [
+                    {"label": "temp", "units": "c", "value": 15},
+                    {"label": "speed", "units": "km", "value": 50},
+                ]
+            }
             subject_status.save()
 
         request = self._get_request()
@@ -791,8 +954,7 @@ class TestSubjectsView:
             if item.get("name") == "Subject test":
                 last_location = item.get("last_position")
                 device_status_properties = item.get("device_status_properties")
-                assert last_location.get("geometry").get(
-                    "coordinates", {}) == (-103.6, 20.6)
+                assert last_location.get("geometry").get("coordinates", {}) == (-103.6, 20.6)
                 assert last_location.get("geometry").get("type", {}) == "Point"
                 assert item.get("is_static")
                 assert not item.get("tracks_available")
@@ -800,19 +962,255 @@ class TestSubjectsView:
                     if device_property.get("label") == "speed":
                         assert device_property.get("default")
 
-    def _get_request(self):
+    @pytest.mark.parametrize(
+        "permission_set_with_permissions",
+        [
+            [
+                ["Can view subject", "observations", "subject", "view_subject"],
+                [
+                    "Access to updated observations as they become available, includes view_last_position.",
+                    "observations",
+                    "subject",
+                    "view_real_time1",
+                ],
+                ["Permission to subscribe to an alert on this Subject.", "observations", "subject", "subscribe_alerts"],
+                ["Can view subject group", "observations", "subjectgroup", "view_subjectgroup"],
+            ]
+        ],
+        indirect=True,
+    )
+    def test_cannot_combine_queries(
+        self,
+        permission_set_with_permissions,
+        five_subjects,
+        user_client,
+        subject_group_empty,
+    ):
+        dumbo = five_subjects[0]
+        felix = five_subjects[1]
+        rambo = five_subjects[2]
+        ranger_subject_group = subject_group_empty
+        ranger_subject_group.name = "Rangers"
+        ranger_subject_group.save()
+        ranger_subject_group.subjects.add(rambo)
+        subjects_subject_group = SubjectGroup.objects.get(name="Subjects")
+        subjects_subject_group.subjects.add(felix)
+        subjects_subject_group.permission_sets.add(permission_set_with_permissions)
+        user = user_client.user
+        dumbo.linked_user = user
+        dumbo.save()
+        user.permission_sets.add(permission_set_with_permissions)
+        url = reverse("subjects-list-view") + f"?page_size=1&subject_group={subjects_subject_group.id}&page=1"
+
+        response = user_client.get(url)
+
+        assert response.status_code == 200
+        assert len(response.data)
+
+    @pytest.mark.parametrize(
+        "permission_set_with_permissions",
+        [
+            [
+                ["Can view subject", "observations", "subject", "view_subject"],
+                [
+                    "Access to updated observations as they become available, includes view_last_position.",
+                    "observations",
+                    "subject",
+                    "view_real_time1",
+                ],
+                ["Permission to subscribe to an alert on this Subject.", "observations", "subject", "subscribe_alerts"],
+                ["Can view subject group", "observations", "subjectgroup", "view_subjectgroup"],
+            ]
+        ],
+        indirect=True,
+    )
+    @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+    def test_response_only_includes_user_linked_subject_when_no_params_sent(
+        self, permission_set_with_permissions, subject_source, source_group, user_client, five_subjects
+    ):
+        subject = subject_source.subject
+        source = subject_source.source
+        subject_group = SubjectGroup.objects.get(name="Subjects")
+        subject_group.subjects.add(subject)
+        horton = five_subjects[0]
+        subject_group.subjects.add(horton)
+        permission_set_with_permissions.name = "View Subjects"
+        permission_set_with_permissions.save()
+        source_group.sources.add(source)
+        source_group.permission_sets.add(permission_set_with_permissions)
+        user = user_client.user
+        user.permission_sets.add(permission_set_with_permissions)
+        horton.linked_user = user
+        horton.save()
+        url = reverse("subjects-list-view")
+        url_with_param = f"{url}?id=818641e5-e901-476d-9d42-529f3313b475"
+
+        response = user_client.get(url)
+
+        assert response.status_code == 200
+        assert len(response.data)
+
+        # now do it again with a parameter and validate no user-linked subject is returned
+        response_without_linked_subject = user_client.get(url_with_param)
+
+        assert response_without_linked_subject.status_code == 200
+        assert len(response_without_linked_subject.data) == 0
+
+    @pytest.mark.parametrize(
+        "permission_set_with_permissions",
+        [
+            [
+                ["Can view subject", "observations", "subject", "view_subject"],
+                [
+                    "Access to updated observations as they become available, includes view_last_position.",
+                    "observations",
+                    "subject",
+                    "view_real_time1",
+                ],
+                ["Permission to subscribe to an alert on this Subject.", "observations", "subject", "subscribe_alerts"],
+            ]
+        ],
+        indirect=True,
+    )
+    @pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+    def test_response_not_include_user_linked_subject_when_subject_inactive(
+        self, permission_set_with_permissions, subject_source, source_group, user_client, five_subjects
+    ):
+        source = subject_source.source
+
+        permission_set_with_permissions.name = "View Subjects"
+        permission_set_with_permissions.save()
+        source_group.sources.add(source)
+        source_group.permission_sets.add(permission_set_with_permissions)
+        user = user_client.user
+        user.permission_sets.add(permission_set_with_permissions)
+
+        horton = five_subjects[0]
+        horton.linked_user = user
+        horton.is_active = False
+        horton.save()
+
+        url = reverse("subjects-list-view")
+
+        response = user_client.get(url)
+
+        assert response.status_code == 200
+        assert len(response.data) == 1
+        assert response.data[0]["is_active"] is True
+
+        # double check subject is returned if is_active is set to True
+        horton.is_active = True
+        horton.save()
+
+        res = user_client.get(url)
+        assert len(res.data) == 2
+        for subject in res.data:
+            assert subject["is_active"] is True
+
+    def test_subjectgroup_with_default_subjectstatus_has_no_tracks_available(self, subject_source, subject_group_empty):
+        subject = subject_source.subject
+        subject.name = faker.name()
+        subject.subject_subtype = SubjectSubType.objects.all().first()
+        subject.save()
+        subject_group_empty.subjects.add(subject)
+
+        Observation.objects.create(
+            source=subject_source.source,
+            location=Point(0, 0),
+            recorded_at=datetime.now(tz=pytz.UTC) - timedelta(weeks=1),
+        )
+
+        request = self._get_request(
+            path=f"/subjectgroups?group_name={urllib.parse.quote_plus(subject_group_empty.name)}"
+        )
+        response = SubjectGroupsView.as_view()(request)
+        subject_response = response.data[0]["subjects"][0]
+
+        assert subject_response.get("name") == subject.name
+        assert subject_response.get("tracks_available") is False
+
+    @pytest.mark.parametrize(
+        "permission_set_with_permissions",
+        [
+            [
+                ["Can view subject", "observations", "subject", "view_subject"],
+                ["Can view source", "observations", "source", "view_source"],
+                ["Can view source group", "observations", "sourcegroup", "view_sourcegroup"],
+                [
+                    "Access to real-time observations.",
+                    "observations",
+                    "subject",
+                    "view_real_time",
+                ],
+                [
+                    "Can view all historical tracks",
+                    "observations",
+                    "subject",
+                    "access_begins_all",
+                ],
+                [
+                    "Can view tracks no less than 0 days old",
+                    "observations",
+                    "subject",
+                    "access_ends_0",
+                ],
+            ]
+        ],
+        indirect=True,
+    )
+    def test_source_group_with_latest_source_observation_null_island_is_not_included_as_last_position(
+        self, permission_set_with_permissions, user_client, source_group, subject_source
+    ):
+        source_group.sources.add(subject_source.source)
+        source_group.permission_sets.add(permission_set_with_permissions)
+
+        user_client.user.permission_sets.add(permission_set_with_permissions)
+
+        obs_returned = Observation.objects.create(
+            source=subject_source.source,
+            location=Point((-122.334, 47.598)),
+            recorded_at=datetime.now(tz=pytz.UTC) - timedelta(weeks=1),
+        )
+
+        obs_excluded = Observation.objects.create(
+            source=subject_source.source,
+            location=Point((-122.334, 48.598)),
+            exclusion_flags=Observation.EXCLUDED_MANUALLY,
+            recorded_at=datetime.now(tz=pytz.UTC) - timedelta(seconds=1),
+        )
+
+        obs_null_island = Observation.objects.create(
+            source=subject_source.source,
+            location=Point(0, 0),
+            recorded_at=datetime.now(tz=pytz.UTC),
+        )
+
+        url = reverse("subjects-list-view") + "?use_lkl=true"
+        response = user_client.get(url)
+        assert response.status_code == 200
+        subject = response.data[0]
+        assert subject["name"] == subject_source.subject.name
+        assert subject["tracks_available"] is True
+        last_location = subject["last_position"]
+        assert last_location["geometry"]["coordinates"] == obs_returned.location.coords
+
+    def test_subjects_view_num_queries(self, django_assert_num_queries):
+        with django_assert_num_queries(20):
+            self._get_request()
+
+    def _get_request(self, path: str = "/subjects"):
         client = HTTPClient()
         client.app_user.is_superuser = True
         client.app_user.save()
-        request = client.factory.get(
-            client.api_base + f"/subjects"
-        )
+        request = client.factory.get(client.api_base + path)
         client.force_authenticate(request, client.app_user)
         return request
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class TestSubjectsViewFilter:
+
     position_observations = [
         [-103.66424560546874, 20.619288994719977],
         [-103.61000061035156, 20.699600246050323],
@@ -822,7 +1220,7 @@ class TestSubjectsViewFilter:
     ]
 
     @pytest.mark.parametrize(
-        "status_subjects_position, total",
+        "status_subjects_position, total, query_count",
         [
             (
                 [
@@ -833,6 +1231,7 @@ class TestSubjectsViewFilter:
                     [-103.47885131835938, 20.732997212795915],
                 ],
                 5,
+                18,
             ),
             (
                 [
@@ -843,6 +1242,7 @@ class TestSubjectsViewFilter:
                     [-103.49807739257812, 20.44245526026025],
                 ],
                 4,
+                18,
             ),
         ],
     )
@@ -862,7 +1262,9 @@ class TestSubjectsViewFilter:
         five_subject_sources,
         status_subjects_position,
         total,
+        query_count,
         subject_group_with_perms,
+        django_assert_num_queries,
     ):
         bbox = "-103.71599063163262,20.51126608854284,-103.36639645879019,20.780283984574012"
         for position, source in zip(status_subjects_position, Source.objects.all()):
@@ -875,15 +1277,70 @@ class TestSubjectsViewFilter:
 
         client = HTTPClient()
         client.app_user.permission_sets.add(view_subjects_permission_set)
-        client.app_user.permission_sets.add(
-            subject_group_with_perms.permission_sets.last())
+        client.app_user.permission_sets.add(subject_group_with_perms.permission_sets.last())
+        request = client.factory.get(client.api_base + f"/subjects/?bbox={bbox}&use_lkl=true")
+        client.force_authenticate(request, client.app_user)
+        with django_assert_num_queries(query_count) as captured:
+            response = SubjectsView.as_view()(request)
+            logger.debug(f"Queries: {captured}")
+
+        assert len(response.data) == total
+
+    @pytest.mark.parametrize(
+        "status_subjects_position, total",
+        [
+            (
+                [
+                    [-103.66424560546874, 20.619288994719977],
+                    [-103.61755371093749, 20.551151842360383],
+                    [-103.61000061035156, 20.699600246050323],
+                    [-103.4857177734375, 20.609648794045192],
+                    [-103.47885131835938, 20.732997212795915],
+                ],
+                5,
+            ),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "subject_group_with_perms",
+        [
+            [
+                "view_subjectgroup,observations,subjectgroup",
+                "view_subject,observations,subject",
+            ]
+        ],
+        indirect=True,
+    )
+    def test_by_position_updated_since(
+        self,
+        view_subjects_permission_set,
+        five_subject_sources,
+        status_subjects_position,
+        total,
+        subject_group_with_perms,
+    ):
+        position_updated_since = datetime.now(tz=pytz.UTC)
+        recorded_at = position_updated_since - timedelta(seconds=1)
+        for position, source in zip(status_subjects_position, Source.objects.all()):
+            Observation.objects.create(
+                recorded_at=recorded_at,
+                source=source,
+                location=Point(position),
+            )
+            recorded_at = recorded_at + timedelta(seconds=1)
+        subject_group_with_perms.subjects.add(*Subject.objects.all())
+
+        client = HTTPClient()
+        client.app_user.permission_sets.add(view_subjects_permission_set)
+        client.app_user.permission_sets.add(subject_group_with_perms.permission_sets.last())
         request = client.factory.get(
-            client.api_base + f"/subjects/?bbox={bbox}&use_lkl=true"
+            client.api_base + "/subjects/",
+            {"use_lkl": "true", "position_updated_since": position_updated_since.isoformat()},
         )
         client.force_authenticate(request, client.app_user)
         response = SubjectsView.as_view()(request)
 
-        assert len(response.data) == total
+        assert len(response.data) == total - 1
 
     @pytest.mark.parametrize(
         "subject_group_with_perms",
@@ -901,8 +1358,9 @@ class TestSubjectsViewFilter:
         five_subject_sources,
         settings,
         subject_group_with_perms,
+        tenant_settings,
     ):
-        settings.SHOW_STATIONARY_SUBJECTS_ON_MAP = False
+        tenant_settings.env_settings.show_stationary_subjects_on_map = False
         first_subject_source = SubjectSource.objects.last()
         first_subject_source.location = Point(-103.6, 20.6)
         first_subject_source.save()
@@ -920,18 +1378,14 @@ class TestSubjectsViewFilter:
 
         bbox = "-103.7384033203125,20.52221649818549,-103.39714050292969,20.801694707706137"
         client = HTTPClient()
-        client.app_user.permission_sets.add(
-            subject_group_with_perms.permission_sets.last())
+        client.app_user.permission_sets.add(subject_group_with_perms.permission_sets.last())
         client.app_user.permission_sets.add(view_subjects_permission_set)
-        request = client.factory.get(
-            client.api_base + f"/subjects/?bbox={bbox}&use_lkl=true"
-        )
+        request = client.factory.get(client.api_base + f"/subjects/?bbox={bbox}&use_lkl=true")
         client.force_authenticate(request, client.app_user)
         response = SubjectsView.as_view()(request)
 
         assert len(response.data) == 4
-        assert first_subject.id not in [
-            item.get("id") for item in response.data]
+        assert first_subject.id not in [item.get("id") for item in response.data]
 
     @pytest.mark.parametrize(
         "subject_group_with_perms",
@@ -949,8 +1403,9 @@ class TestSubjectsViewFilter:
         five_subject_sources,
         settings,
         subject_group_with_perms,
+        tenant_settings,
     ):
-        settings.SHOW_STATIONARY_SUBJECTS_ON_MAP = True
+        tenant_settings.env_settings.show_stationary_subjects_on_map = True
         first_subject_source = SubjectSource.objects.last()
         first_subject_source.location = Point(-103.6, 20.6)
         first_subject_source.save()
@@ -968,15 +1423,268 @@ class TestSubjectsViewFilter:
 
         bbox = "-103.7384033203125,20.52221649818549,-103.39714050292969,20.801694707706137"
         client = HTTPClient()
-        client.app_user.permission_sets.add(
-            subject_group_with_perms.permission_sets.last())
+        client.app_user.permission_sets.add(subject_group_with_perms.permission_sets.last())
         client.app_user.permission_sets.add(view_subjects_permission_set)
-        request = client.factory.get(
-            client.api_base + f"/subjects/?bbox={bbox}&use_lkl=true"
-        )
+        request = client.factory.get(client.api_base + f"/subjects/?bbox={bbox}&use_lkl=true")
         client.force_authenticate(request, client.app_user)
         response = SubjectsView.as_view()(request)
 
         assert len(response.data) == 5
-        assert str(first_subject.id) in [item.get("id")
-                                         for item in response.data]
+        assert str(first_subject.id) in [item.get("id") for item in response.data]
+
+    @pytest.mark.skip(reason="This test is too slow to run on every commit. Uncomment when needed.")
+    @pytest.mark.parametrize(
+        "subject_group_with_perms",
+        [
+            [
+                "view_subjectgroup,observations,subjectgroup",
+                "view_subject,observations,subject",
+            ]
+        ],
+        indirect=True,
+    )
+    def test_by_bbox_using_last_known_location_with_many_subject_sources(
+        self,
+        source_provider,
+        view_subjects_permission_set,
+        subject_group_with_perms,
+        tenant_settings,
+        django_assert_num_queries,
+    ):
+        tenant_settings.env_settings.show_stationary_subjects_on_map = True
+
+        # Create a stationary subject with many sources
+        stationary_subject = Subject.objects.create(
+            name="Stationary Subject",
+            subject_subtype=SubjectSubType.objects.get(display="Camera Trap"),
+        )
+        stationary_location = Point(-103.6, 20.6)
+
+        # Create 150 sources for the stationary subject
+        for i in range(150):
+            source = Source.objects.create(
+                model_name=f"Stationary Source {i}",
+                provider=source_provider,
+            )
+            SubjectSource.objects.create(
+                subject=stationary_subject,
+                source=source,
+                location=stationary_location,
+            )
+            # Add some observations for each source
+            Observation.objects.create(
+                recorded_at=datetime.now(tz=pytz.UTC),
+                source=source,
+                location=stationary_location,
+            )
+
+        # Create 50 mobile subjects (elephants) with many sources each
+        mobile_subjects = []
+        elephant_subtype = SubjectSubType.objects.get(display="Elephant")
+
+        mobile_count = 1
+        for elephant_num in range(mobile_count):
+            mobile_subject = Subject.objects.create(
+                name=f"Mobile Elephant {elephant_num}",
+                subject_subtype=elephant_subtype,
+            )
+            mobile_subjects.append(mobile_subject)
+
+            # Create 150 sources for each mobile subject with different locations
+            for i in range(150):
+                source = Source.objects.create(
+                    model_name=f"Mobile Source {elephant_num}-{i}",
+                    provider=source_provider,
+                )
+                # Create a unique location pattern for each elephant
+                base_lon = -103.6 + (elephant_num * 0.01)  # Each elephant has its own longitude base
+                base_lat = 20.6 + (elephant_num * 0.01)  # Each elephant has its own latitude base
+                location = Point(
+                    base_lon + (i * 0.001),  # Slight variation in longitude
+                    base_lat + (i * 0.001),  # Slight variation in latitude
+                )
+                SubjectSource.objects.create(
+                    subject=mobile_subject,
+                    source=source,
+                    location=location,
+                )
+                # Add some observations for each source
+                Observation.objects.create(
+                    recorded_at=datetime.now(tz=pytz.UTC),
+                    source=source,
+                    location=location,
+                )
+
+        # Add all subjects to the subject group
+        subject_group_with_perms.subjects.add(stationary_subject, *mobile_subjects)
+
+        # Test bbox that includes all subjects
+        bbox = "-103.7384033203125,20.52221649818549,-103.39714050292969,20.801694707706137"
+        client = HTTPClient()
+        client.app_user.permission_sets.add(subject_group_with_perms.permission_sets.last())
+        client.app_user.permission_sets.add(view_subjects_permission_set)
+        request = client.factory.get(client.api_base + f"/subjects/?bbox={bbox}&use_lkl=true")
+        client.force_authenticate(request, client.app_user)
+
+        # Test with query count assertion
+        with django_assert_num_queries(20) as captured:
+            response = SubjectsView.as_view()(request)
+            logger.debug(f"Queries: {captured}")
+
+        assert response.status_code == 200
+        assert len(response.data) == mobile_count + 1  # 50 elephants + 1 stationary subject
+
+        # Verify both types of subjects are returned
+        subject_ids = [item.get("id") for item in response.data]
+        assert str(stationary_subject.id) in subject_ids
+        for mobile_subject in mobile_subjects:
+            assert str(mobile_subject.id) in subject_ids
+
+        # Verify the stationary subject has the correct location
+        stationary_data = next(item for item in response.data if item.get("id") == str(stationary_subject.id))
+        assert stationary_data["last_position"]["geometry"]["coordinates"] == stationary_location.coords
+        assert stationary_data["is_static"] is True
+
+        # Verify each mobile subject has the correct properties
+        for mobile_subject in mobile_subjects:
+            mobile_data = next(item for item in response.data if item.get("id") == str(mobile_subject.id))
+            assert mobile_data["is_static"] is False
+            assert mobile_data["tracks_available"] is True
+            # Verify the location is within the expected range for this elephant
+            base_lon = -103.6 + (mobile_subjects.index(mobile_subject) * 0.01)
+            base_lat = 20.6 + (mobile_subjects.index(mobile_subject) * 0.01)
+            coords = mobile_data["last_position"]["geometry"]["coordinates"]
+            assert abs(coords[0] - base_lon) < 0.2  # Allow for some variation
+            assert abs(coords[1] - base_lat) < 0.2  # Allow for some variation
+
+    def test_not_include_inactive_subjects(self, superuser_client, five_subjects):
+        subject_one = five_subjects[0]
+        subject_one.is_active = False
+        subject_one.save()
+
+        url = reverse("subjects-list-view")
+        res = superuser_client.get(url)
+        assert res.status_code == 200
+        assert len(res.json()["data"]) == 4
+
+        res = superuser_client.get(url, dict(include_inactive=True))
+        assert res.status_code == 200
+        assert len(res.json()["data"]) == 5
+
+        res = superuser_client.get(url, dict(include_inactive=False))
+        assert res.status_code == 200
+        assert len(res.json()["data"]) == 4
+
+    def test_filter_by_subject_group_id_list(self, superuser_client):
+        two_subjects = SubjectFactory.create_batch(2)
+        last_subject = SubjectFactory.create()
+
+        sgrp1 = SubjectGroup.objects.create(name="Subject Group 1")
+        sgrp2 = SubjectGroup.objects.create(name="Subject Group 2")
+        sgrp1.subjects.add(two_subjects[0])
+        sgrp2.subjects.add(last_subject)
+
+        sgrp1.save()
+        sgrp2.save()
+
+        url = reverse("subjects-list-view")
+        res = superuser_client.get(url)
+
+        # assert with no filter all subjects are returned
+        assert res.status_code == 200
+        assert len(res.json()["data"]) == 3
+
+        # assert only filtered subject by group id is present on response
+        res = superuser_client.get(f"{url}?subject_group={sgrp1.id},{uuid.uuid4()}")
+        assert len(res.json()["data"]) == 1
+        assert res.json()["data"][0]["id"] == str(two_subjects[0].id)
+
+    def test_filter_by_subject_subtypes(self, superuser_client):
+        two_subjects = SubjectFactory.create_batch(2)
+        last_subject = SubjectFactory.create()
+
+        sgrp1 = SubjectGroup.objects.create(name="Subject Group 1")
+        sgrp2 = SubjectGroup.objects.create(name="Subject Group 2")
+        sgrp1.subjects.add(two_subjects[0])
+        sgrp2.subjects.add(last_subject)
+
+        sgrp1.save()
+        sgrp2.save()
+
+        url = reverse("subjects-list-view")
+        res = superuser_client.get(url)
+
+        # assert with no filter all subjects are returned
+        assert res.status_code == 200
+        assert len(res.json()["data"]) == 3
+
+        # assert only filtered subject by subtype id is present on response
+        res = superuser_client.get(f"{url}?subject_subtypes={last_subject.subject_subtype.value}")
+        assert res.status_code == 200
+        assert len(res.json()["data"]) == 1
+        assert res.json()["data"][0]["id"] == str(last_subject.id)
+
+    def test_filter_by_inexistent_subject_subtypes_empty_result(self, superuser_client):
+        url = reverse("subjects-list-view")
+        res = superuser_client.get(f"{url}?subject_subtypes=invalid_id")
+
+        assert res.status_code == 200
+        assert res.json()["status"]["code"] == 200
+        assert res.json()["status"]["message"] == "OK"
+
+    def test_filter_by_subject_group_id_list_with_invalid_id(self, superuser_client):
+        url = reverse("subjects-list-view")
+        res = superuser_client.get(f"{url}?subject_group={uuid.uuid4()},not-a-uuid")
+        assert res.status_code == 400
+        assert res.json()["status"]["detail"] == "[\"Invalid subject_group id at 'subject_group'\"]"
+
+    def test_filter_by_subject_group_invalid_uuid(self, superuser_client):
+        url = reverse("subjects-list-view")
+        res = superuser_client.get(f"{url}?subject_group=invalid-uuid")
+        assert res.status_code == 400
+        assert res.json()["status"]["detail"] == "[\"Invalid subject_group id at 'subject_group'\"]"
+
+    def test_subject_tracks_with_multiple_sources(
+        self, subject, five_sources, user_client, permissionset_administer_sources
+    ):
+        user_client.user.permission_sets.add(permissionset_administer_sources)
+
+        source_group = SourceGroup.objects.create(name="source_group_1")
+        source_group.sources.add(*five_sources)
+        source_group.permission_sets.add(permissionset_administer_sources)
+
+        increase_year = 0
+        for source in five_sources:
+            initial_date = pytz.utc.localize(datetime(1990 + increase_year, 1, 1))
+            end_date = initial_date + timedelta(days=10)
+            assigned_range = list((initial_date, end_date))
+
+            # Create SubjectSource
+            SubjectSource.objects.create(
+                subject=subject,
+                source=source,
+                assigned_range=assigned_range,
+            )
+
+            point = gen_random_point()
+            recordet_at = random_date(assigned_range[0], assigned_range[1])
+
+            Observation.objects.create(
+                recorded_at=recordet_at,
+                source=source,
+                location=point,
+            )
+            increase_year += 1
+
+        url = reverse("subject-view-tracks", kwargs={"subject_id": subject.id})
+        response = user_client.get(url)
+
+        coordinates = response.data["features"][0]["geometry"]["coordinates"]
+
+        assert response.status_code == 200
+        assert len(coordinates) == 5
+
+        url = reverse("subjects-list-view")
+        response = user_client.get(url, {"tracks": True})
+        assert response.status_code == 200
+        assert len(coordinates) == 5

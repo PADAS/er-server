@@ -1,166 +1,151 @@
 import json
 import os
-from typing import Any, NamedTuple
+from unittest.mock import patch
+from urllib.parse import urlencode
+
 import pytest
+
+from django.db import connection
+from django.http import HttpResponseNotModified
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
-from activity.models import EventCategory, EventType
+from rest_framework import status
+
+from activity.models import PRI_URGENT, SC_RESOLVED, Event, EventCategory, EventType
 from activity.tests import schema_examples
-from activity.views import EventTypeView
+from activity.tests.helpers.schema_test_utils import V1SchemaBuilder
+from activity.views import EventTypesView, EventTypeView
 from client_http import HTTPClient
+from core.utils import DirectoryIconFinder
 from factories import EventTypeFactory
+from utils.rank import RankedTool
 
 pytestmark = pytest.mark.django_db
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tests")
 
+TEST_SCHEMA = json.dumps(
+    {
+        "schema": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "title": "EventType Test Schema for Updates",
+            "type": "object",
+            "properties": {
+                "type_accident": {"type": "string", "title": "Type of accident"},
+                "number_people_involved": {"type": "number", "title": "Number of people involved", "minimum": 0},
+                "animals_involved": {"type": "string", "title": "Animals involved"},
+            },
+        },
+        "definition": [
+            {"key": "type_accident", "htmlClass": "col-lg-6"},
+            {"key": "number_people_involved", "htmlClass": "col-lg-6"},
+            {"key": "animals_involved", "htmlClass": "col-lg-6"},
+        ],
+    }
+)
 
-class EventTypeDetails(NamedTuple):
-    eventtype: EventType
-    user: Any
+EVENT_TYPE_UPDATES = (
+    ("default_priority", PRI_URGENT),
+    ("default_state", SC_RESOLVED),
+    ("display", "A random display"),
+    ("value", "a-random-value"),
+    ("icon", "A broken icon value"),
+    ("is_active", False),
+    ("is_collection", True),
+    ("schema", TEST_SCHEMA),
+)
 
 
-@pytest.fixture
-def eventtype_fixture(db, django_user_model):
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_post_eventtype(superuser_client, monkeypatch, tenant_document_cache_client_mock, tenant_response):
     EventType.objects.all().delete()
-    EventCategory.objects.all().delete()
-
-    event_category = EventCategory.objects.create(
-        value="monitoring", display="Monitoring")
-    EventCategory.objects.create(
-        value="analyzer_event", display="Analyzer Event")
-
-    event_type = EventType.objects.create(
-        display="Wildlife Sighting",
-        value="wildlife_sighting_rep",
-        category=event_category,
-        schema=schema_examples.WILDLIFE_SCHEMA,
-    )
-
-    user_const = dict(first_name="first", last_name="last")
-    user = django_user_model.objects.create_user(
-        "user", "user@test.com", "all_perms_user", is_superuser=True, is_staff=True, **user_const
-    )
-
-    return EventTypeDetails(eventtype=event_type, user=user)
-
-
-def test_get_eventtypes_without_schema(eventtype_fixture, client):
-    eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
-
-    client.force_login(user)
     url = reverse("eventtypes")
-    response = client.get(url)
-    assert response.status_code == 200
-    assert len(response.data) == 1
-    assert response.data[0].get("schema") is None
-
-
-def test_get_eventtype_with_schema(eventtype_fixture, client):
-    eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
-
-    client.force_login(user)
-    url = reverse("eventtypes")
-    url += "?include_schema=true"
-
-    response = client.get(url)
-    assert len(response.data) == 1
-    assert response.data[0].get("schema") is not None
-
-
-def test_post_eventtype(eventtype_fixture, client):
-    eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
-
-    client.force_login(user)
-    url = reverse("eventtypes")
-    data = {"display": "Accoustic Detection",
-            "value": "acoustic_detection", "category": "analyzer_event"}
-    response = client.post(url, data=data)
+    data = {"display": "Accoustic Detection", "value": "acoustic_detection", "category": "analyzer_event"}
+    response = superuser_client.post(url, data=data)
     assert response.status_code == 201
     assert response.data.get("value") == "acoustic_detection"
 
 
-def test_post_eventtype_with_schema(eventtype_fixture, client):
-    eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_new_eventtype_is_v1_by_default(superuser_client):
+    EventType.objects.all().delete()
+    assert EventType.objects.count() == 0
 
-    client.force_login(user)
     url = reverse("eventtypes")
-    schema = """
-        {
-        "schema":
-            {
-                "$schema": "http://json-schema.org/draft-04/schema#",
-                "title": "Simple Schema Report",
+    data = {"display": "Accoustic Detection", "value": "acoustic_detection", "category": "analyzer_event"}
+    response = superuser_client.post(url, data=data)
+    assert response.status_code == 201
+    assert response.data.get("value") == "acoustic_detection"
 
-                "type": "object",
-                "properties": {}
-            },
-        "defintion": []
-        }
-        """
+    event_type = EventType.objects.get(value="acoustic_detection")
+    assert event_type.version == EventType.VersionChoices.VERSION_1
+
+
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_post_eventtype_with_schema(
+    superuser_client, basic_event_categories, tenant_document_cache_client_mock, tenant_response
+):
+    EventType.objects.all().delete()
+    url = reverse("eventtypes")
     data = {
         "display": "Simple Report",
         "value": "simple_report",
         "category": "monitoring",
         "schema": schema_examples.ET_SCHEMA,
     }
-    response = client.post(url, data=data)
+    response = superuser_client.post(url, data=data)
     assert response.status_code == 201
 
 
-def test_update_eventtype(eventtype_fixture, client):
-    eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
-    eventtype_id = str(eventtype.id)
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_update_event_type(
+    event_type, basic_event_categories, superuser_client, tenant_document_cache_client_mock, tenant_response
+):
+    event_category_monitoring = EventCategory.objects.get(value="monitoring")
+    event_type.display = "Wildlife Sighting"
+    event_type.value = "wildlife_sighting_rep"
+    event_type.category = event_category_monitoring
+    event_type.schema = schema_examples.WILDLIFE_SCHEMA
+    event_type.save()
+    patch_data = {"display": "Updated Display", "value": "update_display", "icon_id": "carcass_rep"}
+    url = reverse("eventtype", kwargs={"eventtype_id": event_type.id})
 
-    assert eventtype.value == "wildlife_sighting_rep"
+    response = superuser_client.patch(url, data=json.dumps(patch_data), content_type="application/json")
 
-    client.force_login(user)
-    url = reverse("eventtype", kwargs={"eventtype_id": eventtype_id})
-    patch_data = {"display": "Updated Display",
-                  "value": "update_display", "icon_id": "carcass_rep"}
-
-    response = client.patch(url, data=json.dumps(
-        patch_data), content_type="application/json")
     assert response.status_code == 200
     assert response.data.get("value") == "update_display"
     assert response.data.get("icon_id") == "carcass_rep"
 
 
-def test_set_eventtype_to_inactive(eventtype_fixture, client):
-    eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
-    eventtype_id = str(eventtype.id)
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_set_eventtype_to_inactive(event_type, superuser_client, tenant_document_cache_client_mock, tenant_response):
+    url = reverse("eventtype", kwargs={"eventtype_id": event_type.id})
 
-    inactive_eventtype = EventType.objects.filter(is_active=False).count()
-    assert inactive_eventtype == 0
+    response = superuser_client.delete(url)
 
-    client.force_login(user)
-    url = reverse("eventtype", kwargs={"eventtype_id": eventtype_id})
-    response = client.delete(url)
-    assert response.status_code == 204
-
-    inactive_eventtype = EventType.objects.filter(is_active=False).count()
-    assert inactive_eventtype == 1
+    assert response.status_code == 200
+    assert EventType.objects.filter(is_active=False).count() == 1
 
 
-def test_post_eventtype_with_bad_schema(eventtype_fixture, client):
-    eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
-
-    client.force_login(user)
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_post_eventtype_with_bad_schema(superuser_client, tenant_document_cache_client_mock, tenant_response):
     url = reverse("eventtypes")
-
     data = {
         "display": "Simple Report",
         "value": "simple_report",
         "category": "monitoring",
         "schema": schema_examples.BAD_SCHEMA,
     }
-    response = client.post(url, data=data)
+
+    response = superuser_client.post(url, data=data)
+
     assert "Invalid schema tag" in response.data.get("schema")[0]
     assert response.status_code == 400
 
 
-def test_readonly_eventtype(eventtype_fixture, client):
-    eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
-
-    client.force_login(user)
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+def test_readonly_eventtype(
+    superuser_client, basic_event_categories, tenant_document_cache_client_mock, tenant_response
+):
     url = reverse("eventtypes")
     schema = """
         {
@@ -181,31 +166,149 @@ def test_readonly_eventtype(eventtype_fixture, client):
         "defintion": []
         }
         """
-    data = {"display": "Simple Report", "value": "simple_report",
-            "category": "monitoring", "schema": schema}
-    response = client.post(url, data=data)
+    data = {"display": "Simple Report", "value": "simple_report", "category": "monitoring", "schema": schema}
+
+    response = superuser_client.post(url, data=data)
+    response_detail = superuser_client.get(response.data.get("url"))
+
     assert response.status_code == 201
+    assert response_detail.status_code == 200
+    assert response_detail.data["readonly"]
 
-    # get that specific eventtype.
-    response = client.get(response.data.get("url"))
+
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+@pytest.mark.parametrize(
+    "schema_builder_method,schema_args,expected_readonly",
+    [
+        # Valid V1 schemas with readonly=true
+        ("readonly_schema", {"readonly_value": True}, True),
+        ("readonly_schema", {"readonly_value": "true"}, True),
+        ("readonly_schema", {"readonly_value": "1"}, True),
+        ("readonly_schema", {"readonly_value": "yes"}, True),
+        # Valid V1 schemas with readonly=false
+        ("readonly_schema", {"readonly_value": False}, False),
+        ("readonly_schema", {"readonly_value": "false"}, False),
+        ("readonly_schema", {"readonly_value": "no"}, False),
+        # Schema without readonly property
+        ("simple_field", {"field_name": "test", "field_type": "string"}, False),
+        # Invalid schema formats
+        ("invalid_schema", {"schema_type": "malformed_json"}, False),
+        ("invalid_schema", {"schema_type": "no_schema_key"}, False),
+        ("invalid_schema", {"schema_type": "empty_string"}, False),
+        ("invalid_schema", {"schema_type": "missing_schema_wrapper"}, False),
+    ],
+    ids=[
+        # Valid V1 schemas with readonly=true
+        "readonly_true_bool",
+        "readonly_true_string",
+        "readonly_1_string",
+        "readonly_yes_string",
+        # Valid V1 schemas with readonly=false
+        "readonly_false_bool",
+        "readonly_false_string",
+        "readonly_no_string",
+        # Schema without readonly property
+        "no_readonly_property",
+        # Invalid schema formats
+        "malformed_json",
+        "no_schema_key",
+        "empty_string",
+        "missing_schema_wrapper",
+    ],
+)
+def test_rendering_readonly_does_not_break_endpoints(
+    superuser_client,
+    five_event_categories,
+    schema_builder_method,
+    schema_args,
+    expected_readonly,
+):
+    """Test that various V1 schema formats including malformed ones don't break the event types list endpoint.
+
+    The readonly property is only used in V1 EventType schemas, not V2.
+    This test ensures the is_schema_readonly method handles all V1 schema variations gracefully.
+    """
+    schema_builder = getattr(V1SchemaBuilder, schema_builder_method)
+    schema_data = schema_builder(**schema_args)
+    if isinstance(schema_data, dict):
+        schema_data = json.dumps(schema_data)
+
+    event_type = EventTypeFactory.create(
+        category=five_event_categories[0],
+        version=EventType.VersionChoices.VERSION_1,
+        schema=schema_data,
+        value=f"test_event_{expected_readonly}_{id(schema_args)}",
+        display="Test V1 Event Type with Readonly",
+    )
+
+    # Test the list endpoint - this should not raise any exceptions
+    url = reverse("eventtypes")
+    response = superuser_client.get(url)
     assert response.status_code == 200
-    assert response.data["readonly"]
+
+    # Find the created event type in the response
+    event_type_data = None
+    # response.data is a ReturnList for this endpoint (not paginated)
+    for item in response.data:
+        if item.get("id") == str(event_type.id):
+            event_type_data = item
+            break
+
+    assert event_type_data is not None, "Event type not found in list response"
+
+    # Check if readonly is set correctly based on schema
+    if expected_readonly:
+        assert event_type_data.get("readonly") is True
+    else:
+        # If readonly is false or not set, the field should not be in the response
+        # or should be false (check implementation specifics)
+        assert event_type_data.get("readonly") is None or event_type_data.get("readonly") is False
+
+    # Test the detail endpoint as well
+    detail_url = reverse("eventtype", kwargs={"eventtype_id": event_type.id})
+    detail_response = superuser_client.get(detail_url)
+
+    assert detail_response.status_code == 200
+
+    # Check readonly in detail response
+    if expected_readonly:
+        assert detail_response.data.get("readonly") is True
+    else:
+        assert detail_response.data.get("readonly") is None or detail_response.data.get("readonly") is False
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+@pytest.mark.django_db
 class TestEventTypeAPI:
     @pytest.mark.parametrize(
-        "mocked_geometry_type", (EventType.GeometryTypesChoices.POINT,
-                                 EventType.GeometryTypesChoices.POLYGON)
+        "mocked_geometry_type", (EventType.GeometryTypesChoices.POINT, EventType.GeometryTypesChoices.POLYGON)
     )
     def test_event_type_response_geometry_type(self, mocked_geometry_type):
-        event_type_instance = EventTypeFactory.create(
-            geometry_type=mocked_geometry_type)
-
+        event_type_instance = EventTypeFactory.create(geometry_type=mocked_geometry_type)
         response = self._get_response(event_type_id=event_type_instance.id)
 
         assert response.status_code == 200
-
         assert response.data["geometry_type"] == mocked_geometry_type.value
+
+    @pytest.mark.parametrize("field_update", EVENT_TYPE_UPDATES)
+    def test_field_update_generates_new_etag_response_header(
+        self, superuser_client, five_event_types, field_update, tenant_document_cache_client_mock
+    ):
+        event_type = five_event_types[0]
+        event_type_id = str(event_type.id)
+        url = reverse("eventtype", kwargs={"eventtype_id": event_type_id})
+        field_to_update, new_value = field_update
+
+        original_response = superuser_client.get(url, HTTP_IF_NONE_MATCH='"non-matching-etag"')
+        original_etag = original_response.headers["ETag"]
+        setattr(event_type, field_to_update, new_value)
+        event_type.save()
+        modified_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=original_etag)
+        modified_etag = modified_response.headers["ETag"]
+
+        assert original_response.status_code == status.HTTP_200_OK
+        assert modified_response.status_code == status.HTTP_200_OK
+        assert original_etag != modified_etag
 
     def _get_response(self, event_type_id):
         client = HTTPClient()
@@ -216,3 +319,314 @@ class TestEventTypeAPI:
         request = client.factory.get(url)
         client.force_authenticate(request, client.app_user)
         return EventTypeView.as_view()(request, eventtype_id=event_type_id)
+
+    def test_event_type_ranking_rank_second_as_first(self, superuser_client, five_event_types) -> None:
+        qs = EventType.objects.all().order_by("ordernum", "value")
+        RankedTool.make_full_rebalance(queryset=qs)
+        event_type = list(qs)[1]
+
+        url = reverse("eventtype-ranking", kwargs={"eventtype_id": str(event_type.id)})
+        superuser_client.post(url, {"before_key": None})
+        obj = EventType.objects.get(id=event_type.id)
+
+        assert obj.ordernum == 0.5
+
+    def test_event_type_change_category(self, superuser_client, event_type) -> None:
+        new_event_category = EventCategory.objects.create(value="new_category", display="New Category", ordernum=1)
+
+        url = reverse("eventtype-ranking", kwargs={"eventtype_id": str(event_type.id)})
+        superuser_client.post(url, {"category_id": new_event_category.id})
+
+        obj = EventType.objects.get(id=event_type.id)
+
+        assert obj.category_id == new_event_category.id
+
+    def test_event_type_rank_without_properties(self, superuser_client, event_type) -> None:
+        url = reverse("eventtype-ranking", kwargs={"eventtype_id": str(event_type.id)})
+
+        response = superuser_client.post(url)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_event_type_return_has_events_assigned(self, superuser_client, five_event_types):
+        event_type_1, event_type_2, *_ = five_event_types
+        Event.objects.create(event_type=event_type_1)
+
+        url = reverse("eventtype", kwargs={"eventtype_id": event_type_1.id})
+        response_event_type_1 = superuser_client.get(url)
+
+        assert response_event_type_1.status_code == status.HTTP_200_OK
+        assert response_event_type_1.data["has_events_assigned"] is True
+
+        url = reverse("eventtype", kwargs={"eventtype_id": event_type_2.id})
+
+        response_event_type_2 = superuser_client.get(url)
+
+        assert response_event_type_2.status_code == status.HTTP_200_OK
+        assert response_event_type_2.data["has_events_assigned"] is False
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestEventTypesAPI:
+    def test_response_includes_etag(self, superuser_client, five_event_types, tenant_document_cache_client_mock):
+        url = reverse("eventtypes")
+
+        response_with_info = superuser_client.get(url, HTTP_IF_NONE_MATCH='"non-matching-etag"')
+        etag = response_with_info.headers["ETag"]
+        empty_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
+
+        assert response_with_info.status_code == status.HTTP_200_OK
+        assert etag == empty_response.headers["ETag"]
+
+        assert empty_response.status_code == status.HTTP_304_NOT_MODIFIED
+        assert isinstance(empty_response, HttpResponseNotModified)
+
+    def test_response_includes_only_v1_event_types(self, superuser_client, five_event_types, cat1_cat2_event_types):
+        url = reverse("eventtypes")
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        response_ids = {et_data["id"] for et_data in response.data}
+        v1_count = v2_count = 0
+
+        for et in EventType.objects.filter(category__is_active=True, is_active=True):
+            if et.version == EventType.VersionChoices.VERSION_1:
+                assert str(et.id) in response_ids
+                v1_count += 1
+            else:
+                assert str(et.id) not in response_ids
+                v2_count += 1
+        assert v1_count > 0
+        assert v2_count == 4  # 4 active v2 event types in the cat1_cat2_event_types fixture
+
+    def test_empty_response_includes_etag(self, superuser_client, five_event_types):
+        base_url = reverse("eventtypes")
+        qparams = {"category": 1, "is_collection": True, "is_active": False}
+        url = f"{base_url}?{urlencode(qparams)}"
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert not len(response.data)
+        assert "ETag" in response.headers
+        assert len(response.headers["ETag"]) == 34
+
+    @pytest.mark.parametrize("field_update", EVENT_TYPE_UPDATES)
+    def test_field_update_generates_new_etag_response_header(
+        self, superuser_client, five_event_types, field_update, tenant_document_cache_client_mock
+    ):
+        event_type = five_event_types[0]
+        url = reverse("eventtypes")
+        field_to_update, new_value = field_update
+
+        original_response = superuser_client.get(url, HTTP_IF_NONE_MATCH='"non-matching-etag"')
+        original_etag = original_response.headers["ETag"]
+        setattr(event_type, field_to_update, new_value)
+        event_type.save()
+
+        modified_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=original_etag)
+        modified_etag = modified_response.headers["ETag"]
+
+        assert original_response.status_code == status.HTTP_200_OK
+        assert modified_response.status_code == status.HTTP_200_OK
+        assert original_etag != modified_etag
+
+    def test_filter_by_updated_since(self, superuser_client, five_event_categories):
+        url = reverse("eventtypes")
+        event_type = EventType(display="Initial Event", value="test", category=five_event_categories[0])
+        event_type.save()
+        updated_since = event_type.updated_at
+
+        response_without_updated_since = superuser_client.get(url, HTTP_IF_NONE_MATCH='"non-matching-etag"')
+
+        assert response_without_updated_since.status_code == status.HTTP_200_OK
+        assert len(response_without_updated_since.data) == EventType.objects.all().count()
+
+        response_with_updated_since = superuser_client.get(
+            url, {"updated_since": updated_since}, HTTP_IF_NONE_MATCH='"non-matching-etag"'
+        )
+
+        assert response_with_updated_since.status_code == status.HTTP_200_OK
+        assert len(response_with_updated_since.data) == 1
+
+        assert response_with_updated_since.data[0]["id"] == str(event_type.id)
+
+    def test_event_types_return_has_events_assigned(self, superuser_client, five_event_types):
+        url = reverse("eventtypes")
+
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        for event_type in response.data:
+            assert event_type["has_events_assigned"] is False
+
+        for event_type in EventType.objects.all():
+            Event.objects.create(event_type=event_type)
+
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        for event_type in response.data:
+            assert event_type["has_events_assigned"] is True
+
+    def test_event_type_database_hits(self, superuser_client, five_event_types):
+        """Test that the number of database hits is less than 10."""
+        url = reverse("eventtypes")
+
+        with CaptureQueriesContext(connection) as queries_context:
+            response = superuser_client.get(url)
+            assert response.status_code == status.HTTP_200_OK
+            assert len(queries_context.captured_queries) <= 10
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestEventTypeAutoResolve:
+
+    @pytest.mark.parametrize(
+        "data",
+        [
+            {"value": "test", "category": "security", "auto_resolve": False, "resolve_time": None},
+            {"value": "test", "category": "security", "auto_resolve": True, "resolve_time": 5},
+        ],
+    )
+    def test_create_event_type_with_auto_resolve_set(self, data, basic_event_categories):
+        client = HTTPClient()
+        client.app_user.is_superuser = True
+        client.app_user.save()
+
+        url = reverse("eventtypes")
+        request = client.factory.post(url, data=data)
+        client.force_authenticate(request, client.app_user)
+        response = EventTypesView.as_view()(request)
+
+        assert response.status_code == 201
+        assert response.data["auto_resolve"] == data["auto_resolve"]
+        assert response.data["resolve_time"] == data["resolve_time"]
+
+    def test_get_event_type_with_auto_resolve(self, event_type):
+        client = HTTPClient()
+        client.app_user.is_superuser = True
+        client.app_user.save()
+        url = reverse("eventtype", kwargs={"eventtype_id": event_type.id})
+        request = client.factory.get(url)
+        client.force_authenticate(request, client.app_user)
+
+        response = EventTypeView.as_view()(request, eventtype_id=event_type.id)
+
+        assert "auto_resolve" in response.data
+        assert "resolve_time" in response.data
+
+    @pytest.mark.parametrize(
+        "data",
+        [
+            {"auto_resolve": True, "resolve_time": 8},
+            {"auto_resolve": False, "resolve_time": None},
+        ],
+    )
+    def test_update_event_type_auto_resolve(self, data, event_type):
+        client = HTTPClient()
+        client.app_user.is_superuser = True
+        client.app_user.save()
+
+        url = reverse("eventtype", kwargs={"eventtype_id": event_type.id})
+        request = client.factory.patch(url, data=data)
+        client.force_authenticate(request, client.app_user)
+
+        response = EventTypeView.as_view()(request, eventtype_id=event_type.id)
+
+        assert response.status_code == 200
+        assert response.data["auto_resolve"] == data["auto_resolve"]
+        assert response.data["resolve_time"] == data["resolve_time"]
+
+    def test_create_event_type_with_auto_resolve_true_and_not_resolve_time(self, basic_event_categories):
+        data = {
+            "value": "test",
+            "category": "security",
+            "auto_resolve": True,
+        }
+        client = HTTPClient()
+        client.app_user.is_superuser = True
+        client.app_user.save()
+
+        url = reverse("eventtypes")
+        request = client.factory.post(url, data=data)
+        client.force_authenticate(request, client.app_user)
+        response = EventTypesView.as_view()(request)
+
+        detail = response.data["status"]["detail"]
+        assert response.status_code == 400
+        assert "resolve_time" in detail
+        assert "'resolve_time' must be set if 'auto_resolve' is true." in detail["resolve_time"]
+
+    @pytest.mark.parametrize(
+        "data",
+        [
+            {"auto_resolve": True, "resolve_time": None},
+            {"auto_resolve": False, "resolve_time": 5},
+        ],
+    )
+    def test_auto_resolve_test_update_event_type_auto_resolve_time_wrong(self, data, event_type):
+        event_type.auto_resolve = True
+        event_type.resolve_time = 5
+        event_type.save()
+
+        client = HTTPClient()
+        client.app_user.is_superuser = True
+        client.app_user.save()
+
+        url = reverse("eventtype", kwargs={"eventtype_id": event_type.id})
+        request = client.factory.patch(url, data=data)
+        client.force_authenticate(request, client.app_user)
+        response = EventTypeView.as_view()(request, eventtype_id=event_type.id)
+
+        detail = response.data["status"]["detail"]
+        assert response.status_code == 400
+        assert "resolve_time" in detail
+        assert (
+            "'resolve_time' must be set if 'auto_resolve' is true." in detail["resolve_time"]
+            or "'resolve_time' must be null if 'auto_resolve' is false." in detail["resolve_time"]
+        )
+
+
+@pytest.mark.django_db
+class TestIconsListView:
+    @patch("core.utils.staticfiles_storage")
+    def test_list_response(self, mock_storage, superuser_client):
+        mock_storage.listdir.return_value = ([], ["icon1.jpeg", "icon2.png"])
+        mock_storage.get_modified_time.return_value = 1234567890
+
+        url = reverse("eventtypes-list-icons")
+
+        response = superuser_client.get(url)
+        assert response.status_code == 200
+        assert response.data == {"icon_ids": ["icon1.jpeg", "icon2.png"], "resources_path": "/static/sprite-src/"}
+        assert response["ETag"] in response.headers.values()
+        assert "ETag" in response.headers
+
+    @patch("core.utils.staticfiles_storage")
+    def test_304_not_modified(self, mock_storage, superuser_client):
+        mock_storage.listdir.return_value = ([], ["icon1.jpeg"])
+        mock_storage.get_modified_time.return_value = 1234567890
+
+        url = reverse("eventtypes-list-icons")
+        response = superuser_client.get(url)
+        assert response.status_code == 200
+        etag = response["ETag"]
+
+        res = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
+        assert res.status_code == 304
+        assert response["ETag"] == res["ETag"]
+
+
+@patch("core.utils.staticfiles_storage.listdir", side_effect=Exception("Filesystem error"))
+def test_list_icons_view_error_handling(mock_storage, superuser_client):
+    DirectoryIconFinder._instance = None
+    DirectoryIconFinder._cache.clear()
+
+    url = reverse("eventtypes-list-icons")
+    response = superuser_client.get(url)
+
+    assert response.status_code == 500
+    assert response.json()["status"]["detail"] == "Filesystem error"
+    assert "icon_ids" not in response.data

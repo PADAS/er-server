@@ -1,18 +1,21 @@
-import dateutil.parser as dp
-import pytz
-from datetime import datetime, timedelta
-from functools import reduce, partial
 import copy
 import random
-from analyzers.utils import typify
+from datetime import datetime, timedelta
+from functools import partial
+
+import dateutil.parser as dp
+import pytz
+
 from django.contrib.gis.geos import Point
+
+from analyzers.utils import typify
 from observations import models
 
 # Function to apply to plain/JSON observations to convert recorded_at to datetime.
 parse_recorded_at = partial(typify, dict(recorded_at=dp.parse))
 
 
-def time_shift(items, time_key='recorded_at', start_time=None):
+def time_shift(items, time_key="recorded_at", start_time=None):
     """
     Time-shift the items in the list using each item's 'time_key' key.
     Anchor the new list at start_time or a time calculated based on the item data.
@@ -27,8 +30,8 @@ def time_shift(items, time_key='recorded_at', start_time=None):
         return
 
     # Determine timespan of 'items'.
-    minimum_time = min([ x[time_key] for x in items])
-    maximum_time = max([ x[time_key] for x in items])
+    minimum_time = min([x[time_key] for x in items])
+    maximum_time = max([x[time_key] for x in items])
     actual_start = minimum_time
 
     fake_start = start_time or pytz.utc.localize(datetime.utcnow()) - (maximum_time - minimum_time)
@@ -54,8 +57,8 @@ def generate_observations(observations, timeshift=True):
         observations = time_shift(observations)
 
     for item in observations:
-        recorded_at = item['recorded_at']
-        location = Point(x=item['longitude'], y=item['latitude'])
+        recorded_at = item["recorded_at"]
+        location = Point(x=item["longitude"], y=item["latitude"])
         obs = models.Observation(recorded_at=recorded_at, location=location)
         yield obs
 
@@ -64,10 +67,16 @@ def store_observations(observations, timeshift=True, source=None):
     if timeshift:
         observations = time_shift(observations)
 
+    observations_data = []
+
     for item in observations:
-        recorded_at = item['recorded_at']
-        location = Point(x=item['longitude'], y=item['latitude'])
-        models.Observation.objects.create(recorded_at=recorded_at, location=location,
-                                                source=source, additional={})
+        observations_data.append(
+            models.Observation(
+                recorded_at=item["recorded_at"],
+                location=Point(x=item["longitude"], y=item["latitude"]),
+                source=source,
+                additional={},
+            )
+        )
 
-
+    models.Observation.objects.bulk_create(observations_data)

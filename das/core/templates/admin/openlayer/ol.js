@@ -199,14 +199,6 @@ var raster = new ol.layer.Tile({
     source: new ol.source.OSM()
 });
 
-// var google_hybrid_url = 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
-
-// var google_satellite_layer = new ol.layer.Tile({
-//     source: new ol.source.XYZ({
-//         url: google_hybrid_url + '&client=AIzaSyArYgAAi9immeQFbEO2_6dRgc7hCSLaOIo'
-//     })
-// });
-
 var source = new ol.source.Vector({
     format: new ol.format.GeoJSON()
 });
@@ -246,6 +238,9 @@ var map = new ol.Map({
 
     ])
 });
+
+// Assign the map to the module so it can be accessed by other scripts
+{{ module }}.map = map;
 
 // sometimes the map is not properly centered when creating the map view, try centering it again
 map.getView().setCenter(ol.proj.transform([{{default_lon}}, {{default_lat}}], 'EPSG:4326', 'EPSG:4326'));

@@ -16,3 +16,64 @@
         </ul>
     {% endif %}{% endif %}
 {% endblock %}
+
+{% block extrahead %}
+    {{ block.super }}
+    {% if app_label == 'accounts' and opts and opts.object_name == 'User' and original.pk %}
+    <script type="text/javascript">
+        django.jQuery(document).ready(function($) {
+            // Check if user has alert rules when page loads
+            var hasAlertRules = {{ original.alert_rules.exists|yesno:"true,false" }};
+            var alertRulesCount = {{ original.alert_rules.count }};
+            var alertRulesTitles = [
+                {% for rule in original.alert_rules.all|slice:":3" %}
+                "{{ rule.title|default:rule.id|escapejs }}",
+                {% endfor %}
+            ];
+            var moreCount = Math.max(0, alertRulesCount - 3);
+
+            // Add warning div
+            var warningDiv = $('<div id="alert-rules-warning" style="display: none; background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 10px 0; border-radius: 4px; color: #856404;">' +
+                '<strong>⚠️ Warning:</strong> This user has ' + alertRulesCount + ' alert rule(s) configured. ' +
+                'Deactivating this user will prevent these alert rules from being processed:<br/><br/>' +
+                '<ul>' + alertRulesTitles.map(function(title) { return '<li>' + title + '</li>'; }).join('') +
+                (moreCount > 0 ? '<li>... and ' + moreCount + ' more</li>' : '') +
+                '</ul><br/>' +
+                '<em>Consider reassigning these alert rules to active users before deactivating this account.</em>' +
+                '</div>');
+
+            // Insert warning after the is_active field
+            $('#id_is_active').closest('.form-row').after(warningDiv);
+
+            // Show/hide warning based on is_active checkbox
+            $('#id_is_active').change(function() {
+                if (hasAlertRules && !$(this).is(':checked')) {
+                    warningDiv.show();
+                } else {
+                    warningDiv.hide();
+                }
+            });
+
+            // Show warning if user is already inactive and has alert rules
+            if (hasAlertRules && !$('#id_is_active').is(':checked')) {
+                warningDiv.show();
+            }
+
+            // Add confirmation dialog when saving form
+            $('form').submit(function(e) {
+                if (hasAlertRules && !$('#id_is_active').is(':checked')) {
+                    var confirmed = confirm(
+                        'WARNING: This user has ' + alertRulesCount + ' alert rule(s) configured. ' +
+                        'Deactivating this user will prevent these alert rules from being processed. ' +
+                        'Are you sure you want to continue?'
+                    );
+                    if (!confirmed) {
+                        e.preventDefault();
+                        return false;
+                    }
+                }
+            });
+        });
+    </script>
+    {% endif %}
+{% endblock %}

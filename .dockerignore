@@ -3,5 +3,4 @@
 .cache
 .venv*
 *.md
-.env
 .env.dev

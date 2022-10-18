@@ -1,0 +1,7 @@
+{% extends 'admin/base.html' %}
+{% load static %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static 'css/light_mode.css' %}">
+{% endblock %}
