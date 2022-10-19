@@ -1,0 +1,33 @@
+[project]
+name = "DAS"
+dynamic = ["version"]
+requires-python = ">=3.7"
+
+[tool]
+[tool.black]
+line-length = 120
+target-version = ['py37']
+include = '\.pyi?$'
+
+[tool.pylint]
+[tool.pylint.master]
+fail-under = 10
+
+[tool.pylint.messages_control]
+max-line-length = 120
+disable = ["missing-docstring"]
+
+[tool.pylint.format]
+max-module-lines = 1000
+max-line-length = 120
+
+[tool.pylint.design]
+max-args = 5
+max-locals = 15
+max-returns = 6
+max-branches = 12
+max-statements = 50
+max-parents = 7
+max-attributes = 7
+min-public-methods = 2
+max-public-methods = 20

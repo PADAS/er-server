@@ -41,7 +41,7 @@
     $(document).ready(function () {
 
         let i;
-        let rules = $('[id^="id_tranformation_rule_"]')
+        let rules = $('[id^="id_transformation_rule_"]')
 
         for (i = 0; i < rules.length; i++) {
             if (rules[i].checked) {
@@ -69,7 +69,7 @@
 
     })
 
-    $('[id^="id_tranformation_rule_"]').change(function (event) {
+    $('[id^="id_transformation_rule_"]').change(function (event) {
         let checkbox = event.target;
         let row = checkbox.id.split('_')[3];
         let source = $(`#transform_key-${row}`).text()
@@ -104,8 +104,8 @@
             let label_element = $(`#transform_label_${row}`);
             let unit_element = $(`#transform_unit_${row}`);
             let defaultElement = $(`#transform_unit_${row}`).parent().parent().find("[name='default']");
-            tempUnit[$(`#id_tranformation_rule_${row}`).val()] = document.getElementById(`transform_unit_${row}`).value;
-            tempUnit[$(`#id_tranformation_rule_${row}`).val() + '_default'] = defaultElement.is(':checked');
+            tempUnit[$(`#id_transformation_rule_${row}`).val()] = document.getElementById(`transform_unit_${row}`).value;
+            tempUnit[$(`#id_transformation_rule_${row}`).val() + '_default'] = defaultElement.is(':checked');
 
             label_element.attr('disabled', 'disabled');
             unit_element.attr('disabled', 'disabled');
