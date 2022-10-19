@@ -15,21 +15,22 @@ Contents:
    :caption: Overview
 
    about
-   
+
 .. _documentation:
 
 .. toctree::
    :maxdepth: 2
    :caption: Documentation
-    
+
    faq
-   topics/architecture
+   architecture/architecture-overview
+   topics/Developing-ER/README
    topics/browser-and-os-support
    topics/maps
    topics/sensors
    writers
    glossary
-   
+
 
 .. _api:
 

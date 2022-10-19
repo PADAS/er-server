@@ -1,8 +1,28 @@
 import logging
+import math
+from typing import List, Union
+
+from geopy.distance import distance
 
 from django.contrib.gis.geos import GEOSGeometry, MultiPolygon, Point, Polygon
 
+from utils.tenant import get_tenant_settings
+
 logger = logging.getLogger(__name__)
+
+
+def bbox_from_string(bbox: str) -> List[float]:
+    """
+    Convert a comma-delimited string describing the bbox corners to a list of floats.
+    The bbox is expected to be in the format: "min_lat,min_lon,max_lat,max_lon" (west, south, east, north)
+    """
+    try:
+        calculated_bbox = [float(v) for v in bbox.split(",")]
+        if len(calculated_bbox) != 4:
+            raise ValueError("Invalid bbox param")
+        return calculated_bbox
+    except (ValueError, AttributeError):
+        raise ValueError("Invalid bbox param")
 
 
 def validate_bbox(bbox_as_string):
@@ -14,37 +34,75 @@ def validate_bbox(bbox_as_string):
         if input bbox does not crosses the IDL, then a Polygon representing the input params is returned.
         if IDL is crossed, a MultiPolygon is returned instead with each piece to the left and right of the IDL.
     """
-    bbox = bbox_as_string.split(',')
+    bbox = bbox_as_string.split(",")
     bbox = [float(v) for v in bbox]
     if len(bbox) != 4:
         raise ValueError("invalid bbox param")
 
     if bbox[0] < -180:
         if bbox[2] > -180:
-            left_bbox = Polygon.from_bbox(
-                [bbox[0] + 360, bbox[1], 180, bbox[3]])
+            left_bbox = Polygon.from_bbox([bbox[0] + 360, bbox[1], 180, bbox[3]])
             right_bbox = Polygon.from_bbox([-180, bbox[1], bbox[2], bbox[3]])
             poly = MultiPolygon(left_bbox, right_bbox)
         else:
-            poly = Polygon.from_bbox(
-                [bbox[0] + 360, bbox[1], bbox[2] + 360, bbox[3]])
+            poly = Polygon.from_bbox([bbox[0] + 360, bbox[1], bbox[2] + 360, bbox[3]])
     elif bbox[2] > 180:
         if bbox[0] < 180:
             left_bbox = Polygon.from_bbox([bbox[0], bbox[1], 180, bbox[3]])
-            right_bbox = Polygon.from_bbox(
-                [-180, bbox[1], bbox[2] - 360, bbox[3]])
+            right_bbox = Polygon.from_bbox([-180, bbox[1], bbox[2] - 360, bbox[3]])
             poly = MultiPolygon(left_bbox, right_bbox)
         else:
-            poly = Polygon.from_bbox(
-                [bbox[0] - 360, bbox[1], bbox[2] - 360, bbox[3]])
+            poly = Polygon.from_bbox([bbox[0] - 360, bbox[1], bbox[2] - 360, bbox[3]])
     else:
         poly = Polygon.from_bbox(bbox)
 
     return poly
 
 
+def calculate_bbox(latitude, longitude, nautical_miles):
+    """
+    Calculate the bbox.
+    Calculate the bounding box given the position and radius.
+
+    :param latitude:
+    :param longitude:
+    :param nautical_miles:
+    :return: array representing bbox [west. south, east, north].
+    """
+    # Create a Point at the original location
+    original_point = Point(latitude, longitude)
+
+    # Calculate the points at the corners of the bounding box
+    north = distance(nautical=nautical_miles).destination(original_point, 0).latitude
+    south = distance(nautical=nautical_miles).destination(original_point, 180).latitude
+    east = distance(nautical=nautical_miles).destination(original_point, 90).longitude
+    west = distance(nautical=nautical_miles).destination(original_point, 270).longitude
+
+    # Return the bounding box
+    return [west, south, east, north]
+
+
+def check_valid_lat_lon(latitude: float, longitude: float) -> bool:
+    """
+    Check valid latitude and longitude.
+    Check if the latitude and longitude are valid.
+    Latitude must be between -90 and 90.
+    Longitude must be between -180 and 180.
+
+    :param latitude:
+    :param longitude:
+    :return: bool
+    """
+    is_valid = True
+    if not -90 <= latitude <= 90:
+        is_valid = False
+    if not -180 <= longitude <= 180:
+        is_valid = False
+    return is_valid
+
+
 def points_cross_idl(point1, point2):
-    '''
+    """
     :params:
         point1 the first point as a tuple to test
         point2 the second point to test against point1 to see if they cross the IDL
@@ -52,7 +110,7 @@ def points_cross_idl(point1, point2):
     :return:
         if the two input points cross the international date line (IDL), True is returned
         otherwise, False is returned
-    '''
+    """
 
     return (point2[0] - point1[0]) > 180
 
@@ -77,13 +135,35 @@ def convert_to_point(location):
         latitude = float(location.split(",")[1].strip())
         location = Point(longitude, latitude, srid=4326)
     elif isinstance(location, dict):
-        location = Point(location['longitude'], location['latitude'])
+        location = Point(location["longitude"], location["latitude"], srid=4326)
     else:
         raise TypeError(f"Unexpected type for location: {location}")
     return location
 
 
-def get_polygon_info(geom: GEOSGeometry, key: str = "area", epsg: int = 3857) -> float:
+def get_circle_polygon_from_point(location: Union[str, dict], quadsegs: int = 8):
+    geo_permission_radius_meters = get_tenant_settings().env_settings.geo_permission_radius_meters
+    degrees = geo_permission_radius_meters / 40000000 * 360
+
+    try:
+        return convert_to_point(location).buffer(degrees, quadsegs=quadsegs)
+    except (ValueError, KeyError) as error:
+        logger.exception(error)
+        raise error
+
+
+def get_utm_by_wgs_84(longitude: float, latitude: float) -> int:
+    """
+    This solution was taken from:
+    Source: https://stackoverflow.com/questions/68220763/geodjango-calculate-and-save-polygon-area-in-units-upon-object-creation
+    """
+    utm_zone_num = int(math.floor((longitude + 180) / 6) + 1)
+    utm_zone_hemi = 6 if latitude >= 0 else 7
+    utm_epsg = 32000 + utm_zone_hemi * 100 + utm_zone_num
+    return utm_epsg
+
+
+def get_polygon_info(geom: GEOSGeometry, key: str = "area") -> float:
     """
     It takes a geometry, transforms it to a given EPSG, and returns the value of a given attribute.
     NOTE: For get the perimeter us the key "length"
@@ -91,5 +171,6 @@ def get_polygon_info(geom: GEOSGeometry, key: str = "area", epsg: int = 3857) ->
     Returns:
       The perimeter or area of the polygon in meters or square meters.
     """
+    epsg = get_utm_by_wgs_84(geom.centroid.x, geom.centroid.y)
     transformed_geo = geom.transform(epsg, clone=True)
     return round(getattr(transformed_geo, key), 2)

@@ -1,0 +1,158 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls static admin_list %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <script type="text/javascript">
+
+        django.jQuery(document).ready(function($) {
+
+            // Alert rules data from Django context
+            var userAlertRules = {{ user_alert_rules|safe }};
+
+            // Function to check if a user has alert rules
+            function checkUserAlertRules(userId) {
+                return userAlertRules[userId] !== undefined;
+            }
+
+            // Function to get alert rules count for a user
+            function getUserAlertRulesCount(userId) {
+                return userAlertRules[userId] ? userAlertRules[userId].count : 0;
+            }
+
+            // Function to get alert rules titles for a user
+            function getUserAlertRulesTitles(userId) {
+                return userAlertRules[userId] ? userAlertRules[userId].titles : [];
+            }
+
+            // Add warning div
+            var warningDiv = $('<div id="bulk-alert-rules-warning" style="display: none; background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 10px 0; border-radius: 4px; color: #856404; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; max-width: 600px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">' +
+                '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">' +
+                '<strong>⚠️ Warning: Users with Alert Rules</strong>' +
+                '<button id="close-warning" style="background: none; border: none; font-size: 18px; cursor: pointer;">&times;</button>' +
+                '</div>' +
+                '<div id="warning-content"></div>' +
+                '<div style="margin-top: 15px; text-align: center;">' +
+                '<button id="proceed-anyway" style="background-color: #dc3545; color: white; border: none; padding: 8px 16px; margin-right: 10px; border-radius: 4px; cursor: pointer;">Proceed Anyway</button>' +
+                '<button id="cancel-changes" style="background-color: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Cancel Changes</button>' +
+                '</div>' +
+                '</div>');
+
+            // Add overlay
+            var overlay = $('<div id="warning-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 999;"></div>');
+
+            $('body').append(overlay);
+            $('body').append(warningDiv);
+
+            // Close warning handlers
+            $('#close-warning, #cancel-changes').click(function() {
+                warningDiv.hide();
+                overlay.hide();
+            });
+
+            // Proceed anyway handler
+            $('#proceed-anyway').click(function() {
+                warningDiv.hide();
+                overlay.hide();
+                // Submit the form
+                $('form#changelist-form').submit();
+            });
+
+            // Store original checkbox states for all checkboxes
+            $('input[type="checkbox"]').each(function() {
+                $(this).data('original-checked', $(this).is(':checked'));
+            });
+
+            // Monitor changes to all checkboxes (we'll filter by name pattern)
+            $('input[type="checkbox"][name$="_is_active"]').change(function() {
+                var checkboxName = $(this).attr('name');
+
+                // Check if this is an is_active checkbox
+                if (checkboxName && checkboxName.indexOf('_is_active') !== -1) {
+                    var userId = checkboxName.replace('_is_active', '');
+                    var isChecked = $(this).is(':checked');
+
+                    // If unchecking (deactivating) and user has alert rules
+                    if (!isChecked && checkUserAlertRules(userId)) {
+                        var alertRulesCount = getUserAlertRulesCount(userId);
+                        var alertRulesTitles = getUserAlertRulesTitles(userId);
+                        var moreCount = Math.max(0, alertRulesCount - 3);
+
+                        var content = '<p>You are about to deactivate user with alert rules configured:</p>' +
+                            '<ul>';
+
+                        alertRulesTitles.slice(0, 3).forEach(function(title) {
+                            content += '<li>' + title + '</li>';
+                        });
+
+                        if (moreCount > 0) {
+                            content += '<li>... and ' + moreCount + ' more</li>';
+                        }
+
+                        content += '</ul>' +
+                            '<p><strong>Deactivating this user will prevent their alert rules from being processed.</strong></p>' +
+                            '<p><em>Consider reassigning these alert rules to active users before deactivating this account.</em></p>';
+
+                        $('#warning-content').html(content);
+                        warningDiv.show();
+                        overlay.show();
+                    }
+                }
+            });
+
+            // Also check when the form is submitted
+            $('form#changelist-form').submit(function(e) {
+                var usersWithAlertRules = [];
+                var hasChanges = false;
+
+                $('input[type="checkbox"]').each(function() {
+                    var checkboxName = $(this).attr('name');
+
+                    // Check if this is an is_active checkbox
+                    if (checkboxName && checkboxName.indexOf('_is_active') !== -1) {
+                        var userId = checkboxName.replace('_is_active', '');
+                        var isChecked = $(this).is(':checked');
+                        var wasChecked = $(this).data('original-checked') || false;
+
+                        if (isChecked !== wasChecked) {
+                            hasChanges = true;
+                            if (!isChecked && checkUserAlertRules(userId)) {
+                                usersWithAlertRules.push({
+                                    id: userId,
+                                    count: getUserAlertRulesCount(userId),
+                                    titles: getUserAlertRulesTitles(userId)
+                                });
+                            }
+                        }
+                    }
+                });
+
+                if (usersWithAlertRules.length > 0) {
+                    e.preventDefault();
+
+                    var content = '<p>You are about to deactivate ' + usersWithAlertRules.length + ' user(s) with alert rules configured:</p>' +
+                        '<ul>';
+
+                    usersWithAlertRules.forEach(function(user) {
+                        content += '<li>User ' + user.id + ' (' + user.count + ' alert rules)';
+                        if (user.titles.length > 0) {
+                            content += ': ' + user.titles.slice(0, 2).join(', ');
+                            if (user.titles.length > 2) {
+                                content += ' and ' + (user.titles.length - 2) + ' more';
+                            }
+                        }
+                        content += '</li>';
+                    });
+
+                    content += '</ul>' +
+                        '<p><strong>Deactivating these users will prevent their alert rules from being processed.</strong></p>' +
+                        '<p><em>Consider reassigning these alert rules to active users before deactivating these accounts.</em></p>';
+
+                    $('#warning-content').html(content);
+                    warningDiv.show();
+                    overlay.show();
+                }
+            });
+        });
+    </script>
+{% endblock %}

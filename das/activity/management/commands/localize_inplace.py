@@ -1,12 +1,14 @@
-from typing import NamedTuple
+import csv
 import logging
 import re
-import csv
+from typing import NamedTuple
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
+
 from activity.models import EventCategory, EventType
-from choices.models import Choice, DynamicChoice
+from choices.models import Choice
+from utils.tenant.commands import TenantCommandMixin
 
 logger = logging.getLogger(__name__)
 
@@ -23,21 +25,18 @@ models = [
 ]
 
 
-class Command(BaseCommand):
-
-    help = 'Inplace localize'
+class Command(TenantCommandMixin, BaseCommand):
+    help = "Inplace localize"
     outfile = None
 
     def add_arguments(self, parser):
-        parser.add_argument('file', type=str,
-                            help="csv file with english,non-english pairs to translate")
-        parser.add_argument('--out', type=str,
-                            help="exception file for unmatched entries")
+        parser.add_argument("file", type=str, help="csv file with english,non-english pairs to translate")
+        parser.add_argument("--out", type=str, help="exception file for unmatched entries")
         parser.add_argument(
-            '--dry-run',
-            action='store_true',
+            "--dry-run",
+            action="store_true",
             default=False,
-            help='No updates.',
+            help="No updates.",
         )
 
     def log_out(self, display):
@@ -54,8 +53,8 @@ class Command(BaseCommand):
                 en, display = line
                 logger.info(f" en={en}, display={display}")
                 translations[en.strip()] = display.strip()
-        if options['out']:
-            self.outfile = open(options['out'], "w")
+        if options["out"]:
+            self.outfile = open(options["out"], "w")
 
         with transaction.atomic():
             self.update_simple_models(translations)
@@ -69,8 +68,7 @@ class Command(BaseCommand):
                 if display:
                     if display in translations:
                         translated_display = translations[display]
-                        logger.info(
-                            f"Translate {display} to {translated_display}")
+                        logger.info(f"Translate {display} to {translated_display}")
                         setattr(row, model.field, translated_display)
                         if not self.dry_run:
                             row.save()
@@ -92,10 +90,10 @@ class Command(BaseCommand):
                 if display:
                     if display in translations:
                         translated_display = translations[display]
-                        logger.info(
-                            f"Translate event title {display} to {translated_display}")
-                        schema = schema[:match.start(
-                            match_group)] + translated_display + schema[match.end(match_group):]
+                        logger.info(f"Translate event title {display} to {translated_display}")
+                        schema = (
+                            schema[: match.start(match_group)] + translated_display + schema[match.end(match_group) :]
+                        )
                     else:
                         self.log_out(display)
 

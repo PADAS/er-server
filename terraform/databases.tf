@@ -186,8 +186,9 @@ resource "google_secret_manager_secret" "er_sql_analytics_info" {
   project   = data.google_project.earthranger.project_id
 
   labels = {
-    app      = "earthranger"
-    consumer = "tableau_bi_api"
+    app         = "earthranger"
+    consumer    = "tableau_bi_api"
+    environment = local.kubernetes_cluster_name
   }
   replication {
     automatic = true
@@ -198,9 +199,10 @@ resource "google_secret_manager_secret_version" "secret-version-basic" {
   secret = google_secret_manager_secret.er_sql_analytics_info.id
 
   secret_data = jsonencode({
-    "user"     = google_sql_user.analytics_user.name
-    "password" = random_password.analytics_user_pass.result
-    "db_host"  = local.db_instance_private_ip
-    "db_name"  = local.unique_db_name
+    "user"        = google_sql_user.analytics_user.name
+    "password"    = random_password.analytics_user_pass.result
+    "db_host"     = local.db_instance_private_ip
+    "db_name"     = local.unique_db_name
+    "environment" = local.kubernetes_cluster_name
   })
 }

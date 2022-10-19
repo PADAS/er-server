@@ -2,8 +2,9 @@ from django.apps import AppConfig
 
 
 class AccountsConfig(AppConfig):
-    name = 'accounts'
-    verbose_name = 'User Accounts'
+    name = "accounts"
+    verbose_name = "User Accounts"
 
     def ready(self):
-        import accounts.signals
+        import accounts.signals  # fmt: skip
+        import accounts.spectacular_extensions  # fmt: skip

@@ -1,15 +1,28 @@
 from django.urls import re_path
 
-from mapping.spatialviews import SpatialFeatureGroupView, SpatialFeatureView
-from mapping.views import (FeatureGeoJsonView, FeatureListJsonView,
-                           FeatureSetGeoJsonView, FeatureSetListJsonView,
-                           LayerJsonView, LayerListJsonView, MapListJsonView)
+from mapping.spatialviews import (
+    SpatialFeatureDetailView,
+    SpatialFeatureGroupDetailView,
+    SpatialFeatureGroupListView,
+    SpatialFeatureListView,
+    SpatialFeatureTypeListView,
+)
+from mapping.views import (
+    FeatureGeoJsonView,
+    FeatureListJsonView,
+    FeatureSetGeoJsonView,
+    FeatureSetListJsonView,
+    LayerJsonView,
+    LayerListJsonView,
+    MapListJsonView,
+    SpatialFeatureTileView,
+)
 from utils.constants import regex
 
 app_name = "mapping"
 
 urlpatterns = (
-    re_path(r'^features/?$', FeatureListJsonView.as_view()),
+    re_path(r"^features/?$", FeatureListJsonView.as_view()),
     # todo:  add caching
     re_path(
         rf"^feature/(?P<id>{regex.UUID})/?$",
@@ -25,15 +38,38 @@ urlpatterns = (
     ),
     re_path(r"^maps/?$", MapListJsonView.as_view()),
     re_path(r"^layers/?$", LayerListJsonView.as_view()),
-    re_path(rf'^layer/(?P<id>{regex.UUID})/?$', LayerJsonView.as_view()),
+    re_path(rf"^layer/(?P<id>{regex.UUID})/?$", LayerJsonView.as_view()),
     re_path(
-        rf'^spatialfeaturegroup/(?P<id>{regex.UUID})/?$',
-        SpatialFeatureGroupView.as_view(),
-        name="spatialfeaturegroup-view",
+        r"^featureclass/?$",
+        SpatialFeatureTypeListView.as_view(),
+        name="spatialfeaturetype-list",
+    ),
+    # Spatial feature group endpoints
+    re_path(
+        r"^spatialfeaturegroup/?$",
+        SpatialFeatureGroupListView.as_view(),
+        name="spatialfeaturegroup-list",
     ),
     re_path(
-        rf'^spatialfeature/(?P<id>{regex.UUID})/?$',
-        SpatialFeatureView.as_view(),
-        name="spatialfeature-view",
+        rf"^spatialfeaturegroup/(?P<id>{regex.UUID})/?$",
+        SpatialFeatureGroupDetailView.as_view(),
+        name="spatialfeaturegroup-detail",
+    ),
+    # Spatial feature endpoints
+    re_path(
+        r"^spatialfeature/?$",
+        SpatialFeatureListView.as_view(),
+        name="spatialfeature-list",
+    ),
+    re_path(
+        rf"^spatialfeature/(?P<id>{regex.UUID})/?$",
+        SpatialFeatureDetailView.as_view(),
+        name="spatialfeature-detail",
+    ),
+    # Vector tile endpoint for spatial features
+    re_path(
+        r"^spatialfeatures/tiles/(?P<z>\d+)/(?P<x>\d+)/(?P<y>\d+)\.pbf$",
+        SpatialFeatureTileView.as_view(),
+        name="spatialfeature-tiles",
     ),
 )

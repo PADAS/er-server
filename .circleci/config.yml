@@ -71,7 +71,7 @@ commands:
           command: |
             cd infra-automation
             make generate_manifest current_branch="$CIRCLE_BRANCH"
-            regex="das-2-.*-.*"
+            regex="release-2.*.*"
             ENVIRONMENT_BRANCH="${CIRCLE_BRANCH}"
             if [[ $CIRCLE_BRANCH =~ $regex ]]; then
               echo "Staging"
@@ -179,7 +179,7 @@ commands:
 executors:
   default:
     docker:
-      - image: 'google/cloud-sdk:315.0.0'
+      - image: 'google/cloud-sdk:420.0.0'
         auth:
               username: erdockerhub
               password: $DOCKERHUB_PASSWORD
@@ -189,22 +189,15 @@ executors:
         auth:
               username: erdockerhub
               password: $DOCKERHUB_PASSWORD
-      
+
   docs_executor:
     docker:
-      - image: 'cimg/python:3.7'
+      - image: 'cimg/python:3.12.12'
         auth:
               username: erdockerhub
               password: $DOCKERHUB_PASSWORD
 jobs:
-  relyance: 
-    
-    machine:
-      image: ubuntu-2004:202010-01
-    steps:
-      - checkout
-      # TODO: Add "RELYANCE_TOKEN" as circleCI environment variable. The token is available in Step 2 on the "Source Code Integration" tab in the platform.
-      - run: curl -f --header "x-rel-access-token:$RELYANCE_TOKEN" 'https://allenai.relyance.ai/api/download?type=image' --output relyance_inspector.tar.gz && docker load --input relyance_inspector.tar.gz && docker run --rm -v `pwd`:/repo relyance_inspector:latest && docker image rm relyance_inspector:latest
+
   check_for_abandoned_workspaces:
     executor: circleci_executor
     steps:
@@ -258,8 +251,10 @@ jobs:
           name: "Generate build files"
           command: |
             mkdir sphinx-docs
-            pip3 install -r dependencies/requirements-docs.txt 
             cd docs
+            uv venv --python=python3.12
+            uv pip install -r requirements-docs.txt
+            source .venv/bin/activate
             make html
             cp -rf /home/circleci/project/docs/_build/ /home/circleci/project/sphinx-docs
       - persist_to_workspace:
@@ -272,13 +267,13 @@ jobs:
     steps:
       - setup_remote_docker:
           docker_layer_caching: true
-          version: 19.03.13
+          version: default
       - checkout
       - docker_login
       - run:
           name: Save test results
           command: |
-            mkdir -p ~/unittest-output
+            mkdir -p /testresults
           when: always
       - run:
           name: Install Docker Compose
@@ -296,6 +291,11 @@ jobs:
             docker-compose -f test_scripts/compose-unittests.yaml up --remove-orphans --force-recreate --quiet-pull api
             TEST_EXIT_STATUS=$(docker inspect api --format='{{.State.ExitCode}}')
             exit ${TEST_EXIT_STATUS}
+      - store_artifacts:
+          path: /testresults
+      - store_test_results:
+          path: /testresults
+
   docker_build_image:
     executor: 'default'
     steps:
@@ -312,6 +312,13 @@ jobs:
           root: './'
           paths:
             - '*'
+  install_er_cli:
+    executor: 'default'
+    steps:
+      - 'checkout'
+      - 'activate_google_service_account'
+      - 'export_google_credentials'
+      - run: cd infra-automation && make install_er_cli
 
 workflows:
   version: 2
@@ -349,12 +356,20 @@ workflows:
       - build_sphinx_docs:
           filters:
             branches:
-              ignore:
-                - 'develop'
-                - /das-2-.*-.*/
+              only:
+                - '/legacy-era-.*/'
+                - 'develop2'
       - docker_build_image:
           requires:
             - 'build_sphinx_docs'
+          filters:
+            branches:
+              ignore:
+                - 'develop'
+                - /das-2-.*-.*/
+      - install_er_cli:
+          requires:
+            - 'docker_build_image'
           filters:
             branches:
               ignore:
@@ -367,13 +382,25 @@ workflows:
           requires:
             - 'docker_build_image'
           terraform_workspace: "$CIRCLE_BRANCH"
+          filters:
+            branches:
+              ignore:
+                - '/release-*'
       - review_plan:
           requires:
             - 'terraform_plan'
           type: 'approval'
+          filters:
+            branches:
+              ignore:
+                - '/release-*'
       - terraform_apply_feature_branch:
           requires:
             - 'review_plan'
+          filters:
+            branches:
+              ignore:
+                - '/release-*'
 
   build_and_terraform_release_branch:
     jobs:
@@ -381,7 +408,7 @@ workflows:
           filters:
             branches:
               only:
-                - /das-2-.*-.*/
+                - /release-2.*.*/
       - docker_build_image:
           requires:
             - 'build_sphinx_docs'
@@ -415,16 +442,3 @@ workflows:
             branches:
               only:
                 - "develop"
-  nightly:
-    triggers:
-      - schedule:
-          # Run against your stable branch nightly
-          cron: '0 7 * * *'
-          filters:
-            branches:
-              only:
-                - "develop" 
-    jobs:
-      - relyance:
-          context:
-            - relyance

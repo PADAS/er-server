@@ -5,6 +5,7 @@ import pytest
 from django.http import HttpResponse
 from django.urls import reverse
 
+from accounts.utils import GEOGRAPHIC_DISTANCE_SUFIX
 from client_http import HTTPClient
 from utils import middleware
 
@@ -13,7 +14,7 @@ from utils import middleware
 class TestGeographicMiddleware:
     @pytest.mark.parametrize(
         "get_geo_permission_set",
-        [["view_analyzer_event_geographic_distance"], []],
+        [["view_analyzer_event_gd"], []],
         indirect=True,
     )
     @pytest.mark.parametrize("location", [None])
@@ -31,15 +32,12 @@ class TestGeographicMiddleware:
 
         request = rf.get(url)
         request.user = user
-        geographic_middleware = middleware.GeographicMiddleware(
-            self.get_response)
+        geographic_middleware = middleware.GeographicMiddleware(self.get_response)
         response = geographic_middleware(request)
 
         if (
-                user.permission_sets.filter(
-                    permissions__codename__icontains="geographic_distance"
-                ).exists()
-                and not location
+            user.permission_sets.filter(permissions__codename__icontains=GEOGRAPHIC_DISTANCE_SUFIX).exists()
+            and not location
         ):
             assert "warning" in response
             assert response["warning"].startswith("199")
@@ -66,8 +64,7 @@ class TestRequestLoggingMiddleware:
         request = rf.get(url)
         request.user = user
 
-        request_logging_middleware = middleware.RequestLoggingMiddleware(
-            self.get_response)
+        request_logging_middleware = middleware.RequestLoggingMiddleware(self.get_response)
 
         request_logging_middleware.process_request(request)
 
@@ -87,8 +84,7 @@ class TestRequestLoggingMiddleware:
         request = rf.get(url)
         request.user = user
 
-        request_logging_middleware = middleware.RequestLoggingMiddleware(
-            self.get_response)
+        request_logging_middleware = middleware.RequestLoggingMiddleware(self.get_response)
 
         response = HttpResponse()
         request_logging_middleware.process_response(request, response)

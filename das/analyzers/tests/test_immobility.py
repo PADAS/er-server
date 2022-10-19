@@ -1,37 +1,45 @@
-from django.contrib.gis.db import models
-from django.test import TestCase
+from unittest import mock
+from unittest.mock import patch
+
+import pytest
+from django_multitenant.utils import set_current_tenant
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
+from django.contrib.gis.db import models
+from django.core.cache import cache
+from django.core.management import call_command
+from django.db import transaction
 
-from analyzers.models import ImmobilityAnalyzerConfig, OK
-from analyzers.immobility import ImmobilityAnalyzer
-from observations.models import SubjectTrackSegmentFilter
-from analyzers.models import SubjectAnalyzerResult
-from activity.models import Event
-from .immobility_test_data import *
-from analyzers.tasks import analyze_subject
 import analyzers.exceptions
-from .analyzer_test_utils import *
+from accounts.utils import permission_get_by_natural_key
+from activity import views
+from activity.models import Event
+from analyzers.immobility import ImmobilityAnalyzer
+from analyzers.models import OK, ImmobilityAnalyzerConfig, SubjectAnalyzerResult
+from analyzers.tasks import analyze_subject_
 from core.tests import BaseAPITest
+from observations.models import SubjectTrackSegmentFilter
+
+from .analyzer_test_utils import *
+from .immobility_test_data import *
 
 
-
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+@patch("django.contrib.auth.models.PermissionManager.get_by_natural_key", permission_get_by_natural_key)
 class TestImmobilityAnalyzer(BaseAPITest):
-
-    fixtures = ['event_data_model', ]
-
     def setUp(self):
+        set_current_tenant(self.das_tenant)
+        call_command("loaddata_with_tenant", "event_data_model")
         super(TestImmobilityAnalyzer, self).setUp()
-        user_const = dict(last_name='last', first_name='first')
+        user_const = dict(last_name="last", first_name="first")
 
-        self.super_user = get_user_model().objects.create_user('super_admin',
-                                                             'superadmin@vulcan.com',
-                                                             'superadmin', is_superuser=True, **user_const)
-
+        self.super_user = get_user_model().objects.create_user(
+            "super_admin", "superadmin@vulcan.com", "superadmin", is_superuser=True, **user_const
+        )
 
     def test_immobility_with_moving_observations_list(self):
-
-        test_subject = models.Subject.objects.create_subject(name='Sample')
+        test_subject = models.Subject.objects.create_subject(name="Sample")
 
         # parse recorded_at (from string to datetime).
         test_observations = [parse_recorded_at(x) for x in ISHANGO_IMMOBILE]
@@ -56,23 +64,20 @@ class TestImmobilityAnalyzer(BaseAPITest):
         self.assertEqual(count, 18)
 
     def test_integration_ishango_immobile(self):
-
         # Grab prepared observation list from test data.
         test_observations = ISHANGO_IMMOBILE
 
         # Create models (Subject, SubjectSource and Source)
-        sub = models.Subject.objects.create_subject(
-            name='Ishango', subject_subtype_id='elephant')
-        source = models.Source.objects.create(manufacturer_id='ishango-collar')
-        models.SubjectSource.objects.create(
-            subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
+        sub = models.Subject.objects.create_subject(name="Ishango", subject_subtype_id="elephant")
+        source = models.Source.objects.create(manufacturer_id="ishango-collar")
+        models.SubjectSource.objects.create(subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
 
         # Create a SubjectTrackSegmentFilter
-        SubjectTrackSegmentFilter.objects.create(
-            subject_subtype_id='elephant', speed_KmHr=7.0)
+        SubjectTrackSegmentFilter.objects.create(subject_subtype_id="elephant", speed_KmHr=7.0)
 
         sg = models.SubjectGroup.objects.create(
-            name='immobility_analyzer_group',)
+            name="immobility_analyzer_group",
+        )
         sg.subjects.add(sub)
         sg.save()
 
@@ -82,21 +87,20 @@ class TestImmobilityAnalyzer(BaseAPITest):
         test_observations = [parse_recorded_at(x) for x in test_observations]
         store_observations(test_observations, timeshift=True, source=source)
 
-        analyze_subject(str(sub.id))
+        analyze_subject_(str(sub.id))
 
-        self.assertTrue(
-            SubjectAnalyzerResult.objects.filter(subject=sub).exists())
+        self.assertTrue(SubjectAnalyzerResult.objects.filter(subject=sub).exists())
 
         for e in Event.objects.all():
             self.assertTrue(e.event_details.all().exists())
 
         for e in Event.objects.all():
             for ed in e.event_details.all():
-                print('Event Details: %s' % ed.data)
+                print("Event Details: %s" % ed.data)
 
     def test_ishango_immobile(self):
-        print('Analyzing: ', 'Ishango')
-        test_subject = models.Subject.objects.create_subject(name='Ishango')
+        print("Analyzing: ", "Ishango")
+        test_subject = models.Subject.objects.create_subject(name="Ishango")
 
         # Grab prepared observation list from test data.
         test_observations = [parse_recorded_at(x) for x in ISHANGO_IMMOBILE2]
@@ -104,50 +108,46 @@ class TestImmobilityAnalyzer(BaseAPITest):
 
         for i in range(1, len(test_observations)):
             try:
-                print('Current data-point: ', test_observations[i - 1])
+                print("Current data-point: ", test_observations[i - 1])
 
                 ia_config = ImmobilityAnalyzerConfig()
                 ia_config.threshold_time = 18000  # 5 hours
 
                 ia = ImmobilityAnalyzer(config=ia_config, subject=test_subject)
 
-                results = ia.analyze(observations=test_observations[:i + 1])
+                results = ia.analyze(observations=test_observations[: i + 1])
                 result, event = results[0]
 
                 last_result = result
 
-                print('Analyzer result: ', last_result)
-                print('Analyzer event: ', event)
+                print("Analyzer result: ", last_result)
+                print("Analyzer event: ", event)
             except analyzers.exceptions.InsufficientDataAnalyzerException:
-                print('Insufficient data warning')
-                pass
+                print("Insufficient data warning")
 
         self.assertTrue(True)
 
     def test_immobility_event(self):
         """
         Test creating an Immobility Event, along with EventDetails reflecting an ImmobilityAnalyzer result.
-        :return: 
+        :return:
         """
         from analyzers.utils import save_analyzer_event
 
-        event_location_value = {
-            'longitude': 36.5,
-            'latitude': 1.5
-        }
+        event_location_value = {"longitude": 36.5, "latitude": 1.5}
 
         analyzer_result_values = {
-            'probability_value': .80,
-            'cluster_radius': 13,
-            'cluster_fix_count': 6,
-            'total_fix_count': 26,
+            "probability_value": 0.80,
+            "cluster_radius": 13,
+            "cluster_fix_count": 6,
+            "total_fix_count": 26,
         }
 
         event_data = dict(
-            title='Woody is immobile',
+            title="Woody is immobile",
             time=pytz.utc.localize(datetime.utcnow()),
             provenance=Event.PC_ANALYZER,
-            event_type='immobility',
+            event_type="immobility",
             priority=Event.PRI_URGENT,
             location=event_location_value,
             event_details=analyzer_result_values,
@@ -159,26 +159,21 @@ class TestImmobilityAnalyzer(BaseAPITest):
 
     def test_apply_subject_view_perm_immobility(self):
         """test that the event-api only return immoblity report user has perm for."""
-        from activity import views
-        from django.db import transaction
-        from unittest import mock
+
         Event.objects.all().delete()
 
         # Create models (Subject, SubjectSource and Source)
-        sub = models.Subject.objects.create_subject(
-            name='Ishango', subject_subtype_id='elephant')
-        source = models.Source.objects.create(manufacturer_id='ishango-collar')
-        models.SubjectSource.objects.create(
-            subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
+        sub = models.Subject.objects.create_subject(name="Ishango", subject_subtype_id="elephant")
+        source = models.Source.objects.create(manufacturer_id="ishango-collar")
+        models.SubjectSource.objects.create(subject=sub, source=source, assigned_range=models.DEFAULT_ASSIGNED_RANGE)
 
         # Create a SubjectTrackSegmentFilter
-        SubjectTrackSegmentFilter.objects.create(
-            subject_subtype_id='elephant', speed_KmHr=7.0)
+        SubjectTrackSegmentFilter.objects.create(subject_subtype_id="elephant", speed_KmHr=7.0)
 
-        with mock.patch('django.db.backends.base.base.BaseDatabaseWrapper.validate_no_atomic_block',
-                        lambda a: False):
+        with mock.patch("django.db.backends.base.base.BaseDatabaseWrapper.validate_no_atomic_block", lambda a: False):
             sg = models.SubjectGroup.objects.create(
-                name='immobility_analyzer_group',)
+                name="immobility_analyzer_group",
+            )
             transaction.get_connection().run_and_clear_commit_hooks()
             sg.subjects.add(sub)
             sg.save()
@@ -189,24 +184,26 @@ class TestImmobilityAnalyzer(BaseAPITest):
         test_observations = [parse_recorded_at(x) for x in ISHANGO_IMMOBILE]
         store_observations(test_observations, timeshift=True, source=source)
 
-        analyze_subject(str(sub.id))
+        analyze_subject_(str(sub.id))
 
-        permission = Permission.objects.get(codename='analyzer_event_read')
-        perm_set = models.PermissionSet.objects.create(name='Analyzer Event PermissionSet')
+        permission = Permission.objects.get_by_natural_key(
+            codename="analyzer_event_read", app_label="activity", model="event"
+        )
+        perm_set = models.PermissionSet.objects.create(name="Analyzer Event PermissionSet")
         perm_set.permissions.add(permission)
 
         self.app_user.permission_sets.add(perm_set)
 
-        request = self.factory.get(self.api_base + '/events/')
+        request = self.factory.get(self.api_base + "/events/")
         self.force_authenticate(request, self.app_user)
 
         response = views.EventsView.as_view()(request)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data['results']), 0)
+        assert response.status_code == 200
+        assert len(response.data["results"]) == 0
 
         # get particular analyzer report.
         event_id = str(Event.objects.first().id)
-        request = self.factory.get(self.api_base + f'/event/{event_id}')
+        request = self.factory.get(self.api_base + f"/event/{event_id}")
         self.force_authenticate(request, self.app_user)
 
         response = views.EventView.as_view()(request, id=event_id)
@@ -216,9 +213,10 @@ class TestImmobilityAnalyzer(BaseAPITest):
         perm_set = models.PermissionSet.objects.get(name=sg.auto_permissionset_name)
         self.app_user.permission_sets.add(perm_set)
 
-        request = self.factory.get(self.api_base + '/events/')
+        request = self.factory.get(self.api_base + "/events/")
         self.force_authenticate(request, self.app_user)
 
+        cache.clear()
         response = views.EventsView.as_view()(request)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data['results']), 1)
+        assert response.status_code == 200
+        assert len(response.data["results"]) == 1

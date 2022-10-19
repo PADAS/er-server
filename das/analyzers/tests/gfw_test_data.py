@@ -1,4 +1,4 @@
-GFW_AUTH_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjVkMGQyYmM0OTE1ZWMxMDAxMDBmM2I2OSIsInJvbGUiOiJVU0VSIiwicHJvdmlkZXIiOiJnb29nbGUiLCJlbWFpbCI6InJvaGl0Y0B2dWxjYW4uY29tIiwiZXh0cmFVc2VyRGF0YSI6eyJhcHBzIjpbImdmdyJdfSwiY3JlYXRlZEF0IjoxNTYxNTY4NDQ1OTI2LCJwaG90byI6Imh0dHBzOi8vbGg1Lmdvb2dsZXVzZXJjb250ZW50LmNvbS8tWWhYQW53dEk5MWsvQUFBQUFBQUFBQUkvQUFBQUFBQUFBQUEvVXVXU09kc194Z1EvcGhvdG8uanBnIiwiaWF0IjoxNTYxNTY4NDQ1fQ.s3G9Mk6yp27k8msR4pzblzTTgkpXCX_XHiK_L5ePMR8'
+GFW_AUTH_TOKEN = ""
 
 DRC_POLYGON = {
     "type": "Polygon",
@@ -7,31 +7,39 @@ DRC_POLYGON = {
             [22.423095700004104, 7.602107873650873],
             [24.301757809117316, 7.591217969892275],
             [22.785644528078144, 6.599130674292671],
-            [22.423095700004104, 7.602107873650873]
+            [22.423095700004104, 7.602107873650873],
         ]
-    ]
+    ],
 }
 
-DRC_GEOSTORE_ID = '8634fa7d0f3a3042778f2dc4a8dc9105'
-
 GLAD_ALERT_SUBSCRIPTION_DATA = {
-    'name': 'DRC Glad alerts',
-    'datasets': ['glad-alerts', ],
+    "name": "DRC Glad alerts",
+    "datasets": [
+        "glad-alerts",
+    ],
 }
 
 FIRE_ALERT_SUBSCRIPTION_DATA = {
-    'name': 'DRC Fire alerts',
-    'datasets': ['viirs-active-fires', ],
+    "name": "DRC Fire alerts",
+    "datasets": [
+        "viirs-active-fires",
+    ],
 }
 
 TERRAI_ALERT_SUBSCRIPTION_DATA = {
-    'name': 'DRC Terra-i alerts',
-    'datasets': ['terrai-alerts', ],
+    "name": "DRC Terra-i alerts",
+    "datasets": [
+        "terrai-alerts",
+    ],
 }
 
 ALL_ALERTS_SUBSCRIPTION_DATA = {
-    'name': 'All alerts',
-    'datasets': ['glad-alerts', 'viirs-active-fires', 'terrai-alerts', ],
+    "name": "All alerts",
+    "datasets": [
+        "glad-alerts",
+        "viirs-active-fires",
+        "terrai-alerts",
+    ],
 }
 
 VIIRS_FIRE_ALERT = {
@@ -44,92 +52,34 @@ VIIRS_FIRE_ALERT = {
     "alert_link": "http://www.globalforestwatch.org/map/3/0/0/ALL/grayscale/viirs_fires_alerts?begin=2019-06-24&end=2019-06-25&fit_to_geom=true&geostore=50d10bbca9011845c31c82fbe4a7c790",
     "alert_date_begin": "2019-06-24",
     "alert_date_end": "2019-06-25",
-    "alerts": [{
-        "acq_date": "2019-06-24",
-        "acq_time": "11:30",
-        "latitude": -2.55704,
-        "longitude": 23.26341
-    }, {
-        "acq_date": "2019-06-24",
-        "acq_time": "11:30",
-        "latitude": -2.52684,
-        "longitude": 23.30476
-    }, {
-        "acq_date": "2019-06-24",
-        "acq_time": "11:30",
-        "latitude": -2.51183,
-        "longitude": 23.29754
-    }, {
-        "acq_date": "2019-06-24",
-        "acq_time": "11:30",
-        "latitude": -2.52429,
-        "longitude": 23.3015
-    }, {
-        "acq_date": "2019-06-24",
-        "acq_time": "11:30",
-        "latitude": -2.50933,
-        "longitude": 23.29426
-    }, {
-        "acq_date": "2019-06-24",
-        "acq_time": "11:30",
-        "latitude": -2.4624,
-        "longitude": 23.3127
-    }, {
-        "acq_date": "2019-06-24",
-        "acq_time": "11:30",
-        "latitude": -2.46144,
-        "longitude": 23.29224
-    }, {
-        "acq_date": "2019-06-24",
-        "acq_time": "11:30",
-        "latitude": -2.45751,
-        "longitude": 23.29166
-    }, {
-        "acq_date": "2019-06-24",
-        "acq_time": "11:30",
-        "latitude": -2.34622,
-        "longitude": 23.15069
-    }, {
-        "acq_date": "2019-06-24",
-        "acq_time": "11:30",
-        "latitude": -2.32671,
-        "longitude": 23.17357
-    }]
+    "alerts": [
+        {"acq_date": "2019-06-24", "acq_time": "11:30", "latitude": -2.55704, "longitude": 23.26341},
+        {"acq_date": "2019-06-24", "acq_time": "11:30", "latitude": -2.52684, "longitude": 23.30476},
+        {"acq_date": "2019-06-24", "acq_time": "11:30", "latitude": -2.51183, "longitude": 23.29754},
+        {"acq_date": "2019-06-24", "acq_time": "11:30", "latitude": -2.52429, "longitude": 23.3015},
+        {"acq_date": "2019-06-24", "acq_time": "11:30", "latitude": -2.50933, "longitude": 23.29426},
+        {"acq_date": "2019-06-24", "acq_time": "11:30", "latitude": -2.4624, "longitude": 23.3127},
+        {"acq_date": "2019-06-24", "acq_time": "11:30", "latitude": -2.46144, "longitude": 23.29224},
+        {"acq_date": "2019-06-24", "acq_time": "11:30", "latitude": -2.45751, "longitude": 23.29166},
+        {"acq_date": "2019-06-24", "acq_time": "11:30", "latitude": -2.34622, "longitude": 23.15069},
+        {"acq_date": "2019-06-24", "acq_time": "11:30", "latitude": -2.32671, "longitude": 23.17357},
+    ],
 }
 
 GLAD_ALERT = {
     "value": 63,
     "downloadUrls": {
         "csv": "http://production-api.globalforestwatch.org/glad-alerts/download/?period=2019-07-01,2019-07-02&gladConfirmOnly=False&aggregate_values=False&aggregate_by=False&geostore=a8c46db68bc4b6f7f881f38ce61a8bcb&format=csv",
-        "json": "http://production-api.globalforestwatch.org/glad-alerts/download/?period=2019-07-01,2019-07-02&gladConfirmOnly=False&aggregate_values=False&aggregate_by=False&geostore=a8c46db68bc4b6f7f881f38ce61a8bcb&format=json"
+        "json": "http://production-api.globalforestwatch.org/glad-alerts/download/?period=2019-07-01,2019-07-02&gladConfirmOnly=False&aggregate_values=False&aggregate_by=False&geostore=a8c46db68bc4b6f7f881f38ce61a8bcb&format=json",
     },
     "alert_count": 63,
-    "alerts": [{
-        "acq_date": "2019-06-24",
-        "acq_time": "11:30",
-        "latitude": -2.55704,
-        "longitude": 23.26341
-    }, {
-        "acq_date": "2019-06-24",
-        "acq_time": "11:30",
-        "latitude": -2.52684,
-        "longitude": 23.30476
-    }, {
-        "acq_date": "2019-06-24",
-        "acq_time": "11:30",
-        "latitude": -2.51183,
-        "longitude": 23.29754
-    }, {
-        "acq_date": "2019-06-24",
-        "acq_time": "11:30",
-        "latitude": -2.52429,
-        "longitude": 23.3015
-    }, {
-        "acq_date": "2019-06-24",
-        "acq_time": "11:30",
-        "latitude": -2.50933,
-        "longitude": 23.29426
-    }],
+    "alerts": [
+        {"acq_date": "2019-06-24", "acq_time": "11:30", "latitude": -2.55704, "longitude": 23.26341},
+        {"acq_date": "2019-06-24", "acq_time": "11:30", "latitude": -2.52684, "longitude": 23.30476},
+        {"acq_date": "2019-06-24", "acq_time": "11:30", "latitude": -2.51183, "longitude": 23.29754},
+        {"acq_date": "2019-06-24", "acq_time": "11:30", "latitude": -2.52429, "longitude": 23.3015},
+        {"acq_date": "2019-06-24", "acq_time": "11:30", "latitude": -2.50933, "longitude": 23.29426},
+    ],
     "layerSlug": "glad-alerts",
     "alert_name": "DRC-DEV subscription",
     "selected_area": "Custom Area",
@@ -137,389 +87,75 @@ GLAD_ALERT = {
     "subscriptions_url": "http://www.globalforestwatch.org/my_gfw/subscriptions",
     "alert_link": "http://www.globalforestwatch.org/map/3/0/0/ALL/grayscale/umd_as_it_happens?begin=2019-07-01&end=2019-07-02&fit_to_geom=true&geostore=a8c46db68bc4b6f7f881f38ce61a8bcb",
     "alert_date_begin": "2019-07-01",
-    "alert_date_end": "2019-07-02"
+    "alert_date_end": "2019-07-02",
 }
 
 GLAD_ALERT_DOWNLOADED_DATA = {
-    "data": [{
-        "lat": -1.3626250000000302,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.212625000000063,
-        "year": 2019
-    }, {
-        "lat": -1.3628750000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.212625000000063,
-        "year": 2019
-    }, {
-        "lat": -1.3636250000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.246625000000066,
-        "year": 2019
-    }, {
-        "lat": -1.3636250000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.267875000000064,
-        "year": 2019
-    }, {
-        "lat": -1.3641250000000302,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.212875000000064,
-        "year": 2019
-    }, {
-        "lat": -1.3686250000000302,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.256125000000065,
-        "year": 2019
-    }, {
-        "lat": -1.3691250000000301,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 21.803625000000064,
-        "year": 2019
-    }, {
-        "lat": -1.3696250000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.402625000000064,
-        "year": 2019
-    }, {
-        "lat": -1.3768750000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 21.833875000000063,
-        "year": 2019
-    }, {
-        "lat": -1.3858750000000302,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.253125000000065,
-        "year": 2019
-    }, {
-        "lat": -1.3943750000000301,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.251375000000063,
-        "year": 2019
-    }, {
-        "lat": -1.3978750000000302,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.177625000000063,
-        "year": 2019
-    }, {
-        "lat": -1.3991250000000302,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.192625000000064,
-        "year": 2019
-    }, {
-        "lat": -1.3998750000000302,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.479625000000063,
-        "year": 2019
-    }, {
-        "lat": -1.4003750000000301,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.475875000000066,
-        "year": 2019
-    }, {
-        "lat": -1.4013750000000302,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.248625000000064,
-        "year": 2019
-    }, {
-        "lat": -1.4016250000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.199125000000063,
-        "year": 2019
-    }, {
-        "lat": -1.4018750000000302,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.198625000000064,
-        "year": 2019
-    }, {
-        "lat": -1.4023750000000301,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.194375000000065,
-        "year": 2019
-    }, {
-        "lat": -1.4023750000000301,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.194625000000066,
-        "year": 2019
-    }, {
-        "lat": -1.4028750000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.197125000000064,
-        "year": 2019
-    }, {
-        "lat": -1.4043750000000301,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.257375000000064,
-        "year": 2019
-    }, {
-        "lat": -1.4088750000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.343125000000065,
-        "year": 2019
-    }, {
-        "lat": -1.4088750000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.343375000000066,
-        "year": 2019
-    }, {
-        "lat": -1.4096250000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.225875000000066,
-        "year": 2019
-    }, {
-        "lat": -1.4103750000000301,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.273375000000065,
-        "year": 2019
-    }, {
-        "lat": -1.4103750000000301,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.273625000000063,
-        "year": 2019
-    }, {
-        "lat": -1.4111250000000302,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.272625000000065,
-        "year": 2019
-    }, {
-        "lat": -1.4136250000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.340875000000064,
-        "year": 2019
-    }, {
-        "lat": -1.4141250000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.242125000000065,
-        "year": 2019
-    }, {
-        "lat": -1.4181250000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.260625000000065,
-        "year": 2019
-    }, {
-        "lat": -1.4228750000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.249125000000063,
-        "year": 2019
-    }, {
-        "lat": -1.4243750000000301,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.268125000000065,
-        "year": 2019
-    }, {
-        "lat": -1.4263750000000301,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.254625000000065,
-        "year": 2019
-    }, {
-        "lat": -1.4263750000000301,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.469125000000066,
-        "year": 2019
-    }, {
-        "lat": -1.4266250000000302,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.254625000000065,
-        "year": 2019
-    }, {
-        "lat": -1.4271250000000302,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.487125000000063,
-        "year": 2019
-    }, {
-        "lat": -1.4273750000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.226625000000066,
-        "year": 2019
-    }, {
-        "lat": -1.4513750000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.383375000000065,
-        "year": 2019
-    }, {
-        "lat": -1.4521250000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.299375000000065,
-        "year": 2019
-    }, {
-        "lat": -1.4521250000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.299625000000063,
-        "year": 2019
-    }, {
-        "lat": -1.4523750000000302,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.299375000000065,
-        "year": 2019
-    }, {
-        "lat": -1.4523750000000302,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.299625000000063,
-        "year": 2019
-    }, {
-        "lat": -1.4533750000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.376875000000066,
-        "year": 2019
-    }, {
-        "lat": -1.4533750000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.377125000000063,
-        "year": 2019
-    }, {
-        "lat": -1.4533750000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.377375000000065,
-        "year": 2019
-    }, {
-        "lat": -1.4533750000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.377625000000066,
-        "year": 2019
-    }, {
-        "lat": -1.4723750000000302,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.463875000000066,
-        "year": 2019
-    }, {
-        "lat": -1.4726250000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.463875000000066,
-        "year": 2019
-    }, {
-        "lat": -1.5036250000000302,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.326375000000063,
-        "year": 2019
-    }, {
-        "lat": -1.5263750000000302,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.390125000000065,
-        "year": 2019
-    }, {
-        "lat": -1.5266250000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.390375000000063,
-        "year": 2019
-    }, {
-        "lat": -1.5803750000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.235875000000064,
-        "year": 2019
-    }, {
-        "lat": -1.6016250000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.425375000000063,
-        "year": 2019
-    }, {
-        "lat": -1.6526250000000302,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.248625000000064,
-        "year": 2019
-    }, {
-        "lat": -1.7121250000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.169125000000065,
-        "year": 2019
-    }, {
-        "lat": -1.7121250000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.169375000000063,
-        "year": 2019
-    }, {
-        "lat": -1.8281250000000302,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.232375000000065,
-        "year": 2019
-    }, {
-        "lat": -1.9941250000000303,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.051875000000063,
-        "year": 2019
-    }, {
-        "lat": -2.0513750000000304,
-        "confidence": 3,
-        "julian_day": 183,
-        "long": 22.070625000000064,
-        "year": 2019
-    }, {
-        "lat": -2.1571250000000304,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.166625000000064,
-        "year": 2019
-    }, {
-        "lat": -2.1888750000000305,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.210875000000065,
-        "year": 2019
-    }, {
-        "lat": -2.3918750000000304,
-        "confidence": 2,
-        "julian_day": 183,
-        "long": 22.177125000000064,
-        "year": 2019
-    }]
+    "data": [
+        {"lat": -1.3626250000000302, "confidence": 2, "julian_day": 183, "long": 22.212625000000063, "year": 2019},
+        {"lat": -1.3628750000000303, "confidence": 2, "julian_day": 183, "long": 22.212625000000063, "year": 2019},
+        {"lat": -1.3636250000000303, "confidence": 2, "julian_day": 183, "long": 22.246625000000066, "year": 2019},
+        {"lat": -1.3636250000000303, "confidence": 2, "julian_day": 183, "long": 22.267875000000064, "year": 2019},
+        {"lat": -1.3641250000000302, "confidence": 2, "julian_day": 183, "long": 22.212875000000064, "year": 2019},
+        {"lat": -1.3686250000000302, "confidence": 2, "julian_day": 183, "long": 22.256125000000065, "year": 2019},
+        {"lat": -1.3691250000000301, "confidence": 2, "julian_day": 183, "long": 21.803625000000064, "year": 2019},
+        {"lat": -1.3696250000000303, "confidence": 2, "julian_day": 183, "long": 22.402625000000064, "year": 2019},
+        {"lat": -1.3768750000000303, "confidence": 2, "julian_day": 183, "long": 21.833875000000063, "year": 2019},
+        {"lat": -1.3858750000000302, "confidence": 2, "julian_day": 183, "long": 22.253125000000065, "year": 2019},
+        {"lat": -1.3943750000000301, "confidence": 2, "julian_day": 183, "long": 22.251375000000063, "year": 2019},
+        {"lat": -1.3978750000000302, "confidence": 2, "julian_day": 183, "long": 22.177625000000063, "year": 2019},
+        {"lat": -1.3991250000000302, "confidence": 2, "julian_day": 183, "long": 22.192625000000064, "year": 2019},
+        {"lat": -1.3998750000000302, "confidence": 2, "julian_day": 183, "long": 22.479625000000063, "year": 2019},
+        {"lat": -1.4003750000000301, "confidence": 2, "julian_day": 183, "long": 22.475875000000066, "year": 2019},
+        {"lat": -1.4013750000000302, "confidence": 2, "julian_day": 183, "long": 22.248625000000064, "year": 2019},
+        {"lat": -1.4016250000000303, "confidence": 2, "julian_day": 183, "long": 22.199125000000063, "year": 2019},
+        {"lat": -1.4018750000000302, "confidence": 2, "julian_day": 183, "long": 22.198625000000064, "year": 2019},
+        {"lat": -1.4023750000000301, "confidence": 2, "julian_day": 183, "long": 22.194375000000065, "year": 2019},
+        {"lat": -1.4023750000000301, "confidence": 2, "julian_day": 183, "long": 22.194625000000066, "year": 2019},
+        {"lat": -1.4028750000000303, "confidence": 2, "julian_day": 183, "long": 22.197125000000064, "year": 2019},
+        {"lat": -1.4043750000000301, "confidence": 2, "julian_day": 183, "long": 22.257375000000064, "year": 2019},
+        {"lat": -1.4088750000000303, "confidence": 2, "julian_day": 183, "long": 22.343125000000065, "year": 2019},
+        {"lat": -1.4088750000000303, "confidence": 2, "julian_day": 183, "long": 22.343375000000066, "year": 2019},
+        {"lat": -1.4096250000000303, "confidence": 2, "julian_day": 183, "long": 22.225875000000066, "year": 2019},
+        {"lat": -1.4103750000000301, "confidence": 2, "julian_day": 183, "long": 22.273375000000065, "year": 2019},
+        {"lat": -1.4103750000000301, "confidence": 2, "julian_day": 183, "long": 22.273625000000063, "year": 2019},
+        {"lat": -1.4111250000000302, "confidence": 2, "julian_day": 183, "long": 22.272625000000065, "year": 2019},
+        {"lat": -1.4136250000000303, "confidence": 2, "julian_day": 183, "long": 22.340875000000064, "year": 2019},
+        {"lat": -1.4141250000000303, "confidence": 2, "julian_day": 183, "long": 22.242125000000065, "year": 2019},
+        {"lat": -1.4181250000000303, "confidence": 2, "julian_day": 183, "long": 22.260625000000065, "year": 2019},
+        {"lat": -1.4228750000000303, "confidence": 2, "julian_day": 183, "long": 22.249125000000063, "year": 2019},
+        {"lat": -1.4243750000000301, "confidence": 2, "julian_day": 183, "long": 22.268125000000065, "year": 2019},
+        {"lat": -1.4263750000000301, "confidence": 2, "julian_day": 183, "long": 22.254625000000065, "year": 2019},
+        {"lat": -1.4263750000000301, "confidence": 2, "julian_day": 183, "long": 22.469125000000066, "year": 2019},
+        {"lat": -1.4266250000000302, "confidence": 2, "julian_day": 183, "long": 22.254625000000065, "year": 2019},
+        {"lat": -1.4271250000000302, "confidence": 2, "julian_day": 183, "long": 22.487125000000063, "year": 2019},
+        {"lat": -1.4273750000000303, "confidence": 2, "julian_day": 183, "long": 22.226625000000066, "year": 2019},
+        {"lat": -1.4513750000000303, "confidence": 2, "julian_day": 183, "long": 22.383375000000065, "year": 2019},
+        {"lat": -1.4521250000000303, "confidence": 2, "julian_day": 183, "long": 22.299375000000065, "year": 2019},
+        {"lat": -1.4521250000000303, "confidence": 2, "julian_day": 183, "long": 22.299625000000063, "year": 2019},
+        {"lat": -1.4523750000000302, "confidence": 2, "julian_day": 183, "long": 22.299375000000065, "year": 2019},
+        {"lat": -1.4523750000000302, "confidence": 2, "julian_day": 183, "long": 22.299625000000063, "year": 2019},
+        {"lat": -1.4533750000000303, "confidence": 2, "julian_day": 183, "long": 22.376875000000066, "year": 2019},
+        {"lat": -1.4533750000000303, "confidence": 2, "julian_day": 183, "long": 22.377125000000063, "year": 2019},
+        {"lat": -1.4533750000000303, "confidence": 2, "julian_day": 183, "long": 22.377375000000065, "year": 2019},
+        {"lat": -1.4533750000000303, "confidence": 2, "julian_day": 183, "long": 22.377625000000066, "year": 2019},
+        {"lat": -1.4723750000000302, "confidence": 2, "julian_day": 183, "long": 22.463875000000066, "year": 2019},
+        {"lat": -1.4726250000000303, "confidence": 2, "julian_day": 183, "long": 22.463875000000066, "year": 2019},
+        {"lat": -1.5036250000000302, "confidence": 2, "julian_day": 183, "long": 22.326375000000063, "year": 2019},
+        {"lat": -1.5263750000000302, "confidence": 2, "julian_day": 183, "long": 22.390125000000065, "year": 2019},
+        {"lat": -1.5266250000000303, "confidence": 2, "julian_day": 183, "long": 22.390375000000063, "year": 2019},
+        {"lat": -1.5803750000000303, "confidence": 2, "julian_day": 183, "long": 22.235875000000064, "year": 2019},
+        {"lat": -1.6016250000000303, "confidence": 2, "julian_day": 183, "long": 22.425375000000063, "year": 2019},
+        {"lat": -1.6526250000000302, "confidence": 2, "julian_day": 183, "long": 22.248625000000064, "year": 2019},
+        {"lat": -1.7121250000000303, "confidence": 2, "julian_day": 183, "long": 22.169125000000065, "year": 2019},
+        {"lat": -1.7121250000000303, "confidence": 2, "julian_day": 183, "long": 22.169375000000063, "year": 2019},
+        {"lat": -1.8281250000000302, "confidence": 2, "julian_day": 183, "long": 22.232375000000065, "year": 2019},
+        {"lat": -1.9941250000000303, "confidence": 2, "julian_day": 183, "long": 22.051875000000063, "year": 2019},
+        {"lat": -2.0513750000000304, "confidence": 3, "julian_day": 183, "long": 22.070625000000064, "year": 2019},
+        {"lat": -2.1571250000000304, "confidence": 2, "julian_day": 183, "long": 22.166625000000064, "year": 2019},
+        {"lat": -2.1888750000000305, "confidence": 2, "julian_day": 183, "long": 22.210875000000065, "year": 2019},
+        {"lat": -2.3918750000000304, "confidence": 2, "julian_day": 183, "long": 22.177125000000064, "year": 2019},
+    ]
 }
 
 VIIRS_FIRE_ALERT_DOWNLOADED_DATA = {
@@ -540,7 +176,7 @@ VIIRS_FIRE_ALERT_DOWNLOADED_DATA = {
             "version": "1.0NRT",
             "bright_ti5": 289.8,
             "frp": 1,
-            "daynight": "N"
+            "daynight": "N",
         },
         {
             "cartodb_id": 372493,
@@ -558,7 +194,7 @@ VIIRS_FIRE_ALERT_DOWNLOADED_DATA = {
             "version": "1.0NRT",
             "bright_ti5": 290.1,
             "frp": 1,
-            "daynight": "N"
+            "daynight": "N",
         },
         {
             "cartodb_id": 372494,
@@ -576,7 +212,7 @@ VIIRS_FIRE_ALERT_DOWNLOADED_DATA = {
             "version": "1.0NRT",
             "bright_ti5": 298.4,
             "frp": 11.6,
-            "daynight": "N"
+            "daynight": "N",
         },
         {
             "cartodb_id": 372495,
@@ -594,7 +230,7 @@ VIIRS_FIRE_ALERT_DOWNLOADED_DATA = {
             "version": "1.0NRT",
             "bright_ti5": 291.6,
             "frp": 11.6,
-            "daynight": "N"
+            "daynight": "N",
         },
         {
             "cartodb_id": 372496,
@@ -612,7 +248,7 @@ VIIRS_FIRE_ALERT_DOWNLOADED_DATA = {
             "version": "1.0NRT",
             "bright_ti5": 289.6,
             "frp": 1,
-            "daynight": "N"
+            "daynight": "N",
         },
         {
             "cartodb_id": 372497,
@@ -630,7 +266,7 @@ VIIRS_FIRE_ALERT_DOWNLOADED_DATA = {
             "version": "1.0NRT",
             "bright_ti5": 289.6,
             "frp": 1,
-            "daynight": "N"
+            "daynight": "N",
         },
         {
             "cartodb_id": 372498,
@@ -648,7 +284,7 @@ VIIRS_FIRE_ALERT_DOWNLOADED_DATA = {
             "version": "1.0NRT",
             "bright_ti5": 302.4,
             "frp": 14,
-            "daynight": "N"
+            "daynight": "N",
         },
         {
             "cartodb_id": 372499,
@@ -666,7 +302,7 @@ VIIRS_FIRE_ALERT_DOWNLOADED_DATA = {
             "version": "1.0NRT",
             "bright_ti5": 290.3,
             "frp": 1.7,
-            "daynight": "N"
+            "daynight": "N",
         },
         {
             "cartodb_id": 372500,
@@ -684,7 +320,7 @@ VIIRS_FIRE_ALERT_DOWNLOADED_DATA = {
             "version": "1.0NRT",
             "bright_ti5": 290.9,
             "frp": 14,
-            "daynight": "N"
+            "daynight": "N",
         },
         {
             "cartodb_id": 372501,
@@ -702,7 +338,7 @@ VIIRS_FIRE_ALERT_DOWNLOADED_DATA = {
             "version": "1.0NRT",
             "bright_ti5": 289.7,
             "frp": 0.7,
-            "daynight": "N"
+            "daynight": "N",
         },
         {
             "cartodb_id": 372502,
@@ -720,81 +356,29 @@ VIIRS_FIRE_ALERT_DOWNLOADED_DATA = {
             "version": "1.0NRT",
             "bright_ti5": 289.2,
             "frp": 0.7,
-            "daynight": "N"
-        }
+            "daynight": "N",
+        },
     ],
     "time": 0.466,
     "fields": {
-        "cartodb_id": {
-            "type": "number",
-            "pgtype": "int4"
-        },
-        "the_geom": {
-            "type": "geometry",
-            "wkbtype": "Unknown",
-            "dims": 2,
-            "srid": 4326
-        },
-        "the_geom_webmercator": {
-            "type": "geometry",
-            "wkbtype": "Unknown",
-            "dims": 2,
-            "srid": 3857
-        },
-        "latitude": {
-            "type": "number",
-            "pgtype": "float8"
-        },
-        "longitude": {
-            "type": "number",
-            "pgtype": "float8"
-        },
-        "bright_ti4": {
-            "type": "number",
-            "pgtype": "float8"
-        },
-        "scan": {
-            "type": "number",
-            "pgtype": "float8"
-        },
-        "track": {
-            "type": "number",
-            "pgtype": "float8"
-        },
-        "acq_date": {
-            "type": "date",
-            "pgtype": "date"
-        },
-        "acq_time": {
-            "type": "string",
-            "pgtype": "text"
-        },
-        "satellite": {
-            "type": "string",
-            "pgtype": "text"
-        },
-        "confidence": {
-            "type": "string",
-            "pgtype": "text"
-        },
-        "version": {
-            "type": "string",
-            "pgtype": "text"
-        },
-        "bright_ti5": {
-            "type": "number",
-            "pgtype": "float8"
-        },
-        "frp": {
-            "type": "number",
-            "pgtype": "float8"
-        },
-        "daynight": {
-            "type": "string",
-            "pgtype": "text"
-        }
+        "cartodb_id": {"type": "number", "pgtype": "int4"},
+        "the_geom": {"type": "geometry", "wkbtype": "Unknown", "dims": 2, "srid": 4326},
+        "the_geom_webmercator": {"type": "geometry", "wkbtype": "Unknown", "dims": 2, "srid": 3857},
+        "latitude": {"type": "number", "pgtype": "float8"},
+        "longitude": {"type": "number", "pgtype": "float8"},
+        "bright_ti4": {"type": "number", "pgtype": "float8"},
+        "scan": {"type": "number", "pgtype": "float8"},
+        "track": {"type": "number", "pgtype": "float8"},
+        "acq_date": {"type": "date", "pgtype": "date"},
+        "acq_time": {"type": "string", "pgtype": "text"},
+        "satellite": {"type": "string", "pgtype": "text"},
+        "confidence": {"type": "string", "pgtype": "text"},
+        "version": {"type": "string", "pgtype": "text"},
+        "bright_ti5": {"type": "number", "pgtype": "float8"},
+        "frp": {"type": "number", "pgtype": "float8"},
+        "daynight": {"type": "string", "pgtype": "text"},
     },
-    "total_rows": 24425
+    "total_rows": 24425,
 }
 
 VIIRS_CALLBACK_DATA = {
@@ -809,9 +393,9 @@ VIIRS_CALLBACK_DATA = {
                 "geojson": "https://wri-01.cartodb.com/api/v2/sql?q=%0A%20%20%20%20%20%20%20%20SELECT%20pt.*%20%0A%20%20%20%20%20%20%20%20FROM%20vnp14imgtdl_nrt_global_7d%20pt%20%0A%20%20%20%20%20%20%20%20where%20acq_date%20%3E%3D%20'2020-3-1'%0A%20%20%20%20%20%20%20%20%20%20%20%20AND%20acq_date%20%3C%3D%20'2020-3-2'%0A%20%20%20%20%20%20%20%20%20%20%20%20AND%20ST_INTERSECTS(ST_SetSRID(ST_GeomFromGeoJSON('%7B%22type%22%3A%22Polygon%22%2C%22coordinates%22%3A%5B%5B%5B-14.969671%2C9.528301%5D%2C%5B-13.438718%2C20.291592%5D%2C%5B51.825167%2C18.746957%5D%2C%5B49.547742%2C-16.469007%5D%2C%5B48.362407%2C-28.64872%5D%2C%5B3.272027%2C-29.200593%5D%2C%5B-14.969671%2C9.528301%5D%5D%5D%7D')%2C%204326)%2C%20the_geom)%0A%20%20%20%20%20%20%20%20%20%20%20%20AND%20(confidence%3D'normal'%20OR%20confidence%3D'nominal')%0A%20%20%20%20%20%20%20%20&format=geojson",
                 "kml": "https://wri-01.cartodb.com/api/v2/sql?q=%0A%20%20%20%20%20%20%20%20SELECT%20pt.*%20%0A%20%20%20%20%20%20%20%20FROM%20vnp14imgtdl_nrt_global_7d%20pt%20%0A%20%20%20%20%20%20%20%20where%20acq_date%20%3E%3D%20'2020-3-1'%0A%20%20%20%20%20%20%20%20%20%20%20%20AND%20acq_date%20%3C%3D%20'2020-3-2'%0A%20%20%20%20%20%20%20%20%20%20%20%20AND%20ST_INTERSECTS(ST_SetSRID(ST_GeomFromGeoJSON('%7B%22type%22%3A%22Polygon%22%2C%22coordinates%22%3A%5B%5B%5B-14.969671%2C9.528301%5D%2C%5B-13.438718%2C20.291592%5D%2C%5B51.825167%2C18.746957%5D%2C%5B49.547742%2C-16.469007%5D%2C%5B48.362407%2C-28.64872%5D%2C%5B3.272027%2C-29.200593%5D%2C%5B-14.969671%2C9.528301%5D%5D%5D%7D')%2C%204326)%2C%20the_geom)%0A%20%20%20%20%20%20%20%20%20%20%20%20AND%20(confidence%3D'normal'%20OR%20confidence%3D'nominal')%0A%20%20%20%20%20%20%20%20&format=kml",
                 "shp": "https://wri-01.cartodb.com/api/v2/sql?q=%0A%20%20%20%20%20%20%20%20SELECT%20pt.*%20%0A%20%20%20%20%20%20%20%20FROM%20vnp14imgtdl_nrt_global_7d%20pt%20%0A%20%20%20%20%20%20%20%20where%20acq_date%20%3E%3D%20'2020-3-1'%0A%20%20%20%20%20%20%20%20%20%20%20%20AND%20acq_date%20%3C%3D%20'2020-3-2'%0A%20%20%20%20%20%20%20%20%20%20%20%20AND%20ST_INTERSECTS(ST_SetSRID(ST_GeomFromGeoJSON('%7B%22type%22%3A%22Polygon%22%2C%22coordinates%22%3A%5B%5B%5B-14.969671%2C9.528301%5D%2C%5B-13.438718%2C20.291592%5D%2C%5B51.825167%2C18.746957%5D%2C%5B49.547742%2C-16.469007%5D%2C%5B48.362407%2C-28.64872%5D%2C%5B3.272027%2C-29.200593%5D%2C%5B-14.969671%2C9.528301%5D%5D%5D%7D')%2C%204326)%2C%20the_geom)%0A%20%20%20%20%20%20%20%20%20%20%20%20AND%20(confidence%3D'normal'%20OR%20confidence%3D'nominal')%0A%20%20%20%20%20%20%20%20&format=shp",
-                "svg": "https://wri-01.cartodb.com/api/v2/sql?q=%0A%20%20%20%20%20%20%20%20SELECT%20pt.*%20%0A%20%20%20%20%20%20%20%20FROM%20vnp14imgtdl_nrt_global_7d%20pt%20%0A%20%20%20%20%20%20%20%20where%20acq_date%20%3E%3D%20'2020-3-1'%0A%20%20%20%20%20%20%20%20%20%20%20%20AND%20acq_date%20%3C%3D%20'2020-3-2'%0A%20%20%20%20%20%20%20%20%20%20%20%20AND%20ST_INTERSECTS(ST_SetSRID(ST_GeomFromGeoJSON('%7B%22type%22%3A%22Polygon%22%2C%22coordinates%22%3A%5B%5B%5B-14.969671%2C9.528301%5D%2C%5B-13.438718%2C20.291592%5D%2C%5B51.825167%2C18.746957%5D%2C%5B49.547742%2C-16.469007%5D%2C%5B48.362407%2C-28.64872%5D%2C%5B3.272027%2C-29.200593%5D%2C%5B-14.969671%2C9.528301%5D%5D%5D%7D')%2C%204326)%2C%20the_geom)%0A%20%20%20%20%20%20%20%20%20%20%20%20AND%20(confidence%3D'normal'%20OR%20confidence%3D'nominal')%0A%20%20%20%20%20%20%20%20&format=svg"
+                "svg": "https://wri-01.cartodb.com/api/v2/sql?q=%0A%20%20%20%20%20%20%20%20SELECT%20pt.*%20%0A%20%20%20%20%20%20%20%20FROM%20vnp14imgtdl_nrt_global_7d%20pt%20%0A%20%20%20%20%20%20%20%20where%20acq_date%20%3E%3D%20'2020-3-1'%0A%20%20%20%20%20%20%20%20%20%20%20%20AND%20acq_date%20%3C%3D%20'2020-3-2'%0A%20%20%20%20%20%20%20%20%20%20%20%20AND%20ST_INTERSECTS(ST_SetSRID(ST_GeomFromGeoJSON('%7B%22type%22%3A%22Polygon%22%2C%22coordinates%22%3A%5B%5B%5B-14.969671%2C9.528301%5D%2C%5B-13.438718%2C20.291592%5D%2C%5B51.825167%2C18.746957%5D%2C%5B49.547742%2C-16.469007%5D%2C%5B48.362407%2C-28.64872%5D%2C%5B3.272027%2C-29.200593%5D%2C%5B-14.969671%2C9.528301%5D%5D%5D%7D')%2C%204326)%2C%20the_geom)%0A%20%20%20%20%20%20%20%20%20%20%20%20AND%20(confidence%3D'normal'%20OR%20confidence%3D'nominal')%0A%20%20%20%20%20%20%20%20&format=svg",
             },
-            "areaHa": 3601106922.25816
-        }
+            "areaHa": 3601106922.25816,
+        },
     }
 }

@@ -4,16 +4,11 @@ import redis
 from celery_once import QueueOnce
 
 from django.conf import settings
-from django.core.management import call_command
 
+import utils.tenant.providers
 from das_server import celery
 
 logger = logging.getLogger(__name__)
-
-
-@celery.app.task()
-def publish_daily_site_metrics():
-    call_command("site_metrics")
 
 
 # This is a sentinel key that a livenessProbe will look for to determine health of celery beat.
@@ -28,3 +23,15 @@ def celerybeat_pulse():
     """
     redis_client = redis.from_url(settings.CELERY_BROKER_URL)
     redis_client.setex(CELERYBEAT_PULSE_SENTINEL_KEY, 120, "n/a")
+
+
+@celery.app.task(bind=True, base=QueueOnce, once={"graceful": True})
+def refresh_tenants_cache(self):
+    """
+    Refresh the tenant cache
+    :return: None
+    """
+    try:
+        utils.tenant.providers.refresh_tenants_cache()
+    except Exception as ex:
+        self.retry(exc=ex, retry_backoff=True)
