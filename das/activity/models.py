@@ -2041,3 +2041,9 @@ class EventGeometry(RevisionMixin, TimestampedModel):
     )
     properties = models.JSONField(default=dict)
     revision = Revision()
+
+    @transaction.atomic
+    def save(self, *args, **kwargs):
+        result = super().save(*args, **kwargs)
+        self.event.dependent_table_updated()
+        return result
