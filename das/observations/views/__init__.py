@@ -45,6 +45,7 @@ from observations.utils import (VIEW_OBSERVATION_PERMS, VIEW_SUBJECT_PERMS,
                                 calculate_subject_view_window,
                                 check_to_include_inactive_subjects, dateparse,
                                 get_minimum_allowed_age, parse_comma)
+from observations.views.observations import FlattenObservationsView
 from utils import add_base_url
 from utils.drf import (OptionalResultsSetPagination,
                        StandardResultsSetCursorPagination,
@@ -894,7 +895,7 @@ class SourcesView(generics.ListCreateAPIView, ):
         return context
 
 
-class SourceProvidersView(generics.ListCreateAPIView, ):
+class SourceProvidersView(generics.ListCreateAPIView):
     serializer_class = serializers.SourceProviderSerializer
     permission_classes = (StandardObjectPermissions,)
     pagination_class = StandardResultsSetPagination
@@ -1078,11 +1079,6 @@ class ObservationsView(generics.ListCreateAPIView):
             'include_details', False)) if self.request else False
 
         return context
-
-    def get_serializer_class(self):
-        if self.request.query_params.get('json_format', None) == 'flat':
-            return serializers.FlattenObservationSerializer
-        return super(ObservationsView, self).get_serializer_class()
 
 
 class KmlRootView(generics.GenericAPIView):
@@ -2132,3 +2128,42 @@ class SubjectSourcesAssignmentView(generics.ListAPIView):
         elif sources_list:
             queryset = queryset.filter(source_id__in=sources_list)
         return queryset
+
+
+__all__ = [
+    "AnnouncementsView",
+    "FlattenObservationsView",
+    "get_subjects_with_observations_in_daterange",
+    "GPXFileUploadView",
+    "GPXTaskStatusView",
+    "KmlRootView",
+    "KmlSubjectView",
+    "KmlSubjectsView",
+    "MessageView",
+    "MessagesView",
+    "ObservationView",
+    "ObservationsView",
+    "RegionSubjectsView",
+    "RegionView",
+    "RegionsView",
+    "SourceGroupView",
+    "SourceGroupsView",
+    "SourceProvidersViewPartial",
+    "SourceSubjectsView",
+    "SourceView",
+    "SourcesView",
+    "SubjectGroupView",
+    "SubjectGroupsView",
+    "SubjectSourceTrackView",
+    "SubjectSourceView",
+    "SubjectSourcesAssignmentView",
+    "SubjectSourcesView",
+    "SubjectStatusView",
+    "SubjectSubjectSourcesView",
+    "SubjectTracksView",
+    "SubjectView",
+    "SubjectsGeoJsonView",
+    "SubjectsView",
+    "TrackingDataCsvView",
+    "TrackingMetaDataExportView",
+]
