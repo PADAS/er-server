@@ -12,6 +12,7 @@ from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
 from django.test import override_settings
 from django.urls import resolve, reverse
+from rest_framework import status
 
 from accounts.models import PermissionSet, User
 from client_http import HTTPClient
@@ -795,3 +796,42 @@ class TestSourceView:
         resolver = resolve("/api/v1.0/source/manufacturer/")
 
         assert resolver.func.cls == SourceView
+
+
+@pytest.mark.django_db
+class TestFlattenObservationsView:
+    FLATTEN_URL = reverse("flatten-observations")
+
+    def test_subject_without_observations(self, subject, superuser_client):
+
+        response = superuser_client.get(
+            self.FLATTEN_URL,
+            {
+                "subject_id": f"{subject.id}",
+                "created_after": "2022-10-18T14:49:15.869490+00:00"
+            }
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data == []
+
+    def test_subject_with_observations(self, superuser_client, subject_source):
+        now = datetime.datetime.now(tz=pytz.utc)
+        source = subject_source.source
+        for count in range(1, 6):
+            Observation.objects.create(
+                recorded_at=now - timedelta(minutes=count * 5),
+                location=Point(-103.64398956298828, 20.612540918310213),
+                source=source,
+            )
+
+        response = superuser_client.get(
+            self.FLATTEN_URL,
+            {
+                "subject_id": f"{subject_source.subject.id}",
+                "created_after": now.isoformat()
+            }
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data) == 5
