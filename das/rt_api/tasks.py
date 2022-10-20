@@ -21,8 +21,8 @@ from das_server import celery, pubsub
 from observations import servicesutils
 from observations.models import Announcement, Message, SocketClient
 from observations.serializers import AnnouncementSerializer, MessageSerializer
-from observations.utils import get_position, LOCATION, get_user_key
-from observations.views import ObservationsView, SubjectStatusView
+from observations.utils import LOCATION, get_position, get_user_key
+from observations.views import FlattenObservationsView, SubjectStatusView
 from rt_api import client
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from utils.stats import update_gauge
@@ -139,7 +139,8 @@ def _event_handler(event_id, type_):
                             matches_current_filter = True
                             should_annotate = False
                             try:
-                                socket_client = SocketClient.objects.get(id=sid)
+                                socket_client = SocketClient.objects.get(
+                                    id=sid)
                                 should_annotate = should_annotate_filtered_events(
                                     socket_client.event_filter
                                 )
@@ -176,9 +177,11 @@ def _event_handler(event_id, type_):
                                 )
 
                 if emit_data:
-                    logger.debug("Publish das.realtime.emit.  data=%s", emit_data)
+                    logger.debug(
+                        "Publish das.realtime.emit.  data=%s", emit_data)
                     pubsub.publish(
-                        json.dumps(emit_data, default=dumps_helper), "das.realtime.emit"
+                        json.dumps(
+                            emit_data, default=dumps_helper), "das.realtime.emit"
                     )
 
     finally:
@@ -255,7 +258,7 @@ def _subjectstatus_update_handler(subject_id):
             get_subjectstatus_view, SubjectStatusView.as_view())
 
         get_observations_payload = partial(
-            get_observations_view, ObservationsView.as_view())
+            get_observations_view, FlattenObservationsView.as_view())
 
         user_sids_map = get_username_sids_map()
         logger.debug('user_sids_map: %s', user_sids_map)
@@ -300,12 +303,8 @@ def _subjectstatus_update_handler(subject_id):
                         user, subject_id, created_after=created_after)
 
                     if payload:
-                        # TODO: move this order-by clause into the view.
-                        points = sorted(
-                            payload, key=lambda x: x['time'], reverse=True)
-
                         emit_data = get_emit_data(type='subject_track_merge', sid=sid, object_id=subject_id,
-                                                  data={'points': points, 'subject_id': subject_id})
+                                                  data={'points': payload, 'subject_id': subject_id})
 
                         emit_message = json.dumps(
                             emit_data, default=dumps_helper)
@@ -352,19 +351,18 @@ def get_subjectstatus_view(view, user, subject_id):
 
 
 def get_observations_view(view, user, subject_id, created_after):
-    url = reverse('observations-list-view')
+    url = reverse('flatten-observations')
     query_parameter = {
         'subject_id': subject_id,
-        'json_format': 'flat',
         'created_after': created_after
     }
     request = DummyRequest(uri=url, http_method='GET',
                            user=user, query_parameters=query_parameter)
 
     result = view(request, subject_id=subject_id)
-    if result.status_code != 200 or not result.data.get('results'):
+    if result.status_code != 200 or not result.data:
         return
-    return result.data.get('results')
+    return result.data
 
 
 @celery.app.task()

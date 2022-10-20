@@ -9,8 +9,8 @@ from factories import (AccessTokenFactory, EventCategoryFactory,
                        EventDetailsFactory, EventFactory, EventGeometryFactory,
                        EventNoteFactory, EventTypeFactory,
                        FeatureProximityAnalyzerConfigFactory,
-                       GeofenceAnalyzerConfigFactory, PatrolFactory,
-                       PatrolNoteFactory, PatrolSegmentFactory,
+                       GeofenceAnalyzerConfigFactory, ObservationFactory,
+                       PatrolFactory, PatrolNoteFactory, PatrolSegmentFactory,
                        PatrolSegmentSubjectFactory, PatrolSegmentUserFactory,
                        PermissionSetFactory, ProviderFactory, SourceFactory,
                        SpatialFeatureGroupStaticFactory,
@@ -270,3 +270,8 @@ def event_geometry_with_polygon():
 @pytest.fixture
 def five_event_geometries():
     return EventGeometryFactory.create_batch(5)
+
+
+@pytest.fixture
+def observation():
+    return ObservationFactory()
