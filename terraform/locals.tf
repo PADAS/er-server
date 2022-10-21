@@ -303,6 +303,7 @@ locals {
     "tumbeta"                 = "prod1"
     "iberianhighlands"        = "prod1"
     "jaguarcapivara"          = "prod1"
+    "maunga"                  = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -454,6 +455,7 @@ locals {
     "accalosamigos"           = 1
     "tumbeta"                 = 1
     "iberianhighlands"        = 1
+    "maunga"                  = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
