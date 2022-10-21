@@ -1,0 +1,8 @@
+{% extends "admin/index.html" %}
+
+{% block userlinks %}
+  {% if ACCEPT_EULA %}
+  <a href="http://earthranger.com/EULA" target="_blank">View EULA</a> /
+  {% endif %}
+  {{ block.super }}
+{% endblock %}

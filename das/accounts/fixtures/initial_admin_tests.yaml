@@ -1,0 +1,51 @@
+- model: accounts.user
+  pk: 3880239a-ffcd-47a8-9035-0ce3c9d90bdd
+  fields:
+    password: pbkdf2_sha256$100000$hlybaf8dbG2Y$9khjvieGlVnr8X5Ybe6bW1tEAM5I7Pn56pahEcwJQNI=
+    last_login: null
+    is_superuser: true
+    username: admin
+    first_name: DAS
+    last_name: Admin
+    email: das.admin@pamdas.org
+    phone: ''
+    is_email_alert: false
+    is_sms_alert: false
+    is_staff: true
+    is_active: true
+    additional: {}
+    permission_sets: []
+- model: accounts.user
+  pk: 308b793e-0f3e-4093-b972-2ae7947588c2
+  fields:
+    password: pbkdf2_sha256$150000$EBqu5OU1zPO8$jwJc9OLUnKAFT/JpGf9hwxPGNS89KsECmkHQ+V5t0ZQ=
+    last_login: null
+    is_superuser: true
+    username: auto_uitesting
+    first_name: DAS
+    last_name: UITesting
+    email: das.uitesting@pamdas.org
+    phone: ''
+    is_email_alert: false
+    is_sms_alert: false
+    is_staff: true
+    is_active: true
+    additional: {}
+    permission_sets: []
+- model: accounts.user
+  pk: d50d30f2-21aa-4611-a66a-7dd8d09ad409
+  fields:
+    password: pbkdf2_sha256$150000$ycSSBrYMLTaK$WChU3OOiPfacEmZm0ZOg6HHpoKAeqEzYUirYw+ni+Pc=
+    last_login: null
+    is_superuser: false
+    username: auto_uitesting_readonly
+    first_name: auto_uitesting_readonly
+    last_name:
+    email: das.uitestingro@pamdas.org
+    phone: ''
+    is_email_alert: false
+    is_sms_alert: false
+    is_staff: false
+    is_active: true
+    additional: {}
+    permission_sets: []

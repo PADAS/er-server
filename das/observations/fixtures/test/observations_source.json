@@ -1,0 +1,46 @@
+[
+  {
+    "fields": {
+      "provider_id": "697f25e4-562c-4305-af86-1333e9081f4c",
+      "manufacturer_id": "immobile-collar-01",
+      "additional": {
+      },
+      "created_at": "2015-11-01T00:00:00+00:00",
+      "model_name": "Test-For-Immobility",
+      "updated_at": "2015-11-01T00:00:00+00:00",
+      "source_type": "tracking-device"
+    },
+    "pk": "a91e0366-898c-475b-830f-e0fae46e6efe",
+    "model": "observations.source"
+  },
+  {
+    "fields": {
+      "provider_id": "697f25e4-562c-4305-af86-1333e9081f4c",
+      "manufacturer_id": "subject-status-1",
+      "additional": {
+        "a": 1
+      },
+      "created_at": "2017-01-01T00:00:00+00:00",
+      "model_name": "Dummy",
+      "updated_at": "2017-01-01T00:00:00+00:00",
+      "source_type": "tracking-device"
+    },
+    "pk": "56b1cf14-ef97-4054-8fbd-1342f265b2a9",
+    "model": "observations.source"
+  },
+  {
+    "fields": {
+      "provider_id": "697f25e4-562c-4305-af86-1333e9081f4c",
+      "manufacturer_id": "topsy-collar",
+      "additional": {
+        "a": 1
+      },
+      "created_at": "2017-01-01T00:00:00+00:00",
+      "model_name": "Dummy",
+      "updated_at": "2017-01-01T00:00:00+00:00",
+      "source_type": "tracking-device"
+    },
+    "pk": "2e47839d-0277-4398-904d-91da8b0698f4",
+    "model": "observations.source"
+  }
+]

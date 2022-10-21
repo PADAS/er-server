@@ -1,0 +1,9 @@
+EarthRanger Immobility Alert
+
+Name: {{subject_name}}
+Start time of immobility (GMT): {{time}}
+Probability: {{probability}}%
+Sample Size: {{sample}}
+Cluster Search Radius (meters): {{radius}}
+Estimated Latitude: {{lat}}
+Estimated Longitude: {{lon}}

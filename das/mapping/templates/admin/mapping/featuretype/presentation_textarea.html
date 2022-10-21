@@ -1,0 +1,77 @@
+<textarea class='das_monospace' name="{{ widget.name }}"{% include "django/forms/widgets/attrs.html" %}>
+{% if widget.value %}{{ widget.value }}{% endif %}</textarea>
+
+
+<div class="featuretype_btns">
+  <button type="button" id="btn_line_presentation_to_auto_generate" class="das_button">
+    Default Line Presentation
+  </button>
+  <button type="button" id="btn_point_presentation_to_auto_generate" class="das_button">
+    Default Point Presentation
+  </button>
+  <button type="button" id="btn_polygon_presentation_to_auto_generate" class="das_button">
+    Default Polygon Presentation
+  </button>
+</div>
+
+<script type="text/javascript">
+
+    let auto_point_schema = {
+        "image":"/static/ranger_post-black.svg",
+        "width":20,
+        "height":20
+    };
+
+    let auto_line_polygon_schema = {
+        "fill": "#f4d442",
+        "stroke": "#000000",
+        "fill-opacity": 0.2,
+        "stroke-width": 1,
+        "stroke-opacity": 0.7
+    };
+
+
+    let ans = true;
+
+    document.getElementById("btn_point_presentation_to_auto_generate").addEventListener('click',
+        function () {
+
+            if (document.getElementById('id_presentation').value.length > 0) {
+                ans = confirm('This will set the Point Representation to be automatically generated. Are you sure you want to do this?');
+            }
+            if (ans === true) {
+                let ta = document.getElementById('id_presentation');
+                ta.value = JSON.stringify(auto_point_schema, undefined, 4);
+            }
+
+        });
+
+    document.getElementById("btn_line_presentation_to_auto_generate").addEventListener('click',
+        function () {
+
+            if (document.getElementById('id_presentation').value.length > 0) {
+                ans = confirm('This will set the Line Representation to be automatically generated. Are you sure you want to do this?');
+            }
+            if (ans === true) {
+                let ta = document.getElementById('id_presentation');
+                ta.value = JSON.stringify(auto_line_polygon_schema, undefined, 4);
+            }
+
+        });
+
+    document.getElementById("btn_polygon_presentation_to_auto_generate").addEventListener('click',
+        function () {
+
+            if (document.getElementById('id_presentation').value.length > 0) {
+                ans = confirm('This will set the Polygon Representation to be automatically generated. Are you sure you want to do this?');
+            }
+            if (ans === true) {
+                let ta = document.getElementById('id_presentation');
+                ta.value = JSON.stringify(auto_line_polygon_schema, undefined, 4);
+            }
+
+        });
+
+
+
+</script>

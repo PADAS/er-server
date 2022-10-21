@@ -1,0 +1,21 @@
+{% extends "admin/change_form.html" %}
+
+{% block field_sets %}
+{% for fieldset in adminform %}
+    {% if fieldset.name != 'GPX Data imports' %}
+        {% include "admin/includes/fieldset.html" %}
+    {% endif %}
+{% endfor %}
+{% endblock %}
+
+
+{% block after_related_objects %}
+    {% for fieldset in adminform %}
+    {% if fieldset.name == 'GPX Data imports' %}
+        {% include "admin/includes/fieldset_.html" %}
+    {% endif %}
+{% endfor %}
+    {% include "admin/observations/inline_gpx.html" %}
+    {% include "admin/observations/inline_observations.html" %}
+{% endblock %}
+

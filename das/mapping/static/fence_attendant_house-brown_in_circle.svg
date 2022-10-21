@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   viewBox="0 0 21 21"
+   version="1.1"
+   id="svg108"
+   sodipodi:docname="fence_attendant_house-brown_in_circle.svg"
+   inkscape:version="1.0.1 (3bc2e813f5, 2020-09-07)">
+  <metadata
+     id="metadata112">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title>Asset 199</dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="2400"
+     inkscape:window-height="1271"
+     id="namedview110"
+     showgrid="false"
+     inkscape:object-paths="true"
+     inkscape:zoom="50.729973"
+     inkscape:cx="1.8349172"
+     inkscape:cy="10.5"
+     inkscape:window-x="-9"
+     inkscape:window-y="-9"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg108"
+     inkscape:document-rotation="0" />
+  <defs
+     id="defs96">
+    <style
+       id="style94">.a{opacity:0.8;}.b{fill:#fff;}.c{fill:#1a2026;}</style>
+  </defs>
+  <title
+     id="title98">Asset 199</title>
+  <ellipse
+     style="fill:none;stroke:#804800;stroke-width:1.07609;stroke-opacity:1"
+     id="path117"
+     ry="9.6531687"
+     rx="9.6424389"
+     cy="10.364544"
+     cx="10.556225" />
+  <path
+     class="c"
+     d="M 15.745785,17.054906 H 5.2518359 A 0.66024107,0.66581522 0 0 1 4.5915948,16.389091 V 11.227065 L 4.063402,11.399393 A 0.66024107,0.66581522 0 0 1 3.2012048,10.788409 V 8.6186355 a 0.66024107,0.66581522 0 0 1 0.44275,-0.6266496 L 15.528294,3.7386016 a 0.66024107,0.66581522 0 0 1 0.877732,0.6266496 V 6.5506918 A 0.66024107,0.66581522 0 0 1 15.955509,7.1851745 L 8.0403835,9.8406024 v 3.7363986 h 7.7054015 a 0.66024107,0.66581522 0 0 1 0.660241,0.665815 v 2.146275 a 0.66024107,0.66581522 0 0 1 -0.660241,0.665815 z"
+     id="path106"
+     style="stroke-width:0.780026;fill:#a05a2c" />
+  <g
+     inkscape:groupmode="layer"
+     id="layer1"
+     inkscape:label="Layer 3" />
+</svg>

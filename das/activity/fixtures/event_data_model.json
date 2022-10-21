@@ -1,0 +1,4338 @@
+[
+{
+  "model": "choices.choice",
+  "pk": "0184b0be-a457-405e-9a84-5ae6bd65231f",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_reasonforarrest",
+    "value": "motorbike",
+    "display": "Motorbike",
+    "ordernum": 100,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "0255b017-15f5-4799-8d1c-d3e8f79ad6ca",
+  "fields": {
+    "model": "activity.event",
+    "field": "medevacrep_specialequipment",
+    "value": "none",
+    "display": "None",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "0261c772-b908-4de2-b2fe-3f775aa09e35",
+  "fields": {
+    "model": "activity.event",
+    "field": "animalcontrolrep_species",
+    "value": "elephant",
+    "display": "Elephant",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "03a9aff9-ee86-49d6-9ee1-1251d1f2a70f",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "kudu",
+    "display": "Kudu",
+    "ordernum": 130,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "03c9b7d9-c220-49e1-87b6-1f0cddd94a56",
+  "fields": {
+    "model": "activity.event",
+    "field": "yesno",
+    "value": "yes",
+    "display": "Yes",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "03d5eff3-0aad-4ac3-9486-6914942b9722",
+  "fields": {
+    "model": "activity.event",
+    "field": "shotrep_estimatedcaliber",
+    "value": "shotgunshot",
+    "display": "Shot gun/muzzle loader",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "05eb7d5a-26a6-4594-802d-83fc999fe609",
+  "fields": {
+    "model": "activity.event",
+    "field": "animalcontrolrep_species",
+    "value": "other",
+    "display": "Other",
+    "ordernum": 120,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "07dc71e2-bc92-4bea-9755-1eed4e72e46f",
+  "fields": {
+    "model": "activity.event",
+    "field": "firerep_direction",
+    "value": "southwest",
+    "display": "Southwest",
+    "ordernum": 60,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "07fd81bc-dcaf-43f6-b179-c6ac96f15070",
+  "fields": {
+    "model": "activity.event",
+    "field": "contactrep_patrolactivity",
+    "value": "ambushed",
+    "display": "Ambushed",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "0a551fcc-d009-47f4-a130-1456b3632be4",
+  "fields": {
+    "model": "activity.event",
+    "field": "injuredanimalrep_actiontaken",
+    "value": "destroyed",
+    "display": "Destroyed",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "0b01a0c9-590f-4105-9ce3-cf6109571678",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_sex",
+    "value": "male",
+    "display": "Male",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "0bffd07f-b061-40ae-8149-8b725ff99728",
+  "fields": {
+    "model": "activity.event",
+    "field": "medevacrep_security",
+    "value": "areasecured",
+    "display": "Area secured and safe",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "0c33cbc8-88c9-42ff-ad13-0a7efb9d5d98",
+  "fields": {
+    "model": "activity.event",
+    "field": "firerep_direction",
+    "value": "southeast",
+    "display": "Southeast",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "0c3c0759-f0f2-4edb-8d9b-3a19f2abf860",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "wilddog",
+    "display": "Wild Dog",
+    "ordernum": 260,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "0de093f2-9e2b-4556-9ded-431849afdfec",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "namibia",
+    "display": "Namibia",
+    "ordernum": 150,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "0f75b350-589e-42aa-b899-d41eacea40a7",
+  "fields": {
+    "model": "activity.event",
+    "field": "trafficrep_sightingdescription",
+    "value": "motorbike",
+    "display": "Motorbike",
+    "ordernum": 50,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "10536b4f-5097-43c1-9417-e6863a122661",
+  "fields": {
+    "model": "activity.event",
+    "field": "rhinosightingrep_activity",
+    "value": "resting",
+    "display": "Resting",
+    "ordernum": 50,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "10c6b2d7-ea55-4532-a9f9-d4080d8cda9f",
+  "fields": {
+    "model": "activity.event",
+    "field": "firerep_cause",
+    "value": "lightning",
+    "display": "Lightning",
+    "ordernum": 50,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "10de9844-17b4-4c48-9ef9-6406be9395e3",
+  "fields": {
+    "model": "activity.event",
+    "field": "animalcontrolrep_species",
+    "value": "hyena",
+    "display": "Hyena",
+    "ordernum": 50,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "115ba056-bffc-4ab7-a376-e626c1c99087",
+  "fields": {
+    "model": "activity.event",
+    "field": "poachercamprep_status",
+    "value": "active",
+    "display": "Active",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "116d71e8-d2d4-418b-bb4c-d92d446f0769",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_livestocktypes",
+    "value": "cow",
+    "display": "Cow",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "129dfdcf-e5c7-4175-abf2-09697e8fcca8",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "sudansouth",
+    "display": "Sudan (South)",
+    "ordernum": 190,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "12d4c35a-10c8-40b2-9042-2a7511318343",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "kob",
+    "display": "Kob",
+    "ordernum": 120,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "132bd487-52b0-4301-9f89-9d3017a71a07",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "camaroon",
+    "display": "Camaroon",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "13acc3ed-20e6-495d-833a-c0f4757969a9",
+  "fields": {
+    "model": "activity.event",
+    "field": "firerep_direction",
+    "value": "northwest",
+    "display": "Northwest",
+    "ordernum": 80,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "169cac52-2c48-4a66-8aa5-3c7360c63769",
+  "fields": {
+    "model": "activity.event",
+    "field": "rhinosightingrep_condition",
+    "value": "three",
+    "display": "3",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "16bff65c-3338-446d-8199-bc4814c0795b",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_cropdamaged",
+    "value": "potato",
+    "display": "Potato",
+    "ordernum": 80,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "1822f271-4091-4a9f-bee7-a9344da6d7aa",
+  "fields": {
+    "model": "activity.event",
+    "field": "animalcontrolrep_species",
+    "value": "leopard",
+    "display": "Leopard",
+    "ordernum": 60,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "186abf42-1c9f-4783-9d22-519a4cf64e94",
+  "fields": {
+    "model": "activity.event",
+    "field": "sectionArea",
+    "value": "unknown",
+    "display": "Unknown",
+    "ordernum": 100,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "19837b5b-e030-4313-b072-0eb42f6c5626",
+  "fields": {
+    "model": "activity.event",
+    "field": "firerep_direction",
+    "value": "south",
+    "display": "South",
+    "ordernum": 50,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "1cb71102-9f27-4f96-881d-26c93517c589",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_cropdamaged",
+    "value": "banana",
+    "display": "Banana",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "1d6dedb6-84de-4861-9c61-7c1f93782016",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "warthog",
+    "display": "Warthog",
+    "ordernum": 230,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "1e1e7143-1d5e-4c2c-8fb2-cd3f7e37cb82",
+  "fields": {
+    "model": "activity.event",
+    "field": "injuredanimalrep_injurytype",
+    "value": "shot",
+    "display": "Shot",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "1e98b5be-12be-4b05-b378-b3d3c0216a1b",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_reasonforarrest",
+    "value": "snare",
+    "display": "Snare",
+    "ordernum": 140,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "2131bcfe-5696-4000-b16f-955437394797",
+  "fields": {
+    "model": "activity.event",
+    "field": "rangershotrep_target",
+    "value": "poacher",
+    "display": "Poacher",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "215bc6ee-6b6a-42ff-94ae-f580434dbfe4",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_cropdamaged",
+    "value": "maize",
+    "display": "Maize",
+    "ordernum": 50,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "221fc96c-0cf9-4087-bc3e-27592aa779ce",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_livestocktypes",
+    "value": "dog",
+    "display": "Dog",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "2223d6ef-357f-4370-bd37-67280c6d7553",
+  "fields": {
+    "model": "activity.event",
+    "field": "fencerep_damage",
+    "value": "animalbreakout",
+    "display": "Animal break out",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "228074fd-8a90-4d8e-81cb-88613fb4d8eb",
+  "fields": {
+    "model": "activity.event",
+    "field": "rhinosightingrep_activity",
+    "value": "mating",
+    "display": "Mating",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "22cd502d-748a-4497-b064-dfdbe16c9bb1",
+  "fields": {
+    "model": "activity.event",
+    "field": "lightrep_whatdetected",
+    "value": "bushfire",
+    "display": "Bush Fire",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "2314b35f-472f-4e6c-9138-203230215972",
+  "fields": {
+    "model": "activity.event",
+    "field": "conservancy",
+    "value": "unknown",
+    "display": "Unknown",
+    "ordernum": 100,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "2924c8a1-e8e5-454a-ad71-c284f4e70300",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "lechwe",
+    "display": "Lechwe",
+    "ordernum": 140,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "29b763d7-1adc-4059-9416-b1d42d2a54f0",
+  "fields": {
+    "model": "activity.event",
+    "field": "firerep_direction",
+    "value": "northeast",
+    "display": "Northeast",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "29cc90cf-a161-4104-a4de-01dc3d6a8acf",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_propertydamagetype",
+    "value": "fence",
+    "display": "Fence",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "2a187b60-db78-4dc6-9880-749a98bb8d8f",
+  "fields": {
+    "model": "activity.event",
+    "field": "animalcontrolrep_species",
+    "value": "buffalo",
+    "display": "Buffalo",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "2d20addf-4c3f-4776-8049-1ba81ff0e8c0",
+  "fields": {
+    "model": "activity.event",
+    "field": "invasivespeciesrep_species",
+    "value": "lantana",
+    "display": "Lantana",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "2de8fe71-4942-40db-85e4-faef2ee3cefb",
+  "fields": {
+    "model": "activity.event",
+    "field": "firerep_status",
+    "value": "active",
+    "display": "Active",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "2f60c08b-08ce-484c-a67d-95949d07f375",
+  "fields": {
+    "model": "activity.event",
+    "field": "firerep_direction",
+    "value": "west",
+    "display": "West",
+    "ordernum": 70,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "2ff0d572-8b7b-4118-9083-7df98abbd333",
+  "fields": {
+    "model": "activity.event",
+    "field": "trafficrep_sightingdescription",
+    "value": "car",
+    "display": "Car",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "310ed325-e1c5-4d58-9c46-707d8a6038d7",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_species",
+    "value": "elephant",
+    "display": "Elephant",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "31f1fe2c-0281-4e8e-8576-f921ee71cdac",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_livestocktypes",
+    "value": "sheep",
+    "display": "Sheep",
+    "ordernum": 70,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "33805885-27db-4e2e-9d3f-44efbc611c5c",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_cropdamaged",
+    "value": "other",
+    "display": "Other",
+    "ordernum": 120,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "33c87d1c-5bc1-41e7-bc89-8099f9eaab84",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "giraffe",
+    "display": "Giraffe",
+    "ordernum": 80,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "3488bf81-6f77-4b1e-81c8-0a908057c2d9",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "rhino",
+    "display": "Rhino",
+    "ordernum": 180,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "35b49a62-872d-4362-b62b-2295d107108a",
+  "fields": {
+    "model": "activity.event",
+    "field": "snarerep_status",
+    "value": "unset",
+    "display": "Unset",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "35c6c652-2e28-4c11-a756-20217832769b",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "warthog",
+    "display": "Warthog",
+    "ordernum": 230,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "365abf76-19e3-470c-a57f-3c64dfc0b0b6",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_causeofdeath",
+    "value": "unnaturalother",
+    "display": "Unnatural - Other",
+    "ordernum": 90,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "3729bcb5-c731-4a26-a1ce-255faf5fa9c9",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "elephant",
+    "display": "Elephant",
+    "ordernum": 70,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "386200a7-57a6-4ff9-84c5-436f4a1279a9",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "redriverhog",
+    "display": "Red River Hog",
+    "ordernum": 170,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "386d7902-addc-478b-87d1-cf021ae5072e",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "zimbabwe",
+    "display": "Zimbabwe",
+    "ordernum": 250,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "3879f0c3-8980-47c5-95d1-954647050834",
+  "fields": {
+    "model": "activity.event",
+    "field": "invasivespeciesrep_species",
+    "value": "parthenium",
+    "display": "Parthenium",
+    "ordernum": 50,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "3910c59d-e659-4cf1-98ed-c117bc6df59c",
+  "fields": {
+    "model": "activity.event",
+    "field": "rhinosightingrep_activity",
+    "value": "moving",
+    "display": "Moving",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "399c58a0-9afd-4a2d-904f-409d632d7739",
+  "fields": {
+    "model": "activity.event",
+    "field": "confiscationrep_itemsconfiscated",
+    "value": "trophies",
+    "display": "Trophies",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "39a5ff54-cec1-45c3-9d6d-dc37fa85e54c",
+  "fields": {
+    "model": "activity.event",
+    "field": "station",
+    "value": "unknown",
+    "display": "Unknown",
+    "ordernum": 100,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "39e94bb7-d31b-4105-8efe-f0765f8f6532",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "wildebeest",
+    "display": "Wildebeest",
+    "ordernum": 250,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "3a065359-95db-4ddd-a633-e9a1e0a77edf",
+  "fields": {
+    "model": "activity.event",
+    "field": "fencerep_damage",
+    "value": "animalbreakin",
+    "display": "Animal break in",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "3ba2bc2c-e063-4dc4-bd46-59de2918df0e",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "chimpanzee",
+    "display": "Chimpanzee",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "3c562dac-b89f-46f5-be6a-d97feae484dd",
+  "fields": {
+    "model": "activity.event",
+    "field": "invasivespeciesrep_species",
+    "value": "pistia",
+    "display": "Pistia",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "3c56680b-e328-4274-9e35-896564818612",
+  "fields": {
+    "model": "activity.event",
+    "field": "firerep_cause",
+    "value": "firebreak",
+    "display": "Fire Break",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "3c57f883-2a53-42cf-81cb-a98522641038",
+  "fields": {
+    "model": "activity.event",
+    "field": "trafficrep_sightingactivity",
+    "value": "speeding",
+    "display": "Speeding",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "3cd89c84-7a9b-4fb8-8e58-64d7ff8b4081",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "tanzania",
+    "display": "Tanzania",
+    "ordernum": 210,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "3d06362e-b50d-4395-a0f1-f5cf4e0dfee9",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_cropdamaged",
+    "value": "none",
+    "display": "None",
+    "ordernum": 130,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "3eb60929-674c-4923-a720-fa050cf7bf76",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_species",
+    "value": "buffalo",
+    "display": "Buffalo",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "3f617359-4804-4f4c-b4a8-da0442a170c2",
+  "fields": {
+    "model": "activity.event",
+    "field": "spoorrep_type",
+    "value": "footprint",
+    "display": "Footprint",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "3f8f2a1b-a25f-4ee7-ba9d-88e92a9d8652",
+  "fields": {
+    "model": "activity.event",
+    "field": "shotrep_typeofshot",
+    "value": "semiautomaticshot",
+    "display": "Semi-automatic",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "41b1ca56-9ada-4ad6-8b95-fba62e05a68c",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "centralafricanrepublic",
+    "display": "Central African Republic",
+    "ordernum": 50,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "41e04b1c-59be-4360-89dd-1e1486214215",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_cropdamaged",
+    "value": "peas",
+    "display": "Peas",
+    "ordernum": 70,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "41e34dd4-6971-4709-b9ea-56236f7b2b9e",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_reasonforarrest",
+    "value": "logging",
+    "display": "Logging",
+    "ordernum": 80,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "4257f4e4-9af4-4330-81d3-ed4b54287c8d",
+  "fields": {
+    "model": "activity.event",
+    "field": "rhinosightingrep_condition",
+    "value": "one",
+    "display": "1 (Poor)",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "43516545-e3f1-4f8d-aa45-428eb43c2d5c",
+  "fields": {
+    "model": "activity.event",
+    "field": "firerep_cause",
+    "value": "accident",
+    "display": "Accident",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "44718e38-cd2f-4672-a65a-6324ee556724",
+  "fields": {
+    "model": "activity.event",
+    "field": "invasivespeciesrep_species",
+    "value": "tithonia",
+    "display": "Tithonia",
+    "ordernum": 70,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "44b45506-6eeb-4889-a227-19ba56186fd9",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "other",
+    "display": "Other",
+    "ordernum": 280,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "464f3315-93d3-44b2-a21c-3c587a43a4d7",
+  "fields": {
+    "model": "activity.event",
+    "field": "traf_rep_description_of_sighting",
+    "value": "aircraft",
+    "display": "Air craft (helicopter, microlight, Cessna, etc.)",
+    "ordernum": 3,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "4783fba1-db1c-4151-97de-07d3dba0345b",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_reasonforarrest",
+    "value": "poaching",
+    "display": "Poaching",
+    "ordernum": 110,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "49f8acd6-751c-4509-8185-28106780a9c3",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_reasonforarrest",
+    "value": "resourceharvesting",
+    "display": "Resource Harvesting",
+    "ordernum": 120,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "4aa13618-accb-4439-a553-947a972984cf",
+  "fields": {
+    "model": "activity.event",
+    "field": "fencerep_damage",
+    "value": "human",
+    "display": "Human",
+    "ordernum": 60,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "4bcb5d72-b04e-4141-94aa-afb6ca19cb04",
+  "fields": {
+    "model": "activity.event",
+    "field": "animalcontrolrep_species",
+    "value": "warthog",
+    "display": "Warthog",
+    "ordernum": 90,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "4bd986af-92f6-438f-94e3-30810f6416cb",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "topi",
+    "display": "Topi",
+    "ordernum": 210,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "4be89578-35c6-49f8-9e80-2f091cd775f0",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_reasonforarrest",
+    "value": "rhinohorn",
+    "display": "Rhino Horn",
+    "ordernum": 130,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "4d38f3cd-0bae-4f9d-a373-2ec1ce26ce30",
+  "fields": {
+    "model": "activity.event",
+    "field": "invasivespeciesrep_phenologicalstate",
+    "value": "vegetative",
+    "display": "Vegetative",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "4ddac2d5-543e-4353-af47-1aa21341965c",
+  "fields": {
+    "model": "activity.event",
+    "field": "trafficrep_sightingactivity",
+    "value": "drivingoffroad",
+    "display": "Driving Off Road",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "4e8ac10a-ec24-4bc4-a918-737345503ed0",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "bongo",
+    "display": "Bongo",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "4f020fdc-6c2e-466a-ab63-15d40a8e4a3f",
+  "fields": {
+    "model": "activity.event",
+    "field": "rangershotrep_target",
+    "value": "dog",
+    "display": "Dog",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "50292d79-f0a4-45a5-8ebf-ee1b15c352da",
+  "fields": {
+    "model": "activity.event",
+    "field": "injuredanimalrep_keyspecies",
+    "value": "other",
+    "display": "Other",
+    "ordernum": 60,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "506952e3-93b3-4a9e-a024-a67280d1e9a6",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "chad",
+    "display": "Chad",
+    "ordernum": 60,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "515f4b30-93b9-4750-a0de-af2672c130fa",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_causeofdeath",
+    "value": "naturaloldage",
+    "display": "Natural - Old Age",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "517ddf64-35e5-4cbc-a869-bb35c5d873d9",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_species",
+    "value": "leopard",
+    "display": "Leopard",
+    "ordernum": 70,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "51a1ae0e-a2ee-41e0-9e43-b23d6c8a9a8b",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "mozambique",
+    "display": "Mozambique",
+    "ordernum": 140,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "5242dde9-5edf-43a5-97ad-ae0826825f62",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "hyena",
+    "display": "Hyena",
+    "ordernum": 110,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "526e15f3-0476-4e88-b606-c767da8558d9",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_propertydamagetype",
+    "value": "house",
+    "display": "House",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "5440af0b-ddae-4f57-a3d0-3c429da32194",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "crocodile",
+    "display": "Crocodile",
+    "ordernum": 50,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "55f267b6-3177-4452-8e33-e2e53b88b815",
+  "fields": {
+    "model": "activity.event",
+    "field": "invasivespeciesrep_density",
+    "value": "singleplant",
+    "display": "Single Plant",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "576103bd-b5ee-4aee-806b-a29f24402b1e",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_causeofdeath",
+    "value": "naturaldisease",
+    "display": "Natural - Disease",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "57834677-e54f-46a8-bb16-8caf579936a5",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_propertydamagetype",
+    "value": "otherstructure",
+    "display": "Other Structure",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "593d74a0-a508-48d1-b520-2868b94edf70",
+  "fields": {
+    "model": "activity.event",
+    "field": "contactrep_whoinitiatedcontact",
+    "value": "poacher",
+    "display": "Poacher",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "5976e0dc-a444-4b89-977e-01d95902b051",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "america",
+    "display": "America",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "5a02ae5a-8ad7-4554-ac3b-9dbafcd32125",
+  "fields": {
+    "model": "activity.event",
+    "field": "rhinosightingrep_condition",
+    "value": "four",
+    "display": "4",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "5a842ee5-cd03-43c2-982e-7356d505a8db",
+  "fields": {
+    "model": "activity.event",
+    "field": "animalcontrolrep_species",
+    "value": "monkey",
+    "display": "Monkey",
+    "ordernum": 80,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "5ab50aa8-ad3e-44f6-9af0-7c5f29c88008",
+  "fields": {
+    "model": "activity.event",
+    "field": "trafficrep_sightingactivity",
+    "value": "brokendown",
+    "display": "Broken Down",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "5acdfb1a-c001-461b-a4e0-f60f144310f4",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "wildebeest",
+    "display": "Wildebeest",
+    "ordernum": 250,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "5b25f4d5-41a1-441d-a027-5cc3eccb9395",
+  "fields": {
+    "model": "activity.event",
+    "field": "rhinosightingrep_condition",
+    "value": "five",
+    "display": "5 (Good)",
+    "ordernum": 50,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "5bfd25ae-e131-4f9f-a27f-e8fd2bf27e98",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_reasonforarrest",
+    "value": "speeding",
+    "display": "Speeding",
+    "ordernum": 150,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "5d381d24-6bcd-44e8-83ac-03612550e0a7",
+  "fields": {
+    "model": "activity.event",
+    "field": "shotrep_estimatedcaliber",
+    "value": "smallcalibershot",
+    "display": "Small Caliber",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "5dc596a7-af20-4bc6-a032-bbc552e14cc5",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "buffalo",
+    "display": "Buffalo",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "5e2ef465-73ca-4e74-b444-02a87bc0fba0",
+  "fields": {
+    "model": "activity.event",
+    "field": "confiscationrep_itemsconfiscated",
+    "value": "bushmeat",
+    "display": "Bush Beat",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "5e4f085f-6552-4fbf-a3ca-d9523a437077",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_cropdamaged",
+    "value": "tobacco",
+    "display": "Tobacco",
+    "ordernum": 110,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "606a2e17-c59a-4420-a5fd-a37d8a20fc07",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_ageofcarcass",
+    "value": "morethan3months",
+    "display": "More than 3 months",
+    "ordernum": 5,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "6170d905-e4a9-4d8c-8ecb-2a289cb5526b",
+  "fields": {
+    "model": "activity.event",
+    "field": "invasivespeciesrep_phenologicalstate",
+    "value": "flowering",
+    "display": "Flowering",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "620a0ea8-9522-4bda-915e-e450f78b5419",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "cheetah",
+    "display": "Cheetah",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "641c4e0e-5d4e-4e3e-9c4c-0ae949d3e403",
+  "fields": {
+    "model": "activity.event",
+    "field": "fire_status",
+    "value": "not_burning",
+    "display": "No longer burning",
+    "ordernum": 2,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "6453d4ef-a1c0-46a9-9381-9d201c5a2af1",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "sable",
+    "display": "Sable",
+    "ordernum": 190,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "64dc8fc4-c575-43e6-b56c-5d652d78291c",
+  "fields": {
+    "model": "activity.event",
+    "field": "medevacrep_security",
+    "value": "possibleinterference",
+    "display": "Possible interference from public/poachers (approach with caution)",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "656ef5f8-5bee-40f8-99dc-b04d3e69c98c",
+  "fields": {
+    "model": "activity.event",
+    "field": "rhinosightingrep_activity",
+    "value": "fighting",
+    "display": "Fighting",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "65f46eed-573e-47d6-a543-b12157336689",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "eland",
+    "display": "Eland",
+    "ordernum": 60,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "67281ae6-e9a3-496b-b7a5-1a08507b9069",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "sable",
+    "display": "Sable",
+    "ordernum": 190,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "690a3d36-bb5f-416d-9488-7d4c5b4198c4",
+  "fields": {
+    "model": "activity.event",
+    "field": "rangershotrep_typeofrounds",
+    "value": "shot",
+    "display": "Shot",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "69554763-a105-401e-b34a-1b2a48a6e724",
+  "fields": {
+    "model": "activity.event",
+    "field": "trafficrep_sightingdescription",
+    "value": "other",
+    "display": "Other",
+    "ordernum": 70,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "69a9d8cf-309d-4fc6-8a84-639bb5d65ad5",
+  "fields": {
+    "model": "activity.event",
+    "field": "invasivespeciesrep_species",
+    "value": "opuntia",
+    "display": "Opuntia",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "6ae7805c-28a2-47db-a0e1-d00059d66543",
+  "fields": {
+    "model": "activity.event",
+    "field": "rangershotrep_target",
+    "value": "game",
+    "display": "Game",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "6b1049a4-f945-4488-8baf-d00754a2dea7",
+  "fields": {
+    "model": "activity.event",
+    "field": "firerep_cause",
+    "value": "other",
+    "display": "Other",
+    "ordernum": 60,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "6d20e39d-5b97-4f49-8c25-dbb6d6b4cbb5",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "zebra",
+    "display": "Zebra",
+    "ordernum": 270,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "6dcc5bd8-eb63-4a92-b606-ce2f6b0a12e2",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "lechwe",
+    "display": "Lechwe",
+    "ordernum": 140,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "6ec2c0a5-0a56-4229-95eb-fa54d3c7c3f3",
+  "fields": {
+    "model": "activity.event",
+    "field": "animalcontrolrep_species",
+    "value": "wildebeest",
+    "display": "Wildebeest",
+    "ordernum": 100,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "6f4ea93b-2612-4be7-a3ad-2b6dfad6a72a",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "leopard",
+    "display": "Leopard",
+    "ordernum": 150,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "7139ac8a-6708-4576-a266-2759cee24024",
+  "fields": {
+    "model": "activity.event",
+    "field": "lightrep_whatdetected",
+    "value": "torch",
+    "display": "Torch/Light",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "715b317f-1a0e-4a04-8e5e-fc3d492bd241",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_causeofdeath",
+    "value": "naturalpredation",
+    "display": "Natural - Predation",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "71696b7e-4940-4bb7-a32b-fcb90d877a82",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "hyena",
+    "display": "Hyena",
+    "ordernum": 110,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "71c855ab-e705-4183-8219-f4219661500f",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_livestocktypes",
+    "value": "chicken",
+    "display": "Chicken",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "722583c0-6a81-4a7f-bbe2-d1e6fcf295ff",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_reasonforarrest",
+    "value": "tresspassing",
+    "display": "Tresspassing",
+    "ordernum": 170,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "72cb62b5-6d30-44c5-9ccf-e9f5ccc6582c",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "hippo",
+    "display": "Hippo",
+    "ordernum": 100,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "7321b7fc-7040-4d0d-be1a-c78f7a74a603",
+  "fields": {
+    "model": "activity.event",
+    "field": "spoorrep_type",
+    "value": "motorbike",
+    "display": "Motorbike",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "7510fa04-8954-430c-b98d-43c91cc66f28",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "sudannorth",
+    "display": "Sudan (North)",
+    "ordernum": 200,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "76cdb5af-8bfa-4cc2-b8b8-3eb2febd6f74",
+  "fields": {
+    "model": "activity.event",
+    "field": "rhinosightingrep_condition",
+    "value": "two",
+    "display": "2",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "77286237-53f4-421a-b43f-a5aaf7fc1b9d",
+  "fields": {
+    "model": "activity.event",
+    "field": "injuredanimalrep_injurytype",
+    "value": "natural",
+    "display": "Natural",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "773f8854-1880-43b9-bd46-a199e87bd67c",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "buffalo",
+    "display": "Buffalo",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "77f29d3a-79a4-40c1-a8a5-20089f5c14ba",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "tsessebe",
+    "display": "Tsessebe",
+    "ordernum": 220,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "7a37da1b-d6be-48ff-83aa-decf9147bead",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_cropdamaged",
+    "value": "beans",
+    "display": "Beans",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "7a5df234-9b8e-4160-9823-94a6c84fad6d",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_ageofcarcass",
+    "value": "within_a_week",
+    "display": "Fresh (within a week)",
+    "ordernum": 2,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "7a8dd866-60c0-4746-8bfc-b47337086632",
+  "fields": {
+    "model": "activity.event",
+    "field": "invasivespeciesrep_density",
+    "value": "5x5mediumstand",
+    "display": "5x5 Medium Stand",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "7afce8f8-053c-46d9-911d-1ff3759b17c0",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_cropdamaged",
+    "value": "cotton",
+    "display": "Cotton",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "7b87dfb9-cfb7-4909-a8be-cf616fe1e299",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "bongo",
+    "display": "Bongo",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "7bf27ebc-cf94-4311-b6cb-15c1da11ff51",
+  "fields": {
+    "model": "activity.event",
+    "field": "firerep_status",
+    "value": "inactive",
+    "display": "Inactive",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "7c171e9b-4541-45a7-ac15-6dfd91d83ec1",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "wilddog",
+    "display": "Wild Dog",
+    "ordernum": 260,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "7d740c5b-b63a-42d4-89bd-b9dc26362544",
+  "fields": {
+    "model": "activity.event",
+    "field": "rangershotrep_typeofrounds",
+    "value": "rubber",
+    "display": "Rubber",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "7f580e90-e6ae-412f-892b-bba26563811b",
+  "fields": {
+    "model": "activity.event",
+    "field": "invasivespeciesrep_species",
+    "value": "eucalyptus",
+    "display": "Eucalyptus",
+    "ordernum": 60,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "7f86d95a-9be8-4089-9c4b-36ad9cd5eca5",
+  "fields": {
+    "model": "activity.event",
+    "field": "contactrep_patrolactivity",
+    "value": "aware",
+    "display": "Aware",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "809133d9-c6e9-4c55-9a31-1b46aff85a94",
+  "fields": {
+    "model": "activity.event",
+    "field": "firerep_cause",
+    "value": "controlburn",
+    "display": "Control Burn",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "809a0827-8300-4369-8da5-3128828b09d1",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_species",
+    "value": "baboon",
+    "display": "Baboon",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "8160f64f-8e97-4fa7-b19a-d44e63ee4bfc",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_species",
+    "value": "hyena",
+    "display": "Hyena",
+    "ordernum": 50,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "81d1f918-3134-48d3-9da5-dc24986ee468",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "tsessebe",
+    "display": "Tsessebe",
+    "ordernum": 220,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "821750c4-61b7-4eb6-820c-0d7c004bd53c",
+  "fields": {
+    "model": "activity.event",
+    "field": "firerep_direction",
+    "value": "north",
+    "display": "North",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "82df38ed-93a3-403a-bda9-3547a51fa519",
+  "fields": {
+    "model": "activity.event",
+    "field": "contactrep_patrolactivity",
+    "value": "other",
+    "display": "Other",
+    "ordernum": 60,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "84659187-87de-4e3d-9caa-c846f45d9ce5",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_ageofanimal",
+    "value": "subadult",
+    "display": "Sub-adult",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "84d2d60a-34f8-4bee-a0d0-bcc5f266e170",
+  "fields": {
+    "model": "activity.event",
+    "field": "injuredanimalrep_keyspecies",
+    "value": "rhino",
+    "display": "Rhino",
+    "ordernum": 50,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "853d1041-d334-4779-adec-0bc3748e1070",
+  "fields": {
+    "model": "activity.event",
+    "field": "injuredanimalrep_keyspecies",
+    "value": "lion",
+    "display": "Lion",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "862f351b-c78c-4240-907e-42a404c479e6",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "uganda",
+    "display": "Uganda",
+    "ordernum": 220,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "8766eba2-723a-45f5-848f-531d023922bd",
+  "fields": {
+    "model": "activity.event",
+    "field": "contactrep_patrolactivity",
+    "value": "unaware",
+    "display": "Unaware",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "883a9f45-5283-429c-b1ca-46afe0af5780",
+  "fields": {
+    "model": "activity.event",
+    "field": "traf_rep_description_of_sighting",
+    "value": "water_craft",
+    "display": "Water craft (canoe, raft, speed boat, barge, etc.)",
+    "ordernum": 2,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "89b35024-f912-4070-b5f1-675be0737990",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_ageofanimal",
+    "value": "juvenile",
+    "display": "Juvenile",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "8a001a29-4fc4-4d56-b2a1-2f2106bf8506",
+  "fields": {
+    "model": "activity.event",
+    "field": "contactrep_whoinitiatedcontact",
+    "value": "ranger",
+    "display": "Ranger",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "8cfef27e-5d6a-4a46-8d07-643edeb7c84e",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "france",
+    "display": "France",
+    "ordernum": 110,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "8d39adcc-98e8-4fc9-a75d-04776399ca7c",
+  "fields": {
+    "model": "activity.event",
+    "field": "trafficrep_sightingactivity",
+    "value": "other",
+    "display": "Other",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "8e850413-db01-479e-aacb-4f149d129c08",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "rhino",
+    "display": "Rhino",
+    "ordernum": 180,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "8e8b3986-6c3c-4346-8111-68c676311afa",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_sex",
+    "value": "unknown",
+    "display": "Unknown",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "90a59ca8-a2e9-4f5b-92e5-b1148d28a7e8",
+  "fields": {
+    "model": "activity.event",
+    "field": "injuredanimalrep_keyspecies",
+    "value": "giraffe",
+    "display": "Giraffe",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "90da0e11-386c-482d-a3a5-3bad9ccb7cec",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "zebra",
+    "display": "Zebra",
+    "ordernum": 270,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "918a4fe0-3f62-4978-b802-e9bfc308c63b",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "redriverhog",
+    "display": "Red River Hog",
+    "ordernum": 170,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "91a08da0-bbb8-4f88-8b04-300b3f6387a7",
+  "fields": {
+    "model": "activity.event",
+    "field": "injuredanimalrep_injurytype",
+    "value": "other",
+    "display": "Other",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "9248c5bd-4eba-4684-b226-c3427e24ff58",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "gorilla",
+    "display": "Gorilla",
+    "ordernum": 90,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "9374600e-d0d0-4bf2-b048-f93f64a5e746",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "kenya",
+    "display": "Kenya",
+    "ordernum": 130,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "95f1fbbe-d49e-4f0f-9376-50a4cd461db0",
+  "fields": {
+    "model": "activity.event",
+    "field": "injuredanimalrep_actiontaken",
+    "value": "treated",
+    "display": "Treated",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "97e4f422-8949-4223-87cd-76fea37db02e",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_trophystatus",
+    "value": "intact",
+    "display": "Intact",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "98234b69-c4ca-4adf-be17-a1d33a8b60d5",
+  "fields": {
+    "model": "activity.event",
+    "field": "injuredanimalrep_injurytype",
+    "value": "snare",
+    "display": "Snare",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "99e859d7-8150-45d2-94a1-411fc4e9b276",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_species",
+    "value": "hippo",
+    "display": "Hippo",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "9ac291bf-fa55-4502-9cd9-cc836eb5e101",
+  "fields": {
+    "model": "activity.event",
+    "field": "confiscationrep_itemsconfiscated",
+    "value": "weapons",
+    "display": "Weapons",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "9c24b005-f18a-43d2-a9e6-7ad91dbb7d9f",
+  "fields": {
+    "model": "activity.event",
+    "field": "invasivespeciesrep_density",
+    "value": "10x10largestand",
+    "display": "10x10 Large Stand",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "9c9e7af5-7676-4755-8874-5bc316359c82",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_sex",
+    "value": "female",
+    "display": "Female",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "9d4011a7-cff5-440d-8cf5-8d3ef2d3dd3b",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_ageofanimal",
+    "value": "adult",
+    "display": "Adult",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "9eb64658-4431-405e-8227-cc68c84fa1ea",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_reasonforarrest",
+    "value": "ivory",
+    "display": "Ivory",
+    "ordernum": 70,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "a145b79a-c79a-4107-8d89-208f4a0fb8a4",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "lion",
+    "display": "Lion",
+    "ordernum": 160,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "a2908595-625f-4065-ac5a-187581574dbd",
+  "fields": {
+    "model": "activity.event",
+    "field": "fencerep_damage",
+    "value": "fencetheft",
+    "display": "Fence Theft",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "a2c0f590-9eac-4e96-8d92-7a44a08df228",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "leopard",
+    "display": "Leopard",
+    "ordernum": 150,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "a5ad3f23-e4a4-4c73-bb8a-5b5f85df638b",
+  "fields": {
+    "model": "activity.event",
+    "field": "invasivespeciesrep_species",
+    "value": "other",
+    "display": "Other",
+    "ordernum": 80,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "a7170200-21fa-45eb-bbe8-07138cc52552",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "kob",
+    "display": "Kob",
+    "ordernum": 120,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "a7715999-d6c0-4cbb-9272-234b1ad92391",
+  "fields": {
+    "model": "activity.event",
+    "field": "traf_rep_description_of_sighting",
+    "value": "vehicle",
+    "display": "Vehicle (motorcycle, bijaj/boda boda, car, truck, etc)",
+    "ordernum": 1,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "a939bf39-1f85-4e66-88c5-62acb1145a62",
+  "fields": {
+    "model": "activity.event",
+    "field": "shotrep_estimatedcaliber",
+    "value": "largecalibershot",
+    "display": "Large Caliber",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "a9a1171b-236d-4cee-8de7-8ce05b36fde6",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "zambia",
+    "display": "Zambia",
+    "ordernum": 230,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "a9f38500-776b-46cf-86b4-719bddc9bd19",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_ageofanimal",
+    "value": "unknown",
+    "display": "Unknown",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "aafe77de-4402-4434-bf7c-af582a044465",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "topi",
+    "display": "Topi",
+    "ordernum": 210,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "ac1c6bcd-b93c-4a5d-bb0c-e16946aaaf10",
+  "fields": {
+    "model": "activity.event",
+    "field": "animalcontrolrep_species",
+    "value": "dog",
+    "display": "Dog",
+    "ordernum": 25,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "ae117d8c-f940-43fd-b84c-28dd251a7804",
+  "fields": {
+    "model": "activity.event",
+    "field": "snarerep_status",
+    "value": "set",
+    "display": "Set",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "af083fe9-03a7-412e-ab8d-ec35a484aa58",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "cheetah",
+    "display": "Cheetah",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "af09e746-a2a1-4709-a11f-9d21d6398ef1",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "somalia",
+    "display": "Somalia",
+    "ordernum": 170,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "af7d4d24-af39-4a37-a84b-cb8801dbc071",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_livestocktypes",
+    "value": "pig",
+    "display": "Pig",
+    "ordernum": 60,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "b0e3ceaa-a31f-4b9c-b85d-16a657779605",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_causeofdeath",
+    "value": "unnaturalshot",
+    "display": "Unnatural - Shot",
+    "ordernum": 60,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "b19e09c0-a605-4350-90dd-a17ca97048dc",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_ageofcarcass",
+    "value": "within_a_month",
+    "display": "<1 Month",
+    "ordernum": 3,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "b264fecd-5152-47be-ba78-6b619dc5e7a6",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_livestocktypes",
+    "value": "other",
+    "display": "Other",
+    "ordernum": 80,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "b2e05607-60af-48ea-85f1-cf7bfcdf1e3c",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_reasonforarrest",
+    "value": "bushmeat",
+    "display": "Bush Meat",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "b37e344e-607a-4a83-b2bc-84c6a0c55341",
+  "fields": {
+    "model": "activity.event",
+    "field": "trafficrep_sightingdescription",
+    "value": "boats",
+    "display": "Boats",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "b3ff8cda-dee2-4d08-ace2-7f3e7e8b0c6e",
+  "fields": {
+    "model": "activity.event",
+    "field": "lightrep_whatdetected",
+    "value": "campfire",
+    "display": "Camp Fire",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "b51a6eaa-a25a-4676-9a37-a672565f6238",
+  "fields": {
+    "model": "activity.event",
+    "field": "injuredanimalrep_keyspecies",
+    "value": "elephant",
+    "display": "Elephant",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "b555b542-075b-43eb-8647-565f39e2334c",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "gorilla",
+    "display": "Gorilla",
+    "ordernum": 90,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "b5a9dc85-808c-4790-af8c-ddf161cf22a8",
+  "fields": {
+    "model": "activity.event",
+    "field": "injuredanimalrep_injurycause",
+    "value": "natural",
+    "display": "Natural",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "b62112b5-9542-4227-b617-6c09b8057b1e",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "rwanda",
+    "display": "Rwanda",
+    "ordernum": 160,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "b6d05bec-8b1a-443f-9f93-9cad49703f38",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_cropdamaged",
+    "value": "cassava",
+    "display": "Cassava",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "b6d557d0-5e06-4cf0-8f7b-2a4bdf78cb84",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "southafrica",
+    "display": "South Africa",
+    "ordernum": 180,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "b730ce81-1b92-4cef-a63d-8a50e8aaa85b",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "crocodile",
+    "display": "Crocodile",
+    "ordernum": 50,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "b9b412a3-002c-4049-ac7c-33c1f6b02162",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "chimpanzee",
+    "display": "Chimpanzee",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "baae7427-8202-44be-94a8-7b1d31fdbbc3",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "hippo",
+    "display": "Hippo",
+    "ordernum": 100,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "bb054cda-4427-40e2-8bb9-2f048be76b93",
+  "fields": {
+    "model": "activity.event",
+    "field": "snarerep_action",
+    "value": "ambushed",
+    "display": "Ambushed",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "bbb56f92-dad1-403a-b214-021ea5ebe749",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_cropdamaged",
+    "value": "mango",
+    "display": "Mango",
+    "ordernum": 60,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "bbeb34bd-d56f-476e-a20d-9dfbf1ec69f4",
+  "fields": {
+    "model": "activity.event",
+    "field": "trafficrep_sightingdescription",
+    "value": "aircraft",
+    "display": "Aircraft",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "bc013cc4-7dcb-4b3f-af52-256aedf91906",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_trophystatus",
+    "value": "naturallymissing",
+    "display": "Naturally Missing",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "bd02c81b-23d8-464d-8a55-c32fc635dd2b",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "angola",
+    "display": "Angola",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "bd5b8866-fa3a-4fe9-8d34-4900497d4854",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_reasonforarrest",
+    "value": "charcoal",
+    "display": "Charcoal",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "be6a33c8-aeb7-4ae2-ab3f-0b238300ab59",
+  "fields": {
+    "model": "activity.event",
+    "field": "trafficrep_sightingdescription",
+    "value": "truck",
+    "display": "Truck",
+    "ordernum": 60,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "be6f9d6f-68b7-449e-837c-dd916377c36d",
+  "fields": {
+    "model": "activity.event",
+    "field": "animalcontrolrep_species",
+    "value": "hippo",
+    "display": "Hippo",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "beaa737c-0c79-4953-9b9f-6e4c0ac8247e",
+  "fields": {
+    "model": "activity.event",
+    "field": "medevacrep_specialequipment",
+    "value": "other",
+    "display": "Other requirements",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "bf6a4597-d80a-40ba-bbe6-4f599fd17a10",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "other",
+    "display": "Other",
+    "ordernum": 260,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "c08696ba-b6c2-42ee-a18b-3e12c62fae7e",
+  "fields": {
+    "model": "activity.event",
+    "field": "firerep_cause",
+    "value": "arson",
+    "display": "Arson",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "c08c95d6-5bce-43d5-a7c8-df6bf571847b",
+  "fields": {
+    "model": "activity.event",
+    "field": "rhinosightingrep_activity",
+    "value": "feeding",
+    "display": "Feeding",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "c1f7c5b9-cdef-4805-b32d-0ad57dd977d3",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_species",
+    "value": "warthog",
+    "display": "Warthog",
+    "ordernum": 80,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "c34b3b16-1371-4a69-95ea-00e59f4d3a54",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "malawi",
+    "display": "Malawi",
+    "ordernum": 135,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "c377c314-95f9-4a97-9b0d-ae2e81df2e51",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "kudu",
+    "display": "Kudu",
+    "ordernum": 130,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "c4725035-e670-44e7-8b66-827f7d2deaeb",
+  "fields": {
+    "model": "activity.event",
+    "field": "invasivespeciesrep_density",
+    "value": "2x2smallstand",
+    "display": "2x2 Small Stand",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "c5222e1b-9257-4c81-859e-7120fc930e65",
+  "fields": {
+    "model": "activity.event",
+    "field": "lightrep_whatdetected",
+    "value": "other",
+    "display": "Other",
+    "ordernum": 50,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "c53a9b3b-9ae1-4398-80db-1eacad48f710",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_reasonforarrest",
+    "value": "huntingdogs",
+    "display": "Hunting Dogs",
+    "ordernum": 60,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "c676dade-7e96-482b-8324-7e7d45c354f1",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "elephant",
+    "display": "Elephant",
+    "ordernum": 70,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "c8486efb-0226-4a87-bb80-3d64b92cb3fe",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "gabon",
+    "display": "Gabon",
+    "ordernum": 120,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "cb0463a1-6fee-46f4-829a-137e96f64213",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_cropdamaged",
+    "value": "sorghum",
+    "display": "Sorghum",
+    "ordernum": 100,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "cbd13a28-0f0a-47e9-a0aa-504fae4fe4fc",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_trophystatus",
+    "value": "removed",
+    "display": "Removed",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "cdfca31a-28e7-4ce7-af4a-5b3b9bbc0aa5",
+  "fields": {
+    "model": "activity.event",
+    "field": "animalcontrolrep_species",
+    "value": "baboon",
+    "display": "Baboon",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "ce013c2e-561d-4b96-a196-8d68fc3188ba",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_causeofdeath",
+    "value": "unnaturalpoisoned",
+    "display": "Unnatural - Poisoned",
+    "ordernum": 80,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "cf24c1e8-1160-4105-8552-418694af5786",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_species",
+    "value": "lion",
+    "display": "Lion",
+    "ordernum": 60,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "cf875863-4189-471d-967c-c8898eae5aa9",
+  "fields": {
+    "model": "activity.event",
+    "field": "confiscationrep_itemsconfiscated",
+    "value": "other",
+    "display": "Other",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "d0751177-f3f5-4d3a-88dc-8ce1d16b093c",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_reasonforarrest",
+    "value": "startingfires",
+    "display": "Starting Fires",
+    "ordernum": 160,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "d09a732c-bd10-4268-b468-2b76e21f9366",
+  "fields": {
+    "model": "activity.event",
+    "field": "fencerep_damage",
+    "value": "other",
+    "display": "Other",
+    "ordernum": 80,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "d2024d11-7385-48cc-ba5e-50d12469a222",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_reasonforarrest",
+    "value": "other",
+    "display": "Other",
+    "ordernum": 180,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "d21b5e64-0424-45d6-b79d-f0e5eb6788f8",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_reasonforarrest",
+    "value": "mining",
+    "display": "Mining",
+    "ordernum": 90,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "d21ee139-b1ae-4518-8876-bdfca1bce596",
+  "fields": {
+    "model": "activity.event",
+    "field": "rangershotrep_target",
+    "value": "hwc",
+    "display": "HWC",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "d3b58e88-b4d7-49ed-9230-cc0ee8081430",
+  "fields": {
+    "model": "activity.event",
+    "field": "shotrep_typeofshot",
+    "value": "automaticshot",
+    "display": "Automatic",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "d3bdea9b-b1fe-4eef-ac22-6e687bb25e7e",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "eland",
+    "display": "Eland",
+    "ordernum": 60,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "d4e0297c-d844-4bc8-8189-aec47edd5192",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_ageofcarcass",
+    "value": "more_than_a_month",
+    "display": "<3 Months",
+    "ordernum": 4,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "d5273666-4e18-4971-b602-de0f82cd327c",
+  "fields": {
+    "model": "activity.event",
+    "field": "medevacrep_specialequipment",
+    "value": "stretcher",
+    "display": "Stretcher and other mobilsation devices",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "d72af4af-c631-42e2-9576-cffcb26aff03",
+  "fields": {
+    "model": "activity.event",
+    "field": "shotrep_typeofshot",
+    "value": "singleshot",
+    "display": "Single",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "d741eedd-3f34-4d0f-85f0-4b8ce2fc585c",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_causeofdeath",
+    "value": "naturalother",
+    "display": "Natural - Other",
+    "ordernum": 50,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "d7619d35-dd47-4b07-8ace-c9d253786fed",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "giraffe",
+    "display": "Giraffe",
+    "ordernum": 80,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "d7deb125-01f6-40fb-9286-a158b485c987",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_livestocktypes",
+    "value": "duck",
+    "display": "Duck",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "d8b60ac9-7c25-4f3a-a893-4b69a823d53b",
+  "fields": {
+    "model": "activity.event",
+    "field": "rhinosightingrep_activity",
+    "value": "scentmarking",
+    "display": "Scent Marking",
+    "ordernum": 60,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "dad8ed10-7a8a-472c-8421-3b9cfe9d5911",
+  "fields": {
+    "model": "activity.event",
+    "field": "rhinosightingrep_activity",
+    "value": "other",
+    "display": "Other",
+    "ordernum": 80,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "daee6a78-750e-43ac-971a-fd829e5fef5b",
+  "fields": {
+    "model": "activity.event",
+    "field": "rangershotrep_typeofrounds",
+    "value": "slug",
+    "display": "Slug",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "db1f071b-1bcf-4dde-8991-5ddeb5e5f70b",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "ethiopia",
+    "display": "Ethiopia",
+    "ordernum": 100,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "db89cf33-d00c-4b83-a68f-fd0302ba9242",
+  "fields": {
+    "model": "activity.event",
+    "field": "medevacrep_specialequipment",
+    "value": "emergencykit",
+    "display": "Complete Emergency Kit",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "dbdf6647-c6e1-4cc8-8dc9-b91e76651826",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "botswana",
+    "display": "Botswana",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "def2e221-a29e-4a59-8a8c-564cde2d9022",
+  "fields": {
+    "model": "activity.event",
+    "field": "poachercamprep_status",
+    "value": "inactive",
+    "display": "Inactive",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "df6730d2-e3ca-4ef4-b2e9-45e8cebc4cc7",
+  "fields": {
+    "model": "activity.event",
+    "field": "fencerep_damage",
+    "value": "erosion",
+    "display": "Erosion",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "dfde1e55-b67d-4213-b896-a4f958598d00",
+  "fields": {
+    "model": "activity.event",
+    "field": "yesno",
+    "value": "no",
+    "display": "No",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "e06344bf-c51e-437e-9b4a-adc4ffdb5545",
+  "fields": {
+    "model": "activity.event",
+    "field": "fire_status",
+    "value": "fire_burning",
+    "display": "Burning",
+    "ordernum": 1,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "e07f0979-401c-423f-8d39-2673261c23eb",
+  "fields": {
+    "model": "activity.event",
+    "field": "spoorrep_age",
+    "value": "new",
+    "display": "New/Fresh",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "e1d5acc3-84b0-46a6-86f2-5cc9140171ed",
+  "fields": {
+    "model": "activity.event",
+    "field": "trafficrep_sightingdescription",
+    "value": "bicycles",
+    "display": "Bicycles",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "e3c48244-7a0f-4651-93f7-c7b57259def3",
+  "fields": {
+    "model": "activity.event",
+    "field": "medevacrep_security",
+    "value": "opposition",
+    "display": "Opposition in area (armed escort required)",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "e41b44c4-792a-4d3f-b151-6d06c190de8f",
+  "fields": {
+    "model": "activity.event",
+    "field": "firerep_direction",
+    "value": "east",
+    "display": "East",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "e4e6e0be-e650-4b17-922f-833bbf2dd9ab",
+  "fields": {
+    "model": "activity.event",
+    "field": "animalcontrolrep_species",
+    "value": "zebra",
+    "display": "Zebra",
+    "ordernum": 110,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "e5942ffd-846d-4e2b-9a46-1d65d649a3d7",
+  "fields": {
+    "model": "activity.event",
+    "field": "injuredanimalrep_keyspecies",
+    "value": "leopard",
+    "display": "Leopard",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "e6115b21-d953-4782-9f90-b99477288e0f",
+  "fields": {
+    "model": "activity.event",
+    "field": "injuredanimalrep_injurycause",
+    "value": "human",
+    "display": "Human",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "e6f8aa27-51f7-47e4-94d5-5d2a4a4497a6",
+  "fields": {
+    "model": "activity.event",
+    "field": "rhinosightingrep_activity",
+    "value": "standing",
+    "display": "Standing",
+    "ordernum": 70,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "e7a14ad4-5e61-43e4-9dc8-06a5eb63bb0c",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_ageofcarcass",
+    "value": "less_than_a_day",
+    "display": "1 Day or less",
+    "ordernum": 1,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "ea12a19e-26a7-4696-9f6d-9e8a4fe0fc08",
+  "fields": {
+    "model": "activity.event",
+    "field": "injuredanimalrep_actiontaken",
+    "value": "none",
+    "display": "None",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "eaab9dd4-c278-4df1-9e33-3d3843fc9aea",
+  "fields": {
+    "model": "activity.event",
+    "field": "contactrep_patrolactivity",
+    "value": "patrolling",
+    "display": "Patrolling",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "eb1dbea6-926a-4999-b11f-0dc61e0e05b2",
+  "fields": {
+    "model": "activity.event",
+    "field": "spoorrep_type",
+    "value": "vehilce",
+    "display": "Vehicle",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "eb333230-86d6-4694-9347-8c23b8a59551",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_causeofdeath",
+    "value": "unnaturalsnare",
+    "display": "Unnatural - Snare",
+    "ordernum": 70,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "eb77d37d-9c2e-49cd-a173-034b42d236fe",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_causeofdeath",
+    "value": "naturalfightinjury",
+    "display": "Natural - Fight Injury",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "ec3a9267-e1b9-4654-a155-081ba980c48c",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "waterbuck",
+    "display": "Waterbuck",
+    "ordernum": 240,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "ec3c16bb-bac6-40dd-9f81-8636835c60fb",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_livestocktypes",
+    "value": "goat",
+    "display": "Goat",
+    "ordernum": 50,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "edf9769d-1cf9-4fa9-8135-892f1f54180b",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_reasonforarrest",
+    "value": "fishing",
+    "display": "Fishing",
+    "ordernum": 40,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "ee9ba713-5acd-4232-a31a-63cffeb0f89b",
+  "fields": {
+    "model": "activity.event",
+    "field": "spoorrep_age",
+    "value": "old",
+    "display": "Old",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "ef43b23c-5c5d-4472-bf7c-8972f70d1fc0",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "china",
+    "display": "China",
+    "ordernum": 70,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "f03a79b2-712b-4e90-855a-5e0a008041cd",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "waterbuck",
+    "display": "Waterbuck",
+    "ordernum": 240,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "f149e4b7-6978-4975-90da-f6ea91cff7d6",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_cropdamaged",
+    "value": "rice",
+    "display": "Rice",
+    "ordernum": 90,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "f1d959dc-eb08-400a-a34f-10d13b8bd583",
+  "fields": {
+    "model": "activity.event",
+    "field": "snarerep_action",
+    "value": "remove",
+    "display": "Remove",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "f3032361-0076-464f-b320-8d9fc759f238",
+  "fields": {
+    "model": "activity.event",
+    "field": "invasivespeciesrep_species",
+    "value": "chromoleana",
+    "display": "Chromoleana",
+    "ordernum": 10,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "f368c0df-f8ad-407f-b8c0-06e651204b00",
+  "fields": {
+    "model": "activity.event",
+    "field": "lightrep_whatdetected",
+    "value": "smoke",
+    "display": "Smoke",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "f43bc8c5-2037-4fbe-928e-ca5f03609ad9",
+  "fields": {
+    "model": "activity.event",
+    "field": "hwcrep_propertydamagetype",
+    "value": "foodstorage",
+    "display": "Food Storage",
+    "ordernum": 20,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "f53c8081-761e-4cbd-b30e-3dfc835aff35",
+  "fields": {
+    "model": "activity.event",
+    "field": "animalcontrolrep_species",
+    "value": "lion",
+    "display": "Lion",
+    "ordernum": 70,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "f6f9a30f-b62d-4af2-946c-da4cda2eeebf",
+  "fields": {
+    "model": "activity.event",
+    "field": "wildlifesightingrep_species",
+    "value": "shoebill",
+    "display": "Shoebill",
+    "ordernum": 200,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "f75c27bb-350b-4b95-8fa1-200b8d9f303e",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "lion",
+    "display": "Lion",
+    "ordernum": 160,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "f8186d4e-aa4c-43c3-95e5-c9ca308a1967",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_reasonforarrest",
+    "value": "grazinglivestock",
+    "display": "Grazing Livestock",
+    "ordernum": 50,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "f88512f8-6263-451f-ab4d-6231e974d75c",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_reasonforarrest",
+    "value": "firearm",
+    "display": "Firearm",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "fa610932-e0a2-4472-aede-063b530e1697",
+  "fields": {
+    "model": "activity.event",
+    "field": "invasivespeciesrep_phenologicalstate",
+    "value": "seedingfruiting",
+    "display": "Seeding/Fruiting",
+    "ordernum": 30,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "fa858e16-1d5c-46b2-81a2-e10054bce888",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "congobrazzaville",
+    "display": "Congo (Brazzaville)",
+    "ordernum": 90,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "fae6e202-a1ed-47ab-95b5-7cf7573a8921",
+  "fields": {
+    "model": "activity.event",
+    "field": "arrestrep_nationality",
+    "value": "congodrc",
+    "display": "Congo (DRC)",
+    "ordernum": 80,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "fbab4f42-f050-4cc9-afc7-52468ffcfc2b",
+  "fields": {
+    "model": "activity.event",
+    "field": "fencerep_damage",
+    "value": "natural",
+    "display": "Natural",
+    "ordernum": 70,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "fcece7d8-c7d9-439e-a619-d4c78e06fcac",
+  "fields": {
+    "model": "activity.event",
+    "field": "contactrep_patrolactivity",
+    "value": "incamp",
+    "display": "In Camp",
+    "ordernum": 50,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "fdbe6eb9-fc1a-46c4-b653-ae5847c1fab1",
+  "fields": {
+    "model": "activity.event",
+    "field": "fencerep_damage",
+    "value": "flooding",
+    "display": "Flooding",
+    "ordernum": 50,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "ff3be50f-0687-4445-a452-dfad04ccf189",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "shoebill",
+    "display": "Shoebill",
+    "ordernum": 200,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.choice",
+  "pk": "ffbbdc31-3a03-4eb5-aecf-339e942d9482",
+  "fields": {
+    "model": "activity.event",
+    "field": "carcassrep_species",
+    "value": "other",
+    "display": "Other",
+    "ordernum": 280,
+    "sub_choice_of": []
+  }
+},
+{
+  "model": "choices.dynamicchoice",
+  "pk": "blackRhinos",
+  "fields": {
+    "model_name": "observations.subject",
+    "criteria": "[[\"common_name_id\", \"black_rhino\"]]",
+    "value_col": "id",
+    "display_col": "name"
+  }
+},
+
+{
+  "model": "activity.eventcategory",
+  "pk": "007a45d3-2aba-4ed1-b3fc-e09fc0ad41f8",
+  "fields": {
+    "created_at": "2016-10-20T15:36:41.978Z",
+    "updated_at": "2017-08-02T18:45:10.029Z",
+    "value": "security",
+    "display": "Security",
+    "ordernum": 1,
+    "flag": "user"
+  }
+},
+{
+  "model": "activity.eventcategory",
+  "pk": "2f7ecd77-43db-4687-adba-58fcd42fac14",
+  "fields": {
+    "created_at": "2017-08-02T18:46:37.156Z",
+    "updated_at": "2018-02-07T22:29:50.567Z",
+    "value": "logistics",
+    "display": "Logistics",
+    "ordernum": 30,
+    "flag": "user"
+  }
+},
+{
+  "model": "activity.eventcategory",
+  "pk": "50acb72c-5038-4f7f-9cb6-d432026f5032",
+  "fields": {
+    "created_at": "2018-02-07T22:30:06.661Z",
+    "updated_at": "2018-02-07T22:30:06.661Z",
+    "value": "hidden",
+    "display": "HIDDEN",
+    "ordernum": null,
+    "flag": "system"
+  }
+},
+{
+  "model": "activity.eventcategory",
+  "pk": "e31f75e3-d86d-4e20-b397-5bb9fe46c5cf",
+  "fields": {
+    "created_at": "2017-08-02T18:46:28.248Z",
+    "updated_at": "2017-08-02T18:46:28.248Z",
+    "value": "monitoring",
+    "display": "Monitoring",
+    "ordernum": 20,
+    "flag": "user"
+  }
+},
+{
+  "model": "activity.eventcategory",
+  "pk": "ef230385-5afc-40d1-ad07-c811f6da2b3c",
+  "fields": {
+    "created_at": "2017-08-02T04:14:23.774Z",
+    "updated_at": "2017-08-02T05:07:26.257Z",
+    "value": "analyzer_event",
+    "display": "Analyzer Event",
+    "ordernum": 1,
+    "flag": "system"
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "009793a4-e233-42fc-b068-b3245e93935e",
+  "fields": {
+    "created_at": "2017-06-07T18:24:12.167Z",
+    "updated_at": "2018-02-07T22:33:54.919Z",
+    "value": "fence_rep",
+    "display": "Fence",
+    "category": [
+      "logistics"
+    ],
+    "ordernum": 20,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Fence Report (fence_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"fencerep_location\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Section\",\r\n                \"enum\": {{enum___fencerep_location___values}},\r\n                \"enumNames\": {{enum___fencerep_location___names}}   \r\n            },           \r\n            \"fencerep_voltage\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Voltage\",\r\n                \"minimum\":0\r\n            },\r\n            \"fencerep_damage\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Damage\",\r\n                \"enum\": {{enum___fencerep_damage___values}},\r\n                \"enumNames\": {{enum___fencerep_damage___names}}   \r\n            },\r\n            \"fencerep_vegetation\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Vegetation clearing required\",\r\n                \"enum\": {{enum___yesno___values}},\r\n                \"enumNames\": {{enum___yesno___names}}   \r\n            }\r\n       }\r\n   },\r\n \"definition\": [\r\n    {\r\n        \"key\":    \"fencerep_location\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"fencerep_voltage\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"fencerep_damage\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"fencerep_vegetation\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "06fe0a93-b34c-47f3-ad4b-b4818eb91d2a",
+  "fields": {
+    "created_at": "2016-10-20T15:39:20.371Z",
+    "updated_at": "2018-02-08T00:12:14.302Z",
+    "value": "sit_rep",
+    "display": "SIT-REP",
+    "category": [
+      "security"
+    ],
+    "ordernum": 150,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Sit Rep Report (sit_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"sitrep_currentactivity\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Update of current activity\"\r\n            },\r\n            \"sitrep_futureactivity\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Planned Future Activity\"\r\n            },\r\n            \"sitrep_other\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Other\"\r\n            }\r\n       }\r\n   },\r\n \"definition\": [\r\n    {\r\n        \"key\":    \"sitrep_currentactivity\",\r\n        \"type\":  \"textarea\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"sitrep_futureactivity\",\r\n        \"type\":  \"textarea\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"sitrep_other\",\r\n        \"type\":  \"textarea\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "0a91ff26-238f-4e21-a5f6-96da52eaab80",
+  "fields": {
+    "created_at": "2016-10-20T15:39:40.827Z",
+    "updated_at": "2018-03-12T19:40:02.133Z",
+    "value": "contact_rep",
+    "display": "Poacher Contact",
+    "category": [
+      "security"
+    ],
+    "ordernum": 110,
+    "schema": "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"Contact Report (contact_rep)\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"properties\": \r\n        {\r\n            \"contactrep_poachinggroupsize\": {\r\n                \"type\":\"number\",\r\n                \"title\": \"Size of the Poaching Group\",\r\n                \"minimum\": 0\r\n            },\r\n            \"contactrep_whoinitiatedcontact\": {\r\n                \"type\":\"string\",\r\n                \"title\": \"Who initiated contact\", \r\n                \"enum\": {{enum___contactrep_whoinitiatedcontact___values}},\r\n                \"enumNames\": {{enum___contactrep_whoinitiatedcontact___names}}                  \r\n            },\r\n            \"contactrep_patrolactivity\": {\r\n                \"type\":\"string\",\r\n                \"title\": \"What happened? Patrol activity\",\r\n                \"enum\": {{enum___contactrep_patrolactivity___values}},\r\n                \"enumNames\": {{enum___contactrep_patrolactivity___names}}                  \r\n            },\r\n            \"contactrep_rangerresponse\": {\r\n                \"type\":\"string\",\r\n                \"title\": \"What is the response?\"\r\n            },             \r\n            \"contactrep_rangercasualties\": {\r\n                \"type\":\"number\",\r\n                \"title\": \"Ranger Casualties\"\r\n            },\r\n            \"contactrep_oppositioncasualties\": {\r\n                \"type\":\"number\",\r\n                \"title\": \"Opposition Casualties\"\r\n            }, \r\n            \"contactrep_arrests\": {\r\n                \"type\":\"number\",\r\n                \"title\": \"Arrests\"\r\n            }, \r\n            \"contactrep_seizedweapons\": {\r\n                \"type\":\"string\",\r\n                \"title\": \"Seized weapons, equipment, evidence, etc.\"\r\n            },\r\n            \"contactrep_ammunitionusedbypatrol\": {\r\n                \"type\":\"number\",\r\n                \"title\": \"Ammunition used by patrol\"\r\n            }            \r\n        }\r\n    },\r\n  \"definition\": [\r\n    {\r\n        \"key\":     \"contactrep_poachinggroupsize\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":     \"contactrep_whoinitiatedcontact\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":     \"contactrep_patrolactivity\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":     \"contactrep_rangerresponse\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":     \"contactrep_rangercasualties\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":     \"contactrep_oppositioncasualties\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":     \"contactrep_arrests\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":     \"contactrep_seizedweapons\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":     \"contactrep_ammunitionusedbypatrol\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }\r\n  ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "125eabe7-85b3-4d82-a915-66fad942a33d",
+  "fields": {
+    "created_at": "2016-10-20T20:48:40.667Z",
+    "updated_at": "2018-02-07T22:55:58.791Z",
+    "value": "rhino_sighting_rep",
+    "display": "Rhino Sighting",
+    "category": [
+      "monitoring"
+    ],
+    "ordernum": 60,
+    "schema": "{\r\n    \"schema\": {\r\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"Rhino Sighting (rhino_sighting_rep)\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"properties\": \r\n        {\r\n            \"rhinosightingrep_Rhino\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Individual Rhino ID\",\r\n                \"enum\": {{query___blackRhinos___values}},\r\n                \"enumNames\": {{query___blackRhinos___names}}\r\n            },\r\n            \"rhinosightingrep_earnotchcount\": {\r\n                \"type\":\"number\",\r\n                \"title\": \"Ear notch count\"\r\n            },\r\n            \"rhinosightingrep_condition\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Condition\",\r\n               \"enum\": {{enum___rhinosightingrep_condition___values}},\r\n               \"enumNames\": {{enum___rhinosightingrep_condition___names}}                   \r\n            },\r\n            \"rhinosightingrep_activity\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Activity\",\r\n               \"enum\": {{enum___rhinosightingrep_activity___values}},\r\n               \"enumNames\": {{enum___rhinosightingrep_activity___names}}            \r\n            }\r\n        }\r\n    },\r\n    \"definition\": [\r\n    {\r\n        \"key\":         \"rhinosightingrep_Rhino\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":         \"rhinosightingrep_earnotchcount\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":         \"rhinosightingrep_condition\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":         \"rhinosightingrep_activity\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }\r\n    ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "17cf470e-d708-439c-983e-a7fe06c45ab1",
+  "fields": {
+    "created_at": "2016-10-20T15:41:01.423Z",
+    "updated_at": "2018-02-07T22:20:15.984Z",
+    "value": "traffic_rep",
+    "display": "Traffic",
+    "category": [
+      "security"
+    ],
+    "ordernum": 180,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Traffic Report (traffic_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"trafficrep_sightingdescription\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"What was seen?\",\r\n                \"enum\": {{enum___trafficrep_sightingdescription___values}},\r\n                \"enumNames\": {{enum___trafficrep_sightingdescription___names}}  \r\n            },\r\n            \"trafficrep_bearing\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Bearing (0-360)\",\r\n                \"minimum\": 0,\r\n                \"maximum\": 360\r\n            }, \r\n            \"trafficrep_distance\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Distance (m)\",\r\n                \"minimum\": 0\r\n            },                         \r\n            \"trafficrep_sightingactivity\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Activity of vehicle\",\r\n                \"enum\": {{enum___trafficrep_sightingactivity___values}},\r\n                \"enumNames\": {{enum___trafficrep_sightingactivity___names}} \r\n            },\r\n            \"trafficrep_vehicleregistration\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Vehicle Registration Number\"\r\n            },   \r\n            \"trafficrep_vehiclemakemodel\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Vehicle Make and Model\"\r\n            },              \r\n            \"trafficrep_currentpatrolactivity\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Patrols Response / Intent\"\r\n            }\r\n         \r\n       }\r\n   },\r\n \"definition\": [\r\n    {\r\n        \"key\":    \"trafficrep_sightingdescription\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"trafficrep_bearing\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"trafficrep_distance\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"trafficrep_sightingactivity\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"trafficrep_vehicleregistration\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"trafficrep_vehiclemakemodel\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"trafficrep_currentpatrolactivity\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "1f20b27c-95f2-42f3-bacc-94642399dc46",
+  "fields": {
+    "created_at": "2016-10-20T20:49:51.179Z",
+    "updated_at": "2018-02-07T22:55:58.801Z",
+    "value": "wildlife_sighting_rep",
+    "display": "Wildlife Sighting",
+    "category": [
+      "monitoring"
+    ],
+    "ordernum": 70,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Other Wildlife Sighting Report (wildlife_sighting_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"wildlifesightingrep_species\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Species\",\r\n                \"enum\": {{enum___wildlifesightingrep_species___values}},\r\n                \"enumNames\": {{enum___wildlifesightingrep_species___names}}   \r\n            }, \r\n           \"wildlifesightingrep_numberanimals\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Count\",\r\n                \"minimum\":0\r\n           },                      \r\n           \"wildlifesightingrep_collared\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Are Animals Collared\",\r\n                \"enum\": {{enum___yesno___values}},\r\n                \"enumNames\": {{enum___yesno___names}}                   \r\n           }\r\n          \r\n       }\r\n   },\r\n \"definition\": [\r\n    {\r\n        \"key\":    \"wildlifesightingrep_species\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"wildlifesightingrep_numberanimals\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    },    \r\n    {\r\n        \"key\":    \"wildlifesightingrep_collared\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    } \r\n\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "2adf7302-ecef-42af-9f7c-45992ce52dd0",
+  "fields": {
+    "created_at": "2017-05-03T22:24:14.968Z",
+    "updated_at": "2018-02-07T22:20:15.846Z",
+    "value": "arrest_rep",
+    "display": "Arrest",
+    "category": [
+      "security"
+    ],
+    "ordernum": 40,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Arrest Report (arrest_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"arrestrep_name\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Name of Arrestee\"\r\n            },   \r\n            \"arrestrep_age\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Age\",\r\n                \"minimum\": 0\r\n            },                      \r\n            \"arrestrep_dateofbirth\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Date of Birth\"\r\n            },              \r\n            \"arrestrep_villagename\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Village Name\"\r\n            },\r\n            \"arrestrep_nationality\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Nationality\",\r\n               \"enum\": {{enum___arrestrep_nationality___values}},\r\n               \"enumNames\": {{enum___arrestrep_nationality___names}}   \r\n            },\r\n            \"arrestrep_reaonforarrest\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Reason for Arrest\",\r\n               \"enum\": {{enum___arrestrep_reasonforarrest___values}},\r\n               \"enumNames\": {{enum___arrestrep_reasonforarrest___names}}                  \r\n            },\r\n            \"arrestrep_timeofarrest\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Time of Arrest\"\r\n            },\r\n            \"arrestrep_placeofarrest\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Place of Arrest\"\r\n            },\r\n            \"arrestrep_arrestingranger\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Arresting Ranger\"\r\n            },\r\n            \"arrestrep_witness\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Witness (may be multiple)\"\r\n            }\r\n\r\n       }\r\n   },\r\n \"definition\": [\r\n    {\r\n        \"key\":    \"arrestrep_name\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"arrestrep_age\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\": \"arrestrep_dateofbirth\",\r\n        \"fieldHtmlClass\": \"date-time-picker json-schema\",\r\n        \"readonly\": false,\r\n        \"htmlClass\": \"col-lg-6\"\r\n    },\r\n    {\r\n        \"key\":    \"arrestrep_villagename\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"arrestrep_nationality\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"arrestrep_reaonforarrest\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\": \"arrestrep_timeofarrest\",\r\n        \"fieldHtmlClass\": \"date-time-picker json-schema\",\r\n        \"readonly\": false,\r\n        \"htmlClass\": \"col-lg-6\"\r\n    },\r\n    {\r\n        \"key\":    \"arrestrep_placeofarrest\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    \r\n    {\r\n        \"key\":    \"arrestrep_arrestingranger\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"arrestrep_witness\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "55537836-0f99-4bfd-8c0b-be7f20a8c887",
+  "fields": {
+    "created_at": "2016-10-20T15:40:44.514Z",
+    "updated_at": "2018-02-07T22:20:15.895Z",
+    "value": "medevac_rep",
+    "display": "MedEvac",
+    "category": [
+      "security"
+    ],
+    "ordernum": 90,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"MedEvac Report (medevac_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"medevacrep_location\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Location of Pickup Site\"\r\n            },   \r\n            \"medevacrep_bestcommunication\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Communication method (radio frequency, patrol call sign, sat phone number, etc)\"\r\n            },\r\n            \"medevacrep_urgentpatients\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Number of Urgent Patients (1 hour/ASAP)\",\r\n                \"minimum\": 0\r\n            },     \r\n            \"medevacrep_prioritypatients\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Number of Priority Patients (within 6-12 hours)\",\r\n                \"minimum\": 0\r\n            },                 \r\n            \"medevacrep_routinepatients\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Number of Routine Patients (within 24 hours)\",\r\n                \"minimum\": 0\r\n            },                 \r\n            \"medevacrep_specialequipment\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Special Equipment Required\",\r\n                \"enum\": {{enum___medevacrep_specialequipment___values}},\r\n                \"enumNames\": {{enum___medevacrep_specialequipment___names}}   \r\n            },                        \r\n            \"medevacrep_ambulatorycasualties\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Number of walking casualties\",\r\n                \"minimum\": 0\r\n            },\r\n            \"medevacrep_stretchercasualties\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Number of stretcher casualties\",\r\n                \"minimum\": 0\r\n            },\r\n            \"medevacrep_security\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Security at Pickup Site\",\r\n                \"enum\": {{enum___medevacrep_security___values}},\r\n                \"enumNames\": {{enum___medevacrep_security___names}}   \r\n            },\r\n            \"medevacrep_other\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Other\"\r\n            }\r\n       }\r\n   },\r\n \"definition\": [\r\n    {\r\n        \"key\":    \"medevacrep_location\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"medevacrep_bestcommunication\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"medevacrep_urgentpatients\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"medevacrep_prioritypatients\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"medevacrep_routinepatients\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"medevacrep_specialequipment\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"medevacrep_ambulatorycasualties\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"medevacrep_stretchercasualties\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"medevacrep_security\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"medevacrep_other\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "57914f8f-fb76-4997-a94d-d1f0a99cba07",
+  "fields": {
+    "created_at": "2017-05-03T22:15:42.557Z",
+    "updated_at": "2018-03-15T16:28:52.082Z",
+    "value": "animal_control_rep",
+    "display": "Animal Control",
+    "category": [
+      "security"
+    ],
+    "ordernum": 30,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Animal Control Report (animal_control_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"animalcontrolrep_species\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Animal Species\",\r\n               \"enum\": {{enum___animalcontrolrep_species___values}},\r\n               \"enumNames\": {{enum___animalcontrolrep_species___names}}   \r\n            },\r\n            \"animalcontrolrep_numberanimals\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Number of Animals\",\r\n                \"minimum\": 0\r\n            },\r\n            \"animalcontrolrep_reason\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Reason Animal Control Needed\"\r\n            },\r\n            \"animalcontrolrep_shotsfired\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Number of Shots Fired\",\r\n                \"minimum\": 0\r\n            }            \r\n       }\r\n   },\r\n \"definition\": [\r\n    {\r\n        \"key\":    \"animalcontrolrep_species\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"animalcontrolrep_numberanimals\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"animalcontrolrep_reason\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"animalcontrolrep_shotsfired\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "58bde7d9-4a5c-43bf-a5c7-06803a3aaec8",
+  "fields": {
+    "created_at": "2016-10-20T15:40:29.382Z",
+    "updated_at": "2018-02-07T22:20:15.975Z",
+    "value": "spoor_rep",
+    "display": "Spoor",
+    "category": [
+      "security"
+    ],
+    "ordernum": 170,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Spoor Report (spoor_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"spoorrep_type\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Type of spoor\",\r\n               \"enum\": {{enum___spoorrep_type___values}},\r\n               \"enumNames\": {{enum___spoorrep_type___names}}  \r\n            },  \r\n            \"spoorrep_numberpeopletracked\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Estimated number of people being tracked\",\r\n                \"minimum\": 0\r\n            },\r\n            \"spoorrep_bearing\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Bearing Spoor is going (0-360)\",\r\n                \"minimum\": 0,\r\n                \"maximum\": 360\r\n            },     \r\n            \"spoorrep_age\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Age of the spoor\",\r\n               \"enum\": {{enum___spoorrep_age___values}},\r\n               \"enumNames\": {{enum___spoorrep_age___names}}                \r\n            },            \r\n   \r\n            \"spoorrep_comments\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Comments/other information\"\r\n            }\r\n       }\r\n   },\r\n \"definition\": [\r\n    {\r\n        \"key\":    \"spoorrep_type\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"spoorrep_numberpeopletracked\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"spoorrep_bearing\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"spoorrep_age\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"spoorrep_comments\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "5b7bc8f2-5e08-4d26-a55a-b35ded392fa0",
+  "fields": {
+    "created_at": "2017-05-04T16:56:07.111Z",
+    "updated_at": "2018-03-12T19:04:28.436Z",
+    "value": "activity_rep",
+    "display": "Suspicious Activity",
+    "category": [
+      "security"
+    ],
+    "ordernum": 175,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Activity Report (activity_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"activityrep_whatseen\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"What was seen?\"\r\n            },\r\n            \"activityrep_bearing\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Bearing (0-360)\",\r\n                \"minimum\": 0,\r\n                \"maximum\": 360\r\n            },\r\n            \"activityrep_distance\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Distance (m)\",\r\n                \"minimum\": 0\r\n            },            \r\n            \"activityrep_patrolresponse\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Patrols Response / Intent\"\r\n            }                \r\n       }\r\n   },\r\n \"definition\": [\r\n    {\r\n        \"key\":    \"activityrep_whatseen\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"activityrep_bearing\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"activityrep_distance\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"activityrep_patrolresponse\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "6408afcf-c3b6-4f4b-a440-2d87d87f8424",
+  "fields": {
+    "created_at": "2017-02-01T01:20:02.653Z",
+    "updated_at": "2018-02-07T22:20:15.876Z",
+    "value": "incident_collection",
+    "display": "Incident Collection",
+    "category": [
+      "security"
+    ],
+    "ordernum": 70,
+    "schema": "{\r\n  \"schema\": {\r\n    \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n    \"id\": \"http://localhost/api/v1.0/activity/events/schema/incident_collection\",\r\n    \"title\": \"Incident Collection\",\r\n    \"type\": \"object\",\r\n    \"properties\": {\r\n      \"conservancy\": {\r\n                  \"type\":\"string\",\r\n                  \"title\": \"Conservancy (Incident Field)\",\r\n                  \"enum\": {{enum___conservancy___values}},\r\n                  \"enumNames\": {{enum___conservancy___names}}\r\n          },\r\n      \"station\": {\r\n          \"type\": \"string\",\r\n        \"title\": \"Reporting Station (Incident Field)\",\r\n        \"enum\": {{enum___station___values}},\r\n        \"enumNames\": {{enum___station___names}}\r\n      },\r\n    \"reportingTime\":{\r\n        \"type\": \"string\",\r\n        \"title\": \"Reporting Time (Incident Field)\"\r\n    }\r\n  }\r\n  },\r\n  \"definition\": [\"conservancy\", \"station\", \r\n    {\r\n        \"key\": \"reportingTime\",\r\n        \"fieldHtmlClass\": \"date-time-picker json-schema\",\r\n        \"readonly\": false\r\n        }\r\n        ]\r\n}",
+    "is_collection": true
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "6bf94758-c189-4fb8-96c5-6d6ad67dd8dd",
+  "fields": {
+    "created_at": "2017-05-04T16:43:37.789Z",
+    "updated_at": "2018-02-07T23:27:03.690Z",
+    "value": "mist_rep",
+    "display": "MIST",
+    "category": [
+      "security"
+    ],
+    "ordernum": 100,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"MIST Report (mist_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"mistrep_Method\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"M - Method of injury (how did the casualty occur?)\"\r\n            },\r\n            \"mistrep_Injury\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"I - Injury or Illness details\"\r\n            },\r\n            \"mistrep_Symptoms\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"S - Signs and Symptoms\"\r\n            },\r\n            \"mistrep_Treatment\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"T - Treatment given so far\"\r\n            }   \r\n       }\r\n   },\r\n \"definition\": [\r\n    {\r\n        \"key\":    \"mistrep_Method\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"mistrep_Injury\",\r\n \"type\": \"textarea\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"mistrep_Symptoms\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"mistrep_Treatment\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "6c90e5f5-ae8e-4e7f-a8dd-26e5d2909a74",
+  "fields": {
+    "created_at": "2018-02-07T22:18:27.882Z",
+    "updated_at": "2018-02-07T22:20:15.817Z",
+    "value": "accident_rep",
+    "display": "Accident",
+    "category": [
+      "security"
+    ],
+    "ordernum": 10,
+    "schema": "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"EventType Test Data\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"properties\": \r\n        {\r\n        \"type_accident\": {\r\n            \"type\": \"string\",\r\n            \"title\": \"Type of accident\"\r\n        },\r\n        \"number_people_involved\": {\r\n            \"type\": \"number\",\r\n            \"title\": \"Number of people involved\",\r\n            \"minimum\":0\r\n        },\r\n        \"animals_involved\": {\r\n            \"type\": \"string\",\r\n            \"title\": \"Animals involved\"\r\n        }\r\n    }\r\n  },\r\n  \"definition\": [\r\n    {\r\n        \"key\":     \"type_accident\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":     \"number_people_involved\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":     \"animals_involved\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }\r\n  ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "74941f0d-4b89-48be-a62a-a74c78db8383",
+  "fields": {
+    "created_at": "2017-06-06T21:49:14.580Z",
+    "updated_at": "2018-02-07T22:48:03.063Z",
+    "value": "fire_rep",
+    "display": "Fire",
+    "category": [
+      "monitoring"
+    ],
+    "ordernum": 10,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Fire Report (fire_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"firerep_status\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Status\",\r\n               \"enum\": {{enum___firerep_status___values}},\r\n               \"enumNames\": {{enum___firerep_status___names}}   \r\n            },           \r\n            \"firerep_cause\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Cause\",\r\n               \"enum\": {{enum___firerep_cause___values}},\r\n               \"enumNames\": {{enum___firerep_cause___names}}   \r\n            },           \r\n            \"firerep_direction\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Direction Fire is Moving\",\r\n               \"enum\": {{enum___firerep_direction___values}},\r\n               \"enumNames\": {{enum___firerep_direction___names}}   \r\n            }\r\n       }\r\n   },\r\n \"definition\": [\r\n    {\r\n        \"key\":    \"firerep_status\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"firerep_cause\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":     \"firerep_direction\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "8bf325e7-2880-447a-b2d8-156c66bc5708",
+  "fields": {
+    "created_at": "2017-08-02T04:14:23.781Z",
+    "updated_at": "2017-08-02T04:14:23.781Z",
+    "value": "immobility_all_clear",
+    "display": "Immobility All Clear",
+    "category": [
+      "analyzer_event"
+    ],
+    "ordernum": 301,
+    "schema": "{\n      \"schema\": {\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\",\n        \"title\": \"EventType Immobility\",\n        \"type\": \"object\",\n        \"properties\": {\n          \"details\": {\n            \"type\": \"string\",\n            \"title\": \"Details\"\n          },\n          \"name\": {\n            \"type\": \"string\",\n            \"title\": \"Name of animal\"\n          },\n          \"cluster_fix_count\": {\n            \"type\": \"number\",\n            \"title\": \"Cluster Fix Count\"\n          },\n          \"total_fix_count\": {\n            \"type\": \"number\",\n            \"title\": \"Total Fix Count\"\n          },\n          \"cluster_radius\": {\n            \"type\": \"number\",\n            \"title\": \"Cluster Search Radius\"\n          },\n          \"probability_value\": {\n            \"type\": \"number\",\n            \"title\": \"Probability\"\n          }\n        },\n        \"definition\": [\n          \"name\",\n          \"details\",\n          \"probability_value\",\n          \"total_fix_count\",\n          \"cluster_fix_count\",\n          \"cluster_radius\"\n        ]\n      }\n    }",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "8e2812d8-4ac9-4874-b1b2-1adc5ea192b5",
+  "fields": {
+    "created_at": "2017-05-04T17:16:12.830Z",
+    "updated_at": "2018-02-07T22:20:15.965Z",
+    "value": "snare_rep",
+    "display": "Snare",
+    "category": [
+      "security"
+    ],
+    "ordernum": 160,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Snare Report (snare_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"snarerep_numberofsnares\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Number of Snares Found\"\r\n            },       \r\n            \"snarerep_status\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Status\",\r\n               \"enum\": {{enum___snarerep_status___values}},\r\n               \"enumNames\": {{enum___snarerep_status___names}}   \r\n            },       \r\n            \"snarerep_action\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Planned Action\",\r\n               \"enum\": {{enum___snarerep_action___values}},\r\n               \"enumNames\": {{enum___snarerep_action___names}}   \r\n            },\r\n            \"snarerep_comments\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Comments\"\r\n            }\r\n       }\r\n   },\r\n \"definition\": [\r\n    {\r\n        \"key\":    \"snarerep_numberofsnares\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"snarerep_status\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"snarerep_action\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"snarerep_comments\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "97a18051-6fd9-4ff1-ab98-1ff1e8c17a86",
+  "fields": {
+    "created_at": "2017-05-04T16:40:49.809Z",
+    "updated_at": "2018-02-07T22:20:15.886Z",
+    "value": "light_rep",
+    "display": "Light",
+    "category": [
+      "security"
+    ],
+    "ordernum": 80,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Light Report (light_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"lightrep_whatdetected\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"What was detected\",\r\n               \"enum\": {{enum___lightrep_whatdetected___values}},\r\n               \"enumNames\": {{enum___lightrep_whatdetected___names}}   \r\n            },   \r\n            \"lightrep_bearing\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Bearing (0-360)\",\r\n                \"minimum\": 0,\r\n                \"maximum\": 360\r\n            },\r\n            \"lightrep_distance\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Distance (m)\",\r\n                \"minimum\": 0\r\n            },                                  \r\n            \"lightrep_activity\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Description of activity\"\r\n            },\r\n            \"lightrep_patrolresponse\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Patrols response/intent\"\r\n            }            \r\n       }\r\n   },\r\n \"definition\": [\r\n    {\r\n        \"key\":    \"lightrep_whatdetected\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"lightrep_bearing\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"lightrep_distance\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"lightrep_activity\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"lightrep_patrolresponse\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "984531ca-3e69-4b6a-876c-e293b81dbc75",
+  "fields": {
+    "created_at": "2016-11-01T19:07:15.477Z",
+    "updated_at": "2018-02-07T22:32:32.438Z",
+    "value": "all_posts",
+    "display": "All Posts",
+    "category": [
+      "logistics"
+    ],
+    "ordernum": 10,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"EventType Data\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n           \"post\": {\r\n               \"type\":\"string\",\r\n               \"title\": \"Post\",\r\n               \"enum\": {{enum___station___values}},\r\n               \"enumNames\": {{enum___station___names}}\r\n           },\r\n           \"numRangers\": {\r\n               \"type\": \"number\",\r\n               \"title\": \"Number of Rangers on Patrol\",\r\n               \"minimum\":0\r\n           },\r\n           \"numSickRangers\": {\r\n               \"type\": \"number\",\r\n               \"title\": \"Number of Rangers Sick\",\r\n               \"minimum\":0\r\n           },\r\n           \"numRangersOffDuty\": {\r\n               \"type\": \"number\",\r\n               \"title\": \"Number of Rangers off Duty\",\r\n               \"minimum\":0\r\n           },\r\n           \"numRangersAtPost\": {\r\n               \"type\": \"number\",\r\n               \"title\": \"Number of Rangers at Post\",\r\n               \"minimum\":0\r\n           },\r\n           \"additionalInfo\": {\r\n               \"type\":\"string\",\r\n               \"title\": \"Additional Information\"\r\n           }\r\n       }\r\n   },\r\n \"definition\": [\r\n    {\r\n        \"key\":  \"post\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    },\r\n    {\r\n        \"key\":    \"numRangers\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"numSickRangers\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"numRangersOffDuty\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"numRangersAtPost\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"additionalInfo\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "ab97075f-f5c7-4322-84a2-e04e433d5da9",
+  "fields": {
+    "created_at": "2018-02-07T22:58:07.862Z",
+    "updated_at": "2018-02-07T23:25:32.487Z",
+    "value": "radio_rep",
+    "display": "Radio Report",
+    "category": [
+      "logistics"
+    ],
+    "ordernum": 30,
+    "schema": "{\r\n    \"schema\": \r\n    {\r\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"Radio Report (radio_rep)\",\r\n      \r\n        \"type\": \"object\",\r\n\r\n        \"properties\": \r\n        {\r\n            \"radiorep_notes\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Notes\"\r\n            }\r\n        }\r\n    },\r\n  \"definition\": [\r\n    {\r\n        \"key\":    \"radiorep_notes\",\r\n        \"type\":   \"textarea\" \r\n    }\r\n  ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "b0d66402-34cb-4e9a-9715-2ac4eeebb574",
+  "fields": {
+    "created_at": "2017-06-06T21:16:19.536Z",
+    "updated_at": "2018-02-07T22:20:15.856Z",
+    "value": "carcass_rep",
+    "display": "Carcass",
+    "category": [
+      "security"
+    ],
+    "ordernum": 50,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Carcass Report (carcass_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"carcassrep_species\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Species\",\r\n               \"enum\": {{enum___carcassrep_species___values}},\r\n               \"enumNames\": {{enum___carcassrep_species___names}}   \r\n            },           \r\n            \"carcassrep_sex\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Sex of Animal\",\r\n               \"enum\": {{enum___carcassrep_sex___values}},\r\n               \"enumNames\": {{enum___carcassrep_sex___names}}   \r\n            },           \r\n            \"carcassrep_ageofanimal\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Age of Animal\",\r\n               \"enum\": {{enum___carcassrep_ageofanimal___values}},\r\n               \"enumNames\": {{enum___carcassrep_ageofanimal___names}}   \r\n            },           \r\n            \"carcassrep_ageofcarcass\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Age of Carcass\",\r\n               \"enum\": {{enum___carcassrep_ageofcarcass___values}},\r\n               \"enumNames\": {{enum___carcassrep_ageofcarcass___names}}   \r\n            },           \r\n            \"carcassrep_trophystatus\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Trophy Status\",\r\n               \"enum\": {{enum___carcassrep_trophystatus___values}},\r\n               \"enumNames\": {{enum___carcassrep_trophystatus___names}}   \r\n            },           \r\n            \"carcassrep_causeofdeath\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Cause of Death\",\r\n               \"enum\": {{enum___carcassrep_causeofdeath___values}},\r\n               \"enumNames\": {{enum___carcassrep_causeofdeath___names}}   \r\n            }      \r\n       }\r\n   },\r\n \"definition\": [\r\n    {\r\n        \"key\":    \"carcassrep_species\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"carcassrep_sex\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"carcassrep_ageofanimal\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"carcassrep_ageofcarcass\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"carcassrep_trophystatus\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"carcassrep_causeofdeath\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "b4ecee53-4b37-49b2-8ddc-b85a7d76e50c",
+  "fields": {
+    "created_at": "2017-06-06T23:11:43.735Z",
+    "updated_at": "2018-02-07T22:48:03.099Z",
+    "value": "injured_animal_rep",
+    "display": "Injured Animal",
+    "category": [
+      "monitoring"
+    ],
+    "ordernum": 30,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Injured Animal Report (injured_animal_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"injuredanimalrep_keyspecies\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Species\",\r\n                \"enum\": {{enum___injuredanimalrep_keyspecies___values}},\r\n                \"enumNames\": {{enum___injuredanimalrep_keyspecies___names}}   \r\n            },           \r\n            \"injuredanimalrep_injurycause\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Cause of Injury\",\r\n                \"enum\": {{enum___injuredanimalrep_injurycause___values}},\r\n                \"enumNames\": {{enum___injuredanimalrep_injurycause___names}}   \r\n            },           \r\n            \"injuredanimalrep_injurytype\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Type of Injury\",\r\n                \"enum\": {{enum___injuredanimalrep_injurytype___values}},\r\n                \"enumNames\": {{enum___injuredanimalrep_injurytype___names}}   \r\n            },\r\n            \"injuredanimalrep_actiontaken\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Action Taken\",\r\n                \"enum\": {{enum___injuredanimalrep_actiontaken___values}},\r\n                \"enumNames\": {{enum___injuredanimalrep_actiontaken___names}}   \r\n            }            \r\n       }\r\n   },\r\n \"definition\": [\r\n    {\r\n        \"key\":    \"injuredanimalrep_keyspecies\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"injuredanimalrep_injurycause\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"injuredanimalrep_injurytype\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"injuredanimalrep_actiontaken\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "b923ccf7-c0c4-4967-8a54-c17d27c00b80",
+  "fields": {
+    "created_at": "2017-05-04T16:47:58.420Z",
+    "updated_at": "2018-02-07T22:20:15.925Z",
+    "value": "poacher_camp_rep",
+    "display": "Poachers Camp",
+    "category": [
+      "security"
+    ],
+    "ordernum": 120,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Poacher Camp Report (poacher_camp_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"poachercamprep_status\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Status of Camp\",\r\n               \"enum\": {{enum___poachercamprep_status___values}},\r\n               \"enumNames\": {{enum___poachercamprep_status___names}}   \r\n            },\r\n            \"poachercamprep_numberofpeople\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Estimated Number of People\",\r\n                \"minimum\": 0\r\n            },\r\n            \"poachercamprep_description\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Description of what was detected\"\r\n            }                \r\n       }\r\n   },\r\n \"definition\": [\r\n    {\r\n        \"key\":    \"poachercamprep_status\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"poachercamprep_numberofpeople\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"poachercamprep_description\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "bdfffdc5-0195-4c0a-9e42-bced05f4e0c4",
+  "fields": {
+    "created_at": "2017-05-03T22:38:31.396Z",
+    "updated_at": "2018-02-08T00:04:58.892Z",
+    "value": "confiscation_rep",
+    "display": "Confiscation",
+    "category": [
+      "security"
+    ],
+    "ordernum": 60,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Confiscation Report (confiscation_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"confiscationrep_itemsconfiscated\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Items Confiscated\",\r\n                \"enum\": {{enum___confiscationrep_itemsconfiscated___values}},\r\n                \"enumNames\": {{enum___confiscationrep_itemsconfiscated___names}} \r\n            },\r\n            \"confiscationrep_numberofitems\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Number of Items\",\r\n                \"minimum\": 0\r\n            },\r\n            \"confiscationrep_weightofitems\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Weight of Items (if appropriate)\"\r\n            },\r\n            \"confiscationrep_details\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Details\"\r\n            }                   \r\n       }\r\n   },\r\n \"definition\": [\r\n    {\r\n        \"key\":    \"confiscationrep_itemsconfiscated\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"confiscationrep_numberofitems\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"confiscationrep_weightofitems\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    },\r\n    {\r\n        \"key\":    \"confiscationrep_details\",\r\n        \"type\":   \"textarea\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }    \r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "be060c4f-c8c8-4ba3-9df9-01335ab60980",
+  "fields": {
+    "created_at": "2017-06-06T22:39:40.465Z",
+    "updated_at": "2018-02-07T22:48:03.076Z",
+    "value": "hwc_rep",
+    "display": "Human Wildlife Contact",
+    "category": [
+      "monitoring"
+    ],
+    "ordernum": 20,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Human Wildlife Conflict Report (hwc_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"hwcrep_species\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Species\",\r\n               \"enum\": {{enum___hwcrep_species___values}},\r\n               \"enumNames\": {{enum___hwcrep_species___names}}   \r\n            },                      \r\n            \"hwcrep_cropdamaged\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Type of Crop Damage\",\r\n               \"enum\": {{enum___hwcrep_cropdamaged___values}},\r\n               \"enumNames\": {{enum___hwcrep_cropdamaged___names}}   \r\n            },              \r\n            \"hwcrep_livestocktypes\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Type of livestock injured/killed\",\r\n                \"enum\": {{enum___hwcrep_livestocktypes___values}},\r\n                \"enumNames\": {{enum___hwcrep_livestocktypes___names}}                   \r\n            },              \r\n            \"hwcrep_livestockInjuredKilled\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Number of livestock injured/killed\",\r\n                \"minimum\": 0\r\n            },  \r\n            \"hwcrep_humaninjury\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Human Injury\",\r\n                \"enum\": {{enum___yesno___values}},\r\n                \"enumNames\": {{enum___yesno___names}}   \r\n            },\r\n            \"hwcrep_humandeath\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Human Death\",\r\n                \"enum\": {{enum___yesno___values}},\r\n                \"enumNames\": {{enum___yesno___names}}   \r\n            },\r\n            \"hwcrep_propertydamage\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Property Damage\",\r\n                \"enum\": {{enum___yesno___values}},\r\n                \"enumNames\": {{enum___yesno___names}}   \r\n            },\r\n            \"hwcrep_propertydamagetype\":{\r\n                \"type\": \"string\",\r\n                \"title\": \"Property Damage\",\r\n                \"enum\": {{enum___hwcrep_propertydamagetype___values}},\r\n                \"enumNames\": {{enum___hwcrep_propertydamagetype___names}}\r\n            }                        \r\n       }\r\n   },\r\n \"definition\": [\r\n    {\r\n        \"key\":    \"hwcrep_species\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"hwcrep_cropdamaged\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"hwcrep_livestocktypes\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"hwcrep_livestockInjuredKilled\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"hwcrep_humaninjury\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"hwcrep_humandeath\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"hwcrep_propertydamage\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }, \r\n    {\r\n        \"key\":    \"hwcrep_propertydamagetype\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }\r\n]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "c419acac-874d-422e-8b7b-54470afe56c5",
+  "fields": {
+    "created_at": "2017-08-02T04:14:23.778Z",
+    "updated_at": "2017-08-02T04:14:23.778Z",
+    "value": "immobility",
+    "display": "Immobility",
+    "category": [
+      "analyzer_event"
+    ],
+    "ordernum": 300,
+    "schema": "{\n      \"schema\": {\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\",\n        \"title\": \"EventType Immobility\",\n        \"type\": \"object\",\n        \"properties\": {\n          \"details\": {\n            \"type\": \"string\",\n            \"title\": \"Details\"\n          },\n          \"name\": {\n            \"type\": \"string\",\n            \"title\": \"Name of animal\"\n          },\n          \"cluster_fix_count\": {\n            \"type\": \"number\",\n            \"title\": \"Cluster Fix Count\"\n          },\n          \"total_fix_count\": {\n            \"type\": \"number\",\n            \"title\": \"Total Fix Count\"\n          },\n          \"cluster_radius\": {\n            \"type\": \"number\",\n            \"title\": \"Cluster Search Radius\"\n          },\n          \"probability_value\": {\n            \"type\": \"number\",\n            \"title\": \"Probability\"\n          }\n        },\n        \"definition\": [\n          \"name\",\n          \"details\",\n          \"probability_value\",\n          \"total_fix_count\",\n          \"cluster_fix_count\",\n          \"cluster_radius\"\n        ]\n      }\n    }",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "cb2d66c0-7e17-4bc5-af17-d8cc3c454c2a",
+  "fields": {
+    "created_at": "2018-02-07T22:49:33.071Z",
+    "updated_at": "2018-03-12T19:01:01.336Z",
+    "value": "invasive_species_rep",
+    "display": "Invasive Species",
+    "category": [
+      "hidden"
+    ],
+    "ordernum": 40,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Invasive Species (invasive_species_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"invasivespeciesrep_species\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Species\",\r\n                \"enum\": {{enum___invasivespeciesrep_species___values}},\r\n                \"enumNames\": {{enum___invasivespeciesrep_species___names}}\r\n            },\r\n            \"invasivespeciesrep_density\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Density\",\r\n                \"enum\": {{enum___invasivespeciesrep_density___values}},\r\n                \"enumNames\": {{enum___invasivespeciesrep_density___names}}\r\n            },\r\n            \"invasivespeciesrep_phenologicalstate\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Phenological State \",\r\n                \"enum\": {{enum___invasivespeciesrep_phenologicalstate___values}},\r\n                \"enumNames\": {{enum___invasivespeciesrep_phenologicalstate___names}}\r\n            }                  \r\n       }\r\n   },\r\n \"definition\": [\r\n    {\r\n        \"key\":    \"invasivespeciesrep_species\",\r\n        \"htmlClass\": \"col-lg-6\"  \r\n    },        \r\n    {\r\n        \"key\":    \"invasivespeciesrep_density\",\r\n        \"htmlClass\": \"col-lg-6\"  \r\n    },\r\n    {\r\n        \"key\":    \"invasivespeciesrep_phenologicalstate\",\r\n        \"htmlClass\": \"col-lg-6\"  \r\n    }      \r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "d17b0bd4-3866-41fe-b335-7100451d8e97",
+  "fields": {
+    "created_at": "2017-06-16T21:37:31.504Z",
+    "updated_at": "2018-02-07T22:55:58.779Z",
+    "value": "rainfall_rep",
+    "display": "Rainfall",
+    "category": [
+      "monitoring"
+    ],
+    "ordernum": 50,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Rainfall Report (rainfall_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"rainfallrep_location\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Location\"\r\n            },\r\n            \"rainfallrep_rainfall\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Rainfall (mm)\",\r\n                \"minimum\": 0\r\n              }\r\n       }\r\n   },\r\n \"definition\": [\r\n    {\r\n        \"key\": \"rainfallrep_location\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    },\r\n    {\r\n        \"key\": \"rainfallrep_rainfall\",\r\n        \"htmlClass\": \"col-lg-6\"\r\n    }\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "e8738d5f-9fbb-4601-bce5-59d52ca6174f",
+  "fields": {
+    "created_at": "2018-02-07T21:58:32.133Z",
+    "updated_at": "2018-02-07T22:20:15.935Z",
+    "value": "ranger_shot_rep",
+    "display": "Ranger Shot",
+    "category": [
+      "security"
+    ],
+    "ordernum": 130,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Ranger Shot Report (ranger_shot_rep)\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n            \"rangershotrep_ranger\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Name of Ranger\"\r\n            }, \r\n            \"rangershotrep_numberofrounds\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Number Of Rounds\"\r\n            },\r\n            \"rangershotrep_typeofrounds\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Type Of Rounds\",\r\n                \"enum\": {{enum___rangershotrep_typeofrounds___values}},\r\n                \"enumNames\": {{enum___rangershotrep_typeofrounds___names}}                  \r\n            },                \r\n            \"rangershotrep_target\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Target\",\r\n                \"enum\": {{enum___rangershotrep_target___values}},\r\n                \"enumNames\": {{enum___rangershotrep_target___names}}                 \r\n            }                  \r\n\r\n       }\r\n   },\r\n \"definition\": [\r\n    {\r\n        \"key\":    \"rangershotrep_ranger\",\r\n        \"htmlClass\": \"col-lg-6\"  \r\n    },        \r\n\r\n    {\r\n        \"key\":    \"rangershotrep_numberofrounds\",\r\n        \"htmlClass\": \"col-lg-6\"  \r\n    },\r\n    {\r\n        \"key\":    \"rangershotrep_typeofrounds\",\r\n        \"htmlClass\": \"col-lg-6\"  \r\n    },\r\n    {\r\n        \"key\":    \"rangershotrep_target\",\r\n        \"htmlClass\": \"col-lg-6\"  \r\n    }\r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "f804e01e-006d-41d0-aa7d-fe6e798e4852",
+  "fields": {
+    "created_at": "2016-10-20T15:40:03.222Z",
+    "updated_at": "2018-02-07T22:20:15.945Z",
+    "value": "shot_rep",
+    "display": "Shot",
+    "category": [
+      "security"
+    ],
+    "ordernum": 140,
+    "schema": "{\r\n   \"schema\": \r\n   {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Shot Report\",\r\n     \r\n       \"type\": \"object\",\r\n\r\n       \"properties\": \r\n       {\r\n          \r\n            \"shotrep_timeofshot\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Time when shot was heard\"\r\n            },          \r\n            \"shotrep_bearing\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Bearing to Shot (0-360)\",\r\n                \"minimum\": 0,\r\n                \"maximum\":  360\r\n            },                      \r\n            \"shotrep_distance\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Distance of Shots (m)\",\r\n                \"minimum\": 0\r\n            },                      \r\n            \"shotrep_numberofshots\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Number of Shots\",\r\n                \"minimum\": 0\r\n            },\r\n            \"shotrep_typeofshots\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Rate of Fire\",\r\n                \"enum\": {{enum___shotrep_typeofshot___values}},\r\n                \"enumNames\": {{enum___shotrep_typeofshot___names}}                  \r\n            },              \r\n            \"shotrep_estimatedcaliber\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Estimated Caliber\",\r\n                \"enum\": {{enum___shotrep_estimatedcaliber___values}},\r\n                \"enumNames\": {{enum___shotrep_estimatedcaliber___names}}                  \r\n            },\r\n            \"shotrep_patrolresponse\": {\r\n                \"type\": \"string\",\r\n                \"title\": \"Patrols Response / Intent\"\r\n            }\r\n       }\r\n   },\r\n \"definition\": [\r\n   {\r\n   \"key\": \"shotrep_timeofshot\",\r\n   \"fieldHtmlClass\": \"date-time-picker json-schema\",\r\n   \"readonly\": false,\r\n   \"htmlClass\": \"col-lg-6\"   \r\n   },   \r\n   {\r\n   \"key\": \"shotrep_bearing\",\r\n   \"htmlClass\": \"col-lg-6\"\r\n   }, \r\n   {  \r\n   \"key\": \"shotrep_distance\",\r\n   \"htmlClass\": \"col-lg-6\"\r\n   }, \r\n   {    \r\n   \"key\": \"shotrep_numberofshots\",\r\n   \"htmlClass\": \"col-lg-6\"\r\n   },  \r\n   {   \r\n   \"key\": \"shotrep_typeofshots\",\r\n   \"htmlClass\": \"col-lg-6\"\r\n   },    \r\n   { \r\n   \"key\": \"shotrep_estimatedcaliber\",\r\n   \"htmlClass\": \"col-lg-6\"\r\n   },   \r\n   {  \r\n   \"key\": \"shotrep_patrolresponse\",\r\n   \"htmlClass\": \"col-lg-6\"\r\n   }    \r\n ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "4ca23976-1af4-4887-bd59-673b08a9d505",
+  "fields": {
+    "created_at": "2017-10-18T12:45:17.160Z",
+    "updated_at": "2017-11-06T20:23:08.552Z",
+    "value": "low_speed_wilcoxon",
+    "display": "Low Speed (Wilcoxon)",
+    "category": [
+      "analyzer_event"
+    ],
+    "ordernum": 410,
+    "schema": "{\"schema\": {\"definition\": [\"name\", \"details\", \"low_speed_probability_cutoff\", \"low_speed_probability\",\r\n                               \"total_fix_count\"],\r\n                \r\n                \"properties\": {\"name\": \r\n                               {\"title\": \"Name of subject\", \"type\": \"string\"},\r\n                               \"low_speed_probability_cutoff\": \r\n                               {\"title\": \"Low Speed Threshold Probability\", \"type\": \"number\"},\r\n                               \"low_speed_probability\": \r\n                               {\"title\": \"Low Speed Probability Value\", \"type\": \"number\"},\r\n                \"total_fix_count\": {\"title\": \"Total Fix Count\", \"type\": \"number\"}},\r\n     \"title\": \"EventType Low Speed Wilcox\", \"type\": \"object\", \"$schema\": \"http://json-schema.org/draft-04/schema#\"}}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "54be0cc4-f42b-4602-bce5-4316e484b833",
+  "fields": {
+    "created_at": "2017-10-31T20:37:09.949Z",
+    "updated_at": "2017-11-06T20:31:35.868Z",
+    "value": "low_speed_wilcoxon_all_clear",
+    "display": "Low Speed (Wilcoxon) All Clear",
+    "category": [
+      "analyzer_event"
+    ],
+    "ordernum": 411,
+    "schema": "{\"schema\": {\"$schema\": \"http://json-schema.org/draft-04/schema#\", \"definition\": [\"name\", \"details\", \"low_speed_threshold_probability\", \"low_speed_probability\", \"total_fix_count\"], \"properties\": {\"name\": {\"title\": \"Name of subject\", \"type\": \"string\"}, \"details\": {\"title\": \"Details\", \"type\": \"string\"}, \"low_speed_threshold_probability\": {\"title\": \"Low Speed Threshold Percentile\", \"type\": \"number\"}, \"low_speed_probability\": {\"title\": \"Low Speed Threshold Value\", \"type\": \"number\"}, \"total_fix_count\": {\"title\": \"Total Fix Count\", \"type\": \"number\"}}, \"title\": \"EventType Low Speed Wilcox All Clear\", \"type\": \"object\"}}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "57943092-b817-43cc-a67c-c7704e59f6ea",
+  "fields": {
+    "created_at": "2017-10-31T20:35:45.341Z",
+    "updated_at": "2017-11-06T20:24:25.487Z",
+    "value": "geofence_break",
+    "display": "Geofence Break",
+    "category": [
+      "analyzer_event"
+    ],
+    "ordernum": 420,
+    "schema": "{\"schema\": {\"title\": \"EventType Geofencing\", \"type\": \"object\", \"properties\": {\"name\": {\"title\": \"Name of subject\", \"type\": \"string\"}, \"total_fix_count\": {\"title\": \"Total Fix Count\", \"type\": \"number\"}, \"subject_heading\": {\"title\": \"Subject Heading\", \"type\": \"number\"}, \"contain_regions\": {\"title\": \"Current Region\", \"type\": \"string\"}, \"details\": {\"title\": \"Details\", \"type\": \"string\"}, \"subject_speed_kmhr\": {\"title\": \"Subject Speed\", \"type\": \"number\"}, \"geofence_name\": {\"title\": \"Geofence Name\", \"type\": \"string\"}}, \"definition\": [\"name\", \"details\", \"geofence_name\", \"contain_regions\", \"subject_speed_kmhr\", \"subject_heading\", \"total_fix_count\"], \"$schema\": \"http://json-schema.org/draft-04/schema#\"}}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "cd86aa65-d0ba-41a3-a138-afcfbdc8e5f2",
+  "fields": {
+    "created_at": "2017-10-18T13:02:23.969Z",
+    "updated_at": "2017-11-16T20:06:18.573Z",
+    "value": "low_speed_percentile",
+    "display": "Low Speed (Percentile)",
+    "category": [
+      "analyzer_event"
+    ],
+    "ordernum": 412,
+    "schema": "{\"schema\": {\"definition\": [\"name\", \"details\", \"low_speed_threshold_percentile\", \"low_speed_threshold_value\", \"current_median_speed_value\", \"total_fix_count\"], \"properties\": {\"low_speed_threshold_percentile\": {\"title\": \"Low Speed Threshold Percentile\", \"type\": \"number\"}, \"low_speed_threshold_value\": {\"title\": \"Low Speed Threshold Value\", \"type\": \"number\"}, \"details\": {\"title\": \"Details\", \"type\": \"string\"}, \"cur_median_speed\": {\"title\": \"Current Median Speed\", \"type\": \"number\"}, \"name\": {\"title\": \"Name of subject\", \"type\": \"string\"}, \"total_fix_count\": {\"title\": \"Total Fix Count\", \"type\": \"number\"}}, \"title\": \"EventType Low Speed Percentile\", \"type\": \"object\", \"$schema\": \"http://json-schema.org/draft-04/schema#\"}}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "c96620be-9d3d-416c-86e6-c0daa64a7063",
+  "fields": {
+    "created_at": "2017-11-16T20:05:54.543Z",
+    "updated_at": "2017-11-16T21:03:15.158Z",
+    "value": "proximity",
+    "display": "Proximity",
+    "category": [
+      "analyzer_event"
+    ],
+    "ordernum": 500,
+    "schema": "{\r\n\t\"schema\": {\r\n\t\t\"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n\t\t\"title\": \"EventType Proximity\",\r\n\t\t\"type\": \"object\",\r\n\t\t\"definition\": [\r\n\t\t\t\"name\",\r\n\t\t\t\"details\",\r\n\t\t\t\"spatial_feature_name\",\r\n\t\t\t\"subject_speed_kmhr\",\r\n\t\t\t\"subject_heading\",\r\n\t\t\t\"total_fix_count\",\r\n\t\t\t\"proximity_dist_meters\"],\r\n\t\t\"properties\": {\r\n\t\t\t\"name\": {\"title\": \"Name of subject\", \"type\": \"string\"},\r\n\t\t\t\"details\": {\"title\": \"Details\", \"type\": \"string\"},\r\n\t\t\t\"spatial_feature_name\": {\"title\": \"Spatial Feature Name\", \"type\": \"string\"},\r\n\t\t\t\"subject_speed_kmhr\": {\"title\": \"Subject Speed\", \"type\": \"number\"},\r\n\t\t\t\"subject_heading\": {\"title\": \"Subject Heading\", \"type\": \"number\"},\r\n\t\t\t\"total_fix_count\": {\"title\": \"Total Fix Count\", \"type\": \"number\"},\r\n\t\t\t\"proximity_dist_meters\": {\"title\": \"Proximity Distance Meters\", \"type\": \"number\"}\r\n\t\t}\r\n\t}\t\t\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "f0fee29f-685a-4bda-9d93-88a584086187",
+  "fields": {
+    "created_at": "2017-10-23T20:34:13.523Z",
+    "updated_at": "2017-10-23T20:48:50.419Z",
+    "value": "cameratrap_rep",
+    "display": "Camera Trap",
+    "category": [
+      "security"
+    ],
+    "ordernum": null,
+    "schema": "{\r\n  \"schema\": {\r\n    \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n    \"title\": \"Camera Trap Event Schema\",\r\n    \"type\": \"object\",\r\n    \"properties\": {\r\n      \"cameratraprep_camera-name\": {\r\n        \"type\": \"string\",\r\n        \"title\": \"Camera Name\"\r\n      },\r\n      \"cameratraprep_camera-make\": {\r\n        \"type\": \"string\",\r\n        \"title\": \"Camera Make\"\r\n      },\r\n      \"cameratraprep_camera-version\": {\r\n        \"type\": \"string\",\r\n        \"title\": \"Camera Version\"\r\n      }\r\n    }\r\n  },\r\n  \"definition\": [\r\n    {\r\n      \"key\": \"cameratraprep_camera-name\",\r\n      \"htmlClass\": \"col-lg-6\"\r\n    },\r\n    {\r\n      \"key\": \"cameratraprep_camera-make\",\r\n      \"htmlClass\": \"col-lg-6\"\r\n    },\r\n    {\r\n      \"key\": \"cameratraprep_camera-version\",\r\n      \"htmlClass\": \"col-lg-6\"\r\n    }\r\n  ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "42983691-0bd5-4cc1-8af4-60d5137e5ff0",
+  "fields": {
+    "created_at": "2021-02-04T00:00:00.000Z",
+    "updated_at": "2021-02-04T00:00:00.000Z",
+    "value": "entry_alert_rep",
+    "display": "Entry Alert",
+    "category": [
+      "security"
+    ],
+    "ordernum": 500,
+    "schema": "{\r\n   \"schema\": {\r\n       \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n       \"title\": \"Entry Alert\",\r\n       \"type\": \"object\",\r\n       \"properties\": {\r\n            \"entry_headed\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Heading at entry (deg)\"\r\n              },\r\n            \"entry_speed\": {\r\n                \"type\": \"number\",\r\n                \"title\": \"Speed at entry (knots)\"\r\n              }\r\n       }\r\n   },\r\n \"definition\": [\r\n    \"entry_headed\",\r\n    \"entry_speed\"\r\n ]\r\n}\r\n",
+    "is_collection": false,
+    "default_priority": 200
+  }
+}
+]

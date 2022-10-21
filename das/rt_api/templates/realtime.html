@@ -1,0 +1,459 @@
+<html>
+<head>
+    <title>Realtime Test Harness</title>
+
+    <style type="text/css">
+        body {
+            font-size: 10pt;
+            padding: 10px;
+            color: #222;
+            font-family: consolas, arial;
+        }
+
+        textarea {
+            font-family: consolas, arial;
+        }
+
+        #left-side {
+{#            display: block;#}
+            width: 35%;
+{#            float:left;#}
+{#            clear:left;#}
+        }
+        #right-side {
+            width:100%;
+        }
+        #event_filter_message {
+            display:none;
+            margin-bottom:10px;
+
+        }
+        pre {
+           background-color: #f5f5f5;
+           border: 1px solid silver;
+           padding: 10px 20px;
+           margin: 20px;
+            border-radius: 5px;
+            font-size: 8pt;
+           }
+        .json-key {
+           color: navy;
+        }
+        .json-value {
+           color: green;
+        }
+        .json-string {
+           color: darkgreen;
+        }
+
+        .form-button {
+            border: 1px solid silver;
+            border-radius: 5px;
+            font-size: 9pt;
+            font-weight: bold;
+            display:inline;
+            padding: 2px 4px;
+            background-color: #f5f5f5;
+            cursor: pointer;
+        }
+        .flexcontainer {
+            border: 1px solid #096380;
+            border-radius: 5px;
+            padding: 4px;
+            display: -webkit-flex;
+            display: flex;
+            margin:5px;
+        }
+        .right {
+           -webkit-flex-direction: column;
+           flex-direction: column;
+           -webkit-align-items: flex-end;
+           align-items: flex-end;
+        }
+
+        .left {
+           -webkit-flex-direction: column;
+           flex-direction: column;
+           -webkit-align-items: flex-start;
+           align-items: flex-start;
+        }
+
+        .row-left {
+           -webkit-flex-direction: row;
+           flex-direction: row;
+            -webkit-justify-content: flex-start;
+            justify-content:flex-start;
+        }
+
+        .container-header {
+            font-weight: bold;
+            display:inline-block;
+            margin-bottom:10px;
+        }
+
+        #login_form {
+            -webkit-flex: 1 0 0;
+            flex: 1 0 0;
+            padding:5px;
+        }
+
+        #login_status {
+            -webkit-flex: 5 0 0;
+            flex: 5 0 0;
+        }
+        .borderless {
+            border: none;
+        }
+        .seeme {
+            color:#c00;
+        }
+
+    </style>
+    <script type="text/javascript" src="//code.jquery.com/jquery-1.4.2.min.js"></script>
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.4.5/socket.io.min.js"></script>
+
+</head>
+<body>
+
+<div id="header-messgae" class="flexcontainer borderless left">
+    <strong>EarthRanger Realtime Test Harness - Instructions</strong>
+    <p>Use this page to experiment with socket connections for EarthRanger. You can login with EarthRanger credentials, and if you see
+        a valid Oauth2 token appear on the left, then you're in.</p>
+    <p>A successful login will pre-populate the <em>Connect</em> form. <span class="seeme">It's up to you to click connect, and when you
+        do you'll see a message in the Responses section.</span>
+    </p>
+</div>
+<div id="top-content" class="flexcontainer row-left borderless">
+
+
+
+    <div id='signin-section' class="flexcontainer left">
+
+        <div class="container-header flexcontainer row-left borderless">Sign In</div>
+
+        <div class="flexcontainer borderless row-left">
+            <div id="login_form" class="flexcontainer right borderless">
+                <form id="loginform">
+                <div>
+                    <label for="username">Username: </label><input name="username" id="username" type="text">
+                </div>
+                <div>
+                    <label for="password">Password: </label><input name="password" id="password" type="password">
+                </div>
+                </form>
+                <button class="form-button" onclick='login(document.querySelector("#login_status"));'>sign in
+                </button>
+            </div>
+        </div>
+    </div>
+    <div id='login_status' class="flexcontainer left"></div>
+</div>
+
+<div id="page-content" class="flexcontainer row-left borderless">
+    <div id="left-side" class="flexcontainer left">
+        <div class="container-header">Realtime Messages</div>
+
+        <form id="connect" method="POST" action='#'>
+            <input type="text" name="bearer_token" id="bearer_token" placeholder="Token">
+            <input type="submit" value="Connect">
+             {% csrf_token %}
+        </form>
+        <form id="emit" method="POST" action='#'>
+            <input type="text" name="emit_data" id="emit_data" placeholder="Message">
+            <input type="submit" value="Echo">
+             {% csrf_token %}
+        </form>
+        <form id="bbox" method="POST" action='#'>
+            <input type="text" name="bbox_data" id="bbox_data" placeholder="Message">
+            <input type="submit" value="Send bbox">
+             {% csrf_token %}
+        </form>
+        <form id="event_filter" method="POST" action='#'>
+            <textarea width="40" height="6" id="event_filter_data" name="event_filter_data" placeholder="{event_filter}"></textarea>
+            <input type="submit" value="Send event_filter">
+             {% csrf_token %}
+        </form>
+        <div id="event_filter_message"></div>
+        <form id="broadcast" method="POST" action='#'>
+            <input type="text" name="broadcast_data" id="broadcast_data" placeholder="Message">
+            <input type="submit" value="Broadcast">
+             {% csrf_token %}
+        </form>
+        <form id="join" method="POST" action='#'>
+            <input type="text" name="join_room" id="join_room" placeholder="Room Name">
+            <input type="submit" value="Join Room">
+             {% csrf_token %}
+        </form>
+        <form id="leave" method="POST" action='#'>
+            <input type="text" name="leave_room" id="leave_room" placeholder="Room Name">
+            <input type="submit" value="Leave Room">
+             {% csrf_token %}
+        </form>
+        <form id="send_room" method="POST" action='#'>
+            <input type="text" name="room_name" id="room_name" placeholder="Room Name">
+            <input type="text" name="room_data" id="room_data" placeholder="Message">
+            <input type="submit" value="Send to Room">
+             {% csrf_token %}
+        </form>
+        <form id="close" method="POST" action="#">
+            <input type="text" name="close_room" id="close_room" placeholder="Room Name">
+            <input type="submit" value="Close Room">
+             {% csrf_token %}
+        </form>
+        <form id="disconnect" method="POST" action="#">
+            <input type="submit" value="Disconnect">
+             {% csrf_token %}
+        </form>
+    </div>
+    <div id="right-side" class="flexcontainer left">
+        <div class="container-header">Responses
+            <button class="form-button" onclick='document.querySelector("#log").innerHTML = "";'>clear log
+            </button>
+        </div>
+        <div id="log"></div>
+    </div>
+</div>
+</body>
+<script type='text/javascript'>
+
+    var DasClient = (function (username, password) {
+
+        var authToken = null;
+        var service_root = '/';
+
+        var get_user = function (success, error) {
+            var h = new Headers();
+            h.append('Authorization', 'Bearer ' + authToken['access_token']);
+
+            fetch(service_root + 'api/v1.0/user/me',
+                {
+                    credentials: 'include',
+                    headers: h,
+                    method: 'GET'
+
+                }).then(function (response) {
+                return response.json();
+            }).then(function (data) {
+                var username = data.data.username;
+                console.log('username: ' + username);
+                success(data);
+            });
+        };
+
+        var authenticate = function (callback) {
+            authForm = new FormData();
+            authForm.append('grant_type', 'password');
+            authForm.append('client_id', 'das_web_client');
+            authForm.append('username', username);
+            authForm.append('password', password);
+
+            // h.append('Content-Type', 'application/javascript');
+            console.log('authForm: ' + authForm);
+            fetch(service_root + 'oauth2/token',
+                {
+                    credentials: 'include',
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    method: "POST",
+                    body: authForm
+                }).then(function (response) {
+                return response.json();
+            }).then(function (data) {
+                console.log('auth data: ' + JSON.stringify(data));
+                return data;
+            }).then(function (data) {
+                authToken = data;
+                $('#bearer_token').val(authToken.access_token);
+                callback(data);
+            });
+        };
+        var get_status = function (callback) {
+            fetch(service_root + 'api/v1.0/status').then(function (response) {
+                return response.json();
+            }).then(function (data) {
+                callback(data);
+            })
+        };
+
+        var get_authToken = function () {
+            return authToken;
+        };
+
+        return {
+            get_user: get_user,
+            authenticate: authenticate,
+            get_status: get_status,
+            get_authToken: get_authToken
+        };
+
+
+    });
+
+    var dasclient;
+
+    var login = function (elem) {
+
+        dasclient = DasClient(document.querySelector('#username').value, document.querySelector('#password').value);
+        elem.innerHTML = 'logging in...';
+        dasclient.authenticate((data) => {
+            elem.innerHTML = pp.json.prettypre(data);
+        });
+    };
+
+
+</script>
+
+    <script type="text/javascript">
+            $(document).ready(function(){
+            namespace = '/das'; // change to an empty string to use the global namespace
+            var socket = null;
+
+            // handlers for the different forms in the page
+            // these send data to the server in a variety of ways
+            $('form#connect').submit(function(event) {
+                if (socket !== null)
+                {
+                    socket.open();
+                }
+                else {
+                   socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port + namespace);
+                }
+                // event handler for server sent data
+                // the data is displayed in the "Received" section of the page
+                socket.on('resp_authorization', function(msg) {
+                    $('#log').prepend('<br>authorization response: ' + pp.json.prettypre(msg));
+                });
+
+                // event handler for new connections
+                socket.on('connect', function() {
+                    socket.emit('authorization', {'type': 'authorization', 'id': 1, authorization: 'Bearer ' + $('#bearer_token').val()});
+                });
+
+                socket.on('echo_resp', function(msg, callback){
+                    $('#log').prepend('<br>echo response: ' + pp.json.prettypre(msg));
+                    callback('a', 1, 'b');
+                });
+
+                socket.on('bbox_resp', function(msg){
+                    $('#log').prepend('<br>bbox reponse: ' + pp.json.prettypre(msg));
+                });
+
+                socket.on('event_filter_response', function(msg, callback){
+                    $('#log').prepend('<br>event_filter_response: ' + pp.json.prettypre(msg));
+                    callback('got it.');
+                });
+
+                // socket.on('subject_position_update', function(msg) {
+                //     $('#log').prepend('<br>position update:  ' + pp.json.prettypre(msg));
+                // });
+
+                socket.on('new_event', function(msg, callback) {
+                    $('#log').prepend('<br>new event:  ' + pp.json.prettypre(msg));
+                    callback('got it');
+                });
+
+                socket.on('update_event', function(msg) {
+                    $('#log').prepend('<br>update event:  ' + pp.json.prettypre(msg));
+                });
+
+                socket.on('delete_event', function(msg) {
+                    $('#log').prepend('<br>delete event:  ' + pp.json.prettypre(msg));
+                });
+
+                socket.on('service_status', function(msg) {
+                    $('#log').prepend('<br>service status:  ' + pp.json.prettypre(msg));
+                });
+
+                socket.on('disconnect', function() {
+                     $('#log').prepend('<br>disconnect');
+                    //socket = null;
+                });
+                return false;
+            });
+            $('form#emit').submit(function(event) {
+                socket.emit('echo', {data: $('#emit_data').val()});
+                return false;
+            });
+            $('form#bbox').submit(function(event) {
+                socket.emit('bbox', {data: $('#bbox_data').val()});
+                return false;
+            });
+            $('form#event_filter').submit(function(event) {
+
+                var message = document.querySelector('#event_filter_message');
+                var filter_data = $('#event_filter_data').val();
+                try {
+                    JSON.parse(filter_data);
+                    message.style.display = 'none';
+                }
+                catch (e) {
+                    message.innerHTML = 'That does not look like valid JSON.';
+                    message.style.display = 'block';
+                    message.style.color = '#b00';
+                    message.style.fontSize = '9pt';
+                    return false;
+                }
+
+                console.log('event_filter submitting. event_filter=' + filter_data);
+                filter_data = JSON.parse(filter_data)
+                socket.emit('event_filter', filter_data);
+                return false;
+            });
+            $('form#broadcast').submit(function(event) {
+                socket.emit('my broadcast event', {data: $('#broadcast_data').val()});
+                return false;
+            });
+            $('form#join').submit(function(event) {
+                socket.emit('join', {room: $('#join_room').val()});
+                return false;
+            });
+            $('form#leave').submit(function(event) {
+                socket.emit('leave', {room: $('#leave_room').val()});
+                return false;
+            });
+            $('form#send_room').submit(function(event) {
+                socket.emit('my room event', {room: $('#room_name').val(), data: $('#room_data').val()});
+                return false;
+            });
+            $('form#close').submit(function(event) {
+                socket.emit('close room', {room: $('#close_room').val()});
+                return false;
+            });
+            $('form#disconnect').submit(function(event) {
+                socket.disconnect()
+                return false;
+            });
+        });
+    </script>
+
+
+    <script type="text/javascript">
+        if (!pp)
+            var pp = {};
+
+        pp.json = {
+            replacer: function (match, pIndent, pKey, pVal, pEnd) {
+                var key = '<span class=json-key>';
+                var val = '<span class=json-value>';
+                var str = '<span class=json-string>';
+                var r = pIndent || '';
+                if (pKey)
+                    r = r + key + pKey.replace(/[": ]/g, '') + '</span>: ';
+                if (pVal)
+                    r = r + (pVal[0] == '"' ? str : val) + pVal + '</span>';
+                return r + (pEnd || '');
+            },
+            pretty: function (obj) {
+                var jsonLine = /^( *)("[\w]+": )?("[^"]*"|[\w.+-]*)?([,[{])?$/mg;
+                return JSON.stringify(obj, null, 3)
+                    .replace(/&/g, '&amp;').replace(/\\"/g, '&quot;')
+                    .replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                    .replace(jsonLine, pp.json.replacer);
+            },
+            prettypre: function(obj) {
+                return '<pre>' + pp.json.pretty(obj) + '</pre>';
+            }
+        };
+    </script>
+</html>

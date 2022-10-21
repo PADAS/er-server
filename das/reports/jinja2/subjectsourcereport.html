@@ -1,0 +1,46 @@
+<h3>Collar Source Report - created: {{ report_date.strftime('%b %d, %Y %H:%M (UTC)') }}</h3>
+
+<div style="width:980px;padding:8px;border:1px solid gray;">
+    <div><strong>Colors indicate freshness of location data.</strong></div>
+{% for item in report_legend %}
+   <div style="{{ item.styles }}">{{ item.text }}</div>
+{% endfor %}
+
+    <p>
+        * Analyzers Summary column indicate the number (if any) of occurrences for each type of analyzer within the latest twenty-four hours of data for a subject.
+    </p>
+</div>
+
+{%  for group in groups|sort(attribute='sort_key') %}
+    <div style="width:1000px;padding:5px;">
+        <h3>{{ group.species }} - {{ group.region }}</h3>
+        <table style="border:1px solid gray;padding:3px;width:990px;border-collapse: collapse;">
+        <tr style="background-color:#afd9ee;font-weight:bold;">
+            <th style="border:1px solid gray;padding:3px;">Model</th>
+            <th style="border:1px solid gray;padding:3px;">Collar Id</th>
+            <th style="border:1px solid gray;padding:3px;">Name</th>
+            <th style="border:1px solid gray;padding:3px;">Freq (Mhz)</th>
+            <th style="border:1px solid gray;padding:3px;">Voltage</th>
+            <th style="border:1px solid gray;padding:3px;">Data Starts</th>
+            <th style="border:1px solid gray;padding:3px;">Last At</th>
+            <th style="border:1px solid gray;padding:3px;">Time Since</th>
+            <th style="border:1px solid gray;padding:3px;">Perf. (nofilt filt)</th>
+            <th style="border:1px solid gray;padding:3px;">Analyzers Summary</th>
+        </tr>
+        {% for item in group.subjects|sort(attribute='name') %}
+            <tr>
+                <td style="border:1px solid gray;padding:3px;">{{ item.model_name }}</td>
+                <td style="border:1px solid gray;padding:3px;">{{ item.manufacturer_id }}</td>
+                <td style="border:1px solid gray;padding:3px;">{{  item.name }}</td>
+                <td style="border:1px solid gray;padding:3px;">{{ item.frequency }}</td>
+                <td style="border:1px solid gray;padding:3px;">{{ item.voltage }}</td>
+                <td style="border:1px solid gray;padding:3px;">{{  item.data_starts.strftime('%b %d, %Y %H:%M') if item.data_starts else 'no-value'}}</td>
+                <td style="border:1px solid gray;padding:3px;">{{ item.latest_observation_at.strftime('%b %d, %Y %H:%M') if item.latest_observation_at else 'no-data' }}</td>
+                <td style="border:1px solid gray;padding:3px;{{ item.styles.time_since_last|default('') }}">{{ item.time_since_last }}</td>
+                <td style="text-align:right;border:1px solid gray;padding:3px;">{{ item.performance[0] }} - {{ item.performance[1] }}</td>
+                <td style="border:1px solid gray;padding:3px;">{{ item.analyzers_summary }}</td>
+            </tr>
+        {% endfor %}
+        </table>
+    </div>
+{% endfor %}

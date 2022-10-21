@@ -1,0 +1,5 @@
+{% for header in event_types.combined_headers %}{{ header | safe }},{%- endfor -%} {% for event_type in event_types.event_export_data %} {% for event in event_type.events %}
+{{ event.event_type }},{{ event.event_type_internal }},{{ event.serial }},{{ event.title | safe}},{{ event.priority }},{{ event.priority_internal }},{{ event.status }},{{ event.reported_by | safe }},{{ event.reported_at }},{{ event.lat }},{{ event.lon }},{{ event.num_notes }},{{ event.notes | safe }},{{ event.num_attach }},{{ event.parent_event_serial_numbers }},,{% for header in event_types.custom_headers %}{{ event.details[header] | default ('') | safe }},
+{%- endfor -%}
+{%- endfor -%}
+{%- endfor -%}

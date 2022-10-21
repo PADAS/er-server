@@ -1,0 +1,230 @@
+[
+  {
+    "fields": {
+      "additional": {
+        "note": "test for junk fix"
+      },
+      "created_at": "2015-05-04T00:00:00+00:00",
+      "updated_at": "2015-05-04T00:00:00+00:00",
+      "name": "Junkie",
+      "subject_subtype_id": "elephant"
+    },
+    "pk": "0fa8ec9a-7e92-4575-9575-df202d5dde25",
+    "model": "observations.subject"
+  },
+  {
+    "fields": {
+      "id": "d5a4caf1-ae67-4bdd-8347-31d92ba84160",
+      "name": "elephant subjet group",
+      "subjects": ["0fa8ec9a-7e92-4575-9575-df202d5dde25"],
+      "created_at": "2015-05-04T00:00:00+00:00",
+      "updated_at": "2015-05-04T00:00:00+00:00"
+    },
+    "pk": "d5a4caf1-ae67-4bdd-8347-31d92ba84160",
+    "model": "observations.subjectGroup"
+  },
+  {
+    "fields": {
+      "created_at": "2015-05-04T00:00:00+00:00",
+      "updated_at": "2015-05-04T00:00:00+00:00",
+      "id": "697f25e4-562c-4305-af86-1333e9081f4c",
+      "provider_key": "default", 
+      "display_name": "default", 
+      "additional": {}
+    },
+    "pk": "697f25e4-562c-4305-af86-1333e9081f4c",
+    "model": "observations.sourceprovider"
+  },
+  {
+    "fields": {
+      "provider_id": "697f25e4-562c-4305-af86-1333e9081f4c",
+      "manufacturer_id": "junk-fix-source",
+      "additional": {
+      },
+      "created_at": "2015-05-04T00:00:00+00:00",
+      "model_name": "Test-For-Finding-Junk-Fixes",
+      "updated_at": "2015-05-04T00:00:00+00:00",
+      "source_type": "tracking-device"
+    },
+    "pk": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+    "model": "observations.source"
+  },
+  {
+    "pk": "d75ece1f-f61c-476c-910c-4e393c52f9ac",
+    "model": "observations.subjectsource",
+    "fields": {
+      "assigned_range": "{\"bounds\": \"[)\", \"lower\": \"2015-07-01T00:00:00+00:00\", \"upper\": \"2100-01-01T00:00:00+00:00\"}",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "subject": "0fa8ec9a-7e92-4575-9575-df202d5dde25",
+      "additional": {}
+    }
+  },
+  {
+    "pk": "a50c9560-e357-49d1-a1c7-de5cef185ff5",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7603953573059 -12.3356969149876)",
+      "created_at": "2016-03-25T00:00:34.322785+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2016-03-25T01:00:38+00:00",
+      "exclusion_flags": 0
+    }
+  },
+  {
+    "pk": "73f8e8c8-ec37-4e87-8f6d-45eb89707278",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7603531763263 -12.3357586409225)",
+      "created_at": "2016-03-28T00:00:34.322928+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2016-03-28T02:00:38+00:00",
+      "exclusion_flags": 1
+    }
+  },
+  {
+    "pk": "dc90dd1c-3634-455f-8386-b7372c912122",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7586930900307 -12.3297162190965)",
+      "created_at": "2017-07-17T00:00:34.323058+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-07-17T07:02:08+00:00",
+      "exclusion_flags": 0
+    }
+  },
+  {
+    "pk": "fa00b362-37fc-4434-8225-5e5a6acb1eae",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7594804909249 -12.3292119895312)",
+      "created_at": "2017-08-28T00:00:34.323184+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-08-28T08:00:20+00:00",
+      "exclusion_flags": 1
+    }
+  },
+  {
+    "pk": "544514cd-f1a5-4395-905e-b2bc0a8a53c6",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7593904180219 -12.3281455524601)",
+      "created_at": "2018-03-25T00:00:34.323307+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2018-03-25T09:03:00+00:00",
+      "exclusion_flags": 0
+    }
+  },
+  {
+    "pk": "86f0367f-3233-4a89-9bdd-8d5d534e353b",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7731898858037 -12.3071955469047)",
+      "created_at": "2018-03-26T00:00:34.323429+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2018-03-26T23:01:39+00:00",
+      "exclusion_flags": 1
+    }
+  },
+  {
+    "pk": "8fc996e5-4ef5-4717-96bc-fe1bbbba35c9",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7736203961594 -12.3072694000991)",
+      "created_at": "2018-07-07T00:00:34.323549+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2018-07-07T00:01:00+00:00",
+      "exclusion_flags": 0
+    }
+  },
+  {
+    "pk": "8abf393f-58f6-40a7-a6a8-55c4504245c3",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(38.77418975958 -10.3064852714102)",
+      "created_at": "2017-07-09T00:00:34.323670+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {"testing note": "This is contrived, and should be identified as junk.."},
+      "recorded_at": "2018-07-09T01:00:19+00:00",
+      "exclusion_flags": 1
+    }
+  },
+  {
+    "pk": "47f96b9e-a4db-4a90-987a-ea9660b96432",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.774112675529 -12.3062953485262)",
+      "created_at": "2018-08-13T00:00:34.323911+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2018-08-13T02:00:37+00:00",
+      "exclusion_flags": 0
+    }
+  },
+  {
+    "pk": "a5a5ba83-3131-4096-bd31-38af14e255e6",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8030925587707 -12.2867698161795)",
+      "created_at": "2018-08-17T00:00:34.324049+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2018-08-17T23:00:11+00:00",
+      "exclusion_flags": 1
+    }
+  },
+  {
+    "pk": "45998df3-4f12-4c97-a8de-2c7578ec6e3b",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8031073472651 -12.286758922259)",
+      "created_at": "2018-09-02T00:00:34.324172+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2018-09-02T00:00:13+00:00",
+      "exclusion_flags": 0
+    }
+  },
+  {
+    "pk": "6eac9603-547c-48b6-813d-350394d5f5d8",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.803168443521 -12.2868939420554)",
+      "created_at": "2018-09-03T00:00:34.324293+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2018-09-03T01:00:23+00:00",
+      "exclusion_flags": 1
+    }
+  },
+  {
+    "pk": "4041ffdf-1ce8-4a35-974d-d59838429f79",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8031020671549 -12.2868328158713)",
+      "created_at": "2018-09-05T00:00:34.324416+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2018-09-05T02:01:08+00:00",
+      "exclusion_flags": 0
+    }
+  },
+  {
+    "pk": "e484f35d-16a2-4d40-980a-ed39aa17aaaa",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7991526330116 -12.28439367309)",
+      "created_at": "2018-09-05T00:00:34.324536+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2018-09-05T06:01:40+00:00",
+      "exclusion_flags": 1
+    }
+  }
+]

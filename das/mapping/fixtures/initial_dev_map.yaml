@@ -1,0 +1,13 @@
+- model: mapping.map
+  pk: 03bd4486-9dee-404e-a666-055afee90434
+  fields:
+    created_at: "2020-07-30 00:00:00+00:00"
+    updated_at: "2020-07-30 00:00:00+00:00"
+    name: Earth
+    attributes:
+      default: true
+      icon: {bottom: 0, height: 34, src: 'https://img.icons8.com/officel/80/000000/earth-planet.png'}
+      id: earth
+      title: Earth
+    center: SRID=4326;POINT (-122.3286437817934 47.58949410579475)
+    zoom: 1

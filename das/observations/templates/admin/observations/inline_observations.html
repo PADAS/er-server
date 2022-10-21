@@ -1,0 +1,78 @@
+
+{% load humanize %}
+{% load i18n %}
+
+<style type="text/css">
+    td span.online-gps {
+        color:#81bf43;
+    }
+    td span.online {
+        color:#0abaff;
+    }
+    td span.offline {
+        color:#9ea7b3;
+    }
+    td span.alarm {
+        color:#d0021b;
+    }
+</style>
+<div class="module">
+<h2>Latest Observations</h2>
+<div class="results">
+    <table>
+        <thead>
+          <tr>
+             <th>
+                 <div class="text">
+                     External ID
+                 </div>
+             </th>
+             <th>
+                 <div class="text">
+                     Recorded At {{ timezone }}
+                 </div>
+             </th>
+             <th>
+                 <div class="text">
+                     Age
+                 </div>
+             </th>
+             <th>
+                 <div class="text">
+                     Longitude
+                 </div>
+             </th>
+             <th>
+                 <div class="text">
+                     Latitude
+                 </div>
+             </th>
+             <th>
+                 <div class="text">
+                     Radio Status
+                 </div>
+             </th>
+             <th>
+                 <div class="text">
+                     System Event Action
+                 </div>
+             </th>
+          </tr>
+        </thead>
+        <tbody>
+            {% for observation in observations %}
+            <tr class="{% cycle 'row1' 'row2' %}">
+                <td>{{ observation.source__manufacturer_id }}</td>
+                <td>{{ observation.recorded_at }}</td>
+                <td>{{ observation.recorded_at|naturaltime }}</td>
+                <td>{{ observation.location.x }}</td>
+                <td>{{ observation.location.y }}</td>
+                <td><span class="{{observation.additional.radio_state}}">{{ observation.additional.radio_state }}</span></td>
+                <td>{{ observation.additional.event_action }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    See more observations for this {{ model }} <a href="/admin/observations/observation/{{filter_params}}">here</a>
+</div>
+</div>

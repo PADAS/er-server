@@ -1,0 +1,721 @@
+- model: choices.dynamicchoice
+  pk: black_rhinos
+  fields: {model_name: observations.subject, criteria: '[["common_name_id", "black_rhino"]]',
+    value_col: id, display_col: name}
+- model: choices.dynamicchoice
+  pk: blackRhinos
+  fields: {model_name: observations.subject, criteria: '[["common_name_id", "black_rhino"]]',
+    value_col: id, display_col: name}
+- model: choices.dynamicchoice
+  pk: femaleRhinos
+  fields: {model_name: observations.subject, criteria: '[["subject_subtype", "rhino"],
+      ["additional__sex", "female"]]', value_col: id, display_col: name}
+- model: choices.dynamicchoice
+  pk: rangers
+  fields: {model_name: observations.subject, criteria: '[["subject_subtype", "ranger"]]',
+    value_col: id, display_col: name}
+- model: choices.dynamicchoice
+  pk: rhinos
+  fields: {model_name: observations.subject, criteria: '[["subject_subtype", "rhino"]]',
+    value_col: id, display_col: name}
+- model: choices.dynamicchoice
+  pk: white_rhinos
+  fields: {model_name: observations.subject, criteria: '[["common_name_id","white_rhino"]]',
+    value_col: id, display_col: name}
+- model: choices.dynamicchoice
+  pk: whiteRhinos
+  fields: {model_name: observations.subject, criteria: '[["common_name_id","white_rhino"]]',
+    value_col: id, display_col: name}
+- model: choices.choice
+  pk: 00fa9ac5-e0e0-429e-b5f7-55621b9078e7
+  fields:
+    model: activity.event
+    field: conservancy
+    value: other
+    display: Other
+    ordernum: 50
+    sub_choice_of: []
+- model: choices.choice
+  pk: 02943c51-0661-478e-b4a8-c57264bb721a
+  fields:
+    model: activity.event
+    field: event_type
+    value: other
+    display: Other
+    ordernum: 3
+    sub_choice_of: []
+- model: choices.choice
+  pk: 045fb539-bbfc-4177-8109-6dcb72f215de
+  fields:
+    model: activity.event
+    field: event_type
+    value: civil_unrest
+    display: Civil Unrest
+    ordernum: null
+    sub_choice_of: []
+- model: choices.choice
+  pk: 04fa430a-25c9-4ce4-a867-1d91d6ee91ff
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: armed_men
+    display: Armed Men
+    ordernum: null
+    sub_choice_of: [1cf29d24-0f3d-4400-bd43-4a225fd3ef09]
+- model: choices.choice
+  pk: 08119fff-8df5-4ed6-b912-db7e4729224b
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: road_banditry
+    display: Road Banditry
+    ordernum: null
+    sub_choice_of: [1cf29d24-0f3d-4400-bd43-4a225fd3ef09]
+- model: choices.choice
+  pk: 0d695b39-7e81-4868-919f-1c372d8fbe93
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: injury
+    display: Injury
+    ordernum: null
+    sub_choice_of: [1cf29d24-0f3d-4400-bd43-4a225fd3ef09]
+- model: choices.choice
+  pk: 0da4f2f1-9a7b-4eac-ac3d-41cdb55fefdd
+  fields:
+    model: activity.event
+    field: event_type
+    value: threat
+    display: Threat
+    ordernum: null
+    sub_choice_of: []
+- model: choices.choice
+  pk: 0e082e13-c3ad-4e79-bd98-f0efbb181356
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: criminal
+    display: Criminal
+    ordernum: null
+    sub_choice_of: [0da4f2f1-9a7b-4eac-ac3d-41cdb55fefdd]
+- model: choices.choice
+  pk: 0e196e99-5087-48c8-ba02-eb0c1a51b6a1
+  fields:
+    model: activity.event
+    field: peter
+    value: sucks
+    display: Sucks
+    ordernum: null
+    sub_choice_of: []
+- model: choices.choice
+  pk: 1136cd37-1cef-4c91-b436-3fce73161591
+  fields:
+    model: activity.event
+    field: behavior
+    value: standing
+    display: Standing
+    ordernum: 20
+    sub_choice_of: []
+- model: choices.choice
+  pk: 151c5119-a3fe-49b3-bb06-104903b31f03
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: charcoal_burning
+    display: Charcoal burning
+    ordernum: null
+    sub_choice_of: [fcba2f9c-01fb-4142-ba26-02041e30c323]
+- model: choices.choice
+  pk: 1849210a-05f5-45e0-ba21-96735af81253
+  fields:
+    model: activity.event
+    field: event_type
+    value: animal
+    display: Animal
+    ordernum: 1
+    sub_choice_of: []
+- model: choices.choice
+  pk: 1cf29d24-0f3d-4400-bd43-4a225fd3ef09
+  fields:
+    model: activity.event
+    field: event_type
+    value: hostile
+    display: Hostile
+    ordernum: null
+    sub_choice_of: []
+- model: choices.choice
+  pk: 1cfda790-b4e2-455d-a8eb-b1372592c597
+  fields:
+    model: activity.event
+    field: cause_death
+    value: other
+    display: Other
+    ordernum: 40
+    sub_choice_of: []
+- model: choices.choice
+  pk: 1e1f1574-161a-44ab-a73b-bd9cf882ce44
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: tusks_recovered
+    display: Tusks recovered
+    ordernum: null
+    sub_choice_of: [d7b829c0-e015-4369-8103-6365b3d639ed]
+- model: choices.choice
+  pk: 1e29c4ef-c74c-47f4-9ee9-29ad58566c09
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: government_complaint
+    display: Government Complaint
+    ordernum: null
+    sub_choice_of: [f2e0b4ee-2cc5-424b-bb28-bb7a28321b9e]
+- model: choices.choice
+  pk: 21b679d7-7823-44b5-b69f-83f9abf57514
+  fields:
+    model: activity.event
+    field: species
+    value: grevys_zebra
+    display: Grevy's zebra
+    ordernum: 100
+    sub_choice_of: []
+- model: choices.choice
+  pk: 21d34019-4b37-4afd-8187-f3cb1ccac8db
+  fields:
+    model: activity.event
+    field: species
+    value: cheetah
+    display: Cheetah
+    ordernum: 30
+    sub_choice_of: []
+- model: choices.choice
+  pk: 242925aa-b58c-48e9-bfcd-e55165df4467
+  fields:
+    model: activity.event
+    field: species
+    value: bush_buck
+    display: Bush buck
+    ordernum: 20
+    sub_choice_of: []
+- model: choices.choice
+  pk: 265c9dbf-c3d8-454f-9332-486c2a5d96f1
+  fields:
+    model: activity.event
+    field: teams
+    value: team01
+    display: Team 1
+    ordernum: 10
+    sub_choice_of: []
+- model: choices.choice
+  pk: 26b493b3-445f-42ec-902f-fcecc85fcc9e
+  fields:
+    model: activity.event
+    field: conservancy
+    value: nrt
+    display: NRT
+    ordernum: 20
+    sub_choice_of: []
+- model: choices.choice
+  pk: 28e81fa5-b7ba-498f-a33b-dd98a4d6f386
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: weapons_recovered
+    display: Weapons recovered
+    ordernum: null
+    sub_choice_of: [d7b829c0-e015-4369-8103-6365b3d639ed]
+- model: choices.choice
+  pk: 2c31a146-8d3c-485a-ab1c-78f3309dcbf3
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: stock_theft
+    display: Stock Theft
+    ordernum: null
+    sub_choice_of: [9329108b-43d7-4c53-be60-e740ae553528]
+- model: choices.choice
+  pk: 3059040c-3537-4ab7-8384-f89360487ada
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: illegal_grazing
+    display: Illegal grazing
+    ordernum: null
+    sub_choice_of: [fcba2f9c-01fb-4142-ba26-02041e30c323]
+- model: choices.choice
+  pk: 30e385f7-1fe2-4837-813d-b82c13d7835f
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: community_complaint
+    display: Community Complaint
+    ordernum: null
+    sub_choice_of: [f2e0b4ee-2cc5-424b-bb28-bb7a28321b9e]
+- model: choices.choice
+  pk: 311dd961-a4c5-4540-903a-ddcbf0c3f58f
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: poaching_speared
+    display: Poaching - Speared
+    ordernum: null
+    sub_choice_of: [d7b829c0-e015-4369-8103-6365b3d639ed]
+- model: choices.choice
+  pk: 32101f87-db64-4999-88ed-797a30f50fac
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: poaching_shooting
+    display: Poaching - Shooting
+    ordernum: null
+    sub_choice_of: [d7b829c0-e015-4369-8103-6365b3d639ed]
+- model: choices.choice
+  pk: 35905192-784e-4e4c-ad03-c9fec656eb48
+  fields:
+    model: activity.event
+    field: species
+    value: giraffe
+    display: Giraffe
+    ordernum: 80
+    sub_choice_of: []
+- model: choices.choice
+  pk: 3acc6378-8e9a-4f82-b46b-7927b9118bc0
+  fields:
+    model: activity.event
+    field: event_type
+    value: tribal_conflict
+    display: Tribal Conflict
+    ordernum: null
+    sub_choice_of: []
+- model: choices.choice
+  pk: 3efacd1a-b17f-4b17-893c-b34ec05784f9
+  fields:
+    model: activity.event
+    field: cause_death
+    value: roadkill
+    display: Roadkill
+    ordernum: 30
+    sub_choice_of: []
+- model: choices.choice
+  pk: 3f162461-a6ae-44d4-80c8-341262389d34
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: poaching_snare
+    display: Poaching - Snare
+    ordernum: null
+    sub_choice_of: [d7b829c0-e015-4369-8103-6365b3d639ed]
+- model: choices.choice
+  pk: 45bb613e-9d84-4f57-bf0d-6d06ceb11fb9
+  fields:
+    model: activity.event
+    field: conservancy
+    value: sera
+    display: Sera
+    ordernum: 40
+    sub_choice_of: []
+- model: choices.choice
+  pk: 4c3be4db-7173-4bd8-94a8-2c288bd7fd28
+  fields:
+    model: activity.event
+    field: species
+    value: buffalo
+    display: Buffalo
+    ordernum: 10
+    sub_choice_of: []
+- model: choices.choice
+  pk: 4eeefcd1-6e60-476a-9b24-5728cf7623d2
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: attempted_arrest
+    display: Attempted Arrest
+    ordernum: null
+    sub_choice_of: [c4b023db-9247-4451-8a0e-38164560cfbd]
+- model: choices.choice
+  pk: 5f9ecff0-b965-4acc-b86b-e27df2c1feac
+  fields:
+    model: activity.event
+    field: conservancy
+    value: borana
+    display: Borana
+    ordernum: 30
+    sub_choice_of: []
+- model: choices.choice
+  pk: 60db1449-3b57-46ca-8fc4-3ec8298e059c
+  fields:
+    model: activity.event
+    field: behavior
+    value: feeding
+    display: Feeding
+    ordernum: 10
+    sub_choice_of: []
+- model: choices.choice
+  pk: 60db41c6-3d56-4218-8ca8-87c19242a502
+  fields:
+    model: activity.event
+    field: species
+    value: kudu
+    display: Kudu
+    ordernum: 150
+    sub_choice_of: []
+- model: choices.choice
+  pk: 63e63900-3a81-4161-878e-820b14dbb588
+  fields:
+    model: activity.event
+    field: teams
+    value: team02
+    display: Teams 2
+    ordernum: 20
+    sub_choice_of: []
+- model: choices.choice
+  pk: 64d4a2e6-a169-4394-838a-0d84080f75a3
+  fields:
+    model: activity.event
+    field: species
+    value: hippo
+    display: Hippo
+    ordernum: 120
+    sub_choice_of: []
+- model: choices.choice
+  pk: 6a634524-79fe-436b-806f-f0a06bdc650d
+  fields:
+    model: activity.event
+    field: species
+    value: common_zebra
+    display: Common zebra
+    ordernum: 40
+    sub_choice_of: []
+- model: choices.choice
+  pk: 6f6679f6-a544-4086-97ab-ec1ef0a52cb4
+  fields:
+    model: activity.event
+    field: event_type
+    value: accident
+    display: Accident
+    ordernum: 0
+    sub_choice_of: []
+- model: choices.choice
+  pk: 70bd6b2b-be8f-45ad-8bb2-240963ab332b
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: livestock_movements
+    display: Livestock movements
+    ordernum: null
+    sub_choice_of: [1849210a-05f5-45e0-ba21-96735af81253]
+- model: choices.choice
+  pk: 8687188e-ed0b-49c3-9d95-0313130ef7af
+  fields:
+    model: activity.event
+    field: event_type
+    value: gunshot
+    display: Shots heard
+    ordernum: null
+    sub_choice_of: []
+- model: choices.choice
+  pk: 8ba0d815-94ff-4fab-a08b-51399758edc0
+  fields:
+    model: activity.event
+    field: species
+    value: hartebeest
+    display: Hartebeest
+    ordernum: 110
+    sub_choice_of: []
+- model: choices.choice
+  pk: 909dcf4d-f1a1-4ac3-a20c-64a50d9b609e
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: confiscation
+    display: Confiscation
+    ordernum: null
+    sub_choice_of: [1cf29d24-0f3d-4400-bd43-4a225fd3ef09]
+- model: choices.choice
+  pk: 920cb685-4176-4a1c-8cf5-fe2f0f707394
+  fields:
+    model: activity.event
+    field: species
+    value: elephant
+    display: Elephant
+    ordernum: 60
+    sub_choice_of: []
+- model: choices.choice
+  pk: 9329108b-43d7-4c53-be60-e740ae553528
+  fields:
+    model: activity.event
+    field: event_type
+    value: theft
+    display: Theft
+    ordernum: null
+    sub_choice_of: []
+- model: choices.choice
+  pk: 970e1e8a-e5ce-4f1d-9143-d70c76b4c6f9
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: illegal_logging
+    display: Illegal logging
+    ordernum: null
+    sub_choice_of: [fcba2f9c-01fb-4142-ba26-02041e30c323]
+- model: choices.choice
+  pk: 989609b1-59cb-47e0-8faa-a2c9ddb99b67
+  fields:
+    model: activity.event
+    field: species
+    value: gerenuk
+    display: Gerenuk
+    ordernum: 70
+    sub_choice_of: []
+- model: choices.choice
+  pk: 9dc77405-5bd6-4c83-92a2-7851c0e16c8f
+  fields:
+    model: activity.event
+    field: species
+    value: grant_gazelle
+    display: Grant gazelle
+    ordernum: 90
+    sub_choice_of: []
+- model: choices.choice
+  pk: a76a776b-2fdf-462f-9eeb-a23347da338c
+  fields:
+    model: activity.event
+    field: behavior
+    value: other
+    display: Other
+    ordernum: 40
+    sub_choice_of: []
+- model: choices.choice
+  pk: a95ed47c-665a-42fa-8e1d-5d2486672361
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: carcass
+    display: Carcass
+    ordernum: null
+    sub_choice_of: [1849210a-05f5-45e0-ba21-96735af81253]
+- model: choices.choice
+  pk: a9cd7004-290b-4c78-8dd4-b15021314dab
+  fields:
+    model: activity.event
+    field: species
+    value: lion
+    display: Lion
+    ordernum: 160
+    sub_choice_of: []
+- model: choices.choice
+  pk: ab37e077-b4dd-4221-a3a2-baa5cc99d020
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: vehicle_accident
+    display: Vehicle Accident
+    ordernum: null
+    sub_choice_of: [6f6679f6-a544-4086-97ab-ec1ef0a52cb4]
+- model: choices.choice
+  pk: ac284302-6352-4626-be87-233c70058bc6
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: kidnap
+    display: Kidnap
+    ordernum: null
+    sub_choice_of: [1cf29d24-0f3d-4400-bd43-4a225fd3ef09]
+- model: choices.choice
+  pk: b4688c0e-ac08-4656-a6ec-b0b3aecf332c
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: animal_accident
+    display: Animal Accident
+    ordernum: null
+    sub_choice_of: [6f6679f6-a544-4086-97ab-ec1ef0a52cb4]
+- model: choices.choice
+  pk: b645fef2-2839-468b-ab28-23b9be81f5ae
+  fields:
+    model: activity.event
+    field: cause_death
+    value: firearm
+    display: Firearm
+    ordernum: 10
+    sub_choice_of: []
+- model: choices.choice
+  pk: b7503a48-c45c-4099-957a-c168ee14f125
+  fields:
+    model: activity.event
+    field: peter
+    value: cool
+    display: Is Cool
+    ordernum: null
+    sub_choice_of: []
+- model: choices.choice
+  pk: be7b1ebf-b681-4c57-9217-b1fdd4c701e3
+  fields:
+    model: activity.event
+    field: species
+    value: klipspringer
+    display: Klipspringer
+    ordernum: 140
+    sub_choice_of: []
+- model: choices.choice
+  pk: bfc7d124-e449-4306-a6df-8a5083128191
+  fields:
+    model: activity.event
+    field: behavior
+    value: sleeping
+    display: Sleeping
+    ordernum: 30
+    sub_choice_of: []
+- model: choices.choice
+  pk: c4135735-aacf-484f-83c2-8fdad9c63018
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: drowning
+    display: Drowning
+    ordernum: null
+    sub_choice_of: [6f6679f6-a544-4086-97ab-ec1ef0a52cb4]
+- model: choices.choice
+  pk: c4b023db-9247-4451-8a0e-38164560cfbd
+  fields:
+    model: activity.event
+    field: event_type
+    value: arrest
+    display: Arrest
+    ordernum: 2
+    sub_choice_of: []
+- model: choices.choice
+  pk: c7c2ad08-7a7f-4daa-855f-72bcffae92d4
+  fields:
+    model: activity.event
+    field: species
+    value: eland
+    display: Eland
+    ordernum: 50
+    sub_choice_of: []
+- model: choices.choice
+  pk: d3dc1ce0-1f88-4007-a6b8-d05fe47e9820
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: poaching_poison
+    display: Poaching - Poison
+    ordernum: null
+    sub_choice_of: [d7b829c0-e015-4369-8103-6365b3d639ed]
+- model: choices.choice
+  pk: d48c8ad7-ce76-4ac7-8dd9-666cf552a429
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: shooting
+    display: Shooting
+    ordernum: null
+    sub_choice_of: [1cf29d24-0f3d-4400-bd43-4a225fd3ef09]
+- model: choices.choice
+  pk: d4afb3fa-67a2-4515-97e5-ae2d3f97fb42
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: illegal_fishing
+    display: Illegal fishing
+    ordernum: null
+    sub_choice_of: [fcba2f9c-01fb-4142-ba26-02041e30c323]
+- model: choices.choice
+  pk: d7b829c0-e015-4369-8103-6365b3d639ed
+  fields:
+    model: activity.event
+    field: event_type
+    value: poaching
+    display: Poaching
+    ordernum: null
+    sub_choice_of: []
+- model: choices.choice
+  pk: df67beda-e4eb-41c9-9522-47f5580f5b8b
+  fields:
+    model: activity.event
+    field: species
+    value: waterbuck
+    display: Waterbuck
+    ordernum: 180
+    sub_choice_of: []
+- model: choices.choice
+  pk: e22983a6-34ec-410b-a51f-6259dd67a074
+  fields:
+    model: activity.event
+    field: species
+    value: oryx
+    display: Oryx
+    ordernum: 170
+    sub_choice_of: []
+- model: choices.choice
+  pk: e265a68c-1441-41dd-ad9c-2406ab31b9ea
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: cattle_rustling
+    display: Cattle Rustling
+    ordernum: null
+    sub_choice_of: [fcba2f9c-01fb-4142-ba26-02041e30c323]
+- model: choices.choice
+  pk: e6ace2d3-a142-448d-8eab-7b41df12297e
+  fields:
+    model: activity.event
+    field: cause_death
+    value: snare
+    display: Snare
+    ordernum: 20
+    sub_choice_of: []
+- model: choices.choice
+  pk: ea2ee557-6b98-4914-a3ff-44497d518900
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: fire
+    display: Fire
+    ordernum: null
+    sub_choice_of: [6f6679f6-a544-4086-97ab-ec1ef0a52cb4]
+- model: choices.choice
+  pk: ef3fc479-452c-4b8d-a11e-18ab596c7bf7
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: animal_observations
+    display: Animal observations
+    ordernum: null
+    sub_choice_of: [1849210a-05f5-45e0-ba21-96735af81253]
+- model: choices.choice
+  pk: f0dc8584-29a6-45a1-ac42-a2d144972d09
+  fields:
+    model: activity.event
+    field: species
+    value: ipala
+    display: Impala
+    ordernum: 130
+    sub_choice_of: []
+- model: choices.choice
+  pk: f2e0b4ee-2cc5-424b-bb28-bb7a28321b9e
+  fields:
+    model: activity.event
+    field: event_type
+    value: complaint
+    display: Complaint
+    ordernum: null
+    sub_choice_of: []
+- model: choices.choice
+  pk: f97e4a6e-937f-4707-ab55-680cab9ce271
+  fields:
+    model: activity.event
+    field: event_subtype
+    value: private_complaint
+    display: Private Complaint
+    ordernum: null
+    sub_choice_of: [f2e0b4ee-2cc5-424b-bb28-bb7a28321b9e]
+- model: choices.choice
+  pk: fcba2f9c-01fb-4142-ba26-02041e30c323
+  fields:
+    model: activity.event
+    field: event_type
+    value: illegal_activity
+    display: Illegal Activity
+    ordernum: null
+    sub_choice_of: []

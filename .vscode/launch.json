@@ -1,0 +1,172 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "PyTest",
+            "type": "python",
+            "request": "launch",
+            "stopOnEntry": false,
+          
+            "module": "pytest",
+            "args": [
+                
+            ],
+            "cwd": "${workspaceRoot}",
+            "env": {},
+            "envFile": "${workspaceRoot}/.env",
+            "debugOptions": [
+                "WaitOnAbnormalExit",
+                "WaitOnNormalExit",
+                "RedirectOutput"
+            ]
+        },
+        {
+            "name": "Django:Run",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/das/manage.py",
+            "console": "internalConsole",
+            "cwd": "${workspaceFolder}/das",
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings"
+            },
+            "args": [
+                "runserver",
+                "--noreload"
+            ],
+            "django": true,
+            "justMyCode": false
+        },
+        {
+            "name": "Django:Gunicorn",
+            "type": "python",
+            "request": "launch",
+            "program": "/usr/local/bin/gunicorn",
+            "console": "internalConsole",
+            "cwd": "${workspaceFolder}/das",
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings"
+            },
+            "args": [
+                "das_server.wsgi",
+                "--name",
+                "das",
+                "--limit-request-line",
+                "6000",
+                "--bind",
+                "127.0.0.1:8000",
+                "--workers",
+                "1",
+                "--threads",
+                "1"
+            ],
+            "django": true,
+            "justMyCode": false
+        },
+        {
+            "name": "Django:GunicornRT",
+            "type": "python",
+            "request": "launch",
+            "program": "/usr/local/bin/gunicorn",
+            "console": "internalConsole",
+            "cwd": "${workspaceFolder}/das",
+            "gevent":true,
+            "justMyCode": false,
+            "args": [
+                "das_server.rt_wsgi",
+                "--name",
+                "das_rt",
+                "--limit-request-line",
+                "6000",
+                "--preload",
+                "--bind",
+                "127.0.0.1:8000",
+                "--workers",
+                "1",
+                "--worker-tmp-dir",
+                "/dev/shm",
+                "--worker-class",
+                "eventlet",
+                "--timeout",
+                "60",
+                "--log-level",
+                "info"
+            ]
+        },
+        {
+            "name": "ER Workers",
+            "type": "python",
+            "request": "launch",
+            "program": "/usr/local/bin/celery",
+            "console": "internalConsole",
+            "cwd": "${workspaceFolder}/das",
+            "args": [
+                "-A",
+                "das_server",
+                "worker",
+                "--beat",
+                "-s",
+                "/tmp/celerybeat-schedule",
+                "-Q",
+                "realtime_p1,realtime_p2,realtime_p3,default,analyzers,maintenance",
+                "-l",
+                "info",
+                "-c",
+                "2",
+                "--without-gossip",
+                "-n",
+                "all-in-one"
+            ],
+            //"postDebugTask": "killdebugger",
+            "env":{
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings",
+                "GEVENT_SUPPORT": "True"
+            }
+        },
+        {
+            "name": "Django:MQL",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/das/manage.py",
+            "console": "internalConsole",
+            "cwd": "${workspaceFolder}/das",
+            "args": [
+                "message_queue_listeners"
+            ],
+            "django": true
+        },
+        {
+            "name": "Django:RunRT",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/das/async_manage.py",
+            "console": "internalConsole",
+            "cwd": "${workspaceFolder}/das",
+            "gevent": true,
+            "args": [
+                "rtserver",
+                "localhost:8000",
+                "--noreload",
+                "--nothreading"
+            ],
+            "django": true
+        },
+        {
+            "name": "Django manage command",
+            "type": "python",
+            "request": "launch",
+            "justMyCode": false,
+            "program": "${workspaceFolder}/das/manage.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/das",
+            "args": [
+                "shell"
+            ],
+            "django": true
+        }
+        
+    ]
+}

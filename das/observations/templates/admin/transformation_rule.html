@@ -1,0 +1,99 @@
+{% load humanize %}
+{% load i18n %}
+{% load dastags %}
+
+<style type="text/css">
+    label[for="id_tranformation_rule_0"] {
+        display: none;
+    }
+
+    #id_transforms {
+        font-family: Consolas, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, monospace;
+        background: url(http://i.imgur.com/2cOaJ.png);
+        background-attachment: local;
+        background-repeat: no-repeat;
+        padding-left: 35px;
+        padding-top: 12px;
+        line-height: 20px;
+        font-size: 15px;
+    }
+
+    label[for="id_transforms"] {
+        display: none;
+    }
+
+    form .field-transforms ul {
+        margin-left: 0;
+    }
+
+    .wrapper-scroll-y {
+        display: block;
+    }
+
+    .scrollbar {
+        max-height: 500px;
+        overflow: auto;
+    }
+
+    td, th {
+        font-size: 13px;
+        padding: 4px 8px;
+        vertical-align: middle;
+    }
+
+    th {
+        position: -webkit-sticky;
+        position: sticky;
+        top: 0;
+    }
+
+    thead th {
+        border-top: 0;
+    }
+</style>
+
+
+<h3 style="font-weight: 500;">Additional data to display with subjects </h3>
+<div class="help" style="margin-left: 0; padding-bottom: 10px; padding-top: 0; padding-left: 10px;">Select additional
+    data to display for subjects and provide labels and units to include.
+</div>
+<div class="wrapper-scroll-y  scrollbar">
+    <table>
+        <thead>
+        <tr>
+            <th>
+                <div class="text">Available data</div>
+            </th>
+            <th>
+                <div class="text">Sample from recent observation</div>
+            </th>
+            <th>
+                <div class="text">Label</div>
+            </th>
+            <th>
+                <div class="text">Units</div>
+            </th>
+            <th>
+                <div class="text">Feature on Map</div>
+            </th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for key, v in sample_data.items %}
+            <tr class="{% cycle 'row1' 'row2' %}">
+                {% with w=widget.subwidgets|receive_data:forloop.counter0 %}
+                    <td>{% with widget=w.0 %}{% include widget.template_name %}{% endwith %}
+                        <span style="padding: 5px;" id={{ forloop.counter0|span_id }}>{{ key }}</span>
+                    </td>
+                    <td>{{ v|to_tuple }}</td>
+                    <td>{% with widget=w.1 %}{% include widget.template_name %}{% endwith %}</td>
+                    <td>{% with widget=w.2 %}{% include widget.template_name %}{% endwith %}</td>
+                    <td>
+                        <input type="radio" name="default" value="{{ key }}" {% if key == default_feature %} checked {% endif %}>
+                    </td>
+                    </tr>
+                {% endwith %}
+        {% endfor %}
+        </tbody>
+    </table>
+</div>

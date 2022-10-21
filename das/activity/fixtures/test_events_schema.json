@@ -1,0 +1,76 @@
+[
+{
+  "model": "choices.dynamicchoice",
+  "pk": "rangers",
+  "fields": {
+    "model_name": "observations.subject",
+    "criteria": "[[\"subject_subtype\", \"ranger\"]]",
+    "value_col": "id",
+    "display_col": "name"
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "02943c51-0661-478e-b4a8-c57264bb721a",
+  "fields": {
+    "created_at": "2016-07-07T08:00:00Z",
+    "updated_at": "2017-10-19T23:02:19.022Z",
+    "value": "other",
+    "display": "Other",
+    "category": [
+      "security"
+    ],
+    "ordernum": 225,
+    "schema": "{\n    \"schema\": \n    {\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\",\n        \"title\": \"EventType Test Data\",\n      \n        \"type\": \"object\",\n\n        \"properties\": \n        {\n            \"conservancy\": {\n                \"type\":\"string\",\n                \"title\": \"Conservancy\",\n                \"enum\": {{enum___conservancy___values}},\n                \"enumNames\": {{enum___conservancy___names}}\n            },\n\t\t\t\"sectionArea\": {\n\t\t\t\t\"type\": \"string\",\n\t\t\t\t\"title\": \"Section/Area\",\n\t\t\t\t\"enum\": {{enum___sectionArea___values}},\n\t\t\t\t\"enumNames\": {{enum___sectionArea___names}}\n\t\t\t},\t\t\t\n\t\t\t\"arrestrep_reasonforarrest\": {\n\t\t\t\t\"type\": \"array\",\n\t\t\t\t\"title\": \"Reason for Arrest\",\n                \"items\": {\n                    \"type\": \"string\",\n\t\t\t\t    \"enum\": {{enum___arrestrep_reasonforarrest___values}},\n\t\t\t\t    \"enumNames\": {{enum___arrestrep_reasonforarrest___names}}\n                },\n                \"uniqueItems\": true\n\t\t\t},\n         \"nameofranger\": {\n                \"type\": \"string\",\n                \"title\": \"Name Of Ranger\",\n                \"enum\": {{query___rangers___values}},\n                \"enumNames\": {{query___rangers___names}}                    \n         },\n        \"carcassrep_species\": {\n\t\t\t},\n        \"beginning_of_incident\": {\n            \"type\": \"string\",\n            \"title\": \"Beginning of Incident\"\n        },\n        \"end_of_incident\": {\n            \"type\": \"string\",\n            \"title\": \"End of Incident\"\n        },\n        \"details\": {\n\t    \"type\": \"string\",\n\t    \"title\": \"Details\"\n        },\n        \"results_and_findings\": {\n            \"type\": \"string\",\n            \"title\": \"Results and Findings\"\n        },\n        \"action_items\": {\n            \"type\": \"string\",\n            \"title\": \"Action Items\"\n        }\n    }\n  },\n  \"definition\": [\n   {\n         \"key\": \"conservancy\",\n        \"htmlClass\": \"col-lg-6\"  \n  },\n    {\n        \"key\": \"sectionArea\",\n        \"fieldHtmlClass\": \"multiple-select\",\n        \"htmlClass\": \"col-lg-6\"  \n    },\n    {\n        \"key\": \"arrestrep_reasonforarrest\",\n        \"fieldHtmlClass\": \"multiple-select\",\n        \"htmlClass\": \"col-lg-6\"  \n    },\n   {\n        \"key\":    \"nameofranger\",\n        \"htmlClass\": \"col-lg-6\"  \n    },\n    {\n\t\t\t\"key\": \"carcassrep_species\",\n\t\t\t\"type\": \"checkboxes\",\n\t\t\t\"title\": \"Species\",\n\t\t\t\"titleMap\": {{enum___carcassrep_species___map}}\n\t\t},\n    {\n      \"key\": \"beginning_of_incident\",\n      \"fieldHtmlClass\": \"date-time-picker json-schema\",\n      \"readonly\": false,\n        \"htmlClass\": \"col-lg-6\"  \n    },\n    {\n      \"key\": \"end_of_incident\",\n      \"fieldHtmlClass\": \"date-time-picker json-schema\",\n      \"readonly\": false,\n        \"htmlClass\": \"col-lg-6\"  \n    },\n{\n     \"key\":    \"details\",\n        \"htmlClass\": \"col-lg-6\"  \n},\n{\n\"key\":     \"results_and_findings\",\n        \"htmlClass\": \"col-lg-6\"  \n},\n{\n  \"key\":   \"action_items\",\n        \"htmlClass\": \"col-lg-6\"  \n}\n  ]\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "c84bc72f-96d6-4248-9fea-7dd0bbc8c190",
+  "fields": {
+    "created_at": "2020-01-17T14:46:20.031Z",
+    "updated_at": "2020-01-17T20:26:24.933Z",
+    "value": "dws_test",
+    "display": "DWS Test",
+    "category": [
+      "security"
+    ],
+    "ordernum": 9999,
+    "schema": "{\r\n   \"schema\":{\r\n      \"$schema\":\"http://json-schema.org/draft-04/schema#\",\r\n      \"title\":\"EventType Test Data\",\r\n      \"type\":\"object\",\r\n      \"properties\":{\r\n         \"carcassrep_species\":{\r\n             \"key\": \"carcassrep_species\"\r\n\r\n         }\r\n      }\r\n   },\r\n   \"definition\":[\r\n      {\r\n         \"key\":\"carcassrep_species\",\r\n         \"type\":\"checkboxes\",\r\n         \"title\":\"Species\",\r\n         \"titleMap\":{{enum___carcassrep_species___map}}\r\n      }\r\n   ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "491981c8-ed68-41a0-a1f4-728cfe53e9d4",
+  "fields": {
+    "created_at": "2020-01-23T12:56:41.276Z",
+    "updated_at": "2020-01-23T12:57:33.261Z",
+    "value": "4787_arry",
+    "display": "4787-Array",
+    "category": [
+      "security"
+    ],
+    "ordernum": 300,
+    "schema": "{\r\n   \"schema\":{\r\n      \"$schema\":\"http://json-schema.org/draft-04/schema#\",\r\n      \"title\":\"EventType Test Data\",\r\n      \"type\":\"object\",\r\n      \"properties\":{\r\n         \"carcassrep_species\":{\r\n             \"key\": \"carcassrep_species\",\r\n             \"type\": \"array\",\r\n             \"title\": \"Species\",\r\n             \"items\": {\r\n                        \"type\": \"string\",\r\n                        \"enumValues\": {{enum___carcassrep_species___values}},\r\n                        \"enumNames\": {{enum___carcassrep_species___names}}\r\n             }\r\n\r\n\r\n         }\r\n      }\r\n   },\r\n   \"definition\":[\r\n      {\r\n         \"key\":\"carcassrep_species\"\r\n      }\r\n   ]\r\n}",
+    "is_collection": false
+  }
+},
+{
+  "model": "activity.eventtype",
+  "pk": "9dd63bd8-ee19-4cf9-9f8c-0c246c4d4c75",
+  "fields": {
+    "created_at": "2020-02-24T18:56:40.423Z",
+    "updated_at": "2020-02-24T19:23:40.554Z",
+    "value": "sprint_88_behavior",
+    "display": "Sprint 88 Behavior",
+    "category": [
+      "security"
+    ],
+    "ordernum": null,
+    "schema": "{\r\n    \"schema\":\r\n    {\r\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"Species\",\r\n        \"type\": \"object\",\r\n        \"properties\":\r\n        {\r\n            \"carcassrep_species\": {\r\n                \"key\": \"carcassrep_species\"\r\n            }\r\n    }\r\n  },\r\n  \"definition\": [\r\n    {\r\n      \"type\": \"fieldset\",\r\n      \"htmlClass\": \"col-lg-6\",\r\n      \"items\": [\r\n      {\"key\": \"carcassrep_species\", \"type\": \"checkboxes\", \"title\": \"Species\", \"titleMap\": {{enum___carcassrep_species___map}}}\r\n      ]\r\n    }\r\n  ]\r\n}",
+    "is_collection": false
+  }
+}
+]

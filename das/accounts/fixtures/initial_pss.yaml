@@ -1,0 +1,18 @@
+- model: accounts.permissionset
+  pk: e5c21688-be36-4dbd-b8cd-fc9cb7467bb5
+  fields:
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    name: All Users
+    children: []
+- model: accounts.permissionset
+  pk: 7f292e0e-3c4b-4dc4-a865-7be41bd5ea7e
+  fields:
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    name: Administer All Users
+    children: []
+    permissions:
+    - [add_user, accounts, user]
+    - [change_user, accounts, user]
+    - [delete_user, accounts, user]

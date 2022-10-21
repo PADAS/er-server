@@ -1,0 +1,38 @@
+{% include 'django/forms/widgets/input.html' %}{% if related_url %}<a href="/admin/observations/subject/" class="related-lookup" id="lookup_id_{{ widget.name }}" title="{{ link_title }}"></a>{% endif %}{% if link_label %}&nbsp;<strong>{% if link_url %}<a href="{{ link_url }}">{% endif %}{{ link_label }}{% if link_url %}</a>{% endif %}</strong>{% endif %}
+
+
+<script type="application/javascript">
+    function switchhcase(text, element) {
+        switch (text) {
+            case 'subject':
+                element.style.display = 'inline-block';
+                element.href = '/admin/observations/subject/';
+                break
+            case 'user':
+                element.style.display = 'inline-block';
+                element.href = '/admin/accounts/user/';
+                break
+            default:
+                element.style.display = 'none';
+        }
+    }
+
+    var sender_contentype = document.getElementById('id_sender_content_type');
+    var lookup_sender_el =  document.getElementById('lookup_id_sender_id');
+
+    sender_contentype.onchange = function (e) {
+        var text = e.target.options[sender_contentype.selectedIndex].text;
+        switchhcase(text, lookup_sender_el);
+    };
+
+    var receiver_contentype = document.getElementById('id_receiver_content_type');
+    var receiver_sender_el =  document.getElementById('lookup_id_receiver_id');
+
+    if (receiver_contentype) {
+        receiver_contentype.onchange = function (e) {
+            var text = e.target.options[receiver_contentype.selectedIndex].text;
+            switchhcase(text, receiver_sender_el);
+        }
+    }
+
+</script>

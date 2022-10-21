@@ -1,0 +1,16 @@
+EarthRanger {{id}}: {{title}}
+Priority: {{color}}
+
+{% for field in fields %} {{field}}
+{% endfor %}{% if deep_links|length >= 1 %}{% for deep_link in deep_links %}{{deep_link|safe}}
+{% endfor %}{% endif %}{% if children|length >= 1 %}
+
+
+ - Contained Reports:
+{% for child in children %}
+    - EarthRanger {{child.id}}: {{child.title}}
+    - Priority: {{child.color}}
+{% for event_field in child.fields %}      {{ event_field }}
+{% endfor %}{% if child.deep_links|length >= 1 %}{% for child_deep_link in child.deep_links %}     {{child_deep_link|safe}}
+{% endfor %}{% endif %}{% endfor %}{% endif %}
+

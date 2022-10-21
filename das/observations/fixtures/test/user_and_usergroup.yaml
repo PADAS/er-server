@@ -1,0 +1,74 @@
+- model: accounts.permissionset
+  pk: 7f292e0e-3c4b-4dc4-a865-7be41bd5ea7e
+  fields:
+    created_at: "2016-03-08T1:00:00.000000+00:00"
+    updated_at: "2016-03-08T1:00:00.000000+00:00"
+    name: GPS Source User Group
+    children: []
+    permissions:
+      - [add_observation, observations, observation]
+      - [change_observation, observations, observation]
+      - [delete_observation, observations, observation]
+      - [add_source, observations, source]
+      - [change_source, observations, source]
+      - [delete_source, observations, source]
+      - [access_ends_0, observations, subject]
+      - [access_begins_all, observations, subject]
+      - [view_source, observations, source]
+      - [view_sourcegroup, observations, sourcegroup]
+      - [view_last_position, observations, subject]
+      - [view_subject, observations, subject]
+- model: accounts.user
+  pk: 08661a71-6ba4-4ba0-8c9d-95aa62c8e728
+  fields:
+    password: pbkdf2_sha256$100000$QnTUI95Ar2eu$0sGPCy/M3YB2fwnbZR1nn7TBchZEfZd/2vJOh4Ed6a0=
+    last_login: null
+    is_superuser: false
+    username: gps-user
+    first_name: first
+    last_name: last
+    email: random_user@host.com
+    phone: ''
+    is_email_alert: false
+    is_sms_alert: false
+    is_staff: true
+    is_active: true
+    additional: {}
+    permission_sets: [7f292e0e-3c4b-4dc4-a865-7be41bd5ea7e]
+- model: accounts.permissionset
+  pk: e8211a8b-226e-44bf-8235-598a67427348
+  fields:
+    created_at: "2016-03-08T1:11:00.000000+00:00"
+    updated_at: "2016-03-08T1:11:00.000000+00:00"
+    name: Satellite User Group
+    children: []
+    permissions:
+      - [add_observation, observations, observation]
+      - [change_observation, observations, observation]
+      - [delete_observation, observations, observation]
+      - [add_source, observations, source]
+      - [change_source, observations, source]
+      - [delete_source, observations, source]
+      - [access_ends_0, observations, subject]
+      - [access_begins_all, observations, subject]
+      - [view_source, observations, source]
+      - [view_sourcegroup, observations, sourcegroup]
+      - [view_last_position, observations, subject]
+      - [view_subject, observations, subject]
+- model: accounts.user
+  pk: 08661a71-6ba4-4ba0-8c9d-95aa62c8e894
+  fields:
+    password: pbkdf2_sha256$100000$QnTUI95Ar2eu$0sGPCy/M3YB2fwnbZR1nn7TBchZEfZd/2vJOh4Ed6a0=
+    last_login: null
+    is_superuser: false
+    username: satellite-user
+    first_name: first
+    last_name: last_name
+    email: new_random_user@host.com
+    phone: ''
+    is_email_alert: false
+    is_sms_alert: false
+    is_staff: true
+    is_active: true
+    additional: {}
+    permission_sets: [e8211a8b-226e-44bf-8235-598a67427348]

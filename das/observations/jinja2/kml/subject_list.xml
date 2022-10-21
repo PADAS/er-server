@@ -1,0 +1,42 @@
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2"
+     xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
+  <Document>
+  <Style id="checkOffOnlyStyle">
+    <ListStyle>
+      <listItemType>checkOffOnly</listItemType>
+    </ListStyle>
+  </Style>
+
+    {% for species_group_name, species_subject_list in subject_list | groupby('species') %}
+
+        <Folder>
+          <name>{{species_group_name}}</name>
+          <visibility>1</visibility>
+          {% for region_group_name, region_subject_list in species_subject_list | groupby('region') %}
+          <Folder>
+            <name>{{region_group_name}}</name>
+            <visibility>1</visibility>
+            {% for subject in region_subject_list | sort(attribute='name') %}
+                <NetworkLink>
+                  <name>{{ subject.name}}</name>
+                  <visibility>0</visibility>
+                  <Link>
+                    <href>
+                      {{subject.href}}
+                    </href>
+                      <refreshMode>onInterval</refreshMode>
+                      <refreshInterval>3600</refreshInterval>
+
+                  </Link>
+                </NetworkLink>
+
+            {% endfor %}
+             <styleUrl>#checkOffOnlyStyle</styleUrl> {# region: prevent fetching for all subjects in region at once. #}
+          </Folder>
+          {% endfor %}
+          <styleUrl>#checkOffOnlyStyle</styleUrl> {# species: prevent fetching for everything all at once. #}
+        </Folder>
+    {% endfor %}
+
+  </Document>
+</kml>

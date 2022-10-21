@@ -1,0 +1,134 @@
+[
+  {
+  "model": "mapping.map",
+  "pk": "389ded6b-2744-482a-96e9-cf979b98ee0d",
+  "fields": {
+    "created_at": "2015-11-03T22:44:38.459Z",
+    "updated_at": "2015-11-03T22:44:38.459Z",
+    "name": "Odzala Map",
+    "attributes": {
+      "bbox": [
+        14.24,
+        0.41,
+        15.45,
+        1.66
+      ]
+    },
+    "center": "SRID=4326;POINT (15.0000000000000000 0.8500000000000000)",
+    "zoom": 9
+  }
+},
+{
+  "model": "mapping.tilelayer",
+  "pk": "576795be-9492-44f1-8611-6f2a8d452feb",
+  "fields": {
+    "created_at": "2015-11-04T13:43:39.571Z",
+    "updated_at": "2015-11-04T14:04:11.577Z",
+    "name": "Odzala_Bing_7_16",
+    "attributes": {
+      "mbtiles_name": "Odzala_Bing_7_16"
+    },
+    "version": "2.0.0",
+    "tile_type": "mbtiles",
+    "maps": [
+      "389ded6b-2744-482a-96e9-cf979b98ee0d"
+    ]
+  }
+},
+{
+  "model": "mapping.tilelayer",
+  "pk": "8b297282-164d-4604-a144-ceedefef605a",
+  "fields": {
+    "created_at": "2015-11-04T13:54:08.929Z",
+    "updated_at": "2015-11-04T18:09:30.255Z",
+    "name": "Mapbox Streets Open Street Map",
+    "attributes": {
+      "source": "mapbox:///mapbox.mapbox-terrain-v2,mapbox.mapbox-streets-v5",
+      "attribution": "<a href=\"https://www.mapbox.com/about/maps/\" target=\"_blank\">&copy; Mapbox &copy; OpenStreetMap</a> <a class=\"mapbox-improve-map\" href=\"https://www.mapbox.com/map-feedback/\" target=\"_blank\">Improve this map</a>",
+      "id": "mapbox.streets",
+      "tiles": [
+        "http://a.tiles.mapbox.com/v4/mapbox.streets/{z}/{x}/{y}.png?access_token=pk.eyJ1IjoiamFzb25iIiwiYSI6ImNpZnJhdDYydjd5ZXlzM2txbmF1YXRha2kifQ.aPy_2GpKESLXxXNwOduwLQ",
+        "http://b.tiles.mapbox.com/v4/mapbox.streets/{z}/{x}/{y}.png?access_token=pk.eyJ1IjoiamFzb25iIiwiYSI6ImNpZnJhdDYydjd5ZXlzM2txbmF1YXRha2kifQ.aPy_2GpKESLXxXNwOduwLQ"
+      ]
+    },
+    "version": "1.0.0",
+    "tile_type": "external",
+    "maps": [
+      "389ded6b-2744-482a-96e9-cf979b98ee0d"
+     ]
+  }
+},
+{
+  "model": "mapping.tilelayer",
+  "pk": "a66148ae-b828-4cb1-bd71-0587d23fec43",
+  "fields": {
+    "created_at": "2015-11-04T13:43:00.523Z",
+    "updated_at": "2015-11-04T13:43:00.523Z",
+    "name": "Odzala_Bing_7_15",
+    "attributes": {
+      "mbtiles_name": "Odzala_Bing_7_15"
+    },
+    "version": "2.0.0",
+    "tile_type": "mbtiles",
+    "maps": [
+      "389ded6b-2744-482a-96e9-cf979b98ee0d"
+    ]
+  }
+},
+{
+  "model": "mapping.tilelayer",
+  "pk": "a9001479-69b4-4917-972c-fc8d484f441d",
+  "fields": {
+    "created_at": "2015-11-04T13:44:44.816Z",
+    "updated_at": "2015-11-04T13:44:44.816Z",
+    "name": "Odzala_SRTM_7_13",
+    "attributes": {
+      "mbtiles_name": "Odzala_SRTM_7_13"
+    },
+    "version": "2.0.0",
+    "tile_type": "mbtiles",
+    "maps": [
+      "389ded6b-2744-482a-96e9-cf979b98ee0d"
+    ]
+  }
+},
+{
+  "model": "mapping.tilelayer",
+  "pk": "d958fc5e-c451-438b-a3e2-5bab6dc2a2f2",
+  "fields": {
+    "created_at": "2015-11-04T13:49:40.648Z",
+    "updated_at": "2015-11-04T18:09:37.115Z",
+    "name": "Open Street Map",
+    "attributes": {
+      "attribution": "Map data &copy; <a href=\"http://openstreetmap.org\">OpenStreetMap</a> contributors, <a href=\"http://creativecommons.org/licenses/by-sa/2.0/\">CC-BY-SA</a> ",
+      "id": "examples.map-20v6611k",
+      "maxZoom": 18,
+      "tiles": [
+        "http://b.tile.openstreetmap.com/{z}/{x}/{y}.png"
+      ]
+    },
+    "version": "1.0.0",
+    "tile_type": "external",
+    "maps": [
+      "389ded6b-2744-482a-96e9-cf979b98ee0d"
+    ]
+  }
+},
+{
+  "model": "mapping.tilelayer",
+  "pk": "eb063314-aed5-4310-ba15-3c7d4b8d9b3e",
+  "fields": {
+    "created_at": "2015-11-04T13:44:13.677Z",
+    "updated_at": "2015-11-04T13:44:13.678Z",
+    "name": "Odzala_LS8__13",
+    "attributes": {
+      "mbtiles_name": "Odzala_LS8__13"
+    },
+    "version": "2.0.0",
+    "tile_type": "mbtiles",
+    "maps": [
+      "389ded6b-2744-482a-96e9-cf979b98ee0d"
+    ]
+  }
+}
+]

@@ -1,0 +1,27 @@
+{% for item in subjectsources %}
+<div style="margin-bottom:5px;border:2px solid #999999;min-width:300px">
+    <table style="border-collapse: collapse;" >
+        <tr>
+            <th><img src="{{ item.active_icon }}" border="0"></th>
+            <th>External ID: {{ item.manufacturer_id }}</th>
+        </tr>
+        <tr>
+            <td>Source Provider:</td>
+            <td>{{ item.provider_display }}</td>
+        </tr>
+        <tr>
+            <td>From in {{ timezone }}:</td>
+            {% if item.assigned_range.lower %}
+            <td>{{ item.assigned_range.lower.strftime('%Y-%m-%d %H:%M:%SZ') }}</td>
+            {% endif  %}
+        </tr>
+        <tr>
+            <td>To in {{ timezone }}:</td>
+            {% if item.assigned_range.upper %}
+            <td>{{ item.assigned_range.upper.strftime('%Y-%m-%d %H:%M:%SZ') }}</td>
+            {% endif %}
+        </tr>
+    </table>
+</div>
+{% endfor %}
+

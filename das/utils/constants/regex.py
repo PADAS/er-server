@@ -1,0 +1,5 @@
+UUID: str = "[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12}"
+UIDB64: str = "[0-9A-Za-z_\-]+"
+TOKEN: str = "[0-9A-Za-z]{1,13}-[0-9A-Za-z]{1,20}"
+SLUG: str = "[A-Za-z0-9-_]+"
+SLUG_20_CHARS: str = "[a-zA-Z0-9]{1,20}"

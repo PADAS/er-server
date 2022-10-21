@@ -1,0 +1,36 @@
+{% block extrastyle %}
+{% load i18n static %}{% get_current_language_bidi as LANGUAGE_BIDI %}
+    <link rel="stylesheet" href="{% static 'openlayers/v6/ol.css' %}"
+        type="text/css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css">
+    <link rel="stylesheet"  href="{% static 'css/custom_ol.css' %}" type="text/css">
+
+<style class="text/css">
+#{{ id }}_map { width: {{ map_width }}px; height: {{ map_height }}px; }
+#{{ id }}_map .aligned label { float:inherit; }
+#{{ id }}_admin_map { position: relative; vertical-align: top; float: {{ LANGUAGE_BIDI|yesno:"right,left" }}; }
+</style>
+{% endblock %}
+
+<span id="{{ id }}_admin_map">
+    <script type="text/javascript">
+    {% block openlayers %}{% include "admin/openlayer/ol.js" %}{% endblock %}
+    </script>
+        <div id="latlon_cls">
+            <i>Either enter the coordinates for the observation in DD(Decimal Degrees)* or select it on the map.</i>
+            <p class="lat_lon">
+                Latitude:
+                <input type="text" name="coordinate_1" size="25" id="{{ id }}_coordinate_1" style="min-width: 0; margin-left: 16px;; color: #333;  margin-bottom: 3px;">
+                <br> Longitude:
+                <input type="text" name="coordinate_0" size="25" id="{{ id }}_coordinate_0" style=" margin-bottom: 6px;  min-width: 0; margin-left: 7px; color: #333;">
+            </p>
+        </div>
+    <div id="{{ id }}_map"{% if LANGUAGE_BIDI %} dir="ltr"{% endif %}>
+    </div>
+    <!-- {% if editable %} -->
+    <!-- <a href="javascript:{{ module }}.clearFeatures()">{% trans "Delete all Features" %}</a> -->
+    <!-- {% endif %} -->
+    {% if display_wkt %}<p style="color: #777;">{% trans "WKT debugging window:" %} (<span><a class="click-toggle" href="javascript:{{ module }}.showHideWKT()">Show</a></span>) </p>{% endif %}
+    <textarea id="{{ id }}" class="vWKTField required" cols="150" rows="10" name="{{ name }}" style="display: none;">{{ wkt }}</textarea>
+    <script type="text/javascript">{% block init_function %}{{ module }}.init();{% endblock %}</script>
+</span>

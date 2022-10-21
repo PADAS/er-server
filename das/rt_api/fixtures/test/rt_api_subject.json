@@ -1,0 +1,15 @@
+[
+  {
+    "fields": {
+      "additional": {
+        "note": "demo animal"
+      },
+      "created_at": "2015-11-01T00:00:00+00:00",
+      "updated_at": "2015-11-01T00:00:00+00:00",
+      "name": "RT Radio",
+      "subject_subtype_id": "elephant"
+    },
+    "pk": "a51d6901-4ece-484f-b0a6-baf1e44d2108",
+    "model": "observations.subject"
+  }
+]

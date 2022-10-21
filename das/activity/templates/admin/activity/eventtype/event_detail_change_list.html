@@ -1,0 +1,49 @@
+{% extends 'admin/change_list.html' %}
+{% block  content_title %}
+     <h1>Refresh Data for Tableau</h1>
+            <div style="padding: 8px;
+        margin: 0 0 10px;
+        background: #ffc;
+        border: 1px solid #fb8989;
+        border-radius: 4px;
+        text-align: left;
+        display: block;
+        width:50%;">
+        <h3 style="margin:.4em 0 .4em 0; font-size: 15px;">Instruction:</h3>
+            <p style="margin: .2em 0 .4em 0;"> * Use "Refresh" to update Event Report data for Tableau.</p>
+            <p style="margin: .2em 0 .4em 0;"> * Use "Recreate" only if you've recently added event report types, or made changes to existing event report field structures.</p>
+        </div>
+{% endblock %}
+
+{% block search %}
+{{ block.super }}
+
+<form action="re_create/" method="POST">
+    {% csrf_token %}
+    <div class="actions" style="position: relative; float: right; padding-left: 0px;">
+        <button type="submit" class="button" name="recreate-views"
+            style="background: #999!important; border-radius: 9px; text-transform: uppercase; padding: 4px 8px; font-size: 11px; outline: none; margin-top:0px; color:white; box-shadow: none; border: none;"
+            onMouseOver="this.style.background='#447e9b'" onMouseOut="this.style.background='#999'">
+            Re-create view
+        </button>
+    </div>
+</form>
+<form action="refresh/" method="POST">
+    {% csrf_token %}
+    <div class="actions" style="position: relative; float: right;">
+        <button type="submit" class="button" name="recreate-views"
+            style="background: #999!important; border-radius: 9px; text-transform: uppercase; padding: 4px 8px; font-size: 11px; outline: none; margin-top:0px; color:white; box-shadow: none; border: none;"
+            onMouseOver="this.style.background='#447e9b'" onMouseOut="this.style.background='#999'">
+            Refresh view
+        </button>
+    </div>
+</form>
+
+<script type="text/javascript">
+
+        setTimeout(function () {
+            location.reload();
+        }, 15000);
+</script>
+
+{% endblock %}

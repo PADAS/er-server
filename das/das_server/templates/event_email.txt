@@ -1,0 +1,16 @@
+EarthRanger {{color}} Alert{% if newness == "UPDATE" %} {{newness}}{% endif %}
+{{id}}: {{title}}{% if parent > 0 %} (contained in {{parent}}){% endif %}
+
+{% if newness == "UPDATE" %}
+The following fields have been changed:
+{% for updated_field in updated_fields_names %}
+{{updated_field}}
+{% endfor %}
+-------------------
+
+Full event data:{% endif %}
+{% if schema_fields_exist %}{% for schema_field in schema_fields_and_values %}
+{{schema_field}}
+{% endfor %}{% endif %}{% for event_field in event_fields_and_values %}
+{{event_field}}
+{% endfor %}

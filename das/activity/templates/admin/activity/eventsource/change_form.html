@@ -1,0 +1,23 @@
+{% extends "admin/change_form.html" %}
+
+{%  block content %}
+    {%  if not eventtype_ref  %}
+        <div style="padding: 8px 10px;
+        margin: 0 0 10px;
+        background: #ffc;
+        border: 1px solid #b00000;
+        border-radius: 4px;
+        text-align: left;
+        display: block;
+        width: 90%;">
+        <h2>Notice</h2>
+            <p>This Event Source will need to have an Event Type in order to save data in Earth Ranger.</p>
+        </div>
+    {% endif %}
+{{ block.super }}
+{% endblock %}
+
+
+{% block after_field_sets %}
+
+{% endblock %}

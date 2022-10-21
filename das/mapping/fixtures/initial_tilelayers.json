@@ -1,0 +1,73 @@
+[
+	{
+		"model": "mapping.tilelayer",
+		"pk": "8b297282-164d-4604-a144-ceedefef605a",
+		"fields": {
+			"created_at": "2015-11-04T13:54:08.929Z",
+			"updated_at": "2018-11-19T20:38:33.217Z",
+			"name": "Mapbox Satellite Map",
+			"attributes": {
+				"url": "https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.png?access_token=pk.eyJ1IjoidmpvZWxtIiwiYSI6ImNpZ3RzNXdmeDA4cm90N2tuZzhsd3duZm0ifQ.YcHUz9BmCk2oVOsL48VgVQ",
+				"type": "tile_server",
+				"title": "Mapbox Satellite Map"
+			},
+			"ordernum": null
+		}
+	},
+	{
+		"model": "mapping.tilelayer",
+		"pk": "d57ea783-dbf6-4e2f-aa35-89d24b9ed30a",
+		"fields": {
+			"created_at": "2018-11-19T21:04:11.113Z",
+			"updated_at": "2018-11-19T21:04:11.113Z",
+			"name": "Google Satellite Map",
+			"attributes": {
+				"url": "https://mt.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+				"type": "tile_server",
+				"title": "Google Satellite",
+				"icon_url": "https://maps.google.com/mapfiles/ms/icons/red-dot.png"
+			},
+			"ordernum": null
+		}
+	},
+	{
+		"model": "mapping.tilelayer",
+		"pk": "d958fc5e-c451-438b-a3e2-5bab6dc2a2f2",
+		"fields": {
+			"created_at": "2015-11-04T13:49:40.648Z",
+			"updated_at": "2018-11-20T20:39:36.083Z",
+			"name": "ESRI Satellite",
+			"attributes": {
+				"url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+				"type": "tile_server",
+				"title": "ESRI Satellite",
+				"icon_url": "https://d1iq7pbacwn5rb.cloudfront.net/opendata-ui/assets/assets/images/esri-logo-color-6c1dbc86c0f28b9278d38cdf5c768e72.png",
+				"configuration": {
+					"maxZoom": 19,
+					"maxNativeZoom": 17
+				}
+			},
+			"ordernum": null
+		}
+	},
+	{
+		"model": "mapping.tilelayer",
+		"pk": "f3a14b19-456a-42d0-afa6-c9b89343eb2d",
+		"fields": {
+			"created_at": "2018-11-20T20:44:52.920Z",
+			"updated_at": "2018-11-20T20:44:52.920Z",
+			"name": "ESRI Topographic",
+			"attributes": {
+				"url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+				"type": "tile_server",
+				"title": "ESRI Topographic",
+				"icon_url": "https://d1iq7pbacwn5rb.cloudfront.net/opendata-ui/assets/assets/images/esri-logo-color-6c1dbc86c0f28b9278d38cdf5c768e72.png",
+				"configuration": {
+					"maxZoom": 19,
+					"maxNativeZoom": 17
+				}
+			},
+			"ordernum": null
+		}
+	}
+]

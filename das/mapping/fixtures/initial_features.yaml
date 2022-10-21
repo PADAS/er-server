@@ -1,0 +1,981 @@
+- model: mapping.displaycategory
+  pk: 010abc75-4b2f-4149-b8f6-c6d0f05911ec
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: POIs
+    description: ''
+- model: mapping.displaycategory
+  pk: 09bb08a9-aa35-4a7b-90c6-95820f0ab3a6
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Boundaries
+    description: ''
+- model: mapping.displaycategory
+  pk: 4e047d83-30f5-49c8-b5c8-658e0b546ab3
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Rivers
+    description: ''
+- model: mapping.displaycategory
+  pk: 59e35f92-a0fa-4c83-a218-d221e5692721
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Aviation
+    description: ''
+- model: mapping.displaycategory
+  pk: 6abfde14-c8d1-49a9-b185-06f92b4d52ef
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Roads
+    description: ''
+- model: mapping.displaycategory
+  pk: f65a27c5-d75b-4ac2-a0aa-adab692ecdc8
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Fencing
+    description: ''
+- model: mapping.displaycategory
+  pk: f93f4450-7fd2-4958-a449-3cbbd42fd3ca
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Operational
+    description: ''
+- model: mapping.spatialfeaturetype
+  pk: 03a9f77b-647a-4b54-88db-d2257edd629c
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:00:44.523452+00:00
+    name: Cities
+    attribute_schema: {}
+    display_category:
+    - POIs
+    presentation:
+      height: 20
+      image: /static/ranger_post-black.svg
+      width: 20
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 0e9bc092-d7fa-4627-b6c3-aa47f1f47255
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:10:12.364115+00:00
+    name: Secondary Rivers
+    attribute_schema: {}
+    display_category:
+    - Rivers
+    presentation:
+      stroke: '#75cff0'
+      stroke-opacity: 0.4
+      stroke-width: 2
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 0ea28900-c559-441f-9297-1b79795c1666
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 07:59:40.750348+00:00
+    name: Campsite
+    attribute_schema: {}
+    display_category:
+    - POIs
+    presentation:
+      image: /static/campsite-black.svg
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 0ea4493f-9d3a-4463-abc2-3977210c2953
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:15:36.619668+00:00
+    name: Settlements
+    attribute_schema: {}
+    display_category:
+    - POIs
+    presentation:
+      height: 20
+      image: /static/ranger_post-black.svg
+      width: 20
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 15fa4821-1af0-478c-b0a1-7f66ff3f0f7f
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:15:10.652169+00:00
+    name: Security
+    attribute_schema: {}
+    display_category:
+    - POIs
+    presentation:
+      height: 20
+      image: /static/ranger_post-black.svg
+      width: 20
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 1a34c6e5-52d6-4446-8966-ce405a0b5551
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Forest Block
+    attribute_schema: {}
+    display_category: null
+    presentation: {}
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 1b01837e-6d4e-416f-b837-6f2b54654355
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:08:36.271004+00:00
+    name: Park
+    attribute_schema: {}
+    display_category:
+    - Boundaries
+    presentation:
+      fill: '#555555'
+      fill-opacity: 0.2
+      stroke: '#659F59'
+      stroke-opacity: 0.7
+      stroke-width: 2
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 1f124121-79b8-4ccc-b708-474e568206e3
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Administrative District
+    attribute_schema: {}
+    display_category: null
+    presentation:
+      fill: '#7CB74B'
+      fill-opacity: 0.2
+      stroke: '#4E633C'
+      stroke-opacity: 0.5
+      stroke-width: 2
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 207897fa-d1c5-4046-90c7-ea92ffd056b4
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Railway
+    attribute_schema: {}
+    display_category: null
+    presentation: {}
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 2a8c351b-a154-4cb7-accd-01823353a936
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:18:30.506329+00:00
+    name: Wildlife Corridor
+    attribute_schema: {}
+    display_category:
+    - Boundaries
+    presentation:
+      fill: '#f4d442'
+      fill-opacity: 0.2
+      stroke: '#000000'
+      stroke-opacity: 0.7
+      stroke-width: 1
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 34b37600-1e20-467b-a20f-0dcc5b912f94
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Point of Interest
+    attribute_schema: {}
+    display_category: null
+    presentation:
+      image: /static/feature-POI-star_flag.svg
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 36c97186-4e99-4d40-bb9c-15539ae15f9b
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Ranger Post
+    attribute_schema: {}
+    display_category: null
+    presentation: {}
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 3979f685-80ab-426f-8ed1-85cb2ad5c59b
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Fencing_Unknown
+    attribute_schema: {}
+    display_category: null
+    presentation: {}
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 44a8f761-d2d8-4433-ad26-50d4c24d96d5
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:11:17.260336+00:00
+    name: Sector
+    attribute_schema: {}
+    display_category:
+    - Boundaries
+    presentation:
+      fill: '#f4d442'
+      fill-opacity: 0.2
+      stroke: '#000000'
+      stroke-opacity: 0.7
+      stroke-width: 1
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 46f0e859-dee9-4e9a-9f2e-b76f3b624bc1
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Fence Attendant House
+    attribute_schema: {}
+    display_category: null
+    presentation: {}
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 47e85aba-bff2-4249-ba32-fc61655c5f2c
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Airstrip
+    attribute_schema: {}
+    display_category: null
+    presentation:
+      image: ''
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 487992b8-9df4-457e-b170-2be46a684a3e
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Wildlife Management Area
+    attribute_schema: {}
+    display_category: null
+    presentation: {}
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 4adb6cbf-8a61-4f52-a8f5-4e1d96d9e68d
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Hide
+    attribute_schema: {}
+    display_category: null
+    presentation: {}
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 4f13a1e1-eff1-4d00-94ae-93326fed8bd8
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:07:12.303013+00:00
+    name: Highways
+    attribute_schema: {}
+    display_category:
+    - Roads
+    presentation:
+      fill: '#f4d442'
+      fill-opacity: 0.2
+      stroke: '#000000'
+      stroke-opacity: 0.7
+      stroke-width: 1
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 50d739d9-dc64-4e58-8d8d-cc64d18b5cde
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:16:40.462334+00:00
+    name: Towns
+    attribute_schema: {}
+    display_category:
+    - POIs
+    presentation:
+      height: 20
+      image: /static/ranger_post-black.svg
+      width: 20
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 52060386-84f1-48b5-a49a-254ac9342fd3
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:04:21.385304+00:00
+    name: Wildlife Reserve
+    attribute_schema: {}
+    display_category:
+    - Boundaries
+    presentation:
+      fill: '#f4d442'
+      fill-opacity: 0.2
+      stroke: '#000000'
+      stroke-opacity: 0.7
+      stroke-width: 1
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 56cefe2e-a6c5-4345-9351-602bd25546f1
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:09:01.000740+00:00
+    name: Paths
+    attribute_schema: {}
+    display_category:
+    - Roads
+    presentation:
+      fill: '#f4d442'
+      fill-opacity: 0.2
+      stroke: '#000000'
+      stroke-opacity: 0.7
+      stroke-width: 1
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 591262a4-280f-4136-9d0c-7cc15c72ae4a
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Picnic/Rest Stop
+    attribute_schema: {}
+    display_category: null
+    presentation: {}
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 5a047d3b-b70a-464b-9417-cc6d6300b8bb
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Bai_Forest Clearing
+    attribute_schema: {}
+    display_category: null
+    presentation: {}
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 6c143d25-85a7-4497-bc7d-c68bc9d5c655
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Streams
+    attribute_schema: {}
+    display_category: null
+    presentation:
+      stroke: '#75cff0'
+      stroke-opacity: 0.4
+      stroke-width: 1
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 6ec3fb41-7d5f-447a-92ca-dc9968c38cb1
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Screen Section
+    attribute_schema: {}
+    display_category: null
+    presentation: {}
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 73c38dc7-fbfc-4c41-925a-91b3eefc1d7a
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Gate Post
+    attribute_schema: {}
+    display_category: null
+    presentation:
+      image: /static/park_gate.svg
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 74cbd5d3-84c4-4265-823f-323a79f94b8c
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Hotel/Lodge
+    attribute_schema: {}
+    display_category: null
+    presentation:
+      image: /static/lodging-black.svg
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 788224b7-d0d6-4a68-a14c-24c80744d236
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:02:39.197178+00:00
+    name: Conservancy
+    attribute_schema: {}
+    display_category:
+    - Boundaries
+    presentation:
+      fill: '#00FF00'
+      fill-opacity: 0.4
+      stroke: '#87CEFA'
+      stroke-opacity: 0.7
+      stroke-width: 3
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 8073be1c-0b43-4b97-bddc-755bc2962245
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Tourism Center
+    attribute_schema: {}
+    display_category: null
+    presentation: {}
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 8212bbab-36bd-40d4-9ea1-868d07ea2705
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:17:19.537526+00:00
+    name: Villages
+    attribute_schema: {}
+    display_category:
+    - POIs
+    presentation:
+      image: /static/village-black.svg
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 839d87fb-1e22-4933-bb10-c1de29d1ada1
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:08:02.985298+00:00
+    name: Outposts
+    attribute_schema: {}
+    display_category:
+    - POIs
+    presentation:
+      height: 20
+      image: /static/ranger_post-black.svg
+      width: 20
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 86450bb6-3112-47b8-9aef-bb0841b96afb
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:10:30.729985+00:00
+    name: Secondary Roads
+    attribute_schema: {}
+    display_category:
+    - Roads
+    presentation:
+      stroke: '#ffffff'
+      stroke-opacity: 0.4
+      stroke-width: 3
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: 9dd8ffcc-30ea-4230-9355-c4d1264abf1e
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:04:04.902645+00:00
+    name: National Reserve
+    attribute_schema: {}
+    display_category:
+    - Boundaries
+    presentation:
+      fill: '#f4d442'
+      fill-opacity: 0.2
+      stroke: '#000000'
+      stroke-opacity: 0.7
+      stroke-width: 1
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: a133525e-c09f-490f-b5ae-36939492aefd
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Military
+    attribute_schema: {}
+    display_category: null
+    presentation: {}
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: a327c930-d1ee-4938-b87a-74bd1a5a4121
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:00:14.618259+00:00
+    name: Cartography
+    attribute_schema: {}
+    display_category:
+    - POIs
+    presentation:
+      height: 20
+      image: /static/ranger_post-black.svg
+      width: 20
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: a401656b-1771-47c0-9dbf-1bc4576e6fbb
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Viewpoint
+    attribute_schema: {}
+    display_category: null
+    presentation: {}
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: a918ea51-545e-4f3e-88a8-dee226ad80a4
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:09:42.748000+00:00
+    name: Primary Roads
+    attribute_schema: {}
+    display_category:
+    - Roads
+    presentation:
+      fill: '#f4d442'
+      fill-opacity: 0.2
+      stroke: '#000000'
+      stroke-opacity: 0.7
+      stroke-width: 1
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: addadef4-4da5-4c80-93f3-7f2a9f17d85a
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Shooting Range
+    attribute_schema: {}
+    display_category: null
+    presentation: {}
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: af8a622d-9ec9-4ce1-b32e-2123b6e01b66
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Patrol Block
+    attribute_schema: {}
+    display_category: null
+    presentation: {}
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: b06dd2d0-50aa-4f70-8eb0-e7f7ef23c2bc
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Radio Repeater
+    attribute_schema: {}
+    display_category: null
+    presentation: {}
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: b7237bd2-facc-4d86-a036-572312bc8135
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:03:02.479593+00:00
+    name: Private Conservancy
+    attribute_schema: {}
+    display_category:
+    - Boundaries
+    presentation:
+      fill: '#f4d442'
+      fill-opacity: 0.2
+      stroke: '#000000'
+      stroke-opacity: 0.7
+      stroke-width: 1
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: b867d210-2eaf-4e3a-8bb3-084c47819e54
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Ranger Station
+    attribute_schema: {}
+    display_category: null
+    presentation:
+      image: /static/static/ranger_post-dk_olive.svg
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: b8ec92f9-04fb-4b9c-9932-767180e16fd3
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:06:45.438388+00:00
+    name: Grazing Block
+    attribute_schema: {}
+    display_category:
+    - Boundaries
+    presentation:
+      fill: '#f4d442'
+      fill-opacity: 0.2
+      stroke: '#000000'
+      stroke-opacity: 0.7
+      stroke-width: 1
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: c18d140e-3a6d-4ed0-bec1-5f77f769e490
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:01:30.379626+00:00
+    name: Communal Land
+    attribute_schema: {}
+    display_category:
+    - Boundaries
+    presentation:
+      fill: '#f4d442'
+      fill-opacity: 0.2
+      stroke: '#000000'
+      stroke-opacity: 0.7
+      stroke-width: 1
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: c6e30845-5f1e-4a42-85da-bc9b3052b378
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Municipality
+    attribute_schema: {}
+    display_category: null
+    presentation: {}
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: d3832c23-0d72-4cae-b79b-55f5955d85e8
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Boma
+    attribute_schema: {}
+    display_category: null
+    presentation: {}
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: d4fdaa73-5dfb-4413-9c49-ab8e1fa45de1
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:21:39.700121+00:00
+    name: Wildlife Sanctuary
+    attribute_schema: {}
+    display_category:
+    - Boundaries
+    presentation:
+      fill: '#f4d442'
+      fill-opacity: 0.2
+      stroke: '#000000'
+      stroke-opacity: 0.7
+      stroke-width: 1
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: d5333c12-d3c1-4905-86ff-ee9e1d0b85b1
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:10:41.364212+00:00
+    name: Tertiary Roads
+    attribute_schema: {}
+    display_category:
+    - Roads
+    presentation:
+      stroke: '#ffffff'
+      stroke-opacity: 0.4
+      stroke-width: 2
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: d8cb1cef-0b99-4456-ba21-b67103077bb4
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Ranger Camp
+    attribute_schema: {}
+    display_category: null
+    presentation:
+      image: /static/campsite-olive.svg
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: e6f7d1a4-0591-43d1-b1e0-ddc75c0fe071
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:17:56.418789+00:00
+    name: Water Points
+    attribute_schema: {}
+    display_category:
+    - POIs
+    presentation:
+      height: 20
+      image: /static/ranger_post-black.svg
+      width: 20
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: e73fe9ca-f762-4006-8a22-f13e379b9f83
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Fencing_Electric
+    attribute_schema: {}
+    display_category: null
+    presentation: {}
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: ea478e7a-996e-4721-80eb-8f99b6d499af
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:04:52.237389+00:00
+    name: Geography
+    attribute_schema: {}
+    display_category:
+    - POIs
+    presentation:
+      height: 20
+      image: /static/ranger_post-black.svg
+      width: 20
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: ec1bef85-7f66-469b-899e-3f1c2b268f33
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Photo Point
+    attribute_schema: {}
+    display_category: null
+    presentation: {}
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: f525819a-ade9-4fca-a0a7-5a1619302f78
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2016-08-04 01:00:00+00:00
+    name: Headquarters
+    attribute_schema: {}
+    display_category: null
+    presentation:
+      image: /static/park_HQ-olive.svg
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: f912c5b4-48c9-4f2f-b52b-207c9ce450de
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:02:23.385032+00:00
+    name: Community Conservancy
+    attribute_schema: {}
+    display_category:
+    - Boundaries
+    presentation:
+      fill: '#CCFFCC'
+      fill-opacity: 0.4
+      stroke: '#FFC0CB'
+      stroke-opacity: 0.7
+      stroke-width: 3
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: faae49f3-bd6e-4400-a6b6-f1924fededfd
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 07:59:20.089435+00:00
+    name: Aviation
+    attribute_schema: {}
+    display_category:
+    - POIs
+    presentation:
+      fill: '#a64332'
+      fill-opacity: 0.4
+      stroke: '#ee1b1b'
+      stroke-opacity: 0.8
+      stroke-width: 3
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: fd8543eb-bcf9-49b3-aa60-0fa6c88f1ffd
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:09:28.507681+00:00
+    name: Primary Rivers
+    attribute_schema: {}
+    display_category:
+    - Rivers
+    presentation:
+      fill: '#f4d442'
+      fill-opacity: 0.2
+      stroke: '#000000'
+      stroke-opacity: 0.7
+      stroke-width: 1
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true
+- model: mapping.spatialfeaturetype
+  pk: fe212e85-6619-445b-a302-87644107cd32
+  fields:
+    created_at: 2016-08-04 01:00:00+00:00
+    updated_at: 2022-03-16 08:03:48.616470+00:00
+    name: Forest Reserve
+    attribute_schema: {}
+    display_category:
+    - Boundaries
+    presentation:
+      fill: '#f4d442'
+      fill-opacity: 0.2
+      stroke: '#000000'
+      stroke-opacity: 0.7
+      stroke-width: 1
+    provenance: {}
+    external_id: null
+    external_source: ''
+    is_visible: true

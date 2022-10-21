@@ -1,0 +1,421 @@
+[
+  {
+    "fields": {
+      "created_at": "2015-05-04T00:00:00+00:00",
+      "updated_at": "2015-05-04T00:00:00+00:00",
+      "value": "elephant",
+      "subject_type": "wildlife",
+      "display": "Elephant"
+    },
+    "pk": "c6b6a0ec-5928-44ba-8f84-0690edc61baf",
+    "model": "observations.subjectsubtype"
+  },
+  {
+    "fields": {
+      "additional": {
+        "species": "Indian", "rgb": "(97,178,169)", "sex": "Female", "region": "Kerala", "country": "India"
+      },
+      "created_at": "2015-05-04T00:00:00+00:00",
+      "updated_at": "2015-05-04T00:00:00+00:00",
+      "name": "Junkie",
+      "subject_subtype_id": "elephant"
+    },
+    "pk": "0fa8ec9a-7e92-4575-9575-df202d5dde25",
+    "model": "observations.subject"
+  },
+  {
+    "fields": {
+      "additional": {
+        "species": "African", "rgb": "(255,178,169)", "sex": "Male", "region": "Saharan", "country": "Sudan"
+      },
+      "created_at": "2015-05-04T00:00:00+00:00",
+      "updated_at": "2015-05-04T00:00:00+00:00",
+      "name": "Henry",
+      "subject_subtype_id": "elephant"
+    },
+    "pk": "9077419b-ef91-43e9-a6de-1b60b7fea4f0",
+    "model": "observations.subject"
+  },
+  {
+    "fields": {
+      "id": "8c863e7f-41fe-4a4f-9055-9607f76a1fb4",
+      "name": "Indian elephant subjet group",
+      "subjects": ["0fa8ec9a-7e92-4575-9575-df202d5dde25"],
+      "created_at": "2015-05-04T00:00:00+00:00",
+      "updated_at": "2015-05-04T00:00:00+00:00"
+    },
+    "pk": "8c863e7f-41fe-4a4f-9055-9607f76a1fb4",
+    "model": "observations.subjectGroup"
+  },
+  {
+    "fields": {
+      "id": "d5a4caf1-ae67-4bdd-8347-31d92ba84160",
+      "name": "African elephant subjet group",
+      "subjects": ["9077419b-ef91-43e9-a6de-1b60b7fea4f0"],
+      "created_at": "2015-05-04T00:00:00+00:00",
+      "updated_at": "2015-05-04T00:00:00+00:00"
+    },
+    "pk": "d5a4caf1-ae67-4bdd-8347-31d92ba84160",
+    "model": "observations.subjectGroup"
+  },
+  {
+    "fields": {
+      "created_at": "2015-05-04T00:00:00+00:00",
+      "updated_at": "2015-05-04T00:00:00+00:00",
+      "id": "65d37d98-cb57-48a8-967d-632a1cb2f370",
+      "provider_key": "_default",
+      "display_name": "GPS Tracker", 
+      "additional": {}
+    },
+    "pk": "65d37d98-cb57-48a8-967d-632a1cb2f370",
+    "model": "observations.sourceprovider"
+  },
+  {
+    "fields": {
+      "created_at": "2015-05-04T00:00:00+00:00",
+      "updated_at": "2015-05-04T00:00:00+00:00",
+      "id": "48363636-9dfc-496e-8579-24ea2f9d7fe1",
+      "provider_key": "New key", 
+      "display_name": "Radio Caller", 
+      "additional": {}
+    },
+    "pk": "48363636-9dfc-496e-8579-24ea2f9d7fe1",
+    "model": "observations.sourceprovider"
+  },
+  {
+    "fields": {
+      "created_at": "2015-05-04T00:00:00+00:00",
+      "updated_at": "2015-05-04T00:00:00+00:00",
+      "id": "697f25e4-562c-4305-af86-1333e9081f4c",
+      "provider_key": "Old key", 
+      "display_name": "New Radio Caller", 
+      "additional": {}
+    },
+    "pk": "697f25e4-562c-4305-af86-1333e9081f4c",
+    "model": "observations.sourceprovider"
+  },
+  {
+    "fields": {
+      "provider_id": "697f25e4-562c-4305-af86-1333e9081f4c",
+      "manufacturer_id": "junk-fix-source",
+      "additional": {
+        "collar_type": "AWT Satellite", "collar_id": "00583074VTIF267", "active": "0",
+        "frequency": "149.8", "animal_id": "DOB=1975", "name": "Bobo", "species": "Elephant", "data_starts": "3/22/2014 15:03",
+        "data_stops": "6/8/2016 9:03", "date_off_or_removed": "6/8/2016 9:03",
+        "predicted_expiry": " Chris reported VHF to be 148.8", "gmt": "",
+        "collar_status": "", "collar_model": "Chris Leadismo",
+        "has_acc_data": "Chris Leadismo", "data_owners": "Replaced"
+      },
+      "created_at": "2015-05-04T00:00:00+00:00",
+      "model_name": "Test-For-Finding-Junk-Fixes",
+      "updated_at": "2015-05-04T00:00:00+00:00",
+      "source_type": "tracking-device"
+    },
+    "pk": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+    "model": "observations.source"
+  },
+  {
+    "fields": {
+      "provider_id": "65d37d98-cb57-48a8-967d-632a1cb2f370",
+      "manufacturer_id": "junk-fix-source",
+      "additional": {
+        "collar_type": "Henrik GL200", "collar_id": "ST2010-3015", "active": "1",
+        "frequency": "176", "animal_id": "DOB=1974", "name": "Bettye", "species": "Elephant", "data_starts": "8/16/2014 17:13",
+        "data_stops": "", "date_off_or_removed": "Still Deployed",
+        "predicted_expiry": " OnVet Dr. Michael", "gmt": "", "collar_status": "", "collar_model": "Active - Deployed",
+        "has_acc_data": "Chris Leadismo", "data_owners": "Active - Deployed"
+      },
+      "created_at": "2015-05-06T00:00:00+00:00",
+      "model_name": "Test-For-Finding-Junk-Fixes",
+      "updated_at": "2015-05-06T00:00:00+00:00",
+      "source_type": "tracking-device"
+    },
+    "pk": "bac7c1bf-fe59-4d8c-a4d0-bad7a5bce59d",
+    "model": "observations.source"
+  },
+  {
+    "fields": {
+      "provider_id": "48363636-9dfc-496e-8579-24ea2f9d7fe1",
+      "manufacturer_id": "junk-fix-source",
+      "additional": {
+        "collar_type": "Henrik MK560", "collar_id": "KM8076-3124", "active": "1",
+        "frequency": "156", "animal_id": "DOB=1989", "name": "Hayate", "species": "Elephant", "data_starts": "8/15/2014 17:13",
+        "data_stops": "", "date_off_or_removed": "Still Deployed",
+        "predicted_expiry": " OnVet Dr. Huess", "gmt": "", "collar_status": "", "collar_model": "Active - Deployed",
+        "has_acc_data": "Don Joe", "data_owners": "Active - Deployed"
+      },
+      "created_at": "2015-05-05T00:00:00+00:00",
+      "model_name": "Test-For-Finding-Junk-Fixes",
+      "updated_at": "2015-05-05T00:00:00+00:00",
+      "source_type": "tracking-device"
+    },
+    "pk": "550599f6-e0e1-4197-ac5b-76d24493a338",
+    "model": "observations.source"
+  },
+  {
+    "pk": "9a408723-64dd-4327-a36b-29954285b640",
+    "model": "observations.subjectsource",
+    "fields": {
+      "assigned_range": "{\"bounds\": \"[)\", \"lower\": \"2011-01-01T00:00:00+00:00\", \"upper\": \"2016-01-01T00:00:00+00:00\"}",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "subject": "0fa8ec9a-7e92-4575-9575-df202d5dde25",
+      "additional": {
+        "chronofile": "474", "comments": "OnVet - Dr.Limo", "data_status": "12/1/2015 12:00",
+        "data_starts_source": "255,179,79", "data_stops_source": " Acc not recorded",
+        "data_stops_reason": "3"
+      }
+    }
+  },
+  {
+    "pk": "510a7d40-83a8-4d13-97d6-e7cb22c83e40",
+    "model": "observations.subjectsource",
+    "fields": {
+      "assigned_range": "{\"bounds\": \"[)\", \"lower\": \"2015-07-01T00:00:00+00:00\", \"upper\": \"2100-01-01T00:00:00+00:00\"}",
+      "source": "bac7c1bf-fe59-4d8c-a4d0-bad7a5bce59d",
+      "subject": "0fa8ec9a-7e92-4575-9575-df202d5dde25",
+      "additional": {"chronofile": "256", "comments": "OnPIC Marc Goss", "data_status": "",
+        "data_starts_source": "Needs checking", "data_stops_source": "Marc Goss",
+        "data_stops_reason": ""}
+    }
+  },
+  {
+    "pk": "37b53af3-1aa6-4210-a26d-2a290a8e7b59",
+    "model": "observations.subjectsource",
+    "fields": {
+      "assigned_range": "{\"bounds\": \"[)\", \"lower\": \"2015-07-01T00:00:00+00:00\", \"upper\": \"2100-01-01T00:00:00+00:00\"}",
+      "source": "550599f6-e0e1-4197-ac5b-76d24493a338",
+      "subject": "9077419b-ef91-43e9-a6de-1b60b7fea4f0",
+      "additional": {"chronofile": "523", "comments": "OnHello Mark Boss","data_status": "",
+        "data_starts_source": "Needs checking", "data_stops_source": "Mark Boss",
+        "data_stops_reason": ""}
+    }
+  },
+  {
+    "pk": "a50c9560-e357-49d1-a1c7-de5cef185ff5",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7603953573059 -12.3356969149876)",
+      "created_at": "2014-03-25T00:00:34.322785+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {"temp":"22.56678"},
+      "recorded_at": "2016-03-25T01:00:38+00:00",
+      "exclusion_flags": 0
+    }
+  },
+  {
+    "pk": "edacd0b5-05f0-435e-84ef-49d5f562590f",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(38.7603953550009 -12.3256456749876)",
+      "created_at": "2014-06-18T00:00:34.322785+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {"temp":"23.67898"},
+      "recorded_at": "2014-06-18T00:00:34.322785+00:00",
+      "exclusion_flags": 1
+    }
+  },
+  {
+    "pk": "80625caf-e8f4-496e-b069-25a012147cf6",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.720344973059 -11.3354532149876)",
+      "created_at": "2014-11-09T00:00:34.322785+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {"temp":"40.66782"},
+      "recorded_at": "2014-11-09T00:00:34.322785+00:00",
+      "exclusion_flags": 0
+    }
+  },
+  {
+    "pk": "82324e7b-9281-4c4e-a8ae-d02e503021b1",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7600423579 -12.3356961056776)",
+      "created_at": "2015-02-19T00:00:34.322785+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {"temp":"42.56678"},
+      "recorded_at": "2015-02-19T00:00:34.322785+00:00",
+      "exclusion_flags": 1
+    }
+  },
+  {
+    "pk": "5513eef1-6a9c-49fd-8e0d-9870a1610649",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(36.7658903573059 -12.2956654349876)",
+      "created_at": "2016-03-25T00:00:34.322785+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {"temp":"29.40098"},
+      "recorded_at": "2016-03-25T00:00:34.322785+00:00",
+      "exclusion_flags": 0
+    }
+  },
+  {
+    "pk": "73f8e8c8-ec37-4e87-8f6d-45eb89707278",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7603531763263 -12.3357586409225)",
+      "created_at": "2016-03-28T00:00:34.322928+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {"temp":"27.56809"},
+      "recorded_at": "2016-03-28T02:00:38+00:00",
+      "exclusion_flags": 1
+    }
+  },
+  {
+    "pk": "dc90dd1c-3634-455f-8386-b7372c912122",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7586930900307 -12.3297162190965)",
+      "created_at": "2017-07-17T00:00:34.323058+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {"temp":"32.86876"},
+      "recorded_at": "2017-07-17T07:02:08+00:00",
+      "exclusion_flags": 0
+    }
+  },
+  {
+    "pk": "fa00b362-37fc-4434-8225-5e5a6acb1eae",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7594804909249 -12.3292119895312)",
+      "created_at": "2017-08-28T00:00:34.323184+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {"temp":"24.86438"},
+      "recorded_at": "2017-08-28T08:00:20+00:00",
+      "exclusion_flags": 1
+    }
+  },
+  {
+    "pk": "544514cd-f1a5-4395-905e-b2bc0a8a53c6",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7593904180219 -12.3281455524601)",
+      "created_at": "2018-03-25T00:00:34.323307+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {"temp":"41.56538"},
+      "recorded_at": "2018-03-25T09:03:00+00:00",
+      "exclusion_flags": 0
+    }
+  },
+  {
+    "pk": "86f0367f-3233-4a89-9bdd-8d5d534e353b",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7731898858037 -12.3071955469047)",
+      "created_at": "2018-03-26T00:00:34.323429+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {"temp":"39.43678"},
+      "recorded_at": "2018-03-26T23:01:39+00:00",
+      "exclusion_flags": 1
+    }
+  },
+  {
+    "pk": "8fc996e5-4ef5-4717-96bc-fe1bbbba35c9",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7736203961594 -12.3072694000991)",
+      "created_at": "2018-07-07T00:00:34.323549+00:00",
+      "source": "bac7c1bf-fe59-4d8c-a4d0-bad7a5bce59d",
+      "additional": {"temp":"27.566548"},
+      "recorded_at": "2018-07-07T00:01:00+00:00",
+      "exclusion_flags": 0
+    }
+  },
+  {
+    "pk": "8abf393f-58f6-40a7-a6a8-55c4504245c3",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(38.77418975958 -10.3064852714102)",
+      "created_at": "2017-07-09T00:00:34.323670+00:00",
+      "source": "550599f6-e0e1-4197-ac5b-76d24493a338",
+      "additional": {"temp":"26.34678"},
+      "recorded_at": "2018-07-09T01:00:19+00:00",
+      "exclusion_flags": 1
+    }
+  },
+  {
+    "pk": "47f96b9e-a4db-4a90-987a-ea9660b96432",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.774112675529 -12.3062953485262)",
+      "created_at": "2018-08-13T00:00:34.323911+00:00",
+      "source": "bac7c1bf-fe59-4d8c-a4d0-bad7a5bce59d",
+      "additional": {"temp":"28.587678"},
+      "recorded_at": "2018-08-13T02:00:37+00:00",
+      "exclusion_flags": 0
+    }
+  },
+  {
+    "pk": "a5a5ba83-3131-4096-bd31-38af14e255e6",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8030925587707 -12.2867698161795)",
+      "created_at": "2018-08-17T00:00:34.324049+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {"temp":"44.55438"},
+      "recorded_at": "2018-08-17T23:00:11+00:00",
+      "exclusion_flags": 1
+    }
+  },
+  {
+    "pk": "45998df3-4f12-4c97-a8de-2c7578ec6e3b",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8031073472651 -12.286758922259)",
+      "created_at": "2018-09-02T00:00:34.324172+00:00",
+      "source": "550599f6-e0e1-4197-ac5b-76d24493a338",
+      "additional": {"temp":"35.56678"},
+      "recorded_at": "2018-09-02T00:00:13+00:00",
+      "exclusion_flags": 0
+    }
+  },
+  {
+    "pk": "6eac9603-547c-48b6-813d-350394d5f5d8",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.803168443521 -12.2868939420554)",
+      "created_at": "2018-09-03T00:00:34.324293+00:00",
+      "source": "bac7c1bf-fe59-4d8c-a4d0-bad7a5bce59d",
+      "additional": {"temp":"21.543455"},
+      "recorded_at": "2018-09-03T01:00:23+00:00",
+      "exclusion_flags": 1
+    }
+  },
+  {
+    "pk": "4041ffdf-1ce8-4a35-974d-d59838429f79",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8031020671549 -12.2868328158713)",
+      "created_at": "2018-09-05T00:00:34.324416+00:00",
+      "source": "bac7c1bf-fe59-4d8c-a4d0-bad7a5bce59d",
+      "additional": {"temp":"34.5745675"},
+      "recorded_at": "2018-09-05T02:01:08+00:00",
+      "exclusion_flags": 0
+    }
+  },
+  {
+    "pk": "e484f35d-16a2-4d40-980a-ed39aa17aaaa",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7991526330116 -12.28439367309)",
+      "created_at": "2018-09-05T00:00:34.324536+00:00",
+      "source": "550599f6-e0e1-4197-ac5b-76d24493a338",
+      "additional": {"temp":"20.56876876"},
+      "recorded_at": "2018-09-05T06:01:40+00:00",
+      "exclusion_flags": 1
+    }
+  },
+    {
+    "pk": "ddc3777c-0230-11eb-adc1-0242ac120002",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(38.791526330116 -14.28439367309)",
+      "created_at": "2020-09-05T00:00:34.324536+00:00",
+      "source": "550599f6-e0e1-4197-ac5b-76d24493a338",
+      "additional": null,
+      "recorded_at": "2020-09-05T06:01:40+00:00",
+      "exclusion_flags": 0
+    }
+  }
+]

@@ -1,0 +1,10 @@
+{% extends 'admin/change_form.html' %}
+{% block submit_buttons_bottom %}
+    <div class="submit-row" style="background-color:transparent; border: none">
+        {% if change %}
+            <input type="submit" value="Test Connection" name="_testconnection", style="background-color:#ba2121; border: none">
+            <input type="submit" value="Download Features" name="_downloadfeatures">
+        {% endif %}
+    </div>
+    {{ block.super }}
+{% endblock %}

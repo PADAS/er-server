@@ -1,0 +1,34 @@
+[
+  {
+    "pk": "4aab0c7d-3768-4771-b9aa-9d19cbf13bca",
+    "model": "observations.subjectsource",
+    "fields": {
+      "assigned_range": "{\"bounds\": \"[)\", \"lower\": \"0001-01-01T00:00:00+00:00\", \"upper\": \"9999-12-31T00:00:00+00:00\"}",
+      "source": "56b1cf14-ef97-4054-8fbd-1342f265b2a9",
+      "subject": "269524d5-a434-4377-9ea9-2a7946dbd9c4",
+      "additional": {"x":1}
+    }
+  },
+  {
+    "pk": "8981c8a5-8997-4f01-9a8a-8909990111eb",
+    "model": "observations.subjectsource",
+    "fields": {
+      "assigned_range": "{\"bounds\": \"[)\", \"lower\": \"0001-01-01T00:00:00+00:00\", \"upper\": \"9999-12-31T00:00:00+00:00\"}",
+      "source": "2e47839d-0277-4398-904d-91da8b0698f4",
+      "subject": "ab27bfb5-ce7a-43ac-a1ac-69ddb4e1f4a5",
+      "additional": {"x":1}
+    }
+  },
+    {
+    "pk": "64bda39f-2c17-4ad6-b886-bc1a03eae4e1",
+    "model": "observations.subjectsource",
+    "fields": {
+      "assigned_range": "{\"bounds\": \"[)\", \"lower\": \"1999-09-01T00:00:00+00:00\", \"upper\": \"2100-01-01T00:00:00+00:00\"}",
+      "source": "a91e0366-898c-475b-830f-e0fae46e6efe",
+      "subject": "9342973f-b369-4d21-9f1f-ae89d523e05a",
+      "additional": {"note": "Testing for immobility"}
+    }
+  }
+]
+
+

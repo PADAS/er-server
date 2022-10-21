@@ -1,0 +1,16 @@
+- model: mapping.tilelayer
+  pk: 8b297282-164d-4604-a144-ceedefef605a
+  fields:
+    created_at: "2015-11-04 13:54:08.929000+00:00"
+    updated_at: "2015-11-26 00:20:17.133321+00:00"
+    name: Mapbox Satellite Map
+    attributes:
+      attribution: <a href="https://www.mapbox.com/about/maps/" target="_blank">&copy;
+        Mapbox</a> <a href="http://www.openstreetmap.org/about/" target="_blank">&copy;
+        OpenStreetMap</a> <a class="mapbox-improve-map" href="https://www.mapbox.com/map-feedback/"
+        target="_blank">Improve this map</a> <a href="https://www.digitalglobe.com/"
+        target="_blank">&copy; DigitalGlobe</a>
+      id: mapbox.satellite
+      tiles: ['http://a.tiles.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.png',
+        'http://b.tiles.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}.png']
+    ordernum: null

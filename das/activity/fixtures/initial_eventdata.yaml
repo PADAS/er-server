@@ -1,0 +1,5 @@
+- model: activity.community
+  pk: 9ec20ec8-516c-40bd-a4a3-9a2b49f5ea40
+  fields: {created_at: '2016-05-19 17:15:32.295060+00:00', updated_at: '2016-05-19
+      17:15:32.295085+00:00', name: Informant}
+

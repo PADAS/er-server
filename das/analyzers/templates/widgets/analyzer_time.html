@@ -1,0 +1,11 @@
+<p class="datetime" >
+  {{ hour_label }} {% with widget=widget.subwidgets.0 %}{% include widget.template_name %}{% endwith %}<br>
+  {{ min_label }} {% with widget=widget.subwidgets.1 %}{% include widget.template_name %}{% endwith %}
+</p>
+
+<style>
+    #id_search_time_hours_0, #id_analysis_search_time_hours_0, #id_proximity_time_0 {
+        margin-bottom: 4px;
+    }
+
+</style>

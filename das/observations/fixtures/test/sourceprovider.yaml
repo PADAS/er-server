@@ -1,0 +1,20 @@
+- model: observations.sourceprovider
+  pk: 1e3eaebf-648f-4e52-8f92-75d78bd0ab3c
+  fields: {created_at: '2017-02-09 21:35:58.458903+00:00', updated_at: '2017-02-09
+      21:35:58.458903+00:00', provider_key: firms, display_name: 'Firms'}
+- model: observations.sourceprovider
+  pk: 5997564a-84c5-4daf-b6ad-ecdc92bc2a48
+  fields: {created_at: '2017-02-09 21:35:58.458903+00:00', updated_at: '2017-02-09
+      21:35:58.458903+00:00', provider_key: savannah, display_name: 'Savannah'}
+- model: observations.sourceprovider
+  pk: 695fd449-3249-4515-8438-2337df426f86
+  fields: {created_at: '2017-02-09 21:35:58.458903+00:00', updated_at: '2017-02-09
+      21:35:58.458903+00:00', provider_key: awt-http-gsm, display_name: 'AWT HTTP (GSM)'}
+- model: observations.sourceprovider
+  pk: 697f25e4-562c-4305-af86-1333e9081f4c
+  fields: {created_at: '2017-02-09 21:35:58.501213+00:00', updated_at: '2017-02-09
+      21:35:58.501242+00:00', provider_key: default, display_name: 'Default'}
+- model: observations.sourceprovider
+  pk: 6c8b0b34-96c4-442b-892f-de218609e9cb
+  fields: {created_at: '2017-02-09 21:35:58.458903+00:00', updated_at: '2017-02-09
+      21:35:58.458903+00:00', provider_key: demo-elephants, display_name: 'Demo Elephants'}

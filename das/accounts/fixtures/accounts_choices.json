@@ -1,0 +1,46 @@
+[
+  {
+    "fields": {
+      "model": "accounts.user.User",
+      "field": "tech",
+      "value": "iOS",
+      "display": "iOS",
+      "ordernum": 10
+    },
+    "pk": "17aa3144-6556-4495-a754-924e12043648",
+    "model": "choices.Choice"
+  },
+  {
+    "fields": {
+      "model": "accounts.user.User",
+      "field": "tech",
+      "value": "GE",
+      "display": "GE",
+      "ordernum": 20
+    },
+    "pk": "d5a4caf1-ae67-4bdd-8347-31d92ba84160",
+    "model": "choices.Choice"
+  },
+  {
+    "fields": {
+      "model": "accounts.user.User",
+      "field": "organization",
+      "value": "Clinton Global Initiative",
+      "display": "Clinton Global Initiative",
+      "ordernum": 10
+    },
+    "pk": "697f25e4-562c-4305-af86-1333e9081f4c",
+    "model": "choices.Choice"
+  },
+  {
+    "fields": {
+      "model": "accounts.user.User",
+      "field": "organization",
+      "value": "KWS",
+      "display": "KWS",
+      "ordernum": 20
+    },
+    "pk": "697f25e4-562c-4305-c867-1333e9081f4c",
+    "model": "choices.Choice"
+  }
+]

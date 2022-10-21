@@ -1,0 +1,5 @@
+<textarea class='das_monospace' name="{{ widget.name }}"{% include "django/forms/widgets/attrs.html" %}>
+{% if widget.value %}{{ widget.value }}{% endif %}</textarea>
+
+{#<button type="button" id="btn_use_generic_schema" class="das_button">Use Generic Key-Value schema</button>#}
+<button type="button" id="btn_set_schema_to_auto_generate" class="das_button">Automatic Schema</button>

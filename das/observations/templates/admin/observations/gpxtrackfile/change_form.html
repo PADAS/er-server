@@ -1,0 +1,23 @@
+<script type='text/javascript'>
+    window.onunload = function() {
+        window.opener.location.reload();
+    }
+</script>
+
+{% extends "admin/change_form.html" %}
+
+{%  block content %}
+            <div style="padding: 8px;
+        margin: 0 0 10px;
+        background: #ffc;
+        border: 1px solid #fb8989;
+        border-radius: 4px;
+        text-align: left;
+        display: block;
+        width:50%;">
+                <p style="margin: .2em 0 .4em 0;"> <span style="color: #666; font-weight: bold; font-size: 14px;">
+                    NOTE:
+                </span> Only trackpoints data can be imported. Any other data types such as waypoints or routepoints in the file will be ignored.</p>
+        </div>
+{{ block.super }}
+{% endblock %}

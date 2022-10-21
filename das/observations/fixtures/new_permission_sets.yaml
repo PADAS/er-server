@@ -1,0 +1,61 @@
+- model: accounts.permissionset
+  pk: cfa2b7b3-4bae-42f3-8691-b119da54af4e
+  fields:
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    name: View Tracks All Time
+    children: []
+    permissions:
+    - [access_begins_all, observations, subject]
+    - [access_ends_0, observations, subject]
+    - [view_subject, observations, subject]
+    - [view_subjectgroup, observations, subjectgroup]
+- model: accounts.permissionset
+  pk: b47dbb4e-b18a-42a1-8f5b-188c16a3720e
+  fields:
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    name: View Tracks Last 60 Days
+    children: []
+    permissions:
+    - [access_begins_60, observations, subject]
+    - [access_ends_0, observations, subject]
+    - [view_subject, observations, subject]
+    - [view_subjectgroup, observations, subjectgroup]
+- model: accounts.permissionset
+  pk: 397743db-d11b-497a-af0f-5e3cab523b56
+  fields:
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    name: View Tracks Last 16 Days
+    children: []
+    permissions:
+    - [access_begins_16, observations, subject]
+    - [access_ends_0, observations, subject]
+    - [view_subject, observations, subject]
+    - [view_subjectgroup, observations, subjectgroup]
+- model: accounts.permissionset
+  pk: c0aec575-65cf-4c8b-9254-626d1ef5b4db
+  fields:
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    name: View Tracks Last 7 Days
+    children: []
+    permissions:
+    - [access_begins_7, observations, subject]
+    - [access_ends_0, observations, subject]
+    - [view_subject, observations, subject]
+    - [view_subjectgroup, observations, subjectgroup]
+- model: accounts.permissionset
+  pk: e8211a8b-226e-44bf-8235-598a67427348
+  fields:
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    name: View Tracks Last 16 Days Delayed
+    children: []
+    permissions:
+    - [access_begins_16, observations, subject]
+    - [access_ends_1, observations, subject]
+    - [view_subject, observations, subject]
+    - [view_subjectgroup, observations, subjectgroup]
+

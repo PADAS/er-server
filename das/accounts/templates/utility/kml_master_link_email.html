@@ -1,0 +1,13 @@
+{% load i18n %}{% autoescape off %}
+
+
+EarthRanger KML ({{ site_name }})
+
+{% blocktrans %}
+You're receiving this email because your EarthRanger administrator requested to send you your KML master link.
+
+Follow the link below to download the KML feed.{% endblocktrans %}
+
+{{ kml_master_link }}
+
+{% endautoescape %}

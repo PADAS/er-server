@@ -1,0 +1,14 @@
+{% extends 'admin/change_list.html' %}
+{% load humanize dastags %}
+
+{% block extrahead %}
+<style type="text/css">
+    li.selected a {
+        font-weight:bold;
+        font-size: 1.1em;
+    }
+</style>
+{% endblock %}
+{% block content_title %}
+    <h1>Subject Latest Positions</h1>
+{% endblock %}

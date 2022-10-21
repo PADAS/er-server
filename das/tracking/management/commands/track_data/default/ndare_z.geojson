@@ -1,0 +1,144 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "properties": [
+        {
+          "radio_state": "online"
+        },
+        {
+          "radio_state": "online"
+        },
+        {
+          "radio_state": "online-gps"
+        },
+        {
+          "radio_state": "offline"
+        },
+        {
+          "radio_state": "online-gps"
+        },
+        {
+          "radio_state": "online-gps"
+        },
+        {
+          "radio_state": "online"
+        },
+        {
+          "radio_state": "online"
+        },
+        {
+          "radio_state": "offline"
+        },
+        {
+          "radio_state": "online"
+        },
+        {
+          "radio_state": "online-gps"
+        },
+        {
+          "radio_state": "offline"
+        },
+        {
+          "radio_state": "online"
+        },
+        {
+          "radio_state": "online-gps"
+        },
+        {
+          "radio_state": "online-gps"
+        },
+        {
+          "radio_state": "online-gps"
+        },
+        {
+          "radio_state": "online-gps"
+        },
+        {
+          "radio_state": "offline"
+        },
+        {
+          "radio_state": "offline"
+        },
+        {
+          "radio_state": "online"
+        },
+        {
+          "radio_state": "offline"
+        },
+        {
+          "radio_state": "offline"
+        },
+        {
+          "radio_state": "offline"
+        }
+      ],
+      "type": "Feature",
+      "geometry": {
+        "coordinates": [
+          [
+            37.394371032714844,
+            0.145225369401875
+          ],
+          [
+            37.40192413330078,
+            0.14196381348321166
+          ],
+          [
+            37.40690231323242,
+            0.13938890059036932
+          ],
+          [
+            37.408103942871094,
+            0.14385208275604175
+          ],
+          [
+            37.41222381591797,
+            0.14556869105035983
+          ],
+          [
+            37.421321868896484,
+            0.14385208275604175
+          ],
+          [
+            37.42372512817383,
+            0.14625533433157936
+          ],
+          [
+            37.43265151977539,
+            0.1433371002424889
+          ],
+          [
+            37.4333381652832,
+            0.14848692484998163
+          ],
+          [
+            37.43865966796875,
+            0.1459120126935904
+          ],
+          [
+            37.44020462036133,
+            0.14282211771737158
+          ],
+          [
+            37.445526123046875,
+            0.145225369401875
+          ],
+          [
+            37.449989318847656,
+            0.1488302464482773
+          ],
+          [
+            37.454280853271484,
+            0.15123349748611034
+          ],
+          [
+            37.45685577392578,
+            0.1550100342920835
+          ]
+        ],
+        "type": "LineString"
+      }
+    }
+  ]
+}

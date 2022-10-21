@@ -1,0 +1,39 @@
+<p class="message" style="margin-left: 210px;" >
+   <span class="msg-adapter">{{ adaptkey_label }} {% with widget=widget.subwidgets.0 %}{% include widget.template_name %}{% endwith %}<br></span>
+  <span class="msg-url">{{ url_label }} {% with widget=widget.subwidgets.1 %}{% include widget.template_name %}{% endwith %}<br></span>
+  <span>{{ apikey_label }} {% with widget=widget.subwidgets.2 %}{% include widget.template_name %}{% endwith %}</span>
+</p>
+
+
+<style>
+    .msg-url {
+        margin-left: 18px;
+    }
+    .msg-adapter {
+        margin-left: -32px;
+    }
+      #id_messaging_config_0, #id_messaging_config_1 {
+        margin-bottom: 3px;
+    }
+</style>
+
+
+<script type="application/javascript">
+    var checkbox = document.getElementById('id_two_way_messaging');
+    var msg_config = document.getElementsByClassName('field-messaging_config')[0]
+
+    if (!checkbox.checked){
+        msg_config.style.display = 'none';
+    }
+
+    checkbox.onchange = function (e){
+        if (e.target.checked){
+                msg_config.style.display = 'inline';
+        } else {
+           msg_config.style.display = 'none';
+        }
+    }
+
+
+
+</script>

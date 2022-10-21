@@ -1,0 +1,128 @@
+- model: accounts.permissionset
+  pk: 159aca3b-8d5b-49df-9669-d04c822ac74c
+  fields:
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    name: View Elephants
+    children: []
+    permissions:
+    - [subscribe_alerts, observations, subject]
+    - [view_real_time, observations, subject]
+    - [view_subject, observations, subject]
+    - [view_subjectgroup, observations, subjectgroup]
+- model: accounts.permissionset
+  pk: 7220dfb8-312c-4897-bc6f-96ca2647f9f1
+  fields:
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    name: View Subjects
+    children: []
+    permissions:
+    - [subscribe_alerts, observations, subject]
+    - [view_real_time, observations, subject]
+    - [view_subject, observations, subject]
+    - [view_subjectgroup, observations, subjectgroup]
+- model: accounts.permissionset
+  pk: a3f39486-8efe-4183-abbf-695e1012379d
+  fields:
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    name: View Rangers
+    children: []
+    permissions:
+    - [subscribe_alerts, observations, subject]
+    - [view_real_time, observations, subject]
+    - [view_subject, observations, subject]
+    - [view_subjectgroup, observations, subjectgroup]
+- model: accounts.permissionset
+  pk: b1481c72-0c7e-4dde-a8f7-39af72028d79
+  fields:
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    name: Administer Subjects
+    children: []
+    permissions:
+    - [add_subject, observations, subject]
+    - [change_alerts, observations, subject]
+    - [change_subject, observations, subject]
+    - [change_view, observations, subject]
+    - [delete_subject, observations, subject]
+    - [view_subjectgroup, observations, subjectgroup]
+    - [add_subjectgroup, observations, subjectgroup]
+    - [delete_subjectgroup, observations, subjectgroup]
+    - [change_subjectgroup, observations, subjectgroup]
+- model: accounts.permissionset
+  pk: b86eb3f3-1292-4af5-a6b4-011513cdb08c
+  fields:
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    name: View Delayed Elephants
+    children: []
+    permissions:
+    - [view_delayed, observations, subject]
+    - [view_subject, observations, subject]
+    - [view_subjectgroup, observations, subjectgroup]
+- model: accounts.permissionset
+  pk: e13c354b-295c-4c43-80bf-b1ee10af6930
+  fields:
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    name: View Last Point Elephants
+    children: []
+    permissions:
+    - [view_last_position, observations, subject]
+    - [view_subject, observations, subject]
+    - [view_subjectgroup, observations, subjectgroup]
+- model: accounts.permissionset
+  pk: 1bd2c209-c7b0-4ba7-8fb3-ec5f208bf587
+  fields:
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    name: Administer Sources
+    children: []
+    permissions:
+    - [add_source, observations, source]
+    - [change_source, observations, source]
+    - [view_source, observations, source]
+    - [delete_source, observations, source]
+    - [view_sourcegroup, observations, sourcegroup]
+
+- model: observations.subjectgroup
+  pk: 5bf8761c-0c87-4756-8282-23fa11d72433
+  fields:
+    name: Elephants
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    is_visible: true
+    children: []
+    permission_sets: [159aca3b-8d5b-49df-9669-d04c822ac74c,e13c354b-295c-4c43-80bf-b1ee10af6930,b86eb3f3-1292-4af5-a6b4-011513cdb08c]
+
+- model: observations.subjectgroup
+  pk: ddb99202-1373-4c6c-b15f-e71d21cb2b26
+  fields:
+    name: Rangers
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    is_visible: true
+    children: []
+    permission_sets: [a3f39486-8efe-4183-abbf-695e1012379d]
+
+- model: observations.subjectgroup
+  pk: b4c8e9f6-1ccb-4e3f-8c07-3b727b9ec057
+  fields:
+    name: Subjects
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    is_visible: true
+    is_default: true
+    permission_sets: [b1481c72-0c7e-4dde-a8f7-39af72028d79,7220dfb8-312c-4897-bc6f-96ca2647f9f1]
+    children: [5bf8761c-0c87-4756-8282-23fa11d72433, ddb99202-1373-4c6c-b15f-e71d21cb2b26]
+
+- model: observations.sourcegroup
+  pk: 654e592c-fc5a-436d-98dd-fd1b36436a85
+  fields:
+    name: Sources
+    created_at: "2016-07-07T1:00:00.000000+00:00"
+    updated_at: "2016-07-07T1:00:00.000000+00:00"
+    permission_sets: [1bd2c209-c7b0-4ba7-8fb3-ec5f208bf587]
+

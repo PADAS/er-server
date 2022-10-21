@@ -1,0 +1,143 @@
+{% load staticfiles %}
+<!DOCTYPE HTML>
+<html>
+<head>
+    <title>EarthRanger RTM Test</title>
+    <script type="text/javascript" src="//code.jquery.com/jquery-1.4.2.min.js"></script>
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.4.5/socket.io.min.js"></script>
+    <script src="{% static 'js/das-client/das.js' %}"></script>
+    <script type="text/javascript" charset="utf-8">
+        $(document).ready(function(){
+            namespace = '/das'; // change to an empty string to use the global namespace
+            var socket = null
+
+            // handlers for the different forms in the page
+            // these send data to the server in a variety of ways
+            $('form#connect').submit(function(event) {
+                if (socket !== null)
+                {
+                    return false;
+                }
+                socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port + namespace);
+                //socket = io.connect('https://dev.pamdas.org/das');
+
+                // event handler for server sent data
+                // the data is displayed in the "Received" section of the page
+                socket.on('resp_authorization', function(msg) {
+                    $('#log').append('<br>Received #' + msg.resp_id + ': ' + msg.status.message);
+                });
+
+                // event handler for new connections
+                socket.on('connect', function() {
+                    socket.emit('authorization', {'type': 'authorization', 'id': 1, authorization: 'Bearer ' + $('#bearer_token').val()});
+//                    socket.emit('authorization', {'id': 1, authorization: 'Bearer ' + 'BAD TOKEN'});
+                });
+
+                socket.on('echo_resp', function(msg){
+                    $('#log').append('<br>Received #' + msg.resp_id + ': ' + msg.message);
+                });
+
+                socket.on('bbox_resp', function(msg){
+                    $('#log').append('<br>bbox reponse: ' + msg.message);
+                });
+
+                socket.on('subject_position_update', function(msg) {
+                    $('#log').append('<br>Received position update:  ' + msg);
+                });
+
+                socket.on('new_event', function(msg) {
+                    $('#log').append('<br>Received new event:  ' + msg);
+                });
+
+                socket.on('update_event', function(msg) {
+                    $('#log').append('<br>Received update event:  ' + msg);
+                });
+
+                socket.on('delete_event', function(msg) {
+                    $('#log').append('<br>Received delete event:  ' + msg);
+                });
+
+                socket.on('disconnect', function() {
+                     $('#log').append('<br>Disconnected');
+                    socket = null;
+                });
+                return false;
+            });
+            $('form#emit').submit(function(event) {
+                socket.emit('echo', {data: $('#emit_data').val()});
+                return false;
+            });
+            $('form#bbox').submit(function(event) {
+                socket.emit('bbox', {data: $('#bbox_data').val()});
+                return false;
+            });
+            $('form#broadcast').submit(function(event) {
+                socket.emit('my broadcast event', {data: $('#broadcast_data').val()});
+                return false;
+            });
+            $('form#join').submit(function(event) {
+                socket.emit('join', {room: $('#join_room').val()});
+                return false;
+            });
+            $('form#leave').submit(function(event) {
+                socket.emit('leave', {room: $('#leave_room').val()});
+                return false;
+            });
+            $('form#send_room').submit(function(event) {
+                socket.emit('my room event', {room: $('#room_name').val(), data: $('#room_data').val()});
+                return false;
+            });
+            $('form#close').submit(function(event) {
+                socket.emit('close room', {room: $('#close_room').val()});
+                return false;
+            });
+            $('form#disconnect').submit(function(event) {
+                socket.disconnect()
+                return false;
+            });
+        });
+    </script>
+</head>
+<body>
+    <h1>EarthRanger RTM Test</h1>
+    <h2>Send:</h2>
+    <form id="connect" method="POST" action='#'>
+        <input type="text" name="bearer_token" id="bearer_token" placeholder="Token">
+        <input type="submit" value="Connect">
+    </form>
+    <form id="emit" method="POST" action='#'>
+        <input type="text" name="emit_data" id="emit_data" placeholder="Message">
+        <input type="submit" value="Echo">
+    </form>
+    <form id="bbox" method="POST" action='#'>
+        <input type="text" name="bbox_data" id="bbox_data" placeholder="Message">
+        <input type="submit" value="Send bbox">
+    </form>
+    <form id="broadcast" method="POST" action='#'>
+        <input type="text" name="broadcast_data" id="broadcast_data" placeholder="Message">
+        <input type="submit" value="Broadcast">
+    </form>
+    <form id="join" method="POST" action='#'>
+        <input type="text" name="join_room" id="join_room" placeholder="Room Name">
+        <input type="submit" value="Join Room">
+    </form>
+    <form id="leave" method="POST" action='#'>
+        <input type="text" name="leave_room" id="leave_room" placeholder="Room Name">
+        <input type="submit" value="Leave Room">
+    </form>
+    <form id="send_room" method="POST" action='#'>
+        <input type="text" name="room_name" id="room_name" placeholder="Room Name">
+        <input type="text" name="room_data" id="room_data" placeholder="Message">
+        <input type="submit" value="Send to Room">
+    </form>
+    <form id="close" method="POST" action="#">
+        <input type="text" name="close_room" id="close_room" placeholder="Room Name">
+        <input type="submit" value="Close Room">
+    </form>
+    <form id="disconnect" method="POST" action="#">
+        <input type="submit" value="Disconnect">
+    </form>
+    <h2>Receive:</h2>
+    <div id="log"></div>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<div id="icon_key_text">
+    <input type="hidden" name="{{ widget.name }}" {% if widget.value != None %}
+        value="{{ widget.value|stringformat:'s' }}" {% endif %} {% include "django/forms/widgets/attrs.html" %} />
+
+    <div class="current-selection">
+        <img class="icon-preview-image" src="{{ widget.file_path }}" />
+
+        <span class="icon-display-value">
+            {% if widget.value == None %}
+            <img class="input-icon" src="/static/admin/img/icon-addlink.svg" alt="Add icon override" />
+            {% endif %}
+        </span>
+        <a class="clear-selected-icon">
+            {% if widget.value != None %}
+            <img class="input-icon" src="/static/admin/img/icon-deletelink.svg" alt="Clear selected icon override" />
+            {% endif %}
+        </a>
+    </div>
+
+    <ul class="event-type-icon-list">
+        {% for item in image_list %}
+        <li data-key="{{item.key}}" data-path="{{item.file_path}}">
+            <img data-key="{{item.key}}" data-path="{{item.file_path}}" src="{{item.file_path}}" />
+            <span data-key="{{item.key}}" data-path="{{item.file_path}}">{{item.key}}</span>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const input = document.querySelector('#{{ widget.attrs.id }}');
+        const label = document.querySelector('.icon-display-value');
+        const sampleImage = document.querySelector('.icon-preview-image');
+        const list = document.querySelector('.event-type-icon-list');
+        const clearIconLink = document.querySelector('.clear-selected-icon');
+
+        const hideListOnOutsideClick = (e) => {
+            const clickIsOutside = ![input, label, label.querySelector('img'), sampleImage, list, clearIconLink].some(el => el === e.target);
+
+            if (clickIsOutside) {
+                hideIconList();
+            }
+        }
+
+        const showIconList = () => {
+            document.addEventListener('click', hideListOnOutsideClick);
+
+            if (!list.classList.contains('visible')) {
+                list.classList.add('visible');
+            }
+        };
+
+        const hideIconList = () => {
+            document.removeEventListener('click', hideListOnOutsideClick);
+
+            if (list.classList.contains('visible')) {
+                list.classList.remove('visible');
+            }
+        };
+
+        const clearSelectedIcon = (event) => {
+            event.preventDefault();
+
+            input.value = sampleImage.src = '';
+            label.innerHTML = `
+          <img class="input-icon" src="/static/admin/img/icon-addlink.svg" alt="Add icon override">
+      `;
+            clearIconLink.innerHTML = ``;
+        };
+
+        const onIconSelect = (e) => {
+            const { key, path } = e.target.dataset;
+
+            label.innerHTML = '';
+            input.value = key;
+            sampleImage.src = path;
+
+            clearIconLink.innerHTML = `
+        <img class="input-icon" src="/static/admin/img/icon-deletelink.svg" alt="Clear selected icon override" />
+      `;
+
+            hideIconList();
+        };
+
+        [label, sampleImage].forEach(el => el.addEventListener('click', showIconList));
+        clearIconLink.addEventListener('click', clearSelectedIcon);
+
+        list.querySelectorAll('li').forEach(el => el.addEventListener('click', onIconSelect));
+    });
+</script>

@@ -1,0 +1,192 @@
+- model: mapping.displaycategory
+  pk: b496657d-befe-4ad6-93ab-b33e5832539d
+  fields:
+    name: ''
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: 7ca589c4-3ffc-4c4e-b4bf-c706f55b159e
+  fields:
+    name: 300_Transport_Tertiary Road
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: 98f70e23-2044-445d-ac16-7b5ae92ef1ff
+  fields:
+    name: 400_Water_Rivers
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: 478658f8-675f-46f6-8c37-0173e407c9bd
+  fields:
+    name: 400_Water_Water Body
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: c8c76cf9-cc90-43b3-809a-7dca372d105c
+  fields:
+    name: 300_Transport_Highway
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: 5552fa7e-186b-4def-99e8-a3434e8d8691
+  fields:
+    name: 300_Transport_Railway
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: 233b3cde-8fdd-442d-a987-55f20b71cc82
+  fields:
+    name: 300_Transport_Primary Road
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: 82539edb-d1db-4454-a7f7-ca0509f4abf9
+  fields:
+    name: 300_Transport_Secondary Road
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: 9e4e886e-8af7-44d6-9cf8-9b9d3c188fc4
+  fields:
+    name: 400_Water_Water Point
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: a037c908-1629-403a-8cae-8b6a00887e21
+  fields:
+    name: 100_POI_Aviation
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: 9be0cfc1-b4a6-462f-ae06-dab929bde958
+  fields:
+    name: 100_POI_Settlements
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: 30eb069c-2145-4518-b7fb-b065448c3115
+  fields:
+    name: 100_POI_Municipal
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: 87666269-d000-4bba-9e48-c18e0e4d1b9e
+  fields:
+    name: 100_POI_Security
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: 633b5f39-53ef-453d-a8a7-32e9672e55a9
+  fields:
+    name: 200_Boundaries_Protected Area
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: 8d439fbd-aa63-47e9-98d9-2f500ade664f
+  fields:
+    name: 200_Boundaries_Hunting
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: 8cb28994-2a3f-4ec3-87fa-284b87d7117b
+  fields:
+    name: 200_Boundaries_Livestock
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: d2457944-73c7-483f-930a-dce6352c5040
+  fields:
+    name: 500_Operational_Military Base
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: 486a2630-a0dd-4466-b61e-d118c5f19f33
+  fields:
+    name: 100_POI_Services
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: 4dea8864-6ed6-4a81-80c2-4a0c47796eba
+  fields:
+    name: 100_POI_Geography
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: ef1ff1ad-3430-4c24-b8ef-c0dd3585c8bb
+  fields:
+    name: 100_POI_Cartography
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: efd5f97d-f497-4433-85ad-c5272cda4e65
+  fields:
+    name: 500_Operational_CCA Patrol Block
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: 09dd5ba2-9d9c-486f-a2c8-9d7d446e2d05
+  fields:
+    name: 200_Boundaries_GMA
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: d9255e09-2800-44a8-81bf-e43562555198
+  fields:
+    name: 200_Boundaries_CCA
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: f1dfa4d6-b9ce-4dc9-990c-928073780bd9
+  fields:
+    name: 500_Operational_Patrol Block
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: 077d14e3-2358-433e-9c21-fda478383482
+  fields:
+    name: 200_Boundaries_Ranch
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: 1760130e-c0f9-45fc-8305-972a9ea772a6
+  fields:
+    name: 500_Operational_Military Training Area
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: e225a111-0b02-4700-83c1-81a2281d54d4
+  fields:
+    name: 500_Operational_Primary Geofence
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: c0930a7e-8607-41fb-9100-a793c0ea0043
+  fields:
+    name: 500_Operational_Warning Geofence
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: 2c8a7e03-4459-4874-a896-ab59976fa034
+  fields:
+    name: 500_Operational_POI
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: 12e5da63-30fa-4323-9ec3-d206bcd0777c
+  fields:
+    name: 500_Operational_AOI
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: 29592958-0252-4d08-8275-5fc261167a68
+  fields:
+    name: 500_Operational_Census Input Zone
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.displaycategory
+  pk: 0f29bb3f-4e9d-47cf-94a0-5992e0ec4bd8
+  fields:
+    name: 200_Boundaries_Farm
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00

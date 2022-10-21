@@ -1,0 +1,1 @@
+EarthRanger {{color}} Alert: {{serial}} {{title}}

@@ -1,0 +1,64 @@
+{% extends "admin/change_form.html" %}
+
+{%  block content %}{%  if eventsource_ref is not None %}
+    <div style="padding: 12px 14px;
+    margin: 0 0 20px;
+    background: #ffc;
+    border: 1px solid #b00000;
+    border-radius: 4px;
+    text-align: left;
+    display: block;
+    width: 90%;">
+    <h2>Notice</h2>
+        <p>This Event Type is linked to an External Event Source.</p>
+        <p>This means that you can let EarthRanger automatically define the Event schema. To do so, click the <b>Automatic Schema</b> button below.</p>
+        <p>You can see the linked Event Source at: <a href="{{ eventsource_ref.href }}">{{ eventsource_ref.display }}</a></p>
+    </div>
+    {% endif %}
+{{ block.super }}
+{% endblock %}
+
+
+{% block after_field_sets %}
+
+<script type="text/javascript">
+
+    let auto_generate_schema = {
+        "auto-generate": true,
+        "description": "This schema is a placeholder, to be replaced automatically when new data is recorded.",
+          "schema": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "title": "Placeholder schema",
+            "type": "object",
+            "readonly": true,
+            "properties": {
+              "placeholder": {
+                "type": "string",
+                  "title": "Placeholder",
+                  "default": "This schema definition will be automatically generated when new report data is recorded."
+              }
+            }
+          },
+          "definition": [
+            "placeholder"
+          ]
+    };
+
+    document.getElementById("btn_set_schema_to_auto_generate").addEventListener('click',
+    function() {
+
+        let ans = true;
+
+        if (document.getElementById('id_schema').value.length > 0) {
+            ans = confirm('This will set the Event Type schema to be automatically generated to fit the first matching event. Are you sure you want to do this?');
+        }
+        if (ans == true) {
+            let ta = document.getElementById('id_schema');
+            ta.value = JSON.stringify(auto_generate_schema, undefined, 4);
+        }
+
+    });
+
+</script>
+
+{% endblock %}

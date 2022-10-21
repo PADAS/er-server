@@ -1,0 +1,41 @@
+[
+  {
+    "fields": {
+      "additional": {
+        "note": "demo animal"
+      },
+      "created_at": "2015-11-01T00:00:00+00:00",
+      "updated_at": "2015-11-01T00:00:00+00:00",
+      "name": "Topsy",
+      "subject_subtype_id": "elephant"
+    },
+    "pk": "ab27bfb5-ce7a-43ac-a1ac-69ddb4e1f4a5",
+    "model": "observations.subject"
+  },
+  {
+    "fields": {
+      "additional": {
+        "a": 1
+      },
+      "created_at": "2017-01-01T00:00:00+00:00",
+      "updated_at": "2017-01-01T00:00:00+00:00",
+      "name": "StatusGuy",
+      "subject_subtype_id": "elephant"
+    },
+    "pk": "269524d5-a434-4377-9ea9-2a7946dbd9c4",
+    "model": "observations.subject"
+  },
+    {
+    "fields": {
+      "additional": {
+        "note": "test for immobility"
+      },
+      "created_at": "2015-11-01T00:00:00+00:00",
+      "updated_at": "2015-11-01T00:00:00+00:00",
+      "name": "Turvey",
+      "subject_subtype_id": "elephant"
+    },
+    "pk": "9342973f-b369-4d21-9f1f-ae89d523e05a",
+    "model": "observations.subject"
+  }
+]

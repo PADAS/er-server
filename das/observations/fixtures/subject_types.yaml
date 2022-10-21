@@ -1,0 +1,147 @@
+- model: observations.subjecttype
+  fields: {created_at: '2018-05-15 15:49:24.042911+00:00', updated_at: '2018-05-15
+      15:49:24.042931+00:00', value: vehicle, display: Vehicle, ordernum: -1}
+- model: observations.subjecttype
+  fields: {created_at: '2018-05-15 06:07:40.199169+00:00', updated_at: '2018-05-15
+      06:07:40.199195+00:00', value: person, display: Person, ordernum: null}
+- model: observations.subjecttype
+  fields: {created_at: '2018-05-15 05:58:15.829264+00:00', updated_at: '2018-05-15
+      05:58:15.829293+00:00', value: unassigned, display: Unassigned, ordernum: null}
+- model: observations.subjecttype
+  fields: {created_at: '2018-05-15 06:01:07.124543+00:00', updated_at: '2018-05-15
+      06:01:07.124563+00:00', value: wildlife, display: Wildlife, ordernum: null}
+- model: observations.subjecttype
+  fields: {created_at: '2018-05-15 16:12:28.332773+00:00', updated_at: '2018-05-15
+      16:12:28.332807+00:00', value: aircraft, display: Aircraft, ordernum: null}
+- model: observations.subjecttype
+  fields: {created_at: '2018-05-15 16:12:28.326070+00:00', updated_at: '2018-05-15
+      16:12:28.326102+00:00', value: stationary-object, display: Stationary Sensor,
+    ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.529870+00:00', updated_at: '2018-05-15
+      16:14:00.529893+00:00', value: dog_team, display: Dog Team, subject_type: person,
+    ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 05:58:15.834849+00:00', updated_at: '2018-05-15
+      05:58:15.834876+00:00', value: unassigned, display: Unassigned, subject_type: unassigned,
+    ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.555946+00:00', updated_at: '2018-05-15
+      16:14:00.555968+00:00', value: motorcycle, display: Motorcycle, subject_type: vehicle,
+    ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.525666+00:00', updated_at: '2018-05-15
+      16:14:00.525696+00:00', value: scout, display: Scout, subject_type: person, ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.536983+00:00', updated_at: '2018-05-15
+      16:14:00.537007+00:00', value: manager, display: Manager, subject_type: person,
+    ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.499571+00:00', updated_at: '2018-05-15
+      16:14:00.499602+00:00', value: forest_elephant, display: Forest Elephant, subject_type: wildlife,
+    ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.559197+00:00', updated_at: '2018-05-15
+      16:14:00.559222+00:00', value: ranger_boat, display: Boat, subject_type: vehicle,
+    ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 06:01:08.494003+00:00', updated_at: '2018-05-15
+      06:01:08.494022+00:00', value: elephant, display: Elephant, subject_type: wildlife,
+    ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.565605+00:00', updated_at: '2018-05-15
+      16:14:00.565639+00:00', value: camera_trap, display: Camera Trap, subject_type: stationary-object,
+    ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.470050+00:00', updated_at: '2018-05-15
+      16:14:00.470089+00:00', value: rhino, display: Rhino, subject_type: wildlife, ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.520677+00:00', updated_at: '2018-05-15
+      16:14:00.520705+00:00', value: ranger_team, display: Ranger Team, subject_type: person,
+    ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.533338+00:00', updated_at: '2018-05-15
+      16:14:00.533358+00:00', value: driver, display: Driver, subject_type: person, ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.492039+00:00', updated_at: '2018-05-15
+      16:14:00.492063+00:00', value: cheetah, display: Cheetah, subject_type: wildlife,
+    ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.512346+00:00', updated_at: '2018-05-15
+      16:14:00.512397+00:00', value: undeployed, display: Undeployed, subject_type: wildlife,
+    ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.569556+00:00', updated_at: '2018-05-15
+      16:14:00.569584+00:00', value: weather_station, display: Weather Sensor, subject_type: stationary-object,
+    ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.496244+00:00', updated_at: '2018-05-15
+      16:14:00.496267+00:00', value: cow, display: Cow, subject_type: wildlife, ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.578836+00:00', updated_at: '2018-05-15
+      16:14:00.578864+00:00', value: helicopter, display: Helicopter, subject_type: aircraft,
+    ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 06:07:45.967655+00:00', updated_at: '2018-05-15
+      06:07:45.967674+00:00', value: ranger, display: Ranger, subject_type: person, ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.508585+00:00', updated_at: '2018-05-15
+      16:14:00.508615+00:00', value: scimitar_oryx, display: Scimitar Oryx, subject_type: wildlife,
+    ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.540868+00:00', updated_at: '2018-05-15
+      16:14:00.540892+00:00', value: expedition, display: Expedition, subject_type: person,
+    ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.462477+00:00', updated_at: '2018-05-15
+      16:14:00.462521+00:00', value: zebra, display: Zebra, subject_type: wildlife, ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.486938+00:00', updated_at: '2018-05-15
+      16:14:00.486959+00:00', value: antelope, display: Antelope, subject_type: wildlife,
+    ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 15:49:33.918471+00:00', updated_at: '2018-05-15
+      15:49:33.918491+00:00', value: truck, display: Truck, subject_type: vehicle, ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.575179+00:00', updated_at: '2018-05-15
+      16:14:00.575210+00:00', value: plane, display: Plane, subject_type: aircraft, ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.477373+00:00', updated_at: '2018-05-15
+      16:14:00.477405+00:00', value: lion, display: Lion, subject_type: wildlife, ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.549707+00:00', updated_at: '2018-05-15
+      16:14:00.549731+00:00', value: research, display: Research Vehicle, subject_type: vehicle,
+    ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.503765+00:00', updated_at: '2018-05-15
+      16:14:00.503794+00:00', value: sable, display: Sable, subject_type: wildlife, ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.546324+00:00', updated_at: '2018-05-15
+      16:14:00.546349+00:00', value: security_vehicle, display: Security Vehicle,
+    subject_type: vehicle, ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.482915+00:00', updated_at: '2018-05-15
+      16:14:00.482941+00:00', value: giraffe, display: Giraffe, subject_type: wildlife,
+    ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.582442+00:00', updated_at: '2018-05-15
+      16:14:00.582466+00:00', value: drone, display: Drone, subject_type: aircraft, ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-15 16:14:00.552926+00:00', updated_at: '2018-05-15
+      16:14:00.552950+00:00', value: tourist_vehicle, display: Tourist Vehicle, subject_type: vehicle,
+    ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-17 16:14:00.546324+00:00', updated_at: '2018-05-17
+      16:14:00.546349+00:00', value: van, display: Van, subject_type: vehicle, ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-17 16:14:00.482915+00:00', updated_at: '2018-05-17
+      16:14:00.482941+00:00', value: car, display: Car, subject_type: vehicle,
+    ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-17 16:14:00.582442+00:00', updated_at: '2018-05-17
+      16:14:00.582466+00:00', value: pickup, display: Pickup, subject_type: vehicle, ordernum: null}
+- model: observations.subjectsubtype
+  fields: {created_at: '2018-05-17 16:14:00.552926+00:00', updated_at: '2018-05-17
+      16:14:00.552950+00:00', value: excavator, display: Excavator, subject_type: vehicle,
+    ordernum: null}
+

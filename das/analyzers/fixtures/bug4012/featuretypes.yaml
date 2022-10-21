@@ -1,0 +1,36 @@
+- model: mapping.spatialfeaturetype
+  pk: a534f7cd-059d-4c87-90ba-7d0525f451b0
+  fields:
+    name: Containment_Areas
+    attribute_schema: {}
+    display_category: 12e5da63-30fa-4323-9ec3-d206bcd0777c
+    presentation: {}
+    provenance: {}
+    external_id: null
+    external_source: ''
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.spatialfeaturetype
+  pk: 0c719ec1-e723-458c-b76b-11fb4321d712
+  fields:
+    name: Geofence_Primary
+    attribute_schema: {notes: ''}
+    display_category: e225a111-0b02-4700-83c1-81a2281d54d4
+    presentation: {}
+    provenance: {last_edited_date: '2017-08-28T22:28:41', last_edited_user: JAKEW}
+    external_id: '{84F6D89A-1930-4E54-995E-CAFD19C09E1F}'
+    external_source: STE
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00
+- model: mapping.spatialfeaturetype
+  pk: cf398415-202f-4646-8718-04e8798a17cd
+  fields:
+    name: Geofence_Warning
+    attribute_schema: {notes: ''}
+    display_category: c0930a7e-8607-41fb-9100-a793c0ea0043
+    presentation: {}
+    provenance: {last_edited_date: '2017-08-28T22:28:41', last_edited_user: JAKEW}
+    external_id: '{10DBEDF8-4F3C-4FC8-B7A6-780D9570F611}'
+    external_source: STE
+    created_at: 2018-04-18 22:35:40.220661+00:00
+    updated_at: 2019-03-19 04:54:11.976519+00:00

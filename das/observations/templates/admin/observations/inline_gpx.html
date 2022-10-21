@@ -1,0 +1,111 @@
+
+{% load humanize %}
+{% load i18n %}
+{% load static %}
+
+<style type="text/css">
+    .one:hover{
+        animation: rotation 2s infinite linear;
+    }
+
+    @keyframes rotation {
+		from {
+				transform: rotate(0deg);
+		}
+		to {
+				transform: rotate(359deg);
+		}
+}
+
+</style>
+<div class="module">
+<div class="results">
+<div>
+          <a href="javascript:reload_window()" style="float: right" role="button">
+            <img class="one" src="{% static 'gpx/refresh.png' %}""/>
+            <span style="margin-left: 5px; color: grey; vertical-align: top;">Refresh the page.</span>
+    </a>
+</div>
+    <table>
+        <thead>
+          <tr>
+             <th>
+                 <div class="text">
+                    Subject Name
+                 </div>
+             </th>
+             <th>
+                 <div class="text">
+                    Source
+                 </div>
+             </th>
+              <th>
+                 <div class="text">
+                     File Name
+                 </div>
+             </th>
+             <th>
+                 <div class="text">
+                     Description
+                 </div>
+             </th>
+              <th>
+                 <div class="text">
+                     Processed date
+                 </div>
+             </th>
+             <th>
+                 <div class="text">
+                    Processed status
+                 </div>
+             </th>
+             <th>
+                <div class="text">
+                   Track Points Imported
+                </div>
+            </th>
+             <th>
+                 <div class="text">
+                    Created by
+                 </div>
+             </th>
+             <th>
+                 <div class="text">
+                     File size (Bytes)
+                 </div>
+             </th>
+             <th>
+                 <div class="text">
+                     id
+                 </div>
+             </th>
+          </tr>
+        </thead>
+        <tbody>
+            {% for gpx in gpxdata %}
+            <tr class="{% cycle 'row1' 'row2' %}">
+                <td>{{ gpx.subject_name }}</td>
+                <td>{{ gpx.source_name }}</td>
+                <td>{{ gpx.file_name }}</td>
+                <td>{% if gpx.description != None %} {{gpx.description }} {% else %} - {% endif %}</td>
+                <td>{{ gpx.processed_date|naturaltime}}</td>
+                <td>{{ gpx.processed_status }}</td>
+                <td>{% if gpx.points_imported %} {{gpx.points_imported|intcomma }} {% else %} - {% endif %} </td>
+                <td>{{ gpx.username }}</td>
+                <td>{{ gpx.file_size|intcomma }}</td>
+                <td>{{ gpx.id }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% if query_filter %}
+    <div style="margin-top: 12px; font-size: 13px;">See more GPX data file upload attempts for this subject  <a href="{{ query_filter }}">here</a></div>
+    {% endif %}
+</div>
+</div>
+
+<script type="application/javascript">
+    function reload_window() {
+        location.reload();
+    }
+</script>

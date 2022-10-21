@@ -1,0 +1,61 @@
+[
+  {
+    "model": "auth.user",
+    "pk": 1,
+    "fields": {
+      "password": "das_2015",
+      "last_login": "2015-09-28T22:19:01.896Z",
+      "is_superuser": false,
+      "username": "das_oauth_act",
+      "first_name": "",
+      "last_name": "",
+      "email": "das_oauth_act@das.org",
+      "is_staff": false,
+      "is_active": false,
+      "date_joined": "2015-09-28T22:19:01.897Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "oauth2_provider.application",
+    "pk": 1,
+    "fields": {
+      "client_id": "das_web_client",
+      "user": 1,
+      "redirect_uris": "",
+      "client_type": "Confidential",
+      "authorization_grant_type": "password",
+      "client_secret": "",
+      "name": "DAS Web",
+      "skip_authorization": true
+    }
+  },
+  {
+    "model": "oauth2_provider.application",
+    "pk": 2,
+    "fields": {
+      "client_id": "das_ios_client",
+      "user": 1,
+      "redirect_uris": "",
+      "client_type": "Confidential",
+      "authorization_grant_type": "password",
+      "client_secret": "",
+      "name": "DAS IOS App",
+      "skip_authorization": true
+    }
+  },
+  {
+    "model": "oauth2_provider.application",
+    "pk": 3,
+    "fields": {
+      "client_id": "das_kml_client",
+      "user": 1,
+      "redirect_uris": "",
+      "client_type": "Confidential",
+      "authorization_grant_type": "password",
+      "client_secret": "",
+      "name": "DAS KML App"
+    }
+  }
+]

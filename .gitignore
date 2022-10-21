@@ -1,0 +1,327 @@
+das/das_server/chrisdo_settings.py
+/das/www
+# Created by .ignore support plugin (hsz.mobi)
+### Python template
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+dc
+
+# Mac filesystem
+.DS_Store
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+#vscode
+.env.local
+.venv
+.venvdocs
+.docsvenv
+.vs/*
+
+### VisualStudioCode ###
+.vscode/*      # Maybe .vscode/**/* instead - see comments
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+### VisualStudioCode Patch ###
+# Ignore all local history of files
+**/.history
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*,cover
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Terraform state files
+terraform.tfstate.backup
+terraform.tfstate
+**/.terraform
+
+# Terraform rendered templates
+**/templates/rendered
+
+### JetBrains template
+# Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion
+
+*.iml
+
+## Directory-based project format:
+.idea/
+
+# if you remove the above rule, at least ignore the following:
+
+# User-specific stuff:
+# .idea/workspace.xml
+# .idea/tasks.xml
+# .idea/dictionaries
+
+# Sensitive or high-churn files:
+# .idea/dataSources.ids
+# .idea/dataSources.xml
+# .idea/sqlDataSources.xml
+# .idea/dynamic.xml
+# .idea/uiDesigner.xml
+
+# Gradle:
+# .idea/gradle.xml
+# .idea/libraries
+
+# Mongo Explorer plugin:
+# .idea/mongoSettings.xml
+
+## File-based project format:
+*.ipr
+*.iws
+
+## Plugin-specific files:
+
+# IntelliJ
+/out/
+
+# mpeltonen/sbt-idea plugin
+.idea_modules/
+
+# JIRA plugin
+atlassian-ide-plugin.xml
+
+# Crashlytics plugin (for Android Studio and IntelliJ)
+com_crashlytics_export_strings.xml
+crashlytics.properties
+crashlytics-build.properties
+
+
+### VirtualEnv template
+# Virtualenv
+# http://iamzed.com/2009/05/07/a-primer-on-virtualenv/
+.Python
+[Bb]in
+[Ii]nclude
+[Ll]ib
+[Ss]cripts
+pyvenv.cfg
+pip-selfcheck.json
+
+
+
+das/das_server/local_settings.py
+das/das_server/local_log.py
+das/export.json
+
+das/das_server/aws_dev_settings.py
+
+das/das_server/test_settings.py
+
+das/das_server/aws_dev_settings.py
+
+das/das_server/demo_settings.py
+
+das/das_server/dev_das_settings.py
+
+das/das_server/lewa_settings.py
+
+das/das_server/odzala_settings.py
+
+das/das_server/ste_settings.py
+
+das/.ipynb_checkpoints
+*.ipynb
+
+das/runserver.sh
+
+das/0.0.0.0/*
+das/celerybeat-schedule
+
+das/celerybeat.pid
+
+
+das/das_server/grumeti_settings.py
+
+das/das_server/local_celery_settings.py
+**/lewa_safaricom.py
+**/lab_demo_settings.py
+
+das/reports/docx_template/~$wa_sitrep_template.docx
+
+das/das_server/unittest_settings.py
+
+das/das_server/akagera_settings.py
+
+das/das_server/demo_akagera_settings.py
+
+das/das_server/ste_production_settings.py
+
+das/das_server/ste__old_settings.py
+
+das/das_server/beanstalk_ste_settings.py
+
+das/das_server/ndoki_production_settings.py
+
+das/das_server/prd1_settings.py
+
+das/das_server/test_import_settings.py
+
+das/das_server/dev_ste_settings.py
+
+das/celerybeat-schedule.db
+
+das/das_server/migration_testsettings.py
+
+das/das_server/ste_test_settings.py
+
+das/das_server/local_settings_dev-ste*
+
+das/das_server/das_ste_extensions_settings.py
+Pipfile
+Pipfile.lock
+das/das_server/.env
+dependencies/gdal**/
+dependencies/geos**/
+dependencies/proj**/
+
+*tar.gz*
+
+# Rendered terraform templates
+templated-deployment/rendered
+
+# Empty tfvars overrides file
+templated-deployment/tfvars-overrides/no_overrides.tfvars
+
+# Ephemeral, expiring vault tokens
+**.vault-token
+/.python-version
+
+# Abandoned workspaces artifacts
+infra-automation/.vulcan/branches
+infra-automation/.vulcan/workspaces
+terraform/tokens.auto.tfvars
+
+typings
+node_modules
+
+locust.env
+docker/keys/default/application_default_credentials.json
+
+http_requests/http-client.env.json
+/utils
+
+# Swap
+[._]*.s[a-v][a-z]
+!*.svg  # comment out if you don't need vector files
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+
+# Session
+Session.vim
+Sessionx.vim
+
+# Temporary
+.netrwhist
+*~
+# Auto-generated tag files
+tags
+# Persistent undo
+[._]*.un~
+
+# -*- mode: gitignore; -*-
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Org-mode
+.org-id-locations
+*_archive
+
+# flymake-mode
+*_flymake.*
+
+# eshell files
+/eshell/history
+/eshell/lastdir
+
+# elpa packages
+/elpa/
+
+# reftex files
+*.rel
+
+# AUCTeX auto folder
+/auto/
+
+# cask packages
+.cask/
+dist/
+
+# Flycheck
+flycheck_*.el
+
+# server auth directory
+/server/
+
+# projectiles files
+.projectile
+
+# directory configuration
+.dir-locals.el
+
+# network security
+/network-security.data
+
+pyrightconfig.json

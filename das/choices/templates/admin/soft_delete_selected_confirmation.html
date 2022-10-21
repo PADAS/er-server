@@ -1,0 +1,31 @@
+{% extends "admin/delete_selected_confirmation.html" %}
+{% load i18n l10n admin_urls static %}
+{% block content %}
+
+<p>{% blocktrans %}Are you sure you want to delete the selected {{ objects_name }}? All of the following objects and
+    their related items will be deleted:{% endblocktrans %}
+    <br />
+    <br />
+    It is <b>highly recommended that you choose to disable</b> them instead. Deletion can result in lost data in your stored reports </p>
+
+{% include "admin/includes/object_delete_summary.html" %}
+<h2>{% trans "Objects" %}</h2>
+{% for deletable_object in deletable_objects %}
+<ul>{{ deletable_object|unordered_list }}</ul>
+{% endfor %}
+<form method="post">{% csrf_token %}
+    <div>
+        {% for obj in queryset %}
+        <input type="hidden" name="{{ action_checkbox_name }}" value="{{ obj.pk|unlocalize }}">
+        {% endfor %}
+        <input type="hidden" name="action" value="delete_selected">
+        <input type="hidden" name="post" value="yes">
+        <input type="submit" value="{% trans 'Yes, I’m sure' %}">
+            <button type='submit'
+                style="background: #e2c72a; border-radius: 4px; padding: 10px; font-size: 12px; border: none; line-height: 15px; margin: 0 0 0 10px; color: #ffffff;  cursor: pointer;" name="disable_choices">
+                Okay, Let's disable</button>
+        <a href="#" class="button cancel-link">{% trans "No, take me back" %}</a>
+    </div>
+</form>
+
+{% endblock%}

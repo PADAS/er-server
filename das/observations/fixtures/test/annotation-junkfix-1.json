@@ -1,0 +1,2066 @@
+[
+  {
+    "fields": {
+      "additional": {
+        "note": "test for junk fix"
+      },
+      "created_at": "2015-11-01T00:00:00+00:00",
+      "updated_at": "2015-11-01T00:00:00+00:00",
+      "name": "Junkie",
+      "subject_subtype_id": "elephant"
+    },
+    "pk": "0fa8ec9a-7e92-4575-9575-df202d5dde25",
+    "model": "observations.subject"
+  },
+  {
+    "fields": {
+      "provider_id": "697f25e4-562c-4305-af86-1333e9081f4c",
+      "manufacturer_id": "junk-fix-source",
+      "additional": {},
+      "created_at": "2015-11-01T00:00:00+00:00",
+      "model_name": "Test-For-Finding-Junk-Fixes",
+      "updated_at": "2015-11-01T00:00:00+00:00",
+      "source_type": "tracking-device"
+    },
+    "pk": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+    "model": "observations.source"
+  },
+  {
+    "pk": "cc278eb9-6552-41c3-b4d3-da218785ec24",
+    "model": "observations.subjectsource",
+    "fields": {
+      "assigned_range": "{\"bounds\": \"[)\", \"lower\": \"2017-01-01T00:00:00+00:00\", \"upper\": \"2100-01-01T00:00:00+00:00\"}",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "subject": "0fa8ec9a-7e92-4575-9575-df202d5dde25",
+      "additional": {}
+    }
+  },
+  {
+    "pk": "a50c9560-e357-49d1-a1c7-de5cef185ff5",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7603953573059 -12.3356969149876)",
+      "created_at": "2017-03-25T00:00:34.322785+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-02-22T01:00:38+00:00"
+    }
+  },
+  {
+    "pk": "73f8e8c8-ec37-4e87-8f6d-45eb89707278",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7603531763263 -12.3357586409225)",
+      "created_at": "2017-03-25T00:00:34.322928+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-02-22T02:00:38+00:00"
+    }
+  },
+  {
+    "pk": "dc90dd1c-3634-455f-8386-b7372c912122",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7586930900307 -12.3297162190965)",
+      "created_at": "2017-03-25T00:00:34.323058+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-02-22T07:02:08+00:00"
+    }
+  },
+  {
+    "pk": "fa00b362-37fc-4434-8225-5e5a6acb1eae",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7594804909249 -12.3292119895312)",
+      "created_at": "2017-03-25T00:00:34.323184+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-02-22T08:00:20+00:00"
+    }
+  },
+  {
+    "pk": "544514cd-f1a5-4395-905e-b2bc0a8a53c6",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7593904180219 -12.3281455524601)",
+      "created_at": "2017-03-25T00:00:34.323307+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-02-22T09:03:00+00:00"
+    }
+  },
+  {
+    "pk": "86f0367f-3233-4a89-9bdd-8d5d534e353b",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7731898858037 -12.3071955469047)",
+      "created_at": "2017-03-25T00:00:34.323429+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-02-22T23:01:39+00:00"
+    }
+  },
+  {
+    "pk": "8fc996e5-4ef5-4717-96bc-fe1bbbba35c9",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7736203961594 -12.3072694000991)",
+      "created_at": "2017-03-25T00:00:34.323549+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-02-23T00:01:00+00:00"
+    }
+  },
+  {
+    "pk": "8abf393f-58f6-40a7-a6a8-55c4504245c3",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(38.77418975958 -10.3064852714102)",
+      "created_at": "2017-03-25T00:00:34.323670+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {
+        "testing note": "This is contrived, and should be identified as junk.."
+      },
+      "recorded_at": "2017-02-23T01:00:19+00:00"
+    }
+  },
+  {
+    "pk": "47f96b9e-a4db-4a90-987a-ea9660b96432",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.774112675529 -12.3062953485262)",
+      "created_at": "2017-03-25T00:00:34.323911+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-02-23T02:00:37+00:00"
+    }
+  },
+  {
+    "pk": "a5a5ba83-3131-4096-bd31-38af14e255e6",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8030925587707 -12.2867698161795)",
+      "created_at": "2017-03-25T00:00:34.324049+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-02-25T23:00:11+00:00"
+    }
+  },
+  {
+    "pk": "45998df3-4f12-4c97-a8de-2c7578ec6e3b",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8031073472651 -12.286758922259)",
+      "created_at": "2017-03-25T00:00:34.324172+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-02-26T00:00:13+00:00"
+    }
+  },
+  {
+    "pk": "6eac9603-547c-48b6-813d-350394d5f5d8",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.803168443521 -12.2868939420554)",
+      "created_at": "2017-03-25T00:00:34.324293+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-02-26T01:00:23+00:00"
+    }
+  },
+  {
+    "pk": "4041ffdf-1ce8-4a35-974d-d59838429f79",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8031020671549 -12.2868328158713)",
+      "created_at": "2017-03-25T00:00:34.324416+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-02-26T02:01:08+00:00"
+    }
+  },
+  {
+    "pk": "e484f35d-16a2-4d40-980a-ed39aa1742b3",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7991526330116 -12.28439367309)",
+      "created_at": "2017-03-25T00:00:34.324536+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-02-26T06:01:40+00:00"
+    }
+  },
+  {
+    "pk": "daf47745-7672-4969-a979-63ab3c48089d",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7981606529611 -12.2854063165828)",
+      "created_at": "2017-03-25T00:00:34.324655+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-02-26T07:01:08+00:00"
+    }
+  },
+  {
+    "pk": "4244b820-02cf-41ed-b3fc-d2c2a17947b1",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7986753141639 -12.2854981801871)",
+      "created_at": "2017-03-25T00:00:34.324924+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-02-26T08:01:10+00:00"
+    }
+  },
+  {
+    "pk": "f9840169-d489-4b3d-a73e-513b81a2d3fc",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.801275989595 -12.2854033653359)",
+      "created_at": "2017-03-25T00:00:34.325052+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-02-26T09:00:21+00:00"
+    }
+  },
+  {
+    "pk": "5697066d-1811-4920-84c7-87a51375b36b",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8060398545698 -12.2867575152292)",
+      "created_at": "2017-03-25T00:00:34.325176+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-02-27T00:00:40+00:00"
+    }
+  },
+  {
+    "pk": "ed3e270b-6a05-468f-b779-403a720a3cba",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.805604863575 -12.2867849914113)",
+      "created_at": "2017-03-25T00:00:34.325297+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-02-27T01:02:02+00:00"
+    }
+  },
+  {
+    "pk": "4df2406f-b116-481d-8963-c424bfd9c72f",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8054611140711 -12.2868278073045)",
+      "created_at": "2017-03-25T00:00:34.325417+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-02-27T02:02:54+00:00"
+    }
+  },
+  {
+    "pk": "0d3e41fa-a415-47eb-b380-e4a2939248f7",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8045099901872 -12.2862849310624)",
+      "created_at": "2017-03-25T00:00:34.325536+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-02-27T03:00:10+00:00"
+    }
+  },
+  {
+    "pk": "d22d384b-e3d2-40f4-a99f-69c0d10aaea4",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.721063139903 -12.3860779623987)",
+      "created_at": "2017-03-25T00:00:34.325661+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-01T16:01:02+00:00"
+    }
+  },
+  {
+    "pk": "331df8c0-d15a-4529-8720-1ea9c8b09e9d",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7195755568787 -12.3866394895731)",
+      "created_at": "2017-03-25T00:00:34.325774+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-01T17:01:27+00:00"
+    }
+  },
+  {
+    "pk": "2fd1c049-1c26-4c6c-968a-0eaff26fbeee",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7195338469788 -12.3860743988733)",
+      "created_at": "2017-03-25T00:00:34.325887+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-01T18:02:08+00:00"
+    }
+  },
+  {
+    "pk": "16591b80-67cf-4b4d-95c6-becf19492003",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7193598469992 -12.3859527097806)",
+      "created_at": "2017-03-25T00:00:34.325999+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-01T19:00:12+00:00"
+    }
+  },
+  {
+    "pk": "2990f25d-b255-40e3-8913-0019c6b2b8f3",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7202364427802 -12.387962867906)",
+      "created_at": "2017-03-25T00:00:34.326109+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-01T20:01:56+00:00"
+    }
+  },
+  {
+    "pk": "a7734d7a-35df-4b62-8c13-d958fd7962db",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7221713176878 -12.394808059768)",
+      "created_at": "2017-03-25T00:00:34.326222+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-01T21:02:36+00:00"
+    }
+  },
+  {
+    "pk": "db1264a0-18c8-4616-98e8-fd8c1bd0fb56",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7169749738813 -12.3988203966079)",
+      "created_at": "2017-03-25T00:00:34.326333+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-01T22:00:10+00:00"
+    }
+  },
+  {
+    "pk": "939ad6ba-97a4-4e97-b950-0480cb515c92",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7164353137123 -12.399701054798)",
+      "created_at": "2017-03-25T00:00:34.326446+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-01T23:00:10+00:00"
+    }
+  },
+  {
+    "pk": "2ab8e599-5d94-4293-a375-2acbd894457a",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.726041763683 -12.440611200147)",
+      "created_at": "2017-03-25T00:00:34.326558+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-03T12:01:03+00:00"
+    }
+  },
+  {
+    "pk": "4545831e-eed8-46e4-9e0e-5f41a43aed11",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7237935001573 -12.4391790079588)",
+      "created_at": "2017-03-25T00:00:34.326669+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-03T13:01:43+00:00"
+    }
+  },
+  {
+    "pk": "79bb80be-126c-4e45-8dfa-7d85e06a745e",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.6974464493379 -12.4813045439829)",
+      "created_at": "2017-03-25T00:00:34.326780+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-03T23:00:37+00:00"
+    }
+  },
+  {
+    "pk": "cd147b81-e894-4711-ab0d-4d4a4b0ed4a3",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7029312632783 -12.4795104914456)",
+      "created_at": "2017-03-25T00:00:34.326891+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-04T00:00:14+00:00"
+    }
+  },
+  {
+    "pk": "09dcba21-0848-4347-88ab-b8a47f56907f",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7105207344094 -12.4757205323512)",
+      "created_at": "2017-03-25T00:00:34.327003+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-04T01:02:06+00:00"
+    }
+  },
+  {
+    "pk": "2b0173f7-c567-4f6f-addc-d3273e48d699",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7209028834211 -12.3839303210242)",
+      "created_at": "2017-03-25T00:00:34.327115+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-04T21:01:08+00:00"
+    }
+  },
+  {
+    "pk": "829c62ca-9d2e-4384-9ad4-e644da81f9dc",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7212481529942 -12.3837817745087)",
+      "created_at": "2017-03-25T00:00:34.327224+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-04T22:01:40+00:00"
+    }
+  },
+  {
+    "pk": "71f19ee7-e092-447d-a894-6f7ea9953064",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7233675101816 -12.3841775535881)",
+      "created_at": "2017-03-25T00:00:34.327335+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-04T23:00:38+00:00"
+    }
+  },
+  {
+    "pk": "d4bb211e-7872-45bc-9927-4e1c39a32869",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7233740986171 -12.3842019908088)",
+      "created_at": "2017-03-25T00:00:34.327447+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-05T00:00:22+00:00"
+    }
+  },
+  {
+    "pk": "2c67642b-cd9e-4bfa-9916-3d594f134fc0",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7233933090779 -12.3841959056806)",
+      "created_at": "2017-03-25T00:00:34.327559+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-05T01:01:06+00:00"
+    }
+  },
+  {
+    "pk": "a0164f93-c3a7-4c1a-b92e-3d5b7c879dfa",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7241354426623 -12.3841474014104)",
+      "created_at": "2017-03-25T00:00:34.327670+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-05T02:02:06+00:00"
+    }
+  },
+  {
+    "pk": "7def0b02-670c-48fe-b83e-d2e5a0002387",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7259940625577 -12.3832437589719)",
+      "created_at": "2017-03-25T00:00:34.327780+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-05T03:00:27+00:00"
+    }
+  },
+  {
+    "pk": "c3fac666-b7d0-42e5-831c-2a4f10467b04",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.735198332299 -12.3790557052783)",
+      "created_at": "2017-03-25T00:00:34.327891+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-05T06:01:39+00:00"
+    }
+  },
+  {
+    "pk": "9239c12f-4dd6-4136-915b-822ca223401d",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7322139661151 -12.38046886016)",
+      "created_at": "2017-03-25T00:00:34.328002+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-05T08:01:32+00:00"
+    }
+  },
+  {
+    "pk": "68c42a1c-89f0-42b5-be89-18802676d745",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7325754937962 -12.3810101235531)",
+      "created_at": "2017-03-25T00:00:34.328115+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-05T09:00:18+00:00"
+    }
+  },
+  {
+    "pk": "e719ac6b-9cc2-4ce9-a71e-ba9e64494e55",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7289243569043 -12.3778774460953)",
+      "created_at": "2017-03-25T00:00:34.328225+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-05T17:02:30+00:00"
+    }
+  },
+  {
+    "pk": "2a334586-a284-4d99-b245-0ab58642e069",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7318280300054 -12.3776860802059)",
+      "created_at": "2017-03-25T00:00:34.328334+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-05T18:00:15+00:00"
+    }
+  },
+  {
+    "pk": "b6ad0c7a-be18-4564-89d7-2833a12d89d6",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.732380717686 -12.3753887071708)",
+      "created_at": "2017-03-25T00:00:34.328445+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-05T19:00:18+00:00"
+    }
+  },
+  {
+    "pk": "1f8a6e66-d393-4be7-ad2a-338a4ffe6598",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8594960013948 -12.2728295383744)",
+      "created_at": "2017-03-25T00:00:34.328557+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-06T21:03:00+00:00"
+    }
+  },
+  {
+    "pk": "bdef6d93-5466-40fc-aa81-49d9cb98dda3",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8654342070789 -12.2686381308691)",
+      "created_at": "2017-03-25T00:00:34.328668+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-07T01:01:36+00:00"
+    }
+  },
+  {
+    "pk": "f797cf6d-b80c-4f35-894a-bf60a7c421fc",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8654470874853 -12.2686250375328)",
+      "created_at": "2017-03-25T00:00:34.328779+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-07T02:01:06+00:00"
+    }
+  },
+  {
+    "pk": "adf94c50-484b-44f0-82d1-b95e32f30f8a",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8654148340535 -12.2698363987016)",
+      "created_at": "2017-03-25T00:00:34.328895+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-07T03:02:06+00:00"
+    }
+  },
+  {
+    "pk": "e72137ba-5b84-4f4f-beab-07a2b35a8240",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8648874882608 -12.2725035869397)",
+      "created_at": "2017-03-25T00:00:34.329006+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-07T04:00:15+00:00"
+    }
+  },
+  {
+    "pk": "e83b863a-b632-4c6c-9cb3-074632510f20",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(40.9933897093352 -9.81215884800585)",
+      "created_at": "2017-03-25T00:00:34.329117+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {
+        "testing note": "This is an actual junk fix, and should be identified as junk.."
+      },
+      "recorded_at": "2017-03-07T18:01:52+00:00"
+    }
+  },
+  {
+    "pk": "df22aef3-76d6-4380-a0e9-8b0854d1abad",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8153305248224 -12.2795363435454)",
+      "created_at": "2017-03-25T00:00:34.329229+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-07T19:00:18+00:00"
+    }
+  },
+  {
+    "pk": "3b6563d5-cede-469e-b79e-243830b9f92f",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8088816968557 -12.284134722803)",
+      "created_at": "2017-03-25T00:00:34.329339+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-07T22:03:00+00:00"
+    }
+  },
+  {
+    "pk": "019b512c-d15c-4d54-b627-d66e35a6dd39",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8080670693705 -12.2867826859795)",
+      "created_at": "2017-03-25T00:00:34.329454+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-07T23:01:08+00:00"
+    }
+  },
+  {
+    "pk": "9ad73960-dde2-4cdf-9314-efa21702c20f",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8078895200165 -12.2867987201677)",
+      "created_at": "2017-03-25T00:00:34.329610+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-08T00:00:30+00:00"
+    }
+  },
+  {
+    "pk": "baed3098-8f19-40c6-84c6-56abd39052b0",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8077267403628 -12.2869451740348)",
+      "created_at": "2017-03-25T00:00:34.329732+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-08T01:00:16+00:00"
+    }
+  },
+  {
+    "pk": "611067fb-0562-4a11-8b5b-5aa265dd15b7",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8064447990374 -12.2872283782264)",
+      "created_at": "2017-03-25T00:00:34.329849+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-08T02:02:06+00:00"
+    }
+  },
+  {
+    "pk": "51b13752-0095-49c4-8159-5ef343923837",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8036653035461 -12.2858806955992)",
+      "created_at": "2017-03-25T00:00:34.329966+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-08T04:00:13+00:00"
+    }
+  },
+  {
+    "pk": "5c1fd2c4-e685-4aa0-892f-e9b1783db450",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.808587178822 -12.2817047673168)",
+      "created_at": "2017-03-25T00:00:34.330081+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-08T19:02:00+00:00"
+    }
+  },
+  {
+    "pk": "8a3f6487-1f82-4d58-85cf-caa0bb39e26f",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8115078219351 -12.2789089141629)",
+      "created_at": "2017-03-25T00:00:34.330201+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-08T21:01:38+00:00"
+    }
+  },
+  {
+    "pk": "0291d795-a6c6-4f2b-a94c-c015318fb016",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8105419516999 -12.2794544829811)",
+      "created_at": "2017-03-25T00:00:34.330318+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-08T22:00:38+00:00"
+    }
+  },
+  {
+    "pk": "6d635242-bbd3-4bfa-a227-42fd8ab67d1d",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8095535394258 -12.2796583410972)",
+      "created_at": "2017-03-25T00:00:34.330434+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-08T23:01:36+00:00"
+    }
+  },
+  {
+    "pk": "44833f47-d144-4c91-8491-a2654d9d1f38",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8112018946076 -12.2835676466197)",
+      "created_at": "2017-03-25T00:00:34.330550+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-09T00:00:36+00:00"
+    }
+  },
+  {
+    "pk": "061533b8-1c0f-423d-9d88-c07ea16b509d",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8119789737236 -12.2841479348175)",
+      "created_at": "2017-03-25T00:00:34.330664+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-09T01:01:06+00:00"
+    }
+  },
+  {
+    "pk": "90f6fbe7-1ffe-4958-8792-02f11f67c541",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8120418327846 -12.2841170057687)",
+      "created_at": "2017-03-25T00:00:34.330780+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-09T02:01:36+00:00"
+    }
+  },
+  {
+    "pk": "7fbe4780-b763-45f9-b42a-e7fb9a731d66",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8122421399583 -12.2840985275831)",
+      "created_at": "2017-03-25T00:00:34.330894+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-09T03:00:14+00:00"
+    }
+  },
+  {
+    "pk": "ca257a19-d257-4af5-afa9-8f01db1cf190",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.814916942798 -12.2839580266026)",
+      "created_at": "2017-03-25T00:00:34.331009+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-09T06:01:56+00:00"
+    }
+  },
+  {
+    "pk": "8ee5df77-f517-4ccd-b5ce-30f17e338dde",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8120097627636 -12.2837829671951)",
+      "created_at": "2017-03-25T00:00:34.331126+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-09T07:00:16+00:00"
+    }
+  },
+  {
+    "pk": "8b43e6e1-6180-4a5c-9e36-9b02ed351072",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8069388901039 -12.2832535042221)",
+      "created_at": "2017-03-25T00:00:34.331240+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-09T08:03:00+00:00"
+    }
+  },
+  {
+    "pk": "e995b8ec-a6e9-452a-80a0-1de93e935563",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8029107679357 -12.2853064654487)",
+      "created_at": "2017-03-25T00:00:34.331355+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-09T09:00:39+00:00"
+    }
+  },
+  {
+    "pk": "8cd38576-5399-45a3-a678-77668bc7156d",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7945324058821 -12.2926146810963)",
+      "created_at": "2017-03-25T00:00:34.331471+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-09T19:01:56+00:00"
+    }
+  },
+  {
+    "pk": "52565d7d-7dad-4c4e-a3ca-9a2984b1b842",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7909923769426 -12.2953056322205)",
+      "created_at": "2017-03-25T00:00:34.331587+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-09T20:00:12+00:00"
+    }
+  },
+  {
+    "pk": "549cc992-26dd-406f-9ba2-3931ddf1c1c7",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7908725794376 -12.2959920321483)",
+      "created_at": "2017-03-25T00:00:34.331705+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-09T21:00:14+00:00"
+    }
+  },
+  {
+    "pk": "7303acb5-4afc-4c81-b876-14438a88f8aa",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7903258527097 -12.2969615717223)",
+      "created_at": "2017-03-25T00:00:34.331819+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-09T23:01:28+00:00"
+    }
+  },
+  {
+    "pk": "bac7c1bf-fe59-4d8c-a4d0-bad7a5bce59d",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7902585691618 -12.2970407234404)",
+      "created_at": "2017-03-25T00:00:34.331934+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-10T00:00:20+00:00"
+    }
+  },
+  {
+    "pk": "6e881b88-469c-4dbc-9302-e5220d19c811",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7900951813357 -12.2969923339581)",
+      "created_at": "2017-03-25T00:00:34.332049+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-10T01:00:32+00:00"
+    }
+  },
+  {
+    "pk": "550599f6-e0e1-4197-ac5b-76d24493a338",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7902401575515 -12.2968889951432)",
+      "created_at": "2017-03-25T00:00:34.332163+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-10T02:01:24+00:00"
+    }
+  },
+  {
+    "pk": "3cd3ad70-4338-4971-b880-9c2d786c6dc4",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7902778372323 -12.2969109028873)",
+      "created_at": "2017-03-25T00:00:34.332285+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-10T03:00:41+00:00"
+    }
+  },
+  {
+    "pk": "cb36e68c-18c5-49da-a951-32742c797c79",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7895716081172 -12.2956545407949)",
+      "created_at": "2017-03-25T00:00:34.332400+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-10T04:01:26+00:00"
+    }
+  },
+  {
+    "pk": "5cfa1e7a-03e8-4ff0-a07d-32e248f01632",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7866103717186 -12.2938325123532)",
+      "created_at": "2017-03-25T00:00:34.332516+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-10T15:01:38+00:00"
+    }
+  },
+  {
+    "pk": "dbd0a19f-bef9-479a-9ef9-1c2a9b800ffe",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.788047773182 -12.2911164322528)",
+      "created_at": "2017-03-25T00:00:34.332638+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-10T17:02:02+00:00"
+    }
+  },
+  {
+    "pk": "54ae905c-ee6d-41fd-88ea-2df23f4f2f59",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.786279789584 -12.2932368993331)",
+      "created_at": "2017-03-25T00:00:34.332748+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-10T18:02:32+00:00"
+    }
+  },
+  {
+    "pk": "ead757b5-c007-4981-8876-8589cecc2143",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7835806039555 -12.2934486525524)",
+      "created_at": "2017-03-25T00:00:34.332858+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-10T19:00:13+00:00"
+    }
+  },
+  {
+    "pk": "9a408723-64dd-4327-a36b-29954285b640",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7830433364491 -12.2940042751703)",
+      "created_at": "2017-03-25T00:00:34.332967+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-10T20:02:02+00:00"
+    }
+  },
+  {
+    "pk": "510a7d40-83a8-4d13-97d6-e7cb22c83e40",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.781564087995 -12.2957312525482)",
+      "created_at": "2017-03-25T00:00:34.333077+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-10T21:00:12+00:00"
+    }
+  },
+  {
+    "pk": "37b53af3-1aa6-4210-a26d-2a290a8e7b59",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7808480575124 -12.2962751000568)",
+      "created_at": "2017-03-25T00:00:34.333187+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-10T22:01:08+00:00"
+    }
+  },
+  {
+    "pk": "4ed488b7-76be-4a97-9a90-0f660ff0512a",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7811107228689 -12.2967020529667)",
+      "created_at": "2017-03-25T00:00:34.333297+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-10T23:00:37+00:00"
+    }
+  },
+  {
+    "pk": "59e8be8d-7c6b-4980-968e-7ac6e12d01b8",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7812284280101 -12.2966317764348)",
+      "created_at": "2017-03-25T00:00:34.333479+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-11T00:00:10+00:00"
+    }
+  },
+  {
+    "pk": "a9a191e6-ebe8-48a6-8451-328a85e7598f",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7802064854111 -12.295652026898)",
+      "created_at": "2017-03-25T00:00:34.333613+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-11T01:00:13+00:00"
+    }
+  },
+  {
+    "pk": "8d3c4463-ea5d-419f-a1f9-c80f598b7590",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7801291048124 -12.2956676378383)",
+      "created_at": "2017-03-25T00:00:34.333739+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-11T03:01:05+00:00"
+    }
+  },
+  {
+    "pk": "f0d984e4-8bbf-4653-9078-6286470cc3ca",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7826060854272 -12.2987725387816)",
+      "created_at": "2017-03-25T00:00:34.333861+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-11T04:00:21+00:00"
+    }
+  },
+  {
+    "pk": "60c1ab8c-3b1c-44dd-a9d6-bb26faeac0b8",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7826514783544 -12.2988114601653)",
+      "created_at": "2017-03-25T00:00:34.333987+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-11T05:00:38+00:00"
+    }
+  },
+  {
+    "pk": "0d2c5daf-7003-46c2-8849-a7a2d263ab0c",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.787432696098 -12.2989297851394)",
+      "created_at": "2017-03-25T00:00:34.334106+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-11T07:02:08+00:00"
+    }
+  },
+  {
+    "pk": "6ac3676c-96b4-40d1-803a-ea68a2611543",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7876041019559 -12.2976265274707)",
+      "created_at": "2017-03-25T00:00:34.334221+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-11T08:00:14+00:00"
+    }
+  },
+  {
+    "pk": "04274530-51f6-46e7-abe9-4cf2c52dc351",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7883522412033 -12.2920908618967)",
+      "created_at": "2017-03-25T00:00:34.334337+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-11T09:00:39+00:00"
+    }
+  },
+  {
+    "pk": "b2621784-98ef-4a60-a99d-c36704da39e6",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7986462615766 -12.2874106309985)",
+      "created_at": "2017-03-25T00:00:34.334452+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-11T17:03:00+00:00"
+    }
+  },
+  {
+    "pk": "edacd0b5-05f0-435e-84ef-49d5f562590f",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8007588947766 -12.2869957912694)",
+      "created_at": "2017-03-25T00:00:34.334567+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-11T18:01:30+00:00"
+    }
+  },
+  {
+    "pk": "80625caf-e8f4-496e-b069-25a012147cf6",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8011418560461 -12.28584502649)",
+      "created_at": "2017-03-25T00:00:34.334681+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-11T19:00:19+00:00"
+    }
+  },
+  {
+    "pk": "82324e7b-9281-4c4e-a8ae-d02e503021b1",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8052737880117 -12.2901102418685)",
+      "created_at": "2017-03-25T00:00:34.334799+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-11T22:01:33+00:00"
+    }
+  },
+  {
+    "pk": "5513eef1-6a9c-49fd-8e0d-9870a1610649",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8052687762538 -12.2902285987436)",
+      "created_at": "2017-03-25T00:00:34.334913+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-11T23:00:41+00:00"
+    }
+  },
+  {
+    "pk": "6ad5070a-1438-41aa-9263-5f1238e752a6",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.805147817699 -12.2903396144682)",
+      "created_at": "2017-03-25T00:00:34.335031+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-12T00:00:17+00:00"
+    }
+  },
+  {
+    "pk": "269987fc-bc7e-476d-ba1d-1eb992adda41",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.805088216372 -12.2907184179264)",
+      "created_at": "2017-03-25T00:00:34.335144+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-12T02:01:41+00:00"
+    }
+  },
+  {
+    "pk": "c1bd7217-1c47-4179-bb00-555683b430b0",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8047654030405 -12.2916059192557)",
+      "created_at": "2017-03-25T00:00:34.335257+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-12T04:00:13+00:00"
+    }
+  },
+  {
+    "pk": "8c863e7f-41fe-4a4f-9055-9607f76a1fb4",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.804836016765 -12.2932347277154)",
+      "created_at": "2017-03-25T00:00:34.335369+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-12T05:00:38+00:00"
+    }
+  },
+  {
+    "pk": "ed38aafc-ebbd-4442-9f5a-0c8f3f9f2159",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7858649703814 -12.2948665753077)",
+      "created_at": "2017-03-25T00:00:34.335485+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-12T15:02:06+00:00"
+    }
+  },
+  {
+    "pk": "62450091-a28d-4fa7-91ec-37e4be3f2c77",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7873569165501 -12.2926142833198)",
+      "created_at": "2017-03-25T00:00:34.335600+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-12T16:00:17+00:00"
+    }
+  },
+  {
+    "pk": "6dd38e83-1363-416d-8a86-27f8f108668c",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7871182447732 -12.2938554038318)",
+      "created_at": "2017-03-25T00:00:34.335715+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-12T17:00:17+00:00"
+    }
+  },
+  {
+    "pk": "7993cc9e-0003-4025-8d03-54ec536f73f1",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7899917721914 -12.2930324058832)",
+      "created_at": "2017-03-25T00:00:34.335829+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-12T19:03:00+00:00"
+    }
+  },
+  {
+    "pk": "09ac0518-81ba-4cd1-b6bc-15d9cf1a1e56",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.790911732095 -12.2952383291225)",
+      "created_at": "2017-03-25T00:00:34.335942+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-12T20:02:36+00:00"
+    }
+  },
+  {
+    "pk": "f58a58ad-8a66-433b-b0e5-5cb024c161dc",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7904678754282 -12.2966607626903)",
+      "created_at": "2017-03-25T00:00:34.336055+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-12T21:00:15+00:00"
+    }
+  },
+  {
+    "pk": "7e9ffdcb-9cca-4cfb-a1bc-40d0d94c35cc",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7907788829696 -12.2972534467382)",
+      "created_at": "2017-03-25T00:00:34.336168+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-12T22:01:39+00:00"
+    }
+  },
+  {
+    "pk": "41560d88-1542-404b-820d-b7c0900000e8",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.789619308298 -12.2987695797477)",
+      "created_at": "2017-03-25T00:00:34.336280+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-12T23:01:53+00:00"
+    }
+  },
+  {
+    "pk": "f90b65b9-4600-45cb-bb59-a1de58e525b3",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7893225179847 -12.2987836721562)",
+      "created_at": "2017-03-25T00:00:34.336391+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-13T00:00:38+00:00"
+    }
+  },
+  {
+    "pk": "485fb71f-552f-4086-8710-19d4fbd59bf0",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7892676659942 -12.2989466787327)",
+      "created_at": "2017-03-25T00:00:34.336501+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-13T03:01:00+00:00"
+    }
+  },
+  {
+    "pk": "e9406867-548a-4859-8e6f-a820275ecf7b",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7877276970496 -12.2995585682777)",
+      "created_at": "2017-03-25T00:00:34.336611+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-13T04:00:11+00:00"
+    }
+  },
+  {
+    "pk": "0ca3acb0-39f3-4435-a4c0-ea1f735a1581",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7862690215892 -12.2968998662307)",
+      "created_at": "2017-03-25T00:00:34.336730+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-13T05:00:10+00:00"
+    }
+  },
+  {
+    "pk": "aefdc266-8af5-467c-b91e-01dc9ddaea08",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7859989992003 -12.2937271278239)",
+      "created_at": "2017-03-25T00:00:34.336839+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-13T15:01:38+00:00"
+    }
+  },
+  {
+    "pk": "3b08e634-75d7-4e81-a4f4-405dc1d5b00f",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7828333847937 -12.2947546483348)",
+      "created_at": "2017-03-25T00:00:34.336947+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-13T16:00:10+00:00"
+    }
+  },
+  {
+    "pk": "d83b91d1-f7e3-4993-b3fd-26e3bcf4f2d4",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7829834154331 -12.2942149929073)",
+      "created_at": "2017-03-25T00:00:34.337055+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-13T17:00:15+00:00"
+    }
+  },
+  {
+    "pk": "92e56550-93d0-410d-ad29-318b93928e12",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.782071964452 -12.2959661186778)",
+      "created_at": "2017-03-25T00:00:34.337163+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-13T19:00:38+00:00"
+    }
+  },
+  {
+    "pk": "36a8f045-61ba-4eb6-96ce-ee04ff3cd175",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7791849575559 -12.2984266015663)",
+      "created_at": "2017-03-25T00:00:34.337272+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-13T20:00:13+00:00"
+    }
+  },
+  {
+    "pk": "d6a6402f-9af4-469c-817f-ed5da6369b8b",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7793527916659 -12.297808538506)",
+      "created_at": "2017-03-25T00:00:34.337380+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-13T21:00:14+00:00"
+    }
+  },
+  {
+    "pk": "0bb7e376-faae-4de0-9d3a-00ec158fe672",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.782354339501 -12.3017485828156)",
+      "created_at": "2017-03-25T00:00:34.337489+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-13T23:01:36+00:00"
+    }
+  },
+  {
+    "pk": "9494116b-3d85-4b0a-a97d-14496cc22e08",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7821087861635 -12.3021258948801)",
+      "created_at": "2017-03-25T00:00:34.337619+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-14T00:00:26+00:00"
+    }
+  },
+  {
+    "pk": "1fcae368-f766-408f-8b85-3c6afbec82e5",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7819714780484 -12.3022285955257)",
+      "created_at": "2017-03-25T00:00:34.337740+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-14T01:01:13+00:00"
+    }
+  },
+  {
+    "pk": "c7484741-622f-47d2-aef4-9a91769890f0",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7917831202057 -12.2940455317911)",
+      "created_at": "2017-03-25T00:00:34.337863+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-14T08:01:25+00:00"
+    }
+  },
+  {
+    "pk": "c5ce6d0c-2726-4266-8666-1ee6c35d45a5",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7926841268464 -12.2955071791587)",
+      "created_at": "2017-03-25T00:00:34.337974+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-14T09:03:00+00:00"
+    }
+  },
+  {
+    "pk": "41572733-c1ad-4af7-b450-d2e9254fd686",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8096737751492 -12.2824168856998)",
+      "created_at": "2017-03-25T00:00:34.338083+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-14T18:01:36+00:00"
+    }
+  },
+  {
+    "pk": "a6377aee-84c0-43a6-9c40-4beade5fde08",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8122764105147 -12.280999301715)",
+      "created_at": "2017-03-25T00:00:34.338190+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-14T19:01:54+00:00"
+    }
+  },
+  {
+    "pk": "a5b4bb56-2432-456d-a1c1-5007292c7419",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8137468936902 -12.280994238191)",
+      "created_at": "2017-03-25T00:00:34.338304+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-14T20:01:08+00:00"
+    }
+  },
+  {
+    "pk": "856d61e4-30c1-4c37-839d-ffda72d72fb6",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8144418177767 -12.2804811031334)",
+      "created_at": "2017-03-25T00:00:34.338414+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-14T21:00:43+00:00"
+    }
+  },
+  {
+    "pk": "4eadd148-20f7-4325-8f15-babfafe33d32",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8166013616993 -12.2779873501224)",
+      "created_at": "2017-03-25T00:00:34.338523+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-14T22:01:30+00:00"
+    }
+  },
+  {
+    "pk": "7a167fe1-931b-45e5-a6d4-05bfc313a931",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8162337452359 -12.2784302429274)",
+      "created_at": "2017-03-25T00:00:34.338632+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-14T23:00:14+00:00"
+    }
+  },
+  {
+    "pk": "52a67128-05d0-424e-baba-97223097cf2a",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8188387365228 -12.2807508483657)",
+      "created_at": "2017-03-25T00:00:34.338744+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-15T00:02:54+00:00"
+    }
+  },
+  {
+    "pk": "a3b73e17-63bd-4358-87cd-e74d5bf2ada9",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8195369090879 -12.2809212297893)",
+      "created_at": "2017-03-25T00:00:34.338854+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-15T01:00:36+00:00"
+    }
+  },
+  {
+    "pk": "f976996f-65cd-4d7b-a033-446dc21ca98b",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8197092442047 -12.2809437340579)",
+      "created_at": "2017-03-25T00:00:34.338964+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-15T02:00:36+00:00"
+    }
+  },
+  {
+    "pk": "3df1209f-5897-4e20-af01-2cde912f4d1f",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8203659769081 -12.2794013921559)",
+      "created_at": "2017-03-25T00:00:34.339073+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-15T04:00:54+00:00"
+    }
+  },
+  {
+    "pk": "be4777b7-c8cd-40ba-8962-bb984a0ccd98",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8240260927604 -12.2782588633024)",
+      "created_at": "2017-03-25T00:00:34.339207+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-15T05:00:14+00:00"
+    }
+  },
+  {
+    "pk": "3471c496-5c38-4757-b85b-b1fa2bc21fbf",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8140564220132 -12.2810377309944)",
+      "created_at": "2017-03-25T00:00:34.339400+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-15T20:01:41+00:00"
+    }
+  },
+  {
+    "pk": "06d4687f-57fc-47b2-95a4-a199cf1617f2",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.814143560394 -12.2812178968488)",
+      "created_at": "2017-03-25T00:00:34.339552+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-15T21:00:25+00:00"
+    }
+  },
+  {
+    "pk": "8f94325c-2ff3-49d0-9602-e0cbfcfec2ad",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8121597632593 -12.2832256180202)",
+      "created_at": "2017-03-25T00:00:34.339684+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-15T22:01:36+00:00"
+    }
+  },
+  {
+    "pk": "b8ae494b-1fa5-4a85-9c97-de8f47ba365a",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8135105958223 -12.284966799477)",
+      "created_at": "2017-03-25T00:00:34.339812+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-15T23:00:14+00:00"
+    }
+  },
+  {
+    "pk": "7a0b9a7c-65c5-450d-8f88-a7b5f01627b7",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.814090858546 -12.2856752887939)",
+      "created_at": "2017-03-25T00:00:34.339943+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-16T01:00:54+00:00"
+    }
+  },
+  {
+    "pk": "fa049cdb-da2f-4674-b164-35dfba91a898",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8140860917003 -12.2858380984159)",
+      "created_at": "2017-03-25T00:00:34.340065+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-16T02:00:12+00:00"
+    }
+  },
+  {
+    "pk": "71e35eb6-1499-4100-9ac3-83f622e1793d",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8160096281116 -12.2866194602833)",
+      "created_at": "2017-03-25T00:00:34.340203+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-16T03:00:22+00:00"
+    }
+  },
+  {
+    "pk": "2bd1c647-12c5-4eb3-b086-a23832339e46",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8076588501832 -12.2821486819166)",
+      "created_at": "2017-03-25T00:00:34.340352+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-16T09:03:02+00:00"
+    }
+  },
+  {
+    "pk": "90efa644-ce4f-44d2-ab67-d250f20f053c",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7913570624212 -12.2944003799808)",
+      "created_at": "2017-03-25T00:00:34.340484+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-16T18:01:06+00:00"
+    }
+  },
+  {
+    "pk": "19942913-fb84-4323-af37-600ab3e0db8b",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.791253886492 -12.2947332583908)",
+      "created_at": "2017-03-25T00:00:34.340612+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-16T19:00:34+00:00"
+    }
+  },
+  {
+    "pk": "1bfe224b-8e33-4b05-90a7-1063076472c6",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7912580145274 -12.2958417236879)",
+      "created_at": "2017-03-25T00:00:34.340741+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-16T20:00:36+00:00"
+    }
+  },
+  {
+    "pk": "9833fe3a-4f8f-47e3-9dd9-9313bea46fc9",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8089456917669 -12.3030579064516)",
+      "created_at": "2017-03-25T00:00:34.340868+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-17T05:00:16+00:00"
+    }
+  },
+  {
+    "pk": "afefafd4-950a-46c1-91f1-612c12b8d04d",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8101984033919 -12.3036534890614)",
+      "created_at": "2017-03-25T00:00:34.340993+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-17T06:02:54+00:00"
+    }
+  },
+  {
+    "pk": "cdbb4e74-724a-4897-a514-773286bd4001",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8102419779225 -12.3036817298709)",
+      "created_at": "2017-03-25T00:00:34.341118+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-17T07:03:02+00:00"
+    }
+  },
+  {
+    "pk": "855240a0-72a7-4834-80e6-c2bc04ec45e7",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8103965153466 -12.3042949572814)",
+      "created_at": "2017-03-25T00:00:34.341241+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-17T08:00:13+00:00"
+    }
+  },
+  {
+    "pk": "d2affed8-94c7-4694-a2a3-85c0901df633",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8123006926558 -12.2805038100709)",
+      "created_at": "2017-03-25T00:00:34.341363+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-17T21:00:19+00:00"
+    }
+  },
+  {
+    "pk": "362b4dbf-83fe-48cf-8e15-67da8f800780",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8543774446712 -12.2663077417406)",
+      "created_at": "2017-03-25T00:00:34.341487+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-18T21:01:46+00:00"
+    }
+  },
+  {
+    "pk": "6a4b903e-1c89-4ae5-84cd-0588f55fa85f",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8563057401888 -12.2658752928167)",
+      "created_at": "2017-03-25T00:00:34.341610+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-18T22:01:06+00:00"
+    }
+  },
+  {
+    "pk": "85ca8d16-fe29-4bc4-9e9e-d02b75bbcc4e",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8528556323442 -12.2650758109393)",
+      "created_at": "2017-03-25T00:00:34.341733+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-18T23:00:17+00:00"
+    }
+  },
+  {
+    "pk": "d3c19a85-4ec0-4244-bc5f-dc69ded8fa03",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8524896148816 -12.2653083173563)",
+      "created_at": "2017-03-25T00:00:34.341855+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-19T00:03:00+00:00"
+    }
+  },
+  {
+    "pk": "dce30631-4123-4361-867a-cdff9175baea",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8523073936173 -12.2654341706085)",
+      "created_at": "2017-03-25T00:00:34.341975+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-19T02:00:29+00:00"
+    }
+  },
+  {
+    "pk": "8ae5d6a3-a2df-4f98-8f9f-b131a9437da8",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8522573800647 -12.2654520191695)",
+      "created_at": "2017-03-25T00:00:34.342096+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-19T03:00:20+00:00"
+    }
+  },
+  {
+    "pk": "0e17a0ec-8624-4e8b-877c-cf6e05b05c68",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8074359789328 -12.2817901109088)",
+      "created_at": "2017-03-25T00:00:34.342218+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-20T13:01:01+00:00"
+    }
+  },
+  {
+    "pk": "9077419b-ef91-43e9-a6de-1b60b7fea4f0",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7991654949839 -12.2912609359774)",
+      "created_at": "2017-03-25T00:00:34.342339+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-21T01:00:16+00:00"
+    }
+  },
+  {
+    "pk": "3435047d-2c6f-4266-b193-a4fa6fd646e3",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7991975296221 -12.2912593709203)",
+      "created_at": "2017-03-25T00:00:34.342460+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-21T02:01:32+00:00"
+    }
+  },
+  {
+    "pk": "d3f3236b-9032-4e19-b3f8-c2adaf820bb3",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.797381600213 -12.2926580306084)",
+      "created_at": "2017-03-25T00:00:34.342585+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-21T03:00:56+00:00"
+    }
+  },
+  {
+    "pk": "4740b054-1838-4ec0-91ce-5b9fb88d51ca",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7927520242658 -12.2950752752758)",
+      "created_at": "2017-03-25T00:00:34.342708+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-21T04:00:19+00:00"
+    }
+  },
+  {
+    "pk": "c6b6a0ec-5928-44ba-8f84-0690edc61baf",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7918323163581 -12.2959610273186)",
+      "created_at": "2017-03-25T00:00:34.342830+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-21T05:01:17+00:00"
+    }
+  },
+  {
+    "pk": "53559c56-7660-4d7e-9459-e77b38921064",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7835061548978 -12.2934144329749)",
+      "created_at": "2017-03-25T00:00:34.342955+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-21T17:00:15+00:00"
+    }
+  },
+  {
+    "pk": "a7db5bcb-09c0-40ba-86bd-0219df2b2a18",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7828577137678 -12.2945947763614)",
+      "created_at": "2017-03-25T00:00:34.343081+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-21T18:00:36+00:00"
+    }
+  },
+  {
+    "pk": "7c5fa130-7c76-4d3c-8159-70c6879ca016",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7807608747864 -12.2967131802619)",
+      "created_at": "2017-03-25T00:00:34.343203+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-21T19:01:00+00:00"
+    }
+  },
+  {
+    "pk": "c32ae4b8-74ce-4aef-a851-d4a1db5629ef",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7801447486885 -12.2973358178436)",
+      "created_at": "2017-03-25T00:00:34.343330+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-21T20:00:16+00:00"
+    }
+  },
+  {
+    "pk": "b14f09f8-f12c-4c4a-a502-60c117ae720a",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.779457425623 -12.2985017414086)",
+      "created_at": "2017-03-25T00:00:34.343455+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-21T21:00:36+00:00"
+    }
+  },
+  {
+    "pk": "31a27092-9126-4852-b0fa-f773ffbcccb9",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7794944822858 -12.2983111707728)",
+      "created_at": "2017-03-25T00:00:34.343577+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-21T22:00:38+00:00"
+    }
+  },
+  {
+    "pk": "65d37d98-cb57-48a8-967d-632a1cb2f370",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7788089631203 -12.2989048707934)",
+      "created_at": "2017-03-25T00:00:34.343700+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-21T23:00:12+00:00"
+    }
+  },
+  {
+    "pk": "48363636-9dfc-496e-8579-24ea2f9d7fe1",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7796431222577 -12.3016918142255)",
+      "created_at": "2017-03-25T00:00:34.343820+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-22T01:00:38+00:00"
+    }
+  },
+  {
+    "pk": "a0950065-ee6c-4ce6-bf29-d38a23e10032",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7795773520955 -12.3017372041478)",
+      "created_at": "2017-03-25T00:00:34.343941+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-22T02:00:46+00:00"
+    }
+  },
+  {
+    "pk": "c1026b90-8b0f-443e-bcf9-6682edfbd73a",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.779833484443 -12.3016274046316)",
+      "created_at": "2017-03-25T00:00:34.344063+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-22T03:02:06+00:00"
+    }
+  },
+  {
+    "pk": "c9f438dd-80a3-4007-8999-caccc68597a2",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7798647021839 -12.3015364455011)",
+      "created_at": "2017-03-25T00:00:34.344183+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-22T04:00:18+00:00"
+    }
+  },
+  {
+    "pk": "a44561be-2b09-4d75-b746-060a73b1c5a1",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.7797593699759 -12.3021321814)",
+      "created_at": "2017-03-25T00:00:34.344303+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-22T05:00:36+00:00"
+    }
+  },
+  {
+    "pk": "95b1e238-3a5a-41c3-9d69-e3d18984e6eb",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8324121950175 -12.2761872087249)",
+      "created_at": "2017-03-25T00:00:34.344422+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-24T16:02:10+00:00"
+    }
+  },
+  {
+    "pk": "1c162c0a-4a8a-4745-9ca6-ed393fe99d0f",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8365530340985 -12.2729459418915)",
+      "created_at": "2017-03-25T00:00:34.344543+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-24T17:00:13+00:00"
+    }
+  },
+  {
+    "pk": "371edd19-030f-46db-ac32-0580f5838350",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8363466780471 -12.2729051896235)",
+      "created_at": "2017-03-25T00:00:34.344664+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-24T18:01:40+00:00"
+    }
+  },
+  {
+    "pk": "cf59e985-c028-45b5-9a63-7edf20e50991",
+    "model": "observations.observation",
+    "fields": {
+      "location": "SRID=4326;POINT(37.8388218055566 -12.2718126641988)",
+      "created_at": "2017-03-25T00:00:34.344784+00:00",
+      "source": "dcf1590e-9b1c-4c4b-91b7-388ef4155064",
+      "additional": {},
+      "recorded_at": "2017-03-24T19:00:13+00:00"
+    }
+  }
+]

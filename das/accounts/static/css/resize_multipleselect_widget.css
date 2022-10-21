@@ -1,0 +1,35 @@
+.selector {
+    width: calc(100% - 170px);
+}
+
+.related-widget-wrapper {
+    width: calc(100% - 170px);
+}
+
+.related-widget-wrapper > .selector {
+    width: calc(100% - 13px);
+}
+
+.selector .selector-available,
+.selector .selector-chosen {
+    width: 48%;
+}
+
+@media (max-width: 1024px) {
+    .related-widget-wrapper {
+        width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .selector .selector-available,
+    .selector .selector-chosen {
+        max-width: 100%;
+        width: 100%;
+    }
+}
+
+.selector select {
+    width: 100%;
+}
+

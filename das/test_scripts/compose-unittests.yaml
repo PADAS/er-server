@@ -1,0 +1,60 @@
+version: "3.2"
+
+services:
+
+  api:
+    image: gcr.io/padas-app/circleci/das-server/${SANITIZED_CIRCLE_BRANCH}:${CIRCLE_WORKFLOW_ID:-latest}
+    container_name: api
+    environment:
+      - DB_HOST=dbserver
+      - DB_NAME=testdb
+      - DB_USER=testuser
+      - DB_PASSWORD=fancypassword
+      - DB_PORT=5432
+      - FQDN=testing.pamdas.org
+      - CIRCLE_NODE_TOTAL=${CIRCLE_NODE_TOTAL}
+      - CIRCLE_NODE_INDEX=${CIRCLE_NODE_INDEX}
+
+    links:
+      - dbserver
+      - redis
+    command: sh -c "test_scripts/run_unittests.sh"
+    depends_on:
+      - dbserver
+          #condition: service_healthy
+    volumes:
+      - testresults:/testresults
+
+  dbserver:
+    image: gcr.io/padas-app/postgis
+    container_name: dbserver-test
+    environment:
+      - POSTGRES_USER=testuser
+      - POSTGRES_DB=testdb
+      - POSTGRES_PASSWORD=fancypassword
+    ports:
+      - 5432:5432
+    healthcheck:
+      test: ["CMD-SHELL", "export PGPASSWORD=fancypassword && pg_isready -U testuser -d testdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - testresults:/testresults
+
+  redis:
+    image: redis:6.0.6
+    container_name: redis-test
+    environment:
+      - FOO=bar
+    ports:
+      - 6379:6379
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli && bash -c '[[ $$(redis-cli PING) == \"PONG\" ]]'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+    # Using testresults to capture unit test output.
+    testresults:

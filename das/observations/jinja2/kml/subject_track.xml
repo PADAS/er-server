@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
+  <Folder>
+      <name>{{ name }}</name>
+      <visibility>1</visibility>
+
+          {% if observations|length > 0 %}
+
+      <Document>
+
+          <name>{{ name }} ({{ observations[0].recorded_at.astimezone(timezone).strftime('%Y-%m-%d %H:%M:%S') }} {{timezone_name}})</name>
+          <visibility>1</visibility>
+          <Style id="p-style">
+              <IconStyle>
+                  <color>{{ points_color}}</color>
+                  <scale>0.5</scale>
+                  <Icon>
+                      <href>http://maps.google.com/mapfiles/kml/shapes/shaded_dot.png</href>
+                  </Icon>
+              </IconStyle>
+              <LabelStyle>
+                  <scale>0</scale>
+              </LabelStyle>
+              <LineStyle>
+                  <color>{{track_color}}</color>
+                  <width>0.4</width>
+              </LineStyle>
+
+          </Style>
+          <Style id="finalpoint_hover">
+            <IconStyle>
+              <scale>1</scale>
+              <color>{{last_position_color}}</color>
+              <Icon>
+                <href>{{ subject_icon }}</href>
+              </Icon>
+            </IconStyle>
+            <LabelStyle>
+              <scale>1.1</scale>
+              <color>#ffffffff</color>
+
+            </LabelStyle>
+            <BalloonStyle>
+              <bgColor>aaffffff</bgColor>
+              <text>$[description]</text>
+            </BalloonStyle>
+          </Style>
+          <Style id="finalpoint_normal">
+            <IconStyle>
+              <scale>0.7</scale>
+              <color>{{last_position_color}}</color>
+              <Icon>
+                <href>{{ subject_icon }}</href>
+              </Icon>
+            </IconStyle>
+            <BalloonStyle>
+              <bgColor>aaffffff</bgColor>
+              <text>$[description]</text>
+            </BalloonStyle>
+            <LabelStyle>
+              <scale>0</scale>
+            </LabelStyle>
+          </Style>
+          <StyleMap id="finalpoint-stylemap">
+            <Pair>
+              <key>normal</key>
+              <styleUrl>#finalpoint_normal</styleUrl>
+            </Pair>
+            <Pair>
+              <key>highlight</key>
+              <styleUrl>#finalpoint_hover</styleUrl>
+            </Pair>
+          </StyleMap>
+
+          <Placemark id="">
+            <Snippet/>
+            <name>Last Position: {{observations[0].recorded_at.astimezone(timezone).strftime('%Y-%m-%d %H:%M:%S')}} {{timezone_name}} </name>
+            <description><![CDATA[
+                <div style="width:275px;font-family:Verdana,Tahoma,Helvetica,Arial;padding:0px;">
+                    <div style="padding:5px 0px">
+                    <img src="{{subject_icon}}" align='bottom' style="background-color: gray; padding:2px 5px; height:1.2em;" border='0'/>
+                    <strong style="font-size:1.2em;">{{ name }}</strong>
+                    </div>
+                    <div style="padding:5px 0px">{{observations[0].recorded_at.astimezone(timezone).strftime('%Y-%m-%d %H:%M:%S')}} {{timezone_name}}</div>
+                    <div style="padding:5px 0px">{{observations[0].location.x}}, {{observations[0].location.y}}</div>
+                </div>]]>
+            </description>
+            <TimeStamp>
+              <when>{{observations[0].recorded_at.isoformat()}}</when>
+            </TimeStamp>
+            <styleUrl>#finalpoint-stylemap</styleUrl>
+            <Point>
+              <coordinates>
+                  {{observations[0].location.x}},{{observations[0].location.y}},0
+              </coordinates>
+            </Point>
+          </Placemark>
+
+          {% for observation in observations | sort(attribute='recorded_at') %}
+          <Placemark id="p-{{ loop.index }}">
+            <Snippet>{{observation.recorded_at.astimezone(timezone).strftime('%Y-%m-%d %H:%M:%S')}} {{timezone_name}}</Snippet>
+            <name>{{observation.location.x }}, {{ observation.location.y }}</name>
+            <description>{{ observation.recorded_at.astimezone(timezone).strftime('%Y-%m-%d %H:%M:%S') }} {{timezone_name}}</description>
+            <TimeStamp>
+              <when>{{observation.recorded_at.isoformat()}}</when>
+            </TimeStamp>
+            <styleUrl>#p-style</styleUrl>
+
+            <MultiGeometry>
+                <Point>
+                  <coordinates>
+                      {{observation.location.x }}, {{ observation.location.y }}, 0
+                  </coordinates>
+                </Point>
+
+                {% if loop.previtem is defined -%}
+                    <LineString>
+                        <extrude>1</extrude>
+                        <tessellate>1</tessellate>
+                        <coordinates>
+                            {{loop.previtem.location.x }},{{ loop.previtem.location.y }},0 {{observation.location.x }},{{ observation.location.y }},0
+                        </coordinates>
+                    </LineString>
+                {% endif %}
+          </MultiGeometry>
+
+          </Placemark>
+          {% endfor %}
+
+      </Document>
+
+  {% else %}
+  <Placemark id="">
+      <name>No track data available</name>
+  </Placemark>
+  {% endif %}
+
+      {% if kml_overlay_image -%}
+          <ScreenOverlay>
+              <name>logo</name>
+              <visibility>1</visibility>
+              <Icon>
+                <href>{{ kml_overlay_image }}</href>
+              </Icon>
+              <overlayXY x="0" y="0" xunits="fraction" yunits="fraction"/>
+              <screenXY x="0" y="0" xunits="fraction" yunits="fraction"/>
+              <rotationXY x="0" y="0" xunits="fraction" yunits="fraction"/>
+              <size x="0" y="0" xunits="fraction" yunits="fraction"/>
+          </ScreenOverlay>
+
+      {%- endif %}
+
+  </Folder>
+</kml>
+

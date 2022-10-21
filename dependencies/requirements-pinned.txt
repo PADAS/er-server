@@ -1,0 +1,9 @@
+# error code 2 right now with this one.
+
+#4.61 release of python-socketio, Nov 28, 2020 - enginio 3.14.2 Nov 29
+git+https://github.com/PADAS/python-socketio.git@0d3507e1d32f6317c2f6666357c1c1d0b9f3d468#egg=python-socketio
+
+git+https://github.com/PADAS/fastkml.git@7922b3f38c4cef4a513a599e899bfb10576d8bd3#egg=fastkml
+
+#git+https://github.com/VulcanTechnologies/django-versatileimagefield.git@c2bf2d81c0c2f1d2a76e42db5c6dc4331f7c1cfe#egg=django-versatileimagefield
+

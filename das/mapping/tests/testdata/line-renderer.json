@@ -1,0 +1,57 @@
+{
+    "renderer": {
+      "type": "uniqueValue",
+      "field1": "Level_",
+      "field2": "",
+      "field3": "",
+      "fieldDelimiter": ",",
+      "defaultSymbol": {
+        "type": "esriSLS",
+        "style": "esriSLSSolid",
+        "color": [
+          130,
+          130,
+          130,
+          255
+        ],
+        "width": 1
+      },
+      "defaultLabel": "<all other values>",
+      "uniqueValueInfos": [
+        {
+          "value": "Main",
+          "label": "Main",
+          "description": "",
+          "symbol": {
+            "type": "esriSLS",
+            "style": "esriSLSSolid",
+            "color": [
+              0,
+              76,
+              115,
+              255
+            ],
+            "width": 0.2
+          }
+        },
+        {
+          "value": "Tertiary",
+          "label": "Tertiary",
+          "description": "",
+          "symbol": {
+            "type": "esriSLS",
+            "style": "esriSLSSolid",
+            "color": [
+              0,
+              76,
+              115,
+              0
+            ],
+            "width": 0.05
+          }
+        }
+      ]
+    },
+    "transparency": 0,
+    "labelingInfo": null
+  }

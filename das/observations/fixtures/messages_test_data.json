@@ -1,0 +1,469 @@
+[
+    {
+        "model": "observations.message",
+        "pk": "1528c2bd-89ab-4a7c-b2b2-7e3d504d5421",
+        "fields": {
+            "created_at": "2021-03-15T19:36:26.200Z",
+            "updated_at": "2021-03-15T19:36:26.200Z",
+            "sender_content_type": 42,
+            "receiver_content_type": null,
+            "sender_id": "611db519-c672-4672-b967-90d61d2ff76f",
+            "receiver_id": null,
+            "device": "dbe650b2-6818-4c93-8a51-285a02f2edaa",
+            "message_type": "inbox",
+            "text": "Leaving for outpost",
+            "status": "received",
+            "device_location": "SRID=4326;POINT (47.398 -122.334)",
+            "message_time": "2021-03-15T05:55:42.474Z",
+            "read": true,
+            "additional": {
+                "point": {
+                    "speed": 10,
+                    "course": 45,
+                    "gpsFix": 2,
+                    "altitude": 45
+                },
+                "status": {
+                    "autonomous": 0,
+                    "lowBattery": 1,
+                    "resetDetected": 0,
+                    "intervalChange": 0
+                },
+                "addresses": [
+                    {
+                        "address": "2075752244"
+                    },
+                    {
+                        "address": "product.support@garmin.com"
+                    }
+                ]
+            }
+        }
+    },
+    {
+        "model": "observations.message",
+        "pk": "2a3b14fd-a015-431b-b90f-ac2ecacdc928",
+        "fields": {
+            "created_at": "2021-03-15T19:39:11.761Z",
+            "updated_at": "2021-03-15T19:39:11.761Z",
+            "sender_content_type": 42,
+            "receiver_content_type": null,
+            "sender_id": "611db519-c672-4672-b967-90d61d2ff76f",
+            "receiver_id": null,
+            "device": "dbe650b2-6818-4c93-8a51-285a02f2edaa",
+            "message_type": "inbox",
+            "text": "arrived at outpost",
+            "status": "received",
+            "device_location": "SRID=4326;POINT (47.358 -122.434)",
+            "message_time": "2021-03-15T05:59:42.474Z",
+            "read": true,
+            "additional": {
+                "point": {
+                    "speed": 12,
+                    "course": 47,
+                    "gpsFix": 2,
+                    "altitude": 47
+                },
+                "status": {
+                    "autonomous": 0,
+                    "lowBattery": 1,
+                    "resetDetected": 0,
+                    "intervalChange": 0
+                },
+                "addresses": [
+                    {
+                        "address": "2075752244"
+                    },
+                    {
+                        "address": "product.support@garmin.com"
+                    }
+                ]
+            }
+        }
+    },
+    {
+        "model": "observations.message",
+        "pk": "661e1229-0775-482a-91b9-270b3cb3c2d2",
+        "fields": {
+            "created_at": "2021-03-15T19:37:56.918Z",
+            "updated_at": "2021-03-15T19:37:56.918Z",
+            "sender_content_type": null,
+            "receiver_content_type": 42,
+            "sender_id": null,
+            "receiver_id": "611db519-c672-4672-b967-90d61d2ff76f",
+            "device": "dbe650b2-6818-4c93-8a51-285a02f2edaa",
+            "message_type": "outbox",
+            "text": "status?",
+            "status": "sent",
+            "device_location": null,
+            "message_time": "2021-03-15T05:57:42.474Z",
+            "read": false,
+            "additional": null
+        }
+    },
+    {
+        "model": "observations.message",
+        "pk": "701b49d3-b549-4885-8821-f3da63fa3779",
+        "fields": {
+            "created_at": "2021-03-15T19:28:33.492Z",
+            "updated_at": "2021-03-15T19:28:33.492Z",
+            "sender_content_type": null,
+            "receiver_content_type": 42,
+            "sender_id": null,
+            "receiver_id": "6d99ac3e-57d3-4840-bde0-7ab2422c4fac",
+            "device": "36c3cc49-5bde-4601-808e-eff7aa3699de",
+            "message_type": "outbox",
+            "text": "Status?",
+            "status": "sent",
+            "device_location": null,
+            "message_time": "2021-03-15T05:31:42.474Z",
+            "read": false,
+            "additional": null
+        }
+    },
+    {
+        "model": "observations.message",
+        "pk": "771b49d3-b549-4885-8821-f3da63fa3779",
+        "fields": {
+            "created_at": "2021-03-15T19:38:33.492Z",
+            "updated_at": "2021-03-15T19:38:33.492Z",
+            "sender_content_type": null,
+            "receiver_content_type": 42,
+            "sender_id": null,
+            "receiver_id": "6d99ac3e-57d3-4840-bde0-7ab2422c4fac",
+            "device": "36c3cc49-5bde-4601-808e-eff7aa3699de",
+            "message_type": "outbox",
+            "text": "You should head back now",
+            "status": "errored",
+            "device_location": null,
+            "message_time": "2021-03-15T19:37:42.474Z",
+            "read": false,
+            "additional": null
+        }
+    },
+    {
+        "model": "observations.message",
+        "pk": "801b49d3-b549-4885-8821-f3da63fa3779",
+        "fields": {
+            "created_at": "2021-03-15T19:28:03.492Z",
+            "updated_at": "2021-03-15T19:28:33.492Z",
+            "sender_content_type": null,
+            "receiver_content_type": 42,
+            "sender_id": null,
+            "receiver_id": "611db519-c672-4672-b967-90d61d2ff76f",
+            "device": "dbe650b2-6818-4c93-8a51-285a02f2edaa",
+            "message_type": "outbox",
+            "text": "Where you at?",
+            "status": "sent",
+            "device_location": null,
+            "message_time": "2021-03-15T05:51:42.474Z",
+            "read": false,
+            "additional": null
+        }
+    },
+    {
+        "model": "observations.message",
+        "pk": "9528c2bd-89ab-4a7c-b2b2-7e3d504d5421",
+        "fields": {
+            "created_at": "2021-03-15T19:36:26.200Z",
+            "updated_at": "2021-03-15T19:36:26.200Z",
+            "sender_content_type": 42,
+            "receiver_content_type": null,
+            "sender_id": "6d99ac3e-57d3-4840-bde0-7ab2422c4fac",
+            "receiver_id": null,
+            "device": "36c3cc49-5bde-4601-808e-eff7aa3699de",
+            "message_type": "inbox",
+            "text": "Starting our patrol",
+            "status": "received",
+            "device_location": "SRID=4326;POINT (47.598 -122.334)",
+            "message_time": "2021-03-15T05:35:42.474Z",
+            "read": false,
+            "additional": {
+                "point": {
+                    "speed": 50,
+                    "course": 45,
+                    "gpsFix": 2,
+                    "altitude": 45
+                },
+                "status": {
+                    "autonomous": 0,
+                    "lowBattery": 1,
+                    "resetDetected": 0,
+                    "intervalChange": 0
+                },
+                "addresses": [
+                    {
+                        "address": "2075752244"
+                    },
+                    {
+                        "address": "product.support@garmin.com"
+                    }
+                ]
+            }
+        }
+    },
+    {
+        "model": "observations.message",
+        "pk": "9a3b14fd-a015-431b-b90f-ac2ecacdc928",
+        "fields": {
+            "created_at": "2021-03-15T19:39:11.761Z",
+            "updated_at": "2021-03-15T19:39:11.761Z",
+            "sender_content_type": 42,
+            "receiver_content_type": null,
+            "sender_id": "6d99ac3e-57d3-4840-bde0-7ab2422c4fac",
+            "receiver_id": null,
+            "device": "36c3cc49-5bde-4601-808e-eff7aa3699de",
+            "message_type": "inbox",
+            "text": "Yes, Done for the day",
+            "status": "received",
+            "device_location": "SRID=4326;POINT (47.598 -122.434)",
+            "message_time": "2021-03-15T05:45:42.474Z",
+            "read": false,
+            "additional": {
+                "point": {
+                    "speed": 10,
+                    "course": 47,
+                    "gpsFix": 2,
+                    "altitude": 47
+                },
+                "status": {
+                    "autonomous": 0,
+                    "lowBattery": 1,
+                    "resetDetected": 0,
+                    "intervalChange": 0
+                },
+                "addresses": [
+                    {
+                        "address": "2075752244"
+                    },
+                    {
+                        "address": "product.support@garmin.com"
+                    }
+                ]
+            }
+        }
+    },
+    {
+        "model": "observations.message",
+        "pk": "e61e1229-0775-482a-91b9-270b3cb3c2d2",
+        "fields": {
+            "created_at": "2021-03-15T19:37:56.918Z",
+            "updated_at": "2021-03-15T19:37:56.918Z",
+            "sender_content_type": null,
+            "receiver_content_type": 42,
+            "sender_id": null,
+            "receiver_id": "6d99ac3e-57d3-4840-bde0-7ab2422c4fac",
+            "device": "36c3cc49-5bde-4601-808e-eff7aa3699de",
+            "message_type": "outbox",
+            "text": "Patrol Done?",
+            "status": "sent",
+            "device_location": null,
+            "message_time": "2021-03-15T05:41:42.474Z",
+            "read": false,
+            "additional": null
+        }
+    },
+    {
+        "model": "observations.subject",
+        "pk": "39ce0d2e-6cf0-4a87-b55c-3b26d7a2c203",
+        "fields": {
+            "created_at": "2021-03-11T15:12:56.983Z",
+            "updated_at": "2021-03-11T15:12:56.983Z",
+            "name": "Fatu",
+            "owner": null,
+            "additional": {
+                "rgb": "",
+                "sex": "male",
+                "region": "",
+                "country": "",
+                "tm_animal_id": ""
+            },
+            "is_active": true,
+            "common_name": null,
+            "subject_subtype": "rhino",
+            "import_gpx_data": null
+        }
+    },
+    {
+        "model": "observations.subject",
+        "pk": "611db519-c672-4672-b967-90d61d2ff76f",
+        "fields": {
+            "created_at": "2021-03-15T19:43:23.483Z",
+            "updated_at": "2021-03-15T19:43:23.483Z",
+            "name": "Ranger Leonard",
+            "owner": null,
+            "additional": {
+                "rgb": "",
+                "sex": "male",
+                "region": "",
+                "country": "",
+                "tm_animal_id": ""
+            },
+            "is_active": true,
+            "common_name": null,
+            "subject_subtype": "driver",
+            "import_gpx_data": null
+        }
+    },
+    {
+        "model": "observations.subject",
+        "pk": "6d99ac3e-57d3-4840-bde0-7ab2422c4fac",
+        "fields": {
+            "created_at": "2021-03-15T19:44:53.851Z",
+            "updated_at": "2021-03-15T19:44:53.851Z",
+            "name": "Ranger Tom",
+            "owner": null,
+            "additional": {
+                "rgb": "",
+                "sex": "male",
+                "region": "",
+                "country": "",
+                "tm_animal_id": ""
+            },
+            "is_active": true,
+            "common_name": null,
+            "subject_subtype": "driver",
+            "import_gpx_data": null
+        }
+    },
+    {
+        "model": "observations.source",
+        "pk": "36c3cc49-5bde-4601-808e-eff7aa3699de",
+        "fields": {
+            "created_at": "2021-03-15T19:44:18.862Z",
+            "updated_at": "2021-03-15T19:44:18.862Z",
+            "source_type": "gps-radio",
+            "provider": "697f25e4-562c-4305-af86-1333e9081f4c",
+            "manufacturer_id": "Ranger_456",
+            "model_name": "ranger_456",
+            "additional": {
+                "feed_id": "",
+                "frequency": "",
+                "collar_key": "",
+                "data_owners": [],
+                "feed_passwd": "",
+                "collar_model": "",
+                "has_acc_data": false,
+                "collar_status": "",
+                "backup_frequency": "",
+                "predicted_expiry": null,
+                "adjusted_frequency": "",
+                "collar_manufacturer": "",
+                "datasource":"",
+                "adjusted_beacon_freq": "",
+                "silence_notification_threshold": null
+            },
+            "owner": null
+        }
+    },
+    {
+        "model": "observations.source",
+        "pk": "6ae5e493-968b-48f9-b061-4c252ba948c6",
+        "fields": {
+            "created_at": "2021-03-11T15:12:37.317Z",
+            "updated_at": "2021-03-11T15:12:37.317Z",
+            "source_type": "tracking-device",
+            "provider": "697f25e4-562c-4305-af86-1333e9081f4c",
+            "manufacturer_id": "fatucollar",
+            "model_name": "fatu_123",
+            "additional": {
+                "feed_id": "",
+                "frequency": "",
+                "collar_key": "",
+                "data_owners": [],
+                "feed_passwd": "",
+                "collar_model": "",
+                "has_acc_data": false,
+                "collar_status": "",
+                "backup_frequency": "",
+                "predicted_expiry": null,
+                "adjusted_frequency": "",
+                "collar_manufacturer": "",
+                "datasource":"",
+                "adjusted_beacon_freq": "",
+                "silence_notification_threshold": null
+            },
+            "owner": null
+        }
+    },
+    {
+        "model": "observations.source",
+        "pk": "dbe650b2-6818-4c93-8a51-285a02f2edaa",
+        "fields": {
+            "created_at": "2021-03-15T19:42:53.584Z",
+            "updated_at": "2021-03-15T19:42:53.584Z",
+            "source_type": "tracking-device",
+            "provider": "697f25e4-562c-4305-af86-1333e9081f4c",
+            "manufacturer_id": "Ranger_123",
+            "model_name": "Ranger_123",
+            "additional": {
+                "feed_id": "",
+                "frequency": "",
+                "collar_key": "",
+                "data_owners": [],
+                "feed_passwd": "",
+                "collar_model": "",
+                "has_acc_data": false,
+                "collar_status": "",
+                "backup_frequency": "",
+                "predicted_expiry": null,
+                "adjusted_frequency": "",
+                "collar_manufacturer": "",
+                "adjusted_beacon_freq": "",
+                "silence_notification_threshold": null
+            },
+            "owner": null
+        }
+    },
+  {
+    "model": "observations.subjectsource",
+    "pk": "05e9612d-da0b-4ebf-8476-4820914a639e",
+    "fields": {
+      "assigned_range": "{\"bounds\": \"[)\", \"lower\": \"2019-02-28T09:15:00+00:00\", \"upper\": \"9999-12-31T23:59:59+00:00\"}",
+      "source": "dbe650b2-6818-4c93-8a51-285a02f2edaa",
+      "subject": "611db519-c672-4672-b967-90d61d2ff76f",
+      "additional": {
+        "comments": "",
+        "chronofile": null,
+        "data_status": "",
+        "data_stops_reason": "",
+        "data_stops_source": "",
+        "data_starts_source": ""
+      }
+    }
+  },
+  {
+    "model": "observations.subjectsource",
+    "pk": "87dff6ce-e3b4-4ce9-a4bf-79afec6f256d",
+    "fields": {
+      "assigned_range": "{\"bounds\": \"[)\", \"lower\": \"2019-02-28T09:15:00+00:00\", \"upper\": \"9999-12-31T23:59:59+00:00\"}",
+      "source": "36c3cc49-5bde-4601-808e-eff7aa3699de",
+      "subject": "6d99ac3e-57d3-4840-bde0-7ab2422c4fac",
+      "additional": {
+        "comments": "",
+        "chronofile": null,
+        "data_status": "",
+        "data_stops_reason": "",
+        "data_stops_source": "",
+        "data_starts_source": ""
+      }
+    }
+  },
+  {
+    "model": "observations.subjectsource",
+    "pk": "e25c0090-0c32-4bba-86e9-768124921801",
+    "fields": {
+      "assigned_range": "{\"bounds\": \"[)\", \"lower\": \"2019-02-28T09:15:00+00:00\", \"upper\": \"2099-12-31T23:59:59+00:00\"}",
+      "source": "6ae5e493-968b-48f9-b061-4c252ba948c6",
+      "subject": "39ce0d2e-6cf0-4a87-b55c-3b26d7a2c203",
+      "additional": {
+        "comments": "",
+        "chronofile": null,
+        "data_status": "",
+        "data_stops_reason": "",
+        "data_stops_source": "",
+        "data_starts_source": ""
+      }
+    }
+  }
+]
