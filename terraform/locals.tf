@@ -304,6 +304,7 @@ locals {
     "iberianhighlands"        = "prod1"
     "jaguarcapivara"          = "prod1"
     "maunga"                  = "prod1"
+    "olmaisor"                = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
