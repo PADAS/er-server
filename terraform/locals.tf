@@ -305,6 +305,7 @@ locals {
     "jaguarcapivara"          = "prod1"
     "maunga"                  = "prod1"
     "olmaisor"                = "prod1"
+    "queenslandgov"           = "prod-asia"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
