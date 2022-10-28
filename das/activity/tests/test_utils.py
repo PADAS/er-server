@@ -46,3 +46,19 @@ class TestSchemaUtils:
 
         assert value == f"{subject.id}"
         assert display == "Heisenberg"
+
+    @pytest.mark.parametrize(
+        ("mocked_date", "expected_display"),
+        (
+            ("2022-10-28T12:00:00.000Z", "2022-10-28 12:00"),
+            ("2022-01-25T12:00:00.000Z", "2022-01-25 12:00"),
+            ("2022-10-27T06:59:17.125448+06:00", "2022-10-27 06:59"),
+            ("2022-10-Z", "2022-10-Z"),
+        ),
+    )
+    def test_extract_from_dict_or_string_function_date_string_parsing(self, mocked_date, expected_display):
+        schema_item = OrderedDict([("type", "string"), ("title", "Time when shot was heard")])
+
+        _, display = extract_from_dict_or_string(schema_item, mocked_date)
+
+        assert display == expected_display
