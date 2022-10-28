@@ -6,8 +6,10 @@ import re
 import typing
 import uuid
 from collections import OrderedDict
+from datetime import datetime
 
 import jsonschema
+from dateutil.parser import parse
 
 from django.apps import apps
 from django.template import Context, Template
@@ -278,6 +280,11 @@ def extract_from_dict_or_string(schema_item, value):
         display = value.get("name")
         value = value.get("value") or str(value)
 
+    if isinstance(value, str):
+        date_obj = if_date_get_object(string_value=value)
+        if date_obj:
+            display = date_obj.strftime("%Y-%m-%d %H:%M")
+
     # Get the value and display value for the current value
     if schema_item.get("type", None) == "string":
         if value in schema_item.get("enumNames", {}):
@@ -286,8 +293,14 @@ def extract_from_dict_or_string(schema_item, value):
             subject = Subject.objects.filter(id=value)
             if subject.exists() and not subject.first().is_active:
                 display = subject.first().name
-
     return value, display
+
+
+def if_date_get_object(string_value: str, fuzzy: bool = False) -> typing.Optional[datetime]:
+    try:
+        return parse(timestr=string_value, fuzzy=fuzzy)
+    except ValueError:
+        return None
 
 
 def is_uuid(record):
