@@ -307,6 +307,9 @@ locals {
     "olmaisor"                = "prod1"
     "queenslandgov"           = "prod-asia"
     "soysambu"                = "prod1"
+    "iapf-mz"                 = "prod1"
+    "mushingashi"             = "prod1"
+    "mep-dev"                 = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -459,6 +462,8 @@ locals {
     "tumbeta"                 = 1
     "iberianhighlands"        = 1
     "maunga"                  = 1
+    "mushingashi"             = 1
+    "mep-dev"                 = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
