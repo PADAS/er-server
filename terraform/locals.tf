@@ -310,6 +310,7 @@ locals {
     "iapf-mz"                 = "prod1"
     "mushingashi"             = "prod1"
     "mep-dev"                 = "prod1"
+    "selvanegrarutasdelpuma"  = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
