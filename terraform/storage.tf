@@ -13,7 +13,7 @@ resource "google_storage_bucket" "user_uploads" {
 
 resource "google_service_account" "earthranger_app_sa" {
   provider   = google
-  account_id = "er-gcs-${kubernetes_namespace.this.metadata.0.name}"
+  account_id = substr("er-gcs-${kubernetes_namespace.this.metadata.0.name}", 0, 30)
   project    = data.google_project.earthranger.project_id
 }
 
