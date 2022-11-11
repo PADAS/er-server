@@ -1,1 +1,2 @@
-time_zone           = "Africa/Harare"
+time_zone       = "Africa/Harare"
+tableau_enabled = "True"
