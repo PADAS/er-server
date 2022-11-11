@@ -1,1 +1,1 @@
-timezone = "Africa/Dar_es_Salaam"
+time_zone = "Africa/Dar_es_Salaam"

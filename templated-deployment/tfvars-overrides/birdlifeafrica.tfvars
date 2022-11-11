@@ -1,1 +1,1 @@
-timezone = "Africa/Nairobi"
+time_zone = "Africa/Nairobi"
