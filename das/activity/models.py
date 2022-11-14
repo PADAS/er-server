@@ -412,22 +412,20 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         if point:
             queryset = queryset.annotate(distance=D("location", point, spheroid=True))
 
-        queryset1 = queryset.filter(event_type__category__value__in=categories_to_filter["categories"])
+        filters = Q(event_type__category__value__in=categories_to_filter["categories"])
 
         if not is_banned(user) and point:
-            query = (
+            filters = (
                 Q(event_type__category__value__in=categories_to_filter["geo_categories"])
                 & Q(location__isnull=False)
                 & Q(distance__lt=settings.GEO_PERMISSION_RADIUS_METERS)
             )
 
-            query |= Q(geometries__geometry__intersects=radius) & Q(
+            filters |= Q(geometries__geometry__intersects=radius) & Q(
                 event_type__category__value__in=categories_to_filter["geo_categories"]
             )
-            queryset2 = queryset.filter(query)
-            results = queryset1.union(queryset2)
-            return results
-        return queryset1
+
+        return queryset.filter(filters)
 
     def by_event_filter(self, filter):
 
