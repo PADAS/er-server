@@ -177,7 +177,7 @@ class EventTypeAdmin(admin.ModelAdmin):
 
     form = EventTypeForm
     ordering = ("display", "value", "ordernum", "category", "default_priority", "default_state")
-    list_filter = ("category",)
+    list_filter = ("category", "geometry_type")
     list_display = (
         "display",
         "value",

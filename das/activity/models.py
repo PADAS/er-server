@@ -47,7 +47,7 @@ from observations.models import Subject, SubjectGroup, SubjectStatus
 from observations.utils import dateparse as dparse
 from observations.utils import is_banned
 from revision.manager import Revision, RevisionAdapter, RevisionMixin, relation_deleted
-from utils.gis import convert_to_point
+from utils.gis import convert_to_point, get_circle_polygon_from_point
 from utils.html import clean_user_text
 
 logger = logging.getLogger(__name__)
@@ -404,8 +404,10 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
         try:
             point = convert_to_point(location)
+            radius = get_circle_polygon_from_point(location)
         except (TypeError, ValueError):
             point = None
+            radius = None
 
         if point:
             queryset = queryset.annotate(distance=D("location", point, spheroid=True))
@@ -413,11 +415,16 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         queryset1 = queryset.filter(event_type__category__value__in=categories_to_filter["categories"])
 
         if not is_banned(user) and point:
-            queryset2 = queryset.filter(
-                event_type__category__value__in=categories_to_filter["geo_categories"],
-                location__isnull=False,
-                distance__lt=settings.GEO_PERMISSION_RADIUS_METERS,
+            query = (
+                Q(event_type__category__value__in=categories_to_filter["geo_categories"])
+                & Q(location__isnull=False)
+                & Q(distance__lt=settings.GEO_PERMISSION_RADIUS_METERS)
             )
+
+            query |= Q(geometries__geometry__intersects=radius) & Q(
+                event_type__category__value__in=categories_to_filter["geo_categories"]
+            )
+            queryset2 = queryset.filter(query)
             results = queryset1.union(queryset2)
             return results
         return queryset1
