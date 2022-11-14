@@ -20,7 +20,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.postgres.aggregates import ArrayAgg, StringAgg
 from django.db import IntegrityError, transaction
-from django.db.models import CharField, Count, F, Max, Prefetch, Q, Value
+from django.db.models import CharField, Count, F, Max, Prefetch, Q, TextField, Value
 from django.db.models.functions import Cast, Concat
 from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -33,6 +33,7 @@ from rest_framework.exceptions import APIException
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 import accounts.serializers
 import utils
@@ -487,7 +488,7 @@ class EventTypeSchemaView(generics.ListCreateAPIView):
         return value.replace("{{", "").replace("}}", "")
 
 
-class EventFilterSchemaView(generics.RetrieveAPIView):
+class EventFilterSchemaView(APIView):
     def get(self, request, *args, **kwargs):
         schema = get_event_search_schema()
         schema["schema"]["id"] = utils.add_base_url(
@@ -520,7 +521,7 @@ class EventClassFactorsView(generics.ListAPIView):
         return queryset
 
 
-class EventCountView(generics.ListAPIView):
+class EventCountView(APIView):
     __doc__ = """
     Returns the count of New Events.
     """
@@ -645,7 +646,7 @@ class EventsExportView(views.APIView):
         for event in (
             self.get_queryset()
             .annotate(notes_count=Count("note"))
-            .annotate(full_notes=StringAgg("note__text", delimiter="\n"))
+            .annotate(full_notes=StringAgg("note__text", delimiter="\n", output_field=TextField()))
             .annotate(related_subjects_count=Count("related_subjects"))
             .annotate(parent_event_serial_numbers=ArrayAgg("in_relationship__from_event__serial_number", distinct=True))
             .prefetch_related("geometries")

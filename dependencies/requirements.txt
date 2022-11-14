@@ -8,7 +8,7 @@
 
 affine==2.2.2
     # via rasterio
-amqp==2.4.2
+amqp==2.6.1
     # via kombu
 anyio==3.4.0
     # via jupyter-server
@@ -24,7 +24,7 @@ argon2-cffi==21.1.0
     # via
     #   jupyter-server
     #   notebook
-asgiref==3.2.10
+asgiref==3.5.2
     # via django
 attrs==19.1.0
     # via
@@ -53,7 +53,7 @@ business-rules==1.0.1
     # via -r requirements.in
 cachetools==3.1.0
     # via google-auth
-celery==4.3.0
+celery==4.4.0
     # via
     #   -r requirements.in
     #   celery-once
@@ -110,7 +110,7 @@ decorator==4.4.0
     #   traitlets
 defusedxml==0.6.0
     # via nbconvert
-django==3.1
+django==3.2
     # via
     #   -r requirements.in
     #   django-bitfield
@@ -166,13 +166,13 @@ django-ses==0.8.10
     # via -r requirements.in
 django-storages[google]==1.8
     # via -r requirements.in
-django-tagulous==1.2.0
+django-tagulous==1.3.1
     # via -r requirements.in
 django-treebeard==4.4
     # via -r requirements.in
 django-versatileimagefield==2.1
     # via -r requirements.in
-djangorestframework==3.11.2
+djangorestframework==3.12.0
     # via
     #   -r requirements.in
     #   django-extra-fields
@@ -287,7 +287,9 @@ idna==2.8
     #   anyio
     #   requests
 importlib-metadata==1.5.0
-    # via keyring
+    # via
+    #   keyring
+    #   kombu
 ipykernel==5.1.4
     # via
     #   ipywidgets
@@ -362,7 +364,7 @@ keyring==21.1.0
     # via arcgis
 kiwisolver==1.1.0
     # via matplotlib
-kombu==4.4.0
+kombu==4.6.11
     # via
     #   -r requirements.in
     #   celery
@@ -690,6 +692,7 @@ twilio==6.44.0
 typing-extensions==4.0.0
     # via
     #   anyio
+    #   asgiref
     #   setuptools-rust
 uritemplate==3.0.0
     # via
