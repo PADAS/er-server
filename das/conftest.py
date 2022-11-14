@@ -5,17 +5,32 @@ from pytest_factoryboy import register
 from django.contrib.auth.models import Permission
 from rest_framework.test import APIClient
 
-from factories import (AccessTokenFactory, EventCategoryFactory,
-                       EventDetailsFactory, EventFactory, EventGeometryFactory,
-                       EventNoteFactory, EventTypeFactory,
-                       FeatureProximityAnalyzerConfigFactory,
-                       GeofenceAnalyzerConfigFactory, ObservationFactory,
-                       PatrolFactory, PatrolNoteFactory, PatrolSegmentFactory,
-                       PatrolSegmentSubjectFactory, PatrolSegmentUserFactory,
-                       PermissionSetFactory, ProviderFactory, SourceFactory,
-                       SpatialFeatureGroupStaticFactory,
-                       SpatialFeatureTypeFactory, SubjectFactory,
-                       SubjectGroupFactory, SubjectSourceFactory, UserFactory)
+from factories import (
+    AccessTokenFactory,
+    EventCategoryFactory,
+    EventDetailsFactory,
+    EventFactory,
+    EventGeometryFactory,
+    EventNoteFactory,
+    EventTypeFactory,
+    FeatureProximityAnalyzerConfigFactory,
+    GeofenceAnalyzerConfigFactory,
+    ObservationFactory,
+    PatrolFactory,
+    PatrolNoteFactory,
+    PatrolSegmentFactory,
+    PatrolSegmentSubjectFactory,
+    PatrolSegmentUserFactory,
+    PermissionSetFactory,
+    ProviderFactory,
+    SourceFactory,
+    SpatialFeatureGroupStaticFactory,
+    SpatialFeatureTypeFactory,
+    SubjectFactory,
+    SubjectGroupFactory,
+    SubjectSourceFactory,
+    UserFactory,
+)
 
 
 @pytest.fixture
@@ -69,12 +84,8 @@ register(UserFactory, "ops_user")
 @pytest.fixture
 def view_subject_permissions():
     return [
-        Permission.objects.get_by_natural_key(
-            "view_subjectgroup", "observations", "subjectgroup"
-        ),
-        Permission.objects.get_by_natural_key(
-            "view_subject", "observations", "subject"
-        ),
+        Permission.objects.get_by_natural_key("view_subjectgroup", "observations", "subjectgroup"),
+        Permission.objects.get_by_natural_key("view_subject", "observations", "subject"),
     ]
 
 
@@ -96,14 +107,12 @@ def subject_group_empty():
 
 @pytest.fixture
 def two_subject_groups(view_subject_permissions):
-    view_sg_a_permissionset = PermissionSetFactory.create(
-        permissions=view_subject_permissions)
-    view_sg_b_permissionset = PermissionSetFactory.create(
-        permissions=view_subject_permissions)
+    view_sg_a_permissionset = PermissionSetFactory.create(permissions=view_subject_permissions)
+    view_sg_b_permissionset = PermissionSetFactory.create(permissions=view_subject_permissions)
     return [
-        SubjectGroupFactory.create(permission_sets=[
-            view_sg_a_permissionset], subjects=SubjectFactory.create_batch(2)),
-        SubjectGroupFactory.create(permission_sets=[view_sg_b_permissionset], subjects=SubjectFactory.create_batch(2))]
+        SubjectGroupFactory.create(permission_sets=[view_sg_a_permissionset], subjects=SubjectFactory.create_batch(2)),
+        SubjectGroupFactory.create(permission_sets=[view_sg_b_permissionset], subjects=SubjectFactory.create_batch(2)),
+    ]
 
 
 @pytest.fixture
@@ -118,13 +127,10 @@ def subject_group_with_perms(request):
         permission = permission.split(",")
         try:
             codename, app_label, model = permission[0], permission[1], permission[2]
-            permission = Permission.objects.get_by_natural_key(
-                codename, app_label, model
-            )
+            permission = Permission.objects.get_by_natural_key(codename, app_label, model)
             permissions.append(permission)
         except Permission.DoesNotExist:
-            print(
-                f"Does not exits a permission with the next params {permission}")
+            print(f"Does not exits a permission with the next params {permission}")
     return SubjectGroupFactory.create(permission_sets=[PermissionSetFactory.create(permissions=permissions)])
 
 
@@ -200,17 +206,13 @@ def five_event_notes():
 @pytest.fixture
 def five_patrol_segment_user_with_leader_uuid():
     for i in range(1, 6):
-        PatrolSegmentSubjectFactory.create(
-            leader__id=f"00000000-0000-0000-0000-00000000000{i}"
-        )
+        PatrolSegmentSubjectFactory.create(leader__id=f"00000000-0000-0000-0000-00000000000{i}")
 
 
 @pytest.fixture
 def five_patrol_segment_patrol_type_uuid():
     for i in range(1, 6):
-        PatrolSegmentFactory.create(
-            patrol_type__id=f"00000000-0000-0000-0000-00000000000{i}"
-        )
+        PatrolSegmentFactory.create(patrol_type__id=f"00000000-0000-0000-0000-00000000000{i}")
 
 
 @pytest.fixture
@@ -221,9 +223,7 @@ def source_provider():
 @pytest.fixture
 def events_with_category(request):
     return [
-        EventFactory.create(
-            title=f"Title {category}", event_type__category__value=category
-        )
+        EventFactory.create(title=f"Title {category}", event_type__category__value=category)
         for category in request.param
     ]
 
@@ -243,8 +243,7 @@ def basic_event_categories():
 
 @pytest.fixture
 def application():
-    application, _ = Application.objects.get_or_create(
-        client_id="das_web_client")
+    application, _ = Application.objects.get_or_create(client_id="das_web_client")
     return application
 
 
@@ -257,14 +256,14 @@ def superuser():
 def superuser_client(application, superuser):
     token = AccessTokenFactory(user=superuser, application=application).token
     client = APIClient()
-    client.credentials(HTTP_AUTHORIZATION='Bearer ' + token)
+    client.credentials(HTTP_AUTHORIZATION="Bearer " + token)
     client.force_login(user=superuser)
     return client
 
 
 @pytest.fixture
 def event_geometry_with_polygon():
-    return EventGeometryFactory.create()
+    return EventGeometryFactory.create(event__event_type__geometry_type="Polygon")
 
 
 @pytest.fixture
