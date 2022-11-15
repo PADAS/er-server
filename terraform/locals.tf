@@ -310,6 +310,7 @@ locals {
     "iapf-mz"                 = "prod1"
     "mushingashi"             = "prod1"
     "mep-dev"                 = "prod1"
+    "selvanegrarutasdelpuma"  = "prod1"
     "ap-southsudan"           = "prod1"
     "birdlifeafrica"          = "prod1"
     "birdlifetanzania"        = "prod1"
