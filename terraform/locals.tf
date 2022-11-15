@@ -313,6 +313,9 @@ locals {
     "ap-southsudan"           = "prod1"
     "birdlifeafrica"          = "prod1"
     "birdlifetanzania"        = "prod1"
+    "iapf-zw"                 = "prod1"
+    "iapf-bw"                 = "prod1"
+    "iapf-tz"                 = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -469,6 +472,7 @@ locals {
     "mep-dev"                 = 1
     "birdlifeafrica"          = 1
     "birdlifetanzania"        = 1
+    "iapf-bw"                 = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
