@@ -18,12 +18,11 @@ from rest_framework.permissions import AllowAny
 from rest_framework.schemas.openapi import AutoSchema
 from rest_framework.serializers import ChoiceField
 
-from activity.alerts import (has_alerts_permissionset,
-                             has_patrol_view_permission)
+from activity.alerts import has_alerts_permissionset, has_patrol_view_permission
+from activity.serializers import LeaderRelatedField, PatrolList
 from activity.serializers.fields import DateTimeRangeField
-from activity.serializers.patrol_serializers import (LeaderRelatedField,
-                                                     PatrolList)
 from core.utils import get_site_name
+
 # This import ensures we register user-login receivers.
 from das_server import __version__
 from observations import servicesutils
@@ -34,15 +33,15 @@ CLIENT_ID = "das_web_client"
 
 
 def index(request):
-    return render('www/index.html', request)
+    return render("www/index.html", request)
 
 
 class CustomSchema(AutoSchema):
     def get_operation(self, path, method):
         # Add operation tags and summary to schema
         operation = super().get_operation(path, method)
-        operation['tags'] = [self._view.__module__.split('.')[0]]
-        operation['summary'] = getattr(self.view, method.lower()).__doc__
+        operation["tags"] = [self._view.__module__.split(".")[0]]
+        operation["summary"] = getattr(self.view, method.lower()).__doc__
 
         return operation
 
@@ -55,7 +54,7 @@ class CustomSchema(AutoSchema):
     def _get_operation_id(self, path, method):
         # Patch get_serializer_class to use views class if no serializer class
         # is defined
-        if hasattr(self.view, 'get_serializer_class'):
+        if hasattr(self.view, "get_serializer_class"):
             self.view.get_serializer_class = self.get_serializer_class
 
         return super()._get_operation_id(path, method)
@@ -64,77 +63,66 @@ class CustomSchema(AutoSchema):
 
         # update default values to be json serializable
         result = super()._map_serializer(serializer)
-        for res in result.get('properties').values():
-            if res.get('default'):
+        for res in result.get("properties").values():
+            if res.get("default"):
                 try:
-                    res['default'] = res['default']()
+                    res["default"] = res["default"]()
                 except Exception:
                     pass
 
         # add required field to result to fix the break when clearing the same
         # field for a patch method in _get_request_body.
         for method in self._view.allowed_methods:
-            if method == 'PATCH' and 'required' not in result:
-                result['required'] = []
+            if method == "PATCH" and "required" not in result:
+                result["required"] = []
         return result
 
     def _map_field(self, field):
         if isinstance(field, PointField):
-            return {
-                'type': 'object',
-                'properties': {'latitude': {'type': 'string'},
-                               'longitude': {'type': 'string'}}
-            }
+            return {"type": "object", "properties": {"latitude": {"type": "string"}, "longitude": {"type": "string"}}}
         if isinstance(field, DateTimeRangeField):
             return {
-                'type': 'object',
-                'properties': {'start_time': {'type': 'string', 'format': 'date-time'},
-                               'end_time': {'type': 'string', 'format': 'date-time'}}
+                "type": "object",
+                "properties": {
+                    "start_time": {"type": "string", "format": "date-time"},
+                    "end_time": {"type": "string", "format": "date-time"},
+                },
             }
 
         if isinstance(field, ChoiceField):
-            return {'type': 'integer' if isinstance(field.default, int) else 'string'}
+            return {"type": "integer" if isinstance(field.default, int) else "string"}
 
         if isinstance(field, LeaderRelatedField):
-            return {'type': 'object', 'properties': {}}
+            return {"type": "object", "properties": {}}
 
         if isinstance(field, PatrolList):
             return {
-                'type': 'object',
+                "type": "object",
                 "properties": {
                     "id": {"type": "string", "format": "uuid", "readOnly": True},
                     "title": {"type": "string", "maxLength": 255},
-                    'priority': {"type": "integer"},
-                    'state': {"type": "string", "maxLength": 255},
-                }
+                    "priority": {"type": "integer"},
+                    "state": {"type": "string", "maxLength": 255},
+                },
             }
         return super()._map_field(field)
 
 
 class VersionSerializer(rest_framework.serializers.Serializer):
     version = rest_framework.serializers.CharField(read_only=True)
-    show_track_days = rest_framework.serializers.IntegerField(
-        read_only=True)
-    event_matrix_enabled = rest_framework.serializers.BooleanField(
-        read_only=True)
-    event_search_enabled = rest_framework.serializers.BooleanField(
-        read_only=True)
-    export_kml_enabled = rest_framework.serializers.BooleanField(
-        read_only=True)
-    db_connection_count = rest_framework.serializers.IntegerField(
-        read_only=True)
+    show_track_days = rest_framework.serializers.IntegerField(read_only=True)
+    event_matrix_enabled = rest_framework.serializers.BooleanField(read_only=True)
+    event_search_enabled = rest_framework.serializers.BooleanField(read_only=True)
+    export_kml_enabled = rest_framework.serializers.BooleanField(read_only=True)
+    db_connection_count = rest_framework.serializers.IntegerField(read_only=True)
     eus_settings = rest_framework.serializers.DictField(read_only=True)
 
-    show_stationary_subjects_on_map = rest_framework.serializers.BooleanField(
-        read_only=True)
+    show_stationary_subjects_on_map = rest_framework.serializers.BooleanField(read_only=True)
 
-    daily_report_enabled = rest_framework.serializers.BooleanField(
-        read_only=True)
+    daily_report_enabled = rest_framework.serializers.BooleanField(read_only=True)
 
-    alerts_enabled = rest_framework.serializers.BooleanField(
-        read_only=True)
-    tableau_enabled = rest_framework.serializers.BooleanField(
-        read_only=True)
+    alerts_enabled = rest_framework.serializers.BooleanField(read_only=True)
+    tableau_enabled = rest_framework.serializers.BooleanField(read_only=True)
 
     services = rest_framework.serializers.ListField(read_only=True)
 
@@ -156,44 +144,42 @@ class StatusView(generics.RetrieveAPIView):
     ---
 
     """
+
     permission_classes = (AllowAny,)
     serializer_class = VersionSerializer
 
     def get_object(self):
-        resp = {'version': __version__}  # request.version}
+        resp = {"version": __version__}  # request.version}
 
-        resp['event_matrix_enabled'] = settings.EVENT_MATRIX_ENABLED
-        resp['export_kml_enabled'] = settings.EXPORT_KML_ENABLED
-        resp['show_track_days'] = settings.SHOW_TRACK_DAYS
-        resp['event_search_enabled'] = True
-        resp['show_stationary_subjects_on_map'] = settings.SHOW_STATIONARY_SUBJECTS_ON_MAP
-        resp['daily_report_enabled'] = settings.DAILY_REPORT_ENABLED
+        resp["event_matrix_enabled"] = settings.EVENT_MATRIX_ENABLED
+        resp["export_kml_enabled"] = settings.EXPORT_KML_ENABLED
+        resp["show_track_days"] = settings.SHOW_TRACK_DAYS
+        resp["event_search_enabled"] = True
+        resp["show_stationary_subjects_on_map"] = settings.SHOW_STATIONARY_SUBJECTS_ON_MAP
+        resp["daily_report_enabled"] = settings.DAILY_REPORT_ENABLED
 
-        resp['alerts_enabled'] = settings.ALERTS_ENABLED and has_alerts_permissionset(
-            self.request.user)
-        resp['tableau_enabled'] = self.request.user.is_superuser and settings.TABLEAU_ENABLED
+        resp["alerts_enabled"] = settings.ALERTS_ENABLED and has_alerts_permissionset(self.request.user)
+        resp["tableau_enabled"] = self.request.user.is_superuser and settings.TABLEAU_ENABLED
 
-        resp['server_timezone_name'] = timezone.get_current_timezone_name()
-        resp['server_timezone'] = timezone.localtime().strftime('%Z')
-        resp['site_name'] = get_site_name()
-        resp['eula_enabled'] = settings.ACCEPT_EULA
-        resp['patrol_enabled'] = settings.PATROL_ENABLED and has_patrol_view_permission(
-            self.request.user)
-        resp['track_length'] = settings.TRACK_LENGTH
-        resp['messaging_enabled'] = has_message_view_permission(
-            self.request.user)
+        resp["server_timezone_name"] = timezone.get_current_timezone_name()
+        resp["server_timezone"] = timezone.localtime().strftime("%Z")
+        resp["site_name"] = get_site_name()
+        resp["eula_enabled"] = settings.ACCEPT_EULA
+        resp["patrol_enabled"] = settings.PATROL_ENABLED and has_patrol_view_permission(self.request.user)
+        resp["track_length"] = settings.TRACK_LENGTH
+        resp["messaging_enabled"] = has_message_view_permission(self.request.user)
 
         if self.get_support_settings():
-            resp['eus_settings'] = self.get_support_settings()
+            resp["eus_settings"] = self.get_support_settings()
 
-        if parse_bool(self.request.query_params.get('db_connections')):
-            resp['db_connection_count'] = self.get_used_db_connections()
+        if parse_bool(self.request.query_params.get("db_connections")):
+            resp["db_connection_count"] = self.get_used_db_connections()
             last_migration = self.get_last_migration()
-            resp['last_migration_app'] = last_migration.app
-            resp['last_migration_name'] = last_migration.name
+            resp["last_migration_app"] = last_migration.app
+            resp["last_migration_name"] = last_migration.name
 
-        if parse_bool(self.request.query_params.get('service_status')):
-            resp['services'] = servicesutils.get_source_provider_statuses()
+        if parse_bool(self.request.query_params.get("service_status")):
+            resp["services"] = servicesutils.get_source_provider_statuses()
 
         return resp
 
@@ -205,13 +191,13 @@ class StatusView(generics.RetrieveAPIView):
 
     def get_support_settings(self):
         try:
-            if settings.EUS_SETTINGS['type']:
+            if settings.EUS_SETTINGS["type"]:
                 return copy.copy(settings.EUS_SETTINGS)
         except (KeyError, AttributeError):
             pass
 
     def get_last_migration(self):
-        return MigrationRecorder.Migration.objects.latest('id')
+        return MigrationRecorder.Migration.objects.latest("id")
 
 
 class SwaggerTemplate(TemplateView):
@@ -226,15 +212,17 @@ class SwaggerTemplate(TemplateView):
         token = None
         if self.request.user.is_authenticated:
             token = self._get_token()
-        context['token'] = token
-        context['schema_url'] = "openapi-schema"
+        context["token"] = token
+        context["schema_url"] = "openapi-schema"
         return context
 
     def _get_token(self):
-        ttl = getattr(settings, 'ACCESS_TOKEN_EXPIRE_SECONDS', 3600 * 48)
+        ttl = getattr(settings, "ACCESS_TOKEN_EXPIRE_SECONDS", 3600 * 48)
         expire = datetime.now(tz=pytz.utc) + timedelta(days=ttl)
         return AccessToken.objects.create(
-            user=self.request.user, token=generate_token(),
-            application=self.application, scope='read write',
+            user=self.request.user,
+            token=generate_token(),
+            application=self.application,
+            scope="read write",
             expires=expire,
         )

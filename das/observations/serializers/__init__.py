@@ -32,6 +32,8 @@ from observations.utils import (dateparse, get_maximum_allowed_age,
 from utils import add_base_url
 from utils.json import zeroout_microseconds
 
+from .observations import FlattenObservationSerializer
+
 logger = logging.getLogger(__name__)
 
 
@@ -786,26 +788,6 @@ class ObservationSerializer(rest_framework.serializers.ModelSerializer):
         return rep
 
 
-class FlattenObservationSerializer(rest_framework.serializers.ModelSerializer):
-    location = PointField(required=False)
-
-    class Meta:
-        model = models.Observation
-        fields = ('location', 'recorded_at')
-
-    def to_representation(self, instance):
-        rep = super(FlattenObservationSerializer,
-                    self).to_representation(instance)
-
-        # TODO: Figure out why coordinates are coming as strings.
-        x = float(rep['location']['longitude'])
-        y = float(rep['location']['latitude'])
-
-        representation = {'coordinates': [x, y],
-                          'time': rep.get('recorded_at')}
-        return representation
-
-
 SUBJECT_STATUS_RETURN_FIELDS = (
     'last_voice_call_start_at', 'location_requested_at', 'radio_state_at') + ('radio_state',)
 
@@ -978,3 +960,25 @@ class ReadAnnouncementSerializer(rest_framework.serializers.Serializer):
 class TrackLimitSerializer(rest_framework.serializers.Serializer):
     limit = rest_framework.serializers.IntegerField(
         default=None, required=False)
+
+
+__all__ = [
+    "AnnouncementSerializer",
+    "FlattenObservationSerializer",
+    "GPXTrackFileUploadSerializer",
+    "GroupSerializer",
+    "MessageSerializer",
+    "ObservationSerializer",
+    "ReadAnnouncementSerializer",
+    "RecursiveSerializer",
+    "RegionSerializer",
+    "SourceProviderSerializer",
+    "SourceSerializer",
+    "SubjectGeoJsonSerializer",
+    "SubjectSerializer",
+    "SubjectSourceSerializer",
+    "SubjectStatusSerializer",
+    "SubjectTrackSerializer",
+    "TrackLimitSerializer",
+    "TrackSerializer",
+]

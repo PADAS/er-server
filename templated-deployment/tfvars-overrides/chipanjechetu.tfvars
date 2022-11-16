@@ -1,2 +1,2 @@
-time_zone = "Africa/Maputo"
-
+time_zone       = "Africa/Maputo"
+tableau_enabled = "True"

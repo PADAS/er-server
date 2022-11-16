@@ -13,7 +13,7 @@ Including another URLconf
     1. Add an import:  from blog import urls as blog_urls
     2. Add a URL to urlpatterns:  re_path(r'^blog/', include(blog_urls))
 """
-from django.urls import re_path
+from django.urls import path, re_path
 from rest_framework.urlpatterns import format_suffix_patterns
 
 from observations import views
@@ -142,6 +142,8 @@ urlpatterns = [
         views.SubjectSourcesAssignmentView.as_view(),
         name="subject-sources-list-view",
     ),
+    path("flatten-observations/", views.FlattenObservationsView.as_view(),
+         name="flatten-observations"),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)
