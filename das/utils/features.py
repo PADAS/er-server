@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 
 class Features(enum.Enum):
-    FEATURE_GEOMETRIES = "geometries"
+    pass
 
 
 @dataclass(frozen=True)
@@ -17,11 +17,7 @@ class Feature:
 
 class FeatureFlags:
     def __init__(self):
-        self._features = {
-            Features.FEATURE_GEOMETRIES.value: Feature(
-                self._get_flag(Features.FEATURE_GEOMETRIES.value)
-            )
-        }
+        self._features = {}
 
     def __getattr__(self, feature_name):
         try:

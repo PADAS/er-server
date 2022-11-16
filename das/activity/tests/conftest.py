@@ -1,6 +1,7 @@
 import pytest
 
-from activity.factories import EventFactory, EventSourceEventFactory
+from activity.factories import (EventFactory, EventSourceEventFactory,
+                                EventSourceFactory)
 
 
 @pytest.fixture
@@ -17,3 +18,8 @@ def event_source_event():
 def event_with_event_source_event(base_event):
     EventSourceEventFactory.create(event=base_event)
     return base_event
+
+
+@pytest.fixture
+def event_source():
+    return EventSourceFactory.create()

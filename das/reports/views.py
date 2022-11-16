@@ -10,6 +10,7 @@ from django.utils import timezone
 from django.views.generic.base import ContextMixin, TemplateResponseMixin
 from rest_framework import generics, permissions, serializers, status, views
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from activity.models import EventCategory
 from activity.permissions import EventCategoryPermissions
@@ -27,20 +28,24 @@ class ReportDateParameters(serializers.Serializer):
 class ReportView(views.APIView):
     def dispatch(self, request, report_key, *args, **kwargs):
 
-        if report_key == 'sitrep':
+        if report_key == "sitrep":
             return SituationReportView().dispatch(request, *args, **kwargs)
 
 
-class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
-
+class SituationReportView(
+    views.APIView,
+    TemplateResponseMixin,
+    ContextMixin,
+):
     def get_template_names(self):
-        '''
+        """
         Favor a report template in a sub-folder named for the site's domain name.
         Fall back to 'default'.
         :return: a list of "template names".
-        '''
-        return [f'{folder}/daily_report_template.docx' for folder in
-                (settings.DAILY_REPORT_TEMPLATE_SUBFOLDER, 'default')]
+        """
+        return [
+            f"{folder}/daily_report_template.docx" for folder in (settings.DAILY_REPORT_TEMPLATE_SUBFOLDER, "default")
+        ]
 
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -53,10 +58,7 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
         permitted_categories = []
 
         for category in EventCategory.objects.filter(is_active=True):
-            permission_name = 'activity.{0}_{1}'.format(
-                category.value,
-                EventCategoryPermissions.http_method_map['GET']
-            )
+            permission_name = "activity.{0}_{1}".format(category.value, EventCategoryPermissions.http_method_map["GET"])
             if request.user.has_perm(permission_name):
                 permitted_categories.append(category)
         return permitted_categories
@@ -69,21 +71,19 @@ class SituationReportView(views.APIView, TemplateResponseMixin, ContextMixin, ):
 
         qs = qs.validated_data
         now = timezone.now()
-        since = qs.get('since') or (now - datetime.timedelta(hours=24))
-        before = qs.get('before') or now
+        since = qs.get("since") or (now - datetime.timedelta(hours=24))
+        before = qs.get("before") or now
 
         event_categories = self.get_permitted_event_categories(request)
-        context = self.get_context_data(since=since, before=before, event_categories=event_categories,
-                                        **kwargs)
+        context = self.get_context_data(since=since, before=before, event_categories=event_categories, **kwargs)
         return self.render_to_response(context)
 
     def render_to_response(self, context, **response_kwargs):
 
         response = super().render_to_response(context, **response_kwargs)
-        if 'openxmlformats' in self.content_type:
-            response['Content-Disposition'] = 'attachment; filename={}'.format(
-                context['report_filename'])
-            response['x-das-download-filename'] = context['report_filename']
+        if "openxmlformats" in self.content_type:
+            response["Content-Disposition"] = "attachment; filename={}".format(context["report_filename"])
+            response["x-das-download-filename"] = context["report_filename"]
         return response
 
     def get_context_data(self, since, before, event_categories=None, **kwargs):
@@ -115,11 +115,16 @@ def get_tableau_site_id():
 
 def get_tableau_api():
     tableau_site_id = get_tableau_site_id()
-    trusted_username = f'{tableau_site_id}_tableau_user'
-    return TableauAPI(settings.TABLEAU_SERVER, settings.TABLEAU_VERSION,
-                      settings.TABLEAU_API_USERNAME, settings.TABLEAU_API_PASSWORD,
-                      settings.TABLEAU_API_TOKEN,
-                      tableau_site_id, trusted_username)
+    trusted_username = f"{tableau_site_id}_tableau_user"
+    return TableauAPI(
+        settings.TABLEAU_SERVER,
+        settings.TABLEAU_VERSION,
+        settings.TABLEAU_API_USERNAME,
+        settings.TABLEAU_API_PASSWORD,
+        settings.TABLEAU_API_TOKEN,
+        tableau_site_id,
+        trusted_username,
+    )
 
 
 class TableauAPIError(Exception):
@@ -128,7 +133,7 @@ class TableauAPIError(Exception):
 
 class TableauAPI:
     def __init__(self, tableau_server, tableau_version, username, password, access_token, site_id, trusted_username):
-        self.baseURL = f'{tableau_server}/api/{tableau_version}'
+        self.baseURL = f"{tableau_server}/api/{tableau_version}"
         self.server = tableau_server
         self.site_urlname = site_id
         self.trusted_username = trusted_username
@@ -138,7 +143,7 @@ class TableauAPI:
         """
         POST /api/api-version/auth/signin
         """
-        url = f'{self.baseURL}/auth/signin'
+        url = f"{self.baseURL}/auth/signin"
         if access_token:
             data = {
                 "credentials": {
@@ -154,9 +159,8 @@ class TableauAPI:
                 }
             }
 
-        data['credentials']['site'] = {'contentUrl': site_id}
-        headers = {'content-type': 'application/json',
-                   'accept': 'application/json'}
+        data["credentials"]["site"] = {"contentUrl": site_id}
+        headers = {"content-type": "application/json", "accept": "application/json"}
         try:
             response = requests.post(url, json=data, headers=headers)
         except requests.exceptions.ConnectionError as ce:
@@ -168,22 +172,20 @@ class TableauAPI:
         else:
             response = json.loads(response.text)
 
-            error = response.get('error')
+            error = response.get("error")
             if error:
-                raise TableauAPIError(
-                    f"Authentication failed with error: {error}")
+                raise TableauAPIError(f"Authentication failed with error: {error}")
 
-            credentials = response.get('credentials')
+            credentials = response.get("credentials")
             if not credentials:
                 raise TableauAPIError("No credentials found in signin request")
-            self.token = credentials['token']
-            self.site_id = credentials['site'].get('id')
+            self.token = credentials["token"]
+            self.site_id = credentials["site"].get("id")
 
     def make_get_request(self, path_component):
-        headers = {'content-type': 'application/json',
-                   'accept': 'application/json'}
-        headers['X-Tableau-Auth'] = f'{self.token}'
-        url = f'{self.baseURL}/{path_component}'
+        headers = {"content-type": "application/json", "accept": "application/json"}
+        headers["X-Tableau-Auth"] = f"{self.token}"
+        url = f"{self.baseURL}/{path_component}"
         try:
             response = requests.get(url, headers=headers)
         except requests.exceptions.ConnectionError as ce:
@@ -193,10 +195,9 @@ class TableauAPI:
             message = f"Exception raised: {exc} when processing request: {url}"
             raise TableauAPIError(message) from exc
         response = json.loads(response.text)
-        error = response.get('error')
+        error = response.get("error")
         if error:
-            raise TableauAPIError(
-                f"Tableau API request failed with error: {error}")
+            raise TableauAPIError(f"Tableau API request failed with error: {error}")
         return response
 
     def get_views(self):
@@ -204,8 +205,8 @@ class TableauAPI:
         Returns all the views for the site.
         GET /api/api-version/sites/site-id/views?pageSize=page-size&pageNumber=page-number
         """
-        path = f'sites/{self.site_id}/views?pageSize=1000'
-        for view in self.make_get_request(path)['views']['view']:
+        path = f"sites/{self.site_id}/views?pageSize=1000"
+        for view in self.make_get_request(path)["views"]["view"]:
             yield view
 
     def get_workbooks(self):
@@ -213,7 +214,7 @@ class TableauAPI:
         Returns all the workbooks for the site.
         GET /api/api-version/sites/site-id/workbooks?pageSize=page-size&pageNumber=page-number
         """
-        path = f'sites/{self.site_id}/workbooks?pageSize=1000'
+        path = f"sites/{self.site_id}/workbooks?pageSize=1000"
         for workbook in self.make_get_request(path)["workbooks"]["workbook"]:
             yield workbook
 
@@ -227,7 +228,7 @@ class TableauAPI:
         Returns information about the specified workbook, including information about views and tags.
         GET /api/api-version/sites/site-id/workbooks/workbook-id
         """
-        path = f'sites/{self.site_id}/workbooks/{workbook_id}'
+        path = f"sites/{self.site_id}/workbooks/{workbook_id}"
         return self.make_get_request(path)["workbook"]
 
     def get_view(self, view_id):
@@ -235,7 +236,7 @@ class TableauAPI:
         Gets the details of a specific view.
         GET /api/api-version/sites/site-id/views/view-id
         """
-        path = f'sites/{self.site_id}/views/{view_id}'
+        path = f"sites/{self.site_id}/views/{view_id}"
         return self.make_get_request(path)["view"]
 
     def get_dashboard(self, name, workbook=None):
@@ -282,13 +283,12 @@ class TableauAPI:
         Returns information about the site,
         GET /api/api-version/sites/site-id
         """
-        path = f'sites/{self.site_id}'
+        path = f"sites/{self.site_id}"
         return self.make_get_request(path)
 
     def get_ticket(self):
-        data = {'username': self.trusted_username,
-                'target_site': self.site_urlname}
-        response = requests.post(url=f'{self.server}/trusted', data=data)
+        data = {"username": self.trusted_username, "target_site": self.site_urlname}
+        response = requests.post(url=f"{self.server}/trusted", data=data)
         return response.text
 
 
@@ -329,19 +329,15 @@ class TableauViewTicketGenerator:
 
     def _get_ticket_for_view(self, instance, view):
 
-        workbook = instance.get_workbook(view['workbook']['id'])
+        workbook = instance.get_workbook(view["workbook"]["id"])
 
         ticket = instance.get_ticket()
-        if ticket == '-1':
-            data = {'ticket': ticket,
-                    'status': 'failed to retrieve tableau ticket'}
+        if ticket == "-1":
+            data = {"ticket": ticket, "status": "failed to retrieve tableau ticket"}
             return Response(data, status=status.HTTP_400_BAD_REQUEST)
 
         url = f"{instance.server}/trusted/{ticket}/t/{instance.site_urlname}/views/{workbook['contentUrl']}/{view['viewUrlName']}"
-        response = {
-            'ticket': ticket,
-            'display_url': url,
-            'server': instance.server}
+        response = {"ticket": ticket, "display_url": url, "server": instance.server}
         return Response(response)
 
     def split_view(self, view_id):
@@ -363,22 +359,22 @@ class TableauDashboard(generics.GenericAPIView, TableauViewTicketGenerator):
     serializer_class = DashboardSerializer
 
     def get(self, request, *args, **kwargs):
-        dashboard_id = kwargs.get('dashboard_id')
-        if dashboard_id == 'default':
+        dashboard_id = kwargs.get("dashboard_id")
+        if dashboard_id == "default":
             dashboard_id = settings.TABLEAU_DEFAULT_DASHBOARD
         return self.get_ticket_for_dashboard(dashboard_id)
 
 
-class TableauView(generics.GenericAPIView, TableauViewTicketGenerator):
+class TableauView(APIView, TableauViewTicketGenerator):
     permission_classes = (IsSuperAdminUser,)
 
     def get(self, request, *args, **kwargs):
-        view_id = kwargs.get('view_id')
+        view_id = kwargs.get("view_id")
 
         return self.get_ticket_for_view(view_id)
 
 
-class TableauAPIView(generics.GenericAPIView):
+class TableauAPIView(APIView):
     permission_classes = (IsSuperAdminUser,)
 
     def get(self, request, *args, **kwargs):

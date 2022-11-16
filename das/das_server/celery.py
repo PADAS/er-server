@@ -229,8 +229,8 @@ def task_failure_handler(sender, *args, **kwargs):
 
 
 @task_revoked.connect
-def task_revoked_handler(task, *args, **kwargs):
+def task_revoked_handler(request, *args, **kwargs):
     utils.stats.increment("task",
                           tags=[
-                              f"name:{task.name}",
+                              f"name:{request.name}",
                               "state:revoked"])
