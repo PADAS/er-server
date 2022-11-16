@@ -1,5 +1,0 @@
-time_zone = "Africa/Nairobi"
-daily_report_enabled = "True"
-tableau_enabled      = "True"
-tableau_site_id = "Demo1"
-tableau_default_dashboard = "EarthRangerEventReportsSummary_demo"

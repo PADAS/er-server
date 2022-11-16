@@ -539,8 +539,8 @@ GFW_API_ROOT = 'https://production-api.globalforestwatch.org/v1'
 GFW_WEB_ROOT = 'https://www.globalforestwatch.org'
 
 GFW_CREDENTIALS = {
-    'username': 'support@pamdas.org',
-    'password': 'ns2S#@Bh3V&W2eR17Ru8'
+    'username': 'none',
+    'password': 'none'
 }
 GFW_CLUSTER_RADIUS = 5  # kilometers
 GFW_BACKFILL_INTERVAL_DAYS = 10  # run backfill every n days
@@ -556,9 +556,6 @@ UBI_API_URL = 'https://api.ubignss.com/position'
 UBI_API_USERNAME = os.getenv('UBI_API_USERNAME', 'username')
 UBI_API_PASSWORD = os.getenv('UBI_API_PASSWORD', 'password')
 
-
-# Kerlink.
-KERLINK_BASEURL = 'https://tanapa.wanesy.com/gms/application'
 
 # Tableau Server:
 TABLEAU_ENABLED = False

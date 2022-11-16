@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime, timedelta
 
-from choices.models import Choice
 from django.contrib.gis.geos import Point
 from django.test import TestCase
+
+from choices.models import Choice
 from observations.forms import SourceForm, SubjectSourceForm
 from observations.models import Source, SourceProvider, Subject, SubjectSource
 from observations.utils import convert_date_string
@@ -15,7 +16,7 @@ class SourceAdditionalTest(TestCase):
             provider_key='vectronics', display_name='vectronics', additional={}
         )
         Choice.objects.create(model="accounts.user.User",
-                              field="organization", value="KWS", display="KWS")
+                              field="organization", value="OrgX", display="OrgX")
 
         Choice.objects.create(model="observations.Source",
                               field="collar_status", value="Activated", display="Activated")
@@ -23,11 +24,11 @@ class SourceAdditionalTest(TestCase):
     def test_source_additional_data(self):
         additional_data = {
             'collar_status': 'Activated', 'collar_model': 'GPS',
-            'collar_manufacturer': 'Vectronics', 'datasource': 'SavannahTrackingAPI', 'data_owners': ['KWS'],
+            'collar_manufacturer': 'Vectronics', 'datasource': 'SavannahTrackingAPI', 'data_owners': ['OrgX'],
             'adjusted_beacon_freq': '125', 'frequency': '120',
             'adjusted_frequency': '40', 'backup_frequency': '180',
             'predicted_expiry': '12/11/2018',
-            'collar_key': '6484B8CA88E2B996421AB903D0B215AFAE285CAAE932F35F1'}
+            'collar_key': '123456'}
         form_data = {
             'id': uuid.uuid4(), 'manufacturer_id': '32085',
             'provider': self.test_source_provider.id,
@@ -53,18 +54,18 @@ class SubjectSourceAdditionalTest(TestCase):
         )
 
         Choice.objects.create(model="accounts.user.User",
-                              field="organization", value="KWS",
-                              display="KWS")
+                              field="organization", value="OrgX",
+                              display="OrgX")
         Choice.objects.create(model="observations.Source",
                               field="collar_status", value="Activated", display="Activated")
 
         additional_data = {
             'collar_status': 'Activated', 'collar_model': 'GPS',
-            'collar_manufacturer': 'Vectronics', 'datasource': 'SavannahTrackingAPI', 'data_owners': ['KWS'],
+            'collar_manufacturer': 'Vectronics', 'datasource': 'SavannahTrackingAPI', 'data_owners': ['OrgX'],
             'adjusted_beacon_freq': '125', 'frequency': '120',
             'adjusted_frequency': '40', 'backup_frequency': '180',
             'predicted_expiry': '12/11/2018',
-            'collar_key': '6484B8CA88E2B996421AB903D0B215AFAE285CAAE932F35F1'}
+            'collar_key': '123456'}
         form_data = {
             'id': uuid.uuid4(), 'manufacturer_id': '32085',
             'provider': test_source_provider.id,
