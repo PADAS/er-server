@@ -1,0 +1,2 @@
+class ConnectionTMSApiTimeoutException(Exception):
+    pass

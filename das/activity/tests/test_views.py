@@ -1,15 +1,32 @@
+import csv
+from datetime import datetime, timedelta
+from functools import reduce
+from io import StringIO
+from itertools import chain
+
 import pytest
+import pytz
 
-from django.contrib.gis.geos import Polygon
+from django.conf import settings
+from django.contrib.gis.geos import MultiPoint, Point, Polygon
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
+from rest_framework.test import APIClient
 
-from activity.models import Event, EventGeometry
-from utils.features import features
+from accounts.models.permissionset import PermissionSet
+from activity.models import Event, EventGeometry, EventType
+from activity.views import EventView
+from analyzers.models import FeatureProximityAnalyzerConfig
+from analyzers.proximity import FeatureProximityAnalyzer
+from client_http import HTTPClient
+from mapping.models import SpatialFeature
+from observations.models import Subject, SubjectSubType
 from utils.gis import get_polygon_info
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestEventsView:
     feature = {
         "type": "Feature",
@@ -67,10 +84,11 @@ class TestEventsView:
         },
     }
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_create_an_event_with_a_feature_collection_as_geometry(
-        self, event_type, superuser_client
+        self, event_type, superuser_client, tenant_document_cache_client_mock, tenant_response
     ):
+        event_type.geometry_type = EventType.GeometryTypesChoices.POLYGON
+        event_type.save()
         url = reverse("events")
 
         response = superuser_client.post(
@@ -86,10 +104,11 @@ class TestEventsView:
         assert Event.objects.all().count()
         assert EventGeometry.objects.all().count() == 1
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_create_an_event_with_a_feature_as_geometry(
-        self, event_type, superuser_client
+        self, event_type, superuser_client, tenant_document_cache_client_mock, tenant_response
     ):
+        event_type.geometry_type = EventType.GeometryTypesChoices.POLYGON
+        event_type.save()
         url = reverse("events")
 
         response = superuser_client.post(
@@ -106,8 +125,11 @@ class TestEventsView:
         assert EventGeometry.objects.all().count()
         assert "area" in response.data["geometry"]["features"][0]["properties"]
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
-    def test_calculate_geometry_area_and_perimeter(self, event_type, superuser_client):
+    def test_calculate_geometry_area_and_perimeter(
+        self, event_type, superuser_client, tenant_document_cache_client_mock, tenant_response
+    ):
+        event_type.geometry_type = EventType.GeometryTypesChoices.POLYGON
+        event_type.save()
         url = reverse("events")
 
         response = superuser_client.post(
@@ -118,15 +140,16 @@ class TestEventsView:
                 "geometry": self.feature_with_known_dimensions,
             },
         )
-        area = response.data['geometry'][0]['properties']["area"]
-        perimeter = response.data['geometry'][0]['properties']["perimeter"]
+        area = response.data["geometry"][0]["properties"]["area"]
+        perimeter = response.data["geometry"][0]["properties"]["perimeter"]
 
         assert response.status_code == status.HTTP_201_CREATED
-        assert int(area) == 18876
-        assert int(perimeter) == 551
+        assert int(area) == 16438
+        assert int(perimeter) == 514
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestEventView:
     feature = {
         "type": "Feature",
@@ -149,9 +172,7 @@ class TestEventView:
         "features": [
             {
                 "type": "Feature",
-                "properties": {
-                    "color": "green"
-                },
+                "properties": {"color": "green"},
                 "geometry": {
                     "type": "Polygon",
                     "coordinates": [
@@ -167,16 +188,21 @@ class TestEventView:
         ],
     }
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     @pytest.mark.parametrize(
         "geometry, expected",
         (
-            (feature, {"area": 15215947073297, "perimeter": 15852270}),
-            (feature_collection, {"area": 1410992, "perimeter": 5760}),
+            (feature, {"area": 3846072269393, "perimeter": 8185448}),
+            (feature_collection, {"area": 1228789, "perimeter": 5370}),
         ),
     )
     def test_updated_geometry_of_event_that_contains_a_previous_geometry(
-        self, geometry, expected, event_with_detail, superuser_client
+        self,
+        geometry,
+        expected,
+        event_with_detail,
+        superuser_client,
+        tenant_document_cache_client_mock,
+        tenant_response,
     ):
         EventGeometry.objects.create(
             event=event_with_detail.event,
@@ -188,53 +214,58 @@ class TestEventView:
                     (-103.41898441314697, 20.638567565077864),
                 )
             ),
-            properties={
-                "title": "This is a little title"
-            }
+            properties={"title": "This is a little title"},
         )
-
         url = reverse("event-view", args=[event_with_detail.event.pk])
         response = superuser_client.patch(url, {"geometry": geometry})
 
-        area = response.data['geometry'][0]['properties']["area"]
-        perimeter = response.data['geometry'][0]['properties']["perimeter"]
+        area = response.data["geometry"][0]["properties"]["area"]
+        perimeter = response.data["geometry"][0]["properties"]["perimeter"]
 
         assert response.status_code == status.HTTP_200_OK
         assert int(area) == expected["area"]
         assert int(perimeter) == expected["perimeter"]
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
-    @pytest.mark.parametrize("geometry, expected",
-                             (
-                                 (feature, {"area": 15215947073297,
-                                  "perimeter": 15852270}),
-                                 (feature_collection, {
-                                  "area": 1410992, "perimeter": 5760}),
-                             ))
-    def test_update_geometry_of_event_that_does_not_contains_a_geometry(self, geometry, expected, event_with_detail, superuser_client):
+    @pytest.mark.parametrize(
+        "geometry, expected",
+        (
+            (feature, {"area": 3846072269393, "perimeter": 8185448}),
+            (feature_collection, {"area": 1228789, "perimeter": 5370}),
+        ),
+    )
+    def test_update_geometry_of_event_that_does_not_contains_a_geometry(
+        self,
+        geometry,
+        expected,
+        event_with_detail,
+        superuser_client,
+        tenant_document_cache_client_mock,
+        tenant_response,
+    ):
         url = reverse("event-view", args=[event_with_detail.event.pk])
         response = superuser_client.patch(url, {"geometry": geometry})
 
-        area = response.data['geometry'][0]['properties']["area"]
-        perimeter = response.data['geometry'][0]['properties']["perimeter"]
+        area = response.data["geometry"][0]["properties"]["area"]
+        perimeter = response.data["geometry"][0]["properties"]["perimeter"]
 
         assert response.status_code == status.HTTP_200_OK
         assert int(area) == expected["area"]
         assert int(perimeter) == expected["perimeter"]
         assert EventGeometry.objects.all().count()
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
-    def test_delete_event_geometry_of_event(self, event_geometry_with_polygon, superuser_client):
-        url = reverse(
-            "event-view", args=[event_geometry_with_polygon.event.pk])
+    def test_delete_event_geometry_of_event(
+        self, event_geometry_with_polygon, superuser_client, tenant_document_cache_client_mock, tenant_response
+    ):
+        url = reverse("event-view", args=[event_geometry_with_polygon.event.pk])
 
         response = superuser_client.patch(url, {"geometry": None})
 
         assert response.status_code == status.HTTP_200_OK
         assert event_geometry_with_polygon.event.geometries.count() == 0
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
-    def test_delete_event_geometry_of_event_without_geometry(self, event_with_detail, superuser_client):
+    def test_delete_event_geometry_of_event_without_geometry(
+        self, event_with_detail, superuser_client, tenant_document_cache_client_mock, tenant_response
+    ):
         url = reverse("event-view", args=[event_with_detail.event.pk])
 
         response = superuser_client.patch(url, {"geometry": None})
@@ -242,11 +273,46 @@ class TestEventView:
         assert response.status_code == status.HTTP_200_OK
         assert event_with_detail.event.geometries.count() == 0
 
+    def test_assert_query_number_when_event_and_event_geometry_has_100_or_more_revisions(
+        self, superuser_client, event_geometry_with_polygon, django_assert_max_num_queries
+    ):
+        # update event 100 times
+        event = event_geometry_with_polygon.event
+
+        for idx in range(100):
+            event.title = f"{event.title}-{idx}"
+            event.save(update_fields=["title"])
+
+        assert event.revision.count() >= 100
+
+        # update geometry 100 times
+        for idx in range(100):
+            event_geometry_with_polygon.properties = {idx: idx}
+            event_geometry_with_polygon.save(update_fields=["properties"])
+
+        assert event_geometry_with_polygon.revision.count() >= 100
+
+        url = reverse("event-view", kwargs={"id": event.pk})
+
+        client = HTTPClient()
+        client.app_user.is_superuser = True
+        client.app_user.save()
+
+        request = client.factory.patch(url, data={"title": "new_title"})
+        client.force_authenticate(request, client.app_user)
+
+        with django_assert_max_num_queries(64) as query_count:
+            response = EventView.as_view()(request, id=event.id)
+
+            assert response.status_code == status.HTTP_200_OK
+
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestEventGeometryView:
-
-    def test_get_event_geometry_updates(self, event_geometry_with_polygon,  superuser_client):
+    def test_get_event_geometry_updates(
+        self, event_geometry_with_polygon, superuser_client, tenant_document_cache_client_mock, tenant_response
+    ):
         event = event_geometry_with_polygon.event
 
         url = reverse("event-geometries", args=[event.id])
@@ -255,7 +321,9 @@ class TestEventGeometryView:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == 1
 
-    def test_get_event_geometry_updates_properties(self, event_geometry_with_polygon,  superuser_client):
+    def test_get_event_geometry_updates_properties(
+        self, event_geometry_with_polygon, superuser_client, tenant_document_cache_client_mock, tenant_response
+    ):
         event_geometry_with_polygon.properties = {"key": "value"}
         event_geometry_with_polygon.save()
         event = event_geometry_with_polygon.event
@@ -266,19 +334,20 @@ class TestEventGeometryView:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == 2
 
-    def test_get_event_geometry_update_without_revisions(self, event_with_detail, superuser_client):
-
+    def test_get_event_geometry_update_without_revisions(
+        self, event_with_detail, superuser_client, tenant_document_cache_client_mock, tenant_response
+    ):
         url = reverse("event-geometries", args=[event_with_detail.event.id])
         response = superuser_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
         assert not response.data
 
-    def test_export_events_csv(self, event_geometry_with_polygon, superuser_client):
+    def test_export_events_csv(
+        self, event_geometry_with_polygon, superuser_client, tenant_document_cache_client_mock, tenant_response
+    ):
         url = reverse("events-export")
-        event_geometry_with_polygon.properties["area"] = get_polygon_info(
-            event_geometry_with_polygon.geometry, "area"
-        )
+        event_geometry_with_polygon.properties["area"] = get_polygon_info(event_geometry_with_polygon.geometry, "area")
         event_geometry_with_polygon.properties["perimeter"] = get_polygon_info(
             event_geometry_with_polygon.geometry, "length"
         )
@@ -288,6 +357,278 @@ class TestEventGeometryView:
 
         assert response.status_code == status.HTTP_200_OK
         assert "Area" in content
-        assert "5032048880654.67" in content
+        assert "3215419796603.78" in content
         assert "Perimeter" in content
-        assert "10797827.42" in content
+        assert "8791536.63" in content
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestEventsExportView:
+    @pytest.fixture
+    def subject_source_with_proximity_analyzer_configured(
+        self,
+        subject_source,
+        spatial_feature_type,
+        subject_group_without_permissions,
+        spatial_feature_group_static,
+    ):
+        subject = subject_source.subject
+        subject_source.source
+        subject_group_without_permissions.subjects.add(subject)
+
+        spatial_feature = SpatialFeature.objects.create(
+            feature_type=spatial_feature_type,
+            feature_geometry=MultiPoint(Point(-103, 20)),
+        )
+        spatial_feature_group_static.features.add(spatial_feature)
+        FeatureProximityAnalyzerConfig.objects.create(
+            name="Test Feature Proximity Analyzer",
+            subject_group=subject.groups.first(),
+            threshold_dist_meters=150.0,
+            is_active=True,
+            proximal_features=spatial_feature_group_static,
+        )
+
+        return subject_source
+
+    def test_event_export_view_filters_by_user_permission(
+        self,
+        superuser_client,
+        ops_user,
+        subject_source_with_proximity_analyzer_configured,
+        five_observations,
+        tenant_document_cache_client_mock,
+    ):
+        url = reverse("events-export")
+        subject = subject_source_with_proximity_analyzer_configured.subject
+        source = subject_source_with_proximity_analyzer_configured.source
+        can_export_data_permission_set = PermissionSet.objects.get(name="Can Export Data")
+        ops_user.permission_sets.add(can_export_data_permission_set)
+        client = APIClient()
+        client.force_authenticate(user=ops_user)
+        self._setup_observations(source, five_observations)
+        self._analyze_subject(subject)
+
+        superuser_response = superuser_client.get(url)
+        superuser_report = self._get_response_content(superuser_response)
+        user_response = client.get(url)
+        user_report = self._get_response_content(user_response)
+
+        assert superuser_response.status_code == status.HTTP_200_OK
+        assert user_response.status_code == status.HTTP_200_OK
+        assert len(superuser_report) == 2
+        assert len(user_report) == 1
+
+    def test_event_export_dates(self, superuser_client, five_events_with_details):
+        url = reverse("events-export")
+        delta = timedelta(days=0)
+
+        for detail in five_events_with_details:
+            date_time = datetime(2024, 1, 1, 12, 0, 0) + delta
+            aware_datetime = timezone.make_aware(date_time, timezone=pytz.UTC)
+            detail.event.event_time = aware_datetime
+            detail.event.save()
+            event_time = detail.event.event_time
+
+            event_detail = detail.data["event_details"]
+            event_detail["date_time"] = event_time.strftime("%Y-%m-%dT%H:%M:%S") + ".000Z"
+            detail.save(update_fields=["data"])
+
+            delta = delta + timedelta(days=15)
+
+        response = superuser_client.get(url)
+        data = self._response_to_dict(response)
+
+        offset_string = self.get_gmt_offset_string(settings.TIME_ZONE)
+        for record in data:
+            reported_at = record[f"Reported_At_({offset_string})"]
+            date_time = record["date_time_test"]
+
+            assert reported_at == date_time
+
+    def get_gmt_offset_string(self, timezone_str):
+        tz = pytz.timezone(timezone_str)
+        now = datetime.now(tz)
+        offset_seconds = now.utcoffset().total_seconds()
+        offset_hours = int(offset_seconds // 3600)
+        offset_minutes = int((offset_seconds % 3600) // 60)
+        return f"GMT{offset_hours:+d}:{offset_minutes:01d}"
+
+    def _setup_observations(self, source, observations):
+        locations = Point(-103, 20.001155774646055), Point(-103, 20.001798483879462)
+        now = timezone.now()
+        for count, location, observation in zip((1, 2), locations, observations):
+            recorded_at = now - timezone.timedelta(minutes=count * 5)
+            observation.location = location
+            observation.source = source
+            observation.recorded_at = recorded_at
+            observation.save()
+
+    def _analyze_subject(self, subject):
+        for analyzer in FeatureProximityAnalyzer.get_subject_analyzers(subject):
+            analyzer.analyze()
+
+    def _get_response_content(self, response):
+        return [line.decode() for line in response.content.split(b"\r\n") if line]
+
+    def _response_to_dict(self, response):
+        csv_content = response.content.decode("utf-8")  # Decode the byte content into a string
+        csv_file_like = StringIO(csv_content)
+        return [row for row in csv.DictReader(csv_file_like)]
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestTrackedBySchemaView:
+    def test_get_patrols_tracked_by_without_permission_should_be_empty(self, user_client, patrol_configuration):
+        url = reverse("patrol-segments-schema")
+
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["properties"]["leader"]["enum"] == []
+
+    def test_get_patrols_tracked_by_with_permission(self, user_client, patrol_configuration):
+        subject_group = patrol_configuration.subject_groups.first()
+        expected_subject_ids = set(self._get_subject_ids_by_subject_group(subject_group))
+        permission_set = subject_group.permission_sets.first()
+        user = user_client.user
+        user_id = str(user.id)
+        user.permission_sets.add(permission_set)
+        subject = subject_group.subjects.first()
+        subject_id = str(subject.id)
+        subject.linked_user = user
+        subject.save()
+        url = reverse("patrol-segments-schema")
+
+        response = user_client.get(url)
+        leaders = response.data["properties"]["leader"]["enum"]
+        leader_ids = {leader["id"] for leader in leaders}
+        subject_data = [leader for leader in leaders if leader["id"] == subject_id][-1]
+
+        assert response.status_code == status.HTTP_200_OK
+        assert expected_subject_ids == leader_ids
+        assert user_id == subject_data["user"]["id"]
+
+    def test_get_patrols_tracked_by_without_permission_and_linked_subject(self, user_client, patrol_configuration):
+        subject_group = patrol_configuration.subject_groups.first()
+        user = user_client.user
+        user_id = str(user.id)
+        subject = subject_group.subjects.first()
+        subject_id = str(subject.id)
+        subject.linked_user = user
+        subject.save()
+        url = reverse("patrol-segments-schema")
+
+        response = user_client.get(url)
+        leader = response.data["properties"]["leader"]["enum"][0]
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["properties"]["leader"]["enum"]) == 1
+        assert leader["id"] == subject_id
+        assert leader["user"]["id"] == user_id
+
+    def test_get_patrols_tracked_by_without_permission_and_linked_subject_not_in_patrol_configuration(
+        self, user_client, patrol_configuration, subject
+    ):
+        user = user_client.user
+        subject.linked_user = user
+        subject.save()
+        url = reverse("patrol-segments-schema")
+
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["properties"]["leader"]["enum"] == []
+
+    def test_get_patrols_tracked_by_as_superuser(self, superuser_client, patrol_configuration):
+        expected_subject_ids = self._get_subject_ids_in_patrol_configuration(patrol_configuration)
+        url = reverse("patrol-segments-schema")
+
+        response = superuser_client.get(url)
+        leaders = response.data["properties"]["leader"]["enum"]
+        leader_ids = set((leader["id"] for leader in leaders))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(expected_subject_ids) == len(leaders)
+        assert expected_subject_ids == leader_ids
+
+    def _get_subject_ids_in_patrol_configuration(self, patrol_config):
+        ids_by_subject_group = map(self._get_subject_ids_by_subject_group, patrol_config.subject_groups.all())
+        return set(reduce(chain, ids_by_subject_group, []))
+
+    def _get_subject_ids_by_subject_group(self, subject_group):
+        return map(str, subject_group.subjects.values_list("id", flat=True))
+
+    def test_etag_is_same_multiple_request(self, superuser_client):
+        url = reverse("patrol-segments-schema")
+
+        first_response = superuser_client.get(url)
+        second_response = superuser_client.get(url)
+
+        assert first_response.status_code == status.HTTP_200_OK
+        assert first_response.headers["ETag"]
+        assert second_response.status_code == status.HTTP_200_OK
+        assert second_response.headers["ETag"]
+
+        first_etag = first_response.headers["ETag"]
+        second_etag = second_response.headers["ETag"]
+
+        assert first_etag == second_etag
+
+    def test_etag_is_different_after_update(self, superuser_client, patrol_configuration):
+
+        url = reverse("patrol-segments-schema")
+
+        first_response = superuser_client.get(url)
+        first_etag = first_response.headers["ETag"]
+
+        subject = Subject.objects.first()
+
+        subject.subject_subtype = SubjectSubType.objects.exclude(id=subject.subject_subtype.id).first()
+        subject.save(update_fields=["subject_subtype"])
+
+        second_response = superuser_client.get(url)
+        second_etag = second_response.headers["ETag"]
+
+        assert second_response.status_code == status.HTTP_200_OK
+        assert second_etag != first_etag
+
+    def test_etags_should_be_different_for_two_users(self, superuser_client, user_client, patrol_configuration):
+        url = reverse("patrol-segments-schema")
+
+        superuser_response = superuser_client.get(url)
+        superuser_etag = superuser_response.headers["ETag"]
+
+        user_response = user_client.get(url)
+        user_etag = user_response.headers["ETag"]
+
+        assert superuser_etag != user_etag
+
+    def test_etag_should_change_for_one_user_keep_same_for_other(
+        self, superuser_client, user_client, patrol_configuration
+    ):
+        url = reverse("patrol-segments-schema")
+
+        superuser_response = superuser_client.get(url)
+        superuser_etag = superuser_response.headers["ETag"]
+
+        user_response = user_client.get(url)
+        user_etag = user_response.headers["ETag"]
+
+        # Update subject
+        subject = Subject.objects.first()
+        subject.subject_subtype = SubjectSubType.objects.exclude(id=subject.subject_subtype.id).first()
+        subject.save(update_fields=["subject_subtype"])
+
+        superuser_response_2 = superuser_client.get(url)
+        superuser_etag_2 = superuser_response_2.headers["ETag"]
+
+        user_response_2 = user_client.get(url)
+        user_etag_2 = user_response_2.headers["ETag"]
+
+        assert superuser_etag != user_etag
+        assert superuser_etag_2 != user_etag_2
+        assert superuser_etag != superuser_etag_2
+        assert user_etag == user_etag_2

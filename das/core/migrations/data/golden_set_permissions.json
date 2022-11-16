@@ -1,0 +1,6131 @@
+[
+  {
+    "fields": {
+      "codename": "add_permissionset",
+      "content_type_id": 1,
+      "name": "Can add permission set"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 1
+  },
+  {
+    "fields": {
+      "codename": "change_permissionset",
+      "content_type_id": 1,
+      "name": "Can change permission set"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 2
+  },
+  {
+    "fields": {
+      "codename": "delete_permissionset",
+      "content_type_id": 1,
+      "name": "Can delete permission set"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 3
+  },
+  {
+    "fields": {
+      "codename": "view_permissionset",
+      "content_type_id": 1,
+      "name": "Can view permission set"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 4
+  },
+  {
+    "fields": {
+      "codename": "add_permissionsetpermission",
+      "content_type_id": 2,
+      "name": "Can add permission set permission"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 5
+  },
+  {
+    "fields": {
+      "codename": "change_permissionsetpermission",
+      "content_type_id": 2,
+      "name": "Can change permission set permission"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 6
+  },
+  {
+    "fields": {
+      "codename": "delete_permissionsetpermission",
+      "content_type_id": 2,
+      "name": "Can delete permission set permission"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7
+  },
+  {
+    "fields": {
+      "codename": "view_permissionsetpermission",
+      "content_type_id": 2,
+      "name": "Can view permission set permission"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 8
+  },
+  {
+    "fields": {
+      "codename": "add_user",
+      "content_type_id": 3,
+      "name": "Can add user"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 9
+  },
+  {
+    "fields": {
+      "codename": "change_user",
+      "content_type_id": 3,
+      "name": "Can change user"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 10
+  },
+  {
+    "fields": {
+      "codename": "delete_user",
+      "content_type_id": 3,
+      "name": "Can delete user"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 11
+  },
+  {
+    "fields": {
+      "codename": "view_user",
+      "content_type_id": 3,
+      "name": "Can view user"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 12
+  },
+  {
+    "fields": {
+      "codename": "add_useragreement",
+      "content_type_id": 4,
+      "name": "Can add user agreement"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 13
+  },
+  {
+    "fields": {
+      "codename": "change_useragreement",
+      "content_type_id": 4,
+      "name": "Can change user agreement"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 14
+  },
+  {
+    "fields": {
+      "codename": "delete_useragreement",
+      "content_type_id": 4,
+      "name": "Can delete user agreement"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 15
+  },
+  {
+    "fields": {
+      "codename": "view_useragreement",
+      "content_type_id": 4,
+      "name": "Can view user agreement"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 16
+  },
+  {
+    "fields": {
+      "codename": "add_eula",
+      "content_type_id": 5,
+      "name": "Can add eula"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 17
+  },
+  {
+    "fields": {
+      "codename": "change_eula",
+      "content_type_id": 5,
+      "name": "Can change eula"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 18
+  },
+  {
+    "fields": {
+      "codename": "delete_eula",
+      "content_type_id": 5,
+      "name": "Can delete eula"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 19
+  },
+  {
+    "fields": {
+      "codename": "view_eula",
+      "content_type_id": 5,
+      "name": "Can view eula"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 20
+  },
+  {
+    "fields": {
+      "codename": "add_logentry",
+      "content_type_id": 6,
+      "name": "Can add log entry"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 21
+  },
+  {
+    "fields": {
+      "codename": "change_logentry",
+      "content_type_id": 6,
+      "name": "Can change log entry"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 22
+  },
+  {
+    "fields": {
+      "codename": "delete_logentry",
+      "content_type_id": 6,
+      "name": "Can delete log entry"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 23
+  },
+  {
+    "fields": {
+      "codename": "view_logentry",
+      "content_type_id": 6,
+      "name": "Can view log entry"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 24
+  },
+  {
+    "fields": {
+      "codename": "add_permission",
+      "content_type_id": 7,
+      "name": "Can add permission"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 25
+  },
+  {
+    "fields": {
+      "codename": "change_permission",
+      "content_type_id": 7,
+      "name": "Can change permission"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 26
+  },
+  {
+    "fields": {
+      "codename": "delete_permission",
+      "content_type_id": 7,
+      "name": "Can delete permission"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 27
+  },
+  {
+    "fields": {
+      "codename": "view_permission",
+      "content_type_id": 7,
+      "name": "Can view permission"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 28
+  },
+  {
+    "fields": {
+      "codename": "add_group",
+      "content_type_id": 8,
+      "name": "Can add group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 29
+  },
+  {
+    "fields": {
+      "codename": "change_group",
+      "content_type_id": 8,
+      "name": "Can change group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 30
+  },
+  {
+    "fields": {
+      "codename": "delete_group",
+      "content_type_id": 8,
+      "name": "Can delete group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 31
+  },
+  {
+    "fields": {
+      "codename": "view_group",
+      "content_type_id": 8,
+      "name": "Can view group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 32
+  },
+  {
+    "fields": {
+      "codename": "add_contenttype",
+      "content_type_id": 9,
+      "name": "Can add content type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 33
+  },
+  {
+    "fields": {
+      "codename": "change_contenttype",
+      "content_type_id": 9,
+      "name": "Can change content type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 34
+  },
+  {
+    "fields": {
+      "codename": "delete_contenttype",
+      "content_type_id": 9,
+      "name": "Can delete content type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 35
+  },
+  {
+    "fields": {
+      "codename": "view_contenttype",
+      "content_type_id": 9,
+      "name": "Can view content type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 36
+  },
+  {
+    "fields": {
+      "codename": "add_session",
+      "content_type_id": 10,
+      "name": "Can add session"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 37
+  },
+  {
+    "fields": {
+      "codename": "change_session",
+      "content_type_id": 10,
+      "name": "Can change session"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 38
+  },
+  {
+    "fields": {
+      "codename": "delete_session",
+      "content_type_id": 10,
+      "name": "Can delete session"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 39
+  },
+  {
+    "fields": {
+      "codename": "view_session",
+      "content_type_id": 10,
+      "name": "Can view session"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 40
+  },
+  {
+    "fields": {
+      "codename": "add_application",
+      "content_type_id": 11,
+      "name": "Can add application"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 41
+  },
+  {
+    "fields": {
+      "codename": "change_application",
+      "content_type_id": 11,
+      "name": "Can change application"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 42
+  },
+  {
+    "fields": {
+      "codename": "delete_application",
+      "content_type_id": 11,
+      "name": "Can delete application"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 43
+  },
+  {
+    "fields": {
+      "codename": "view_application",
+      "content_type_id": 11,
+      "name": "Can view application"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 44
+  },
+  {
+    "fields": {
+      "codename": "add_grant",
+      "content_type_id": 12,
+      "name": "Can add grant"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 45
+  },
+  {
+    "fields": {
+      "codename": "change_grant",
+      "content_type_id": 12,
+      "name": "Can change grant"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 46
+  },
+  {
+    "fields": {
+      "codename": "delete_grant",
+      "content_type_id": 12,
+      "name": "Can delete grant"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 47
+  },
+  {
+    "fields": {
+      "codename": "view_grant",
+      "content_type_id": 12,
+      "name": "Can view grant"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 48
+  },
+  {
+    "fields": {
+      "codename": "add_accesstoken",
+      "content_type_id": 13,
+      "name": "Can add access token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 49
+  },
+  {
+    "fields": {
+      "codename": "change_accesstoken",
+      "content_type_id": 13,
+      "name": "Can change access token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 50
+  },
+  {
+    "fields": {
+      "codename": "delete_accesstoken",
+      "content_type_id": 13,
+      "name": "Can delete access token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 51
+  },
+  {
+    "fields": {
+      "codename": "view_accesstoken",
+      "content_type_id": 13,
+      "name": "Can view access token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 52
+  },
+  {
+    "fields": {
+      "codename": "add_refreshtoken",
+      "content_type_id": 14,
+      "name": "Can add refresh token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 53
+  },
+  {
+    "fields": {
+      "codename": "change_refreshtoken",
+      "content_type_id": 14,
+      "name": "Can change refresh token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 54
+  },
+  {
+    "fields": {
+      "codename": "delete_refreshtoken",
+      "content_type_id": 14,
+      "name": "Can delete refresh token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 55
+  },
+  {
+    "fields": {
+      "codename": "view_refreshtoken",
+      "content_type_id": 14,
+      "name": "Can view refresh token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 56
+  },
+  {
+    "fields": {
+      "codename": "add_idtoken",
+      "content_type_id": 15,
+      "name": "Can add id token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 57
+  },
+  {
+    "fields": {
+      "codename": "change_idtoken",
+      "content_type_id": 15,
+      "name": "Can change id token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 58
+  },
+  {
+    "fields": {
+      "codename": "delete_idtoken",
+      "content_type_id": 15,
+      "name": "Can delete id token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 59
+  },
+  {
+    "fields": {
+      "codename": "view_idtoken",
+      "content_type_id": 15,
+      "name": "Can view id token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 60
+  },
+  {
+    "fields": {
+      "codename": "add_sourcegroup",
+      "content_type_id": 16,
+      "name": "Can add source group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 61
+  },
+  {
+    "fields": {
+      "codename": "change_sourcegroup",
+      "content_type_id": 16,
+      "name": "Can change source group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 62
+  },
+  {
+    "fields": {
+      "codename": "delete_sourcegroup",
+      "content_type_id": 16,
+      "name": "Can delete source group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 63
+  },
+  {
+    "fields": {
+      "codename": "view_sourcegroup",
+      "content_type_id": 16,
+      "name": "Can view source group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 64
+  },
+  {
+    "fields": {
+      "codename": "add_sourceprovider",
+      "content_type_id": 17,
+      "name": "Can add source provider"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 65
+  },
+  {
+    "fields": {
+      "codename": "change_sourceprovider",
+      "content_type_id": 17,
+      "name": "Can change source provider"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 66
+  },
+  {
+    "fields": {
+      "codename": "delete_sourceprovider",
+      "content_type_id": 17,
+      "name": "Can delete source provider"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 67
+  },
+  {
+    "fields": {
+      "codename": "view_sourceprovider",
+      "content_type_id": 17,
+      "name": "Can view source provider"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 68
+  },
+  {
+    "fields": {
+      "codename": "add_source",
+      "content_type_id": 18,
+      "name": "Can add source"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 69
+  },
+  {
+    "fields": {
+      "codename": "change_source",
+      "content_type_id": 18,
+      "name": "Can change source"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 70
+  },
+  {
+    "fields": {
+      "codename": "delete_source",
+      "content_type_id": 18,
+      "name": "Can delete source"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 71
+  },
+  {
+    "fields": {
+      "codename": "view_source",
+      "content_type_id": 18,
+      "name": "Can view source"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 72
+  },
+  {
+    "fields": {
+      "codename": "add_observation",
+      "content_type_id": 19,
+      "name": "Can add observation"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 73
+  },
+  {
+    "fields": {
+      "codename": "change_observation",
+      "content_type_id": 19,
+      "name": "Can change observation"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 74
+  },
+  {
+    "fields": {
+      "codename": "delete_observation",
+      "content_type_id": 19,
+      "name": "Can delete observation"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 75
+  },
+  {
+    "fields": {
+      "codename": "view_observation",
+      "content_type_id": 19,
+      "name": "Can view observation"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 76
+  },
+  {
+    "fields": {
+      "codename": "add_subjectsource",
+      "content_type_id": 20,
+      "name": "Can add Subject Source Assignment"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 77
+  },
+  {
+    "fields": {
+      "codename": "change_subjectsource",
+      "content_type_id": 20,
+      "name": "Can change Subject Source Assignment"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 78
+  },
+  {
+    "fields": {
+      "codename": "delete_subjectsource",
+      "content_type_id": 20,
+      "name": "Can delete Subject Source Assignment"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 79
+  },
+  {
+    "fields": {
+      "codename": "view_subjectsource",
+      "content_type_id": 20,
+      "name": "Can view Subject Source Assignment"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 80
+  },
+  {
+    "fields": {
+      "codename": "add_subjectsourcesummary",
+      "content_type_id": 21,
+      "name": "Can add Subject Configuration"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 81
+  },
+  {
+    "fields": {
+      "codename": "change_subjectsourcesummary",
+      "content_type_id": 21,
+      "name": "Can change Subject Configuration"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 82
+  },
+  {
+    "fields": {
+      "codename": "delete_subjectsourcesummary",
+      "content_type_id": 21,
+      "name": "Can delete Subject Configuration"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 83
+  },
+  {
+    "fields": {
+      "codename": "view_subjectsourcesummary",
+      "content_type_id": 21,
+      "name": "Can view Subject Configuration"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 84
+  },
+  {
+    "fields": {
+      "codename": "add_subjecttype",
+      "content_type_id": 22,
+      "name": "Can add subject type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 85
+  },
+  {
+    "fields": {
+      "codename": "change_subjecttype",
+      "content_type_id": 22,
+      "name": "Can change subject type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 86
+  },
+  {
+    "fields": {
+      "codename": "delete_subjecttype",
+      "content_type_id": 22,
+      "name": "Can delete subject type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 87
+  },
+  {
+    "fields": {
+      "codename": "view_subjecttype",
+      "content_type_id": 22,
+      "name": "Can view subject type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 88
+  },
+  {
+    "fields": {
+      "codename": "add_subjectsubtype",
+      "content_type_id": 23,
+      "name": "Can add subject sub type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 89
+  },
+  {
+    "fields": {
+      "codename": "change_subjectsubtype",
+      "content_type_id": 23,
+      "name": "Can change subject sub type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 90
+  },
+  {
+    "fields": {
+      "codename": "delete_subjectsubtype",
+      "content_type_id": 23,
+      "name": "Can delete subject sub type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 91
+  },
+  {
+    "fields": {
+      "codename": "view_subjectsubtype",
+      "content_type_id": 23,
+      "name": "Can view subject sub type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 92
+  },
+  {
+    "fields": {
+      "codename": "add_subjecttracksegmentfilter",
+      "content_type_id": 24,
+      "name": "Can add subject track segment filter"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 93
+  },
+  {
+    "fields": {
+      "codename": "change_subjecttracksegmentfilter",
+      "content_type_id": 24,
+      "name": "Can change subject track segment filter"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 94
+  },
+  {
+    "fields": {
+      "codename": "delete_subjecttracksegmentfilter",
+      "content_type_id": 24,
+      "name": "Can delete subject track segment filter"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 95
+  },
+  {
+    "fields": {
+      "codename": "view_subjecttracksegmentfilter",
+      "content_type_id": 24,
+      "name": "Can view subject track segment filter"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 96
+  },
+  {
+    "fields": {
+      "codename": "add_subjectgroup",
+      "content_type_id": 25,
+      "name": "Can add subject group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 97
+  },
+  {
+    "fields": {
+      "codename": "change_subjectgroup",
+      "content_type_id": 25,
+      "name": "Can change subject group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 98
+  },
+  {
+    "fields": {
+      "codename": "delete_subjectgroup",
+      "content_type_id": 25,
+      "name": "Can delete subject group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 99
+  },
+  {
+    "fields": {
+      "codename": "view_subjectgroup",
+      "content_type_id": 25,
+      "name": "Can view subject group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 100
+  },
+  {
+    "fields": {
+      "codename": "add_subject",
+      "content_type_id": 26,
+      "name": "Can add subject"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 101
+  },
+  {
+    "fields": {
+      "codename": "change_subject",
+      "content_type_id": 26,
+      "name": "Can change subject"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 102
+  },
+  {
+    "fields": {
+      "codename": "delete_subject",
+      "content_type_id": 26,
+      "name": "Can delete subject"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 103
+  },
+  {
+    "fields": {
+      "codename": "view_subject",
+      "content_type_id": 26,
+      "name": "Can view subject"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 104
+  },
+  {
+    "fields": {
+      "codename": "view_last_position",
+      "content_type_id": 26,
+      "name": "Permission to view the last reported position of a Subject only."
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 105
+  },
+  {
+    "fields": {
+      "codename": "view_real_time",
+      "content_type_id": 26,
+      "name": "Access to real-time observations."
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 106
+  },
+  {
+    "fields": {
+      "codename": "view_delayed",
+      "content_type_id": 26,
+      "name": "Access to a 24 hour delayed observation feed. No real-time or last reported position."
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 107
+  },
+  {
+    "fields": {
+      "codename": "subscribe_alerts",
+      "content_type_id": 26,
+      "name": "Permission to subscribe to an alert on this Subject."
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 108
+  },
+  {
+    "fields": {
+      "codename": "change_alerts",
+      "content_type_id": 26,
+      "name": "Permission to configure alerts for subject, includes setting geofences, proximity and immobility settings."
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 109
+  },
+  {
+    "fields": {
+      "codename": "change_view",
+      "content_type_id": 26,
+      "name": "An admin permission to change which users can view a Subject and their view permission."
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 110
+  },
+  {
+    "fields": {
+      "codename": "access_begins_7",
+      "content_type_id": 26,
+      "name": "Can view tracks no more than 7 days old"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 111
+  },
+  {
+    "fields": {
+      "codename": "access_begins_16",
+      "content_type_id": 26,
+      "name": "Can view tracks no more than 16 days old"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 112
+  },
+  {
+    "fields": {
+      "codename": "access_begins_30",
+      "content_type_id": 26,
+      "name": "Can view tracks no more than 30 days old"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 113
+  },
+  {
+    "fields": {
+      "codename": "access_begins_60",
+      "content_type_id": 26,
+      "name": "Can view tracks no more than 60 days old"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 114
+  },
+  {
+    "fields": {
+      "codename": "access_begins_all",
+      "content_type_id": 26,
+      "name": "Can view all historical tracks"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 115
+  },
+  {
+    "fields": {
+      "codename": "access_ends_0",
+      "content_type_id": 26,
+      "name": "Can view tracks no less than 0 days old"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 116
+  },
+  {
+    "fields": {
+      "codename": "access_ends_1",
+      "content_type_id": 26,
+      "name": "Can view tracks no less than 1 day old"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 117
+  },
+  {
+    "fields": {
+      "codename": "access_ends_3",
+      "content_type_id": 26,
+      "name": "Can view tracks no less than 3 days old"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 118
+  },
+  {
+    "fields": {
+      "codename": "access_ends_7",
+      "content_type_id": 26,
+      "name": "Can view tracks no less than 7 days old"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 119
+  },
+  {
+    "fields": {
+      "codename": "add_subjectsummary",
+      "content_type_id": 27,
+      "name": "Can add Subject Summary"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 120
+  },
+  {
+    "fields": {
+      "codename": "change_subjectsummary",
+      "content_type_id": 27,
+      "name": "Can change Subject Summary"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 121
+  },
+  {
+    "fields": {
+      "codename": "delete_subjectsummary",
+      "content_type_id": 27,
+      "name": "Can delete Subject Summary"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 122
+  },
+  {
+    "fields": {
+      "codename": "view_subjectsummary",
+      "content_type_id": 27,
+      "name": "Can view Subject Summary"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 123
+  },
+  {
+    "fields": {
+      "codename": "add_subjectpositionsummary",
+      "content_type_id": 28,
+      "name": "Can add Subject Positions"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 124
+  },
+  {
+    "fields": {
+      "codename": "change_subjectpositionsummary",
+      "content_type_id": 28,
+      "name": "Can change Subject Positions"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 125
+  },
+  {
+    "fields": {
+      "codename": "delete_subjectpositionsummary",
+      "content_type_id": 28,
+      "name": "Can delete Subject Positions"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 126
+  },
+  {
+    "fields": {
+      "codename": "view_subjectpositionsummary",
+      "content_type_id": 28,
+      "name": "Can view Subject Positions"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 127
+  },
+  {
+    "fields": {
+      "codename": "add_commonname",
+      "content_type_id": 29,
+      "name": "Can add common name"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 128
+  },
+  {
+    "fields": {
+      "codename": "change_commonname",
+      "content_type_id": 29,
+      "name": "Can change common name"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 129
+  },
+  {
+    "fields": {
+      "codename": "delete_commonname",
+      "content_type_id": 29,
+      "name": "Can delete common name"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 130
+  },
+  {
+    "fields": {
+      "codename": "view_commonname",
+      "content_type_id": 29,
+      "name": "Can view common name"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 131
+  },
+  {
+    "fields": {
+      "codename": "add_subjectstatus",
+      "content_type_id": 30,
+      "name": "Can add Subject Status"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 132
+  },
+  {
+    "fields": {
+      "codename": "change_subjectstatus",
+      "content_type_id": 30,
+      "name": "Can change Subject Status"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 133
+  },
+  {
+    "fields": {
+      "codename": "delete_subjectstatus",
+      "content_type_id": 30,
+      "name": "Can delete Subject Status"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 134
+  },
+  {
+    "fields": {
+      "codename": "view_subjectstatus",
+      "content_type_id": 30,
+      "name": "Can view Subject Status"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 135
+  },
+  {
+    "fields": {
+      "codename": "add_subjectstatuslatest",
+      "content_type_id": 31,
+      "name": "Can add subject status latest"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 136
+  },
+  {
+    "fields": {
+      "codename": "change_subjectstatuslatest",
+      "content_type_id": 31,
+      "name": "Can change subject status latest"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 137
+  },
+  {
+    "fields": {
+      "codename": "delete_subjectstatuslatest",
+      "content_type_id": 31,
+      "name": "Can delete subject status latest"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 138
+  },
+  {
+    "fields": {
+      "codename": "view_subjectstatuslatest",
+      "content_type_id": 31,
+      "name": "Can view subject status latest"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 139
+  },
+  {
+    "fields": {
+      "codename": "add_region",
+      "content_type_id": 32,
+      "name": "Can add region"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 140
+  },
+  {
+    "fields": {
+      "codename": "change_region",
+      "content_type_id": 32,
+      "name": "Can change region"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 141
+  },
+  {
+    "fields": {
+      "codename": "delete_region",
+      "content_type_id": 32,
+      "name": "Can delete region"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 142
+  },
+  {
+    "fields": {
+      "codename": "view_region",
+      "content_type_id": 32,
+      "name": "Can view region"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 143
+  },
+  {
+    "fields": {
+      "codename": "add_socketclient",
+      "content_type_id": 33,
+      "name": "Can add socket client"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 144
+  },
+  {
+    "fields": {
+      "codename": "change_socketclient",
+      "content_type_id": 33,
+      "name": "Can change socket client"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 145
+  },
+  {
+    "fields": {
+      "codename": "delete_socketclient",
+      "content_type_id": 33,
+      "name": "Can delete socket client"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 146
+  },
+  {
+    "fields": {
+      "codename": "view_socketclient",
+      "content_type_id": 33,
+      "name": "Can view socket client"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 147
+  },
+  {
+    "fields": {
+      "codename": "add_usersession",
+      "content_type_id": 34,
+      "name": "Can add user session"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 148
+  },
+  {
+    "fields": {
+      "codename": "change_usersession",
+      "content_type_id": 34,
+      "name": "Can change user session"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 149
+  },
+  {
+    "fields": {
+      "codename": "delete_usersession",
+      "content_type_id": 34,
+      "name": "Can delete user session"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 150
+  },
+  {
+    "fields": {
+      "codename": "view_usersession",
+      "content_type_id": 34,
+      "name": "Can view user session"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 151
+  },
+  {
+    "fields": {
+      "codename": "add_subjectmaximumspeed",
+      "content_type_id": 35,
+      "name": "Can add subject maximum speed"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 152
+  },
+  {
+    "fields": {
+      "codename": "change_subjectmaximumspeed",
+      "content_type_id": 35,
+      "name": "Can change subject maximum speed"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 153
+  },
+  {
+    "fields": {
+      "codename": "delete_subjectmaximumspeed",
+      "content_type_id": 35,
+      "name": "Can delete subject maximum speed"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 154
+  },
+  {
+    "fields": {
+      "codename": "view_subjectmaximumspeed",
+      "content_type_id": 35,
+      "name": "Can view subject maximum speed"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 155
+  },
+  {
+    "fields": {
+      "codename": "add_gpxtrackfile",
+      "content_type_id": 36,
+      "name": "Can add gpx track file"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 156
+  },
+  {
+    "fields": {
+      "codename": "change_gpxtrackfile",
+      "content_type_id": 36,
+      "name": "Can change gpx track file"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 157
+  },
+  {
+    "fields": {
+      "codename": "delete_gpxtrackfile",
+      "content_type_id": 36,
+      "name": "Can delete gpx track file"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 158
+  },
+  {
+    "fields": {
+      "codename": "view_gpxtrackfile",
+      "content_type_id": 36,
+      "name": "Can view gpx track file"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 159
+  },
+  {
+    "fields": {
+      "codename": "add_message",
+      "content_type_id": 37,
+      "name": "Can add message"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 160
+  },
+  {
+    "fields": {
+      "codename": "change_message",
+      "content_type_id": 37,
+      "name": "Can change message"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 161
+  },
+  {
+    "fields": {
+      "codename": "delete_message",
+      "content_type_id": 37,
+      "name": "Can delete message"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 162
+  },
+  {
+    "fields": {
+      "codename": "view_message",
+      "content_type_id": 37,
+      "name": "Can view message"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 163
+  },
+  {
+    "fields": {
+      "codename": "add_announcement",
+      "content_type_id": 38,
+      "name": "Can add announcement"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 164
+  },
+  {
+    "fields": {
+      "codename": "change_announcement",
+      "content_type_id": 38,
+      "name": "Can change announcement"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 165
+  },
+  {
+    "fields": {
+      "codename": "delete_announcement",
+      "content_type_id": 38,
+      "name": "Can delete announcement"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 166
+  },
+  {
+    "fields": {
+      "codename": "view_announcement",
+      "content_type_id": 38,
+      "name": "Can view announcement"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 167
+  },
+  {
+    "fields": {
+      "codename": "add_latestobservationsource",
+      "content_type_id": 39,
+      "name": "Can add latest observation source"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 168
+  },
+  {
+    "fields": {
+      "codename": "change_latestobservationsource",
+      "content_type_id": 39,
+      "name": "Can change latest observation source"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 169
+  },
+  {
+    "fields": {
+      "codename": "delete_latestobservationsource",
+      "content_type_id": 39,
+      "name": "Can delete latest observation source"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 170
+  },
+  {
+    "fields": {
+      "codename": "view_latestobservationsource",
+      "content_type_id": 39,
+      "name": "Can view latest observation source"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 171
+  },
+  {
+    "fields": {
+      "codename": "add_subjectanalyzerresult",
+      "content_type_id": 40,
+      "name": "Can add subject analyzer result"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 172
+  },
+  {
+    "fields": {
+      "codename": "change_subjectanalyzerresult",
+      "content_type_id": 40,
+      "name": "Can change subject analyzer result"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 173
+  },
+  {
+    "fields": {
+      "codename": "delete_subjectanalyzerresult",
+      "content_type_id": 40,
+      "name": "Can delete subject analyzer result"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 174
+  },
+  {
+    "fields": {
+      "codename": "view_subjectanalyzerresult",
+      "content_type_id": 40,
+      "name": "Can view subject analyzer result"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 175
+  },
+  {
+    "fields": {
+      "codename": "add_observationannotator",
+      "content_type_id": 41,
+      "name": "Can add Subject Track Filter"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 176
+  },
+  {
+    "fields": {
+      "codename": "change_observationannotator",
+      "content_type_id": 41,
+      "name": "Can change Subject Track Filter"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 177
+  },
+  {
+    "fields": {
+      "codename": "delete_observationannotator",
+      "content_type_id": 41,
+      "name": "Can delete Subject Track Filter"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 178
+  },
+  {
+    "fields": {
+      "codename": "view_observationannotator",
+      "content_type_id": 41,
+      "name": "Can view Subject Track Filter"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 179
+  },
+  {
+    "fields": {
+      "codename": "add_immobilityanalyzerconfig",
+      "content_type_id": 42,
+      "name": "Can add Immobility Analyzer"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 180
+  },
+  {
+    "fields": {
+      "codename": "change_immobilityanalyzerconfig",
+      "content_type_id": 42,
+      "name": "Can change Immobility Analyzer"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 181
+  },
+  {
+    "fields": {
+      "codename": "delete_immobilityanalyzerconfig",
+      "content_type_id": 42,
+      "name": "Can delete Immobility Analyzer"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 182
+  },
+  {
+    "fields": {
+      "codename": "view_immobilityanalyzerconfig",
+      "content_type_id": 42,
+      "name": "Can view Immobility Analyzer"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 183
+  },
+  {
+    "fields": {
+      "codename": "add_geofenceanalyzerconfig",
+      "content_type_id": 43,
+      "name": "Can add Geofence Analyzer"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 184
+  },
+  {
+    "fields": {
+      "codename": "change_geofenceanalyzerconfig",
+      "content_type_id": 43,
+      "name": "Can change Geofence Analyzer"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 185
+  },
+  {
+    "fields": {
+      "codename": "delete_geofenceanalyzerconfig",
+      "content_type_id": 43,
+      "name": "Can delete Geofence Analyzer"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 186
+  },
+  {
+    "fields": {
+      "codename": "view_geofenceanalyzerconfig",
+      "content_type_id": 43,
+      "name": "Can view Geofence Analyzer"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 187
+  },
+  {
+    "fields": {
+      "codename": "add_featureproximityanalyzerconfig",
+      "content_type_id": 44,
+      "name": "Can add Feature Proximity Analyzer"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 188
+  },
+  {
+    "fields": {
+      "codename": "change_featureproximityanalyzerconfig",
+      "content_type_id": 44,
+      "name": "Can change Feature Proximity Analyzer"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 189
+  },
+  {
+    "fields": {
+      "codename": "delete_featureproximityanalyzerconfig",
+      "content_type_id": 44,
+      "name": "Can delete Feature Proximity Analyzer"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 190
+  },
+  {
+    "fields": {
+      "codename": "view_featureproximityanalyzerconfig",
+      "content_type_id": 44,
+      "name": "Can view Feature Proximity Analyzer"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 191
+  },
+  {
+    "fields": {
+      "codename": "add_subjectproximityanalyzerconfig",
+      "content_type_id": 45,
+      "name": "Can add Subject Proximity Analyzer"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 192
+  },
+  {
+    "fields": {
+      "codename": "change_subjectproximityanalyzerconfig",
+      "content_type_id": 45,
+      "name": "Can change Subject Proximity Analyzer"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 193
+  },
+  {
+    "fields": {
+      "codename": "delete_subjectproximityanalyzerconfig",
+      "content_type_id": 45,
+      "name": "Can delete Subject Proximity Analyzer"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 194
+  },
+  {
+    "fields": {
+      "codename": "view_subjectproximityanalyzerconfig",
+      "content_type_id": 45,
+      "name": "Can view Subject Proximity Analyzer"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 195
+  },
+  {
+    "fields": {
+      "codename": "add_environmentalsubjectanalyzerconfig",
+      "content_type_id": 46,
+      "name": "Can add Google Earth Engine Analyzer"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 196
+  },
+  {
+    "fields": {
+      "codename": "change_environmentalsubjectanalyzerconfig",
+      "content_type_id": 46,
+      "name": "Can change Google Earth Engine Analyzer"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 197
+  },
+  {
+    "fields": {
+      "codename": "delete_environmentalsubjectanalyzerconfig",
+      "content_type_id": 46,
+      "name": "Can delete Google Earth Engine Analyzer"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 198
+  },
+  {
+    "fields": {
+      "codename": "view_environmentalsubjectanalyzerconfig",
+      "content_type_id": 46,
+      "name": "Can view Google Earth Engine Analyzer"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 199
+  },
+  {
+    "fields": {
+      "codename": "add_lowspeedpercentileanalyzerconfig",
+      "content_type_id": 47,
+      "name": "Can add Low-Speed Analyzer (Percentile method)"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 200
+  },
+  {
+    "fields": {
+      "codename": "change_lowspeedpercentileanalyzerconfig",
+      "content_type_id": 47,
+      "name": "Can change Low-Speed Analyzer (Percentile method)"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 201
+  },
+  {
+    "fields": {
+      "codename": "delete_lowspeedpercentileanalyzerconfig",
+      "content_type_id": 47,
+      "name": "Can delete Low-Speed Analyzer (Percentile method)"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 202
+  },
+  {
+    "fields": {
+      "codename": "view_lowspeedpercentileanalyzerconfig",
+      "content_type_id": 47,
+      "name": "Can view Low-Speed Analyzer (Percentile method)"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 203
+  },
+  {
+    "fields": {
+      "codename": "add_lowspeedwilcoxanalyzerconfig",
+      "content_type_id": 48,
+      "name": "Can add Low-Speed Analyzer (Wilcox method)"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 204
+  },
+  {
+    "fields": {
+      "codename": "change_lowspeedwilcoxanalyzerconfig",
+      "content_type_id": 48,
+      "name": "Can change Low-Speed Analyzer (Wilcox method)"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 205
+  },
+  {
+    "fields": {
+      "codename": "delete_lowspeedwilcoxanalyzerconfig",
+      "content_type_id": 48,
+      "name": "Can delete Low-Speed Analyzer (Wilcox method)"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 206
+  },
+  {
+    "fields": {
+      "codename": "view_lowspeedwilcoxanalyzerconfig",
+      "content_type_id": 48,
+      "name": "Can view Low-Speed Analyzer (Wilcox method)"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 207
+  },
+  {
+    "fields": {
+      "codename": "add_subjectspeedprofile",
+      "content_type_id": 49,
+      "name": "Can add subject speed profile"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 208
+  },
+  {
+    "fields": {
+      "codename": "change_subjectspeedprofile",
+      "content_type_id": 49,
+      "name": "Can change subject speed profile"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 209
+  },
+  {
+    "fields": {
+      "codename": "delete_subjectspeedprofile",
+      "content_type_id": 49,
+      "name": "Can delete subject speed profile"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 210
+  },
+  {
+    "fields": {
+      "codename": "view_subjectspeedprofile",
+      "content_type_id": 49,
+      "name": "Can view subject speed profile"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 211
+  },
+  {
+    "fields": {
+      "codename": "add_speeddistro",
+      "content_type_id": 50,
+      "name": "Can add speed distro"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 212
+  },
+  {
+    "fields": {
+      "codename": "change_speeddistro",
+      "content_type_id": 50,
+      "name": "Can change speed distro"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 213
+  },
+  {
+    "fields": {
+      "codename": "delete_speeddistro",
+      "content_type_id": 50,
+      "name": "Can delete speed distro"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 214
+  },
+  {
+    "fields": {
+      "codename": "view_speeddistro",
+      "content_type_id": 50,
+      "name": "Can view speed distro"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 215
+  },
+  {
+    "fields": {
+      "codename": "add_globalforestwatchsubscription",
+      "content_type_id": 51,
+      "name": "Can add Global Forest Watch Subscription"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 216
+  },
+  {
+    "fields": {
+      "codename": "change_globalforestwatchsubscription",
+      "content_type_id": 51,
+      "name": "Can change Global Forest Watch Subscription"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 217
+  },
+  {
+    "fields": {
+      "codename": "delete_globalforestwatchsubscription",
+      "content_type_id": 51,
+      "name": "Can delete Global Forest Watch Subscription"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 218
+  },
+  {
+    "fields": {
+      "codename": "view_globalforestwatchsubscription",
+      "content_type_id": 51,
+      "name": "Can view Global Forest Watch Subscription"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 219
+  },
+  {
+    "fields": {
+      "codename": "add_sourceplugin",
+      "content_type_id": 52,
+      "name": "Can add source plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 220
+  },
+  {
+    "fields": {
+      "codename": "change_sourceplugin",
+      "content_type_id": 52,
+      "name": "Can change source plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 221
+  },
+  {
+    "fields": {
+      "codename": "delete_sourceplugin",
+      "content_type_id": 52,
+      "name": "Can delete source plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 222
+  },
+  {
+    "fields": {
+      "codename": "view_sourceplugin",
+      "content_type_id": 52,
+      "name": "Can view source plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 223
+  },
+  {
+    "fields": {
+      "codename": "add_savannahplugin",
+      "content_type_id": 53,
+      "name": "Can add savannah plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 224
+  },
+  {
+    "fields": {
+      "codename": "change_savannahplugin",
+      "content_type_id": 53,
+      "name": "Can change savannah plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 225
+  },
+  {
+    "fields": {
+      "codename": "delete_savannahplugin",
+      "content_type_id": 53,
+      "name": "Can delete savannah plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 226
+  },
+  {
+    "fields": {
+      "codename": "view_savannahplugin",
+      "content_type_id": 53,
+      "name": "Can view savannah plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 227
+  },
+  {
+    "fields": {
+      "codename": "add_demosourceplugin",
+      "content_type_id": 54,
+      "name": "Can add demo source plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 228
+  },
+  {
+    "fields": {
+      "codename": "change_demosourceplugin",
+      "content_type_id": 54,
+      "name": "Can change demo source plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 229
+  },
+  {
+    "fields": {
+      "codename": "delete_demosourceplugin",
+      "content_type_id": 54,
+      "name": "Can delete demo source plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 230
+  },
+  {
+    "fields": {
+      "codename": "view_demosourceplugin",
+      "content_type_id": 54,
+      "name": "Can view demo source plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 231
+  },
+  {
+    "fields": {
+      "codename": "add_inreachplugin",
+      "content_type_id": 55,
+      "name": "Can add inReach Professional plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 232
+  },
+  {
+    "fields": {
+      "codename": "change_inreachplugin",
+      "content_type_id": 55,
+      "name": "Can change inReach Professional plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 233
+  },
+  {
+    "fields": {
+      "codename": "delete_inreachplugin",
+      "content_type_id": 55,
+      "name": "Can delete inReach Professional plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 234
+  },
+  {
+    "fields": {
+      "codename": "view_inreachplugin",
+      "content_type_id": 55,
+      "name": "Can view inReach Professional plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 235
+  },
+  {
+    "fields": {
+      "codename": "add_awthttpplugin",
+      "content_type_id": 56,
+      "name": "Can add awt http plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 236
+  },
+  {
+    "fields": {
+      "codename": "change_awthttpplugin",
+      "content_type_id": 56,
+      "name": "Can change awt http plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 237
+  },
+  {
+    "fields": {
+      "codename": "delete_awthttpplugin",
+      "content_type_id": 56,
+      "name": "Can delete awt http plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 238
+  },
+  {
+    "fields": {
+      "codename": "view_awthttpplugin",
+      "content_type_id": 56,
+      "name": "Can view awt http plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 239
+  },
+  {
+    "fields": {
+      "codename": "add_inreachkmlplugin",
+      "content_type_id": 57,
+      "name": "Can add inReach Personal plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 240
+  },
+  {
+    "fields": {
+      "codename": "change_inreachkmlplugin",
+      "content_type_id": 57,
+      "name": "Can change inReach Personal plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 241
+  },
+  {
+    "fields": {
+      "codename": "delete_inreachkmlplugin",
+      "content_type_id": 57,
+      "name": "Can delete inReach Personal plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 242
+  },
+  {
+    "fields": {
+      "codename": "view_inreachkmlplugin",
+      "content_type_id": 57,
+      "name": "Can view inReach Personal plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 243
+  },
+  {
+    "fields": {
+      "codename": "add_skygisticssatelliteplugin",
+      "content_type_id": 58,
+      "name": "Can add skygistics satellite plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 244
+  },
+  {
+    "fields": {
+      "codename": "change_skygisticssatelliteplugin",
+      "content_type_id": 58,
+      "name": "Can change skygistics satellite plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 245
+  },
+  {
+    "fields": {
+      "codename": "delete_skygisticssatelliteplugin",
+      "content_type_id": 58,
+      "name": "Can delete skygistics satellite plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 246
+  },
+  {
+    "fields": {
+      "codename": "view_skygisticssatelliteplugin",
+      "content_type_id": 58,
+      "name": "Can view skygistics satellite plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 247
+  },
+  {
+    "fields": {
+      "codename": "add_firmsplugin",
+      "content_type_id": 59,
+      "name": "Can add firms plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 248
+  },
+  {
+    "fields": {
+      "codename": "change_firmsplugin",
+      "content_type_id": 59,
+      "name": "Can change firms plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 249
+  },
+  {
+    "fields": {
+      "codename": "delete_firmsplugin",
+      "content_type_id": 59,
+      "name": "Can delete firms plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 250
+  },
+  {
+    "fields": {
+      "codename": "view_firmsplugin",
+      "content_type_id": 59,
+      "name": "Can view firms plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 251
+  },
+  {
+    "fields": {
+      "codename": "add_awetelemetryplugin",
+      "content_type_id": 60,
+      "name": "Can add awe telemetry plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 252
+  },
+  {
+    "fields": {
+      "codename": "change_awetelemetryplugin",
+      "content_type_id": 60,
+      "name": "Can change awe telemetry plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 253
+  },
+  {
+    "fields": {
+      "codename": "delete_awetelemetryplugin",
+      "content_type_id": 60,
+      "name": "Can delete awe telemetry plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 254
+  },
+  {
+    "fields": {
+      "codename": "view_awetelemetryplugin",
+      "content_type_id": 60,
+      "name": "Can view awe telemetry plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 255
+  },
+  {
+    "fields": {
+      "codename": "add_spidertracksplugin",
+      "content_type_id": 61,
+      "name": "Can add spider tracks plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 256
+  },
+  {
+    "fields": {
+      "codename": "change_spidertracksplugin",
+      "content_type_id": 61,
+      "name": "Can change spider tracks plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 257
+  },
+  {
+    "fields": {
+      "codename": "delete_spidertracksplugin",
+      "content_type_id": 61,
+      "name": "Can delete spider tracks plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 258
+  },
+  {
+    "fields": {
+      "codename": "view_spidertracksplugin",
+      "content_type_id": 61,
+      "name": "Can view spider tracks plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 259
+  },
+  {
+    "fields": {
+      "codename": "add_sirtrackplugin",
+      "content_type_id": 62,
+      "name": "Can add sirtrack plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 260
+  },
+  {
+    "fields": {
+      "codename": "change_sirtrackplugin",
+      "content_type_id": 62,
+      "name": "Can change sirtrack plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 261
+  },
+  {
+    "fields": {
+      "codename": "delete_sirtrackplugin",
+      "content_type_id": 62,
+      "name": "Can delete sirtrack plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 262
+  },
+  {
+    "fields": {
+      "codename": "view_sirtrackplugin",
+      "content_type_id": 62,
+      "name": "Can view sirtrack plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 263
+  },
+  {
+    "fields": {
+      "codename": "add_vectronicsplugin",
+      "content_type_id": 63,
+      "name": "Can add vectronics plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 264
+  },
+  {
+    "fields": {
+      "codename": "change_vectronicsplugin",
+      "content_type_id": 63,
+      "name": "Can change vectronics plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 265
+  },
+  {
+    "fields": {
+      "codename": "delete_vectronicsplugin",
+      "content_type_id": 63,
+      "name": "Can delete vectronics plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 266
+  },
+  {
+    "fields": {
+      "codename": "view_vectronicsplugin",
+      "content_type_id": 63,
+      "name": "Can view vectronics plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 267
+  },
+  {
+    "fields": {
+      "codename": "add_awtplugin",
+      "content_type_id": 64,
+      "name": "Can add awt plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 268
+  },
+  {
+    "fields": {
+      "codename": "change_awtplugin",
+      "content_type_id": 64,
+      "name": "Can change awt plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 269
+  },
+  {
+    "fields": {
+      "codename": "delete_awtplugin",
+      "content_type_id": 64,
+      "name": "Can delete awt plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 270
+  },
+  {
+    "fields": {
+      "codename": "view_awtplugin",
+      "content_type_id": 64,
+      "name": "Can view awt plugin"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 271
+  },
+  {
+    "fields": {
+      "codename": "add_sourceproviderconfiguration",
+      "content_type_id": 65,
+      "name": "Can add EarthRanger Track Configuration"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 272
+  },
+  {
+    "fields": {
+      "codename": "change_sourceproviderconfiguration",
+      "content_type_id": 65,
+      "name": "Can change EarthRanger Track Configuration"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 273
+  },
+  {
+    "fields": {
+      "codename": "delete_sourceproviderconfiguration",
+      "content_type_id": 65,
+      "name": "Can delete EarthRanger Track Configuration"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 274
+  },
+  {
+    "fields": {
+      "codename": "view_sourceproviderconfiguration",
+      "content_type_id": 65,
+      "name": "Can view EarthRanger Track Configuration"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 275
+  },
+  {
+    "fields": {
+      "codename": "add_map",
+      "content_type_id": 66,
+      "name": "Can add Map Quicklink"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 276
+  },
+  {
+    "fields": {
+      "codename": "change_map",
+      "content_type_id": 66,
+      "name": "Can change Map Quicklink"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 277
+  },
+  {
+    "fields": {
+      "codename": "delete_map",
+      "content_type_id": 66,
+      "name": "Can delete Map Quicklink"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 278
+  },
+  {
+    "fields": {
+      "codename": "view_map",
+      "content_type_id": 66,
+      "name": "Can view Map Quicklink"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 279
+  },
+  {
+    "fields": {
+      "codename": "add_tilelayer",
+      "content_type_id": 67,
+      "name": "Can add Basemap"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 280
+  },
+  {
+    "fields": {
+      "codename": "change_tilelayer",
+      "content_type_id": 67,
+      "name": "Can change Basemap"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 281
+  },
+  {
+    "fields": {
+      "codename": "delete_tilelayer",
+      "content_type_id": 67,
+      "name": "Can delete Basemap"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 282
+  },
+  {
+    "fields": {
+      "codename": "view_tilelayer",
+      "content_type_id": 67,
+      "name": "Can view Basemap"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 283
+  },
+  {
+    "fields": {
+      "codename": "add_featuretype",
+      "content_type_id": 68,
+      "name": "Can add feature type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 284
+  },
+  {
+    "fields": {
+      "codename": "change_featuretype",
+      "content_type_id": 68,
+      "name": "Can change feature type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 285
+  },
+  {
+    "fields": {
+      "codename": "delete_featuretype",
+      "content_type_id": 68,
+      "name": "Can delete feature type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 286
+  },
+  {
+    "fields": {
+      "codename": "view_featuretype",
+      "content_type_id": 68,
+      "name": "Can view feature type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 287
+  },
+  {
+    "fields": {
+      "codename": "add_featureset",
+      "content_type_id": 69,
+      "name": "Can add feature set"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 288
+  },
+  {
+    "fields": {
+      "codename": "change_featureset",
+      "content_type_id": 69,
+      "name": "Can change feature set"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 289
+  },
+  {
+    "fields": {
+      "codename": "delete_featureset",
+      "content_type_id": 69,
+      "name": "Can delete feature set"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 290
+  },
+  {
+    "fields": {
+      "codename": "view_featureset",
+      "content_type_id": 69,
+      "name": "Can view feature set"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 291
+  },
+  {
+    "fields": {
+      "codename": "add_featuresetfeaturetype",
+      "content_type_id": 70,
+      "name": "Can add feature set feature type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 292
+  },
+  {
+    "fields": {
+      "codename": "change_featuresetfeaturetype",
+      "content_type_id": 70,
+      "name": "Can change feature set feature type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 293
+  },
+  {
+    "fields": {
+      "codename": "delete_featuresetfeaturetype",
+      "content_type_id": 70,
+      "name": "Can delete feature set feature type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 294
+  },
+  {
+    "fields": {
+      "codename": "view_featuresetfeaturetype",
+      "content_type_id": 70,
+      "name": "Can view feature set feature type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 295
+  },
+  {
+    "fields": {
+      "codename": "add_spatialfile",
+      "content_type_id": 71,
+      "name": "Can add Spatial File"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 296
+  },
+  {
+    "fields": {
+      "codename": "change_spatialfile",
+      "content_type_id": 71,
+      "name": "Can change Spatial File"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 297
+  },
+  {
+    "fields": {
+      "codename": "delete_spatialfile",
+      "content_type_id": 71,
+      "name": "Can delete Spatial File"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 298
+  },
+  {
+    "fields": {
+      "codename": "view_spatialfile",
+      "content_type_id": 71,
+      "name": "Can view Spatial File"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 299
+  },
+  {
+    "fields": {
+      "codename": "add_polygonfeature",
+      "content_type_id": 72,
+      "name": "Can add polygon feature"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 300
+  },
+  {
+    "fields": {
+      "codename": "change_polygonfeature",
+      "content_type_id": 72,
+      "name": "Can change polygon feature"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 301
+  },
+  {
+    "fields": {
+      "codename": "delete_polygonfeature",
+      "content_type_id": 72,
+      "name": "Can delete polygon feature"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 302
+  },
+  {
+    "fields": {
+      "codename": "view_polygonfeature",
+      "content_type_id": 72,
+      "name": "Can view polygon feature"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 303
+  },
+  {
+    "fields": {
+      "codename": "add_linefeature",
+      "content_type_id": 73,
+      "name": "Can add line feature"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 304
+  },
+  {
+    "fields": {
+      "codename": "change_linefeature",
+      "content_type_id": 73,
+      "name": "Can change line feature"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 305
+  },
+  {
+    "fields": {
+      "codename": "delete_linefeature",
+      "content_type_id": 73,
+      "name": "Can delete line feature"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 306
+  },
+  {
+    "fields": {
+      "codename": "view_linefeature",
+      "content_type_id": 73,
+      "name": "Can view line feature"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 307
+  },
+  {
+    "fields": {
+      "codename": "add_pointfeature",
+      "content_type_id": 74,
+      "name": "Can add point feature"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 308
+  },
+  {
+    "fields": {
+      "codename": "change_pointfeature",
+      "content_type_id": 74,
+      "name": "Can change point feature"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 309
+  },
+  {
+    "fields": {
+      "codename": "delete_pointfeature",
+      "content_type_id": 74,
+      "name": "Can delete point feature"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 310
+  },
+  {
+    "fields": {
+      "codename": "view_pointfeature",
+      "content_type_id": 74,
+      "name": "Can view point feature"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 311
+  },
+  {
+    "fields": {
+      "codename": "add_spatialfeaturegroup",
+      "content_type_id": 75,
+      "name": "Can add Base Feature Group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 312
+  },
+  {
+    "fields": {
+      "codename": "change_spatialfeaturegroup",
+      "content_type_id": 75,
+      "name": "Can change Base Feature Group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 313
+  },
+  {
+    "fields": {
+      "codename": "delete_spatialfeaturegroup",
+      "content_type_id": 75,
+      "name": "Can delete Base Feature Group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 314
+  },
+  {
+    "fields": {
+      "codename": "view_spatialfeaturegroup",
+      "content_type_id": 75,
+      "name": "Can view Base Feature Group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 315
+  },
+  {
+    "fields": {
+      "codename": "add_spatialfeaturegroupquery",
+      "content_type_id": 76,
+      "name": "Can add Calculated Feature Group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 316
+  },
+  {
+    "fields": {
+      "codename": "change_spatialfeaturegroupquery",
+      "content_type_id": 76,
+      "name": "Can change Calculated Feature Group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 317
+  },
+  {
+    "fields": {
+      "codename": "delete_spatialfeaturegroupquery",
+      "content_type_id": 76,
+      "name": "Can delete Calculated Feature Group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 318
+  },
+  {
+    "fields": {
+      "codename": "view_spatialfeaturegroupquery",
+      "content_type_id": 76,
+      "name": "Can view Calculated Feature Group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 319
+  },
+  {
+    "fields": {
+      "codename": "add_spatialfeaturegroupstatic",
+      "content_type_id": 77,
+      "name": "Can add Feature Group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 320
+  },
+  {
+    "fields": {
+      "codename": "change_spatialfeaturegroupstatic",
+      "content_type_id": 77,
+      "name": "Can change Feature Group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 321
+  },
+  {
+    "fields": {
+      "codename": "delete_spatialfeaturegroupstatic",
+      "content_type_id": 77,
+      "name": "Can delete Feature Group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 322
+  },
+  {
+    "fields": {
+      "codename": "view_spatialfeaturegroupstatic",
+      "content_type_id": 77,
+      "name": "Can view Feature Group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 323
+  },
+  {
+    "fields": {
+      "codename": "add_displaycategory",
+      "content_type_id": 78,
+      "name": "Can add Display Category"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 324
+  },
+  {
+    "fields": {
+      "codename": "change_displaycategory",
+      "content_type_id": 78,
+      "name": "Can change Display Category"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 325
+  },
+  {
+    "fields": {
+      "codename": "delete_displaycategory",
+      "content_type_id": 78,
+      "name": "Can delete Display Category"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 326
+  },
+  {
+    "fields": {
+      "codename": "view_displaycategory",
+      "content_type_id": 78,
+      "name": "Can view Display Category"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 327
+  },
+  {
+    "fields": {
+      "codename": "add_spatialfeaturetypetag",
+      "content_type_id": 79,
+      "name": "Can add spatial feature type tag"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 328
+  },
+  {
+    "fields": {
+      "codename": "change_spatialfeaturetypetag",
+      "content_type_id": 79,
+      "name": "Can change spatial feature type tag"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 329
+  },
+  {
+    "fields": {
+      "codename": "delete_spatialfeaturetypetag",
+      "content_type_id": 79,
+      "name": "Can delete spatial feature type tag"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 330
+  },
+  {
+    "fields": {
+      "codename": "view_spatialfeaturetypetag",
+      "content_type_id": 79,
+      "name": "Can view spatial feature type tag"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 331
+  },
+  {
+    "fields": {
+      "codename": "add_spatialfeaturetype",
+      "content_type_id": 80,
+      "name": "Can add Feature Class"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 332
+  },
+  {
+    "fields": {
+      "codename": "change_spatialfeaturetype",
+      "content_type_id": 80,
+      "name": "Can change Feature Class"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 333
+  },
+  {
+    "fields": {
+      "codename": "delete_spatialfeaturetype",
+      "content_type_id": 80,
+      "name": "Can delete Feature Class"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 334
+  },
+  {
+    "fields": {
+      "codename": "view_spatialfeaturetype",
+      "content_type_id": 80,
+      "name": "Can view Feature Class"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 335
+  },
+  {
+    "fields": {
+      "codename": "add_spatialfeaturefile",
+      "content_type_id": 81,
+      "name": "Can add Feature Import File"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 336
+  },
+  {
+    "fields": {
+      "codename": "change_spatialfeaturefile",
+      "content_type_id": 81,
+      "name": "Can change Feature Import File"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 337
+  },
+  {
+    "fields": {
+      "codename": "delete_spatialfeaturefile",
+      "content_type_id": 81,
+      "name": "Can delete Feature Import File"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 338
+  },
+  {
+    "fields": {
+      "codename": "view_spatialfeaturefile",
+      "content_type_id": 81,
+      "name": "Can view Feature Import File"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 339
+  },
+  {
+    "fields": {
+      "codename": "add_spatialfeature",
+      "content_type_id": 83,
+      "name": "Can add Feature"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 340
+  },
+  {
+    "fields": {
+      "codename": "change_spatialfeature",
+      "content_type_id": 83,
+      "name": "Can change Feature"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 341
+  },
+  {
+    "fields": {
+      "codename": "delete_spatialfeature",
+      "content_type_id": 83,
+      "name": "Can delete Feature"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 342
+  },
+  {
+    "fields": {
+      "codename": "view_spatialfeature",
+      "content_type_id": 83,
+      "name": "Can view Feature"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 343
+  },
+  {
+    "fields": {
+      "codename": "add_arcgisgroup",
+      "content_type_id": 84,
+      "name": "Can add arcgis group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 344
+  },
+  {
+    "fields": {
+      "codename": "change_arcgisgroup",
+      "content_type_id": 84,
+      "name": "Can change arcgis group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 345
+  },
+  {
+    "fields": {
+      "codename": "delete_arcgisgroup",
+      "content_type_id": 84,
+      "name": "Can delete arcgis group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 346
+  },
+  {
+    "fields": {
+      "codename": "view_arcgisgroup",
+      "content_type_id": 84,
+      "name": "Can view arcgis group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 347
+  },
+  {
+    "fields": {
+      "codename": "add_arcgisconfiguration",
+      "content_type_id": 85,
+      "name": "Can add Feature Service Configuration"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 348
+  },
+  {
+    "fields": {
+      "codename": "change_arcgisconfiguration",
+      "content_type_id": 85,
+      "name": "Can change Feature Service Configuration"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 349
+  },
+  {
+    "fields": {
+      "codename": "delete_arcgisconfiguration",
+      "content_type_id": 85,
+      "name": "Can delete Feature Service Configuration"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 350
+  },
+  {
+    "fields": {
+      "codename": "view_arcgisconfiguration",
+      "content_type_id": 85,
+      "name": "Can view Feature Service Configuration"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 351
+  },
+  {
+    "fields": {
+      "codename": "add_arcgisitem",
+      "content_type_id": 86,
+      "name": "Can add arcgis item"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 352
+  },
+  {
+    "fields": {
+      "codename": "change_arcgisitem",
+      "content_type_id": 86,
+      "name": "Can change arcgis item"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 353
+  },
+  {
+    "fields": {
+      "codename": "delete_arcgisitem",
+      "content_type_id": 86,
+      "name": "Can delete arcgis item"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 354
+  },
+  {
+    "fields": {
+      "codename": "view_arcgisitem",
+      "content_type_id": 86,
+      "name": "Can view arcgis item"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 355
+  },
+  {
+    "fields": {
+      "codename": "add_community",
+      "content_type_id": 87,
+      "name": "Can add Event Reporters"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 356
+  },
+  {
+    "fields": {
+      "codename": "change_community",
+      "content_type_id": 87,
+      "name": "Can change Event Reporters"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 357
+  },
+  {
+    "fields": {
+      "codename": "delete_community",
+      "content_type_id": 87,
+      "name": "Can delete Event Reporters"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 358
+  },
+  {
+    "fields": {
+      "codename": "view_community",
+      "content_type_id": 87,
+      "name": "Can view Event Reporters"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 359
+  },
+  {
+    "fields": {
+      "codename": "add_eventclass",
+      "content_type_id": 88,
+      "name": "Can add event class"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 360
+  },
+  {
+    "fields": {
+      "codename": "change_eventclass",
+      "content_type_id": 88,
+      "name": "Can change event class"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 361
+  },
+  {
+    "fields": {
+      "codename": "delete_eventclass",
+      "content_type_id": 88,
+      "name": "Can delete event class"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 362
+  },
+  {
+    "fields": {
+      "codename": "view_eventclass",
+      "content_type_id": 88,
+      "name": "Can view event class"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 363
+  },
+  {
+    "fields": {
+      "codename": "add_eventfactor",
+      "content_type_id": 89,
+      "name": "Can add event factor"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 364
+  },
+  {
+    "fields": {
+      "codename": "change_eventfactor",
+      "content_type_id": 89,
+      "name": "Can change event factor"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 365
+  },
+  {
+    "fields": {
+      "codename": "delete_eventfactor",
+      "content_type_id": 89,
+      "name": "Can delete event factor"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 366
+  },
+  {
+    "fields": {
+      "codename": "view_eventfactor",
+      "content_type_id": 89,
+      "name": "Can view event factor"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 367
+  },
+  {
+    "fields": {
+      "codename": "add_eventcategory",
+      "content_type_id": 90,
+      "name": "Can add Event Category"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 368
+  },
+  {
+    "fields": {
+      "codename": "change_eventcategory",
+      "content_type_id": 90,
+      "name": "Can change Event Category"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 369
+  },
+  {
+    "fields": {
+      "codename": "delete_eventcategory",
+      "content_type_id": 90,
+      "name": "Can delete Event Category"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 370
+  },
+  {
+    "fields": {
+      "codename": "view_eventcategory",
+      "content_type_id": 90,
+      "name": "Can view Event Category"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 371
+  },
+  {
+    "fields": {
+      "codename": "add_eventtype",
+      "content_type_id": 91,
+      "name": "Can add event type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 372
+  },
+  {
+    "fields": {
+      "codename": "change_eventtype",
+      "content_type_id": 91,
+      "name": "Can change event type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 373
+  },
+  {
+    "fields": {
+      "codename": "delete_eventtype",
+      "content_type_id": 91,
+      "name": "Can delete event type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 374
+  },
+  {
+    "fields": {
+      "codename": "view_eventtype",
+      "content_type_id": 91,
+      "name": "Can view event type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 375
+  },
+  {
+    "fields": {
+      "codename": "add_refreshrecreateeventdetailview",
+      "content_type_id": 92,
+      "name": "Can add refresh recreate event detail view"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 376
+  },
+  {
+    "fields": {
+      "codename": "change_refreshrecreateeventdetailview",
+      "content_type_id": 92,
+      "name": "Can change refresh recreate event detail view"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 377
+  },
+  {
+    "fields": {
+      "codename": "delete_refreshrecreateeventdetailview",
+      "content_type_id": 92,
+      "name": "Can delete refresh recreate event detail view"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 378
+  },
+  {
+    "fields": {
+      "codename": "view_refreshrecreateeventdetailview",
+      "content_type_id": 92,
+      "name": "Can view refresh recreate event detail view"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 379
+  },
+  {
+    "fields": {
+      "codename": "add_eventrelationshiptype",
+      "content_type_id": 93,
+      "name": "Can add event relationship type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 380
+  },
+  {
+    "fields": {
+      "codename": "change_eventrelationshiptype",
+      "content_type_id": 93,
+      "name": "Can change event relationship type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 381
+  },
+  {
+    "fields": {
+      "codename": "delete_eventrelationshiptype",
+      "content_type_id": 93,
+      "name": "Can delete event relationship type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 382
+  },
+  {
+    "fields": {
+      "codename": "view_eventrelationshiptype",
+      "content_type_id": 93,
+      "name": "Can view event relationship type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 383
+  },
+  {
+    "fields": {
+      "codename": "add_eventfile",
+      "content_type_id": 95,
+      "name": "Can add event file"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 384
+  },
+  {
+    "fields": {
+      "codename": "change_eventfile",
+      "content_type_id": 95,
+      "name": "Can change event file"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 385
+  },
+  {
+    "fields": {
+      "codename": "delete_eventfile",
+      "content_type_id": 95,
+      "name": "Can delete event file"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 386
+  },
+  {
+    "fields": {
+      "codename": "view_eventfile",
+      "content_type_id": 95,
+      "name": "Can view event file"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 387
+  },
+  {
+    "fields": {
+      "codename": "add_eventrelationship",
+      "content_type_id": 96,
+      "name": "Can add event relationship"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 388
+  },
+  {
+    "fields": {
+      "codename": "change_eventrelationship",
+      "content_type_id": 96,
+      "name": "Can change event relationship"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 389
+  },
+  {
+    "fields": {
+      "codename": "delete_eventrelationship",
+      "content_type_id": 96,
+      "name": "Can delete event relationship"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 390
+  },
+  {
+    "fields": {
+      "codename": "view_eventrelationship",
+      "content_type_id": 96,
+      "name": "Can view event relationship"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 391
+  },
+  {
+    "fields": {
+      "codename": "delete_event",
+      "content_type_id": 98,
+      "name": "Can delete event"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 394
+  },
+  {
+    "fields": {
+      "codename": "add_eventrelatedsegments",
+      "content_type_id": 99,
+      "name": "Can add event related segments"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 432
+  },
+  {
+    "fields": {
+      "codename": "change_eventrelatedsegments",
+      "content_type_id": 99,
+      "name": "Can change event related segments"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 433
+  },
+  {
+    "fields": {
+      "codename": "delete_eventrelatedsegments",
+      "content_type_id": 99,
+      "name": "Can delete event related segments"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 434
+  },
+  {
+    "fields": {
+      "codename": "view_eventrelatedsegments",
+      "content_type_id": 99,
+      "name": "Can view event related segments"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 435
+  },
+  {
+    "fields": {
+      "codename": "add_eventrelatedsubject",
+      "content_type_id": 100,
+      "name": "Can add event related subject"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 436
+  },
+  {
+    "fields": {
+      "codename": "change_eventrelatedsubject",
+      "content_type_id": 100,
+      "name": "Can change event related subject"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 437
+  },
+  {
+    "fields": {
+      "codename": "delete_eventrelatedsubject",
+      "content_type_id": 100,
+      "name": "Can delete event related subject"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 438
+  },
+  {
+    "fields": {
+      "codename": "view_eventrelatedsubject",
+      "content_type_id": 100,
+      "name": "Can view event related subject"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 439
+  },
+  {
+    "fields": {
+      "codename": "add_eventattachment",
+      "content_type_id": 102,
+      "name": "Can add event attachment"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 440
+  },
+  {
+    "fields": {
+      "codename": "change_eventattachment",
+      "content_type_id": 102,
+      "name": "Can change event attachment"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 441
+  },
+  {
+    "fields": {
+      "codename": "delete_eventattachment",
+      "content_type_id": 102,
+      "name": "Can delete event attachment"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 442
+  },
+  {
+    "fields": {
+      "codename": "view_eventattachment",
+      "content_type_id": 102,
+      "name": "Can view event attachment"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 443
+  },
+  {
+    "fields": {
+      "codename": "add_eventnote",
+      "content_type_id": 104,
+      "name": "Can add event note"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 444
+  },
+  {
+    "fields": {
+      "codename": "change_eventnote",
+      "content_type_id": 104,
+      "name": "Can change event note"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 445
+  },
+  {
+    "fields": {
+      "codename": "delete_eventnote",
+      "content_type_id": 104,
+      "name": "Can delete event note"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 446
+  },
+  {
+    "fields": {
+      "codename": "view_eventnote",
+      "content_type_id": 104,
+      "name": "Can view event note"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 447
+  },
+  {
+    "fields": {
+      "codename": "add_eventdetails",
+      "content_type_id": 106,
+      "name": "Can add event details"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 448
+  },
+  {
+    "fields": {
+      "codename": "change_eventdetails",
+      "content_type_id": 106,
+      "name": "Can change event details"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 449
+  },
+  {
+    "fields": {
+      "codename": "delete_eventdetails",
+      "content_type_id": 106,
+      "name": "Can delete event details"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 450
+  },
+  {
+    "fields": {
+      "codename": "view_eventdetails",
+      "content_type_id": 106,
+      "name": "Can view event details"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 451
+  },
+  {
+    "fields": {
+      "codename": "add_eventphoto",
+      "content_type_id": 108,
+      "name": "Can add event photo"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 452
+  },
+  {
+    "fields": {
+      "codename": "change_eventphoto",
+      "content_type_id": 108,
+      "name": "Can change event photo"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 453
+  },
+  {
+    "fields": {
+      "codename": "delete_eventphoto",
+      "content_type_id": 108,
+      "name": "Can delete event photo"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 454
+  },
+  {
+    "fields": {
+      "codename": "view_eventphoto",
+      "content_type_id": 108,
+      "name": "Can view event photo"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 455
+  },
+  {
+    "fields": {
+      "codename": "add_eventclassfactor",
+      "content_type_id": 109,
+      "name": "Can add event class factor"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 456
+  },
+  {
+    "fields": {
+      "codename": "change_eventclassfactor",
+      "content_type_id": 109,
+      "name": "Can change event class factor"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 457
+  },
+  {
+    "fields": {
+      "codename": "delete_eventclassfactor",
+      "content_type_id": 109,
+      "name": "Can delete event class factor"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 458
+  },
+  {
+    "fields": {
+      "codename": "view_eventclassfactor",
+      "content_type_id": 109,
+      "name": "Can view event class factor"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 459
+  },
+  {
+    "fields": {
+      "codename": "add_eventfilter",
+      "content_type_id": 110,
+      "name": "Can add event filter"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 460
+  },
+  {
+    "fields": {
+      "codename": "change_eventfilter",
+      "content_type_id": 110,
+      "name": "Can change event filter"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 461
+  },
+  {
+    "fields": {
+      "codename": "delete_eventfilter",
+      "content_type_id": 110,
+      "name": "Can delete event filter"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 462
+  },
+  {
+    "fields": {
+      "codename": "view_eventfilter",
+      "content_type_id": 110,
+      "name": "Can view event filter"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 463
+  },
+  {
+    "fields": {
+      "codename": "add_eventprovider",
+      "content_type_id": 111,
+      "name": "Can add event provider"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 464
+  },
+  {
+    "fields": {
+      "codename": "change_eventprovider",
+      "content_type_id": 111,
+      "name": "Can change event provider"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 465
+  },
+  {
+    "fields": {
+      "codename": "delete_eventprovider",
+      "content_type_id": 111,
+      "name": "Can delete event provider"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 466
+  },
+  {
+    "fields": {
+      "codename": "view_eventprovider",
+      "content_type_id": 111,
+      "name": "Can view event provider"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 467
+  },
+  {
+    "fields": {
+      "codename": "add_eventsource",
+      "content_type_id": 112,
+      "name": "Can add event source"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 468
+  },
+  {
+    "fields": {
+      "codename": "change_eventsource",
+      "content_type_id": 112,
+      "name": "Can change event source"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 469
+  },
+  {
+    "fields": {
+      "codename": "delete_eventsource",
+      "content_type_id": 112,
+      "name": "Can delete event source"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 470
+  },
+  {
+    "fields": {
+      "codename": "view_eventsource",
+      "content_type_id": 112,
+      "name": "Can view event source"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 471
+  },
+  {
+    "fields": {
+      "codename": "create_event_for_eventsource",
+      "content_type_id": 112,
+      "name": "Permission to add an event for an event source"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 472
+  },
+  {
+    "fields": {
+      "codename": "add_eventsourceevent",
+      "content_type_id": 113,
+      "name": "Can add eventsource event"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 473
+  },
+  {
+    "fields": {
+      "codename": "change_eventsourceevent",
+      "content_type_id": 113,
+      "name": "Can change eventsource event"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 474
+  },
+  {
+    "fields": {
+      "codename": "delete_eventsourceevent",
+      "content_type_id": 113,
+      "name": "Can delete eventsource event"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 475
+  },
+  {
+    "fields": {
+      "codename": "view_eventsourceevent",
+      "content_type_id": 113,
+      "name": "Can view eventsource event"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 476
+  },
+  {
+    "fields": {
+      "codename": "add_notificationmethod",
+      "content_type_id": 114,
+      "name": "Can add notification method"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 477
+  },
+  {
+    "fields": {
+      "codename": "change_notificationmethod",
+      "content_type_id": 114,
+      "name": "Can change notification method"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 478
+  },
+  {
+    "fields": {
+      "codename": "delete_notificationmethod",
+      "content_type_id": 114,
+      "name": "Can delete notification method"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 479
+  },
+  {
+    "fields": {
+      "codename": "view_notificationmethod",
+      "content_type_id": 114,
+      "name": "Can view notification method"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 480
+  },
+  {
+    "fields": {
+      "codename": "add_alertrule",
+      "content_type_id": 115,
+      "name": "Can add alert rule"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 481
+  },
+  {
+    "fields": {
+      "codename": "change_alertrule",
+      "content_type_id": 115,
+      "name": "Can change alert rule"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 482
+  },
+  {
+    "fields": {
+      "codename": "delete_alertrule",
+      "content_type_id": 115,
+      "name": "Can delete alert rule"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 483
+  },
+  {
+    "fields": {
+      "codename": "view_alertrule",
+      "content_type_id": 115,
+      "name": "Can view alert rule"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 484
+  },
+  {
+    "fields": {
+      "codename": "add_eventnotification",
+      "content_type_id": 116,
+      "name": "Can add event notification"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 485
+  },
+  {
+    "fields": {
+      "codename": "change_eventnotification",
+      "content_type_id": 116,
+      "name": "Can change event notification"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 486
+  },
+  {
+    "fields": {
+      "codename": "delete_eventnotification",
+      "content_type_id": 116,
+      "name": "Can delete event notification"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 487
+  },
+  {
+    "fields": {
+      "codename": "view_eventnotification",
+      "content_type_id": 116,
+      "name": "Can view event notification"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 488
+  },
+  {
+    "fields": {
+      "codename": "add_tsvectormodel",
+      "content_type_id": 117,
+      "name": "Can add ts vector model"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 489
+  },
+  {
+    "fields": {
+      "codename": "change_tsvectormodel",
+      "content_type_id": 117,
+      "name": "Can change ts vector model"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 490
+  },
+  {
+    "fields": {
+      "codename": "delete_tsvectormodel",
+      "content_type_id": 117,
+      "name": "Can delete ts vector model"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 491
+  },
+  {
+    "fields": {
+      "codename": "view_tsvectormodel",
+      "content_type_id": 117,
+      "name": "Can view ts vector model"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 492
+  },
+  {
+    "fields": {
+      "codename": "add_person",
+      "content_type_id": 118,
+      "name": "Can add Person"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 493
+  },
+  {
+    "fields": {
+      "codename": "change_person",
+      "content_type_id": 118,
+      "name": "Can change Person"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 494
+  },
+  {
+    "fields": {
+      "codename": "delete_person",
+      "content_type_id": 118,
+      "name": "Can delete Person"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 495
+  },
+  {
+    "fields": {
+      "codename": "view_person",
+      "content_type_id": 118,
+      "name": "Can view Person"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 496
+  },
+  {
+    "fields": {
+      "codename": "add_membershiptype",
+      "content_type_id": 119,
+      "name": "Can add membership type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 497
+  },
+  {
+    "fields": {
+      "codename": "change_membershiptype",
+      "content_type_id": 119,
+      "name": "Can change membership type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 498
+  },
+  {
+    "fields": {
+      "codename": "delete_membershiptype",
+      "content_type_id": 119,
+      "name": "Can delete membership type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 499
+  },
+  {
+    "fields": {
+      "codename": "view_membershiptype",
+      "content_type_id": 119,
+      "name": "Can view membership type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 500
+  },
+  {
+    "fields": {
+      "codename": "add_team",
+      "content_type_id": 120,
+      "name": "Can add team"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 501
+  },
+  {
+    "fields": {
+      "codename": "change_team",
+      "content_type_id": 120,
+      "name": "Can change team"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 502
+  },
+  {
+    "fields": {
+      "codename": "delete_team",
+      "content_type_id": 120,
+      "name": "Can delete team"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 503
+  },
+  {
+    "fields": {
+      "codename": "view_team",
+      "content_type_id": 120,
+      "name": "Can view team"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 504
+  },
+  {
+    "fields": {
+      "codename": "add_teammembership",
+      "content_type_id": 121,
+      "name": "Can add team membership"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 505
+  },
+  {
+    "fields": {
+      "codename": "change_teammembership",
+      "content_type_id": 121,
+      "name": "Can change team membership"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 506
+  },
+  {
+    "fields": {
+      "codename": "delete_teammembership",
+      "content_type_id": 121,
+      "name": "Can delete team membership"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 507
+  },
+  {
+    "fields": {
+      "codename": "view_teammembership",
+      "content_type_id": 121,
+      "name": "Can view team membership"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 508
+  },
+  {
+    "fields": {
+      "codename": "add_patrol",
+      "content_type_id": 123,
+      "name": "Can add patrol"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 509
+  },
+  {
+    "fields": {
+      "codename": "change_patrol",
+      "content_type_id": 123,
+      "name": "Can change patrol"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 510
+  },
+  {
+    "fields": {
+      "codename": "delete_patrol",
+      "content_type_id": 123,
+      "name": "Can delete patrol"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 511
+  },
+  {
+    "fields": {
+      "codename": "view_patrol",
+      "content_type_id": 123,
+      "name": "Can view patrol"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 512
+  },
+  {
+    "fields": {
+      "codename": "add_patrolnote",
+      "content_type_id": 125,
+      "name": "Can add patrol note"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 513
+  },
+  {
+    "fields": {
+      "codename": "change_patrolnote",
+      "content_type_id": 125,
+      "name": "Can change patrol note"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 514
+  },
+  {
+    "fields": {
+      "codename": "delete_patrolnote",
+      "content_type_id": 125,
+      "name": "Can delete patrol note"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 515
+  },
+  {
+    "fields": {
+      "codename": "view_patrolnote",
+      "content_type_id": 125,
+      "name": "Can view patrol note"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 516
+  },
+  {
+    "fields": {
+      "codename": "add_patrolfile",
+      "content_type_id": 127,
+      "name": "Can add patrol file"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 517
+  },
+  {
+    "fields": {
+      "codename": "change_patrolfile",
+      "content_type_id": 127,
+      "name": "Can change patrol file"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 518
+  },
+  {
+    "fields": {
+      "codename": "delete_patrolfile",
+      "content_type_id": 127,
+      "name": "Can delete patrol file"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 519
+  },
+  {
+    "fields": {
+      "codename": "view_patrolfile",
+      "content_type_id": 127,
+      "name": "Can view patrol file"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 520
+  },
+  {
+    "fields": {
+      "codename": "add_patroltype",
+      "content_type_id": 128,
+      "name": "Can add patrol type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 521
+  },
+  {
+    "fields": {
+      "codename": "change_patroltype",
+      "content_type_id": 128,
+      "name": "Can change patrol type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 522
+  },
+  {
+    "fields": {
+      "codename": "delete_patroltype",
+      "content_type_id": 128,
+      "name": "Can delete patrol type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 523
+  },
+  {
+    "fields": {
+      "codename": "view_patroltype",
+      "content_type_id": 128,
+      "name": "Can view patrol type"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 524
+  },
+  {
+    "fields": {
+      "codename": "add_patrolsegmentmembership",
+      "content_type_id": 129,
+      "name": "Can add patrol segment membership"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 525
+  },
+  {
+    "fields": {
+      "codename": "change_patrolsegmentmembership",
+      "content_type_id": 129,
+      "name": "Can change patrol segment membership"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 526
+  },
+  {
+    "fields": {
+      "codename": "delete_patrolsegmentmembership",
+      "content_type_id": 129,
+      "name": "Can delete patrol segment membership"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 527
+  },
+  {
+    "fields": {
+      "codename": "view_patrolsegmentmembership",
+      "content_type_id": 129,
+      "name": "Can view patrol segment membership"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 528
+  },
+  {
+    "fields": {
+      "codename": "add_patrolsegment",
+      "content_type_id": 131,
+      "name": "Can add patrol segment"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 529
+  },
+  {
+    "fields": {
+      "codename": "change_patrolsegment",
+      "content_type_id": 131,
+      "name": "Can change patrol segment"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 530
+  },
+  {
+    "fields": {
+      "codename": "delete_patrolsegment",
+      "content_type_id": 131,
+      "name": "Can delete patrol segment"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 531
+  },
+  {
+    "fields": {
+      "codename": "view_patrolsegment",
+      "content_type_id": 131,
+      "name": "Can view patrol segment"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 532
+  },
+  {
+    "fields": {
+      "codename": "add_patrolconfiguration",
+      "content_type_id": 132,
+      "name": "Can add patrol configuration"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 533
+  },
+  {
+    "fields": {
+      "codename": "change_patrolconfiguration",
+      "content_type_id": 132,
+      "name": "Can change patrol configuration"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 534
+  },
+  {
+    "fields": {
+      "codename": "delete_patrolconfiguration",
+      "content_type_id": 132,
+      "name": "Can delete patrol configuration"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 535
+  },
+  {
+    "fields": {
+      "codename": "view_patrolconfiguration",
+      "content_type_id": 132,
+      "name": "Can view patrol configuration"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 536
+  },
+  {
+    "fields": {
+      "codename": "add_patrolconfigurationsubjectgroup",
+      "content_type_id": 133,
+      "name": "Can add patrol configuration subject group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 537
+  },
+  {
+    "fields": {
+      "codename": "change_patrolconfigurationsubjectgroup",
+      "content_type_id": 133,
+      "name": "Can change patrol configuration subject group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 538
+  },
+  {
+    "fields": {
+      "codename": "delete_patrolconfigurationsubjectgroup",
+      "content_type_id": 133,
+      "name": "Can delete patrol configuration subject group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 539
+  },
+  {
+    "fields": {
+      "codename": "view_patrolconfigurationsubjectgroup",
+      "content_type_id": 133,
+      "name": "Can view patrol configuration subject group"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 540
+  },
+  {
+    "fields": {
+      "codename": "add_eventgeometry",
+      "content_type_id": 135,
+      "name": "Can add event geometry"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 541
+  },
+  {
+    "fields": {
+      "codename": "change_eventgeometry",
+      "content_type_id": 135,
+      "name": "Can change event geometry"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 542
+  },
+  {
+    "fields": {
+      "codename": "delete_eventgeometry",
+      "content_type_id": 135,
+      "name": "Can delete event geometry"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 543
+  },
+  {
+    "fields": {
+      "codename": "view_eventgeometry",
+      "content_type_id": 135,
+      "name": "Can view event geometry"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 544
+  },
+  {
+    "fields": {
+      "codename": "add_dastenant",
+      "content_type_id": 136,
+      "name": "Can add das tenant"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 545
+  },
+  {
+    "fields": {
+      "codename": "change_dastenant",
+      "content_type_id": 136,
+      "name": "Can change das tenant"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 546
+  },
+  {
+    "fields": {
+      "codename": "delete_dastenant",
+      "content_type_id": 136,
+      "name": "Can delete das tenant"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 547
+  },
+  {
+    "fields": {
+      "codename": "view_dastenant",
+      "content_type_id": 136,
+      "name": "Can view das tenant"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 548
+  },
+  {
+    "fields": {
+      "codename": "add_dasaccesstoken",
+      "content_type_id": 137,
+      "name": "Can add DAS Access Token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 549
+  },
+  {
+    "fields": {
+      "codename": "change_dasaccesstoken",
+      "content_type_id": 137,
+      "name": "Can change DAS Access Token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 550
+  },
+  {
+    "fields": {
+      "codename": "delete_dasaccesstoken",
+      "content_type_id": 137,
+      "name": "Can delete DAS Access Token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 551
+  },
+  {
+    "fields": {
+      "codename": "view_dasaccesstoken",
+      "content_type_id": 137,
+      "name": "Can view DAS Access Token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 552
+  },
+  {
+    "fields": {
+      "codename": "add_dasapplication",
+      "content_type_id": 138,
+      "name": "Can add DAS Application"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 553
+  },
+  {
+    "fields": {
+      "codename": "change_dasapplication",
+      "content_type_id": 138,
+      "name": "Can change DAS Application"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 554
+  },
+  {
+    "fields": {
+      "codename": "delete_dasapplication",
+      "content_type_id": 138,
+      "name": "Can delete DAS Application"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 555
+  },
+  {
+    "fields": {
+      "codename": "view_dasapplication",
+      "content_type_id": 138,
+      "name": "Can view DAS Application"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 556
+  },
+  {
+    "fields": {
+      "codename": "add_dasgrant",
+      "content_type_id": 139,
+      "name": "Can add DAS Grant"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 557
+  },
+  {
+    "fields": {
+      "codename": "change_dasgrant",
+      "content_type_id": 139,
+      "name": "Can change DAS Grant"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 558
+  },
+  {
+    "fields": {
+      "codename": "delete_dasgrant",
+      "content_type_id": 139,
+      "name": "Can delete DAS Grant"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 559
+  },
+  {
+    "fields": {
+      "codename": "view_dasgrant",
+      "content_type_id": 139,
+      "name": "Can view DAS Grant"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 560
+  },
+  {
+    "fields": {
+      "codename": "add_dasidtoken",
+      "content_type_id": 140,
+      "name": "Can add DAS ID Token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 561
+  },
+  {
+    "fields": {
+      "codename": "change_dasidtoken",
+      "content_type_id": 140,
+      "name": "Can change DAS ID Token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 562
+  },
+  {
+    "fields": {
+      "codename": "delete_dasidtoken",
+      "content_type_id": 140,
+      "name": "Can delete DAS ID Token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 563
+  },
+  {
+    "fields": {
+      "codename": "view_dasidtoken",
+      "content_type_id": 140,
+      "name": "Can view DAS ID Token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 564
+  },
+  {
+    "fields": {
+      "codename": "add_dasrefreshtoken",
+      "content_type_id": 141,
+      "name": "Can add DAS Refresh Token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 565
+  },
+  {
+    "fields": {
+      "codename": "change_dasrefreshtoken",
+      "content_type_id": 141,
+      "name": "Can change DAS Refresh Token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 566
+  },
+  {
+    "fields": {
+      "codename": "delete_dasrefreshtoken",
+      "content_type_id": 141,
+      "name": "Can delete DAS Refresh Token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 567
+  },
+  {
+    "fields": {
+      "codename": "view_dasrefreshtoken",
+      "content_type_id": 141,
+      "name": "Can view DAS Refresh Token"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 568
+  },
+  {
+    "fields": {
+      "codename": "add_dynamicchoice",
+      "content_type_id": 142,
+      "name": "Can add dynamic choice"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 569
+  },
+  {
+    "fields": {
+      "codename": "change_dynamicchoice",
+      "content_type_id": 142,
+      "name": "Can change dynamic choice"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 570
+  },
+  {
+    "fields": {
+      "codename": "delete_dynamicchoice",
+      "content_type_id": 142,
+      "name": "Can delete dynamic choice"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 571
+  },
+  {
+    "fields": {
+      "codename": "view_dynamicchoice",
+      "content_type_id": 142,
+      "name": "Can view dynamic choice"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 572
+  },
+  {
+    "fields": {
+      "codename": "add_choice",
+      "content_type_id": 143,
+      "name": "Can add choice"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 573
+  },
+  {
+    "fields": {
+      "codename": "change_choice",
+      "content_type_id": 143,
+      "name": "Can change choice"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 574
+  },
+  {
+    "fields": {
+      "codename": "delete_choice",
+      "content_type_id": 143,
+      "name": "Can delete choice"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 575
+  },
+  {
+    "fields": {
+      "codename": "view_choice",
+      "content_type_id": 143,
+      "name": "Can view choice"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 576
+  },
+  {
+    "fields": {
+      "codename": "add_subchoiceof",
+      "content_type_id": 144,
+      "name": "Can add sub choice of"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 577
+  },
+  {
+    "fields": {
+      "codename": "change_subchoiceof",
+      "content_type_id": 144,
+      "name": "Can change sub choice of"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 578
+  },
+  {
+    "fields": {
+      "codename": "delete_subchoiceof",
+      "content_type_id": 144,
+      "name": "Can delete sub choice of"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 579
+  },
+  {
+    "fields": {
+      "codename": "view_subchoiceof",
+      "content_type_id": 144,
+      "name": "Can view sub choice of"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 580
+  },
+  {
+    "fields": {
+      "codename": "add_disablechoice",
+      "content_type_id": 145,
+      "name": "Can add Disabled Choice"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 581
+  },
+  {
+    "fields": {
+      "codename": "change_disablechoice",
+      "content_type_id": 145,
+      "name": "Can change Disabled Choice"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 582
+  },
+  {
+    "fields": {
+      "codename": "delete_disablechoice",
+      "content_type_id": 145,
+      "name": "Can delete Disabled Choice"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 583
+  },
+  {
+    "fields": {
+      "codename": "view_disablechoice",
+      "content_type_id": 145,
+      "name": "Can view Disabled Choice"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 584
+  },
+  {
+    "fields": {
+      "codename": "add_sourceproviderevent",
+      "content_type_id": 146,
+      "name": "Can add source provider event"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 585
+  },
+  {
+    "fields": {
+      "codename": "change_sourceproviderevent",
+      "content_type_id": 146,
+      "name": "Can change source provider event"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 586
+  },
+  {
+    "fields": {
+      "codename": "delete_sourceproviderevent",
+      "content_type_id": 146,
+      "name": "Can delete source provider event"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 587
+  },
+  {
+    "fields": {
+      "codename": "view_sourceproviderevent",
+      "content_type_id": 146,
+      "name": "Can view source provider event"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 588
+  },
+  {
+    "fields": {
+      "codename": "add_sourceevent",
+      "content_type_id": 147,
+      "name": "Can add source event"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 589
+  },
+  {
+    "fields": {
+      "codename": "change_sourceevent",
+      "content_type_id": 147,
+      "name": "Can change source event"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 590
+  },
+  {
+    "fields": {
+      "codename": "delete_sourceevent",
+      "content_type_id": 147,
+      "name": "Can delete source event"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 591
+  },
+  {
+    "fields": {
+      "codename": "view_sourceevent",
+      "content_type_id": 147,
+      "name": "Can view source event"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 592
+  },
+  {
+    "fields": {
+      "codename": "add_filecontent",
+      "content_type_id": 149,
+      "name": "Can add file content"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 593
+  },
+  {
+    "fields": {
+      "codename": "change_filecontent",
+      "content_type_id": 149,
+      "name": "Can change file content"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 594
+  },
+  {
+    "fields": {
+      "codename": "delete_filecontent",
+      "content_type_id": 149,
+      "name": "Can delete file content"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 595
+  },
+  {
+    "fields": {
+      "codename": "view_filecontent",
+      "content_type_id": 149,
+      "name": "Can view file content"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 596
+  },
+  {
+    "fields": {
+      "codename": "add_imagefilecontent",
+      "content_type_id": 151,
+      "name": "Can add image file content"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 597
+  },
+  {
+    "fields": {
+      "codename": "change_imagefilecontent",
+      "content_type_id": 151,
+      "name": "Can change image file content"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 598
+  },
+  {
+    "fields": {
+      "codename": "delete_imagefilecontent",
+      "content_type_id": 151,
+      "name": "Can delete image file content"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 599
+  },
+  {
+    "fields": {
+      "codename": "view_imagefilecontent",
+      "content_type_id": 151,
+      "name": "Can view image file content"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 600
+  },
+  {
+    "fields": {
+      "codename": "add_actiontaken",
+      "content_type_id": 152,
+      "name": "Can add action taken"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 601
+  },
+  {
+    "fields": {
+      "codename": "change_actiontaken",
+      "content_type_id": 152,
+      "name": "Can change action taken"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 602
+  },
+  {
+    "fields": {
+      "codename": "delete_actiontaken",
+      "content_type_id": 152,
+      "name": "Can delete action taken"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 603
+  },
+  {
+    "fields": {
+      "codename": "view_actiontaken",
+      "content_type_id": 152,
+      "name": "Can view action taken"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 604
+  },
+  {
+    "fields": {
+      "codename": "add_behavior",
+      "content_type_id": 153,
+      "name": "Can add behavior"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 605
+  },
+  {
+    "fields": {
+      "codename": "change_behavior",
+      "content_type_id": 153,
+      "name": "Can change behavior"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 606
+  },
+  {
+    "fields": {
+      "codename": "delete_behavior",
+      "content_type_id": 153,
+      "name": "Can delete behavior"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 607
+  },
+  {
+    "fields": {
+      "codename": "view_behavior",
+      "content_type_id": 153,
+      "name": "Can view behavior"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 608
+  },
+  {
+    "fields": {
+      "codename": "add_causeofdeath",
+      "content_type_id": 154,
+      "name": "Can add cause of death"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 609
+  },
+  {
+    "fields": {
+      "codename": "change_causeofdeath",
+      "content_type_id": 154,
+      "name": "Can change cause of death"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 610
+  },
+  {
+    "fields": {
+      "codename": "delete_causeofdeath",
+      "content_type_id": 154,
+      "name": "Can delete cause of death"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 611
+  },
+  {
+    "fields": {
+      "codename": "view_causeofdeath",
+      "content_type_id": 154,
+      "name": "Can view cause of death"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 612
+  },
+  {
+    "fields": {
+      "codename": "add_color",
+      "content_type_id": 155,
+      "name": "Can add color"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 613
+  },
+  {
+    "fields": {
+      "codename": "change_color",
+      "content_type_id": 155,
+      "name": "Can change color"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 614
+  },
+  {
+    "fields": {
+      "codename": "delete_color",
+      "content_type_id": 155,
+      "name": "Can delete color"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 615
+  },
+  {
+    "fields": {
+      "codename": "view_color",
+      "content_type_id": 155,
+      "name": "Can view color"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 616
+  },
+  {
+    "fields": {
+      "codename": "add_conservancy",
+      "content_type_id": 156,
+      "name": "Can add conservancy"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 617
+  },
+  {
+    "fields": {
+      "codename": "change_conservancy",
+      "content_type_id": 156,
+      "name": "Can change conservancy"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 618
+  },
+  {
+    "fields": {
+      "codename": "delete_conservancy",
+      "content_type_id": 156,
+      "name": "Can delete conservancy"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 619
+  },
+  {
+    "fields": {
+      "codename": "view_conservancy",
+      "content_type_id": 156,
+      "name": "Can view conservancy"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 620
+  },
+  {
+    "fields": {
+      "codename": "add_fencesection",
+      "content_type_id": 157,
+      "name": "Can add fence section"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 621
+  },
+  {
+    "fields": {
+      "codename": "change_fencesection",
+      "content_type_id": 157,
+      "name": "Can change fence section"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 622
+  },
+  {
+    "fields": {
+      "codename": "delete_fencesection",
+      "content_type_id": 157,
+      "name": "Can delete fence section"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 623
+  },
+  {
+    "fields": {
+      "codename": "view_fencesection",
+      "content_type_id": 157,
+      "name": "Can view fence section"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 624
+  },
+  {
+    "fields": {
+      "codename": "add_health",
+      "content_type_id": 158,
+      "name": "Can add health"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 625
+  },
+  {
+    "fields": {
+      "codename": "change_health",
+      "content_type_id": 158,
+      "name": "Can change health"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 626
+  },
+  {
+    "fields": {
+      "codename": "delete_health",
+      "content_type_id": 158,
+      "name": "Can delete health"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 627
+  },
+  {
+    "fields": {
+      "codename": "view_health",
+      "content_type_id": 158,
+      "name": "Can view health"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 628
+  },
+  {
+    "fields": {
+      "codename": "add_species",
+      "content_type_id": 159,
+      "name": "Can add species"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 629
+  },
+  {
+    "fields": {
+      "codename": "change_species",
+      "content_type_id": 159,
+      "name": "Can change species"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 630
+  },
+  {
+    "fields": {
+      "codename": "delete_species",
+      "content_type_id": 159,
+      "name": "Can delete species"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 631
+  },
+  {
+    "fields": {
+      "codename": "view_species",
+      "content_type_id": 159,
+      "name": "Can view species"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 632
+  },
+  {
+    "fields": {
+      "codename": "add_station",
+      "content_type_id": 160,
+      "name": "Can add station"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 633
+  },
+  {
+    "fields": {
+      "codename": "change_station",
+      "content_type_id": 160,
+      "name": "Can change station"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 634
+  },
+  {
+    "fields": {
+      "codename": "delete_station",
+      "content_type_id": 160,
+      "name": "Can delete station"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 635
+  },
+  {
+    "fields": {
+      "codename": "view_station",
+      "content_type_id": 160,
+      "name": "Can view station"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 636
+  },
+  {
+    "fields": {
+      "codename": "add_postgisgeometrycolumns",
+      "content_type_id": 161,
+      "name": "Can add post gis geometry columns"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 637
+  },
+  {
+    "fields": {
+      "codename": "change_postgisgeometrycolumns",
+      "content_type_id": 161,
+      "name": "Can change post gis geometry columns"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 638
+  },
+  {
+    "fields": {
+      "codename": "delete_postgisgeometrycolumns",
+      "content_type_id": 161,
+      "name": "Can delete post gis geometry columns"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 639
+  },
+  {
+    "fields": {
+      "codename": "view_postgisgeometrycolumns",
+      "content_type_id": 161,
+      "name": "Can view post gis geometry columns"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 640
+  },
+  {
+    "fields": {
+      "codename": "add_postgisspatialrefsys",
+      "content_type_id": 162,
+      "name": "Can add post gis spatial ref sys"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 641
+  },
+  {
+    "fields": {
+      "codename": "change_postgisspatialrefsys",
+      "content_type_id": 162,
+      "name": "Can change post gis spatial ref sys"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 642
+  },
+  {
+    "fields": {
+      "codename": "delete_postgisspatialrefsys",
+      "content_type_id": 162,
+      "name": "Can delete post gis spatial ref sys"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 643
+  },
+  {
+    "fields": {
+      "codename": "view_postgisspatialrefsys",
+      "content_type_id": 162,
+      "name": "Can view post gis spatial ref sys"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 644
+  },
+  {
+    "fields": {
+      "codename": "receive_source_report",
+      "content_type_id": 3,
+      "name": "Receive source report"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 645
+  },
+  {
+    "fields": {
+      "codename": "receive_lag_notification",
+      "content_type_id": 3,
+      "name": "Receive observation lag notification"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 646
+  },
+  {
+    "fields": {
+      "codename": "receive_silent_source_notification",
+      "content_type_id": 3,
+      "name": "Receive silent source notification"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 647
+  },
+  {
+    "fields": {
+      "codename": "add_permissionsetchildren",
+      "content_type_id": 163,
+      "name": "Can add permission set children"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7512
+  },
+  {
+    "fields": {
+      "codename": "change_permissionsetchildren",
+      "content_type_id": 163,
+      "name": "Can change permission set children"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7513
+  },
+  {
+    "fields": {
+      "codename": "delete_permissionsetchildren",
+      "content_type_id": 163,
+      "name": "Can delete permission set children"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7514
+  },
+  {
+    "fields": {
+      "codename": "view_permissionsetchildren",
+      "content_type_id": 163,
+      "name": "Can view permission set children"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7515
+  },
+  {
+    "fields": {
+      "codename": "add_actasprofiles",
+      "content_type_id": 164,
+      "name": "Can add act as profiles"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7516
+  },
+  {
+    "fields": {
+      "codename": "change_actasprofiles",
+      "content_type_id": 164,
+      "name": "Can change act as profiles"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7517
+  },
+  {
+    "fields": {
+      "codename": "delete_actasprofiles",
+      "content_type_id": 164,
+      "name": "Can delete act as profiles"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7518
+  },
+  {
+    "fields": {
+      "codename": "view_actasprofiles",
+      "content_type_id": 164,
+      "name": "Can view act as profiles"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7519
+  },
+  {
+    "fields": {
+      "codename": "add_subjectgroupchildren",
+      "content_type_id": 165,
+      "name": "Can add subject group children"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7520
+  },
+  {
+    "fields": {
+      "codename": "change_subjectgroupchildren",
+      "content_type_id": 165,
+      "name": "Can change subject group children"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7521
+  },
+  {
+    "fields": {
+      "codename": "delete_subjectgroupchildren",
+      "content_type_id": 165,
+      "name": "Can delete subject group children"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7522
+  },
+  {
+    "fields": {
+      "codename": "view_subjectgroupchildren",
+      "content_type_id": 165,
+      "name": "Can view subject group children"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7523
+  },
+  {
+    "fields": {
+      "codename": "add_sourcegroupchildren",
+      "content_type_id": 166,
+      "name": "Can add source group children"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7524
+  },
+  {
+    "fields": {
+      "codename": "change_sourcegroupchildren",
+      "content_type_id": 166,
+      "name": "Can change source group children"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7525
+  },
+  {
+    "fields": {
+      "codename": "delete_sourcegroupchildren",
+      "content_type_id": 166,
+      "name": "Can delete source group children"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7526
+  },
+  {
+    "fields": {
+      "codename": "view_sourcegroupchildren",
+      "content_type_id": 166,
+      "name": "Can view source group children"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7527
+  },
+  {
+    "fields": {
+      "codename": "add_sourceproviderconfigurationnamechangeexcludedsubjecttypes",
+      "content_type_id": 167,
+      "name": "Can add source provider configuration name change excluded subject types"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7528
+  },
+  {
+    "fields": {
+      "codename": "change_sourceproviderconfigurationnamechangeexcludedsubjecttypes",
+      "content_type_id": 167,
+      "name": "Can change source provider configuration name change excluded subject types"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7529
+  },
+  {
+    "fields": {
+      "codename": "delete_sourceproviderconfigurationnamechangeexcludedsubjecttypes",
+      "content_type_id": 167,
+      "name": "Can delete source provider configuration name change excluded subject types"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7530
+  },
+  {
+    "fields": {
+      "codename": "view_sourceproviderconfigurationnamechangeexcludedsubjecttypes",
+      "content_type_id": 167,
+      "name": "Can view source provider configuration name change excluded subject types"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7531
+  },
+  {
+    "fields": {
+      "codename": "add_sourceproviderconfigurationnewsubjectexcludedsubjecttypes",
+      "content_type_id": 168,
+      "name": "Can add source provider configuration new subject excluded subject types"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7532
+  },
+  {
+    "fields": {
+      "codename": "change_sourceproviderconfigurationnewsubjectexcludedsubjecttypes",
+      "content_type_id": 168,
+      "name": "Can change source provider configuration new subject excluded subject types"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7533
+  },
+  {
+    "fields": {
+      "codename": "delete_sourceproviderconfigurationnewsubjectexcludedsubjecttypes",
+      "content_type_id": 168,
+      "name": "Can delete source provider configuration new subject excluded subject types"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7534
+  },
+  {
+    "fields": {
+      "codename": "view_sourceproviderconfigurationnewsubjectexcludedsubjecttypes",
+      "content_type_id": 168,
+      "name": "Can view source provider configuration new subject excluded subject types"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7535
+  },
+  {
+    "fields": {
+      "codename": "add_spatialfeaturetypetags",
+      "content_type_id": 169,
+      "name": "Can add spatial feature type tags"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7536
+  },
+  {
+    "fields": {
+      "codename": "change_spatialfeaturetypetags",
+      "content_type_id": 169,
+      "name": "Can change spatial feature type tags"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7537
+  },
+  {
+    "fields": {
+      "codename": "delete_spatialfeaturetypetags",
+      "content_type_id": 169,
+      "name": "Can delete spatial feature type tags"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7538
+  },
+  {
+    "fields": {
+      "codename": "view_spatialfeaturetypetags",
+      "content_type_id": 169,
+      "name": "Can view spatial feature type tags"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7539
+  },
+  {
+    "fields": {
+      "codename": "add_event",
+      "content_type_id": 98,
+      "name": "Can add event"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7540
+  },
+  {
+    "fields": {
+      "codename": "change_event",
+      "content_type_id": 98,
+      "name": "Can change event"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7541
+  },
+  {
+    "fields": {
+      "codename": "view_event",
+      "content_type_id": 98,
+      "name": "Can view event"
+    },
+    "model": "auth.authpermissiontemporal",
+    "pk": 7542
+  },
+  {
+    "fields": {
+      "content_type_id": 170,
+      "codename": "add_userpermissionset",
+      "name": "Can add user permission set"
+    },
+    "pk": 7543,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 170,
+      "codename": "change_userpermissionset",
+      "name": "Can change user permission set"
+    },
+    "pk": 7544,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 170,
+      "codename": "delete_userpermissionset",
+      "name": "Can delete user permission set"
+    },
+    "pk": 7545,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 170,
+      "codename": "view_userpermissionset",
+      "name": "Can view user permission set"
+    },
+    "pk": 7546,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 171,
+      "codename": "add_subjectgroupsubject",
+      "name": "Can add subject group subject"
+    },
+    "pk": 7547,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 171,
+      "codename": "change_subjectgroupsubject",
+      "name": "Can change subject group subject"
+    },
+    "pk": 7548,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 171,
+      "codename": "delete_subjectgroupsubject",
+      "name": "Can delete subject group subject"
+    },
+    "pk": 7549,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 171,
+      "codename": "view_subjectgroupsubject",
+      "name": "Can view subject group subject"
+    },
+    "pk": 7550,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 172,
+      "codename": "add_subjectgrouppermissionset",
+      "name": "Can add subject group permission set"
+    },
+    "pk": 7551,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 172,
+      "codename": "change_subjectgrouppermissionset",
+      "name": "Can change subject group permission set"
+    },
+    "pk": 7552,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 172,
+      "codename": "delete_subjectgrouppermissionset",
+      "name": "Can delete subject group permission set"
+    },
+    "pk": 7553,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 172,
+      "codename": "view_subjectgrouppermissionset",
+      "name": "Can view subject group permission set"
+    },
+    "pk": 7554,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 173,
+      "codename": "add_sourcegroupsource",
+      "name": "Can add source group source"
+    },
+    "pk": 7555,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 173,
+      "codename": "change_sourcegroupsource",
+      "name": "Can change source group source"
+    },
+    "pk": 7556,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 173,
+      "codename": "delete_sourcegroupsource",
+      "name": "Can delete source group source"
+    },
+    "pk": 7557,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 173,
+      "codename": "view_sourcegroupsource",
+      "name": "Can view source group source"
+    },
+    "pk": 7558,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 174,
+      "codename": "add_sourcegrouppermissionset",
+      "name": "Can add source group permission set"
+    },
+    "pk": 7559,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 174,
+      "codename": "change_sourcegrouppermissionset",
+      "name": "Can change source group permission set"
+    },
+    "pk": 7560,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 174,
+      "codename": "delete_sourcegrouppermissionset",
+      "name": "Can delete source group permission set"
+    },
+    "pk": 7561,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 174,
+      "codename": "view_sourcegrouppermissionset",
+      "name": "Can view source group permission set"
+    },
+    "pk": 7562,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 175,
+      "codename": "add_announcementuser",
+      "name": "Can add announcement user"
+    },
+    "pk": 7563,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 175,
+      "codename": "change_announcementuser",
+      "name": "Can change announcement user"
+    },
+    "pk": 7564,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 175,
+      "codename": "delete_announcementuser",
+      "name": "Can delete announcement user"
+    },
+    "pk": 7565,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 175,
+      "codename": "view_announcementuser",
+      "name": "Can view announcement user"
+    },
+    "pk": 7566,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 176,
+      "codename": "add_subjectanalyzerresultobservations",
+      "name": "Can add subject analyzer result observations"
+    },
+    "pk": 7567,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 176,
+      "codename": "change_subjectanalyzerresultobservations",
+      "name": "Can change subject analyzer result observations"
+    },
+    "pk": 7568,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 176,
+      "codename": "delete_subjectanalyzerresultobservations",
+      "name": "Can delete subject analyzer result observations"
+    },
+    "pk": 7569,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 176,
+      "codename": "view_subjectanalyzerresultobservations",
+      "name": "Can view subject analyzer result observations"
+    },
+    "pk": 7570,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 177,
+      "codename": "add_spatialfeaturegroupstaticfeatures",
+      "name": "Can add spatial feature group static features"
+    },
+    "pk": 7571,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 177,
+      "codename": "change_spatialfeaturegroupstaticfeatures",
+      "name": "Can change spatial feature group static features"
+    },
+    "pk": 7572,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 177,
+      "codename": "delete_spatialfeaturegroupstaticfeatures",
+      "name": "Can delete spatial feature group static features"
+    },
+    "pk": 7573,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 177,
+      "codename": "view_spatialfeaturegroupstaticfeatures",
+      "name": "Can view spatial feature group static features"
+    },
+    "pk": 7574,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 178,
+      "codename": "add_alertrulenotificationmethod",
+      "name": "Can add alert rule notification method"
+    },
+    "pk": 7575,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 178,
+      "codename": "change_alertrulenotificationmethod",
+      "name": "Can change alert rule notification method"
+    },
+    "pk": 7576,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 178,
+      "codename": "delete_alertrulenotificationmethod",
+      "name": "Can delete alert rule notification method"
+    },
+    "pk": 7577,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 178,
+      "codename": "view_alertrulenotificationmethod",
+      "name": "Can view alert rule notification method"
+    },
+    "pk": 7578,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 179,
+      "codename": "add_alertruleeventtype",
+      "name": "Can add alert rule event type"
+    },
+    "pk": 7579,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 179,
+      "codename": "change_alertruleeventtype",
+      "name": "Can change alert rule event type"
+    },
+    "pk": 7580,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 179,
+      "codename": "delete_alertruleeventtype",
+      "name": "Can delete alert rule event type"
+    },
+    "pk": 7581,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 179,
+      "codename": "view_alertruleeventtype",
+      "name": "Can view alert rule event type"
+    },
+    "pk": 7582,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 98,
+      "codename": "can_export_event_data",
+      "name": "Can Export Event Data"
+    },
+    "pk": 7583,
+    "model": "auth.authpermissiontemporal"
+  },
+  {
+    "fields": {
+      "content_type_id": 98,
+      "codename": "can_export_observation_data",
+      "name": "Can Export Observation Data"
+    },
+    "pk": 7584,
+    "model": "auth.authpermissiontemporal"
+  }
+]

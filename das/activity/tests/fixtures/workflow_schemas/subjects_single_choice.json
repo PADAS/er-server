@@ -1,0 +1,60 @@
+{
+  "json": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "subjects_from_subject_group": {
+        "deprecated": false,
+        "description": "",
+        "title": "subjects from subject group",
+        "type": "string",
+        "anyOf": [
+          {
+            "$ref": "https://zoo.com/api/v2.0/schemas/subjects.json?subject_group=b4c8e9f6-1ccb-4e3f-8c07-3b727b9ec057"
+          }
+        ]
+      }
+    },
+    "required": [],
+    "type": "object"
+  },
+  "ui": {
+    "fields": {
+      "subjects_from_subject_group": {
+        "choices": {
+          "eventTypeCategories": [],
+          "existingChoiceList": [],
+          "featureCategories": [],
+          "myDataType": "SUBJECTS_FROM_SUBJECT_GROUP",
+          "subjectGroups": [
+            "b4c8e9f6-1ccb-4e3f-8c07-3b727b9ec057"
+          ],
+          "subjectSubtypes": [],
+          "type": "MY_DATA"
+        },
+        "inputType": "DROPDOWN",
+        "placeholder": "",
+        "type": "CHOICE_LIST",
+        "parent": "section-1"
+      }
+    },
+    "headers": {},
+    "order": [
+      "section-1"
+    ],
+    "sections": {
+      "section-1": {
+        "columns": 1,
+        "isActive": true,
+        "label": "",
+        "leftColumn": [
+          {
+            "name": "subjects_from_subject_group",
+            "type": "field"
+          }
+        ],
+        "rightColumn": []
+      }
+    }
+  }
+}

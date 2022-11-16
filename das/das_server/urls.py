@@ -13,28 +13,33 @@ Including another URLconf
     1. Add an import:  from blog import urls as blog_urls
     2. Add a URL to urlpatterns:  url(r'^blog/', include(blog_urls))
 """
+
 import oauth2_provider.views as oauth2_views
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView
 
 import django.contrib.staticfiles.views
 from django.conf import settings
 from django.conf.urls import include
 from django.contrib import admin
 from django.urls import path, re_path
-from rest_framework.renderers import JSONOpenAPIRenderer
-from rest_framework.schemas import get_schema_view
 
-from das_server import views
+from accounts.auth0_admin import (
+    admin_login_entrypoint,
+    admin_logout,
+    auth0_callback,
+    initiate_auth0_admin_login,
+)
+from das_server import auth_check, views
 from das_server.admin import dasadmin_site
+from das_server.spectacular_views import SwaggerUIViewWithLogin
 
 admin.autodiscover()
 admin.site.enable_nav_sidebar = False
 
-schema_view = get_schema_view(
-    title="EarthRanger API Documentation", renderer_classes=[JSONOpenAPIRenderer]
-)
 
 urlpatterns = [
-    re_path("api/v1.0/status/?$", views.StatusView.as_view()),
+    re_path("api/v1.0/status/?$", views.StatusView.as_view(), name="api-status"),
+    re_path("api/v1.0/auth/validate-jwt/?$", auth_check.echo_auth0_token_subject, name="auth-validate-jwt"),
     path("api/v1.0/", include("accounts.urls")),
     path("api/v1.0/", include("observations.urls")),
     path("api/v1.0/", include("mapping.urls")),
@@ -42,13 +47,26 @@ urlpatterns = [
     path("api/v1.0/activity/", include("activity.urls")),
     path("api/v1.0/analyzers/", include("analyzers.urls")),
     path("api/v1.0/", include("rt_api.urls")),
+    path("api/v1.0/api-auth/", include("rest_framework.urls", namespace="rest_framework")),
+    path("api/v1.0/api-schema/", SpectacularAPIView.as_view(), name="openapi-schema"),
     path(
-        "api/v1.0/api-auth/", include("rest_framework.urls",
-                                      namespace="rest_framework")
+        "api/v1.0/docs/interactive/",
+        SwaggerUIViewWithLogin.as_view(url_name="openapi-schema"),
+        name="openapi-swagger-ui",
     ),
-    path("api/v1.0/api-schema/", schema_view, name="openapi-schema"),
-    path("api/v1.0/docs/interactive/", views.SwaggerTemplate.as_view()),
+    path(
+        "api/v1.0/docs/redoc/",
+        SpectacularRedocView.as_view(url_name="openapi-schema"),
+        name="openapi-redoc-ui",
+    ),
     path("api/v1.0/docs/", include("docs.urls")),
+    # Auth0 admin authentication URLs
+    path("auth/admin-login/", initiate_auth0_admin_login, name="auth0_admin_login"),
+    path("auth/callback/", auth0_callback, name="auth0_callback"),
+    # Override admin login with conditional Auth0 integration
+    path("admin/login/", admin_login_entrypoint, name="admin_login"),
+    # Override admin logout with conditional Auth0 integration
+    path("admin/logout/", admin_logout, name="admin_logout"),
     path("admin/", admin.site.urls),
     path("dasadmin/", dasadmin_site.urls),
     path("accounts/", include("accounts.urls_user")),
@@ -57,19 +75,22 @@ urlpatterns = [
     path("api/v1.0/reports/", include(("reports.urls", "reports"))),
     path("api/v1.0/usercontent/", include(("usercontent.urls", "usercontent"))),
     path("api/v1.0/", include("choices.urls")),
+    path("api/v1.0/", include("buoy.urls")),
+    path("api/v1.0/core/", include("core.urls")),
+    path("api/v2.0/schemas/", include("schemas.urls", namespace="schemas")),
+    path("api/v2.0/activity/", include("activity.urls_v2")),
 ]
 
 
 # give the api a chance to override and return json
 django.conf.urls.handler404 = "utils.drf.error404View"
 
+if settings.ENABLE_SILK:
+    urlpatterns += [path("silk/", include("silk.urls", namespace="silk"))]
 if settings.DEV:
+    urlpatterns += [path("silk/", include("silk.urls", namespace="silk"))]
     urlpatterns += [
-        re_path(
-            r"^(?:index.html)?$",
-            django.contrib.staticfiles.views.serve,
-            kwargs={"path": "index.html"},
-        ),
+        re_path(r"^(?:index.html)?$", django.contrib.staticfiles.views.serve, kwargs={"path": "index.html"}),
         re_path(r"^(?P<path>.*)$", django.contrib.staticfiles.views.serve),
     ]
 

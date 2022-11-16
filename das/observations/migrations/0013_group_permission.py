@@ -6,18 +6,8 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('observations', '0012_group_data'),
+        ("observations", "0012_group_data"),
     ]
 
-    operations = [
-        migrations.AlterModelOptions(
-            name='sourcegroup',
-            options={'permissions': (('view_sourcegroup', 'Permission to view a source group'),), 'verbose_name': 'source group', 'verbose_name_plural': 'source groups'},
-        ),
-        migrations.AlterModelOptions(
-            name='subjectgroup',
-            options={'permissions': (('view_subjectgroup', 'Permission to view a subject group'),), 'verbose_name': 'subject group', 'verbose_name_plural': 'subject groups'},
-        ),
-    ]
+    operations = []

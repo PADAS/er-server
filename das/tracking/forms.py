@@ -4,11 +4,19 @@ from django import forms
 from django.contrib.contenttypes.models import ContentType
 from django.utils.translation import gettext_lazy as _
 
-from tracking.models import (AWETelemetryPlugin, AwtPlugin, FirmsPlugin,
-                             InreachKMLPlugin, InreachPlugin, SavannahPlugin,
-                             SirtrackPlugin, SkygisticsSatellitePlugin,
-                             SourcePlugin, SpiderTracksPlugin,
-                             VectronicsPlugin)
+from tracking.models import (
+    AWETelemetryPlugin,
+    AwtPlugin,
+    FirmsPlugin,
+    InreachKMLPlugin,
+    InreachPlugin,
+    SavannahPlugin,
+    SirtrackPlugin,
+    SkygisticsSatellitePlugin,
+    SourcePlugin,
+    SpiderTracksPlugin,
+    VectronicsPlugin,
+)
 
 
 def list_of_plugins():
@@ -28,9 +36,7 @@ def list_of_plugins():
 
 
 class SourcePluginForm(forms.ModelForm):
-
-    plugin_choice = forms.ChoiceField(
-        required=False, label=_("Plugin Configuration"))
+    plugin_choice = forms.ChoiceField(required=False, label=_("Plugin Configuration"))
     status = forms.ChoiceField(
         choices=(
             ("enabled", "Enabled"),
@@ -58,9 +64,8 @@ class SourcePluginForm(forms.ModelForm):
 
     @staticmethod
     def _decode_plugin_identifier(encvalue):
-        matches = re.match("(\d+):::([\w\-]+)", encvalue).groups()
+        matches = re.match(r"(\d+):::([\w\-]+)", encvalue).groups()
 
-        print(matches)
         plugin_type_id = matches[0]
         plugin_object_id = matches[1]
         return (plugin_type_id, plugin_object_id)
@@ -73,7 +78,6 @@ class SourcePluginForm(forms.ModelForm):
         )
 
     def get_initial_for_field(self, field, field_name):
-
         if field_name == "plugin_choice":
             try:
                 if self.instance:
@@ -87,11 +91,9 @@ class SourcePluginForm(forms.ModelForm):
         return super().get_initial_for_field(field, field_name)
 
     def save(self, *args, **kwargs):
-
         plugin_string = self.cleaned_data["plugin_choice"]
 
-        plugin_type_id, plugin_object_id = self._decode_plugin_identifier(
-            plugin_string)
+        plugin_type_id, plugin_object_id = self._decode_plugin_identifier(plugin_string)
         plugin_type = ContentType.objects.get(id=plugin_type_id)
 
         self.cleaned_data["plugin_type"] = plugin_type_id

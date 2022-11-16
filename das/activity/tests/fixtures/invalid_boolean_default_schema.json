@@ -1,0 +1,44 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "testBool": {
+                "type": "boolean",
+                "title": "Test Boolean",
+                "description": "Boolean field with invalid default (string instead of boolean).",
+                "deprecated": false,
+                "default": "true"
+            }
+        },
+        "required": []
+    },
+    "ui": {
+        "fields": {
+            "testBool": {
+                "conditionalDependents": [],
+                "parent": "section-1",
+                "type": "BOOLEAN"
+            }
+        },
+        "headers": {},
+        "order": [
+            "section-1"
+        ],
+        "sections": {
+            "section-1": {
+                "columns": 1,
+                "isActive": true,
+                "label": "",
+                "leftColumn": [
+                    {
+                        "name": "testBool",
+                        "type": "field"
+                    }
+                ],
+                "rightColumn": []
+            }
+        }
+    }
+}

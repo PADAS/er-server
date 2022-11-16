@@ -1,0 +1,357 @@
+from unittest.mock import patch
+
+import pytest
+
+from django.conf import settings
+from django.core.cache import caches
+from django.http import HttpResponse
+from django.test import override_settings
+from django.urls import reverse
+from rest_framework.test import APIRequestFactory
+
+from mapping.cache import (
+    VECTOR_TILE_DATA_VERSION_KEY,
+    build_tile_cache_key,
+    bump_vector_tile_data_version,
+    get_effective_cache_version,
+    get_vector_tile_cache,
+    get_vector_tile_data_version,
+)
+
+# Apply tenant fixture to all tests in this module that need it
+pytestmark = [pytest.mark.usefixtures("das_tenant_monkeypatch")]
+
+
+@pytest.fixture(autouse=True)
+def mock_tile_view_dependencies(monkeypatch):
+    """
+    Auto-applied fixture to mock dependencies needed for tile view tests.
+    """
+
+    # Mock tenant data resolution to return valid tenant data for any hostname
+    def mock_get_tenant_data_by_host(hostname):
+        return {"domain": "localhost", "id": "test-tenant-id", "name": "Test Tenant"}
+
+    monkeypatch.setattr("utils.tenant.providers.get_tenant_data_by_host", mock_get_tenant_data_by_host)
+    monkeypatch.setattr("mapping.views.get_tenant_data_by_host", mock_get_tenant_data_by_host)
+
+    # Mock the vector tile cache to use default cache
+    monkeypatch.setattr("mapping.cache.get_vector_tile_cache", lambda: caches["default"])
+
+
+class DummyUser:
+    def __init__(self, tenant_id=None, user_id="user-1"):
+        self.das_tenant_id = tenant_id
+        self.id = user_id
+
+
+@pytest.mark.django_db
+def test_build_tile_cache_key_requires_user_and_tenant():
+    rf = APIRequestFactory()
+    # Missing user entirely
+    req_no_user = rf.get("/api/v1.0/mapping/tiles/10/1/1.pbf")
+    with pytest.raises(ValueError):
+        build_tile_cache_key(req_no_user, 10, 1, 1, ["spatial_features"])  # missing user
+
+    # Missing tenant id
+    class NoTenantUser:
+        def __init__(self):
+            self.id = "user-1"
+
+    req_no_tenant = rf.get("/api/v1.0/mapping/tiles/10/1/1.pbf")
+    req_no_tenant.user = NoTenantUser()
+    with pytest.raises(ValueError):
+        build_tile_cache_key(req_no_tenant, 10, 1, 1, ["spatial_features"])  # missing tenant
+
+    # Missing user id
+    class NoIdUser:
+        def __init__(self):
+            self.das_tenant_id = "tenant123"
+
+    req_no_id = rf.get("/api/v1.0/mapping/tiles/10/1/1.pbf")
+    req_no_id.user = NoIdUser()
+    with pytest.raises(ValueError):
+        build_tile_cache_key(req_no_id, 10, 1, 1, ["spatial_features"])  # missing user id
+
+
+@pytest.mark.django_db
+def test_build_tile_cache_key_basic():
+    rf = APIRequestFactory()
+    req = rf.get("/api/v1.0/mapping/tiles/5/16/23.pbf?b=2&a=1&a=2")
+    req.META["HTTP_AUTHORIZATION"] = "Bearer tok_ABC123"
+    req.user = DummyUser("tenantXYZ")
+    key = build_tile_cache_key(req, 5, 16, 23, ["spatial_features"], cache_version="7")
+    # Key: vt:{tenant}:{layers}:{version}:{z}:{x}:{y}:{user_hash}:{query_hash}
+    parts = key.split(":")
+    assert parts[0] == "vt"
+    assert parts[1] == "tenantXYZ"
+    assert parts[2] == "spatial_features"
+    assert parts[3] == "7"
+    assert parts[4] == "5"
+    assert parts[5] == "16"
+    assert parts[6] == "23"
+    assert len(parts[7]) == 8  # user hash (first 8 of sha256)
+    assert len(parts[8]) == 10  # query hash
+    assert "tok_ABC123" not in key
+
+
+@pytest.mark.django_db
+def test_build_tile_cache_key_query_order_invariance():
+    rf = APIRequestFactory()
+    r1 = rf.get("/api/v1.0/mapping/tiles/5/16/23.pbf?a=1&b=2&c=3")
+    r2 = rf.get("/api/v1.0/mapping/tiles/5/16/23.pbf?c=3&b=2&a=1")
+    for r in (r1, r2):
+        r.META["HTTP_AUTHORIZATION"] = "Bearer tokenX"
+        r.user = DummyUser("tenantA")
+    k1 = build_tile_cache_key(r1, 5, 16, 23, ["spatial_features"], cache_version="1")
+    k2 = build_tile_cache_key(r2, 5, 16, 23, ["spatial_features"], cache_version="1")
+    assert k1 == k2
+
+
+@pytest.mark.django_db
+def test_build_tile_cache_key_multiple_layers_sorted():
+    rf = APIRequestFactory()
+    req_unsorted = rf.get("/api/v1.0/mapping/tiles/4/10/11.pbf")
+    req_unsorted.META["HTTP_AUTHORIZATION"] = "Bearer tokenY"
+    req_unsorted.user = DummyUser("tenantB")
+    key_unsorted = build_tile_cache_key(req_unsorted, 4, 10, 11, ["layerZ", "layerA"], cache_version="3")
+    # Expect layers ordered lexicographically in the key
+    # Key: vt:{tenant}:{layers}:{version}:{z}:{x}:{y}:{user_hash}:{query_hash}
+    parts = key_unsorted.split(":")
+    assert parts[0] == "vt"
+    assert parts[1] == "tenantB"
+    assert parts[2] == "layerA,layerZ"
+    assert parts[3] == "3"  # cache_version
+    assert parts[4] == "4"  # z
+    assert parts[5] == "10"  # x
+    assert parts[6] == "11"  # y
+    assert len(parts[7]) == 8  # user hash
+
+
+@pytest.mark.django_db
+def test_build_tile_cache_key_include_query_false():
+    rf = APIRequestFactory()
+    req = rf.get("/api/v1.0/mapping/tiles/6/20/21.pbf?a=1&b=2")
+    req.META["HTTP_AUTHORIZATION"] = "Bearer tokQQ"
+    req.user = DummyUser("tenantC")
+    key = build_tile_cache_key(req, 6, 20, 21, ["spatial_features"], cache_version="5", include_query=False)
+    assert key.endswith(":noquery")
+    parts = key.split(":")
+    assert parts[0] == "vt"
+    assert parts[1] == "tenantC"
+    assert parts[2] == "spatial_features"
+    assert parts[3] == "5"  # cache_version
+    assert parts[4] == "6"  # z
+    assert parts[5] == "20"  # x
+    assert parts[6] == "21"  # y
+    assert len(parts[7]) == 8  # user hash
+
+
+@pytest.mark.django_db
+def test_build_tile_cache_key_tenant_variation():
+    rf = APIRequestFactory()
+    base = {"META": {"HTTP_AUTHORIZATION": "Bearer tokSame"}}
+    req1 = rf.get("/api/v1.0/mapping/tiles/7/30/31.pbf")
+    req1.META.update(base["META"])
+    req1.user = DummyUser("tenant1")
+    req2 = rf.get("/api/v1.0/mapping/tiles/7/30/31.pbf")
+    req2.META.update(base["META"])
+    req2.user = DummyUser("tenant2")
+    k1 = build_tile_cache_key(req1, 7, 30, 31, ["spatial_features"], cache_version="1")
+    k2 = build_tile_cache_key(req2, 7, 30, 31, ["spatial_features"], cache_version="1")
+    assert k1 != k2
+
+
+@pytest.mark.django_db
+def test_build_tile_cache_key_accepts_missing_or_invalid_auth_header():
+    rf = APIRequestFactory()
+    # Missing Authorization header is acceptable now
+    req_missing = rf.get("/api/v1.0/mapping/tiles/8/40/41.pbf")
+    req_missing.user = DummyUser("tenantX")
+    key_missing = build_tile_cache_key(req_missing, 8, 40, 41, ["spatial_features"], cache_version="2")
+    assert key_missing.startswith("vt:")
+
+    # Invalid scheme is also ignored
+    req_invalid = rf.get("/api/v1.0/mapping/tiles/8/40/41.pbf")
+    req_invalid.META["HTTP_AUTHORIZATION"] = "Token something"
+    req_invalid.user = DummyUser("tenantX")
+    key_invalid = build_tile_cache_key(req_invalid, 8, 40, 41, ["spatial_features"], cache_version="2")
+    assert key_invalid.startswith("vt:")
+
+
+def make_tile_url(z, x, y):
+    return reverse("mapping:spatialfeature-tiles", kwargs={"z": z, "x": x, "y": y})
+
+
+@pytest.mark.django_db
+@override_settings(VECTOR_TILE_CACHE_VERSION="9")
+def test_tile_view_caching_and_authentication(user_client_with_invalid_token, user_client):
+
+    response = user_client_with_invalid_token.get(make_tile_url(10, 100, 200))
+    assert response.status_code == 401
+
+    # Authenticated request -> MISS then HIT
+    # response = user_client.get("/api/v1.0/mapping/tiles/10/100/200.pbf")
+
+    with patch("mapping.views.SpatialFeatureTileView._get") as parent_get:
+        response = HttpResponse(b"tiledata", content_type="application/vnd.mapbox-vector-tile")
+        parent_get.return_value = response
+        get_vector_tile_cache().clear()
+        first = user_client.get(make_tile_url(10, 100, 200))
+        assert first.status_code == 200
+        assert first["X-Cache"] == "MISS"
+        second = user_client.get(make_tile_url(10, 100, 200))
+        assert second.status_code == 200
+        assert second["X-Cache"] == "HIT"
+        assert parent_get.call_count == 1
+
+
+@pytest.mark.django_db
+def test_tile_view_cache_version_changes_key(user_client):
+
+    with override_settings(VECTOR_TILE_CACHE_VERSION="1"):
+        with patch("mapping.views.SpatialFeatureTileView._get") as parent_get:
+            parent_get.return_value = HttpResponse(b"tile", content_type="application/vnd.mapbox-vector-tile")
+            get_vector_tile_cache().clear()
+            first = user_client.get(make_tile_url(3, 4, 5))
+            assert first["X-Cache"] == "MISS"
+    with override_settings(VECTOR_TILE_CACHE_VERSION="2"):
+        with patch("mapping.views.SpatialFeatureTileView._get") as parent_get2:
+            parent_get2.return_value = HttpResponse(b"tile", content_type="application/vnd.mapbox-vector-tile")
+            second = user_client.get(make_tile_url(3, 4, 5))
+            assert second["X-Cache"] == "MISS"
+            assert parent_get2.call_count == 1
+
+
+@pytest.mark.django_db
+def test_get_effective_cache_version_uses_vector_tile_cache_alias():
+    # Ensure different values in default vs vector tile cache; function should use vector tile cache
+    default_cache = caches["default"]
+    try:
+        vt_cache = caches[settings.VECTOR_TILE_CACHE_ALIAS]
+    except Exception:
+        pytest.skip("vector_tiles cache alias not configured in this environment")
+    default_cache.set("vector_tile_data_version", 99)
+    vt_cache.set("vector_tile_data_version", 7)
+
+    with override_settings(VECTOR_TILE_CACHE_VERSION="3"):
+        assert get_effective_cache_version() == "3-7"
+
+
+@pytest.mark.django_db
+def test_get_vector_tile_cache_returns_configured_alias():
+    try:
+        expected = caches[settings.VECTOR_TILE_CACHE_ALIAS]
+    except Exception:
+        expected = caches["default"]  # fallback if alias missing
+    vt_cache = get_vector_tile_cache()
+    assert vt_cache is expected
+
+
+@pytest.mark.django_db
+def test_vector_tile_data_version_initial_zero():
+    # Clearing to ensure a clean slate
+    get_vector_tile_cache().clear()
+    assert get_vector_tile_data_version() == 0
+
+
+@pytest.mark.django_db
+def test_bump_vector_tile_data_version_increments():
+    cache = get_vector_tile_cache()
+    cache.delete(VECTOR_TILE_DATA_VERSION_KEY)
+    v0 = get_vector_tile_data_version()
+    bump_vector_tile_data_version()
+    v1 = get_vector_tile_data_version()
+    bump_vector_tile_data_version()
+    v2 = get_vector_tile_data_version()
+    assert v0 == 0
+    assert v1 == 1
+    assert v2 == 2
+
+
+@pytest.mark.django_db
+@override_settings(VECTOR_TILE_CACHE_VERSION="12")
+def test_effective_cache_version_reflects_bumps():
+    get_vector_tile_cache().clear()
+    bump_vector_tile_data_version()  # -> 1
+    bump_vector_tile_data_version()  # -> 2
+    effective = get_effective_cache_version()
+    assert effective == "12-2"
+
+
+@pytest.mark.django_db
+def test_tile_view_etag_generation(user_client):
+    """Test that ETag headers are generated consistently."""
+
+    with patch("mapping.views.SpatialFeatureTileView._get") as parent_get:
+        parent_get.return_value = HttpResponse(b"tiledata", content_type="application/vnd.mapbox-vector-tile")
+        get_vector_tile_cache().clear()
+
+        # First request should include ETag
+        first = user_client.get(make_tile_url(10, 100, 200))
+        assert first.status_code == 200
+        assert first["X-Cache"] == "MISS"
+        assert "ETag" in first
+        etag_value = first["ETag"]
+        assert etag_value.startswith('"') and etag_value.endswith('"')
+
+        # Second identical request should have same ETag
+        second = user_client.get(make_tile_url(10, 100, 200))
+        assert second.status_code == 200
+        assert second["X-Cache"] == "HIT"
+        assert second["ETag"] == etag_value
+
+
+@pytest.mark.django_db
+def test_tile_view_304_not_modified(user_client):
+    """Test that 304 Not Modified is returned when client sends matching ETag."""
+
+    with patch("mapping.views.SpatialFeatureTileView._get") as parent_get:
+        parent_get.return_value = HttpResponse(b"tiledata", content_type="application/vnd.mapbox-vector-tile")
+        get_vector_tile_cache().clear()
+
+        # First request to get ETag
+        first = user_client.get(make_tile_url(10, 100, 200))
+        assert first.status_code == 200
+        etag_value = first["ETag"]
+
+        # Second request with If-None-Match should return 304
+        second = user_client.get(make_tile_url(10, 100, 200), HTTP_IF_NONE_MATCH=etag_value)
+        assert second.status_code == 304
+        assert second["ETag"] == etag_value
+        assert "Cache-Control" in second
+        assert len(second.content) == 0  # 304 responses have no body
+
+
+@pytest.mark.django_db
+def test_tile_view_etag_different_for_different_cache_keys(user_client):
+    """Test that different cache keys generate different ETags."""
+    APIRequestFactory()
+
+    with patch("mapping.views.SpatialFeatureTileView._get") as parent_get:
+        # Return a new HttpResponse object for each call to avoid mutation issues
+        parent_get.side_effect = lambda *args, **kwargs: HttpResponse(
+            b"tiledata", content_type="application/vnd.mapbox-vector-tile"
+        )
+        get_vector_tile_cache().clear()
+
+        first = user_client.get(make_tile_url(10, 100, 200))
+        second = user_client.get(make_tile_url(10, 100, 201))
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert first["ETag"] != second["ETag"]  # Different tiles should have different ETags
+
+
+@pytest.mark.django_db
+def test_tile_view_304_bypassed_with_different_etag(user_client):
+    """Test that requests with non-matching ETags are not returned as 304."""
+
+    with patch("mapping.views.SpatialFeatureTileView._get") as parent_get:
+        parent_get.return_value = HttpResponse(b"tiledata", content_type="application/vnd.mapbox-vector-tile")
+        get_vector_tile_cache().clear()
+
+        # Request with wrong ETag should not return 304
+        response = user_client.get(make_tile_url(10, 100, 200), HTTP_IF_NONE_MATCH='"wrong-etag-value"')
+        assert response.status_code == 200  # Not 304
+        assert response["X-Cache"] == "MISS"  # Should still process normally

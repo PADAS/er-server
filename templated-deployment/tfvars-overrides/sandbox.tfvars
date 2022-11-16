@@ -1,1 +1,0 @@
-patrol_enabled       = "True"

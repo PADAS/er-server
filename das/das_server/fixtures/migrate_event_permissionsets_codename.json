@@ -1,0 +1,333 @@
+[
+    {
+        "model": "accounts.permissionset",
+        "fields": {
+            "created_at": "2017-06-28T01:00:00Z",
+            "updated_at": "2017-06-28T01:00:00Z",
+            "name": "Radio Room Operator Event Permissions",
+            "children": []
+        }
+    },
+    {
+        "model": "accounts.permissionset",
+        "fields": {
+            "created_at": "2017-06-28T01:00:00Z",
+            "updated_at": "2017-06-28T01:00:00Z",
+            "name": "Admin User Event Permissions",
+            "children": []
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Admin User Event Permissions"
+            ],
+            "permission": [
+                "logistics_update",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Radio Room Operator Event Permissions"
+            ],
+            "permission": [
+                "analyzer_event_update",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Admin User Event Permissions"
+            ],
+            "permission": [
+                "monitoring_delete",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Admin User Event Permissions"
+            ],
+            "permission": [
+                "logistics_create",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Admin User Event Permissions"
+            ],
+            "permission": [
+                "analyzer_event_update",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Admin User Event Permissions"
+            ],
+            "permission": [
+                "monitoring_update",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Admin User Event Permissions"
+            ],
+            "permission": [
+                "analyzer_event_delete",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Admin User Event Permissions"
+            ],
+            "permission": [
+                "security_update",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Admin User Event Permissions"
+            ],
+            "permission": [
+                "security_delete",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Admin User Event Permissions"
+            ],
+            "permission": [
+                "monitoring_read",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Radio Room Operator Event Permissions"
+            ],
+            "permission": [
+                "monitoring_update",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Radio Room Operator Event Permissions"
+            ],
+            "permission": [
+                "monitoring_create",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Radio Room Operator Event Permissions"
+            ],
+            "permission": [
+                "logistics_update",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Radio Room Operator Event Permissions"
+            ],
+            "permission": [
+                "security_create",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Admin User Event Permissions"
+            ],
+            "permission": [
+                "logistics_read",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Radio Room Operator Event Permissions"
+            ],
+            "permission": [
+                "logistics_create",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Admin User Event Permissions"
+            ],
+            "permission": [
+                "analyzer_event_read",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Admin User Event Permissions"
+            ],
+            "permission": [
+                "monitoring_create",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Admin User Event Permissions"
+            ],
+            "permission": [
+                "logistics_delete",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Radio Room Operator Event Permissions"
+            ],
+            "permission": [
+                "logistics_read",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Admin User Event Permissions"
+            ],
+            "permission": [
+                "security_read",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Radio Room Operator Event Permissions"
+            ],
+            "permission": [
+                "monitoring_read",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Radio Room Operator Event Permissions"
+            ],
+            "permission": [
+                "analyzer_event_read",
+                "activity",
+                "event"
+            ]
+        }
+    },
+    {
+        "model": "accounts.permissionsetpermission",
+        "fields": {
+            "permissionset": [
+                "Admin User Event Permissions"
+            ],
+            "permission": [
+                "analyzer_event_create",
+                "activity",
+                "event"
+            ]
+        }
+    }
+
+]

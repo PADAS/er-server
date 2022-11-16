@@ -1,5 +1,9 @@
 das/das_server/chrisdo_settings.py
+GENERATED_MANIFEST
 /das/www
+www/static
+# Database backup files (downloaded from GCS during CI)
+circleci-docker/db-backup.sql
 # Created by .ignore support plugin (hsz.mobi)
 ### Python template
 # Byte-compiled / optimized / DLL files
@@ -7,7 +11,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 dc
-
+docs/.venv
 # Mac filesystem
 .DS_Store
 
@@ -40,15 +44,24 @@ var/
 .vs/*
 
 ### VisualStudioCode ###
-.vscode/*      # Maybe .vscode/**/* instead - see comments
-!.vscode/settings.json
-!.vscode/tasks.json
+.vscode/*
+#!.vscode/settings.json
+#!.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
 
 ### VisualStudioCode Patch ###
 # Ignore all local history of files
 **/.history
+
+
+### AI-augmented ###
+.cursor/*
+!.cursor/rules/
+
+.windsurf/*
+.windsurfrules
+
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -99,6 +112,7 @@ terraform.tfstate
 ## Directory-based project format:
 .idea/
 
+.scannerwork/
 # if you remove the above rule, at least ignore the following:
 
 # User-specific stuff:
@@ -153,12 +167,21 @@ pyvenv.cfg
 pip-selfcheck.json
 
 
+das/.ipynb_checkpoints
+*.ipynb
 
-das/das_server/local_settings.py
+das/runserver.sh
+
+das/0.0.0.0/*
+das/celerybeat-schedule
+das/celerybeat-schedule.db
+das/celerybeat.pid
+
+GDAL-3.6.2
+
 das/das_server/local_log.py
-das/export.json
 
-das/das_server/aws_dev_settings.py
+das/export.json
 
 das/das_server/test_settings.py
 
@@ -174,24 +197,9 @@ das/das_server/odzala_settings.py
 
 das/das_server/ste_settings.py
 
-das/.ipynb_checkpoints
-*.ipynb
-
-das/runserver.sh
-
-das/0.0.0.0/*
-das/celerybeat-schedule
-
-das/celerybeat.pid
-
-
 das/das_server/grumeti_settings.py
 
 das/das_server/local_celery_settings.py
-**/lewa_safaricom.py
-**/lab_demo_settings.py
-
-das/reports/docx_template/~$wa_sitrep_template.docx
 
 das/das_server/unittest_settings.py
 
@@ -213,8 +221,6 @@ das/das_server/test_import_settings.py
 
 das/das_server/dev_ste_settings.py
 
-das/celerybeat-schedule.db
-
 das/das_server/migration_testsettings.py
 
 das/das_server/ste_test_settings.py
@@ -222,9 +228,16 @@ das/das_server/ste_test_settings.py
 das/das_server/local_settings_dev-ste*
 
 das/das_server/das_ste_extensions_settings.py
+
+**/lewa_safaricom.py
+**/lab_demo_settings.py
+
+das/reports/docx_template/~$wa_sitrep_template.docx
+
 Pipfile
 Pipfile.lock
 das/das_server/.env
+das/.env
 dependencies/gdal**/
 dependencies/geos**/
 dependencies/proj**/
@@ -323,3 +336,5 @@ flycheck_*.el
 
 # network security
 /network-security.data
+
+pyrightconfig.json

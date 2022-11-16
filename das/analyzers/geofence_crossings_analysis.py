@@ -1,7 +1,13 @@
 import datetime as dt
+
 import pymet
-from pymet.geofence import GeofenceAnalysis, GeofenceAnalysisParams, \
-    GeofenceAnalysisResult, Geofence, GeofenceCrossing
+from pymet.geofence import (
+    Geofence,
+    GeofenceAnalysis,
+    GeofenceAnalysisParams,
+    GeofenceAnalysisResult,
+    GeofenceCrossing,
+)
 
 
 class DasGeofenceAnalysis(GeofenceAnalysis):
@@ -28,7 +34,7 @@ class DasGeofenceAnalysis(GeofenceAnalysis):
         result = GeofenceAnalysisResult()
 
         # Set the start time of the analysis
-        result.analysis_start = dt.datetime.utcnow()
+        result.analysis_start = dt.datetime.now(tz=dt.timezone.utc)
 
         for traj in trajectories:
             assert type(traj) is pymet.base.Trajectory
@@ -42,13 +48,12 @@ class DasGeofenceAnalysis(GeofenceAnalysis):
                     assert type(fence) is Geofence
 
                     # Attempt the intersection of the trajectory segment with the fence
-                    intersect_pnts = trajseg.ogr_geometry.Intersection(
-                        fence.ogr_geometry)
+                    intersect_pnts = trajseg.ogr_geometry.Intersection(fence.ogr_geometry)
 
                     # intersect_pnts can either be None, POINT, or MULTIPOINT
                     _intersectPnts = []
 
-                    if intersect_pnts.GetGeometryName() == 'POINT':
+                    if intersect_pnts.GetGeometryName() == "POINT":
                         _intersectPnts.append(intersect_pnts)
                     else:
                         _intersectPnts = intersect_pnts
@@ -62,11 +67,9 @@ class DasGeofenceAnalysis(GeofenceAnalysis):
 
                         for pnt in _intersectPnts:
                             # Create a GeoPoint at the crossing OGR point
-                            crossing_geopoint = pymet.base.GeoPoint(x=pnt.GetX(),
-                                                                    y=pnt.GetY())
+                            crossing_geopoint = pymet.base.GeoPoint(x=pnt.GetX(), y=pnt.GetY())
 
-                            segment_distance_to_crossing = \
-                                trajseg.start_fix_geopoint.dist_to_point(pnt)
+                            segment_distance_to_crossing = trajseg.start_fix_geopoint.dist_to_point(pnt)
 
                             segment_length = trajseg.length_km * 1000.0
 
@@ -76,36 +79,38 @@ class DasGeofenceAnalysis(GeofenceAnalysis):
 
                             # Estimate the time of the break based on the fractional timespan
                             fractional_time = fractional_distance * (
-                                    trajseg.end_fix.fixtime - trajseg.start_fix.fixtime)
+                                trajseg.end_fix.fixtime - trajseg.start_fix.fixtime
+                            )
                             crossing_time = trajseg.start_fix.fixtime + fractional_time
 
                             # Create an estimated geofence cross fix
-                            estimated_cross_fix = pymet.base.Fix(crossing_geopoint,
-                                                                 crossing_time)
+                            estimated_cross_fix = pymet.base.Fix(crossing_geopoint, crossing_time)
 
                             # Determine containment of the subject before and after the crossing
                             containment_before = GeofenceAnalysis.asses_containment(
-                                trajseg.start_fix_geopoint,
-                                geofence_analysis_params.regions)
+                                trajseg.start_fix_geopoint, geofence_analysis_params.regions
+                            )
 
                             containment_after = GeofenceAnalysis.asses_containment(
-                                trajseg.end_fix_geopoint,
-                                geofence_analysis_params.regions)
+                                trajseg.end_fix_geopoint, geofence_analysis_params.regions
+                            )
 
                             # Create the output fence crossing result
-                            crossing = GeofenceCrossing(subject_id=subject_id,
-                                                        subject_speed=trajseg.speed_kmhr,
-                                                        subject_travel_heading=trajseg.heading,
-                                                        estimated_cross_fix=estimated_cross_fix,
-                                                        geofence_id=fence.unique_id,
-                                                        warn_level=fence.warn_level,
-                                                        start_region_ids=containment_before,
-                                                        end_region_ids=containment_after)
+                            crossing = GeofenceCrossing(
+                                subject_id=subject_id,
+                                subject_speed=trajseg.speed_kmhr,
+                                subject_travel_heading=trajseg.heading,
+                                estimated_cross_fix=estimated_cross_fix,
+                                geofence_id=fence.unique_id,
+                                warn_level=fence.warn_level,
+                                start_region_ids=containment_before,
+                                end_region_ids=containment_after,
+                            )
 
                             # Add this given crossing to the result
                             result.add_crossing(crossing)
 
         # Set the end time of the analysis
-        result.analysis_end = dt.datetime.utcnow()
+        result.analysis_end = dt.datetime.now(tz=dt.timezone.utc)
 
         return result

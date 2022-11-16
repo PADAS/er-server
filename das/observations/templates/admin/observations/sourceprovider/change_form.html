@@ -13,5 +13,124 @@
             id="django-admin-form-add-constants"
             src="{% static 'admin/js/transformation_rule.js' %}">
     </script>
+    <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', function() {
+            // Find the checkbox and messaging config row
+            const twoWayMessagingCheckbox = document.querySelector('input[name="two_way_messaging"]');
+            const messagingConfigRow = document.querySelector('.messaging-config-row');
+
+            function toggleMessagingConfig() {
+                if (messagingConfigRow) {
+                    const shouldShow = twoWayMessagingCheckbox.checked;
+                    messagingConfigRow.style.display = shouldShow ? 'block' : 'none';
+                }
+            }
+
+            // Initial state
+            toggleMessagingConfig();
+
+            // Listen for changes
+            if (twoWayMessagingCheckbox) {
+                twoWayMessagingCheckbox.addEventListener('change', function(e) {
+
+                    toggleMessagingConfig();
+                });
+            }
+        });
+    </script>
+    <style>
+        .maintenance-button {
+            background: #79aec8 !important;
+            margin-left: 10px;
+            transition: background-color 0.2s ease;
+        }
+        .maintenance-button:hover {
+            background: #417690 !important;
+        }
+        .two-way-messaging-row {
+            display: flex;
+            flex-direction: column;
+        }
+        .two-way-messaging-row .checkbox-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        .two-way-messaging-row label {
+            order: 2;
+            margin-left: 8px;
+        }
+        .two-way-messaging-row input[type="checkbox"] {
+            order: 1;
+        }
+        .messaging-config-row {
+            display: none;  /* Start hidden by default */
+        }
+    </style>
 {% endblock %}
 
+{% block field_sets %}
+{% for fieldset in adminform %}
+    {% if fieldset.name == "Provider configurations" %}
+        <fieldset class="module aligned {{ fieldset.classes }}">
+            <h2>{{ fieldset.name }}</h2>
+            {% for line in fieldset %}
+                {% for field in line %}
+                    {% if field.field.name == "days_data_retain" %}
+                        <div class="form-row">
+                            {{ field.field.label_tag }}
+                            {{ field.field }}
+                            {% if field.field.errors %}
+                                {{ field.field.errors }}
+                            {% endif %}
+                            {% if original %}
+                                <input type="submit" value="{% trans 'Run Days data retain Maintenance Task' %}" name="_run_maintenance" class="maintenance-button">
+                            {% endif %}
+                            {% if field.field.help_text %}
+                                <div class="help">{{ field.field.help_text|safe }}</div>
+                            {% endif %}
+                        </div>
+                    {% elif field.field.name == "two_way_messaging" %}
+                        <div class="form-row two-way-messaging-row">
+                            <div class="checkbox-container">
+                                {{ field.field }}
+                                {{ field.field.label_tag }}
+                            </div>
+                            {% if field.field.errors %}
+                                {{ field.field.errors }}
+                            {% endif %}
+                            {% if field.field.help_text %}
+                                <div class="help" style="margin-left: 0;">{{ field.field.help_text|safe }}</div>
+                            {% endif %}
+                        </div>
+                    {% elif field.field.name == "messaging_config" %}
+                        <div class="form-row messaging-config-row" style="display: none;">
+                            {{ field.field.label_tag }}
+                            {{ field.field }}
+                            {% if field.field.errors %}
+                                {{ field.field.errors }}
+                            {% endif %}
+                            {% if field.field.help_text %}
+                                <div class="help">{{ field.field.help_text|safe }}</div>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <div class="form-row">
+                            {{ field.field.label_tag }}
+                            {{ field.field }}
+                            {% if field.field.errors %}
+                                {{ field.field.errors }}
+                            {% endif %}
+                            {% if field.field.help_text %}
+                                <div class="help">{{ field.field.help_text|safe }}</div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
+        </fieldset>
+    {% else %}
+        {% include "admin/includes/fieldset.html" %}
+    {% endif %}
+{% endfor %}
+{% endblock %}
