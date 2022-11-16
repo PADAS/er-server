@@ -1,0 +1,8 @@
+time_zone           = "Africa/Nairobi"
+mapping_features_v2  = "True"
+subject_region_enabled = "True"
+kml_export = "true"
+kml_feed_title = "Save the Elephants"
+kml_overlay_image = "/static/ste_overlay_image.png"
+tableau_enabled      = "True"
+show_track_days      = "16"
