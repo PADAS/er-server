@@ -2,25 +2,41 @@ import datetime
 import uuid
 
 import factory
+import pytz
 from factory import fuzzy
 from factory.fuzzy import BaseFuzzyAttribute
 from oauth2_provider.models import AccessToken
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
-from django.contrib.gis.geos import Polygon
+from django.contrib.gis.geos import Point, Polygon
 from django.utils import timezone
 
 from accounts.models.permissionset import PermissionSet
-from activity.models import (Event, EventCategory, EventDetails, EventGeometry,
-                             EventNote, EventType, Patrol, PatrolNote,
-                             PatrolSegment, PatrolType)
-from analyzers.models import (FeatureProximityAnalyzerConfig,
-                              GeofenceAnalyzerConfig)
+from activity.models import (
+    Event,
+    EventCategory,
+    EventDetails,
+    EventGeometry,
+    EventNote,
+    EventType,
+    Patrol,
+    PatrolNote,
+    PatrolSegment,
+    PatrolType,
+)
+from analyzers.models import FeatureProximityAnalyzerConfig, GeofenceAnalyzerConfig
 from mapping.models import SpatialFeatureGroupStatic, SpatialFeatureType
-from observations.models import (Observation, Source, SourceProvider, Subject,
-                                 SubjectGroup, SubjectSource, SubjectSubType,
-                                 SubjectType)
+from observations.models import (
+    Observation,
+    Source,
+    SourceProvider,
+    Subject,
+    SubjectGroup,
+    SubjectSource,
+    SubjectSubType,
+    SubjectType,
+)
 
 User = get_user_model()
 
@@ -28,7 +44,7 @@ User = get_user_model()
 class PermissionSetFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = PermissionSet
-        django_get_or_create = ('name',)
+        django_get_or_create = ("name",)
 
     name = fuzzy.FuzzyText(length=25)
 
@@ -135,7 +151,7 @@ class SubjectSourceFactory(factory.django.DjangoModelFactory):
 class SubjectGroupFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = SubjectGroup
-        django_get_or_create = ('name',)
+        django_get_or_create = ("name",)
 
     name = fuzzy.FuzzyText(length=40)
 
@@ -204,11 +220,18 @@ class ObservationFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Observation
 
+    recorded_at = fuzzy.FuzzyDateTime(datetime.datetime.now(pytz.UTC))
+    source = factory.SubFactory(SourceFactory)
+
+    @factory.lazy_attribute
+    def location(self):
+        return Point(-103.313486, 20.420935)
+
 
 class EventCategoryFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = EventCategory
-        django_get_or_create = ('value',)
+        django_get_or_create = ("value",)
 
     value = fuzzy.FuzzyText(length=20)
 
@@ -216,7 +239,7 @@ class EventCategoryFactory(factory.django.DjangoModelFactory):
 class EventTypeFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = EventType
-        django_get_or_create = ('value',)
+        django_get_or_create = ("value",)
 
     value = fuzzy.FuzzyText(length=20)
     display = fuzzy.FuzzyText(length=50)
@@ -261,7 +284,6 @@ class FuzzyPolygon(BaseFuzzyAttribute):
 
 
 class EventGeometryFactory(factory.django.DjangoModelFactory):
-
     class Meta:
         model = EventGeometry
 
@@ -270,7 +292,6 @@ class EventGeometryFactory(factory.django.DjangoModelFactory):
 
 
 class AccessTokenFactory(factory.django.DjangoModelFactory):
-
     class Meta:
         model = AccessToken
 
