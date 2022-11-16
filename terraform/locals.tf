@@ -317,6 +317,7 @@ locals {
     "iapf-zw"                 = "prod1"
     "iapf-bw"                 = "prod1"
     "iapf-tz"                 = "prod1"
+    "nzsharkman"              = "prod-asia"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
