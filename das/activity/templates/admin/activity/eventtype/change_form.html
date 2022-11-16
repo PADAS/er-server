@@ -1,6 +1,6 @@
 {% extends "admin/change_form.html" %}
 
-{%  block content %}{%  if eventsource_ref is not None %}
+{%  block content %}{%  if eventsources_ref %}
     <div style="padding: 12px 14px;
     margin: 0 0 20px;
     background: #ffc;
@@ -10,9 +10,15 @@
     display: block;
     width: 90%;">
     <h2>Notice</h2>
-        <p>This Event Type is linked to an External Event Source.</p>
+        <p>This Event Type is linked to {{ eventsources_ref|length }} External Event Source{{ eventsources_ref|pluralize}}.</p>
         <p>This means that you can let EarthRanger automatically define the Event schema. To do so, click the <b>Automatic Schema</b> button below.</p>
-        <p>You can see the linked Event Source at: <a href="{{ eventsource_ref.href }}">{{ eventsource_ref.display }}</a></p>
+        <p>You can see the linked Event Source{{ eventsources_ref|pluralize}} at: </p
+          {%  for eventsource_ref in eventsources_ref %}
+          <p>
+           <a href="{{ eventsource_ref.href }}">{{ eventsource_ref.display }}</a>
+          </p>
+
+           {% endfor %}
     </div>
     {% endif %}
 {{ block.super }}
@@ -35,7 +41,7 @@
               "placeholder": {
                 "type": "string",
                   "title": "Placeholder",
-                  "default": "This schema definition will be automatically generated when new report data is recorded."
+                  "default": "This schema definition will be automatically generated when new event data is recorded."
               }
             }
           },

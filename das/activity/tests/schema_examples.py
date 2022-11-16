@@ -14,11 +14,11 @@ ET_SCHEMA = """{
             "type": "number",
             "title": "HA Surveyed",
             "minimum": 0
-        },  
+        },
         "livestock_killed_array":{
             "title": "Livestock Killed",
             "type": "array",
-            "items": 
+            "items":
             {
                 "type":"object",
                 "properties":{
@@ -34,7 +34,7 @@ ET_SCHEMA = """{
                 "minimum":1}
                 }
             }
-          },         
+          },
         "repCountry": {
             "type": "string",
             "title": "Country",
@@ -44,10 +44,10 @@ ET_SCHEMA = """{
         "repLocation": {
             "type": "string",
             "title": "Report Location"
-        },        
+        },
         "HopActivitySelect": {
             "key": "HopActivitySelect"
-        },        
+        },
         "HopAppearance": {
             "type": "string",
             "title": "Appearance",
@@ -98,7 +98,7 @@ ET_SCHEMA = """{
             "type": "string",
             "title": "Dominant",
             "enum": {{enum___behavior___values}},
-            "enumNames": {{enum___behavior___names}}            
+            "enumNames": {{enum___behavior___names}}
         },
         "HopActivity": {
             "type": "string",
@@ -117,11 +117,11 @@ ET_SCHEMA = """{
             "title": "Colour",
             "enum": {{enum___behavior___values}},
             "enumNames": {{enum___behavior___names}}
-        },   
+        },
         "eLocust-key": {
             "type": "string",
             "title": "e-locust-key"
-        }      
+        }
     }
 },
   "definition": [
@@ -143,7 +143,7 @@ ET_SCHEMA = """{
       "type": "fieldset",
       "htmlClass": "col-lg-6",
       "items": [
-        "repCountry",  
+        "repCountry",
         "repLocation"
       ]
     },
@@ -160,16 +160,16 @@ ET_SCHEMA = """{
         { "key": "HopStageSelect", "type": "checkboxes", "title": "Stage", "titleMap": {{enum___behavior___map}}},
         "HopStageDom",
         "HopAppearance",
-        "HopBehaviour",                        
+        "HopBehaviour",
         { "key": "HopColourSelect", "type": "checkboxes", "title": "Colour", "titleMap": {{enum___behavior___map}}}
       ]
     },
     {
       "type": "fieldset",
       "htmlClass": "col-lg-6",
-      "items": [ 
+      "items": [
         "HopDensityUnit",
-        "HopDensity", 
+        "HopDensity",
         "HopDensityMin",
         "HopDensityAvg",
         "HopDensityMax",
@@ -182,18 +182,18 @@ ET_SCHEMA = """{
 
 WILDLIFE_SCHEMA = """
 {
-   "schema": 
+   "schema":
    {
        "$schema": "http://json-schema.org/draft-04/schema#",
        "title": "Other Wildlife Sighting Report (wildlife_sighting_rep)",
 
        "type": "object",
-       "properties": 
+       "properties":
        {
            "livestock_killed_array":{
             "title": "Livestock Killed",
             "type": "array",
-            "items": 
+            "items":
             {
                 "type":"object",
                 "properties":{
@@ -214,18 +214,18 @@ WILDLIFE_SCHEMA = """
                 "type": "string",
                 "title": "Species",
                 "enum": {{enum___wildlifesightingrep_species___values}},
-                "enumNames": {{enum___wildlifesightingrep_species___names}}   
-            }, 
+                "enumNames": {{enum___wildlifesightingrep_species___names}}
+            },
            "wildlifesightingrep_numberanimals": {
                 "type": "number",
                 "title": "Count",
                 "minimum":0
-           },                      
+           },
            "wildlifesightingrep_collared": {
                 "type": "string",
                 "title": "Are Animals Collared",
                 "enum": {{enum___yesno___values}},
-                "enumNames": {{enum___yesno___names}}                   
+                "enumNames": {{enum___yesno___names}}
            }
 
        }
@@ -234,15 +234,15 @@ WILDLIFE_SCHEMA = """
     {
         "key":    "wildlifesightingrep_species",
         "htmlClass": "col-lg-6"
-    }, 
+    },
     {
         "key":    "wildlifesightingrep_numberanimals",
         "htmlClass": "col-lg-6"
-    },    
+    },
     {
         "key":    "wildlifesightingrep_collared",
         "htmlClass": "col-lg-6"
-    } 
+    }
  ]
 }
 """
@@ -312,30 +312,30 @@ BAD_SCHEMA = """
 
 WILDLIFE_SCHEMA_CHECKBOX = """
 {
-   "schema": 
+   "schema":
    {
        "$schema": "http://json-schema.org/draft-04/schema#",
        "title": "Other Wildlife Sighting Report (wildlife_sighting_rep)",
 
        "type": "object",
-       "properties": 
+       "properties":
        {
             "wildlifesightingrep_species": {
                 "type": "string",
                 "title": "Species",
                 "enum": {{enum___wildlifesightingrep_species___values}},
-                "enumNames": {{enum___wildlifesightingrep_species___names}}   
-            }, 
+                "enumNames": {{enum___wildlifesightingrep_species___names}}
+            },
            "wildlifesightingrep_numberanimals": {
                 "type": "number",
                 "title": "Count",
                 "minimum":0
-           },                      
+           },
            "wildlifesightingrep_collared": {
                 "type": "string",
                 "title": "Are Animals Collared",
                 "enum": {{enum___yesno___values}},
-                "enumNames": {{enum___yesno___names}}                   
+                "enumNames": {{enum___yesno___names}}
            }
 
        }
@@ -344,15 +344,234 @@ WILDLIFE_SCHEMA_CHECKBOX = """
     {
         "key":    "wildlifesightingrep_species",
         "htmlClass": "col-lg-6"
-    }, 
+    },
     {
         "key":    "wildlifesightingrep_numberanimals",
         "htmlClass": "col-lg-6"
-    },    
+    },
     {
         "key":    "wildlifesightingrep_collared",
         "htmlClass": "col-lg-6"
-    } 
+    }
  ]
+}
+"""
+
+CONFISCATION_SCHEMA = """
+{
+   "schema":
+   {
+       "$schema": "http://json-schema.org/draft-04/schema#",
+       "title": "Confiscation Report (confiscation_rep)",
+
+       "type": "object",
+
+       "properties":
+       {
+            "confiscationrep_itemsconfiscated": {
+                "type": "array",
+                "title": "Items Confiscated",
+                "items": {
+					"type": "object",
+					"title":"Item Details",
+					"properties" : {
+						"ItemConfiscated": {
+						    "type": "string",
+						    "title": "Item Type",
+			                "enum": {{enum___confiscationrep_itemsconfiscated___values}},
+			                "enumNames": {{enum___confiscationrep_itemsconfiscated___names}}
+			            },
+			            "ItemNumber": {
+			                "type": "number",
+			                "title": "Number of Items",
+			                "minimum": 0
+			            }
+		            }
+	            }
+            },
+            "confiscationrep_details": {
+                "type": "string",
+                "title": "Report Details"
+            }
+       }
+   },
+ "definition": [
+    {
+        "key":    "confiscationrep_itemsconfiscated",
+        "add": "New",
+		"style": {
+		  "add": "btn-success"
+		}
+
+    },
+    {
+        "key":    "confiscationrep_details",
+        "type":   "textarea",
+        "htmlClass": "col-lg-12"
+    }
+ ]
+}
+"""
+
+POACHERS_SCHEMA = """
+{
+    "schema":
+    {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "title": "EventType Test Data",
+
+        "type": "object",
+
+		 "properties":
+         {
+
+            "reportreportername": {
+                "type": "string",
+                "title": "Reporter's Name"
+            },
+			"reportphonenumber": {
+                "type": "number",
+                "title": "Telephone Number"
+            },
+            "event_time": {
+                "title": "Event Time",
+                "key": "Event Time"
+            },
+			 "camp_size": {
+                "type": "string",
+                "title": "Size of Camp",
+                "enum": {{enum___camp_size___values}},
+                "enumNames": {{enum___camp_size___names}}
+            },
+			"estimated_no_of_people": {
+                "type": "number",
+                "title": "Estimated Number of People"
+            },
+            "percent_cover_in_den": {
+                "type": "number",
+                "title": "Percent cover provided by den site from the nursing bed within",
+               "enum": {{enum___camp_size___values}},
+               "enumNames": {{enum___camp_size___names}}
+            },
+			"camp_age": {
+                "type": "string",
+                "title": "Age of camp",
+				"enum": {{enum___camp_age___values}},
+                "enumNames": {{enum___camp_age___names}}
+            },
+			"details_dt":{
+                "title": "Details",
+                "type": "array",
+                "items":
+                    {
+                        "type":"object",
+                        "properties":{
+
+                            "infrustructure":{
+                                "title": "Infrastructure",
+                                "type":"string",
+                                "enum": {{enum___infrustructure___values}},
+                                "enumNames": {{enum___infrustructure___names}}
+                                },
+                                "number":{
+                                "title": "Number",
+                                "type":"number"
+                                }
+                        }
+                    }
+                },
+            "poacherscamp_sighting_action": {
+                 "key": "illegal_activities_deployed_assets"
+            },
+            "poachers_camp_action": {
+                "key": "poacherscamp_sighting_action"
+            }
+		 }
+	},
+		 "definition": [
+
+            {
+                "type": "fieldset",
+                "htmlClass": "col-lg-12",
+                "items": [
+                    {"key": "event_time", "fieldHtmlClass": "date-time-picker json-schema"}
+                    ]
+                },
+                {
+                "type": "fieldset",
+                "title": "Reporter's Details",
+                "htmlClass": "col-lg-12",
+                "items": []
+                },
+                {
+                "type": "fieldset",
+                "htmlClass": "col-lg-6",
+                "items": [
+                "reportreportername"
+                ]
+                },
+                {
+                "type": "fieldset",
+                "htmlClass": "col-lg-6",
+                "items": [
+                "reportphonenumber"
+                ]
+                },
+                {
+                "type": "fieldset",
+                "title": "Poacher Camp Details",
+                "htmlClass": "col-lg-12",
+                "items": []
+                },
+                {
+                "type": "fieldset",
+                "htmlClass": "col-lg-12",
+                "items": [
+                "camp_size"
+                ]
+                },
+                {
+                "type": "fieldset",
+                "htmlClass": "col-lg-6",
+                "items": [
+                "estimated_no_of_people"
+                ]
+                },
+                {
+                "type": "fieldset",
+                "htmlClass": "col-lg-6",
+                "items": [
+                "camp_age"
+                ]
+                },
+                {
+                "type":"fieldset",
+                "htmlClass":"col-lg-12",
+                "items":[
+                    "details_dt"
+                ]
+                },
+                {
+                "type": "fieldset",
+                "title": "Action",
+                "htmlClass": "col-lg-12",
+                "items": []
+            },
+            {
+                "type": "fieldset",
+                "htmlClass": "col-lg-12",
+                "items": [
+                    {"key": "poacherscamp_sighting_action", "type": "checkboxes", "title": "Deployed Assets", "titleMap": {{enum___illegal_activities_deployed_assets___map}}}
+                ]
+            },
+            {
+                "type": "fieldset",
+                "htmlClass": "col-lg-12",
+                "items": [
+                    {"key": "poachers_camp_action", "type": "checkboxes", "title": "Outcome", "titleMap": {{enum___poacherscamp_sighting_action___map}}}
+                ]
+                }
+
+		 ]
 }
 """

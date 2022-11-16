@@ -1,37 +1,57 @@
 import uuid
 
+from django_multitenant.fields import TenantForeignKey, TenantOneToOneField
+from django_multitenant.mixins import TenantModelMixin
+
 from django.contrib.postgres.fields import ArrayField
+from django.db import models
 
-from core.models import TimestampedModel, models
+from core.models import DASTenant, TimestampedModel
 from observations.models import Subject
+from utils.migrations.columns import default_tenant_id
+from utils.models import CommonTenantManager
 
 
-class SubjectSpeedProfile(TimestampedModel):
-
+class SubjectSpeedProfile(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    subject = models.OneToOneField(
-        to=Subject, on_delete=models.CASCADE, null=True, blank=True)
+    subject = TenantOneToOneField(to=Subject, on_delete=models.CASCADE, null=True, blank=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    objects = CommonTenantManager()
+
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
 
-class SpeedDistro(TimestampedModel):
+class SpeedDistro(TenantModelMixin, TimestampedModel):
     """
     Represents an empirical speed distribution for a subject for the period within the start until the end
     The distro percentiles/parameters are only valid for the corresponding schedule
     """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     percentiles = models.JSONField(blank=True, default=dict)
-    subject_speed_profile = models.ForeignKey(to=SubjectSpeedProfile,
-                                              on_delete=models.CASCADE,
-                                              related_name='SpeedDistros',
-                                              null=True, blank=True)
+    subject_speed_profile = TenantForeignKey(
+        to=SubjectSpeedProfile,
+        on_delete=models.CASCADE,
+        related_name="SpeedDistros",
+        null=True,
+        blank=True,
+    )
+    speeds_kmhr = ArrayField(base_field=models.FloatField(), null=True, blank=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    objects = CommonTenantManager()
 
-    speeds_kmhr = ArrayField(
-        base_field=models.FloatField(), null=True, blank=True)
+    tenant_id = "das_tenant_id"
 
-    # schedule = models.ManyToManyField(to=Schedule)
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     def update_percentiles(self, percentiles, trajectory_filter=None, end=None, ignore_zeroes=True):
-        """ Determine the speed distribution based on the current subject + schedule"""
+        """Determine the speed distribution based on the current subject + schedule"""
 
         # ToDo: use obs from current schedule period only
         obs = self.subject_speed_profile.subject.observations(until=end)
@@ -40,12 +60,10 @@ class SpeedDistro(TimestampedModel):
         trajectory_filter = trajectory_filter or self.subject_speed_profile.subject.default_trajectory_filter()
 
         # Create a Trajectory
-        traj = self.subject_speed_profile.subject.create_trajectory(
-            obs, trajectory_filter)
+        traj = self.subject_speed_profile.subject.create_trajectory(obs, trajectory_filter)
 
         # Calculate the speed percentile value
-        speed_percentiles = traj.speed_percentiles(
-            percentiles=percentiles, ignore_zeroes=ignore_zeroes)
+        speed_percentiles = traj.speed_percentiles(percentiles=percentiles, ignore_zeroes=ignore_zeroes)
 
         # Copy the percentile speed values from the trajectory object dict
         for p, v in speed_percentiles.items():
@@ -57,7 +75,7 @@ class SpeedDistro(TimestampedModel):
         self.save()
 
     def update_speeds_array(self, trajectory_filter=None, end=None, ignore_zeroes=True):
-        """ Determine the speed distribution based on the current subject + schedule"""
+        """Determine the speed distribution based on the current subject + schedule"""
 
         # ToDo: use obs from current schedule period only
         obs = self.subject_speed_profile.subject.observations(until=end)
@@ -66,8 +84,7 @@ class SpeedDistro(TimestampedModel):
         trajectory_filter = trajectory_filter or self.subject_speed_profile.subject.default_trajectory_filter()
 
         # Create a Trajectory
-        traj = self.subject_speed_profile.subject.create_trajectory(
-            obs, trajectory_filter)
+        traj = self.subject_speed_profile.subject.create_trajectory(obs, trajectory_filter)
 
         speeds = []
         for s in traj.traj_segs:

@@ -18,7 +18,7 @@
     }
   },
   {
-    "model": "oauth2_provider.application",
+    "model": "core.DASApplication",
     "pk": 1,
     "fields": {
       "client_id": "das_web_client",
@@ -32,7 +32,7 @@
     }
   },
   {
-    "model": "oauth2_provider.application",
+    "model": "core.DASApplication",
     "pk": 2,
     "fields": {
       "client_id": "das_ios_client",
@@ -46,7 +46,7 @@
     }
   },
   {
-    "model": "oauth2_provider.application",
+    "model": "core.DASApplication",
     "pk": 3,
     "fields": {
       "client_id": "das_kml_client",

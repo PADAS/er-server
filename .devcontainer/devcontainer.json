@@ -1,71 +1,83 @@
-// For format details, see https://aka.ms/vscode-remote/devcontainer.json or this file's README at:
-// https://github.com/microsoft/vscode-dev-containers/tree/v0.202.3/containers/python-3
 {
-	"name": "Python 3",
+	"name": "ER Server Dev Container",
 	"build": {
 		"dockerfile": "Dockerfile",
 		"context": "..",
-		"args": { 
-			// Update 'VARIANT' to pick a Python version: 3, 3.9, 3.8, 3.7, 3.6.
-			// Append -bullseye or -buster to pin to an OS version.
-			// Use -bullseye variants on local on arm64/Apple Silicon.
-			//"VARIANT": "3.6-bullseye",
-			"VARIANT": "bionic",
-			// Options
-			"NODE_VERSION": "lts/*"
+		"args": {
+			"WORKSPACE_FOLDERNAME": "${localWorkspaceFolderBasename}",
+			"UV_PROJECT_ENVIRONMENT": "/home/vscode/.venv"
 		}
 	},
+	"features": {
+
+	},
+
 	"containerEnv": {
-		"DJANGO_SETTINGS_MODULE": "das_server.local_settings"
+		"UV_PROJECT_ENVIRONMENT": "/home/vscode/.venv",
+		"SHELL": "/bin/bash"
 	},
+	"customizations": {
+		"vscode": {
 
-	// Set *default* container specific settings.json values on container create.
-	"settings": { 
-		"terminal.integrated.profiles.linux": {
-			"bash": {
-				"path": "/bin/bash"
-			}
+		// Set *default* container specific settings.json values on container create.
+		"settings": {
+			"terminal.integrated.defaultProfile.linux": "bash",
+			"terminal.integrated.profiles.linux": {
+				"bash": {
+					"path": "/bin/bash"
+				}
+			},
+			"python.defaultInterpreterPath": "/home/vscode/.venv/bin/python",
+			"editor.formatOnSave": true,
+			"editor.defaultFormatter": "ms-python.black-formatter",
+			"python.formatting.autopep8Path": "/usr/local/py-utils/bin/autopep8",
+			"python.formatting.blackPath": "/usr/local/py-utils/bin/black",
+			"python.formatting.yapfPath": "/usr/local/py-utils/bin/yapf",
+			"python.linting.banditPath": "/usr/local/py-utils/bin/bandit",
+			"python.linting.flake8Path": "/usr/local/py-utils/bin/flake8",
+			"python.linting.mypyPath": "/usr/local/py-utils/bin/mypy",
+			"python.linting.pycodestylePath": "/usr/local/py-utils/bin/pycodestyle",
+			"python.linting.pydocstylePath": "/usr/local/py-utils/bin/pydocstyle"
 		},
-		"python.defaultInterpreterPath": "/usr/bin/python3",
-		"python.linting.enabled": true,
-		"python.linting.pylintEnabled": true,
-		"python.formatting.autopep8Path": "/usr/local/py-utils/bin/autopep8",
-		"python.formatting.blackPath": "/usr/local/py-utils/bin/black",
-		"python.formatting.yapfPath": "/usr/local/py-utils/bin/yapf",
-		"python.linting.banditPath": "/usr/local/py-utils/bin/bandit",
-		"python.linting.flake8Path": "/usr/local/py-utils/bin/flake8",
-		"python.linting.mypyPath": "/usr/local/py-utils/bin/mypy",
-		"python.linting.pycodestylePath": "/usr/local/py-utils/bin/pycodestyle",
-		"python.linting.pydocstylePath": "/usr/local/py-utils/bin/pydocstyle",
-		"python.linting.pylintPath": "/usr/local/py-utils/bin/pylint",
-		"extensions.autoUpdate": false,
-        "extensions.autoCheckUpdates": false
-	},
 
-	// Add the IDs of extensions you want installed when the container is created.
-	"extensions": [
-		"ms-python.python",
-		"ms-python.vscode-pylance",
-		"eamodio.gitlens",
-		"yzhang.markdown-all-in-one",
-		"njpwerner.autodocstring",
-		"ms-python.isort",
-		"humao.rest-client",
-		"visualstudioexptteam.vscodeintellicode",
-		"marklarah.pre-commit-vscode"
-	],
+		// Add the IDs of extensions you want installed when the container is created.
+		"extensions": [
+			"ms-python.python",
+			"ms-python.vscode-pylance",
+			"ms-python.flake8",
+			"meta.pyrefly",
+			"eamodio.gitlens",
+			"yzhang.markdown-all-in-one",
+			"njpwerner.autodocstring",
+			"ms-python.isort",
+			"humao.rest-client",
+			"visualstudioexptteam.vscodeintellicode",
+			"marklarah.pre-commit-vscode",
+			"batisteo.vscode-django",
+			"googlecloudtools.cloudcode",
+			"github.vscode-pull-request-github",
+			"trond-snekvik.simple-rst",
+			"ms-python.black-formatter",
+			"littlefoxteam.vscode-python-test-adapter",
+			"github.vscode-github-actions"
+		]
+		}
+	},
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [9000],
 
 	// Use 'portsAttributes' to set default properties for specific forwarded ports. More info: https://code.visualstudio.com/docs/remote/devcontainerjson-reference.
 	"portsAttributes": {
-		"8000": {
-			"label": "ER Server",
-			"onAutoForward": "notify"
-		}, 
+		"3000": {
+			"onAutoForward": "ignore"
+		},
 		"5400": {
 			"label": "ER Server 5400",
+			"onAutoForward": "notify"
+		},
+		"8000": {
+			"label": "ER Server",
 			"onAutoForward": "notify"
 		}
 	},
@@ -76,13 +88,20 @@
 	// },
 
 	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "cd /workspaces/das;pre-commit install",
-
-	// Comment out to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
+	"remoteEnv": {
+		"GITGUARDIAN_DOTENV_PATH": "/workspaces/${localWorkspaceFolderBasename}/das/.env",
+		"UV_PROJECT_ENVIRONMENT": "/home/vscode/.venv",
+//		"DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker",
+		"ROOT_LOGGING_LEVEL": "INFO",
+		"GDAL_LIBRARY_PATH": "/usr/lib/aarch64-linux-gnu/libgdal.so",
+		"GEOS_LIBRARY_PATH":"/usr/lib/aarch64-linux-gnu/libgeos_c.so.1",
+		"PYTHONPATH": "/workspaces/${localWorkspaceFolderBasename}/das"
+	},
+	"postCreateCommand": "git config --global --add safe.directory /workspaces/${localWorkspaceFolderBasename}; cd /workspaces/${localWorkspaceFolderBasename}; uv run pre-commit install",
 	"remoteUser": "vscode",
 	"runArgs": [
 		"--add-host=postgis:host-gateway",
 		"--add-host=redis:host-gateway",
-		"--env-file=.env"
+		"--add-host=pgcat:host-gateway"
 	]
 }

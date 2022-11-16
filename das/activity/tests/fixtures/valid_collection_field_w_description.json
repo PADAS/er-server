@@ -1,0 +1,73 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+            "a_collection": {
+                "deprecated": false,
+                "description": "The description",
+                "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                        "data": {
+                            "default": "",
+                            "deprecated": false,
+                            "description": "",
+                            "title": "data",
+                            "type": "string"
+                        }
+                    },
+                    "required": [],
+                    "type": "object"
+                },
+                "title": "A collection",
+                "type": "array",
+                "unevaluatedItems": false
+            }
+        },
+        "required": [
+            "a_collection"
+        ],
+        "type": "object"
+    },
+    "ui": {
+        "fields": {
+            "a_collection": {
+                "buttonText": "Add",
+                "columns": 1,
+                "itemIdentifier": "",
+                "itemName": "Something",
+                "leftColumn": [
+                    "data"
+                ],
+                "rightColumn": [],
+                "type": "COLLECTION",
+                "parent": "section-1"
+            },
+            "data": {
+                "inputType": "SHORT_TEXT",
+                "placeholder": "",
+                "type": "TEXT",
+                "parent": "a_collection"
+            }
+        },
+        "headers": {},
+        "order": [
+            "section-1"
+        ],
+        "sections": {
+            "section-1": {
+                "columns": 1,
+                "isActive": true,
+                "label": "",
+                "leftColumn": [
+                    {
+                        "name": "a_collection",
+                        "type": "field"
+                    }
+                ],
+                "rightColumn": []
+            }
+        }
+    }
+}

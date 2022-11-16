@@ -1,0 +1,45 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "unevaluatedProperties": false,
+        "properties": {
+            "testDateTime": {
+                "title": "Valid DateTime Field",
+                "type": "string",
+                "format": "date-time",
+                "description": "A valid datetime field.",
+                "deprecated": false
+            }
+        },
+        "required": [
+            "testDateTime"
+        ]
+    },
+    "ui": {
+        "fields": {
+            "testDateTime": {
+                "type": "DATE_TIME",
+                "parent": "section-main"
+            }
+        },
+        "headers": {},
+        "order": [
+            "section-main"
+        ],
+        "sections": {
+            "section-main": {
+                "columns": 1,
+                "isActive": true,
+                "label": "Main",
+                "leftColumn": [
+                    {
+                        "name": "testDateTime",
+                        "type": "field"
+                    }
+                ],
+                "rightColumn": []
+            }
+        }
+    }
+}

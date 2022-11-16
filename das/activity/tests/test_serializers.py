@@ -1,6 +1,7 @@
 import json
-import logging
+import uuid
 from datetime import datetime, timedelta
+from unittest.mock import MagicMock
 
 import jsonschema
 import pytest
@@ -9,83 +10,54 @@ from django.contrib.gis.geos import Point, Polygon
 from django.test import TestCase
 
 from activity.libs import constants as activities_constants
-from activity.models import Event, EventGeometry, Patrol
-from activity.serializers import EventSerializer
+from activity.models import Event, EventGeometry, EventType, Patrol
+from activity.serializers import (
+    DuplicateResourceException,
+    EventHeaderSerializer,
+    EventSerializer,
+    PatrolSerializer,
+)
 from activity.serializers.fields import CoordinateField
 from activity.serializers.geometries import EventGeometryRevisionSerializer
-from activity.serializers.patrol_serializers import PatrolSerializer
-from utils.features import features
-
-logger = logging.getLogger(__name__)
+from core.utils import NonHttpRequest
 
 
 class TestCoordinateField(TestCase):
     def test_coordinate_field_validator(self):
-        CoordinateField.validate({
-            'latitude': 0.00,
-            'longitude': 1.00
-        })
+        CoordinateField.validate({"latitude": 0.00, "longitude": 1.00})
 
     def test_coordinate_field_to_representation(self):
-        CoordinateField().to_internal_value({
-            'latitude': 0.00,
-            'longitude': 1.00
-        })
+        CoordinateField().to_internal_value({"latitude": 0.00, "longitude": 1.00})
 
         CoordinateField().to_representation(0)
 
 
-class TestPatrolSerializer(TestCase):
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestPatrolSerializer:
     serialized_data_schema = {
         "type": "object",
         "properties": {
-            "id": {
-                "type": "string"
-            },
-            "created_at": {
-                "type": "string"
-            },
-            "updated_at": {
-                "type": "string"
-            },
-            "objective": {
-                "type": "string"
-            },
-            "priority": {
-                "type": "number"
-            },
-            "state": {
-                "type": "string"
-            },
-            "title": {
-                "type": "string"
-            },
-            "files": {
-                "type": "array"
-            },
-            "notes": {
-                "type": "array"
-            },
-            "patrol_segments": {
-                "type": "array"
-            },
-            "serial_number": {
-                "type": ["null", "number"]
-            }
-        }
+            "id": {"type": "string"},
+            "created_at": {"type": "string"},
+            "updated_at": {"type": "string"},
+            "objective": {"type": "string"},
+            "priority": {"type": "number"},
+            "state": {"type": "string"},
+            "title": {"type": "string"},
+            "files": {"type": "array"},
+            "notes": {"type": "array"},
+            "patrol_segments": {"type": "array"},
+            "serial_number": {"type": ["null", "number"]},
+        },
     }
-    objective = 'Test Patrol object'
+    objective = "Test Patrol object"
     title = "Test Patrol"
 
     def __atest_data_serialization(self):
-        ps = PatrolSerializer(
-            data={
-                'objective': self.objective,
-                'title': self.title
-            }
-        )
+        ps = PatrolSerializer(data={"objective": self.objective, "title": self.title})
 
-        self.assertTrue(ps.is_valid())
+        assert ps.is_valid()
 
         try:
             jsonschema.validate(ps.data, self.serialized_data_schema)
@@ -94,13 +66,71 @@ class TestPatrolSerializer(TestCase):
         else:
             does_serialized_data_match_schema = True
 
-        self.assertTrue(does_serialized_data_match_schema)
+        assert does_serialized_data_match_schema
+
+    def test_create_patrol_no_specific_id(self):
+        patrol = PatrolSerializer(data={"objective": self.objective, "title": self.title})
+        assert patrol.is_valid()
+        patrol = patrol.save()
+        assert patrol.id is not None
+
+    def test_create_patrol_and_segment_no_specific_id(self, patrol_type):
+        patrol = PatrolSerializer(
+            data={
+                "objective": self.objective,
+                "title": self.title,
+                "patrol_segments": [
+                    {
+                        "patrol_type": patrol_type.value,
+                        "start_date": "2000-01-01T00:00:00Z",
+                        "end_date": "2020-12-31T23:59:59Z",
+                    }
+                ],
+            }
+        )
+        assert patrol.is_valid()
+        patrol = patrol.save()
+        assert patrol.id is not None
+        assert patrol.patrol_segments.count() == 1
+        assert patrol.patrol_segments.first().id is not None
+        assert patrol.patrol_segments.first().patrol_type.value == patrol_type.value
+
+    def test_create_patrol_with_specific_id(self):
+        id = uuid.uuid4()
+        patrol = PatrolSerializer(data={"objective": self.objective, "title": self.title, "id": str(id)})
+        assert patrol.is_valid()
+        patrol.save()
+        patrol = Patrol.objects.get(id=id)
+        assert patrol.id == id
+
+    def test_create_patrol_with_specific_id_and_specific_patrol_segment_id(self, patrol_type):
+        id = uuid.uuid4()
+        patrol_segment_id = uuid.uuid4()
+        patrol = PatrolSerializer(
+            data={
+                "objective": self.objective,
+                "title": self.title,
+                "id": str(id),
+                "patrol_segments": [
+                    {
+                        "id": str(patrol_segment_id),
+                        "patrol_type": patrol_type.value,
+                        "start_date": "2000-01-01T00:00:00Z",
+                        "end_date": "2020-12-31T23:59:59Z",
+                    }
+                ],
+            }
+        )
+        assert patrol.is_valid()
+        patrol = patrol.save()
+
+        assert patrol.id == id
+        assert patrol.patrol_segments.count() == 1
+        assert patrol.patrol_segments.first().id == patrol_segment_id
+        assert patrol.patrol_segments.first().patrol_type.value == patrol_type.value
 
     def test_instance_to_data_serialization(self):
-        patrol = Patrol.objects.create(
-            objective=self.objective,
-            title=self.title
-        )
+        patrol = Patrol.objects.create(objective=self.objective, title=self.title)
         ps = PatrolSerializer(instance=patrol)
 
         try:
@@ -110,8 +140,8 @@ class TestPatrolSerializer(TestCase):
         else:
             does_serialized_data_match_schema = True
 
-        self.assertEqual(ps.data['title'], self.title)
-        self.assertTrue(does_serialized_data_match_schema)
+        assert ps.data["title"] == self.title
+        assert does_serialized_data_match_schema
 
         # TODO move to apt TestCase classes
         # patrol_note = PatrolNote.objects.create(
@@ -151,6 +181,7 @@ class TestPatrolSerializer(TestCase):
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestEventSerializer:
     feature = {
         "type": "Feature",
@@ -206,9 +237,7 @@ class TestEventSerializer:
             ],
         },
     }
-    wrong_feature_collection = {
-
-    }
+    wrong_feature_collection = {}
 
     # TODO Pending some fields like files, updates, as they are part of nested serializers or other methods.
     def test_serialized_event(self, event_with_detail, five_event_notes):
@@ -243,13 +272,10 @@ class TestEventSerializer:
         assert serialized_event["title"] == event.title
         assert serialized_event["state"] == event.state
         assert serialized_event["time"] == event.time.astimezone().isoformat()
-        assert serialized_event["end_time"] == event.end_time.astimezone(
-        ).isoformat()
+        assert serialized_event["end_time"] == event.end_time.astimezone().isoformat()
         assert serialized_event["provenance"] == event.provenance
         assert serialized_event["event_type"] == event.event_type.value
-        assert serialized_event["event_details"] == event_with_detail.data.get(
-            "event_details"
-        )
+        assert serialized_event["event_details"] == event_with_detail.data.get("event_details")
         assert serialized_event["location"] == {
             "latitude": 20.420935,
             "longitude": -103.313486,
@@ -264,6 +290,22 @@ class TestEventSerializer:
         assert serialized_event["patrol_segments"] == []
         assert serialized_event["is_collection"] is False
         assert serialized_event["patrols"] == []
+
+    def test_serialized_geometry_of_event_with_both_location_and_geometry(
+        self, event_geometry_with_polygon, monkeypatch, rf, ops_user
+    ):
+        ops_user.is_superuser = True
+        ops_user.save()
+        event = event_geometry_with_polygon.event
+        event.location = Point(-103.313486, 20.420935)
+        event.save()
+        request = MagicMock()
+        request.build_absolute_uri = MagicMock()
+
+        serialized_event = EventSerializer(event, context=self._get_context(request, ops_user)).data
+
+        assert len(serialized_event["geometry"]["features"]) == 1
+        assert serialized_event["geometry"]["features"][0]["geometry"]["type"] == "Polygon"
 
     def test_serialized_event_with_external_sources(self, event_with_event_source_event):
         serialized_event = EventSerializer(event_with_event_source_event).data
@@ -286,69 +328,92 @@ class TestEventSerializer:
 
         assert "external_source" not in serialized_event
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_create_event_with_geometry_using_a_feature(self, event_type, rf, admin_user):
+        event_type.geometry_type = EventType.GeometryTypesChoices.POLYGON
+        event_type.save()
         data = {
             "event_type": event_type.value,
             "title": "Title",
             "geometry": self.feature,
         }
 
-        serialized_event = EventSerializer(
-            data=data, context=self._get_context(rf, admin_user))
+        serialized_event = EventSerializer(data=data, context=self._get_context(rf, admin_user))
         serialized_event.is_valid()
         serialized_event.save()
 
         assert Event.objects.all()
         assert EventGeometry.objects.all()
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
-    def test_create_event_with_geometry_using_a_feature_collection(
-            self, event_type, rf, admin_user
-    ):
+    def test_create_event_with_geometry_using_a_feature_collection(self, event_type, rf, admin_user):
+        event_type.geometry_type = EventType.GeometryTypesChoices.POLYGON
+        event_type.save()
         data = {
             "event_type": event_type.value,
             "title": "Title",
             "geometry": self.feature_collection,
         }
 
-        serialized_event = EventSerializer(
-            data=data, context=self._get_context(rf, admin_user))
+        serialized_event = EventSerializer(data=data, context=self._get_context(rf, admin_user))
         serialized_event.is_valid()
         serialized_event.save()
 
         assert Event.objects.all()
         assert EventGeometry.objects.all()
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
+    def test_create_event_with_default_priority_and_state(self, rf, monkeypatch, ops_user, event_type):
+        monkeypatch.user = ops_user
+
+        serialized = EventSerializer(
+            data={"title": "Title", "event_type": event_type.value}, context=self._get_context(rf, ops_user)
+        )
+        serialized.is_valid()
+        event = serialized.save()
+
+        assert event.priority == event_type.default_priority
+        assert event.state == event_type.default_state
+
+    def test_create_event_with_custom_priority_and_state(self, rf, monkeypatch, ops_user, event_type):
+        monkeypatch.user = ops_user
+
+        serialized = EventSerializer(
+            data={"title": "Title", "event_type": event_type.value, "priority": 100, "state": "active"},
+            context=self._get_context(rf, ops_user),
+        )
+        serialized.is_valid()
+        event = serialized.save()
+
+        assert event.priority == 100
+        assert event.state == "active"
+
     def test_edit_event_with_geometry_using_a_feature(self, rf, admin_user, event_geometry_with_polygon):
         event = event_geometry_with_polygon.event
 
-        serialized_event = EventSerializer(instance=event, data={
-                                           "geometry": self.feature}, context=self._get_context(rf, admin_user))
+        serialized_event = EventSerializer(
+            instance=event, data={"geometry": self.feature}, context=self._get_context(rf, admin_user)
+        )
         serialized_event.is_valid()
         serialized_event.save()
         event_geometry_with_polygon.refresh_from_db()
 
-        assert json.loads(
-            event_geometry_with_polygon.geometry.geojson) == self.feature["geometry"]
+        assert json.loads(event_geometry_with_polygon.geometry.geojson) == self.feature["geometry"]
         assert EventGeometry.objects.count() == 1
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_edit_event_with_geometry_using_a_feature_collection(self, rf, admin_user, event_geometry_with_polygon):
         event = event_geometry_with_polygon.event
 
-        serialized_event = EventSerializer(instance=event, data={
-                                           "geometry": self.feature_collection}, context=self._get_context(rf, admin_user))
+        serialized_event = EventSerializer(
+            instance=event, data={"geometry": self.feature_collection}, context=self._get_context(rf, admin_user)
+        )
         serialized_event.is_valid()
         serialized_event.save()
         event_geometry_with_polygon.refresh_from_db()
 
-        assert json.loads(
-            event_geometry_with_polygon.geometry.geojson) == self.feature_collection["features"][0]["geometry"]
+        assert (
+            json.loads(event_geometry_with_polygon.geometry.geojson)
+            == self.feature_collection["features"][0]["geometry"]
+        )
         assert EventGeometry.objects.count() == 1
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
     def test_create_event_with_geometry_using_wrong_feature_handler_exception(self, rf, admin_user, event_type):
         data = {
             "event_type": event_type.value,
@@ -356,23 +421,139 @@ class TestEventSerializer:
             "geometry": self.wrong_feature,
         }
 
-        serialized_event = EventSerializer(
-            data=data, context=self._get_context(rf, admin_user))
+        serialized_event = EventSerializer(data=data, context=self._get_context(rf, admin_user))
 
         assert not serialized_event.is_valid()
 
-    @pytest.mark.skipif(features.geometries.is_on() is False, reason="Geometries feature flag is off")
-    def test_create_event_with_geometry_using_wrong_feature_collection_handler_exception(self, rf, admin_user, event_type):
+    def test_create_event_with_geometry_using_wrong_feature_collection_handler_exception(
+        self, rf, admin_user, event_type
+    ):
         data = {
             "event_type": event_type.value,
             "title": "Title",
             "geometry": self.wrong_feature_collection,
         }
 
-        serialized_event = EventSerializer(
-            data=data, context=self._get_context(rf, admin_user))
+        serialized_event = EventSerializer(data=data, context=self._get_context(rf, admin_user))
 
         assert not serialized_event.is_valid()
+
+    def test_validation_when_saving_point_for_events_type_with_polygon_geometry_type(
+        self, rf, monkeypatch, event_type, ops_user
+    ):
+        event_type.geometry_type = EventType.GeometryTypesChoices.POLYGON
+        event_type.save()
+        monkeypatch.user = ops_user
+
+        serialized = EventSerializer(
+            data={
+                "location": {
+                    "latitude": 41.8568816599531,
+                    "longitude": -105.61289437001126,
+                },
+                "event_type": event_type.value,
+                "title": "Title",
+            },
+            context=self._get_context(rf, ops_user),
+        )
+
+        assert not serialized.is_valid()
+        assert "location" in serialized.errors
+        assert serialized.errors["location"][0] == "This field is not allowed for events with polygon type."
+
+    def test_validation_when_saving_polygon_for_events_type_with_point_geometry_type(
+        self, rf, monkeypatch, event_type, ops_user
+    ):
+        event_type.geometry_type = EventType.GeometryTypesChoices.POINT
+        event_type.save()
+        monkeypatch.user = ops_user
+
+        serialized = EventSerializer(
+            data={
+                "geometry": {
+                    "type": "Feature",
+                    "properties": {"size": 10, "large": 20},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [
+                                [-103.42475652694702, 20.621970067076848],
+                                [-103.42286825180052, 20.624661133427434],
+                                [-103.42717051506042, 20.623235275838002],
+                                [-103.42475652694702, 20.621970067076848],
+                            ]
+                        ],
+                    },
+                },
+                "event_type": event_type.value,
+                "title": "Title",
+            },
+            context=self._get_context(rf, ops_user),
+        )
+
+        assert not serialized.is_valid()
+        assert "geometry" in serialized.errors
+        assert serialized.errors["geometry"][0] == "This field is not allowed for events with point type."
+
+    def test_validation_when_end_time_is_lower_than_instance_saved(self, rf, monkeypatch, event_with_detail, ops_user):
+        event = event_with_detail.event
+        end_time = event.time - timedelta(hours=1)
+        monkeypatch.user = ops_user
+
+        serialized = EventSerializer(
+            instance=event, data={"end_time": end_time}, context=self._get_context(rf, ops_user)
+        )
+
+        assert not serialized.is_valid()
+        assert "non_field_errors" in serialized.errors
+        assert serialized.errors["non_field_errors"][0] == "Event end_time must not be earlier than event time."
+
+    def test_validation_when_not_event_type_in_payload(self, rf, ops_user, monkeypatch):
+        monkeypatch.user = ops_user
+
+        serialized = EventSerializer(data={"title": "Title"}, context={"request": monkeypatch})
+
+        assert not serialized.is_valid()
+        assert "event_type" in serialized.errors
+        assert serialized.errors["event_type"][0] == "Event type must be provided."
+
+    def test_validation_when_not_event_type_in_payload_and_not_in_event_source(
+        self, rf, ops_user, monkeypatch, event_source
+    ):
+        monkeypatch.user = ops_user
+        event_source.eventprovider.owner = ops_user
+        event_source.eventprovider.save()
+
+        serialized = EventSerializer(
+            data={"title": "Title", "eventsource": event_source.id}, context=self._get_context(rf, ops_user)
+        )
+
+        assert not serialized.is_valid()
+        assert "event_type" in serialized.errors
+        assert serialized.errors["event_type"][0] == "Event type must be provided."
+
+    def test_validation_duplicated_event_source_event(
+        self, rf, monkeypatch, ops_user, event_source, event_type, event_source_event
+    ):
+        monkeypatch.user = ops_user
+        event_source.eventprovider.owner = ops_user
+        event_source.eventprovider.save()
+        event_source_event.external_event_id = "this"
+        event_source_event.eventsource = event_source
+        event_source_event.save()
+
+        serialized = EventSerializer(
+            data={
+                "title": "Title",
+                "event_type": event_type.value,
+                "eventsource": event_source.id,
+                "external_event_id": "this",
+            },
+            context=self._get_context(rf, ops_user),
+        )
+
+        with pytest.raises(DuplicateResourceException):
+            serialized.is_valid()
 
     def _get_context(self, request, user):
         request.user = user
@@ -380,10 +561,9 @@ class TestEventSerializer:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestEventGeometrySerializer:
-    def test_serialized_event_geometry_updates_format(
-        self, event_geometry_with_polygon
-    ):
+    def test_serialized_event_geometry_updates_format(self, event_geometry_with_polygon):
         serialized_event_geometry_revision = EventGeometryRevisionSerializer(
             event_geometry_with_polygon.revision.last()
         ).data
@@ -395,15 +575,10 @@ class TestEventGeometrySerializer:
 
     def test_serialized_event_geometry_updates(self, event_geometry_with_polygon):
         event_geometry_revision = event_geometry_with_polygon.revision.last()
-        serialized_event_geometry_revision = EventGeometryRevisionSerializer(
-            event_geometry_revision
-        ).data
+        serialized_event_geometry_revision = EventGeometryRevisionSerializer(event_geometry_revision).data
 
-        assert serialized_event_geometry_revision["message"] == "Added"
-        assert (
-            serialized_event_geometry_revision["time"]
-            == event_geometry_revision.revision_at.isoformat()
-        )
+        assert serialized_event_geometry_revision["message"] == "Added Area"
+        assert serialized_event_geometry_revision["time"] == event_geometry_revision.revision_at.isoformat()
         assert serialized_event_geometry_revision["type"] == "add_eventgeometry"
         assert serialized_event_geometry_revision["user"] == {
             "first_name": "",
@@ -411,25 +586,16 @@ class TestEventGeometrySerializer:
             "username": "",
         }
 
-    def test_serialized_event_geometry_updates_properties(
-        self, event_geometry_with_polygon
-    ):
+    def test_serialized_event_geometry_updates_properties(self, event_geometry_with_polygon):
         event_geometry_with_polygon.properties = {"key": "value"}
         event_geometry_with_polygon.save()
         event_geometry_revisions = event_geometry_with_polygon.revision.all()
-        latest_event_geometry_revision = event_geometry_with_polygon.revision.order_by(
-            "-sequence"
-        )[0]
+        latest_event_geometry_revision = event_geometry_with_polygon.revision.order_by("-sequence")[0]
 
-        serialized_event_geometry_revision = EventGeometryRevisionSerializer(
-            event_geometry_revisions, many=True
-        ).data
+        serialized_event_geometry_revision = EventGeometryRevisionSerializer(event_geometry_revisions, many=True).data
 
-        assert serialized_event_geometry_revision[1]["message"] == "Updated"
-        assert (
-            serialized_event_geometry_revision[1]["time"]
-            == latest_event_geometry_revision.revision_at.isoformat()
-        )
+        assert serialized_event_geometry_revision[1]["message"] == "Changed Area"
+        assert serialized_event_geometry_revision[1]["time"] == latest_event_geometry_revision.revision_at.isoformat()
         assert serialized_event_geometry_revision[1]["type"] == "update_properties"
         assert serialized_event_geometry_revision[1]["user"] == {
             "first_name": "",
@@ -437,9 +603,7 @@ class TestEventGeometrySerializer:
             "username": "",
         }
 
-    def test_serialized_event_geometry_updates_geometry(
-        self, event_geometry_with_polygon
-    ):
+    def test_serialized_event_geometry_updates_geometry(self, event_geometry_with_polygon):
         event_geometry_with_polygon.geometry = Polygon(
             (
                 (-103.41898441314697, 20.638567565077864),
@@ -450,22 +614,82 @@ class TestEventGeometrySerializer:
         )
         event_geometry_with_polygon.save()
         event_geometry_revisions = event_geometry_with_polygon.revision.all()
-        latest_event_geometry_revision = event_geometry_with_polygon.revision.order_by(
-            "-sequence"
-        )[0]
+        latest_event_geometry_revision = event_geometry_with_polygon.revision.order_by("-sequence")[0]
 
-        serialized_event_geometry_revision = EventGeometryRevisionSerializer(
-            event_geometry_revisions, many=True
-        ).data
+        serialized_event_geometry_revision = EventGeometryRevisionSerializer(event_geometry_revisions, many=True).data
 
-        assert serialized_event_geometry_revision[1]["message"] == "Updated"
-        assert (
-            serialized_event_geometry_revision[1]["time"]
-            == latest_event_geometry_revision.revision_at.isoformat()
-        )
+        assert serialized_event_geometry_revision[1]["message"] == "Changed Area"
+        assert serialized_event_geometry_revision[1]["time"] == latest_event_geometry_revision.revision_at.isoformat()
         assert serialized_event_geometry_revision[1]["type"] == "update_geometry"
         assert serialized_event_geometry_revision[1]["user"] == {
             "first_name": "",
             "last_name": "",
             "username": "",
         }
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
+class TestEventHeaderSerializer:
+    def test_serialized_event_format(self, event):
+        event.end_time = datetime.now()
+
+        request = NonHttpRequest()
+        serialized_event = EventHeaderSerializer(event, context={"request": request}).data
+
+        assert isinstance(serialized_event["id"], str)
+        assert isinstance(serialized_event["message"], str)
+        assert isinstance(serialized_event["time"], datetime)
+        assert isinstance(serialized_event["end_time"], str)
+        assert isinstance(serialized_event["serial_number"], int)
+        assert isinstance(serialized_event["priority"], int)
+        assert isinstance(serialized_event["event_type"], str)
+        assert isinstance(serialized_event["icon_id"], str)
+        assert isinstance(serialized_event["created_at"], str)
+        assert isinstance(serialized_event["title"], str)
+        assert isinstance(serialized_event["state"], str)
+        assert isinstance(serialized_event["event_category"], str)
+        assert isinstance(serialized_event["is_collection"], bool)
+
+    def test_serialized_event_with_point(self, event):
+        event.location = Point(-103.313486, 20.420935)
+        event.save()
+        request = NonHttpRequest()
+
+        serialized_event = EventHeaderSerializer(event, context={"request": request}).data
+
+        self._assert_event_fields(serialized_event, event)
+        assert serialized_event["geojson"]["type"] == "Feature"
+        assert serialized_event["geojson"]["geometry"]["type"] == "Point"
+        assert serialized_event["geojson"]["geometry"]["coordinates"] == [
+            event.location.coords[0],
+            event.location.coords[1],
+        ]
+
+    def test_serialized_event_with_polygon(self, event, event_geometry_with_polygon):
+        event = event_geometry_with_polygon.event
+        request = NonHttpRequest()
+
+        serialized_event = EventHeaderSerializer(event, context={"request": request}).data
+
+        self._assert_event_fields(serialized_event, event)
+        assert serialized_event["geojson"]["type"] == "Feature"
+        assert serialized_event["geojson"]["geometry"]["type"] == "Polygon"
+        assert serialized_event["geojson"]["geometry"]["coordinates"] == [
+            [[coords[0], coords[1]] for coords in event.geometries.first().geometry.coords[0]]
+        ]
+
+    def _assert_event_fields(self, serialized_event, event):
+        assert serialized_event["id"] == str(event.id)
+        assert serialized_event["message"] == str(event.message)
+        assert serialized_event["time"] == event.event_time
+        assert serialized_event["end_time"] == event.end_time
+        assert serialized_event["serial_number"] == event.serial_number
+        assert serialized_event["priority"] == event.priority
+        assert serialized_event["event_type"] == event.event_type.value
+        assert serialized_event["icon_id"] == event.event_type.icon_id
+        assert serialized_event["created_at"] == event.created_at.astimezone().isoformat()
+        assert serialized_event["title"] == event.title
+        assert serialized_event["state"] == event.state
+        assert serialized_event["event_category"] == event.event_type.category.value
+        assert serialized_event["is_collection"] == event.event_type.is_collection

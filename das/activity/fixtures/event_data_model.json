@@ -1374,7 +1374,7 @@
     "model": "activity.event",
     "field": "confiscationrep_itemsconfiscated",
     "value": "bushmeat",
-    "display": "Bush Beat",
+    "display": "Bush Meat",
     "ordernum": 30,
     "sub_choice_of": []
   }
@@ -3672,17 +3672,6 @@
   }
 },
 {
-  "model": "choices.dynamicchoice",
-  "pk": "blackRhinos",
-  "fields": {
-    "model_name": "observations.subject",
-    "criteria": "[[\"common_name_id\", \"black_rhino\"]]",
-    "value_col": "id",
-    "display_col": "name"
-  }
-},
-
-{
   "model": "activity.eventcategory",
   "pk": "007a45d3-2aba-4ed1-b3fc-e09fc0ad41f8",
   "fields": {
@@ -3690,7 +3679,7 @@
     "updated_at": "2017-08-02T18:45:10.029Z",
     "value": "security",
     "display": "Security",
-    "ordernum": 1,
+    "ordernum": 1.0,
     "flag": "user"
   }
 },
@@ -3702,7 +3691,7 @@
     "updated_at": "2018-02-07T22:29:50.567Z",
     "value": "logistics",
     "display": "Logistics",
-    "ordernum": 30,
+    "ordernum": 30.0,
     "flag": "user"
   }
 },
@@ -3714,7 +3703,7 @@
     "updated_at": "2018-02-07T22:30:06.661Z",
     "value": "hidden",
     "display": "HIDDEN",
-    "ordernum": null,
+    "ordernum": 0,
     "flag": "system"
   }
 },
@@ -3726,7 +3715,7 @@
     "updated_at": "2017-08-02T18:46:28.248Z",
     "value": "monitoring",
     "display": "Monitoring",
-    "ordernum": 20,
+    "ordernum": 20.0,
     "flag": "user"
   }
 },
@@ -3738,7 +3727,7 @@
     "updated_at": "2017-08-02T05:07:26.257Z",
     "value": "analyzer_event",
     "display": "Analyzer Event",
-    "ordernum": 1,
+    "ordernum": 1.0,
     "flag": "system"
   }
 },
@@ -4313,7 +4302,7 @@
     "category": [
       "security"
     ],
-    "ordernum": null,
+    "ordernum": 0,
     "schema": "{\r\n  \"schema\": {\r\n    \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n    \"title\": \"Camera Trap Event Schema\",\r\n    \"type\": \"object\",\r\n    \"properties\": {\r\n      \"cameratraprep_camera-name\": {\r\n        \"type\": \"string\",\r\n        \"title\": \"Camera Name\"\r\n      },\r\n      \"cameratraprep_camera-make\": {\r\n        \"type\": \"string\",\r\n        \"title\": \"Camera Make\"\r\n      },\r\n      \"cameratraprep_camera-version\": {\r\n        \"type\": \"string\",\r\n        \"title\": \"Camera Version\"\r\n      }\r\n    }\r\n  },\r\n  \"definition\": [\r\n    {\r\n      \"key\": \"cameratraprep_camera-name\",\r\n      \"htmlClass\": \"col-lg-6\"\r\n    },\r\n    {\r\n      \"key\": \"cameratraprep_camera-make\",\r\n      \"htmlClass\": \"col-lg-6\"\r\n    },\r\n    {\r\n      \"key\": \"cameratraprep_camera-version\",\r\n      \"htmlClass\": \"col-lg-6\"\r\n    }\r\n  ]\r\n}",
     "is_collection": false
   }

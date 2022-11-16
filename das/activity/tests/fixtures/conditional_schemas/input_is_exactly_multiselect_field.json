@@ -1,0 +1,171 @@
+{
+  "json": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "properties": {
+      "tags": {
+        "deprecated": false,
+        "description": "",
+        "items": {
+          "anyOf": [
+            {
+              "$ref": "https://zoo.com/api/v2.0/schemas/choices.json?field=animal_tags"
+            }
+          ],
+          "type": "string"
+        },
+        "title": "Tags",
+        "type": "array",
+        "uniqueItems": true
+      }
+    },
+    "required": [],
+    "type": "object",
+    "unevaluatedProperties": false,
+    "allOf": [
+      {
+        "if": {
+          "allOf": [
+            {
+              "properties": {
+                "tags": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "allOf": [
+                        {
+                          "contains": {
+                            "const": "endangered"
+                          }
+                        },
+                        {
+                          "contains": {
+                            "const": "protected"
+                          }
+                        }
+                      ],
+                      "maxItems": 2
+                    },
+                    {
+                      "type": "boolean",
+                      "const": null
+                    },
+                    {
+                      "const": null,
+                      "type": "number"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "endangered": {},
+                        "protected": {}
+                      },
+                      "required": [
+                        "endangered",
+                        "protected"
+                      ],
+                      "unevaluatedProperties": false
+                    },
+                    {
+                      "const": null,
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "tags"
+              ]
+            }
+          ]
+        },
+        "then": {
+          "properties": {
+            "conditional_field": {
+              "default": "",
+              "deprecated": false,
+              "description": "",
+              "title": "Conditional Field",
+              "type": "string"
+            }
+          },
+          "required": []
+        },
+        "x-section": "section-2"
+      }
+    ]
+  },
+  "ui": {
+    "fields": {
+      "tags": {
+        "choices": {
+          "eventTypeCategories": [],
+          "existingChoiceList": [
+            "animal_tags"
+          ],
+          "featureCategories": [],
+          "myDataType": "EVENT_TYPES_FROM_EVENT_CATEGORY",
+          "subjectGroups": [],
+          "subjectSubtypes": [],
+          "type": "EXISTING_CHOICE_LIST"
+        },
+        "conditionalDependents": [
+          "section-2"
+        ],
+        "inputType": "DROPDOWN",
+        "placeholder": "",
+        "type": "CHOICE_LIST",
+        "parent": "section-1"
+      },
+      "conditional_field": {
+        "conditionalDependents": [],
+        "inputType": "SHORT_TEXT",
+        "placeholder": "",
+        "type": "TEXT",
+        "parent": "section-2"
+      }
+    },
+    "headers": {},
+    "order": [
+      "section-1",
+      "section-2"
+    ],
+    "sections": {
+      "section-1": {
+        "columns": 1,
+        "conditions": [],
+        "isActive": true,
+        "label": "",
+        "leftColumn": [
+          {
+            "name": "tags",
+            "type": "field"
+          }
+        ],
+        "rightColumn": []
+      },
+      "section-2": {
+        "columns": 1,
+        "conditions": [
+          {
+            "field": "tags",
+            "id": "condition-ms-iie-1",
+            "operator": "INPUT_IS_EXACTLY",
+            "value": [
+              "endangered",
+              "protected"
+            ]
+          }
+        ],
+        "isActive": true,
+        "label": "",
+        "leftColumn": [
+          {
+            "type": "field",
+            "name": "conditional_field"
+          }
+        ],
+        "rightColumn": []
+      }
+    }
+  }
+}

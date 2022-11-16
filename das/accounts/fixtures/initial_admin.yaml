@@ -1,5 +1,4 @@
 - model: accounts.user
-  pk: 3880239a-ffcd-47a8-9035-0ce3c9d90bdd
   fields:
     password: pbkdf2_sha256$100000$hlybaf8dbG2Y$9khjvieGlVnr8X5Ybe6bW1tEAM5I7Pn56pahEcwJQNI=
     last_login: null
@@ -8,7 +7,7 @@
     first_name: DAS
     last_name: Admin
     email: das.admin@pamdas.org
-    phone: ''
+    phone: ""
     is_email_alert: false
     is_sms_alert: false
     is_staff: true

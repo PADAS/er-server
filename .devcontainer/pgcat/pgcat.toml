@@ -1,0 +1,61 @@
+# #######################################
+# PgCat: Connection Pooler Configuration
+# #######################################
+#
+# Used for local development. Make sure it mimics the configurations in
+# dev/prod as it is a way to test that new local features will work with the
+# deployed infrastructure.
+#
+# Configured pools
+# ----------------
+#
+# Currently, one pool is configured:
+#
+# 1. `main`: Query routing of reads/writes + transaction pooling
+#
+#
+# Deployed configurations
+# -----------------------
+#
+# - dev: https://github.com/PADAS/er-flux-infra/blob/main/apps/dev/pgcat/values.yaml#L26
+# - prod: https://github.com/PADAS/er-flux-infra/blob/main/apps/prod/pgcat/values.yaml#L24
+# - prod-me: https://github.com/PADAS/er-flux-infra/blob/main/apps/prod-me/pgcat/values.yaml#L24
+# - prod-us: https://github.com/PADAS/er-flux-infra/blob/main/apps/prod-us/pgcat/values.yaml#L24
+# - stage: https://github.com/PADAS/er-flux-infra/blob/main/apps/stage/pgcat/values.yaml
+#
+#
+# Link to the official PgCat configuration documentation: https://github.com/postgresml/pgcat/blob/main/CONFIG.md
+
+[general]
+host = "0.0.0.0"
+port = 6432
+server_tls = true # required by AlloyDB
+admin_username = "pgcat"
+admin_password = "pgcat"
+
+# pools configuration
+# -------------------
+
+## pool: `main`
+##
+## Description: Pool that does reads/writes routing + transaction pooling
+##
+[pools.main]
+pool_mode = "transaction"
+default_role = "primary"
+query_parser_enabled = true
+query_parser_read_write_splitting = true
+primary_reads_enabled = false
+
+[pools.main.users.0]
+username = "das"
+password = "das"
+pool_size = 100
+min_pool_size = 0
+
+[pools.main.shards.0]
+servers = [
+  ["postgis", 5432, "primary"],
+  ["postgis-replica", 5432, "replica"]
+]
+database = "das"

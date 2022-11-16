@@ -1,0 +1,69 @@
+{
+  "id": "c0973be2-8e11-4cb8-8463-897fb96391d0",
+  "createdAt": "2022-11-14T21:09:02.519164+00:00",
+  "updatedAt": "2022-11-14T21:09:02.519165+00:00",
+  "name": "Awesome ER Site",
+  "slugName": "zoo",
+  "url": "http://zoo.com",
+  "domain": "zoo.com",
+  "clusterNamespace": "awesome-er-site",
+  "clusterName": "production-cluster001",
+  "permissionsCustomSequenceStart": 20001,
+  "permissionsCustomSequenceEnd": 30000,
+  "status": "PROVISIONING",
+  "envSettings": {
+    "acceptEula": false,
+    "alertRateLimit": 40,
+    "allServerNames": null,
+    "altServerNames": [
+      "root.dev.pamdas.org",
+      "testserver"
+    ],
+    "defaultEventFilterFromDays": null,
+    "defaultPatrolFilterFromDays": null,
+    "eusOrg": null,
+    "fqdn": "zoo.com",
+    "geoPermissionSpeedKmH": 75,
+    "geoPermissionRadiusMeters": 3704,
+    "geoPermissionViolationBanDurationMin": 10,
+    "gsBucketName": null,
+    "kmlOverlayImage": null,
+    "kmlFeedTitle": "Awesome ER site - KML service",
+    "observationAccuracyThreshold": 25,
+    "patrolEnabled": false,
+    "showStationarySubjectsOnMap": true,
+    "showTrackDays": 16,
+    "subjectRegionEnabled": false,
+    "tableauDefaultDashboard": null,
+    "tableauSiteId": null,
+    "trackLength": false
+  },
+  "featureFlags": {
+    "alertsEnabled": false,
+    "buoyApiEnabled": false,
+    "dailyReportEnabled": false,
+    "kmlExport": false,
+    "mappingFeaturesV2": true,
+    "tableauEnabled": false,
+    "tableauSiteId": false,
+    "trackLength": false,
+    "eventsEnabled": true,
+    "subjectsEnabled": true,
+    "spatialFeaturesEnabled": true,
+    "analyzersEnabled": true,
+    "requireIdp": false,
+    "idpOrgId": null
+  },
+  "services": {
+    "auth": {
+      "status": "PROVISIONING",
+      "statusMessage": null,
+      "updatedAt": ""
+    },
+    "media": {
+      "status": "PROVISIONING",
+      "statusMessage": null,
+      "updatedAt": ""
+    }
+  }
+}

@@ -1,0 +1,101 @@
+name: Run unit tests
+
+on:
+  workflow_call:
+    inputs:
+      command:
+        required: true
+        type: string
+      image:
+        required: true
+        type: string
+
+jobs:
+  vars:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    outputs:
+      token: ${{ steps.vars.outputs.token }}
+    environment: padas-app
+    steps:
+      - name: GCP Auth
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          token_format: 'access_token'
+          workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.SERVICE_ACCOUNT }}
+      - id: vars
+        run: |
+          echo "token=$(gcloud auth print-access-token)" >> $GITHUB_OUTPUT
+  unit-tests:
+    runs-on: ubuntu-latest
+    needs: [vars]
+    container:
+      image: ${{ inputs.image }}
+      credentials:
+        username: oauth2accesstoken
+        password: ${{ needs.vars.outputs.token }}
+    services:
+      postgis:
+        image: postgis/postgis:14-3.5-alpine
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: fancypassword
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7.2
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis-vt:
+        image: redis:7.2
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Setup
+        run: |
+          cd /das
+          export PYTHONPATH=/das/test_scripts:$PYTHONPATH
+          export DJANGO_SETTINGS_MODULE=unittest_settings
+
+          uv sync --group dev --no-install-project --find-links /das/dependencies/wheelhouse
+
+          pip install --upgrade keyrings.alt
+
+          IS_OAUTH2_PROVIDER_MIGRATION=true python manage.py migrate
+          IS_OAUTH2_PROVIDER_MIGRATION=true pytest --reuse-db --create-db --junitxml=/testresults/result.xml --maxfail=15  core/tests/test_utils.py
+        env:
+          DB_HOST: postgis
+          DB_NAME: testdb
+          DB_USER: testuser
+          DB_PASSWORD: fancypassword
+          DB_PORT: 5432
+          FQDN: testing.pamdas.org
+
+      - name: Run Tests
+        run: |
+          cd /das
+          export PYTHONPATH=/das/test_scripts:$PYTHONPATH
+          export DJANGO_SETTINGS_MODULE=unittest_settings
+          ${{ inputs.command }}
+        env:
+          DB_HOST: postgis
+          DB_NAME: testdb
+          DB_USER: testuser
+          DB_PASSWORD: fancypassword
+          DB_PORT: 5432
+          FQDN: testing.pamdas.org

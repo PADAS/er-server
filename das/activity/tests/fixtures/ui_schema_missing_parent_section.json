@@ -1,0 +1,47 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+            "size_of_the_poaching_group": {
+                "deprecated": false,
+                "description": "Number of poachers that were in the group.",
+                "minimum": 1,
+                "title": "Size of the Poaching Group",
+                "type": "number"
+            }
+        },
+        "required": [],
+        "unevaluatedProperties": false
+    },
+    "ui": {
+        "fields": {
+            "field1": {
+                "parent": "section-2",
+                "type": "TEXT",
+                "inputType": "SHORT_TEXT",
+                "placeholder": "Enter text"
+            }
+        },
+        "headers": {
+            "header-1": {
+                "label": "Header 1",
+                "section": "section-3",
+                "size": "SMALL"
+            }
+        },
+        "order": [
+            "section-1",
+            "section-3"
+        ],
+        "sections": {
+            "section-1": {
+                "label": "Section 1",
+                "isActive": true,
+                "leftColumn": [],
+                "rightColumn": [],
+                "columns": 1
+            }
+        }
+    }
+}
