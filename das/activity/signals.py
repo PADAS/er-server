@@ -11,8 +11,8 @@ from django.utils.text import slugify
 
 from accounts.models.permissionset import PermissionSet
 from activity.models import (PC_DONE, PC_OPEN, Event, EventCategory,
-                             EventPhoto, Patrol, PatrolFile, PatrolNote,
-                             PatrolSegment)
+                             EventGeometry, EventPhoto, Patrol, PatrolFile,
+                             PatrolNote, PatrolSegment)
 from das_server import celery, pubsub
 from usercontent.tasks import imagefile_rendered
 
@@ -41,6 +41,12 @@ def event_post_delete(sender, instance, **kwargs):
     transaction.on_commit(lambda: pubsub.publish(
         {'event_id': str(instance.pk)},
         'das.event.delete'))
+
+
+@receiver(post_delete, sender=EventGeometry)
+def event_geometry_post_delete(sender, instance, **kwargs):
+    logger.info("delete event geometry {}".format(instance.pk))
+    instance.event.dependent_table_updated()
 
 
 @receiver(post_save, sender=EventPhoto)
