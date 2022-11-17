@@ -33,7 +33,7 @@ DOCS_ROOT = os.path.join(BASE_DIR, "../docs/_build/html")
 # See https://docs.djangoproject.com/en/1.8/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'j(h&tc(u_#z-tf)u(9+3n39gmk92#6-v-he_p0ae+1rs*+2j@b'
+SECRET_KEY = "j(h&tc(u_#z-tf)u(9+3n39gmk92#6-v-he_p0ae+1rs*+2j@b"
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
@@ -43,20 +43,20 @@ DEV = False
 # Application definition
 
 INSTALLED_APPS = (
-    'accounts.apps.AccountsConfig',
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'django.contrib.gis',
-    'versatileimagefield',
-    'storages',
-    'treebeard',
-    'corsheaders',
-    'oauth2_provider',
-    'rest_framework',
+    "accounts.apps.AccountsConfig",
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "django.contrib.gis",
+    "versatileimagefield",
+    "storages",
+    "treebeard",
+    "corsheaders",
+    "oauth2_provider",
+    "rest_framework",
     "rest_framework_gis",
     "drf_spectacular",
     "drf_spectacular_sidecar",
@@ -105,7 +105,7 @@ MIDDLEWARE = (
     "utils.middleware.ManageAdminEFBTokenMiddleware",
 )
 
-ROOT_URLCONF = 'das_server.urls'
+ROOT_URLCONF = "das_server.urls"
 
 TEMPLATES = [
     {
@@ -143,37 +143,37 @@ TEMPLATES = [
     },
 ]
 
-AUTH_USER_MODEL = 'accounts.User'
-LOGIN_URL = '/login'
-LOGOUT_URL = '/logout'
-LOGIN_REDIRECT_URL = '/'
+AUTH_USER_MODEL = "accounts.User"
+LOGIN_URL = "/login"
+LOGOUT_URL = "/logout"
+LOGIN_REDIRECT_URL = "/"
 
 # The number of days a password reset link is valid for (259200 secs are 3 days)
 PASSWORD_RESET_TIMEOUT = 259200
-WSGI_APPLICATION = 'das_server.wsgi.application'
+WSGI_APPLICATION = "das_server.wsgi.application"
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-        'OPTIONS': {
-            'min_length': 9,
-        }
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {
+            "min_length": 9,
+        },
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
 REST_FRAMEWORK = {
-    'DEFAULT_PERMISSION_CLASSES': (
+    "DEFAULT_PERMISSION_CLASSES": (
         # 'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly',
-        'rest_framework.permissions.IsAuthenticated',
+        "rest_framework.permissions.IsAuthenticated",
     ),
     "DEFAULT_AUTHENTICATION_CLASSES": (
         # Auth0JWTAuthentication must be first: when require_idp=True, it either succeeds
@@ -183,27 +183,26 @@ REST_FRAMEWORK = {
         "utils.authentication.BearerTokenInUrlAuthentication",
     ),
     # 'VIEW_DESCRIPTION_FUNCTION': 'rest_framework_swagger.views.get_restructuredtext',
-    'DEFAULT_RENDERER_CLASSES': (
-        'utils.json.ExtendedJSONRenderer',
-        'utils.json.ExtendedBrowsableAPIRenderer',
+    "DEFAULT_RENDERER_CLASSES": (
+        "utils.json.ExtendedJSONRenderer",
+        "utils.json.ExtendedBrowsableAPIRenderer",
     ),
-    'DEFAULT_METADATA_CLASS': 'utils.meta.NoMetaData',
-    'EXCEPTION_HANDLER': 'utils.drf.api_exception_handler',
-    'TEST_REQUEST_DEFAULT_FORMAT': 'json',
+    "DEFAULT_METADATA_CLASS": "utils.meta.NoMetaData",
+    "EXCEPTION_HANDLER": "utils.drf.api_exception_handler",
+    "TEST_REQUEST_DEFAULT_FORMAT": "json",
     # 'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning',
     # 'DEFAULT_VERSION': 'v1.0',
-    'SECURITY_DEFINITIONS': {
-        'oauth2': {
-            'type': 'oauth2',
-            'name': '',
-            'authorizationUrl': 'http://swagger.io/api/oauth/dialog',
-            'flow': 'password',
-            'in': 'header',
+    "SECURITY_DEFINITIONS": {
+        "oauth2": {
+            "type": "oauth2",
+            "name": "",
+            "authorizationUrl": "http://swagger.io/api/oauth/dialog",
+            "flow": "password",
+            "in": "header",
         }
     },
-
     # Custom openapi autoschema
-    'DEFAULT_SCHEMA_CLASS': 'das_server.views.CustomSchema',
+    "DEFAULT_SCHEMA_CLASS": "das_server.views.CustomSchema",
     # Paginator overrides
     "OPTIONAL_PAGE_SIZE": 25,
     "MAX_PAGE_SIZE": 4000,
@@ -217,9 +216,7 @@ AUTHENTICATION_BACKENDS = (
     "accounts.backends.AccountsModelBackend",
 )
 
-SERIALIZATION_MODULES = {
-    'geojson': 'core.serializers'
-}
+SERIALIZATION_MODULES = {"geojson": "core.serializers"}
 
 # Database
 # https://docs.djangoproject.com/en/1.8/ref/settings/#databases
@@ -249,13 +246,13 @@ SERVICE_NAME = env.str("SERVICE_NAME", "das-api")
 # Internationalization
 # https://docs.djangoproject.com/en/1.8/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = "en-us"
 
 USE_I18N = True
 USE_L10N = True
 
 USE_TZ = True
-TIME_ZONE = 'UTC'
+TIME_ZONE = "UTC"
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.8/howto/static-files/
@@ -272,8 +269,8 @@ STATICFILES_DIRS = (
 )
 
 SITE_ID = 1
-UI_SITE_NAME = 'EarthRanger'
-UI_SITE_URL = 'http://www.earthranger.com'
+UI_SITE_NAME = "EarthRanger"
+UI_SITE_URL = "http://www.earthranger.com"
 
 # socket.io uses the CORS_ORIGIN_WHITELIST as well
 # caveat is that socket.io matches against the whole ORIGIN ie:
@@ -284,7 +281,7 @@ CORS_ORIGIN_WHITELIST = []
 CORS_ALLOWED_ORIGINS = []
 CORS_ALLOW_HEADERS = default_headers + ("user-profile", "traceparent")
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ["*"]
 
 # Session and CSRF cookie security settings
 SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", True)
@@ -363,23 +360,26 @@ SILENCED_SYSTEM_CHECKS = ["auth.W004", "fields.W342"]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # RT API settings
-ASYNC_MODE = 'eventlet'
+ASYNC_MODE = "eventlet"
 
 # override these if your libraries are in a different place
 GEOS_LIBRARY_PATH = env.str("GEOS_LIBRARY_PATH", "/usr/lib/x86_64-linux-gnu/libgeos_c.so.1")
 GDAL_LIBRARY_PATH = env.str("GDAL_LIBRARY_PATH", "/usr/lib/libgdal.so")
 
 
-RASTER_WORKDIR = '/tmp/raster'
+RASTER_WORKDIR = "/tmp/raster"
 
-'''
+"""
 Associate a plugin name with a plugin-configuration dict that will override the plugin's configuration in the database.
-'''
-DATA_INPUT_PLUGINS = {
-}
+"""
+DATA_INPUT_PLUGINS = {}
 
 # would want to set this to where you might have some MBTiles maps
-MAPPING = {'MBTILES': {'root': r'/tmp', }}
+MAPPING = {
+    "MBTILES": {
+        "root": r"/tmp",
+    }
+}
 
 # In the ST environment variable are
 # REDIS_SERVICE_HOST, REDIS_SERVICE_PORT
@@ -405,7 +405,7 @@ CELERY_ACCEPT_CONTENT = ["application/json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_ENABLE_UTC = True
-CELERY_TIMEZONE = 'UTC'
+CELERY_TIMEZONE = "UTC"
 
 CELERY_REDIS_MAX_CONNECTIONS = 500
 CELERY_WORKER_MAX_TASKS_PER_CHILD = 100
@@ -419,14 +419,11 @@ CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 # Enables error emails.
 CELERY_SEND_TASK_ERROR_EMAILS = False
 
-CELERY_TASK_DEFAULT_QUEUE = 'default'
-CELERY_TASK_DEFAULT_EXCHANGE = 'default'
-CELERY_TASK_DEFAULT_ROUTING_KEY = 'default'
+CELERY_TASK_DEFAULT_QUEUE = "default"
+CELERY_TASK_DEFAULT_EXCHANGE = "default"
+CELERY_TASK_DEFAULT_ROUTING_KEY = "default"
 
-CELERY_BROKER_TRANSPORT_OPTIONS = {
-    'visibility_timeout': 3600,
-    'fanout_prefix': True
-}
+CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 3600, "fanout_prefix": True}
 
 # task:
 CELERY_TASK_TRACK_STARTED = True
@@ -465,14 +462,14 @@ CACHES = {
 FROM_EMAIL = "notifications@pamdas.org"
 DEFAULT_FROM_EMAIL = "notifications@earthranger.com"
 # Used by password reset email
-EMAIL_HOST_USER = 'info@pamdas.org'
+EMAIL_HOST_USER = "info@pamdas.org"
 
-SENDSMS_BACKEND = 'utils.smsbackend.AfricasTalkingBackend'
+SENDSMS_BACKEND = "utils.smsbackend.AfricasTalkingBackend"
 SENDSMS_FROM = None
 
 # use these when you want to send SMS from kenya
-SENDSMS_AFRICAS_TALKING_USERNAME = ''
-SENDSMS_AFRICAS_TALKING_API_KEY = ''
+SENDSMS_AFRICAS_TALKING_USERNAME = ""
+SENDSMS_AFRICAS_TALKING_API_KEY = ""
 
 # use these when you don't want to send SMS from kenya or when you want to
 # use WhatsApp
@@ -487,45 +484,45 @@ WHATSAPP_FROM_NUMBER = env.str("WHATSAPP_FROM_NUMBER", "")
 WHATSAPP_CONTENT_SID = env.str("WHATSAPP_CONTENT_SID", "HXc0d9e484f97c27890999e7d859f84919")
 
 VERSATILEIMAGEFIELD_RENDITION_KEY_SETS = {
-    'default': [
-        ('original', 'url'),
-        ('icon', 'crop__64x64'),  # Crop for use as icon
-        ('thumbnail', 'thumbnail__150x150'),  # Resize to fit within
-        ('large', 'thumbnail__800x800'),  # Resize to fit within
-        ('xlarge', 'thumbnail__1920x1920')  # Resize to fit within
+    "default": [
+        ("original", "url"),
+        ("icon", "crop__64x64"),  # Crop for use as icon
+        ("thumbnail", "thumbnail__150x150"),  # Resize to fit within
+        ("large", "thumbnail__800x800"),  # Resize to fit within
+        ("xlarge", "thumbnail__1920x1920"),  # Resize to fit within
     ],
-    'event_photo': [
-        ('original', 'url'),
-        ('thumbnail', 'thumbnail__150x150'),  # Resize to fit within
-        ('large', 'thumbnail__800x800')  # Resize to fit within
+    "event_photo": [
+        ("original", "url"),
+        ("thumbnail", "thumbnail__150x150"),  # Resize to fit within
+        ("large", "thumbnail__800x800"),  # Resize to fit within
     ],
 }
 
 VERSATILEIMAGEFIELD_SETTINGS = {
     # The amount of time, in seconds, that references to created images
     # should be stored in the cache. Defaults to `2592000` (30 days)
-    'cache_length': 2592000,
+    "cache_length": 2592000,
     # The name of the cache you'd like `django-versatileimagefield` to use.
     # Defaults to 'versatileimagefield_cache'. If no cache exists with the name
     # provided, the 'default' cache will be used instead.
-    'cache_name': 'versatileimagefield_cache',
+    "cache_name": "versatileimagefield_cache",
     # The save quality of modified JPEG images. More info here:
     # http://pillow.readthedocs.org/en/latest/handbook/image-file-formats.html#jpeg
     # Defaults to 70
-    'jpeg_resize_quality': 70,
+    "jpeg_resize_quality": 70,
     # The name of the top-level folder within storage classes to save all
     # sized images. Defaults to '__sized__'
-    'sized_directory_name': 'sz',
+    "sized_directory_name": "sz",
     # The name of the directory to save all filtered images within.
     # Defaults to '__filtered__':
-    'filtered_directory_name': 'fltr',
+    "filtered_directory_name": "fltr",
     # The name of the directory to save placeholder images within.
     # Defaults to '__placeholder__':
-    'placeholder_directory_name': 'ph',
+    "placeholder_directory_name": "ph",
     # Whether or not to create new images on-the-fly. Set this to `False` for
     # speedy performance but don't forget to 'pre-warm' to ensure they're
     # created and available at the appropriate URL.
-    'create_images_on_demand': True,
+    "create_images_on_demand": True,
     # A dot-notated python path string to a function that processes sized
     # image keys. Typically used to md5-ify the 'image key' portion of the
     # filename, giving each a uniform length.
@@ -538,27 +535,47 @@ VERSATILEIMAGEFIELD_SETTINGS = {
     # just define a function (that can be imported from your project's
     # python path) that takes a single argument, `image_key` and returns
     # a string.
-    'image_key_post_processor': None,
+    "image_key_post_processor": None,
     # Whether to create progressive JPEGs. Read more about progressive JPEGs
     # here: https://optimus.io/support/progressive-jpeg/
-    'progressive_jpeg': True
+    "progressive_jpeg": True,
 }
 
 USERCONTENT_SETTINGS = {
     # For a file with one of these extensions, we'll attempt to save it as an
     # ImageFile.
-    'imagefile_extensions': ('jpg', 'jpeg', 'png', 'gif', 'tif', 'tiff'),
-
+    "imagefile_extensions": ("jpg", "jpeg", "png", "gif", "tif", "tiff"),
     # Prohibit uploading files with these extensions.
-    'prohibited_extensions': ('bin', 'exe', 'dll', 'deb', 'sh',),
-
+    "prohibited_extensions": (
+        "bin",
+        "exe",
+        "dll",
+        "deb",
+        "sh",
+    ),
     # Always serve files with these mime-types as application/octet-stream.
-    'force_download_mimetypes': ('text/html', 'text/javascript',),
-
+    "force_download_mimetypes": (
+        "text/html",
+        "text/javascript",
+    ),
     # Edit these extensions by appending a .txt
-    'edit_extensions': ('html', 'htm', 'js', 'css', 'exe', 'sh', 'bin', 'dll', 'deb', 'dmg', 'iso', 'img', 'msi', 'msp',
-                        'msm')
-
+    "edit_extensions": (
+        "html",
+        "htm",
+        "js",
+        "css",
+        "exe",
+        "sh",
+        "bin",
+        "dll",
+        "deb",
+        "dmg",
+        "iso",
+        "img",
+        "msi",
+        "msp",
+        "msm",
+    ),
 }
 
 SHOW_TRACK_DAYS = 16
@@ -571,11 +588,11 @@ NOTIFY_HIGH_PRIORITY_EVENT = None
 NOTIFY_MEDIUM_PRIORITY_EVENT = None
 NOTIFY_LOW_PRIORITY_EVENT = None
 
-REPORTED_BY_PERMISSION_SET = 'b5057387-9f6c-4685-8ec1-46ad29684eea'
+REPORTED_BY_PERMISSION_SET = "b5057387-9f6c-4685-8ec1-46ad29684eea"
 
 EVENT_MATRIX_ENABLED = False
 EXPORT_KML_ENABLED = False
-KML_FEED_TITLE = 'EarthRanger KML Service'
+KML_FEED_TITLE = "EarthRanger KML Service"
 KML_OVERLAY_IMAGE = None
 KML_TOKEN_TTL_DAYS = 5 * 365
 
@@ -586,41 +603,41 @@ SHOW_STATIONARY_SUBJECTS_ON_MAP = True
 # If a subject_sub-type is not found here, then the annotation routine
 # will not do anything.
 ANNOTATION_SETTINGS = {
-    'speed_thresholds': {
-        'forest_elephant': 7.0,
-        'elephant': 7.5,
-        'vehicle': 200.0,
-        'plane': 500.0,
-        'helicopter': 500.0,
-        'ranger': 200.0,
-        'ranger_team': 200.0,
+    "speed_thresholds": {
+        "forest_elephant": 7.0,
+        "elephant": 7.5,
+        "vehicle": 200.0,
+        "plane": 500.0,
+        "helicopter": 500.0,
+        "ranger": 200.0,
+        "ranger_team": 200.0,
     }
 }
 
 SENSORS = {
-    'camera_trap': {
-        'default_time_zone': 'UTC',
-        'priority': 300,
+    "camera_trap": {
+        "default_time_zone": "UTC",
+        "priority": 300,
     }
 }
 
 DEEP_LINK_EVENT_TYPES = [
-    'low_speed_wilcoxon',
-    'immobility',
-    'low_speed_wilcoxon_all_clear',
-    'low_speed_percentile',
-    'low_speed_percentile_all_clear',
-    'geofence_break',
-    'immobility_all_clear',
-    'proximity',
+    "low_speed_wilcoxon",
+    "immobility",
+    "low_speed_wilcoxon_all_clear",
+    "low_speed_percentile",
+    "low_speed_percentile_all_clear",
+    "geofence_break",
+    "immobility_all_clear",
+    "proximity",
 ]
 
 EUS_SETTINGS = {
     # 'zendesk' or 'email'
-    'type': '',
-    'name': '',
-    'email': '',
-    'organization': ''
+    "type": "",
+    "name": "",
+    "email": "",
+    "organization": "",
 }
 
 
@@ -628,7 +645,7 @@ def whitenoise_headers_func(headers, path, url):
     # This is intended for testing purposes, to add a header to assets that are served up by whitenoise.
     # We'll take it out but for now it will help us identify whether we're
     # using whitenoise properly.
-    headers['x-er-source'] = 'wn'
+    headers["x-er-source"] = "wn"
 
 
 WHITENOISE_ADD_HEADERS_FUNCTION = whitenoise_headers_func
@@ -640,7 +657,7 @@ ALERTS_RATE_LIMIT = 20
 ALERTS_RATE_LIMIT_DURATION_SECONDS = 86400  # 24 hours
 ALERTS_REMAINING_COUNTER_FOR_WARNING = 3
 
-CARTO_URL = 'https://wri-01.cartodb.com/api/v2/sql'  # For: VIIRS-Fire-Alerts
+CARTO_URL = "https://wri-01.cartodb.com/api/v2/sql"  # For: VIIRS-Fire-Alerts
 
 GFW_API_ROOT = "https://production-api.globalforestwatch.org/v1"
 GFW_WEB_ROOT = "https://www.globalforestwatch.org"
@@ -667,7 +684,7 @@ UBI_API_PASSWORD = env.str("UBI_API_PASSWORD", "password")
 
 # Tableau Server:
 TABLEAU_ENABLED = False
-TABLEAU_SERVER = 'https://tableau.pamdas.org'
+TABLEAU_SERVER = "https://tableau.pamdas.org"
 TABLEAU_VERSION = 3.9
 TABLEAU_API_TOKEN = None
 TABLEAU_API_USERNAME = "ER Server"
