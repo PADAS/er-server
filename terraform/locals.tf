@@ -290,7 +290,7 @@ locals {
     "currumbin"               = "prod-asia"
     "mpilo"                   = "prod1"
     "zoologicogdl"            = "prod1"
-    "grevyzebra"              = "prod1"
+    "grevyzebratrust"         = "prod1"
     "tanglewood"              = "prod1"
     "mukutan"                 = "prod1"
     "pangolinconservation"    = "prod1"
