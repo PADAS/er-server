@@ -311,6 +311,15 @@ locals {
     "mushingashi"             = "prod1"
     "mep-dev"                 = "prod1"
     "selvanegrarutasdelpuma"  = "prod1"
+    "ap-southsudan"           = "prod1"
+    "birdlifeafrica"          = "prod1"
+    "birdlifetanzania"        = "prod1"
+    "iapf-zw"                 = "prod1"
+    "iapf-bw"                 = "prod1"
+    "iapf-tz"                 = "prod1"
+    "nzsharkman"              = "prod-asia"
+    "cwf-hwange"              = "prod1"
+    "aouk"                    = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -465,6 +474,11 @@ locals {
     "maunga"                  = 1
     "mushingashi"             = 1
     "mep-dev"                 = 1
+    "birdlifeafrica"          = 1
+    "birdlifetanzania"        = 1
+    "iapf-bw"                 = 1
+    "cwf-hwange"              = 1
+    "aouk"                    = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
