@@ -7,8 +7,7 @@ from utils.constants import regex
 urlpatterns = [
     re_path(r"^events/?$", views.EventsView.as_view(), name="events"),
     re_path(r"^events/geojson/?$", views.EventsGeoJsonView.as_view()),
-    re_path(r"^events/export/?$", views.EventsExportView.as_view(),
-            name="events-export"),
+    re_path(r"^events/export/?$", views.EventsExportView.as_view(), name="events-export"),
     re_path(r"^events/schema/?$", views.EventSchemaView.as_view()),
     re_path(
         rf"^events/schema/eventtype/(?P<eventtype>{regex.SLUG})/?$",
@@ -18,9 +17,7 @@ urlpatterns = [
     re_path(r"^events/count/?$", views.EventCountView.as_view()),
     re_path(r"^events/classes/?$", views.EventClassesView.as_view()),
     re_path(r"^events/factors/?$", views.EventFactorsView.as_view()),
-    re_path(
-        r"^events/eventtypes/?$", views.EventTypesView.as_view(), name="eventtypes"
-    ),
+    re_path(r"^events/eventtypes/?$", views.EventTypesView.as_view(), name="eventtypes"),
     re_path(
         rf"^events/eventtypes/(?P<eventtype_id>{regex.UUID})/?$",
         views.EventTypeView.as_view(),
@@ -37,8 +34,7 @@ urlpatterns = [
         name="event-category",
     ),
     re_path(r"^events/classfactors/?$", views.EventClassFactorsView.as_view()),
-    re_path(r"^events/alerts/targets/?$",
-            views.EventAlertTargetsListView.as_view()),
+    re_path(r"^events/alerts/targets/?$", views.EventAlertTargetsListView.as_view()),
     re_path(
         r"^alerts/conditions/?$",
         alerts_views.EventAlertConditionsListView.as_view(),
@@ -54,9 +50,7 @@ urlpatterns = [
         alerts_views.NotificationMethodView.as_view(),
         name="notificationmethod-view",
     ),
-    re_path(
-        r"^alerts/?$", alerts_views.AlertRuleListView.as_view(), name="alert-list-view"
-    ),
+    re_path(r"^alerts/?$", alerts_views.AlertRuleListView.as_view(), name="alert-list-view"),
     re_path(
         rf"^alert/(?P<id>{regex.UUID})/?$",
         alerts_views.AlertRuleView.as_view(),
@@ -67,9 +61,7 @@ urlpatterns = [
         views.EventView.as_view(),
         name="event-view",
     ),
-    re_path(
-        r"^eventfilters/?$", views.EventFiltersView.as_view(), name="eventfilters-view"
-    ),
+    re_path(r"^eventfilters/?$", views.EventFiltersView.as_view(), name="eventfilters-view"),
     re_path(
         r"^eventfilters/schema/?$",
         views.EventFilterSchemaView.as_view(),
@@ -145,17 +137,14 @@ urlpatterns = [
         views.EventRelationshipView.as_view(),
         name="event-view-relationship",
     ),
-    re_path(r"^patrols/types/?$",
-            views.PatrolTypesView.as_view(), name="patrol-types"),
+    re_path(r"^patrols/types/?$", views.PatrolTypesView.as_view(), name="patrol-types"),
     re_path(
         rf"^patrols/types/(?P<id>{regex.UUID})/?$",
         views.PatrolTypeView.as_view(),
         name="patrol-type",
     ),
     re_path(r"^patrols/?$", views.PatrolsView.as_view(), name="patrols"),
-    re_path(
-        rf"^patrols/(?P<id>{regex.UUID})/?$", views.PatrolView.as_view(), name="patrol"
-    ),
+    re_path(rf"^patrols/(?P<id>{regex.UUID})/?$", views.PatrolView.as_view(), name="patrol"),
     re_path(
         rf"^patrols/(?P<id>{regex.UUID})/notes/?$",
         views.PatrolNotesView.as_view(),
@@ -172,8 +161,10 @@ urlpatterns = [
         name="patrol-view-files",
     ),
     re_path(
-        rf'^patrols/(?P<id>{regex.UUID})/files/(?P<filecontent_id>{regex.UUID})/(?P<image_size>{regex.SLUG_20_CHARS})/(?P<filename>.*)?$',
-        views.PatrolFileView.as_view(), name='patrol-view-file-size'),
+        rf"^patrols/(?P<id>{regex.UUID})/files/(?P<filecontent_id>{regex.UUID})/(?P<image_size>{regex.SLUG_20_CHARS})/(?P<filename>.*)?$",
+        views.PatrolFileView.as_view(),
+        name="patrol-view-file-size",
+    ),
     re_path(
         rf"^patrols/(?P<id>{regex.UUID})/file/(?P<filecontent_id>{regex.UUID})/(?P<filename>.*)?$",
         views.PatrolFileView.as_view(),
@@ -186,7 +177,7 @@ urlpatterns = [
     ),
     re_path(
         r"^patrols/segments/?$",
-        views.PatrolsegmentsView.as_view(),
+        views.PatrolSegmentsView.as_view(),
         name="patrol-segments",
     ),
     re_path(
@@ -196,7 +187,7 @@ urlpatterns = [
     ),
     re_path(
         rf"^patrols/segments/(?P<id>{regex.UUID})/?$",
-        views.PatrolsegmentView.as_view(),
+        views.PatrolSegmentView.as_view(),
         name="patrol-segment",
     ),
     re_path(
@@ -206,9 +197,8 @@ urlpatterns = [
     ),
     re_path(
         rf"^event/(?P<event_id>{regex.UUID})/segments/?$",
-        views.PatrolsegmentsView.as_view(),
+        views.PatrolSegmentsView.as_view(),
         name="event-segments-view",
     ),
-    path("event/<uuid:event_id>/geometry/",
-         views.EventGeometryView.as_view(), name="event-geometries")
+    path("event/<uuid:event_id>/geometry/", views.EventGeometryView.as_view(), name="event-geometries"),
 ]

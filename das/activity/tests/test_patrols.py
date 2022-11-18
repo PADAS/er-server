@@ -158,7 +158,7 @@ class TestPatrol(BaseAPITest):
         url = reverse("patrol-segments")
         request = self.factory.post(url, data=patrolsgm_data)
         self.force_authenticate(request, self.app_user)
-        response = views.PatrolsegmentsView.as_view()(request)
+        response = views.PatrolSegmentsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
     def test_create_patrol_segment_with_invalid_time_range(self):
@@ -166,7 +166,7 @@ class TestPatrol(BaseAPITest):
         url = reverse("patrol-segments")
         request = self.factory.post(url, data=segment_data)
         self.force_authenticate(request, self.app_user)
-        response = views.PatrolsegmentsView.as_view()(request)
+        response = views.PatrolSegmentsView.as_view()(request)
         self.assertEqual(response.status_code, 400)
         self.assertIn("start_time must be an earlier date than the end_time", response.data.get("time_range"))
 
@@ -579,7 +579,7 @@ class TestPatrol(BaseAPITest):
         url = reverse("patrol-segment", kwargs={"id": segment.id})
         request = self.factory.patch(url, data=segment_update_data)
         self.force_authenticate(request, self.app_user)
-        response = views.PatrolsegmentView.as_view()(request, id=segment.id)
+        response = views.PatrolSegmentView.as_view()(request, id=segment.id)
 
         patrol_type_value = response.data.get("patrol_type")
         patrol_type = PatrolType.objects.get(value=patrol_type_value)
@@ -603,7 +603,7 @@ class TestPatrol(BaseAPITest):
         url = reverse("patrol-segments")
         request = self.factory.post(url, data=patrolsg)
         self.force_authenticate(request, self.app_user)
-        response = views.PatrolsegmentsView.as_view()(request)
+        response = views.PatrolSegmentsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
         self.assertEqual(str(response.data.get("patrol")), str(self.default_test_patrol.id))
 
@@ -623,7 +623,7 @@ class TestPatrol(BaseAPITest):
         request = self.factory.get(url)
         patrolsgm = PatrolSegment.objects.all().count()
         self.force_authenticate(request, self.app_user)
-        response = views.PatrolsegmentsView.as_view()(request)
+        response = views.PatrolSegmentsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data.get("count"), patrolsgm)
 
@@ -634,7 +634,7 @@ class TestPatrol(BaseAPITest):
 
         request = self.factory.get(url)
         self.force_authenticate(request, self.user)
-        response = views.PatrolsegmentView.as_view()(request, id=patrolsgm_id)
+        response = views.PatrolSegmentView.as_view()(request, id=patrolsgm_id)
         self.assertEqual(response.status_code, 200)
 
     def test_patrol_filter(self):
@@ -1134,7 +1134,7 @@ class TestPatrol(BaseAPITest):
         url = reverse("patrol-segments")
         request = self.factory.post(url, data=patrolsgm_data)
         self.force_authenticate(request, self.app_user)
-        response = views.PatrolsegmentsView.as_view()(request)
+        response = views.PatrolSegmentsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
         self.assertTrue(isinstance(response.data.get("start_location").get("latitude"), float))
         self.assertTrue(isinstance(response.data.get("end_location").get("latitude"), float))
@@ -1150,7 +1150,7 @@ class TestPatrol(BaseAPITest):
         url = reverse("patrol-segments")
         request = self.factory.post(url, data=patrol_segment)
         self.force_authenticate(request, self.app_user)
-        response = views.PatrolsegmentsView.as_view()(request)
+        response = views.PatrolSegmentsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
         self.assertEqual(0, len(response.data.get("events")))
@@ -1185,7 +1185,7 @@ class TestPatrol(BaseAPITest):
         url = reverse("patrol-segment", kwargs={"id": segment_id})
         request = self.factory.get(url)
         self.force_authenticate(request, self.user)
-        response = views.PatrolsegmentView.as_view()(request, id=segment_id)
+        response = views.PatrolSegmentView.as_view()(request, id=segment_id)
         self.assertEqual(2, len(response.data.get("events")))
         self.assertEqual(response.data.get("updates")[0].get("message"), "Report Added")
         self.assertEqual(response.data.get("updates")[1].get("message"), "Incident Collection Added")
@@ -1198,7 +1198,7 @@ class TestPatrol(BaseAPITest):
         url = reverse("patrol-segments")
         request = self.factory.post(url, data=patrol_segment)
         self.force_authenticate(request, self.app_user)
-        response = views.PatrolsegmentsView.as_view()(request)
+        response = views.PatrolSegmentsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
         self.assertEqual(0, len(response.data.get("events")))
@@ -1238,7 +1238,7 @@ class TestPatrol(BaseAPITest):
         url = reverse("patrol-segment", kwargs={"id": segment_id})
         request = self.factory.get(url)
         self.force_authenticate(request, self.user)
-        response = views.PatrolsegmentView.as_view()(request, id=segment_id)
+        response = views.PatrolSegmentView.as_view()(request, id=segment_id)
         self.assertEqual(1, len(response.data.get("events")))
         self.assertEqual(response.data.get("updates")[0].get("message"), "Report Added")
 
