@@ -1,1 +1,2 @@
-time_zone = "Africa/Windhoek"
+time_zone       = "Africa/Windhoek"
+tableau_enabled = "True"
