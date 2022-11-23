@@ -89,7 +89,7 @@ logger = logging.getLogger(__name__)
 
 
 def which_field_search_for(application):
-    if application and application.client_id == "cybertracker":
+    if application and application.client_id in ("cybertracker", "er_mobile_tracker"):
         return "reported_by"
     return None
 
