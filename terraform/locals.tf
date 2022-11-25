@@ -323,6 +323,7 @@ locals {
     "zambezisociety"          = "prod1"
     "bylotisland"             = "prod1"
     "ewasolions"              = "prod1"
+    "nmc"                     = "prod1"
     "tapirmonitoring"         = "prod1"
   }
 
@@ -485,6 +486,7 @@ locals {
     "aouk"                    = 1
     "zambezisociety"          = 1
     "bylotisland"             = 1
+    "nmc"                     = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
