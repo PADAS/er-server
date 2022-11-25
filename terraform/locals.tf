@@ -323,6 +323,7 @@ locals {
     "zambezisociety"          = "prod1"
     "bylotisland"             = "prod1"
     "ewasolions"              = "prod1"
+    "tapirmonitoring"         = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
