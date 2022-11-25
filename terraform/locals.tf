@@ -323,6 +323,7 @@ locals {
     "zambezisociety"          = "prod1"
     "bylotisland"             = "prod1"
     "ewasolions"              = "prod1"
+    "tabinlkws"               = "prod1"
     "nmc"                     = "prod1"
     "tapirmonitoring"         = "prod1"
   }
