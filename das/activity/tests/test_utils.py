@@ -52,8 +52,8 @@ class TestSchemaUtils:
         (
             ("2022-10-28T12:00:00.000Z", "2022-10-28 12:00"),
             ("2022-01-25T12:00:00.000Z", "2022-01-25 12:00"),
-            ("2022-10-27T06:59:17.125448+06:00", "2022-10-27 06:59"),
             ("2022-10-Z", "2022-10-Z"),
+            ("-27.151221,-101", "-27.151221,-101"),
         ),
     )
     def test_extract_from_dict_or_string_function_date_string_parsing(self, mocked_date, expected_display):
