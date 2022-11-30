@@ -327,6 +327,7 @@ locals {
     "nmc"                     = "prod1"
     "tapirmonitoring"         = "prod1"
     "mbertoni"                = "prod1"
+    "sabinal"                 = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
