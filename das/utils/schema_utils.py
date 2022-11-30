@@ -9,7 +9,6 @@ from collections import OrderedDict
 from datetime import datetime
 
 import jsonschema
-from dateutil.parser import parse
 
 from django.apps import apps
 from django.template import Context, Template
@@ -22,7 +21,6 @@ from activity.exceptions import (
 )
 from activity.models import EventDetails
 from choices.models import Choice, DynamicChoice
-from observations.models import Subject
 from utils.memoize import memoize
 
 logger = logging.getLogger(__name__)
@@ -284,23 +282,27 @@ def extract_from_dict_or_string(schema_item, value):
     if schema_item.get("type", None) == "string":
         if value in schema_item.get("enumNames", {}):
             display = schema_item["enumNames"][value]
-        elif is_uuid(value):
-            subject = Subject.objects.filter(id=value)
-            if subject.exists() and not subject.first().is_active:
-                display = subject.first().name
-
     if isinstance(value, str):
-        date_obj = if_date_get_object(string_value=value)
-        if date_obj:
-            display = date_obj.strftime("%Y-%m-%d %H:%M")
+        if is_date(value_string=value):
+            display = change_format_date_string(date_string=value)
     return value, display
 
 
-def if_date_get_object(string_value: str, fuzzy: bool = False) -> typing.Optional[datetime]:
+def is_date(value_string: str) -> bool:
+    regex = r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)$"
+    return bool(re.match(regex, value_string))
+
+
+def change_format_date_string(date_string: str) -> str:
+    """
+    Try to convert date time string into datetime object to change the format.
+    Fallback: return original date string
+    """
     try:
-        return parse(timestr=string_value, fuzzy=fuzzy)
+        date_obj = datetime.strptime(date_string, "%Y-%m-%dT%H:%M:%S.%fZ")
+        return date_obj.strftime("%Y-%m-%d %H:%M")
     except ValueError:
-        return None
+        return date_string
 
 
 def is_uuid(record):
