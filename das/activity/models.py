@@ -18,12 +18,6 @@ from django.contrib.gis.db import models
 from django.contrib.gis.db.models.functions import Distance as D
 from django.contrib.gis.geos import Polygon
 from django.contrib.postgres.fields import DateTimeRangeField
-from django.contrib.postgres.search import (
-    SearchQuery,
-    SearchRank,
-    SearchVector,
-    SearchVectorField,
-)
 from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.core.validators import RegexValidator
@@ -434,6 +428,7 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         return queryset.filter(filters)
 
     def by_event_filter(self, filter):
+
         queryset = self
 
         if "event_filter_id" in filter:
@@ -498,22 +493,24 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
 
     def by_text_filter(self, search_text):
         queryset = self
-        ts_query = ":* & ".join(search_text.split()) + ":*"
-        search_query = SearchQuery(ts_query, search_type="raw")
-        search_rank = SearchRank(
-            SearchVector(F("tsvectormodel__tsvector_event")),
-            search_query,
-            cover_density=True,
-        )
-        filter_query = (
-            Q(tsvectormodel__tsvector_event=search_query)
-            | Q(tsvectormodel__tsvector_event_note=search_query)
-            | Q(serial_number__istartswith=search_text)
+        term = search_text
+        search_text = ":* & ".join(search_text.split()) + ":*"
+
+        queryset = queryset.extra(
+            tables=["activity_tsvectormodel"],
+            select={"rank": "ts_rank_cd(activity_tsvectormodel.tsvector_event, %s)"},
+            where=[
+                "activity_tsvectormodel.tsvector_event @@ to_tsquery(%s) OR "
+                "activity_tsvectormodel.tsvector_event_note @@ to_tsquery(%s) OR "
+                f"activity_event.serial_number::text ILIKE '{term}%%'",
+                "activity_tsvectormodel.event_id=activity_event.id",
+            ],
+            order_by=["-rank"],
+            select_params=[search_text],
+            params=[search_text, search_text],
         )
 
-        queryset = queryset.annotate(rank=search_rank).filter(filter_query).order_by("-rank").all_sort().distinct()
-
-        return queryset
+        return queryset.all_sort().distinct()
 
     def by_created_date(self, lower=None, upper=None):
         if lower and upper:
@@ -1565,8 +1562,6 @@ class EventNotification(TimestampedModel):
 class TSVectorModel(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     event = models.OneToOneField(Event, on_delete=models.CASCADE)
-    tsvector_event = SearchVectorField()
-    tsvector_event_note = SearchVectorField()
 
 
 # Patrol Management.

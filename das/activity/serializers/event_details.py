@@ -171,9 +171,6 @@ class EventDetailsSerializer(ModelSerializer):
         return rep
 
     def render_updates(self, event_details, event_type):
-        if not self.context.get("include_updates", True):
-            return []
-            
         schema = event_type.schema
         rendered_schema = get_schema_renderer_method()(schema)
         last_details = None
