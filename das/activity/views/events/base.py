@@ -10,12 +10,14 @@ from typing import Union
 
 import dateutil.parser as dateparser
 import pytz
+from psycopg2.errors import InvalidTextRepresentation
 from rest_framework_extensions.etag.decorators import etag
 
 from django.contrib.auth import get_user_model
 from django.contrib.postgres.aggregates import ArrayAgg, StringAgg
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q, TextField
+from django.db.utils import DataError
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import status
@@ -500,6 +502,19 @@ class EventsView(ListCreateAPIView):
             else:
                 record["patrol_segments"].append(patrol_segment_id)
         return new_record
+
+    def get(self, request, *args, **kwargs):
+        try:
+            return super().get(request, *args, **kwargs)
+        except InvalidTextRepresentation as error:
+            logger.exception(f"Possible SQL injection detected, returning empty results: {error}")
+            data = {"count": 0, "next": None, "previous": None, "results": []}
+
+            return Response(data=data, status=status.HTTP_200_OK)
+        except DataError:
+            data = {"count": 0, "next": None, "previous": None, "results": []}
+
+            return Response(data=data, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
         request.POST._mutable = True
