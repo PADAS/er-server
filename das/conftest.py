@@ -195,7 +195,7 @@ def event_with_detail():
 
 @pytest.fixture
 def five_events_with_details():
-    return EventDetailsFactory.create_batch(5)
+    EventDetailsFactory.create_batch(5)
 
 
 @pytest.fixture

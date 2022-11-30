@@ -21,7 +21,6 @@ from activity.exceptions import (
 )
 from activity.models import EventDetails
 from choices.models import Choice, DynamicChoice
-from observations.models import Subject
 from utils.memoize import memoize
 
 logger = logging.getLogger(__name__)
@@ -283,11 +282,6 @@ def extract_from_dict_or_string(schema_item, value):
     if schema_item.get("type", None) == "string":
         if value in schema_item.get("enumNames", {}):
             display = schema_item["enumNames"][value]
-        elif is_uuid(value):
-            subject = Subject.objects.filter(id=value)
-            if subject.exists() and not subject.first().is_active:
-                display = subject.first().name
-
     if isinstance(value, str):
         if is_date(value_string=value):
             display = change_format_date_string(date_string=value)
