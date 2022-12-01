@@ -329,6 +329,7 @@ locals {
     "mbertoni"                = "prod1"
     "sabinal"                 = "prod1"
     "redlands"                = "prod-asia"
+    "pnpi"                    = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -492,6 +493,7 @@ locals {
     "bylotisland"             = 1
     "nmc"                     = 1
     "mbertoni"                = 1
+    "pnpi"                    = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
