@@ -333,6 +333,7 @@ locals {
     "pnjk"                    = "prod1"
     "drnesmo"                 = "prod1"
     "donmartin"               = "prod1"
+    "gogorron"                = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -498,6 +499,7 @@ locals {
     "mbertoni"                = 1
     "pnpi"                    = 1
     "drnesmo"                 = 1
+    "gogorron"                = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
