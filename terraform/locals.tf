@@ -334,6 +334,7 @@ locals {
     "drnesmo"                 = "prod1"
     "donmartin"               = "prod1"
     "gogorron"                = "prod1"
+    "mapimi"                  = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
