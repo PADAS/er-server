@@ -337,6 +337,7 @@ locals {
     "mapimi"                  = "prod1"
     "jaguariguacu"            = "prod1"
     "wolfcanastra"            = "prod1"
+    "soralo"                  = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
