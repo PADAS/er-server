@@ -56,7 +56,12 @@ class EventsViewSchema(CustomSchema):
                 {
                     "name": "is_collection",
                     "in": "query",
-                    "description": "true/false whether to filter on is_collection",
+                    "description": "true/false whether to include only events that are a collection",
+                },
+                {
+                    "name": "exclude_contained",
+                    "in": "query",
+                    "description": "true/false whether to filter out events that are included in a collection",
                 },
                 {"name": "updated_since", "in": "query", "description": "date-string to limit on updated_at"},
                 {
@@ -66,14 +71,28 @@ class EventsViewSchema(CustomSchema):
                     "schema": {"type": "array", "items": {"type": "string"}},
                 },
                 {
+                    "name": "event_category",
+                    "in": "query",
+                    "description": "Only include this/these categories. can specify one or more",
+                },
+                {
+                    "name": "event_type",
+                    "in": "query",
+                    "description": "filter to only events with this event type id",
+                },
+                {
                     "name": "bbox",
                     "in": "query",
                     "description": "bounding box including four coordinate values, comma-separated."
                     " Ex. bbox=-122.4,48.4,-122.95,49.0 (west, south, east, north).",
                 },
                 {"name": "include_updates", "in": "query", "description": "Boolean value"},
-                {"name": "include_updates", "in": "query", "description": "Boolean value"},
+                {"name": "include_files", "in": "query", "description": "Boolean value"},
                 {"name": "include_details", "in": "query", "description": "Boolean value"},
+                {"name": "include_notes", "in": "query", "description": "Boolean value"},
+                {"name": "include_related_events", "in": "query", "description": "Boolean value"},
+                {"name": "eventsource_id", "in": "query", "description": "id of related subject->sources"},
+                {"name": "state", "in": "query", "description": "event states to filter on, ex: new, active, resolved"},
             ]
             operation["parameters"].extend(query_params)
         return operation

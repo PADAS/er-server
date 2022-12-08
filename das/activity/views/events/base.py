@@ -572,7 +572,7 @@ class EventsView(ListCreateAPIView):
 
         sort_by = query_params.get("sort_by", "-sort_at")
 
-        if not sort_by in self.eligible_sort_by:
+        if sort_by not in self.eligible_sort_by:
             raise BadRequestAPIException(
                 detail=f"sort_by '{sort_by}' is not valid. Valid values are {self.eligible_sort_by}.",
             )
