@@ -343,6 +343,7 @@ locals {
     "sikumi"                  = "prod1"
     "laikipiaconservancies"   = "prod1"
     "lilongwe"                = "prod1"
+    "tkpp"                    = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -513,6 +514,7 @@ locals {
     "bhejane360"              = 1
     "sikumi"                  = 1
     "lilongwe"                = 1
+    "tkpp"                    = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
