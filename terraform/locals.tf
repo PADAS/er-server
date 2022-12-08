@@ -343,6 +343,7 @@ locals {
     "sikumi"                  = "prod1"
     "laikipiaconservancies"   = "prod1"
     "lilongwe"                = "prod1"
+    "roatanmarinepark"        = "prod1"
     "tkpp"                    = "prod1"
   }
 
