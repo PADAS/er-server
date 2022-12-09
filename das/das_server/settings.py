@@ -80,15 +80,13 @@ MIDDLEWARE = (
     "django.middleware.csrf.CsrfViewMiddleware",
     "corsheaders.middleware.CorsPostCsrfMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    # 'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "oauth2_provider.middleware.OAuth2TokenMiddleware",
     "revision.middleware.RevisionMiddleware",
     "utils.middleware.RequestLoggingMiddleware",
     "utils.middleware.EULARedirectMiddleware",
-    "utils.middleware.GeographicMiddleware"
-    # 'django.contrib.sites.middleware.CurrentSiteMiddleware',
+    "utils.middleware.GeographicMiddleware",
 )
 
 ROOT_URLCONF = "das_server.urls"
@@ -595,4 +593,12 @@ GEO_PERMISSION_SPEED_KM_H = 75
 GEO_PERMISSION_VIOLATION_BAN_DURATION_MIN = 10
 
 PERSISTENT_STORAGE = {"CLIENT": "utils.persistent.RedisStorage", "HOST": "redis", "PORT": "6379"}
+
+TMS_API = {
+    "CLIENT": "core.tms.HTTPClient",
+    "HOST": os.getenv("TMS_API_HOST", ""),
+    "API_VERSION": os.getenv("TMS_API_VERSION", "v1.0"),
+    "API_KEY": os.getenv("TMS_API_KEY", "secret"),
+}
+
 DISABLE_STATSD = True
