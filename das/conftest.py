@@ -274,3 +274,52 @@ def five_event_geometries():
 @pytest.fixture
 def observation():
     return ObservationFactory()
+
+
+@pytest.fixture
+def tenant_response():
+    return {
+        "name": "Frank test1",
+        "slugName": "frank-test1",
+        "timeZone": "UTC",
+        "url": "http://zoo.com",
+        "domain": "zoo.com",
+        "envSettings": {
+            "acceptEula": False,
+            "apiHost": "192.167.2.5",
+            "apiPort": "4000",
+            "defaultFromEmail": "frank@mail.com",
+            "enableDebug": False,
+            "enableDev": False,
+            "fromEmail": "dev@mail.com",
+            "sendSmsTwilioFromNumber": "+520123365458",
+        },
+        "featureFlags": {
+            "alertsEnabled": False,
+            "dailyReportEnabled": False,
+            "gfwBackfillIntervalDays": False,
+            "gfwClusterRadius": False,
+            "kmlExport": False,
+            "mappingFeaturesV2": True,
+            "patrolEnabled": False,
+            "showStationarySubjectsOnMap": False,
+            "showTrackDays": False,
+            "subjectRegionEnabled": False,
+            "tableauDefaultDashboard": False,
+            "tableauEnabled": False,
+            "tableauSiteId": False,
+            "trackLength": False,
+        },
+        "services": {
+            "auth": {"status": "PROVISIONING", "statusMessage": None},
+            "bigQuery": {"status": "PROVISIONING", "statusMessage": None},
+            "dataWarehouse": {"status": "PROVISIONING", "statusMessage": None},
+            "media": {"status": "PROVISIONING", "statusMessage": None},
+            "observations": {"status": "PROVISIONING", "statusMessage": None},
+            "secrets": {"status": "PROVISIONING", "statusMessage": None},
+        },
+        "status": "PROVISIONING",
+        "id": "c0973be2-8e11-4cb8-8463-897fb96391d0",
+        "createdAt": "2022-11-14T21:09:02.519164+00:00",
+        "updatedAt": "2022-11-14T21:09:02.519165+00:00",
+    }
