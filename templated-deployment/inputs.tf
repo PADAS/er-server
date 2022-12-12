@@ -79,6 +79,12 @@ variable "email_host" {
   default = "email-smtp.us-west-2.amazonaws.com"
 }
 
+variable "feature_tms" {
+  description = "Enable feature tms flag"
+  type        = string
+  default     = "False"
+}
+
 variable "fqdn" {
   type    = string
   default = "localhost"
@@ -216,7 +222,7 @@ variable "tableau_site_id" {
 
 variable "tableau_default_dashboard" {
   type     = string
-  default = "er_standard_analytics/summary" 
+  default = "er_standard_analytics/summary"
 }
 
 variable "track_length" {
