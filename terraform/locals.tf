@@ -346,6 +346,8 @@ locals {
     "roatanmarinepark"        = "prod1"
     "tkpp"                    = "prod1"
     "smithsonianghp"          = "prod1"
+    "phnomthnout"             = "prod-asia"
+    "c4c"                     = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
