@@ -24,8 +24,6 @@ appdirs==1.4.4
     # via
     #   black
     #   virtualenv
-appnope==0.1.2
-    # via -r ./requirements.txt
 arcgis==1.8.0
     # via -r ./requirements.txt
 arcgis2geojson==2.0.0
@@ -156,6 +154,8 @@ cycler==0.10.0
     #   -r ./requirements.txt
     #   matplotlib
 cython==0.29.10
+    # via -r ./requirements.txt
+dataclasses-json==0.5.7
     # via -r ./requirements.txt
 datadog==0.36.0
     # via -r ./requirements.txt
@@ -465,6 +465,7 @@ jedi==0.16.0
     #   ipython
 jeepney==0.8.0
     # via
+    #   -r ./requirements.txt
     #   keyring
     #   secretstorage
 jinja2==2.11.3
@@ -552,6 +553,15 @@ markupsafe==1.1.1
     # via
     #   -r ./requirements.txt
     #   jinja2
+marshmallow==3.19.0
+    # via
+    #   -r ./requirements.txt
+    #   dataclasses-json
+    #   marshmallow-enum
+marshmallow-enum==1.5.1
+    # via
+    #   -r ./requirements.txt
+    #   dataclasses-json
 matplotlib==3.1.3
     # via
     #   -r ./requirements.txt
@@ -577,7 +587,10 @@ munch==2.3.2
     #   -r ./requirements.txt
     #   fiona
 mypy-extensions==0.4.3
-    # via black
+    # via
+    #   -r ./requirements.txt
+    #   black
+    #   typing-inspect
 nbclassic==0.3.4
     # via
     #   -r ./requirements.txt
@@ -646,6 +659,7 @@ packaging==21.0
     #   google-cloud-logging
     #   jupyterlab
     #   jupyterlab-server
+    #   marshmallow
     #   pytest
     #   safety
 pandas==1.0.4
@@ -682,7 +696,7 @@ pillow==8.3.2
     # via
     #   -r ./requirements.txt
     #   django-versatileimagefield
-pip-tools==6.4.0
+pip-tools==6.6.1
     # via -r requirements-dev.in
 platformdirs==2.5.2
     # via pylint
@@ -929,7 +943,9 @@ scipy==1.2.1
     #   pymet
     #   scikit-learn
 secretstorage==3.3.3
-    # via keyring
+    # via
+    #   -r ./requirements.txt
+    #   keyring
 semantic-version==2.8.5
     # via
     #   -r ./requirements.txt
@@ -1064,6 +1080,11 @@ typing-extensions==4.0.0
     #   faker
     #   pylint
     #   setuptools-rust
+    #   typing-inspect
+typing-inspect==0.8.0
+    # via
+    #   -r ./requirements.txt
+    #   dataclasses-json
 uritemplate==3.0.0
     # via
     #   -r ./requirements.txt
