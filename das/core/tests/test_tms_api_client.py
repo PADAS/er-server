@@ -10,7 +10,7 @@ from core.tms import HTTPClient
 @pytest.fixture
 def client_mock_request(monkeypatch):
     mock = MagicMock()
-    monkeypatch.setattr("das.core.tms.requests.request", mock)
+    monkeypatch.setattr("core.tms.requests.request", mock)
     return mock
 
 
@@ -23,7 +23,7 @@ def mock_response():
     return response
 
 
-config = {"HOST": "http://host.docker.internal:9000", "API_VERSION": "v1.0", "TOKEN": "eres-secreto-de-amor"}
+config = {"HOST": "http://host.docker.internal:9000", "API_VERSION": "v1.0", "API_KEY": "eres-secreto-de-amor"}
 
 
 class TestTMSApiClient:
