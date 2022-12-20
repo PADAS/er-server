@@ -69,7 +69,9 @@ from activity.views.schemas import EventsViewSchema
 from observations.models import Subject
 from utils.categories import get_categories_and_geo_categories
 from utils.drf import StandardResultsSetGeoJsonPagination, StandardResultsSetPagination
+from utils.features import features
 from utils.json import ExtendedGEOJSONRenderer, parse_bool
+from utils.tenant.thread import get_tenant_settings
 
 logger = logging.getLogger(__name__)
 
@@ -493,6 +495,12 @@ class EventsView(ListCreateAPIView):
     sort_keys = ["event_time", "updated_at", "serial_number", "created_at", "sort_at"]
     eligible_sort_by = list(itertools.chain(*[(k, f"-{k}") for k in sort_keys]))
 
+    def dispatch(self, request, *args, **kwargs):
+        if features.tms.is_on():
+            tenant = get_tenant_settings()
+            logger.info(f"Getting tenant {tenant.name} with domain {tenant.domain} on EventsView.dispatch")
+        return super().dispatch(request, *args, **kwargs)
+
     def add_segment_to_record(self, patrol_segment_id, new_record):
         for record in new_record:
             if not record.get("patrol_segments"):
@@ -517,6 +525,9 @@ class EventsView(ListCreateAPIView):
             return Response(data=data, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
+        if features.tms.is_on():
+            tenant = get_tenant_settings()
+            logger.info(f"Getting tenant {tenant.name} with domain {tenant.domain} on EventsView.post")
         request.POST._mutable = True
         new_record = request.data
         if isinstance(new_record, dict):
