@@ -66,9 +66,7 @@ class TestEventsView:
         },
     }
 
-    def test_create_an_event_with_a_feature_collection_as_geometry(
-        self, event_type, superuser_client
-    ):
+    def test_create_an_event_with_a_feature_collection_as_geometry(self, event_type, superuser_client):
         event_type.geometry_type = EventType.GeometryTypesChoices.POLYGON
         event_type.save()
         url = reverse("events")
@@ -86,9 +84,7 @@ class TestEventsView:
         assert Event.objects.all().count()
         assert EventGeometry.objects.all().count() == 1
 
-    def test_create_an_event_with_a_feature_as_geometry(
-        self, event_type, superuser_client
-    ):
+    def test_create_an_event_with_a_feature_as_geometry(self, event_type, superuser_client):
         event_type.geometry_type = EventType.GeometryTypesChoices.POLYGON
         event_type.save()
         url = reverse("events")
@@ -120,8 +116,8 @@ class TestEventsView:
                 "geometry": self.feature_with_known_dimensions,
             },
         )
-        area = response.data['geometry'][0]['properties']["area"]
-        perimeter = response.data['geometry'][0]['properties']["perimeter"]
+        area = response.data["geometry"][0]["properties"]["area"]
+        perimeter = response.data["geometry"][0]["properties"]["perimeter"]
 
         assert response.status_code == status.HTTP_201_CREATED
         assert int(area) == 16438
@@ -151,9 +147,7 @@ class TestEventView:
         "features": [
             {
                 "type": "Feature",
-                "properties": {
-                    "color": "green"
-                },
+                "properties": {"color": "green"},
                 "geometry": {
                     "type": "Polygon",
                     "coordinates": [
@@ -189,16 +183,14 @@ class TestEventView:
                     (-103.41898441314697, 20.638567565077864),
                 )
             ),
-            properties={
-                "title": "This is a little title"
-            }
+            properties={"title": "This is a little title"},
         )
 
         url = reverse("event-view", args=[event_with_detail.event.pk])
         response = superuser_client.patch(url, {"geometry": geometry})
 
-        area = response.data['geometry'][0]['properties']["area"]
-        perimeter = response.data['geometry'][0]['properties']["perimeter"]
+        area = response.data["geometry"][0]["properties"]["area"]
+        perimeter = response.data["geometry"][0]["properties"]["perimeter"]
 
         assert response.status_code == status.HTTP_200_OK
         assert int(area) == expected["area"]
@@ -211,12 +203,14 @@ class TestEventView:
             (feature_collection, {"area": 1228789, "perimeter": 5370}),
         ),
     )
-    def test_update_geometry_of_event_that_does_not_contains_a_geometry(self, geometry, expected, event_with_detail, superuser_client):
+    def test_update_geometry_of_event_that_does_not_contains_a_geometry(
+        self, geometry, expected, event_with_detail, superuser_client
+    ):
         url = reverse("event-view", args=[event_with_detail.event.pk])
         response = superuser_client.patch(url, {"geometry": geometry})
 
-        area = response.data['geometry'][0]['properties']["area"]
-        perimeter = response.data['geometry'][0]['properties']["perimeter"]
+        area = response.data["geometry"][0]["properties"]["area"]
+        perimeter = response.data["geometry"][0]["properties"]["perimeter"]
 
         assert response.status_code == status.HTTP_200_OK
         assert int(area) == expected["area"]
@@ -224,8 +218,7 @@ class TestEventView:
         assert EventGeometry.objects.all().count()
 
     def test_delete_event_geometry_of_event(self, event_geometry_with_polygon, superuser_client):
-        url = reverse(
-            "event-view", args=[event_geometry_with_polygon.event.pk])
+        url = reverse("event-view", args=[event_geometry_with_polygon.event.pk])
 
         response = superuser_client.patch(url, {"geometry": None})
 
@@ -243,8 +236,7 @@ class TestEventView:
 
 @pytest.mark.django_db
 class TestEventGeometryView:
-
-    def test_get_event_geometry_updates(self, event_geometry_with_polygon,  superuser_client):
+    def test_get_event_geometry_updates(self, event_geometry_with_polygon, superuser_client):
         event = event_geometry_with_polygon.event
 
         url = reverse("event-geometries", args=[event.id])
@@ -253,7 +245,7 @@ class TestEventGeometryView:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == 1
 
-    def test_get_event_geometry_updates_properties(self, event_geometry_with_polygon,  superuser_client):
+    def test_get_event_geometry_updates_properties(self, event_geometry_with_polygon, superuser_client):
         event_geometry_with_polygon.properties = {"key": "value"}
         event_geometry_with_polygon.save()
         event = event_geometry_with_polygon.event
@@ -274,9 +266,7 @@ class TestEventGeometryView:
 
     def test_export_events_csv(self, event_geometry_with_polygon, superuser_client):
         url = reverse("events-export")
-        event_geometry_with_polygon.properties["area"] = get_polygon_info(
-            event_geometry_with_polygon.geometry, "area"
-        )
+        event_geometry_with_polygon.properties["area"] = get_polygon_info(event_geometry_with_polygon.geometry, "area")
         event_geometry_with_polygon.properties["perimeter"] = get_polygon_info(
             event_geometry_with_polygon.geometry, "length"
         )

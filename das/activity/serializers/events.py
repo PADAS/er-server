@@ -61,12 +61,14 @@ from observations.serializers import SubjectSerializer
 from revision.manager import AC_RELATION_DELETED, AC_UPDATED
 from usercontent.serializers import UserContentSerializer
 from utils.feature_representation import FeatureRepresentation
+from utils.features import features
 from utils.gis import get_polygon_info
 from utils.json import parse_bool
 from utils.schema_utils import (
     get_schema_renderer_method,
     validate_rendered_schema_is_wellformed,
 )
+from utils.tenant import get_tenant_settings
 
 from .base import FileSerializerMixin
 from .event_details import EventDetailsSerializer
@@ -769,6 +771,10 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         request = self.context["request"]
         if hasattr(request, "auth") and request.auth:
             auto_add_report_to_patrols(request.auth.application, instance)
+
+        if features.tms.is_on():
+            tenant = get_tenant_settings()
+            logger.info(f"Getting tenant {tenant.name} with domain {tenant.domain} on EventSerializer.create")
         return instance
 
     def update(self, instance, validated_data):
