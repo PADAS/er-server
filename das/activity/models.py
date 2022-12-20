@@ -1565,8 +1565,8 @@ class EventNotification(TimestampedModel):
 class TSVectorModel(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     event = models.OneToOneField(Event, on_delete=models.CASCADE)
-    tsvector_event = SearchVectorField()
-    tsvector_event_note = SearchVectorField()
+    tsvector_event = SearchVectorField(null=True)
+    tsvector_event_note = SearchVectorField(null=True)
 
 
 # Patrol Management.
