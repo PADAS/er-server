@@ -36,8 +36,8 @@ class CeleryConfigurationTests(TestCase):
             code_lines = re.findall(r"\bcelery\.\w+\.\w+\(.*?\)", rm_indent, re.M)
 
             for i in code_lines:
-                split_by_braces = re.findall("\((.*?)\)", i)[0].split(",")[0]
-                name = split_by_braces.replace("'", "")
+                split_by_braces = re.findall(r"\((.*?)\)", i)[0].split(",")[0]
+                name = split_by_braces.replace("'", "").replace('"', "")
                 task_names.append(name)
         return task_names
 
