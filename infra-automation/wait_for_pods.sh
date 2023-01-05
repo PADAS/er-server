@@ -45,6 +45,7 @@ function __wait-until-pods-ready() {
   done
 
   echo "Waited for $period seconds, but all pods are not ready yet."
+  echo "If this error is happening, please check your namespace to validate pods don't have any errors"
   return 1
 }
 
