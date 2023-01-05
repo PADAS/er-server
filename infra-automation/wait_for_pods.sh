@@ -23,7 +23,7 @@ function __pods_ready() {
 
 function __wait-until-pods-ready() {
   local period interval i pods
-
+  #! Add cleanup state, delete all API pods from previous runs
   if [[ $# != 3 ]]; then
     echo "Usage: wait-until-pods-ready PERIOD INTERVAL" >&2
     echo "" >&2
@@ -34,8 +34,8 @@ function __wait-until-pods-ready() {
 
   period="$1"
   interval="$2"
-
   for ((i=0; i<$period; i+=$interval)); do
+    #! Improve logic here. Just check API pods
     pods="$(kubectl get po -n $namespace -o 'jsonpath={.items[*].metadata.name}')"
     if __pods_ready $pods; then
       return 0
