@@ -350,6 +350,7 @@ locals {
     "c4c"                     = "prod1"
     "sango"                   = "prod1"
     "unasaludsernanp"         = "prod1"
+    "centinelascobius"        = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -522,6 +523,7 @@ locals {
     "lilongwe"                = 1
     "tkpp"                    = 1
     "sango"                   = 1
+    "centinelascobius"        = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
