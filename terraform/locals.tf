@@ -349,6 +349,7 @@ locals {
     "phnomthnout"             = "prod-asia"
     "c4c"                     = "prod1"
     "sango"                   = "prod1"
+    "unasaludsernanp"         = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
