@@ -41,6 +41,7 @@ function __wait-until-pods-ready() {
     fi
 
     echo "Waiting for pods to be ready..."
+    kubectl get pod -n $namespace -l das.component=api
     sleep "$interval"
   done
 
