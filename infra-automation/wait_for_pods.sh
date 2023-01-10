@@ -23,7 +23,6 @@ function __pods_ready() {
 
 function __wait-until-pods-ready() {
   local period interval i pods
-
   if [[ $# != 3 ]]; then
     echo "Usage: wait-until-pods-ready PERIOD INTERVAL" >&2
     echo "" >&2
@@ -34,18 +33,20 @@ function __wait-until-pods-ready() {
 
   period="$1"
   interval="$2"
-
+  kubectl delete replicaset -n $namespace $(kubectl get replicaset -n $namespace -o jsonpath='{ .items[?(@.spec.replicas==0)].metadata.name }')
   for ((i=0; i<$period; i+=$interval)); do
-    pods="$(kubectl get po -n $namespace -o 'jsonpath={.items[*].metadata.name}')"
+    pods="$(kubectl get po -n $namespace -o 'jsonpath={.items[*].metadata.name}' -l das.component=api)"
     if __pods_ready $pods; then
       return 0
     fi
 
     echo "Waiting for pods to be ready..."
+    kubectl get pod -n $namespace -l das.component=api
     sleep "$interval"
   done
 
   echo "Waited for $period seconds, but all pods are not ready yet."
+  echo "If this error is happening, please check your namespace to validate pods don't have any errors"
   return 1
 }
 

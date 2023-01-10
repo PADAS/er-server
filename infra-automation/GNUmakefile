@@ -121,7 +121,7 @@ database_init: ## Initialize a feature site database | [tfvars_environment="BRAN
 	echo $$K8S_NAMESPACE && \
 	K8S_POD=$$(kubectl get pods -n $$K8S_NAMESPACE --selector=das.component=api -o jsonpath='{.items[*].metadata.name}') && \
 	echo $$K8S_POD && \
-	$(CURDIR)/wait_for_pods.sh 120 6 $$K8S_NAMESPACE && \
+	$(CURDIR)/wait_for_pods.sh 240 6 $$K8S_NAMESPACE && \
 	kubectl -n $$K8S_NAMESPACE exec -it $$K8S_POD -c das-api -- start_scripts/start_load_initial_data_tests.sh
 
 .PHONY: kubectl_apply_via_proxy
