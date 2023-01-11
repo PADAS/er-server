@@ -23,3 +23,14 @@ variable "pgb_credentials_topic_prod_asia" {
   default     = "projects/er-reporting-prod/topics/pgb-credentials-prod-asia"
   description = "Holds a reference to a pub/sub topic in er-reporting-prod"
 }
+/* Cloud function identities withing er-reporting-dev/prod to be granted read access to the specific *_sql_analytics_info secret */
+variable "er_reporting_cfsa_credentials_dev" {
+  type        = string
+  default     = "cfsa-credentials@er-reporting-dev.iam.gserviceaccount.com"
+  description = "Identity of the cloud function that reads a secret and builds a pgbouncer.ini config"
+}
+variable "er_reporting_cfsa_credentials_prod" {
+  type        = string
+  default     = "cfsa-credentials@er-reporting-prod.iam.gserviceaccount.com"
+  description = "Identity of the cloud function that reads a secret and builds a pgbouncer.ini config"
+}
