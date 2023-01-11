@@ -38,6 +38,8 @@ locals {
     "prod-asia" = var.pgb_credentials_topic_prod_asia
     "dev"       = var.pgb_credentials_topic_dev
   }
+  # determine which er-reporting-<dev/prod> service account will granted read access to a secret
+  er_reporting_credentials_cfsa = (local.kubernetes_cluster_name == "dev" ? var.er_reporting_cfsa_credentials_dev : var.er_reporting_cfsa_credentials_prod)
 }
 
 resource "random_string" "db_name_uniqueness" {
@@ -229,4 +231,18 @@ resource "google_secret_manager_secret_iam_member" "ertools_cloud_build_secret_v
   role      = "roles/secretmanager.viewer"
   secret_id = google_secret_manager_secret.er_sql_analytics_info.id
   member    = "serviceAccount:${var.ertools_cloud_build_identity}"
+}
+
+resource "google_secret_manager_secret_iam_member" "er_reporting_credentials_cfsa_secret_accesor" {
+  project   = data.google_project.earthranger.project_id
+  role      = "roles/secretmanager.secretAccessor"
+  secret_id = google_secret_manager_secret.er_sql_analytics_info.id
+  member    = "serviceAccount:${local.er_reporting_credentials_cfsa}"
+}
+
+resource "google_secret_manager_secret_iam_member" "er_reporting_credentials_cfsa_secret_viewer" {
+  project   = data.google_project.earthranger.project_id
+  role      = "roles/secretmanager.viewer"
+  secret_id = google_secret_manager_secret.er_sql_analytics_info.id
+  member    = "serviceAccount:${local.er_reporting_credentials_cfsa}"
 }
