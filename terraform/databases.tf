@@ -18,7 +18,7 @@ locals {
     }
   ]
 
-  db_secret_path         = data.terraform_remote_state.earthranger_app_infra.outputs.db_secret_path
+  db_secret_path = data.terraform_remote_state.earthranger_app_infra.outputs.db_secret_path
 
   sanitized_db_name      = lower(substr(replace(terraform.workspace, "/[^A-Za-z0-9_]/", "_"), 0, 24))
   unique_db_name         = "${local.sanitized_db_name}_${random_string.db_name_uniqueness.result}"
@@ -27,11 +27,17 @@ locals {
   db_instance            = element(local.db_instances, local.db_instance_index).db_instance
   db_instance_private_ip = element(local.db_instances, local.db_instance_index).db_instance_private_ip
   db_password_gsm_id     = replace(element(local.db_instances, local.db_instance_index).db_password_path, "/[^A-Za-z0-9_]/", "_")
-  migration_role_name = "${local.unique_db_name}_migrationrole"
-  migration_user_name = "${local.unique_db_name}_migrationuser"
+  migration_role_name    = "${local.unique_db_name}_migrationrole"
+  migration_user_name    = "${local.unique_db_name}_migrationuser"
 
   analytics_role_name = "${local.unique_db_name}_analyticsrole"
   analytics_user_name = "${local.unique_db_name}_analyticsuser"
+
+  pgb_credentials_topic = {
+    "prod1"     = var.pgb_credentials_topic_prod_1
+    "prod-asia" = var.pgb_credentials_topic_prod_asia
+    "dev"       = var.pgb_credentials_topic_dev
+  }
 }
 
 resource "random_string" "db_name_uniqueness" {
@@ -192,6 +198,11 @@ resource "google_secret_manager_secret" "er_sql_analytics_info" {
   replication {
     automatic = true
   }
+  topics {
+    name = local.pgb_credentials_topic[local.kubernetes_cluster_name]
+  }
+  # rotation block is needed to add topics
+  rotation {}
 }
 
 resource "google_secret_manager_secret_version" "secret-version-basic" {
