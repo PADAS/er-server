@@ -336,6 +336,7 @@ def get_observations_view(view, user, subject_id, created_after):
 @celery.app.task()
 def handle_new_event(event_id):
     logger.info("Celery worker handling new event_id: %s", event_id, extra={"rt.event": "new"})
+    logger.info("Calling _event_handler with event id %s from handle_new_event", event_id)
     _event_handler(event_id, "new_event")
 
 
