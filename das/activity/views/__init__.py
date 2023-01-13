@@ -26,6 +26,7 @@ from .events import (
     EventView,
 )
 from .exceptions import BadRequestAPIException
+from .helpers import generate_event_type_cache
 from .patrols import (
     PatrolFilesView,
     PatrolFileView,
@@ -82,6 +83,7 @@ __all__ = (
     "EventsGeoJsonView",
     "EventsView",
     "EventsViewSchema",
+    "generate_event_type_cache",
     "PatrolFileView",
     "PatrolFilesView",
     "PatrolNoteView",
