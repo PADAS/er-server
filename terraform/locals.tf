@@ -351,6 +351,7 @@ locals {
     "sango"                   = "prod1"
     "unasaludsernanp"         = "prod1"
     "centinelascobius"        = "prod1"
+    "mongolia-met"            = "prod-asia"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
