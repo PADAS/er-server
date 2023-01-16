@@ -16,7 +16,7 @@ from django.conf import settings
 from django.shortcuts import redirect
 from django.utils import timezone
 
-from core import persistent_storage, tms_api_client
+from core import persistent_storage
 from observations.utils import (
     LOCATION,
     block_user_temp,
@@ -28,7 +28,8 @@ from utils import add_base_url, stats
 from utils.categories import should_apply_geographic_features
 from utils.features import features
 from utils.gis import convert_to_point
-from utils.tenant import TenantNotFoundException, set_tenant_settings
+from utils.tenant import set_tenant_settings
+from utils.tenant.providers import TenantData
 
 logger = logging.getLogger(__name__)
 
@@ -253,13 +254,10 @@ class TenantSettingsMiddleware:
 
     def __call__(self, request):
         if features.tms.is_on():
-            host = request.get_host()
-            tenant_data = tms_api_client.get_tenant_data(host)
-
-            if not tenant_data:
-                raise TenantNotFoundException(host)
-
-            set_tenant_settings(tenant_data)
+            domain = request.get_host()
+            instance = TenantData(domain=domain)
+            tenant_data = instance.get()
+            set_tenant_settings(value=tenant_data)
         response = self.get_response(request)
         return response
 
