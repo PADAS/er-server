@@ -10,17 +10,17 @@ variable "ertools_cloud_build_identity" {
  */
 variable "pgb_credentials_topic_dev" {
   type        = string
-  default     = "projects/er-reporting-dev/topics/pgb-credentials-dev"
+  default     = "projects/er-reporting-dev/topics/pgb-sync-site-credentials-dev"
   description = "Holds a reference to a pub/sub topic in er-reporting-dev"
 }
 variable "pgb_credentials_topic_prod_1" {
   type        = string
-  default     = "projects/er-reporting-prod/topics/pgb-credentials-prod1"
+  default     = "projects/er-reporting-prod/topics/pgb-sync-site-credentials-prod1"
   description = "Holds a reference to a pub/sub topic in er-reporting-prod"
 }
 variable "pgb_credentials_topic_prod_asia" {
   type        = string
-  default     = "projects/er-reporting-prod/topics/pgb-credentials-prod-asia"
+  default     = "projects/er-reporting-prod/topics/pgb-sync-site-credentials-prod-asia"
   description = "Holds a reference to a pub/sub topic in er-reporting-prod"
 }
 /* Cloud function identities withing er-reporting-dev/prod to be granted read access to the specific *_sql_analytics_info secret */
