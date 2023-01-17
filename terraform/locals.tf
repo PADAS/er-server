@@ -352,6 +352,7 @@ locals {
     "unasaludsernanp"         = "prod1"
     "centinelascobius"        = "prod1"
     "mongolia-met"            = "prod-asia"
+    "conkouatidouli"          = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
