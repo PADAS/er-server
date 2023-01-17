@@ -26,11 +26,16 @@ variable "pgb_credentials_topic_prod_asia" {
 /* Cloud function identities withing er-reporting-dev/prod to be granted read access to the specific *_sql_analytics_info secret */
 variable "er_reporting_cfsa_credentials_dev" {
   type        = string
-  default     = "cfsa-credentials@er-reporting-dev.iam.gserviceaccount.com"
+  default     = "cfsa-credentials-dev@er-reporting-dev.iam.gserviceaccount.com"
   description = "Identity of the cloud function that reads a secret and builds a pgbouncer.ini config"
 }
-variable "er_reporting_cfsa_credentials_prod" {
+variable "er_reporting_cfsa_credentials_prod1" {
   type        = string
-  default     = "cfsa-credentials@er-reporting-prod.iam.gserviceaccount.com"
+  default     = "cfsa-credentials-prod1@er-reporting-prod.iam.gserviceaccount.com"
+  description = "Identity of the cloud function that reads a secret and builds a pgbouncer.ini config"
+}
+variable "er_reporting_cfsa_credentials_prod_asia" {
+  type        = string
+  default     = "cfsa-credentials-prod-asia@er-reporting-prod.iam.gserviceaccount.com"
   description = "Identity of the cloud function that reads a secret and builds a pgbouncer.ini config"
 }
