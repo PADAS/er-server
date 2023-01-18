@@ -355,6 +355,7 @@ locals {
     "conkouatidouli"          = "prod1"
     "anac"                    = "prod1"
     "stoprhinopoaching"       = "prod1"
+    "ilmamusi"                = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -529,6 +530,7 @@ locals {
     "sango"                   = 1
     "centinelascobius"        = 1
     "anac"                    = 1
+    "ilmamusi"                = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
