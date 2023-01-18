@@ -27,7 +27,9 @@ from core.utils import get_site_name
 from das_server import __version__
 from observations import servicesutils
 from observations.servicesutils import has_message_view_permission
+from utils.features import features
 from utils.json import parse_bool
+from utils.tenant import get_tenant_settings
 
 CLIENT_ID = "das_web_client"
 
@@ -151,21 +153,32 @@ class StatusView(generics.RetrieveAPIView):
     def get_object(self):
         resp = {"version": __version__}  # request.version}
 
+        if features.tms.is_on():
+            tenant = get_tenant_settings()
+            resp["alerts_enabled"] = tenant.feature_flags.alerts_enabled and has_alerts_permissionset(self.request.user)
+            resp["daily_report_enabled"] = tenant.feature_flags.daily_report_enabled
+            resp["export_kml_enabled"] = tenant.feature_flags.kml_export
+            resp["tableau_enabled"] = self.request.user.is_superuser and tenant.feature_flags.tableau_enabled
+            resp["eula_enabled"] = tenant.env_settings.accept_eula
+            resp["patrol_enabled"] = tenant.feature_flags.patrol_enabled and has_patrol_view_permission(
+                self.request.user
+            )
+            resp["show_stationary_subjects_on_map"] = tenant.feature_flags.show_stationary_subjects_on_map
+        else:
+            resp["alerts_enabled"] = settings.ALERTS_ENABLED and has_alerts_permissionset(self.request.user)
+            resp["daily_report_enabled"] = settings.DAILY_REPORT_ENABLED
+            resp["export_kml_enabled"] = settings.EXPORT_KML_ENABLED
+            resp["tableau_enabled"] = self.request.user.is_superuser and settings.TABLEAU_ENABLED
+            resp["eula_enabled"] = settings.ACCEPT_EULA
+            resp["patrol_enabled"] = settings.PATROL_ENABLED and has_patrol_view_permission(self.request.user)
+            resp["show_stationary_subjects_on_map"] = settings.SHOW_STATIONARY_SUBJECTS_ON_MAP
+
         resp["event_matrix_enabled"] = settings.EVENT_MATRIX_ENABLED
-        resp["export_kml_enabled"] = settings.EXPORT_KML_ENABLED
-        resp["show_track_days"] = settings.SHOW_TRACK_DAYS
         resp["event_search_enabled"] = True
-        resp["show_stationary_subjects_on_map"] = settings.SHOW_STATIONARY_SUBJECTS_ON_MAP
-        resp["daily_report_enabled"] = settings.DAILY_REPORT_ENABLED
-
-        resp["alerts_enabled"] = settings.ALERTS_ENABLED and has_alerts_permissionset(self.request.user)
-        resp["tableau_enabled"] = self.request.user.is_superuser and settings.TABLEAU_ENABLED
-
         resp["server_timezone_name"] = timezone.get_current_timezone_name()
         resp["server_timezone"] = timezone.localtime().strftime("%Z")
+        resp["show_track_days"] = settings.SHOW_TRACK_DAYS
         resp["site_name"] = get_site_name()
-        resp["eula_enabled"] = settings.ACCEPT_EULA
-        resp["patrol_enabled"] = settings.PATROL_ENABLED and has_patrol_view_permission(self.request.user)
         resp["track_length"] = settings.TRACK_LENGTH
         resp["messaging_enabled"] = has_message_view_permission(self.request.user)
 
