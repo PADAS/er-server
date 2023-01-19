@@ -287,7 +287,6 @@ class TestAlerts(BaseAPITest):
 
             self.assertEqual(len(mail.outbox), 1)
 
-    def test_only_sending_notifications_when_the_condition_value_changes(self):
         with self.settings(CELERY_TASK_ALWAYS_EAGER=True):
             notification_method = NotificationMethod.objects.create(
                 owner=self.owner, title="Email", method="email", value="test@test.com"
