@@ -66,7 +66,10 @@ class TestEventsView:
         },
     }
 
-    def test_create_an_event_with_a_feature_collection_as_geometry(self, event_type, superuser_client):
+    def test_create_an_event_with_a_feature_collection_as_geometry(
+        self, event_type, superuser_client, tms_api_client_mock, tenant_response
+    ):
+        tms_api_client_mock.get_tenant_data.return_value = tenant_response
         event_type.geometry_type = EventType.GeometryTypesChoices.POLYGON
         event_type.save()
         url = reverse("events")
@@ -84,7 +87,10 @@ class TestEventsView:
         assert Event.objects.all().count()
         assert EventGeometry.objects.all().count() == 1
 
-    def test_create_an_event_with_a_feature_as_geometry(self, event_type, superuser_client):
+    def test_create_an_event_with_a_feature_as_geometry(
+        self, event_type, superuser_client, tms_api_client_mock, tenant_response
+    ):
+        tms_api_client_mock.get_tenant_data.return_value = tenant_response
         event_type.geometry_type = EventType.GeometryTypesChoices.POLYGON
         event_type.save()
         url = reverse("events")
@@ -103,7 +109,10 @@ class TestEventsView:
         assert EventGeometry.objects.all().count()
         assert "area" in response.data["geometry"]["features"][0]["properties"]
 
-    def test_calculate_geometry_area_and_perimeter(self, event_type, superuser_client):
+    def test_calculate_geometry_area_and_perimeter(
+        self, event_type, superuser_client, tms_api_client_mock, tenant_response
+    ):
+        tms_api_client_mock.get_tenant_data.return_value = tenant_response
         event_type.geometry_type = EventType.GeometryTypesChoices.POLYGON
         event_type.save()
         url = reverse("events")
@@ -171,8 +180,9 @@ class TestEventView:
         ),
     )
     def test_updated_geometry_of_event_that_contains_a_previous_geometry(
-        self, geometry, expected, event_with_detail, superuser_client
+        self, geometry, expected, event_with_detail, superuser_client, tms_api_client_mock, tenant_response
     ):
+        tms_api_client_mock.get_tenant_data.return_value = tenant_response
         EventGeometry.objects.create(
             event=event_with_detail.event,
             geometry=Polygon(
@@ -204,8 +214,9 @@ class TestEventView:
         ),
     )
     def test_update_geometry_of_event_that_does_not_contains_a_geometry(
-        self, geometry, expected, event_with_detail, superuser_client
+        self, geometry, expected, event_with_detail, superuser_client, tms_api_client_mock, tenant_response
     ):
+        tms_api_client_mock.get_tenant_data.return_value = tenant_response
         url = reverse("event-view", args=[event_with_detail.event.pk])
         response = superuser_client.patch(url, {"geometry": geometry})
 
@@ -217,7 +228,10 @@ class TestEventView:
         assert int(perimeter) == expected["perimeter"]
         assert EventGeometry.objects.all().count()
 
-    def test_delete_event_geometry_of_event(self, event_geometry_with_polygon, superuser_client):
+    def test_delete_event_geometry_of_event(
+        self, event_geometry_with_polygon, superuser_client, tms_api_client_mock, tenant_response
+    ):
+        tms_api_client_mock.get_tenant_data.return_value = tenant_response
         url = reverse("event-view", args=[event_geometry_with_polygon.event.pk])
 
         response = superuser_client.patch(url, {"geometry": None})
@@ -225,7 +239,10 @@ class TestEventView:
         assert response.status_code == status.HTTP_200_OK
         assert event_geometry_with_polygon.event.geometries.count() == 0
 
-    def test_delete_event_geometry_of_event_without_geometry(self, event_with_detail, superuser_client):
+    def test_delete_event_geometry_of_event_without_geometry(
+        self, event_with_detail, superuser_client, tms_api_client_mock, tenant_response
+    ):
+        tms_api_client_mock.get_tenant_data.return_value = tenant_response
         url = reverse("event-view", args=[event_with_detail.event.pk])
 
         response = superuser_client.patch(url, {"geometry": None})
@@ -236,7 +253,10 @@ class TestEventView:
 
 @pytest.mark.django_db
 class TestEventGeometryView:
-    def test_get_event_geometry_updates(self, event_geometry_with_polygon, superuser_client):
+    def test_get_event_geometry_updates(
+        self, event_geometry_with_polygon, superuser_client, tms_api_client_mock, tenant_response
+    ):
+        tms_api_client_mock.get_tenant_data.return_value = tenant_response
         event = event_geometry_with_polygon.event
 
         url = reverse("event-geometries", args=[event.id])
@@ -245,7 +265,10 @@ class TestEventGeometryView:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == 1
 
-    def test_get_event_geometry_updates_properties(self, event_geometry_with_polygon, superuser_client):
+    def test_get_event_geometry_updates_properties(
+        self, event_geometry_with_polygon, superuser_client, tms_api_client_mock, tenant_response
+    ):
+        tms_api_client_mock.get_tenant_data.return_value = tenant_response
         event_geometry_with_polygon.properties = {"key": "value"}
         event_geometry_with_polygon.save()
         event = event_geometry_with_polygon.event
@@ -256,7 +279,10 @@ class TestEventGeometryView:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == 2
 
-    def test_get_event_geometry_update_without_revisions(self, event_with_detail, superuser_client):
+    def test_get_event_geometry_update_without_revisions(
+        self, event_with_detail, superuser_client, tms_api_client_mock, tenant_response
+    ):
+        tms_api_client_mock.get_tenant_data.return_value = tenant_response
 
         url = reverse("event-geometries", args=[event_with_detail.event.id])
         response = superuser_client.get(url)
@@ -264,7 +290,10 @@ class TestEventGeometryView:
         assert response.status_code == status.HTTP_200_OK
         assert not response.data
 
-    def test_export_events_csv(self, event_geometry_with_polygon, superuser_client):
+    def test_export_events_csv(
+        self, event_geometry_with_polygon, superuser_client, tms_api_client_mock, tenant_response
+    ):
+        tms_api_client_mock.get_tenant_data.return_value = tenant_response
         url = reverse("events-export")
         event_geometry_with_polygon.properties["area"] = get_polygon_info(event_geometry_with_polygon.geometry, "area")
         event_geometry_with_polygon.properties["perimeter"] = get_polygon_info(
