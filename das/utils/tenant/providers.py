@@ -46,7 +46,7 @@ class TenantData:
     def _set_to_cache(self, data) -> None:
         logger.info("Setting tenant in cache for domain %s", self.domain)
         persistent_storage.client.insert_key(
-            key=TENANT_CACHE_KEY,
+            key=self.domain,
             value=data,
             expiration=EXPIRATION_TIME_IN_SECONDS,
         )

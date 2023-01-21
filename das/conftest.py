@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock
+
 import pytest
 from oauth2_provider.models import Application
 from pytest_factoryboy import register
@@ -323,3 +325,10 @@ def tenant_response():
         "createdAt": "2022-11-14T21:09:02.519164+00:00",
         "updatedAt": "2022-11-14T21:09:02.519165+00:00",
     }
+
+
+@pytest.fixture
+def tms_api_client_mock(monkeypatch):
+    tms_client_mock = MagicMock()
+    monkeypatch.setattr("utils.middleware.tms_api_client", tms_client_mock)
+    return tms_client_mock

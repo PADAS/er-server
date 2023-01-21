@@ -31,18 +31,23 @@ logger = logging.getLogger(__name__)
 
 @receiver(post_save, sender=Event)
 def event_post_save(sender, instance, created, **kwargs):
-    if features.tms.is_on():
-        tenant = get_tenant_settings()
-        logger.info(f"Getting tenant {tenant.name} with domain {tenant.domain} on signal of event_post_save")
-
     logger.info("saved event {}, created={}".format(instance.pk, str(created)))
     transaction.on_commit(
-        lambda: pubsub.publish({"event_id": str(instance.pk)}, "das.event.new" if created else "das.event.update")
+        lambda: pubsub.publish(
+            {"event_id": str(instance.pk)},
+            "das.event.new" if created else "das.event.update",
+        )
     )
-
-    transaction.on_commit(
-        lambda: celery.app.send_task("activity.tasks.evaluate_alert_rules", args=(str(instance.id), created))
-    )
+    if features.tms.is_on():
+        transaction.on_commit(
+            lambda: celery.app.send_task(
+                "activity.tasks.evaluate_alert_rules", args=(str(instance.id), created, get_tenant_settings().domain)
+            )
+        )
+    else:
+        transaction.on_commit(
+            lambda: celery.app.send_task("activity.tasks.evaluate_alert_rules", args=(str(instance.id), created))
+        )
     for segment in instance.patrol_segments.all():
         # Send patrol_update rt message
         verify_patrol_constituent_for_rt_messaging(segment)

@@ -6,32 +6,29 @@ from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 
+from utils.features import features
 from utils.tenant import Tenant
 
 
+@pytest.mark.django_db
 class TestStatusView:
-    @pytest.mark.django_db
-    @override_settings(FEATURE_TMS=False)
     @override_settings(EXPORT_KML_ENABLED=True)
     @override_settings(SHOW_STATIONARY_SUBJECTS_ON_MAP=True)
-    def test_get_status_from_view_when_tms_is_turned_off(self, monkeypatch, superuser_client):
+    @pytest.mark.skipif(features.tms.is_on(), reason="TMS feature flag is on")
+    def test_get_status_from_view_when_tms_is_turned_off(self, superuser_client):
         url = reverse("api-status")
 
         response = superuser_client.get(url)
 
         self._assert_feature_flags_response_match(response)
 
-    @pytest.mark.django_db
-    @override_settings(FEATURE_TMS=True)
+    @pytest.mark.skipif(not features.tms.is_on(), reason="TMS feature flag is off")
     def test_get_status_from_view_when_tms_is_turned_on(self, monkeypatch, superuser_client, tenant_response):
-        features_mock = MagicMock()
-        features_mock.tms.is_on.return_value = True
         tenant_settings = Tenant.from_dict(tenant_response)
         tenant_settings.feature_flags.alerts_enabled = True
         tenant_settings.feature_flags.patrol_enabled = True
         tenant_settings.feature_flags.kml_export = True
         tenant_settings.feature_flags.show_stationary_subjects_on_map = True
-        monkeypatch.setattr("das_server.views.features", features_mock)
         monkeypatch.setattr("das_server.views.get_tenant_settings", MagicMock(return_value=tenant_settings))
         url = reverse("api-status")
 
@@ -39,7 +36,6 @@ class TestStatusView:
 
         self._assert_feature_flags_response_match(response)
 
-    @pytest.mark.django_db
     def test_get_status_not_including_support_settings(self, monkeypatch, superuser_client):
         monkeypatch.setattr("das_server.views.settings.EUS_SETTINGS", {"invalid": "settings"})
         url = reverse("api-status")
@@ -49,7 +45,6 @@ class TestStatusView:
         assert response.status_code == status.HTTP_200_OK
         assert "eus_settings" not in response.data
 
-    @pytest.mark.django_db
     def test_get_status_including_support_settings(self, monkeypatch, superuser_client):
         support_settings = {
             "email": "eus_test@pamdas.org",
@@ -65,8 +60,7 @@ class TestStatusView:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["eus_settings"] == support_settings
 
-    @pytest.mark.django_db
-    def test_get_status_with_db_connections(self, monkeypatch, superuser_client):
+    def test_get_status_with_db_connections_param(self, monkeypatch, superuser_client):
         cursor_mock = MagicMock()
         cursor_mock.fetchone.return_value = [5]
         connection_mock = MagicMock()
@@ -85,8 +79,7 @@ class TestStatusView:
         assert response.data["last_migration_app"] == "usercontent"
         assert response.data["last_migration_name"] == "001_alter_db"
 
-    @pytest.mark.django_db
-    def test_get_status_with_service_status(self, monkeypatch, superuser_client):
+    def test_get_status_with_service_status_param(self, monkeypatch, superuser_client):
         utils_mock = MagicMock()
         utils_mock.get_source_provider_statuses.return_value = []
         monkeypatch.setattr("das_server.views.servicesutils", utils_mock)
