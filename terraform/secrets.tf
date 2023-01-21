@@ -137,3 +137,13 @@ resource "kubernetes_secret" "ga_measurement_id" {
     ga_measurement_id = jsondecode(data.google_secret_manager_secret_version.ga_measurement_id.secret_data).ga_measurement_id
   }
 }
+
+resource "kubernetes_secret" "tms_dev_api_key" {
+  metadata {
+    name      = "tms-dev-api-key"
+    namespace = kubernetes_namespace.this.metadata.0.name
+  }
+  data = {
+    tms_dev_api_key = data.google_secret_manager_secret_version.tms_dev_api_key.secret_data
+  }
+}

@@ -241,3 +241,15 @@ variable "geo_permission_speed_km_h" {
   type        = string
   default     = "75"
 }
+
+variable "tms_api_host" {
+  description = "tms api host"
+  type        = string
+  default     = "https://er-tms-api-gateway-5sf422kw.uc.gateway.dev"
+}
+
+variable "tms_api_key" {
+  description = "tms api key"
+  type        = string
+  default     = ""
+}
