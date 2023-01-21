@@ -355,6 +355,11 @@ locals {
     "conkouatidouli"          = "prod1"
     "anac"                    = "prod1"
     "stoprhinopoaching"       = "prod1"
+    "erer-grumeti"            = "dev"
+    "erer-sabisand"           = "dev"
+    "erer-thornybush"         = "dev"
+    "erer-lewa"               = "dev"
+    "erer-marataba"           = "dev"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
