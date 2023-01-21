@@ -71,28 +71,8 @@ DEFAULT_LOGGING = {
 has_initialized = False
 
 
-def update_level_in_log_config(config: dict, level: str) -> dict:
-
-    loggers = config["loggers"]
-
-    loggers[""]["level"] = level
-    loggers["rt_api.socketio"]["level"] = level
-    if level == "DEBUG":
-        config["handlers"]["console"]["level"] = level
-        loggers["django"]["level"] = level
-        loggers["django.request"]["level"] = level
-        loggers["django.server"]["level"] = level
-        loggers["rt_api"]["level"] = level
-        loggers["rt_api.pubsub_listener"]["level"] = level
-
-    return config
-
-
-def init_logging(service=None):
+def init_logging(service="default_logging"):
     global has_initialized
-
-    if not service:
-        service = "default_logging"
 
     if has_initialized:
         logger.debug("logging already initialized, not loading %s", service, exc_info=True)
@@ -100,15 +80,11 @@ def init_logging(service=None):
 
     has_initialized = True
 
-    level = env.str("ROOT_LOGGING_LEVEL", "")
-
     try:
         module = sys.modules[__name__]
         if local_log:
             module = local_log
         log_settings = getattr(module, service.upper())
-        if level:
-            log_settings = update_level_in_log_config(log_settings, level)
     except AttributeError:
         message = "No logging configuration" " found for {0} in {1}".format(service, repr(module))
         logger.warning(message)
