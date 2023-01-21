@@ -32,7 +32,7 @@
             "cwd": "${workspaceFolder}/das",
             "env": {
                 "DJANGO_SETTINGS_MODULE": "das_server.local_settings",
-                "LOGGING_LEVEL": "INFO"
+                "ROOT_LOGGING_LEVEL": "INFO"
             },
             "args": [
                 "runserver",
