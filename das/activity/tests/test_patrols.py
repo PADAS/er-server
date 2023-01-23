@@ -3,6 +3,7 @@ import json
 import os
 import shutil
 import tempfile
+from unittest.mock import patch
 from urllib.parse import urlencode
 
 import pytest
@@ -91,6 +92,52 @@ class TestPatrol(BaseAPITest):
             )
         }
         self.temporary_folder = tempfile.mkdtemp()
+
+        self.tenant_response = {
+            "name": "Frank test1",
+            "slugName": "frank-test1",
+            "timeZone": "UTC",
+            "url": "http://zoo.com",
+            "domain": "zoo.com",
+            "envSettings": {
+                "acceptEula": False,
+                "apiHost": "192.167.2.5",
+                "apiPort": "4000",
+                "defaultFromEmail": "frank@mail.com",
+                "enableDebug": False,
+                "enableDev": False,
+                "fromEmail": "dev@mail.com",
+                "sendSmsTwilioFromNumber": "+520123365458",
+            },
+            "featureFlags": {
+                "alertsEnabled": False,
+                "dailyReportEnabled": False,
+                "gfwBackfillIntervalDays": False,
+                "gfwClusterRadius": False,
+                "kmlExport": False,
+                "mappingFeaturesV2": True,
+                "patrolEnabled": False,
+                "showStationarySubjectsOnMap": False,
+                "showTrackDays": False,
+                "subjectRegionEnabled": False,
+                "tableauDefaultDashboard": False,
+                "tableauEnabled": False,
+                "tableauSiteId": False,
+                "trackLength": False,
+            },
+            "services": {
+                "auth": {"status": "PROVISIONING", "statusMessage": None},
+                "bigQuery": {"status": "PROVISIONING", "statusMessage": None},
+                "dataWarehouse": {"status": "PROVISIONING", "statusMessage": None},
+                "media": {"status": "PROVISIONING", "statusMessage": None},
+                "observations": {"status": "PROVISIONING", "statusMessage": None},
+                "secrets": {"status": "PROVISIONING", "statusMessage": None},
+            },
+            "status": "PROVISIONING",
+            "id": "c0973be2-8e11-4cb8-8463-897fb96391d0",
+            "createdAt": "2022-11-14T21:09:02.519164+00:00",
+            "updatedAt": "2022-11-14T21:09:02.519165+00:00",
+        }
 
     def tearDown(self):
         shutil.rmtree(self.temporary_folder)
@@ -1461,7 +1508,9 @@ class TestPatrol(BaseAPITest):
         response = views.PatrolTypesView.as_view()(request)
         assert response.status_code == 403
 
-    def test_view_patrol_permission_can_view_patroltype(self):
+    @patch("utils.tenant.providers.TenantData.get")
+    def test_view_patrol_permission_can_view_patroltype(self, mock_tenant_data):
+        mock_tenant_data.return_value = self.tenant_response
         view_patrol_permissionset = PermissionSet.objects.get(name="View Patrols Permissions")
         self.radio_room_user.permission_sets.add(view_patrol_permissionset)
         client = Client()
@@ -1521,7 +1570,8 @@ class TestPatrol(BaseAPITest):
         assert response.data["results"] == []
 
 
-def test_patrol_admin_page(django_assert_max_num_queries, client):
+def test_patrol_admin_page(django_assert_max_num_queries, client, tms_api_client_mock, tenant_response):
+    tms_api_client_mock.get_tenant_data.return_value = tenant_response
     user_const = dict(last_name="last", first_name="first")
     user = User.objects.create_user(
         "user", "user@test.com", "all_perms_user", is_superuser=True, is_staff=True, **user_const
@@ -1533,7 +1583,8 @@ def test_patrol_admin_page(django_assert_max_num_queries, client):
         client.get(url)
 
 
-def test_patrols(django_assert_max_num_queries, client):
+def test_patrols(django_assert_max_num_queries, client, tms_api_client_mock, tenant_response):
+    tms_api_client_mock.get_tenant_data.return_value = tenant_response
     user_const = dict(last_name="last", first_name="first")
     user = User.objects.create_user(
         "user", "user@test.com", "all_perms_user", is_superuser=True, is_staff=True, **user_const
@@ -1544,7 +1595,8 @@ def test_patrols(django_assert_max_num_queries, client):
         client.get(url)
 
 
-def test_patrolsegments(django_assert_max_num_queries, client):
+def test_patrolsegments(django_assert_max_num_queries, client, tms_api_client_mock, tenant_response):
+    tms_api_client_mock.get_tenant_data.return_value = tenant_response
     user_const = dict(last_name="last", first_name="first")
     user = User.objects.create_user(
         "user", "user@test.com", "all_perms_user", is_superuser=True, is_staff=True, **user_const
@@ -2249,8 +2301,9 @@ class TestPatrolModel:
 @pytest.mark.django_db
 class TestPatrolTrackedBySchemaView:
     def test_trackedby_permissions_for_a_subjectgroup_viewer(
-        self, django_assert_max_num_queries, client, two_subject_groups, ops_user
+        self, django_assert_max_num_queries, client, two_subject_groups, ops_user, tms_api_client_mock, tenant_response
     ):
+        tms_api_client_mock.get_tenant_data.return_value = tenant_response
         a_subjectgroup, b_subjectgroup = two_subject_groups
         a_subjectgroup.permission_sets.all()[0].user_set.add(ops_user)
         PatrolConfiguration.objects.first().subject_groups.add(*[a_subjectgroup, b_subjectgroup])

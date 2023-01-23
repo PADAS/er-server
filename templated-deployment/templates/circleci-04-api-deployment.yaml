@@ -159,6 +159,11 @@ spec:
             secretKeyRef:
               name: tableau-api-credentials
               key: tableau_token
+        - name: TMS_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: tms-dev-api-key
+              key: tms_dev_api_key
         envFrom:
           - configMapRef:
               name: server-configmap
