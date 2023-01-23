@@ -57,18 +57,16 @@ from activity.models import (
 )
 from activity.util import get_permitted_event_categories
 from core.serializers import PointValidator
-from observations.serializers import SubjectSerializer
+from observations.serializers import SubjectRelatedField, SubjectSerializer
 from revision.manager import AC_RELATION_DELETED, AC_UPDATED
 from usercontent.serializers import UserContentSerializer
 from utils.feature_representation import FeatureRepresentation
-from utils.features import features
 from utils.gis import get_polygon_info
 from utils.json import parse_bool
 from utils.schema_utils import (
     get_schema_renderer_method,
     validate_rendered_schema_is_wellformed,
 )
-from utils.tenant import get_tenant_settings
 
 from .base import FileSerializerMixin
 from .event_details import EventDetailsSerializer
@@ -756,7 +754,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
 
     files = EventFileSerializer(many=True, required=False, read_only=True)
 
-    related_subjects = SubjectSerializer(many=True, required=False)
+    related_subjects = SubjectRelatedField(many=True, required=False)
 
     patrol_segments = PrimaryKeyRelatedField(many=True, required=False, queryset=PatrolSegment.objects.all())
     feature_representation = FeatureRepresentation()
@@ -772,9 +770,6 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         if hasattr(request, "auth") and request.auth:
             auto_add_report_to_patrols(request.auth.application, instance)
 
-        if features.tms.is_on():
-            tenant = get_tenant_settings()
-            logger.info(f"Getting tenant {tenant.name} with domain {tenant.domain} on EventSerializer.create")
         return instance
 
     def update(self, instance, validated_data):
@@ -986,7 +981,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
                     rep["event_details"] = event_details_serialized[0]
                 rep["files"] = list(EventFileSerializer(event.files_set, many=True, context=self.context).data)
                 rep["related_subjects"] = list(
-                    SubjectSerializer(event.related_subjects_set, many=True, context=self.context).data
+                    SubjectSerializer(event.related_subjects_set, many=True, context=self.context, read_only=True).data
                 )
 
                 event_details = rep["event_details"]
