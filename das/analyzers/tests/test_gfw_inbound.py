@@ -3,6 +3,7 @@ import urllib.parse as parser
 from datetime import date, timedelta
 from unittest.mock import Mock, patch
 
+import pytest
 from faker import Faker
 
 from django.conf import settings
@@ -35,6 +36,7 @@ from analyzers.tests.gfw_test_data import (
 from core.tests import BaseAPITest
 from das_server.celery import app
 from sensors.views import GFWAlertHandlerView
+from utils.features import features
 
 
 def send_task(name, args=(), kwargs={}, **opts):
@@ -62,6 +64,7 @@ class GFWAlertHandlerTest(BaseAPITest):
         app.send_task = app.send_task
 
     @patch("requests.get")
+    @pytest.mark.skipif(features.tms.is_on(), reason="TMS feature flag is on")
     def test_glad(self, mock_request):
         mock_request.return_value = Mock(status_code=200, text=json.dumps(GLAD_ALERT_DOWNLOADED_DATA))
         app.send_task = send_task
@@ -74,6 +77,7 @@ class GFWAlertHandlerTest(BaseAPITest):
         self.assertEqual(1, Event.objects.all().count())  # GLAD_ALERT_DOWNLOADED_DATA has 1 confirmed sub
 
     @patch("requests.post")
+    @pytest.mark.skipif(features.tms.is_on(), reason="TMS feature flag is on")
     def test_virrs(self, mock_request):
         mock_request.return_value = Mock(status_code=200, text=json.dumps(VIIRS_FIRE_ALERT_DOWNLOADED_DATA))
         app.send_task = send_task
@@ -84,6 +88,7 @@ class GFWAlertHandlerTest(BaseAPITest):
         self.assertEqual(len(clustered_alerts), Event.objects.all().count())
 
     @patch("requests.get")
+    @pytest.mark.skipif(features.tms.is_on(), reason="TMS feature flag is on")
     def test_glad_with_duplicates(self, mock_request):
         mock_request.return_value = Mock(status_code=200, text=json.dumps(GLAD_ALERT_DOWNLOADED_DATA))
         app.send_task = send_task
@@ -97,6 +102,7 @@ class GFWAlertHandlerTest(BaseAPITest):
         self.assertEqual(1, Event.objects.all().count())
 
     @patch("requests.post")
+    @pytest.mark.skipif(features.tms.is_on(), reason="TMS feature flag is on")
     def test_viirs_with_duplicates(self, mock_request):
         mock_request.return_value = Mock(status_code=200, text=json.dumps(VIIRS_FIRE_ALERT_DOWNLOADED_DATA))
         app.send_task = send_task
@@ -125,6 +131,7 @@ class GFWAlertHandlerTest(BaseAPITest):
         geostore_id = get_geostore_id(self.download_url_unknown_geostore)
         self.assertEqual(geostore_id, self.unknown_geostore)
 
+    @pytest.mark.skipif(features.tms.is_on(), reason="TMS feature flag is on")
     def test_rebuild_glad_url_confirmed_only(self):
         query_params = parser.parse_qs(parser.urlparse(self.download_url_unknown_geostore).query)
         self.assertEqual(query_params[GEOSTORE_FIELD][0], self.unknown_geostore)
@@ -139,6 +146,7 @@ class GFWAlertHandlerTest(BaseAPITest):
         self.assertEqual(updated_qp[GLAD_CONFIRM_FIELD][0], "True")
 
     @patch("requests.get")
+    @pytest.mark.skipif(features.tms.is_on(), reason="TMS feature flag is on")
     def test_download_glad_one_subscription_unknown_geostore(self, mock_request):
         mock_request.return_value = Mock(status_code=200, text=json.dumps(GLAD_ALERT_DOWNLOADED_DATA))
         app.send_task = send_task
@@ -154,6 +162,7 @@ class GFWAlertHandlerTest(BaseAPITest):
             self.assertEqual(mock_download_process_alerts.call_count, 1)
 
     @patch("requests.get")
+    @pytest.mark.skipif(features.tms.is_on(), reason="TMS feature flag is on")
     def test_download_glad_two_subscriptions_unknown_geostore(self, mock_request):
         mock_request.return_value = Mock(status_code=200, text=json.dumps(GLAD_ALERT_DOWNLOADED_DATA))
         app.send_task = send_task
@@ -170,6 +179,7 @@ class GFWAlertHandlerTest(BaseAPITest):
             self.assertEqual(mock_download_process_alerts.call_count, 2)
 
     @patch("requests.get")
+    @pytest.mark.skipif(features.tms.is_on(), reason="TMS feature flag is on")
     def test_download_glad_two_subscriptions_known_geostore_and_subscription(self, mock_request):
         mock_request.return_value = Mock(status_code=200, text=json.dumps(GLAD_ALERT_DOWNLOADED_DATA))
         app.send_task = send_task
@@ -188,6 +198,7 @@ class GFWAlertHandlerTest(BaseAPITest):
             self.assertEqual(mock_download_process_alerts.call_count, 1)
 
     @patch("requests.get")
+    @pytest.mark.skipif(features.tms.is_on(), reason="TMS feature flag is on")
     def test_download_glad_two_subscriptions_unknown_geostore_known_subscription(self, mock_request):
         mock_request.return_value = Mock(status_code=200, text=json.dumps(GLAD_ALERT_DOWNLOADED_DATA))
         app.send_task = send_task

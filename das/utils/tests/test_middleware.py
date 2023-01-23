@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import patch
 
 import pytest
 
@@ -6,18 +6,17 @@ from django.http import HttpResponse
 from django.urls import reverse
 
 from client_http import HTTPClient
-from utils import middleware
 from utils.features import features
+from utils.middleware import TenantSettingsMiddleware
 from utils.tenant.thread import Tenant, get_tenant_settings
 
 
 @pytest.mark.django_db
+@pytest.mark.skipif(features.tms.is_on() is False, reason="TMS feature flag is off")
 class TestTenantSettingsMiddleware:
-    @pytest.mark.skipif(features.tms.is_on() is False, reason="TMS feature flag is off")
-    def test_tenant_settings_middleware_getting_tenant(self, tenant_response, rf, monkeypatch):
-        mock = MagicMock(return_value=tenant_response)
-        monkeypatch.setattr("core.tenant.HTTPClient.get_tenant_data", mock)
-
+    @patch("utils.tenant.providers.TenantData.get")
+    def test_tenant_settings_middleware_getting_tenant(self, mocked_tenant_client, tenant_response, rf):
+        mocked_tenant_client.return_value = tenant_response
         client = HTTPClient()
         user = client.app_user
 
@@ -25,12 +24,12 @@ class TestTenantSettingsMiddleware:
         request = rf.get(url)
         request.user = user
 
-        settings_middleware = middleware.TenantSettingsMiddleware(self.get_response)
+        settings_middleware = TenantSettingsMiddleware(self._get_response)
         settings_middleware(request)
         settings = get_tenant_settings()
 
         assert isinstance(settings, Tenant)
         assert settings.to_dict() == tenant_response
 
-    def get_response(self, request):
+    def _get_response(self, request):
         return HttpResponse()

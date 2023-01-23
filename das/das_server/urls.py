@@ -29,12 +29,10 @@ from das_server.admin import dasadmin_site
 admin.autodiscover()
 admin.site.enable_nav_sidebar = False
 
-schema_view = get_schema_view(
-    title="EarthRanger API Documentation", renderer_classes=[JSONOpenAPIRenderer]
-)
+schema_view = get_schema_view(title="EarthRanger API Documentation", renderer_classes=[JSONOpenAPIRenderer])
 
 urlpatterns = [
-    re_path("api/v1.0/status/?$", views.StatusView.as_view()),
+    re_path("api/v1.0/status/?$", views.StatusView.as_view(), name="api-status"),
     path("api/v1.0/", include("accounts.urls")),
     path("api/v1.0/", include("observations.urls")),
     path("api/v1.0/", include("mapping.urls")),
@@ -42,10 +40,7 @@ urlpatterns = [
     path("api/v1.0/activity/", include("activity.urls")),
     path("api/v1.0/analyzers/", include("analyzers.urls")),
     path("api/v1.0/", include("rt_api.urls")),
-    path(
-        "api/v1.0/api-auth/", include("rest_framework.urls",
-                                      namespace="rest_framework")
-    ),
+    path("api/v1.0/api-auth/", include("rest_framework.urls", namespace="rest_framework")),
     path("api/v1.0/api-schema/", schema_view, name="openapi-schema"),
     path("api/v1.0/docs/interactive/", views.SwaggerTemplate.as_view()),
     path("api/v1.0/docs/", include("docs.urls")),
