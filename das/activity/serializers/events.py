@@ -57,7 +57,7 @@ from activity.models import (
 )
 from activity.util import get_permitted_event_categories
 from core.serializers import PointValidator
-from observations.serializers import SubjectSerializer
+from observations.serializers import SubjectRelatedField, SubjectSerializer
 from revision.manager import AC_RELATION_DELETED, AC_UPDATED
 from usercontent.serializers import UserContentSerializer
 from utils.feature_representation import FeatureRepresentation
@@ -754,7 +754,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
 
     files = EventFileSerializer(many=True, required=False, read_only=True)
 
-    related_subjects = SubjectSerializer(many=True, required=False)
+    related_subjects = SubjectRelatedField(many=True, required=False)
 
     patrol_segments = PrimaryKeyRelatedField(many=True, required=False, queryset=PatrolSegment.objects.all())
     feature_representation = FeatureRepresentation()
@@ -981,7 +981,7 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
                     rep["event_details"] = event_details_serialized[0]
                 rep["files"] = list(EventFileSerializer(event.files_set, many=True, context=self.context).data)
                 rep["related_subjects"] = list(
-                    SubjectSerializer(event.related_subjects_set, many=True, context=self.context).data
+                    SubjectSerializer(event.related_subjects_set, many=True, context=self.context, read_only=True).data
                 )
 
                 event_details = rep["event_details"]

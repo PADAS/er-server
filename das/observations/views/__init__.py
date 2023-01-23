@@ -15,6 +15,7 @@ from django.core.files.storage import default_storage
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import F, Q, Window
 from django.db.models.functions import FirstValue, RowNumber
+from django.db.utils import IntegrityError
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
@@ -56,10 +57,12 @@ from observations.utils import (
 from observations.views.observations import FlattenObservationsView
 from utils import add_base_url
 from utils.drf import (
+    BadRequestAPIException,
     OptionalResultsSetPagination,
     StandardResultsSetCursorPagination,
     StandardResultsSetGeoJsonPagination,
     StandardResultsSetPagination,
+    return_409_response,
 )
 from utils.json import ExtendedGEOJSONRenderer, parse_bool, zeroout_microseconds
 
@@ -552,7 +555,11 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
         serializer = self.get_serializer(data=request.data, many=many)
         serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
+
+        try:
+            self.perform_create(serializer)
+        except IntegrityError:
+            return return_409_response()
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -587,6 +594,12 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixi
         context["two_way_subject_sources"] = self.two_way_subject_sources
 
         return context
+
+    def patch(self, request, *args, **kwargs):
+        subject_id = self.kwargs.get("id")
+        if "id" in request.data and request.data["id"] is not subject_id:
+            raise BadRequestAPIException(detail="id in patch request does not match subject_id")
+        return super().patch(request, *args, **kwargs)
 
 
 class SubjectSubjectSourcesView(generics.ListAPIView):
