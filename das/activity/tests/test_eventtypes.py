@@ -1,8 +1,11 @@
 import json
 import os
 from typing import Any, NamedTuple
+
 import pytest
+
 from django.urls import reverse
+
 from activity.models import EventCategory, EventType
 from activity.tests import schema_examples
 from activity.views import EventTypeView
@@ -23,10 +26,8 @@ def eventtype_fixture(db, django_user_model):
     EventType.objects.all().delete()
     EventCategory.objects.all().delete()
 
-    event_category = EventCategory.objects.create(
-        value="monitoring", display="Monitoring")
-    EventCategory.objects.create(
-        value="analyzer_event", display="Analyzer Event")
+    event_category = EventCategory.objects.create(value="monitoring", display="Monitoring")
+    EventCategory.objects.create(value="analyzer_event", display="Analyzer Event")
 
     event_type = EventType.objects.create(
         display="Wildlife Sighting",
@@ -43,9 +44,9 @@ def eventtype_fixture(db, django_user_model):
     return EventTypeDetails(eventtype=event_type, user=user)
 
 
-def test_get_eventtypes_without_schema(eventtype_fixture, client):
+def test_get_eventtypes_without_schema(eventtype_fixture, client, tms_api_client_mock, tenant_response):
+    tms_api_client_mock.get_tenant_data.return_value = tenant_response
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
-
     client.force_login(user)
     url = reverse("eventtypes")
     response = client.get(url)
@@ -54,7 +55,8 @@ def test_get_eventtypes_without_schema(eventtype_fixture, client):
     assert response.data[0].get("schema") is None
 
 
-def test_get_eventtype_with_schema(eventtype_fixture, client):
+def test_get_eventtype_with_schema(eventtype_fixture, client, tms_api_client_mock, tenant_response):
+    tms_api_client_mock.get_tenant_data.return_value = tenant_response
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
 
     client.force_login(user)
@@ -66,19 +68,20 @@ def test_get_eventtype_with_schema(eventtype_fixture, client):
     assert response.data[0].get("schema") is not None
 
 
-def test_post_eventtype(eventtype_fixture, client):
+def test_post_eventtype(eventtype_fixture, client, monkeypatch, tms_api_client_mock, tenant_response):
+    tms_api_client_mock.get_tenant_data.return_value = tenant_response
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
 
     client.force_login(user)
     url = reverse("eventtypes")
-    data = {"display": "Accoustic Detection",
-            "value": "acoustic_detection", "category": "analyzer_event"}
+    data = {"display": "Accoustic Detection", "value": "acoustic_detection", "category": "analyzer_event"}
     response = client.post(url, data=data)
     assert response.status_code == 201
     assert response.data.get("value") == "acoustic_detection"
 
 
-def test_post_eventtype_with_schema(eventtype_fixture, client):
+def test_post_eventtype_with_schema(eventtype_fixture, client, tms_api_client_mock, tenant_response):
+    tms_api_client_mock.get_tenant_data.return_value = tenant_response
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
 
     client.force_login(user)
@@ -106,7 +109,8 @@ def test_post_eventtype_with_schema(eventtype_fixture, client):
     assert response.status_code == 201
 
 
-def test_update_eventtype(eventtype_fixture, client):
+def test_update_eventtype(eventtype_fixture, client, tms_api_client_mock, tenant_response):
+    tms_api_client_mock.get_tenant_data.return_value = tenant_response
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
     eventtype_id = str(eventtype.id)
 
@@ -114,17 +118,16 @@ def test_update_eventtype(eventtype_fixture, client):
 
     client.force_login(user)
     url = reverse("eventtype", kwargs={"eventtype_id": eventtype_id})
-    patch_data = {"display": "Updated Display",
-                  "value": "update_display", "icon_id": "carcass_rep"}
+    patch_data = {"display": "Updated Display", "value": "update_display", "icon_id": "carcass_rep"}
 
-    response = client.patch(url, data=json.dumps(
-        patch_data), content_type="application/json")
+    response = client.patch(url, data=json.dumps(patch_data), content_type="application/json")
     assert response.status_code == 200
     assert response.data.get("value") == "update_display"
     assert response.data.get("icon_id") == "carcass_rep"
 
 
-def test_set_eventtype_to_inactive(eventtype_fixture, client):
+def test_set_eventtype_to_inactive(eventtype_fixture, client, tms_api_client_mock, tenant_response):
+    tms_api_client_mock.get_tenant_data.return_value = tenant_response
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
     eventtype_id = str(eventtype.id)
 
@@ -140,7 +143,8 @@ def test_set_eventtype_to_inactive(eventtype_fixture, client):
     assert inactive_eventtype == 1
 
 
-def test_post_eventtype_with_bad_schema(eventtype_fixture, client):
+def test_post_eventtype_with_bad_schema(eventtype_fixture, client, tms_api_client_mock, tenant_response):
+    tms_api_client_mock.get_tenant_data.return_value = tenant_response
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
 
     client.force_login(user)
@@ -157,7 +161,8 @@ def test_post_eventtype_with_bad_schema(eventtype_fixture, client):
     assert response.status_code == 400
 
 
-def test_readonly_eventtype(eventtype_fixture, client):
+def test_readonly_eventtype(eventtype_fixture, client, tms_api_client_mock, tenant_response):
+    tms_api_client_mock.get_tenant_data.return_value = tenant_response
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
 
     client.force_login(user)
@@ -181,8 +186,7 @@ def test_readonly_eventtype(eventtype_fixture, client):
         "defintion": []
         }
         """
-    data = {"display": "Simple Report", "value": "simple_report",
-            "category": "monitoring", "schema": schema}
+    data = {"display": "Simple Report", "value": "simple_report", "category": "monitoring", "schema": schema}
     response = client.post(url, data=data)
     assert response.status_code == 201
 
@@ -194,12 +198,10 @@ def test_readonly_eventtype(eventtype_fixture, client):
 
 class TestEventTypeAPI:
     @pytest.mark.parametrize(
-        "mocked_geometry_type", (EventType.GeometryTypesChoices.POINT,
-                                 EventType.GeometryTypesChoices.POLYGON)
+        "mocked_geometry_type", (EventType.GeometryTypesChoices.POINT, EventType.GeometryTypesChoices.POLYGON)
     )
     def test_event_type_response_geometry_type(self, mocked_geometry_type):
-        event_type_instance = EventTypeFactory.create(
-            geometry_type=mocked_geometry_type)
+        event_type_instance = EventTypeFactory.create(geometry_type=mocked_geometry_type)
 
         response = self._get_response(event_type_id=event_type_instance.id)
 

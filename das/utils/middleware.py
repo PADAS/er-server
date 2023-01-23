@@ -28,7 +28,7 @@ from utils import add_base_url, stats
 from utils.categories import should_apply_geographic_features
 from utils.features import features
 from utils.gis import convert_to_point
-from utils.tenant import set_tenant_settings
+from utils.tenant import get_tenant_settings, set_tenant_settings
 from utils.tenant.providers import TenantData
 
 logger = logging.getLogger(__name__)
@@ -260,6 +260,18 @@ class TenantSettingsMiddleware:
             set_tenant_settings(value=tenant_data)
         response = self.get_response(request)
         return response
+
+
+class TimezoneMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if features.tms.is_on():
+            timezone_name = get_tenant_settings().time_zone
+            if timezone_name:
+                timezone.activate(pytz.timezone(timezone_name))
+        return self.get_response(request)
 
 
 def is_check_eula_path(path):
