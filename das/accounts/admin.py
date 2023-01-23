@@ -350,6 +350,8 @@ class UserAdmin(ModelAdminDisplayingManyToManyFieldMixin, DefaultFilterMixin, Fi
             "subject_template_name": "registration/password_reset_subject.txt",
             "use_https": request.is_secure(),
         }
+        if features.tms.is_on():
+            opts["from_email"] = get_tenant_settings().env_settings.default_from_email
 
         form.save(**opts)
 

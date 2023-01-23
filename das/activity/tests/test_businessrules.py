@@ -1401,7 +1401,9 @@ class BusinessRulesTestCase(BaseAPITest):
         with self.assertRaises(jsonschema.ValidationError, msg="Expected error for invalid schedule_type."):
             jsonschema.validate(invalid_document_4, OneWeekSchedule.json_schema)
 
-    def test_notification_triggered_for_subject_group(self):
+    @patch("utils.tenant.providers.TenantData.get")
+    def test_notification_triggered_for_subject_group(self, mock_tenant_data):
+        mock_tenant_data.return_value = {"envSettings": {"defaultFromEmail": "tenant_user@mail.com"}}
         NOTIFICATION_METHOD_EMAIL_ADDRESS = "phillip@email.com"
         notification_method = NotificationMethod.objects.create(
             title="test", owner=self.admin_user, method="email", value=NOTIFICATION_METHOD_EMAIL_ADDRESS

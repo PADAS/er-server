@@ -99,7 +99,7 @@ def execute_evaluate_alert_rules(*args, **kwargs):
     evaluate_alert_rules(*args, **kwargs)
 
 
-def evaluate_conditions_for_sending_alerts(event, alert_rule, queued_nids, created):
+def evaluate_conditions_for_sending_alerts(event, alert_rule, queued_nids, created, domain: str = None):
     event_revision, details_revision = resolve_event_revisions(event)
 
     # Calculate updated fields
@@ -111,17 +111,17 @@ def evaluate_conditions_for_sending_alerts(event, alert_rule, queued_nids, creat
 
     if created or not alert_rule.conditions:
         # Sending all alerts, if new report created or report has no conditions set
-        evaluate_notifications(alert_rule, queued_nids, event.id)
+        evaluate_notifications(alert_rule, queued_nids, event.id, domain)
 
     for alert_condition in alert_rule.conditions.get("all", {}):
         condition_name = alert_condition["name"]
 
         # Check if allowed condition values are updated
         if condition_name in combined_updated_fields:
-            evaluate_notifications(alert_rule, queued_nids, event.id)
+            evaluate_notifications(alert_rule, queued_nids, event.id, domain)
 
 
-def evaluate_notifications(alert_rule, already_queued_nids, event_id):
+def evaluate_notifications(alert_rule, already_queued_nids, event_id, domain: str = None):
     for notification_method in alert_rule.notification_methods.filter(is_active=True):
         if notification_method.id not in already_queued_nids and allow_send_event_alert(notification_method.owner):
             kwargs = {
