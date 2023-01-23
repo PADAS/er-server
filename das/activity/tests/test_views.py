@@ -204,6 +204,7 @@ class TestEventView:
         tenant_document_cache_client_mock,
         tenant_response,
     ):
+        tms_api_client_mock.get_tenant_data.return_value = tenant_response
         EventGeometry.objects.create(
             event=event_with_detail.event,
             geometry=Polygon(
@@ -242,6 +243,7 @@ class TestEventView:
         tenant_document_cache_client_mock,
         tenant_response,
     ):
+        tms_api_client_mock.get_tenant_data.return_value = tenant_response
         url = reverse("event-view", args=[event_with_detail.event.pk])
         response = superuser_client.patch(url, {"geometry": geometry})
 

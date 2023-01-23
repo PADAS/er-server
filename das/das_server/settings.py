@@ -99,6 +99,7 @@ MIDDLEWARE = (
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "oauth2_provider.middleware.OAuth2TokenMiddleware",
     "revision.middleware.RevisionMiddleware",
+    "utils.middleware.TimezoneMiddleware",
     "utils.middleware.RequestLoggingMiddleware",
     "utils.middleware.EULARedirectMiddleware",
     "utils.middleware.GeographicMiddleware",
