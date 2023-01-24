@@ -596,8 +596,8 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixi
         return context
 
     def patch(self, request, *args, **kwargs):
-        subject_id = self.kwargs.get("id")
-        if "id" in request.data and request.data["id"] is not subject_id:
+        subject_id = self.kwargs["id"]
+        if "id" in request.data and request.data["id"] != subject_id:
             raise BadRequestAPIException(detail="id in patch request does not match subject_id")
         return super().patch(request, *args, **kwargs)
 
