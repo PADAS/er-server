@@ -356,6 +356,7 @@ locals {
     "anac"                    = "prod1"
     "stoprhinopoaching"       = "prod1"
     "mindoro"                 = "prod-asia"
+    "amatela"                 = "prod1"
     "erer-grumeti"            = "dev"
     "erer-sabisand"           = "dev"
     "erer-thornybush"         = "dev"
