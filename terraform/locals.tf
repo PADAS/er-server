@@ -355,6 +355,7 @@ locals {
     "conkouatidouli"          = "prod1"
     "anac"                    = "prod1"
     "stoprhinopoaching"       = "prod1"
+    "amatela"                 = "prod1"
     "erer-grumeti"            = "dev"
     "erer-sabisand"           = "dev"
     "erer-thornybush"         = "dev"
