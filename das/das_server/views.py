@@ -179,6 +179,10 @@ class StatusView(generics.RetrieveAPIView):
         resp["server_timezone"] = timezone.localtime().strftime("%Z")
         resp["show_track_days"] = settings.SHOW_TRACK_DAYS
         resp["site_name"] = get_site_name()
+        resp["eula_enabled"] = (
+            get_tenant_settings().env_settings.accept_eula if features.tms.is_on() else settings.ACCEPT_EULA
+        )
+        resp["patrol_enabled"] = settings.PATROL_ENABLED and has_patrol_view_permission(self.request.user)
         resp["track_length"] = settings.TRACK_LENGTH
         resp["messaging_enabled"] = has_message_view_permission(self.request.user)
 

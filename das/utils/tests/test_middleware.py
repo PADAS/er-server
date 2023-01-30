@@ -17,6 +17,7 @@ class TestTenantSettingsMiddleware:
     @patch("utils.tenant.providers.TenantData.get")
     def test_tenant_settings_middleware_getting_tenant(self, mocked_tenant_client, tenant_response, rf):
         mocked_tenant_client.return_value = tenant_response
+
         client = HTTPClient()
         user = client.app_user
 

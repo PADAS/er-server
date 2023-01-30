@@ -195,13 +195,9 @@ class EULARedirectMiddleware:
 
     def process_response(self, request, response):
         user = request.user
+        ACCEPT_EULA = get_tenant_settings().env_settings.accept_eula if features.tms.is_on() else settings.ACCEPT_EULA
 
-        if (
-            settings.ACCEPT_EULA
-            and is_check_eula_path(request.path)
-            and user.is_authenticated
-            and not user.accepted_eula
-        ):
+        if ACCEPT_EULA and is_check_eula_path(request.path) and user.is_authenticated and not user.accepted_eula:
             response = redirect(add_base_url(request, "/#eula"))
             response.set_cookie("routeAfterEulaAccepted", "/admin/")
             AccessToken = get_access_token_model()
