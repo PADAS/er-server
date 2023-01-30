@@ -363,6 +363,7 @@ locals {
     "erer-lewa"               = "dev"
     "erer-marataba"           = "dev"
     "ilmamusi"                = "prod1"
+    "sagebrush"               = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
