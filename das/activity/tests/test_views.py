@@ -69,7 +69,8 @@ class TestEventsView:
     def test_create_an_event_with_a_feature_collection_as_geometry(
         self, event_type, superuser_client, tms_api_client_mock, tenant_response
     ):
-        tms_api_client_mock.get_tenant_data.return_value = tenant_response
+        tms_api_client_mock.client.get_tenant_data.return_value = tenant_response
+
         event_type.geometry_type = EventType.GeometryTypesChoices.POLYGON
         event_type.save()
         url = reverse("events")
@@ -90,7 +91,8 @@ class TestEventsView:
     def test_create_an_event_with_a_feature_as_geometry(
         self, event_type, superuser_client, tms_api_client_mock, tenant_response
     ):
-        tms_api_client_mock.get_tenant_data.return_value = tenant_response
+        tms_api_client_mock.client.get_tenant_data.return_value = tenant_response
+
         event_type.geometry_type = EventType.GeometryTypesChoices.POLYGON
         event_type.save()
         url = reverse("events")
@@ -113,6 +115,7 @@ class TestEventsView:
         self, event_type, superuser_client, tms_api_client_mock, tenant_response
     ):
         tms_api_client_mock.get_tenant_data.return_value = tenant_response
+
         event_type.geometry_type = EventType.GeometryTypesChoices.POLYGON
         event_type.save()
         url = reverse("events")
@@ -232,6 +235,7 @@ class TestEventView:
         self, event_geometry_with_polygon, superuser_client, tms_api_client_mock, tenant_response
     ):
         tms_api_client_mock.get_tenant_data.return_value = tenant_response
+
         url = reverse("event-view", args=[event_geometry_with_polygon.event.pk])
 
         response = superuser_client.patch(url, {"geometry": None})
@@ -243,6 +247,7 @@ class TestEventView:
         self, event_with_detail, superuser_client, tms_api_client_mock, tenant_response
     ):
         tms_api_client_mock.get_tenant_data.return_value = tenant_response
+
         url = reverse("event-view", args=[event_with_detail.event.pk])
 
         response = superuser_client.patch(url, {"geometry": None})
@@ -257,6 +262,7 @@ class TestEventGeometryView:
         self, event_geometry_with_polygon, superuser_client, tms_api_client_mock, tenant_response
     ):
         tms_api_client_mock.get_tenant_data.return_value = tenant_response
+
         event = event_geometry_with_polygon.event
 
         url = reverse("event-geometries", args=[event.id])
@@ -269,6 +275,7 @@ class TestEventGeometryView:
         self, event_geometry_with_polygon, superuser_client, tms_api_client_mock, tenant_response
     ):
         tms_api_client_mock.get_tenant_data.return_value = tenant_response
+
         event_geometry_with_polygon.properties = {"key": "value"}
         event_geometry_with_polygon.save()
         event = event_geometry_with_polygon.event
@@ -294,6 +301,7 @@ class TestEventGeometryView:
         self, event_geometry_with_polygon, superuser_client, tms_api_client_mock, tenant_response
     ):
         tms_api_client_mock.get_tenant_data.return_value = tenant_response
+
         url = reverse("events-export")
         event_geometry_with_polygon.properties["area"] = get_polygon_info(event_geometry_with_polygon.geometry, "area")
         event_geometry_with_polygon.properties["perimeter"] = get_polygon_info(
