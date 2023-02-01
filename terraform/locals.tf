@@ -364,6 +364,7 @@ locals {
     "erer-marataba"           = "dev"
     "ilmamusi"                = "prod1"
     "sagebrush"               = "prod1"
+    "danubedelta"             = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -539,6 +540,7 @@ locals {
     "centinelascobius"        = 1
     "anac"                    = 1
     "ilmamusi"                = 1
+    "danubedelta"             = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
