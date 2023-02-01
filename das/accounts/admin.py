@@ -301,9 +301,9 @@ class KmkMasterLinkForm(forms.Form):
         body = loader.render_to_string(email_template_name, context)
         if features.tms.is_on():
             from_email = get_tenant_settings().env_settings.default_from_email
-            email_message = EmailMultiAlternatives(subject, body, from_email, [to_email])
+            email_message = EmailMultiAlternatives(subject=subject, body=body, from_email=from_email, to=[to_email])
         else:
-            email_message = EmailMultiAlternatives(subject, body, [to_email])
+            email_message = EmailMultiAlternatives(subject=subject, body=body, to=[to_email])
         if html_email_template_name is not None:
             html_email = loader.render_to_string(html_email_template_name, context)
             email_message.attach_alternative(html_email, "text/html")
