@@ -253,3 +253,38 @@ variable "tms_api_key" {
   type        = string
   default     = ""
 }
+
+variable "root_logging_level" {
+  type        = string
+  default     = ""
+}
+
+variable "django_logging_level" {
+  type        = string
+  default     = ""
+}
+
+variable "django_request_logging_level" {
+  type        = string
+  default     = ""
+}
+
+variable "django_server_logging_level" {
+  type        = string
+  default     = ""
+}
+
+variable "rtapi_logging_level" {
+  type        = string
+  default     = ""
+}
+
+variable "rtapi_socket_logging_level" {
+  type        = string
+  default     = ""
+}
+
+variable "rtapi_pubsub_logging_level" {
+  type        = string
+  default     = ""
+}
