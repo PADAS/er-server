@@ -365,6 +365,7 @@ locals {
     "ilmamusi"                = "prod1"
     "sagebrush"               = "prod1"
     "danubedelta"             = "prod1"
+    "dfo"                     = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
