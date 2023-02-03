@@ -33,6 +33,7 @@ from factories import (
     SubjectSourceFactory,
     UserFactory,
 )
+from utils.tenant import Tenant
 
 
 @pytest.fixture
@@ -328,7 +329,17 @@ def tenant_response():
 
 
 @pytest.fixture
-def tms_api_client_mock(monkeypatch):
+def tms_api_client_mock(monkeypatch, tenant_response):
     tms_client_mock = MagicMock()
-    monkeypatch.setattr("utils.middleware.tms_api_client", tms_client_mock)
+    monkeypatch.setattr("utils.tenant.providers.tms_api_client", tms_client_mock)
     return tms_client_mock
+
+
+@pytest.fixture
+def tenant(tenant_response):
+    return Tenant.from_dict(tenant_response)
+
+
+@pytest.fixture(scope="function")
+def tenant_response_for_test_case(request, tenant):
+    request.cls.tenant_response = tenant

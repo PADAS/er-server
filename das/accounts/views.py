@@ -19,6 +19,8 @@ from accounts.models import User
 from accounts.models.eula import EULA, UserAgreement
 from accounts.permissions import EulaPermission, UserObjectPermissions
 from accounts.utils import allowed_permissions
+from utils.features import features
+from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +146,9 @@ class GetActiveEulaAPIView(generics.RetrieveAPIView):
     queryset = EULA.objects.all()
 
     def dispatch(self, request, *args, **kwargs):
-        if not settings.ACCEPT_EULA:
+        ACCEPT_EULA = get_tenant_settings().env_settings.accept_eula if features.tms.is_on() else settings.ACCEPT_EULA
+
+        if not ACCEPT_EULA:
             self.headers = self.default_response_headers
             response = Response(
                 data={"message": "Site doesn't require users to accept a EULA"}, status=status.HTTP_200_OK

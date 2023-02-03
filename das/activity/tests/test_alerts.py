@@ -165,7 +165,9 @@ class TestAlerts(TestCase):
             # no email sent so outbox should still have 1 email
             self.assertEqual(len(mail.outbox), 1)
 
-    def test_checkbox_event_details_returned_with_correct_titles_on_alert(self):
+    def test_checkbox_event_details_returned_with_correct_titles_on_alert(
+        self,
+    ):
         DynamicChoice.objects.create(
             id="queens",
             model_name="observations.subject",
