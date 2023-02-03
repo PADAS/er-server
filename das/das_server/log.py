@@ -19,6 +19,14 @@ env = environ.Env(
 
 environ.Env.read_env()
 
+
+def env_default_on_empty_str(env_name, default):
+    value = env.str(env_name, default)
+    if value == "":
+        return default
+    return value
+
+
 DEFAULT_LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -35,30 +43,30 @@ DEFAULT_LOGGING = {
         "django": {
             "handlers": ["console"],
             "propagate": False,
-            "level": env.str("DJANGO_LOGGING_LEVEL", "INFO"),
+            "level": env_default_on_empty_str("DJANGO_LOGGING_LEVEL", "INFO"),
         },
         "django.request": {
             "handlers": ["console"],
             "propagate": False,
-            "level": env.str("DJANGO_REQUEST_LOGGING_LEVEL", "INFO"),
+            "level": env_default_on_empty_str("DJANGO_REQUEST_LOGGING_LEVEL", "INFO"),
         },
         "django.server": {
             "handlers": ["console"],
             "propagate": False,
-            "level": env.str("DJANGO_SERVER_LOGGING_LEVEL", "INFO"),
+            "level": env_default_on_empty_str("DJANGO_SERVER_LOGGING_LEVEL", "INFO"),
         },
         "rt_api": {
-            "level": env.str("RTAPI_LOGGING_LEVEL", "WARNING"),
+            "level": env_default_on_empty_str("RTAPI_LOGGING_LEVEL", "WARNING"),
         },
         "rt_api.socketio": {
-            "level": env.str("RTAPI_SOCKET_LOGGING_LEVEL", "WARNING"),
+            "level": env_default_on_empty_str("RTAPI_SOCKET_LOGGING_LEVEL", "WARNING"),
         },
         "rt_api.pubsub_listener": {
-            "level": env.str("RTAPI_PUBSUB_LOGGING_LEVEL", "WARNING"),
+            "level": env_default_on_empty_str("RTAPI_PUBSUB_LOGGING_LEVEL", "WARNING"),
         },
         "": {
             "handlers": ["console"],
-            "level": env.str("ROOT_LOGGING_LEVEL", "WARNING"),
+            "level": env_default_on_empty_str("ROOT_LOGGING_LEVEL", "WARNING"),
         },
         "PIL.Image": {
             "level": "WARNING",
