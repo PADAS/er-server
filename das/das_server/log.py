@@ -19,6 +19,7 @@ env = environ.Env(
 
 environ.Env.read_env()
 
+
 DEFAULT_LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
