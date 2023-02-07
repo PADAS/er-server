@@ -366,6 +366,7 @@ locals {
     "sagebrush"               = "prod1"
     "danubedelta"             = "prod1"
     "dfo"                     = "prod1"
+    "ecufpa"                  = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -542,6 +543,7 @@ locals {
     "anac"                    = 1
     "ilmamusi"                = 1
     "danubedelta"             = 1
+    "ecufpa"                  = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
