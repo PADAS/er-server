@@ -33,7 +33,7 @@ function __wait-until-pods-ready() {
 
   period="$1"
   interval="$2"
-  kubectl delete replicaset -n $namespace $(kubectl get replicaset -n $namespace -o jsonpath='{ .items[?(@.spec.replicas==0)].metadata.name }')
+  kubectl delete replicaset -n $namespace $(kubectl get replicaset -n $namespace -o jsonpath='{ .items[?(@.spec.replicas==0)].metadata.name }') || true
   for ((i=0; i<$period; i+=$interval)); do
     pods="$(kubectl get po -n $namespace -o 'jsonpath={.items[*].metadata.name}' -l das.component=api)"
     if __pods_ready $pods; then
