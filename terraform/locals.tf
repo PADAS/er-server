@@ -367,6 +367,7 @@ locals {
     "danubedelta"             = "prod1"
     "dfo"                     = "prod1"
     "ecufpa"                  = "prod1"
+    "parcnationaltai"         = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
