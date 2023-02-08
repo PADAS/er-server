@@ -1704,6 +1704,8 @@ class TrackingMetaDataExportView(APIView):
             "subject_id",
             "source_id",
             "subjectsource_id",
+            "external_id",
+            "external_name",
         ]
 
         # NOTE: nearly all the data for this call is actually found in the source and subject source, however
@@ -1748,6 +1750,8 @@ class TrackingMetaDataExportView(APIView):
                         "groups": subject_groups,
                         "subject_id": subject.id,
                         "animal_id": subject.additional.get("tm_animal_id", ""),
+                        "external_id": subject.additional.get("external_id", ""),
+                        "external_name": subject.additional.get("external_name", ""),
                     }
                 )
 

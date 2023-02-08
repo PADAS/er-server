@@ -23,6 +23,7 @@ from activity.models import EventDetails
 from choices.models import Choice, DynamicChoice
 from observations.models import Subject
 from utils.memoize import memoize
+from utils.models import getattr_jsonfield
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +74,8 @@ def _get_dynamic_choices(field_details, event=None):
     try:
         choice_criteria = json.loads(dynamic_choice.criteria)
     except json.decoder.JSONDecodeError as jde:
-        logger.exception(
-            "Error decoding criteria for dynamic choice %s. Criteria is: %s",
+        logger.warning(
+            f"Error {jde} decoding criteria for dynamic choice %s. Criteria is: %s",
             str(dynamic_choice.id),
             dynamic_choice.criteria,
         )
@@ -95,8 +96,8 @@ def _get_dynamic_choices(field_details, event=None):
             choices = choices | extra_objects
 
     for row in choices:
-        value = getattr(row, dynamic_choice.value_col, None)
-        display = getattr(row, dynamic_choice.display_col, None)
+        value = getattr_jsonfield(row, dynamic_choice.value_col, None)
+        display = getattr_jsonfield(row, dynamic_choice.display_col, None)
         options[str(value)] = str(display)
 
     if field_details["type"] == "names":
