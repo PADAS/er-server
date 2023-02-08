@@ -368,6 +368,7 @@ locals {
     "dfo"                     = "prod1"
     "ecufpa"                  = "prod1"
     "parcnationaltai"         = "prod1"
+    "shangani"                = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -545,6 +546,7 @@ locals {
     "ilmamusi"                = 1
     "danubedelta"             = 1
     "ecufpa"                  = 1
+    "shangani"                = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
