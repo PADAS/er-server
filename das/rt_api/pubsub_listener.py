@@ -88,8 +88,7 @@ def start(realtime_server):
         logger.debug("new_announcement_handler. data=%s, message=%s", data, message)
         celery.app.send_task("rt_api.tasks.handle_new_announcement", args=(data["announcement_id"],))
 
-    def pubsub_listener():
-
+    def pubsub_listener(listener_name: str):
         logger.info("Starting pubsub listener")
         subscriptions = [
             {"routing_key": "das.tracking.source.observations.new", "callback": new_observation_handler},
@@ -125,9 +124,14 @@ def start(realtime_server):
             subscription["name"] = "rt_api.{0}".format(subscription["callback"].__name__)
 
             logger.info('Adding subscription for "%s"', subscription["name"])
-        pubsub.subscribe(subscriptions)
+        try:
+            pubsub.subscribe(subscriptions)
+            logger.warning("PubSub subscriber %s shutting down", listener_name)
+        except Exception as error:
+            logger.exception("Error subscribing to pubsub, error %s", error)
 
     logger.info("Starting pubsub listener threads.")
     for x in range(5):
         logger.info("Starting pubsub listener thread (%s).", x)
-        threading.Thread(target=pubsub_listener, name=f"pubsub-listener-{x}", args=()).start()
+        name = f"pubsub-listener-{x}"
+        threading.Thread(target=pubsub_listener, name=name, args=(name,)).start()

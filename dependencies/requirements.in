@@ -15,7 +15,7 @@ arcgis2geojson==2.0.0
 bleach==4.0.0
 boto3==1.13.24
 business-rules==1.0.1
-celery==4.4.0
+celery==4.4.7
 celery_once==1.2.0
 cryptography==3.4
 cython==0.29.10
@@ -47,7 +47,6 @@ djangorestframework-gis==0.17.0
 docxtpl==0.4.6
 drf-extensions==0.7.0
 eventlet==0.30.2
-Fiona==1.8.19
 GDAL==3.4.1
 geojson==2.4.1
 geopandas==0.4.1
