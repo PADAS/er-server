@@ -4,7 +4,7 @@ from django.test import TestCase
 
 from choices.models import Choice
 from observations.forms import SubjectForm
-from observations.models import Subject, SubjectSubType, SubjectType
+from observations.models import SEX_MALE, Subject, SubjectSubType, SubjectType
 
 
 class SubjectAdditionalTest(TestCase):
@@ -25,7 +25,7 @@ class SubjectAdditionalTest(TestCase):
     def test_subject_creation(self):
         additional_data = {
             "rgb": "203, 223, 54",
-            "sex": "male",
+            "sex": SEX_MALE,
             "region": "Lewa",
             "country": "DRC",
             "tm_animal_id": "some-external-ID",
