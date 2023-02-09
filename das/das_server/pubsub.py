@@ -21,20 +21,23 @@ from utils import stats
 logger = logging.getLogger(__name__)
 
 PUBLISH_TIMEOUT = 5  # seconds
-DAS_PUBSUB_CHANNEL_NAME = 'das'
-das_exchange = Exchange(DAS_PUBSUB_CHANNEL_NAME, type='topic', durable=True)
+DAS_PUBSUB_CHANNEL_NAME = "das"
+das_exchange = Exchange(DAS_PUBSUB_CHANNEL_NAME, type="topic", durable=True)
 _pool = None
 
 
 def get_pool():
     global _pool
     if not _pool:
-        _pool = Connection(settings.PUBSUB_BROKER_URL,
-                           transport_options=settings.PUBSUB_BROKER_OPTIONS).Pool(20)
+        _pool = (
+            Connection(settings.PUBSUB_BROKER_URL, transport_options=settings.PUBSUB_BROKER_OPTIONS)
+            .ensure_connection(max_retries=5, interval_max=2)
+            .Pool(20)
+        )
     return _pool
 
 
-def publish(message, routing_key='das'):
+def publish(message, routing_key="das"):
     """Broadcast a message.
 
     :param message: JSONifyable message to send
@@ -51,11 +54,9 @@ def publish(message, routing_key='das'):
 
     # noinspection PyBroadException
     try:
-        logger.debug('publish received message: {}'
-                     '  routing_key: {}'.format(message, routing_key))
+        logger.debug("publish received message: {}" "  routing_key: {}".format(message, routing_key))
 
-        stats.increment("publish", tags=[
-                        f"routing_key:{routing_key}"], sample_rate=1.0)
+        stats.increment("publish", tags=[f"routing_key:{routing_key}"], sample_rate=1.0)
         with get_pool().acquire(block=True, timeout=PUBLISH_TIMEOUT) as conn:
             producer = conn.Producer(exchange=das_exchange)
             producer.publish(message, routing_key=routing_key)
@@ -80,15 +81,14 @@ def subscribe(subscription_list, loop_forever=True):
     This function will block, but can be run in a thread
     """
 
-    with Connection(settings.PUBSUB_BROKER_URL,
-                    transport_options=settings.PUBSUB_BROKER_OPTIONS) as conn:
+    with Connection(settings.PUBSUB_BROKER_URL, transport_options=settings.PUBSUB_BROKER_OPTIONS) as conn:
 
         consumers = []
 
         for subscription in subscription_list:
-            consumer = get_consumer(conn, subscription['routing_key'],
-                                    subscription['callback'],
-                                    name=subscription.get('name', None))
+            consumer = get_consumer(
+                conn, subscription["routing_key"], subscription["callback"], name=subscription.get("name", None)
+            )
             consumers.append(consumer)
 
         with nested(*consumers):
@@ -100,20 +100,19 @@ def subscribe(subscription_list, loop_forever=True):
                         break
 
 
-def installed_apps_subscriptions(submodule='pubsub_registry',
-                                 ignore_re='(djgeojson|django)'):
-    '''
+def installed_apps_subscriptions(submodule="pubsub_registry", ignore_re="(djgeojson|django)"):
+    """
     Automatically import {{ app_name }}.pubsub_registry modules.
     :param submodules: module name(s) within INSTALLED_APPS.
     :param ignore_re: an re to ignore installed apps by pattern.
     :return: a generator of tuples representing subscriptions.
-    '''
+    """
 
     for app_config in apps.get_app_configs():
         if re.match(ignore_re, app_config.name):
             continue
 
-        logger.debug('registering tasks for app {}'.format(app_config.name))
+        logger.debug("registering tasks for app {}".format(app_config.name))
         module_name = "{}.{}".format(app_config.name, submodule)
 
         try:
@@ -124,33 +123,28 @@ def installed_apps_subscriptions(submodule='pubsub_registry',
                     name = None
                 else:
                     routing_key, callback, name = subscription
-                logger.info('registering routing key {} to {}'
-                            ''.format(routing_key, callback.__name__))
+                logger.info("registering routing key {} to {}" "".format(routing_key, callback.__name__))
                 yield (routing_key, callback, name)
 
         except AttributeError as e:
-            logger.warning('{}.PUBSUB_SUBSCRIPTIONS should be a sequence of'
-                           ' (routing_key, callback) sequences. {}'
-                           ''.format(module_name, e))
+            logger.warning(
+                "{}.PUBSUB_SUBSCRIPTIONS should be a sequence of"
+                " (routing_key, callback) sequences. {}"
+                "".format(module_name, e)
+            )
         except ImportError:
-            logger.debug('No pubsub registrations imported for app {}'
-                         ''.format(app_config.name))
+            logger.debug("No pubsub registrations imported for app {}" "".format(app_config.name))
 
 
 def get_consumer(connection, routing_key, callback, name=None):
-    """ returns a kombu.Consumer which routes messages from connection
-     with routing_key to callback """
+    """returns a kombu.Consumer which routes messages from connection
+    with routing_key to callback"""
 
     if not name:
-        name = 'das.{0}'.format(uuid.uuid4())
+        name = "das.{0}".format(uuid.uuid4())
 
     queue = Queue(
-        name=name,
-        channel=connection,
-        exchange=das_exchange,
-        routing_key=routing_key,
-        no_ack=True,
-        auto_delete=True
+        name=name, channel=connection, exchange=das_exchange, routing_key=routing_key, no_ack=True, auto_delete=True
     )
     consumer = Consumer(connection, queues=[queue], callbacks=[callback])
     return consumer
@@ -162,13 +156,13 @@ running = True
 def stats_decorator(f, routing_key):
 
     metric_type = "mql"
-    tags = [f"route:{routing_key}",
-            f"handler:{f.__name__}"]
+    tags = [f"route:{routing_key}", f"handler:{f.__name__}"]
 
     @wraps(f)
     def wrapper(*args, **kwargs):
         stats.increment(metric_type, sample_rate=1.0, tags=tags)
         return f(*args, **kwargs)
+
     return wrapper
 
 
@@ -182,13 +176,11 @@ def start_message_queue_listeners():
 
     signal.signal(signal.SIGINT, signal_handler)
 
-    with Connection(settings.PUBSUB_BROKER_URL,
-                    transport_options=settings.PUBSUB_BROKER_OPTIONS) as conn:
+    with Connection(settings.PUBSUB_BROKER_URL, transport_options=settings.PUBSUB_BROKER_OPTIONS) as conn:
         consumers = []
 
         for routing_key, callback, name in installed_apps_subscriptions():
-            consumer = get_consumer(
-                conn, routing_key, stats_decorator(callback, routing_key), name)
+            consumer = get_consumer(conn, routing_key, stats_decorator(callback, routing_key), name)
             consumers.append(consumer)
 
         with nested(*consumers):
