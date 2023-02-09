@@ -207,7 +207,7 @@ variable "patrol_enabled" {
 
 variable "subject_region_enabled" {
   type    = string
-  default = "False"
+  default = "True"
 }
 
 variable "tableau_enabled" {

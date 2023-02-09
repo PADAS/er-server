@@ -22,6 +22,7 @@ from core.forms_utils import (
     JSONFieldFormMixin,
 )
 from observations.models import (
+    SEX_CHOICES,
     GPXTrackFile,
     Message,
     Observation,
@@ -245,9 +246,7 @@ class SubjectForm(JSONFieldFormMixin, forms.ModelForm):
             "This is a color value in r,g,b format" ' (ex. "100, 150, 102") for displaying ' "the subject's tracks."
         ),
     )
-    sex = forms.ChoiceField(
-        required=False, choices=(("", _("")), ("male", _("Male")), ("female", _("Female")), ("unknown", _("Unknown")))
-    )
+    sex = forms.ChoiceField(required=False, choices=SEX_CHOICES)
     region = forms.ChoiceField(required=False, help_text=_("Region that will be shown in the WildTracks App."))
     country = forms.ChoiceField(required=False, help_text=_("Country that will be shown in the WildTracks App."))
     tm_animal_id = forms.CharField(required=False, label=_("Animal ID"))
@@ -293,7 +292,6 @@ class SubjectForm(JSONFieldFormMixin, forms.ModelForm):
         return tuple([(key, value) for key, value in country_choices.items()])
 
     def save(self, *args, **kwargs):
-
         commit = kwargs.pop("commit", True)
         instance = super(SubjectForm, self).save(*args, commit=False, **kwargs)
 
@@ -310,7 +308,6 @@ class SubjectForm(JSONFieldFormMixin, forms.ModelForm):
 
 
 class SubjectChangeListForm(forms.ModelForm):
-
     subject_subtype = SubjectSubtypeChoiceField(
         queryset=SubjectSubType.objects.order_by("display").select_related("subject_type")
     )
@@ -433,7 +430,6 @@ class ExtendedJSONField(JSONField):
 
 
 class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
-
     lag_notification_threshold = forms.CharField(
         max_length=8, required=False, empty_value=None, help_text=lag_notification_threshold_help_text
     )
@@ -486,7 +482,6 @@ class SourceProviderForm(JSONFieldFormMixin, forms.ModelForm):
         json_date_fields = set()
 
     def clean(self):
-
         cleaned_data = super().clean()
         value = cleaned_data.get("lag_notification_threshold")
 
