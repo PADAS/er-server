@@ -25,6 +25,8 @@ from client_http import HTTPClient
 from core.tests import BaseAPITest
 from observations.admin import GPXAdmin
 from observations.models import (
+    SEX_MALE,
+    SEX_UNKNOWN,
     GPXTrackFile,
     Observation,
     Source,
@@ -238,6 +240,69 @@ class SubjectTestCase(BaseAPITest):
         self.force_authenticate(request, self.user)
         response = SubjectView.as_view()(request, id=subject_id)
         assert response.status_code == 400
+
+    def test_subject_sex_male(self):
+        data = {
+            "name": "testCheetah",
+            "subject_type": "wildlife",
+            "subject_subtype": "elephant",
+            "additional": {"sex": SEX_MALE},
+            "is_active": True,
+        }
+        url = reverse("subjects-list-view")
+        request = self.factory.post(url, data)
+
+        self.force_authenticate(request, self.user)
+        response = SubjectsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        assert "/static/elephant-black-male.svg" in response.data["image_url"]
+
+    def test_subject_sex_empty(self):
+        data = {
+            "name": "testCheetah",
+            "subject_type": "wildlife",
+            "subject_subtype": "elephant",
+            "additional": {"sex": ""},
+            "is_active": True,
+        }
+        url = reverse("subjects-list-view")
+        request = self.factory.post(url, data)
+
+        self.force_authenticate(request, self.user)
+        response = SubjectsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        assert "/static/elephant-black-male.svg" in response.data["image_url"]
+
+    def test_subject_sex_unknown(self):
+        data = {
+            "name": "testCheetah",
+            "subject_type": "wildlife",
+            "subject_subtype": "elephant",
+            "additional": {"sex": SEX_UNKNOWN},
+            "is_active": True,
+        }
+        url = reverse("subjects-list-view")
+        request = self.factory.post(url, data)
+
+        self.force_authenticate(request, self.user)
+        response = SubjectsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        assert "/static/elephant-black-male.svg" in response.data["image_url"]
+
+    def test_subject_vehicle_sex_empty(self):
+        data = {
+            "name": "testCheetah",
+            "subject_subtype": "security_vehicle",
+            "additional": {"sex": ""},
+            "is_active": True,
+        }
+        url = reverse("subjects-list-view")
+        request = self.factory.post(url, data)
+
+        self.force_authenticate(request, self.user)
+        response = SubjectsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        assert "/static/security_vehicle-black.svg" in response.data["image_url"]
 
     def test_call_subject_api(self):
         url = reverse("subjects-list-view")
@@ -467,7 +532,6 @@ class SubjectTestCase(BaseAPITest):
                 assert not o["tracks_available"]
 
     def test_gpx_file_model(self):
-
         subject = Subject.objects.get(name="Topsy")
         subject_source = SubjectSource.objects.get(subject=subject)
         data = File(open(os.path.join(TESTS_PATH, "testdata/gpsmap_data.gpx"), "rb"))
@@ -477,7 +541,6 @@ class SubjectTestCase(BaseAPITest):
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_gpxfile_upload_on_adminpage(self):
-
         subject = Subject.objects.get(name="Topsy")
         subject_source = SubjectSource.objects.get(subject=subject)
         data = File(open(os.path.join(TESTS_PATH, "testdata/gpsmap_data.gpx"), "rb"))
@@ -506,7 +569,6 @@ class SubjectTestCase(BaseAPITest):
         self.assertFalse(GPXTrackFile.objects.all())  # No gpx on database.
 
         with patch("django.db.backends.base.base.BaseDatabaseWrapper.validate_no_atomic_block", lambda a: False):
-
             template_response = self.admin.changeform_view(request)
             transaction.get_connection().run_and_clear_commit_hooks()
 
@@ -775,9 +837,8 @@ class TestSubjectsView:
         assert response.status_code == 200
         data = list(response.data)
 
-        last_position = data[0].get("last_position")
         assert data[0].get("is_static")
-        assert last_position is None
+        assert not data[0].get("tracks_available")
 
     def test_static_sensor_response_with_many_observations(self, subject_source):
         now = datetime.now(tz=pytz.utc)

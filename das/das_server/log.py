@@ -2,6 +2,8 @@ import logging
 import logging.config
 import sys
 
+import environ
+
 try:
     # local_log.py should contain an override of DEFAULT_LOGGING as seen below
     from . import local_log
@@ -9,6 +11,13 @@ except ImportError:
     local_log = None
 
 logger = logging.getLogger(__name__)
+
+env = environ.Env(
+    # set casting, default value
+    DEBUG=(bool, False)
+)
+
+environ.Env.read_env()
 
 
 DEFAULT_LOGGING = {
@@ -21,36 +30,36 @@ DEFAULT_LOGGING = {
         },
     },
     "handlers": {
-        "console": {"level": "INFO", "class": "logging.StreamHandler", "stream": sys.stdout, "formatter": "json"},
+        "console": {"class": "logging.StreamHandler", "stream": sys.stdout, "formatter": "json"},
     },
     "loggers": {
         "django": {
             "handlers": ["console"],
             "propagate": False,
-            "level": "INFO",
+            "level": env.str("DJANGO_LOGGING_LEVEL", "INFO"),
         },
         "django.request": {
             "handlers": ["console"],
             "propagate": False,
-            "level": "INFO",
+            "level": env.str("DJANGO_REQUEST_LOGGING_LEVEL", "INFO"),
         },
         "django.server": {
             "handlers": ["console"],
             "propagate": False,
-            "level": "INFO",
+            "level": env.str("DJANGO_SERVER_LOGGING_LEVEL", "INFO"),
         },
         "rt_api": {
-            "level": "INFO",
+            "level": env.str("RTAPI_LOGGING_LEVEL", "WARNING"),
         },
         "rt_api.socketio": {
-            "level": "WARNING",
+            "level": env.str("RTAPI_SOCKET_LOGGING_LEVEL", "WARNING"),
         },
         "rt_api.pubsub_listener": {
-            "level": "INFO",
+            "level": env.str("RTAPI_PUBSUB_LOGGING_LEVEL", "WARNING"),
         },
         "": {
             "handlers": ["console"],
-            "level": "WARNING",
+            "level": env.str("ROOT_LOGGING_LEVEL", "WARNING"),
         },
         "PIL.Image": {
             "level": "WARNING",
@@ -63,16 +72,14 @@ DEFAULT_LOGGING = {
 has_initialized = False
 
 
-def init_logging(service=None):
+def init_logging(service="default_logging"):
     global has_initialized
+
     if has_initialized:
         logger.debug("logging already initialized, not loading %s", service, exc_info=True)
         return
 
     has_initialized = True
-
-    if not service:
-        service = "default_logging"
 
     try:
         module = sys.modules[__name__]

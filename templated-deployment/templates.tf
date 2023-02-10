@@ -32,6 +32,9 @@ resource "template_dir" "deployments" {
     DB_PORT                         = var.db_port
     DB_USER                         = var.db_user
     DEFAULT_FROM_EMAIL              = local.from_email
+    DJANGO_LOGGING_LEVEL            = var.django_logging_level
+    DJANGO_REQUEST_LOGGING_LEVEL    = var.django_request_logging_level
+    DJANGO_SERVER_LOGGING_LEVEL     = var.django_server_logging_level
     EMAIL_HOST                      = var.email_host
     EMAIL_HOST_USER                 = var.email_host_user
     ENABLE_DEBUG                    = var.enable_debug
@@ -55,6 +58,10 @@ resource "template_dir" "deployments" {
     KUBERNETES_NAMESPACE            = var.kubernetes_namespace
     MAPPING_FEATURES_V2             = var.mapping_features_v2
     PATROL_ENABLED                  = var.patrol_enabled
+    ROOT_LOGGING_LEVEL              = var.root_logging_level
+    RTAPI_LOGGING_LEVEL             = var.rtapi_logging_level
+    RTAPI_PUBSUB_LOGGING_LEVEL      = var.rtapi_pubsub_logging_level
+    RTAPI_SOCKET_LOGGING_LEVEL      = var.rtapi_socket_logging_level
     SENDSMS_TWILIO_FROM_NUMBER      = var.sendsms_twilio_from_number
     SERVER_VERSION                  = var.SERVER_VERSION
     SHOW_STATIONARY_SUBJECTS_ON_MAP = var.show_stationary_subjects_on_map

@@ -45,7 +45,8 @@ def eventtype_fixture(db, django_user_model):
 
 
 def test_get_eventtypes_without_schema(eventtype_fixture, client, tms_api_client_mock, tenant_response):
-    tms_api_client_mock.get_tenant_data.return_value = tenant_response
+    tms_api_client_mock.client.get_tenant_data.return_value = tenant_response
+
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
     client.force_login(user)
     url = reverse("eventtypes")
@@ -56,7 +57,8 @@ def test_get_eventtypes_without_schema(eventtype_fixture, client, tms_api_client
 
 
 def test_get_eventtype_with_schema(eventtype_fixture, client, tms_api_client_mock, tenant_response):
-    tms_api_client_mock.get_tenant_data.return_value = tenant_response
+    tms_api_client_mock.client.get_tenant_data.return_value = tenant_response
+
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
 
     client.force_login(user)
@@ -69,7 +71,8 @@ def test_get_eventtype_with_schema(eventtype_fixture, client, tms_api_client_moc
 
 
 def test_post_eventtype(eventtype_fixture, client, monkeypatch, tms_api_client_mock, tenant_response):
-    tms_api_client_mock.get_tenant_data.return_value = tenant_response
+    tms_api_client_mock.client.get_tenant_data.return_value = tenant_response
+
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
 
     client.force_login(user)
@@ -81,7 +84,8 @@ def test_post_eventtype(eventtype_fixture, client, monkeypatch, tms_api_client_m
 
 
 def test_post_eventtype_with_schema(eventtype_fixture, client, tms_api_client_mock, tenant_response):
-    tms_api_client_mock.get_tenant_data.return_value = tenant_response
+    tms_api_client_mock.client.get_tenant_data.return_value = tenant_response
+
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
 
     client.force_login(user)
@@ -110,7 +114,8 @@ def test_post_eventtype_with_schema(eventtype_fixture, client, tms_api_client_mo
 
 
 def test_update_eventtype(eventtype_fixture, client, tms_api_client_mock, tenant_response):
-    tms_api_client_mock.get_tenant_data.return_value = tenant_response
+    tms_api_client_mock.client.get_tenant_data.return_value = tenant_response
+
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
     eventtype_id = str(eventtype.id)
 
@@ -127,7 +132,8 @@ def test_update_eventtype(eventtype_fixture, client, tms_api_client_mock, tenant
 
 
 def test_set_eventtype_to_inactive(eventtype_fixture, client, tms_api_client_mock, tenant_response):
-    tms_api_client_mock.get_tenant_data.return_value = tenant_response
+    tms_api_client_mock.client.get_tenant_data.return_value = tenant_response
+
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
     eventtype_id = str(eventtype.id)
 
@@ -144,7 +150,8 @@ def test_set_eventtype_to_inactive(eventtype_fixture, client, tms_api_client_moc
 
 
 def test_post_eventtype_with_bad_schema(eventtype_fixture, client, tms_api_client_mock, tenant_response):
-    tms_api_client_mock.get_tenant_data.return_value = tenant_response
+    tms_api_client_mock.client.get_tenant_data.return_value = tenant_response
+
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
 
     client.force_login(user)
@@ -162,7 +169,8 @@ def test_post_eventtype_with_bad_schema(eventtype_fixture, client, tms_api_clien
 
 
 def test_readonly_eventtype(eventtype_fixture, client, tms_api_client_mock, tenant_response):
-    tms_api_client_mock.get_tenant_data.return_value = tenant_response
+    tms_api_client_mock.client.get_tenant_data.return_value = tenant_response
+
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
 
     client.force_login(user)

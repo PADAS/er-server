@@ -37,6 +37,7 @@ class TestEventViewFilters:
         self, superuser_client, five_events_with_details, tms_api_client_mock, tenant_response
     ):
         tms_api_client_mock.get_tenant_data.return_value = tenant_response
+
         url = reverse("events")
         with patch("rest_framework.generics.mixins.ListModelMixin.list") as list_mock:
             list_mock.side_effect = InvalidTextRepresentation("This message should not reach the user")

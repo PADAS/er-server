@@ -1,10 +1,12 @@
 import json
 import logging
+from copy import deepcopy
 from datetime import datetime, timedelta
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import jsonschema
+import pytest
 import pytz
 from business_rules import actions, export_rule_data, fields, run_all, variables
 
@@ -273,7 +275,10 @@ class BusinessRulesTestCase(BaseAPITest):
 
         self.assertEqual(len(alert_actions), 1)
 
-    def test_create_eventtype_variables_class(self):
+    @pytest.mark.usefixtures("tenant_response_for_test_case")
+    @patch("accounts.views.get_tenant_settings")
+    def test_create_eventtype_variables_class(self, get_tenant_settings):
+        get_tenant_settings.return_value = deepcopy(self.tenant_response)
 
         snare_et = EventType.objects.get(value="snare_rep")
         variables_class, applies_to = _generate_aggregate_event_variables_class(
@@ -444,7 +449,6 @@ class BusinessRulesTestCase(BaseAPITest):
         return {"periods": periods}
 
     def test_for_confiscation_rep_with_select_multiple(self):
-
         # Create a carcass event with some details
         my_test_event_type = EventType.objects.get(value="confiscation_rep")
 
@@ -997,7 +1001,6 @@ class BusinessRulesTestCase(BaseAPITest):
         self.assertEqual(len(action_list), 1)
 
     def test_alert_rule_with_empty_schedule(self):
-
         # Create a carcass event with some details
         carcass_eventtype = EventType.objects.get(value="carcass_rep")
 
@@ -1202,6 +1205,7 @@ class BusinessRulesTestCase(BaseAPITest):
     @patch("utils.tenant.providers.TenantData.get")
     def test_notification_triggered_for_subject_group(self, mock_tenant_data):
         mock_tenant_data.return_value = {"envSettings": {"defaultFromEmail": "tenant_user@mail.com"}}
+
         NOTIFICATION_METHOD_EMAIL_ADDRESS = "phillip@email.com"
         notification_method = NotificationMethod.objects.create(
             title="test", owner=self.admin_user, method="email", value=NOTIFICATION_METHOD_EMAIL_ADDRESS
@@ -1289,6 +1293,7 @@ class BusinessRulesTestCase(BaseAPITest):
         self.assertIn(TEST_EVENT_TITLE, mail.outbox[0].subject)
 
     def test_notification_not_triggered_for_wrong_subject_group(self):
+
         NOTIFICATION_METHOD_EMAIL_ADDRESS = "phillip@email.com"
         notification_method = NotificationMethod.objects.create(
             title="test", owner=self.admin_user, method="email", value=NOTIFICATION_METHOD_EMAIL_ADDRESS

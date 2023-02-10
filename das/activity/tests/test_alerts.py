@@ -28,7 +28,7 @@ from activity.models import (
 from activity.signals import event_post_save
 from activity.tasks import evaluate_alert_rules
 from choices.models import DynamicChoice
-from observations.models import Subject, SubjectSubType, SubjectType
+from observations.models import SEX_FEMALE, Subject, SubjectSubType, SubjectType
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +104,6 @@ class TestAlerts(TestCase):
 
     @patch("activity.alerting.message.send_report")
     def test_sending_email_alert(self, mock_send_report):
-
         post_save.disconnect(event_post_save, sender=Event)
 
         event = Event.objects.create(title="test event", event_type=self.event_type, created_by_user=self.owner)
@@ -165,7 +164,9 @@ class TestAlerts(TestCase):
             # no email sent so outbox should still have 1 email
             self.assertEqual(len(mail.outbox), 1)
 
-    def test_checkbox_event_details_returned_with_correct_titles_on_alert(self):
+    def test_checkbox_event_details_returned_with_correct_titles_on_alert(
+        self,
+    ):
         DynamicChoice.objects.create(
             id="queens",
             model_name="observations.subject",
@@ -177,7 +178,7 @@ class TestAlerts(TestCase):
         subject_type = SubjectType.objects.create(value="Cats")
         subject_subtype = SubjectSubType.objects.create(value="queens", subject_type=subject_type)
         subject = Subject.objects.create(
-            name="Katie Kitten", subject_subtype=subject_subtype, additional={"sex": "female"}
+            name="Katie Kitten", subject_subtype=subject_subtype, additional={"sex": SEX_FEMALE}
         )
 
         et_schema = """{

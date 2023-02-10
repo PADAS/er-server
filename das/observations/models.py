@@ -159,16 +159,13 @@ class SourceGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin)
 
 
 class SourceManager(models.Manager):
-
     # Helper functions for hydrating Source and Subject for the given message.
     def ensure_source(self, *args, **kwargs):
         subject_info = kwargs.get("subject")
 
         with transaction.atomic():
-
             source, source_created = self.get_source(**kwargs)
             if source_created:
-
                 # Getting here means we've created a source.
                 # We should create a Subject for it too.
                 source.groups.set((SourceGroup.objects.get_default(),))
@@ -228,7 +225,6 @@ DEFAULT_SOURCE_PROVIDER_KEY = "default"
 
 
 def get_default_source_provider_id():
-
     return uuid.UUID(DEFAULT_SOURCE_PROVIDER_ID)
 
 
@@ -250,7 +246,6 @@ class SourceProvider(TimestampedModel):
 
 
 class Source(TimestampedModel):
-
     objects = SourceManager()
 
     """Collar, MotoTrbo, sensor, etc"""
@@ -350,7 +345,6 @@ class ObservationManager(models.Manager):
     def get_subjectsource_observations(
         self, subjectsource, since=None, until=None, limit=None, values=None, filter_flag=0, order_by=None
     ):
-
         queryset = Observation.objects.filter(
             source__subjectsource=subjectsource, source__subjectsource__assigned_range__contains=F("recorded_at")
         )
@@ -492,7 +486,6 @@ class ObservationManager(models.Manager):
 
 
 class Observation(models.Model):
-
     # Constants for filter bit-map.
     DEFAULT = 0
     EXCLUDED_MANUALLY = 1
@@ -595,7 +588,6 @@ class SubjectSourceManager(models.Manager):
     def ensure_subject_source(
         self, source, timestamp=None, subject_subtype_id=None, additional=None, subject_name=None
     ):
-
         # TODO: Deprecate the use of this function, in favor of the ensure().
         # And let the caller handle creating related objects if necessary.
 
@@ -612,7 +604,6 @@ class SubjectSourceManager(models.Manager):
         created = False
 
         if not subject_source:
-
             sub, created = Subject.objects.get_or_create(
                 subject_subtype_id=subject_subtype_id,
                 name=(subject_name or source.manufacturer_id),
@@ -677,7 +668,6 @@ class SubjectSource(models.Model):
         raise NotImplementedError("Please use .assigned_range directly to set its value.")
 
     def save(self, *args, **kwargs):
-
         # guard against "empty" assigned_range.
         if self.assigned_range == "empty":
             lower, upper = None, None
@@ -851,7 +841,6 @@ class SubjectGroup(HierarchyModel, TimestampedModel, PermissionSetHierarchyMixin
     objects = SubjectGroupManager.from_queryset(SubjectGroupQuerySet)()
 
     def get_all_subjects(self, user=None, active=None, include_from_subgroups=True, mou_expiry_date=None):
-
         min_age_days = get_minimum_allowed_age(user) or 0 if user else 0
 
         queryset = (
@@ -975,18 +964,15 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             return updated_until_filter
 
     def by_updated_since(self, updated_since):
-
         updated_since_filter = self._query_string_for_filter(updated_since=updated_since)
 
         return self.filter(updated_since_filter)
 
     def by_updated_until(self, updated_until):
-
         updated_until_filter = self._query_string_for_filter(updated_until=updated_until)
         return self.filter(updated_until_filter)
 
     def by_updated_since_until(self, updated_since, updated_until):
-
         updated_since_filter, updated_until_filter = self._query_string_for_filter(
             updated_since=updated_since, updated_until=updated_until
         )
@@ -1163,6 +1149,18 @@ class SubjectManager(models.Manager):
         return subjects
 
 
+SEX_MALE = "male"
+SEX_FEMALE = "female"
+SEX_UNKNOWN = "unknown"
+SEX_EMPTY = ""
+SEX_CHOICES = (
+    (SEX_EMPTY, _("")),
+    (SEX_MALE, _("Male")),
+    (SEX_FEMALE, _("Female")),
+    (SEX_UNKNOWN, _("Unknown")),
+)
+
+
 class Subject(TimestampedModel, PermissionSetGroupMixin):
     def clean_fields(self, exclude=None):
         return super().clean_fields(exclude)
@@ -1291,7 +1289,6 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         traj = pymet.base.Trajectory(relocs)
 
         if trajectory_filter_params is not None:
-
             speed_threshold = trajectory_filter_params.speed_KmHr
 
             # Create a relocations speed filter
@@ -1321,8 +1318,8 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
     def _image_keys(self):
         """return the preferred key first"""
         key = self.subject_subtype.value.lower()
-        sex = self.additional.get("sex", "male")
-        if sex:
+        sex = self.additional.get("sex", SEX_MALE)
+        for sex in (sex, SEX_MALE):
             yield "-".join((key, "black", sex.lower()))
             yield "-".join((key, sex.lower()))
 
@@ -1415,7 +1412,6 @@ DEFAULT_STATUS_VALUE_LOCATION = EMPTY_POINT
 
 
 class SubjectStatusManager(models.Manager):
-
     DEFAULT_STATUS_VALUES = {
         "location": DEFAULT_STATUS_VALUE_LOCATION,
         "recorded_at": DEFAULT_STATUS_VALUE_DATE,
@@ -1469,7 +1465,6 @@ class SubjectStatusManager(models.Manager):
 
         # March through the view windows.
         for key, delay_days in self.delayed_windows:
-
             if not observation:  # No more work to be done.
                 return
 
@@ -1501,7 +1496,6 @@ class SubjectStatusManager(models.Manager):
         return value
 
     def maintain_subject_status(self, subject_id):
-
         try:
             subject = Subject.objects.get(id=subject_id)
         except Subject.DoesNotExist:
@@ -1578,7 +1572,6 @@ def update_subject_status(
     delay_hours=0,
     force=False,
 ):
-
     status_updates = build_updates(
         recorded_at=recorded_at,
         location=location,
@@ -1630,7 +1623,6 @@ def transform_additional_data(additional, transform_format):
             continue
 
         if value is not None and ds not in dests:
-
             if isinstance(value, dict):  # list-ify a dict
                 value = [f"{k}:{str(v)}" for k, v in value.items()]
 
@@ -1644,7 +1636,6 @@ def transform_additional_data(additional, transform_format):
 
 
 def update_subject_status_from_observation(observation, delay_hours=0, force=False):
-
     additional = observation.additional
     transformed_data = None
 
@@ -1662,7 +1653,6 @@ def update_subject_status_from_observation(observation, delay_hours=0, force=Fal
     source = observation.source
     location = observation.location
     if additional:
-
         reported_subject_name = additional.get("subject_name")
 
         radio_state = observation.additional.get("radio_state")
@@ -1769,7 +1759,6 @@ class CommonName(TimestampedModel):
 
 
 class SubjectStatus(PermissionSetGroupMixin, TimestampedModel):
-
     ONLINE_GPS = "online-gps"
     ONLINE = "online"
     OFFLINE = "offline"

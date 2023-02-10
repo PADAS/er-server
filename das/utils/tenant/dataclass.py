@@ -35,7 +35,7 @@ class FeatureFlags:
         metadata=config(field_name="showStationarySubjectsOnMap"), default=False
     )
     show_track_days: Optional[bool] = field(metadata=config(field_name="showTrackDays"), default=False)
-    subject_region_enabled: Optional[bool] = field(metadata=config(field_name="subjectRegionEnabled"), default=False)
+    subject_region_enabled: Optional[bool] = field(metadata=config(field_name="subjectRegionEnabled"), default=True)
     tableau_default_dashboard: Optional[bool] = field(
         metadata=config(field_name="tableauDefaultDashboard"), default=False
     )

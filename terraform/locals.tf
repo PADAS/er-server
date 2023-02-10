@@ -355,12 +355,22 @@ locals {
     "conkouatidouli"          = "prod1"
     "anac"                    = "prod1"
     "stoprhinopoaching"       = "prod1"
+    "mindoro"                 = "prod-asia"
+    "amatela"                 = "prod1"
     "erer-grumeti"            = "dev"
     "erer-sabisand"           = "dev"
     "erer-thornybush"         = "dev"
     "erer-lewa"               = "dev"
     "erer-marataba"           = "dev"
     "ilmamusi"                = "prod1"
+    "sagebrush"               = "prod1"
+    "danubedelta"             = "prod1"
+    "dfo"                     = "prod1"
+    "ecufpa"                  = "prod1"
+    "parcnationaltai"         = "prod1"
+    "shangani"                = "prod1"
+    "sfgwildlifejustice"      = "prod1"
+    "sfgwellington"           = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -536,6 +546,10 @@ locals {
     "centinelascobius"        = 1
     "anac"                    = 1
     "ilmamusi"                = 1
+    "danubedelta"             = 1
+    "ecufpa"                  = 1
+    "shangani"                = 1
+    "sfgwildlifejustice"      = 1
   }
 
   db_instance_index       = lookup(local.workspace_to_database_instance, terraform.workspace, 0)

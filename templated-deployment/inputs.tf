@@ -207,7 +207,7 @@ variable "patrol_enabled" {
 
 variable "subject_region_enabled" {
   type    = string
-  default = "False"
+  default = "True"
 }
 
 variable "tableau_enabled" {
@@ -252,4 +252,39 @@ variable "tms_api_key" {
   description = "tms api key"
   type        = string
   default     = ""
+}
+
+variable "root_logging_level" {
+  type        = string
+  default     = "WARNING"
+}
+
+variable "django_logging_level" {
+  type        = string
+  default     = "INFO"
+}
+
+variable "django_request_logging_level" {
+  type        = string
+  default     = "INFO"
+}
+
+variable "django_server_logging_level" {
+  type        = string
+  default     = "INFO"
+}
+
+variable "rtapi_logging_level" {
+  type        = string
+  default     = "WARNING"
+}
+
+variable "rtapi_socket_logging_level" {
+  type        = string
+  default     = "WARNING"
+}
+
+variable "rtapi_pubsub_logging_level" {
+  type        = string
+  default     = "WARNING"
 }
