@@ -208,7 +208,6 @@ resource "google_secret_manager_secret" "er_sql_analytics_info" {
     name = local.pgb_credentials_topic[local.kubernetes_cluster_name]
   }
   # rotation block is needed to add topics
-  # use distant time as we are not currently rotating the secret
   rotation {}
 }
 
