@@ -371,6 +371,7 @@ locals {
     "shangani"                = "prod1"
     "sfgwildlifejustice"      = "prod1"
     "sfgwellington"           = "prod1"
+    "tarletonbotswana"        = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -550,6 +551,7 @@ locals {
     "ecufpa"                  = 1
     "shangani"                = 1
     "sfgwildlifejustice"      = 1
+    "tarletonbotswana"        = 1
   }
 
   db_instance_index = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
