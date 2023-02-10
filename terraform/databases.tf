@@ -209,10 +209,7 @@ resource "google_secret_manager_secret" "er_sql_analytics_info" {
   }
   # rotation block is needed to add topics
   # use distant time as we are not currently rotating the secret
-  rotation {
-    next_rotation_time = "2033-01-23T11:30:00Z"
-    rotation_period    = "315360000s"
-  }
+  rotation {}
 }
 
 resource "google_secret_manager_secret_version" "secret-version-basic" {
