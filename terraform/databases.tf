@@ -43,13 +43,13 @@ locals {
     "prod-asia" = "projects/er-reporting-prod/topics/pgb-sync-site-credentials-prod-asia"
     "dev"       = "projects/er-reporting-dev/topics/pgb-sync-site-credentials-dev"
   }
-  # Cloud function identities within er-reporting-dev/prod to be granted read access to the specific *_sql_analytics_info secret
+  # Cloud function identities to be granted read access to *_sql_analytics_info secret
   cloud_function_identity_er_reporting = {
     "prod1"     = "cfsa-credentials-prod1@er-reporting-prod.iam.gserviceaccount.com"
     "prod-asia" = "cfsa-credentials-prod-asia@er-reporting-prod.iam.gserviceaccount.com"
     "dev"       = "cfsa-credentials-dev@er-reporting-dev.iam.gserviceaccount.com"
   }
-  # Identity with which a dataproc worker node runs as
+  # Dataproc worker node identities to be granted read access to *_sql_analytics_info secret
   dataproc_identity_er_reporting = {
     "prod"      = "dataproc-instance@er-reporting-prod.iam.gserviceaccount.com"
     "prod-asia" = "dataproc-instance@er-reporting-prod.iam.gserviceaccount.com"
