@@ -596,8 +596,8 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixi
         return context
 
     def patch(self, request, *args, **kwargs):
-        subject_id = self.kwargs.get("id")
-        if "id" in request.data and request.data["id"] is not subject_id:
+        subject_id = self.kwargs["id"]
+        if "id" in request.data and request.data["id"] != subject_id:
             raise BadRequestAPIException(detail="id in patch request does not match subject_id")
         return super().patch(request, *args, **kwargs)
 
@@ -1704,6 +1704,8 @@ class TrackingMetaDataExportView(APIView):
             "subject_id",
             "source_id",
             "subjectsource_id",
+            "external_id",
+            "external_name",
         ]
 
         # NOTE: nearly all the data for this call is actually found in the source and subject source, however
@@ -1748,6 +1750,8 @@ class TrackingMetaDataExportView(APIView):
                         "groups": subject_groups,
                         "subject_id": subject.id,
                         "animal_id": subject.additional.get("tm_animal_id", ""),
+                        "external_id": subject.additional.get("external_id", ""),
+                        "external_name": subject.additional.get("external_name", ""),
                     }
                 )
 

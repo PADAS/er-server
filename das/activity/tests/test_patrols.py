@@ -3,7 +3,6 @@ import json
 import os
 import shutil
 import tempfile
-from unittest.mock import patch
 from urllib.parse import urlencode
 
 import pytest
@@ -1187,6 +1186,7 @@ class TestPatrol(BaseAPITest):
         self.assertTrue(isinstance(response.data.get("end_location").get("latitude"), float))
 
     def test_add_report_to_patrol_segment(self):
+
         print("default test patrol id: %s" % (self.default_test_patrol.id,))
         patrol_segment = dict(
             patrol_type="routine_patrol",
@@ -1508,9 +1508,7 @@ class TestPatrol(BaseAPITest):
         response = views.PatrolTypesView.as_view()(request)
         assert response.status_code == 403
 
-    @patch("utils.tenant.providers.TenantData.get")
-    def test_view_patrol_permission_can_view_patroltype(self, mock_tenant_data):
-        mock_tenant_data.return_value = self.tenant_response
+    def test_view_patrol_permission_can_view_patroltype(self):
         view_patrol_permissionset = PermissionSet.objects.get(name="View Patrols Permissions")
         self.radio_room_user.permission_sets.add(view_patrol_permissionset)
         client = Client()
@@ -1571,7 +1569,8 @@ class TestPatrol(BaseAPITest):
 
 
 def test_patrol_admin_page(django_assert_max_num_queries, client, tms_api_client_mock, tenant_response):
-    tms_api_client_mock.get_tenant_data.return_value = tenant_response
+    tms_api_client_mock.client.get_tenant_data.return_value = tenant_response
+
     user_const = dict(last_name="last", first_name="first")
     user = User.objects.create_user(
         "user", "user@test.com", "all_perms_user", is_superuser=True, is_staff=True, **user_const
@@ -1584,7 +1583,8 @@ def test_patrol_admin_page(django_assert_max_num_queries, client, tms_api_client
 
 
 def test_patrols(django_assert_max_num_queries, client, tms_api_client_mock, tenant_response):
-    tms_api_client_mock.get_tenant_data.return_value = tenant_response
+    tms_api_client_mock.client.get_tenant_data.return_value = tenant_response
+
     user_const = dict(last_name="last", first_name="first")
     user = User.objects.create_user(
         "user", "user@test.com", "all_perms_user", is_superuser=True, is_staff=True, **user_const
@@ -1596,7 +1596,8 @@ def test_patrols(django_assert_max_num_queries, client, tms_api_client_mock, ten
 
 
 def test_patrolsegments(django_assert_max_num_queries, client, tms_api_client_mock, tenant_response):
-    tms_api_client_mock.get_tenant_data.return_value = tenant_response
+    tms_api_client_mock.client.get_tenant_data.return_value = tenant_response
+
     user_const = dict(last_name="last", first_name="first")
     user = User.objects.create_user(
         "user", "user@test.com", "all_perms_user", is_superuser=True, is_staff=True, **user_const
@@ -2303,7 +2304,8 @@ class TestPatrolTrackedBySchemaView:
     def test_trackedby_permissions_for_a_subjectgroup_viewer(
         self, django_assert_max_num_queries, client, two_subject_groups, ops_user, tms_api_client_mock, tenant_response
     ):
-        tms_api_client_mock.get_tenant_data.return_value = tenant_response
+        tms_api_client_mock.client.get_tenant_data.return_value = tenant_response
+
         a_subjectgroup, b_subjectgroup = two_subject_groups
         a_subjectgroup.permission_sets.all()[0].user_set.add(ops_user)
         PatrolConfiguration.objects.first().subject_groups.add(*[a_subjectgroup, b_subjectgroup])
