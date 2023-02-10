@@ -38,10 +38,11 @@ locals {
     "prod-asia" = var.pgb_credentials_topic_prod_asia
     "dev"       = var.pgb_credentials_topic_dev
   }
-  er_reporting_credentials_cfsa = {
-    "prod1"     = var.er_reporting_cfsa_credentials_prod1
-    "prod-asia" = var.er_reporting_cfsa_credentials_prod_asia
-    "dev"       = var.er_reporting_cfsa_credentials_dev
+  # Cloud function identities within er-reporting-dev/prod to be granted read access to the specific *_sql_analytics_info secret
+  cloud_function_identity_er_reporting = {
+    "prod1"     = "cfsa-credentials-prod1@er-reporting-prod.iam.gserviceaccount.com"
+    "prod-asia" = "cfsa-credentials-prod-asia@er-reporting-prod.iam.gserviceaccount.com"
+    "dev"       = "cfsa-credentials-dev@er-reporting-dev.iam.gserviceaccount.com"
   }
   # Identity with which a dataproc worker node runs as
   dataproc_identity_er_reporting = {
@@ -244,18 +245,18 @@ resource "google_secret_manager_secret_iam_member" "ertools_cloud_build_secret_v
   member    = "serviceAccount:${var.ertools_cloud_build_identity}"
 }
 
-resource "google_secret_manager_secret_iam_member" "er_reporting_credentials_cfsa_secret_accesor" {
+resource "google_secret_manager_secret_iam_member" "cloud_function_identity_er_reporting_secret_accesor" {
   project   = data.google_project.earthranger.project_id
   role      = "roles/secretmanager.secretAccessor"
   secret_id = google_secret_manager_secret.er_sql_analytics_info.id
-  member    = "serviceAccount:${local.er_reporting_credentials_cfsa[local.kubernetes_cluster_name]}"
+  member    = "serviceAccount:${local.cloud_function_identity_er_reporting[local.kubernetes_cluster_name]}"
 }
 
-resource "google_secret_manager_secret_iam_member" "er_reporting_credentials_cfsa_secret_viewer" {
+resource "google_secret_manager_secret_iam_member" "cloud_function_identity_er_reporting_secret_viewer" {
   project   = data.google_project.earthranger.project_id
   role      = "roles/secretmanager.viewer"
   secret_id = google_secret_manager_secret.er_sql_analytics_info.id
-  member    = "serviceAccount:${local.er_reporting_credentials_cfsa[local.kubernetes_cluster_name]}"
+  member    = "serviceAccount:${local.cloud_function_identity_er_reporting[local.kubernetes_cluster_name]}"
 }
 
 resource "google_secret_manager_secret_iam_member" "dataproc_identity_er_reporting_secret_accesor" {
