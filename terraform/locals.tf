@@ -552,8 +552,8 @@ locals {
     "sfgwildlifejustice"      = 1
   }
 
-  db_instance_index       = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
-  kubernetes_cluster_name = lookup(local.this_workspaces_to_infra_workspaces, terraform.workspace, local.default_infra_workspace_when_not_mapped_here)
+  db_instance_index  = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
+  kubernetes_cluster = lookup(local.this_workspaces_to_infra_workspaces, terraform.workspace, local.default_infra_workspace_when_not_mapped_here)
 
 
 }

@@ -211,13 +211,13 @@ resource "google_secret_manager_secret" "er_sql_analytics_info" {
   labels = {
     app         = "earthranger"
     consumer    = "tableau_bi_api"
-    environment = local.kubernetes_cluster_name
+    environment = local.kubernetes_cluster
   }
   replication {
     automatic = true
   }
   topics {
-    name = local.pgbouncer_credentials_topic[local.kubernetes_cluster_name]
+    name = local.pgbouncer_credentials_topic[local.kubernetes_cluster]
   }
   # rotation block is needed to add topics
   rotation {}
@@ -231,7 +231,7 @@ resource "google_secret_manager_secret_version" "secret-version-basic" {
     "password"    = random_password.analytics_user_pass.result
     "db_host"     = local.db_instance_private_ip
     "db_name"     = local.unique_db_name
-    "environment" = local.kubernetes_cluster_name
+    "environment" = local.kubernetes_cluster
   })
 }
 
@@ -254,26 +254,26 @@ resource "google_secret_manager_secret_iam_member" "cloud_function_identity_er_r
   project   = data.google_project.earthranger.project_id
   role      = "roles/secretmanager.secretAccessor"
   secret_id = google_secret_manager_secret.er_sql_analytics_info.id
-  member    = "serviceAccount:${local.cloud_function_identity_er_reporting[local.kubernetes_cluster_name]}"
+  member    = "serviceAccount:${local.cloud_function_identity_er_reporting[local.kubernetes_cluster]}"
 }
 
 resource "google_secret_manager_secret_iam_member" "cloud_function_identity_er_reporting_secret_viewer" {
   project   = data.google_project.earthranger.project_id
   role      = "roles/secretmanager.viewer"
   secret_id = google_secret_manager_secret.er_sql_analytics_info.id
-  member    = "serviceAccount:${local.cloud_function_identity_er_reporting[local.kubernetes_cluster_name]}"
+  member    = "serviceAccount:${local.cloud_function_identity_er_reporting[local.kubernetes_cluster]}"
 }
 
 resource "google_secret_manager_secret_iam_member" "dataproc_identity_er_reporting_secret_accesor" {
   project   = data.google_project.earthranger.project_id
   role      = "roles/secretmanager.secretAccessor"
   secret_id = google_secret_manager_secret.er_sql_analytics_info.id
-  member    = "serviceAccount:${local.dataproc_identity_er_reporting[local.kubernetes_cluster_name]}"
+  member    = "serviceAccount:${local.dataproc_identity_er_reporting[local.kubernetes_cluster]}"
 }
 
 resource "google_secret_manager_secret_iam_member" "dataproc_identity_er_reporting_secret_viewer" {
   project   = data.google_project.earthranger.project_id
   role      = "roles/secretmanager.viewer"
   secret_id = google_secret_manager_secret.er_sql_analytics_info.id
-  member    = "serviceAccount:${local.dataproc_identity_er_reporting[local.kubernetes_cluster_name]}"
+  member    = "serviceAccount:${local.dataproc_identity_er_reporting[local.kubernetes_cluster]}"
 }
