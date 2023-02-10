@@ -1,6 +1,6 @@
 data "terraform_remote_state" "earthranger_app_infra" {
   backend   = "gcs"
-  workspace = local.kubernetes_cluster_name
+  workspace = local.kubernetes_cluster
   config = {
     bucket = "earthranger-app-infra-terraform-state-540d878e"
   }
