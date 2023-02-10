@@ -33,10 +33,15 @@ locals {
   analytics_role_name = "${local.unique_db_name}_analyticsrole"
   analytics_user_name = "${local.unique_db_name}_analyticsuser"
 
-  pgb_credentials_topic = {
-    "prod1"     = var.pgb_credentials_topic_prod_1
-    "prod-asia" = var.pgb_credentials_topic_prod_asia
-    "dev"       = var.pgb_credentials_topic_dev
+  /*
+  - The pub/sub topics below receive change notifications on *_sql_analytics_info secret
+  - The subscription is on a per kubernetes cluster basis
+  - The change notification helps us build a pgbouncer.ini config file
+ */
+  pgbouncer_credentials_topic = {
+    "prod1"     = "projects/er-reporting-prod/topics/pgb-sync-site-credentials-prod1"
+    "prod-asia" = "projects/er-reporting-prod/topics/pgb-sync-site-credentials-prod-asia"
+    "dev"       = "projects/er-reporting-dev/topics/pgb-sync-site-credentials-dev"
   }
   # Cloud function identities within er-reporting-dev/prod to be granted read access to the specific *_sql_analytics_info secret
   cloud_function_identity_er_reporting = {
@@ -212,7 +217,7 @@ resource "google_secret_manager_secret" "er_sql_analytics_info" {
     automatic = true
   }
   topics {
-    name = local.pgb_credentials_topic[local.kubernetes_cluster_name]
+    name = local.pgbouncer_credentials_topic[local.kubernetes_cluster_name]
   }
   # rotation block is needed to add topics
   rotation {}
