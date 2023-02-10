@@ -43,6 +43,12 @@ locals {
     "prod-asia" = var.er_reporting_cfsa_credentials_prod_asia
     "dev"       = var.er_reporting_cfsa_credentials_dev
   }
+  # Identity with which a dataproc worker node runs as
+  dataproc_identity_er_reporting = {
+    "prod"      = "dataproc-instance@er-reporting-prod.iam.gserviceaccount.com"
+    "prod-asia" = "dataproc-instance@er-reporting-prod.iam.gserviceaccount.com"
+    "dev"       = "dataproc-instance@er-reporting-dev.iam.gserviceaccount.com"
+  }
 }
 
 resource "random_string" "db_name_uniqueness" {
@@ -250,4 +256,18 @@ resource "google_secret_manager_secret_iam_member" "er_reporting_credentials_cfs
   role      = "roles/secretmanager.viewer"
   secret_id = google_secret_manager_secret.er_sql_analytics_info.id
   member    = "serviceAccount:${local.er_reporting_credentials_cfsa[local.kubernetes_cluster_name]}"
+}
+
+resource "google_secret_manager_secret_iam_member" "dataproc_identity_er_reporting_secret_accesor" {
+  project   = data.google_project.earthranger.project_id
+  role      = "roles/secretmanager.secretAccessor"
+  secret_id = google_secret_manager_secret.er_sql_analytics_info.id
+  member    = "serviceAccount:${local.dataproc_identity_er_reporting[local.kubernetes_cluster_name]}"
+}
+
+resource "google_secret_manager_secret_iam_member" "dataproc_identity_er_reporting_secret_viewer" {
+  project   = data.google_project.earthranger.project_id
+  role      = "roles/secretmanager.viewer"
+  secret_id = google_secret_manager_secret.er_sql_analytics_info.id
+  member    = "serviceAccount:${local.dataproc_identity_er_reporting[local.kubernetes_cluster_name]}"
 }
