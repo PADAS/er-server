@@ -1,8 +1,7 @@
-import datetime
 import uuid
+from datetime import timedelta
 
 import factory
-import pytz
 from factory import fuzzy
 from factory.fuzzy import BaseFuzzyAttribute
 from oauth2_provider.models import AccessToken
@@ -220,7 +219,7 @@ class ObservationFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Observation
 
-    recorded_at = fuzzy.FuzzyDateTime(datetime.datetime.now(pytz.UTC))
+    recorded_at = factory.Sequence(lambda n: timezone.now() + timedelta(minutes=n * 5))
     source = factory.SubFactory(SourceFactory)
 
     @factory.lazy_attribute
@@ -303,4 +302,4 @@ class AccessTokenFactory(factory.django.DjangoModelFactory):
 
     @factory.lazy_attribute
     def expires(self):
-        return timezone.now() + datetime.timedelta(days=1)
+        return timezone.now() + timedelta(days=1)
