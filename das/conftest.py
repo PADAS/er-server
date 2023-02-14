@@ -280,6 +280,11 @@ def observation():
 
 
 @pytest.fixture
+def five_observations():
+    return ObservationFactory.create_batch(5)
+
+
+@pytest.fixture
 def tenant_response():
     return {
         "name": "Frank test1",
