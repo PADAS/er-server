@@ -72,6 +72,7 @@ pillow==8.3.2
 psycopg2-binary==2.8.5
 pycryptodome==3.11.0
 pygdal==3.4.1.10
+pygments==2.14.0
 pymet==0.1.24
 pyproj==3.0.1
 python-dateutil==2.8.1
