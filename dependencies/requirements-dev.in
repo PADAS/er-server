@@ -26,6 +26,7 @@ py==1.11.0
 pycodestyle==2.8.0
 pylint-django==2.5.3
 pylint==2.14.5
+pytest-clarity==1.0.1
 pytest-cov==2.10.0
 pytest-django==4.5.2
 pytest-factoryboy==2.1.0
