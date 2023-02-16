@@ -178,7 +178,7 @@ djangorestframework==3.12.0
     #   django-rest-swagger
     #   djangorestframework-gis
     #   drf-extensions
-djangorestframework-gis==0.17
+djangorestframework-gis==0.17.0
     # via -r requirements.in
 dnspython==1.16.0
     # via eventlet
@@ -240,7 +240,6 @@ google-auth==1.35.0
     # via
     #   google-api-core
     #   google-api-python-client
-    #   google-auth-httplib2
     #   google-cloud-core
     #   google-cloud-storage
 google-auth-httplib2==0.0.3
@@ -278,7 +277,6 @@ httplib2==0.19.0
     # via
     #   -r requirements.in
     #   google-api-python-client
-    #   google-auth-httplib2
     #   oauth2client
 humanize==2.4.0
     # via -r requirements.in
@@ -509,8 +507,9 @@ pycryptodome==3.11.0
     # via -r requirements.in
 pygdal==3.4.1.10
     # via -r requirements.in
-pygments==2.5.2
+pygments==2.14.0
     # via
+    #   -r requirements.in
     #   ipython
     #   nbconvert
 pyjwt==1.7.1
