@@ -375,6 +375,7 @@ locals {
     "homerange"               = "prod1"
     "vilanculos"              = "prod1"
     "ntokoupikounda"          = "prod1"
+    "step"                    = "prod1"
     "mole"                    = "prod1"
   }
 
