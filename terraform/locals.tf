@@ -375,6 +375,7 @@ locals {
     "homerange"               = "prod1"
     "vilanculos"              = "prod1"
     "ntokoupikounda"          = "prod1"
+    "step"                    = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
