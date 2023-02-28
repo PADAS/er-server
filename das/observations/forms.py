@@ -360,7 +360,11 @@ def generate_sample_data(provider):
         [rows, provider.id, dt_filter, rows],
     )
 
-    [find_paths(aggregate_data, accum=accum) for observation in observations for aggregate_data in observation.agg_data]
+    [
+        find_paths(aggregate_data, accum=accum)
+        for observation in observations
+        for aggregate_data in json.loads(observation.agg_data)
+    ]
 
     for k, v in accum.items():
         accum[k] = random.sample(v, min(3, len(v)))
