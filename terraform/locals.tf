@@ -380,6 +380,11 @@ locals {
     "pnsierradeldivisor"      = "prod1"
     "rnparacas"               = "prod1"
     "coralina"                = "prod1"
+    "kalama"                  = "prod1"
+    "westgate"                = "prod1"
+    "sera"                    = "prod1"
+    "pate"                    = "prod1"
+    "kiunga"                  = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -564,6 +569,9 @@ locals {
     "mole"                    = 1
     "pnsierradeldivisor"      = 1
     "coralina"                = 1
+    "kalama"                  = 1
+    "sera"                    = 1
+    "kiunga"                  = 1
   }
 
   db_instance_index  = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
