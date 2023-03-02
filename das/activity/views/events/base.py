@@ -91,7 +91,6 @@ class EventCountView(APIView):
     queryset = Event.objects.all()
 
     def get(self, request, *args, **kwargs):
-
         queryset = Event.objects.new()
 
         event_categories = self.request.query_params.getlist("event_category", None)
@@ -168,7 +167,6 @@ class EventView(RetrieveUpdateDestroyAPIView):
         return super().get(request, *args, **kwargs)
 
     def get_serializer_context(self):
-
         query_params = self.request.query_params if self.request and hasattr(self.request, "query_params") else {}
 
         context = super().get_serializer_context()
@@ -242,9 +240,12 @@ class EventsExportView(APIView):
         reported_by_map = generate_reported_by_lookup()
         event_type_map = generate_event_type_cache()
 
+        queryset = self.get_queryset()
+        user_subjects = list(Subject.objects.by_user_subjects(self.request.user).values_list("id", flat=True))
+        queryset = queryset.filter(Q(related_subjects__isnull=True) | Q(related_subjects__in=user_subjects))
+
         for event in (
-            self.get_queryset()
-            .annotate(notes_count=Count("note"))
+            queryset.annotate(notes_count=Count("note"))
             .annotate(full_notes=StringAgg("note__text", delimiter="\n", output_field=TextField()))
             .annotate(related_subjects_count=Count("related_subjects"))
             .annotate(parent_event_serial_numbers=ArrayAgg("in_relationship__from_event__serial_number", distinct=True))
@@ -267,7 +268,6 @@ class EventsExportView(APIView):
                 "geometries__properties",
             )
         ):
-
             if event["event_type_id"] != current_event_type_data["id"]:
                 event_type = event_type_map[event["event_type_id"]]
 
@@ -414,7 +414,6 @@ class EventsExportView(APIView):
         return csv_data
 
     def get_queryset(self):
-
         # TODO: Update to allow passing last_days constraint.
 
         queryset = Event.objects.all().prefetch_related("event_type")
@@ -567,7 +566,6 @@ class EventsView(ListCreateAPIView):
         return context
 
     def get_queryset(self):
-
         query_params = self.request.query_params
 
         sort_by = query_params.get("sort_by", "-sort_at")
