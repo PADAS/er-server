@@ -385,6 +385,7 @@ locals {
     "sera"                    = "prod1"
     "pate"                    = "prod1"
     "kiunga"                  = "prod1"
+    "sintracascais"           = "prod1"
     "enarauconservancy"       = "prod1"
   }
 
