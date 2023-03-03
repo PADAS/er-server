@@ -385,6 +385,7 @@ locals {
     "sera"                    = "prod1"
     "pate"                    = "prod1"
     "kiunga"                  = "prod1"
+    "sintracascais"           = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
