@@ -1,1 +1,2 @@
-time_zone = "America/Lima"
+time_zone       = "America/Lima"
+tableau_enabled = "True"
