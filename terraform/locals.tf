@@ -386,6 +386,7 @@ locals {
     "pate"                    = "prod1"
     "kiunga"                  = "prod1"
     "sintracascais"           = "prod1"
+    "enarauconservancy"       = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
