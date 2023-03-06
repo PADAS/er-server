@@ -236,11 +236,10 @@ check_for_abandoned_workspaces: ## compare terraform workspaces against git bran
 
 .PHONY: install_er_cli
 install_er_cli: ## Instals the ER CLI used to interact with the TMS. Repo: https://github.com/PADAS/er-cli
-	@ pip3 install keyring==23.9.3 keyrings.google-artifactregistry-auth==1.1.1 && \
-		gcloud artifacts print-settings python --project=earthranger-dev --repository=core-backend --location=us-west1 > $$HOME/.pypirc && \
-		cat $$HOME/.pypirc
-	@ mkdir $$HOME/.config/pip && mkdir $$HOME/.pip
+	@ pip3 install keyring==23.9.3 keyrings.google-artifactregistry-auth==1.1.1
+	@ gcloud artifacts print-settings python --project=earthranger-dev --repository=core-backend --location=us-west1 > $$HOME/.pypirc
+	@ mkdir -p $$HOME/.config/pip && mkdir -p $$HOME/.pip
 	@ cp pip.conf $$HOME/.config/pip/pip.conf
 	@ cp pip.conf $$HOME/.pip/pip.conf
-	@ pip3 install earthranger-cli
+	@ pip3 install earthranger-cli==0.0.2
 	@ echo "Successfully installed the er cli"
