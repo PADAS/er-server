@@ -316,6 +316,8 @@ jobs:
     executor: 'default'
     steps:
       - 'checkout'
+      - 'activate_google_service_account'
+      - 'export_google_credentials'
       - run: cd infra-automation && make install_er_cli
 
 workflows:
