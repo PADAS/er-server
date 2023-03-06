@@ -353,7 +353,7 @@ workflows:
   # Build for all branches except develop and release.
   # Include a review step.
     jobs:
-      - build_sphinx_docs:
+      - install_er_cli:
           filters:
             branches:
               only:
