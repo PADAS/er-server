@@ -240,13 +240,7 @@ install_er_cli: ## Instals the ER CLI used to interact with the TMS. Repo: https
 		gcloud artifacts print-settings python --project=earthranger-dev --repository=core-backend --location=us-west1 > $$HOME/.pypirc && \
 		cat $$HOME/.pypirc
 	@ mkdir $$HOME/.config/pip && mkdir $$HOME/.pip
-	@ cat << EOF > $$HOME/.config/pip/pip.conf
-		[global]
-			index-url = https://us-west1-python.pkg.dev/earthranger-dev/core-backend/simple/
-		EOF
-	@ cat << EOF > $$HOME/.pip/pip.conf
-		[global]
-			index-url = https://us-west1-python.pkg.dev/earthranger-dev/core-backend/simple/
-		EOF
+	@ cp pip.conf $$HOME/.config/pip/pip.conf
+	@ cp pip.conf $$HOME/.pip/pip.conf
 	@ pip3 install earthranger-cli
 	@ echo "Successfully installed the er cli"
