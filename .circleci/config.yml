@@ -315,7 +315,7 @@ jobs:
   install_er_cli:
     executor: 'default'
     steps:
-      - run: make install_er_cli
+      - run: cd infra-automation && make install_er_cli
 
 workflows:
   version: 2
