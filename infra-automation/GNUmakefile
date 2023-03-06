@@ -233,3 +233,10 @@ check_for_abandoned_workspaces: ## compare terraform workspaces against git bran
 	@ [ -n "$$CI" ] || (git remote update --prune)
 	@ git branch --list --remote | awk -F / '{print $$NF}' | sort > $(vulcan_path)/branches
 	@ export maybe_orphans="$$(comm -23 $(vulcan_path)/workspaces $(vulcan_path)/branches | grep -v default)"; if [ -n "$$maybe_orphans" ]; then printf "The following workspaces do not have corresponding branches:\n%s\n" "$$maybe_orphans" && exit 1; fi
+
+.PHONY: install_tms_utility
+install_tms_utility: ## Instals the ER CLI used to interact with the TMS. Repo: https://github.com/PADAS/er-cli
+	@ pip install keyring==23.9.3 keyrings.google-artifactregistry-auth==1.1.1 && \
+		gcloud artifacts print-settings python --project=earthranger-dev --repository=core-backend --location=us-west1 && \
+		pip install earthranger-cli && \
+		echo "Successfully installed the er cli"
