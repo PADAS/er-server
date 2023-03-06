@@ -179,7 +179,7 @@ commands:
 executors:
   default:
     docker:
-      - image: 'google/cloud-sdk:315.0.0'
+      - image: 'google/cloud-sdk:420.0.0'
         auth:
               username: erdockerhub
               password: $DOCKERHUB_PASSWORD
