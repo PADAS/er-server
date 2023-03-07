@@ -2,11 +2,15 @@ import json
 
 import pytest
 
-from django.contrib.gis.geos import Polygon
+from django.contrib.gis.geos import MultiPoint, Point, Polygon
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 
 from activity.models import Event, EventGeometry, EventType
+from analyzers.models import FeatureProximityAnalyzerConfig
+from analyzers.proximity import FeatureProximityAnalyzer
+from mapping.models import SpatialFeature
 from utils.gis import get_polygon_info
 
 
@@ -298,3 +302,70 @@ class TestEventGeometryView:
         assert "3215419796603.78" in content
         assert "Perimeter" in content
         assert "8791536.63" in content
+
+
+@pytest.mark.django_db
+class TestEventsExportView:
+    @pytest.fixture
+    def subject_source_with_proximity_analyzer_configured(
+        self,
+        subject_source,
+        spatial_feature_type,
+        subject_group_without_permissions,
+        spatial_feature_group_static,
+    ):
+        subject = subject_source.subject
+        subject_source.source
+        subject_group_without_permissions.subjects.add(subject)
+
+        spatial_feature = SpatialFeature.objects.create(
+            feature_type=spatial_feature_type,
+            feature_geometry=MultiPoint(Point(-103, 20)),
+        )
+        spatial_feature_group_static.features.add(spatial_feature)
+        FeatureProximityAnalyzerConfig.objects.create(
+            name="Test Feature Proximity Analyzer",
+            subject_group=subject.groups.first(),
+            threshold_dist_meters=150.0,
+            is_active=True,
+            proximal_features=spatial_feature_group_static,
+        )
+
+        return subject_source
+
+    def test_event_export_view_filters_by_user_permission(
+        self, superuser_client, ops_user, client, subject_source_with_proximity_analyzer_configured, five_observations
+    ):
+        url = reverse("events-export")
+        subject = subject_source_with_proximity_analyzer_configured.subject
+        source = subject_source_with_proximity_analyzer_configured.source
+        client.force_login(ops_user)
+        self._setup_observations(source, five_observations)
+        self._analyze_subject(subject)
+
+        superuser_response = superuser_client.get(url)
+        superuser_report = self._get_response_content(superuser_response)
+        user_response = client.get(url)
+        user_report = self._get_response_content(user_response)
+
+        assert superuser_response.status_code == status.HTTP_200_OK
+        assert user_response.status_code == status.HTTP_200_OK
+        assert len(superuser_report) == 2
+        assert len(user_report) == 1
+
+    def _setup_observations(self, source, observations):
+        locations = Point(-103, 20.001155774646055), Point(-103, 20.001798483879462)
+        now = timezone.now()
+        for count, location, observation in zip((1, 2), locations, observations):
+            recorded_at = now - timezone.timedelta(minutes=count * 5)
+            observation.location = location
+            observation.source = source
+            observation.recorded_at = recorded_at
+            observation.save()
+
+    def _analyze_subject(self, subject):
+        for analyzer in FeatureProximityAnalyzer.get_subject_analyzers(subject):
+            analyzer.analyze()
+
+    def _get_response_content(self, response):
+        return [line.decode() for line in response.content.split(b"\r\n") if line]
