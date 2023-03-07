@@ -604,6 +604,14 @@ def tenant_document_cache_client_mock(monkeypatch, tenant_response):
 
 
 @pytest.fixture
+def memory_store_client_mock(monkeypatch, tenant_response):
+    memory_store_client_mock = MagicMock()
+    memory_store_client_mock.get_key.return_value = json.dumps(tenant_response)
+    monkeypatch.setattr("utils.tenant.providers.memory_store_client", memory_store_client_mock)
+    return memory_store_client_mock
+
+
+@pytest.fixture
 def tms_api_client_mock(monkeypatch, tenant_response):
     tms_client_mock = MagicMock()
     monkeypatch.setattr("utils.tenant.providers.tms_api_client", tms_client_mock)

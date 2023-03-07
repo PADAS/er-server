@@ -17,6 +17,8 @@ from utils.tenant.providers import (
 
 DOMAIN = "zoo.com"
 
+DOMAIN = "zoo.com"
+
 
 @pytest.mark.skipif(features.tms.is_on() is False, reason="TMS feature flag is off")
 class TestTenantData:

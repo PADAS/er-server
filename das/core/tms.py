@@ -92,6 +92,7 @@ class HTTPClient(BaseClient):
 
     def get_tenant_data(self, lookup: str):
         params = self._get_default_param()
+        params["should-refresh-cache"] = True
         try:
             response = self._get(f"tenants/{lookup}", params=params)
         except RequestException as request_exception:
