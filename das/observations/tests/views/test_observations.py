@@ -1,3 +1,4 @@
+import json
 import random
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
@@ -242,7 +243,9 @@ class ObservationViewTestCase(BaseAPITest):
 
 @pytest.mark.django_db
 class TestObservationsFilterView:
-    def test_filter_by_subject_ascending(self, five_observations, superuser_client, subject_source):
+    def test_filter_by_subject_ascending(
+        self, five_observations, superuser_client, subject_source, tenant_response, memory_store_client_mock
+    ):
         subject = subject_source.subject
         source = subject_source.source
         url = reverse("observations-list-view") + f"?subject_id={subject.id}"
@@ -256,7 +259,9 @@ class TestObservationsFilterView:
         assert response.data["count"] == 5
         assert waited_order_id == [str(item.get("id")) for item in response.data["results"]]
 
-    def test_filter_by_subject_descending(self, five_observations, superuser_client, subject_source):
+    def test_filter_by_subject_descending(
+        self, five_observations, superuser_client, subject_source, tenant_response, memory_store_client_mock
+    ):
         subject = subject_source.subject
         source = subject_source.source
         url = reverse("observations-list-view") + f"?subject_id={subject.id}&sort_by=-recorded_at"

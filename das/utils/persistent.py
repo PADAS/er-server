@@ -4,52 +4,62 @@ import redis
 
 
 class PersistentStorage(ABC):
-    """ Interface for implementation of key, value engines like Redis, MongoDB. """
+    """Interface for implementation of key, value engines like Redis, MongoDB."""
 
     @abstractmethod
     def insert_key(self, key, value, expiration):
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def get_key(self, key):
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def delete_key(self, key):
-        pass
+        raise NotImplementedError
 
 
-class PersistentStorageWitSortedSet(PersistentStorage):
-    """ Interface for implementation of key, values and sorted set engines like Redis. """
+class PersistentStorageReadOnly(ABC):
+    @abstractmethod
+    def get_key(self, key):
+        raise NotImplementedError
+
+
+class PersistentStorageWithSortedSet(PersistentStorage):
+    """Interface for implementation of key, values and sorted set engines like Redis."""
 
     @abstractmethod
     def insert_in_sorted_set(self, key, value, score):
-        pass
+        raise NotImplementedError
 
     def get_size_sorted_set(self, key):
-        pass
+        raise NotImplementedError
 
     def get_latest_item_in_sorted_set(self, key):
-        pass
+        raise NotImplementedError
 
     def get_sorted_set(self, key):
-        pass
+        raise NotImplementedError
 
 
-class RedisStorage(PersistentStorageWitSortedSet):
+class RedisStorage(PersistentStorageWithSortedSet):
     def __init__(self, config):
         self.host = config["HOST"]
         self.port = config["PORT"]
-        self._connection = redis.Redis(host=self.host, port=self.port)
+        self.db = config["DATABASE"]
+        self._connection = redis.Redis(host=self.host, port=self.port, db=self.db)
 
-    def insert_key(self, key, value, expiration=3600):
-        self._connection.set(key, value, expiration)
+    def insert_key(self, key, value, ttl=3600):
+        self._connection.set(key, value, ttl)
 
     def get_key(self, key):
         return self._connection.get(key)
 
     def delete_key(self, key):
         return self._connection.delete(key)
+
+    def insert_set(self, key, value, ttl=3600):
+        self._connection.setex(name=key, time=ttl, value=value)
 
     def insert_in_sorted_set(self, key, value, score):
         self._connection.zadd(key, {value: score})
@@ -67,3 +77,16 @@ class RedisStorage(PersistentStorageWitSortedSet):
 
     def slice_sorted_set(self, key, maximum):
         self._connection.zremrangebyscore(key, min=0, max=maximum)
+
+
+class RedisStorageReadOnly(PersistentStorageReadOnly):
+    def __init__(self, config):
+        self.host = config["HOST"]
+        self.database = int(config["DATABASE"])
+        self.api_key = config["API_KEY"]
+        self.port = int(config["PORT"])
+        self._pool = redis.ConnectionPool(host=self.host, port=self.port, db=self.database)
+        self._connection = redis.Redis(connection_pool=self._pool, password=self.api_key, health_check_interval=10)
+
+    def get_key(self, key):
+        return self._connection.get(key)

@@ -38,3 +38,4 @@ class ClientProxy:
 
 persistent_storage = ClientProxy(config=settings.PERSISTENT_STORAGE, service_name="PERSISTENT_STORAGE")
 tms_api_client = ClientProxy(config=settings.TMS_API, service_name="TMS_API")
+memory_store_client = ClientProxy(config=settings.MEMORY_STORE, service_name="MEMORY_STORE")

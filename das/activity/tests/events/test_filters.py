@@ -11,9 +11,8 @@ from rest_framework import status
 @pytest.mark.django_db
 class TestEventViewFilters:
     def test_filter_param_is_not_vulnerable_to_sql_injection(
-        self, superuser_client, five_events_with_details, tms_api_client_mock, tenant_response
+        self, superuser_client, five_events_with_details, memory_store_client_mock, tenant_response
     ):
-        tms_api_client_mock.get_tenant_data.return_value = tenant_response
         url = reverse("events")
         term = (
             "'||(SELECT (CHR(97)||CHR(102)||CHR(107)||CHR(68)) WHERE 7152=7152 AND 8130=CAST((CHR(113)||CHR(106)||"
@@ -34,9 +33,8 @@ class TestEventViewFilters:
         assert response.data["count"] == 0
 
     def test_filter_raises_invalid_text_representation(
-        self, superuser_client, five_events_with_details, tms_api_client_mock, tenant_response
+        self, superuser_client, five_events_with_details, memory_store_client_mock, tenant_response
     ):
-        tms_api_client_mock.get_tenant_data.return_value = tenant_response
 
         url = reverse("events")
         with patch("rest_framework.generics.mixins.ListModelMixin.list") as list_mock:

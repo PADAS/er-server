@@ -421,7 +421,6 @@ importlib-metadata==1.5.0
     #   flake8
     #   keyring
     #   kombu
-    #   pep517
     #   pluggy
     #   pre-commit
     #   pytest
@@ -898,7 +897,7 @@ rasterstats==0.13.1
     # via
     #   -r ./requirements.txt
     #   pymet
-redis==3.2.0
+redis==3.3.0
     # via
     #   -r ./requirements.txt
     #   celery-once
@@ -1052,7 +1051,6 @@ toml==0.10.2
     #   autopep8
     #   black
     #   dparse
-    #   pep517
     #   pre-commit
 tomli==1.2.2
     # via
@@ -1156,7 +1154,6 @@ zipp==3.0.0
     # via
     #   -r ./requirements.txt
     #   importlib-metadata
-    #   pep517
 zope-event==4.5.0
     # via
     #   -r ./requirements.txt
