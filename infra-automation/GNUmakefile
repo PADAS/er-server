@@ -243,5 +243,5 @@ install_er_cli: ## Instals the ER CLI used to interact with the TMS. Repo: https
 	# @ cp pip.conf $$HOME/.pip/pip.conf
 	@ echo $$ENCODED_GOOGLE_CREDENTIALS | base64 -d > google_credentials.json && \
 		export GOOGLE_APPLICATION_CREDENTIALS='/root/project/infra-automation/google_credentials.json' && \
-		pip3 install earthranger-cli==0.0.2
+		pip3 install earthranger-cli==0.0.2 --extra-index-url https://us-west1-python.pkg.dev/earthranger-dev/core-backend/simple/
 	@ echo "Successfully installed the er cli"
