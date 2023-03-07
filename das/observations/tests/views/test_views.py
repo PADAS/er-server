@@ -1,4 +1,5 @@
 import datetime
+import json
 import random
 from datetime import timedelta
 from typing import NamedTuple
@@ -250,7 +251,6 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         self.assertEqual(len(response.data), 2)
 
     def test_subjectsview_having_perms_via_sourcegroup(self):
-
         expected_subject_name = "ele no. 2"
         # Fixtures for testing subject access via source-group.
         user_with_sourcegroup_access = User.objects.create_user(
@@ -433,9 +433,7 @@ def subject_with_month_long_track(db, user_with_one_week_track_perms):
     return UserSubject(user_with_one_week_track_perms, subject)
 
 
-def test_one_week_track_permissions(subject_with_month_long_track, client, tms_api_client_mock, tenant_response):
-    tms_api_client_mock.client.get_tenant_data.return_value = tenant_response
-
+def test_one_week_track_permissions(subject_with_month_long_track, client, tenant_response, memory_store_client_mock):
     now = datetime.datetime.now(tz=datetime.timezone.utc)
     oldest_time = now - datetime.timedelta(days=31)
 
@@ -542,9 +540,7 @@ class TestSourceView:
 class TestFlattenObservationsView:
     FLATTEN_URL = reverse("flatten-observations")
 
-    def test_subject_without_observations(self, subject, superuser_client, tms_api_client_mock, tenant_response):
-        tms_api_client_mock.client.get_tenant_data.return_value = tenant_response
-
+    def test_subject_without_observations(self, subject, superuser_client, tenant_response, memory_store_client_mock):
         response = superuser_client.get(
             self.FLATTEN_URL, {"subject_id": f"{subject.id}", "created_after": "2022-10-18T14:49:15.869490+00:00"}
         )
@@ -552,9 +548,9 @@ class TestFlattenObservationsView:
         assert response.status_code == status.HTTP_200_OK
         assert response.data == []
 
-    def test_subject_with_observations(self, superuser_client, subject_source, tms_api_client_mock, tenant_response):
-        tms_api_client_mock.client.get_tenant_data.return_value = tenant_response
-
+    def test_subject_with_observations(
+        self, superuser_client, subject_source, tenant_response, memory_store_client_mock
+    ):
         now = datetime.datetime.now(tz=pytz.utc)
         source = subject_source.source
         for count in range(1, 6):

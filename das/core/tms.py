@@ -20,6 +20,7 @@ class HTTPClient(BaseClient):
 
     def get_tenant_data(self, domain: str):
         params = self._get_default_param()
+        params["should-refresh-cache"] = True
         try:
             response = self._get(f"tenants/{domain}", params=params)
         except RequestException as request_exception:

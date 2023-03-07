@@ -57,6 +57,10 @@ resource "template_dir" "deployments" {
     KML_FEED_TITLE                  = var.kml_feed_title
     KUBERNETES_NAMESPACE            = var.kubernetes_namespace
     MAPPING_FEATURES_V2             = var.mapping_features_v2
+    MEMORY_STORE_HOST               = var.memory_store_host
+    MEMORY_STORE_DATABASE           = var.memory_store_database
+    MEMORY_STORE_API_KEY           = var.memory_store_api_key
+    MEMORY_STORE_PORT               = var.memory_store_port
     PATROL_ENABLED                  = var.patrol_enabled
     ROOT_LOGGING_LEVEL              = var.root_logging_level
     RTAPI_LOGGING_LEVEL             = var.rtapi_logging_level

@@ -288,3 +288,27 @@ variable "rtapi_pubsub_logging_level" {
   type        = string
   default     = "WARNING"
 }
+
+variable "memory_store_host" {
+  description = "memory store host"
+  type        = string
+  default     = ""
+}
+
+variable "memory_store_database" {
+  description = "memory store database"
+  type        = string
+  default     = "0"
+}
+
+variable "memory_store_api_key" {
+  description = "memory store password"
+  type        = string
+  default     = ""
+}
+
+variable "memory_store_port" {
+  description = "memory store port"
+  type        = string
+  default     = ""
+}

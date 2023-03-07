@@ -147,3 +147,13 @@ resource "kubernetes_secret" "tms_dev_api_key" {
     tms_dev_api_key = data.google_secret_manager_secret_version.tms_dev_api_key.secret_data
   }
 }
+
+resource "kubernetes_secret" "memory_store_api_key" {
+  metadata {
+    name      = "memory-store-api-key"
+    namespace = kubernetes_namespace.this.metadata.0.name
+  }
+  data = {
+    memory_store_api_key = data.google_secret_manager_secret_version.memory_store_api_key.secret_data
+  }
+}

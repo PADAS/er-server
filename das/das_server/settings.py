@@ -594,13 +594,21 @@ GEO_PERMISSION_RADIUS_METERS = 3704
 GEO_PERMISSION_SPEED_KM_H = 75
 GEO_PERMISSION_VIOLATION_BAN_DURATION_MIN = 10
 
-PERSISTENT_STORAGE = {"CLIENT": "utils.persistent.RedisStorage", "HOST": "redis", "PORT": "6379"}
+PERSISTENT_STORAGE = {"CLIENT": "utils.persistent.RedisStorage", "HOST": "redis", "PORT": "6379", "DATABASE": 0}
 
 TMS_API = {
     "CLIENT": "core.tms.HTTPClient",
     "HOST": os.getenv("TMS_API_HOST", ""),
     "API_VERSION": os.getenv("TMS_API_VERSION", "v1.0"),
     "API_KEY": os.getenv("TMS_API_KEY", "secret"),
+}
+
+MEMORY_STORE = {
+    "CLIENT": "utils.persistent.RedisStorageReadOnly",
+    "HOST": os.getenv("MEMORY_STORE_HOST", "10.0.80.2"),
+    "PORT": os.getenv("MEMORY_STORE_PORT", 6379),
+    "DATABASE": os.getenv("MEMORY_STORE_DATABASE", 0),
+    "API_KEY": os.getenv("MEMORY_STORE_API_KEY", ""),
 }
 
 DISABLE_STATSD = True
