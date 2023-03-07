@@ -7,9 +7,9 @@ locals {
       db_password_path       = "earthranger_app_infra_postgres_server_${local.db_secret_path}"
     },
     {
-      db_instance            = data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_name,
-      db_instance_private_ip = data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_private_ip,
-      db_password_path       = "earthranger_app_infra_postgres_server2_${local.db_secret_path}"
+      db_instance            = local.db_instance_index == 1 ? data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_name : "",
+      db_instance_private_ip = local.db_instance_index == 1 ? data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_private_ip : "",
+      db_password_path       = local.db_instance_index == 1 ? "earthranger_app_infra_postgres_server2_${local.db_secret_path}" : ""
     },
     {
       db_instance            = terraform.workspace == "kws" ? data.terraform_remote_state.earthranger_app_infra.outputs.kws_instance_name : "",
@@ -18,7 +18,7 @@ locals {
     }
   ]
 
-  db_secret_path         = data.terraform_remote_state.earthranger_app_infra.outputs.db_secret_path
+  db_secret_path = data.terraform_remote_state.earthranger_app_infra.outputs.db_secret_path
 
   sanitized_db_name      = lower(substr(replace(terraform.workspace, "/[^A-Za-z0-9_]/", "_"), 0, 24))
   unique_db_name         = "${local.sanitized_db_name}_${random_string.db_name_uniqueness.result}"
@@ -27,11 +27,34 @@ locals {
   db_instance            = element(local.db_instances, local.db_instance_index).db_instance
   db_instance_private_ip = element(local.db_instances, local.db_instance_index).db_instance_private_ip
   db_password_gsm_id     = replace(element(local.db_instances, local.db_instance_index).db_password_path, "/[^A-Za-z0-9_]/", "_")
-  migration_role_name = "${local.unique_db_name}_migrationrole"
-  migration_user_name = "${local.unique_db_name}_migrationuser"
+  migration_role_name    = "${local.unique_db_name}_migrationrole"
+  migration_user_name    = "${local.unique_db_name}_migrationuser"
 
   analytics_role_name = "${local.unique_db_name}_analyticsrole"
   analytics_user_name = "${local.unique_db_name}_analyticsuser"
+
+  /*
+  - The pub/sub topics below receive change notifications on *_sql_analytics_info secret
+  - The subscription is on a per kubernetes cluster basis
+  - The change notification helps us build a pgbouncer.ini config file
+ */
+  pgbouncer_credentials_topic = {
+    "prod1"     = "projects/er-reporting-prod/topics/pgb-sync-site-credentials-prod1"
+    "prod-asia" = "projects/er-reporting-prod/topics/pgb-sync-site-credentials-prod-asia"
+    "dev"       = "projects/er-reporting-dev/topics/pgb-sync-site-credentials-dev"
+  }
+  # Cloud function identities to be granted read access to *_sql_analytics_info secret
+  cloud_function_identity_er_reporting = {
+    "prod1"     = "cfsa-credentials-prod1@er-reporting-prod.iam.gserviceaccount.com"
+    "prod-asia" = "cfsa-credentials-prod-asia@er-reporting-prod.iam.gserviceaccount.com"
+    "dev"       = "cfsa-credentials-dev@er-reporting-dev.iam.gserviceaccount.com"
+  }
+  # Dataproc worker node identities to be granted read access to *_sql_analytics_info secret
+  dataproc_identity_er_reporting = {
+    "prod"      = "dataproc-instance@er-reporting-prod.iam.gserviceaccount.com"
+    "prod-asia" = "dataproc-instance@er-reporting-prod.iam.gserviceaccount.com"
+    "dev"       = "dataproc-instance@er-reporting-dev.iam.gserviceaccount.com"
+  }
 }
 
 resource "random_string" "db_name_uniqueness" {
@@ -186,16 +209,71 @@ resource "google_secret_manager_secret" "er_sql_analytics_info" {
   project   = data.google_project.earthranger.project_id
 
   labels = {
-    app      = "earthranger"
-    consumer = "tableau_bi_api"
+    app         = "earthranger"
+    consumer    = "tableau_bi_api"
+    environment = local.kubernetes_cluster
   }
   replication {
     automatic = true
   }
+  topics {
+    name = local.pgbouncer_credentials_topic[local.kubernetes_cluster]
+  }
+  # rotation block is needed to add topics
+  rotation {}
 }
 
 resource "google_secret_manager_secret_version" "secret-version-basic" {
   secret = google_secret_manager_secret.er_sql_analytics_info.id
 
-  secret_data = "{\"user\":\"${google_sql_user.analytics_user.name}\", \"password\":\"${random_password.analytics_user_pass.result}\"}"
+  secret_data = jsonencode({
+    "user"        = google_sql_user.analytics_user.name
+    "password"    = random_password.analytics_user_pass.result
+    "db_host"     = local.db_instance_private_ip
+    "db_name"     = local.unique_db_name
+    "environment" = local.kubernetes_cluster
+  })
+}
+
+# Grants cloud build identity on earthranger-tools project access to *_sql_analytics_info secret
+resource "google_secret_manager_secret_iam_member" "ertools_cloud_build_secret_accesor" {
+  project   = data.google_project.earthranger.project_id
+  role      = "roles/secretmanager.secretAccessor"
+  secret_id = google_secret_manager_secret.er_sql_analytics_info.id
+  member    = "serviceAccount:${var.ertools_cloud_build_identity}"
+}
+
+resource "google_secret_manager_secret_iam_member" "ertools_cloud_build_secret_viewer" {
+  project   = data.google_project.earthranger.project_id
+  role      = "roles/secretmanager.viewer"
+  secret_id = google_secret_manager_secret.er_sql_analytics_info.id
+  member    = "serviceAccount:${var.ertools_cloud_build_identity}"
+}
+
+resource "google_secret_manager_secret_iam_member" "cloud_function_identity_er_reporting_secret_accesor" {
+  project   = data.google_project.earthranger.project_id
+  role      = "roles/secretmanager.secretAccessor"
+  secret_id = google_secret_manager_secret.er_sql_analytics_info.id
+  member    = "serviceAccount:${local.cloud_function_identity_er_reporting[local.kubernetes_cluster]}"
+}
+
+resource "google_secret_manager_secret_iam_member" "cloud_function_identity_er_reporting_secret_viewer" {
+  project   = data.google_project.earthranger.project_id
+  role      = "roles/secretmanager.viewer"
+  secret_id = google_secret_manager_secret.er_sql_analytics_info.id
+  member    = "serviceAccount:${local.cloud_function_identity_er_reporting[local.kubernetes_cluster]}"
+}
+
+resource "google_secret_manager_secret_iam_member" "dataproc_identity_er_reporting_secret_accesor" {
+  project   = data.google_project.earthranger.project_id
+  role      = "roles/secretmanager.secretAccessor"
+  secret_id = google_secret_manager_secret.er_sql_analytics_info.id
+  member    = "serviceAccount:${local.dataproc_identity_er_reporting[local.kubernetes_cluster]}"
+}
+
+resource "google_secret_manager_secret_iam_member" "dataproc_identity_er_reporting_secret_viewer" {
+  project   = data.google_project.earthranger.project_id
+  role      = "roles/secretmanager.viewer"
+  secret_id = google_secret_manager_secret.er_sql_analytics_info.id
+  member    = "serviceAccount:${local.dataproc_identity_er_reporting[local.kubernetes_cluster]}"
 }

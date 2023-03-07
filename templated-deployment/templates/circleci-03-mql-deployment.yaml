@@ -37,11 +37,8 @@ spec:
         name: das-mql
         resources:
           requests:
-            cpu: "75m"
-            memory: "150Mi"
-#          limits:
-#            cpu: "500m"
-#            memory: "4000Mi"
+            cpu: "5m"
+            memory: "270Mi"
         livenessProbe:
           exec:
             command:
@@ -137,3 +134,7 @@ spec:
         env:
         - name: SERVICE_NAME
           value: "mql_server"
+        resources:
+          requests:
+            cpu: "5m"
+            memory: "15Mi"

@@ -1,8 +1,9 @@
-from core.models import models, TimestampedModel
-from observations.models import Subject
 import uuid
-from django.contrib.postgres.fields import JSONField
+
 from django.contrib.postgres.fields import ArrayField
+
+from core.models import TimestampedModel, models
+from observations.models import Subject
 
 
 class SubjectSpeedProfile(TimestampedModel):
@@ -18,7 +19,7 @@ class SpeedDistro(TimestampedModel):
     The distro percentiles/parameters are only valid for the corresponding schedule
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    percentiles = JSONField(blank=True, default=dict)
+    percentiles = models.JSONField(blank=True, default=dict)
     subject_speed_profile = models.ForeignKey(to=SubjectSpeedProfile,
                                               on_delete=models.CASCADE,
                                               related_name='SpeedDistros',

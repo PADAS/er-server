@@ -38,10 +38,7 @@ spec:
         resources:
           requests:
             cpu: "200m"
-            memory: "500Mi"
-#          limits:
-#            cpu: "600m"
-#            memory: "4000Mi"
+            memory: "373Mi"
         ports:
           - containerPort: 8000
         readinessProbe:
@@ -162,6 +159,11 @@ spec:
             secretKeyRef:
               name: tableau-api-credentials
               key: tableau_token
+        - name: TMS_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: tms-dev-api-key
+              key: tms_dev_api_key
         envFrom:
           - configMapRef:
               name: server-configmap
@@ -176,4 +178,7 @@ spec:
         env:
         - name: SERVICE_NAME
           value: "api_server"
-
+        resources:
+          requests:
+            cpu: "5m"
+            memory: "15Mi"

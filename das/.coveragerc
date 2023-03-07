@@ -1,0 +1,20 @@
+[run]
+parallel = true
+branch = true
+source = .
+omit = */tests/*
+       */www/*
+       */migrations/*
+
+[report]
+show_missing = true
+precision = 2
+ignore_errors = true
+exclude_lines =
+    pragma: no cover
+    raise NotImplementedError
+    except ImportError
+    def repr
+    if self\.logger\.debug
+    if name == .__main__.:
+    AssertionError

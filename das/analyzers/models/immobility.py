@@ -1,5 +1,6 @@
 from django.contrib.gis.db import models
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
+
 from analyzers.models.base import SubjectAnalyzerConfig
 
 
@@ -23,10 +24,12 @@ class ImmobilityAnalyzerConfig(SubjectAnalyzerConfig):
 
     threshold_radius = models.FloatField(
         null=False, default=13.0, verbose_name='Threshold Radius (meters)',
-    help_text=_('This determines the circle within which a Subject\'s points will be considered stationary.'))
+        help_text=_('This determines the circle within which a Subject\'s points will be considered stationary.'))
     threshold_time = models.IntegerField(
-        null=False, default=18000, verbose_name='Threshold Time (seconds)',  # 5 hours
-        help_text=_('This is the maximum time frame a Subject is expected to be stationary.')
+        # 5 hours
+        null=False, default=18000, verbose_name='Threshold Time (seconds)',
+        help_text=_(
+            'This is the maximum time frame a Subject is expected to be stationary.')
     )
 
     threshold_probability_helptext = '''

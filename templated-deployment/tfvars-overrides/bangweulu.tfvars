@@ -1,1 +1,2 @@
-time_zone           = "Africa/Lusaka"
+time_zone       = "Africa/Lusaka"
+tableau_enabled = "True"

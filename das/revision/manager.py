@@ -1,16 +1,15 @@
-import django.dispatch
 import logging
 import uuid
 
-import django.db.transaction as transaction
 import simplejson as json
+
+import django.db.transaction as transaction
+import django.dispatch
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
-from django.contrib.postgres.fields import JSONField
 from django.core import serializers
 from django.db.models import Max
-from django.db.models import Prefetch
 
 logger = logging.getLogger(__name__)
 
@@ -204,7 +203,6 @@ class Revision(object):
                              relation=relation, **kwargs)
 
     def post_init(self, instance, **kwargs):
-        manager = getattr(instance, self.manager_name)
         instance.revision_sequence = 0
         if instance.id:
             adapter = RevisionAdapter(type(instance))
@@ -253,7 +251,7 @@ class Revision(object):
             'revision_at': models.DateTimeField(auto_now_add=True),
             'sequence': models.IntegerField(help_text='Revision sequence'),
             'user': user_field,
-            'data': JSONField(default=dict),
+            'data': models.JSONField(default=dict),
             '__str__': to_str,
             '__module__': model.__module__,
         }

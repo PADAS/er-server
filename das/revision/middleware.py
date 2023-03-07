@@ -1,5 +1,6 @@
+from functools import partial
+
 from django.db.models import signals
-from django.utils.functional import curry
 
 from revision.manager import RevisionMixin
 
@@ -29,11 +30,13 @@ class RevisionMiddleware(object):
                 user = request.user
             else:
                 user = None
-            pre_save_info = curry(self._pre_save_info, user)
+            pre_save_info = partial(self._pre_save_info, user)
 
-            signals.pre_save.connect(pre_save_info,
-                                     dispatch_uid=(self.__class__, request,),
-                                     weak=False)
+            signals.pre_save.connect(
+                pre_save_info,
+                dispatch_uid=(self.__class__, request,),
+                weak=False,
+            )
 
     def _process_response(self, request, response):
         signals.pre_save.disconnect(dispatch_uid=(self.__class__, request,))

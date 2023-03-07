@@ -12,8 +12,8 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys
 import os
+import sys
 
 from recommonmark.parser import CommonMarkParser
 from recommonmark.transform import AutoStructify
@@ -41,7 +41,7 @@ source_parsers = {
 # ones.
 extensions = ['sphinxcontrib.httpdomain',
               'sphinx.ext.autodoc',
-              'pygsonsetup',
+              'pygments.sphinxext',
               'recommonmark'
               ]
 
@@ -198,13 +198,13 @@ htmlhelp_basename = 'ERdoc'
 
 latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').
-    #'papersize': 'letterpaper',
+    # 'papersize': 'letterpaper',
 
     # The font size ('10pt', '11pt' or '12pt').
-    #'pointsize': '10pt',
+    # 'pointsize': '10pt',
 
     # Additional stuff for the LaTeX preamble.
-    #'preamble': '',
+    # 'preamble': '',
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
@@ -277,7 +277,7 @@ texinfo_documents = [
 
 def setup(app):
     app.add_config_value('recommonmark_config', {
-        #'url_resolver': lambda url: github_doc_root + url,
+        # 'url_resolver': lambda url: github_doc_root + url,
         'auto_toc_tree_section': 'Contents',
         'enable_eval_rst': True,
         'enable_auto_doc_ref': True,

@@ -1,22 +1,21 @@
 import datetime
 import logging
-import os
-import shutil
 import tempfile
-import zipfile
 import urllib.parse as urlparse
+import zipfile
 from urllib.parse import urlencode
+
+from simplejson.scanner import JSONDecodeError
 
 from django.conf import settings
 from django.contrib.gis.gdal import DataSource
 from django.core.exceptions import ValidationError
 from django.db.utils import IntegrityError
-from django.utils.encoding import force_text
-from django.contrib.gis.gdal import GDALException
+from django.utils.encoding import force_str
+
 import utils.json
 from mapping import models
 from utils.spatial import GeometryMapper
-from choices.models import Choice
 
 geometry_mapper = GeometryMapper()
 
@@ -126,7 +125,7 @@ def datasource_from_file(filename, tmpdirs):  # geojson file
 
 def fields_iter(feature):
     for field_name in feature.fields:
-        yield force_text(field_name)
+        yield force_str(field_name)
 
 
 def reduce_json(document):
@@ -247,6 +246,8 @@ def mappingv2_save_spatial_data(feature, external_id, spatialfile, counter=0):
         setattr(feature_record, key, value)
     set_feature_name(feature_record, feature, feature_type,
                      spatialfile.name_field, counter)
+    if hasattr(feature_record, "short_name") and not feature_record.short_name:
+        feature_record.short_name = ""
     feature_record.clean()
     feature_record.save()
 
@@ -404,7 +405,7 @@ def import_feature_types(datasource, source_name=DEFAULT_SOURCE_NAME):
         if attribute_schema:
             try:
                 attribute_schema = utils.json.loads(attribute_schema)
-            except utils.json.JSONDecodeError as ex:
+            except JSONDecodeError as ex:
                 logger.warning('FeatureType attribute_schema not JSON for globalid=%s: %s',
                                global_id, ex)
                 attribute_schema = {}

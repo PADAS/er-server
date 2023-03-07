@@ -38,10 +38,7 @@ spec:
         resources:
           requests:
             cpu: "25m"
-            memory: "100Mi"
-#          limits:
-#            cpu: "500m"
-#            memory: "2000Mi"
+            memory: "270Mi"
         livenessProbe:
           exec:
             command:
@@ -138,3 +135,7 @@ spec:
         env:
         - name: SERVICE_NAME
           value: "beat_service"
+        resources:
+          requests:
+            cpu: "5m"
+            memory: "15Mi"

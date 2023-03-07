@@ -1,20 +1,20 @@
 from math import isclose
 
 from django import forms
-from django.contrib.admin.widgets import FilteredSelectMultiple, AdminDateWidget
+from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.gis.geos import Point
 from django.contrib.postgres.forms import JSONField
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
-from core.forms_utils import JSONFieldFormMixin, ColorPickerWidget, AssignedDateTimeRangeField
-from mapping.models import Map, TileLayer, SpatialFeatureGroupStatic, \
-    FeatureType, DisplayCategory, SpatialFeatureType, ArcgisConfiguration
 from choices.models import Choice
 from core.common import TIMEZONE_USED
+from core.forms_utils import JSONFieldFormMixin
+from mapping.models import (ArcgisConfiguration, DisplayCategory, FeatureType,
+                            Map, SpatialFeatureGroupStatic, SpatialFeatureType,
+                            TileLayer)
 
 
 class MapCenterForm(forms.ModelForm):
-
     latitude = forms.FloatField(
         min_value=-90,
         max_value=90,

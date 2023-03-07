@@ -1,17 +1,17 @@
-import logging
 import collections
-import redis
 import datetime
-import pytz
-import socket
+import logging
 import signal
+import socket
 
-from django.contrib.gis.geos import Polygon, MultiPolygon
+import pytz
+import redis
 from psycopg2.extras import DateTimeTZRange
-from django.conf import settings
 
-from observations.models import SocketClient
-from observations.models import UserSession
+from django.conf import settings
+from django.contrib.gis.geos import MultiPolygon, Polygon
+
+from observations.models import SocketClient, UserSession
 from utils import json
 
 logger = logging.getLogger(__name__)
@@ -56,6 +56,7 @@ def init_redis_storage():
         SID_SUBJECTS_TIMESTAMPS_KEY.format('*'))]
 
     cleanup_socketclient()
+    cleanup_usersessions()
 
     # add the service as a member of services set
     redis_client.sadd(REALTIME_SERVICES_KEY, CLIENT_LIST_KEY)
@@ -95,11 +96,10 @@ def update_client(sid, bbox=None, event_filter=None, patrol_filter=None):
 
 
 def create_update_user_session(sid):
-    user_session, created = UserSession.objects.update_or_create(id=sid)
-    if created:
-        user_session.time_range = DateTimeTZRange(
-            lower=datetime.datetime.now(tz=pytz.utc))
-        user_session.save()
+    defaults = {"time_range": DateTimeTZRange(
+        lower=datetime.datetime.now(tz=pytz.utc))}
+    user_session, created = UserSession.objects.update_or_create(
+        id=sid, defaults=defaults)
 
 
 def get_all_connections():
@@ -190,32 +190,44 @@ def list_len(key):
     return redis_client.llen(key)
 
 
-def remove_client(sid):
-    remove_clients(sid)
+def remove_client(sid: str):
+    sids = set()
+    sids.add(sid)
+    remove_clients(sids)
 
 
-def remove_clients(*sids):
-    '''
+def remove_clients(sids: set):
+    """
     Handle a list of sids to delete them from both the database and cache.
     :param sids:
     :return:
-    '''
+    """
     if not sids:
         return
 
-    sids = set((str(sid) for sid in sids))
-    logger.info('Removing clients for sids: %s', sids)
+    logger.info("Removing clients for sids: %s from key %s",
+                sids, CLIENT_LIST_KEY)
     count = redis_client.hdel(CLIENT_LIST_KEY, *sids)
     logger.info(
-        f'Removed {count} clients (of {len(sids)} listed) from {CLIENT_LIST_KEY}')
+        "Removed %s clients (of %s listed) from %s", count, len(
+            sids), CLIENT_LIST_KEY
+    )
+
+    logger.info(
+        "Removing clients for sids: %s from key %s", sids, EXPIRED_CLIENT_TRACES_LIST
+    )
     count = redis_client.hdel(EXPIRED_CLIENT_TRACES_LIST, *sids)
     logger.info(
-        f'Removed {count} clients (of {len(sids)} listed) from {EXPIRED_CLIENT_TRACES_LIST}')
+        "Removed %s clients (of %s listed) from %s",
+        count,
+        len(sids),
+        EXPIRED_CLIENT_TRACES_LIST,
+    )
 
-    logger.info('Deleteing mid keys for sids %s.', sids)
-    redis_client.delete(*[f'mid-{sid}' for sid in sids])
+    logger.info("Deleting mid keys for sids %s.", sids)
+    redis_client.delete(*[f"mid-{sid}" for sid in sids])
 
-    logger.info('Deleteing session timestamp keys for sids %s.', sids)
+    logger.info("Deleting session timestamp keys for sids %s.", sids)
     redis_client.delete(*[SID_SESSION_TIMESTAMP_KEY.format(sid)
                         for sid in sids])
     redis_client.delete(
@@ -224,7 +236,14 @@ def remove_clients(*sids):
     try:
         SocketClient.objects.filter(id__in=sids).delete()
     except ValueError:
-        logger.exception('Failed to remove SocketClients for sids: %s', sids)
+        logger.exception("Failed to remove SocketClients for sids: %s", sids)
+
+
+def cleanup_usersessions():
+    older_than_one_week = datetime.datetime.now(
+        tz=pytz.utc) - datetime.timedelta(days=7)
+    UserSession.objects.filter(
+        time_range__startswith__lte=older_than_one_week).delete()
 
 
 def cleanup_socketclient():
@@ -233,17 +252,22 @@ def cleanup_socketclient():
     for socket_client in SocketClient.objects.values("id", "username"):
         sid = socket_client["id"]
         if not sid in live_sids:
-            remove_client(sid)
+            remove_client(str(sid))
 
 
 def update_user_session(sid):
     try:
         user_session = UserSession.objects.get(id=sid)
     except UserSession.DoesNotExist:
-        logger.info(f"sid {sid} not found in UserSession")
+        logger.warning(f"sid {sid} not found in UserSession")
     else:
-        user_session.time_range = DateTimeTZRange(upper=datetime.datetime.now(pytz.utc),
-                                                  lower=user_session.time_range.lower)
+        if not user_session.time_range:
+            logger.warning(f"UserSession missing time_range: {user_session}")
+            user_session.time_range = DateTimeTZRange(
+                lower=datetime.datetime.now(tz=pytz.utc))
+        else:
+            user_session.time_range = DateTimeTZRange(upper=datetime.datetime.now(pytz.utc),
+                                                      lower=user_session.time_range.lower)
         user_session.save()
 
 
@@ -313,7 +337,7 @@ def shutdown_cleanup(*args):
 
 def push_trace(trace_id, data):
     logger.info('TRACE', extra={'action': 'push', 'trace_id': trace_id})
-    redis_client.setex(trace_id, data, TRACE_TTL)
+    redis_client.setex(trace_id, TRACE_TTL, json.dumps(data))
 
 
 def pop_trace(trace_id):
@@ -325,9 +349,9 @@ def message_index(sid, message_type):
     return redis_client.hincrby(f'mid-{sid}', message_type, 1)
 
 
-def save_session_timestamp(sid, subject_id=None, timestamp=None):
+def save_session_timestamp(sid, subject_id=None):
 
-    timestamp = timestamp or datetime.datetime.now(tz=pytz.utc)
+    timestamp = datetime.datetime.now(tz=pytz.utc).isoformat()
 
     if subject_id:
         redis_client.hset(SID_SUBJECTS_TIMESTAMPS_KEY.format(
@@ -342,5 +366,4 @@ def get_sid_subject_timestamp(sid, subject_id):
     ts = redis_client.hget(SID_SUBJECTS_TIMESTAMPS_KEY.format(sid), subject_id)
     sid_ts = redis_client.get(SID_SESSION_TIMESTAMP_KEY.format(sid))
     ts = ts or sid_ts
-
     return ts.decode() if ts else datetime.datetime.now(tz=pytz.utc).isoformat()

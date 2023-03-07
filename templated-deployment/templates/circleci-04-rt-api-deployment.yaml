@@ -37,11 +37,8 @@ spec:
           name: das-rt-api
           resources:
             requests:
-              cpu: "200m"
-              memory: "500Mi"
-#            limits:
-#              cpu: "800m"
-#              memory: "4000Mi"
+              cpu: "150m"
+              memory: "700Mi"
           ports:
             - containerPort: 8000
           readinessProbe:
@@ -155,5 +152,9 @@ spec:
               mountPath: "/etc/telegraf/"
               readOnly: true
           env:
-            - name: SERVICE_NAME
-              value: "realtime_server"
+          - name: SERVICE_NAME
+            value: "realtime_server"
+          resources:
+            requests:
+              cpu: "5m"
+              memory: "15Mi"

@@ -4,28 +4,24 @@ import logging
 import os
 import uuid
 
-import pytz
-from django.conf import settings
-from django.contrib.gis import geos
-from django.contrib.gis.db import models
-from django.contrib.postgres.fields import JSONField
-from django.core import management
-from django.core.exceptions import ImproperlyConfigured, ValidationError
-from django.core.files.storage import FileSystemStorage
-from django.db import transaction
-from django.urls import NoReverseMatch, reverse
-from django.utils.deconstruct import deconstructible
-from django.utils.translation import ugettext_lazy as _
 from model_utils.managers import InheritanceManager
 from pytz import timezone
 from tagulous.models import TagField, TagModel
+
+from django.conf import settings
+from django.contrib.gis import geos
+from django.contrib.gis.db import models
+from django.core.exceptions import ImproperlyConfigured, ValidationError
+from django.core.files.storage import FileSystemStorage
+from django.urls import NoReverseMatch, reverse
+from django.utils.deconstruct import deconstructible
+from django.utils.translation import gettext_lazy as _
 
 from core.models import TimestampedModel
 from mapping.app_settings import MBTILES
 from mapping.mbtiles import (ExtractionError, GoogleProjection,
                              InvalidFormatError, MBTilesReader)
-from mapping.tasks import load_spatial_features_from_files
-from mapping.utils import (SPATIAL_FILES_FOLDER, check_file_extension)
+from mapping.utils import SPATIAL_FILES_FOLDER, check_file_extension
 from revision.manager import Revision, RevisionMixin
 from utils.decorator import reify
 
@@ -48,7 +44,7 @@ class Map(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
-    attributes = JSONField(default=dict, blank=True)
+    attributes = models.JSONField(default=dict, blank=True)
     center = models.PointField(srid=4326)
     zoom = models.IntegerField()
 
@@ -71,7 +67,7 @@ class TileLayer(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
-    attributes = JSONField(default=dict, blank=True)
+    attributes = models.JSONField(default=dict, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
 
     objects = TileLayerQuerySet.as_manager()
@@ -97,7 +93,7 @@ class FeatureType(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
-    presentation = JSONField(default=dict, blank=True)
+    presentation = models.JSONField(default=dict, blank=True)
     objects = FeatureTypeManager()
 
     class Meta:
@@ -155,6 +151,7 @@ class TempStorage(FileSystemStorage):
         kwargs.update({'location': temp_directory_name, })
         super(TempStorage, self).__init__(**kwargs)
 
+
 def upload_to(instance, filename):
     '''
     Providing a path to an Spatialfiles.
@@ -166,6 +163,7 @@ def upload_to(instance, filename):
     timestamp = "{:%Y%m%d%H%s}".format(datetime.datetime.now())
     file_path = f'{SPATIAL_FILES_FOLDER}/{timestamp}-{filename}'
     return file_path
+
 
 class SpatialFilesBase(TimestampedModel):
     """
@@ -179,7 +177,8 @@ class SpatialFilesBase(TimestampedModel):
     layer_number = models.IntegerField(blank=True, null=True, default=0)
     name_field = models.CharField(max_length=100, blank=True, null=True)
     id_field = models.CharField(max_length=100, blank=True, null=True)
-    status = models.CharField(max_length=1000, blank=True, null=True, verbose_name='Feature Load Status')
+    status = models.CharField(
+        max_length=1000, blank=True, null=True, verbose_name='Feature Load Status')
 
     class Meta:
         abstract = True
@@ -229,8 +228,8 @@ class Feature(TimestampedModel):
     description = models.TextField(null=True, blank=True)
 
     # attributes for presentation
-    presentation = JSONField(default=dict, blank=True)
-    fields = JSONField(default=dict, blank=True)
+    presentation = models.JSONField(default=dict, blank=True)
+    fields = models.JSONField(default=dict, blank=True)
     external_id = models.CharField(max_length=255, blank=True, null=True)
 
     # the feature set with which this feature is being grouped.
@@ -587,7 +586,7 @@ class SpatialFeatureType(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
     # JSON field for storing the json schema for each unique feature type
-    attribute_schema = JSONField(default=dict, blank=True)
+    attribute_schema = models.JSONField(default=dict, blank=True)
     # Tags will allow categorization according to different views (e.g., HF)
     tags = TagField(to=SpatialFeatureTypeTag, blank=True)
 
@@ -596,8 +595,8 @@ class SpatialFeatureType(TimestampedModel):
     display_category = models.ForeignKey(
         to='DisplayCategory', on_delete=models.PROTECT, blank=True, null=True)
     # JSON Field for defining the basic presentation of the feature
-    presentation = JSONField(default=dict, blank=True)
-    provenance = JSONField(default=dict, blank=True)
+    presentation = models.JSONField(default=dict, blank=True)
+    provenance = models.JSONField(default=dict, blank=True)
     external_id = models.CharField(max_length=255, unique=True, blank=True,
                                    null=True)
     external_source = models.CharField(max_length=100, blank=True)
@@ -626,9 +625,11 @@ class SpatialFeatureType(TimestampedModel):
     def save(self, *args, **kwargs):
         try:
             if self.presentation.get('fill-opacity'):
-                self.presentation['fill-opacity'] = float(self.presentation.get('fill-opacity'))
+                self.presentation['fill-opacity'] = float(
+                    self.presentation.get('fill-opacity'))
             if self.presentation.get('stroke-opacity'):
-                self.presentation['stroke-opacity'] = float(self.presentation.get('stroke-opacity'))
+                self.presentation['stroke-opacity'] = float(
+                    self.presentation.get('stroke-opacity'))
         except ValueError as exc:
             logger.warning(exc)
         finally:
@@ -643,11 +644,11 @@ class SpatialFeatureFile(SpatialFilesBase):
         max_length=100, default='shapefile', choices=FILE_TYPES)
     feature_type = models.ForeignKey(
         to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
-    feature_types_file = models.FileField(upload_to=upload_to, blank=True, null=True)
+    feature_types_file = models.FileField(
+        upload_to=upload_to, blank=True, null=True)
 
     class Meta:
         verbose_name = 'Feature Import File'
-
 
 
 class SpatialFeatureManager(models.Manager):
@@ -702,13 +703,14 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
     external_id = models.CharField(max_length=255, blank=True, null=True)
     external_source = models.CharField(max_length=100, blank=True)
     description = models.TextField(null=True, blank=True)
-    presentation = JSONField(default=dict, blank=True)
-    attributes = JSONField(default=dict, blank=True)
-    provenance = JSONField(default=dict, blank=True)
+    presentation = models.JSONField(default=dict, blank=True)
+    attributes = models.JSONField(default=dict, blank=True)
+    provenance = models.JSONField(default=dict, blank=True)
     feature_geometry = models.GeometryField(geography=True, srid=4326)
     spatialfile = models.ForeignKey(
         to=SpatialFeatureFile, null=True, blank=True, on_delete=models.SET_NULL)
-    arcgis_item = models.ForeignKey(to='ArcgisItem', null=True, blank=True, on_delete=models.CASCADE)
+    arcgis_item = models.ForeignKey(
+        to='ArcgisItem', null=True, blank=True, on_delete=models.CASCADE)
     revision = Revision()
 
     @property
@@ -721,11 +723,14 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
 
     def clean(self):
         if self.feature_geometry.geom_type == 'Point':
-            self.feature_geometry = geos.MultiPoint(geos.GEOSGeometry(self.feature_geometry.ewkb))
+            self.feature_geometry = geos.MultiPoint(
+                geos.GEOSGeometry(self.feature_geometry.ewkb))
         elif self.feature_geometry.geom_type == 'LineString':
-            self.feature_geometry = geos.MultiLineString([geos.GEOSGeometry(self.feature_geometry.ewkb), ])
+            self.feature_geometry = geos.MultiLineString(
+                [geos.GEOSGeometry(self.feature_geometry.ewkb), ])
         elif self.feature_geometry.geom_type == 'Polygon':
-            self.feature_geometry = geos.MultiPolygon([geos.GEOSGeometry(self.feature_geometry.ewkb), ])
+            self.feature_geometry = geos.MultiPolygon(
+                [geos.GEOSGeometry(self.feature_geometry.ewkb), ])
         else:
             logger.debug(f'Not converting type {type(self.feature_geometry)}')
 
@@ -744,29 +749,36 @@ class ArcgisGroup(TimestampedModel):
 
 
 class ArcgisConfiguration(TimestampedModel):
-    disable_import_feature_class_presentation = models.BooleanField(default=False)
+    disable_import_feature_class_presentation = models.BooleanField(
+        default=False)
     service_url = models.CharField(max_length=2000, blank=True, null=True,
                                    help_text='Leave blank to connect to ArcGIS Online, '
                                              'or enter your ArcGIS Enterprise service URL')
-    config_name = models.CharField(max_length=100, blank=False, unique=True, verbose_name='Configuration name')
+    config_name = models.CharField(
+        max_length=100, blank=False, unique=True, verbose_name='Configuration name')
     search_text = models.CharField(max_length=100, blank=True, verbose_name='Search text',
                                    help_text='Leave blank to get groups within your ArcGIS org\n'
                                              'or enter text for groups to search for outside your ArdGIS org')
     # todo: the FK should be on the other end of the relationship, i.e., in ArcgisConfiguration
-    groups = models.ForeignKey(ArcgisGroup, blank=True, on_delete=models.SET_NULL, null=True)
-    username = models.CharField(max_length=100, blank=False, help_text='ArcGIS account username')
+    groups = models.ForeignKey(
+        ArcgisGroup, blank=True, on_delete=models.SET_NULL, null=True)
+    username = models.CharField(
+        max_length=100, blank=False, help_text='ArcGIS account username')
     password = models.CharField(max_length=100, blank=False)
-    source = models.CharField(max_length=100, blank=True, null=True, default='ArcGis')
+    source = models.CharField(
+        max_length=100, blank=True, null=True, default='ArcGis')
     name_field = models.CharField(max_length=100, blank=True, null=True, default='Name',
                                   help_text='Name of field in your GIS data that has the feature name. Default is Name')
     id_field = models.CharField(max_length=100, blank=True, null=True, default='GlobalID',
                                 help_text='Name of field in your GIS data that has the feature ID. Default is GlobalID')
     type_label = models.CharField(max_length=100, blank=True, null=True, verbose_name='Type field', default='FeatureType',
                                   help_text='Name of field in your GIS data that has the feature type. Defaults are type and FeatureType')
-    last_download = models.DateTimeField(blank=True, null=True, verbose_name='Last Download Time')
+    last_download = models.DateTimeField(
+        blank=True, null=True, verbose_name='Last Download Time')
 
     class Meta:
         verbose_name = 'Feature Service Configuration'
+
     @property
     def last_download_time(self):
         t_zone = timezone(settings.TIME_ZONE)
@@ -781,7 +793,8 @@ class ArcgisConfiguration(TimestampedModel):
 class ArcgisItem(TimestampedModel):
     id = models.UUIDField(primary_key=True)
     name = models.CharField(max_length=50)
-    arcgis_config = models.ForeignKey(to=ArcgisConfiguration, on_delete=models.SET_NULL, null=True)
+    arcgis_config = models.ForeignKey(
+        to=ArcgisConfiguration, on_delete=models.SET_NULL, null=True)
 
     @property
     def features(self):

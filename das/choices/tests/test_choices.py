@@ -1,11 +1,14 @@
 import json
 import os
-from typing import NamedTuple, Any
+from typing import Any, NamedTuple
 
 import pytest
+
 from django.urls import reverse
 
 from choices.models import Choice
+from choices.views import ChoiceView
+from utils.tests_tools import is_url_resolved
 
 pytestmark = pytest.mark.django_db
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tests')
@@ -104,19 +107,25 @@ def test_softdelete_choice(choices_fixture, client):
     assert disabled_choices == 1
 
 
-def test_readd_inactive_choice(choices_fixture, client):
-    choices, user = choices_fixture.choices, choices_fixture.user
-    inactive_choice = choices.filter(value='rhino').update(is_active=False)
+@pytest.mark.django_db(transaction=True)
+class TestChoicesViews:
+    def test_url_resolving(self, choice):
+        api_path = f"choices/{choice.pk}/"
+        assert is_url_resolved(api_path=api_path, view=ChoiceView)
 
-    assert inactive_choice == 1
+    def test_read_inactive_choice(self, choices_fixture, client):
+        choices, user = choices_fixture.choices, choices_fixture.user
+        inactive_choice = choices.filter(value='rhino').update(is_active=False)
 
-    data = dict(
-        model='activity.eventtype',
-        field='wildlifesighting_species',
-        value='rhino',
-        display='Rhino')
+        assert inactive_choice == 1
 
-    client.force_login(user)
-    url = reverse('choices')
-    response = client.post(url, data=data)
-    assert response.status_code == 409
+        data = dict(
+            model='activity.eventtype',
+            field='wildlifesighting_species',
+            value='rhino',
+            display='Rhino')
+
+        client.force_login(user)
+        url = reverse('choices')
+        response = client.post(url, data=data)
+        assert response.status_code == 409

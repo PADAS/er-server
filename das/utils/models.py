@@ -1,4 +1,7 @@
+from typing import overload
+
 import django
+from django.apps import apps
 from django.contrib.auth.management import create_permissions
 
 
@@ -17,8 +20,11 @@ def migrate_permissions(apps):
 
 def update_all_contenttypes(**kwargs):
     from django.apps import apps
+
     try:
-        from django.contrib.contenttypes.management import update_contenttypes as create_contenttypes
+        from django.contrib.contenttypes.management import (
+            update_contenttypes as create_contenttypes,
+        )
     except ImportError:
         from django.contrib.contenttypes.management import create_contenttypes
 
@@ -27,8 +33,73 @@ def update_all_contenttypes(**kwargs):
 
 
 def create_all_permissions(**kwargs):
-    from django.contrib.auth.management import create_permissions
-    from django.apps import apps
-
     for app_config in apps.get_app_configs():
         create_permissions(app_config, verbosity=0, **kwargs)
+
+
+@overload
+def getattr_jsonfield(obj: object, name: str) -> object:
+    """Extension to getattr, to describe a path into a django orm jsonfield.
+    Supports the jsonfield query expression syntax for navigating a json field
+
+    Args:
+        obj (object): object to get attribute from
+        name (str): name of attribute
+    """
+    ...
+
+
+@overload
+def getattr_jsonfield(obj: object, name: str, default: object) -> object:
+    """Extension to getattr, to describe a path into a django orm jsonfield.
+    Supports the jsonfield query expression syntax for navigating a json field
+
+    Args:
+        obj (object): object to get attribute from
+        name (str): name of attribute
+        default (object): if attribute is not found, return this
+    """
+    ...
+
+
+def getattr_jsonfield(obj: object, name: str, *args) -> object:
+    if len(args) > 1:
+        raise TypeError(f"getattr_jsonfield expected at most 3 arguments, got {2 + len(args)}")
+
+    is_default_set = len(args) == 1
+    default = args[0] if args else None
+
+    if "__" not in name:
+        if is_default_set:
+            return getattr(obj, name, default)
+        return getattr(obj, name)
+
+    path = name.split("__")
+
+    attr_name = path.pop(0)
+    try:
+        obj = getattr(obj, attr_name)
+    except AttributeError:
+        if is_default_set:
+            return default
+        raise
+
+    for attr_name in path:
+        try:
+            attr_id = int(attr_name)
+        except ValueError:
+            try:
+                obj = obj[attr_name]
+            except KeyError:
+                if is_default_set:
+                    return default
+                raise
+        else:
+            try:
+                obj = obj[attr_id]
+            except IndexError:
+                if is_default_set:
+                    return default
+                raise
+
+    return obj

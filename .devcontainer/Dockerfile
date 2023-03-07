@@ -1,9 +1,11 @@
 FROM ubuntu:bionic
-ARG PYTHON_PACKAGES="python3.6 python3-pip python3-venv"
+ARG PYTHON_VERSION_ID="3.7"
+ARG CP_VER="cp37"
+
+ARG PYTHON_PACKAGES="python${PYTHON_VERSION_ID} python${PYTHON_VERSION_ID}-dev python${PYTHON_VERSION_ID}-distutils"
 RUN apt-get update && apt-get install --no-install-recommends -yq software-properties-common \
      && add-apt-repository ppa:deadsnakes/ppa && apt-get update \
-     && apt-get install -yq --no-install-recommends ${PYTHON_PACKAGES} \
-     && pip3 install --no-cache-dir --upgrade pip setuptools wheel
+     && apt-get install -yq --no-install-recommends ${PYTHON_PACKAGES}
 ARG PYTHON_VERSION="os-provided"
 
 # Copy library scripts to execute
@@ -54,12 +56,11 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     libjpeg-dev \
     libtiff-dev \
     libmagic1 \
+    libopenblas-dev \
+    liblapack-dev \
+    gfortran \
     netbase \
-    python3-numpy \
-    python3-numpy-dev \
-    #libgdal-dev \
     curl \
-    python3-openssl \
     postgresql-client \
     libssl-dev \
     wget \
@@ -67,17 +68,29 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     locales locales-all \
     && apt-get autoremove
 
+RUN echo ogrinfo --version
+
 WORKDIR /workspace
 ADD ./dependencies /workspace/dependencies
 
-RUN dpkg -i --force-all /workspace/dependencies/gdal_3.2.3-1_cp36_amd64.deb
-RUN dpkg -i --force-all /workspace/dependencies/geos_3.9.1-1_cp36_amd64.deb
-RUN dpkg -i --force-all /workspace/dependencies/proj_7.2.1-1_cp36_amd64.deb
+SHELL ["/bin/bash", "-c"]
+
+RUN arch=$(uname -i); \
+ if [[ $arch == x86_64* ]]; then \
+   export arch_name="amd64"; \
+ elif  ([[ $arch == arm* ]] || [[ $arch == aarch* ]]); then \
+    export arch_name="arm64"; \
+ fi ; \
+ curl https://storage.googleapis.com/er-dependencies/geos_3.9.1-1_${CP_VER}_${arch_name}.deb -o geos.deb -s && dpkg -i --force-all geos.deb ; \
+ curl https://storage.googleapis.com/er-dependencies/proj_7.2.1-1_${CP_VER}_${arch_name}.deb -o proj.deb -s && dpkg -i --force-all proj.deb ; \
+ curl https://storage.googleapis.com/er-dependencies/gdal_3.4.1-1_${CP_VER}_${arch_name}.deb -o gdal.deb -s && dpkg -i --force-all gdal.deb
+
 ENV LD_LIBRARY_PATH "/usr/local/lib"
 RUN ldconfig
+RUN echo gdal-config --version
 
-RUN pip3 install numpy==1.19.5
-
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION_ID} 4
+RUN if [ "$CP_VER" = "cp36" ]; then wget https://bootstrap.pypa.io/pip/3.6/get-pip.py ; else wget https://bootstrap.pypa.io/get-pip.py; fi     ; python3 get-pip.py; pip3 install numpy==1.19.5 pyopenssl
 RUN pip3 --disable-pip-version-check --no-cache-dir install -r /workspace/dependencies/requirements-dev.txt -r /workspace/dependencies/requirements-pinned.txt -f /workspace/dependencies/wheelhouse
 
 

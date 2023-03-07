@@ -1,10 +1,10 @@
 import uuid
 
 import django.db.models as models
-from django.utils.translation import ugettext_lazy as _
 from django.contrib.auth.models import Permission
+from django.utils.translation import gettext_lazy as _
 
-from core.models import HierarchyModel, HierarchyManager, TimestampedModel
+from core.models import HierarchyManager, HierarchyModel, TimestampedModel
 
 
 class PermissionSetManager(HierarchyManager):

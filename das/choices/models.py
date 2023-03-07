@@ -1,12 +1,14 @@
 import uuid
+from functools import partialmethod
 
-from core.utils import static_image_finder
 from django.contrib.gis.db import models
 from django.core import checks, exceptions
 from django.db.models.fields import BLANK_CHOICE_DASH
 from django.utils import timezone
-from django.utils.functional import curry, lazy
-from django.utils.translation import ugettext_lazy as _
+from django.utils.functional import lazy
+from django.utils.translation import gettext_lazy as _
+
+from core.utils import static_image_finder
 
 
 class ChoiceQuerySet(models.QuerySet):
@@ -158,8 +160,11 @@ class ChoiceCharField(models.CharField):
         self._return_empty_choices = True
         super().contribute_to_class(*args, **kwargs)
         self._return_empty_choices = False
-        setattr(self.model, 'get_%s_display' % self.name,
-                curry(self.model._get_FIELD_display, field=self))
+        setattr(
+            self.model,
+            f"get_{self.name}_display",
+            partialmethod(self.model._get_FIELD_display, field=self),
+        )
 
     def deconstruct(self):
         self._return_empty_choices = True

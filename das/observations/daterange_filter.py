@@ -1,17 +1,18 @@
-import pytz
-import django
 import datetime
 from collections import OrderedDict
+
+import pytz
+
 from django import forms
+from django.conf import settings
+from django.contrib import admin
+from django.contrib.admin.widgets import AdminDateWidget
+from django.template.defaultfilters import slugify
 from django.templatetags.static import StaticNode
 from django.utils import timezone
-from django.conf import settings
-from django.contrib.admin.widgets import AdminDateWidget, AdminSplitDateTime as BaseAdminSplitDateTime
 from django.utils.encoding import force_str
-from django.template.defaultfilters import slugify
+from django.utils.translation import gettext_lazy as _
 
-from django.contrib import admin
-from django.utils.translation import ugettext_lazy as _
 
 class DateRangeFilter(admin.filters.FieldListFilter):
     def __init__(self, field, request, params, model, model_admin, field_path):
@@ -71,14 +72,14 @@ class DateRangeFilter(admin.filters.FieldListFilter):
                     datetime.datetime.combine(date_value_gte,
                                               datetime.time.min),
                     self.get_timezone(request),
-                )
+            )
         if date_value_lte:
             query_params['{0}__lte'.format(
                 self.field_path)] = self.make_dt_aware(
                     datetime.datetime.combine(date_value_lte,
                                               datetime.time.max),
                     self.get_timezone(request),
-                )
+            )
 
         return query_params
 
@@ -106,7 +107,8 @@ class DateRangeFilter(admin.filters.FieldListFilter):
             (self.lookup_kwarg_gte,
              forms.DateField(
                  label='',
-                 widget=AdminDateWidget(attrs={'placeholder': _(' Start Date')}),
+                 widget=AdminDateWidget(
+                     attrs={'placeholder': _(' Start Date')}),
                  localize=True,
                  required=False)),
             (self.lookup_kwarg_lte,

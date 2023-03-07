@@ -37,17 +37,14 @@ spec:
         name: das-worker-analyzer
         resources:
           requests:
-            cpu: "50m"
-            memory: "300Mi"
-#          limits:
-#            cpu: "500m"
-#            memory: "4000Mi"
+            cpu: "150m"
+            memory: "600Mi"
         livenessProbe:
           exec:
             command:
               - "/bin/sh"
               - "-c"
-              - "celery inspect ping -A das_server -d celery@analyzers"
+              - "celery inspect ping -b redis://redis:6379 -d celery@analyzers --timeout=5"
           initialDelaySeconds: 20
           timeoutSeconds: 20
           periodSeconds: 180
@@ -137,3 +134,7 @@ spec:
         env:
         - name: SERVICE_NAME
           value: "analyzer_worker"
+        resources:
+          requests:
+            cpu: "5m"
+            memory: "15Mi"

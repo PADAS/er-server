@@ -1,11 +1,12 @@
-from datetime import datetime, timedelta
-import pytz
 import logging
+from datetime import datetime, timedelta
 
-from django.utils.translation import ugettext_lazy as _
+import pytz
 
-from observations.models import SubjectSource, Observation, Subject
+from django.utils.translation import gettext_lazy as _
+
 from analyzers.models import SubjectAnalyzerResult
+from observations.models import Observation, Subject, SubjectSource
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ def generate_subject_records(report_hours=24):
                 trajectory = ss.subject.create_trajectory(obs=latest_observations,
                                                           trajectory_filter_params=ss.subject.default_trajectory_filter())
                 trajectory_length = trajectory.relocs.fix_count
-            except Exception as e:
+            except Exception:
                 trajectory_length = 'n/a'
 
             result['performance'] = (

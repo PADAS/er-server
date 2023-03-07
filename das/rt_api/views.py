@@ -19,6 +19,9 @@ from utils import stats
 
 logger = logging.getLogger('rt_api')
 
+RT_NAMESPACE = "/das"
+LOGIN_NAMESPACE = "/"
+
 GLOBAL_SIO = None
 
 
@@ -50,30 +53,36 @@ def create_rt_socketio():
 
         connection_options = dict(
             transport_options=settings.REALTIME_BROKER_OPTIONS)
-        client_mgr = KombuManager(url=settings.REALTIME_BROKER_URL,
-                                  connection_options=connection_options
-                                  )
+        client_mgr = KombuManager(
+            url=settings.REALTIME_BROKER_URL, connection_options=connection_options
+        )
         server_options = dict(async_mode=settings.ASYNC_MODE)
-        server_options['cors_credentials'] = \
-            getattr(settings, 'CORS_ALLOW_CREDENTIALS', False)
+        server_options["cors_credentials"] = getattr(
+            settings, "CORS_ALLOW_CREDENTIALS", False
+        )
 
-        if getattr(settings, 'CORS_ORIGIN_ALLOW_ALL', False):
-            server_options['cors_allowed_origins'] = '*'
+        if getattr(settings, "CORS_ORIGIN_ALLOW_ALL", False):
+            server_options["cors_allowed_origins"] = "*"
         else:
-            server_options['cors_allowed_origins'] = \
-                getattr(settings, 'CORS_ORIGIN_WHITELIST', None)
+            server_options["cors_allowed_origins"] = getattr(
+                settings, "CORS_ORIGIN_WHITELIST", None
+            )
 
-        socketio_logger = logging.getLogger('rt_api.socketio')
-        sio = DasSocketServer(client_manager=client_mgr,
-                              json=utils.json,
-                              logger=socketio_logger,
-                              engineio_logger=socketio_logger,
-                              async_handlers=False,
-                              **server_options)
+        socketio_logger = logging.getLogger("rt_api.socketio")
+        sio = DasSocketServer(
+            client_manager=client_mgr,
+            json=utils.json,
+            logger=socketio_logger,
+            engineio_logger=socketio_logger,
+            async_handlers=False,
+            **server_options
+        )
 
         realtime_services = create_realtime_handler(sio)
         rt_api.pubsub_listener.start(realtime_services)
         GLOBAL_SIO = sio
+
+    close_old_connections()
 
     return GLOBAL_SIO
 
@@ -144,7 +153,7 @@ def cleanup_disconnected_clients(sios):
                     f'Clients to cleanup and disconnect {len(remove_these_clients)}')
 
                 client.remove_clients(
-                    *[x.sid for x in remove_these_clients])
+                    set([str(x.sid) for x in remove_these_clients]))
 
                 for sid in disconnect_these_sids:
                     sios.disconnect(sid)
@@ -156,7 +165,6 @@ def cleanup_disconnected_clients(sios):
                     f'No sockets to clean up. {len(environ)} Existing sockets connected')
 
     finally:
-
         eventlet.spawn_after(CLIENT_CLEANUP_INTERVAL,
                              cleanup_disconnected_clients, sios)
 
@@ -171,7 +179,7 @@ def create_realtime_handler(sios):
 
         do_not_trace_these_types = ['service_status', ]
 
-        @sios.on('connect', namespace='/')
+        @sios.on('connect', namespace=LOGIN_NAMESPACE)
         def on_connect(sid, socket, *args):
             # Drop the user if they don't authenticate immediately
             socket['authed'] = False
@@ -186,14 +194,14 @@ def create_realtime_handler(sios):
             # Make sure the connection authenticates immediately
             eventlet.spawn(confirm_authorzation, sid, sios)
 
-        @sios.on('disconnect')
+        @sios.on('disconnect', namespace=RT_NAMESPACE)
         def on_disconnect(sid, *args):
             extra = dict(sid=sid)
             logger.info('Client disconnect %s', sid, extra=extra)
             client.remove_client(sid)
             client.update_user_session(sid)
 
-        @sios.on('authorization', namespace='/das')
+        @sios.on('authorization', namespace=RT_NAMESPACE)
         def on_authenticate(sid, data):
             try:
                 # validate the data
@@ -204,7 +212,7 @@ def create_realtime_handler(sios):
                                    'status': {'code': 400,
                                               'message': 'Required fields: "type", "authorization", "id"'}},
                                   room=str(sid),
-                                  namespace='/das')
+                                  namespace=RT_NAMESPACE)
                         sios.disconnect(sid)
 
                 # To authenticate the token, we need to create a fake http
@@ -227,15 +235,15 @@ def create_realtime_handler(sios):
                     client.save_session_timestamp(sid)
 
                     # Put the connection into the correct rooms
-                    sios.manager.enter_room(sid, 'all_clients', '/das')
-                    sios.manager.enter_room(sid, sid, '/das')
+                    sios.manager.enter_room(sid, RT_NAMESPACE, 'all_clients')
+                    sios.manager.enter_room(sid, RT_NAMESPACE, sid)
 
                     # tell the user that they've been authenticated
                     sios.emit('resp_authorization',
                               {'type': 'resp_authorization', 'resp_id': data['id'],
                                'status': {'code': 200, 'message': 'OK'}},
                               room=str(sid),
-                              namespace='/das')
+                              namespace=RT_NAMESPACE)
 
                     client.create_update_user_session(sid)
 
@@ -249,7 +257,7 @@ def create_realtime_handler(sios):
                                'resp_id': data['id'],
                                'status': {'code': 401, 'message': 'Invalid credentials'}},
                               room=str(sid),
-                              namespace='/das')
+                              namespace=RT_NAMESPACE)
 
             except:
                 sios.emit('resp_authorization',
@@ -257,11 +265,11 @@ def create_realtime_handler(sios):
                            'resp_id': data['id'],
                            'status': {'code': 401, 'message': 'Authentication error'}},
                           room=str(sid),
-                          namespace='/das')
+                          namespace=RT_NAMESPACE)
                 logger.exception('Disconnecting session. data=%s', data)
                 sios.disconnect(sid)
 
-        @sios.on('bbox', namespace='/das')
+        @sios.on('bbox', namespace=RT_NAMESPACE)
         def on_bbox(sid, data):
             extra = dict(sid=sid, data=data)
             bbox = data['data']
@@ -279,9 +287,9 @@ def create_realtime_handler(sios):
                        'bbox': bbox
                        },
                       room=str(sid),
-                      namespace='/das')
+                      namespace=RT_NAMESPACE)
 
-        @sios.on('event_filter', namespace='/das')
+        @sios.on('event_filter', namespace=RT_NAMESPACE)
         def on_event_filter(sid, event_filter):
             """
             This is expecting a dict containing custom filter attributes.
@@ -302,7 +310,7 @@ def create_realtime_handler(sios):
                               'filter': event_filter,
                           },
                           room=str(sid),
-                          namespace='/das')
+                          namespace=RT_NAMESPACE)
             except ValueError as ve:
                 sios.emit('event_filter_response',
                           {
@@ -310,9 +318,9 @@ def create_realtime_handler(sios):
                               'error': str(ve),
                           },
                           room=str(sid),
-                          namespace='/das')
+                          namespace=RT_NAMESPACE)
 
-        @sios.on('patrol_filter', namespace='/das')
+        @sios.on('patrol_filter', namespace=RT_NAMESPACE)
         def on_patrol_filter(sid, patrol_filter):
             """
             This is expecting a dict containing custom filter attributes.
@@ -331,7 +339,7 @@ def create_realtime_handler(sios):
                               'filter': patrol_filter,
                           },
                           room=str(sid),
-                          namespace='/das')
+                          namespace=RT_NAMESPACE)
             except ValueError as ve:
                 sios.emit('patrol_filter_response',
                           {
@@ -339,16 +347,16 @@ def create_realtime_handler(sios):
                               'error': str(ve),
                           },
                           room=str(sid),
-                          namespace='/das')
+                          namespace=RT_NAMESPACE)
 
-        @sios.on('echo', namespace='/das')
+        @sios.on('echo', namespace=RT_NAMESPACE)
         def on_echo(sid, *args):
             sios.emit('echo_resp',
                       {'type': 'echo_resp',
                        'resp_id': 5,
                        'message': args[0]['data']},
                       room=str(sid),
-                      namespace='/das')
+                      namespace=RT_NAMESPACE)
 
         @staticmethod
         def emit(message_type, data, socketid=None):
@@ -372,7 +380,7 @@ def create_realtime_handler(sios):
                     client.push_trace(data['trace_id'], data)
 
                 if socketid is None:
-                    sios.emit(message_type, data, namespace='/das',
+                    sios.emit(message_type, data, namespace=RT_NAMESPACE,
                               callback=receipt_callback)
                 else:
 
@@ -382,7 +390,7 @@ def create_realtime_handler(sios):
                                     f"name:{message_type}"], sample_rate=0.1)
 
                     sios.emit(message_type, data, room=str(
-                        socketid), namespace='/das', callback=receipt_callback)
+                        socketid), namespace=RT_NAMESPACE, callback=receipt_callback)
 
             except Exception:
                 if socketid:

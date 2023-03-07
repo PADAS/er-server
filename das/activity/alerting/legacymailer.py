@@ -5,7 +5,7 @@
 import logging
 import urllib.parse
 
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 sms_separator_string = '{0}: {1}'
 email_separator_string = ' {0} {1}: {2}'
@@ -52,7 +52,7 @@ def fetch_latest_location(subject):
             source__subjectsource__subject=subject).order_by(
             '-recorded_at')[0]
         return str(observation.location.y), str(observation.location.x), \
-               observation.recorded_at.strftime('%Y-%m-%d %H:%M:%S')
+            observation.recorded_at.strftime('%Y-%m-%d %H:%M:%S')
     except Exception as e:
         logger.info(e)
         return '', '', ''

@@ -1,20 +1,17 @@
-from typing import NamedTuple, Any
+import logging
+from typing import Any, NamedTuple
 
-from core.utils import NonHttpRequest
-from activity.serializers import EventSerializer
-from observations.models import SubjectGroup, Subject
+from business_rules import actions, export_rule_data, fields, variables
 
-from utils import schema_utils
-from business_rules import actions, fields, variables, export_rule_data
+from django.utils.translation import gettext as _
 
 from activity.alerting.variables import case_insensitive_string_rule_variable
-from activity.permissions import EventCategoryPermissions
-
-from django.utils.translation import ugettext as _
-
-import logging
-
 from activity.models import Event, EventDetails
+from activity.permissions import EventCategoryPermissions
+from activity.serializers import EventSerializer
+from core.utils import NonHttpRequest
+from observations.models import Subject, SubjectGroup
+from utils import schema_utils
 
 VIEW_SUBJECTGROUP_PERMS = ('observations.view_subjectgroup', )
 
@@ -241,7 +238,7 @@ def accumulate_options(schema_option, accumulator=None):
     else:
         try:
             return dict((k, v) for k, v in schema_option['enumNames'].items())
-        except AttributeError as ae:
+        except AttributeError:
             logger.exception('Failed to parse options for schema_option. I expected a dictionary but got %s',
                              schema_option)
 

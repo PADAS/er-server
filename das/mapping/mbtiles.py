@@ -41,33 +41,32 @@ MBTiles provider parameters:
   tileset:
     Required local file path to MBTiles tileset file, a SQLite 3 database file.
 """
-import os
-import math
-import zlib
 import json
 import logging
-from urllib.parse import urlparse, urljoin
-from os.path import exists
-
-from django.http.response import HttpResponse
-from django.utils.translation import ugettext_lazy as _
+import math
+import os
 # Heroku is missing standard python's sqlite3 package, so this will ImportError.
 import sqlite3
+import zlib
+from os.path import exists
 from sqlite3 import connect as _connect
-from mapping.proj import GoogleProjection
+from urllib.parse import urljoin, urlparse
+
+from django.http.response import HttpResponse
+from django.utils.translation import gettext_lazy as _
+
 from mapping import app_settings
+from mapping.proj import GoogleProjection
 
 logger = logging.getLogger(__name__)
 
 
 class ExtractionError(Exception):
     """ Raised when extraction of tiles from specified MBTiles has failed """
-    pass
 
 
 class InvalidFormatError(Exception):
     """ Raised when reading of MBTiles content has failed """
-    pass
 
 
 def flip_y(y, z):
@@ -111,7 +110,8 @@ class Coordinate:
 
     def zoomTo(self, destination):
         return self.__class__(self.row * math.pow(2, destination - self.zoom),
-                              self.column * math.pow(2, destination - self.zoom),
+                              self.column *
+                              math.pow(2, destination - self.zoom),
                               destination)
 
     def zoomBy(self, distance):
@@ -144,11 +144,13 @@ def tileset_exists(filename):
 
     try:
         db.execute('SELECT name, value FROM metadata LIMIT 1')
-        db.execute('SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles LIMIT 1')
+        db.execute(
+            'SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles LIMIT 1')
     except:
         return False
 
     return True
+
 
 def tileset_info(filename):
     """ Return name, type, version, description, format, and bounds for a tileset.
@@ -164,7 +166,8 @@ def tileset_info(filename):
     info = []
 
     for key in ('name', 'type', 'version', 'description', 'format', 'bounds'):
-        value = db.execute('SELECT value FROM metadata WHERE name = ?', (key, )).fetchone()
+        value = db.execute(
+            'SELECT value FROM metadata WHERE name = ?', (key, )).fetchone()
         info.append(value and value[0] or None)
 
     return info
@@ -177,7 +180,8 @@ def list_tiles(filename):
     db.text_factory = bytes
 
     tiles = db.execute('SELECT tile_row, tile_column, zoom_level FROM tiles')
-    tiles = (((2**z - 1) - y, x, z) for (y, x, z) in tiles) # Hello, Paul Ramsey.
+    # Hello, Paul Ramsey.
+    tiles = (((2**z - 1) - y, x, z) for (y, x, z) in tiles)
     tiles = [Coordinate(row, column, zoom) for (row, column, zoom) in tiles]
 
     return tiles
@@ -191,12 +195,14 @@ def get_tile(filename, coord):
     db = _connect(filename)
     db.text_factory = bytes
 
-    formats = {'png': 'image/png', 'jpg': 'image/jpeg', 'json': 'application/json', None: None}
-    format = db.execute("SELECT value FROM metadata WHERE name='format'").fetchone()
+    formats = {'png': 'image/png', 'jpg': 'image/jpeg',
+               'json': 'application/json', None: None}
+    format = db.execute(
+        "SELECT value FROM metadata WHERE name='format'").fetchone()
     format = format and format[0] or None
     mime_type = formats[format]
 
-    tile_row = (2**coord.zoom - 1) - coord.row # Hello, Paul Ramsey.
+    tile_row = (2**coord.zoom - 1) - coord.row  # Hello, Paul Ramsey.
     q = 'SELECT tile_data FROM tiles WHERE zoom_level=? AND tile_column=? AND tile_row=?'
     content = db.execute(q, (coord.zoom, coord.column, tile_row)).fetchone()
     content = content and content[0] or None
@@ -209,6 +215,7 @@ class Provider:
 
         See module documentation for explanation of constructor arguments.
     """
+
     def __init__(self, layer, tileset):
         """
         """
@@ -216,7 +223,8 @@ class Provider:
         scheme, h, path, q, p, f = urlparse(sethref)
 
         if scheme not in ('file', ''):
-            raise Exception('Bad scheme in MBTiles provider, must be local file: "%s"' % scheme)
+            raise Exception(
+                'Bad scheme in MBTiles provider, must be local file: "%s"' % scheme)
 
         self.tileset = path
         self.layer = layer
@@ -231,7 +239,8 @@ class Provider:
         """ Retrieve a single tile, return a TileResponse instance.
         """
         mime_type, content = get_tile(self.tileset, coord)
-        formats = {'image/png': 'PNG', 'image/jpeg': 'JPEG', 'application/json': 'JSON', None: None}
+        formats = {'image/png': 'PNG', 'image/jpeg': 'JPEG',
+                   'application/json': 'JSON', None: None}
         return TileResponse(formats[mime_type], content)
 
     def getTypeByExtension(self, extension):
@@ -262,15 +271,18 @@ class TileResponse:
         - format: 'PNG' or 'JPEG'.
         - content: Raw response bytes.
     """
+
     def __init__(self, format, content):
         self.format = format
         self.content = content
 
     def save(self, out, format):
         if self.format is not None and format != self.format:
-            raise Exception('Requested format "%s" does not match tileset format "%s"' % (format, self.format))
+            raise Exception('Requested format "%s" does not match tileset format "%s"' % (
+                format, self.format))
 
         out.write(self.content)
+
 
 class TileSource(object):
     def __init__(self, tilesize=None):
@@ -284,6 +296,7 @@ class TileSource(object):
 
     def metadata(self):
         return dict()
+
 
 class MBTilesReader(TileSource):
     def __init__(self, filename, tilesize=None):
@@ -304,7 +317,8 @@ class MBTilesReader(TileSource):
         try:
             self._cur.execute(sql, *args)
         except (sqlite3.OperationalError, sqlite3.DatabaseError) as e:
-            raise InvalidFormatError(_("%s while reading %s") % (e, self.filename))
+            raise InvalidFormatError(
+                _("%s while reading %s") % (e, self.filename))
         return self._cur
 
     def metadata(self):
@@ -313,7 +327,8 @@ class MBTilesReader(TileSource):
         return dict(rows)
 
     def zoomlevels(self):
-        rows = self._query('SELECT DISTINCT(zoom_level) FROM tiles ORDER BY zoom_level')
+        rows = self._query(
+            'SELECT DISTINCT(zoom_level) FROM tiles ORDER BY zoom_level')
         return [int(row[0]) for row in rows]
 
     def tile(self, z, x, y):
@@ -323,7 +338,8 @@ class MBTilesReader(TileSource):
                               WHERE zoom_level=? AND tile_column=? AND tile_row=?;''', (z, x, tms_y))
         t = rows.fetchone()
         if not t:
-            raise ExtractionError(_("Could not extract tile %s from %s") % ((z, x, y), self.filename))
+            raise ExtractionError(
+                _("Could not extract tile %s from %s") % ((z, x, y), self.filename))
         return t[0]
 
     def grid(self, z, x, y, callback=None):
@@ -332,7 +348,8 @@ class MBTilesReader(TileSource):
                               WHERE zoom_level=? AND tile_column=? AND tile_row=?;''', (z, x, tms_y))
         t = rows.fetchone()
         if not t:
-            raise ExtractionError(_("Could not extract grid %s from %s") % ((z, x, y), self.filename))
+            raise ExtractionError(
+                _("Could not extract grid %s from %s") % ((z, x, y), self.filename))
         grid_json = json.loads(zlib.decompress(t[0]))
 
         rows = self._query('''SELECT key_name, key_json FROM grid_data

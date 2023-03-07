@@ -1,13 +1,13 @@
+import logging
+import uuid
+
 from django.contrib.gis.db import models
 from django.db.models import Q
-from core.models import TimestampedModel
-from django.utils.translation import ugettext_lazy as _
-from observations.models import SubjectType, SourceProvider
-import uuid
 from django.db.models.constraints import UniqueConstraint
-from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
 
-import logging
+from core.models import TimestampedModel
+from observations.models import SourceProvider, SubjectType
 
 logger = logging.getLogger(__name__)
 

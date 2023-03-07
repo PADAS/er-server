@@ -32,6 +32,9 @@ resource "template_dir" "deployments" {
     DB_PORT                         = var.db_port
     DB_USER                         = var.db_user
     DEFAULT_FROM_EMAIL              = local.from_email
+    DJANGO_LOGGING_LEVEL            = var.django_logging_level
+    DJANGO_REQUEST_LOGGING_LEVEL    = var.django_request_logging_level
+    DJANGO_SERVER_LOGGING_LEVEL     = var.django_server_logging_level
     EMAIL_HOST                      = var.email_host
     EMAIL_HOST_USER                 = var.email_host_user
     ENABLE_DEBUG                    = var.enable_debug
@@ -39,8 +42,10 @@ resource "template_dir" "deployments" {
     EUS_NAME                        = var.eus_name
     EUS_ORG                         = local.resolved_eus_organization
     EUS_TYPE                        = var.eus_type
+    FEATURE_TMS                     = var.feature_tms
     FQDN                            = var.fqdn
     FROM_EMAIL                      = local.from_email
+    GEO_PERMISSION_SPEED_KM_H       = var.geo_permission_speed_km_h
     GFW_CLUSTER_RADIUS              = var.gfw_cluster_radius
     GFW_BACKFILL_INTERVAL_DAYS      = var.gfw_backfill_interval_days
     GS_BUCKET_NAME                  = var.gs_bucket_name
@@ -53,6 +58,10 @@ resource "template_dir" "deployments" {
     KUBERNETES_NAMESPACE            = var.kubernetes_namespace
     MAPPING_FEATURES_V2             = var.mapping_features_v2
     PATROL_ENABLED                  = var.patrol_enabled
+    ROOT_LOGGING_LEVEL              = var.root_logging_level
+    RTAPI_LOGGING_LEVEL             = var.rtapi_logging_level
+    RTAPI_PUBSUB_LOGGING_LEVEL      = var.rtapi_pubsub_logging_level
+    RTAPI_SOCKET_LOGGING_LEVEL      = var.rtapi_socket_logging_level
     SENDSMS_TWILIO_FROM_NUMBER      = var.sendsms_twilio_from_number
     SERVER_VERSION                  = var.SERVER_VERSION
     SHOW_STATIONARY_SUBJECTS_ON_MAP = var.show_stationary_subjects_on_map
@@ -66,6 +75,8 @@ resource "template_dir" "deployments" {
     TABLEAU_ENABLED                 = var.tableau_enabled
     TABLEAU_SITE_ID                 = var.tableau_site_id
     TIME_ZONE                       = var.time_zone
+    TMS_API_HOST                    = var.tms_api_host
+    TMS_API_KEY                     = var.tms_api_key
     TRACK_LENGTH                    = var.track_length
     USE_AZURE_STORAGE               = var.use_azure_storage
     WEB_SERVICE_NAME                = var.web_service_name

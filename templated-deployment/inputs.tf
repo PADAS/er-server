@@ -79,6 +79,12 @@ variable "email_host" {
   default = "email-smtp.us-west-2.amazonaws.com"
 }
 
+variable "feature_tms" {
+  description = "Enable feature tms flag"
+  type        = string
+  default     = "False"
+}
+
 variable "fqdn" {
   type    = string
   default = "localhost"
@@ -201,7 +207,7 @@ variable "patrol_enabled" {
 
 variable "subject_region_enabled" {
   type    = string
-  default = "False"
+  default = "True"
 }
 
 variable "tableau_enabled" {
@@ -216,7 +222,7 @@ variable "tableau_site_id" {
 
 variable "tableau_default_dashboard" {
   type     = string
-  default = "er_standard_analytics/summary" 
+  default = "er_standard_analytics/summary"
 }
 
 variable "track_length" {
@@ -228,4 +234,57 @@ variable "alt_server_names" {
   description = "comma-delimited list of alternative server names, to be used for ALLOWED_HOSTS and CORS."
   type    = list(string)
   default = []
+}
+
+variable "geo_permission_speed_km_h" {
+  description = "Speed in km/h for geo permissions"
+  type        = string
+  default     = "75"
+}
+
+variable "tms_api_host" {
+  description = "tms api host"
+  type        = string
+  default     = "https://er-tms-api-gateway-5sf422kw.uc.gateway.dev"
+}
+
+variable "tms_api_key" {
+  description = "tms api key"
+  type        = string
+  default     = ""
+}
+
+variable "root_logging_level" {
+  type        = string
+  default     = "WARNING"
+}
+
+variable "django_logging_level" {
+  type        = string
+  default     = "INFO"
+}
+
+variable "django_request_logging_level" {
+  type        = string
+  default     = "INFO"
+}
+
+variable "django_server_logging_level" {
+  type        = string
+  default     = "INFO"
+}
+
+variable "rtapi_logging_level" {
+  type        = string
+  default     = "WARNING"
+}
+
+variable "rtapi_socket_logging_level" {
+  type        = string
+  default     = "WARNING"
+}
+
+variable "rtapi_pubsub_logging_level" {
+  type        = string
+  default     = "WARNING"
 }

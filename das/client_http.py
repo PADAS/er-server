@@ -1,9 +1,10 @@
 import datetime
 import uuid
 
+from oauth2_provider.models import AccessToken, Application
+
 import django.contrib.auth
 from django.utils import timezone
-from oauth2_provider.models import AccessToken, Application
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 User = django.contrib.auth.get_user_model()
@@ -28,8 +29,8 @@ class HTTPClient:
             client_type=Application.CLIENT_CONFIDENTIAL,
             authorization_grant_type=Application.GRANT_AUTHORIZATION_CODE,
         )
-        self.cyber_tracker_application = Application.objects.get(
-            client_id="cybertracker")
+        self.cyber_tracker_application = Application.objects.get_or_create(
+            client_id="cybertracker")[0]
         self.factory = APIRequestFactory(enforce_csrf_checks=True)
 
     def create_access_token(self, user, application):

@@ -1,22 +1,54 @@
+from unittest.mock import MagicMock
+
 import pytest
+from oauth2_provider.models import Application
 from pytest_factoryboy import register
 
 from django.contrib.auth.models import Permission
+from rest_framework.test import APIClient
 
-from factories import (EventDetailsFactory, EventFactory, EventTypeFactory,
-                       FeatureProximityAnalyzerConfigFactory,
-                       GeofenceAnalyzerConfigFactory, PatrolFactory,
-                       PatrolNoteFactory, PatrolSegmentFactory,
-                       PatrolSegmentSubjectFactory, PatrolSegmentUserFactory,
-                       PermissionSetFactory, ProviderFactory,
-                       SpatialFeatureGroupStaticFactory,
-                       SpatialFeatureTypeFactory, SubjectFactory,
-                       SubjectGroupFactory, SubjectSourceFactory, UserFactory)
+from factories import (
+    AccessTokenFactory,
+    EventCategoryFactory,
+    EventDetailsFactory,
+    EventFactory,
+    EventGeometryFactory,
+    EventNoteFactory,
+    EventTypeFactory,
+    FeatureProximityAnalyzerConfigFactory,
+    GeofenceAnalyzerConfigFactory,
+    ObservationFactory,
+    PatrolFactory,
+    PatrolNoteFactory,
+    PatrolSegmentFactory,
+    PatrolSegmentSubjectFactory,
+    PatrolSegmentUserFactory,
+    PermissionSetFactory,
+    ProviderFactory,
+    SourceFactory,
+    SpatialFeatureGroupStaticFactory,
+    SpatialFeatureTypeFactory,
+    SubjectFactory,
+    SubjectGroupFactory,
+    SubjectSourceFactory,
+    UserFactory,
+)
+from utils.tenant import Tenant
 
 
 @pytest.fixture
 def patrol():
     PatrolFactory()
+
+
+@pytest.fixture
+def subject():
+    return SubjectFactory()
+
+
+@pytest.fixture
+def source():
+    return SourceFactory()
 
 
 @pytest.fixture
@@ -55,23 +87,35 @@ register(UserFactory, "ops_user")
 @pytest.fixture
 def view_subject_permissions():
     return [
-        Permission.objects.get_by_natural_key(
-            "view_subjectgroup", "observations", "subjectgroup"
-        ),
-        Permission.objects.get_by_natural_key(
-            "view_subject", "observations", "subject"
-        ),
+        Permission.objects.get_by_natural_key("view_subjectgroup", "observations", "subjectgroup"),
+        Permission.objects.get_by_natural_key("view_subject", "observations", "subject"),
     ]
 
 
 @pytest.fixture
+def subject_group_tree():
+    """
+    Tamed
+     |- Dogs
+    """
+    root = SubjectGroupFactory(name="Tamed")
+    root.children.add(SubjectGroupFactory(name="Dogs"))
+    return root
+
+
+@pytest.fixture
+def subject_group_empty():
+    return SubjectGroupFactory.create()
+
+
+@pytest.fixture
 def two_subject_groups(view_subject_permissions):
-    view_sg_a_permissionset = PermissionSetFactory.create(
-        permissions=view_subject_permissions)
-    view_sg_b_permissionset = PermissionSetFactory.create(
-        permissions=view_subject_permissions)
-    return [SubjectGroupFactory.create(permission_sets=[view_sg_a_permissionset], subjects=SubjectFactory.create_batch(2)),
-            SubjectGroupFactory.create(permission_sets=[view_sg_b_permissionset], subjects=SubjectFactory.create_batch(2))]
+    view_sg_a_permissionset = PermissionSetFactory.create(permissions=view_subject_permissions)
+    view_sg_b_permissionset = PermissionSetFactory.create(permissions=view_subject_permissions)
+    return [
+        SubjectGroupFactory.create(permission_sets=[view_sg_a_permissionset], subjects=SubjectFactory.create_batch(2)),
+        SubjectGroupFactory.create(permission_sets=[view_sg_b_permissionset], subjects=SubjectFactory.create_batch(2)),
+    ]
 
 
 @pytest.fixture
@@ -80,20 +124,22 @@ def view_subjects_permission_set(view_subject_permissions):
 
 
 @pytest.fixture()
-def subject_group(request):
+def subject_group_with_perms(request):
     permissions = []
     for permission in request.param:
         permission = permission.split(",")
         try:
             codename, app_label, model = permission[0], permission[1], permission[2]
-            permission = Permission.objects.get_by_natural_key(
-                codename, app_label, model
-            )
+            permission = Permission.objects.get_by_natural_key(codename, app_label, model)
             permissions.append(permission)
         except Permission.DoesNotExist:
-            print(
-                f"Does not exits a permission with the next params {permission}")
+            print(f"Does not exits a permission with the next params {permission}")
     return SubjectGroupFactory.create(permission_sets=[PermissionSetFactory.create(permissions=permissions)])
+
+
+@pytest.fixture
+def subject_group_without_permissions():
+    return SubjectGroupFactory.create()
 
 
 @pytest.fixture
@@ -142,28 +188,34 @@ def dummy_cache(settings):
 
 @pytest.fixture
 def five_events():
-    EventFactory.create_batch(5)
+    return EventFactory.create_batch(5)
+
+
+@pytest.fixture
+def event_with_detail():
+    return EventDetailsFactory()
 
 
 @pytest.fixture
 def five_events_with_details():
-    EventDetailsFactory.create_batch(5)
+    return EventDetailsFactory.create_batch(5)
+
+
+@pytest.fixture
+def five_event_notes():
+    return EventNoteFactory.create_batch(5)
 
 
 @pytest.fixture
 def five_patrol_segment_user_with_leader_uuid():
     for i in range(1, 6):
-        PatrolSegmentSubjectFactory.create(
-            leader__id=f"00000000-0000-0000-0000-00000000000{i}"
-        )
+        PatrolSegmentSubjectFactory.create(leader__id=f"00000000-0000-0000-0000-00000000000{i}")
 
 
 @pytest.fixture
 def five_patrol_segment_patrol_type_uuid():
     for i in range(1, 6):
-        PatrolSegmentFactory.create(
-            patrol_type__id=f"00000000-0000-0000-0000-00000000000{i}"
-        )
+        PatrolSegmentFactory.create(patrol_type__id=f"00000000-0000-0000-0000-00000000000{i}")
 
 
 @pytest.fixture
@@ -172,5 +224,127 @@ def source_provider():
 
 
 @pytest.fixture
-def five_subject_source():
-    SubjectSourceFactory.create_batch(5)
+def events_with_category(request):
+    return [
+        EventFactory.create(title=f"Title {category}", event_type__category__value=category)
+        for category in request.param
+    ]
+
+
+@pytest.fixture
+def get_geo_permission_set(request):
+    permissions = Permission.objects.filter(codename__in=request.param)
+    return PermissionSetFactory.create(name="Test Geo Permissions - View", permissions=permissions)
+
+
+@pytest.fixture
+def basic_event_categories():
+    categories = ["analyzer_event", "logistics", "monitoring", "security"]
+    for category in categories:
+        EventCategoryFactory.create(value=category)
+
+
+@pytest.fixture
+def application():
+    application, _ = Application.objects.get_or_create(client_id="das_web_client")
+    return application
+
+
+@pytest.fixture
+def superuser():
+    return UserFactory(is_superuser=True)
+
+
+@pytest.fixture
+def superuser_client(application, superuser):
+    token = AccessTokenFactory(user=superuser, application=application).token
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION="Bearer " + token)
+    client.force_login(user=superuser)
+    return client
+
+
+@pytest.fixture
+def event_geometry_with_polygon():
+    return EventGeometryFactory.create(event__event_type__geometry_type="Polygon")
+
+
+@pytest.fixture
+def five_event_geometries():
+    return EventGeometryFactory.create_batch(5)
+
+
+@pytest.fixture
+def observation():
+    return ObservationFactory()
+
+
+@pytest.fixture
+def five_observations():
+    return ObservationFactory.create_batch(5)
+
+
+@pytest.fixture
+def tenant_response():
+    return {
+        "name": "Frank test1",
+        "slugName": "frank-test1",
+        "timeZone": "UTC",
+        "url": "http://zoo.com",
+        "domain": "zoo.com",
+        "envSettings": {
+            "acceptEula": False,
+            "apiHost": "192.167.2.5",
+            "apiPort": "4000",
+            "defaultFromEmail": "frank@mail.com",
+            "enableDebug": False,
+            "enableDev": False,
+            "fromEmail": "dev@mail.com",
+            "sendSmsTwilioFromNumber": "+520123365458",
+        },
+        "featureFlags": {
+            "alertsEnabled": False,
+            "dailyReportEnabled": False,
+            "gfwBackfillIntervalDays": False,
+            "gfwClusterRadius": False,
+            "kmlExport": False,
+            "mappingFeaturesV2": True,
+            "patrolEnabled": False,
+            "showStationarySubjectsOnMap": False,
+            "showTrackDays": False,
+            "subjectRegionEnabled": False,
+            "tableauDefaultDashboard": False,
+            "tableauEnabled": False,
+            "tableauSiteId": False,
+            "trackLength": False,
+        },
+        "services": {
+            "auth": {"status": "PROVISIONING", "statusMessage": None},
+            "bigQuery": {"status": "PROVISIONING", "statusMessage": None},
+            "dataWarehouse": {"status": "PROVISIONING", "statusMessage": None},
+            "media": {"status": "PROVISIONING", "statusMessage": None},
+            "observations": {"status": "PROVISIONING", "statusMessage": None},
+            "secrets": {"status": "PROVISIONING", "statusMessage": None},
+        },
+        "status": "PROVISIONING",
+        "id": "c0973be2-8e11-4cb8-8463-897fb96391d0",
+        "createdAt": "2022-11-14T21:09:02.519164+00:00",
+        "updatedAt": "2022-11-14T21:09:02.519165+00:00",
+    }
+
+
+@pytest.fixture
+def tms_api_client_mock(monkeypatch, tenant_response):
+    tms_client_mock = MagicMock()
+    monkeypatch.setattr("utils.tenant.providers.tms_api_client", tms_client_mock)
+    return tms_client_mock
+
+
+@pytest.fixture
+def tenant(tenant_response):
+    return Tenant.from_dict(tenant_response)
+
+
+@pytest.fixture(scope="function")
+def tenant_response_for_test_case(request, tenant):
+    request.cls.tenant_response = tenant

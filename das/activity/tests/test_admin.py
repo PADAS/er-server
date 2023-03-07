@@ -1,13 +1,13 @@
 import django.contrib.auth
 from django.contrib.admin.sites import AdminSite
+from django.contrib.messages.storage.cookie import CookieStorage
+from django.http import QueryDict
 from django.test import RequestFactory
 from django.urls import reverse
-from django.http import QueryDict
 
-from core.tests import BaseAPITest
-from django.contrib.messages.storage.cookie import CookieStorage
-from activity.models import EventType, EventCategory
 from activity.admin import EventTypeAdmin
+from activity.models import EventCategory, EventType
+from core.tests import BaseAPITest
 
 User = django.contrib.auth.get_user_model()
 
@@ -61,8 +61,9 @@ class TestEventTypeAdmin(BaseAPITest):
 
         response = self.admin.add_view(request)
 
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue("Expecting ',' delimiter: line 18 column 25" in messages._queued_messages[0].message)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            "Expecting ',' delimiter: line 18 column 25" in messages._queued_messages[0].message)
 
     def test_eventtype_schema_unmatched_quotes(self):
         url = reverse('admin:activity_eventtype_add')
@@ -91,8 +92,9 @@ class TestEventTypeAdmin(BaseAPITest):
 
         response = self.admin.add_view(request)
 
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue("Invalid control character at: line 16 column 41" in messages._queued_messages[0].message)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            "Invalid control character at: line 16 column 41" in messages._queued_messages[0].message)
 
     def test_eventtype_schema_missing_colon(self):
         url = reverse('admin:activity_eventtype_add')
@@ -121,8 +123,6 @@ class TestEventTypeAdmin(BaseAPITest):
 
         response = self.admin.add_view(request)
 
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue("Expecting ':' delimiter: line 16 column 20" in messages._queued_messages[0].message)
-
-
-
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            "Expecting ':' delimiter: line 16 column 20" in messages._queued_messages[0].message)

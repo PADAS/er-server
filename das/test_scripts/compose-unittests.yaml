@@ -12,6 +12,8 @@ services:
       - DB_PASSWORD=fancypassword
       - DB_PORT=5432
       - FQDN=testing.pamdas.org
+      - CIRCLE_NODE_TOTAL=${CIRCLE_NODE_TOTAL}
+      - CIRCLE_NODE_INDEX=${CIRCLE_NODE_INDEX}
 
     links:
       - dbserver

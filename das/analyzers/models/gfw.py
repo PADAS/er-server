@@ -2,8 +2,7 @@ import logging
 import uuid
 
 from django.contrib.gis.db import models
-from django.contrib.postgres.fields import JSONField
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from core.models import TimestampedModel
 
@@ -35,7 +34,8 @@ class GlobalForestWatchSubscription (TimestampedModel):
     name = models.CharField(_('name'), max_length=100)
     subscription_id = models.CharField(max_length=100, blank=True)
     geostore_id = models.CharField(max_length=100,  blank=True)
-    additional = JSONField(default=dict, help_text='JSON data for subscriptions', blank=True)
+    additional = models.JSONField(
+        default=dict, help_text='JSON data for subscriptions', blank=True)
     Deforestation_confidence = models.CharField(max_length=100,
                                                 choices=DEFORESTATION_ALERTS_CONFIDENCE_CHOICES,
                                                 default=CONFIRMED)
@@ -43,7 +43,8 @@ class GlobalForestWatchSubscription (TimestampedModel):
                                        choices=FIRE_ALERTS_CONFIDENCE_CHOICES,
                                        default=HIGH_NOMINAL)
 
-    subscription_geometry = models.PolygonField(geography=True, srid=4326, null=True)
+    subscription_geometry = models.PolygonField(
+        geography=True, srid=4326, null=True)
     last_check_time = models.DateTimeField(blank=True, null=True)
     last_check_status = models.CharField(max_length=100, blank=True)
     glad_confirmed_backfill_days = models.IntegerField(default=180)
@@ -51,4 +52,3 @@ class GlobalForestWatchSubscription (TimestampedModel):
     class Meta:
         verbose_name = 'Global Forest Watch Subscription'
         verbose_name_plural = 'Global Forest Watch Subscriptions'
-
