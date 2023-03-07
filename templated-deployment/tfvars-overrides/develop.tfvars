@@ -1,8 +1,0 @@
-daily_report_enabled      = "True"
-time_zone                 = "US/Pacific"
-show_track_days           = "10000"
-patrol_enabled            = "True"
-tableau_enabled           = "True"
-tableau_site_id           = "Demo1"
-tableau_default_dashboard = "EarthRangerEventReportsSummary_demo"
-track_length              = "20"

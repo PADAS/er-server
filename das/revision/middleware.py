@@ -1,12 +1,45 @@
+import logging
+from threading import local
+
 from django.db.models import signals
-from django.utils.functional import curry
 
 from revision.manager import RevisionMixin
+
+logger = logging.getLogger(__name__)
+request_context = local()
+request_context.request = None
+
+
+def get_current_request_user():
+    """
+    Get the authenticated user from the current request context.
+
+    Returns:
+        User: The authenticated user from the current request, or None if no request
+            or user is available.
+    """
+    if request := getattr(request_context, "request", None):
+        if user := getattr(request, "user", None):
+            if user.is_authenticated:
+                return user
+    return None
+
+
+def attach_revision_user_to_instance(sender, instance, **kwargs):
+    if issubclass(sender, RevisionMixin):
+        # Access request.user lazily - this happens during model save,
+        # after DRF authentication has run, so request.user is correctly set
+        user = get_current_request_user()
+        if user:
+            logger.debug("Setting revision user from request.user: '%s'", user.username)
+
+        setattr(instance, "revision_user", user)
 
 
 class RevisionMiddleware(object):
     def __init__(self, get_response):
         self.get_response = get_response
+        signals.pre_save.connect(attach_revision_user_to_instance, weak=False)
         # One-time configuration and initialization.
 
     def __call__(self, request):
@@ -24,21 +57,15 @@ class RevisionMiddleware(object):
         return response
 
     def _process_request(self, request):
-        if request.method not in ('GET', 'HEAD', 'OPTIONS', 'TRACE'):
-            if hasattr(request, 'user') and request.user.is_authenticated:
-                user = request.user
-            else:
-                user = None
-            pre_save_info = curry(self._pre_save_info, user)
-
-            signals.pre_save.connect(pre_save_info,
-                                     dispatch_uid=(self.__class__, request,),
-                                     weak=False)
+        if request.method not in ("GET", "HEAD", "OPTIONS", "TRACE"):
+            # Store request object - user will be accessed lazily during model save
+            # This ensures we get the user AFTER DRF authentication has run
+            # (important when Bearer tokens are used instead of session auth)
+            request_context.request = request
+        else:
+            request_context.request = None
 
     def _process_response(self, request, response):
-        signals.pre_save.disconnect(dispatch_uid=(self.__class__, request,))
+        request_context.request = None
+        logger.debug("Clear revision request in current thread")
         return response
-
-    def _pre_save_info(self, user, sender, instance, **kwargs):
-        if issubclass(sender, RevisionMixin):
-            setattr(instance, 'revision_user', user)

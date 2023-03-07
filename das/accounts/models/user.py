@@ -1,30 +1,33 @@
-import pytz
-import uuid
 import logging
-from datetime import datetime
-import pytz
+import uuid
+
 import dateutil.parser
-
-from django.contrib import auth
-from django.contrib.gis.db import models
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
-from django.contrib.postgres.fields import JSONField
-from django.utils.translation import ugettext_lazy as _
-from django.core.mail import send_mail
-from django.core.exceptions import PermissionDenied, ValidationError
-from django.core import validators
-from django.utils import timezone
-
+from django_multitenant.fields import TenantForeignKey
+from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
 from sendsms import api
 
+from django.apps import apps
+from django.contrib import auth
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
+from django.contrib.gis.db import models
+from django.core import validators
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.mail import send_mail
+from django.db.models import Index, UniqueConstraint
+from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
+
 from accounts.mixins import PermissionsMixin
+from core.models import DASTenant, UUIDModel
+from utils.migrations.columns import default_tenant_id
+from utils.models import CommonTenantManager
 
 logger = logging.getLogger(__name__)
 
 phone_regex = validators.RegexValidator(
-    regex=r'^\+?1?\d{9,15}$',
-    message="Phone number must be entered in the format:  "
-            "'+999999999'. Up to 15 digits allowed.")
+    regex=r"^\+?1?\d{9,15}$",
+    message="Phone number must be entered in the format:  " "'+999999999'. Up to 15 digits allowed.",
+)
 
 
 class UserQuerySet(models.QuerySet):
@@ -36,15 +39,15 @@ class UserQuerySet(models.QuerySet):
     def by_is_active(self, active=True):
         return self.filter(is_active=active)
 
-    def _filter_or_exclude(self, mapper, *args, **kwargs):
+    def _filter_or_exclude(self, mapper, args, kwargs):
         # 'name' is a field in your Model whose lookups you want case-insensitive by default
-        if 'username' in kwargs:
-            kwargs['username__iexact'] = kwargs['username']
-            del kwargs['username']
-        return super()._filter_or_exclude(mapper, *args, **kwargs)
+        if "username" in kwargs:
+            kwargs["username__iexact"] = kwargs["username"]
+            del kwargs["username"]
+        return super()._filter_or_exclude(mapper, args, kwargs)
 
 
-class UserManager(BaseUserManager):
+class UserManager(TenantManagerMixin, BaseUserManager.from_queryset(UserQuerySet)):
     use_in_migrations = True
 
     def _create_user(self, username, email, password, **extra_fields):
@@ -52,31 +55,36 @@ class UserManager(BaseUserManager):
         Creates and saves a User with the given username, email and password.
         """
         if not username:
-            raise ValueError('The given username must be set')
-        email = self.normalize_email(email)
+            raise ValueError("The given username must be set")
+        if email:
+            email = self.normalize_email(email)
         user = self.model(username=username, email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
 
     def create_user(self, username, email=None, password=None, **extra_fields):
-        extra_fields.setdefault('is_staff', False)
-        extra_fields.setdefault('is_superuser', False)
+        extra_fields.setdefault("is_staff", False)
+        extra_fields.setdefault("is_superuser", False)
         return self._create_user(username, email, password, **extra_fields)
 
     def create_superuser(self, username, email=None, password=None, **extra_fields):
-        extra_fields.setdefault('is_staff', True)
-        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
 
-        if extra_fields.get('is_staff') is not True:
-            raise ValueError('Superuser must have is_staff=True.')
-        if extra_fields.get('is_superuser') is not True:
-            raise ValueError('Superuser must have is_superuser=True.')
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("Superuser must have is_staff=True.")
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("Superuser must have is_superuser=True.")
 
         return self._create_user(username, email, password, **extra_fields)
 
-    def get_queryset(self):
-        return UserQuerySet(self.model, using=self._db)
+    def by_linked_subject_id(self, subject_id: str):
+        Subject = apps.get_model("observations.Subject")
+        subjects = Subject.objects.filter(id=subject_id)
+        if subjects.exists():
+            return subjects.first().linked_user
+        return None
 
 
 def _user_has_module_perms(user, app_label):
@@ -85,7 +93,7 @@ def _user_has_module_perms(user, app_label):
     permission checking.
     """
     for backend in auth.get_backends():
-        if not hasattr(backend, 'has_module_perms'):
+        if not hasattr(backend, "has_module_perms"):
             continue
         try:
             if backend.has_module_perms(user, app_label):
@@ -95,98 +103,141 @@ def _user_has_module_perms(user, app_label):
     return False
 
 
-class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
+class ActAsProfiles(TenantModelMixin, UUIDModel):
+    from_user = TenantForeignKey(
+        "accounts.User", on_delete=models.CASCADE, related_name="others", related_query_name="others"
+    )
+    to_user = TenantForeignKey("accounts.User", on_delete=models.CASCADE)
+
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    objects = CommonTenantManager()
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "from_user", "to_user"],
+                name="%(app_label)s_%(class)s_tenant_from_to_unique",
+            ),
+        ]
+
+
+class AccountsAbstractUser(TenantModelMixin, AbstractBaseUser, PermissionsMixin):
     """
     An abstract base class implementing a fully featured User model with
     admin-compliant permissions.
 
     Username and password are required. Other fields are optional.
     """
+
     username = models.CharField(
-        _('username'),
+        _("username"),
         max_length=30,
-        unique=True,
-        help_text=_('Required. 30 characters or fewer.'
-                    ' Letters, digits and @/./+/-/_ only.'),
+        help_text=_("Required. 30 characters or fewer." " Letters, digits and @/./+/-/_ only."),
         validators=[
             validators.RegexValidator(
-                r'^[\w.@+-]+$',
-                _('Enter a valid username. This value may contain only '
-                  'letters, numbers ' 'and @/./+/-/_ characters.')
+                r"^[\w.@+-]+$",
+                _(
+                    "Enter a valid username. This value may contain only "
+                    "letters, numbers "
+                    "and @/./+/-/_ characters."
+                ),
             ),
         ],
         error_messages={
-            'unique': _("A user with that username already exists."),
+            "unique": _("A user with that username already exists."),
         },
     )
-    first_name = models.CharField(
-        _('first name'), max_length=30, null=True, blank=True)
-    last_name = models.CharField(
-        _('last name'), max_length=30, null=True, blank=True)
-    email = models.EmailField(
-        _('email address'), unique=True, null=True, blank=True)
-    phone = models.CharField(validators=[phone_regex], max_length=15,
-                             blank=True)  # validators should be a list
+    first_name = models.CharField(_("first name"), max_length=30, null=True, blank=True)
+    last_name = models.CharField(_("last name"), max_length=30, null=True, blank=True)
+    email = models.EmailField(_("email address"), null=True, blank=True)
+    phone = models.CharField(validators=[phone_regex], max_length=15, blank=True)  # validators should be a list
     is_email_alert = models.BooleanField(
-        _('email alert'),
+        _("email alert"),
         default=False,
-        help_text=_('Should email alerts be sent to this user.'),
+        help_text=_("Should email alerts be sent to this user."),
     )
     is_sms_alert = models.BooleanField(
-        _('sms alert'),
+        _("sms alert"),
         default=False,
-        help_text=_('Should sms alerts be sent to this user.'),
+        help_text=_("Should sms alerts be sent to this user."),
     )
     is_staff = models.BooleanField(
-        _('staff status'),
+        _("staff status"),
         default=False,
-        help_text=_('Designates whether the user can log '
-                    'into this admin site.'),
+        help_text=_("Designates whether the user can log " "into this admin site."),
     )
     is_active = models.BooleanField(
-        _('active'),
+        _("active"),
         default=True,
         help_text=_(
-            'Designates whether this user should be treated as active. '
-            'Set this False instead of deleting accounts.'
+            "Designates whether this user should be treated as active. " "Set this False instead of deleting accounts."
         ),
     )
-    date_joined = models.DateTimeField(_('date joined'), default=timezone.now)
-    additional = JSONField('additional data', default=dict,
-                           null=True, blank=True)
+    date_joined = models.DateTimeField(_("date joined"), default=timezone.now)
+    additional = models.JSONField("additional data", default=dict, null=True, blank=True)
     is_nologin = models.BooleanField(
-        _('no login'),
+        _("no login"),
         default=False,
-        help_text=_('Prevent the user from logging in. '
-                    'The account is active, but the users password is not '
-                    'active.'
-                    ),
+        help_text=_(
+            "Prevent the user from logging in. " "The account is active, but the users password is not " "active."
+        ),
     )
     act_as_profiles = models.ManyToManyField(
-        'self', blank=True,
-        verbose_name=_('user profiles'),
+        "self",
+        blank=True,
+        verbose_name=_("user profiles"),
         symmetrical=False,
-        help_text=_(
-            'The list of user profiles that this user can act as.'
-        ),
+        help_text=_("The list of user profiles that this user can act as."),
+        through=ActAsProfiles,
     )
     accepted_eula = models.BooleanField(default=False)
+    pin = models.CharField(max_length=4, blank=True, null=True)
+    auth0_id = models.CharField(max_length=256, null=True, blank=True, help_text="Auth0 subject identifier (sub claim)")
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
 
-    objects = UserManager()
+    tenant_id = "das_tenant_id"
 
-    USERNAME_FIELD = 'username'
+    USERNAME_FIELD = "username"
     REQUIRED_FIELDS = []
 
     class Meta:
-        verbose_name = _('user')
-        verbose_name_plural = _('users')
+        verbose_name = _("user")
+        verbose_name_plural = _("users")
+
         abstract = True
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "email"],
+                name="%(app_label)s_%(class)s_unique_email_across_tenatns",
+            ),
+            UniqueConstraint(
+                fields=["das_tenant", "username"],
+                name="%(app_label)s_%(class)s_unique_username_across_tenatns",
+            ),
+            UniqueConstraint(
+                fields=["das_tenant", "auth0_id"],
+                name="%(app_label)s_%(class)s_unique_auth0_id_per_tenant",
+                condition=models.Q(auth0_id__isnull=False),
+            ),
+        ]
+        indexes = [
+            Index(fields=["das_tenant", "email"], name="%(app_label)s_%(class)s_email_index"),
+            Index(fields=["das_tenant", "username"], name="%(app_label)s_%(class)s_username_index"),
+        ]
+
+    @property
+    def has_linked_subject(self):
+        Subject = apps.get_model(app_label="observations", model_name="Subject")
+        return Subject.objects.by_linked_user(self).exists()
 
     def get_full_name(self):
         """
         Returns the first_name plus the last_name, with a space in between.
         """
-        full_name = '%s %s' % (self.first_name, self.last_name)
+        full_name = "%s %s" % (self.first_name, self.last_name)
         return full_name.strip()
 
     def get_short_name(self):
@@ -203,34 +254,34 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         """
         Sends an sms message to this User's cell phone if they have one
         """
-        api.send_sms(body=message, from_phone=from_phone,
-                     to=[self.phone], **kwargs)
+        api.send_sms(body=message, from_phone=from_phone, to=[self.phone], **kwargs)
 
     _mou_expiry_date = None
     _mou_expiry_date_is_set = False
+
     @property
     def mou_expiry_date(self):
-        '''
+        """
         MOU Expiry date is an additional User attribute and indicates a date when a user's data view access expires.
 
         For the purposes of animal track data, this MOU date indicates the maximum track timestamp visible for the user.
         :return: an expiry date (or datetime.max if either there is no expiry date or it is invalid.
 
         TODO: Consider whether an invalid 'mou_expiry' string should raise an error.
-        '''
+        """
 
         if self._mou_expiry_date_is_set:
             return self._mou_expiry_date
 
         try:
-            mou_expiry_date = self.additional.get('expiry', None)
+            mou_expiry_date = self.additional.get("expiry", None)
 
             if mou_expiry_date:
-                logger.info(f'Parsing mou_expiry_date: {mou_expiry_date}')
+                logger.info(f"Parsing mou_expiry_date: {mou_expiry_date}")
                 value = dateutil.parser.parse(mou_expiry_date)
                 self._mou_expiry_date = value
 
-        except (ValueError, OverflowError) as ex:
+        except (ValueError, OverflowError):
             logger.warning('Error parsing mou_expiry_date string "%s" for user %s', mou_expiry_date, self.username)
         finally:
             self._mou_expiry_date_is_set = True
@@ -238,25 +289,26 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         return self._mou_expiry_date
 
     def get_role(self):
-        return self.additional.get('role') or ''
+        return self.additional.get("role") or ""
 
 
 class User(AccountsAbstractUser):
-    user_perms = {'accounts.view_user', 'accounts.change_user'}
+    user_perms = {"accounts.view_user", "accounts.change_user"}
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    objects = UserManager()
 
-    class Meta(AbstractBaseUser.Meta):
-        swappable = 'AUTH_USER_MODEL'
-        verbose_name = _('user')
-        verbose_name_plural = _('users')
+    class Meta(AbstractBaseUser.Meta, AccountsAbstractUser.Meta):
+        swappable = "AUTH_USER_MODEL"
+        verbose_name = _("user")
+        verbose_name_plural = _("users")
+        base_manager_name = "objects"
 
     def get_user_permissions(self, obj=None):
         """
         A user can view and edit themselves
         """
         if obj and isinstance(obj, User) and self.id == obj.id:
-            return super(User, self).get_user_permissions(obj)\
-                + self.user_perms
+            return super(User, self).get_user_permissions(obj) + self.user_perms
 
         return set()
 
@@ -281,9 +333,15 @@ class User(AccountsAbstractUser):
             user = User.objects.get_by_natural_key(self.username)
             if user.pk != self.pk:
                 raise ValidationError(
-                    {'username': ValidationError(
-                        _('{0} already in use'.format(self.username)), code='invalid')})
+                    {"username": ValidationError(_("{0} already in use".format(self.username)), code="invalid")}
+                )
         except User.DoesNotExist:
             pass
+
+        # Validate auth0_id: null is OK, empty or whitespace-only string is not
+        if self.auth0_id is not None and self.auth0_id.strip() == "":
+            raise ValidationError(
+                {"auth0_id": ValidationError(_("Auth0 ID cannot be empty. Use null instead."), code="invalid")}
+            )
 
         return result

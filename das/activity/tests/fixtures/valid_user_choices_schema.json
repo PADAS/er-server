@@ -1,0 +1,58 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+            "users": {
+                "deprecated": false,
+                "description": "",
+                "title": "users",
+                "type": "string",
+                "anyOf": [
+                    {
+                        "$ref": "https://zoo.com/api/v2.0/schemas/users.json"
+                    }
+                ]
+            }
+        },
+        "required": [],
+        "type": "object"
+    },
+    "ui": {
+        "fields": {
+            "users": {
+                "choices": {
+                    "eventTypeCategories": [],
+                    "existingChoiceList": [],
+                    "featureCategories": [],
+                    "myDataType": "USERS",
+                    "subjectGroups": [],
+                    "subjectSubtypes": [],
+                    "type": "MY_DATA"
+                },
+                "inputType": "DROPDOWN",
+                "placeholder": "",
+                "type": "CHOICE_LIST",
+                "parent": "section-1"
+            }
+        },
+        "headers": {},
+        "order": [
+            "section-1"
+        ],
+        "sections": {
+            "section-1": {
+                "columns": 1,
+                "isActive": true,
+                "label": "",
+                "leftColumn": [
+                    {
+                        "name": "users",
+                        "type": "field"
+                    }
+                ],
+                "rightColumn": []
+            }
+        }
+    }
+}

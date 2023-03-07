@@ -1,22 +1,28 @@
+import logging
 from datetime import timedelta
 
-import logging
 import pymet
 
-from django.contrib.gis.geos import Point as DjangoPoint
 from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
-from django.utils.translation import ugettext_lazy as _
-from analyzers.utils import save_analyzer_event
+from django.contrib.gis.geos import Point as DjangoPoint
+from django.utils.translation import gettext_lazy as _
+
 from activity.models import Event
-from analyzers.models import ImmobilityAnalyzerConfig, SubjectAnalyzerResult, OK, WARNING, CRITICAL
-from analyzers.models.base import EVENT_PRIORITY_MAP
-from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.base import SubjectAnalyzer
+from analyzers.exceptions import InsufficientDataAnalyzerException
+from analyzers.models import (
+    CRITICAL,
+    OK,
+    WARNING,
+    ImmobilityAnalyzerConfig,
+    SubjectAnalyzerResult,
+)
+from analyzers.models.base import EVENT_PRIORITY_MAP
+from analyzers.utils import save_analyzer_event
 
 
 class ImmobilityAnalyzer(SubjectAnalyzer):
-
-    """ Immobility Analyzer for a Track.
+    """Immobility Analyzer for a Track.
 
     Based on the clustering algorithm described by Jake Wall in RTM_Appendix_A.pdf
 
@@ -30,7 +36,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
     threshold_warning_cluster_ratio: the proportion of observations in a sample which
         must be inside a cluster to generate a CRITICAL.  Default 0.8 as in Wall
 
-     """
+    """
 
     def __init__(self, subject=None, config=None):
         SubjectAnalyzer.__init__(self, subject, config)
@@ -40,8 +46,7 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
     def get_subject_analyzers(cls, subject=None):
         if subject:
             subject_groups = subject.get_ancestor_subject_groups()
-            for ac in ImmobilityAnalyzerConfig.objects.filter(
-                    subject_group__in=subject_groups, is_active=True):
+            for ac in ImmobilityAnalyzerConfig.objects.filter(subject_group__in=subject_groups, is_active=True):
                 yield cls(subject=subject, config=ac)
 
     def default_observations(self):
@@ -83,27 +88,30 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
             raise InsufficientDataAnalyzerException
 
         # Get the relocation fixes in descending order
-        fixes = traj.relocs.get_fixes('DESC')
+        fixes = traj.relocs.get_fixes("DESC")
 
         # Create a blank cluster
         test_cluster = pymet.cluster.Cluster()
 
         # Create the analyzer result
-        title = '{} {}'.format(str(self.subject.name), str(_(' is moving')))
+        title = "{} {}".format(str(self.subject.name), str(_(" is moving")))
 
-        result = SubjectAnalyzerResult(subject_analyzer=self.config,
-                                       level=OK,
-                                       title=title,
-                                       message=title,
-                                       analyzer_revision=1,
-                                       subject=self.subject)
+        result = SubjectAnalyzerResult(
+            subject_analyzer=self.config,
+            level=OK,
+            title=title,
+            message=title,
+            analyzer_revision=1,
+            subject=self.subject,
+        )
 
         # Define the latest fix as the estimated time
         result.estimated_time = fixes[0].fixtime
 
         # Define the geometry to be the latest fix geometry
-        result.geometry_collection = DjangoGeoColl([DjangoPoint(fixes[0].ogr_geometry.GetX(),
-                                                                fixes[0].ogr_geometry.GetY())])
+        result.geometry_collection = DjangoGeoColl(
+            [DjangoPoint(fixes[0].ogr_geometry.GetX(), fixes[0].ogr_geometry.GetY())]
+        )
 
         # Test for immobility
         for f in fixes:
@@ -111,27 +119,29 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
 
             # Calculate the ratio of points within cluster threshold distance
             # and total points in cluster
-            cluster_pvalue = test_cluster.threshold_point_count(self.config.threshold_radius) / \
-                test_cluster.relocs.fix_count
+            cluster_pvalue = (
+                test_cluster.threshold_point_count(self.config.threshold_radius) / test_cluster.relocs.fix_count
+            )
 
             cluster_timespan_seconds = test_cluster.relocs.timespan_seconds
 
-            if (cluster_pvalue >= self.config.threshold_probability) and \
-                    (cluster_timespan_seconds > self.config.threshold_time):
+            if (cluster_pvalue >= self.config.threshold_probability) and (
+                cluster_timespan_seconds > self.config.threshold_time
+            ):
                 # TODO: gte comparison  on the timespan but switched to achieve parity with STE system
                 # Modify analyzer result
                 result.level = CRITICAL
-                result.title = '{} {}'.format(
-                    str(self.subject.name), str(_(' is immobile')))
+                result.title = "{} {}".format(str(self.subject.name), str(_(" is immobile")))
                 result.message = result.title
-                result.geometry_collection = DjangoGeoColl([DjangoPoint(test_cluster.centroid.GetX(),
-                                                                        test_cluster.centroid.GetY())])
+                result.geometry_collection = DjangoGeoColl(
+                    [DjangoPoint(test_cluster.centroid.GetX(), test_cluster.centroid.GetY())]
+                )
                 result.values = {
-                    'probability_value': cluster_pvalue,
-                    'cluster_radius': test_cluster.cluster_radius,
-                    'cluster_fix_count': test_cluster.threshold_point_count(self.config.threshold_radius),
-                    'total_fix_count': test_cluster.relocs.fix_count,
-                    'immobility_time': cluster_timespan_seconds
+                    "probability_value": cluster_pvalue,
+                    "cluster_radius": round(test_cluster.cluster_radius, 2),
+                    "cluster_fix_count": test_cluster.threshold_point_count(self.config.threshold_radius),
+                    "total_fix_count": test_cluster.relocs.fix_count,
+                    "immobility_time": cluster_timespan_seconds / 60 / 60,
                 }
 
         self.logger.info(result.message)
@@ -159,13 +169,13 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
 
         event_data = None
 
-        event_details = {'name': self.subject.name}
+        event_details = {"name": self.subject.name}
         event_details.update(this_result.values)
 
         # Create a dict() location to satisfy our EventSerializer.
         event_location_value = {
-            'longitude': this_result.geometry_collection[0].x,
-            'latitude': this_result.geometry_collection[0].y
+            "longitude": this_result.geometry_collection[0].x,
+            "latitude": this_result.geometry_collection[0].y,
         }
 
         # Notify if result is critical or warning
@@ -174,12 +184,13 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                 title=this_result.title,
                 event_time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
-                event_type='immobility',
-                priority=EVENT_PRIORITY_MAP.get(
-                    this_result.level, Event.PRI_URGENT),
+                event_type="immobility",
+                priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_URGENT),
                 location=event_location_value,
                 event_details=event_details,
-                related_subjects=[{'id': self.subject.id}, ],
+                related_subjects=[
+                    {"id": self.subject.id},
+                ],
             )
 
         # Notify if there is a state transition from Critical/Warning back to
@@ -189,12 +200,13 @@ class ImmobilityAnalyzer(SubjectAnalyzer):
                 title=this_result.title,
                 time=this_result.estimated_time,
                 provenance=Event.PC_ANALYZER,
-                event_type='immobility_all_clear',
-                priority=EVENT_PRIORITY_MAP.get(
-                    this_result.level, Event.PRI_REFERENCE),
+                event_type="immobility_all_clear",
+                priority=EVENT_PRIORITY_MAP.get(this_result.level, Event.PRI_REFERENCE),
                 location=event_location_value,
                 event_details=event_details,
-                related_subjects=[{'id': self.subject.id}, ],
+                related_subjects=[
+                    {"id": self.subject.id},
+                ],
             )
 
         if event_data:

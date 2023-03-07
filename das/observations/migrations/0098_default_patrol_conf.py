@@ -5,23 +5,21 @@ from django.db import migrations
 
 def forwards(apps, schema_editor):
     db_alias = schema_editor.connection.alias
-    patrol_conf = apps.get_model('activity', 'PatrolConfiguration')
-    subject_groups = apps.get_model('observations', 'SubjectGroup')
+    patrol_conf = apps.get_model("activity", "PatrolConfiguration")
+    subject_groups = apps.get_model("observations", "SubjectGroup")
 
-    sgs = subject_groups.objects.using(db_alias).filter(
-        subjects__subject_subtype__subject_type__value='person')
+    sgs = subject_groups.objects.using(db_alias).filter(subjects__subject_subtype__subject_type__value="person")
 
-    instance, created = \
-        patrol_conf.objects.using(db_alias).get_or_create(pk=1, defaults={'name': 'Default Patrol Configuration'})
+    instance, created = patrol_conf.objects.using(db_alias).get_or_create(
+        pk=1, defaults={"name": "Default Patrol Configuration"}
+    )
     instance.subject_groups.add(*sgs)
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('observations', '0097_model_name_maximum_length'),
+        ("observations", "0097_model_name_maximum_length"),
+        ("activity", "0116_patrol_configuration"),
     ]
 
-    operations = [
-        migrations.RunPython(code=forwards, reverse_code=migrations.RunPython.noop)
-    ]
+    operations = [migrations.RunPython(code=forwards, reverse_code=migrations.RunPython.noop)]

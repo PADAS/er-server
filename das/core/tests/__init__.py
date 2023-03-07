@@ -2,32 +2,45 @@ import datetime
 import uuid
 
 import pytest
-import django.contrib.auth
-from django.utils import timezone
-from django.test import TestCase
-from rest_framework.test import APIRequestFactory, force_authenticate
-from oauth2_provider.models import Application, AccessToken
+from django_multitenant.utils import set_current_tenant
 from kombu import Connection
+from oauth2_provider.models import get_access_token_model, get_application_model
+
+import django.contrib.auth
+from django.test import TestCase
+from django.utils import timezone
+from rest_framework.test import APIRequestFactory, force_authenticate
 
 pytestmark = pytest.mark.django_db
 
+AccessToken = get_access_token_model()
+Application = get_application_model()
 User = django.contrib.auth.get_user_model()
 
-API_BASE = '/api/v1.0'
+API_BASE = "/api/v1.0"
+
 
 def fake_get_pool():
     return Connection("memory://").Pool(20)
 
 
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
 class BaseAPITest(TestCase):
+    use_atomic_transaction = True
     api_base = API_BASE
 
-    def setUp(self):
-        user_const = dict(last_name='last', first_name='first')
+    @classmethod
+    def _databases_support_transactions(cls):
+        if not cls.use_atomic_transaction:
+            return False
+        return super()._databases_support_transactions()
 
-        self.app_user = User.objects.create_user('app-user', 'app-user@test.com',
-                                                 'app-user', is_superuser=False,
-                                                 is_staff=True, **user_const)
+    def setUp(self):
+        user_const = dict(last_name="last", first_name="first")
+        set_current_tenant(self.das_tenant)
+        self.app_user = User.objects.create_user(
+            "app-user", "app-user@test.com", "app-user", is_superuser=False, is_staff=True, **user_const
+        )
 
         self.application = Application(
             name="Test Application",
@@ -38,18 +51,22 @@ class BaseAPITest(TestCase):
         )
         self.application.save()
 
-        self.factory = APIRequestFactory(enforce_csrf_checks=True)
+        self.factory = APIRequestFactory(enforce_csrf_checks=False)
 
-    def create_access_token(self, user):
-        tok = AccessToken.objects.create(
-            user=user, token=str(uuid.uuid4()),
-            application=self.application, scope='read write',
-            expires=timezone.now() + datetime.timedelta(days=1)
+    def create_access_token(self, user, expires=None):
+        if not expires:
+            expires = timezone.now() + datetime.timedelta(days=1)
+        token = AccessToken.objects.create(
+            user=user, token=str(uuid.uuid4()), application=self.application, scope="read write", expires=expires
         )
-        return tok
+        return token
 
-    def force_authenticate(self, request, user):
+    def force_authenticate(self, request, user, token=None):
         request.user = user
-        tok = self.create_access_token(user)
+        if not token:
+            token = self.create_access_token(user)
 
-        force_authenticate(request, user=user, token=tok)
+        force_authenticate(request, user=user, token=token)
+
+    def create_authorization_header(self, token):
+        return "Bearer {0}".format(token)

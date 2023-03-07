@@ -1,86 +1,131 @@
 import datetime
 import logging
+from typing import Union
 
 import pytz
-from activity.models import EventType
-from celery_once import QueueOnce
-from das_server import celery
-from django.conf import settings
+
+from django.db import transaction
 from django.db.models import Avg, Count, F
 from django.utils.dateparse import parse_duration
-from observations.models import Observation, SourceProvider
+
+from activity.models import EventType
+from das_server import celery
+from observations.models import Observation, Source, SourceProvider
 from reports.distribution import (
     OBSERVATION_LAG_NOTIFY_PERMISSION_CODENAME,
     get_users_for_permission,
     send_report,
 )
-from reports.models import SourceProviderEvent, SourceEvent
+from reports.models import SourceEvent, SourceProviderEvent
 from reports.serializers import EventSerializer
+from utils.tenant import get_tenant_settings, get_ui_site_name, get_ui_site_url
+from utils.tenant.celery import TenantQueueOnceTask
 
 logger = logging.getLogger(__name__)
 
 
+def calculate_lag_for_provider(
+    provider_key: str,
+    period_start: datetime.datetime,
+    recorded_at_window_start: datetime.datetime,
+    recorded_at_window_end: datetime.datetime,
+) -> Union[dict, None]:
+    """
+    Calculate the average lag time for a provider over a given time period.
+
+    Args:
+        provider_key (str): The key of the provider to calculate the lag for.
+        period_start (datetime.datetime): The start of the time period to calculate the lag for.
+        recorded_at_window_start (datetime.datetime): The start of the recorded_at window to calculate the lag for.
+        recorded_at_window_end (datetime.datetime): The end of the recorded_at window to calculate the lag for.
+
+    Returns:
+        dict: provider summary dict with annotated avg_lag and data_points. None if no observations are found for the provider.
+    """
+
+    provider_summary = (
+        Observation.objects.filter(
+            created_at__gt=period_start,
+            recorded_at__range=(recorded_at_window_start, recorded_at_window_end),
+            source__provider__provider_key=provider_key,
+        )
+        .values(
+            provider_key=F("source__provider__provider_key"), provider_display_name=F("source__provider__display_name")
+        )
+        .annotate(avg_lag=Avg(F("created_at") - F("recorded_at")), data_points=Count("created_at"))
+        .order_by()
+        # the blank order_by above clears the default order_by for Observation model which removes unwanted group by
+    )
+    return provider_summary.first()
+
+
 def get_lagging_providers():
-    lagging_providers = []
     # TODO do we want to be able to configure this value?
     configured_report_duration = "00:30:00"
     period_end = datetime.datetime.now(pytz.utc)
     period_start = period_end - parse_duration(configured_report_duration)
-    # grouped by source provider lets find the average lag time in the last duration along with number of entries
-    providers = Observation.objects \
-        .filter(created_at__gt=period_start) \
-        .values(provider_key=F('source__provider__provider_key'),
-                provider_display_name=F('source__provider__display_name')) \
-        .annotate(avg_lag=Avg(F('created_at') - F('recorded_at')), data_points=Count('created_at')).order_by()
-    # the blank order_by above clears the default order_by for Observation model which removes unwanted group by
-    for provider in providers:
+
+    # only look at observations recorded in the last 30 days, to focus the db query on recent data
+    recorded_at_window_end = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)
+    recorded_at_window_start = recorded_at_window_end - datetime.timedelta(days=31)
+
+    for provider in SourceProvider.objects.all():
+        if not (provider_lag_config := get_provider_lag_alert_config(provider)):
+            continue
+
+        logger.info(f"Provider {provider.display_name} has lag alert config", extra=provider_lag_config)
+
+        lag_calculation_result = calculate_lag_for_provider(
+            provider.provider_key, period_start, recorded_at_window_start, recorded_at_window_end
+        )
+        if not lag_calculation_result:
+            continue
+
         # build data object to pass to threshold check
         provider_lag_check_data = {
-            'provider_key': provider.get('provider_key'),
-            'provider_name': provider.get('provider_display_name'),
-            'avg_lag': provider.get('avg_lag'),
-            'num_data_points': provider.get('data_points'),
-            'period_start': period_start,
-            'period_end': period_end,
+            "provider_key": provider.provider_key,
+            "provider_name": provider.display_name,
+            "avg_lag": lag_calculation_result.get("avg_lag"),
+            "num_data_points": lag_calculation_result.get("data_points"),
+            "period_start": period_start,
+            "period_end": period_end,
         }
-        # get config for this provider
-        provider_lag_config = get_provider_lag_alert_config(
-            provider_lag_check_data.get('provider_key'))
-        # now we have config lets check if it exceeded threshold
+
         if check_source_provider_lag_exceeded(provider_lag_check_data, provider_lag_config):
-            lagging_providers.append(
-                (provider_lag_check_data, provider_lag_config))
-
-    return lagging_providers
+            yield (provider_lag_check_data, provider_lag_config)
 
 
-# return the config for this provider's lag alert report
-def get_provider_lag_alert_config(provider_key):
-    # hard coded for now, but could come from file, etc.
-    provider = SourceProvider.objects.get(provider_key=provider_key)
-    threshold = provider.additional.get('lag_notification_threshold', None)
-    configured_lag_threshold = {
-        'lag_notification_threshold': threshold,
-        'site_name': settings.UI_SITE_NAME,
-        'site_url': settings.UI_SITE_URL
-    }
+def get_provider_lag_alert_config(provider):
+    threshold = provider.additional.get("lag_notification_threshold", None)
+    if not isinstance(threshold, str) or not threshold.strip():
+        return None
 
-    return configured_lag_threshold
+    if threshold := parse_duration(threshold):
+        tenant_settings = get_tenant_settings()
+        configured_lag_threshold = {
+            "lag_notification_threshold": threshold,
+            "site_name": get_ui_site_name(tenant_settings),
+            "site_url": get_ui_site_url(tenant_settings),
+        }
+        return configured_lag_threshold
+    return None
 
 
 # check and return bool if the lag time provided in data exceeds configured threshold
 def check_source_provider_lag_exceeded(provider_lag_check_data, provider_lag_config):
-    threshold = provider_lag_config.get('lag_notification_threshold', None)
+    threshold = provider_lag_config.get("lag_notification_threshold", None)
 
-    if not isinstance(threshold, str):
+    if not isinstance(threshold, str) or not threshold.strip():
         return False
 
     # configured value is a string, lets parse to timedelta
     threshold = parse_duration(threshold)
-    if provider_lag_check_data.get('avg_lag') > threshold:
-        logger.warning('Provider {0} has exceeded lag threshold of {1}, its avg lag in the last interval {2}'
-                       .format(provider_lag_check_data.get('provider_name'),
-                               threshold, provider_lag_check_data.get('avg_lag')))
+    if threshold and provider_lag_check_data.get("avg_lag") > threshold:
+        logger.warning(
+            "Provider {0} has exceeded lag threshold of {1}, its avg lag in the last interval {2}".format(
+                provider_lag_check_data.get("provider_name"), threshold, provider_lag_check_data.get("avg_lag")
+            )
+        )
         return True
     return False
 
@@ -88,26 +133,21 @@ def check_source_provider_lag_exceeded(provider_lag_check_data, provider_lag_con
 # given check data and config send a lag alert as specified in DAS-3365
 def send_lag_delay_alert(provider_lag_check_data, provider_lag_config, usernames=None):
     # Limit recipients to those identified by usernames argument.
-    recipients = get_users_for_permission(
-        OBSERVATION_LAG_NOTIFY_PERMISSION_CODENAME, usernames=usernames)
+    recipients = get_users_for_permission(OBSERVATION_LAG_NOTIFY_PERMISSION_CODENAME, usernames=usernames)
 
     recipients = list(recipients)
     if len(recipients) < 1:
-        logger.info(
-            'No recipients for Observation lag notification, so not generating report data.')
+        logger.info("No recipients for Observation lag notification, so not generating report data.")
         return
 
-    email_body, message_subject = generate_lag_notification_email(
-        provider_lag_check_data, provider_lag_config)
+    email_body, message_subject = generate_lag_notification_email(provider_lag_check_data, provider_lag_config)
     recipient_emails = [recipient.email for recipient in recipients]
-    logger.info(
-        'Sending Observation Lag Notification for {0}'.format(recipient_emails))
-    send_report(subject=message_subject,
-                to_email=recipient_emails, text_content=email_body)
+    logger.info("Sending Observation Lag Notification for {0}".format(recipient_emails))
+    send_report(subject=message_subject, to_email=recipient_emails, text_content=email_body)
 
 
 def generate_lag_notification_email(provider_lag_check_data, provider_lag_config):
-    site_name = provider_lag_config.get('site_name')
+    site_name = provider_lag_config.get("site_name")
     message_subject = f"""EarthRanger WARNING ({site_name}): Lag in data from source provider {provider_lag_check_data.get('provider_name')}"""
     email_body = """EarthRanger WARNING: Average lag in data from source provider exceeds configured threshold.
     The lag is the avg time between when the observation was recorded and when it was created in ER over the time period below.
@@ -120,75 +160,49 @@ Start of period: {period_start}
 End of period: {period_end}
 Number of data points: {data_points}
 Average lag: {avg_lag}
-    """.format(site_name=site_name,
-               site_url=provider_lag_config.get('site_url'),
-               threshold=provider_lag_config.get('lag_notification_threshold'),
-               provider_name=provider_lag_check_data.get('provider_name'),
-               period_start=provider_lag_check_data.get('period_start'),
-               period_end=provider_lag_check_data.get('period_end'),
-               data_points=provider_lag_check_data.get('num_data_points'),
-               avg_lag=provider_lag_check_data.get('avg_lag'))
+    """.format(
+        site_name=site_name,
+        site_url=provider_lag_config.get("site_url"),
+        threshold=provider_lag_config.get("lag_notification_threshold"),
+        provider_name=provider_lag_check_data.get("provider_name"),
+        period_start=provider_lag_check_data.get("period_start"),
+        period_end=provider_lag_check_data.get("period_end"),
+        data_points=provider_lag_check_data.get("num_data_points"),
+        avg_lag=provider_lag_check_data.get("avg_lag"),
+    )
     return email_body, message_subject
 
 
-@celery.app.task(base=QueueOnce, once={'graceful': True})
-def check_sources_threshold():
+@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
+def check_sources_threshold(*args, **kwargs):
     source_providers = SourceProvider.objects.filter(
-        source__subjectsource__assigned_range__contains=datetime.datetime.now(
-            pytz.utc)
+        source__subjectsource__assigned_range__contains=datetime.datetime.now(pytz.utc)
     ).distinct()
     now = datetime.datetime.now(pytz.utc)
 
     for source_provider in source_providers:
-        latest_observations = (
-            Observation.objects.filter(
-                source__provider=source_provider,
-                recorded_at__gte=now - datetime.timedelta(days=1),
-            )
-            .order_by("source", "-recorded_at")
-            .distinct("source")
+        sources = (
+            Source.objects.filter(provider=source_provider)
+            .by_active_sources()
+            .annotate(last_observation=F("last_observation_source__observation"))
+            .annotate(last_observation_recorded_at=F("last_observation_source__recorded_at"))
+            .order_by("last_observation_recorded_at")
         )
-        if evaluate_source_provider_compliance(source_provider, latest_observations, now):
+        if evaluate_source_provider_compliance(source_provider, sources, now):
             continue
 
-        sources_without_recent_observations = get_sources_id_without_recent_observations(
-            source_provider, latest_observations
-        )
-
-        if sources_without_recent_observations:
-            sources_with_latest_observation = (
-                Observation.objects.filter(
-                    source__in=sources_without_recent_observations)
-                .order_by("source", "-recorded_at")
-                .distinct("source")
-            )
-            latest_observations = latest_observations.union(
-                sources_with_latest_observation)
-
-        for observation in latest_observations:
-            evaluate_source_compliance(observation, source_provider, now)
-
-
-def get_sources_id_without_recent_observations(source_provider, latest_observations):
-    sources = source_provider.sources.all().values_list('id', flat=True)
-    sources_observations = latest_observations.values_list('source', flat=True)
-    return set(sources) - set(sources_observations)
+        for source in sources.filter(last_observation__isnull=False, last_observation_recorded_at__isnull=False):
+            evaluate_source_compliance(source, source_provider, now)
 
 
 def evaluate_source_provider_compliance(source_provider, latest_observations, now):
-    silence_notification_threshold = source_provider.additional.get(
-        "silence_notification_threshold"
-    )
+    silence_notification_threshold = source_provider.additional.get("silence_notification_threshold")
     source_report = SourcesReport()
-    if silence_notification_threshold and all_sources_have_observations(
-        source_provider, latest_observations
-    ):
+    if silence_notification_threshold and all_sources_have_observations(source_provider, latest_observations):
         provider_threshold = parse_duration(silence_notification_threshold)
         threshold = now - provider_threshold
 
-        if not all_observations_reach_threshold(
-            latest_observations, threshold
-        ) and check_can_write_new_provider_event(
+        if not all_observations_reach_threshold(latest_observations, threshold) and check_can_write_new_provider_event(
             source_provider, now, provider_threshold
         ):
             logger.info(
@@ -197,110 +211,89 @@ def evaluate_source_provider_compliance(source_provider, latest_observations, no
             source_report.create_silent_source_provider_report(
                 source_provider,
                 now,
-                latest_observation_record_at=latest_observations.first().recorded_at,
+                latest_observation_record_at=latest_observations.first().last_observation_recorded_at,
             )
             return True
     return False
 
 
 def all_sources_have_observations(source_provider, latest_observations):
-    return source_provider.sources.count() == latest_observations.count()
+    return source_provider.sources.count() == latest_observations.filter(last_observation__isnull=False).count()
 
 
 def all_observations_reach_threshold(latest_observation, datetime_threshold):
-    return latest_observation.filter(recorded_at__gt=datetime_threshold).count()
+    return latest_observation.filter(last_observation_recorded_at__gt=datetime_threshold).count()
 
 
 def check_can_write_new_provider_event(source_provider, now, threshold):
-    if source_provider.events_reached_threshold.all():
-        lag = (
-            now
-            - source_provider.events_reached_threshold.latest("created_at").created_at
-        )
+    if source_provider.events_reached_threshold.exists():
+        lag = now - source_provider.events_reached_threshold.latest("created_at").created_at
         return lag > threshold
     return True
 
 
-def evaluate_source_compliance(observation, source_provider, now):
-    provider_default_threshold = source_provider.additional.get(
-        "default_silent_notification_threshold"
-    )
+def evaluate_source_compliance(source, source_provider, now):
+    provider_default_threshold = source_provider.additional.get("default_silent_notification_threshold")
     if provider_default_threshold:
         provider_default_threshold = provider_default_threshold + ":00"
     source_report = SourcesReport()
 
-    if is_threshold_reached(provider_default_threshold, now, observation):
-        if can_write_new_source_event(
-            observation.source, now, provider_default_threshold
-        ):
+    if is_threshold_reached(provider_default_threshold, now, source):
+        if can_write_new_source_event(source, now, provider_default_threshold):
             logger.info(
                 f"Creating source report, due to default provider threshold was reached by source {source_provider.display_name}"
             )
-            source_report.create_silent_source_report(
-                observation.source, now, provider_default_threshold, default_reached=True)
+            source_report.create_silent_source_report(source, now, provider_default_threshold, default_reached=True)
     else:
-        source_threshold = observation.source.additional.get(
-            "silence_notification_threshold"
-        )
-        if is_threshold_reached(
-            source_threshold, now, observation
-        ) and can_write_new_source_event(observation.source, now, source_threshold):
-            logger.info(
-                f"Creating source report, due to source threshold was reached by source {observation.source.model_name}"
-            )
-            source_report.create_silent_source_report(
-                observation.source, now, source_threshold, default_reached=False)
+        source_threshold = source.additional.get("silence_notification_threshold")
+        if is_threshold_reached(source_threshold, now, source) and can_write_new_source_event(
+            source, now, source_threshold
+        ):
+            logger.info(f"Creating source report, due to source threshold was reached by source {source.model_name}")
+            source_report.create_silent_source_report(source, now, source_threshold, default_reached=False)
 
 
-def is_threshold_reached(threshold, now, observation):
+def is_threshold_reached(threshold, now, source):
     if threshold:
         threshold = now - parse_duration(threshold)
-        return observation.recorded_at < threshold
+        return source.last_observation_recorded_at < threshold
     return False
 
 
 def can_write_new_source_event(source, now, threshold):
-    if source.events_reached_threshold.all():
-        lag = now - \
-            source.events_reached_threshold.latest("created_at").created_at
+    if source.events_reached_threshold.exists():
+        lag = now - source.events_reached_threshold.latest("created_at").created_at
         return lag > parse_duration(threshold)
     return True
 
 
 class SourcesReport:
     def create_silent_source_report(self, source, now, threshold, default_reached) -> None:
-        last_observations = source.observation_set.order_by("recorded_at")
+        last_observation = source.observation_set.order_by("-recorded_at").first()
+        subject = self.get_source_subject(source=source)
         self._save_silent_source_report(
-            title=self._get_report_title(source, default_reached),
+            title=self.get_report_title(source=source, subject=subject, default_reached=default_reached),
             report_time=now.strftime("%Y-%m-%d %H:%M:%S"),
-            subject_name=self._get_subject_name(source),
+            subject_name=self.get_subject_name(subject=subject),
             source_provider=source.provider.display_name,
             device_id=source.manufacturer_id,
             silence_threshold=threshold[:-3],
-            last_device_reported_at=last_observations.last().recorded_at.strftime(
-                "%Y-%m-%d %H:%M:%S"
-            ),
-            subject=self._get_source_subject(source),
+            last_device_reported_at=last_observation.recorded_at.strftime("%Y-%m-%d %H:%M:%S"),
+            subject=subject,
             source=source,
             location={
-                "latitude": last_observations.last().location.y,
-                "longitude": last_observations.last().location.x,
+                "latitude": last_observation.location.y,
+                "longitude": last_observation.location.x,
             },
         )
 
-    def create_silent_source_provider_report(
-        self, source_provider, now, latest_observation_record_at
-    ) -> None:
+    def create_silent_source_provider_report(self, source_provider, now, latest_observation_record_at) -> None:
         self._save_silent_source_provider_report(
             title=f"{source_provider.display_name} integration disrupted",
             report_time=now.strftime("%Y-%m-%d %H:%M:%S"),
-            silence_threshold=source_provider.additional.get(
-                "silence_notification_threshold"
-            )[:-3],
-            last_device_reported_at=latest_observation_record_at.strftime(
-                "%Y-%m-%d %H:%M:%S"
-            ),
-            source_provider=source_provider
+            silence_threshold=source_provider.additional.get("silence_notification_threshold")[:-3],
+            last_device_reported_at=latest_observation_record_at.strftime("%Y-%m-%d %H:%M:%S"),
+            source_provider=source_provider,
         )
 
     def _save_silent_source_report(
@@ -338,13 +331,13 @@ class SourcesReport:
         }
         serializer = EventSerializer(data=data)
         if serializer.is_valid():
-            event = serializer.save()
-            if subject:
-                event.related_subjects.add(subject)
-            SourceEvent.objects.create(source=source, event=event)
+            with transaction.atomic():
+                event = serializer.save()
+                if subject:
+                    event.related_subjects.add(subject)
+                SourceEvent.objects.create(source=source, event=event)
         else:
-            logger.info(
-                f"Impossible create a source report {serializer.errors}")
+            logger.warning(f"Impossible create a source report {serializer.errors}")
 
     def _save_silent_source_provider_report(
         self, title, report_time, silence_threshold, last_device_reported_at, source_provider
@@ -366,28 +359,24 @@ class SourcesReport:
         }
         serializer = EventSerializer(data=data)
         if serializer.is_valid():
-            event = serializer.save()
-            SourceProviderEvent.objects.create(
-                source_provider=source_provider, event=event)
+            with transaction.atomic():
+                event = serializer.save()
+                SourceProviderEvent.objects.create(source_provider=source_provider, event=event)
         else:
-            logger.info(
-                f"Impossible create a source provider report {serializer.errors}"
-            )
+            logger.warning(f"Impossible create a source provider report {serializer.errors}")
 
-    def _get_report_title(self, source, default_reached=False) -> str:
+    def get_report_title(self, source, subject, default_reached=False) -> str:
         extra_title = "has gone silent" if default_reached else "is silent"
-        if source.subjectsource_set.last() and source.subjectsource_set.last().subject:
-            return f"{source.subjectsource_set.last().subject.name} {extra_title}"
+        if subject:
+            return f"{subject.name} {extra_title}"
         if default_reached:
             return f"{source.id} {extra_title}"
         return f"{source.manufacturer_id} {extra_title}"
 
-    def _get_subject_name(self, source) -> str:
-        if source.subjectsource_set.last() and source.subjectsource_set.last().subject:
-            return source.subjectsource_set.last().subject.name
+    def get_subject_name(self, subject) -> str:
+        if subject:
+            return subject.name
         return "(none)"
 
-    def _get_source_subject(self, source):
-        if source.subjectsource_set.last() and source.subjectsource_set.last().subject:
-            return source.subjectsource_set.last().subject
-        return None
+    def get_source_subject(self, source):
+        return source.active_subject

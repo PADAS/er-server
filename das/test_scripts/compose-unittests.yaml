@@ -12,6 +12,8 @@ services:
       - DB_PASSWORD=fancypassword
       - DB_PORT=5432
       - FQDN=testing.pamdas.org
+      - CIRCLE_NODE_TOTAL=${CIRCLE_NODE_TOTAL}
+      - CIRCLE_NODE_INDEX=${CIRCLE_NODE_INDEX}
 
     links:
       - dbserver
@@ -21,10 +23,10 @@ services:
       - dbserver
           #condition: service_healthy
     volumes:
-      - testresults:/testresults
+      - /testresults:/testresults
 
   dbserver:
-    image: gcr.io/padas-app/postgis
+    image: postgis/postgis:14-3.5-alpine
     container_name: dbserver-test
     environment:
       - POSTGRES_USER=testuser
@@ -37,11 +39,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    volumes:
-      - testresults:/testresults
 
   redis:
-    image: redis:6.0.6
+    image: redis:7.2
     container_name: redis-test
     environment:
       - FOO=bar
@@ -52,7 +52,3 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-volumes:
-    # Using testresults to capture unit test output.
-    testresults:

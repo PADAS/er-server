@@ -1,0 +1,342 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+            "size_of_the_poaching_group": {
+                "deprecated": false,
+                "description": "Number of poachers that were in the group.",
+                "minimum": 1,
+                "title": "Size of the Poaching Group",
+                "type": "number"
+            },
+            "what_happened?_patrol_activity": {
+                "deprecated": false,
+                "description": "",
+                "title": "What happened? Patrol activity",
+                "type": "string",
+                "anyOf": [
+                    {
+                        "$ref": "https://zoo.com/schemas/existing/contactrep_patrolactivity.json"
+                    }
+                ]
+            },
+            "who_initiated_contact": {
+                "deprecated": false,
+                "description": "",
+                "title": "Who initiated contact",
+                "type": "string",
+                "anyOf": [
+                    {
+                        "$ref": "https://zoo.com/schemas/existing/contactrep_whoinitiatedcontact.json"
+                    }
+                ]
+            },
+            "what_is_the_response?": {
+                "default": "",
+                "deprecated": false,
+                "description": "",
+                "title": "What is the response?",
+                "type": "string"
+            },
+            "ranger_casualties": {
+                "deprecated": false,
+                "description": "",
+                "title": "Ranger casualties",
+                "type": "number"
+            },
+            "opposition_casualties": {
+                "deprecated": false,
+                "description": "",
+                "title": "Opposition casualties",
+                "type": "number"
+            },
+            "arrests": {
+                "deprecated": false,
+                "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                        "name": {
+                            "default": "",
+                            "deprecated": false,
+                            "description": "",
+                            "title": "Name",
+                            "type": "string"
+                        },
+                        "age": {
+                            "deprecated": false,
+                            "description": "",
+                            "title": "Age",
+                            "type": "number"
+                        },
+                        "arrestee_photo": {
+                            "deprecated": false,
+                            "format": "uri",
+                            "title": "Photo",
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "name",
+                        "arrestee_photo"
+                    ],
+                    "type": "object"
+                },
+                "title": "Arrests",
+                "type": "array",
+                "unevaluatedItems": false
+            },
+            "location_of_items": {
+                "deprecated": false,
+                "description": "",
+                "properties": {
+                    "latitude": {
+                        "maximum": 90,
+                        "minimum": -90,
+                        "type": "number"
+                    },
+                    "longitude": {
+                        "maximum": 180,
+                        "minimum": -180,
+                        "type": "number"
+                    }
+                },
+                "required": [
+                    "latitude",
+                    "longitude"
+                ],
+                "unevaluatedProperties": false,
+                "title": "Location of items",
+                "type": "object"
+            },
+            "comments": {
+                "default": "",
+                "deprecated": false,
+                "description": "",
+                "title": "Comments",
+                "type": "string"
+            },
+            "photo": {
+                "deprecated": false,
+                "format": "uri",
+                "title": "Photo",
+                "type": "string"
+            },
+            "ammunition_used_by_patrol": {
+                "default": "",
+                "deprecated": false,
+                "description": "",
+                "title": "Ammunition used by patrol",
+                "type": "string"
+            }
+        },
+        "required": [
+            "who_initiated_contact",
+            "ranger_casualties",
+            "opposition_casualties"
+        ],
+        "type": "object"
+    },
+    "ui": {
+        "fields": {
+            "size_of_the_poaching_group": {
+                "placeholder": "3",
+                "type": "NUMERIC",
+                "parent": "section-s0m38ZMo7h5p4cE2BC8U6"
+            },
+            "what_happened?_patrol_activity": {
+                "choices": {
+                    "eventTypeCategories": [],
+                    "existingChoiceList": [
+                        "contactrep_patrolactivity"
+                    ],
+                    "featureCategories": [],
+                    "myDataType": "",
+                    "subjectGroups": [],
+                    "subjectSubtypes": [],
+                    "type": "EXISTING_CHOICE_LIST"
+                },
+                "inputType": "DROPDOWN",
+                "placeholder": "",
+                "type": "CHOICE_LIST",
+                "parent": "section-s0m38ZMo7h5p4cE2BC8U6"
+            },
+            "who_initiated_contact": {
+                "choices": {
+                    "eventTypeCategories": [],
+                    "existingChoiceList": [
+                        "contactrep_whoinitiatedcontact"
+                    ],
+                    "featureCategories": [],
+                    "myDataType": "",
+                    "subjectGroups": [],
+                    "subjectSubtypes": [],
+                    "type": "EXISTING_CHOICE_LIST"
+                },
+                "inputType": "LIST",
+                "placeholder": "",
+                "type": "CHOICE_LIST",
+                "parent": "section-s0m38ZMo7h5p4cE2BC8U6"
+            },
+            "what_is_the_response?": {
+                "inputType": "LONG_TEXT",
+                "placeholder": "",
+                "type": "TEXT",
+                "parent": "section-s0m38ZMo7h5p4cE2BC8U6"
+            },
+            "ranger_casualties": {
+                "placeholder": "",
+                "type": "NUMERIC",
+                "parent": "section-NXLCr0ept_BuZOyqY0XBn"
+            },
+            "opposition_casualties": {
+                "placeholder": "",
+                "type": "NUMERIC",
+                "parent": "section-NXLCr0ept_BuZOyqY0XBn"
+            },
+            "arrests": {
+                "buttonText": "Add arrestee",
+                "columns": 1,
+                "itemIdentifier": "name",
+                "itemName": "Arrestee",
+                "leftColumn": [
+                    "name",
+                    "age",
+                    "arrestee_photo"
+                ],
+                "rightColumn": [],
+                "type": "COLLECTION",
+                "parent": "section-NXLCr0ept_BuZOyqY0XBn"
+            },
+            "location_of_items": {
+                "type": "LOCATION",
+                "parent": "section-NXLCr0ept_BuZOyqY0XBn"
+            },
+            "comments": {
+                "inputType": "LONG_TEXT",
+                "placeholder": "Weapons, equipment, evidence...",
+                "type": "TEXT",
+                "parent": "section-NXLCr0ept_BuZOyqY0XBn"
+            },
+            "photo": {
+                "allowableFileTypes": [
+                    "image"
+                ],
+                "type": "ATTACHMENT",
+                "parent": "section-NXLCr0ept_BuZOyqY0XBn"
+            },
+            "ammunition_used_by_patrol": {
+                "inputType": "LONG_TEXT",
+                "placeholder": "",
+                "type": "TEXT",
+                "parent": "section-pjbt197FRLEoTwjLXbFFZ"
+            },
+            "name": {
+                "inputType": "SHORT_TEXT",
+                "placeholder": "",
+                "type": "TEXT",
+                "parent": "arrests"
+            },
+            "age": {
+                "placeholder": "",
+                "type": "NUMERIC",
+                "parent": "arrests"
+            },
+            "arrestee_photo": {
+                "allowableFileTypes": [
+                    "image"
+                ],
+                "type": "ATTACHMENT",
+                "parent": "arrests"
+            }
+        },
+        "headers": {
+            "header-ezpK4FUQJauJwvPBSGIXD": {
+                "label": "Seized items",
+                "section": "section-NXLCr0ept_BuZOyqY0XBn",
+                "size": "MEDIUM"
+            }
+        },
+        "order": [
+            "section-s0m38ZMo7h5p4cE2BC8U6",
+            "section-NXLCr0ept_BuZOyqY0XBn",
+            "section-pjbt197FRLEoTwjLXbFFZ"
+        ],
+        "sections": {
+            "section-s0m38ZMo7h5p4cE2BC8U6": {
+                "columns": 2,
+                "isActive": true,
+                "label": "Details",
+                "leftColumn": [
+                    {
+                        "type": "field",
+                        "name": "size_of_the_poaching_group"
+                    },
+                    {
+                        "type": "field",
+                        "name": "what_happened?_patrol_activity"
+                    }
+                ],
+                "rightColumn": [
+                    {
+                        "type": "field",
+                        "name": "who_initiated_contact"
+                    },
+                    {
+                        "type": "field",
+                        "name": "what_is_the_response?"
+                    }
+                ]
+            },
+            "section-NXLCr0ept_BuZOyqY0XBn": {
+                "columns": 2,
+                "isActive": true,
+                "label": "Outcome",
+                "leftColumn": [
+                    {
+                        "name": "ranger_casualties",
+                        "type": "field"
+                    },
+                    {
+                        "name": "opposition_casualties",
+                        "type": "field"
+                    },
+                    {
+                        "name": "arrests",
+                        "type": "field"
+                    }
+                ],
+                "rightColumn": [
+                    {
+                        "name": "header-ezpK4FUQJauJwvPBSGIXD",
+                        "type": "header"
+                    },
+                    {
+                        "name": "location_of_items",
+                        "type": "field"
+                    },
+                    {
+                        "name": "comments",
+                        "type": "field"
+                    },
+                    {
+                        "name": "photo",
+                        "type": "field"
+                    }
+                ]
+            },
+            "section-pjbt197FRLEoTwjLXbFFZ": {
+                "columns": 1,
+                "isActive": true,
+                "label": "Other",
+                "leftColumn": [
+                    {
+                        "name": "ammunition_used_by_patrol",
+                        "type": "field"
+                    }
+                ],
+                "rightColumn": []
+            }
+        }
+    }
+}

@@ -3,54 +3,95 @@ import glob
 import logging
 import os
 import uuid
+from typing import List
 
-import pytz
+import tagulous.settings
+from django_multitenant.fields import TenantForeignKey
+from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
+from pytz import timezone
+from tagulous.models import TagField as TagulousTagField
+from tagulous.models import TagModel
+
 from django.conf import settings
 from django.contrib.gis import geos
 from django.contrib.gis.db import models
-from django.contrib.postgres.fields import JSONField
-from django.core import management
+from django.core.cache import cache
+from django.contrib.gis.db.models import GeometryField
+from django.contrib.postgres.indexes import GistIndex
 from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.core.files.storage import FileSystemStorage
-from django.db import transaction
+from django.db.models import Index, Q, UniqueConstraint
 from django.urls import NoReverseMatch, reverse
 from django.utils.deconstruct import deconstructible
-from django.utils.translation import ugettext_lazy as _
-from model_utils.managers import InheritanceManager
-from pytz import timezone
-from tagulous.models import TagField, TagModel
+from django.utils.translation import gettext_lazy as _
 
-from core.models import TimestampedModel
+from core.models import DASTenant, TimestampedModel, UUIDModel
 from mapping.app_settings import MBTILES
-from mapping.mbtiles import (ExtractionError, GoogleProjection,
-                             InvalidFormatError, MBTilesReader)
-from mapping.tasks import load_spatial_features_from_files
-from mapping.utils import (SPATIAL_FILES_FOLDER, check_file_extension)
+from mapping.cache import bump_vector_tile_data_version
+from mapping.lookups import (
+    GEO_TYPE_LINESTRING,
+    GEO_TYPE_MULTILINESTRING,
+    GEO_TYPE_MULTIPOINT,
+    GEO_TYPE_MULTIPOLYGON,
+    GEO_TYPE_POINT,
+    GEO_TYPE_POLYGON,
+    GeometryTypeLookup,
+)
+from mapping.mbtiles import (
+    ExtractionError,
+    GoogleProjection,
+    InvalidFormatError,
+    MBTilesReader,
+)
+from mapping.utils import SPATIAL_FILES_FOLDER, check_file_extension
 from revision.manager import Revision, RevisionMixin
 from utils.decorator import reify
+from utils.migrations.columns import default_tenant_id
+from utils.models import CommonTenantManager
+from utils.tenant.models import TenantThroughModel
+from utils.tenant.thread import get_tenant_settings
 
 logger = logging.getLogger(__name__)
 
+# Ensure the custom lookup is registered
+GeometryField.register_lookup(GeometryTypeLookup)
+
 FILE_TYPES = (
-    ('shapefile', 'Shapefile'),
+    ("shapefile", "Shapefile"),
     # Commenting out geodatabase for now, until we can verify functionality with a .gdb file.
     # ('geodatabase', 'Geodatabase'),
-    ('geojson', 'GeoJSON'),
+    ("geojson", "GeoJSON"),
 )
 
 
-class Map(TimestampedModel):
-    """
-    A Map defines the center location, zoom level
-    """
-    class Meta:
-        verbose_name = 'Map Quicklink'
+class MapManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
 
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
+
+
+class Map(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, unique=True)
-    attributes = JSONField(default=dict, blank=True)
+    name = models.CharField(max_length=255)
+    attributes = models.JSONField(default=dict, blank=True)
     center = models.PointField(srid=4326)
     zoom = models.IntegerField()
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    tenant_id = "das_tenant_id"
+    objects = MapManager()
+
+    class Meta:
+        verbose_name = "Map Quicklink"
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "name"],
+                name="%(app_label)s_%(class)s_unique_name_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "name"], name="%(app_label)s_%(class)s_name_idx")]
 
     def __str__(self):
         return self.name
@@ -58,34 +99,50 @@ class Map(TimestampedModel):
 
 class TileLayerQuerySet(models.QuerySet):
     def by_ordernum(self):
-        return self.order_by('ordernum', 'name')
+        return self.order_by("ordernum", "name")
 
 
-class TileLayer(TimestampedModel):
-    """
-    External
-    """
-    class Meta:
-        verbose_name = 'Basemap'
-        ordering = ['name']
+class TileLayerManager(TenantManagerMixin, models.Manager.from_queryset(TileLayerQuerySet)):
+    use_in_migrations = True
 
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
+
+
+class TileLayer(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, unique=True)
-    attributes = JSONField(default=dict, blank=True)
+    name = models.CharField(max_length=255)
+    attributes = models.JSONField(default=dict, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    objects = TileLayerManager()
+    tenant_id = "das_tenant_id"
 
-    objects = TileLayerQuerySet.as_manager()
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        verbose_name = "Basemap"
+        ordering = ["name"]
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "name"],
+                name="%(app_label)s_%(class)s_unique_name_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "name"], name="%(app_label)s_%(class)s_name_idx")]
 
     def __str__(self):
         return self.name
 
 
-class FeatureTypeManager(models.Manager):
+class FeatureTypeManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
     def get_by_natural_key(self, name):
         return self.get(name=name)
 
 
-class FeatureType(TimestampedModel):
+class FeatureType(TenantModelMixin, TimestampedModel):
     """
     If the clients wish to group layers in a control or for ease of administration
 
@@ -96,12 +153,23 @@ class FeatureType(TimestampedModel):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, unique=True)
-    presentation = JSONField(default=dict, blank=True)
+    name = models.CharField(max_length=255)
+    presentation = models.JSONField(default=dict, blank=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = FeatureTypeManager()
+    tenant_id = "das_tenant_id"
 
     class Meta:
-        ordering = ['name']
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        ordering = ["name"]
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "name"],
+                name="%(app_label)s_%(class)s_unique_name_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "name"], name="%(app_label)s_%(class)s_name_idx")]
 
     def __str__(self):
         return self.name
@@ -111,17 +179,21 @@ class FeatureType(TimestampedModel):
 
     @property
     def feature_count(self):
-        return PolygonFeature.objects.filter(type=self).count() + \
-            LineFeature.objects.filter(type=self).count() + \
-            PointFeature.objects.filter(type=self).count()
+        return (
+            PolygonFeature.objects.filter(type=self).count()
+            + LineFeature.objects.filter(type=self).count()
+            + PointFeature.objects.filter(type=self).count()
+        )
 
 
-class FeatureSetManager(models.Manager):
+class FeatureSetManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
     def get_by_natural_key(self, name):
         return self.get(name=name)
 
 
-class FeatureSet(TimestampedModel):
+class FeatureSet(TenantModelMixin, TimestampedModel):
     """
     A grouping of features that should be toggled together on the map,
       e.g. a set of camps or a system of rivers
@@ -129,15 +201,29 @@ class FeatureSet(TimestampedModel):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, unique=True)
-    types = models.ManyToManyField(to=FeatureType, related_name='featuresets')
-
+    name = models.CharField(max_length=255)
+    types = models.ManyToManyField(
+        to=FeatureType,
+        related_name="feature_sets",
+        through="mapping.FeatureSetFeatureType",
+        through_fields=("featureset", "featuretype"),
+    )
     description = models.TextField(null=True, blank=True)
-
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = FeatureSetManager()
+    tenant_id = "das_tenant_id"
 
     class Meta:
-        ordering = ['name']
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        ordering = ["name"]
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "name"],
+                name="%(app_label)s_%(class)s_unique_name_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "name"])]
 
     def __str__(self):
         return self.name
@@ -146,43 +232,86 @@ class FeatureSet(TimestampedModel):
         return self.name
 
 
+class FeatureSetFeatureType(TenantModelMixin, UUIDModel):
+    """
+    Intermediate model to store the many-to-many relationship between FeatureSets and FeatureTypes
+    """
+
+    featureset = TenantForeignKey(FeatureSet, on_delete=models.CASCADE)
+    featuretype = TenantForeignKey(FeatureType, on_delete=models.CASCADE)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+
+    objects = CommonTenantManager()
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "featureset", "featuretype"],
+                name="%(app_label)s_%(class)s_unique_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "featureset"]), Index(fields=["das_tenant", "featuretype"])]
+
+
 @deconstructible
 class TempStorage(FileSystemStorage):
     def __init__(self, **kwargs):
         import tempfile
 
         temp_directory_name = tempfile.mkdtemp()
-        kwargs.update({'location': temp_directory_name, })
+        kwargs.update(
+            {
+                "location": temp_directory_name,
+            }
+        )
         super(TempStorage, self).__init__(**kwargs)
 
+
 def upload_to(instance, filename):
-    '''
+    """
     Providing a path to an Spatialfiles.
     :param instance: SpatialFile of SpatialFeatureFile instance
     :param filename: default filename.
     :return: relative path for storing uploaded file
-    '''
-    filename = filename.split('/')[-1]
+    """
+    filename = filename.split("/")[-1]
     timestamp = "{:%Y%m%d%H%s}".format(datetime.datetime.now())
-    file_path = f'{SPATIAL_FILES_FOLDER}/{timestamp}-{filename}'
+    tenant = get_tenant_settings()
+    file_path = f"{tenant.slug_name}/{SPATIAL_FILES_FOLDER}/{timestamp}-{filename}"
     return file_path
 
-class SpatialFilesBase(TimestampedModel):
+
+class SpatialFileBaseManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
+
+
+class SpatialFilesBase(TenantModelMixin, TimestampedModel):
     """
     Base model for uploading Spatial files such as shapefile
     """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, blank=True,
-                            verbose_name='SpatialFile Name')
+    name = models.CharField(max_length=255, blank=True, verbose_name="SpatialFile Name")
     description = models.CharField(max_length=100, blank=True)
     data = models.FileField(upload_to=upload_to, blank=False)
     layer_number = models.IntegerField(blank=True, null=True, default=0)
     name_field = models.CharField(max_length=100, blank=True, null=True)
     id_field = models.CharField(max_length=100, blank=True, null=True)
-    status = models.CharField(max_length=1000, blank=True, null=True, verbose_name='Feature Load Status')
+    status = models.CharField(max_length=1000, blank=True, null=True, verbose_name="Feature Load Status")
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    tenant_id = "das_tenant_id"
+    objects = SpatialFileBaseManager()
 
     class Meta:
         abstract = True
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     # Clean method is used for better error handling within the admin form
     # itself. To have the file data available, save method needs to be invoked.
@@ -194,10 +323,10 @@ class SpatialFilesBase(TimestampedModel):
         Overwriting clean method to have error handling within the admin form.
         """
         if not self.data:
-            raise ValidationError({'data': []})
+            raise ValidationError({"data": []})
 
-        feature_types_file = getattr(self, 'feature_types_file', None)
-        file_type = getattr(self, 'file_type', None)
+        feature_types_file = getattr(self, "feature_types_file", None)
+        file_type = getattr(self, "file_type", None)
 
         if file_type:
             check_file_extension(self.file_type, self.data, feature_types_file)
@@ -209,39 +338,46 @@ class SpatialFilesBase(TimestampedModel):
 class SpatialFile(SpatialFilesBase):
     """
     Geometry type [polygon, line, point] loaded from uploaded shapefile
+    INFO TenantModelMixin covered by abstract class
     """
-    feature_set = models.ForeignKey(to=FeatureSet, on_delete=models.PROTECT)
-    feature_type = models.ForeignKey(to=FeatureType, on_delete=models.PROTECT)
+
+    feature_set = TenantForeignKey(to=FeatureSet, on_delete=models.PROTECT)
+    feature_type = TenantForeignKey(to=FeatureType, on_delete=models.PROTECT)
 
     class Meta:
-        verbose_name = 'Spatial File'
+        verbose_name = "Spatial File"
 
 
-class Feature(TimestampedModel):
+class FeatureManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
+
+
+class Feature(TenantModelMixin, TimestampedModel):
     """
     A vector feature, e.g. a boundary, a hut, a village, a river ...
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255)
-    type = models.ForeignKey(to=FeatureType, on_delete=models.PROTECT)
-
+    type = TenantForeignKey(to=FeatureType, on_delete=models.PROTECT)
     description = models.TextField(null=True, blank=True)
-
     # attributes for presentation
-    presentation = JSONField(default=dict, blank=True)
-    fields = JSONField(default=dict, blank=True)
+    presentation = models.JSONField(default=dict, blank=True)
+    fields = models.JSONField(default=dict, blank=True)
     external_id = models.CharField(max_length=255, blank=True, null=True)
-
     # the feature set with which this feature is being grouped.
     # todo:  evaluate whether many-to-many might be a better approach or stick
     # with this simple approach
     # probably should be spelled feature_set
-    featureset = models.ForeignKey(
-        to=FeatureSet, null=True, on_delete=models.PROTECT)
+    featureset = TenantForeignKey(to=FeatureSet, null=True, on_delete=models.PROTECT)
+    spatialfile = TenantForeignKey(to=SpatialFile, null=True, blank=True, on_delete=models.SET_NULL)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    tenant_id = "das_tenant_id"
 
-    spatialfile = models.ForeignKey(
-        to=SpatialFile, null=True, blank=True, on_delete=models.SET_NULL)
+    objects = FeatureManager()
 
     @property
     def default_presentation(self):
@@ -253,11 +389,13 @@ class Feature(TimestampedModel):
 
     class Meta:
         abstract = True
-        ordering = ['name']
+        ordering = ["name"]
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     # todo:  perhaps type and name?
     def __str__(self):
-        return u"{0}".format(self.name)
+        return "{0}".format(self.name)
 
 
 class PolygonFeature(Feature):
@@ -282,22 +420,20 @@ class MBTilesNotFoundError(Exception):
 
 class MBTilesFolderError(ImproperlyConfigured):
     def __init__(self, *args, **kwargs):
-        super(ImproperlyConfigured, self).__init__(
-            _("MBTILES['root'] '%s' does not exist") % MBTILES['root'])
+        super(ImproperlyConfigured, self).__init__(_("MBTILES['root'] '%s' does not exist") % MBTILES["root"])
 
 
 class MBTilesManager(object):
-    """ List available MBTiles in MBTILES['root']
-        source: https://github.com/makinacorpus/django-mbtiles.git
-        license: Lesser GNU Public License
+    """List available MBTiles in MBTILES['root']
+    source: https://github.com/makinacorpus/django-mbtiles.git
+    license: Lesser GNU Public License
     """
 
     def __init__(self, *args, **kwargs):
         self.logger = logging.getLogger(self.__class__.__name__)
-        if not os.path.exists(MBTILES['root']):
-            self.logger.error('MBTILES folder not set %s',
-                              MBTilesFolderError())
-        self.folder = MBTILES['root']
+        if not os.path.exists(MBTILES["root"]):
+            self.logger.error("MBTILES folder not set %s", MBTilesFolderError())
+        self.folder = MBTILES["root"]
 
     def filter(self, catalog=None):
         if catalog:
@@ -308,7 +444,7 @@ class MBTilesManager(object):
         return self
 
     def __iter__(self):
-        filepattern = os.path.join(self.folder, '*.%s' % MBTILES['ext'])
+        filepattern = os.path.join(self.folder, "*.%s" % MBTILES["ext"])
         for filename in glob.glob(filepattern):
             name, ext = os.path.splitext(filename)
             try:
@@ -320,7 +456,7 @@ class MBTilesManager(object):
 
     @property
     def _subfolders(self):
-        for dirname, dirnames, filenames in os.walk(MBTILES['root']):
+        for dirname, dirnames, filenames in os.walk(MBTILES["root"]):
             return dirnames
         return []
 
@@ -331,8 +467,8 @@ class MBTilesManager(object):
 
     def catalog_path(self, catalog=None):
         if catalog is None:
-            return MBTILES['root']
-        path = os.path.join(MBTILES['root'], catalog)
+            return MBTILES["root"]
+        path = os.path.join(MBTILES["root"], catalog)
         if os.path.exists(path):
             return path
         raise MBTilesNotFoundError(_("Catalog '%s' not found.") % catalog)
@@ -350,16 +486,15 @@ class MBTilesManager(object):
         if os.path.exists(mbtiles_file):
             return mbtiles_file
 
-        mbtiles_file = "%s.%s" % (mbtiles_file, MBTILES['ext'])
+        mbtiles_file = "%s.%s" % (mbtiles_file, MBTILES["ext"])
         if os.path.exists(mbtiles_file):
             return mbtiles_file
 
-        raise MBTilesNotFoundError(
-            _("'%s' not found in %s") % (mbtiles_file, basepath))
+        raise MBTilesNotFoundError(_("'%s' not found in %s") % (mbtiles_file, basepath))
 
 
 class MBTiles(object):
-    """ Represent a MBTiles file """
+    """Represent a MBTiles file"""
 
     objects = MBTilesManager()
 
@@ -367,8 +502,7 @@ class MBTiles(object):
         self.catalog = catalog
         self.fullpath = self.objects.fullpath(name, catalog)
         self.basename = os.path.basename(self.fullpath)
-        self._reader = MBTilesReader(
-            self.fullpath, tilesize=MBTILES['tile_size'])
+        self._reader = MBTilesReader(self.fullpath, tilesize=MBTILES["tile_size"])
 
     @property
     def id(self):
@@ -377,7 +511,7 @@ class MBTiles(object):
 
     @property
     def name(self):
-        return self.metadata.get('name', self.id)
+        return self.metadata.get("name", self.id)
 
     @property
     def filesize(self):
@@ -389,10 +523,9 @@ class MBTiles(object):
 
     @reify
     def bounds(self):
-        bounds = self.metadata.get('bounds', '').split(',')
+        bounds = self.metadata.get("bounds", "").split(",")
         if len(bounds) != 4:
-            logger.warning(
-                _("Invalid bounds metadata in '%s', fallback to whole world.") % self.name)
+            logger.warning(_("Invalid bounds metadata in '%s', fallback to whole world.") % self.name)
             bounds = [-180, -90, 180, 90]
         return tuple(map(float, bounds))
 
@@ -401,13 +534,12 @@ class MBTiles(object):
         """
         Return the center (x,y) of the map at this zoom level.
         """
-        center = self.metadata.get('center', '').split(',')
+        center = self.metadata.get("center", "").split(",")
         if len(center) == 3:
             lon, lat, zoom = map(float, center)
             zoom = int(zoom)
             if zoom not in self.zoomlevels:
-                logger.warning(_("Invalid zoom level (%s), fallback to middle zoom (%s)") % (
-                    zoom, self.middlezoom))
+                logger.warning(_("Invalid zoom level (%s), fallback to middle zoom (%s)") % (zoom, self.middlezoom))
                 zoom = self.middlezoom
             return (lon, lat, zoom)
         # Invalid center from metadata, guess center from bounds
@@ -417,12 +549,12 @@ class MBTiles(object):
 
     @property
     def minzoom(self):
-        z = self.metadata.get('minzoom', self.zoomlevels[0])
+        z = self.metadata.get("minzoom", self.zoomlevels[0])
         return int(z)
 
     @property
     def maxzoom(self):
-        z = self.metadata.get('maxzoom', self.zoomlevels[-1])
+        z = self.metadata.get("maxzoom", self.zoomlevels[-1])
         return int(z)
 
     @property
@@ -441,7 +573,7 @@ class MBTiles(object):
 
     def center_tile(self):
         lon, lat, zoom = self.center
-        proj = GoogleProjection(MBTILES['tile_size'], [zoom])
+        proj = GoogleProjection(MBTILES["tile_size"], [zoom])
         return proj.tile_at(zoom, (lon, lat))
 
     def grid(self, z, x, y, callback=None):
@@ -454,67 +586,146 @@ class MBTiles(object):
         # Raw metadata
         jsonp = dict(self.metadata)
         # Post-processed metadata
-        jsonp.update(**{
-            "bounds": self.bounds,
-            "center": self.center,
-            "minzoom": self.minzoom,
-            "maxzoom": self.maxzoom,
-            "autoscale": False,
-        })
+        jsonp.update(
+            **{
+                "bounds": self.bounds,
+                "center": self.center,
+                "minzoom": self.minzoom,
+                "maxzoom": self.maxzoom,
+                "autoscale": False,
+            }
+        )
         # Additionnal info
         try:
-            kwargs = dict(name=self.id, x='{x}', y='{y}', z='{z}')
+            kwargs = dict(name=self.id, x="{x}", y="{y}", z="{z}")
             if self.catalog:
-                kwargs['catalog'] = self.catalog
+                kwargs["catalog"] = self.catalog
             tilepattern = reverse("mapping:tile", kwargs=kwargs)
             gridpattern = reverse("mapping:grid", kwargs=kwargs)
         except NoReverseMatch:
             # In case django-mbtiles was not registered in namespace mbtilesmap
-            tilepattern = reverse("tile", kwargs=dict(
-                name=self.id, x='{x}', y='{y}', z='{z}'))
-            gridpattern = reverse("grid", kwargs=dict(
-                name=self.id, x='{x}', y='{y}', z='{z}'))
+            tilepattern = reverse("tile", kwargs=dict(name=self.id, x="{x}", y="{y}", z="{z}"))
+            gridpattern = reverse("grid", kwargs=dict(name=self.id, x="{x}", y="{y}", z="{z}"))
         tilepattern = request.build_absolute_uri(tilepattern)
         gridpattern = request.build_absolute_uri(gridpattern)
-        tilepattern = tilepattern.replace('%7B', '{').replace('%7D', '}')
-        gridpattern = gridpattern.replace('%7B', '{').replace('%7D', '}')
-        jsonp.update(**{
-            "tilejson": "2.1.0",
-            "id": self.id,
-            "name": self.name,
-            "scheme": "xyz",
-            "basename": self.basename,
-            "filesize": self.filesize,
-            "tiles": [tilepattern],
-            "grids": [gridpattern]
-        })
+        tilepattern = tilepattern.replace("%7B", "{").replace("%7D", "}")
+        gridpattern = gridpattern.replace("%7B", "{").replace("%7D", "}")
+        jsonp.update(
+            **{
+                "tilejson": "2.1.0",
+                "id": self.id,
+                "name": self.name,
+                "scheme": "xyz",
+                "basename": self.basename,
+                "filesize": self.filesize,
+                "tiles": [tilepattern],
+                "grids": [gridpattern],
+            }
+        )
         return jsonp
 
 
 """Below are new classes proposed by Jake for structuring spatial data in DAS"""
 
 
-class SpatialFeatureGroupManager(InheritanceManager):
+class SpatialFeatureGroupManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
     def get_by_natural_key(self, name):
         return self.get(name=name)
 
 
-class SpatialFeatureGroup(TimestampedModel):
-    """
-    A grouping of features that should be toggled together on the map,
-      e.g. a set of camps or a system of rivers
-      ... better than handling as a layer group in UI as it allows grouping
-       to be controlled in db?
-    """
-    class Meta:
-        verbose_name = 'Base Feature Group'
-        ordering = ['name']
+class SpatialFeatureGroupStaticFeatures(TenantThroughModel):
+    spatial_feature_groupstatic = TenantForeignKey(
+        "mapping.SpatialFeatureGroupStatic",
+        on_delete=models.CASCADE,
+    )
+    spatial_feature = TenantForeignKey(
+        "mapping.SpatialFeature",
+        on_delete=models.CASCADE,
+    )
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, unique=True)
+
+class SpatialFeatureGroupStaticQuerySet(models.QuerySet):
+    def by_spatial_type(self, spatial_types: List[str], exclusive: bool = True):
+        ALL_FEATURE_TYPES = (
+            GEO_TYPE_POINT,
+            GEO_TYPE_LINESTRING,
+            GEO_TYPE_POLYGON,
+            GEO_TYPE_MULTIPOINT,
+            GEO_TYPE_MULTILINESTRING,
+            GEO_TYPE_MULTIPOLYGON,
+        )
+        queryset = self
+        if exclusive:
+            # For exclusive mode, we want groups that:
+            # 1. Have at least one feature with a desired spatial type
+            # 2. Have NO features with unwanted spatial types
+            # django doesn't support feature_geometry__type__in, so we have to use Q objects
+            unwanted_types = [type for type in ALL_FEATURE_TYPES if type not in spatial_types]
+
+            # Build Q objects for desired types (OR conditions)
+            desired_q = Q()
+            for spatial_type in spatial_types:
+                desired_q |= Q(features__feature_geometry__type=spatial_type)
+
+            # Build Q objects for unwanted types (OR conditions)
+            unwanted_q = Q()
+            for unwanted_type in unwanted_types:
+                unwanted_q |= Q(features__feature_geometry__type=unwanted_type)
+
+            # First, get groups that have at least one feature with desired types
+            queryset_with_desired = queryset.filter(desired_q).distinct()
+
+            # Then exclude groups that have any unwanted types
+            if unwanted_types:
+                queryset_with_desired = queryset_with_desired.exclude(unwanted_q)
+
+            return queryset_with_desired.distinct()
+
+        # For non-exclusive mode, just filter by desired types using Q objects
+        desired_q = Q()
+        for spatial_type in spatial_types:
+            desired_q |= Q(features__feature_geometry__type=spatial_type)
+
+        return queryset.filter(desired_q).distinct()
+
+
+class SpatialFeatureGroupStaticManager(
+    CommonTenantManager, models.Manager.from_queryset(SpatialFeatureGroupStaticQuerySet)
+):
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
+
+
+class SpatialFeatureGroupStatic(TenantModelMixin, UUIDModel, TimestampedModel):
+    name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
 
-    objects = SpatialFeatureGroupManager()
+    features = models.ManyToManyField(
+        to="SpatialFeature",
+        related_name="groups_temp",
+        related_query_name="group_temp",
+        through="mapping.SpatialFeatureGroupStaticFeatures",
+        through_fields=("spatial_feature_groupstatic", "spatial_feature"),
+        blank=True,
+    )
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+
+    objects = SpatialFeatureGroupStaticManager()
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        verbose_name = "Feature Group"
+        ordering = ["name"]
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "name"],
+                name="%(app_label)s_%(class)s_unique_name_across_tenants",
+            )
+        ]
 
     def __str__(self):
         return self.name
@@ -523,41 +734,39 @@ class SpatialFeatureGroup(TimestampedModel):
         return self.name
 
 
-class SpatialFeatureGroupQuery(SpatialFeatureGroup):
-    class Meta:
-        verbose_name = 'Calculated Feature Group'
+class DisplayCategoryManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
 
-
-class SpatialFeatureGroupStatic(SpatialFeatureGroup):
-    """Static group of features
-    """
-    class Meta:
-        verbose_name = 'Feature Group'
-
-    features = models.ManyToManyField(to='SpatialFeature', related_name='groups', related_query_name='group',
-                                      blank=True,)
-
-
-class DisplayCategoryManager(models.Manager):
     def get_by_natural_key(self, name):
         return self.get(name=name)
 
 
-class DisplayCategory(TimestampedModel):
+class DisplayCategory(TenantModelMixin, TimestampedModel):
     """
     If the clients wish to group layers in a control or for ease of administration
     Boundaries, Water, Security etc.
     """
-    class Meta:
-        verbose_name = 'Display Category'
-        verbose_name_plural = 'Display Categories'
-        ordering = ['name']
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     description = models.TextField(null=True, blank=True)
-
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
     objects = DisplayCategoryManager()
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        verbose_name = "Display Category"
+        verbose_name_plural = "Display Categories"
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        ordering = ["name"]
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "name"],
+                name="%(app_label)s_%(class)s_unique_name_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "name"])]
 
     def __str__(self):
         return self.name
@@ -566,46 +775,83 @@ class DisplayCategory(TimestampedModel):
         return (self.name,)
 
 
-class SpatialFeatureTypeTag(TagModel):
+class SpatialFeatureTypeTag(TenantModelMixin, TagModel):
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    tenant_id = "das_tenant_id"
+    name = models.CharField(unique=False, max_length=tagulous.settings.NAME_MAX_LENGTH)
+
     class TagMeta:
         pass
 
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        ordering = ["name"]
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "name"],
+                name="%(app_label)s_%(class)s_unique_name_across_tenants",
+            ),
+            UniqueConstraint(fields=["das_tenant", "slug"], name="%(app_label)s_%(class)s_unique_slug_across_tenants"),
+        ]
+        indexes = [
+            Index(fields=["das_tenant", "name"]),
+            Index(fields=["das_tenant", "slug"]),
+        ]
 
-class SpatialFeatureTypeManager(models.Manager):
+
+class TagField(TagulousTagField):
+    forbidden_fields = ("db_table", "symmetrical")
+
+
+class SpatialFeatureTypeManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
     def get_by_natural_key(self, name):
         return self.get(name=name)
 
 
-class SpatialFeatureType(TimestampedModel):
-    class Meta:
-        verbose_name = 'Feature Class'
-        verbose_name_plural = 'Feature Classes'
-        ordering = ['name']
-
-    objects = SpatialFeatureTypeManager()
+class SpatialFeatureType(TenantModelMixin, TimestampedModel):
+    # Note: referred as "Feature Class" on external APIs.
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     # JSON field for storing the json schema for each unique feature type
-    attribute_schema = JSONField(default=dict, blank=True)
+    attribute_schema = models.JSONField(default=dict, blank=True)
     # Tags will allow categorization according to different views (e.g., HF)
-    tags = TagField(to=SpatialFeatureTypeTag, blank=True)
-
+    tags = TagField(to=SpatialFeatureTypeTag, blank=True, through="mapping.SpatialFeatureTypeTags")
     # presentation fields
     # Boundaries, Water, Security etc.
-    display_category = models.ForeignKey(
-        to='DisplayCategory', on_delete=models.PROTECT, blank=True, null=True)
+    display_category = TenantForeignKey(to="DisplayCategory", on_delete=models.PROTECT, blank=True, null=True)
     # JSON Field for defining the basic presentation of the feature
-    presentation = JSONField(default=dict, blank=True)
-    provenance = JSONField(default=dict, blank=True)
-    external_id = models.CharField(max_length=255, unique=True, blank=True,
-                                   null=True)
+    presentation = models.JSONField(default=dict, blank=True)
+    provenance = models.JSONField(default=dict, blank=True)
+    external_id = models.CharField(max_length=255, unique=True, blank=True, null=True)
     external_source = models.CharField(max_length=100, blank=True)
-    is_visible = models.BooleanField(_('visible'), default=True)
-
+    is_visible = models.BooleanField(_("visible"), default=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    objects = SpatialFeatureTypeManager()
+    tenant_id = "das_tenant_id"
     # Points: https://www.mapbox.com/mapbox-gl-style-spec/#layers-symbol
     # Lines: https://www.mapbox.com/mapbox-gl-style-spec/#layers-line
     # Polygons: https://www.mapbox.com/mapbox-gl-style-spec/#layers-fill
+
+    class Meta:
+        verbose_name = "Feature Class"
+        verbose_name_plural = "Feature Classes"
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        ordering = ["name"]
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "name"],
+                name="%(app_label)s_%(class)s_unique_name_across_tenants",
+            ),
+            UniqueConstraint(
+                fields=["das_tenant", "external_id"], name="%(app_label)s_%(class)s_unique_external_id_across_tenants"
+            ),
+        ]
+        indexes = [Index(fields=["das_tenant", "name"])]
 
     @property
     def default_presentation(self):
@@ -617,7 +863,7 @@ class SpatialFeatureType(TimestampedModel):
         return self.name
 
     def natural_key(self):
-        return self.name
+        return (self.name,)
 
     @property
     def feature_count(self):
@@ -625,37 +871,69 @@ class SpatialFeatureType(TimestampedModel):
 
     def save(self, *args, **kwargs):
         try:
-            if self.presentation.get('fill-opacity'):
-                self.presentation['fill-opacity'] = float(self.presentation.get('fill-opacity'))
-            if self.presentation.get('stroke-opacity'):
-                self.presentation['stroke-opacity'] = float(self.presentation.get('stroke-opacity'))
+            if self.presentation.get("fill-opacity"):
+                self.presentation["fill-opacity"] = float(self.presentation.get("fill-opacity"))
+            if self.presentation.get("stroke-opacity"):
+                self.presentation["stroke-opacity"] = float(self.presentation.get("stroke-opacity"))
         except ValueError as exc:
             logger.warning(exc)
-        finally:
-            super(SpatialFeatureType, self).save(*args, **kwargs)
+
+        super(SpatialFeatureType, self).save(*args, **kwargs)
+        self._bump_cache_version()
+
+    def delete(self, *args, **kwargs):
+        result = super().delete(*args, **kwargs)
+        self._bump_cache_version()
+        return result
+
+    def _bump_cache_version(self):
+        """Increment the vector tile cache version to invalidate cached tiles."""
+        bump_vector_tile_data_version()
+
+
+class SpatialFeatureTypeTags(TenantModelMixin, UUIDModel):
+    spatialfeaturetype = TenantForeignKey(
+        default=uuid.uuid4, on_delete=models.CASCADE, related_name="spatialfeaturetype", to="mapping.SpatialFeatureType"
+    )
+    spatialfeaturetypetag = TenantForeignKey(
+        default=uuid.uuid4,
+        on_delete=models.CASCADE,
+        related_name="spatialfeaturetypetag",
+        to="mapping.SpatialFeatureTypeTag",
+    )
+    das_tenant = models.ForeignKey(
+        DASTenant,
+        on_delete=models.CASCADE,
+        default=default_tenant_id,
+        related_name="%(app_label)s_%(class)s",
+    )
+
+    tenant_id = "das_tenant_id"
+    objects = CommonTenantManager()
 
 
 class SpatialFeatureFile(SpatialFilesBase):
     """
     Special Feature loaded from uploaded shapefile
+    INFO TenantModelMixin covered by abstract class
     """
-    file_type = models.CharField(
-        max_length=100, default='shapefile', choices=FILE_TYPES)
-    feature_type = models.ForeignKey(
-        to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
+
+    file_type = models.CharField(max_length=100, default="shapefile", choices=FILE_TYPES)
+    feature_type = TenantForeignKey(to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
     feature_types_file = models.FileField(upload_to=upload_to, blank=True, null=True)
 
     class Meta:
-        verbose_name = 'Feature Import File'
+        verbose_name = "Feature Import File"
 
 
+class SpatialFeatureManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
 
-class SpatialFeatureManager(models.Manager):
     def create_spatialfeature(self, **values):
         return self.create(**values)
 
 
-class SpatialFeature(RevisionMixin, TimestampedModel):
+class SpatialFeature(TenantModelMixin, RevisionMixin, TimestampedModel):
     """
     A vector feature, e.g. a boundary, a hut, a village, a river ...
 
@@ -686,15 +964,10 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
             other_id # this will map from the other_id' column in STESpatial
 
     """
-    class Meta:
-        verbose_name = 'Feature'
-        ordering = ['name']
 
-    objects = SpatialFeatureManager()
-    revision_ignore_fields = ('updated_at', )
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    feature_type = models.ForeignKey(
-        SpatialFeatureType, on_delete=models.PROTECT)
+    revision_ignore_fields = ("updated_at",)
+    id = models.UUIDField(primary_key=True, unique=True, default=uuid.uuid4)
+    feature_type = TenantForeignKey(SpatialFeatureType, on_delete=models.PROTECT)
     name = models.CharField(max_length=255, blank=True)
     # A shorter name used for cartographic display
     short_name = models.CharField(max_length=25, blank=True)
@@ -702,14 +975,87 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
     external_id = models.CharField(max_length=255, blank=True, null=True)
     external_source = models.CharField(max_length=100, blank=True)
     description = models.TextField(null=True, blank=True)
-    presentation = JSONField(default=dict, blank=True)
-    attributes = JSONField(default=dict, blank=True)
-    provenance = JSONField(default=dict, blank=True)
+    presentation = models.JSONField(default=dict, blank=True)
+    attributes = models.JSONField(default=dict, blank=True)
+    provenance = models.JSONField(default=dict, blank=True)
     feature_geometry = models.GeometryField(geography=True, srid=4326)
-    spatialfile = models.ForeignKey(
-        to=SpatialFeatureFile, null=True, blank=True, on_delete=models.SET_NULL)
-    arcgis_item = models.ForeignKey(to='ArcgisItem', null=True, blank=True, on_delete=models.CASCADE)
+    feature_geometry_webmercator = models.GeometryField(
+        srid=3857,
+        null=True,
+        blank=True,
+        help_text="Simplified Web Mercator geometry for vector tile serving (2.5m tolerance)",
+    )
+    spatialfile = TenantForeignKey(to=SpatialFeatureFile, null=True, blank=True, on_delete=models.SET_NULL)
+    arcgis_item = TenantForeignKey(to="ArcgisItem", null=True, blank=True, on_delete=models.CASCADE)
     revision = Revision()
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    objects = SpatialFeatureManager()
+    tenant_id = "das_tenant_id"
+
+    class Meta:
+        verbose_name = "Feature"
+        ordering = ["name"]
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        indexes = [
+            GistIndex(
+                fields=["das_tenant_id", "feature_geometry_webmercator"],
+                name="map_spatialfeat_webmerc_gist",
+            ),
+            # GiST index on main feature_geometry with tenant for spatial queries
+            GistIndex(
+                fields=["das_tenant_id", "feature_geometry"],
+                name="map_spatialfeat_geom_gist",
+            ),
+            # B-tree index on feature_type foreign key with tenant for filtering by type
+            Index(
+                fields=["das_tenant_id", "feature_type"],
+                name="map_spatialfeat_type_idx",
+            ),
+            # B-tree index on spatialfile foreign key with tenant for file-based queries
+            Index(
+                fields=["das_tenant_id", "spatialfile"],
+                name="map_spatialfeat_file_idx",
+            ),
+        ]
+
+    def _bump_cache_version(self):
+        """Increment the vector tile cache version to invalidate cached tiles."""
+        bump_vector_tile_data_version()
+
+    def _generate_webmercator_geometry(self):
+        """Generate simplified Web Mercator geometry from the source geometry."""
+        if not self.feature_geometry:
+            return None
+
+        try:
+            # Transform to Web Mercator
+            webmerc_geom = self.feature_geometry.transform(3857, clone=True)
+
+            # Only simplify for appropriate geometry types
+            if webmerc_geom.geom_type in ["LineString", "Polygon", "MultiLineString", "MultiPolygon"]:
+                # Apply 2.5m simplification tolerance - good balance of performance and detail
+                # Preserves details visible at zoom 16+ while removing micro-features
+                simplified = webmerc_geom.simplify(tolerance=2.5, preserve_topology=True)
+                return simplified
+            else:
+                return webmerc_geom
+        except Exception as e:
+            logger.exception("Failed to generate Web Mercator geometry for SpatialFeature %s: %s", self.id, e)
+            return None
+
+    def save(self, *args, **kwargs):
+        # Generate optimized Web Mercator geometry on save
+        self.feature_geometry_webmercator = self._generate_webmercator_geometry()
+
+        result = super().save(*args, **kwargs)
+        self._bump_cache_version()
+        return result
+
+    def delete(self, *args, **kwargs):
+        result = super().delete(*args, **kwargs)
+        self._bump_cache_version()
+        return result
 
     @property
     def default_presentation(self):
@@ -720,68 +1066,139 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
         return {}
 
     def clean(self):
-        if self.feature_geometry.geom_type == 'Point':
+        if self.feature_geometry.geom_type == "Point":
             self.feature_geometry = geos.MultiPoint(geos.GEOSGeometry(self.feature_geometry.ewkb))
-        elif self.feature_geometry.geom_type == 'LineString':
-            self.feature_geometry = geos.MultiLineString([geos.GEOSGeometry(self.feature_geometry.ewkb), ])
-        elif self.feature_geometry.geom_type == 'Polygon':
-            self.feature_geometry = geos.MultiPolygon([geos.GEOSGeometry(self.feature_geometry.ewkb), ])
+        elif self.feature_geometry.geom_type == "LineString":
+            self.feature_geometry = geos.MultiLineString(
+                [
+                    geos.GEOSGeometry(self.feature_geometry.ewkb),
+                ]
+            )
+        elif self.feature_geometry.geom_type == "Polygon":
+            self.feature_geometry = geos.MultiPolygon(
+                [
+                    geos.GEOSGeometry(self.feature_geometry.ewkb),
+                ]
+            )
         else:
-            logger.debug(f'Not converting type {type(self.feature_geometry)}')
+            logger.debug(f"Not converting type {type(self.feature_geometry)}")
 
     def __str__(self):
-        return '{0}-{1}-{2}'.format(self.name, self.feature_type.name, self.id)
+        return "{0}-{1}-{2}".format(self.name, self.feature_type.name, self.id)
 
 
-class ArcgisGroup(TimestampedModel):
+class ArcgisGroupManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
+
+
+class ArcgisGroup(TenantModelMixin, TimestampedModel, UUIDModel):
     name = models.CharField(max_length=100, blank=True, null=True)
     group_id = models.CharField(max_length=100, blank=False)
-    # todo: this should be the FK
     config_id = models.CharField(max_length=100, blank=False)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    tenant_id = "das_tenant_id"
+    objects = ArcgisGroupManager()
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     def __str__(self):
         return self.name
 
 
-class ArcgisConfiguration(TimestampedModel):
+class ArcgisConfiguration(TenantModelMixin, TimestampedModel, UUIDModel):
     disable_import_feature_class_presentation = models.BooleanField(default=False)
-    service_url = models.CharField(max_length=2000, blank=True, null=True,
-                                   help_text='Leave blank to connect to ArcGIS Online, '
-                                             'or enter your ArcGIS Enterprise service URL')
-    config_name = models.CharField(max_length=100, blank=False, unique=True, verbose_name='Configuration name')
-    search_text = models.CharField(max_length=100, blank=True, verbose_name='Search text',
-                                   help_text='Leave blank to get groups within your ArcGIS org\n'
-                                             'or enter text for groups to search for outside your ArdGIS org')
+    service_url = models.CharField(
+        max_length=2000,
+        blank=True,
+        null=True,
+        help_text="Leave blank to connect to ArcGIS Online, " "or enter your ArcGIS Enterprise service URL",
+    )
+    config_name = models.CharField(max_length=100, blank=False, verbose_name="Configuration name")
+    search_text = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Search text",
+        help_text="Leave blank to get groups within your ArcGIS org\n"
+        "or enter text for groups to search for outside your ArdGIS org",
+    )
     # todo: the FK should be on the other end of the relationship, i.e., in ArcgisConfiguration
-    groups = models.ForeignKey(ArcgisGroup, blank=True, on_delete=models.SET_NULL, null=True)
-    username = models.CharField(max_length=100, blank=False, help_text='ArcGIS account username')
+    groups = TenantForeignKey(ArcgisGroup, blank=True, on_delete=models.SET_NULL, null=True)
+    username = models.CharField(max_length=100, blank=False, help_text="ArcGIS account username")
     password = models.CharField(max_length=100, blank=False)
-    source = models.CharField(max_length=100, blank=True, null=True, default='ArcGis')
-    name_field = models.CharField(max_length=100, blank=True, null=True, default='Name',
-                                  help_text='Name of field in your GIS data that has the feature name. Default is Name')
-    id_field = models.CharField(max_length=100, blank=True, null=True, default='GlobalID',
-                                help_text='Name of field in your GIS data that has the feature ID. Default is GlobalID')
-    type_label = models.CharField(max_length=100, blank=True, null=True, verbose_name='Type field', default='FeatureType',
-                                  help_text='Name of field in your GIS data that has the feature type. Defaults are type and FeatureType')
-    last_download = models.DateTimeField(blank=True, null=True, verbose_name='Last Download Time')
+    source = models.CharField(max_length=100, blank=True, null=True, default="ArcGis")
+    name_field = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        default="Name",
+        help_text="Name of field in your GIS data that has the feature name. Default is Name",
+    )
+    id_field = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        default="GlobalID",
+        help_text="Name of field in your GIS data that has the feature ID. Default is GlobalID",
+    )
+    type_label = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name="Type field",
+        default="FeatureType",
+        help_text="Name of field in your GIS data that has the feature type. Defaults are type and FeatureType",
+    )
+    last_download = models.DateTimeField(blank=True, null=True, verbose_name="Last Download Time")
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    tenant_id = "das_tenant_id"
+    objects = CommonTenantManager()
 
     class Meta:
-        verbose_name = 'Feature Service Configuration'
-    @property
-    def last_download_time(self):
-        t_zone = timezone(settings.TIME_ZONE)
-        fmt = '%d %b %Y, %H:%M %p (%Z)'
-        return self.last_download.astimezone(t_zone).strftime(fmt)
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        verbose_name = "Feature Service Configuration"
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "config_name"],
+                name="%(app_label)s_%(class)s_unique_name_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "config_name"])]
 
     def __str__(self):
         return self.config_name
 
+    @property
+    def last_download_time(self):
+        t_zone = timezone(settings.TIME_ZONE)
+        fmt = "%d %b %Y, %H:%M %p (%Z)"
+        return self.last_download.astimezone(t_zone).strftime(fmt)
+
+
+class ArcgisItemManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
+    def get_by_natural_key(self, name):
+        return self.get(name=name)
+
 
 # Minimal model for an arcgis.gis.Item
-class ArcgisItem(TimestampedModel):
+class ArcgisItem(TenantModelMixin, TimestampedModel):
     id = models.UUIDField(primary_key=True)
     name = models.CharField(max_length=50)
-    arcgis_config = models.ForeignKey(to=ArcgisConfiguration, on_delete=models.SET_NULL, null=True)
+    arcgis_config = TenantForeignKey(to=ArcgisConfiguration, on_delete=models.SET_NULL, null=True)
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+    tenant_id = "das_tenant_id"
+    objects = ArcgisItemManager()
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     @property
     def features(self):

@@ -1,43 +1,50 @@
-from django.core.serializers import serialize
 import logging
+import uuid
+from typing import Optional
 
-import rest_framework.serializers as serializers
 import simplejson as json
-from django.urls import reverse
+
+from django.core.serializers import serialize
+from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
-import mapping.models as models
-import utils
-from core.serializers import BaseSerializer
 from choices.models import Choice
+from core.serializers import BaseSerializer
+from mapping.models import (
+    FeatureType,
+    Map,
+    MBTiles,
+    SpatialFeature,
+    SpatialFeatureGroupStatic,
+    SpatialFeatureType,
+    TileLayer,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class MBTilesSerializer(serializers.Serializer):
     def to_representation(self, instance):
-        rep = {}
-        mbtiles_name = instance.attributes['mbtiles_name']
-        mbtiles = models.MBTiles(mbtiles_name)
-        request = self.context['request']
+        mbtiles_name = instance.attributes["mbtiles_name"]
+        mbtiles = MBTiles(mbtiles_name)
+        request = self.context["request"]
         return mbtiles.tilejson(request)
 
 
 class ExternalTileSerializer(serializers.ModelSerializer):
     class Meta:
-        model = models.TileLayer
-        fields = ('id', 'name', 'attributes', 'ordernum')
+        model = TileLayer
+        fields = ("id", "name", "attributes", "ordernum")
 
     def to_representation(self, instance):
         rep = super(ExternalTileSerializer, self).to_representation(instance)
-        request = self.context['request']
         # rep.update(instance.attributes)
         return rep
 
 
 class ServiceTypeRelatedField(serializers.RelatedField):
     def get_queryset(self):
-        return Choice.objects.filter(model='mapping.TileLayer', field='service_type')
+        return Choice.objects.filter(model="mapping.TileLayer", field="service_type")
 
     def to_representation(self, value):
         return value.value if value else None
@@ -48,8 +55,7 @@ class ServiceTypeRelatedField(serializers.RelatedField):
                 Choice.objects.get(value=data)
                 return data
             except Choice.DoesNotExist:
-                raise serializers.ValidationError(
-                    {'choice': f'Choice with value {data} does not exist.'})
+                raise serializers.ValidationError({"choice": f"Choice with value {data} does not exist."})
         return None
 
     def display_value(self, instance):
@@ -58,53 +64,58 @@ class ServiceTypeRelatedField(serializers.RelatedField):
 
 class TileLayerAttributes(serializers.Serializer):
     type = ServiceTypeRelatedField(required=False, allow_empty=True)
-    title = serializers.CharField(
-        required=False, allow_null=True, allow_blank=True)
-    url = serializers.CharField(
-        required=False, allow_null=True, allow_blank=True)
-    icon_url = serializers.CharField(
-        required=False, allow_null=True, allow_blank=True)
-    configuration = serializers.JSONField(
-        required=False, allow_null=True, default=dict)
+    title = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    url = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    icon_url = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    configuration = serializers.JSONField(required=False, allow_null=True, default=dict)
 
 
 class TileLayerSerializer(BaseSerializer):
     id = serializers.UUIDField(required=False, read_only=True)
-    name = serializers.CharField(required=False, allow_null=True, allow_blank=True,
-                                 validators=[UniqueValidator(queryset=models.TileLayer.objects.all())])
+    name = serializers.CharField(
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+        validators=[UniqueValidator(queryset=TileLayer.objects.all())],
+    )
     ordernum = serializers.IntegerField(required=False, allow_null=True)
     attributes = TileLayerAttributes()
 
     def to_representation(self, instance):
-        request = self.context['request']
+        request = self.context["request"]
 
-        rep = ExternalTileSerializer(
-            instance, context={'request': request}
-        )
+        rep = ExternalTileSerializer(instance, context={"request": request})
         return rep.data
 
     def create(self, validated_data):
-        return models.TileLayer.objects.create(**validated_data)
+        return TileLayer.objects.create(**validated_data)
 
 
 class MapSerializer(serializers.ModelSerializer):
     class Meta:
-        model = models.Map
-        fields = ('id', 'name', 'zoom')
+        model = Map
+        fields = ("id", "name", "zoom")
 
     def to_representation(self, instance):
         rep = super(MapSerializer, self).to_representation(instance)
         rep.update(instance.attributes)
-        rep['center'] = instance.center.tuple
-        request = self.context['request']
+        rep["center"] = instance.center.tuple
 
         return rep
 
 
 class FeatureTypeSerializer(serializers.ModelSerializer):
     class Meta:
-        model = models.FeatureType
-        fields = ('id', 'name')  # , 'presentation',)
+        model = FeatureType
+        fields = ("id", "name")  # , 'presentation',)
+
+
+class SpatialFeatureTypeSerializer(serializers.ModelSerializer):
+    feature_set_id = serializers.UUIDField(source="display_category_id")
+
+    class Meta:
+        model = SpatialFeatureType
+        fields = ("id", "name", "feature_set_id")
 
 
 # from django.contrib.gis.geos import (
@@ -113,40 +124,91 @@ class FeatureTypeSerializer(serializers.ModelSerializer):
 # )
 
 
-# class FeatureGeometrySerializer(serializers.Serializer):
-#
-#     def to_representation(self, instance):
-#         return super().to_representation(instance)
+class SpatialFeatureListSerializer(serializers.ModelSerializer):
+    feature_class_name = serializers.SerializerMethodField()
+    feature_class_id = serializers.SerializerMethodField()
+    feature_set_name = serializers.SerializerMethodField()
+    feature_set_id = serializers.SerializerMethodField()
+    url = serializers.HyperlinkedIdentityField(view_name="mapping:spatialfeature-detail", lookup_field="id")
+
+    class Meta:
+        model = SpatialFeature
+        fields = (
+            "id",
+            "name",
+            "short_name",
+            "description",
+            "feature_class_name",
+            "feature_class_id",
+            "feature_set_name",
+            "feature_set_id",
+            "url",
+        )
+
+    def get_feature_class_name(self, obj: SpatialFeature) -> str:
+        return obj.feature_type.name
+
+    def get_feature_class_id(self, obj: SpatialFeature) -> uuid.UUID:
+        return obj.feature_type.id
+
+    def get_feature_set_name(self, obj: SpatialFeature) -> Optional[str]:
+        return obj.feature_type.display_category.name if obj.feature_type.display_category else None
+
+    def get_feature_set_id(self, obj: SpatialFeature) -> Optional[uuid.UUID]:
+        return obj.feature_type.display_category.id if obj.feature_type.display_category else None
 
 
 class SpatialFeatureSerializer(serializers.ModelSerializer):
     # feature_geometry = FeatureGeometrySerializer()
-    feature_type = FeatureTypeSerializer()
+    feature_class = FeatureTypeSerializer()
 
     class Meta:
-        model = models.SpatialFeature
-        fields = ('id', 'name', 'feature_type',)  # 'feature_geometry',)
+        model = SpatialFeature
+        fields = (
+            "id",
+            "name",
+            "feature_class",
+            # 'feature_geometry',
+        )
 
     def to_representation(self, instance):
         # rep = super().to_representation(instance)
-        return json.loads(serialize('geojson', (instance,), properties={}, geometry_field='feature_geometry', ))
+        return json.loads(
+            serialize(
+                "geojson",
+                (instance,),
+                properties={},
+                geometry_field="feature_geometry",
+            )
+        )
 
-        return rep
 
+class SpatialFeatureGroupListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for list endpoints - excludes expensive features field."""
 
-class SpatialFeatureGroupStaticSerializer(serializers.ModelSerializer):
-    features = SpatialFeatureSerializer(many=True)
+    url = serializers.HyperlinkedIdentityField(view_name="mapping:spatialfeaturegroup-detail", lookup_field="id")
+    feature_count = serializers.SerializerMethodField()
 
     class Meta:
-        model = models.SpatialFeatureGroupStatic
-        fields = ('name', 'features', 'description')
+        model = SpatialFeatureGroupStatic
+        fields = ("id", "name", "description", "url", "feature_count")
 
-    def to_representation(self, instance):
-        rep = super().to_representation(instance)
+    def get_feature_count(self, obj):
+        """Return annotated feature count from database - no additional queries."""
+        return getattr(obj, "feature_count", obj.features.count())
 
-        if 'request' in self.context:
-            rep['url'] = utils.add_base_url(self.context['request'],
-                                            reverse('mapping:spatialfeaturegroup-view',
-                                                    args=[instance.id, ]))
 
-        return rep
+class SpatialFeatureGroupDetailSerializer(serializers.ModelSerializer):
+    """Detailed serializer for detail endpoints - includes full feature data."""
+
+    url = serializers.HyperlinkedIdentityField(view_name="mapping:spatialfeaturegroup-detail", lookup_field="id")
+    features = SpatialFeatureSerializer(many=True)
+    feature_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SpatialFeatureGroupStatic
+        fields = ("id", "name", "description", "url", "features", "feature_count", "created_at", "updated_at")
+
+    def get_feature_count(self, obj):
+        """Return annotated feature count from database - no additional queries."""
+        return getattr(obj, "feature_count", obj.features.count())

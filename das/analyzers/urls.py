@@ -1,11 +1,11 @@
-from django.conf.urls import url
+from django.urls import re_path
+
 from analyzers.views import SpatialAnalyzerListView, SubjectAnalyzerListView
-app_name = 'analyzers'
+
+app_name = "analyzers"
 
 urlpatterns = (
     # a list of available features
-    url(r'^spatial/?$', SpatialAnalyzerListView.as_view()),
-    url(r'^subject/?$', SubjectAnalyzerListView.as_view()),
-
-
+    re_path(r"spatial/?$", SpatialAnalyzerListView.as_view(), name="analyzer-spatial-view"),
+    re_path(r"subject/?$", SubjectAnalyzerListView.as_view(), name="analyzer-subject-view"),
 )

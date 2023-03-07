@@ -4,6 +4,7 @@ wait_for $API_HOST $API_PORT
 
 . $(dirname "$0")/django_common_startup.sh
 
-WORKERS=10
+WORKERS=2
 
-celery -A das_server worker -Q default,maintenance -l info -c $WORKERS -P gevent --without-gossip -n default
+# Redirect stderr to stdout to keep the log level info in gcp cloud logging
+celery --app das_server worker -Q realtime_p1,realtime_p2,realtime_p3,default,maintenance -l info -c $WORKERS --without-gossip -n default@%h 2>&1

@@ -1,0 +1,15 @@
+{
+    "json": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "unevaluatedProperties": false
+    },
+    "ui": {
+        "fields": {},
+        "headers": {},
+        "order": [],
+        "sections": {}
+    }
+}

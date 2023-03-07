@@ -1,0 +1,146 @@
+import pytest
+
+from django.urls import reverse
+
+from accounts.models.permissionset import PermissionSet
+from activity.models import EventCategory
+from revision.middleware import request_context
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings", "das_tenant_monkeypatch")
+class TestEventCategorySignals:
+    @pytest.mark.parametrize("value", ["test_1"])
+    def test_create_dynamic_permissions_for_new_category(self, value):
+        data = {"value": value, "display": value, "flag": "user"}
+        event = EventCategory.objects.create(**data)
+
+        permission_set = PermissionSet.objects.get(name=event.auto_permissionset_name)
+        geo_permission_set = PermissionSet.objects.get(name=event.auto_geographic_permission_set_name)
+
+        assert permission_set.permissions.count() == 4
+        assert geo_permission_set.permissions.count() == 4
+
+    @pytest.mark.parametrize(
+        "data",
+        [
+            {
+                "value": "das 8242",
+                "display": "",
+                "flag": "user",
+                "expected": "das-8242",
+            },
+            {
+                "value": "DAS 8242",
+                "display": "",
+                "flag": "user",
+                "expected": "das-8242",
+            },
+            {
+                "value": "new category",
+                "display": "",
+                "flag": "user",
+                "expected": "new-category",
+            },
+            {
+                "value": "New category",
+                "display": "",
+                "flag": "user",
+                "expected": "new-category",
+            },
+            {
+                "value": "my C@tegory",
+                "display": "",
+                "flag": "user",
+                "expected": "my-ctegory",
+            },
+        ],
+    )
+    def test_slugify_event_category_value_field_for_new_categories(self, data):
+        expected = data.pop("expected")
+        print(f"\nExpected: {expected}")
+        event = EventCategory.objects.create(**data)
+        print(f"Event.value: {event.value}\n")
+        assert event.value == expected
+
+    def test_not_slugify_event_category_value_field_for_existing_categories(self, basic_event_categories):
+        for category in EventCategory.objects.all():
+            pre_value = category.value
+            new_display_value = f"{pre_value}_new"
+            category.display = new_display_value
+            category.save()
+
+            assert pre_value == category.value
+            assert new_display_value == category.display
+
+    def test_new_category_adds_request_user_to_permissionsets(self, superuser_client):
+        """Test that when a new EventCategory is created via API with a request user, that user is added to both permissionsets."""
+        user = superuser_client.user
+
+        # Create a new EventCategory via API (this will naturally set up the request context)
+        url = reverse("event-categories")
+        data = {"value": "test-category", "display": "Test Category", "flag": "user"}
+        response = superuser_client.post(url, data=data, format="json")
+
+        assert response.status_code == 201
+        category_id = response.data["id"]
+        category = EventCategory.objects.get(id=category_id)
+
+        # Get the permissionsets
+        permissionset = PermissionSet.objects.get(name=category.auto_permissionset_name)
+        geo_permissionset = PermissionSet.objects.get(name=category.auto_geographic_permission_set_name)
+
+        # Verify the user was added to both permissionsets
+        assert user in permissionset.user_set.all()
+        assert user in geo_permissionset.user_set.all()
+
+    def test_new_category_without_request_user_does_not_add_user(self):
+        """Test that when a new EventCategory is created without a request user, no user is added."""
+        # Ensure no request context
+        original_request = getattr(request_context, "request", None)
+        request_context.request = None
+
+        try:
+            # Create a new EventCategory
+            category = EventCategory.objects.create(value="test-category-2", display="Test Category 2", flag="user")
+
+            # Get the permissionsets
+            permissionset = PermissionSet.objects.get(name=category.auto_permissionset_name)
+            geo_permissionset = PermissionSet.objects.get(name=category.auto_geographic_permission_set_name)
+
+            # Verify no users were added to the permissionsets
+            assert permissionset.user_set.count() == 0
+            assert geo_permissionset.user_set.count() == 0
+        finally:
+            # Restore the original request context
+            request_context.request = original_request
+
+    def test_existing_category_update_does_not_add_user(self, superuser_client):
+        """Test that when an existing EventCategory is updated via API, no user is added even if there's a request user."""
+
+        # Create a category first (without request user - direct DB creation)
+        original_request = getattr(request_context, "request", None)
+        request_context.request = None
+        category = EventCategory.objects.create(value="test-category-3", display="Test Category 3", flag="user")
+        request_context.request = original_request
+
+        # Get the permissionsets before update
+        permissionset = PermissionSet.objects.get(name=category.auto_permissionset_name)
+        geo_permissionset = PermissionSet.objects.get(name=category.auto_geographic_permission_set_name)
+        initial_user_count = permissionset.user_set.count()
+        initial_geo_user_count = geo_permissionset.user_set.count()
+
+        # Update the existing category via API
+        url = reverse("event-category", kwargs={"eventcategory_id": str(category.id)})
+        data = {"display": "Updated Display"}
+        response = superuser_client.patch(url, data=data, format="json")
+
+        assert response.status_code == 200
+
+        # Refresh permissionsets from DB
+        permissionset.refresh_from_db()
+        geo_permissionset.refresh_from_db()
+
+        # Verify no users were added (since the permissionsets already existed)
+        assert permissionset.user_set.count() == initial_user_count
+        assert geo_permissionset.user_set.count() == initial_geo_user_count

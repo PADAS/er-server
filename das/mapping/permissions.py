@@ -1,5 +1,6 @@
-from observations.permissions import StandardObjectPermissions
 from rest_framework.permissions import SAFE_METHODS
+
+from utils.drf import StandardObjectPermissions
 
 
 class LayerObjectPermissions(StandardObjectPermissions):

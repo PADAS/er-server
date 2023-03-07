@@ -1,11 +1,12 @@
 import json
 
+from django.urls import resolve
 from rest_framework import status
 
 from core.tests import BaseAPITest
+from observations.models import Observation
 from sensors.handlers import InreachPushHandler
 from sensors.views import InreachHandlerView
-from observations.models import Observation
 
 
 class InreachPushHandlerTest(BaseAPITest):
@@ -62,6 +63,10 @@ class InreachPushHandlerTest(BaseAPITest):
         self.force_authenticate(request, self.app_user)
         response = InreachHandlerView.as_view()(request, provider_key=self.PROVIDER_KEY)
         return response
+
+    def test_url_handler(self):
+        resolver = resolve(self.api_path + "/")
+        assert resolver.func.cls == InreachHandlerView
 
     def test_inreach_observations(self):
         self.assertEqual(Observation.objects.count(), 0)

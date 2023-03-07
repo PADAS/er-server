@@ -1,23 +1,33 @@
 import uuid
 
-import django.db.models as models
-from django.utils.translation import ugettext_lazy as _
-from django.contrib.auth.models import Permission
+from django_multitenant.fields import TenantForeignKey
+from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
 
-from core.models import HierarchyModel, HierarchyManager, TimestampedModel
+import django.db.models as models
+from django.contrib.auth.models import Permission
+from django.db.models import UniqueConstraint
+from django.utils.translation import gettext_lazy as _
+
+from core.models import DASTenant, HierarchyManager, TimestampedModel, UUIDModel
+from core.models.hierachy import (
+    TenantHierarchyModel,
+    create_tenanthierarchychildren_model,
+)
+from utils.migrations.columns import default_tenant_id
 
 
 class PermissionSetManager(HierarchyManager):
     """
     The manager for the accounts PermissionSet model.
     """
+
     use_in_migrations = True
 
     def get_by_natural_key(self, name):
         return self.get(**{"name": name})
 
 
-class PermissionSet(HierarchyModel, TimestampedModel):
+class PermissionSet(TenantHierarchyModel, TimestampedModel):
     """
     PermissionSets are a generic way of categorizing users to apply permissions, or
     some other label, to those users. A user can belong to any number of
@@ -34,12 +44,21 @@ class PermissionSet(HierarchyModel, TimestampedModel):
     members-only portion of your site, or sending them members-only email
     messages.
     """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(_('name'), max_length=80, unique=True)
+    name = models.CharField(_("name"), max_length=80)
     permissions = models.ManyToManyField(
-        Permission,
+        "auth.permission",
+        related_name="permission_sets",
+        through="accounts.PermissionSetPermission",
+        through_fields=("permissionset", "permission"),
+    )
+    children = models.ManyToManyField(
+        "self",
         blank=True,
-        related_name='permission_sets',
+        symmetrical=False,
+        related_name="_parents",
+        through="accounts.PermissionSetChildren",
     )
 
     objects = PermissionSetManager()
@@ -48,8 +67,50 @@ class PermissionSet(HierarchyModel, TimestampedModel):
         return (self.name,)
 
     class Meta:
-        verbose_name = _('permission set')
-        verbose_name_plural = _('permission sets')
+        constraints = [
+            UniqueConstraint(fields=["das_tenant", "name"], name="%(app_label)s_%(class)s_tenant_name_unique"),
+        ]
+        verbose_name = _("permission set")
+        verbose_name_plural = _("permission sets")
+        base_manager_name = "objects"
+        default_manager_name = "objects"
 
     def __str__(self):
         return self.name
+
+
+PermissionSetChildren = create_tenanthierarchychildren_model(PermissionSet)
+
+
+class PermissionSetPermissionManager(TenantManagerMixin, models.Manager):
+    use_in_migrations = True
+
+    def get_by_natural_key(self, permissionset, permission):
+        return self.get(permissionset=permissionset, permission=permission)
+
+
+class PermissionSetPermission(TenantModelMixin, UUIDModel):
+    permissionset = TenantForeignKey(PermissionSet, on_delete=models.CASCADE)
+    permission = models.ForeignKey(Permission, on_delete=models.CASCADE)
+    das_tenant = models.ForeignKey(
+        DASTenant,
+        on_delete=models.CASCADE,
+        default=default_tenant_id,
+        related_name="%(app_label)s_%(class)s",
+    )
+    tenant_id = "das_tenant_id"
+
+    objects = PermissionSetPermissionManager()
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "permissionset", "permission"],
+                name="%(app_label)s_%(class)s_tenant_unique",
+            ),
+        ]
+
+    def natural_key(self):
+        return (self.permissionset, self.permission)

@@ -1,14 +1,36 @@
 """Redis utilities"""
 
-import redis
-import logging
 import contextlib
+import logging
 
-from django.conf import settings
+import redis
+from redis.backoff import ExponentialBackoff
+from redis.exceptions import ConnectionError, TimeoutError
+from redis.retry import Retry
 
 logger = logging.getLogger(__name__)
 
 shared_cache = None
+
+
+def get_resilient_redis_client(host, port, db):
+    return redis.Redis(
+        host=host,
+        port=port,
+        db=db,
+        health_check_interval=5,
+        retry=Retry(ExponentialBackoff(), 25),
+        retry_on_error=[ConnectionError, TimeoutError],
+    )
+
+
+def get_resilient_redis_client_from_url(url):
+    return redis.from_url(
+        url=url,
+        health_check_interval=5,
+        retry=Retry(ExponentialBackoff(), 25),
+        retry_on_error=[ConnectionError, TimeoutError],
+    )
 
 
 def clear_keys(redis, wildcard, pipeline=None):

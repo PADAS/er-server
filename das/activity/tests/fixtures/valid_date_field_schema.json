@@ -1,0 +1,25 @@
+{
+    "json": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "testDate": {
+                "title": "Valid Date Field",
+                "type": "string",
+                "format": "date",
+                "description": "A valid date field.",
+                "deprecated": false
+            }
+        },
+        "required": [
+            "testDate"
+        ]
+    },
+    "ui": {
+        "fields": {},
+        "headers": {},
+        "order": [],
+        "sections": {}
+    }
+}

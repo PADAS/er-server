@@ -1,34 +1,75 @@
-from django.conf.urls import url
+from django.urls import re_path
 
-from mapping.views import FeatureListJsonView, FeatureGeoJsonView, FeatureSetListJsonView, FeatureSetGeoJsonView, MapListJsonView, LayerListJsonView, LayerJsonView
-from mapping.spatialviews import SpatialFeatureGroupView, SpatialFeatureView
+from mapping.spatialviews import (
+    SpatialFeatureDetailView,
+    SpatialFeatureGroupDetailView,
+    SpatialFeatureGroupListView,
+    SpatialFeatureListView,
+    SpatialFeatureTypeListView,
+)
+from mapping.views import (
+    FeatureGeoJsonView,
+    FeatureListJsonView,
+    FeatureSetGeoJsonView,
+    FeatureSetListJsonView,
+    LayerJsonView,
+    LayerListJsonView,
+    MapListJsonView,
+    SpatialFeatureTileView,
+)
+from utils.constants import regex
 
-app_name = 'mapping'
+app_name = "mapping"
 
 urlpatterns = (
-    # a list of available features
-    url(r'^features/?$', FeatureListJsonView.as_view()),
+    re_path(r"^features/?$", FeatureListJsonView.as_view()),
     # todo:  add caching
-    url(r'^feature/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
-        FeatureGeoJsonView.as_view(), name='mapping-feature-geojson'),
-
-    # a list of available featuresets
-    url(r'^featureset/?$', FeatureSetListJsonView.as_view()),
+    re_path(
+        rf"^feature/(?P<id>{regex.UUID})/?$",
+        FeatureGeoJsonView.as_view(),
+        name="mapping-feature-geojson",
+    ),
+    re_path(r"^featureset/?$", FeatureSetListJsonView.as_view()),
     # the geojson for a particular feature
-    url(r'^featureset/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
-        FeatureSetGeoJsonView.as_view(), name='mapping-featureset-geojson'),
-
-    # a list of available base maps
-    url(r'^maps/?$', MapListJsonView.as_view()),
-    url(r'^layers/?$', LayerListJsonView.as_view()),
-    url(r'^layer/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
-        LayerJsonView.as_view()),
-    url(
-        r'^spatialfeaturegroup/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
-        SpatialFeatureGroupView.as_view(), name='spatialfeaturegroup-view'),
-
-    url(
-        r'^spatialfeature/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$',
-        SpatialFeatureView.as_view(), name='spatialfeature-view'),
-
+    re_path(
+        rf"^featureset/(?P<id>{regex.UUID})/?$",
+        FeatureSetGeoJsonView.as_view(),
+        name="mapping-featureset-geojson",
+    ),
+    re_path(r"^maps/?$", MapListJsonView.as_view()),
+    re_path(r"^layers/?$", LayerListJsonView.as_view()),
+    re_path(rf"^layer/(?P<id>{regex.UUID})/?$", LayerJsonView.as_view()),
+    re_path(
+        r"^featureclass/?$",
+        SpatialFeatureTypeListView.as_view(),
+        name="spatialfeaturetype-list",
+    ),
+    # Spatial feature group endpoints
+    re_path(
+        r"^spatialfeaturegroup/?$",
+        SpatialFeatureGroupListView.as_view(),
+        name="spatialfeaturegroup-list",
+    ),
+    re_path(
+        rf"^spatialfeaturegroup/(?P<id>{regex.UUID})/?$",
+        SpatialFeatureGroupDetailView.as_view(),
+        name="spatialfeaturegroup-detail",
+    ),
+    # Spatial feature endpoints
+    re_path(
+        r"^spatialfeature/?$",
+        SpatialFeatureListView.as_view(),
+        name="spatialfeature-list",
+    ),
+    re_path(
+        rf"^spatialfeature/(?P<id>{regex.UUID})/?$",
+        SpatialFeatureDetailView.as_view(),
+        name="spatialfeature-detail",
+    ),
+    # Vector tile endpoint for spatial features
+    re_path(
+        r"^spatialfeatures/tiles/(?P<z>\d+)/(?P<x>\d+)/(?P<y>\d+)\.pbf$",
+        SpatialFeatureTileView.as_view(),
+        name="spatialfeature-tiles",
+    ),
 )

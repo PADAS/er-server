@@ -5,33 +5,68 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "PyTest",
-            "type": "python",
+            "name": "Python: Debug Tests",
+            "type": "debugpy",
             "request": "launch",
+            "program": "${file}",
+            "python": "/home/vscode/.venv/bin/python",
+            "purpose": [
+                "debug-test"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "PyTest",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "/home/vscode/.venv/bin/python",
             "stopOnEntry": false,
-          
+            "justMyCode": false,
             "module": "pytest",
             "args": [
-                
+                "-vv",
+                "--ds",
+                "test_scripts.unittest_settings",
+                "--reuse-db",
+                "${input:pytest_path_args}"
             ],
-            "cwd": "${workspaceRoot}",
-            "env": {},
-            "envFile": "${workspaceRoot}/.env",
-            "debugOptions": [
-                "WaitOnAbnormalExit",
-                "WaitOnNormalExit",
-                "RedirectOutput"
-            ]
+            "cwd": "${workspaceRoot}/das",
+            "env": {
+            },
+            "redirectOutput": true
+        },
+        {
+            "name": "PyTest --createdb",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "/home/vscode/.venv/bin/python",
+            "stopOnEntry": false,
+            "module": "pytest",
+            "args": [
+                "--create-db",
+                "--reuse-db",
+                "--ds",
+                "test_scripts.unittest_settings",
+                "core/tests/test_utils.py"
+            ],
+            "cwd": "${workspaceRoot}/das",
+            "env": {
+                "IS_OAUTH2_PROVIDER_MIGRATION": "True"
+            },
+            "redirectOutput": true
         },
         {
             "name": "Django:Run",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/das/manage.py",
+            "python": "/home/vscode/.venv/bin/python",
+            "program": "manage.py",
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
             "env": {
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings"
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler",
+                "PYTHONWARNINGS": "default"
             },
             "args": [
                 "runserver",
@@ -42,43 +77,48 @@
         },
         {
             "name": "Django:Gunicorn",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
-            "program": "/usr/local/bin/gunicorn",
+            "program": "gunicorn",
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
             "env": {
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings"
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler",
+                "ROOT_LOGGING_LEVEL": "INFO"
             },
             "args": [
                 "das_server.wsgi",
                 "--name",
                 "das",
                 "--limit-request-line",
-                "6000",
+                "66000",
                 "--bind",
                 "127.0.0.1:8000",
                 "--workers",
                 "1",
                 "--threads",
-                "1"
+                "1",
+                "-c",
+                "das_server/gunicorn.conf.py"
             ],
             "django": true,
             "justMyCode": false
         },
         {
             "name": "Django:GunicornRT",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
-            "program": "/usr/local/bin/gunicorn",
+            "program": "gunicorn",
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
+            "gevent": true,
+            "justMyCode": false,
             "args": [
                 "das_server.rt_wsgi",
                 "--name",
                 "das_rt",
                 "--limit-request-line",
-                "6000",
+                "66000",
                 "--bind",
                 "127.0.0.1:8000",
                 "--workers",
@@ -88,16 +128,20 @@
                 "--worker-class",
                 "eventlet",
                 "--timeout",
-                "90",
+                "600",
                 "--log-level",
                 "info"
-            ]
+            ],
+            "env": {
+                "ROOT_LOGGING_LEVEL": "INFO",
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
+            }
         },
         {
             "name": "ER Workers",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
-            "program": "/usr/local/bin/celery",
+            "program": "celery",
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
             "args": [
@@ -105,63 +149,261 @@
                 "das_server",
                 "worker",
                 "--beat",
+                "-s",
+                "/tmp/celerybeat-schedule",
                 "-Q",
-                "realtime_p1,realtime_p2,realtime_p3,default,maintenance",
+                "realtime_p1,realtime_p2,realtime_p3,default,analyzers,maintenance",
                 "-l",
                 "info",
                 "-c",
-                "5",
-                
+                "2",
                 "--without-gossip",
                 "-n",
-                "priority"
+                "all-in-one"
             ],
             //"postDebugTask": "killdebugger",
-            "env":{
-                "DJANGO_SETTINGS_MODULE": "das_server.local_settings",
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler",
                 "GEVENT_SUPPORT": "True"
             }
         },
         {
             "name": "Django:MQL",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/das/manage.py",
+            "program": "manage.py",
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
             "args": [
                 "message_queue_listeners"
             ],
-            "django": true
+            "django": true,
+            "env": {
+                "ROOT_LOGGING_LEVEL": "INFO",
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
+            }
         },
         {
             "name": "Django:RunRT",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/das/async_manage.py",
+            "program": "async_manage.py",
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/das",
+            "gevent": true,
+            "justMyCode": false,
             "args": [
                 "rtserver",
                 "localhost:8000",
                 "--noreload",
                 "--nothreading"
             ],
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
+            },
             "django": true
         },
         {
+            "name": "Django manage tenant command",
+            "type": "debugpy",
+            "request": "launch",
+            "justMyCode": false,
+            "program": "manage.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/das",
+            "args": [
+                "${input:django_command}",
+                "--tenant_domain",
+                "${input:tenant_domain}",
+                "${input:django_command_args}"
+            ],
+            "django": true,
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
+            }
+        },
+        {
             "name": "Django manage command",
-            "type": "python",
+            "type": "debugpy",
+            "request": "launch",
+            "justMyCode": false,
+            "program": "manage.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/das",
+            "args": [
+                "${input:django_command}",
+                "${input:django_command_args}"
+            ],
+            "django": true,
+            "sudo": true,
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
+            }
+        },
+        {
+            "name": "Django migrate db",
+            "type": "debugpy",
+            "request": "launch",
+            "justMyCode": false,
+            "program": "manage.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/das",
+            "args": [
+                "migrate"
+            ],
+            "django": true,
+            "env": {
+                "IS_OAUTH2_PROVIDER_MIGRATION": "True",
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
+            }
+        },
+        {
+            "name": "Django initial data",
+            "type": "debugpy",
+            "request": "launch",
+            "justMyCode": false,
+            "program": "manage.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/das",
+            "args": [
+                "loaddata_with_tenant",
+                "--tenant_domain",
+                "${input:tenant_domain}",
+                "initial_admin",
+                "initial_groups",
+                "initial_eventdata",
+                "initial_dev_map",
+                "initial_features",
+                "initial_tilelayers",
+                "event_data_model",
+            ],
+            "django": true,
+            "env": {
+                "IS_OAUTH2_PROVIDER_MIGRATION": "True",
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
+            }
+        },
+        {
+            "name": "New tenant initial data",
+            "type": "debugpy",
+            "request": "launch",
+            "justMyCode": false,
+            "program": "manage.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/das",
+            "args": [
+                "loaddata_with_tenant",
+                "--tenant_domain",
+                "${input:tenant_domain}",
+                "initial_data"
+            ],
+            "django": true,
+            "env": {
+                "IS_OAUTH2_PROVIDER_MIGRATION": "True",
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
+            }
+        },
+        {
+            "name": "Django collectstatic",
+            "type": "debugpy",
+            "request": "launch",
+            "justMyCode": false,
+            "program": "manage.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/das",
+            "args": [
+                "collectstatic"
+            ],
+            "django": true,
+            "sudo": true,
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
+            }
+        },
+        {
+            "name": "Django dumpdata",
+            "type": "debugpy",
             "request": "launch",
             "justMyCode": false,
             "program": "${workspaceFolder}/das/manage.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}/das",
             "args": [
-                "shell"
+                "dumpdata",
+                "--natural-primary",
+                "--natural-foreign",
+                "--all",
+                "--format",
+                "json",
+                "--indent",
+                "2",
+                "--output",
+                "das_server/fixtures/initial_data.json",
             ],
-            "django": true
+            "django": true,
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler",
+                "IS_OAUTH2_PROVIDER_MIGRATION": "True"
+            }
+        },
+        {
+            "name": "Django make migrations",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "/home/vscode/.venv/bin/python",
+            "justMyCode": false,
+            "program": "${workspaceFolder}/das/manage.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/das",
+            "args": [
+                "makemigrations",
+                "${input:django_migrate_app_options}",
+            ],
+            "django": true,
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "das_server.local_settings_docker_pooler"
+            }
+        },
+    ],
+    "inputs": [
+        {
+            "id": "django_command",
+            "type": "promptString",
+            "description": "Django commands",
+            "default": "dumpdata"
+        },
+        {
+            "id": "django_command_args",
+            "type": "promptString",
+            "description": "Django commands args. Example: -o datajson.",
+        },
+        {
+            "id": "pytest_path_args",
+            "type": "promptString",
+            "description": "pytest custom path (empty to execute the full test suite)",
+            "default": "activity/tests"
+        },
+        {
+            "id": "tenant_domain",
+            "type": "promptString",
+            "description": "tenant domain name",
+            "default": "localhost"
+        },
+        {
+            "id": "django_migrate_app_options",
+            "type": "pickString",
+            "description": "Select a DjangoApp to migrate",
+            "options": [
+                "activity",
+                "accounts",
+                "analyzers",
+                "choices",
+                "buoy",
+                "core",
+                "observations",
+                "mapping",
+            ],
+            "default": "activity"
         }
-        
     ]
 }

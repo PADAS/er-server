@@ -1,12 +1,21 @@
+import re
 import uuid
+from functools import partialmethod
 
-from core.utils import static_image_finder
+from django_multitenant.fields import TenantForeignKey
+from django_multitenant.mixins import TenantManagerMixin, TenantModelMixin
+
 from django.contrib.gis.db import models
 from django.core import checks, exceptions
+from django.db.models import Index, UniqueConstraint
 from django.db.models.fields import BLANK_CHOICE_DASH
 from django.utils import timezone
-from django.utils.functional import curry, lazy
-from django.utils.translation import ugettext_lazy as _
+from django.utils.functional import lazy
+
+from core.models import DASTenant, UUIDModel
+from core.utils import static_image_finder
+from utils.migrations.columns import default_tenant_id
+from utils.models import CommonTenantManager
 
 
 class ChoiceQuerySet(models.QuerySet):
@@ -15,20 +24,18 @@ class ChoiceQuerySet(models.QuerySet):
         return result.get_values()
 
     def get_choices(self, model, field):
-        return self.filter(model=model, field=field).order_by('ordernum')
+        return self.filter(model=model, field=field).order_by("ordernum")
 
     def get_values(self):
-        return self.values_list('value', 'display')
+        return self.values_list("value", "display")
 
     def get_filtered_q(self, parent_model, parent_field, parent_value):
-        parent = self.all().get_choices(parent_model, parent_field).filter(
-            value=parent_value)
+        parent = self.all().get_choices(parent_model, parent_field).filter(value=parent_value)
         return models.Q(sub_choice_of=parent)
 
     def get_filtered_choices(self, parent_model, parent_field, parent_value):
         """after calling get_choices(), filter choices by parent values"""
-        parent = self.all().get_choices(
-            parent_model, parent_field).filter(value=parent_value)
+        parent = self.all().get_choices(parent_model, parent_field).filter(value=parent_value)
         return self.filter(sub_choice_of=parent)
 
     def filter_active_choices(self):
@@ -44,18 +51,43 @@ class ChoiceQuerySet(models.QuerySet):
         return self.disable_choices()
 
 
-class DynamicChoice(models.Model):
-    id = models.CharField(max_length=100, primary_key=True)
-    model_name = models.CharField(max_length=100, verbose_name='Model lookup')
-    criteria = models.CharField(max_length=100, verbose_name='Criteria')
-    value_col = models.CharField(max_length=100, verbose_name='Value column')
-    display_col = models.CharField(max_length=100,
-                                   verbose_name='Display column')
+class DynamicChoice(TenantModelMixin, UUIDModel):
+    choice_name = models.CharField(max_length=100, blank=True, null=False, verbose_name="Choice name")
+    model_name = models.CharField(max_length=100, verbose_name="Model lookup")
+    criteria = models.CharField(max_length=100, verbose_name="Criteria")
+    value_col = models.CharField(max_length=100, verbose_name="Value column")
+    display_col = models.CharField(max_length=100, verbose_name="Display column")
+    das_tenant = models.ForeignKey(DASTenant, on_delete=models.CASCADE, default=default_tenant_id)
+
+    tenant_id = "das_tenant_id"
+    objects = CommonTenantManager()
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "choice_name"],
+                name="%(app_label)s_%(class)s_unique_choice_name_across_tenants",
+            )
+        ]
+        indexes = [Index(fields=["das_tenant", "choice_name"], name="%(class)s_choice_name_idx")]
 
 
-class SoftDeleteModel(models.Model):
+class SoftDeleteModelManager(TenantManagerMixin, models.Manager):
+    pass
+
+
+class SoftDeleteModel(TenantModelMixin, models.Model):
     delete_on = models.DateTimeField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    das_tenant = models.ForeignKey(
+        DASTenant,
+        on_delete=models.CASCADE,
+        default=default_tenant_id,
+        related_name="%(app_label)s_%(class)s",
+    )
+
+    tenant_id = "das_tenant_id"
+    objects = SoftDeleteModelManager()
 
     class Meta:
         abstract = True
@@ -66,43 +98,76 @@ class SoftDeleteModel(models.Model):
         self.save()
 
 
-class Choice(SoftDeleteModel):
+class ChoiceManager(TenantManagerMixin, models.Manager.from_queryset(ChoiceQuerySet)):
+    use_in_migrations = True
 
-    Field_Reports = 'activity.event'
-    User = 'accounts.user.User'
-    Maps = 'mapping.TileLayer'
-    Region = 'observations.region'
-    Sources = 'observations.Source'
-    Field_Report_Type = 'activity.eventtype'
+
+class Choice(SoftDeleteModel):
+    VALID_VALUE_CHARS = r"^\w+$"
+    VALID_FIELD_CHARS = r"^\w+$"
+    EVENT_MODEL = "activity.event"
+    EVENT_TYPE_MODEL = "activity.eventtype"
+    USER_MODEL = "accounts.user.User"
+    MAPS_MODEL = "mapping.TileLayer"
+    OBSERVATION_REGION_MODEL = "observations.region"
+    OBSERVATION_SOURCE_MODEL = "observations.Source"
 
     MODEL_REF_CHOICES = [
-        (Field_Reports, "Field Reports"),
-        (Field_Report_Type, "Field Report Type"),
-        (Maps, "Maps"),
-        (Region, "Region"),
-        (Sources, "Sources"),
-        (User, "User"),
+        (EVENT_MODEL, "Event"),
+        (EVENT_TYPE_MODEL, "Event Type"),
+        (USER_MODEL, "User"),
+        (MAPS_MODEL, "Maps"),
+        (OBSERVATION_REGION_MODEL, "Region"),
+        (OBSERVATION_SOURCE_MODEL, "Sources"),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    model = models.CharField(
-        max_length=50, choices=MODEL_REF_CHOICES, default=Field_Reports)
+    model = models.CharField(max_length=50, choices=MODEL_REF_CHOICES, default=EVENT_MODEL)
     field = models.CharField(max_length=40)
     value = models.CharField(max_length=100, blank=True)
     display = models.CharField(max_length=100, blank=True)
     icon = models.CharField(max_length=100, blank=True, null=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
-    sub_choice_of = models.ManyToManyField('self', blank=True,
-                                           symmetrical=False)
-
-    objects = ChoiceQuerySet.as_manager()
+    sub_choice_of = models.ManyToManyField("self", blank=True, symmetrical=False, through="choices.SubChoiceOf")
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
+    objects = ChoiceManager()
+
     class Meta:
-        unique_together = (('model', 'field', 'value'),)
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "model", "field", "value"], name="%(app_label)s_%(class)s_tenant_model_unique"
+            ),
+        ]
 
     def __str__(self):
-        return ', '.join((self.model, self.field, self.value, self.display))
+        return ", ".join((self.model, self.field, self.value, self.display))
+
+    def clean(self):
+        """
+        Validate that field and value are required and contain only unicode word characters
+        (letters, numbers, underscores) - no spaces.
+        Only validates new instances (pk is None) for backward compatibility.
+        """
+
+        errors = {}
+        fields_to_validate = [
+            ("field", "Field"),
+            ("value", "Value"),
+        ]
+
+        for field_name, field_label in fields_to_validate:
+            field_value = getattr(self, field_name, None)
+            if not field_value:
+                errors[field_name] = f"{field_label} is required and cannot be empty."
+            elif not re.match(getattr(Choice, f"VALID_{field_name.upper()}_CHARS"), field_value):
+                errors[field_name] = (
+                    f"{field_label} must contain only letters, numbers, and underscores (no spaces). "
+                    f"Got: '{field_value}'"
+                )
+
+        if errors:
+            raise exceptions.ValidationError(errors)
 
     @property
     def icon_id(self):
@@ -110,39 +175,76 @@ class Choice(SoftDeleteModel):
 
     @staticmethod
     def image_basename(choice_value):
-        color = 'black'
-        return '{0}-{1}'.format(choice_value, color)
+        color = "black"
+        return f"{choice_value}-{color}"
+        return "{0}-{1}".format(choice_value, color)
 
     @staticmethod
     def generate_image_keys(choice_value):
         yield choice_value
 
     @staticmethod
-    def marker_icon(choice_value, default='/static/generic-black.svg'):
-        image_url = static_image_finder.get_marker_icon(
-            Choice.generate_image_keys(choice_value))
+    def marker_icon(choice_value, default="/static/generic-black.svg"):
+        image_url = static_image_finder.get_marker_icon(Choice.generate_image_keys(choice_value))
         return image_url or default
+
+
+class SubChoiceOf(TenantModelMixin, UUIDModel):
+    from_choice = TenantForeignKey(
+        default=uuid.uuid4, on_delete=models.CASCADE, related_name="from_choice", to="choices.choice"
+    )
+    to_choice = TenantForeignKey(
+        default=uuid.uuid4, on_delete=models.CASCADE, related_name="to_choice", to="choices.choice"
+    )
+    das_tenant = models.ForeignKey(
+        DASTenant,
+        on_delete=models.CASCADE,
+        default=default_tenant_id,
+        related_name="%(app_label)s_%(class)s",
+    )
+
+    tenant_id = "das_tenant_id"
+    objects = CommonTenantManager()
+
+    class Meta:
+        base_manager_name = "objects"
+        default_manager_name = "objects"
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "from_choice_id", "to_choice_id"],
+                name="%(app_label)s_%(class)s_unique_across_tenants",
+            ),
+        ]
+        indexes = [
+            Index(
+                fields=["das_tenant", "from_choice"],
+            ),
+            Index(
+                fields=["das_tenant", "to_choice"],
+            ),
+        ]
 
 
 class DisableChoice(Choice):
     class Meta:
         proxy = True
-        verbose_name = 'Disabled Choice'
+        verbose_name = "Disabled Choice"
 
 
 class ChoiceCharField(models.CharField):
     """Choices are stored in a Choice database table."""
+
     _return_empty_choices = False
 
     def __init__(self, *args, **kwargs):
-        self._choices = (('', ''),)
-        self.filter_field = kwargs.pop('filter_field', None)
+        self._choices = (("", ""),)
+        self.filter_field = kwargs.pop("filter_field", None)
         super().__init__(*args, **kwargs)
         self._choices = lazy(self.get_choices, list)()
 
     @property
     def choices(self):
-        if not hasattr(self, 'model') or self._return_empty_choices:
+        if not hasattr(self, "model") or self._return_empty_choices:
             return []
         try:
             return self._choices
@@ -158,8 +260,11 @@ class ChoiceCharField(models.CharField):
         self._return_empty_choices = True
         super().contribute_to_class(*args, **kwargs)
         self._return_empty_choices = False
-        setattr(self.model, 'get_%s_display' % self.name,
-                curry(self.model._get_FIELD_display, field=self))
+        setattr(
+            self.model,
+            f"get_{self.name}_display",
+            partialmethod(self.model._get_FIELD_display, field=self),
+        )
 
     def deconstruct(self):
         self._return_empty_choices = True
@@ -177,21 +282,19 @@ class ChoiceCharField(models.CharField):
         return []
 
     def _check_filter_field_attribute(self, **kwargs):
-        if self.filter_field is not None and not isinstance(self.filter_field,
-                                                            models.Field):
+        if self.filter_field is not None and not isinstance(self.filter_field, models.Field):
             return [
                 checks.Error(
                     "'filter_field' must be a model Field type.",
                     hint=None,
                     obj=self,
-                    id='fields.E121',
+                    id="fields.E121",
                 )
             ]
         else:
             return []
 
-    def get_choices(self, include_blank=True, blank_choice=BLANK_CHOICE_DASH,
-                    limit_choices_to=None):
+    def get_choices(self, include_blank=True, blank_choice=BLANK_CHOICE_DASH, limit_choices_to=None):
         """Returns choices with a default blank choices included, for use
         as SelectField choices for this field."""
         blank_defined = False
@@ -204,23 +307,21 @@ class ChoiceCharField(models.CharField):
             choices = _choices.get_values()
 
             for choice, __ in choices:
-                if choice in ('', None):
+                if choice in ("", None):
                     blank_defined = True
                     break
         else:
             choices = {}
             for choice in _choices:
-                if choice.value in ('', None):
+                if choice.value in ("", None):
                     blank_defined = True
                     break
                 group_values = choice.sub_choice_of.all()
-                group_value = group_values[0].value if group_values else ''
-                choices.setdefault(group_value, []).append(
-                    (choice.value, choice.display))
+                group_value = group_values[0].value if group_values else ""
+                choices.setdefault(group_value, []).append((choice.value, choice.display))
             choices = [(k, v) for k, v in choices.items()]
 
-        first_choice = (blank_choice if include_blank and
-                        not blank_defined else [])
+        first_choice = blank_choice if include_blank and not blank_defined else []
         return first_choice + list(choices)
 
     def validate(self, value, model_instance):
@@ -229,9 +330,8 @@ class ChoiceCharField(models.CharField):
         if self.filter_field and self.choices and value not in self.empty_values:
             filter_value = getattr(model_instance, self.filter_field.name)
             q = Choice.objects.get_filtered_q(
-                self.filter_field.model._meta.label_lower,
-                self.filter_field.name,
-                filter_value)
+                self.filter_field.model._meta.label_lower, self.filter_field.name, filter_value
+            )
             for option_key, option_value in self.get_choices(limit_choices_to=q):
                 if isinstance(option_value, (list, tuple)):
                     # This is an optgroup, so look inside the group for
@@ -242,498 +342,7 @@ class ChoiceCharField(models.CharField):
                 elif value == option_key:
                     return
             raise exceptions.ValidationError(
-                self.error_messages['invalid_choice'],
-                code='invalid_choice',
-                params={'value': value},
+                self.error_messages["invalid_choice"],
+                code="invalid_choice",
+                params={"value": value},
             )
-
-
-class ChoiceModel(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class SectionArea(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class Station(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class FenceLocation(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class FenceDamage(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Fence Damage')
-        verbose_name_plural = _('Fence Damage')
-
-
-class KeySpecies(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Key Species')
-        verbose_name_plural = _('Key Species')
-
-
-class Species(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Species')
-        verbose_name_plural = _('Species')
-
-
-class AnimalSex(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Animal Sex')
-        verbose_name_plural = _('Animal Sexes')
-
-
-class AnimalAge(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class CarcassAge(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class TrophyStatus(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Trophy Status')
-        verbose_name_plural = _('Trophy Statuses')
-
-
-class CauseOfDeath(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Cause of Death')
-        verbose_name_plural = _('Causes of Death')
-
-
-class InjuryCause(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class InjuryType(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class FireStatus(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Fire Status')
-        verbose_name_plural = _('Fire Statuses')
-
-
-class FireCause(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class Direction(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class Crops(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Crops')
-        verbose_name_plural = _('Crops')
-
-
-class TypeOfIllegalActivity(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Type of Illegal Activity')
-        verbose_name_plural = _('Type of Illegal Activities')
-
-
-class SnareAge(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class SnareStatus(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Snare Status')
-        verbose_name_plural = _('Snare Statuses')
-
-
-class PoacherCampAge(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class TypeOfShots(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Type of Shots')
-        verbose_name_plural = _('Type of Shots')
-
-
-class TypeOfTrophy(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Type of Trophy')
-        verbose_name_plural = _('Type of Trophies')
-
-
-class VehicleTypes(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Vehicle Types')
-        verbose_name_plural = _('Vehicle Types')
-
-
-class WeaponTypes(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Types of Weapons')
-        verbose_name_plural = _('Types of Weapons')
-
-
-class TrafficType(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class TrafficActivity(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Traffic Activity')
-        verbose_name_plural = _('Traffic Activities')
-
-
-class AccidentType(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class CriticalSightingType(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class TracksType(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Track Type')
-        verbose_name_plural = _('Track Types')
-
-
-class VehicleType(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class MedicalEquipmentRequired(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Medical Equipment Required')
-        verbose_name_plural = _('Medical Equipment Required')
-
-
-class MedicalEvacSecurity(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Medical Evac Security')
-        verbose_name_plural = _('Medical Evac Securities')
-
-
-class DetectionType(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class ActionTaken(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Action Taken')
-        verbose_name_plural = _('Actions Taken')
-
-
-class Conservancy(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Conservancy')
-        verbose_name_plural = _('Conservancies')
-
-
-class Behavior(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class Color(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class Health(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Health')
-        verbose_name_plural = _('Health')
-
-
-class FenceSection(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class Team(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class PoachingMean(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class Tribe(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class IllegalActivity(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Illegal Activity')
-        verbose_name_plural = _('Illegal Activities')
-
-
-class Livestock(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Livestock')
-        verbose_name_plural = _('Livestock')
-
-
-class ContactType(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class WildlifeGap(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-
-class IncidentStatus(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Incident Status')
-        verbose_name_plural = _('Incident Statuses')
-
-
-class Nationality(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Nationality')
-        verbose_name_plural = _('Nationalities')
-
-
-class Village(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Village')
-        verbose_name_plural = _('Villages')
-
-
-class ArrestViolation(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Arrest Violation')
-        verbose_name_plural = _('Arrest Violations')
-
-
-# Liwonde specific tables
-class AnimalCondition(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Animal Condition')
-        verbose_name_plural = _('Animal Conditions')
-
-
-class ArrestNationality(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Arrest Nationality')
-        verbose_name_plural = _('Arrest Nationalities')
-
-
-class ReasonForArrest(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Reason for Arrest')
-        verbose_name_plural = _('Reasons for Arrest')
-
-
-class ArrestVillageName(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Arrest Village Name')
-        verbose_name_plural = _('Arrest Village Names')
-
-
-class SpoorAge(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('SPOOR Age')
-        verbose_name_plural = _('SPOOR Ages')
-
-
-class SpoorFootType(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('SPOOR Foot Type')
-        verbose_name_plural = _('SPOOR Foot Types')
-
-
-class SnareAction(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    ordernum = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = _('Snare Action')
-        verbose_name_plural = _('Snare Actions')

@@ -1,24 +1,46 @@
+import json
+import uuid
+from datetime import datetime, timedelta
+
 import factory
-from django.contrib.auth.hashers import make_password
 from factory import fuzzy
+from factory.fuzzy import BaseFuzzyAttribute
+from oauth2_provider.models import get_access_token_model
+
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import make_password
+from django.contrib.auth.models import Permission
+from django.contrib.gis.geos import Point, Polygon
+from django.utils import timezone
 
 from accounts.models.permissionset import PermissionSet
 from activity.models import (
+    Community,
+    Event,
     EventCategory,
+    EventDetails,
+    EventGeometry,
+    EventNote,
     EventType,
     Patrol,
     PatrolNote,
     PatrolSegment,
     PatrolType,
-    Event,
-    EventDetails,
 )
 from analyzers.models import FeatureProximityAnalyzerConfig, GeofenceAnalyzerConfig
-from mapping.models import SpatialFeatureGroupStatic, SpatialFeatureType
+from choices.models import Choice, DynamicChoice
+from core.models import DASTenant
+from mapping.models import (
+    DisplayCategory,
+    SpatialFeature,
+    SpatialFeatureGroupStatic,
+    SpatialFeatureType,
+)
 from observations.models import (
+    Message,
     Observation,
     Source,
+    SourceGroup,
     SourceProvider,
     Subject,
     SubjectGroup,
@@ -27,15 +49,32 @@ from observations.models import (
     SubjectType,
 )
 
+AccessToken = get_access_token_model()
 User = get_user_model()
+
+
+class TenantFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = DASTenant
+        django_get_or_create = ("id",)
+
+    @classmethod
+    def _adjust_kwargs(cls, **kwargs):
+        if not isinstance(kwargs["id"], uuid.UUID):
+            kwargs["id"] = uuid.UUID(kwargs["id"])
+        return kwargs
+
+    id = uuid.UUID("c0973be2-8e11-4cb8-8463-897fb96391d0")
+    domain = "zoo.com"
 
 
 class PermissionSetFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = PermissionSet
-        django_get_or_create = ('name',)
+        django_get_or_create = ("name",)
 
     name = fuzzy.FuzzyText(length=25)
+    das_tenant = factory.SubFactory(TenantFactory)
 
     @factory.post_generation
     def permissions(self, create, extracted, **kwargs):
@@ -47,14 +86,20 @@ class PermissionSetFactory(factory.django.DjangoModelFactory):
                 self.permissions.add(permissions)
 
 
+class PermissionFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Permission
+        django_get_or_create = ("name",)
+
+
 class UserFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = User
 
-    username = factory.Sequence(lambda n: "username{}".format(n))
+    username = factory.Sequence(lambda n: f"username{n}")
     first_name = fuzzy.FuzzyText(length=25)
     last_name = fuzzy.FuzzyText(length=25)
-    email = factory.Sequence(lambda n: "earthranger{}@example.com".format(n))
+    email = factory.Sequence(lambda n: f"earthranger{n}@example.com")
     password = factory.LazyFunction(lambda: make_password("pi3.1415"))
 
 
@@ -63,6 +108,7 @@ class PatrolFactory(factory.django.DjangoModelFactory):
         model = Patrol
 
     title = fuzzy.FuzzyText(length=50)
+    das_tenant = factory.SubFactory(TenantFactory)
 
 
 class PatrolNoteFactory(factory.django.DjangoModelFactory):
@@ -95,6 +141,7 @@ class SubjectTypeFactory(factory.django.DjangoModelFactory):
 
     value = fuzzy.FuzzyText()
     display = fuzzy.FuzzyText()
+    das_tenant = factory.SubFactory(TenantFactory)
 
 
 class SubjectSubTypeFactory(factory.django.DjangoModelFactory):
@@ -104,6 +151,7 @@ class SubjectSubTypeFactory(factory.django.DjangoModelFactory):
     value = fuzzy.FuzzyText(length=20)
     display = fuzzy.FuzzyText(length=50)
     subject_type = factory.SubFactory(SubjectTypeFactory)
+    das_tenant = factory.SubFactory(TenantFactory)
 
 
 class SubjectFactory(factory.django.DjangoModelFactory):
@@ -112,6 +160,7 @@ class SubjectFactory(factory.django.DjangoModelFactory):
 
     name = fuzzy.FuzzyText(length=50)
     subject_subtype = factory.SubFactory(SubjectSubTypeFactory)
+    das_tenant = factory.SubFactory(TenantFactory)
 
 
 class ProviderFactory(factory.django.DjangoModelFactory):
@@ -119,6 +168,15 @@ class ProviderFactory(factory.django.DjangoModelFactory):
         model = SourceProvider
 
     display_name = fuzzy.FuzzyText(length=50)
+    provider_key = fuzzy.FuzzyText(length=50)
+    das_tenant = factory.SubFactory(TenantFactory)
+
+
+class TwoWayMessageProviderFactory(ProviderFactory):
+    class Params:
+        two_way_messaging = True
+
+    additional = {"two_way_messaging": True}
 
 
 class SourceFactory(factory.django.DjangoModelFactory):
@@ -127,6 +185,7 @@ class SourceFactory(factory.django.DjangoModelFactory):
 
     manufacturer_id = fuzzy.FuzzyText(length=50)
     provider = factory.SubFactory(ProviderFactory)
+    das_tenant = factory.SubFactory(TenantFactory)
 
 
 class SubjectSourceFactory(factory.django.DjangoModelFactory):
@@ -135,12 +194,15 @@ class SubjectSourceFactory(factory.django.DjangoModelFactory):
 
     source = factory.SubFactory(SourceFactory)
     subject = factory.SubFactory(SubjectFactory)
+    das_tenant = factory.SubFactory(TenantFactory)
 
 
 class SubjectGroupFactory(factory.django.DjangoModelFactory):
+    das_tenant = factory.SubFactory(TenantFactory)
+
     class Meta:
         model = SubjectGroup
-        django_get_or_create = ('name',)
+        django_get_or_create = ("name",)
 
     name = fuzzy.FuzzyText(length=40)
 
@@ -163,6 +225,28 @@ class SubjectGroupFactory(factory.django.DjangoModelFactory):
                 self.permission_sets.add(permission_set)
 
 
+class TwoWayMessageSubjectFactory(SubjectFactory):
+    @factory.post_generation
+    def subjectsources(self, create, extracted, **kwargs):
+        if extracted:
+            for subjectsource in extracted:
+                self.subjectsources.add(subjectsource)
+        else:
+            provider = TwoWayMessageProviderFactory(two_way_messaging=True)
+            source = SourceFactory(provider=provider)
+            self.subjectsources.add(SubjectSource.objects.create(subject=self, source=source))
+
+
+class MessageFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Message
+
+    text = fuzzy.FuzzyText(length=100)
+    created_by_user = factory.SubFactory(UserFactory)
+    subject = factory.SubFactory(TwoWayMessageSubjectFactory)
+    message_time = (datetime.now(tz=timezone.utc),)
+
+
 class PatrolSegmentSubjectFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = PatrolSegment
@@ -170,6 +254,7 @@ class PatrolSegmentSubjectFactory(factory.django.DjangoModelFactory):
     patrol = factory.SubFactory(PatrolFactory)
     patrol_type = factory.SubFactory(PatrolTypeFactory)
     leader = factory.SubFactory(SubjectFactory)
+    das_tenant = factory.SubFactory(TenantFactory)
 
 
 class PatrolSegmentUserFactory(factory.django.DjangoModelFactory):
@@ -182,6 +267,8 @@ class PatrolSegmentUserFactory(factory.django.DjangoModelFactory):
 
 
 class GeofenceAnalyzerConfigFactory(factory.django.DjangoModelFactory):
+    das_tenant = factory.SubFactory(TenantFactory)
+
     class Meta:
         model = GeofenceAnalyzerConfig
 
@@ -189,43 +276,108 @@ class GeofenceAnalyzerConfigFactory(factory.django.DjangoModelFactory):
 
 
 class FeatureProximityAnalyzerConfigFactory(factory.django.DjangoModelFactory):
+    subject_group = factory.SubFactory(SubjectGroupFactory)
+    das_tenant = factory.SubFactory(TenantFactory)
+
     class Meta:
         model = FeatureProximityAnalyzerConfig
 
-    subject_group = factory.SubFactory(SubjectGroupFactory)
-
 
 class SpatialFeatureGroupStaticFactory(factory.django.DjangoModelFactory):
+    das_tenant = factory.SubFactory(TenantFactory)
+
     class Meta:
         model = SpatialFeatureGroupStatic
 
 
+class DisplayCategoryFactory(factory.django.DjangoModelFactory):
+    das_tenant = factory.SubFactory(TenantFactory)
+
+    class Meta:
+        model = DisplayCategory
+
+    name = fuzzy.FuzzyText(length=20)
+
+
 class SpatialFeatureTypeFactory(factory.django.DjangoModelFactory):
+    das_tenant = factory.SubFactory(TenantFactory)
+    name = fuzzy.FuzzyText(length=20)
+
     class Meta:
         model = SpatialFeatureType
+
+
+class SpatialFeatureFactory(factory.django.DjangoModelFactory):
+    das_tenant = factory.SubFactory(TenantFactory)
+    feature_type = factory.SubFactory(SpatialFeatureTypeFactory)
+    name = fuzzy.FuzzyText(length=20)
+
+    class Meta:
+        model = SpatialFeature
 
 
 class ObservationFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Observation
 
+    recorded_at = factory.LazyFunction(lambda: datetime.now(tz=timezone.utc))
+    source = factory.SubFactory(SourceFactory)
+
+    @factory.lazy_attribute
+    def location(self):
+        return Point(-103.313486, 20.420935)
+
+
+class GearFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = SubjectSource
+
+    subject = factory.SubFactory(SubjectFactory)
+    source = factory.SubFactory(SourceFactory)
+    das_tenant = factory.SubFactory(TenantFactory)
+
 
 class EventCategoryFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = EventCategory
-        django_get_or_create = ('value',)
+        django_get_or_create = ("value",)
 
-    value = fuzzy.FuzzyText(length=20)
+    value = factory.Sequence(lambda n: f"cat_{n}")
+    display = factory.Sequence(lambda n: f"Category {n}")
+    das_tenant = factory.SubFactory(TenantFactory)
+    ordernum = factory.Sequence(lambda n: n)
 
 
 class EventTypeFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = EventType
-        django_get_or_create = ('value',)
+        django_get_or_create = ("value",)
 
-    value = fuzzy.FuzzyText(length=20)
-    display = fuzzy.FuzzyText(length=50)
+    value = factory.Sequence(lambda n: f"eventtype_{n}")
+    display = factory.Sequence(lambda n: f"Event Type {n}")
     category = factory.SubFactory(EventCategoryFactory)
+    das_tenant = factory.SubFactory(TenantFactory)
+    is_active = True
+    is_collection = False
+    ordernum = factory.Sequence(lambda n: n)
+    updated_at = factory.LazyFunction(timezone.now)
+    version = EventType.VersionChoices.VERSION_1
+
+    schema = json.dumps(
+        {
+            "schema": {
+                "properties": {
+                    "subjects_name": {"type": "string", "title": "enum test"},
+                    "behavior_choice": {"type": "string", "title": "name and value test"},
+                    "behavior": {"type": "array", "title": "array test"},
+                    "sample_attr": {"type": "string", "title": "name and value test"},
+                    "date_time": {"type": "string", "title": "date time test"},
+                },
+                "$schema": "http://json-schema.org/draft-04/schema#",
+            },
+            "definition": ["behavior_choice", "sample_attr"],
+        }
+    )
 
 
 class EventFactory(factory.django.DjangoModelFactory):
@@ -234,6 +386,7 @@ class EventFactory(factory.django.DjangoModelFactory):
 
     title = fuzzy.FuzzyText(length=20)
     event_type = factory.SubFactory(EventTypeFactory)
+    das_tenant = factory.SubFactory(TenantFactory)
 
 
 class EventDetailsFactory(factory.django.DjangoModelFactory):
@@ -241,4 +394,84 @@ class EventDetailsFactory(factory.django.DjangoModelFactory):
         model = EventDetails
 
     event = factory.SubFactory(EventFactory)
-    data = factory.LazyAttribute(lambda data: {})
+    data = factory.LazyAttribute(lambda data: {"event_details": {}})
+    das_tenant = factory.SubFactory(TenantFactory)
+
+
+class EventNoteFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = EventNote
+
+    text = fuzzy.FuzzyText(length=20)
+    event = factory.SubFactory(EventFactory)
+    created_by_user = factory.SubFactory(UserFactory)
+
+
+class FuzzyPolygon(BaseFuzzyAttribute):
+    def fuzz(self):
+        return Polygon(
+            (
+                (-114.82910156249999, 33.17434155100208),
+                (-80.5517578125, 25.443274612305746),
+                (-104.2822265625, 48.86471476180277),
+                (-114.82910156249999, 33.17434155100208),
+            )
+        )
+
+
+class EventGeometryFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = EventGeometry
+
+    geometry = FuzzyPolygon()
+    event = factory.SubFactory(EventFactory)
+    das_tenant = factory.SubFactory(TenantFactory)
+
+
+class AccessTokenFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = AccessToken
+
+    scope = "read write"
+
+    @factory.lazy_attribute
+    def token(self):
+        return str(uuid.uuid4())
+
+    @factory.lazy_attribute
+    def expires(self):
+        return timezone.now() + timedelta(days=1)
+
+
+class ChoiceFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Choice
+
+    model = Choice.USER_MODEL
+    field = fuzzy.FuzzyText(length=10)
+    value = factory.Sequence(lambda n: f"value_{n}")
+    display = factory.Sequence(lambda n: f"display_{n}")
+    ordernum = factory.Sequence(lambda n: n)
+
+
+class DynamicChoiceFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = DynamicChoice
+
+    choice_name = "rhinos"
+    model_name = "observations.subject"
+    criteria = '[["common_name_id", "black_rhino"]]'
+    value_col = "id"
+    display_col = "name"
+
+
+class CommunityFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Community
+
+    name = fuzzy.FuzzyText(length=10)
+
+
+class SourceGroupFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = SourceGroup

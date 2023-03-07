@@ -1,14 +1,18 @@
+import re
 from itertools import chain
-import django.db.models as models
-from django.core.exceptions import PermissionDenied
-from django.utils.translation import ugettext_lazy as _
-from django.contrib import auth
 
+import django.db.models as models
 from accounts.models.permissionset import PermissionSet
+from django.contrib import auth
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.db.models import UniqueConstraint
+from django.utils.translation import gettext_lazy as _
+from django_multitenant.fields import TenantForeignKey
+from utils.tenant.models import TenantThroughModel
 
 
 class PermissionSetGroupMixin(object):
-    groups_attr_name = 'groups'
+    groups_attr_name = "groups"
 
     def get_obj_permission_set_ids(self):
         """
@@ -22,41 +26,7 @@ class PermissionSetGroupMixin(object):
         return ps_ids
 
 
-class PermissionSetMixin(models.Model):
-    """
-    PermissionSetMixin relates the inheriting class to the DAS Permissions system.
-    Specifically, it creates a ManyToMany relationship with the PermissionSet table,
-    and adds some model functions for discovering object level permissions.
-    """
-    class Meta:
-        abstract = True
-
-    permission_sets = models.ManyToManyField(
-        PermissionSet,
-        blank=True,
-        help_text=_(
-            'The permission sets applied to this table. A user in a permission'
-            ' set is granted these permissions.'
-        )
-    )
-
-    def get_obj_permission_set_ids(self):
-        """
-        Returns a set of permission set ids of all permission sets
-        assigned to this object
-        """
-        if not hasattr(self, '_obj_perm_cache'):
-            all_ps = set()
-            direct_ps = self.permission_sets.all()
-
-            for ps in direct_ps:
-                all_ps.add(ps.id)
-                all_ps.add(ps.get_ancestor_ids())
-            self._obj_perm_cache = all_ps
-        return self._obj_perm_cache
-
-
-class PermissionSetHierarchyMixin(PermissionSetMixin):
+def create_permissionsethierarchy_mixin(through):
     """
     PermissionSetHierarchyMixin relates the inheriting group class to the DAS Permissions system.
     Specifically, it creates a foreign key relationships with the PermissionSet table,
@@ -64,16 +34,13 @@ class PermissionSetHierarchyMixin(PermissionSetMixin):
 
     """
 
-    class Meta:
-        abstract = True
-
     def get_obj_permission_set_ids(self):
         """
         Returns a set of permission ids that this object has through the group and
         group ancestors.
         .
         """
-        if not hasattr(self, '_obj_perm_hierarchy_cache'):
+        if not hasattr(self, "_obj_perm_hierarchy_cache"):
             all_ps = set()
 
             for g in chain(self.get_ancestors(), (self,)):
@@ -86,26 +53,64 @@ class PermissionSetHierarchyMixin(PermissionSetMixin):
 
         return self._obj_perm_hierarchy_cache
 
+    name = "PermissionSetHierarchyMixin"
+    if through:
+        name = "PermissionSetHierarchyMixin%s" % (
+            through.split(".")[-1] if isinstance(through, str) else through._meta.object_name,
+        )
+
+    meta = type(
+        "Meta",
+        (),
+        {
+            "abstract": True,
+        },
+    )
+
+    # Construct and return the new class.
+    return type(
+        name,
+        (models.Model,),
+        {
+            "Meta": meta,
+            "__module__": __name__,
+            "permission_sets": models.ManyToManyField(
+                PermissionSet,
+                blank=True,
+                help_text=_(
+                    "The permission sets applied to this table. A user in a permission"
+                    " set is granted these permissions."
+                ),
+                through=through,
+            ),
+            "get_obj_permission_set_ids": get_obj_permission_set_ids,
+        },
+    )
+
+
+PermissionSetHierarchyMixin = create_permissionsethierarchy_mixin(None)
+
 
 class PermissionsMixin(models.Model):
     """
     A mixin class that adds the fields and methods necessary to support the
     DAS PermissionSet and Permission model using the AccountsModelBackend.
     """
+
     is_superuser = models.BooleanField(
-        _('superuser status'),
+        _("superuser status"),
         default=False,
-        help_text=_(
-            'Designates that this user has all permissions without '
-            'explicitly assigning them.'
-        ),
+        help_text=_("Designates that this user has all permissions without " "explicitly assigning them."),
     )
     permission_sets = models.ManyToManyField(
         PermissionSet,
         blank=True,
+        through="accounts.UserPermissionSet",
+        through_fields=("user", "permissionset"),
+        related_name="user_set",
         help_text=_(
-            'The permission sets this user belongs to. A user will get all permissions '
-            'granted to each of their permission sets.'
+            "The permission sets this user belongs to. A user will get all permissions "
+            "granted to each of their permission sets."
         ),
     )
 
@@ -153,7 +158,7 @@ class PermissionsMixin(models.Model):
 
         # Otherwise we need to check the backends.
         for backend in auth.get_backends():
-            if not hasattr(backend, 'has_perm'):
+            if not hasattr(backend, "has_perm"):
                 continue
             try:
                 if backend.has_perm(self, perm, obj):
@@ -191,7 +196,7 @@ class PermissionsMixin(models.Model):
         if self.is_active and self.is_superuser:
             return True
         for backend in auth.get_backends():
-            if not hasattr(backend, 'has_module_perms'):
+            if not hasattr(backend, "has_module_perms"):
                 continue
             try:
                 if backend.has_module_perms(self, app_label):
@@ -207,6 +212,8 @@ class PermissionsMixin(models.Model):
         we return Group A and Group Five.
         """
         if self.is_superuser:
+            if only_ids:
+                return PermissionSet.objects.values_list("id", flat=True)
             return PermissionSet.objects.all()
 
         direct_ps = self.permission_sets.all()
@@ -224,3 +231,81 @@ class PermissionsMixin(models.Model):
                 else:
                     all_ps.add(ancestor)
         return all_ps
+
+
+class UserPermissionSet(TenantThroughModel):
+    permissionset = TenantForeignKey("accounts.PermissionSet", on_delete=models.CASCADE)
+    user = TenantForeignKey("accounts.User", on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["das_tenant", "user", "permissionset"],
+                name="%(app_label)s_%(class)s_unique_across_tenants",
+            ),
+        ]
+
+
+class UserFormValidatorMixin:
+    def clean_first_name(self):
+        first_name = self.cleaned_data.get("first_name")
+
+        self._validate_value_contains_special_characters(first_name)
+
+        return first_name
+
+    def clean_last_name(self):
+        last_name = self.cleaned_data.get("last_name")
+
+        self._validate_value_contains_special_characters(last_name)
+
+        return last_name
+
+    def clean_password2(self):
+        password1 = self.cleaned_data.get("password1")
+        password2 = self.cleaned_data.get("password2")
+        if password1 or password2:
+            password2 = super().clean_password2()
+        return password2
+
+    def clean_email(self):
+        email = self.cleaned_data.get("email")
+        if email.strip() == "":
+            return None
+        if email != getattr(self.instance, "email", None):
+            from accounts.utils import validate_email_available
+
+            validate_email_available(email)
+        return email
+
+    def clean_pin(self):
+        User = auth.get_user_model()
+
+        pin = self.cleaned_data.get("pin")
+        username = self.cleaned_data.get("username")
+
+        if not pin:
+            return None
+        if not pin.isnumeric():
+            raise ValidationError("The value should be four digits.")
+        if len(pin) != 4:
+            raise ValidationError("The size should be four digits.")
+        if User.objects.filter(pin=pin).exclude(username=username).exists():
+            raise ValidationError("User PINs must be unique, please select another PIN value.")
+
+        return pin
+
+    def _get_exclude_users(self):
+        users = []
+        for attribute in (
+            "request_user",
+            "current_user",
+        ):
+            if hasattr(self, attribute):
+                users.append(getattr(self, attribute).id)
+        return users
+
+    def _validate_value_contains_special_characters(self, value):
+        filtered_value = re.sub(r"-|[a-zA-Z0-9().,_']|\s", "", value.strip())
+        if filtered_value != "":
+            raise ValidationError("The field contains invalid characters.")

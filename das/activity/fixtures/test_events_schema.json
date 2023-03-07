@@ -1,9 +1,10 @@
 [
 {
   "model": "choices.dynamicchoice",
-  "pk": "rangers",
+  "pk": "a2ae4d7e-9083-41e3-9151-640697b14826",
   "fields": {
     "model_name": "observations.subject",
+    "choice_name": "rangers",
     "criteria": "[[\"subject_subtype\", \"ranger\"]]",
     "value_col": "id",
     "display_col": "name"
@@ -68,7 +69,7 @@
     "category": [
       "security"
     ],
-    "ordernum": null,
+    "ordernum": 0,
     "schema": "{\r\n    \"schema\":\r\n    {\r\n        \"$schema\": \"http://json-schema.org/draft-04/schema#\",\r\n        \"title\": \"Species\",\r\n        \"type\": \"object\",\r\n        \"properties\":\r\n        {\r\n            \"carcassrep_species\": {\r\n                \"key\": \"carcassrep_species\"\r\n            }\r\n    }\r\n  },\r\n  \"definition\": [\r\n    {\r\n      \"type\": \"fieldset\",\r\n      \"htmlClass\": \"col-lg-6\",\r\n      \"items\": [\r\n      {\"key\": \"carcassrep_species\", \"type\": \"checkboxes\", \"title\": \"Species\", \"titleMap\": {{enum___carcassrep_species___map}}}\r\n      ]\r\n    }\r\n  ]\r\n}",
     "is_collection": false
   }

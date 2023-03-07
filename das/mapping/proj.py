@@ -3,26 +3,26 @@ Source: landez, https://github.com/makinacorpus/landez
 license=LPGL
 """
 
-from math import pi, sin, log, exp, atan, tan
-from django.utils.translation import ugettext_lazy as _
+from math import atan, exp, log, pi, sin, tan
+
+from django.utils.translation import gettext_lazy as _
 
 from mapping import app_settings
 
-DEG_TO_RAD = pi/180
-RAD_TO_DEG = 180/pi
+DEG_TO_RAD = pi / 180
+RAD_TO_DEG = 180 / pi
 MAX_LATITUDE = 85.0511287798
 EARTH_RADIUS = 6378137
 
 
-def minmax (a,b,c):
-    a = max(a,b)
-    a = min(a,c)
+def minmax(a, b, c):
+    a = max(a, b)
+    a = min(a, c)
     return a
 
 
 class InvalidCoverageError(Exception):
     """ Raised when coverage bounds are invalid """
-    pass
 
 
 class GoogleProjection(object):
@@ -33,7 +33,8 @@ class GoogleProjection(object):
     Transform Lon/Lat to Pixel within tiles
     Originally written by OSM team : http://svn.openstreetmap.org/applications/rendering/mapnik/generate_tiles.py
     """
-    def __init__(self, tilesize=app_settings.MBTILES['tile_size'], levels = [0], scheme='wmts'):
+
+    def __init__(self, tilesize=app_settings.MBTILES['tile_size'], levels=[0], scheme='wmts'):
         if not levels:
             raise InvalidCoverageError(_("Wrong zoom levels."))
         self.Bc = []
@@ -46,28 +47,28 @@ class GoogleProjection(object):
         self.scheme = scheme
         c = tilesize
         for d in range(self.maxlevel):
-            e = c/2;
+            e = c/2
             self.Bc.append(c/360.0)
             self.Cc.append(c/(2 * pi))
-            self.zc.append((e,e))
+            self.zc.append((e, e))
             self.Ac.append(c)
             c *= 2
 
-    def project_pixels(self,ll,zoom):
+    def project_pixels(self, ll, zoom):
         d = self.zc[zoom]
         e = round(d[0] + ll[0] * self.Bc[zoom])
-        f = minmax(sin(DEG_TO_RAD * ll[1]),-0.9999,0.9999)
+        f = minmax(sin(DEG_TO_RAD * ll[1]), -0.9999, 0.9999)
         g = round(d[1] + 0.5*log((1+f)/(1-f))*-self.Cc[zoom])
-        return (e,g)
+        return (e, g)
 
-    def unproject_pixels(self,px,zoom):
+    def unproject_pixels(self, px, zoom):
         e = self.zc[zoom]
         f = (px[0] - e[0])/self.Bc[zoom]
         g = (px[1] - e[1])/-self.Cc[zoom]
-        h = RAD_TO_DEG * ( 2 * atan(exp(g)) - 0.5 * pi)
+        h = RAD_TO_DEG * (2 * atan(exp(g)) - 0.5 * pi)
         if self.scheme == 'tms':
             h = - h
-        return (f,h)
+        return (f, h)
 
     def tile_at(self, zoom, position):
         """
@@ -80,7 +81,7 @@ class GoogleProjection(object):
         """
         Returns the WGS84 bbox of the specified tile
         """
-        z,x,y = z_x_y
+        z, x, y = z_x_y
         topleft = (x * self.tilesize, (y + 1) * self.tilesize)
         bottomright = ((x + 1) * self.tilesize, y * self.tilesize)
         nw = self.unproject_pixels(topleft, z)
@@ -102,7 +103,7 @@ class GoogleProjection(object):
         """
         Returns the coordinates from position in meters
         """
-        x,y = x_y
+        x, y = x_y
         lng = x/EARTH_RADIUS * RAD_TO_DEG
         lat = 2 * atan(exp(y/EARTH_RADIUS)) - pi/2 * RAD_TO_DEG
         return (lng, lat)
@@ -113,18 +114,20 @@ class GoogleProjection(object):
         xmin, ymin, xmax, ymax = bbox
         if abs(xmin) > 180 or abs(xmax) > 180 or \
            abs(ymin) > 90 or abs(ymax) > 90:
-            raise InvalidCoverageError(_("Some coordinates exceed [-180,+180], [-90, 90]."))
+            raise InvalidCoverageError(
+                _("Some coordinates exceed [-180,+180], [-90, 90]."))
 
         if xmin >= xmax or ymin >= ymax:
-            raise InvalidCoverageError(_("Bounding box format is (xmin, ymin, xmax, ymax)"))
+            raise InvalidCoverageError(
+                _("Bounding box format is (xmin, ymin, xmax, ymax)"))
 
         ll0 = (xmin, ymax)  # left top
         ll1 = (xmax, ymin)  # right bottom
 
         l = []
         for z in self.levels:
-            px0 = self.project_pixels(ll0,z)
-            px1 = self.project_pixels(ll1,z)
+            px0 = self.project_pixels(ll0, z)
+            px1 = self.project_pixels(ll1, z)
 
             for x in range(int(px0[0]/self.tilesize),
                            int(px1[0]/self.tilesize)+1):
@@ -138,4 +141,3 @@ class GoogleProjection(object):
                         y = ((2**z-1) - y)
                     l.append((z, x, y))
         return l
-

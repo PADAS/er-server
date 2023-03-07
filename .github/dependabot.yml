@@ -1,12 +1,14 @@
 version: 2
 updates:
-  - package-ecosystem: "pip"
-    directory: "/das/dependencies"
+  - package-ecosystem: "uv"
+    directory: "/"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
       day: "monday"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["semver-minor", "semver-patch"]
     open-pull-requests-limit: 5
     reviewers:
-      - "chrisdoehring"
       - "chrisj-er"
-      - "juanearthranger"
