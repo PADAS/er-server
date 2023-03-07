@@ -575,7 +575,7 @@ rasterio==1.0.23
     #   rasterstats
 rasterstats==0.13.1
     # via pymet
-redis==3.2.0
+redis==3.3.0
     # via
     #   -r requirements.in
     #   celery-once

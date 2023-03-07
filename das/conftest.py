@@ -1,3 +1,4 @@
+import json
 from unittest.mock import MagicMock
 
 import pytest
@@ -331,6 +332,14 @@ def tenant_response():
         "createdAt": "2022-11-14T21:09:02.519164+00:00",
         "updatedAt": "2022-11-14T21:09:02.519165+00:00",
     }
+
+
+@pytest.fixture
+def memory_store_client_mock(monkeypatch, tenant_response):
+    memory_store_client_mock = MagicMock()
+    memory_store_client_mock.get_key.return_value = json.dumps(tenant_response)
+    monkeypatch.setattr("utils.tenant.providers.memory_store_client", memory_store_client_mock)
+    return memory_store_client_mock
 
 
 @pytest.fixture
