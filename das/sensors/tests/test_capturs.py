@@ -1,5 +1,6 @@
 import json
 
+from django.urls import resolve
 from rest_framework import status
 
 from core.tests import BaseAPITest
@@ -51,6 +52,10 @@ class CaptursPushHandlerTest(BaseAPITest):
             request, self.PROVIDER_KEY)
         return response
 
+    def test_url_handler(self):
+        resolver = resolve(self.api_path + "/")
+        assert resolver.func.cls == CaptursHandlerView
+
     def test_post_capturs_observations(self):
         response = self._post_capturs_data(json.dumps(self.test_data))
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -62,7 +67,8 @@ class CaptursPushHandlerTest(BaseAPITest):
 
         # post capturs observations with new test data
         self._post_capturs_data(json.dumps(self.new_test_data))
-        source = Source.objects.get(manufacturer_id=self.new_test_data.get('device'))
+        source = Source.objects.get(
+            manufacturer_id=self.new_test_data.get('device'))
         self.assertIsNotNone(source)
 
     def test_post_duplicate_observations(self):

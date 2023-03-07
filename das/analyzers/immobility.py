@@ -1,21 +1,22 @@
+import logging
 from datetime import timedelta
 
-import logging
 import pymet
 
-from django.contrib.gis.geos import Point as DjangoPoint
 from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
-from django.utils.translation import ugettext_lazy as _
-from analyzers.utils import save_analyzer_event
+from django.contrib.gis.geos import Point as DjangoPoint
+from django.utils.translation import gettext_lazy as _
+
 from activity.models import Event
-from analyzers.models import ImmobilityAnalyzerConfig, SubjectAnalyzerResult, OK, WARNING, CRITICAL
-from analyzers.models.base import EVENT_PRIORITY_MAP
-from analyzers.exceptions import InsufficientDataAnalyzerException
 from analyzers.base import SubjectAnalyzer
+from analyzers.exceptions import InsufficientDataAnalyzerException
+from analyzers.models import (CRITICAL, OK, WARNING, ImmobilityAnalyzerConfig,
+                              SubjectAnalyzerResult)
+from analyzers.models.base import EVENT_PRIORITY_MAP
+from analyzers.utils import save_analyzer_event
 
 
 class ImmobilityAnalyzer(SubjectAnalyzer):
-
     """ Immobility Analyzer for a Track.
 
     Based on the clustering algorithm described by Jake Wall in RTM_Appendix_A.pdf

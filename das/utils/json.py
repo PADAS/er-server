@@ -1,20 +1,19 @@
-import uuid
 import copy
 import datetime
-from itertools import islice, chain
-from types import GeneratorType
-import simplejson
-from simplejson.scanner import JSONDecodeError
-from django.conf import settings
-from django.utils import six
-
 import json
-import dateutil.parser as dp
-import pytz
+import uuid
+from itertools import chain
+from types import GeneratorType
 
+import dateutil.parser as dp
+import simplejson
+import six
+
+from django.conf import settings
 
 try:
     import psycopg2.extras
+
     psycopg2_imported = True
 except ImportError:
     psycopg2_imported = False
@@ -37,10 +36,9 @@ try:
 except ImportError:
     d_proxy_imported = False
 
-from rest_framework.renderers import JSONRenderer, BrowsableAPIRenderer
 from rest_framework.exceptions import ParseError
 from rest_framework.parsers import BaseParser
-from rest_framework.utils import encoders
+from rest_framework.renderers import BrowsableAPIRenderer, JSONRenderer
 
 
 class JsonEncodedString(object):

@@ -7,9 +7,9 @@ locals {
       db_password_path       = "earthranger_app_infra_postgres_server_${local.db_secret_path}"
     },
     {
-      db_instance            = data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_name,
-      db_instance_private_ip = data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_private_ip,
-      db_password_path       = "earthranger_app_infra_postgres_server2_${local.db_secret_path}"
+      db_instance            = local.db_instance_index == 1 ? data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_name : "",
+      db_instance_private_ip = local.db_instance_index == 1 ? data.terraform_remote_state.earthranger_app_infra.outputs.db2_instance_private_ip : "",
+      db_password_path       = local.db_instance_index == 1 ? "earthranger_app_infra_postgres_server2_${local.db_secret_path}" : ""
     },
     {
       db_instance            = terraform.workspace == "kws" ? data.terraform_remote_state.earthranger_app_infra.outputs.kws_instance_name : "",
@@ -186,8 +186,9 @@ resource "google_secret_manager_secret" "er_sql_analytics_info" {
   project   = data.google_project.earthranger.project_id
 
   labels = {
-    app      = "earthranger"
-    consumer = "tableau_bi_api"
+    app         = "earthranger"
+    consumer    = "tableau_bi_api"
+    environment = local.kubernetes_cluster_name
   }
   replication {
     automatic = true
@@ -197,5 +198,11 @@ resource "google_secret_manager_secret" "er_sql_analytics_info" {
 resource "google_secret_manager_secret_version" "secret-version-basic" {
   secret = google_secret_manager_secret.er_sql_analytics_info.id
 
-  secret_data = "{\"user\":\"${google_sql_user.analytics_user.name}\", \"password\":\"${random_password.analytics_user_pass.result}\"}"
+  secret_data = jsonencode({
+    "user"        = google_sql_user.analytics_user.name
+    "password"    = random_password.analytics_user_pass.result
+    "db_host"     = local.db_instance_private_ip
+    "db_name"     = local.unique_db_name
+    "environment" = local.kubernetes_cluster_name
+  })
 }

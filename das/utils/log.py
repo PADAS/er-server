@@ -1,6 +1,8 @@
 import logging
 import sys
 
+from pythonjsonlogger.jsonlogger import JsonFormatter
+
 
 def log_stdout(level=logging.DEBUG):
     soh = logging.StreamHandler(sys.stdout)
@@ -35,3 +37,10 @@ def flatten_keys(d, parent_key='', sep='.'):
         else:
             items.append((new_key, v))
     return dict(items)
+
+
+class CloudLogsJsonFormatter(JsonFormatter):
+    def process_log_record(self, log_record):
+        log_record['severity'] = log_record['levelname']
+        del log_record['levelname']
+        return super().process_log_record(log_record)

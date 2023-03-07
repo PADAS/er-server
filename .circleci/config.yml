@@ -185,17 +185,17 @@ executors:
               password: $DOCKERHUB_PASSWORD
   circleci_executor:
     docker:
-      - image: 'circleci/buildpack-deps:stretch'
+      - image: 'cimg/base:current'
         auth:
               username: erdockerhub
               password: $DOCKERHUB_PASSWORD
+      
   docs_executor:
     docker:
-      - image: 'circleci/python:3.6.4'
+      - image: 'cimg/python:3.7'
         auth:
               username: erdockerhub
               password: $DOCKERHUB_PASSWORD
-
 jobs:
   relyance: 
     
@@ -258,7 +258,7 @@ jobs:
           name: "Generate build files"
           command: |
             mkdir sphinx-docs
-            sudo pip3 install -r dependencies/requirements-docs.txt 
+            pip3 install -r dependencies/requirements-docs.txt 
             cd docs
             make html
             cp -rf /home/circleci/project/docs/_build/ /home/circleci/project/sphinx-docs
@@ -268,6 +268,7 @@ jobs:
             - 'html'
   run_api_unittests:
     executor: 'default'
+    parallelism: 4
     steps:
       - setup_remote_docker:
           docker_layer_caching: true
@@ -289,23 +290,12 @@ jobs:
           name: Run Tests using Docker Compose
           command: |
             cd das
+            echo ${CIRCLE_NODE_INDEX}
             export SANITIZED_CIRCLE_BRANCH=$(echo $CIRCLE_BRANCH | tr "[:upper:]." "[:lower:]_")
             docker-compose -f test_scripts/compose-unittests.yaml up -d --remove-orphans --force-recreate --quiet-pull dbserver redis
             docker-compose -f test_scripts/compose-unittests.yaml up --remove-orphans --force-recreate --quiet-pull api
-            TEST_EXIT_CODE=$?
-            docker cp dbserver-test:/testresults/result.xml ~/unittest-output/result.xml
-            docker-compose -f test_scripts/compose-unittests.yaml down
-            exit ${TEST_EXIT_CODE}
-      - store_test_results:
-          path: ~/unittest-output
-      - run: 
-          name: Grep Exit Code from test results
-          command: |
-            if grep -i 'failures="0"' ~/unittest-output/result.xml; then
-                exit 0
-            else
-                exit 1
-            fi
+            TEST_EXIT_STATUS=$(docker inspect api --format='{{.State.ExitCode}}')
+            exit ${TEST_EXIT_STATUS}
   docker_build_image:
     executor: 'default'
     steps:

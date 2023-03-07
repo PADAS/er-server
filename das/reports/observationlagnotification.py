@@ -2,19 +2,18 @@ import datetime
 import logging
 
 import pytz
-from activity.models import EventType
 from celery_once import QueueOnce
-from das_server import celery
+
 from django.conf import settings
 from django.db.models import Avg, Count, F
 from django.utils.dateparse import parse_duration
-from observations.models import Observation, SourceProvider
-from reports.distribution import (
-    OBSERVATION_LAG_NOTIFY_PERMISSION_CODENAME,
-    get_users_for_permission,
-    send_report,
-)
-from reports.models import SourceProviderEvent, SourceEvent
+
+from activity.models import EventType
+from das_server import celery
+from observations.models import Observation, Source, SourceProvider
+from reports.distribution import (OBSERVATION_LAG_NOTIFY_PERMISSION_CODENAME,
+                                  get_users_for_permission, send_report)
+from reports.models import SourceEvent, SourceProviderEvent
 from reports.serializers import EventSerializer
 
 logger = logging.getLogger(__name__)
@@ -140,39 +139,17 @@ def check_sources_threshold():
     now = datetime.datetime.now(pytz.utc)
 
     for source_provider in source_providers:
-        latest_observations = (
-            Observation.objects.filter(
-                source__provider=source_provider,
-                recorded_at__gte=now - datetime.timedelta(days=1),
-            )
-            .order_by("source", "-recorded_at")
-            .distinct("source")
+        sources = (
+            Source.objects.filter(provider=source_provider)
+            .annotate(last_observation=F("last_observation_source__observation"))
+            .annotate(last_observation_recorded_at=F("last_observation_source__recorded_at"))
+            .order_by("last_observation_recorded_at")
         )
-        if evaluate_source_provider_compliance(source_provider, latest_observations, now):
+        if evaluate_source_provider_compliance(source_provider, sources, now):
             continue
 
-        sources_without_recent_observations = get_sources_id_without_recent_observations(
-            source_provider, latest_observations
-        )
-
-        if sources_without_recent_observations:
-            sources_with_latest_observation = (
-                Observation.objects.filter(
-                    source__in=sources_without_recent_observations)
-                .order_by("source", "-recorded_at")
-                .distinct("source")
-            )
-            latest_observations = latest_observations.union(
-                sources_with_latest_observation)
-
-        for observation in latest_observations:
-            evaluate_source_compliance(observation, source_provider, now)
-
-
-def get_sources_id_without_recent_observations(source_provider, latest_observations):
-    sources = source_provider.sources.all().values_list('id', flat=True)
-    sources_observations = latest_observations.values_list('source', flat=True)
-    return set(sources) - set(sources_observations)
+        for source in sources.filter(last_observation__isnull=False, last_observation_recorded_at__isnull=False):
+            evaluate_source_compliance(source, source_provider, now)
 
 
 def evaluate_source_provider_compliance(source_provider, latest_observations, now):
@@ -197,18 +174,18 @@ def evaluate_source_provider_compliance(source_provider, latest_observations, no
             source_report.create_silent_source_provider_report(
                 source_provider,
                 now,
-                latest_observation_record_at=latest_observations.first().recorded_at,
+                latest_observation_record_at=latest_observations.first().last_observation_recorded_at,
             )
             return True
     return False
 
 
 def all_sources_have_observations(source_provider, latest_observations):
-    return source_provider.sources.count() == latest_observations.count()
+    return source_provider.sources.count() == latest_observations.filter(last_observation__isnull=False).count()
 
 
 def all_observations_reach_threshold(latest_observation, datetime_threshold):
-    return latest_observation.filter(recorded_at__gt=datetime_threshold).count()
+    return latest_observation.filter(last_observation_recorded_at__gt=datetime_threshold).count()
 
 
 def check_can_write_new_provider_event(source_provider, now, threshold):
@@ -221,7 +198,7 @@ def check_can_write_new_provider_event(source_provider, now, threshold):
     return True
 
 
-def evaluate_source_compliance(observation, source_provider, now):
+def evaluate_source_compliance(source, source_provider, now):
     provider_default_threshold = source_provider.additional.get(
         "default_silent_notification_threshold"
     )
@@ -229,33 +206,33 @@ def evaluate_source_compliance(observation, source_provider, now):
         provider_default_threshold = provider_default_threshold + ":00"
     source_report = SourcesReport()
 
-    if is_threshold_reached(provider_default_threshold, now, observation):
+    if is_threshold_reached(provider_default_threshold, now, source):
         if can_write_new_source_event(
-            observation.source, now, provider_default_threshold
+            source, now, provider_default_threshold
         ):
             logger.info(
                 f"Creating source report, due to default provider threshold was reached by source {source_provider.display_name}"
             )
             source_report.create_silent_source_report(
-                observation.source, now, provider_default_threshold, default_reached=True)
+                source, now, provider_default_threshold, default_reached=True)
     else:
-        source_threshold = observation.source.additional.get(
+        source_threshold = source.additional.get(
             "silence_notification_threshold"
         )
         if is_threshold_reached(
-            source_threshold, now, observation
-        ) and can_write_new_source_event(observation.source, now, source_threshold):
+            source_threshold, now, source
+        ) and can_write_new_source_event(source, now, source_threshold):
             logger.info(
-                f"Creating source report, due to source threshold was reached by source {observation.source.model_name}"
+                f"Creating source report, due to source threshold was reached by source {source.model_name}"
             )
             source_report.create_silent_source_report(
-                observation.source, now, source_threshold, default_reached=False)
+                source, now, source_threshold, default_reached=False)
 
 
-def is_threshold_reached(threshold, now, observation):
+def is_threshold_reached(threshold, now, source):
     if threshold:
         threshold = now - parse_duration(threshold)
-        return observation.recorded_at < threshold
+        return source.last_observation_recorded_at < threshold
     return False
 
 

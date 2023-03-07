@@ -1,19 +1,22 @@
+import datetime as dt
 import logging
 
 import pytz
+from scipy.stats import mannwhitneyu
 
-from analyzers.base import SubjectAnalyzer
-from analyzers.models import LowSpeedPercentileAnalyzerConfig, LowSpeedWilcoxAnalyzerConfig,\
-    SubjectAnalyzerResult, OK, CRITICAL, WARNING
-from analyzers.exceptions import InsufficientDataAnalyzerException
+from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
 from django.contrib.gis.geos import Point as DjangoPoint
+from django.utils.translation import gettext_lazy as _
+
 from activity.models import Event
+from analyzers.base import SubjectAnalyzer
+from analyzers.exceptions import InsufficientDataAnalyzerException
+from analyzers.models import (CRITICAL, OK, WARNING,
+                              LowSpeedPercentileAnalyzerConfig,
+                              LowSpeedWilcoxAnalyzerConfig,
+                              SubjectAnalyzerResult)
 from analyzers.models.base import EVENT_PRIORITY_MAP
 from analyzers.utils import save_analyzer_event
-from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
-from django.utils.translation import ugettext_lazy as _
-from scipy.stats import ranksums, mannwhitneyu
-import datetime as dt
 
 
 class LowSpeedPercentileAnalyzer(SubjectAnalyzer):

@@ -6,7 +6,7 @@ import pytz
 
 from django.conf import settings
 from django.contrib.gis.db import models
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 
 from analyzers.models.base import Annotator
 from observations.models import Observation, SubjectSource

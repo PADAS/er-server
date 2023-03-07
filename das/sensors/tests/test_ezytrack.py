@@ -1,12 +1,11 @@
 import json
 from unittest import mock
 
-from django.urls import reverse
+from django.urls import resolve, reverse
 from rest_framework import status
 
-from sensors.handlers import EzyTrackHandler
+from core.tests import BaseAPITest, fake_get_pool
 from sensors.views import EzyTrackHandlerView
-from core.tests import fake_get_pool, User, BaseAPITest
 
 
 class EzytrackHandlerTest(BaseAPITest):
@@ -23,8 +22,7 @@ class EzytrackHandlerTest(BaseAPITest):
         provider_key = self.PROVIDER_KEY
         path = reverse('ezytrack-view',
                        kwargs={'provider_key': provider_key})
-
-        return ''.join([self.api_base, path])
+        return path
 
     def _post_ezytrack_data(self, payload):
         request = self.factory.post(
@@ -32,6 +30,10 @@ class EzytrackHandlerTest(BaseAPITest):
         self.force_authenticate(request, self.app_user)
         response = EzyTrackHandlerView.as_view()(request, self.PROVIDER_KEY)
         return response
+
+    def test_url_handler(self):
+        resolver = resolve(self.api_path)
+        assert resolver.func.cls == EzyTrackHandlerView
 
     @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def test_ezytrack_observations(self):

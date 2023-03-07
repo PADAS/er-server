@@ -53,7 +53,7 @@ class Command(BaseCommand):
 
     def add_test_user(self):
         testdata = client.ClientData(sid='e8ef807c2bbe4418b32de45786d82a52',
-                                     username='jayl',
+                                     username='admin',
                                      filter='{}',
                                      bbox=None)
         client.add_client(testdata.sid, testdata)
@@ -68,5 +68,3 @@ class Command(BaseCommand):
     def list_connections(self):
         for sess_data in client.get_client_list():
             print(sess_data)
-
-

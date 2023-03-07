@@ -11,8 +11,9 @@ from django.db.models import F
 from django.urls import reverse
 
 from core.tests import BaseAPITest
-from observations.models import (Observation, Source, SourceProvider, Subject,
-                                 SubjectSource, SubjectStatus)
+from observations.models import (STATIONARY_SUBJECT_VALUE, Observation, Source,
+                                 SourceProvider, Subject, SubjectSource,
+                                 SubjectStatus, SubjectType)
 from observations.serializers import ObservationSerializer
 from observations.views import (ObservationsView, SubjectStatusView,
                                 SubjectsView, TrackingDataCsvView)
@@ -339,6 +340,64 @@ class ObservationTestCase(BaseAPITest):
         self.assertTrue(
             len(first_observation.get('device_status_properties')), 2)
         assert first_observation['location']['latitude'] and first_observation['location']['longitude']
+
+    def test_subject_observations_for_stationary_subject_where_stationary_subject_observations_have_empty_locations(self):
+        subject_id = '269524d5-a434-4377-9ea9-2a7946dbd9c4'
+        source_id = '56b1cf14-ef97-4054-8fbd-1342f265b2a9'
+        subject_type_stationary_object = SubjectType.objects.get(
+            value=STATIONARY_SUBJECT_VALUE)
+
+        subject = Subject.objects.get(id=subject_id)
+        subject.subject_subtype.subject_type = subject_type_stationary_object
+        subject.subject_subtype.save()
+
+        fixed_latitude = float(0)
+        fixed_longitude = float(0)
+        fixed_location = dict(longitude=fixed_longitude,
+                              latitude=fixed_latitude)
+
+        observation_test_count = 5
+        observation_time = datetime.now(tz=timezone.utc)
+        for i in range(observation_test_count):
+
+            observation = {
+                'location': fixed_location,
+                'recorded_at': observation_time + timedelta(seconds=i),
+                'source': source_id,
+                'additional': {}
+            }
+            serializer = ObservationSerializer(data=observation)
+            assert serializer.is_valid()
+            serializer.save()
+
+        url = reverse('observations-list-view')
+        request = self.factory.get(url, data=dict(subject_id=subject_id))
+        self.force_authenticate(request, self.user)
+        response = ObservationsView.as_view()(request, subject_id=subject_id)
+        assert response.status_code == 200
+        assert len(response.data['results']) == observation_test_count
+
+        second_observation_test_count = 5
+        observation_time = datetime.now(tz=timezone.utc)
+        for i in range(second_observation_test_count):
+
+            observation = {
+                'location': fixed_location,
+                'recorded_at': observation_time + timedelta(seconds=i),
+                'source': source_id,
+                'additional': {}
+            }
+            serializer = ObservationSerializer(data=observation)
+            assert serializer.is_valid()
+            serializer.save()
+
+        url = reverse('observations-list-view')
+        request = self.factory.get(url, data=dict(subject_id=subject_id))
+        self.force_authenticate(request, self.user)
+        response = ObservationsView.as_view()(request, subject_id=subject_id)
+        assert response.status_code == 200
+        assert len(
+            response.data['results']) == observation_test_count + second_observation_test_count
 
 
 def generate_observation(source, recorded_at=None):

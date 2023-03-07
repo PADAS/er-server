@@ -3,14 +3,15 @@ import logging
 import uuid
 from unittest import mock
 
-from django.utils import timezone
 from oauth2_provider.models import AccessToken
+
+from django.urls import resolve
+from django.utils import timezone
 from rest_framework.test import force_authenticate
 
-from core.tests import fake_get_pool, User
-from core.tests import BaseAPITest
-from observations.models import Subject, Source, SourceProvider, SubjectSource, \
-    DEFAULT_ASSIGNED_RANGE
+from core.tests import BaseAPITest, User, fake_get_pool
+from observations.models import (DEFAULT_ASSIGNED_RANGE, Source,
+                                 SourceProvider, Subject, SubjectSource)
 from sensors.views import FollowltHandlerView
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,9 @@ class FollowltObservationTest(BaseAPITest):
 
         path = '/'.join((self.api_base, 'sensors',
                          self.sensor_type, self.provider_key, 'status'))
+
+        resolver = resolve(path + "/")
+        assert resolver.func.cls == FollowltHandlerView
 
         # This is what BaseAPITest class's force_authenticate do
         tok = AccessToken.objects.create(

@@ -4,7 +4,6 @@ import sys
 from functools import partial
 
 import django
-import observations.models
 from django.apps import apps
 from django.contrib import messages
 from django.contrib.gis import admin
@@ -12,10 +11,11 @@ from django.db import transaction
 from django.db.utils import IntegrityError
 from django.forms import CheckboxSelectMultiple, modelformset_factory
 from django.http.response import HttpResponseRedirect
-from django.utils.translation import ugettext_lazy as _
-from observations.admin import ModelFormSet
+from django.utils.translation import gettext_lazy as _
 
+import observations.models
 import tracking.models as models
+from observations.admin import ModelFormSet
 from tracking.forms import SourcePluginForm
 
 logger = logging.getLogger(__name__)

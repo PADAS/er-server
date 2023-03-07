@@ -1,5 +1,5 @@
 from django.contrib.gis.db import models
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 
 from analyzers.models.base import SubjectAnalyzerConfig
 from mapping.models import SpatialFeatureGroupStatic
@@ -14,7 +14,8 @@ class GeofenceAnalyzerConfig(SubjectAnalyzerConfig):
     """
 
     threshold_time = models.IntegerField(
-        null=False, default=43200, verbose_name='Threshold time (seconds)',  # 12 hours
+        # 12 hours
+        null=False, default=43200, verbose_name='Threshold time (seconds)',
         help_text=_('This does not apply to geofence analysis.')
     )
 

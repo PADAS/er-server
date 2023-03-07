@@ -1,8 +1,12 @@
-from django.conf.urls import url, include
+from django.conf.urls import re_path
+
 from choices import views
+from utils.constants import regex
 
 urlpatterns = [
-    url(r'^choices/icons/download/?$', views.ChoiceZipIcon.as_view(), name='icon-zip'),
-    url(r'^choices/?$', views.ChoicesView.as_view(), name='choices'),
-    url(r'^choices/(?P<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12})/?$', views.ChoiceView.as_view(), name='choice')
+    re_path(r"choices/icons/download/?$",
+            views.ChoiceZipIcon.as_view(), name="icon-zip"),
+    re_path(r"choices/?$", views.ChoicesView.as_view(), name="choices"),
+    re_path(rf"choices/(?P<id>{regex.UUID})/?$",
+            views.ChoiceView.as_view(), name="choice"),
 ]

@@ -1,36 +1,37 @@
 from __future__ import unicode_literals
-# this comes too late when using manage.py
-# set environment variable EVENTLET_SHOULDPATCH=True
-# eventlet.monkey_patch()
 
+import atexit
 import errno
-import sys
+import logging
 import os
 import socket
-import logging
+import sys
 from datetime import datetime
-import atexit
 
-import eventlet
+import six
+
 from django.conf import settings
-from django.core.management.commands.runserver import Command as RunCommand, run
-from django.utils import autoreload, six
-from django.utils.encoding import force_text, get_system_encoding
+from django.core.management.commands.runserver import Command as RunCommand
+from django.core.management.commands.runserver import run
 from django.db import close_old_connections
+from django.utils import autoreload
+from django.utils.encoding import force_str, get_system_encoding
 
-from rt_api.views import create_rt_socketio
 import rt_api.client as client
+from rt_api.views import create_rt_socketio
+
+# this comes too late when using manage.py
+# set environment variable EVENTLET_SHOULDPATCH=True
 
 
-logger = logging.getLogger('rt_api')
-
+logger = logging.getLogger("rt_api")
 
 # allow 50 or so socket connections
 MAX_GREEN_THREADS = 50
 
 
 class Command(RunCommand):
-    help = 'Run the DAS Socket.IO server'
+    help = "Run the DAS Socket.IO server"
 
     def inner_run(self, *args, **options):
 
@@ -38,28 +39,31 @@ class Command(RunCommand):
         # to be raised in the child process, raise it now.
         autoreload.raise_last_exception()
 
-        threading = options.get('use_threading')
-        shutdown_message = options.get('shutdown_message', '')
-        quit_command = 'CTRL-BREAK' if sys.platform == 'win32' else 'CONTROL-C'
+        threading = options.get("use_threading")
+        shutdown_message = options.get("shutdown_message", "")
+        quit_command = "CTRL-BREAK" if sys.platform == "win32" else "CONTROL-C"
 
         self.stdout.write("Performing system checks...\n\n")
         self.check(display_num_errors=True)
         self.check_migrations()
-        now = datetime.now().strftime('%B %d, %Y - %X')
+        now = datetime.now().strftime("%B %d, %Y - %X")
         if six.PY2:
             now = now.decode(get_system_encoding())
         self.stdout.write(now)
-        self.stdout.write((
-            "Django version %(version)s, using settings %(settings)r\n"
-            "Starting development server at http://%(addr)s:%(port)s/\n"
-            "Quit the server with %(quit_command)s.\n"
-        ) % {
-            "version": self.get_version(),
-            "settings": settings.SETTINGS_MODULE,
-            "addr": '[%s]' % self.addr if self._raw_ipv6 else self.addr,
-            "port": self.port,
-            "quit_command": quit_command,
-        })
+        self.stdout.write(
+            (
+                "Django version %(version)s, using settings %(settings)r\n"
+                "Starting development server at http://%(addr)s:%(port)s/\n"
+                "Quit the server with %(quit_command)s.\n"
+            )
+            % {
+                "version": self.get_version(),
+                "settings": settings.SETTINGS_MODULE,
+                "addr": "[%s]" % self.addr if self._raw_ipv6 else self.addr,
+                "port": self.port,
+                "quit_command": quit_command,
+            }
+        )
 
         close_old_connections()
 
@@ -71,42 +75,44 @@ class Command(RunCommand):
 
         try:
             sio = create_rt_socketio()
-            if sio.async_mode == 'threading':
+            if sio.async_mode == "threading":
                 handler = self.get_handler(*args, **options)
-                run(self.addr, int(self.port), handler,
-                    ipv6=self.use_ipv6, threading=threading)
-            elif sio.async_mode == 'eventlet':
+                run(self.addr, int(self.port), handler, ipv6=self.use_ipv6, threading=threading)
+            elif sio.async_mode == "eventlet":
                 # deploy with eventlet
                 import eventlet
                 import eventlet.wsgi
+
                 from das_server.rt_wsgi import application
-                eventlet.wsgi.server(eventlet.listen((self.addr, int(self.port))),
-                                     application,
-                                     max_size=MAX_GREEN_THREADS)
-            elif sio.async_mode == 'gevent':
+
+                eventlet.wsgi.server(
+                    eventlet.listen((self.addr, int(self.port))), application, max_size=MAX_GREEN_THREADS
+                )
+            elif sio.async_mode == "gevent":
                 # deploy with gevent
                 from gevent import pywsgi
+
                 from das_server.rt_wsgi import application
+
                 try:
                     from geventwebsocket.handler import WebSocketHandler
+
                     websocket = True
                 except ImportError:
                     websocket = False
                 if websocket:
-                    pywsgi.WSGIServer(
-                        ('', 8000), application,
-                        handler_class=WebSocketHandler).serve_forever()
+                    pywsgi.WSGIServer(("", 8000), application, handler_class=WebSocketHandler).serve_forever()
                 else:
-                    pywsgi.WSGIServer((self.addr, int(self.port)),
-                                      application).serve_forever()
-            elif sio.async_mode == 'gevent_uwsgi':
+                    pywsgi.WSGIServer((self.addr, int(self.port)), application).serve_forever()
+            elif sio.async_mode == "gevent_uwsgi":
+                logger.info("Start the application through the uwsgi server. Example:")
                 logger.info(
-                    'Start the application through the uwsgi server. Example:')
-                logger.info('uwsgi --http :5000 --gevent 1000 --http-websockets '
-                            '--master --wsgi-file django_example/wsgi.py --callable '
-                            'application')
+                    "uwsgi --http :5000 --gevent 1000 --http-websockets "
+                    "--master --wsgi-file django_example/wsgi.py --callable "
+                    "application"
+                )
             else:
-                logger.info('Unknown async_mode: ' + sio.async_mode)
+                logger.info("Unknown async_mode: " + sio.async_mode)
 
         except socket.error as e:
             # Use helpful error messages instead of ugly tracebacks.
@@ -118,7 +124,7 @@ class Command(RunCommand):
             try:
                 error_text = ERRORS[e.errno]
             except KeyError:
-                error_text = force_text(e)
+                error_text = force_str(e)
             self.stderr.write("Error: %s" % error_text)
             # Need to use an OS exit because sys.exit doesn't work in a thread
             os._exit(1)

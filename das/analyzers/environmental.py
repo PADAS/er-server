@@ -1,37 +1,33 @@
-import logging
 import json
-from datetime import datetime, timedelta
-import pytz
-
-import pymet.base
-import django.conf
-
+import logging
 from typing import NamedTuple
-
-from django.contrib.gis.geos import Point as DjangoPoint
-from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
-from django.utils.translation import ugettext_lazy as _
-
-from analyzers.utils import save_analyzer_event
-from activity.models import Event, EventType, EventCategory
-from analyzers.models import EnvironmentalSubjectAnalyzerConfig, SubjectAnalyzerResult, OK, WARNING, CRITICAL
-from analyzers.models.base import EVENT_PRIORITY_MAP
-from analyzers.exceptions import InsufficientDataAnalyzerException
-from analyzers.base import SubjectAnalyzer
 
 from pymet import eetools
 
-import logging
+from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
+from django.contrib.gis.geos import Point as DjangoPoint
+from django.utils.translation import gettext_lazy as _
+
+from activity.models import Event, EventCategory, EventType
+from analyzers.base import SubjectAnalyzer
+from analyzers.exceptions import InsufficientDataAnalyzerException
+from analyzers.models import (CRITICAL, OK, WARNING,
+                              EnvironmentalSubjectAnalyzerConfig,
+                              SubjectAnalyzerResult)
+from analyzers.models.base import EVENT_PRIORITY_MAP
+from analyzers.utils import save_analyzer_event
 
 logger = logging.getLogger(__name__)
 
 EARTH_ENGINE_KEY_PROPERTY = 'earth_engine_json_key'
-def require_earthengine(func):
 
+
+def require_earthengine(func):
     def f1(self, *args, **kwargs):
 
         try:
-            key_dict = json.loads(self.config.additional[EARTH_ENGINE_KEY_PROPERTY])
+            key_dict = json.loads(
+                self.config.additional[EARTH_ENGINE_KEY_PROPERTY])
             eetools.initialize_earthengine(key_dict)
         except KeyError:
             msg = f'Unable to initialize Earth Engine API without a value for "{EARTH_ENGINE_KEY_PROPERTY}".'
@@ -54,59 +50,65 @@ class EventTypeSpec(NamedTuple):
 
 
 ENVIRONMENTAL_VALUE_SCHEMA = {
-                "schema":
-                {
-                    "$schema": "http://json-schema.org/draft-04/schema#",
-                    "title": "Empty Event Schema",
-                    "type": "object",
-                    "properties": {
-                        "name": {
-                            "type": "string", "title": "Subject Name"
-                        },
-                        "environmental_descriptor": {
-                            "type": "string", "title": "Environmental Descriptor",
-                        },
-                        "mean_value": {
-                            "type": "number", "title": "Mean Value",
-                        },
-                        "img_name": {
-                            "type": "string", "title": "Earth Engine Image Name",
-                        },
-                        "img_band_name": {
-                            "type": "string", "title": "Image Band Name",
-                        },
-                        "total_fix_count": {
-                            "type": "number", "title": "Total Fix Count"
-                        },
-                    }
+    "schema":
+        {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "title": "Empty Event Schema",
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string", "title": "Subject Name"
                 },
-                "definition": [
-                    "name",
-                    "environmental_descriptor",
-                    "mean_value",
-                    "total_fix_count",
-                    "img_name",
-                    "img_band_name",
-                ]
-                }
+                "environmental_descriptor": {
+                    "type": "string", "title": "Environmental Descriptor",
+                },
+                "mean_value": {
+                    "type": "number", "title": "Mean Value",
+                },
+                "img_name": {
+                    "type": "string", "title": "Earth Engine Image Name",
+                },
+                "img_band_name": {
+                    "type": "string", "title": "Image Band Name",
+                },
+                "total_fix_count": {
+                    "type": "number", "title": "Total Fix Count"
+                },
+            }
+        },
+    "definition": [
+        "name",
+        "environmental_descriptor",
+        "mean_value",
+        "total_fix_count",
+        "img_name",
+        "img_band_name",
+    ]
+}
 ENVIRONMENTAL_ALL_CLEAR_SCHEMA = {
-                "schema":
-                {
-                    "$schema": "http://json-schema.org/draft-04/schema#",
-                    "title": "Empty Event Schema",
-                    "type": "object",
-                    "properties": {}
-                },
-                "definition": []
-                }
+    "schema":
+        {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "title": "Empty Event Schema",
+            "type": "object",
+            "properties": {}
+        },
+    "definition": []
+}
 
-EnvironmentalValueEventType = EventTypeSpec(value='environmental_value', display='Environmental Value',
-                                            schema=ENVIRONMENTAL_VALUE_SCHEMA)
-EnvironmentalAllClearEventType = EventTypeSpec(value='environmental_all_clear', display='Environmental All Clear',
-                                               schema=ENVIRONMENTAL_ALL_CLEAR_SCHEMA)
+EnvironmentalValueEventType = EventTypeSpec(
+    value="environmental_value",
+    display="Environmental Value",
+    schema=ENVIRONMENTAL_VALUE_SCHEMA,
+)
+EnvironmentalAllClearEventType = EventTypeSpec(
+    value="environmental_all_clear",
+    display="Environmental All Clear",
+    schema=ENVIRONMENTAL_ALL_CLEAR_SCHEMA,
+)
+
 
 def ensure_environmental_event_types():
-
     ec, created = EventCategory.objects.get_or_create(
         value='analyzer_event', defaults=dict(display='Analyzer Events'))
 

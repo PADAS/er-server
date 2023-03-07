@@ -1,13 +1,12 @@
 import logging
-from django.utils import translation
-from django.contrib.gis import admin
-from django.templatetags.static import static
-from django.contrib.gis.admin.widgets import OpenLayersWidget
-from django.db.models import F
-import json
 
-from mapping.models import TileLayer
+from django.contrib.gis import admin
+from django.contrib.gis.admin.widgets import OpenLayersWidget
+from django.templatetags.static import static
+from django.utils import translation
+
 from core.admin import SaveCoordinatesToCookieMixin
+from mapping.models import TileLayer
 
 geo_context = {'LANGUAGE_BIDI': translation.get_language_bidi()}
 logger = logging.getLogger('django.contrib.gis')
@@ -17,6 +16,7 @@ class OlWidget(OpenLayersWidget):
     """
     Render an OpenLayers map using the WKT of the geometry.
     """
+
     def map_options(self):
         """Build the map options hash for the OpenLayers template."""
 
@@ -61,7 +61,7 @@ class OlWidget(OpenLayersWidget):
         return map_options
 
 
-class OSMGeoExtendedAdmin(admin.OSMGeoAdmin, SaveCoordinatesToCookieMixin):
+class PropsOSMGeoAdminMixin(admin.OSMGeoAdmin, SaveCoordinatesToCookieMixin):
     wms_layer = 'terrain,overlay'
     wms_url = 'http://tiles.maps.eox.at/wms/'
     map_template = 'admin/openlayer/ol.html'
@@ -79,10 +79,14 @@ class OSMGeoExtendedAdmin(admin.OSMGeoAdmin, SaveCoordinatesToCookieMixin):
 
     def get_map_widget(self, db_field):
         OLMap = super().get_map_widget(db_field)
-        OLMap.params['tile_layers'] = [baselayer_conf for baselayer_conf in TileLayer.objects.values('attributes')]
+        OLMap.params['tile_layers'] = list(
+            TileLayer.objects.values('attributes'))
         return OLMap
 
-    def get_form(self, request, obj=None,  change=False, **kwargs):
+
+class OSMGeoExtendedAdmin(PropsOSMGeoAdminMixin, SaveCoordinatesToCookieMixin):
+
+    def get_form(self, request, obj=None, change=False, **kwargs):
         if not obj:
             lon, lat = 0, 0
             try:
@@ -93,32 +97,29 @@ class OSMGeoExtendedAdmin(admin.OSMGeoAdmin, SaveCoordinatesToCookieMixin):
 
             self.default_lat = lat
             self.default_lon = lon
-        return super(OSMGeoExtendedAdmin, self).get_form(request, obj=None, **kwargs)
+        return super().get_form(request, obj=None, **kwargs)
 
     def response_post_save_add(self, request, obj):
-        http_response = super(OSMGeoExtendedAdmin,
-                              self).response_post_save_add(request, obj)
+        http_response = super().response_post_save_add(request, obj)
         response = self.set_coordinates_cookie(http_response, obj)
         return response
 
     def response_post_save_change(self, request, obj):
-        http_response = super(OSMGeoExtendedAdmin,
-                              self).response_post_save_change(request, obj)
+        http_response = super().response_post_save_change(request, obj)
         response = self.set_coordinates_cookie(http_response, obj)
         return response
 
     def response_change(self, request, obj):
         if "_addanother" in request.POST:
-            http_response = super(OSMGeoExtendedAdmin, self).response_change(request, obj)
+            http_response = super().response_change(request, obj)
             response = self.set_coordinates_cookie(http_response, obj)
             return response
-        else:
-            return super(OSMGeoExtendedAdmin, self).response_change(request, obj)
+        return super().response_change(request, obj)
 
     def response_add(self, request, obj, post_url_continue=None):
         if "_addanother" in request.POST:
-            http_response = super(OSMGeoExtendedAdmin, self).response_add(request, obj, post_url_continue)
+            http_response = super().response_add(
+                request, obj, post_url_continue)
             response = self.set_coordinates_cookie(http_response, obj)
             return response
-        else:
-            return super(OSMGeoExtendedAdmin, self).response_add(request, obj, post_url_continue)
+        return super().response_add(request, obj, post_url_continue)

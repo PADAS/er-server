@@ -4,7 +4,7 @@ import uuid
 from urllib.parse import parse_qs, urlsplit
 
 import pytz
-from drf_extra_fields.compat import DateTimeTZRange
+from drf_extra_fields.fields import DateTimeTZRange
 from faker import Faker
 
 from django.contrib.auth import get_user_model
@@ -14,14 +14,41 @@ from rest_framework import status
 
 from accounts.models import PermissionSet, User
 from core.tests import BaseAPITest
-from observations.models import (DEFAULT_ASSIGNED_RANGE, Source,
+from observations.models import (DEFAULT_ASSIGNED_RANGE,
+                                 LatestObservationSource, Source,
                                  SourceProvider, Subject, SubjectGroup,
                                  SubjectSource, SubjectStatus)
 from observations.serializers import ObservationSerializer
 from observations.utils import parse_comma
-from observations.views import SourcesView, SubjectSourcesAssignmentView
+from observations.views import (ObservationView, SourcesView, SourceView,
+                                SubjectSourcesAssignmentView)
 
 User = get_user_model()
+
+
+def generate_observation_data(source_id):
+    # Generate random data for observation
+    observation_time = pytz.UTC.localize(datetime.datetime.now())
+    latitude = float(random.randint(3000, 3000)) / 100
+    longitude = float(random.randint(2800, 4000)) / 100
+
+    location = dict(longitude=longitude, latitude=latitude)
+
+    observation = {
+        'location': location,
+        'recorded_at': observation_time,
+        'source': source_id,
+        'additional': {}
+    }
+    serializer = ObservationSerializer(data=observation)
+    if serializer.is_valid():
+        observation = serializer.save()
+
+    subject_statuses = SubjectStatus.objects.filter(subject__subjectsource__source_id=source_id,
+                                                    delay_hours=0)
+
+    subject_status = subject_statuses.first()
+    return subject_status, longitude, latitude
 
 
 class SubjectSourceTestCase(BaseAPITest):
@@ -43,30 +70,6 @@ class SubjectSourceTestCase(BaseAPITest):
                                                       email='user_x@test.com',
                                                       password=User.objects.make_random_password(),
                                                       **self.user_const)
-
-    def generate_observation_data(self, subject_id, source_id):
-        # Generate random data for observation
-        observation_time = pytz.UTC.localize(datetime.datetime.now())
-        latitude = float(random.randint(3000, 3000)) / 100
-        longitude = float(random.randint(2800, 4000)) / 100
-
-        location = dict(longitude=longitude, latitude=latitude)
-
-        observation = {
-            'location': location,
-            'recorded_at': observation_time,
-            'source': source_id,
-            'additional': {}
-        }
-        serializer = ObservationSerializer(data=observation)
-        if serializer.is_valid():
-            observation = serializer.save()
-
-        subject_statuses = SubjectStatus.objects.filter(subject__subjectsource__source_id=source_id,
-                                                        delay_hours=0)
-
-        subject_status = subject_statuses.first()
-        return subject_status, longitude, latitude
 
     def test_subjectsource_with_empty_assignedrange(self):
         # test that we don't have empty assignedaterange set in database.
@@ -97,18 +100,17 @@ class SubjectSourceTestCase(BaseAPITest):
         assert ss.safe_assigned_range.upper == DEFAULT_ASSIGNED_RANGE[1]
 
     def test_update_source(self):
-        subject_id = '269524d5-a434-4377-9ea9-2a7946dbd9c4'
         source_id = '56b1cf14-ef97-4054-8fbd-1342f265b2a9'
         source_id2 = 'a91e0366-898c-475b-830f-e0fae46e6efe'
 
-        subject_status, longitude, latitude = self.generate_observation_data(
-            subject_id=subject_id, source_id=source_id)
+        subject_status, longitude, latitude = generate_observation_data(
+            source_id=source_id)
         self.assertEqual(
             (subject_status.location.x, subject_status.location.y),
             (longitude, latitude))
 
-        subject_status, longitude, latitude = self.generate_observation_data(
-            subject_id=subject_id, source_id=source_id2)
+        subject_status, longitude, latitude = generate_observation_data(
+            source_id=source_id2)
         self.assertEqual(
             (subject_status.location.x, subject_status.location.y),
             (longitude, latitude))
@@ -148,22 +150,6 @@ class SubjectSourceTestCase(BaseAPITest):
 
         self.assertEqual(listed_source_id, [uuid.UUID('0d9725c0-c186-464f-98f4-a45d31f81efd'),
                                             uuid.UUID('0a308294-7b80-4633-a967-ef4f8e1de79a')])
-
-    def test_create_source_api(self):
-        faker = Faker()
-        subject_count = Subject.objects.count()
-        provider_key = f"{faker.last_name()}_{faker.last_name()}"
-        provider, _ = SourceProvider.objects.get_or_create(
-            provider_key=provider_key)
-        source_data = dict(manufacturer_id=faker.last_name(),
-                           provider=provider_key, additional={})
-        urlpath = reverse('sources-view')
-        request = self.factory.post(urlpath, source_data)
-
-        self.force_authenticate(request, self.user)
-        response = SourcesView.as_view()(request)
-        assert subject_count == Subject.objects.count()
-        assert response.status_code == status.HTTP_201_CREATED
 
     def test_sources_api(self):
         provider, _ = SourceProvider.objects.get_or_create(
@@ -303,3 +289,85 @@ class SubjectSourceTestCase(BaseAPITest):
         self.force_authenticate(request, self.non_superuser)
         response = SubjectSourcesAssignmentView.as_view()(request)
         self.assertEqual(len(response.data.get('results')), 0)
+
+
+class SourceAPITestCase(BaseAPITest):
+    use_atomic_transaction = True
+
+    def setUp(self):
+        self.user_const = dict(last_name='last', first_name='first')
+        self.user = User.objects.create_user('user', 'user@test.com', 'all_perms_user', is_superuser=True,
+                                             is_staff=True, **self.user_const)
+        return super().setUp()
+
+    def test_create_source_api(self):
+        faker = Faker()
+        subject_count = Subject.objects.count()
+        provider_key = f"{faker.last_name()}_{faker.last_name()}"
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key=provider_key)
+        source_data = dict(manufacturer_id=faker.last_name(),
+                           provider=provider_key, additional={})
+        urlpath = reverse('sources-view')
+        request = self.factory.post(urlpath, source_data)
+
+        self.force_authenticate(request, self.user)
+        response = SourcesView.as_view()(request)
+        assert subject_count == Subject.objects.count()
+        assert response.status_code == status.HTTP_201_CREATED
+
+    def test_delete_source_api(self):
+        faker = Faker()
+        provider_key = f"{faker.last_name()}_{faker.last_name()}"
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key=provider_key)
+        source_data = dict(manufacturer_id=faker.last_name(),
+                           provider=provider_key, additional={})
+        urlpath = reverse('sources-view')
+        request = self.factory.post(urlpath, source_data)
+
+        self.force_authenticate(request, self.user)
+        response = SourcesView.as_view()(request)
+        assert response.status_code == status.HTTP_201_CREATED
+        source_id = response.data["id"]
+
+        for i in range(500):
+            subject_status, longitude, latitude = generate_observation_data(
+                source_id=source_id)
+
+        urlpath = reverse('source-view', kwargs={"id": source_id})
+        request = self.factory.delete(urlpath)
+
+        self.force_authenticate(request, self.user)
+        response = SourceView.as_view()(request, id=source_id)
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    def test_delete_observation_api(self):
+        faker = Faker()
+        provider_key = f"{faker.last_name()}_{faker.last_name()}"
+        provider, _ = SourceProvider.objects.get_or_create(
+            provider_key=provider_key)
+        source_data = dict(manufacturer_id=faker.last_name(),
+                           provider=provider_key, additional={})
+        urlpath = reverse('sources-view')
+        request = self.factory.post(urlpath, source_data)
+
+        self.force_authenticate(request, self.user)
+        response = SourcesView.as_view()(request)
+        assert response.status_code == status.HTTP_201_CREATED
+        source_id = response.data["id"]
+
+        for i in range(50):
+            subject_status, longitude, latitude = generate_observation_data(
+                source_id=source_id)
+
+        lob = LatestObservationSource.objects.filter(
+            source_id=source_id).first()
+
+        urlpath = reverse('observation-view',
+                          kwargs={"id": lob.observation.id})
+        request = self.factory.delete(urlpath)
+
+        self.force_authenticate(request, self.user)
+        response = ObservationView.as_view()(request, id=lob.observation.id)
+        assert response.status_code == status.HTTP_204_NO_CONTENT

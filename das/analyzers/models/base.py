@@ -1,16 +1,15 @@
 import logging
 import uuid
 
-from django.contrib.gis.db import models
-from django.contrib.postgres.fields import ArrayField
-from django.contrib.postgres.fields import JSONField
-from django.utils.translation import ugettext_lazy as _
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.gis.db import models
+from django.contrib.postgres.fields import ArrayField
+from django.utils.translation import gettext_lazy as _
 
 from activity.models import Event
 from core.models import TimestampedModel
-from observations.models import Subject, SubjectGroup, Observation
+from observations.models import Observation, Subject, SubjectGroup
 from revision.manager import Revision, RevisionMixin
 
 logger = logging.getLogger(__name__)
@@ -82,7 +81,7 @@ class SubjectAnalyzerConfig(RevisionMixin, TimestampedModel):
                                           verbose_name='Analysis time frame (hours)',
                                           help_text=_('Analysis will be performed on recent data within this time frame.'))
 
-    additional = JSONField(blank=True, default=dict)
+    additional = models.JSONField(blank=True, default=dict)
     quiet_period = models.DurationField(null=True, blank=True,
                                         verbose_name='Quiet period (HH:MM:SS)',
                                         help_text=_('This will be used to override the configured quiet period.'))
@@ -111,7 +110,7 @@ class SubjectAnalyzerResult(TimestampedModel):
     estimated_time = models.DateTimeField()
     level = models.IntegerField()
     observations = models.ManyToManyField(Observation, related_name='+')
-    values = JSONField(default=dict, blank=True)
+    values = models.JSONField(default=dict, blank=True)
     title = models.TextField(default='', blank=True)
     message = models.TextField(default='', blank=True)
 

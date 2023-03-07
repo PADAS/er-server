@@ -2,19 +2,20 @@ import copy
 import datetime
 import json
 import logging
-
 from datetime import timedelta
 from typing import NamedTuple
+
 import pytz
+import requests
 from dateutil.parser import parse as parse_date
+
 from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.gis.db import models
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from observations.models import Observation
 from tracking.models.plugin_base import (DasPluginFetchError, Obs,
                                          SourcePlugin, TrackingPlugin)
-import requests
 
 
 class STObservation(NamedTuple):
@@ -114,7 +115,8 @@ class SavannaClient(object):
                 response_body = json.loads(res.text)
                 all_records = response_body["records"]
                 for line in all_records:
-                    record = self.parse_line(STObservation, self.select_data(collar_id, line))
+                    record = self.parse_line(
+                        STObservation, self.select_data(collar_id, line))
                     if not record:
                         continue
 
@@ -220,7 +222,7 @@ class SavannahPlugin(TrackingPlugin):
 
         try:
             st = parse_date(self.cursor_data['latest_timestamp'])
-        except Exception as e:
+        except Exception:
             st = datetime.datetime.now(tz=pytz.UTC) - self.DEFAULT_START_OFFSET
 
         lt = st

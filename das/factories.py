@@ -1,18 +1,28 @@
+import uuid
+from datetime import timedelta
+
 import factory
-from django.contrib.auth.hashers import make_password
 from factory import fuzzy
+from factory.fuzzy import BaseFuzzyAttribute
+from oauth2_provider.models import AccessToken
+
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import make_password
+from django.contrib.gis.geos import Point, Polygon
+from django.utils import timezone
 
 from accounts.models.permissionset import PermissionSet
 from activity.models import (
+    Event,
     EventCategory,
+    EventDetails,
+    EventGeometry,
+    EventNote,
     EventType,
     Patrol,
     PatrolNote,
     PatrolSegment,
     PatrolType,
-    Event,
-    EventDetails,
 )
 from analyzers.models import FeatureProximityAnalyzerConfig, GeofenceAnalyzerConfig
 from mapping.models import SpatialFeatureGroupStatic, SpatialFeatureType
@@ -33,7 +43,7 @@ User = get_user_model()
 class PermissionSetFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = PermissionSet
-        django_get_or_create = ('name',)
+        django_get_or_create = ("name",)
 
     name = fuzzy.FuzzyText(length=25)
 
@@ -140,7 +150,7 @@ class SubjectSourceFactory(factory.django.DjangoModelFactory):
 class SubjectGroupFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = SubjectGroup
-        django_get_or_create = ('name',)
+        django_get_or_create = ("name",)
 
     name = fuzzy.FuzzyText(length=40)
 
@@ -209,11 +219,18 @@ class ObservationFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Observation
 
+    recorded_at = factory.Sequence(lambda n: timezone.now() + timedelta(minutes=n * 5))
+    source = factory.SubFactory(SourceFactory)
+
+    @factory.lazy_attribute
+    def location(self):
+        return Point(-103.313486, 20.420935)
+
 
 class EventCategoryFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = EventCategory
-        django_get_or_create = ('value',)
+        django_get_or_create = ("value",)
 
     value = fuzzy.FuzzyText(length=20)
 
@@ -221,7 +238,7 @@ class EventCategoryFactory(factory.django.DjangoModelFactory):
 class EventTypeFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = EventType
-        django_get_or_create = ('value',)
+        django_get_or_create = ("value",)
 
     value = fuzzy.FuzzyText(length=20)
     display = fuzzy.FuzzyText(length=50)
@@ -241,4 +258,48 @@ class EventDetailsFactory(factory.django.DjangoModelFactory):
         model = EventDetails
 
     event = factory.SubFactory(EventFactory)
-    data = factory.LazyAttribute(lambda data: {})
+    data = factory.LazyAttribute(lambda data: {"event_details": {}})
+
+
+class EventNoteFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = EventNote
+
+    text = fuzzy.FuzzyText(length=20)
+    event = factory.SubFactory(EventFactory)
+    created_by_user = factory.SubFactory(UserFactory)
+
+
+class FuzzyPolygon(BaseFuzzyAttribute):
+    def fuzz(self):
+        return Polygon(
+            (
+                (-114.82910156249999, 33.17434155100208),
+                (-80.5517578125, 25.443274612305746),
+                (-104.2822265625, 48.86471476180277),
+                (-114.82910156249999, 33.17434155100208),
+            )
+        )
+
+
+class EventGeometryFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = EventGeometry
+
+    geometry = FuzzyPolygon()
+    event = factory.SubFactory(EventFactory)
+
+
+class AccessTokenFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = AccessToken
+
+    scope = "read write"
+
+    @factory.lazy_attribute
+    def token(self):
+        return str(uuid.uuid4())
+
+    @factory.lazy_attribute
+    def expires(self):
+        return timezone.now() + timedelta(days=1)

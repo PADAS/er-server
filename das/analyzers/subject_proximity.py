@@ -2,15 +2,15 @@ import datetime as dt
 import math
 
 import pymet
+from pymet.proximity import ProximityAnalysisResult
+
 from django.contrib.gis.geos import GeometryCollection as DjangoGeoColl
 from django.contrib.gis.geos import Point as DjangoPoint
-from django.utils.translation import ugettext_lazy as _
-from pymet.proximity import ProximityAnalysisResult
+from django.utils.translation import gettext_lazy as _
 
 from analyzers.models import (CRITICAL, SubjectAnalyzerResult,
                               SubjectProximityAnalyzerConfig)
 from analyzers.proximity import ProximityAnalyzer
-from django.conf import settings
 
 
 class SubjectProximityAnalyzer(ProximityAnalyzer):
@@ -22,7 +22,8 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
     def _create_proximity_analysis_params(self, analysis_subject):
         second_group_subjects = self.config.second_subject_group.subjects.all()
         if analysis_subject in second_group_subjects:
-            second_group_subjects = second_group_subjects.exclude(name=analysis_subject.name)
+            second_group_subjects = second_group_subjects.exclude(
+                name=analysis_subject.name)
         return [k for k in second_group_subjects]
 
     def default_observations(self):
@@ -46,15 +47,20 @@ class SubjectProximityAnalyzer(ProximityAnalyzer):
         traj = pymet.base.Trajectory(relocs=pymet.base.Relocations(fixes=traj.relocs.get_fixes()[-2:],
                                                                    subject_id=self.subject.id))
 
-        proximity_results = SubjectProximityAnalysis.calc_proximity_events(self.subject, self.config, proximity_analysis_params=analysis_params,
-                                                                    trajectories=[traj])
+        proximity_results = SubjectProximityAnalysis.calc_proximity_events(
+            self.subject,
+            self.config,
+            proximity_analysis_params=analysis_params,
+            trajectories=[traj],
+        )
 
         das_analyzer_results = []
         for prox in proximity_results.proximity_events:
             # Create a DAS Analyser result based on each proximity event within
             if prox.proximity_distance_meters <= self.config.threshold_dist_meters:
 
-                subject_2_name = self.evaluate_return_value(prox.subject_2_name) if prox.subject_2_name else ''
+                subject_2_name = self.evaluate_return_value(
+                    prox.subject_2_name) if prox.subject_2_name else ''
 
                 # Create the analyzer result
                 result = SubjectAnalyzerResult(subject_analyzer=self.config,
@@ -111,7 +117,6 @@ class SubjectProximityAnalysis:
                 abs(latest_observation_analysis_subject.recorded_at - latest_observation_second_subject.recorded_at).total_seconds() <= config.proximity_time * 3600:
             return True
 
-
     @classmethod
     def calc_proximity_events(cls, analysis_subject, config, proximity_analysis_params=None, trajectories=None):
         """
@@ -129,7 +134,8 @@ class SubjectProximityAnalysis:
 
         # Set the start time of the analysis
         result.analysis_start = dt.datetime.utcnow()
-        latest_observation_analysis_subject = cls.get_subject_latest_obs(analysis_subject)
+        latest_observation_analysis_subject = cls.get_subject_latest_obs(
+            analysis_subject)
 
         for traj in trajectories:
             assert type(traj) is pymet.base.Trajectory
@@ -148,30 +154,35 @@ class SubjectProximityAnalysis:
                     for subject_traj in [subject_trajectories]:
                         for seg2 in subject_traj.traj_segs:
 
-                            latest_observation_second_subject = cls.get_subject_latest_obs(subject)
+                            latest_observation_second_subject = cls.get_subject_latest_obs(
+                                subject)
                             valid_proximal_time = cls.verify_proximal_tracks_time_frame(
                                 config, latest_observation_analysis_subject, latest_observation_second_subject)
 
                             if valid_proximal_time:
                                 # # Calculate the distance between the two subject
-                                proximity_dist = seg.end_fix_geopoint.dist_to_point(seg2.end_fix_geopoint.ogr_geometry)
+                                proximity_dist = seg.end_fix_geopoint.dist_to_point(
+                                    seg2.end_fix_geopoint.ogr_geometry)
 
                                 # Create the proximity event
                                 prox_event = SubjectProximityEvent(
                                     subject_1_id=str(analysis_subject.id),
                                     subject_1_name=analysis_subject.name,
                                     subject_1_speed=round(seg.speed_kmhr, 2),
-                                    subject_1_location=cls.get_map_coords(latest_observation_analysis_subject),
+                                    subject_1_location=cls.get_map_coords(
+                                        latest_observation_analysis_subject),
 
                                     subject_2_id=str(subject.id),
                                     subject_2_name=subject.name,
                                     subject_2_speed=round(seg2.speed_kmhr, 2),
-                                    subject_2_location=cls.get_map_coords(latest_observation_second_subject),
+                                    subject_2_location=cls.get_map_coords(
+                                        latest_observation_second_subject),
 
-                                    subject_1_travel_heading=round(seg.heading, 2),
-                                    subject_2_travel_heading=round(seg2.heading, 2),
-
-                                    proximal_fix=seg.start_fix,
+                                    subject_1_travel_heading=round(
+                                        seg.heading, 2),
+                                    subject_2_travel_heading=round(
+                                        seg2.heading, 2),
+                                    proximal_fix=seg.end_fix,
                                     proximity_distance_meters=proximity_dist
                                 )
                                 # Add this given crossing to the result
@@ -216,53 +227,53 @@ class SubjectProximityEvent:
 
 SUBJECT_PROXIMITY_SCHEMA = {
 
-  "schema": {
-    "$schema": "http://json-schema.org/draft-04/schema#",
-    "title": "Subject Proximity Schema",
-    "type": "object",
-    "properties": {
-        "subject_1_name": {"type": "string", "title": "Subject 1 Name"},
-        "subject_1_speed_kmhr": {"type": "number", "title": "Subject 1 Speed Kmhr"},
-        "subject_1_heading": {"type": "number", "title": "Subject 1 Heading"},
-        "subject_1_location": {"type": "string", "title": "Subject 1 location"},
+    "schema": {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "title": "Subject Proximity Schema",
+        "type": "object",
+        "properties": {
+            "subject_1_name": {"type": "string", "title": "Subject 1 Name"},
+            "subject_1_speed_kmhr": {"type": "number", "title": "Subject 1 Speed Kmhr"},
+            "subject_1_heading": {"type": "number", "title": "Subject 1 Heading"},
+            "subject_1_location": {"type": "string", "title": "Subject 1 location"},
 
-        "subject_2_name": {"type": "string", "title": "Subject 2 Name"},
-        "subject_2_speed_kmhr": {"type": "number", "title": "Subject 2 Speed Kmhr"},
-        "subject_2_heading": {"type": "number", "title": "Subject 2 Heading"},
-        "subject_2_location": {"type": "string", "title": "Subject 2 location"},
+            "subject_2_name": {"type": "string", "title": "Subject 2 Name"},
+            "subject_2_speed_kmhr": {"type": "number", "title": "Subject 2 Speed Kmhr"},
+            "subject_2_heading": {"type": "number", "title": "Subject 2 Heading"},
+            "subject_2_location": {"type": "string", "title": "Subject 2 location"},
 
-        "proximity_dist_meters": {"type": "number", "title": "Proximity Dist Meters"},
-        "total_fix_count": {"type": "number", "title": "Total Fix Count"}
-    }
+            "proximity_dist_meters": {"type": "number", "title": "Proximity Dist Meters"},
+            "total_fix_count": {"type": "number", "title": "Total Fix Count"}
+        }
     },
-  "definition": [
-    {
-      "type": "fieldset",
-      "title": "Analyzer Details",
-      "htmlClass": "col-lg-12",
-      "items": []
-    },
-    {
-      "type": "fieldset",
-      "htmlClass": "col-lg-6",
-      "items": [
-        "subject_1_name",
-        "subject_1_location",
-        "subject_1_speed_kmhr",
-        "subject_1_heading"
-      ]
-    },
-    {
-      "type": "fieldset",
-      "htmlClass": "col-lg-6",
-      "items": [
-          "subject_2_name",
-          "subject_2_location",
-          "subject_2_speed_kmhr",
-          "subject_2_heading"
-      ]
-    },
-    "proximity_dist_meters",
-    "total_fix_count"
-  ]
+    "definition": [
+        {
+            "type": "fieldset",
+            "title": "Analyzer Details",
+            "htmlClass": "col-lg-12",
+            "items": []
+        },
+        {
+            "type": "fieldset",
+            "htmlClass": "col-lg-6",
+            "items": [
+                "subject_1_name",
+                "subject_1_location",
+                "subject_1_speed_kmhr",
+                "subject_1_heading"
+            ]
+        },
+        {
+            "type": "fieldset",
+            "htmlClass": "col-lg-6",
+            "items": [
+                "subject_2_name",
+                "subject_2_location",
+                "subject_2_speed_kmhr",
+                "subject_2_heading"
+            ]
+        },
+        "proximity_dist_meters",
+        "total_fix_count"
+    ]
 }

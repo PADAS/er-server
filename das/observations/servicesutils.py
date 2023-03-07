@@ -1,17 +1,16 @@
 import json
-
 from datetime import datetime, timedelta
-import pytz
+
 import dateutil.parser as dp
+import pytz
+import redis
 
 from django.conf import settings
-from django.utils.translation import ugettext_lazy as _
 from django.contrib.postgres.fields import jsonb
-from django.db.models import Q
-import redis
-from das_server import celery
 from django.core.cache import cache
+from django.db.models import Q
 
+from das_server import celery
 from observations.models import SourceProvider
 
 SERVICE_STATUS_NS = 'das-service-status'
@@ -128,8 +127,7 @@ def get_source_provider_statuses():
 def is_2way_messaging_active():
     two_way_msg = cache.get(SOURCE_PROVIDER_2WAY_MSG_KEY)
     if two_way_msg is None:
-        source_provider = SourceProvider.objects.annotate(two_way_message=
-                                                          jsonb.KeyTransform('two_way_messaging', 'additional')
+        source_provider = SourceProvider.objects.annotate(two_way_message=jsonb.KeyTransform('two_way_messaging', 'additional')
                                                           ).exclude(Q(two_way_message__isnull=True) |
                                                                     Q(two_way_message=False)).exists()
 
@@ -143,4 +141,3 @@ def has_message_view_permission(user):
     if user.is_anonymous:
         return False
     return user.has_perm('observations.view_message') and is_2way_messaging_active()
-
