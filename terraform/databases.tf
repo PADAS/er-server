@@ -51,7 +51,7 @@ locals {
   }
   # Dataproc worker node identities to be granted read access to *_sql_analytics_info secret
   dataproc_identity_er_reporting = {
-    "prod"      = "dataproc-instance@er-reporting-prod.iam.gserviceaccount.com"
+    "prod1"      = "dataproc-instance@er-reporting-prod.iam.gserviceaccount.com"
     "prod-asia" = "dataproc-instance@er-reporting-prod.iam.gserviceaccount.com"
     "dev"       = "dataproc-instance@er-reporting-dev.iam.gserviceaccount.com"
   }
