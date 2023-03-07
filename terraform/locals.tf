@@ -387,6 +387,8 @@ locals {
     "kiunga"                  = "prod1"
     "sintracascais"           = "prod1"
     "enarauconservancy"       = "prod1"
+    "dzangasangha"            = "prod1"
+    "oncafari"                = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -574,6 +576,7 @@ locals {
     "kalama"                  = 1
     "sera"                    = 1
     "kiunga"                  = 1
+    "dzangasangha"            = 1
   }
 
   db_instance_index  = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
