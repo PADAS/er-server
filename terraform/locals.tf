@@ -389,6 +389,7 @@ locals {
     "enarauconservancy"       = "prod1"
     "dzangasangha"            = "prod1"
     "oncafari"                = "prod1"
+    "cps-mel"                 = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
