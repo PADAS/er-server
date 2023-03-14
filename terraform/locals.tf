@@ -389,6 +389,7 @@ locals {
     "enarauconservancy"       = "prod1"
     "dzangasangha"            = "prod1"
     "oncafari"                = "prod1"
+    "chobe"                   = "prod1"
     "colostate"               = "prod1"
   }
 
@@ -578,6 +579,7 @@ locals {
     "sera"                    = 1
     "kiunga"                  = 1
     "dzangasangha"            = 1
+    "chobe"                   = 1
     "colostate"               = 1
   }
 
