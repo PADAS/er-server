@@ -389,6 +389,7 @@ locals {
     "enarauconservancy"       = "prod1"
     "dzangasangha"            = "prod1"
     "oncafari"                = "prod1"
+    "cps-mel"                 = "prod1"
     "chobe"                   = "prod1"
     "colostate"               = "prod1"
   }
