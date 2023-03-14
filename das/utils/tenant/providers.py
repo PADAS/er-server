@@ -3,7 +3,6 @@ import logging
 import time
 
 from core import memory_store_client, tms_api_client
-from utils.tenant.exceptions import TenantNotFoundException
 
 logger = logging.getLogger(__name__)
 
@@ -41,5 +40,5 @@ class TenantData:
         logger.info("Getting tenant from TMS for domain %s", self.domain)
         tenant_data = tms_api_client.get_tenant_data(domain=self.domain)
         if not tenant_data:
-            raise TenantNotFoundException(self.domain)
+            logger.info("Tenant not found at TMS for domain %s", self.domain)
         return tenant_data

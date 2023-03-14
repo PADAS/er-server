@@ -16,7 +16,7 @@ class EnvironmentSettings:
     enable_debug: bool = field(metadata=config(field_name="enableDebug"))
     enable_dev: bool = field(metadata=config(field_name="enableDev"))
     from_email: str = field(metadata=config(field_name="fromEmail"))
-    sendsms_twilio_from_number: str = field(metadata=config(field_name="sendSmsTwilioFromNumber"))
+    send_sms_twilio_from_number: str = field(metadata=config(field_name="sendSmsTwilioFromNumber"))
 
 
 @dataclass_json
