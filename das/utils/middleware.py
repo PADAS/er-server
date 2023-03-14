@@ -13,8 +13,10 @@ from google.cloud import error_reporting
 from oauth2_provider.models import get_access_token_model
 
 from django.conf import settings
+from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.utils import timezone
+from rest_framework import status
 
 from core import persistent_storage
 from observations.utils import (
@@ -253,6 +255,13 @@ class TenantSettingsMiddleware:
             domain = request.get_host()
             instance = TenantData(domain=domain)
             tenant_data = instance.get()
+            if not tenant_data:
+                return JsonResponse(
+                    data={
+                        "message": "Your site configuration appears to be invalid, please contact EarthRanger technical support for assistance."
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
             set_tenant_settings(value=tenant_data)
         response = self.get_response(request)
         return response
