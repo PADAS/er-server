@@ -18,6 +18,7 @@ from kombu import Exchange, Queue
 from django.conf import settings
 
 import utils.stats
+from das_server.redis import TRANSPORT_ALIASES  # pylint: disable=unused-import
 
 # set the default Django settings module for the 'celery' program.
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "das_server.settings")
@@ -217,4 +218,4 @@ def task_failure_handler(sender, *args, **kwargs):
 
 @task_revoked.connect
 def task_revoked_handler(request, *args, **kwargs):
-    utils.stats.increment("task", tags=[f"name:{request.name}", "state:revoked"])
+    utils.stats.increment("task", tags=[f"name:{request.task}", "state:revoked"])
