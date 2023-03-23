@@ -243,8 +243,7 @@ install_er_cli: ## Instals the ER CLI used to interact with the TMS. Repo: https
 		pip3 install tms-services==0.0.1 --extra-index-url https://us-west1-python.pkg.dev/earthranger-dev/core-backend/simple/ && \
 		pip3 install earthranger-cli==0.0.4 --extra-index-url https://us-west1-python.pkg.dev/earthranger-dev/core-backend/simple/ && \
 		echo "Successfully installed the er cli" && \
-		env && \
 		export PROJECT_ID=earthranger-dev && \
-		echo $$GOOGLE_CREDENTIALS > key.json && \
 		cat key.json && \
-		er --help
+		er create-tenant-document $(current_branch) --subdomain $$(echo $(current_branch) | tr "[:upper:]." "[:lower:]_") > tenant_data.json && \
+		cat tenant_data.json
