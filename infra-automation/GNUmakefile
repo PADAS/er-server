@@ -245,4 +245,4 @@ install_er_cli: ## Instals the ER CLI used to interact with the TMS. Repo: https
 		echo "Successfully installed the er cli" && \
 		export PROJECT_ID=earthranger-dev && \
 		er create-tenant-document $(current_branch) --subdomain $$(echo $(current_branch) | tr "[:upper:]." "[:lower:]_") > tenant_data.json && \
-		er create-command < tenant_data.json
+		er create-tenants < tenant_data.json
