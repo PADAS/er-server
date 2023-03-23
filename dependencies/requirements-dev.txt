@@ -5,6 +5,7 @@
 #    pip-compile --find-links=./wheelhouse --output-file=requirements-dev.txt ./requirements.txt requirements-dev.in
 #
 --find-links ./wheelhouse
+--find-links /opt/project/dependencies/./wheelhouse
 
 affine==2.2.2
     # via
@@ -189,6 +190,7 @@ django==3.2
     #   django-oauth-toolkit
     #   django-readonly-field
     #   django-redis
+    #   django-rest-framework-condition
     #   django-storages
     #   django-tagulous
     #   django-treebeard
@@ -229,6 +231,8 @@ django-redis==5.0.0
     # via
     #   -r ./requirements.txt
     #   django-fakeredis
+django-rest-framework-condition==0.1.1
+    # via -r ./requirements.txt
 django-rest-swagger==2.2.0
     # via -r ./requirements.txt
 django-sendsms==0.3.1
@@ -421,6 +425,7 @@ importlib-metadata==1.5.0
     #   flake8
     #   keyring
     #   kombu
+    #   pep517
     #   pluggy
     #   pre-commit
     #   pytest
@@ -1051,6 +1056,7 @@ toml==0.10.2
     #   autopep8
     #   black
     #   dparse
+    #   pep517
     #   pre-commit
 tomli==1.2.2
     # via
@@ -1154,6 +1160,7 @@ zipp==3.0.0
     # via
     #   -r ./requirements.txt
     #   importlib-metadata
+    #   pep517
 zope-event==4.5.0
     # via
     #   -r ./requirements.txt

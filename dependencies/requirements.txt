@@ -123,6 +123,7 @@ django==3.2
     #   django-oauth-toolkit
     #   django-readonly-field
     #   django-redis
+    #   django-rest-framework-condition
     #   django-storages
     #   django-tagulous
     #   django-treebeard
@@ -156,6 +157,8 @@ django-pgviews==0.5.5
 django-readonly-field==1.0.5
     # via -r requirements.in
 django-redis==5.0.0
+    # via -r requirements.in
+django-rest-framework-condition==0.1.1
     # via -r requirements.in
 django-rest-swagger==2.2.0
     # via -r requirements.in

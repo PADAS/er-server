@@ -14,7 +14,16 @@ class UserSerializer(rest_framework.serializers.ModelSerializer):
 
     class Meta:
         model = get_user_model()
-        read_only_fields = ("is_staff", "is_superuser", "date_joined", "id", "is_active", "last_login", "accepted_eula")
+        read_only_fields = (
+            "is_staff",
+            "is_superuser",
+            "date_joined",
+            "id",
+            "is_active",
+            "last_login",
+            "accepted_eula",
+            "pin",
+        )
         fields = ("username", "email", "first_name", "last_name", "role") + read_only_fields
 
     def to_representation(self, instance):

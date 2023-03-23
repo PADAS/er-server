@@ -161,6 +161,7 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         help_text=_("The list of user profiles that this user can act as."),
     )
     accepted_eula = models.BooleanField(default=False)
+    pin = models.CharField(max_length=4, blank=True, null=True)
 
     objects = UserManager()
 
