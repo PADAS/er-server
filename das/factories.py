@@ -25,6 +25,7 @@ from activity.models import (
     PatrolType,
 )
 from analyzers.models import FeatureProximityAnalyzerConfig, GeofenceAnalyzerConfig
+from choices.models import Choice
 from mapping.models import SpatialFeatureGroupStatic, SpatialFeatureType
 from observations.models import (
     Observation,
@@ -61,10 +62,10 @@ class UserFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = User
 
-    username = factory.Sequence(lambda n: "username{}".format(n))
+    username = factory.Sequence(lambda n: f"username{n}")
     first_name = fuzzy.FuzzyText(length=25)
     last_name = fuzzy.FuzzyText(length=25)
-    email = factory.Sequence(lambda n: "earthranger{}@example.com".format(n))
+    email = factory.Sequence(lambda n: f"earthranger{n}@example.com")
     password = factory.LazyFunction(lambda: make_password("pi3.1415"))
 
 
@@ -303,3 +304,14 @@ class AccessTokenFactory(factory.django.DjangoModelFactory):
     @factory.lazy_attribute
     def expires(self):
         return timezone.now() + timedelta(days=1)
+
+
+class ChoiceFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Choice
+
+    model = Choice.User
+    field = fuzzy.FuzzyText(length=10)
+    value = factory.Sequence(lambda n: f"value_{n}")
+    display = factory.Sequence(lambda n: f"display_{n}")
+    ordernum = factory.Sequence(lambda n: n)
