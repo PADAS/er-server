@@ -238,7 +238,6 @@ check_for_abandoned_workspaces: ## compare terraform workspaces against git bran
 install_er_cli: ## Instals the ER CLI used to interact with the TMS. Repo: https://github.com/PADAS/er-cli
 	@ pip3 install keyring==23.9.3 keyrings.google-artifactregistry-auth==1.1.1
 	@ gcloud artifacts print-settings python --project=earthranger-dev --repository=core-backend --location=us-west1 > $$HOME/.pypirc
-	@ mkdir -p $$HOME/.config/pip && mkdir -p $$HOME/.pip
 	@ echo $$ENCODED_GOOGLE_CREDENTIALS | base64 -d > google_credentials.json && \
 		export GOOGLE_APPLICATION_CREDENTIALS='/root/project/infra-automation/google_credentials.json' && \
 		pip3 install tms-services==0.0.1 --extra-index-url https://us-west1-python.pkg.dev/earthranger-dev/core-backend/simple/ && \
@@ -248,5 +247,4 @@ install_er_cli: ## Instals the ER CLI used to interact with the TMS. Repo: https
 		export PROJECT_ID=earthranger-dev && \
 		echo $$GOOGLE_CREDENTIALS > key.json && \
 		cat key.json && \
-		gcloud auth activate-service-account --key-file=key.json && \
 		er --help
