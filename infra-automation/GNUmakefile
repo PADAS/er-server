@@ -247,5 +247,6 @@ install_er_cli: ## Instals the ER CLI used to interact with the TMS. Repo: https
 	@ env
 	@ export PROJECT_ID=earthranger-dev && \
 		echo $GOOGLE_CREDENTIALS > key.json && \
-		gcloud auth activate-service-account --key-file=key.json
+		cat key.json && \
+		gcloud auth activate-service-account --key-file=key.json && \
 		er --help
