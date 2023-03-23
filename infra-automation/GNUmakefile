@@ -239,9 +239,9 @@ install_er_cli: ## Instals the ER CLI used to interact with the TMS. Repo: https
 	@ pip3 install keyring==23.9.3 keyrings.google-artifactregistry-auth==1.1.1
 	@ gcloud artifacts print-settings python --project=earthranger-dev --repository=core-backend --location=us-west1 > $$HOME/.pypirc
 	@ mkdir -p $$HOME/.config/pip && mkdir -p $$HOME/.pip
-	# @ cp pip.conf $$HOME/.config/pip/pip.conf
-	# @ cp pip.conf $$HOME/.pip/pip.conf
 	@ echo $$ENCODED_GOOGLE_CREDENTIALS | base64 -d > google_credentials.json && \
 		export GOOGLE_APPLICATION_CREDENTIALS='/root/project/infra-automation/google_credentials.json' && \
-		pip3 install earthranger-cli==0.0.2 --extra-index-url https://us-west1-python.pkg.dev/earthranger-dev/core-backend/simple/
+		pip3 install earthranger-cli==0.0.4 --extra-index-url https://us-west1-python.pkg.dev/earthranger-dev/core-backend/simple/
 	@ echo "Successfully installed the er cli"
+	@ env
+	@ er --help
