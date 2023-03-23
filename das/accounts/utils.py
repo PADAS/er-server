@@ -1,20 +1,30 @@
+import hashlib
 import re
 from collections import defaultdict
 
 from django.contrib import auth
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 
 from activity.models import EventCategory
+from choices.models import Choice
 from utils.categories import get_categories_and_geo_categories
+
+User = get_user_model()
 
 
 def patrol_mgmt_permissions(modelnames=None):
-    modelnames = modelnames or ('patrol', 'patroltype', 'patrolsegment', 'patrolnote',
-                                'patrolfile', 'patrolsegmentmembership')
+    modelnames = modelnames or (
+        "patrol",
+        "patroltype",
+        "patrolsegment",
+        "patrolnote",
+        "patrolfile",
+        "patrolsegmentmembership",
+    )
 
-    content_types = [ContentType.objects.get(
-        app_label='activity', model=modelname) for modelname in modelnames]
+    content_types = [ContentType.objects.get(app_label="activity", model=modelname) for modelname in modelnames]
     return Permission.objects.filter(content_type__in=content_types)
 
 
@@ -41,11 +51,10 @@ def ignore_permission(resource, app_name, perm=None, user=None):
     if resource in ["message"]:
         return False
     elif any(
-            [
-                resource
-                in {"patrolsegment", "patrolnote", "patrolfile", "patrolsegmentmembership"},
-                app_name not in {"activity"},
-            ]
+        [
+            resource in {"patrolsegment", "patrolnote", "patrolfile", "patrolsegmentmembership"},
+            app_name not in {"activity"},
+        ]
     ):
         return True
     elif "geographic" in perm and user:
@@ -99,3 +108,25 @@ def allowed_permissions(user_instance):
             container[resource].append(verb)
 
     return container
+
+
+def fetch_tech_choices():
+    tech_choices = Choice.objects.filter(model="accounts.user.User", field="tech").order_by("ordernum")
+    return tuple((obj.value, obj.display) for obj in tech_choices)
+
+
+def fetch_organization_choices():
+    organization_choices = {"": ""}
+    for organization in Choice.objects.filter(model="accounts.user.User", field="organization").order_by("ordernum"):
+        organization_choices[organization.value] = organization.display
+    return tuple([(key, value) for key, value in organization_choices.items()])
+
+
+def get_user_etag(request, *args, **kwargs):
+    param = kwargs["id"]
+    user = request.user
+    if param != "me":
+        user = User.objects.get(id=param)
+    fields = ("username", "first_name", "last_name", "email", "pin")
+    user_str = ":".join((str(getattr(user, field)) for field in fields if getattr(user, field)))
+    return hashlib.md5(user_str.encode("utf-8")).hexdigest()

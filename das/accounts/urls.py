@@ -16,25 +16,29 @@ Including another URLconf
 from django.conf.urls import re_path
 from rest_framework.urlpatterns import format_suffix_patterns
 
-from accounts.views import (AcceptEulaAPIView, GetActiveEulaAPIView,
-                            UserProfilesView, UsersCsvView, UsersView,
-                            UserView)
+from accounts.views import (
+    AcceptEulaAPIView,
+    GetActiveEulaAPIView,
+    UserProfilesView,
+    UsersCsvView,
+    UsersView,
+    UserView,
+)
 from utils.constants import regex
 
 app_name = "accounts"
 
 urlpatterns = [
-    re_path(r"^users/?$", UsersView.as_view()),
+    re_path(r"^users/?$", UsersView.as_view(), name="users"),
     re_path(r"^users/csv/?$", UsersCsvView.as_view()),
     re_path(
         rf"user/(?P<id>me|{regex.UUID})/?$",
         UserView.as_view(),
+        name="user",
     ),
-    re_path(rf"^user/(?P<id>me|{regex.UUID})/profiles/?$",
-            UserProfilesView.as_view()),
+    re_path(rf"^user/(?P<id>me|{regex.UUID})/profiles/?$", UserProfilesView.as_view(), name="user-profiles"),
     re_path(r"^user/eula/?$", GetActiveEulaAPIView.as_view()),
     re_path(r"^user/eula/accept/?$", AcceptEulaAPIView.as_view()),
-
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

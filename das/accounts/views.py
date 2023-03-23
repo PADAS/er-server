@@ -3,6 +3,7 @@ import datetime
 import logging
 
 import pytz
+from rest_framework_condition import etag
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -13,21 +14,23 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-import accounts.serializers as serializers
 from accounts.filters import UserObjectPermissionsFilter
 from accounts.models import User
 from accounts.models.eula import EULA, UserAgreement
 from accounts.permissions import EulaPermission, UserObjectPermissions
+from accounts.serializers import AcceptEulaSerializer, EulaSerializer, UserSerializer
 from accounts.utils import allowed_permissions
 from utils.features import features
 from utils.tenant import get_tenant_settings
+
+from .utils import get_user_etag
 
 logger = logging.getLogger(__name__)
 
 
 class UsersView(generics.ListAPIView):
     queryset = get_user_model().objects.all()
-    serializer_class = serializers.UserSerializer
+    serializer_class = UserSerializer
     permission_classes = (UserObjectPermissions,)
     filter_backends = (UserObjectPermissionsFilter,)
 
@@ -35,7 +38,7 @@ class UsersView(generics.ListAPIView):
 class UserView(generics.RetrieveAPIView):
     lookup_field = "id"
     queryset = get_user_model().objects.all()
-    serializer_class = serializers.UserSerializer
+    serializer_class = UserSerializer
     permission_classes = (UserObjectPermissions,)
     filter_backends = (UserObjectPermissionsFilter,)
 
@@ -45,9 +48,12 @@ class UserView(generics.RetrieveAPIView):
             self.kwargs[lookup_url_kwarg] = self.request.user.id
         return super(UserView, self).get_object()
 
+    @etag(get_user_etag)
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
     def get_serializer_context(self):
         context = super().get_serializer_context()
-
         # Add permissions block. Initially this covers just Patrol-related resources.
         context["permissions"] = allowed_permissions(self.request.user) or {}
         return context
@@ -56,8 +62,12 @@ class UserView(generics.RetrieveAPIView):
 class UserProfilesView(generics.ListAPIView):
     lookup_field = "id"
     queryset = get_user_model().objects.all()
-    serializer_class = serializers.UserSerializer
+    serializer_class = UserSerializer
     permission_classes = (UserObjectPermissions,)
+
+    @etag(get_user_etag)
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
         lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
@@ -108,7 +118,7 @@ class UsersCsvView(APIView):
 
 class AcceptEulaAPIView(generics.CreateAPIView):
     permission_classes = (IsAuthenticated, EulaPermission)
-    serializer_class = serializers.AcceptEulaSerializer
+    serializer_class = AcceptEulaSerializer
     queryset = UserAgreement.objects.all()
 
     def create(self, request, *args, **kwargs):
@@ -142,7 +152,7 @@ class AcceptEulaAPIView(generics.CreateAPIView):
 
 class GetActiveEulaAPIView(generics.RetrieveAPIView):
     permission_classes = (AllowAny,)
-    serializer_class = serializers.EulaSerializer
+    serializer_class = EulaSerializer
     queryset = EULA.objects.all()
 
     def dispatch(self, request, *args, **kwargs):

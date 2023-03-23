@@ -10,6 +10,7 @@ from rest_framework.test import APIClient
 
 from factories import (
     AccessTokenFactory,
+    ChoiceFactory,
     EventCategoryFactory,
     EventDetailsFactory,
     EventFactory,
@@ -357,3 +358,8 @@ def tenant(tenant_response):
 @pytest.fixture(scope="function")
 def tenant_response_for_test_case(request, tenant):
     request.cls.tenant_response = tenant
+
+
+@pytest.fixture
+def five_choices():
+    return ChoiceFactory.create_batch(5)
