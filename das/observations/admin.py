@@ -52,6 +52,7 @@ from django.utils.translation import gettext_lazy as _
 
 import observations.forms
 import observations.models as models
+from accounts.models import PermissionSet
 from core.admin import (
     HierarchyModelAdmin,
     InlineExtraDynamicMixin,
@@ -123,7 +124,6 @@ admin.widgets.RelatedFieldWidgetWrapper = _RelatedFieldWidgetWrapper
 
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
-
         meta = self.model._meta
         field_names = [field.name for field in meta.fields]
 
@@ -324,7 +324,6 @@ class InputFilter(admin.SimpleListFilter):
         return ((),)
 
     def choices(self, changelist):
-
         all_choice = next(super().choices(changelist))
         all_choice["query_parts"] = (
             (k, v) for k, v in changelist.get_filters_params().items() if k != self.parameter_name
@@ -640,7 +639,6 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
             return [(None, {"fields": self.get_fields(request, obj)})]
 
     def _status(self, o):
-
         return mark_safe(f'<img src="{o.image_url}" style="height:2.0em;"/>')
 
     _status.short_description = _("Map Marker")
@@ -734,7 +732,6 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
     get_attributes.short_description = _("Subject Attributes")
 
     def all_groups(self, instance):
-
         gnlist = [x for x in instance.groups_names if x is not None]
         if gnlist:
             return make_html_list(gnlist)
@@ -799,7 +796,6 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
             no_trackpoint_records.update(status_description=None)
 
     def change_view(self, request, object_id, form_url="", extra_context=None):
-
         latest_observations = (
             models.Observation.objects.filter(
                 source__subjectsource__subject__id=object_id,
@@ -980,7 +976,6 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
         msg_dict = {"name": opts.verbose_name, "obj": obj_repr, "filename": obj.file_name}
 
         if "_addanother" in request.POST:
-
             msg = format_html(
                 _(
                     'The GPX data file "{filename}" was successfully uploaded for processing. You may add another {name} below.'
@@ -992,7 +987,6 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
             redirect_url = add_preserved_filters({"preserved_filters": preserved_filters, "opts": opts}, redirect_url)
             return HttpResponseRedirect(redirect_url)
         else:
-
             msg = format_html(
                 _(
                     'The GPX data file "{filename}" was successfully uploaded for processing.',
@@ -1345,6 +1339,13 @@ class RegionAdmin(admin.ModelAdmin):
 
 class SubjectGroupChangeForm(forms.ModelForm):
     filter_horizontal = ("children", "permission_sets", "subjects")
+
+    permission_sets = forms.ModelMultipleChoiceField(
+        queryset=PermissionSet.objects.filter(~Q(name="View Tracks All Time")),
+        required=False,
+        widget=FilteredSelectMultiple(verbose_name=_("Permissions sets"), is_stacked=False),
+    )
+
     active_subjects = forms.ModelMultipleChoiceField(
         queryset=models.Subject.objects.order_by("name").by_is_active(True),
         required=False,
@@ -1876,7 +1877,6 @@ def get_next_in_date_hierarchy(request, date_hierarchy):
 
 @admin.register(models.SubjectMaximumSpeed)
 class ObservationAnnotatorAdmin(admin.ModelAdmin):
-
     list_display = (
         "subject_name",
         "max_speed",
@@ -1909,7 +1909,6 @@ class SubjectMessagesFilter(SimpleListFilter):
     parameter_name = "subjects"
 
     def lookups(self, request, model_admin):
-
         # Get subjects with messages and add as filter options
         sender_subject_ids = models.Message.objects.filter(sender_content_type__model="subject").values_list(
             "sender_id", flat=True
