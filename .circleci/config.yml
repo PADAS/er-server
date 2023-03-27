@@ -353,40 +353,42 @@ workflows:
   # Build for all branches except develop and release.
   # Include a review step.
     jobs:
-      - install_er_cli:
+      - build_sphinx_docs:
           filters:
             branches:
               ignore:
                 - 'develop'
                 - /das-2-.*-.*/
-      # - build_sphinx_docs:
-      #     filters:
-      #       branches:
-      #         ignore:
-      #           - 'develop'
-      #           - /das-2-.*-.*/
-      # - docker_build_image:
-      #     requires:
-      #       - 'build_sphinx_docs'
-      #     filters:
-      #       branches:
-      #         ignore:
-      #           - 'develop'
-      #           - /das-2-.*-.*/
-      # - run_api_unittests:
-      #     requires:
-      #       - 'docker_build_image'
-      # - terraform_plan:
-      #     requires:
-      #       - 'docker_build_image'
-      #     terraform_workspace: "$CIRCLE_BRANCH"
-      # - review_plan:
-      #     requires:
-      #       - 'terraform_plan'
-      #     type: 'approval'
-      # - terraform_apply_feature_branch:
-      #     requires:
-      #       - 'review_plan'
+      - docker_build_image:
+          requires:
+            - 'build_sphinx_docs'
+          filters:
+            branches:
+              ignore:
+                - 'develop'
+                - /das-2-.*-.*/
+      - run_api_unittests:
+          requires:
+            - 'docker_build_image'
+      - terraform_plan:
+          requires:
+            - 'docker_build_image'
+          terraform_workspace: "$CIRCLE_BRANCH"
+      - review_plan:
+          requires:
+            - 'terraform_plan'
+          type: 'approval'
+      - terraform_apply_feature_branch:
+          requires:
+            - 'review_plan'
+      - install_er_cli:
+          requires:
+            - 'terraform_apply_feature_branch'
+          filters:
+            branches:
+              ignore:
+                - 'develop'
+                - /das-2-.*-.*/
 
   build_and_terraform_release_branch:
     jobs:
