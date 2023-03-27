@@ -396,6 +396,7 @@ locals {
     "gkepf"                   = "prod1"
     "luengueluiana"           = "prod1"
     "mtpa"                    = "prod1"
+    "sfguwa-hwc"              = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
