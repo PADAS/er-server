@@ -198,9 +198,8 @@ def get_filtered_patrols(patrol_filter, queryset):
     return queryset
 
 
-@celery.app.task(base=QueueOnce, once={"graceful": True}, rate_limit="10/m")
+@celery.app.task(base=QueueOnce, once={"graceful": True})
 def _broadcast_service_status(service_status_data=None):
-
     service_status_data = service_status_data or servicesutils.get_source_provider_statuses()
 
     try:
@@ -249,12 +248,10 @@ def _subjectstatus_update_handler(subject_id):
 
                 logger.debug("SubjectStatus payload: %s", payload)
                 if payload:
-
                     emit_data = {"type": "subject_status", "sid": "<<sid>>", "object_id": subject_id, "data": payload}
                     emit_data = json.dumps(emit_data, default=dumps_helper)
 
                     for sid in user_sids:
-
                         message = emit_data.replace("<<sid>>", sid)
 
                         logger.debug("Emitting: %s", message)
