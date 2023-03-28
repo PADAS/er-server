@@ -179,7 +179,7 @@ commands:
 executors:
   default:
     docker:
-      - image: 'google/cloud-sdk:315.0.0'
+      - image: 'google/cloud-sdk:420.0.0'
         auth:
               username: erdockerhub
               password: $DOCKERHUB_PASSWORD
@@ -312,6 +312,13 @@ jobs:
           root: './'
           paths:
             - '*'
+  install_er_cli:
+    executor: 'default'
+    steps:
+      - 'checkout'
+      - 'activate_google_service_account'
+      - 'export_google_credentials'
+      - run: cd infra-automation && make install_er_cli
 
 workflows:
   version: 2
@@ -374,6 +381,14 @@ workflows:
       - terraform_apply_feature_branch:
           requires:
             - 'review_plan'
+      - install_er_cli:
+          requires:
+            - 'terraform_apply_feature_branch'
+          filters:
+            branches:
+              ignore:
+                - 'develop'
+                - /das-2-.*-.*/
 
   build_and_terraform_release_branch:
     jobs:
