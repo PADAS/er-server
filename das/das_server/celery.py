@@ -113,11 +113,6 @@ app.conf.beat_schedule = {
         "task": "observations.tasks.maintain_subjectstatus_all",
         "schedule": timedelta(hours=12),
     },
-    "demo-plugins": {
-        "task": "tracking.tasks.run_demo_plugins",
-        "schedule": timedelta(seconds=PLUGINS_INTERVAL),
-        "options": {"expires": PLUGINS_INTERVAL},
-    },
     "reports": {
         "task": "reports.tasks.subjectsource_report",
         # 6 AM local time per settings.TIME_ZONE
