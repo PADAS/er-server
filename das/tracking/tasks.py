@@ -49,18 +49,19 @@ def run_plugin_class(plugin_class, expire_subtasks=EXPIRE_SUBTASKS):
         plugin_class = apps.get_model("tracking", plugin_class)
 
     for plugin in plugin_class.objects.all():
-        if plugin.run_source_plugins and plugin.status == TrackingPlugin.STATUS_ENABLED:
-            for sp in plugin.source_plugins.filter(status=TrackingPlugin.STATUS_ENABLED):
-                if sp.should_run():
-                    # Expire in N seconds where N is the same as the period for the scheduled task.
-                    # This is to avoid letting our task queue get jammed with
-                    # redundant tasks.
-                    run_source_plugin.apply_async(
-                        args=[
-                            str(sp.id),
-                        ],
-                        expires=expire_subtasks,
-                    )
+        if plugin.run_source_plugins:
+            if plugin.status == TrackingPlugin.STATUS_ENABLED:
+                for sp in plugin.source_plugins.filter(status=TrackingPlugin.STATUS_ENABLED):
+                    if sp.should_run():
+                        # Expire in N seconds where N is the same as the period for the scheduled task.
+                        # This is to avoid letting our task queue get jammed with
+                        # redundant tasks.
+                        run_source_plugin.apply_async(
+                            args=[
+                                str(sp.id),
+                            ],
+                            expires=expire_subtasks,
+                        )
         else:
             plugin.execute()
 
