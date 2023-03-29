@@ -397,6 +397,7 @@ locals {
     "luengueluiana"           = "prod1"
     "mtpa"                    = "prod1"
     "sfguwa-hwc"              = "prod1"
+    "pianupewildlifereserve"  = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -589,6 +590,7 @@ locals {
     "colostate"               = 1
     "gkepf"                   = 1
     "mtpa"                    = 1
+    "pianupewildlifereserve"  = 1
   }
 
   db_instance_index  = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
