@@ -197,6 +197,13 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
         (_("User Profiles"), {"fields": ("act_as_profiles",)}),
     )
 
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj=obj, **kwargs)
+        form.request_user = request.user
+        if obj:
+            form.current_user = obj
+        return form
+
     def get_default_filters(self, request):
         return {
             "is_active__exact": 1,
@@ -223,16 +230,6 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
 
     member_permission_sets.short_description = "Member Permission Sets"
     member_permission_sets.allow_tags = True
-
-    def formfield_for_manytomany(self, db_field, request, **kwargs):
-        # TODO: for a user with is_nologin set, do not return a set of profiles
-        if db_field.name == "act_as_profiles":
-            queryset = User.objects.filter(is_staff=False)
-            # queryset = queryset.filter(is_nologin=True)
-            queryset = queryset.by_is_active()
-            queryset = queryset.exclude(pk=request.user.pk)
-            kwargs["queryset"] = queryset
-        return super(UserAdmin, self).formfield_for_manytomany(db_field, request, **kwargs)
 
     def reset_password(self, request, user_id):
         if not self.has_change_permission(request):

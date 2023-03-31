@@ -363,3 +363,8 @@ def tenant_response_for_test_case(request, tenant):
 @pytest.fixture
 def five_choices():
     return ChoiceFactory.create_batch(5)
+
+
+@pytest.fixture
+def five_users():
+    return UserFactory.create_batch(5)
