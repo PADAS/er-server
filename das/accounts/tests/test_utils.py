@@ -1,6 +1,6 @@
 import pytest
 
-from accounts.utils import fetch_organization_choices, fetch_tech_choices
+from accounts.utils import fetch_organization_choices, fetch_tech_choices, get_profiles
 
 
 @pytest.mark.django_db
@@ -37,3 +37,22 @@ class TestFetchOrganizationChoices:
         tech_choices = fetch_organization_choices()
 
         assert tech_choices == (("", ""),)
+
+
+@pytest.mark.django_db
+class TestGetProfiles:
+    def test_without_children(self, five_users):
+        user = five_users[0]
+        users = set([user.id for user in get_profiles([user.id])])
+
+        assert {five_users[1].id, five_users[2].id, five_users[3].id, five_users[4].id} == users
+        assert user.username not in users
+
+    def test_with_children(self, five_users):
+        father = five_users[0]
+        father.act_as_profiles.add(five_users[0])
+
+        users = set([user.id for user in get_profiles([father.id])])
+
+        assert {five_users[1].id, five_users[2].id, five_users[3].id, five_users[4].id} == users
+        assert father.username not in users

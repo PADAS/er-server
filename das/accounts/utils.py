@@ -1,11 +1,14 @@
 import hashlib
 import re
 from collections import defaultdict
+from typing import List
+from uuid import uuid4
 
 from django.contrib import auth
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import Count, Q
 
 from activity.models import EventCategory
 from choices.models import Choice
@@ -130,3 +133,12 @@ def get_user_etag(request, *args, **kwargs):
     fields = ("username", "first_name", "last_name", "email", "pin")
     user_str = ":".join((str(getattr(user, field)) for field in fields if getattr(user, field)))
     return hashlib.md5(user_str.encode("utf-8")).hexdigest()
+
+
+def get_profiles(users: List[uuid4]):
+    return (
+        User.objects.annotate(profiles_count=Count("act_as_profiles"))
+        .filter(is_staff=False, is_active=True)
+        .exclude(Q(id__in=users) | Q(profiles_count__gt=0))
+        .order_by("username")
+    )

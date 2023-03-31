@@ -9,7 +9,7 @@ from django.template import loader
 from django.utils.translation import gettext_lazy as _
 
 from accounts.models import PermissionSet, User
-from accounts.utils import patrol_mgmt_permissions
+from accounts.utils import get_profiles, patrol_mgmt_permissions
 from core.common import TIMEZONE_USED
 from core.forms_utils import JSONFieldFormMixin
 from observations import kmlutils
@@ -63,6 +63,11 @@ class CustomUserCreationForm(JSONFieldFormMixin, UserCreationForm):
     )
     organization = forms.ChoiceField(required=False, help_text="User Organization")
     role = forms.ChoiceField(required=False, label="Role", choices=ROLE_CHOICES)
+    act_as_profiles = forms.ModelMultipleChoiceField(
+        queryset=User.objects.none(),
+        widget=FilteredSelectMultiple(verbose_name="Profiles", is_stacked=False),
+        required=False,
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -72,6 +77,8 @@ class CustomUserCreationForm(JSONFieldFormMixin, UserCreationForm):
         self.fields["password2"].widget.attrs["autocomplete"] = "off"
         self.fields["tech"].choices = fetch_tech_choices()
         self.fields["organization"].choices = fetch_organization_choices()
+        if hasattr(self, "request_user") and self.request_user or hasattr(self, "current_user") and self.current_user:
+            self.fields["act_as_profiles"].queryset = get_profiles(users=self._get_exclude_users())
 
     class Meta:
         model = User
@@ -109,6 +116,16 @@ class CustomUserCreationForm(JSONFieldFormMixin, UserCreationForm):
                 raise ValidationError("The size should be four digits.")
         return pin
 
+    def _get_exclude_users(self):
+        users = []
+        for attribute in (
+            "request_user",
+            "current_user",
+        ):
+            if hasattr(self, attribute):
+                users.append(getattr(self, attribute).id)
+        return users
+
 
 class UserAdditionalForm(JSONFieldFormMixin, UserChangeForm):
     first_name = forms.CharField(required=False)
@@ -133,17 +150,31 @@ class UserAdditionalForm(JSONFieldFormMixin, UserChangeForm):
     )
     organization = forms.ChoiceField(required=False, help_text="User Organization")
     role = forms.ChoiceField(required=False, label="Role", choices=ROLE_CHOICES)
+    act_as_profiles = forms.ModelMultipleChoiceField(
+        queryset=User.objects.none(),
+        widget=FilteredSelectMultiple(verbose_name="Profiles", is_stacked=False),
+        required=False,
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["tech"].choices = fetch_tech_choices()
         self.fields["organization"].choices = fetch_organization_choices()
+        if hasattr(self, "request_user") and self.request_user or hasattr(self, "current_user") and self.current_user:
+            self.fields["act_as_profiles"].queryset = get_profiles(users=self._get_exclude_users())
 
     class Meta:
         model = User
         json_fields = ("notes", "expiry", "moudatesigned", "moutype", "moufilename", "organization", "tech", "role")
         json_date_fields = ("expiry", "moudatesigned")
-        fields = ("first_name", "last_name", "email", "phone", "username") + json_fields
+        fields = (
+            "first_name",
+            "last_name",
+            "email",
+            "phone",
+            "username",
+            "act_as_profiles",
+        ) + json_fields
 
     json_field = "additional"
 
@@ -163,6 +194,16 @@ class UserAdditionalForm(JSONFieldFormMixin, UserChangeForm):
             if len(pin) != 4:
                 raise ValidationError("The size should be four digits.")
         return pin
+
+    def _get_exclude_users(self):
+        users = []
+        for attribute in (
+            "request_user",
+            "current_user",
+        ):
+            if hasattr(self, attribute):
+                users.append(getattr(self, attribute).id)
+        return users
 
 
 class PermissionSetAdminForm(forms.ModelForm):
