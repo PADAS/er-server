@@ -1,12 +1,22 @@
+from rest_framework_condition import condition
+
 from django.db import IntegrityError
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 
-from activity.models import EventCategory, EventType
+from activity.models import EventType
 from activity.permissions import EventCategoryPermissions
 from activity.serializers import EventTypeSerializer
 from activity.util import return_409_response
+from activity.views.response_headers import (
+    build_event_type_etag_header,
+    build_event_type_last_modified_header,
+    build_event_types_etag_header,
+    build_event_types_last_modified_header,
+)
 from activity.views.schemas import EventTypeViewSchema
 from utils.json import parse_bool
+
+from .utils import EventTypeQuerysetMixin
 
 
 class EventTypeView(RetrieveUpdateDestroyAPIView):
@@ -15,6 +25,10 @@ class EventTypeView(RetrieveUpdateDestroyAPIView):
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventTypeSerializer
     queryset = EventType.objects.all()
+
+    @condition(etag_func=build_event_type_etag_header, last_modified_func=build_event_type_last_modified_header)
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
 
     def perform_destroy(self, instance):
         instance.set_to_inactive()
@@ -39,50 +53,14 @@ class EventTypeView(RetrieveUpdateDestroyAPIView):
         return context
 
 
-class EventTypesView(ListCreateAPIView):
+class EventTypesView(EventTypeQuerysetMixin, ListCreateAPIView):
     permission_classes = (EventCategoryPermissions,)
     serializer_class = EventTypeSerializer
     schema = EventTypeViewSchema()
 
-    def get_queryset(self):
-        query_params = self.request.query_params
-        queryset = EventType.objects.all_sort()
-
-        if parse_bool(query_params.get("include_inactive")):
-            queryset = queryset.filter(category__is_active=True)
-        else:
-            queryset = queryset.filter(category__is_active=True, is_active=True)
-
-        category = query_params.getlist("category", None)
-        if category:
-            queryset = queryset.by_category(category)
-        else:
-            allowed_categories = []
-            event_categories = EventCategory.objects.values_list("value").distinct()
-            event_categories = [ec[0] for ec in event_categories]
-            actions = ("create", "update", "read", "delete")
-            geo_actions = (
-                "view",
-                "add",
-                "change",
-                "delete",
-            )
-
-            for event_category in event_categories:
-                permission_name = [f"activity.{event_category}_{action}" for action in actions]
-                permission_name += [f"activity.{action}_{event_category}_geographic_distance" for action in geo_actions]
-                if any([self.request.user.has_perm(perm) for perm in permission_name]):
-                    allowed_categories.append(event_category)
-
-            if allowed_categories:
-                queryset = queryset.by_category(allowed_categories)
-            elif query_params.get("is_collection", None) is None:
-                return queryset.none()
-
-        is_collection = query_params.get("is_collection", None)
-        if is_collection is not None:
-            queryset = queryset.by_is_collection(parse_bool(is_collection))
-        return queryset
+    @condition(etag_func=build_event_types_etag_header, last_modified_func=build_event_types_last_modified_header)
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
 
     def get_serializer_context(self):
         qparams = self.request.query_params

@@ -4,6 +4,7 @@ import logging
 import mimetypes
 
 import versatileimagefield.files
+from rest_framework_condition import condition
 
 from django.db.models import CharField, Prefetch
 from django.db.models.functions import Cast
@@ -41,6 +42,12 @@ from observations.models import Subject
 from usercontent.serializers import get_stored_filename
 from utils.drf import StandardResultsSetPagination
 
+from .response_headers import (
+    build_patrol_type_etag_header,
+    build_patrol_type_last_modified_header,
+    build_patrol_types_etag_header,
+    build_patrol_types_last_modified_header,
+)
 from .schemas import PatrolSchema
 
 logger = logging.getLogger(__name__)
@@ -104,7 +111,6 @@ class PatrolFilesView(ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
 
     def create(self, request, *args, **kwargs):
-
         patrol = self.get_patrol()
 
         # TODO: This conditional is to handle the case where a file is uploaded
@@ -177,11 +183,19 @@ class PatrolTypeView(RetrieveAPIView):
     permission_classes = (PatrolTypePermissions,)
     queryset = PatrolType.objects.all()
 
+    @condition(etag_func=build_patrol_type_etag_header, last_modified_func=build_patrol_type_last_modified_header)
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
 
 class PatrolTypesView(ListAPIView):
     serializer_class = PatrolTypeSerializer
     permission_classes = (PatrolTypePermissions,)
     queryset = PatrolType.objects.all()
+
+    @condition(etag_func=build_patrol_types_etag_header, last_modified_func=build_patrol_types_last_modified_header)
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
 
 
 class PatrolView(RetrieveUpdateDestroyAPIView):

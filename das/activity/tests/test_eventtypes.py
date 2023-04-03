@@ -4,7 +4,9 @@ from typing import Any, NamedTuple
 
 import pytest
 
+from django.http import HttpResponseNotModified
 from django.urls import reverse
+from rest_framework import status
 
 from activity.models import EventCategory, EventType
 from activity.tests import schema_examples
@@ -188,6 +190,7 @@ def test_readonly_eventtype(eventtype_fixture, client, memory_store_client_mock,
     assert response.data["readonly"]
 
 
+@pytest.mark.django_db
 class TestEventTypeAPI:
     @pytest.mark.parametrize(
         "mocked_geometry_type", (EventType.GeometryTypesChoices.POINT, EventType.GeometryTypesChoices.POLYGON)
@@ -201,6 +204,21 @@ class TestEventTypeAPI:
 
         assert response.data["geometry_type"] == mocked_geometry_type.value
 
+    def test_response_includes_etag_and_last_modified_headers(self, superuser_client, five_event_types):
+        event_type_id = str(five_event_types[0].id)
+        url = reverse("eventtype", kwargs={"eventtype_id": event_type_id})
+
+        response_with_info = superuser_client.get(url, HTTP_IF_NONE_MATCH='"non-matching-etag"')
+        etag = response_with_info.headers["ETag"]
+        last_modified = response_with_info.headers["Last-Modified"]
+        empty_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
+
+        assert response_with_info.status_code == status.HTTP_200_OK
+        assert etag == empty_response.headers["ETag"]
+        assert last_modified == empty_response.headers["Last-Modified"]
+        assert empty_response.status_code == status.HTTP_304_NOT_MODIFIED
+        assert isinstance(empty_response, HttpResponseNotModified)
+
     def _get_response(self, event_type_id):
         client = HTTPClient()
         client.app_user.is_superuser = True
@@ -210,3 +228,20 @@ class TestEventTypeAPI:
         request = client.factory.get(url)
         client.force_authenticate(request, client.app_user)
         return EventTypeView.as_view()(request, eventtype_id=event_type_id)
+
+
+@pytest.mark.django_db
+class TestEventTypesAPI:
+    def test_response_includes_etag_and_last_modified_headers(self, superuser_client, five_event_types):
+        url = reverse("eventtypes")
+
+        response_with_info = superuser_client.get(url, HTTP_IF_NONE_MATCH='"non-matching-etag"')
+        etag = response_with_info.headers["ETag"]
+        last_modified = response_with_info.headers["Last-Modified"]
+        empty_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
+
+        assert response_with_info.status_code == status.HTTP_200_OK
+        assert etag == empty_response.headers["ETag"]
+        assert last_modified == empty_response.headers["Last-Modified"]
+        assert empty_response.status_code == status.HTTP_304_NOT_MODIFIED
+        assert isinstance(empty_response, HttpResponseNotModified)
