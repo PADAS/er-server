@@ -1,0 +1,54 @@
+from activity.models import EventCategory, EventType
+from utils.json import parse_bool
+
+ACTIONS = ("create", "update", "read", "delete")
+GEO_ACTIONS = ("view", "add", "change", "delete")
+
+
+class EventTypeQuerysetMixin:
+    def get_queryset(self):
+        user = self.request.user
+        query_params = self.request.query_params
+        category = query_params.get("category")
+        include_inactive = parse_bool(query_params.get("include_inactive"))
+        is_collection = query_params.get("is_collection")
+        queryset = EventType.objects.all_sort()
+
+        if include_inactive:
+            queryset = queryset.filter(category__is_active=True)
+        else:
+            queryset = queryset.filter(category__is_active=True, is_active=True)
+
+        if category:
+            queryset = queryset.by_category(category)
+        else:
+            allowed_categories = self._get_allowed_categories_by_user(user)
+
+            if allowed_categories:
+                queryset = queryset.by_category(allowed_categories)
+            elif not is_collection:
+                return queryset.none()
+
+        if is_collection:
+            queryset = queryset.by_is_collection(parse_bool(is_collection))
+
+        return queryset
+
+    def _get_allowed_categories_by_user(self, user):
+        event_categories = (entry[0] for entry in EventCategory.objects.values_list("value").distinct())
+        allowed_categories = [
+            event_category
+            for event_category in event_categories
+            if self._is_event_category_visible_by_user(event_category, user)
+        ]
+        return allowed_categories
+
+    def _is_event_category_visible_by_user(self, event_category, user):
+        permission_names = self._build_permission_names(event_category)
+        return any((user.has_perm(permission_name) for permission_name in permission_names))
+
+    def _build_permission_names(self, event_category):
+        action_permissions = [f"activity.{event_category}_{action}" for action in ACTIONS]
+        geoaction_permissions = [f"activity.{action}_{event_category}_geographic_distance" for action in GEO_ACTIONS]
+
+        return action_permissions + geoaction_permissions

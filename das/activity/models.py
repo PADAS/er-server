@@ -55,6 +55,7 @@ from observations.utils import is_banned
 from revision.manager import Revision, RevisionAdapter, RevisionMixin, relation_deleted
 from utils.gis import convert_to_point, get_circle_polygon_from_point
 from utils.html import clean_user_text
+from utils.json import parse_bool
 
 logger = logging.getLogger(__name__)
 
@@ -186,6 +187,12 @@ class FilterFieldMixin(object):
 class EventTypeFilteringQuerySet(models.QuerySet, FilterFieldMixin):
     def by_category(self, category):
         return self.filter_field("category__value", category)
+
+    def by_including_inactive_categories(self, include_inactive):
+        if parse_bool(include_inactive):
+            return self.filter_field("category__is_active", True)
+
+        return self
 
     def by_is_collection(self, value):
         return self.filter_field("is_collection", value)
@@ -486,7 +493,6 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
         return self
 
     def by_date_range(self, lower=None, upper=None):
-
         if lower and upper:
             return self.filter(event_time__range=(lower, upper))
         elif lower:
@@ -1381,7 +1387,6 @@ class EventSource(TimestampedModel):
 
 class EventsourceEventManager(models.Manager):
     def add_relation(self, event, eventsource, external_event_id):
-
         correlation = EventsourceEvent.objects.get_or_create(
             eventsource=eventsource,
             external_event_id=external_event_id,
@@ -1397,7 +1402,6 @@ class EventsourceEventManager(models.Manager):
             pass
 
     def remove_relation(self, eventsource, external_event_id):
-
         result = EventsourceEvent.objects.filter(eventsource=eventsource, external_event_id=external_event_id).delete()
 
         return result

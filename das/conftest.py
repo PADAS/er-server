@@ -179,6 +179,11 @@ def event_type():
     return EventTypeFactory.create()
 
 
+@pytest.fixture
+def five_event_types():
+    return EventTypeFactory.create_batch(5)
+
+
 @pytest.fixture(autouse=True)
 def dummy_cache(settings):
     settings.CACHES = {
