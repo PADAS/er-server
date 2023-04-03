@@ -14,6 +14,7 @@ from psycopg2.extras import DateTimeTZRange
 import django.contrib.auth
 from django.core.management import call_command
 from django.db import connection
+from django.http import HttpResponseNotModified
 from django.test import Client
 from django.urls import reverse
 from django.utils import lorem_ipsum, timezone
@@ -2234,6 +2235,38 @@ class TestPatrolView:
         data = dict(response.data)
 
         assert data["state"] == PC_DONE
+
+    def test_response_contains_etag_and_last_modified_headers(self, superuser_client, five_patrol_segment):
+        patrol_type_id = str(PatrolType.objects.first().id)
+        url = reverse("patrol-type", kwargs={"id": patrol_type_id})
+
+        response_with_info = superuser_client.get(url, HTTP_IF_NONE_MATCH='"non-matching-etag"')
+        etag = response_with_info.headers["ETag"]
+        last_modified = response_with_info.headers["Last-Modified"]
+        empty_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
+
+        assert response_with_info.status_code == status.HTTP_200_OK
+        assert etag == empty_response.headers["ETag"]
+        assert last_modified == empty_response.headers["Last-Modified"]
+        assert empty_response.status_code == status.HTTP_304_NOT_MODIFIED
+        assert isinstance(empty_response, HttpResponseNotModified)
+
+
+@pytest.mark.django_db
+class TestPatroslView:
+    def test_response_contains_etag_and_last_modified_headers(self, superuser_client, five_patrol_segment):
+        url = reverse("patrol-types")
+
+        response_with_info = superuser_client.get(url, HTTP_IF_NONE_MATCH='"non-matching-etag"')
+        etag = response_with_info.headers["ETag"]
+        last_modified = response_with_info.headers["Last-Modified"]
+        empty_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
+
+        assert response_with_info.status_code == status.HTTP_200_OK
+        assert etag == empty_response.headers["ETag"]
+        assert last_modified == empty_response.headers["Last-Modified"]
+        assert empty_response.status_code == status.HTTP_304_NOT_MODIFIED
+        assert isinstance(empty_response, HttpResponseNotModified)
 
 
 @pytest.mark.django_db

@@ -1,7 +1,6 @@
 import pytest
 
-from activity.factories import (EventFactory, EventSourceEventFactory,
-                                EventSourceFactory)
+from activity.factories import EventFactory, EventSourceEventFactory, EventSourceFactory
 
 
 @pytest.fixture
