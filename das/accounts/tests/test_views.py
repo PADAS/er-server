@@ -29,6 +29,35 @@ class TestUserView:
         assert response.status_code == status.HTTP_200_OK
         assert "ETag" in response.headers.keys()
 
+    def test_get_user_no_modified(self, superuser_client):
+        user = User.objects.last()
+        url = reverse("accounts:user", kwargs={"id": str(user.id)})
+
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "ETag" in response.headers.keys()
+
+        etag = response.headers["ETag"]
+        new_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
+
+        assert new_response.status_code == status.HTTP_304_NOT_MODIFIED
+        assert etag == new_response.headers["Etag"]
+
+    def test_modified_user(self, superuser_client) -> None:
+        user = User.objects.last()
+        url = reverse("accounts:user", kwargs={"id": str(user.id)})
+        response = superuser_client.get(url)
+
+        etag = response.headers["ETag"]
+
+        user.first_name = "New Name"
+        user.save(update_fields=("first_name",))
+
+        new_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
+
+        assert etag != new_response.headers["Etag"]
+
 
 @pytest.mark.django_db
 class TestUserProfilesView:
@@ -41,3 +70,42 @@ class TestUserProfilesView:
         assert response.status_code == status.HTTP_200_OK
         assert response.data == []
         assert "ETag" in response.headers.keys()
+
+    def test_get_user_profiles_not_modified_by_user(self, superuser_client, superuser):
+        profile_user = User.objects.last()
+        user = superuser
+        user.act_as_profiles.add(profile_user)
+        user.save()
+
+        url = reverse("accounts:user-profiles", kwargs={"id": str(user.id)})
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+
+        etag = response.headers["ETag"]
+
+        url = reverse("accounts:user-profiles", kwargs={"id": str(user.id)})
+        new_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
+
+        assert new_response.status_code == status.HTTP_304_NOT_MODIFIED
+        assert etag == new_response.headers["Etag"]
+
+    def test_get_user_profiles_modified_by_user(self, superuser_client, superuser, five_users):
+        profile_user = five_users[0]
+        superuser.act_as_profiles.add(profile_user)
+        superuser.save()
+
+        url = reverse("accounts:user-profiles", kwargs={"id": str(superuser.id)})
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+
+        superuser.act_as_profiles.add(five_users[1])
+        superuser.save()
+        etag = response.headers["ETag"]
+
+        url = reverse("accounts:user-profiles", kwargs={"id": str(superuser.id)})
+        new_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
+
+        assert new_response.status_code == status.HTTP_200_OK
+        assert etag != new_response.headers["Etag"]
