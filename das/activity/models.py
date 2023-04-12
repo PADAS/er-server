@@ -87,7 +87,7 @@ class CommunityManager(models.Manager):
 class Community(TimestampedModel):
     objects = CommunityManager()
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=80)
+    name = models.CharField(max_length=100)
 
     class Meta:
         verbose_name = _("Event Reporters")
@@ -143,7 +143,7 @@ class EventFactor(TimestampedModel):
 
 class EventCategory(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    value = models.CharField(max_length=40, unique=True)
+    value = models.CharField(max_length=100, unique=True)
     display = models.CharField(max_length=100, blank=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
@@ -1308,7 +1308,7 @@ class EventProvider(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
 
     display = models.CharField(
-        max_length=50,
+        max_length=100,
         verbose_name="Description",
         help_text="Friendly description of the Event Provider.",
         blank=True,
@@ -1347,7 +1347,7 @@ class EventSource(TimestampedModel):
     )
 
     display = models.CharField(
-        max_length=50,
+        max_length=100,
         verbose_name="Description",
         help_text="Friendly description of the event source.",
         blank=True,
@@ -1616,7 +1616,7 @@ class Person(Subject):
 
 class MembershipType(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    value = models.CharField(max_length=50, unique=True)
+    value = models.CharField(max_length=100, unique=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
 
     def __str__(self):
