@@ -125,14 +125,49 @@ def fetch_organization_choices():
     return tuple([(key, value) for key, value in organization_choices.items()])
 
 
-def get_user_etag(request, *args, **kwargs):
+def get_user_etag(request, *args, **kwargs) -> str:
     param = kwargs["id"]
     user = request.user
     if param != "me":
         user = User.objects.get(id=param)
-    fields = ("username", "first_name", "last_name", "email", "pin")
-    user_str = ":".join((str(getattr(user, field)) for field in fields if getattr(user, field)))
-    return hashlib.md5(user_str.encode("utf-8")).hexdigest()
+
+    builder = UserETAGBuilder(user=user)
+    return builder.get()
+
+
+class UserETAGBuilder:
+    def __init__(self, user) -> None:
+        self.etag_string = ""
+        self.user = user
+
+    def get(self) -> str:
+        self._add_common_fields()
+        self._add_profiles()
+        self._add_permissions()
+        return self._create_etag()
+
+    def _add_common_fields(self) -> None:
+        fields = ("accepted_eula", "email", "first_name", "last_name", "pin", "username")
+        fields_string = ":".join((str(getattr(self.user, field)) for field in fields))
+        self._build_etag_string(new_string=fields_string)
+
+    def _add_profiles(self) -> None:
+        profiles = self.user.act_as_profiles.all()
+        if profiles.exists():
+            profiles_string = ":".join((str(profile.id) for profile in profiles))
+            self._build_etag_string(new_string=profiles_string)
+
+    def _add_permissions(self) -> None:
+        permissions = self.user.permission_sets.all()
+        if permissions.exists():
+            permissions_string = ":".join((str(permission.id) for permission in permissions))
+            self._build_etag_string(new_string=permissions_string)
+
+    def _build_etag_string(self, new_string) -> None:
+        self.etag_string += f":{new_string}"
+
+    def _create_etag(self) -> str:
+        return hashlib.md5(self.etag_string.encode("utf-8")).hexdigest()
 
 
 def get_profiles(users: List[uuid4]):
