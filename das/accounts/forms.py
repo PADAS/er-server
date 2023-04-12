@@ -1,3 +1,5 @@
+import re
+
 from django import forms
 from django.conf import settings
 from django.contrib.admin.widgets import AdminDateWidget, FilteredSelectMultiple
@@ -186,6 +188,20 @@ class UserAdditionalForm(JSONFieldFormMixin, UserChangeForm):
             return None
         return email
 
+    def clean_first_name(self):
+        first_name = self.cleaned_data.get("first_name")
+
+        self._validate_value_contains_special_characters(first_name)
+
+        return first_name
+
+    def clean_last_name(self):
+        last_name = self.cleaned_data.get("last_name")
+
+        self._validate_value_contains_special_characters(last_name)
+
+        return last_name
+
     def clean_pin(self):
         pin = self.cleaned_data["pin"]
         if pin:
@@ -204,6 +220,13 @@ class UserAdditionalForm(JSONFieldFormMixin, UserChangeForm):
             if hasattr(self, attribute):
                 users.append(getattr(self, attribute).id)
         return users
+
+    def _validate_value_contains_special_characters(self, value):
+        filtered_value = re.sub(r"\w|\s|\.", "", value.strip())
+        if filtered_value != "":
+            raise ValidationError(
+                "The field contains invalid characters. Only aphanumeric characters and period are allowed."
+            )
 
 
 class PermissionSetAdminForm(forms.ModelForm):
