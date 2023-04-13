@@ -400,6 +400,7 @@ locals {
     "pianupewildlifereserve"  = "prod1"
     "makambe"                 = "prod1"
     "thanda"                  = "prod1"
+    "naibungalower"           = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
