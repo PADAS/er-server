@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from accounts.serializers import UserDisplaySerializer
 from activity.models import EventGeometry
+from revision.manager import ACTION_ADDED, ACTION_UPDATED
 
 
 class EventGeometryRevisionSerializer(serializers.Serializer):
@@ -11,6 +12,10 @@ class EventGeometryRevisionSerializer(serializers.Serializer):
     user = serializers.SerializerMethodField()
 
     def get_message(self, obj):
+        if obj.action == ACTION_ADDED:
+            return "Added Area"
+        elif obj.action == ACTION_UPDATED:
+            return "Changed Area"
         return obj.get_action_display()
 
     def get_time(self, obj):
