@@ -509,7 +509,7 @@ class TestEventGeometrySerializer:
         event_geometry_revision = event_geometry_with_polygon.revision.last()
         serialized_event_geometry_revision = EventGeometryRevisionSerializer(event_geometry_revision).data
 
-        assert serialized_event_geometry_revision["message"] == "Added"
+        assert serialized_event_geometry_revision["message"] == "Added Area"
         assert serialized_event_geometry_revision["time"] == event_geometry_revision.revision_at.isoformat()
         assert serialized_event_geometry_revision["type"] == "add_eventgeometry"
         assert serialized_event_geometry_revision["user"] == {
@@ -526,7 +526,7 @@ class TestEventGeometrySerializer:
 
         serialized_event_geometry_revision = EventGeometryRevisionSerializer(event_geometry_revisions, many=True).data
 
-        assert serialized_event_geometry_revision[1]["message"] == "Updated"
+        assert serialized_event_geometry_revision[1]["message"] == "Changed Area"
         assert serialized_event_geometry_revision[1]["time"] == latest_event_geometry_revision.revision_at.isoformat()
         assert serialized_event_geometry_revision[1]["type"] == "update_properties"
         assert serialized_event_geometry_revision[1]["user"] == {
@@ -550,7 +550,7 @@ class TestEventGeometrySerializer:
 
         serialized_event_geometry_revision = EventGeometryRevisionSerializer(event_geometry_revisions, many=True).data
 
-        assert serialized_event_geometry_revision[1]["message"] == "Updated"
+        assert serialized_event_geometry_revision[1]["message"] == "Changed Area"
         assert serialized_event_geometry_revision[1]["time"] == latest_event_geometry_revision.revision_at.isoformat()
         assert serialized_event_geometry_revision[1]["type"] == "update_geometry"
         assert serialized_event_geometry_revision[1]["user"] == {
