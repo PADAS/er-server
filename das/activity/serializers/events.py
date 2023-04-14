@@ -58,7 +58,7 @@ from activity.models import (
 from activity.util import get_permitted_event_categories
 from core.serializers import PointValidator
 from observations.serializers import SubjectRelatedField, SubjectSerializer
-from revision.manager import AC_RELATION_DELETED, AC_UPDATED
+from revision.manager import ACTION_ADDED, ACTION_UPDATED, RevisionMessage
 from usercontent.serializers import UserContentSerializer
 from utils.feature_representation import FeatureRepresentation
 from utils.gis import get_polygon_info
@@ -78,6 +78,7 @@ from .fields import (
     EventTypeRelatedField,
     ReportedByRelatedField,
 )
+from .geometries import EventGeometryRevisionSerializer
 from .helpers import (
     get_allowed_actions_for_category,
     get_update_type,
@@ -296,10 +297,10 @@ class EventNoteSerializer(ModelSerializer):
 
     def render_updates(self, note):
         def get_action(revision):
-            if revision.action == AC_UPDATED:
+            if revision.action in (ACTION_ADDED, ACTION_UPDATED):
                 field_mapping = {"text": "Note Text"}
-                fieldnames = [field_mapping[k] for k in revision.data.keys() if k in field_mapping]
-                return "{0} fields: {1}".format(revision.get_action_display(), ", ".join(fieldnames))
+                fieldnames = [value for key, value in revision.data.items() if key in field_mapping]
+                return f"{revision.get_action_display()}: {', '.join(fieldnames)}"
 
             return revision.get_action_display()
 
@@ -329,7 +330,6 @@ class EventSerializerMixin:
         return self.create_event(validated_data)
 
     def create_event(self, validated_data):
-
         details_data = {}
 
         if "event_details" in validated_data:
@@ -380,7 +380,6 @@ class EventSerializerMixin:
 
         for relationship_type in rel_types:
             if relationship_type in relationship_data:
-
                 related = relationship_data.pop(relationship_type)
                 if not isinstance(related, (list, set)):
                     related = [
@@ -403,7 +402,6 @@ class EventSerializerMixin:
         return Event.objects.get(id=new_event.id)
 
     def update(self, instance, validated_data):
-
         logger.info("Inside update: %s", validated_data)
         update_fields = []
 
@@ -446,35 +444,6 @@ class EventSerializerMixin:
         return instance
 
     def render_updates(self, event):
-        def get_action(revision):
-            if revision.action == AC_UPDATED:
-                field_mapping = {
-                    "message": "Description",
-                    "event_time": "Time",
-                    "state": "State is {0}",
-                    "priority": "Priority is {0}",
-                    "location": "Location",
-                    "reported_by_id": "Reported By",
-                    "provenance": "Reporter",
-                    "event_type": "Report Type is {0}",
-                    "created_by_user": "Report Author",
-                    "title": "Title",
-                }
-                fieldnames = [
-                    field_mapping[k].format(event.get_display_value(k, v))
-                    for k, v in revision.data.items()
-                    if k in field_mapping
-                ]
-                return "{0} fields: {1}".format(revision.get_action_display(), ", ".join(fieldnames))
-            elif revision.action == AC_RELATION_DELETED:
-                field_mapping = {"message": "Description", "related_query_name": "{}"}
-                fieldnames = [
-                    field_mapping[k].format(revision.data[k]) for k, v in revision.data.items() if k in field_mapping
-                ]
-                return "{0} fields: {1}".format(revision.get_action_display(), ", ".join(fieldnames))
-
-            return revision.get_action_display()
-
         result = []
 
         if hasattr(event, "revisions"):
@@ -484,16 +453,15 @@ class EventSerializerMixin:
 
         while revisions:
             revision = revisions.pop()
-            record = dict(
-                message="{action}".format(
-                    action=get_action(revision),
-                    user=self.get_user_display(revision.user, event),
-                ),
-                time=revision.revision_at.isoformat(),
-                user=self.get_revision_user(revision.user, event),
-                type=get_update_type(revision, revisions),
-            )
-            result.append(record)
+            action = RevisionMessage.get_action(revision, event)
+            if action:
+                record = dict(
+                    message=f"{action}",
+                    time=revision.revision_at.isoformat(),
+                    user=self.get_revision_user(revision.user, event),
+                    type=get_update_type(revision, revisions),
+                )
+                result.append(record)
         return result
 
     def get_user_display(self, user, event):
@@ -801,7 +769,6 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         return self._get_event_relationship(event=event, relationship_name="relationship_in_contains")
 
     def _get_event_relationship(self, event: "Event", relationship_name: str) -> EventRelationshipSerializer:
-
         if not hasattr(event, f"{relationship_name}"):
             fallback_events_mapping = {
                 "relationship_in_contains": "contains",
@@ -983,7 +950,6 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
                 rep["related_subjects"] = list(
                     SubjectSerializer(event.related_subjects_set, many=True, context=self.context, read_only=True).data
                 )
-
                 event_details = rep["event_details"]
                 if event_details:
                     details_updates = event_details.get("updates")
@@ -1048,10 +1014,16 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
             updates = self.render_updates(event)
             for note in rep.get("notes", []):
                 updates.extend(note["updates"])
+
             for f in rep.get("files", []):
                 updates.extend(f["updates"])
+
+            for geometry in self._render_geometries_updates(event):
+                updates.extend(geometry)
+
             if event_details:
                 updates.extend(details_updates)
+
             rep["updates"] = sorted(updates, key=lambda u: u["time"], reverse=True)
 
         patrol_ids = (
@@ -1059,8 +1031,16 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
         )
 
         rep["patrols"] = [item for item in patrol_ids if item is not None]
-
         return rep
+
+    def _render_geometries_updates(self, event) -> list:
+        if not hasattr(event, "geometries"):
+            return []
+
+        return [
+            EventGeometryRevisionSerializer(geometry.revision.all(), many=True).data
+            for geometry in event.geometries.all()
+        ]
 
     def _has_both_features(self, instance):
         return hasattr(instance, "location") and instance.location and instance.geometries.last()

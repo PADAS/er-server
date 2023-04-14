@@ -40,7 +40,7 @@ from activity.models import (
 from activity.serializers.base import FileSerializerMixin, RevisionMixin
 from core.fields import GEOPointField, choicefield_serializer, text_field
 from core.serializers import BaseSerializer, PointValidator, TimestampMixin
-from revision.manager import AC_ADDED, AC_RELATION_DELETED, AC_UPDATED
+from revision.manager import ACTION_ADDED, ACTION_RELATION_DELETED, ACTION_UPDATED
 from usercontent.serializers import UserContentSerializer
 
 priority_choices_serializer = choicefield_serializer(PRIORITY_CHOICES, default=PRI_NONE)
@@ -257,7 +257,7 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
             nonlocal last_scheduled_end
             revision_time = revision.revision_at
             scheduled_end = revision.data.get("scheduled_end", last_scheduled_end)
-            if revision.action == AC_UPDATED:
+            if revision.action == ACTION_UPDATED:
                 fieldnames = []
                 for k, v in revision.data.items():
                     if k == "time_range" and v:
@@ -293,8 +293,8 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
                 type=self.get_patrol_update_type(revision, "segment"),
             )
             for revision in revisions
-            if (revision.action == AC_RELATION_DELETED)
-            or (revision.action == AC_UPDATED and set(field_mapping.keys()) & set(revision.data.keys()))
+            if (revision.action == ACTION_RELATION_DELETED)
+            or (revision.action == ACTION_UPDATED and set(field_mapping.keys()) & set(revision.data.keys()))
         ]
 
         event_results = self.render_event_updates(segment.events.all())
@@ -306,7 +306,7 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
         results = []
 
         def get_action(revision, e):
-            if revision.action == AC_ADDED:
+            if revision.action == ACTION_ADDED:
                 verbose_name = "Incident Collection" if e.event_type.is_collection else "Report"
                 return f"{verbose_name} {revision.get_action_display()}"
 
@@ -320,7 +320,7 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
                     type=self.get_patrol_update_type(revision, "event"),
                 )
                 for revision in revisions
-                if (revision.action == AC_ADDED)
+                if (revision.action == ACTION_ADDED)
             ]
             results.extend(result)
 
@@ -335,7 +335,7 @@ class PatrolSegmentSerializer(BaseSerializer, RevisionMixin):
                             type=self.get_patrol_update_type(revision, "event"),
                         )
                         for revision in revisions
-                        if (revision.action == AC_ADDED)
+                        if (revision.action == ACTION_ADDED)
                     ]
                     results.extend(updates)
 
@@ -362,7 +362,7 @@ class PatrolNoteSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
 
     def render_updates(self, note):
         def get_action(revision):
-            if revision.action == AC_UPDATED:
+            if revision.action == ACTION_UPDATED:
                 field_mapping = {"text": "Note Text"}
                 fieldnames = [field_mapping[k] for k in revision.data.keys() if k in field_mapping]
                 return f"{revision.get_action_display()} fields: {', '.join(fieldnames)}"
@@ -440,7 +440,6 @@ class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
         return Patrol.objects.get(id=new_patrol.id)
 
     def update(self, instance, validated_data):
-
         patrol_id = instance.id
         patrol_notes = validated_data.get("notes", [])
         patrol_segments = validated_data.get("patrol_segments", [])
@@ -500,8 +499,8 @@ class PatrolSerializer(BaseSerializer, TimestampMixin, RevisionMixin):
                 type=self.get_patrol_update_type(revision),
             )
             for revision in revisions
-            if (revision.action == AC_ADDED)
-            or (revision.action == AC_RELATION_DELETED)
-            or (revision.action == AC_UPDATED and set(field_mapping.keys()) & set(revision.data.keys()))
+            if (revision.action == ACTION_ADDED)
+            or (revision.action == ACTION_RELATION_DELETED)
+            or (revision.action == ACTION_UPDATED and set(field_mapping.keys()) & set(revision.data.keys()))
         ]
         return result

@@ -7,7 +7,7 @@ from rest_framework.serializers import ModelSerializer
 
 from accounts.serializers import UserDisplaySerializer, get_user_display
 from activity.models import EventDetails, EventType
-from revision.manager import AC_UPDATED
+from revision.manager import ACTION_UPDATED
 from utils.schema_utils import (
     generate_event_type_schema_from_doc,
     get_all_fields,
@@ -173,7 +173,7 @@ class EventDetailsSerializer(ModelSerializer):
     def render_updates(self, event_details, event_type):
         if not self.context.get("include_updates", True):
             return []
-            
+
         schema = event_type.schema
         rendered_schema = get_schema_renderer_method()(schema)
         last_details = None
@@ -185,7 +185,7 @@ class EventDetailsSerializer(ModelSerializer):
             revision_details = revision.data.get("data", {}).get("event_details", {})
             details = get_display_values_for_event_details(revision_details, rendered_schema)
 
-            if revision.action == AC_UPDATED:
+            if revision.action == ACTION_UPDATED:
                 for k, v in revision_details.items():
                     if k not in details:
                         continue
