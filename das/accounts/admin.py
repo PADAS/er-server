@@ -1,3 +1,5 @@
+import copy
+
 from oauth2_provider.admin import AccessTokenAdmin, GrantAdmin, RefreshTokenAdmin
 from oauth2_provider.models import (
     get_access_token_model,
@@ -17,6 +19,7 @@ from django.core.exceptions import PermissionDenied
 from django.http.response import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.utils.crypto import get_random_string
+from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from accounts.models import PermissionSet, User
@@ -91,7 +94,7 @@ class PermissionSetAdmin(DjangoGroupAdmin):
 
 
 class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
-    readonly_fields = ("_last_login",)
+    readonly_fields = ("_last_login", "_profiles")
     ordering = (
         "username",
         "last_name",
@@ -132,7 +135,17 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
         ("Additional Data", {"fields": ["additional"]}),
         (
             _("Permissions"),
-            {"fields": ("permission_sets", "is_active", "is_nologin", "is_staff", "is_superuser", "act_as_profiles")},
+            {
+                "fields": (
+                    "permission_sets",
+                    "is_active",
+                    "is_nologin",
+                    "is_staff",
+                    "is_superuser",
+                    "act_as_profiles",
+                    "_profiles",
+                )
+            },
         ),
     )
 
@@ -208,6 +221,24 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
         return {
             "is_active__exact": 1,
         }
+
+    def get_fieldsets(self, request, obj=None):
+        if not obj:
+            return super().get_fieldsets(request)
+
+        fieldsets = copy.deepcopy(self.fieldsets)
+        if User.objects.filter(act_as_profiles__in=[obj]):
+            fields_to_remove = ("act_as_profiles",)
+            fieldsets[3][1]["fields"] = tuple(
+                field for field in fieldsets[3][1]["fields"] if not field in fields_to_remove
+            )
+        else:
+            fields_to_remove = ("_profiles",)
+            fieldsets[3][1]["fields"] = tuple(
+                field for field in fieldsets[3][1]["fields"] if not field in fields_to_remove
+            )
+
+        return fieldsets
 
     def display_name(self, instance):
         full_name = instance.get_full_name()
@@ -307,8 +338,20 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
     def _last_login(self, instance):
         return instance.last_login if instance.last_login else "Never Logged in"
 
+    def _profiles(self, instance):
+        message = ""
+        parents = [user.username for user in User.objects.filter(act_as_profiles__in=[instance])]
+        if parents:
+            notify_message = (
+                "This user account is being used as a profile, and so it can not be assigned child profiles of its own."
+            )
+            message = mark_safe(f"{', '.join(parents)}<br/><br/> <b><i>{notify_message}</i></b>")
+        return message
+
     _last_login.short_description = _("Last Login In %s" % TIMEZONE_USED)
     _last_login.admin_order_field = "last_login"
+
+    _profiles.short_description = "Profile of"
 
 
 admin.site.register(User, UserAdmin)
