@@ -1,15 +1,17 @@
+import re
 from itertools import chain
 
 import django.db.models as models
+from django.apps import apps
 from django.contrib import auth
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.utils.translation import gettext_lazy as _
 
 from accounts.models.permissionset import PermissionSet
 
 
 class PermissionSetGroupMixin(object):
-    groups_attr_name = 'groups'
+    groups_attr_name = "groups"
 
     def get_obj_permission_set_ids(self):
         """
@@ -29,6 +31,7 @@ class PermissionSetMixin(models.Model):
     Specifically, it creates a ManyToMany relationship with the PermissionSet table,
     and adds some model functions for discovering object level permissions.
     """
+
     class Meta:
         abstract = True
 
@@ -36,9 +39,8 @@ class PermissionSetMixin(models.Model):
         PermissionSet,
         blank=True,
         help_text=_(
-            'The permission sets applied to this table. A user in a permission'
-            ' set is granted these permissions.'
-        )
+            "The permission sets applied to this table. A user in a permission" " set is granted these permissions."
+        ),
     )
 
     def get_obj_permission_set_ids(self):
@@ -46,7 +48,7 @@ class PermissionSetMixin(models.Model):
         Returns a set of permission set ids of all permission sets
         assigned to this object
         """
-        if not hasattr(self, '_obj_perm_cache'):
+        if not hasattr(self, "_obj_perm_cache"):
             all_ps = set()
             direct_ps = self.permission_sets.all()
 
@@ -74,7 +76,7 @@ class PermissionSetHierarchyMixin(PermissionSetMixin):
         group ancestors.
         .
         """
-        if not hasattr(self, '_obj_perm_hierarchy_cache'):
+        if not hasattr(self, "_obj_perm_hierarchy_cache"):
             all_ps = set()
 
             for g in chain(self.get_ancestors(), (self,)):
@@ -93,20 +95,18 @@ class PermissionsMixin(models.Model):
     A mixin class that adds the fields and methods necessary to support the
     DAS PermissionSet and Permission model using the AccountsModelBackend.
     """
+
     is_superuser = models.BooleanField(
-        _('superuser status'),
+        _("superuser status"),
         default=False,
-        help_text=_(
-            'Designates that this user has all permissions without '
-            'explicitly assigning them.'
-        ),
+        help_text=_("Designates that this user has all permissions without " "explicitly assigning them."),
     )
     permission_sets = models.ManyToManyField(
         PermissionSet,
         blank=True,
         help_text=_(
-            'The permission sets this user belongs to. A user will get all permissions '
-            'granted to each of their permission sets.'
+            "The permission sets this user belongs to. A user will get all permissions "
+            "granted to each of their permission sets."
         ),
     )
 
@@ -154,7 +154,7 @@ class PermissionsMixin(models.Model):
 
         # Otherwise we need to check the backends.
         for backend in auth.get_backends():
-            if not hasattr(backend, 'has_perm'):
+            if not hasattr(backend, "has_perm"):
                 continue
             try:
                 if backend.has_perm(self, perm, obj):
@@ -192,7 +192,7 @@ class PermissionsMixin(models.Model):
         if self.is_active and self.is_superuser:
             return True
         for backend in auth.get_backends():
-            if not hasattr(backend, 'has_module_perms'):
+            if not hasattr(backend, "has_module_perms"):
                 continue
             try:
                 if backend.has_module_perms(self, app_label):
@@ -225,3 +225,64 @@ class PermissionsMixin(models.Model):
                 else:
                     all_ps.add(ancestor)
         return all_ps
+
+
+class UserFormValidatorMixin:
+    def clean_first_name(self):
+        first_name = self.cleaned_data.get("first_name")
+
+        self._validate_value_contains_special_characters(first_name)
+
+        return first_name
+
+    def clean_last_name(self):
+        last_name = self.cleaned_data.get("last_name")
+
+        self._validate_value_contains_special_characters(last_name)
+
+        return last_name
+
+    def clean_password2(self):
+        password1 = self.cleaned_data.get("password1")
+        password2 = self.cleaned_data.get("password2")
+        if password1 or password2:
+            password2 = super().clean_password2()
+        return password2
+
+    def clean_email(self):
+        email = self.cleaned_data.get("email")
+        if email.strip() == "":
+            return None
+        return email
+
+    def clean_pin(self):
+        User = apps.get_model(app_label="accounts", model_name="User")
+        pin = self.cleaned_data["pin"]
+
+        if not pin:
+            return None
+        if not pin.isnumeric():
+            raise ValidationError("The value should be four digits.")
+        if len(pin) != 4:
+            raise ValidationError("The size should be four digits.")
+        if User.objects.filter(pin=pin).exists():
+            raise ValidationError("User PINs must be unique, please select another PIN value.")
+
+        return pin
+
+    def _get_exclude_users(self):
+        users = []
+        for attribute in (
+            "request_user",
+            "current_user",
+        ):
+            if hasattr(self, attribute):
+                users.append(getattr(self, attribute).id)
+        return users
+
+    def _validate_value_contains_special_characters(self, value):
+        filtered_value = re.sub(r"\w|\s|\.", "", value.strip())
+        if filtered_value != "":
+            raise ValidationError(
+                "The field contains invalid characters. Only aphanumeric characters and period are allowed."
+            )
