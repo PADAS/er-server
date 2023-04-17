@@ -1,11 +1,8 @@
-import re
-
 from django import forms
 from django.conf import settings
 from django.contrib.admin.widgets import AdminDateWidget, FilteredSelectMultiple
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 from django.contrib.sites.shortcuts import get_current_site
-from django.core.exceptions import ValidationError
 from django.core.mail import EmailMultiAlternatives
 from django.template import loader
 from django.utils.translation import gettext_lazy as _
@@ -18,6 +15,7 @@ from observations import kmlutils
 from utils.features import features
 from utils.tenant import get_tenant_settings
 
+from .mixins import UserFormValidatorMixin
 from .utils import fetch_organization_choices, fetch_tech_choices
 
 PATROL_ENABLED = settings.PATROL_ENABLED
@@ -42,7 +40,7 @@ ROLE_CHOICES = [
 ]
 
 
-class CustomUserCreationForm(JSONFieldFormMixin, UserCreationForm):
+class CustomUserCreationForm(UserFormValidatorMixin, JSONFieldFormMixin, UserCreationForm):
     first_name = forms.CharField(required=False)
     last_name = forms.CharField(required=False)
     email = forms.EmailField(required=False)
@@ -96,40 +94,8 @@ class CustomUserCreationForm(JSONFieldFormMixin, UserCreationForm):
 
     json_field = "additional"
 
-    def clean_password2(self):
-        password1 = self.cleaned_data.get("password1")
-        password2 = self.cleaned_data.get("password2")
-        if password1 or password2:
-            password2 = super().clean_password2()
-        return password2
 
-    def clean_email(self):
-        email = self.cleaned_data.get("email")
-        if email.strip() == "":
-            return None
-        return email
-
-    def clean_pin(self):
-        pin = self.cleaned_data["pin"]
-        if pin:
-            if not pin.isnumeric():
-                raise ValidationError("The value should be four digits.")
-            if len(pin) != 4:
-                raise ValidationError("The size should be four digits.")
-        return pin
-
-    def _get_exclude_users(self):
-        users = []
-        for attribute in (
-            "request_user",
-            "current_user",
-        ):
-            if hasattr(self, attribute):
-                users.append(getattr(self, attribute).id)
-        return users
-
-
-class UserAdditionalForm(JSONFieldFormMixin, UserChangeForm):
+class UserAdditionalForm(UserFormValidatorMixin, JSONFieldFormMixin, UserChangeForm):
     first_name = forms.CharField(required=False)
     last_name = forms.CharField(required=False)
     email = forms.EmailField(required=False)
@@ -179,54 +145,6 @@ class UserAdditionalForm(JSONFieldFormMixin, UserChangeForm):
         ) + json_fields
 
     json_field = "additional"
-
-    def clean_email(self):
-        # Set email value as None rather than blank string.
-        # In comparison Blank string is considered as Unique.
-        email = self.cleaned_data.get("email")
-        if email.strip() == "":
-            return None
-        return email
-
-    def clean_first_name(self):
-        first_name = self.cleaned_data.get("first_name")
-
-        self._validate_value_contains_special_characters(first_name)
-
-        return first_name
-
-    def clean_last_name(self):
-        last_name = self.cleaned_data.get("last_name")
-
-        self._validate_value_contains_special_characters(last_name)
-
-        return last_name
-
-    def clean_pin(self):
-        pin = self.cleaned_data["pin"]
-        if pin:
-            if not pin.isnumeric():
-                raise ValidationError("The value should be four digits.")
-            if len(pin) != 4:
-                raise ValidationError("The size should be four digits.")
-        return pin
-
-    def _get_exclude_users(self):
-        users = []
-        for attribute in (
-            "request_user",
-            "current_user",
-        ):
-            if hasattr(self, attribute):
-                users.append(getattr(self, attribute).id)
-        return users
-
-    def _validate_value_contains_special_characters(self, value):
-        filtered_value = re.sub(r"\w|\s|\.", "", value.strip())
-        if filtered_value != "":
-            raise ValidationError(
-                "The field contains invalid characters. Only aphanumeric characters and period are allowed."
-            )
 
 
 class PermissionSetAdminForm(forms.ModelForm):
