@@ -284,5 +284,5 @@ class UserFormValidatorMixin:
         filtered_value = re.sub(r"\w|\s|\.", "", value.strip())
         if filtered_value != "":
             raise ValidationError(
-                "The field contains invalid characters. Only aphanumeric characters and period are allowed."
+                "The field contains invalid characters. Only alphanumeric characters and period are allowed."
             )
