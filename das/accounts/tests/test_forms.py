@@ -51,7 +51,7 @@ class TestCustomUserCreationForm:
 
         assert (
             form.errors[field_name][0]
-            == "The field contains invalid characters. Only aphanumeric characters and period are allowed."
+            == "The field contains invalid characters. Only alphanumeric characters and period are allowed."
         )
 
     @pytest.mark.parametrize("invalid_name", ["`", "-", "<", ">", ";", "$", "@", "(", ")"])
@@ -62,7 +62,7 @@ class TestCustomUserCreationForm:
 
         assert (
             form.errors["first_name"][0]
-            == "The field contains invalid characters. Only aphanumeric characters and period are allowed."
+            == "The field contains invalid characters. Only alphanumeric characters and period are allowed."
         )
 
     def test_create_user_with_duplicate_pin(self):
@@ -123,7 +123,7 @@ class TestUserAdditionalForm:
 
         assert (
             form.errors[field_name][0]
-            == "The field contains invalid characters. Only aphanumeric characters and period are allowed."
+            == "The field contains invalid characters. Only alphanumeric characters and period are allowed."
         )
 
     @pytest.mark.parametrize("invalid_name", ["`", "-", "<", ">", ";", "$", "@", "(", ")"])
@@ -134,7 +134,7 @@ class TestUserAdditionalForm:
 
         assert (
             form.errors["first_name"][0]
-            == "The field contains invalid characters. Only aphanumeric characters and period are allowed."
+            == "The field contains invalid characters. Only alphanumeric characters and period are allowed."
         )
 
     def test_create_user_with_duplicate_pin(self):
