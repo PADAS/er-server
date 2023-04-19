@@ -400,6 +400,8 @@ locals {
     "pianupewildlifereserve"  = "prod1"
     "makambe"                 = "prod1"
     "thanda"                  = "prod1"
+    "pnchagres"               = "prod1"
+    "alturas"                 = "prod1"
     "naibungalower"           = "prod1"
     "focen"                   = "prod1"
     "standrews"               = "prod1"
@@ -598,6 +600,7 @@ locals {
     "mtpa"                    = 1
     "pianupewildlifereserve"  = 1
     "thanda"                  = 1
+    "alturas"                 = 1
     "focen"                   = 1
     "earthrace"               = 1
   }
