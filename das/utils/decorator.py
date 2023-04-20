@@ -1,8 +1,10 @@
 import functools
+import logging
+import time
 
 
 class reify(object):
-    """ Use as a class method decorator.  It operates almost exactly like the
+    """Use as a class method decorator.  It operates almost exactly like the
     Python ``@property`` decorator, but it puts the result of the method it
     decorates into the instance dict after the first call, effectively
     replacing the function it decorates with an instance variable.  It is, in
@@ -25,6 +27,7 @@ class reify(object):
 
     Source: https://github.com/Pylons/pyramid/blob/master/pyramid/decorator.py
     """
+
     def __init__(self, wrapped):
         self.wrapped = wrapped
         functools.update_wrapper(self, wrapped)
@@ -35,3 +38,41 @@ class reify(object):
         val = self.wrapped(inst)
         setattr(inst, self.wrapped.__name__, val)
         return val
+
+
+def retry_on_exception(exception_type, retry_forever=False, max_retries=3, delay=1):
+    """Decorator to retry a function when a specified exception occurs. If the
+    retries are exausted, the exception is raised anyway.
+
+    :param exception_type: Exception
+    :param loop_forever: bool
+    :param max_retries: int
+    :param delay: int
+    :return: decorated function
+    :rtype: Callable
+    """
+
+    def decorator(func):
+        logger = logging.getLogger(func.__module__)
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            retries = 0
+            exception = None
+            while retry_forever or retries < max_retries:
+                try:
+                    return func(*args, **kwargs)
+                except exception_type as exc:
+                    exception = exc
+                    retries += 1
+                    logger.warning(
+                        "Caught %s: %s. Retrying %s.", exception_type.__name__, str(exception), func.__name__
+                    )
+                    time.sleep(delay)
+
+            if exception:
+                raise exception
+
+        return wrapper
+
+    return decorator
