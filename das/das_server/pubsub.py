@@ -12,11 +12,13 @@ from importlib import import_module
 
 from kombu import Connection, Consumer, Exchange, Queue
 from kombu.utils import nested
+from redis.exceptions import ConnectionError
 
 from django.apps import apps
 from django.conf import settings
 
 from utils import stats
+from utils.decorator import retry_on_exception
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +67,7 @@ def publish(message, routing_key="das"):
         logger.exception("Unhandled exception during publish")
 
 
+@retry_on_exception(exception_type=ConnectionError, retry_forever=True)
 def subscribe(subscription_list, loop_forever=True):
     """Create a set of subscriptions to messages routed by routing_key
 
@@ -82,7 +85,6 @@ def subscribe(subscription_list, loop_forever=True):
     """
 
     with Connection(settings.PUBSUB_BROKER_URL, transport_options=settings.PUBSUB_BROKER_OPTIONS) as conn:
-
         consumers = []
 
         for subscription in subscription_list:
@@ -154,7 +156,6 @@ running = True
 
 
 def stats_decorator(f, routing_key):
-
     metric_type = "mql"
     tags = [f"route:{routing_key}", f"handler:{f.__name__}"]
 
