@@ -46,7 +46,7 @@ spec:
             httpHeaders:
             - name: Host
               value: '${FQDN}'
-            path: '/api/v1.0/status?db_connections=true'
+            path: '/api/v1.0/status'
             port: 8000
           initialDelaySeconds: 15
           timeoutSeconds: 10
