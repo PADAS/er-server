@@ -1,0 +1,189 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: "${KUBERNETES_NAMESPACE}"
+  name: api
+spec:
+  selector:
+    matchLabels:
+      das.component: api
+      das.configuration: server
+  template:
+    metadata:
+      labels:
+        das.component: api
+        das.configuration: server
+      annotations:
+        prometheus.io/port: "9102"
+    spec:
+      imagePullSecrets:
+        - name: gcr-secret
+      # Mount secrets
+      volumes:
+      - name: google-credentials
+        secret:
+          secretName: google-application-credentials
+          items:
+          - key: credentials_json
+            path: "google_credentials.json"
+      - name: telegraf-config-volume
+        configMap:
+          name: telegraf-configmap
+          items:
+            - key: telegraf_conf
+              path: telegraf.conf
+      containers:
+      - image:  "${SERVER_VERSION}"
+        name: das-api
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "373Mi"
+        ports:
+          - containerPort: 8000
+        readinessProbe:
+          httpGet:
+            httpHeaders:
+            - name: Host
+              value: '${FQDN}'
+            path: '/api/v1.0/status'
+            port: 8000
+          initialDelaySeconds: 15
+          timeoutSeconds: 10
+          periodSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        livenessProbe:
+          httpGet:
+            httpHeaders:
+            - name: Host
+              value: '${FQDN}'
+            path: '/api/v1.0/status?db_connections=true'
+            port: 8000
+          initialDelaySeconds: 10
+          timeoutSeconds: 10
+          periodSeconds: 20
+          failureThreshold: 3
+          successThreshold: 1
+        volumeMounts:
+        - name: google-credentials
+          mountPath: "/etc/earthranger/"
+          readOnly: true
+        env:
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/etc/earthranger/google_credentials.json"
+        - name: SERVICE_NAME
+          value: "api_server"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: aws-metrics-credentials
+              key: aws_access_key_id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aws-metrics-credentials
+              key: aws_secret_access_key
+        - name: GA_MEASUREMENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: ga-measurement-id
+              key: ga_measurement_id
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: app-db-credentials
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-db-credentials
+              key: password
+        - name: EMAIL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: email-password
+              key: value
+        - name: EMAIL_HOST_USER
+          valueFrom:
+            secretKeyRef:
+              name: email-username
+              key: value
+        - name: TWILIO_ACCOUNT_SID
+          valueFrom:
+            secretKeyRef:
+              name: twilio-account-settings
+              key: account_sid
+        - name: TWILIO_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: twilio-account-settings
+              key: auth_token
+        - name: WHATSAPP_FROM_NUMBER
+          valueFrom:
+            secretKeyRef:
+              name: twilio-account-settings
+              key: whatsapp_from_number
+        - name: UBI_API_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: ubi-api-credentials
+              key: ubi_username
+        - name: UBI_API_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ubi-api-credentials
+              key: ubi_password
+        - name: KERLINK_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: kerlink-credentials
+              key: kerlink_username
+        - name: KERLINK_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kerlink-credentials
+              key: kerlink_password
+        - name: TABLEAU_API_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: tableau-api-credentials
+              key: tableau_username
+        - name: TABLEAU_API_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: tableau-api-credentials
+              key: tableau_password
+        - name: TABLEAU_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: tableau-api-credentials
+              key: tableau_token
+        - name: TMS_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: tms-dev-api-key
+              key: tms_dev_api_key
+        - name: MEMORY_STORE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: memory-store-api-key
+              key: memory_store_api_key
+        envFrom:
+          - configMapRef:
+              name: server-configmap
+      - name: telegraf
+        image: gcr.io/padas-app/telegraf:1.14.3
+        ports:
+          - containerPort: 8125
+        volumeMounts:
+        - name: telegraf-config-volume
+          mountPath: "/etc/telegraf/"
+          readOnly: true
+        env:
+        - name: SERVICE_NAME
+          value: "api_server"
+        resources:
+          requests:
+            cpu: "5m"
+            memory: "15Mi"

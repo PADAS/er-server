@@ -1,0 +1,139 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: "${KUBERNETES_NAMESPACE}"
+  name: worker
+spec:
+  selector:
+    matchLabels:
+      das.component: worker
+      das.configuration: server
+  template:
+    metadata:
+      labels:
+        das.component: worker
+        das.configuration: server
+      annotations:
+        prometheus.io/port: "9102"
+    spec:
+      imagePullSecrets:
+        - name: gcr-secret
+      # Mount secrets
+      volumes:
+      - name: google-credentials
+        secret:
+          secretName: google-application-credentials
+          items:
+          - key: credentials_json
+            path: "google_credentials.json"
+      - name: telegraf-config-volume
+        configMap:
+          name: telegraf-configmap
+          items:
+            - key: telegraf_conf
+              path: telegraf.conf
+      containers:
+      - image:  "${SERVER_VERSION}"
+        name: das-worker
+        resources:
+          requests:
+            cpu: "150m"
+            memory: "425Mi"
+        livenessProbe:
+          exec:
+            command:
+              - "/bin/sh"
+              - "-c"
+              - "celery inspect ping -b redis://redis:6379 -d celery@default --timeout=5"
+          initialDelaySeconds: 20
+          timeoutSeconds: 20
+          periodSeconds: 180
+          failureThreshold: 3
+          successThreshold: 1
+        volumeMounts:
+        - name: google-credentials
+          mountPath: "/etc/earthranger/"
+          readOnly: true
+        env:
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/etc/earthranger/google_credentials.json"
+        - name: SERVICE_NAME
+          value: "default_worker"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: aws-metrics-credentials
+              key: aws_access_key_id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aws-metrics-credentials
+              key: aws_secret_access_key
+        - name: GA_MEASUREMENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: ga-measurement-id
+              key: ga_measurement_id
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: app-db-credentials
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-db-credentials
+              key: password
+        - name: EMAIL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: email-password
+              key: value
+        - name: EMAIL_HOST_USER
+          valueFrom:
+            secretKeyRef:
+              name: email-username
+              key: value
+        - name: TWILIO_ACCOUNT_SID
+          valueFrom:
+            secretKeyRef:
+              name: twilio-account-settings
+              key: account_sid
+        - name: TWILIO_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: twilio-account-settings
+              key: auth_token
+        - name: WHATSAPP_FROM_NUMBER
+          valueFrom:
+            secretKeyRef:
+              name: twilio-account-settings
+              key: whatsapp_from_number
+        - name: UBI_API_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: ubi-api-credentials
+              key: ubi_username
+        - name: UBI_API_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ubi-api-credentials
+              key: ubi_password
+        envFrom:
+          - configMapRef:
+              name: server-configmap
+      - name: telegraf
+        image: gcr.io/padas-app/telegraf:1.14.3
+        ports:
+          - containerPort: 8125
+        volumeMounts:
+        - name: telegraf-config-volume
+          mountPath: "/etc/telegraf/"
+          readOnly: true
+        env:
+        - name: SERVICE_NAME
+          value: "default_worker"
+        resources:
+          requests:
+            cpu: "5m"
+            memory: "15Mi"
