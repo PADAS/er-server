@@ -146,3 +146,18 @@ class TestUserAdditionalForm:
         form.is_valid()
 
         assert form.errors["pin"][0] == "User PINs must be unique, please select another PIN value."
+
+    def test_edit_existing_user_with_pin_set(self):
+        user = User.objects.first()
+        user.username = "cosme"
+        user.first_name = "Homero"
+        user.last_name = "Simpson"
+        user.pin = "1234"
+        user.save()
+
+        form = UserAdditionalForm(
+            data={"username": "cosme", "first_name": "Cosme", "last_name": "Fulanito", "pin": "1234"}
+        )
+        form.is_valid()
+
+        assert "pin" not in form.errors
