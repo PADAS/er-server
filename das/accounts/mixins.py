@@ -258,6 +258,7 @@ class UserFormValidatorMixin:
     def clean_pin(self):
         User = apps.get_model(app_label="accounts", model_name="User")
         pin = self.cleaned_data["pin"]
+        username = self.cleaned_data["username"]
 
         if not pin:
             return None
@@ -265,7 +266,7 @@ class UserFormValidatorMixin:
             raise ValidationError("The value should be four digits.")
         if len(pin) != 4:
             raise ValidationError("The size should be four digits.")
-        if User.objects.filter(pin=pin).exists():
+        if User.objects.filter(pin=pin).exclude(username=username).exists():
             raise ValidationError("User PINs must be unique, please select another PIN value.")
 
         return pin
