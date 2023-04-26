@@ -408,6 +408,7 @@ locals {
     "earthrace"               = "prod1"
     "kisampa"                 = "prod1"
     "olarroconservancy"       = "prod1"
+    "manupont124"             = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -605,6 +606,7 @@ locals {
     "alturas"                 = 1
     "focen"                   = 1
     "earthrace"               = 1
+    "manupont124"             = 1
   }
 
   db_instance_index  = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
