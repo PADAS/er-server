@@ -406,6 +406,7 @@ locals {
     "focen"                   = "prod1"
     "standrews"               = "prod1"
     "earthrace"               = "prod1"
+    "kisampa"                 = "prod1"
     "olarroconservancy"       = "prod1"
   }
 
