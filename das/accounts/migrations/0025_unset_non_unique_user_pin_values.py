@@ -13,6 +13,7 @@ def delete_and_report_repeated_user_pin(apps, schema_editor):
         User.objects.using(db_alias)
         .values("pin")
         .filter(pin__isnull=False)
+        .exclude(pin="")
         .annotate(pin_count=Count("pin"))
         .order_by("pin")
         .filter(pin_count__gt=1)
