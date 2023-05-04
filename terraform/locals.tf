@@ -409,6 +409,7 @@ locals {
     "kisampa"                 = "prod1"
     "olarroconservancy"       = "prod1"
     "manupont124"             = "prod1"
+    "wpz-wildcarns"           = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -607,6 +608,7 @@ locals {
     "focen"                   = 1
     "earthrace"               = 1
     "manupont124"             = 1
+    "wpz-wildcarns"           = 1
   }
 
   db_instance_index  = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
