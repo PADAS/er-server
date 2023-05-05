@@ -410,6 +410,7 @@ locals {
     "olarroconservancy"       = "prod1"
     "manupont124"             = "prod1"
     "wpz-wildcarns"           = "prod1"
+    "capevultureconservancy"  = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
