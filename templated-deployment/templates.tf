@@ -1,7 +1,6 @@
 locals {
   domain_parts = regex("(?P<subdomain>[^.]+).(?P<primary_domain>.*)", var.fqdn)
-  standard_from_email = join("", ["notifications.", local.domain_parts["subdomain"],
-  "@", local.domain_parts["primary_domain"]])
+  standard_from_email = "notifications@earthranger.com"
 
   from_email                = coalesce(var.from_email, local.standard_from_email)
   resolved_eus_organization = coalesce(var.eus_org, var.fqdn)

@@ -359,7 +359,7 @@ CELERY_TASK_TRACK_STARTED = True
 
 # the address to send notification emails from
 FROM_EMAIL = "notifications@pamdas.org"
-DEFAULT_FROM_EMAIL = "notifications@pamdas.org"
+DEFAULT_FROM_EMAIL = "notifications@earthranger.com"
 # Used by password reset email
 EMAIL_HOST_USER = "info@pamdas.org"
 
