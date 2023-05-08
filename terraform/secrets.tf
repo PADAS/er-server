@@ -157,3 +157,13 @@ resource "kubernetes_secret" "memory_store_api_key" {
     memory_store_api_key = data.google_secret_manager_secret_version.memory_store_api_key.secret_data
   }
 }
+
+resource "kubernetes_secret" "mapbox_token" {
+  metadata {
+    name      = "mapbox-token"
+    namespace = kubernetes_namespace.this.metadata.0.name
+  }
+  data = {
+    mapbox_token = data.google_secret_manager_secret_version.mapbox_token.secret_data
+  }
+}

@@ -56,6 +56,7 @@ resource "template_dir" "deployments" {
     KML_OVERLAY_IMAGE               = var.kml_overlay_image
     KML_FEED_TITLE                  = var.kml_feed_title
     KUBERNETES_NAMESPACE            = var.kubernetes_namespace
+    MAPBOX_TOKEN                    = var.mapbox_token
     MAPPING_FEATURES_V2             = var.mapping_features_v2
     MEMORY_STORE_HOST               = var.memory_store_host
     MEMORY_STORE_DATABASE           = var.memory_store_database

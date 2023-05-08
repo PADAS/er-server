@@ -312,3 +312,8 @@ variable "memory_store_port" {
   type        = string
   default     = ""
 }
+
+variable "mapbox_token" {
+  type    = string
+  default = ""
+}

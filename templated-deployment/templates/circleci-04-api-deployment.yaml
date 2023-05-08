@@ -164,6 +164,11 @@ spec:
             secretKeyRef:
               name: tms-dev-api-key
               key: tms_dev_api_key
+        - name: MAPBOX_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: mapbox-token
+              key: mapbox_token
         - name: MEMORY_STORE_API_KEY
           valueFrom:
             secretKeyRef:
