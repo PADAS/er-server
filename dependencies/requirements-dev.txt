@@ -5,7 +5,6 @@
 #    pip-compile --find-links=./wheelhouse --output-file=requirements-dev.txt ./requirements.txt requirements-dev.in
 #
 --find-links ./wheelhouse
---find-links /opt/project/dependencies/./wheelhouse
 
 affine==2.2.2
     # via
