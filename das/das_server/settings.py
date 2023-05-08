@@ -548,6 +548,7 @@ CARTO_URL = "https://wri-01.cartodb.com/api/v2/sql"  # For: VIIRS-Fire-Alerts
 
 GFW_API_ROOT = "https://production-api.globalforestwatch.org/v1"
 GFW_WEB_ROOT = "https://www.globalforestwatch.org"
+MAPBOX_TOKEN = os.getenv("MAPBOX_TOKEN")
 
 GFW_CREDENTIALS = {
     'username': 'none',
