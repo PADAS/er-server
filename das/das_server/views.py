@@ -62,7 +62,6 @@ class CustomSchema(AutoSchema):
         return super()._get_operation_id(path, method)
 
     def _map_serializer(self, serializer):
-
         # update default values to be json serializable
         result = super()._map_serializer(serializer)
         for res in result.get("properties").values():
@@ -234,8 +233,8 @@ class SwaggerTemplate(TemplateView):
         return context
 
     def _get_token(self):
-        ttl = getattr(settings, "ACCESS_TOKEN_EXPIRE_SECONDS", 3600 * 48)
-        expire = datetime.now(tz=pytz.utc) + timedelta(days=ttl)
+        ttl = getattr(settings, "ACCESS_TOKEN_EXPIRE_SECONDS", 3600 * 48)  # this value is in seconds
+        expire = datetime.now(tz=pytz.utc) + timedelta(seconds=ttl)
         return AccessToken.objects.create(
             user=self.request.user,
             token=generate_token(),
