@@ -1,7 +1,7 @@
 #  pip-compile --output-file ./requirements-docs.txt ./requirements-docs.in
 
 docutils==0.19
-Sphinx==5.1.1
+sphinx==5.3.0
 sphinxcontrib-httpdomain==1.8.0
 pygments-json==0.1
 
