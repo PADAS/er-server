@@ -5,6 +5,7 @@
 #    pip-compile --find-links=./wheelhouse --output-file=requirements-dev.txt ./requirements.txt requirements-dev.in
 #
 --find-links ./wheelhouse
+--find-links /das/dependencies/./wheelhouse
 
 affine==2.2.2
     # via
@@ -47,7 +48,7 @@ attrs==19.1.0
     #   jsonschema
     #   pytest
     #   rasterio
-autoflake==1.4
+autoflake==1.6.0
     # via -r requirements-dev.in
 autopep8==1.6.0
     # via -r requirements-dev.in
@@ -141,7 +142,7 @@ coreschema==0.0.4
     # via
     #   -r ./requirements.txt
     #   coreapi
-coverage==5.2
+coverage==7.2.5
     # via
     #   -r requirements-dev.in
     #   pytest-cov
@@ -837,11 +838,11 @@ pytest==5.4.3
     #   pytest-xdist
 pytest-clarity==1.0.1
     # via -r requirements-dev.in
-pytest-cov==2.10.0
+pytest-cov==2.5.1
     # via -r requirements-dev.in
 pytest-django==4.5.2
     # via -r requirements-dev.in
-pytest-factoryboy==2.1.0
+pytest-factoryboy==2.5.1
     # via -r requirements-dev.in
 pytest-forked==1.2.0
     # via pytest-xdist
@@ -965,7 +966,7 @@ secretstorage==3.3.3
     # via
     #   -r ./requirements.txt
     #   keyring
-semantic-version==2.8.5
+semantic-version==2.10.0
     # via
     #   -r ./requirements.txt
     #   setuptools-rust
@@ -974,7 +975,7 @@ send2trash==1.5.0
     #   -r ./requirements.txt
     #   jupyter-server
     #   notebook
-setuptools-rust==1.0.0
+setuptools-rust==1.6.0
     # via
     #   -r ./requirements.txt
     #   cryptography
@@ -1057,12 +1058,11 @@ toml==0.10.2
     #   dparse
     #   pep517
     #   pre-commit
-tomli==1.2.2
+tomli==2.0.1
     # via
-    #   -r ./requirements.txt
+    #   autoflake
     #   build
     #   pylint
-    #   setuptools-rust
 tomlkit==0.11.6
     # via pylint
 tornado==6.1
@@ -1102,6 +1102,7 @@ typing-extensions==4.0.0
     #   faker
     #   markdown-it-py
     #   pylint
+    #   pytest-factoryboy
     #   rich
     #   setuptools-rust
     #   typing-inspect
