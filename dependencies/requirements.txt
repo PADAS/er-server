@@ -620,13 +620,13 @@ scipy==1.2.1
     #   scikit-learn
 secretstorage==3.3.3
     # via keyring
-semantic-version==2.8.5
+semantic-version==2.10.0
     # via setuptools-rust
 send2trash==1.5.0
     # via
     #   jupyter-server
     #   notebook
-setuptools-rust==1.0.0
+setuptools-rust==1.6.0
     # via cryptography
 shapely==1.7.1
     # via
@@ -683,8 +683,6 @@ testpath==0.4.4
     # via nbconvert
 toml==0.10.2
     # via dparse
-tomli==1.2.2
-    # via setuptools-rust
 tornado==6.1
     # via
     #   ipykernel
