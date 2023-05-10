@@ -413,6 +413,7 @@ locals {
     "capevultureconservancy"  = "prod1"
     "swt"                     = "prod1"
     "chum"                    = "prod1"
+    "mtverdesanctuary"        = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -613,6 +614,7 @@ locals {
     "manupont124"             = 1
     "wpz-wildcarns"           = 1
     "swt"                     = 1
+    "mtverdesanctuary"        = 1
   }
 
   db_instance_index  = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
