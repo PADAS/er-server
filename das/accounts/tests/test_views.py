@@ -71,8 +71,8 @@ class TestUserProfilesView:
         assert response.data == []
         assert "ETag" in response.headers.keys()
 
-    def test_get_user_profiles_not_modified_by_user(self, superuser_client, superuser):
-        profile_user = User.objects.last()
+    def test_get_user_profiles_not_modified_by_user(self, superuser_client, superuser, five_users):
+        profile_user = five_users[0]
         user = superuser
         user.act_as_profiles.add(profile_user)
         user.save()
@@ -91,7 +91,7 @@ class TestUserProfilesView:
         assert etag == new_response.headers["Etag"]
 
     def test_get_user_profiles_modified_by_user(self, superuser_client, superuser, five_users):
-        profile_user = five_users[0]
+        profile_user = five_users[1]
         superuser.act_as_profiles.add(profile_user)
         superuser.save()
 
@@ -100,7 +100,7 @@ class TestUserProfilesView:
 
         assert response.status_code == status.HTTP_200_OK
 
-        superuser.act_as_profiles.add(five_users[1])
+        superuser.act_as_profiles.add(five_users[2])
         superuser.save()
         etag = response.headers["ETag"]
 
