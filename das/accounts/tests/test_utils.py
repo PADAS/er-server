@@ -31,7 +31,11 @@ class TestFetchOrganizationChoices:
 
         tech_choices = fetch_organization_choices()
 
-        assert tech_choices == (("", ""), ("value_5", "display_5"), ("value_6", "display_6"))
+        assert tech_choices == (
+            ("", ""),
+            (five_choices[0].value, five_choices[0].display),
+            (five_choices[1].value, five_choices[1].display),
+        )
 
     def test_fetch_empty_organization_choices(self):
         tech_choices = fetch_organization_choices()
