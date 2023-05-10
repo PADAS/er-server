@@ -6,9 +6,10 @@ https://docs.djangoproject.com/en/1.8/howto/deployment/wsgi/
 """
 import os
 
-import eventlet
+import eventlet.patcher
 
-eventlet.monkey_patch()
+if not eventlet.patcher.is_monkey_patched(os):
+    print("Error, eventlet not monkey patched during import rt_wsgi!!")
 
 from django.core.wsgi import get_wsgi_application
 from socketio import WSGIApp
