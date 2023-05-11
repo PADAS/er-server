@@ -8,7 +8,7 @@ from django.http import HttpResponseNotModified
 from django.urls import reverse
 from rest_framework import status
 
-from activity.models import EventCategory, EventType
+from activity.models import PRI_URGENT, SC_RESOLVED, EventCategory, EventType
 from activity.tests import schema_examples
 from activity.views import EventTypeView
 from client_http import HTTPClient
@@ -16,6 +16,26 @@ from factories import EventTypeFactory
 
 pytestmark = pytest.mark.django_db
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tests")
+
+TEST_SCHEMA = json.dumps(
+    {
+        "schema": {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "title": "EventType Test Schema for Updates",
+            "type": "object",
+            "properties": {
+                "type_accident": {"type": "string", "title": "Type of accident"},
+                "number_people_involved": {"type": "number", "title": "Number of people involved", "minimum": 0},
+                "animals_involved": {"type": "string", "title": "Animals involved"},
+            },
+        },
+        "definition": [
+            {"key": "type_accident", "htmlClass": "col-lg-6"},
+            {"key": "number_people_involved", "htmlClass": "col-lg-6"},
+            {"key": "animals_involved", "htmlClass": "col-lg-6"},
+        ],
+    }
+)
 
 
 class EventTypeDetails(NamedTuple):
@@ -44,6 +64,18 @@ def eventtype_fixture(db, django_user_model):
     )
 
     return EventTypeDetails(eventtype=event_type, user=user)
+
+
+EVENT_TYPE_UPDATES = (
+    ("default_priority", PRI_URGENT),
+    ("default_state", SC_RESOLVED),
+    ("display", "A random display"),
+    ("value", "a-random-value"),
+    ("icon", "A broken icon value"),
+    ("is_active", False),
+    ("is_collection", True),
+    ("schema", TEST_SCHEMA),
+)
 
 
 def test_get_eventtypes_without_schema(eventtype_fixture, client, memory_store_client_mock, tenant_response):
@@ -219,6 +251,24 @@ class TestEventTypeAPI:
         assert empty_response.status_code == status.HTTP_304_NOT_MODIFIED
         assert isinstance(empty_response, HttpResponseNotModified)
 
+    @pytest.mark.parametrize("field_update", EVENT_TYPE_UPDATES)
+    def test_field_update_generates_new_etag_response_header(self, superuser_client, five_event_types, field_update):
+        event_type = five_event_types[0]
+        event_type_id = str(event_type.id)
+        url = reverse("eventtype", kwargs={"eventtype_id": event_type_id})
+        field_to_update, new_value = field_update
+
+        original_response = superuser_client.get(url, HTTP_IF_NONE_MATCH='"non-matching-etag"')
+        original_etag = original_response.headers["ETag"]
+        setattr(event_type, field_to_update, new_value)
+        event_type.save()
+        modified_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=original_etag)
+        modified_etag = modified_response.headers["ETag"]
+
+        assert original_response.status_code == status.HTTP_200_OK
+        assert modified_response.status_code == status.HTTP_200_OK
+        assert original_etag != modified_etag
+
     def _get_response(self, event_type_id):
         client = HTTPClient()
         client.app_user.is_superuser = True
@@ -245,3 +295,20 @@ class TestEventTypesAPI:
         assert last_modified == empty_response.headers["Last-Modified"]
         assert empty_response.status_code == status.HTTP_304_NOT_MODIFIED
         assert isinstance(empty_response, HttpResponseNotModified)
+
+    @pytest.mark.parametrize("field_update", EVENT_TYPE_UPDATES)
+    def test_field_update_generates_new_etag_response_header(self, superuser_client, five_event_types, field_update):
+        event_type = five_event_types[0]
+        url = reverse("eventtypes")
+        field_to_update, new_value = field_update
+
+        original_response = superuser_client.get(url, HTTP_IF_NONE_MATCH='"non-matching-etag"')
+        original_etag = original_response.headers["ETag"]
+        setattr(event_type, field_to_update, new_value)
+        event_type.save()
+        modified_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=original_etag)
+        modified_etag = modified_response.headers["ETag"]
+
+        assert original_response.status_code == status.HTTP_200_OK
+        assert modified_response.status_code == status.HTTP_200_OK
+        assert original_etag != modified_etag
