@@ -12,7 +12,19 @@ from activity.models import EventType, PatrolType
 from activity.views.events.utils import EventTypeQuerysetMixin
 
 PATROL_TYPE_FIELDS = ("value", "display", "ordernum", "icon", "is_active")
-EVENT_TYPE_FIELDS = ("value", "display", "category", "ordernum", "icon", "is_collection", "is_active", "geometry_type")
+EVENT_TYPE_FIELDS = (
+    "category",
+    "default_priority",
+    "default_state",
+    "display",
+    "geometry_type",
+    "icon",
+    "is_active",
+    "is_collection",
+    "ordernum",
+    "schema",
+    "value",
+)
 
 
 @dataclass

@@ -83,7 +83,6 @@
                 "das_rt",
                 "--limit-request-line",
                 "6000",
-                "--preload",
                 "--bind",
                 "127.0.0.1:8000",
                 "--workers",
@@ -93,7 +92,7 @@
                 "--worker-class",
                 "eventlet",
                 "--timeout",
-                "60",
+                "600",
                 "--log-level",
                 "info"
             ]
