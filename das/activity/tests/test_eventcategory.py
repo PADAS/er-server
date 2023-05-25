@@ -26,7 +26,7 @@ class EventCategoryTest(BaseAPITest):
             "no_perms_user", "das_no_perms@vulcan.com", "noperms", **user_const
         )
         EventCategory.objects.create(value="security", display="Security")
-        EventCategory.objects.create(value="logistic", display="Logistic")
+        self.event_category_logistic = EventCategory.objects.create(value="logistic", display="Logistic")
 
     def test_no_event_categories_display(self):
         # User with no-perms can't view event categories.
@@ -91,7 +91,7 @@ class EventCategoryTest(BaseAPITest):
         self.assertEqual(response.data.get("value"), data.get("value"))
 
     def test_delete_event_category(self):
-        eventcategory_id = str(EventCategory.objects.first().id)
+        eventcategory_id = str(self.event_category_logistic.id)
         url = reverse("event-category", kwargs={"eventcategory_id": eventcategory_id})
         request = self.factory.delete(url)
         self.force_authenticate(request, self.user)
