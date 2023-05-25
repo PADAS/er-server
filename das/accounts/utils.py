@@ -46,7 +46,9 @@ def get_category_name_from_perm(perm_name: str) -> str:
     return result.group() if result else result
 
 
-def ignore_permission(resource, app_name, perm=None, user=None):
+def ignore_permission(
+    resource, app_name, perm=None, user=None, user_categories_and_geo_categories=None, event_categories=None
+):
     """state the condition for permission to be ignored or not."""
 
     geo_category_name = get_category_name_from_perm(perm)
@@ -61,12 +63,10 @@ def ignore_permission(resource, app_name, perm=None, user=None):
     ):
         return True
     elif "geographic" in perm and user:
-        results = get_categories_and_geo_categories(user)
-
-        if not EventCategory.objects.filter(value=geo_category_name).exists():
+        if geo_category_name not in event_categories:
             return True
 
-        for category in results["categories"]:
+        for category in user_categories_and_geo_categories["categories"]:
             if category in perm:
                 return True
         return False
@@ -94,6 +94,9 @@ def allowed_permissions(user_instance):
             permissions.update(backend.get_all_permissions(user_instance))
 
     container = defaultdict(list)
+    user_categories_and_geo_categories = get_categories_and_geo_categories(user_instance)
+    event_categories = set(EventCategory.objects.values_list("value", flat=True))
+
     for permission in permissions:
         app_name, perm = permission.split(".", maxsplit=1)
         if perm.endswith(("create", "read", "update", "delete")):
@@ -101,7 +104,9 @@ def allowed_permissions(user_instance):
         else:
             verb, resource = perm.split("_", maxsplit=1)
 
-        if ignore_permission(resource, app_name, permission, user_instance):
+        if ignore_permission(
+            resource, app_name, permission, user_instance, user_categories_and_geo_categories, event_categories
+        ):
             continue
 
         # The non-standard permissions are a bit messy, so limit to CRUD verbs.
