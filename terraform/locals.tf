@@ -421,6 +421,7 @@ locals {
     "shamwari"                = "prod1"
     "rewildingeuropetest"     = "dev"
     "buffelsdrift"            = "prod1"
+    "kuzuko"                  = "prod1"
     "mhurley"                 = "prod1"
   }
 
