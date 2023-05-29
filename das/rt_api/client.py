@@ -10,12 +10,9 @@ from psycopg2.extras import DateTimeTZRange
 
 from django.conf import settings
 from django.contrib.gis.geos import MultiPolygon, Polygon
-from django.db import transaction
 
 from observations.models import SocketClient, UserSession
 from utils import json
-
-from .db import close_old_shared_connections
 
 logger = logging.getLogger(__name__)
 redis_client = redis.from_url(settings.REALTIME_BROKER_URL)
@@ -218,9 +215,7 @@ def remove_clients(sids: set):
     redis_client.delete(*[SID_SUBJECTS_TIMESTAMPS_KEY.format(sid) for sid in sids])
 
     try:
-        with transaction.atomic():
-            SocketClient.objects.filter(id__in=sids).delete()
-            close_old_shared_connections()
+        SocketClient.objects.filter(id__in=sids).delete()
     except ValueError:
         logger.exception("Failed to remove SocketClients for sids: %s", sids)
 
