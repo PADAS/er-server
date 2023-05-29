@@ -16,8 +16,7 @@ import utils.json
 from rt_api import client
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from utils import stats
-
-from .db import close_old_shared_connections
+from utils.db import close_old_shared_connections
 
 logger = logging.getLogger("rt_api")
 

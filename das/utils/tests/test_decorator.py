@@ -1,10 +1,35 @@
+from unittest.mock import MagicMock, call
+
 import pytest
 
-from utils.decorator import retry_on_exception
+from utils.decorator import retry_on_exception, use_shared_resource
+from utils.interfaces import SharedResourceHandler
 
 
 class CustomException(Exception):
     pass
+
+
+class SharedResourceHandler(SharedResourceHandler):
+    def __init__(self):
+        self.resource = MagicMock()
+
+    def aquire_resource(self):
+        self.resource("aquire resource")
+
+    def release_resource(self):
+        self.resource("release resource")
+
+    def report_error(self, failure):
+        self.resource("error reported", str(failure))
+
+    @use_shared_resource
+    def successfull_use_of_resource(self):
+        self.resource("using the resource")
+
+    @use_shared_resource
+    def unsuccessfull_use_of_resource(self):
+        return 1 / 0
 
 
 class TestFunctionRetryOnException:
@@ -33,3 +58,26 @@ class TestFunctionRetryOnException:
         succeed = succeed_eventually()
 
         assert succeed
+
+
+class TestUseSharedResource:
+    def test_use_shared_resource_successfully(self):
+        resource_handler = SharedResourceHandler()
+
+        resource_handler.successfull_use_of_resource()
+
+        assert resource_handler.resource.call_count == 3
+        assert call("aquire resource") in resource_handler.resource.call_args_list
+        assert call("using the resource") in resource_handler.resource.call_args_list
+        assert call("release resource") in resource_handler.resource.call_args_list
+
+    def test_use_shared_resource_unsuccessfully(self):
+        resource_handler = SharedResourceHandler()
+
+        with pytest.raises(ZeroDivisionError):
+            resource_handler.unsuccessfull_use_of_resource()
+
+        assert resource_handler.resource.call_count == 3
+        assert call("aquire resource") in resource_handler.resource.call_args_list
+        assert call("error reported", "division by zero") in resource_handler.resource.call_args_list
+        assert call("release resource") in resource_handler.resource.call_args_list

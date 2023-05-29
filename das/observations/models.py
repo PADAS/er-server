@@ -33,7 +33,7 @@ from django.contrib.gis.db import models as dbmodels
 from django.contrib.gis.geos import Point, Polygon
 from django.contrib.postgres.fields import DateTimeRangeField, jsonb
 from django.contrib.postgres.fields.hstore import KeyTransform
-from django.db import transaction
+from django.db import connections, transaction
 from django.db.models import (
     BooleanField,
     Case,
@@ -66,6 +66,8 @@ from observations.utils import (
     is_subject_stationary_subject,
 )
 from tracking.pubsub_registry import notify_subjectstatus_update
+from utils.decorator import use_shared_resource
+from utils.interfaces import SharedResourceHandler
 from utils.json import zeroout_microseconds
 
 STATIONARY_SUBJECT_VALUE = "stationary-object"
@@ -1837,6 +1839,33 @@ class Region(models.Model):
         return "%s, %s" % (self.region, self.country)
 
 
+class QuerySetOnSharedConnection(models.QuerySet, SharedResourceHandler):
+    def aquire_resource(self):
+        logger.debug("Aquire database connection from %s", self.__class__.__name__)
+        connection = connections[self.db]
+        connection.inc_thread_sharing()
+
+    def release_resource(self):
+        connection = connections[self.db]
+        connection.dec_thread_sharing()
+        logger.debug("Release database connection from %s", self.__class__.__name__)
+
+    def report_error(self, failure):
+        logger.warning("A failure occurred on shared connection: %s", failure)
+
+    @use_shared_resource
+    def get(self, *args, **kwargs):
+        return super().get(*args, **kwargs)
+
+    @use_shared_resource
+    def delete(self, *args, **kwargs):
+        return super().delete(*args, **kwargs)
+
+
+class SocketClientManager(models.Manager):
+    pass
+
+
 class SocketClient(TimestampedModel):
     """
     Associate a socket ID with a user and a set of session-related data.
@@ -1848,10 +1877,34 @@ class SocketClient(TimestampedModel):
     event_filter = models.JSONField("Event filter", default=dict)
     patrol_filter = models.JSONField("Patrol filter", default=dict)
 
+    objects = SocketClientManager.from_queryset(QuerySetOnSharedConnection)()
 
-class UserSession(TimestampedModel):
+
+class UserSessionManager(models.Manager):
+    pass
+
+
+class UserSession(TimestampedModel, SharedResourceHandler):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_column="sid")
     time_range = DateTimeRangeField("user session time", null=True, blank=True)
+    objects = UserSessionManager.from_queryset(QuerySetOnSharedConnection)()
+
+    def aquire_resource(self):
+        logger.debug("Aquire database connection from %s", self.__class__.__name__)
+        connection = connections[UserSession.objects.db]
+        connection.inc_thread_sharing()
+
+    def release_resource(self):
+        connection = connections[UserSession.objects.db]
+        connection.dec_thread_sharing()
+        logger.debug("Release database connection from %s", self.__class__.__name__)
+
+    def report_error(self, failure):
+        logger.warning("Could not save the UserSession: %s", failure)
+
+    @use_shared_resource
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
 
 
 from analyzers.models import ObservationAnnotator  # noqa

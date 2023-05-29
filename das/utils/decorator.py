@@ -1,6 +1,9 @@
 import functools
 import logging
 import time
+from typing import Callable
+
+from .interfaces import SharedResourceHandler
 
 
 class reify(object):
@@ -76,3 +79,34 @@ def retry_on_exception(exception_type, retry_forever=False, max_retries=3, delay
         return wrapper
 
     return decorator
+
+
+def use_shared_resource(method: Callable):
+    """Decorator to execute a method class using a shared resource.
+    It ensures the connection is locked before and properly released after the
+    operation is complete.
+
+    :param method: Callable
+    :rtype: Callable
+    """
+
+    @functools.wraps(method)
+    def method_using_shared_resource(instance: SharedResourceHandler, *args, **kwargs):
+        failure = None
+        result = None
+        try:
+            instance.aquire_resource()
+            result = method(instance, *args, **kwargs)
+        except Exception as exc:
+            failure = exc
+            instance.report_error(failure)
+
+        finally:
+            instance.release_resource()
+
+        if failure:
+            raise failure
+
+        return result
+
+    return method_using_shared_resource
