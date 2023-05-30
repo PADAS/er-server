@@ -12,6 +12,7 @@ from django.contrib.gis.db import models
 from django.core import serializers
 from django.db.models import Max
 
+from activity.constants import PRIORITY_CHOICES
 from utils.text import humanize_field_name
 
 logger = logging.getLogger(__name__)
@@ -297,7 +298,7 @@ def get_field_mapping() -> dict:
         "message": "str",
         "event_time": "str",
         "state": "str",
-        "priority": "str",
+        "priority": "priority",
         "location": "location",
         "reported_by_id": "str",
         "provenance": "str",
@@ -345,4 +346,13 @@ def format_field(field: str, format_: str) -> str:
 
             return f"{found[1]}°, {found[0]}°".strip()
         return ""
+
+    if format_ == "priority":
+        return get_priority_display_value(field)
+
     return field
+
+
+def get_priority_display_value(priority: int) -> str:
+    choices = dict(PRIORITY_CHOICES)
+    return choices.get(priority, f"UNKNOWN({priority})")
