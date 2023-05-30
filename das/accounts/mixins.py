@@ -282,8 +282,6 @@ class UserFormValidatorMixin:
         return users
 
     def _validate_value_contains_special_characters(self, value):
-        filtered_value = re.sub(r"\w|\s|\.", "", value.strip())
+        filtered_value = re.sub(r"-|[a-zA-Z0-9().,_']|\s", "", value.strip())
         if filtered_value != "":
-            raise ValidationError(
-                "The field contains invalid characters. Only alphanumeric characters and period are allowed."
-            )
+            raise ValidationError("The field contains invalid characters.")
