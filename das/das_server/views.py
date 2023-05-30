@@ -6,7 +6,6 @@ from drf_extra_fields.geo_fields import PointField
 from oauth2_provider.models import AccessToken, Application
 from oauthlib.common import generate_token
 
-import rest_framework.serializers
 from django.conf import settings
 from django.db import connection
 from django.db.migrations.recorder import MigrationRecorder
@@ -25,6 +24,7 @@ from core.utils import get_site_name
 
 # This import ensures we register user-login receivers.
 from das_server import __version__
+from das_server.serializers import VersionSerializer
 from observations import servicesutils
 from observations.servicesutils import has_message_view_permission
 from utils.features import features
@@ -109,36 +109,6 @@ class CustomSchema(AutoSchema):
         return super()._map_field(field)
 
 
-class VersionSerializer(rest_framework.serializers.Serializer):
-    version = rest_framework.serializers.CharField(read_only=True)
-    show_track_days = rest_framework.serializers.IntegerField(read_only=True)
-    event_matrix_enabled = rest_framework.serializers.BooleanField(read_only=True)
-    event_search_enabled = rest_framework.serializers.BooleanField(read_only=True)
-    export_kml_enabled = rest_framework.serializers.BooleanField(read_only=True)
-    db_connection_count = rest_framework.serializers.IntegerField(read_only=True)
-    eus_settings = rest_framework.serializers.DictField(read_only=True)
-
-    show_stationary_subjects_on_map = rest_framework.serializers.BooleanField(read_only=True)
-
-    daily_report_enabled = rest_framework.serializers.BooleanField(read_only=True)
-
-    alerts_enabled = rest_framework.serializers.BooleanField(read_only=True)
-    tableau_enabled = rest_framework.serializers.BooleanField(read_only=True)
-
-    services = rest_framework.serializers.ListField(read_only=True)
-
-    server_timezone_name = rest_framework.serializers.CharField(read_only=True)
-    server_timezone = rest_framework.serializers.CharField(read_only=True)
-
-    eula_enabled = rest_framework.serializers.BooleanField(read_only=True)
-    patrol_enabled = rest_framework.serializers.BooleanField(read_only=True)
-    messaging_enabled = rest_framework.serializers.BooleanField(read_only=True)
-    site_name = rest_framework.serializers.CharField(read_only=True)
-    last_migration_app = rest_framework.serializers.CharField(read_only=True)
-    last_migration_name = rest_framework.serializers.CharField(read_only=True)
-    track_length = rest_framework.serializers.IntegerField(read_only=True)
-
-
 class StatusView(generics.RetrieveAPIView):
     """
     What is the server status and current api version.
@@ -163,6 +133,10 @@ class StatusView(generics.RetrieveAPIView):
                 self.request.user
             )
             resp["show_stationary_subjects_on_map"] = tenant.feature_flags.show_stationary_subjects_on_map
+            if tenant.feature_flags.default_event_filter_from_days >= 0:
+                resp["default_event_filter_from_days"] = tenant.feature_flags.default_event_filter_from_days
+            if tenant.feature_flags.default_patrol_filter_from_days >= 0:
+                resp["default_patrol_filter_from_days"] = tenant.feature_flags.default_patrol_filter_from_days
         else:
             resp["alerts_enabled"] = settings.ALERTS_ENABLED and has_alerts_permissionset(self.request.user)
             resp["daily_report_enabled"] = settings.DAILY_REPORT_ENABLED
@@ -171,6 +145,10 @@ class StatusView(generics.RetrieveAPIView):
             resp["eula_enabled"] = settings.ACCEPT_EULA
             resp["patrol_enabled"] = settings.PATROL_ENABLED and has_patrol_view_permission(self.request.user)
             resp["show_stationary_subjects_on_map"] = settings.SHOW_STATIONARY_SUBJECTS_ON_MAP
+            if settings.DEFAULT_EVENT_FILTER_FROM_DAYS >= 0:
+                resp["default_event_filter_from_days"] = settings.DEFAULT_EVENT_FILTER_FROM_DAYS
+            if settings.DEFAULT_PATROL_FILTER_FROM_DAYS >= 0:
+                resp["default_patrol_filter_from_days"] = settings.DEFAULT_PATROL_FILTER_FROM_DAYS
 
         resp["event_matrix_enabled"] = settings.EVENT_MATRIX_ENABLED
         resp["event_search_enabled"] = True

@@ -144,6 +144,15 @@ variable "show_track_days" {
   type    = string
   default = "16"
 }
+variable "default_event_filter_from_days" {
+  type    = string
+  default = "-1"
+}
+variable "default_patrol_filter_from_days" {
+  type    = string
+  default = "-1"
+}
+
 
 variable "eus_email" {
   type    = string

@@ -30,7 +30,9 @@ resource "template_dir" "deployments" {
     DB_NAME                         = var.db_name
     DB_PORT                         = var.db_port
     DB_USER                         = var.db_user
+    DEFAULT_EVENT_FILTER_FROM_DAYS  = var.default_event_filter_from_days
     DEFAULT_FROM_EMAIL              = local.from_email
+    DEFAULT_PATROL_FILTER_FROM_DAYS = var.default_patrol_filter_from_days
     DJANGO_LOGGING_LEVEL            = var.django_logging_level
     DJANGO_REQUEST_LOGGING_LEVEL    = var.django_request_logging_level
     DJANGO_SERVER_LOGGING_LEVEL     = var.django_server_logging_level
