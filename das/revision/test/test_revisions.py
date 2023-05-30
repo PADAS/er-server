@@ -5,7 +5,7 @@ import pytest
 
 from django.urls import reverse
 
-from activity.models import PRI_NONE, SC_ACTIVE, Event, EventNote
+from activity.models import PRI_NONE, PRI_URGENT, SC_ACTIVE, Event, EventNote
 from activity.serializers import EventNoteSerializer, EventSerializer
 from utils.text import humanize_field_name
 
@@ -26,6 +26,14 @@ class TestEventRevisionsMessage:
         data = EventSerializer(event).data["updates"]
         assert data[0]["message"] == f"Changed State: new \u2192 {SC_ACTIVE}"
 
+    def test_event_change_priority(self, event_with_detail):
+        event = event_with_detail.event
+        event.priority = PRI_URGENT
+        event.save()
+
+        data = EventSerializer(event).data["updates"]
+        assert "Changed Priority: Gray \u2192 Red" in data[0]["message"]
+
     @pytest.mark.parametrize(
         "fields",
         [
@@ -41,7 +49,7 @@ class TestEventRevisionsMessage:
             "time": "2023-03-09T22:25:20.329Z",
         }
 
-        response_create = superuser_client.post(f"/api/v1.0/activity/events/", payload)
+        response_create = superuser_client.post("/api/v1.0/activity/events/", payload)
         reverse("event-view", kwargs={"id": response_create.data["id"]})
         superuser_client.patch(
             reverse("event-view", kwargs={"id": response_create.data["id"]}), {fields["field"]: fields["value"]}
