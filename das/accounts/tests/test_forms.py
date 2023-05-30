@@ -3,6 +3,16 @@ import pytest
 from accounts.forms import CustomUserCreationForm, UserAdditionalForm
 from accounts.models import User
 
+COMPLEX_NAMES = (
+    ("Tommy-Lee", "Jhones"),
+    ("Dwayne (The Rock)", "Johnson"),
+    ("Robert", "L. Forward"),
+    ("Scarlett ", "O'hara"),
+    ("Charles_III", "King"),
+)
+
+INVALID_CHARACTERS_FOR_NAMES = ("`", "<", ">", ";", "$", "@", "{", "}", '"')
+
 
 @pytest.mark.django_db
 class TestCustomUserCreationForm:
@@ -49,21 +59,23 @@ class TestCustomUserCreationForm:
 
         form.is_valid()
 
-        assert (
-            form.errors[field_name][0]
-            == "The field contains invalid characters. Only alphanumeric characters and period are allowed."
-        )
+        assert form.errors[field_name][0] == "The field contains invalid characters."
 
-    @pytest.mark.parametrize("invalid_name", ["`", "-", "<", ">", ";", "$", "@", "(", ")"])
+    @pytest.mark.parametrize("invalid_name", INVALID_CHARACTERS_FOR_NAMES)
     def test_special_characters_are_not_allowed_on_first_name_field(self, invalid_name):
         form = CustomUserCreationForm(data={"username": "username", "first_name": invalid_name})
 
         form.is_valid()
 
-        assert (
-            form.errors["first_name"][0]
-            == "The field contains invalid characters. Only alphanumeric characters and period are allowed."
-        )
+        assert form.errors["first_name"][0] == "The field contains invalid characters."
+
+    @pytest.mark.parametrize("first_name,last_name", COMPLEX_NAMES)
+    def test_create_user_with_complex_names(self, first_name, last_name):
+        form = UserAdditionalForm(data={"username": "username", "first_name": first_name, "last_name": last_name})
+
+        form.is_valid()
+
+        assert not form.errors
 
     def test_create_user_with_duplicate_pin(self):
         user = User.objects.first()
@@ -121,21 +133,23 @@ class TestUserAdditionalForm:
 
         form.is_valid()
 
-        assert (
-            form.errors[field_name][0]
-            == "The field contains invalid characters. Only alphanumeric characters and period are allowed."
-        )
+        assert form.errors[field_name][0] == "The field contains invalid characters."
 
-    @pytest.mark.parametrize("invalid_name", ["`", "-", "<", ">", ";", "$", "@", "(", ")"])
+    @pytest.mark.parametrize("invalid_name", INVALID_CHARACTERS_FOR_NAMES)
     def test_special_characters_are_not_allowed_on_first_name_field(self, invalid_name):
         form = UserAdditionalForm(data={"username": "username", "first_name": invalid_name})
 
         form.is_valid()
 
-        assert (
-            form.errors["first_name"][0]
-            == "The field contains invalid characters. Only alphanumeric characters and period are allowed."
-        )
+        assert form.errors["first_name"][0] == "The field contains invalid characters."
+
+    @pytest.mark.parametrize("first_name,last_name", COMPLEX_NAMES)
+    def test_create_user_with_complex_names(self, first_name, last_name):
+        form = UserAdditionalForm(data={"username": "username", "first_name": first_name, "last_name": last_name})
+
+        form.is_valid()
+
+        assert not form.errors
 
     def test_create_user_with_duplicate_pin(self):
         user = User.objects.first()
