@@ -50,7 +50,6 @@ def observation_post_delete(sender, instance, **kwargs):
 
 @receiver(post_save, sender=SubjectStatus)
 def subject_status_post_save(sender, instance, created, **kwargs):
-
     if kwargs["raw"]:
         return
 
@@ -65,7 +64,6 @@ def subject_status_post_save(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=Subject)
 def ensure_subject_status_exists(sender, **kwargs):
-
     if kwargs.get("created", False):
         subject = kwargs.get("instance")
         SubjectStatus.objects.ensure_for_subject(subject)
@@ -73,7 +71,6 @@ def ensure_subject_status_exists(sender, **kwargs):
 
 @receiver(post_save, sender=SubjectSource)
 def maintain_subjectstatus(sender, instance, created, **kwargs):
-
     # This function is triggered when source is updated for subject.
     SubjectStatus.objects.maintain_subject_status(instance.subject_id)
 
@@ -115,7 +112,6 @@ post_migrate.connect(create_proxy_permissions)
 
 
 def create_view_permissionset(permission_name):
-
     permission_set, created = PermissionSet.objects.get_or_create(name=permission_name)
 
     for codename in ["view_real_time", "view_subject", "subscribe_alerts", "view_subjectgroup"]:
