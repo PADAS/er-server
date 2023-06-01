@@ -545,6 +545,9 @@ WHITENOISE_ADD_HEADERS_FUNCTION = whitenoise_headers_func
 
 DAILY_REPORT_ENABLED = False
 ALERTS_ENABLED = True
+ALERTS_RATE_LIMIT = 20
+ALERTS_RATE_LIMIT_DURATION_SECONDS = 86400  # 24 hours
+ALERTS_REMAINING_COUNTER_FOR_WARNING = 3
 
 CARTO_URL = "https://wri-01.cartodb.com/api/v2/sql"  # For: VIIRS-Fire-Alerts
 
@@ -598,7 +601,19 @@ GEO_PERMISSION_RADIUS_METERS = 3704
 GEO_PERMISSION_SPEED_KM_H = 75
 GEO_PERMISSION_VIOLATION_BAN_DURATION_MIN = 10
 
-PERSISTENT_STORAGE = {"CLIENT": "utils.persistent.RedisStorage", "HOST": "redis", "PORT": "6379", "DATABASE": 0}
+PERSISTENT_STORAGE = {
+    "CLIENT": "utils.persistent.RedisStorage",
+    "HOST": "redis",
+    "PORT": "6379",
+    "DATABASE": 0,
+}
+
+ALERTS_STORAGE = {
+    "CLIENT": "utils.persistent.RedisStorage",
+    "HOST": "redis",
+    "PORT": "6379",
+    "DATABASE": 3,
+}
 
 TMS_API = {
     "CLIENT": "core.tms.HTTPClient",

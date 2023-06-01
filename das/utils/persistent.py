@@ -78,6 +78,9 @@ class RedisStorage(PersistentStorageWithSortedSet):
     def slice_sorted_set(self, key, maximum):
         self._connection.zremrangebyscore(key, min=0, max=maximum)
 
+    def increment_key_by_value(self, key: str, increment: int = 1) -> int:
+        return self._connection.incrby(key, increment)
+
 
 class RedisStorageReadOnly(PersistentStorageReadOnly):
     def __init__(self, config):
