@@ -1179,6 +1179,14 @@ class Subject(TimestampedModel, PermissionSetGroupMixin):
         related_query_name="subject",
     )
 
+    linked_user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="linked_subject",
+    )
+
     additional = models.JSONField("additional data", default=dict, blank=True)
     is_active = models.BooleanField(
         _("active"),

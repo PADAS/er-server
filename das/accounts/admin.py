@@ -25,6 +25,7 @@ from django.utils.translation import gettext_lazy as _
 from accounts.models import PermissionSet, User
 from accounts.utils import patrol_mgmt_permissions
 from core.common import TIMEZONE_USED
+from observations.models import Subject
 from utils.admin import DefaultFilterMixin
 from utils.features import features
 from utils.html import make_html_list
@@ -94,7 +95,7 @@ class PermissionSetAdmin(DjangoGroupAdmin):
 
 
 class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
-    readonly_fields = ("_last_login", "_profiles")
+    readonly_fields = ("_last_login", "_profiles", "_linked_subject_warning")
     ordering = (
         "username",
         "last_name",
@@ -145,6 +146,16 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
                     "act_as_profiles",
                     "_profiles",
                 )
+            },
+        ),
+        (
+            _("Subject"),
+            {
+                "classes": ("collapse",),
+                "fields": (
+                    "linked_subject",
+                    "_linked_subject_warning",
+                ),
             },
         ),
     )
@@ -208,6 +219,13 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
         ),
         (_("Permissions"), {"fields": ("permission_sets", "is_active", "is_nologin", "is_staff", "is_superuser")}),
         (_("User Profiles"), {"fields": ("act_as_profiles",)}),
+        (
+            _("Subject"),
+            {
+                "classes": ("collapse",),
+                "fields": ("linked_subject",),
+            },
+        ),
     )
 
     def get_form(self, request, obj=None, **kwargs):
@@ -226,17 +244,15 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
         if not obj:
             return super().get_fieldsets(request)
 
-        fieldsets = copy.deepcopy(self.fieldsets)
         if User.objects.filter(act_as_profiles__in=[obj]):
-            fields_to_remove = ("act_as_profiles",)
-            fieldsets[3][1]["fields"] = tuple(
-                field for field in fieldsets[3][1]["fields"] if not field in fields_to_remove
-            )
+            fieldsets = self._remove_fields_from_fieldsets(field_to_remove="act_as_profiles", fieldset_index=3)
         else:
-            fields_to_remove = ("_profiles",)
-            fieldsets[3][1]["fields"] = tuple(
-                field for field in fieldsets[3][1]["fields"] if not field in fields_to_remove
-            )
+            fieldsets = self._remove_fields_from_fieldsets(field_to_remove="_profiles", fieldset_index=3)
+
+        if Subject.objects.filter(linked_user=obj.pk).exists():
+            fieldsets = self._remove_fields_from_fieldsets(field_to_remove="linked_subject", fieldset_index=4)
+        else:
+            fieldsets = self._remove_fields_from_fieldsets(field_to_remove="_linked_subject_warning", fieldset_index=4)
 
         return fieldsets
 
@@ -292,6 +308,11 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
 
         if should_reset_password and obj.email:
             self.send_reset_email(request, obj)
+
+        if form.cleaned_data["linked_subject"]:
+            subject = form.cleaned_data["linked_subject"]
+            subject.linked_user = obj
+            subject.save()
 
     def send_reset_email(self, request, user):
         form = PasswordResetForm(data={"email": user.email})
@@ -352,6 +373,21 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
     _last_login.admin_order_field = "last_login"
 
     _profiles.short_description = "Profile of"
+
+    def _linked_subject_warning(self, instance):
+        return mark_safe(
+            f"<i>This user account is being used for the Subject: <b> {instance.linked_subject}</b>, and can not assign any other Subject.</i>"
+        )
+
+    _linked_subject_warning.short_description = "Warning"
+
+    def _remove_fields_from_fieldsets(self, field_to_remove: str, fieldset_index: int, field_index: int = 1) -> tuple:
+        fieldsets = copy.deepcopy(self.fieldsets)
+
+        fieldsets[fieldset_index][field_index]["fields"] = tuple(
+            field for field in fieldsets[fieldset_index][field_index]["fields"] if not field in (field_to_remove,)
+        )
+        return fieldsets
 
 
 admin.site.register(User, UserAdmin)

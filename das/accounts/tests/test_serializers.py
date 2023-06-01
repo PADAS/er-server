@@ -5,7 +5,7 @@ from accounts.serializers import UserSerializer
 
 @pytest.mark.django_db
 class TestUserSerializer:
-    def test_serialized_user(self, ops_user):
+    def test_serialized_user(self, ops_user, subject):
         ops_user.username = "username"
         ops_user.first_name = "Antonio"
         ops_user.last_name = "Banderas"
@@ -14,6 +14,9 @@ class TestUserSerializer:
         ops_user.is_superuser = False
         ops_user.additional = {"role": "Super DevOps"}
         ops_user.save()
+
+        subject.linked_user = ops_user
+        subject.save()
 
         serialized_user = UserSerializer(ops_user).data
 
@@ -26,3 +29,4 @@ class TestUserSerializer:
         assert serialized_user["is_staff"] == ops_user.is_staff
         assert serialized_user["is_superuser"] == ops_user.is_superuser
         assert serialized_user["is_active"]
+        assert serialized_user["subject"]["id"] == str(subject.id)

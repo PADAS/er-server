@@ -5,12 +5,20 @@ from rest_framework.exceptions import ValidationError
 
 from accounts.models.eula import EULA, UserAgreement
 from core.serializers import ContentTypeField
+from observations.models import Subject
 from utils.features import features
 from utils.tenant import get_tenant_settings
 
 
+class LinkedSubjectSerializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = Subject
+        fields = ("id",)
+
+
 class UserSerializer(rest_framework.serializers.ModelSerializer):
     role = rest_framework.serializers.CharField(source="get_role")
+    subject = LinkedSubjectSerializer(source="linked_subject", read_only=True)
 
     class Meta:
         model = get_user_model()
@@ -23,6 +31,7 @@ class UserSerializer(rest_framework.serializers.ModelSerializer):
             "last_login",
             "accepted_eula",
             "pin",
+            "subject",
         )
         fields = ("username", "email", "first_name", "last_name", "role") + read_only_fields
 
