@@ -163,6 +163,10 @@ app.conf.beat_schedule = {
         "task": "activity.tasks.periodically_maintain_patrol_state",
         "schedule": timedelta(minutes=1),
     },
+    "set_alert_counter_for_all_users": {
+        "task": "activity.tasks.reset_alert_counter_for_all_users",
+        "schedule": crontab(hour=0, minute=0),
+    },
 }
 
 # Patch Celery's configuration with some attributes that Celery_once will

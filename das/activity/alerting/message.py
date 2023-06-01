@@ -16,6 +16,11 @@ from activity.alerting.businessrules import (
     render_event,
     resolve_event_revisions,
 )
+from activity.alerting.rate_limit import (
+    get_remaining_alert_count,
+    increment_alert_counter,
+    prepend_alert_warning_message,
+)
 from activity.models import (
     NOTIFICATION_METHOD_EMAIL,
     NOTIFICATION_METHOD_SMS,
@@ -93,7 +98,6 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
         logger.debug(f"Update Event Details Fields: {json.dumps(updated_event_details_fields, indent=2, default=str)}")
 
     if notification_method.method == NOTIFICATION_METHOD_EMAIL:
-
         email_body = render_to_string("eventalert.html", report_context)
 
         if logger.isEnabledFor(logging.DEBUG):
@@ -123,6 +127,7 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
             value=notification_method.value,
             owner=notification_method.owner,
         )
+        increment_alert_counter(notification_method.owner, NOTIFICATION_METHOD_EMAIL)
 
     elif notification_method.method.lower() == NOTIFICATION_METHOD_SMS:
         logger.debug(f"Sending sms alert {event_id} to {notification_method.value}")
@@ -146,6 +151,7 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
             value=notification_method.value,
             owner=notification_method.owner,
         )
+        increment_alert_counter(notification_method.owner, NOTIFICATION_METHOD_SMS)
 
     elif notification_method.method.lower() == NOTIFICATION_METHOD_WHATSAPP:
         logger.debug(f"Sending whatsapp alert {event_id} to {notification_method.value}")
@@ -168,6 +174,7 @@ def send_event_alert(alert_rule_id=None, event_id=None, notification_method_id=N
             value=notification_method.value,
             owner=notification_method.owner,
         )
+        increment_alert_counter(notification_method.owner, NOTIFICATION_METHOD_WHATSAPP)
 
     else:
         logger.error(
@@ -247,7 +254,6 @@ def coerce_state_value(event=None, val=None):
 
 
 def render_pretty_value(internal_value):
-
     if isinstance(internal_value, dict):
         return internal_value.get("name")
     if isinstance(internal_value, (list, tuple)):
@@ -354,6 +360,14 @@ def render_event_alert_context(
     revision_action = event_revision.action if event_revision else "updated"
     message_subject = " ".join((create_email_subject(event), f"({revision_action})"))
 
+    title_value = event.display_title
+    if prepend_alert_warning_message(notification_method.owner):
+        warning_message = f"{get_remaining_alert_count(notification_method.owner)} alerts left:"
+        title_value = f"{warning_message} {event.display_title}"
+        message_subject = f"{warning_message} {message_subject}"
+
+    title = {"title": "Title", "value": title_value}
+
     report_context = {
         "alert": {
             "time": {"title": "Alert Time", "value": timezone.now()},
@@ -369,7 +383,7 @@ def render_event_alert_context(
             "serial_number": {"title": "Report ID", "value": event.serial_number},
             "time": {"title": "Event Time", "value": event.event_time},
             "priority": priority,
-            "title": {"title": "Title", "value": event.display_title},
+            "title": title,
             "location": location,
             "reported_by": {"title": "Reported By", "value": reported_by},
         },
