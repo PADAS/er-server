@@ -12,6 +12,7 @@ from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 import rest_framework
 import rest_framework.serializers
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.contrib.gis.geos import Point
 from django.contrib.postgres.fields import jsonb
 from django.db.models import Q
@@ -189,8 +190,13 @@ class SubjectSourceSerializer(rest_framework.serializers.ModelSerializer):
         return representation
 
 
-class SubjectSerializer(rest_framework.serializers.Serializer):
+class LinkedUserserializer(rest_framework.serializers.ModelSerializer):
+    class Meta:
+        model = get_user_model()
+        fields = ("id",)
 
+
+class SubjectSerializer(rest_framework.serializers.Serializer):
     content_type = ContentTypeField(read_only=True, required=False)
 
     id = rest_framework.serializers.UUIDField(
@@ -204,6 +210,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
     created_at = rest_framework.serializers.DateTimeField(read_only=True)
     updated_at = rest_framework.serializers.DateTimeField(read_only=True)
     is_active = rest_framework.serializers.BooleanField(required=False)
+    user = LinkedUserserializer(source="linked_user", read_only=True)
 
     additional_fields = ("region", "country", "sex", "species", "additional")
 
@@ -211,7 +218,13 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
 
     class Meta:
         model = models.Subject
-        read_only_fields = ("image_url", "color", "content_type", "subject_type")
+        read_only_fields = (
+            "image_url",
+            "color",
+            "content_type",
+            "subject_type",
+            "user",
+        )
         fields = (
             "id",
             "name",
@@ -570,7 +583,6 @@ class SourceProviderRelatedField(rest_framework.serializers.RelatedField):
 
 
 class SourceSerializer(rest_framework.serializers.Serializer):
-
     id = rest_framework.serializers.UUIDField(read_only=True)
     source_type = rest_framework.serializers.ChoiceField(
         allow_null=True,
@@ -718,7 +730,6 @@ class SubjectStatusSerializer(rest_framework.serializers.BaseSerializer):
 
 class TrackSerializer(rest_framework.serializers.Serializer):
     def to_representation(self, instance):
-
         # TODO: Review with Shawn, wrt to recent changes in SubjectTracksView.
         image_url = (self.context.get("subject") or instance).image_url
 
@@ -743,7 +754,6 @@ class SourceRelatedField(rest_framework.serializers.RelatedField):
         return source.id
 
     def to_internal_value(self, data):
-
         if not data:
             return None
 
@@ -799,7 +809,6 @@ SUBJECT_STATUS_RETURN_FIELDS = ("last_voice_call_start_at", "location_requested_
 
 
 def make_subjectstatus_feature(request, location: Point, subjectstatus):
-
     image_url = add_base_url(request, subjectstatus.subject.image_url)
 
     feature = {

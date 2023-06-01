@@ -1,5 +1,4 @@
 import datetime
-import json
 import random
 from datetime import timedelta
 from typing import NamedTuple
@@ -566,3 +565,102 @@ class TestFlattenObservationsView:
 
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == 5
+
+
+@pytest.mark.django_db
+class TestSubjectsView:
+    base_url = "subjects-list-view"
+
+    @pytest.fixture
+    def _get_superuser_client(self, subject, superuser, superuser_client):
+        subject.linked_user = superuser
+        subject.save()
+        return superuser_client.get(reverse(self.base_url)), superuser
+
+    @pytest.fixture
+    def _get_client(self, subject):
+        client = HTTPClient()
+        subject.linked_user = client.app_user
+        subject.save()
+        request = client.factory.get(reverse(self.base_url))
+        client.force_authenticate(request, client.app_user)
+
+        return views.SubjectsView.as_view()(request), client.app_user
+
+    def test_subjects_view_with_linked_user(self, _get_superuser_client):
+        response, user = _get_superuser_client
+        assert response.data[0]["user"]["id"] == str(user.id)
+
+    def test_subjects_view_without_linked_user(self, _get_superuser_client):
+        response, _ = _get_superuser_client
+
+        assert not hasattr(response.data[0], "user")
+
+    def test_subjects_view_with_linked_user_and_not_subject_permission(self, _get_client):
+        response, user = _get_client
+
+        assert response.data[0]["user"]["id"] == str(user.id)
+
+    def test_subjects_view_with_not_linked_user_or_subject_permission(self):
+        client = HTTPClient()
+        request = client.factory.get(reverse("subjects-list-view"))
+        client.force_authenticate(request, client.app_user)
+
+        response = views.SubjectsView.as_view()(request)
+
+        assert len(response.data["data"]) == 0
+
+
+@pytest.mark.django_db
+class TestSubjectView:
+    base_url = "subject-view"
+
+    @pytest.fixture
+    def _get_superuser_client(self, subject, superuser, superuser_client):
+        url = reverse(self.base_url, kwargs={"id": subject.id})
+        subject.linked_user = superuser
+        subject.save()
+        return superuser_client.get(url), superuser
+
+    @pytest.fixture
+    def _get_client(self, subject):
+        client = HTTPClient()
+        subject.linked_user = client.app_user
+        subject.save()
+        url = reverse(self.base_url, kwargs={"id": subject.id})
+        request = client.factory.get(url)
+        client.force_authenticate(request, client.app_user)
+
+        return views.SubjectView.as_view()(request, id=str(subject.id)), client.app_user
+
+    def test_subject_view_with_linked_user(self, _get_superuser_client):
+        response, user = _get_superuser_client
+        assert response.data["user"]["id"] == str(user.id)
+
+    def test_subject_view_with_linked_user_and_not_subject_permission(self, _get_client):
+        response, user = _get_client
+        assert response.data["user"]["id"] == str(user.id)
+
+    def test_subject_view_without_linked_user(self, _get_superuser_client):
+        response, _ = _get_superuser_client
+        assert not hasattr(response.data, "user")
+
+    def test_subject_view_with_not_linked_user_or_subject_permission(self, subject):
+        client = HTTPClient()
+        url = reverse("subject-view", kwargs={"id": subject.id})
+        request = client.factory.get(url)
+        client.force_authenticate(request, client.app_user)
+
+        response = views.SubjectView.as_view()(request, id=str(subject.id))
+
+        assert len(response.data["data"]) == 0
+
+    def _test_subject_view_with_linked_user_ask_for_random_subject(self, five_subjects, superuser_client, superuser):
+        subject1 = five_subjects[0]
+        subject2 = five_subjects[1]
+        url = reverse("subject-view", kwargs={"id": subject2.id})
+        subject1.linked_user = superuser
+        subject1.save()
+        response = superuser_client.get(url)
+
+        assert response.data["id"] == str(subject2.id)

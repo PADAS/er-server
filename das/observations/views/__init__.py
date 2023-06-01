@@ -396,14 +396,20 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         ],
     }
 
+    def check_permissions(self, request):
+        self.queryset_linked_user = models.Subject.objects.filter(linked_user=request.user).distinct()
+        if not self.queryset_linked_user.exists():
+            for permission in self.get_permissions():
+                if not permission.has_permission(request, self):
+                    self.permission_denied(request)
+
     def get_queryset(self):
+        if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS) and self.queryset_linked_user.exists():
+            return self.queryset_linked_user
         if not self.request.user.has_any_perms(VIEW_SUBJECT_PERMS):
             raise UnauthorizedView
 
         use_last_known_location = parse_bool(self.request.query_params.get("use_lkl"))
-
-        self.subject_linked_sources = {}
-
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
 
         mou_date = self.request.user.additional.get("expiry", None)
@@ -509,6 +515,7 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         if self.request.query_params.get("name", None):
             queryset = queryset.by_name_search(self.request.query_params.get("name"))
 
+        queryset = queryset | self.queryset_linked_user if self.queryset_linked_user.exists() else queryset
         return queryset
 
     def get_serializer_context(self):
@@ -552,6 +559,14 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixi
     serializer_class = serializers.SubjectSerializer
     lookup_field = "id"
 
+    def check_permissions(self, request):
+        subject_id = self.kwargs.get("id")
+        self.queryset_linked_user = models.Subject.objects.filter(linked_user=request.user, id=subject_id)
+        if not self.queryset_linked_user.exists():
+            for permission in self.get_permissions():
+                if not permission.has_permission(request, self):
+                    self.permission_denied(request)
+
     def get_queryset(self):
         subject_id = self.kwargs.get("id")
         subject = generics.get_object_or_404(models.Subject.objects.all(), pk=subject_id)
@@ -563,8 +578,13 @@ class SubjectView(generics.RetrieveUpdateDestroyAPIView, TwoWaySubjectSourceMixi
         mou_date = dateparse(mou_date) if mou_date else None
         queryset = queryset.annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
         self._get_two_way_sources(queryset)
-
         return queryset
+
+    def get_object(self):
+        if self.queryset_linked_user.exists():
+            subject_id = self.kwargs.get("id")
+            return get_object_or_404(self.queryset_linked_user, pk=subject_id)
+        return super().get_object()
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -995,7 +1015,6 @@ class KmlSubjectsView(APIView):
         return utils.add_base_url(self.request, f"{url}?{params}")
 
     def subject_context(self, subject):
-
         return {"name": subject.name, "visibility": 0, "href": self.build_link_for_subject(subject)}
 
     @staticmethod
@@ -1012,7 +1031,6 @@ class KmlSubjectsView(APIView):
             return "Unassigned"
 
     def get(self, request, *args, **kwargs):
-
         subjects = list(self.get_queryset().values("additional", "name", "id", "subject_subtype"))
 
         DEFAULT_REGION_NAME = "Unknown Region"
@@ -1123,7 +1141,6 @@ class KmlSubjectView(generics.RetrieveAPIView):
         return filter_parameters
 
     def get(self, request, *args, **kwargs):
-
         min_age_days = get_minimum_allowed_age(self.request.user) or 0
 
         subject = generics.get_object_or_404(
@@ -1816,7 +1833,6 @@ class MessagesView(generics.ListCreateAPIView):
         return serializer.data
 
     def create(self, request, *args, **kwargs):
-
         data = request.data
         message_type = data.get("message_type", "outbox")
         data["message_time"] = data.get("message_time", datetime.datetime.now(tz=pytz.utc).isoformat())

@@ -5,6 +5,8 @@ from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 from django.contrib.sites.shortcuts import get_current_site
 from django.core.mail import EmailMultiAlternatives
 from django.template import loader
+from django.urls import reverse
+from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from accounts.models import PermissionSet, User
@@ -12,6 +14,7 @@ from accounts.utils import get_profiles, patrol_mgmt_permissions
 from core.common import TIMEZONE_USED
 from core.forms_utils import JSONFieldFormMixin
 from observations import kmlutils
+from observations.models import Subject
 from utils.features import features
 from utils.tenant import get_tenant_settings
 
@@ -38,6 +41,26 @@ ROLE_CHOICES = [
     ("support-team", _("EarthRanger Support Team")),
     ("tech-partner", _("Tech Partner")),
 ]
+
+
+class RelatedFieldWidgetCanAdd(forms.widgets.Select):
+    def __init__(self, related_model, related_url=None, *args, **kw):
+        super(RelatedFieldWidgetCanAdd, self).__init__(*args, **kw)
+
+        if not related_url:
+            rel_to = related_model
+            related_url = f"admin:{rel_to._meta.app_label}_{rel_to._meta.object_name.lower()}_add"
+
+        self.related_url = related_url
+
+    def render(self, name, value, *args, **kwargs):
+        self.related_url = reverse(self.related_url)
+        output = [super(RelatedFieldWidgetCanAdd, self).render(name, value, *args, **kwargs)]
+        output.append(
+            f'<a href="{self.related_url}?_to_field=id&_popup=1" class="add-another" id="add_id_{name}" onclick="return showAddAnotherPopup(this);"> '
+        )
+        output.append(f'<img src="{settings.STATIC_URL}admin/img/icon-addlink.svg" alt="Add Another"/></a>')
+        return mark_safe("".join(output))
 
 
 class CustomUserCreationForm(UserFormValidatorMixin, JSONFieldFormMixin, UserCreationForm):
@@ -68,6 +91,11 @@ class CustomUserCreationForm(UserFormValidatorMixin, JSONFieldFormMixin, UserCre
         widget=FilteredSelectMultiple(verbose_name="Profiles", is_stacked=False),
         required=False,
     )
+    linked_subject = forms.ModelChoiceField(
+        queryset=Subject.objects.filter(linked_user=None),
+        required=False,
+        widget=RelatedFieldWidgetCanAdd(Subject),
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -90,6 +118,7 @@ class CustomUserCreationForm(UserFormValidatorMixin, JSONFieldFormMixin, UserCre
             "phone",
             "username",
             "pin",
+            "linked_subject",
         ) + json_fields
 
     json_field = "additional"
@@ -123,6 +152,11 @@ class UserAdditionalForm(UserFormValidatorMixin, JSONFieldFormMixin, UserChangeF
         widget=FilteredSelectMultiple(verbose_name="Profiles", is_stacked=False),
         required=False,
     )
+    linked_subject = forms.ModelChoiceField(
+        queryset=Subject.objects.filter(linked_user=None),
+        required=False,
+        widget=RelatedFieldWidgetCanAdd(Subject),
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -142,6 +176,7 @@ class UserAdditionalForm(UserFormValidatorMixin, JSONFieldFormMixin, UserChangeF
             "phone",
             "username",
             "act_as_profiles",
+            "linked_subject",
         ) + json_fields
 
     json_field = "additional"
