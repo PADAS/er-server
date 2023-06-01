@@ -196,7 +196,7 @@ class GeometryTypeFilter(django_admin.SimpleListFilter):
 @admin.register(models.SpatialFeature)
 class SpatialFeatureAdmin(BaseFeatureAdmin):
     ordering = ("name", "feature_type", "external_source")
-    list_display = ("name", "feature_type", "external_source", "geometry_type", "get_spatialfile")
+    list_display = ("get_name", "feature_type", "external_source", "geometry_type", "get_spatialfile")
     list_filter = (
         GeometryTypeFilter,
         "feature_type",
@@ -223,6 +223,12 @@ class SpatialFeatureAdmin(BaseFeatureAdmin):
         return obj.geometry_type
 
     geometry_type.short_description = "Geometry Type"
+
+    def get_name(self, obj):
+        return obj.name if obj.name else _("<empty>")
+
+    get_name.short_description = "Name"
+    get_name.admin_order_field = "name"
 
 
 def delete_selected_spatialfiles(modeladmin, request, queryset):
@@ -660,7 +666,6 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
         return [(None, {"fields": self.get_fields(request, obj)})]
 
     def response_add(self, request, obj, post_url_continue=None):
-
         groups_found = arcgis_integration(request, obj)
         if self.arcgis_config(request) or not groups_found:
             preserved_filters = self.get_preserved_filters(request)
@@ -677,7 +682,6 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
             return super().response_add(request, obj, post_url_continue=None)
 
     def response_change(self, request, obj):
-
         groups_found = arcgis_integration(request, obj)
         if self.arcgis_config(request) or not groups_found:
             return HttpResponseRedirect(request.path_info)
