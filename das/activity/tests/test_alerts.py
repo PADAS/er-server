@@ -3,13 +3,15 @@ import logging
 import time
 from unittest.mock import MagicMock, patch
 
+import pytest
 from mockredis import MockRedis
 
+from django.conf import settings
 from django.contrib.auth.models import Permission
 from django.core import mail
 from django.core.management import call_command
 from django.db.models.signals import post_save
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from accounts.models import PermissionSet, User
 from activity.alerting.message import (
@@ -17,7 +19,19 @@ from activity.alerting.message import (
     render_event_alert_context,
     send_event_alert,
 )
+from activity.alerting.rate_limit import (
+    KEY_ALERT_LIMIT,
+    allow_send_event_alert,
+    get_alert_counter,
+    get_or_set_user_alerts_counter,
+    get_remaining_alert_count,
+    get_user_alert_quota_percentage,
+    increment_alert_counter,
+    prepend_alert_warning_message,
+    reset_alerts_counter,
+)
 from activity.models import (
+    NOTIFICATION_METHOD_EMAIL,
     AlertRule,
     Event,
     EventCategory,
@@ -31,7 +45,6 @@ from choices.models import DynamicChoice
 from observations.models import SEX_FEMALE, Subject, SubjectSubType, SubjectType
 
 logger = logging.getLogger(__name__)
-
 
 user_permissions = ["security_read", "security_create", "security_update", "security_delete"]
 
@@ -225,3 +238,115 @@ class TestAlerts(TestCase):
 
         # details sent to email as titles rather than guids, checkbox title returned
         self.assertTrue(expected_detail == details_sent_to_mail)
+
+
+@pytest.mark.django_db
+class TestAlertsLimit:
+    def test_set_alert_counter(self, superuser, monkeypatch):
+        mock = MagicMock(return_value=0)
+        monkeypatch.setattr("activity.alerting.rate_limit.alerts_storage.insert_key", mock)
+
+        counter = reset_alerts_counter(superuser)
+        key = KEY_ALERT_LIMIT.format(str(superuser.id))
+
+        mock.assert_called_once_with(key=key, value=0, ttl=settings.ALERTS_RATE_LIMIT_DURATION_SECONDS)
+        assert counter == 0
+
+    @pytest.mark.parametrize("value", [0, None])
+    def test_get_alert_counter(self, value, superuser, monkeypatch):
+        mock = MagicMock(return_value=value)
+        monkeypatch.setattr("activity.alerting.rate_limit.alerts_storage.get_key", mock)
+
+        counter = get_alert_counter(superuser)
+        key = KEY_ALERT_LIMIT.format(superuser.id)
+
+        mock.assert_called_once_with(key)
+        assert counter == 0
+
+    def test_get_or_set_user_alerts_counter_with_existing_value(self, superuser, monkeypatch):
+        mock = MagicMock(return_value=10)
+        monkeypatch.setattr("activity.alerting.rate_limit.alerts_storage.get_key", mock)
+
+        counter = get_or_set_user_alerts_counter(superuser)
+        key = KEY_ALERT_LIMIT.format(superuser.id)
+
+        mock.assert_called_once_with(key)
+        assert counter == 10
+
+    def test_get_or_set_user_alerts_counter_without_existing_value(self, superuser, monkeypatch):
+        mock_get_key = MagicMock(return_value=None)
+        monkeypatch.setattr("activity.alerting.rate_limit.alerts_storage.get_key", mock_get_key)
+
+        mock_set_key = MagicMock(return_value=0)
+        monkeypatch.setattr("activity.alerting.rate_limit.alerts_storage.insert_key", mock_set_key)
+
+        counter = get_or_set_user_alerts_counter(superuser)
+        key = KEY_ALERT_LIMIT.format(superuser.id)
+
+        mock_get_key.assert_called_once_with(key)
+        mock_set_key.assert_called_once_with(key=key, value=0, ttl=settings.ALERTS_RATE_LIMIT_DURATION_SECONDS)
+        assert counter == 0
+
+    @override_settings(SERVER_FQDN="www.earthranger.com")
+    def test_increment_alert_counter(self, superuser, monkeypatch, caplog):
+        caplog.set_level(logging.INFO)
+        mock = MagicMock(return_value=1)
+        monkeypatch.setattr("activity.alerting.rate_limit.alerts_storage.increment_key_by_value", mock)
+
+        increment_alert_counter(superuser, NOTIFICATION_METHOD_EMAIL)
+        key = KEY_ALERT_LIMIT.format(superuser.id)
+
+        mock.assert_called_once_with(key, 1)
+        assert f"Site www.earthranger.com message sent {NOTIFICATION_METHOD_EMAIL} alert" in caplog.text
+
+    @override_settings(ALERTS_RATE_LIMIT=20)
+    def test_allow_send_event_alert_allowed(self, superuser, monkeypatch):
+        mock = MagicMock(return_value=1)
+        monkeypatch.setattr("activity.alerting.rate_limit.alerts_storage.get_key", mock)
+
+        key = KEY_ALERT_LIMIT.format(superuser.id)
+
+        assert allow_send_event_alert(superuser)
+        mock.assert_called_once_with(key)
+
+    @override_settings(ALERTS_RATE_LIMIT=20)
+    def test_allow_send_event_alert_not_allowed(self, superuser, monkeypatch):
+        mock = MagicMock(return_value=20)
+        monkeypatch.setattr("activity.alerting.rate_limit.alerts_storage.get_key", mock)
+
+        key = KEY_ALERT_LIMIT.format(superuser.id)
+
+        assert not allow_send_event_alert(superuser)
+        mock.assert_called_once_with(key)
+
+    @override_settings(ALERTS_RATE_LIMIT=20)
+    @pytest.mark.parametrize("counter,percentage", [[10, ""], [18, "90.0"]])
+    def test_get_user_alert_quota_percentage(self, counter, percentage, superuser, caplog):
+        caplog.set_level(logging.INFO)
+
+        get_user_alert_quota_percentage(superuser, counter)
+
+        assert percentage in caplog.text
+
+    @override_settings(ALERTS_RATE_LIMIT=20)
+    @pytest.mark.parametrize("counter,exp_remaining", [[0, 19], [5, 14], [10, 9], [15, 4], [20, -1]])
+    def test_get_remaining_alert_count(self, superuser, counter, exp_remaining, monkeypatch):
+        mock = MagicMock(return_value=counter)
+        monkeypatch.setattr("activity.alerting.rate_limit.get_or_set_user_alerts_counter", mock)
+
+        remaining = get_remaining_alert_count(superuser)
+
+        mock.assert_called_once_with(superuser)
+        assert remaining == exp_remaining
+
+    @override_settings(ALERTS_RATE_LIMIT=20, ALERTS_REMAINING_COUNTER_FOR_WARNING=3)
+    @pytest.mark.parametrize(
+        "counter,expected",
+        [[5, False], [4, False], [3, True], [2, True], [1, True], [0, True]],
+    )
+    def test_prepend_alert_warning_message(self, counter, expected, superuser, monkeypatch):
+        mock = MagicMock(return_value=counter)
+        monkeypatch.setattr("activity.alerting.rate_limit.get_remaining_alert_count", mock)
+
+        assert prepend_alert_warning_message(superuser) == expected
+        mock.assert_called_once_with(superuser)

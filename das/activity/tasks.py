@@ -7,12 +7,14 @@ from versatileimagefield.image_warmer import VersatileImageFieldWarmer
 
 from django.db.models import DateTimeField, ExpressionWrapper, F, Q
 
+from accounts.models import User
 from activity.alerting.businessrules import resolve_event_revisions
 from activity.alerting.message import (
     get_revised_event_details_fields,
     get_revised_event_fields,
     send_event_alert,
 )
+from activity.alerting.rate_limit import allow_send_event_alert, reset_alerts_counter
 from activity.alerting.service import evaluate_event
 from activity.materialized_view import (
     check_db_view_exists,
@@ -39,7 +41,6 @@ logger = logging.getLogger(__name__)
 
 @celery.app.task(bind=True)
 def warm_eventphotos(self, event_photo_id):
-
     try:
         logger.info("Warming images for event_photo_id=%s", event_photo_id)
         instance = EventPhoto.objects.get(id=event_photo_id)
@@ -59,7 +60,6 @@ def warm_eventphotos(self, event_photo_id):
     },
 )
 def evaluate_alert_rules(event_id, created, domain: str = None):
-
     try:
         logger.info("Evaluating Event %s for alerting.", event_id)
         event = Event.objects.get(id=event_id)
@@ -75,7 +75,6 @@ def evaluate_alert_rules(event_id, created, domain: str = None):
 
         already_queued_nids = set()  # accumulator for Notification Methods.
         for alert_rule in AlertRule.objects.filter(id__in=alert_rule_ids).order_by("ordernum", "title"):
-
             # Verify conditions to only send alerts when the set conditions are met
             evaluate_conditions_for_sending_alerts(event, alert_rule, already_queued_nids, created, domain)
 
@@ -107,7 +106,7 @@ def evaluate_conditions_for_sending_alerts(event, alert_rule, queued_nids, creat
 
 def evaluate_notifications(alert_rule, already_queued_nids, event_id, domain: str = None):
     for notification_method in alert_rule.notification_methods.filter(is_active=True):
-        if notification_method.id not in already_queued_nids:
+        if notification_method.id not in already_queued_nids and allow_send_event_alert(notification_method.owner):
             kwargs = {
                 "alert_rule_id": str(alert_rule.id),
                 "event_id": str(event_id),
@@ -128,7 +127,6 @@ def evaluate_notifications(alert_rule, already_queued_nids, event_id, domain: st
 def send_alert_to_notificationmethod(
     alert_rule_id=None, event_id=None, notification_method_id=None, domain: str = None
 ):
-
     if any((x is None for x in (alert_rule_id, notification_method_id, event_id))):
         raise ValueError("Coding error.  I need keyword arguments.")
 
@@ -259,3 +257,9 @@ def automatically_update_event_state():
         e.state = SC_RESOLVED
         setattr(e, "revision_user", er_system_user)
         e.save()
+
+
+@celery.app.task
+def reset_alert_counter_for_all_users():
+    for user_id in User.objects.values_list("id", flat=True):
+        reset_alerts_counter(user_id)
