@@ -424,6 +424,8 @@ locals {
     "kuzuko"                  = "prod1"
     "mhurley"                 = "prod1"
     "addonp"                  = "prod1"
+    "wcsguatemala-training"   = "dev"
+    "mnc"                     = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -629,6 +631,7 @@ locals {
     "planetaoceano"           = 1
     "buffelsdrift"            = 1
     "mhurley"                 = 1
+    "mnc"                     = 1
   }
 
   db_instance_index  = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
