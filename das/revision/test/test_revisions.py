@@ -7,6 +7,7 @@ from django.urls import reverse
 
 from activity.models import PRI_NONE, PRI_URGENT, SC_ACTIVE, Event, EventNote
 from activity.serializers import EventNoteSerializer, EventSerializer
+from revision.manager import get_object_by_id
 from utils.text import humanize_field_name
 
 
@@ -153,3 +154,40 @@ class TestEventFileRevisionsMessages:
         result = [revision for revision in updates if f"File Added: {payload['filename']}" in revision["message"]]
 
         assert result
+
+
+@pytest.mark.django_db
+class TestGetObjectById:
+    def test_get_subject_object(self, subject):
+        uuid = str(subject.id)
+
+        obj = get_object_by_id(uuid)
+
+        assert obj == subject
+
+    def test_get_source_object(self, subject_source):
+        source = subject_source.source
+        uuid = str(source.id)
+
+        obj = get_object_by_id(uuid)
+
+        assert obj == source
+
+    def test_get_community_object(self, subject_source, community):
+        uuid = str(community.id)
+
+        obj = get_object_by_id(uuid)
+
+        assert obj == community
+
+    def test_get_user_object(self, subject_source, community, ops_user):
+        uuid = str(ops_user.id)
+
+        obj = get_object_by_id(uuid)
+
+        assert obj == ops_user
+
+    def test_get_none_as_object(self, subject_source, community, ops_user):
+        obj = get_object_by_id("70d7456f-32cd-47b5-83d1-a3aea03bbae0")
+
+        assert obj is None
