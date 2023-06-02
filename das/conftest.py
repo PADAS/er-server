@@ -11,6 +11,7 @@ from rest_framework.test import APIClient
 from factories import (
     AccessTokenFactory,
     ChoiceFactory,
+    CommunityFactory,
     EventCategoryFactory,
     EventDetailsFactory,
     EventFactory,
@@ -373,3 +374,8 @@ def five_choices():
 @pytest.fixture
 def five_users():
     return UserFactory.create_batch(5)
+
+
+@pytest.fixture
+def community():
+    return CommunityFactory()
