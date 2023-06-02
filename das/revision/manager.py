@@ -6,18 +6,23 @@ import simplejson as json
 
 import django.db.transaction as transaction
 import django.dispatch
+from django.apps import apps
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.core import serializers
 from django.db.models import Max
 
 from activity.constants import PRIORITY_CHOICES
+from core.utils import is_uuid
+from observations.models import Source, Subject
 from utils.text import humanize_field_name
 
 logger = logging.getLogger(__name__)
 
 relation_deleted = django.dispatch.Signal(providing_args=["relation", "instance", "related_query_name"])
+User = get_user_model()
 
 
 class RevisionManager(models.Manager):
@@ -350,9 +355,25 @@ def format_field(field: str, format_: str) -> str:
     if format_ == "priority":
         return get_priority_display_value(field)
 
+    if is_uuid(field):
+        obj = get_object_by_id(field)
+        if obj:
+            return str(obj)
+        return field
     return field
 
 
 def get_priority_display_value(priority: int) -> str:
     choices = dict(PRIORITY_CHOICES)
     return choices.get(priority, f"UNKNOWN({priority})")
+
+
+def get_object_by_id(id: str):
+    Community = apps.get_model(app_label="activity", model_name="Community")
+
+    return (
+        Subject.objects.filter(id=id).first()
+        or Source.objects.filter(id=id).first()
+        or Community.objects.filter(id=id).first()
+        or User.objects.filter(id=id).first()
+    )

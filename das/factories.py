@@ -13,6 +13,7 @@ from django.utils import timezone
 
 from accounts.models.permissionset import PermissionSet
 from activity.models import (
+    Community,
     Event,
     EventCategory,
     EventDetails,
@@ -315,3 +316,10 @@ class ChoiceFactory(factory.django.DjangoModelFactory):
     value = factory.Sequence(lambda n: f"value_{n}")
     display = factory.Sequence(lambda n: f"display_{n}")
     ordernum = factory.Sequence(lambda n: n)
+
+
+class CommunityFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Community
+
+    name = fuzzy.FuzzyText(length=10)

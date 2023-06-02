@@ -10,6 +10,7 @@ from utils.text import humanize_field_name
         {"field_name": "event_time", "expected": "Event time"},
         {"field_name": "event_type", "expected": "Event type"},
         {"field_name": "created_by_user", "expected": "Created by user"},
+        {"field_name": "reported_by_id", "expected": "Reported by"},
     ],
 )
 def test_humanize_field_name(data):
