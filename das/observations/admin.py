@@ -72,6 +72,7 @@ from observations.tasks import maintain_subjectstatus_for_subject, process_gpxtr
 from observations.utils import assigned_range_dates, get_cyclic_subjectgroup
 from observations.widgets import MessageGenericForeignKeyRawIdWidget
 from tracking.models import SourcePlugin
+from utils.admin import FieldSetElementMixin
 from utils.drf import TimeLimitedPaginator
 from utils.html import make_html_list
 
@@ -545,7 +546,7 @@ class ObservationsContextMixin:
 
 
 @admin.register(models.Subject)
-class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
+class SubjectAdmin(ExportCsvMixin, FieldSetElementMixin, ObservationsContextMixin, admin.ModelAdmin):
     list_display = (
         "name",
         "subject_subtype",  # '_subject_subtype_display',
@@ -572,6 +573,7 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
                     (
                         "id",
                         "name",
+                        "_linked_user_warning",
                         "subject_subtype",
                         "is_active",
                         "common_name",
@@ -613,11 +615,7 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
         SourceProviderFilter,
     )
     list_editable = ("subject_subtype",)
-    readonly_fields = (
-        "id",
-        "created_at",
-        "updated_at",
-    )
+    readonly_fields = ("id", "created_at", "updated_at", "_linked_user_warning")
     list_per_page = 25
     ordering = ("name",)
 
@@ -625,18 +623,25 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
         """
         Hook for specifying fieldsets.
         """
-        subject_region_enabled = getattr(settings, "SUBJECT_REGION_ENABLED", False)
-
-        if subject_region_enabled:
-            return super().get_fieldsets(request, obj=None)
+        fieldsets = copy.deepcopy(self.fieldsets)
+        if obj and obj.linked_user:
+            fieldsets = self._remove_fields_from_fieldsets(
+                fieldsets=fieldsets, field_to_remove="name", fieldset_index=0, field_index=1
+            )
         else:
-            if self.fieldsets:
-                fieldsets = list(self.fieldsets)
-                for item in fieldsets:
-                    if SUBJECT_REGION_SECTION_NAME in item:
-                        fieldsets.pop(fieldsets.index(item))
-                return tuple(fieldsets)
-            return [(None, {"fields": self.get_fields(request, obj)})]
+            fieldsets = self._remove_fields_from_fieldsets(
+                fieldsets=fieldsets, field_to_remove="_linked_user_warning", fieldset_index=0, field_index=1
+            )
+
+        subject_region_enabled = getattr(settings, "SUBJECT_REGION_ENABLED", False)
+        if not subject_region_enabled and fieldsets:
+            fieldsets = list(fieldsets)
+            for item in fieldsets:
+                if SUBJECT_REGION_SECTION_NAME in item:
+                    fieldsets.pop(fieldsets.index(item))
+            fieldsets = tuple(fieldsets)
+
+        return fieldsets
 
     def _status(self, o):
         return mark_safe(f'<img src="{o.image_url}" style="height:2.0em;"/>')
@@ -864,6 +869,13 @@ class SubjectAdmin(ExportCsvMixin, ObservationsContextMixin, admin.ModelAdmin):
             error_msg = "Error: User does not have permissions to create Observation records"
             self.message_user(request, error_msg, level=messages.ERROR)
         return super(SubjectAdmin, self)._changeform_view(request, object_id, form_url, extra_context)
+
+    def _linked_user_warning(self, instance):
+        return mark_safe(
+            f"<i>This Subject is being used for the user: <b>{instance.linked_user}</b>, and can not edit the <b>name</b> property.</i>"
+        )
+
+    _linked_user_warning.short_description = "Warning"
 
 
 @admin.register(models.CommonName)

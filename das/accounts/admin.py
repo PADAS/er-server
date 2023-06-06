@@ -26,7 +26,7 @@ from accounts.models import PermissionSet, User
 from accounts.utils import patrol_mgmt_permissions
 from core.common import TIMEZONE_USED
 from observations.models import Subject
-from utils.admin import DefaultFilterMixin
+from utils.admin import DefaultFilterMixin, FieldSetElementMixin
 from utils.features import features
 from utils.html import make_html_list
 from utils.tenant import get_tenant_settings
@@ -94,7 +94,7 @@ class PermissionSetAdmin(DjangoGroupAdmin):
         }
 
 
-class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
+class UserAdmin(DefaultFilterMixin, FieldSetElementMixin, DjangoUserAdmin):
     readonly_fields = ("_last_login", "_profiles", "_linked_subject_warning")
     ordering = (
         "username",
@@ -244,15 +244,24 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
         if not obj:
             return super().get_fieldsets(request)
 
+        fieldsets = copy.deepcopy(self.fieldsets)
         if User.objects.filter(act_as_profiles__in=[obj]):
-            fieldsets = self._remove_fields_from_fieldsets(field_to_remove="act_as_profiles", fieldset_index=3)
+            fieldsets = self._remove_fields_from_fieldsets(
+                fieldsets=fieldsets, field_to_remove="act_as_profiles", fieldset_index=3
+            )
         else:
-            fieldsets = self._remove_fields_from_fieldsets(field_to_remove="_profiles", fieldset_index=3)
+            fieldsets = self._remove_fields_from_fieldsets(
+                fieldsets=fieldsets, field_to_remove="_profiles", fieldset_index=3
+            )
 
         if Subject.objects.filter(linked_user=obj.pk).exists():
-            fieldsets = self._remove_fields_from_fieldsets(field_to_remove="linked_subject", fieldset_index=4)
+            fieldsets = self._remove_fields_from_fieldsets(
+                fieldsets=fieldsets, field_to_remove="linked_subject", fieldset_index=4
+            )
         else:
-            fieldsets = self._remove_fields_from_fieldsets(field_to_remove="_linked_subject_warning", fieldset_index=4)
+            fieldsets = self._remove_fields_from_fieldsets(
+                fieldsets=fieldsets, field_to_remove="_linked_subject_warning", fieldset_index=4
+            )
 
         return fieldsets
 
@@ -304,15 +313,15 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
         else:
             should_reset_password = False
 
-        super(UserAdmin, self).save_model(request, obj, form, change)
-
-        if should_reset_password and obj.email:
-            self.send_reset_email(request, obj)
-
         if form.cleaned_data["linked_subject"]:
             subject = form.cleaned_data["linked_subject"]
             subject.linked_user = obj
             subject.save()
+
+        super(UserAdmin, self).save_model(request, obj, form, change)
+
+        if should_reset_password and obj.email:
+            self.send_reset_email(request, obj)
 
     def send_reset_email(self, request, user):
         form = PasswordResetForm(data={"email": user.email})
@@ -380,14 +389,6 @@ class UserAdmin(DefaultFilterMixin, DjangoUserAdmin):
         )
 
     _linked_subject_warning.short_description = "Warning"
-
-    def _remove_fields_from_fieldsets(self, field_to_remove: str, fieldset_index: int, field_index: int = 1) -> tuple:
-        fieldsets = copy.deepcopy(self.fieldsets)
-
-        fieldsets[fieldset_index][field_index]["fields"] = tuple(
-            field for field in fieldsets[fieldset_index][field_index]["fields"] if not field in (field_to_remove,)
-        )
-        return fieldsets
 
 
 admin.site.register(User, UserAdmin)
