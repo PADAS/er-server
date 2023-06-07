@@ -313,10 +313,13 @@ class UserAdmin(DefaultFilterMixin, FieldSetElementMixin, DjangoUserAdmin):
         else:
             should_reset_password = False
 
-        if form.cleaned_data["linked_subject"]:
+        if form.cleaned_data["linked_subject"] or hasattr(obj, "linked_subject"):
             subject = form.cleaned_data["linked_subject"]
             subject.linked_user = obj
             subject.save()
+            full_name = obj.get_full_name()
+            obj.linked_subject.name = full_name if full_name else obj.username
+            obj.linked_subject.save(update_fields=["name"])
 
         super(UserAdmin, self).save_model(request, obj, form, change)
 
