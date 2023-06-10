@@ -426,6 +426,7 @@ locals {
     "addonp"                  = "prod1"
     "wcsguatemala-training"   = "dev"
     "mnc"                     = "prod1"
+    "pantherapatagonia"       = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
