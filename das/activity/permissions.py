@@ -42,7 +42,6 @@ class EventObjectPermissions(DjangoModelPermissions):
 
 
 class EventCategoryPermissions(IsAuthenticated):
-
     http_method_map = {
         "GET": "read",
         "OPTIONS": "read",
@@ -299,7 +298,6 @@ class IsOwner(IsAuthenticated):
 
 
 class IsEventProviderOwnerPermission(BasePermission):
-
     relation_field = "eventprovider"
 
     def has_object_permission(self, request, view, obj):
@@ -340,6 +338,9 @@ class PatrolObjectPermissions(DjangoObjectPermissions):
         model_cls = Patrol
         user = request.user
 
+        if self._has_lead_subject_permission(obj, user):
+            return True
+
         perms = self.get_required_object_permissions(request.method, model_cls)
 
         if not user.has_perms(perms, obj):
@@ -362,6 +363,26 @@ class PatrolObjectPermissions(DjangoObjectPermissions):
         if patrol_segments and self._is_content_type_subject(patrol_segments.leader_content_type):
             return Subject.objects.filter(id__in=[patrol_segments.leader_id]).by_user_subjects(user).exists()
         return True
+
+    def has_permission(self, request, view):
+        return super().has_permission(request, view) or self._request_user_subject_leads_patrol_segment(request, view)
+
+    def _has_lead_subject_permission(self, patrol, user):
+        if not isinstance(patrol, Patrol):
+            return False
+
+        patrol_segments = patrol.patrol_segments.last()
+        if patrol_segments and self._is_content_type_subject(patrol_segments.leader_content_type):
+            return Subject.objects.filter(id__in=[patrol_segments.leader_id]).by_linked_user(user).exists()
+
+        return False
+
+    def _request_user_subject_leads_patrol_segment(self, request, view):
+        if not Subject.objects.by_linked_user(request.user).exists():
+            return False
+
+        queryset = view.get_queryset()
+        return isinstance(request.user.linked_subject, Subject) and queryset.exists()
 
     def _is_content_type_subject(self, content_type):
         return content_type and content_type.app_label == "observations" and content_type.model == "subject"
