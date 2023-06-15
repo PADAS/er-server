@@ -4,6 +4,7 @@ import pytest
 
 from django.contrib.auth.models import Permission
 from django.urls import reverse
+from rest_framework import status
 
 from accounts.models import PermissionSet
 from activity.models import Event, EventCategory
@@ -191,3 +192,50 @@ class TestEventGeometryPermissions:
         response = EventView.as_view()(request, id=event_id)
 
         assert response.status_code == expected_status_code
+
+
+@pytest.mark.django_db
+class TestPatrolPermission:
+    def test_user_with_no_permission_got_patrols_request_rejected(self, five_patrol_segment_subject, user_client):
+        url = reverse("patrols")
+
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_user_with_no_permission_got_patrol_request_rejected(self, five_patrol_segment_subject, user_client):
+        patrol = five_patrol_segment_subject[0].patrol
+        url = reverse("patrol", kwargs={"id": patrol.id})
+
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_user_with_subject_leading_patrol_should_see_only_related_patrols(
+        self,
+        five_patrol_segment_subject,
+        user_client,
+    ):
+        subject = five_patrol_segment_subject[0].leader
+        subject.linked_user = user_client.user
+        subject.save()
+        url = reverse("patrols")
+
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == 1
+
+    def test_user_with_subject_leading_patrol_should_see_only_that_patrol(
+        self, five_patrol_segment_subject, user_client
+    ):
+        patrol = five_patrol_segment_subject[0].patrol
+        subject = five_patrol_segment_subject[0].leader
+        subject.linked_user = user_client.user
+        subject.save()
+        url = reverse("patrol", kwargs={"id": patrol.id})
+
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["id"] == str(patrol.id)
