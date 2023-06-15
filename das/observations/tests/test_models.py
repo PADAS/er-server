@@ -11,8 +11,13 @@ from django.db.models import F
 from django.test import TestCase
 
 from accounts.models import PermissionSet, User
-from observations.models import (Observation, Source, Subject, SubjectGroup,
-                                 SubjectMaximumSpeed)
+from observations.models import (
+    Observation,
+    Source,
+    Subject,
+    SubjectGroup,
+    SubjectMaximumSpeed,
+)
 
 
 def make_perm(perm):
@@ -21,92 +26,102 @@ def make_perm(perm):
 
 class SubjectGroupTestCase(TestCase):
     def setUp(self):
-        all_set = PermissionSet.objects.create(name='all')
-        some_set = PermissionSet.objects.create(name='some')
+        all_set = PermissionSet.objects.create(name="all")
+        some_set = PermissionSet.objects.create(name="some")
 
         some_set.parent = all_set
         some_set.save()
 
     def test_subject_in_group(self):
-        ele = Subject.objects.create_subject(name='ele', additional={})
-        ele_group = SubjectGroup.objects.create(name='ele_group')
+        ele = Subject.objects.create_subject(name="ele", additional={})
+        ele_group = SubjectGroup.objects.create(name="ele_group")
 
         ele.groups.add(ele_group)
 
-        ele = Subject.objects.get(name='ele')
+        ele = Subject.objects.get(name="ele")
         self.assertIn(ele_group, ele.groups.all())
 
 
 class SubjectPermissionsTestCase(TestCase):
-    user_const = dict(last_name='last', first_name='first')
+    user_const = dict(last_name="last", first_name="first")
 
     def setUp(self):
-        self.all_set = PermissionSet.objects.create(name='all')
-        self.some_set = PermissionSet.objects.create(name='some')
-        self.view_last_position_name = 'view_last_position'
+        self.all_set = PermissionSet.objects.create(name="all")
+        self.some_set = PermissionSet.objects.create(name="some")
+        self.view_last_position_name = "view_last_position"
 
-        self.view_last_position = Permission.objects.get(
-            codename=self.view_last_position_name)
+        self.view_last_position = Permission.objects.get(codename=self.view_last_position_name)
 
         self.some_set.parent = self.all_set
-        self.some_set.permissions.add(
-            Permission.objects.get(codename=self.view_last_position_name))
+        self.some_set.permissions.add(Permission.objects.get(codename=self.view_last_position_name))
         self.some_set.save()
 
-        self.superuser = User.objects.create_superuser('admin',
-                                                       'admin@test.com',
-                                                       'admin',
-                                                       **self.user_const)
-        self.user = User.objects.create_user('joe', 'joe@example.com', 'joe',
-                                             **self.user_const)
+        self.superuser = User.objects.create_superuser("admin", "admin@test.com", "admin", **self.user_const)
+        self.user = User.objects.create_user("joe", "joe@example.com", "joe", **self.user_const)
 
     def test_user_has_view_permission(self):
-        user = User.objects.create_user(username='active_user',
-                                        email='active_user@test.com',
-                                        password=User.objects.make_random_password(),
-                                        **self.user_const)
+        user = User.objects.create_user(
+            username="active_user",
+            email="active_user@test.com",
+            password=User.objects.make_random_password(),
+            **self.user_const,
+        )
 
         user.permission_sets.add(self.some_set)
 
         ele = Subject.objects.create_subject(name="ele", additional={})
 
-        ele_group = SubjectGroup.objects.create(name='ele_group')
+        ele_group = SubjectGroup.objects.create(name="ele_group")
         ele.groups.add(ele_group)
 
         ele_group.permission_sets.add(self.some_set)
 
         self.assertTrue(user.has_perm(make_perm(self.view_last_position), ele))
 
-        # view_perm = Permission.objects.get()
+
+@pytest.mark.django_db
+class TestSubjectQuerySet:
+    def test_get_queyset_by_linked_user(self, user, subject):
+        user.linked_subject = subject
+        user.save()
+
+        subject_queryset = Subject.objects.by_linked_user(user)
+
+        assert subject_queryset.count() == 1
+        assert subject_queryset.first() == subject
 
 
 class SubjectAlertTestCase(TestCase):
-    user_const = dict(last_name='last', first_name='first')
+    user_const = dict(last_name="last", first_name="first")
 
     def setUp(self):
-        self.all_set = PermissionSet.objects.create(name='all')
-        self.some_set = PermissionSet.objects.create(name='some')
+        self.all_set = PermissionSet.objects.create(name="all")
+        self.some_set = PermissionSet.objects.create(name="some")
 
         self.some_set.parent = self.all_set
         self.some_set.save()
 
     def test_return_user(self):
-        user = User.objects.create_user(username='active_user',
-                                        email='active_user@test.com',
-                                        password=User.objects.make_random_password(),
-                                        **self.user_const)
+        user = User.objects.create_user(
+            username="active_user",
+            email="active_user@test.com",
+            password=User.objects.make_random_password(),
+            **self.user_const,
+        )
         user.permission_sets.add(self.some_set)
         user.permission_sets.add(self.all_set)
         user.save()
 
-        user2 = User.objects.create_user(username='no_alert',
-                                         email='active@test.com',
-                                         password=User.objects.make_random_password(),
-                                         **self.user_const)
+        user2 = User.objects.create_user(
+            username="no_alert",
+            email="active@test.com",
+            password=User.objects.make_random_password(),
+            **self.user_const,
+        )
 
         ele = Subject.objects.create_subject(name="ele", additional={})
 
-        ele_group = SubjectGroup.objects.create(name='ele_group')
+        ele_group = SubjectGroup.objects.create(name="ele_group")
         ele.groups.add(ele_group)
 
         ele_group.permission_sets.add(self.some_set)
@@ -120,13 +135,14 @@ class SubjectAlertTestCase(TestCase):
         content type of the concrete model.
         """
         opts = SubjectMaximumSpeed._meta
-        codename = get_permission_codename('add', opts)
+        codename = get_permission_codename("add", opts)
         self.assertTrue(
             Permission.objects.filter(
                 content_type__model=opts.model_name,
                 content_type__app_label=opts.app_label,
                 codename=codename,
-            ).exists())
+            ).exists()
+        )
 
 
 @pytest.mark.django_db
@@ -141,9 +157,7 @@ class TestObservationManager:
     EMPTY_OBSERVATION_POINTS = [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)]
 
     @pytest.mark.parametrize("include_empty_location", [False, True])
-    def test_get_last_source_observation_with_bunch_of_observations(
-        self, subject_source, include_empty_location
-    ):
+    def test_get_last_source_observation_with_bunch_of_observations(self, subject_source, include_empty_location):
         source = subject_source.source
         now = datetime.now(tz=pytz.utc)
         latest_observation_id = None
@@ -162,9 +176,7 @@ class TestObservationManager:
 
         assert latest_observation_id == observation.id
 
-    def test_get_last_source_observation_with_all_empty_observations_include_empty_observations(
-        self, subject_source
-    ):
+    def test_get_last_source_observation_with_all_empty_observations_include_empty_observations(self, subject_source):
         source = subject_source.source
         now = datetime.now(tz=pytz.utc)
         latest_observation_id = None
@@ -177,9 +189,7 @@ class TestObservationManager:
             if count == 1:
                 latest_observation_id = observation.id
 
-        observation = Observation.objects.get_last_source_observation(
-            source, include_empty_location=True
-        )
+        observation = Observation.objects.get_last_source_observation(source, include_empty_location=True)
 
         assert latest_observation_id == observation.id
 
@@ -195,9 +205,7 @@ class TestObservationManager:
                 source=source,
             )
 
-        observation = Observation.objects.get_last_source_observation(
-            source, include_empty_location=False
-        )
+        observation = Observation.objects.get_last_source_observation(source, include_empty_location=False)
 
         assert observation is None
 
@@ -210,10 +218,7 @@ class TestObservationTriggers:
         sources = (
             Source.objects.filter(id__in=[source.id])
             .annotate(last_observation=F("last_observation_source__observation"))
-            .annotate(
-                last_observation_recorded_at=F(
-                    "last_observation_source__recorded_at")
-            )
+            .annotate(last_observation_recorded_at=F("last_observation_source__recorded_at"))
         )
 
         assert not sources.first().last_observation
@@ -230,18 +235,13 @@ class TestObservationTriggers:
         sources = (
             Source.objects.filter(id__in=[source.id])
             .annotate(last_observation=F("last_observation_source__observation"))
-            .annotate(
-                last_observation_recorded_at=F(
-                    "last_observation_source__recorded_at")
-            )
+            .annotate(last_observation_recorded_at=F("last_observation_source__recorded_at"))
         )
 
         assert sources.first().last_observation == observation.id
         assert sources.first().last_observation_recorded_at == observation.recorded_at
 
-    def test_insert_a_observation_with_previous_observations_in_source(
-        self, subject_source
-    ):
+    def test_insert_a_observation_with_previous_observations_in_source(self, subject_source):
         source = subject_source.source
         now = datetime.now(tz=UTC)
         for item in range(1, 4):
@@ -260,10 +260,7 @@ class TestObservationTriggers:
         sources = (
             Source.objects.filter(id__in=[source.id])
             .annotate(last_observation=F("last_observation_source__observation"))
-            .annotate(
-                last_observation_recorded_at=F(
-                    "last_observation_source__recorded_at")
-            )
+            .annotate(last_observation_recorded_at=F("last_observation_source__recorded_at"))
         )
 
         assert sources.first().last_observation == observation.id
@@ -289,10 +286,7 @@ class TestObservationTriggers:
         sources = (
             Source.objects.filter(id__in=[source.id])
             .annotate(last_observation=F("last_observation_source__observation"))
-            .annotate(
-                last_observation_recorded_at=F(
-                    "last_observation_source__recorded_at")
-            )
+            .annotate(last_observation_recorded_at=F("last_observation_source__recorded_at"))
         )
 
         assert sources.first().last_observation == observation.id
@@ -316,10 +310,7 @@ class TestObservationTriggers:
         sources = (
             Source.objects.filter(id__in=[source.id])
             .annotate(last_observation=F("last_observation_source__observation"))
-            .annotate(
-                last_observation_recorded_at=F(
-                    "last_observation_source__recorded_at")
-            )
+            .annotate(last_observation_recorded_at=F("last_observation_source__recorded_at"))
         )
         assert sources.first().last_observation == observations[0].id
         assert sources.first().last_observation_recorded_at == now
@@ -342,10 +333,7 @@ class TestObservationTriggers:
         sources = (
             Source.objects.filter(id__in=[source.id])
             .annotate(last_observation=F("last_observation_source__observation"))
-            .annotate(
-                last_observation_recorded_at=F(
-                    "last_observation_source__recorded_at")
-            )
+            .annotate(last_observation_recorded_at=F("last_observation_source__recorded_at"))
         )
         observation = Observation.objects.all().order_by("-recorded_at").first()
         assert sources.first().last_observation == observation.id
@@ -368,16 +356,10 @@ class TestObservationTriggers:
         sources = (
             Source.objects.filter(id__in=[source.id])
             .annotate(last_observation=F("last_observation_source__observation"))
-            .annotate(
-                last_observation_recorded_at=F(
-                    "last_observation_source__recorded_at")
-            )
+            .annotate(last_observation_recorded_at=F("last_observation_source__recorded_at"))
         )
         assert sources.first().last_observation == new_latest_observation.id
-        assert (
-            sources.first(
-            ).last_observation_recorded_at == new_latest_observation.recorded_at
-        )
+        assert sources.first().last_observation_recorded_at == new_latest_observation.recorded_at
 
     def test_delete_the_only_and_latest_observation(self, subject_source):
         source = subject_source.source
@@ -390,10 +372,7 @@ class TestObservationTriggers:
         sources = (
             Source.objects.filter(id__in=[source.id])
             .annotate(last_observation=F("last_observation_source__observation"))
-            .annotate(
-                last_observation_recorded_at=F(
-                    "last_observation_source__recorded_at")
-            )
+            .annotate(last_observation_recorded_at=F("last_observation_source__recorded_at"))
         )
 
         assert not sources.first().last_observation
