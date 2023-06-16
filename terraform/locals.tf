@@ -427,9 +427,9 @@ locals {
     "wcsguatemala-training"   = "dev"
     "mnc"                     = "prod1"
     "pantherapatagonia"       = "prod1"
-    "loreto"                  = "prod1",
-    "santamaria"              = "prod1",
-    "forestcarbon"            = "prod-asia",
+    "loreto"                  = "prod1"
+    "santamaria"              = "prod1"
+    "forestcarbon"            = "prod-asia"
     "aclap"                   = "prod1"
   }
 
