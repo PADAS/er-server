@@ -81,7 +81,8 @@ class TestPatrol(BaseAPITest):
 
         self.default_test_patrol = Patrol.objects.create(title="Default Test Patrol")
 
-        PatrolSegment.objects.create(patrol_type=PatrolType.objects.first(), patrol_id=self.default_test_patrol.id)
+        self.patrol_type = PatrolType.objects.first()
+        PatrolSegment.objects.create(patrol_type=self.patrol_type, patrol_id=self.default_test_patrol.id)
 
         self.now = datetime.datetime.now(tz=pytz.utc)
         self.start_of_today = self.now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -622,7 +623,7 @@ class TestPatrol(BaseAPITest):
     def test_update_patrolsegment(self):
         segment_update_data = dict(patrol_type="dog_patrol")
         segment = PatrolSegment.objects.first()
-        self.assertEqual(segment.patrol_type.display, "Routine Patrol")
+        self.assertEqual(segment.patrol_type.display, self.patrol_type.display)
 
         url = reverse("patrol-segment", kwargs={"id": segment.id})
         request = self.factory.patch(url, data=segment_update_data)
