@@ -429,6 +429,7 @@ locals {
     "pantherapatagonia"       = "prod1"
     "loreto"                  = "prod1",
     "santamaria"              = "prod1",
+    "forestcarbon"            = "prod-asia"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
