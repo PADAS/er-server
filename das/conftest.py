@@ -5,6 +5,7 @@ import pytest
 from oauth2_provider.models import Application
 from pytest_factoryboy import register
 
+from django.apps import apps
 from django.contrib.auth.models import Permission
 from rest_framework.test import APIClient
 
@@ -37,6 +38,12 @@ from factories import (
     UserFactory,
 )
 from utils.tenant import Tenant
+
+User = apps.get_model(app_label="accounts", model_name="User")
+
+
+class APIClientWithUser(APIClient):
+    user: User = None
 
 
 @pytest.fixture
@@ -71,7 +78,7 @@ def five_patrol_segment():
 
 @pytest.fixture
 def five_patrol_segment_subject():
-    PatrolSegmentSubjectFactory.create_batch(5)
+    return PatrolSegmentSubjectFactory.create_batch(5)
 
 
 @pytest.fixture
@@ -81,7 +88,7 @@ def five_patrol_segment_user():
 
 @pytest.fixture
 def five_subjects():
-    SubjectFactory.create_batch(5)
+    return SubjectFactory.create_batch(5)
 
 
 register(UserFactory, "ops_user")
@@ -264,11 +271,27 @@ def superuser():
 
 
 @pytest.fixture
+def user():
+    return UserFactory(is_superuser=False)
+
+
+@pytest.fixture
 def superuser_client(application, superuser):
     token = AccessTokenFactory(user=superuser, application=application).token
-    client = APIClient()
+    client = APIClientWithUser()
     client.credentials(HTTP_AUTHORIZATION="Bearer " + token)
     client.force_login(user=superuser)
+    client.user = superuser
+    return client
+
+
+@pytest.fixture
+def user_client(application, user):
+    token = AccessTokenFactory(user=user, application=application).token
+    client = APIClientWithUser()
+    client.credentials(HTTP_AUTHORIZATION="Bearer " + token)
+    client.force_login(user=user)
+    client.user = user
     return client
 
 

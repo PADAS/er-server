@@ -913,6 +913,12 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         queryset = self.by_user_subjects_not_distinct(user)
         return queryset.distinct("id")
 
+    def by_linked_user(self, user):
+        if hasattr(user, "linked_subject"):
+            return self.filter(id=user.linked_subject.id)
+
+        return self.none()
+
     def annotate_with_subjectstatus(self, delay_hours=0, mou_expiry_date=None):
         if not mou_expiry_date:
             annotate_subject_status = self.annotate(
