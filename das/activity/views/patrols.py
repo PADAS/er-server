@@ -221,6 +221,7 @@ class PatrolsView(ListCreateAPIView):
                         data={"error": f'Only states: {", ".join(allowed_state_filters)} allowed for filtering'},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+
         return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
@@ -241,6 +242,9 @@ class PatrolsView(ListCreateAPIView):
 
         queryset = self._exclude_unassigned_subjects(queryset)
 
+        if not queryset.exists():
+            queryset = self._get_queryset_by_user_subject_leader(queryset)
+
         queryset = queryset.prefetch_related(
             "notes", "files", "patrol_segments__patrol_type", "patrol_segments__events"
         )
@@ -254,11 +258,20 @@ class PatrolsView(ListCreateAPIView):
             patrol_segment__leader_content_type__model="subject",
         )
         subjects_id = self._get_subjects_id(patrols)
-        allowed_subjects = (
-            Subject.objects.filter(id__in=subjects_id).by_user_subjects(user).values_list("id", flat=True)
-        )
+        patrol_subjects = Subject.objects.filter(id__in=subjects_id).by_user_subjects(user)
+        allowed_subjects = patrol_subjects.values_list("id", flat=True)
         subjects_id_exclude = set(subjects_id) - set(allowed_subjects)
+
         return queryset.exclude(patrol_segment__leader_id__in=subjects_id_exclude)
+
+    def _get_queryset_by_user_subject_leader(self, queryset):
+        user = self.request.user
+        linked_subject = Subject.objects.by_linked_user(user)
+
+        if not linked_subject.exists():
+            return queryset
+
+        return queryset.filter(patrol_segment__leader=linked_subject.first())
 
     def _get_subjects_id(self, patrols):
         return [patrol.patrol_segments.last().leader_id for patrol in patrols if patrol.patrol_segments.last()]
