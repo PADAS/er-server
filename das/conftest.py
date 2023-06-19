@@ -35,6 +35,7 @@ from factories import (
     SubjectFactory,
     SubjectGroupFactory,
     SubjectSourceFactory,
+    SubjectSubTypeFactory,
     UserFactory,
 )
 from utils.tenant import Tenant
@@ -54,6 +55,11 @@ def patrol():
 @pytest.fixture
 def subject():
     return SubjectFactory()
+
+
+@pytest.fixture
+def subject_subtype():
+    return SubjectSubTypeFactory()
 
 
 @pytest.fixture
