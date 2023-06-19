@@ -427,9 +427,10 @@ locals {
     "wcsguatemala-training"   = "dev"
     "mnc"                     = "prod1"
     "pantherapatagonia"       = "prod1"
-    "loreto"                  = "prod1",
-    "santamaria"              = "prod1",
+    "loreto"                  = "prod1"
+    "santamaria"              = "prod1"
     "forestcarbon"            = "prod-asia"
+    "aclap"                   = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -637,6 +638,7 @@ locals {
     "mhurley"                 = 1
     "mnc"                     = 1
     "loreto"                  = 1
+    "aclap"                   = 1
   }
 
   db_instance_index  = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
