@@ -4,6 +4,7 @@ import uuid
 import dateutil.parser
 from sendsms import api
 
+from django.apps import apps
 from django.contrib import auth
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.contrib.gis.db import models
@@ -73,6 +74,13 @@ class UserManager(BaseUserManager):
 
     def get_queryset(self):
         return UserQuerySet(self.model, using=self._db)
+
+    def by_linked_subject_id(self, subject_id: str):
+        Subject = apps.get_model("observations.Subject")
+        subjects = Subject.objects.filter(id=subject_id)
+        if subjects.exists():
+            return subjects.first().linked_user
+        return None
 
 
 def _user_has_module_perms(user, app_label):
