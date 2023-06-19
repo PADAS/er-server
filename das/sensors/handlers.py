@@ -20,6 +20,7 @@ from observations.models import (
     update_subject_status_from_post,
 )
 from observations.serializers import ObservationSerializer
+from sensors.serializers import SensorPostParameters
 from sensors.subject_name_change import mutate_ertrack_subject_assignment
 from sensors.vehicle_tracker import (
     DasObservation,
@@ -34,25 +35,6 @@ from sensors.vehicle_tracker import (
 from tracking.pubsub_registry import notify_new_tracks
 
 logger = logging.getLogger(__name__)
-
-
-class SensorPostParameters(serializers.Serializer):
-    location = serializers.DictField()
-    recorded_at = serializers.DateTimeField()
-    manufacturer_id = serializers.CharField()
-
-    subject_id = serializers.CharField(default=None)
-    subject_name = serializers.CharField(default=None)
-    subject_groups = serializers.ListField(
-        child=serializers.CharField(allow_blank=True), allow_empty=True, default=list
-    )
-    subject_type = serializers.CharField(default=None)  # Legacy key
-    subject_subtype = serializers.CharField(default=None)
-    subject_additional = serializers.DictField(default=None)
-    model_name = serializers.CharField(default=None)
-    source_type = serializers.CharField(default=None)
-    additional = serializers.DictField(default=dict)
-    source_additional = serializers.DictField(default=None)
 
 
 class GenericSensorHandler:
@@ -282,7 +264,6 @@ class ErTrackHandler(GenericSensorHandler):
                 subject_model = Subject.objects.create_subject(**{"name": source.manufacturer_id})
                 SubjectSource.objects.create(source=source, subject=subject_model)
             elif subject_info:
-
                 recorded_at = observation.get("recorded_at")
                 mutate_ertrack_subject_assignment(
                     source=source,
@@ -291,6 +272,7 @@ class ErTrackHandler(GenericSensorHandler):
                     subject_subtype_id=subject_info.get("subject_subtype_id"),
                     recorded_at=recorded_at,
                     user=user,
+                    observation=observation,
                 )
             return source
 
@@ -300,7 +282,6 @@ class ErTrackHandler(GenericSensorHandler):
     ):
         manufacturer_id = an_observation["manufacturer_id"]
         location = an_observation["location"]
-        print(f"\nlocation: {location}\n")
         lat = location.get("lat", None)
         lon = location.get("lon", None)
         location = {"latitude": float(lat), "longitude": float(lon)}
@@ -322,9 +303,9 @@ class ErTrackHandler(GenericSensorHandler):
             source_info["additional"] = an_observation["source_additional"]
 
         src = cls.ensure_source(
-            an_observation,
-            user,
-            subject_info,
+            observation=an_observation,
+            user=user,
+            subject_info=subject_info,
             source_type=source_type,
             provider=provider_key,
             manufacturer_id=manufacturer_id,
@@ -362,7 +343,6 @@ class ErTrackHandler(GenericSensorHandler):
 
 
 class FollowltTrackerHandler:
-
     SENSOR_TYPE = "animal-collar-push"
     DEFAULT_SOURCE_TYPE = "tracking-device"
     MODEL_NAME = "FollowIt"
@@ -457,7 +437,6 @@ def clean_subjectgroups(subjectgroups):
 
 
 class DraObservationSerializer(serializers.Serializer):
-
     manufacturer_id = serializers.CharField()
     source_type = serializers.CharField(default=None)
     subject_name = serializers.CharField(default=None)
@@ -499,7 +478,6 @@ class GsatHandler:
 
     @staticmethod
     def _parse_gsat_request(o):
-
         r = {}
         r["manufacturer_id"] = str(o.get("uniqueid"))
         r["location"] = GsatHandler._parse_location(o.get("lat"), o.get("lng"))
@@ -646,7 +624,6 @@ class SkylineVehicleTrackerHandler:
         # obs_to_insert = []
 
         for observation in params.data["Messages"]:
-
             das_obs = adapter.create_das_object(observation)
 
             src = Source.objects.ensure_source(
@@ -682,7 +659,6 @@ class SkylineVehicleTrackerHandler:
 
 
 class TractVehicleHandler:
-
     SENSOR_TYPE = "vehicle-observation"
     DEFAULT_SUBJECT_SUBTYPE = "truck"
     serializer_class = TractVehicleData
@@ -748,7 +724,6 @@ class SigFoxCallback(serializers.Serializer):
 
 
 class SigFoxPushHandler:
-
     SENSOR_TYPE = "sf-animal-tracker"
     SOURCE_TYPE = "tracking-device"
     MODEL_NAME = "DigitAnimal"
@@ -900,7 +875,6 @@ class InreachObservation(serializers.Serializer):
 
 
 class InreachPushHandler:
-
     SENSOR_TYPE = "inreach-tracker"
     subject_type = "person"
     subject_subtype = "ranger"

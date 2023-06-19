@@ -26,6 +26,7 @@ from bitfield import BitField
 from dateutil.parser import parse as parse_date
 from psycopg2.extras import DateTimeTZRange
 
+from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
@@ -33,6 +34,7 @@ from django.contrib.gis.db import models as dbmodels
 from django.contrib.gis.geos import Point, Polygon
 from django.contrib.postgres.fields import DateTimeRangeField, jsonb
 from django.contrib.postgres.fields.hstore import KeyTransform
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import connections, transaction
 from django.db.models import (
     BooleanField,
@@ -69,6 +71,8 @@ from tracking.pubsub_registry import notify_subjectstatus_update
 from utils.decorator import use_shared_resource
 from utils.interfaces import SharedResourceHandler
 from utils.json import zeroout_microseconds
+
+User = get_user_model()
 
 STATIONARY_SUBJECT_VALUE = "stationary-object"
 
@@ -1106,6 +1110,13 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             effective_sgs = get_effective_sg(allowed_subject_groups)
 
         return self.filter(groups__in=effective_sgs).distinct("id")
+
+    def by_linked_user_id(self, user_id: str):
+        try:
+            user = User.objects.get(id=user_id)
+            return user.linked_subject
+        except ObjectDoesNotExist:
+            return None
 
 
 class SubjectManager(models.Manager):
