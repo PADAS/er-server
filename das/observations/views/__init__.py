@@ -397,6 +397,8 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
     }
 
     def check_permissions(self, request):
+        if request.user.is_anonymous:
+            self.permission_denied(request)
         self.queryset_linked_user = models.Subject.objects.filter(linked_user=request.user).distinct()
         if not self.queryset_linked_user.exists():
             for permission in self.get_permissions():
