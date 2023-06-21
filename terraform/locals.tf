@@ -431,6 +431,7 @@ locals {
     "santamaria"              = "prod1"
     "forestcarbon"            = "prod-asia"
     "aclap"                   = "prod1"
+    "nrttraining"             = "dev"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
