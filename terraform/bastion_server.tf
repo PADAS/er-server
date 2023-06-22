@@ -15,8 +15,8 @@ resource "tls_private_key" "bastion_server" {
 data "google_compute_image" "ubuntu" {
   provider = google
 
-  family  = "ubuntu-pro-1804-lts"
-  project = "ubuntu-os-pro-cloud"
+  family  = "ubuntu-1804-lts"
+  project = "ubuntu-os-cloud"
 }
 
 resource "random_string" "bastion_name_uniqueness" {
