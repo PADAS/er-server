@@ -21,7 +21,7 @@ from observations.models import (
 )
 from observations.serializers import ObservationSerializer
 from sensors.serializers import SensorPostParameters
-from sensors.subject_name_change import mutate_ertrack_subject_assignment
+from sensors.subject_name_change import HandlerERTrack
 from sensors.vehicle_tracker import (
     DasObservation,
     EzyTrackAdapter,
@@ -265,7 +265,7 @@ class ErTrackHandler(GenericSensorHandler):
                 SubjectSource.objects.create(source=source, subject=subject_model)
             elif subject_info:
                 recorded_at = observation.get("recorded_at")
-                mutate_ertrack_subject_assignment(
+                handler_er_track = HandlerERTrack(
                     source=source,
                     is_new_source=source_created,
                     subject_name=subject_info.get("name"),
@@ -274,6 +274,7 @@ class ErTrackHandler(GenericSensorHandler):
                     user=user,
                     observation=observation,
                 )
+                handler_er_track.handle()
             return source
 
     @classmethod
