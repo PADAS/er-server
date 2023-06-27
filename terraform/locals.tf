@@ -432,6 +432,7 @@ locals {
     "forestcarbon"            = "prod-asia"
     "aclap"                   = "prod1"
     "nrttraining"             = "dev"
+    "banggai"                 = "prod-asia"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
