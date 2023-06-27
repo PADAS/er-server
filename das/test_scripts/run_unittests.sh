@@ -33,6 +33,8 @@ function run_test_suite_two() {
   echo_b "Running test suite two...";
   pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 activity/tests
   review_results
+  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 sensors/tests
+  review_results
 }
 
 function run_test_suite_three() {

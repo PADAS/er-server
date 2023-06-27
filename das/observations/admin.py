@@ -871,8 +871,10 @@ class SubjectAdmin(ExportCsvMixin, FieldSetElementMixin, ObservationsContextMixi
         return super(SubjectAdmin, self)._changeform_view(request, object_id, form_url, extra_context)
 
     def _linked_user_warning(self, instance):
+        user = instance.linked_user
+        user_str = user.get_full_name() or user.username
         return mark_safe(
-            f"<i>This Subject is being used for the user: <b>{instance.linked_user}</b>, and can not edit the <b>name</b> property.</i>"
+            f"<i>This Subject is being used for the user: <b>{user_str}</b>, and can not edit the <b>name</b> property.</i>"
         )
 
     _linked_user_warning.short_description = "Warning"
