@@ -433,6 +433,7 @@ locals {
     "aclap"                   = "prod1"
     "nrttraining"             = "dev"
     "banggai"                 = "prod-asia"
+    "pecca"                   = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
