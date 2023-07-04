@@ -7,7 +7,7 @@ from django.urls import reverse
 from rest_framework import status
 
 from accounts.models import PermissionSet
-from activity.models import Event, EventCategory
+from activity.models import Event, EventCategory, Patrol
 from activity.permissions import EventCategoryGeographicPermission
 from activity.views import EventsView, EventView
 from client_http import HTTPClient
@@ -216,15 +216,19 @@ class TestPatrolPermission:
         five_patrol_segment_subject,
         user_client,
     ):
+        patrol = five_patrol_segment_subject[0].patrol
         subject = five_patrol_segment_subject[0].leader
         subject.linked_user = user_client.user
         subject.save()
+        view_patrols_permissions = PermissionSet.objects.get(name="View Patrols Permissions")
+        user_client.user.permission_sets.add(view_patrols_permissions)
         url = reverse("patrols")
 
         response = user_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data["results"]) == 1
+        assert response.data["results"][0]["id"] == str(patrol.id)
 
     def test_user_with_subject_leading_patrol_should_see_only_that_patrol(
         self, five_patrol_segment_subject, user_client
@@ -232,6 +236,8 @@ class TestPatrolPermission:
         patrol = five_patrol_segment_subject[0].patrol
         subject = five_patrol_segment_subject[0].leader
         subject.linked_user = user_client.user
+        view_patrols_permissions = PermissionSet.objects.get(name="View Patrols Permissions")
+        user_client.user.permission_sets.add(view_patrols_permissions)
         subject.save()
         url = reverse("patrol", kwargs={"id": patrol.id})
 
@@ -239,3 +245,28 @@ class TestPatrolPermission:
 
         assert response.status_code == status.HTTP_200_OK
         assert response.data["id"] == str(patrol.id)
+
+    def test_user_with_subject_leading_patrol_should_not_see_other_patrol(
+        self, five_patrol_segment_subject, user_client
+    ):
+        subject = five_patrol_segment_subject[0].leader
+        subject.linked_user = user_client.user
+        subject.save()
+        view_patrols_permissions = PermissionSet.objects.get(name="View Patrols Permissions")
+        user_client.user.permission_sets.add(view_patrols_permissions)
+        patrol = five_patrol_segment_subject[1].patrol
+        url = reverse("patrol", kwargs={"id": patrol.id})
+
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_user_should_see_all_patrols(self, five_patrols, user_client):
+        view_patrols_permissions = PermissionSet.objects.get(name="View Patrols Permissions")
+        user_client.user.permission_sets.add(view_patrols_permissions)
+        url = reverse("patrols")
+
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["results"]) == Patrol.objects.count()
