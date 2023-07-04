@@ -181,6 +181,11 @@ class AccountsAbstractUser(AbstractBaseUser, PermissionsMixin):
         verbose_name_plural = _("users")
         abstract = True
 
+    @property
+    def has_linked_subject(self):
+        Subject = apps.get_model(app_label="observations", model_name="Subject")
+        return Subject.objects.by_linked_user(self).exists()
+
     def get_full_name(self):
         """
         Returns the first_name plus the last_name, with a space in between.
