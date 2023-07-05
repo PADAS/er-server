@@ -96,7 +96,10 @@ class HandlerERTrack:
         excluded_subject_types = self.get_excluded_subject_types()
         subject_mutate_setting = self.get_subject_mutate_settings()
 
-        if self.has_source_assignment(source=self.source, recorded_at=self.recorded_at):
+        if (
+            self.has_source_assignment(source=self.source, recorded_at=self.recorded_at)
+            and not self.get_allowed_observations_fields()
+        ):
             logger.info("Found everything already in place. Doing nothing.")
             return
 
@@ -110,41 +113,28 @@ class HandlerERTrack:
 
         elif self.is_not_subject_linked_to_user():
             subject = Subject.objects.get(id=self.subject_id)
-            self.link_subject_to_user(user_id=self.user_id, subject=subject)
-            if not self.has_source_assignment(source=self.source, recorded_at=self.recorded_at, subject=subject):
-                logger.info("Updating source assignment using linked subject.")
-                update_source_assignment(subject=subject, source=self.source, recorded_at=self.recorded_at)
-            self.set_subject_name(user_id=self.user_id, subject=subject)
+            self.process_subject(subject=subject)
             return
 
         if excluded_subject_types:
             self.subjects = self.exclude_subject_types(excluded_subject_types)
 
         if subject_mutate_setting == USE_EXISTING:
-            subject_person = self.get_first_subject_type_person()
-            if not subject_person:
-                existing_match = self.exclude_subject_type_person()
-                if existing_match:
-                    if self.user_id and not self.is_user_linked_to_a_subject() and not existing_match.linked_user:
-                        self.link_subject_to_user(user_id=self.user_id, subject=existing_match)
-                        if not self.has_source_assignment(
-                            source=self.source, recorded_at=self.recorded_at, subject=existing_match
-                        ):
-                            update_source_assignment(existing_match, self.source, self.recorded_at)
-                        self.set_subject_name(user_id=self.user_id, subject=existing_match)
-                    elif existing_match.linked_user:
-                        subject_mutate_setting = CREATE_NEW
-                    else:
-                        update_source_assignment(existing_match, self.source, self.recorded_at)
-                    logger.debug("Found match by name: %s", existing_match)
-                else:
-                    logger.debug(
-                        "No match found by name %s. Fall back to CREATE_NEW.",
-                        self.subject_name,
-                    )
+            existing_subject = self.get_existing_subject()
+            if existing_subject:
+                if self.user_id and not self.is_user_linked_to_a_subject() and not existing_subject.linked_user:
+                    self.process_subject(subject=existing_subject)
+                elif existing_subject.linked_user:
                     subject_mutate_setting = CREATE_NEW
+                else:
+                    update_source_assignment(existing_subject, self.source, self.recorded_at)
+                logger.debug("Found match by name: %s", existing_subject)
             else:
-                update_source_assignment(subject_person, self.source, self.recorded_at)
+                logger.debug(
+                    "No match found by name %s. Fall back to CREATE_NEW.",
+                    self.subject_name,
+                )
+                subject_mutate_setting = CREATE_NEW
 
         if subject_mutate_setting == UPDATE_NAME:
             subjects_updated = self.update_subjects_name()
@@ -257,3 +247,21 @@ class HandlerERTrack:
 
     def get_user(self, user_id):
         return User.objects.get(id=user_id)
+
+    def get_allowed_observations_fields(self):
+        allowed_fields = {"user_id", "subject_id"}
+        observation_fields = list(self.observation.keys())
+        return allowed_fields.intersection(observation_fields)
+
+    def get_existing_subject(self):
+        subject_person = self.get_first_subject_type_person()
+        if not subject_person:
+            return self.exclude_subject_type_person()
+        return subject_person
+
+    def process_subject(self, subject):
+        self.link_subject_to_user(user_id=self.user_id, subject=subject)
+        if not self.has_source_assignment(source=self.source, recorded_at=self.recorded_at, subject=subject):
+            logger.info("Updating source assignment using linked subject.")
+            update_source_assignment(subject, self.source, self.recorded_at)
+        self.set_subject_name(user_id=self.user_id, subject=subject)

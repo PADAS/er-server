@@ -95,6 +95,35 @@ class TestMutateErTrackSubjectAssignment:
         assert subject_source.subject == subject
         assert subject.linked_user == ops_user
 
+    def test_links_existing_subject_to_profile_without_linked_subject_when_pass_subject_name(
+        self, ops_user, superuser, subject_subtype, subject_source
+    ):
+        subject = subject_source.subject
+        source = subject_source.source
+        subject.subject_subtype.subject_type.value = "person"
+        subject.subject_subtype.subject_type.save()
+        superuser.act_as_profiles.add(ops_user)
+        observation = OrderedDict()
+        observation["user_id"] = str(ops_user.id)
+        observation["subject_name"] = str(subject.name)
+
+        handler = HandlerERTrack(
+            source=source,
+            user=superuser,
+            is_new_source=True,
+            subject_name=subject.name,
+            recorded_at=self.recorded_at,
+            subject_subtype_id=subject_subtype,
+            observation=observation,
+        )
+        handler.handle()
+        subject_source = SubjectSource.objects.get(source=source)
+        subject.refresh_from_db()
+
+        assert SubjectSource.objects.filter(source=source).count() == 1
+        assert subject_source.subject == subject
+        assert subject.linked_user == ops_user
+
     def test_links_new_subject_to_user_that_was_created_because_the_sent_subject_is_already_linked_to_another_user(
         self, ops_user, superuser, subject, source, subject_subtype
     ):
