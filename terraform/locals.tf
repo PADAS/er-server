@@ -433,6 +433,8 @@ locals {
     "aclap"                   = "prod1"
     "nrttraining"             = "dev"
     "banggai"                 = "prod-asia"
+    "banhine"                 = "prod1"
+    "ppfcentral"              = "prod1"
     "pecca"                   = "prod1"
     "madidi"                  = "prod1"
   }
@@ -643,6 +645,7 @@ locals {
     "mnc"                     = 1
     "loreto"                  = 1
     "aclap"                   = 1
+    "banhine"                 = 1
     "madidi"                  = 1
   }
 
