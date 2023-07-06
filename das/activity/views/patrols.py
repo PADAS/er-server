@@ -251,7 +251,7 @@ class PatrolsView(ListCreateAPIView):
     def _exclude_unassigned_subjects(self, queryset):
         user = self.request.user
 
-        if user.has_linked_subject:
+        if user.has_linked_subject and not user.is_superuser:
             return queryset.filter(patrol_segment__leader_id=user.linked_subject.id)
 
         patrols = queryset.filter(
