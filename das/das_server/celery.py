@@ -96,6 +96,8 @@ app.conf.task_routes = {
 # Defining scheduled tasks.
 # PLUGINS_INTERVAL is in seconds, and is the ticker interval for
 # triggering plugin tasks.
+
+
 PLUGINS_INTERVAL = 5 * 60
 app.conf.beat_schedule = {
     "plugins": {
