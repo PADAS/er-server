@@ -42,3 +42,7 @@ class TenantData:
         if not tenant_data:
             logger.info("Tenant not found at TMS for domain %s", self.domain)
         return tenant_data
+
+    @classmethod
+    def get_all_tenant_domains(cls):
+        return [domain.decode("utf-8") for domain in memory_store_client.get_all_keys()]
