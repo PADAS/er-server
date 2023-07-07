@@ -93,3 +93,6 @@ class RedisStorageReadOnly(PersistentStorageReadOnly):
 
     def get_key(self, key):
         return self._connection.get(key)
+
+    def get_all_keys(self):
+        return self._connection.keys()

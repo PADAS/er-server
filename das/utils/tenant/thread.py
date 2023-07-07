@@ -28,3 +28,8 @@ def get_tenant_settings() -> Tenant:
     logger.info(f"Getting tenant settings for host: {tenant_settings.domain}")
 
     return tenant_settings
+
+
+def clear_tenant_settings():
+    local_thread = _get_main_thread()
+    delattr(local_thread, TENANT_DEFAULT_KEY)

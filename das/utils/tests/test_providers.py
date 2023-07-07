@@ -50,3 +50,20 @@ class TestTenantData:
         assert "Tenant not found at cache" in caplog.text
         assert f"Getting tenant from TMS for domain {DOMAIN}" in caplog.text
         assert f"Tenant not found at TMS for domain {DOMAIN}" in caplog.text
+
+    @pytest.mark.parametrize(
+        "data",
+        [
+            {"domains": [b"tenant_domain1.com", b"tenant_domain2.com"], "expected": 2},
+            {"domains": [b"domain2.com", b"domain3.com", b"domain1.com"], "expected": 3},
+            {"domains": [], "expected": 0},
+        ],
+    )
+    def test_get_all_tenant_domains_from_cache(self, data, memory_store_client_mock, tenant_response):
+        memory_store_client_mock.get_all_keys.return_value = data["domains"]
+
+        domains = TenantData.get_all_tenant_domains()
+
+        assert data["expected"] == len(domains)
+        for domain in data["domains"]:
+            assert domain.decode("utf-8") in domains
