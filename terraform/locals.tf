@@ -439,6 +439,7 @@ locals {
     "madidi"                  = "prod1"
     "fmcn-monitoreo"          = "prod1"
     "jackalbuzz"              = "prod1"
+    "gcmx"                    = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
