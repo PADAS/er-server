@@ -18,6 +18,16 @@ logger = logging.getLogger(__name__)
 redis_client = redis.from_url(settings.REALTIME_BROKER_URL)
 
 
+# looks like socket.gethostname is not viable on all python distros,
+# so we make a connection to a private address, and get the host ip
+def get_ip_address():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    return s.getsockname()[0]
+
+
+SERVICE_ID = socket.gethostbyname(socket.gethostname()) or str(get_ip_address())
+CLIENT_LIST_KEY = "rt_api.{}".format(SERVICE_ID)
 EXPIRED_CLIENT_TRACES_LIST = "rt_api.expired_traces"
 REALTIME_SERVICES_KEY = "rt_api.services"
 TRACE_TTL = 60
@@ -34,19 +44,10 @@ SID_SUBJECTS_TIMESTAMPS_KEY = "sid-subject-timestamps-{}"
 SID_SESSION_TIMESTAMP_KEY = "sid-session-timestamp-{}"
 
 
-def get_client_list_key() -> str:
-    socket_instance = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    socket_instance.connect(("8.8.8.8", 80))
-    ip_address = str(socket_instance.getsockname()[0])
-    socket_name = socket.gethostname()
-    service_id = socket.gethostbyname(socket_name) or ip_address
-    return "rt_api.{}".format(service_id)
-
-
 def init_redis_storage():
     logger.info("Initializing redis storage")
     # first, remove existing key to remove stale clients
-    redis_client.delete(get_client_list_key())
+    redis_client.delete(CLIENT_LIST_KEY)
 
     [redis_client.delete(key) for key in redis_client.scan_iter(SID_SESSION_TIMESTAMP_KEY.format("*"))]
     [redis_client.delete(key) for key in redis_client.scan_iter(SID_SUBJECTS_TIMESTAMPS_KEY.format("*"))]
@@ -55,7 +56,7 @@ def init_redis_storage():
     cleanup_usersessions()
 
     # add the service as a member of services set
-    redis_client.sadd(REALTIME_SERVICES_KEY, get_client_list_key())
+    redis_client.sadd(REALTIME_SERVICES_KEY, CLIENT_LIST_KEY)
 
 
 def now(tz=pytz.utc):
@@ -94,7 +95,7 @@ def create_update_user_session(sid):
 
 
 def get_all_connections():
-    all_conns = redis_client.hgetall(get_client_list_key())
+    all_conns = redis_client.hgetall(CLIENT_LIST_KEY)
     return all_conns
 
 
@@ -120,11 +121,11 @@ def get_all_connections_list_decoded():
 
 
 def get_session_count():
-    return redis_client.hlen(get_client_list_key())
+    return redis_client.hlen(CLIENT_LIST_KEY)
 
 
 def get_client_list():
-    for sid, client_data in redis_client.hgetall(get_client_list_key()).items():
+    for sid, client_data in redis_client.hgetall(CLIENT_LIST_KEY).items():
         client_data = _restore_client_data(client_data.decode("utf-8"))
         if client_data:
             yield client_data
@@ -138,8 +139,8 @@ def get_expired_traces_client_list():
 def add_client(sid, data):
     sid = str(sid)
     logger.info(f"Adding socket client. {sid}")
-    logger.info(f"Adding client to session list. {get_client_list_key()} {sid}")
-    redis_client.hset(get_client_list_key(), sid, json.dumps(data))
+    logger.info(f"Adding client to session list. {CLIENT_LIST_KEY} {sid}")
+    redis_client.hset(CLIENT_LIST_KEY, sid, json.dumps(data))
 
 
 def _restore_client_data(data):
@@ -157,7 +158,7 @@ def _restore_client_data(data):
 def get_client(sid):
     sid = str(sid)
     logger.debug("Get client for sid=%s", sid)
-    data = redis_client.hget(get_client_list_key(), sid)
+    data = redis_client.hget(CLIENT_LIST_KEY, sid)
     if data:
         data = data.decode("utf-8")
         result = _restore_client_data(data)
@@ -171,7 +172,7 @@ def info(param):
 
 
 def is_client(sid):
-    return redis_client.hexists(get_client_list_key(), str(sid))
+    return redis_client.hexists(CLIENT_LIST_KEY, str(sid))
 
 
 def list_len(key):
@@ -181,7 +182,6 @@ def list_len(key):
 def remove_client(sid: str):
     sids = set()
     sids.add(sid)
-    remove_invalid_rt_service_key()
     remove_clients(sids)
 
 
@@ -194,9 +194,9 @@ def remove_clients(sids: set):
     if not sids:
         return
 
-    logger.info("Removing clients for sids: %s from key %s", sids, get_client_list_key())
-    count = redis_client.hdel(get_client_list_key(), *sids)
-    logger.info("Removed %s clients (of %s listed) from %s", count, len(sids), get_client_list_key())
+    logger.info("Removing clients for sids: %s from key %s", sids, CLIENT_LIST_KEY)
+    count = redis_client.hdel(CLIENT_LIST_KEY, *sids)
+    logger.info("Removed %s clients (of %s listed) from %s", count, len(sids), CLIENT_LIST_KEY)
 
     logger.info("Removing clients for sids: %s from key %s", sids, EXPIRED_CLIENT_TRACES_LIST)
     count = redis_client.hdel(EXPIRED_CLIENT_TRACES_LIST, *sids)
@@ -266,19 +266,6 @@ def remove_rt_service(service_key):
     redis_client.delete(service_key)
 
 
-def remove_invalid_rt_service_key() -> None:
-    """
-    Removes invalid rt services from `REALTIME_SERVICES_KEY`
-    """
-    registered_services = get_rt_service_list()
-    current_alive_service = get_client_list_key()
-    registered_services.remove(bytes(current_alive_service, "utf-8"))
-    if not registered_services:
-        return
-    for service in registered_services:
-        remove_rt_service(service_key=service.decode("utf-8"))
-
-
 def remove_all_rt_services():
     """
     Removes all service keys, and connection list for those keys. We
@@ -318,8 +305,8 @@ def start_trace_consumer():
 
 
 def shutdown_cleanup(*args):
-    logger.info("Shutdown cleanup for realtime client list: %s", get_client_list_key())
-    remove_rt_service(get_client_list_key())
+    logger.info("Shutdown cleanup for realtime client list: %s", CLIENT_LIST_KEY)
+    remove_rt_service(CLIENT_LIST_KEY)
     signal.signal(signal.SIGINT, shutdown_cleanup)
     signal.signal(signal.SIGTERM, shutdown_cleanup)
 
