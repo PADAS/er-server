@@ -1,12 +1,9 @@
 #!/bin/bash
 
-# build in a docker container
-    # docker run -it -w="/workspace" -v ~/projects/er/das/dependencies/:/workspace ubuntu:18.04 bash
-
-PYTHON_PACKAGES="python3.7 python3.7-dev python3.7-distutils"
+PYTHON_PACKAGES="python3.8 python3.8-dev python3.8-distutils"
 apt-get update && apt-get install --no-install-recommends -yq software-properties-common \
      && add-apt-repository ppa:deadsnakes/ppa && apt-get update \
-     && apt-get install -yq --no-install-recommends ${PYTHON_PACKAGES} 
+     && apt-get install -yq --no-install-recommends ${PYTHON_PACKAGES}
 
 apt-get install -y build-essential \
                  software-properties-common \
@@ -21,7 +18,7 @@ apt-get install -y build-essential \
                  libcurl4-openssl-dev \
                  sqlite3 libsqlite3-dev \
 
-update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.7 4
+update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 4
 wget https://bootstrap.pypa.io/get-pip.py
 python3 get-pip.py
 python3 -m pip install pip --upgrade ; pip3 install pyopenssl setuptools wheel
@@ -34,12 +31,12 @@ elif  ([[ $arch == arm* ]] || [[ $arch == aarch* ]]) ; then
     arch_name="arm64"
 fi
 
-cp_ver="cp37"
+cp_ver="cp38"
 
 wget http://download.osgeo.org/geos/geos-3.9.1.tar.bz2; tar -xjf geos-3.9.1.tar.bz2
 cd geos-3.9.1
 
-# It's likely this 3.9.1 version of geos will report an invalid version. 
+# It's likely this 3.9.1 version of geos will report an invalid version.
 # So before running make, fix the GEOSversion function.
 #
 # Ex. In file capi/geos_ts_c.cpp, edit this:
@@ -64,7 +61,7 @@ cp proj-7.2.1/proj_7.2.1-1_${arch_name}.deb ./proj_7.2.1-1_${cp_ver}_${arch_name
 #rm -rf proj-7.2.1
 ldconfig
 
-wget http://download.osgeo.org/gdal/3.4.1/gdal-3.4.1.tar.gz; tar -xzvf gdal-3.4.1.tar.gz; cd gdal-3.4.1; ./configure --prefix=/usr --with-python=/usr/bin/python3.7 --with-geos=/usr/local/bin/geos-config --with-proj=/usr; make; checkinstall -y;
+wget http://download.osgeo.org/gdal/3.4.1/gdal-3.4.1.tar.gz; tar -xzvf gdal-3.4.1.tar.gz; cd gdal-3.4.1; ./configure --prefix=/usr --with-python=/usr/bin/python3.8 --with-geos=/usr/local/bin/geos-config --with-proj=/usr; make; checkinstall -y;
 cd ..
 cp gdal-3.4.1/gdal_3.4.1-1_${arch_name}.deb ./gdal_3.4.1-1_${cp_ver}_${arch_name}.deb
 #rm -rf gdal-3.4.1

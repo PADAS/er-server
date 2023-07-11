@@ -6,4 +6,4 @@ wait_for $API_HOST $API_PORT
 
 WORKERS=10
 
-celery -A das_server worker -Q realtime_p1,realtime_p2,realtime_p3 -l info -c $WORKERS -P gevent --without-gossip -n priority
+celery --app das_server worker -Q realtime_p1,realtime_p2,realtime_p3 -l info -c $WORKERS -P gevent --without-gossip -n priority
