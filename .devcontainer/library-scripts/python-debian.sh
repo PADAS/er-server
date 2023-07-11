@@ -80,7 +80,7 @@ get_common_setting() {
     echo "$1=${!1}"
 }
 
-# Import the specified key in a variable name passed in as 
+# Import the specified key in a variable name passed in as
 receive_gpg_keys() {
     get_common_setting $1
     local keys=${!1}
@@ -100,7 +100,7 @@ receive_gpg_keys() {
     local retry_count=0
     local gpg_ok="false"
     set +e
-    until [ "${gpg_ok}" = "true" ] || [ "${retry_count}" -eq "5" ]; 
+    until [ "${gpg_ok}" = "true" ] || [ "${retry_count}" -eq "5" ];
     do
         echo "(*) Downloading GPG key..."
         ( echo "${keys}" | xargs -n 1 gpg -q ${keyring_args} --recv-keys) 2>&1 && gpg_ok="true"
@@ -125,7 +125,7 @@ find_version_from_git_tags() {
     local repository=$2
     local prefix=${3:-"tags/v"}
     local separator=${4:-"."}
-    local last_part_optional=${5:-"false"}    
+    local last_part_optional=${5:-"false"}
     if [ "$(echo "${requested_version}" | grep -o "." | wc -l)" != "2" ]; then
         local escaped_separator=${separator//./\\.}
         local last_part
@@ -215,9 +215,9 @@ install_from_source() {
     fi
     echo "(*) Building Python ${PYTHON_VERSION} from source..."
     # Install prereqs if missing
-    check_packages curl ca-certificates gnupg2 tar make gcc libssl-dev zlib1g-dev libncurses5-dev \
-                libbz2-dev libreadline-dev libxml2-dev xz-utils libgdbm-dev tk-dev dirmngr \
-                libxmlsec1-dev libsqlite3-dev libffi-dev liblzma-dev uuid-dev 
+    check_packages curl gdb ca-certificates gnupg2 tar make gcc libssl-dev zlib1g-dev libncurses5-dev \
+                libbz2-dev libreadline-dev libreadline6-dev libxml2-dev xz-utils libgdbm-dev libgdbm-compat-dev tk-dev dirmngr \
+                libxmlsec1-dev libsqlite3-dev libffi-dev liblzma-dev lzma lzma-dev uuid-dev
     if ! type git > /dev/null 2>&1; then
         apt_get_update_if_needed
         apt-get -y install --no-install-recommends git
@@ -249,7 +249,7 @@ install_from_source() {
     tar -xzf "/tmp/python-src/${tgz_filename}" -C "/tmp/python-src" --strip-components=1
     local config_args=""
     if [ "${OPTIMIZE_BUILD_FROM_SOURCE}" = "true" ]; then
-        config_args="--enable-optimizations"
+        config_args="--enable-optimizations --enable-framework"
     fi
     ./configure --prefix="${PYTHON_INSTALL_PATH}" --with-ensurepip=install ${config_args}
     make -j 8
@@ -281,7 +281,7 @@ export DEBIAN_FRONTEND=noninteractive
 # General requirements
 check_packages curl ca-certificates gnupg2 tar make gcc libssl-dev zlib1g-dev libncurses5-dev \
             libbz2-dev libreadline-dev libxml2-dev xz-utils libgdbm-dev tk-dev dirmngr \
-            libxmlsec1-dev libsqlite3-dev libffi-dev liblzma-dev uuid-dev 
+            libxmlsec1-dev libsqlite3-dev libffi-dev liblzma-dev lzma uuid-dev
 
 
 # Install python from source if needed

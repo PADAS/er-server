@@ -10,7 +10,7 @@ class TestFormatField:
     @pytest.mark.parametrize(
         "latitude,longitude,format_",
         [
-            (20.663385393265447, -103.29153988109354, "location"),
+            (20.66338539326545, -103.2915398810935, "location"),
             (0, 0, "location"),
         ],
     )

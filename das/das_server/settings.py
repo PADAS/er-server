@@ -297,8 +297,9 @@ OAUTH2_PROVIDER = {
 ASYNC_MODE = "eventlet"
 
 # override these if your libraries are in a different place
-GEOS_LIBRARY_PATH = "/usr/local/lib/libgeos_c.so"
+GEOS_LIBRARY_PATH = "/usr/lib/x86_64-linux-gnu/libgeos_c.so.1"
 GDAL_LIBRARY_PATH = "/usr/lib/libgdal.so"
+
 
 CACHES = {
     "default": {

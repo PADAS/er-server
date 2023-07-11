@@ -189,16 +189,16 @@ executors:
         auth:
               username: erdockerhub
               password: $DOCKERHUB_PASSWORD
-      
+
   docs_executor:
     docker:
-      - image: 'cimg/python:3.7'
+      - image: 'cimg/python:3.8.16'
         auth:
               username: erdockerhub
               password: $DOCKERHUB_PASSWORD
 jobs:
-  relyance: 
-    
+  relyance:
+
     machine:
       image: ubuntu-2004:202010-01
     steps:
@@ -258,7 +258,7 @@ jobs:
           name: "Generate build files"
           command: |
             mkdir sphinx-docs
-            pip3 install -r dependencies/requirements-docs.txt 
+            pip3 install -r dependencies/requirements-docs.txt
             cd docs
             make html
             cp -rf /home/circleci/project/docs/_build/ /home/circleci/project/sphinx-docs
@@ -438,7 +438,7 @@ workflows:
           filters:
             branches:
               only:
-                - "develop" 
+                - "develop"
     jobs:
       - relyance:
           context:
