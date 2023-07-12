@@ -2008,10 +2008,13 @@ class PatrolSegmentManager(models.Manager):
                     .all()
                     .by_is_active()
                 )
-                subject_grps = PatrolConfiguration.objects.first().subject_groups.all()
+                subject_groups = PatrolConfiguration.objects.first().subject_groups.all()
+                subjects_available = active_subjects.by_subjectgroups(
+                    subject_groups, user=user
+                ) | active_subjects.by_linked_user(user).distinct("id")
 
-                for o in active_subjects.by_subjectgroups(subject_grps, user=user):
-                    yield o.name.lower(), o
+                for subject in subjects_available:
+                    yield subject.name.lower(), subject
 
             subjects = get_subjects()
             for sub in sorted(subjects, key=itemgetter(0)):

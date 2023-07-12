@@ -1,4 +1,5 @@
-import json
+from functools import reduce
+from itertools import chain
 
 import pytest
 
@@ -369,3 +370,73 @@ class TestEventsExportView:
 
     def _get_response_content(self, response):
         return [line.decode() for line in response.content.split(b"\r\n") if line]
+
+
+@pytest.mark.django_db
+class TestTrackedBySchemaView:
+    def test_get_patrols_tracked_by_without_permission_should_be_empty(self, user_client, patrol_configuration):
+        url = reverse("patrol-segments-schema")
+
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["properties"]["leader"]["enum"] == []
+
+    def test_get_patrols_tracked_by_with_permission(self, user_client, patrol_configuration):
+        subject_group = patrol_configuration.subject_groups.first()
+        expected_subject_ids = set(self._get_subject_ids_by_subject_group(subject_group))
+        permission_set = subject_group.permission_sets.first()
+        user = user_client.user
+        user_id = str(user.id)
+        user.permission_sets.add(permission_set)
+        subject = subject_group.subjects.first()
+        subject_id = str(subject.id)
+        subject.linked_user = user
+        subject.save()
+        url = reverse("patrol-segments-schema")
+
+        response = user_client.get(url)
+        leaders = response.data["properties"]["leader"]["enum"]
+        leader_ids = {leader["id"] for leader in leaders}
+        subject_data = [leader for leader in leaders if leader["id"] == subject_id][-1]
+
+        assert response.status_code == status.HTTP_200_OK
+        assert expected_subject_ids == leader_ids
+        assert user_id == subject_data["user"]["id"]
+
+    def test_get_patrols_tracked_by_without_permission_and_linked_subject(self, user_client, patrol_configuration):
+        subject_group = patrol_configuration.subject_groups.first()
+        user = user_client.user
+        user_id = str(user.id)
+        subject = subject_group.subjects.first()
+        subject_id = str(subject.id)
+        subject.linked_user = user
+        subject.save()
+        url = reverse("patrol-segments-schema")
+
+        response = user_client.get(url)
+        leader = response.data["properties"]["leader"]["enum"][0]
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data["properties"]["leader"]["enum"]) == 1
+        assert leader["id"] == subject_id
+        assert leader["user"]["id"] == user_id
+
+    def test_get_patrols_tracked_by_as_superuser(self, superuser_client, patrol_configuration):
+        expected_subject_ids = self._get_subject_ids_in_patrol_configuration(patrol_configuration)
+        url = reverse("patrol-segments-schema")
+
+        response = superuser_client.get(url)
+        leaders = response.data["properties"]["leader"]["enum"]
+        leader_ids = set((leader["id"] for leader in leaders))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(expected_subject_ids) == len(leaders)
+        assert expected_subject_ids == leader_ids
+
+    def _get_subject_ids_in_patrol_configuration(self, patrol_config):
+        ids_by_subject_group = map(self._get_subject_ids_by_subject_group, patrol_config.subject_groups.all())
+        return set(reduce(chain, ids_by_subject_group, []))
+
+    def _get_subject_ids_by_subject_group(self, subject_group):
+        return map(str, subject_group.subjects.values_list("id", flat=True))
