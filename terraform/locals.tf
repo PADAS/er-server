@@ -440,6 +440,7 @@ locals {
     "fmcn-monitoreo"          = "prod1"
     "jackalbuzz"              = "prod1"
     "gcmx"                    = "prod1"
+    "meft"                    = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -651,6 +652,7 @@ locals {
     "banhine"                 = 1
     "madidi"                  = 1
     "jackalbuzz"              = 1
+    "meft"                    = 1
   }
 
   db_instance_index  = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
