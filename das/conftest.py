@@ -135,6 +135,17 @@ def two_subject_groups(view_subject_permissions):
 
 
 @pytest.fixture
+def patrol_configuration(two_subject_groups):
+    PatrolConfiguration = apps.get_model(app_label="activity", model_name="PatrolConfiguration")
+    configuration = PatrolConfiguration.objects.first()
+
+    for subject_group in two_subject_groups:
+        configuration.subject_groups.add(subject_group)
+
+    return configuration
+
+
+@pytest.fixture
 def view_subjects_permission_set(view_subject_permissions):
     return PermissionSetFactory.create(permissions=view_subject_permissions)
 
