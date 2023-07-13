@@ -422,6 +422,19 @@ class TestTrackedBySchemaView:
         assert leader["id"] == subject_id
         assert leader["user"]["id"] == user_id
 
+    def test_get_patrols_tracked_by_without_permission_and_linked_subject_not_in_patrol_configuration(
+        self, user_client, patrol_configuration, subject
+    ):
+        user = user_client.user
+        subject.linked_user = user
+        subject.save()
+        url = reverse("patrol-segments-schema")
+
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["properties"]["leader"]["enum"] == []
+
     def test_get_patrols_tracked_by_as_superuser(self, superuser_client, patrol_configuration):
         expected_subject_ids = self._get_subject_ids_in_patrol_configuration(patrol_configuration)
         url = reverse("patrol-segments-schema")
