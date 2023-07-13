@@ -165,7 +165,6 @@ class UserAdmin(DefaultFilterMixin, FieldSetElementMixin, DjangoUserAdmin):
         "username",
         "_last_login",
         "member_permission_sets",
-        "all_permission_sets",
         "is_active",
     )
     list_editable = ("is_active",)
