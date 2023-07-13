@@ -7,6 +7,7 @@ from pytest_factoryboy import register
 
 from django.apps import apps
 from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
 from rest_framework.test import APIClient
 
 from factories import (
@@ -27,9 +28,11 @@ from factories import (
     PatrolSegmentFactory,
     PatrolSegmentSubjectFactory,
     PatrolSegmentUserFactory,
+    PermissionFactory,
     PermissionSetFactory,
     ProviderFactory,
     SourceFactory,
+    SourceGroupFactory,
     SpatialFeatureGroupStaticFactory,
     SpatialFeatureTypeFactory,
     SubjectFactory,
@@ -162,6 +165,17 @@ def subject_group_with_perms(request):
         except Permission.DoesNotExist:
             print(f"Does not exits a permission with the next params {permission}")
     return SubjectGroupFactory.create(permission_sets=[PermissionSetFactory.create(permissions=permissions)])
+
+
+@pytest.fixture
+def permission_set_with_permissions(request):
+    permission_set = PermissionSetFactory()
+    for permission in request.param:
+        name, app_label, model, code_name = permission
+        content_type = ContentType.objects.get(app_label=app_label, model=model)
+        permission = PermissionFactory.create(name=name, content_type=content_type, code_name=code_name)
+        permission_set.permissions.add(permission)
+    return permission_set
 
 
 @pytest.fixture
@@ -419,3 +433,8 @@ def five_users():
 @pytest.fixture
 def community():
     return CommunityFactory()
+
+
+@pytest.fixture
+def source_group():
+    return SourceGroupFactory()

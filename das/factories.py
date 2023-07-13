@@ -8,6 +8,7 @@ from oauth2_provider.models import AccessToken
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
+from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point, Polygon
 from django.utils import timezone
 
@@ -31,6 +32,7 @@ from mapping.models import SpatialFeatureGroupStatic, SpatialFeatureType
 from observations.models import (
     Observation,
     Source,
+    SourceGroup,
     SourceProvider,
     Subject,
     SubjectGroup,
@@ -57,6 +59,12 @@ class PermissionSetFactory(factory.django.DjangoModelFactory):
         if extracted:
             for permissions in extracted:
                 self.permissions.add(permissions)
+
+
+class PermissionFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Permission
+        django_get_or_create = ("name",)
 
 
 class UserFactory(factory.django.DjangoModelFactory):
@@ -323,3 +331,8 @@ class CommunityFactory(factory.django.DjangoModelFactory):
         model = Community
 
     name = fuzzy.FuzzyText(length=10)
+
+
+class SourceGroupFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = SourceGroup
