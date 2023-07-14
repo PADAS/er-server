@@ -10,19 +10,22 @@ logger = logging.getLogger(__name__)
 
 
 def delete_longer_tokens(apps, schema_editor):
-    AccessToken = apps.get_model("oauth2_provider", "AccessToken")
+    db_alias = schema_editor.connection.alias
+    AccessToken = apps.get_model("oauth2_provider.AccessToken")
 
     deleted, _ = (
-        AccessToken.objects.annotate(duration=F("expires") - F("created"))
+        AccessToken.objects.using(db_alias)
+        .annotate(duration=F("expires") - F("created"))
         .filter(duration__gte=timedelta(days=172799))
         .delete()
     )
-    logger.info("Deleted %d access tokens", deleted)
+    logger.warning("Deleted %d access tokens", deleted)
 
 
 class Migration(migrations.Migration):
     dependencies = [
         ("accounts", "0025_unset_non_unique_user_pin_values"),
+        ("oauth2_provider", "0007_application_post_logout_redirect_uris"),
     ]
 
     operations = [
