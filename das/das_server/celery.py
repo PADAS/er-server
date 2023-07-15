@@ -138,11 +138,6 @@ app.conf.beat_schedule = {
         # 4 AM local time per settings.TIME_ZONE
         "schedule": crontab(hour=4, minute=0),
     },
-    "refresh-event-details-view": {
-        "task": "activity.tasks.refresh_event_details_view_task",
-        "args": ("Celery",),
-        "schedule": timedelta(hours=1),
-    },
     "publish-daily-site-metrics": {
         "task": "das_server.tasks.publish_daily_site_metrics",
         # 1 AM daily
@@ -156,10 +151,6 @@ app.conf.beat_schedule = {
     # Run pulse routine frequently and on a high-priority queue.
     "beat-pulse": {"task": "das_server.tasks.celerybeat_pulse", "schedule": timedelta(seconds=60)},
     "auto-resolve": {"task": "activity.tasks.automatically_update_event_state", "schedule": timedelta(minutes=5)},
-    "refresh_patrols_view": {
-        "task": "observations.tasks.refresh_patrols_view",
-        "schedule": timedelta(hours=getattr(settings, "PATROL_VIEW_REFRESH_HOURS", 1)),
-    },
     "poll_news_gcs_bucket": {"task": "observations.tasks.poll_news_gcs_bucket", "schedule": timedelta(minutes=5)},
     "periodically_maintain_patrol_state": {
         "task": "activity.tasks.periodically_maintain_patrol_state",
