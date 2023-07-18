@@ -34,6 +34,7 @@ from activity.models import (
 from activity.util import get_er_user
 from das_server import celery
 from utils.features import features
+from utils.tenant.celery import OverAllTenantTask
 from utils.tenant.providers import TenantData
 
 logger = logging.getLogger(__name__)
@@ -184,7 +185,7 @@ def refresh_event_details_view(self, activity):
             return result
 
 
-@celery.app.task()
+@celery.app.task(base=OverAllTenantTask)
 def refresh_event_details_view_task(activity):
     # run the scheduler if and only-if view exist.
 
@@ -227,7 +228,7 @@ def maintain_patrol_state():
         instance.save()
 
 
-@celery.app.task(base=QueueOnce, once={"graceful": True})
+@celery.app.task(base=OverAllTenantTask, once={"graceful": True})
 def periodically_maintain_patrol_state():
     now = datetime.now(tz=pytz.utc)
     done_patrols = Patrol.objects.filter(
@@ -239,7 +240,7 @@ def periodically_maintain_patrol_state():
         patrol.save()
 
 
-@celery.app.task
+@celery.app.task(base=OverAllTenantTask)
 def automatically_update_event_state():
     now = datetime.now(tz=pytz.utc)
     expr = ExpressionWrapper(
@@ -259,7 +260,7 @@ def automatically_update_event_state():
         e.save()
 
 
-@celery.app.task
+@celery.app.task(base=OverAllTenantTask)
 def reset_alert_counter_for_all_users():
-    for user_id in User.objects.values_list("id", flat=True):
-        reset_alerts_counter(user_id)
+    for user in User.objects.all():
+        reset_alerts_counter(user)

@@ -75,18 +75,32 @@ app.conf.task_routes = {
     "rt_api.tasks.handle_delete_patrol": {
         "queue": "realtime_p3",
     },
-    "activity.tasks.periodically_maintain_patrol_state": {"queue": "realtime_p2"},
-    "observations.tasks.handle_source_with_new_observations": {"queue": "realtime_p2"},
-    "observations.tasks.maintain_subjectstatus_for_subject": {"queue": "maintenance"},
-    "observations.tasks.maintain_observation_data": {"queue": "maintenance"},
-    "mapping.tasks.automate_download_features_from_wfs": {"queue": "maintenance"},
+    "activity.tasks.periodically_maintain_patrol_state": {
+        "queue": "realtime_p2",
+    },
+    "observations.tasks.handle_source_with_new_observations": {
+        "queue": "realtime_p2",
+    },
+    "observations.tasks.maintain_subjectstatus_for_subject": {
+        "queue": "maintenance",
+    },
+    "observations.tasks.maintain_observation_data": {
+        "queue": "maintenance",
+    },
+    "mapping.tasks.automate_download_features_from_wfs": {
+        "queue": "maintenance",
+    },
     "mapping.tasks.load_features_from_wfs": {"queue": "maintenance"},
     # Queue analyzer tasks separately.
     "analyzers.tasks.*": {
         "queue": "analyzers",
     },
-    "tracking.tasks.schedule_firms_plugins": {"queue": "analyzers"},
-    "tracking.tasks.run_firms_plugin": {"queue": "analyzers"},
+    "tracking.tasks.schedule_firms_plugins": {
+        "queue": "analyzers",
+    },
+    "tracking.tasks.run_firms_plugin": {
+        "queue": "analyzers",
+    },
     "das_server.tasks.celerybeat_pulse": {
         "queue": "realtime_p1",
     },
@@ -96,7 +110,6 @@ app.conf.task_routes = {
 # Defining scheduled tasks.
 # PLUGINS_INTERVAL is in seconds, and is the ticker interval for
 # triggering plugin tasks.
-
 
 PLUGINS_INTERVAL = 5 * 60
 app.conf.beat_schedule = {
@@ -132,7 +145,10 @@ app.conf.beat_schedule = {
         "task": "reports.tasks.alert_lag_delay",
         "schedule": timedelta(minutes=30),
     },
-    "check-sources-threshold": {"task": "reports.tasks.run_check_sources_threshold", "schedule": timedelta(hours=1)},
+    "check-sources-threshold": {
+        "task": "reports.tasks.run_check_sources_threshold",
+        "schedule": timedelta(hours=1),
+    },
     "routine-delete-observational-data": {
         "task": "observations.tasks.maintain_observation_data",
         # 4 AM local time per settings.TIME_ZONE
@@ -149,9 +165,22 @@ app.conf.beat_schedule = {
         "schedule": crontab(hour=2, minute=0),
     },
     # Run pulse routine frequently and on a high-priority queue.
-    "beat-pulse": {"task": "das_server.tasks.celerybeat_pulse", "schedule": timedelta(seconds=60)},
-    "auto-resolve": {"task": "activity.tasks.automatically_update_event_state", "schedule": timedelta(minutes=5)},
-    "poll_news_gcs_bucket": {"task": "observations.tasks.poll_news_gcs_bucket", "schedule": timedelta(minutes=5)},
+    "beat-pulse": {
+        "task": "das_server.tasks.celerybeat_pulse",
+        "schedule": timedelta(seconds=60),
+    },
+    "auto-resolve": {
+        "task": "activity.tasks.automatically_update_event_state",
+        "schedule": timedelta(minutes=5),
+    },
+    "refresh_patrols_view": {
+        "task": "observations.tasks.refresh_patrols_view",
+        "schedule": timedelta(hours=getattr(settings, "PATROL_VIEW_REFRESH_HOURS", 1)),
+    },
+    "poll_news_gcs_bucket": {
+        "task": "observations.tasks.poll_news_gcs_bucket",
+        "schedule": timedelta(minutes=5),
+    },
     "periodically_maintain_patrol_state": {
         "task": "activity.tasks.periodically_maintain_patrol_state",
         "schedule": timedelta(minutes=1),
