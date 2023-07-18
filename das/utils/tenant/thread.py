@@ -32,4 +32,5 @@ def get_tenant_settings() -> Tenant:
 
 def clear_tenant_settings():
     local_thread = _get_main_thread()
-    delattr(local_thread, TENANT_DEFAULT_KEY)
+    if hasattr(local_thread, TENANT_DEFAULT_KEY):
+        delattr(local_thread, TENANT_DEFAULT_KEY)

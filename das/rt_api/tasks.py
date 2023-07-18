@@ -25,6 +25,7 @@ from observations.views import FlattenObservationsView, SubjectStatusView
 from rt_api import client
 from rt_api.rest_api_interface.dummy_request import DummyRequest
 from utils.stats import update_gauge
+from utils.tenant.celery import OverAllTenantTask
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +221,7 @@ def _broadcast_service_status(service_status_data=None):
         close_old_connections()
 
 
-@celery.app.task()
+@celery.app.task(base=OverAllTenantTask)
 def broadcast_service_status():
     _broadcast_service_status.apply_async()
 
@@ -564,7 +565,7 @@ def handle_emit_data(event_id):
     logger.info("event mailer event_id: %s", event_id)
 
 
-@celery.app.task()
+@celery.app.task(base=OverAllTenantTask)
 def check_redis_queues():
     """
     Periodic check of redis connections and queue sizes, ship them to statsd
