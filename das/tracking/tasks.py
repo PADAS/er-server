@@ -7,13 +7,14 @@ from django.apps import apps
 from das_server import celery
 from tracking.models import *
 from tracking.models.plugin_base import DasPluginSourceRetryError, TrackingPlugin
+from utils.tenant.celery import OverAllTenantTask
 
 logger = logging.getLogger(__name__)
 
 EXPIRE_SUBTASKS = 300
 
 
-@celery.app.task(bind=True)
+@celery.app.task(base=OverAllTenantTask, bind=True)
 def run_plugins(self, expire_subtasks=EXPIRE_SUBTASKS):
     for plugin_class in runnable_plugins:
         if issubclass(plugin_class, (TrackingPlugin,)):
@@ -83,7 +84,7 @@ def run_firms_plugin(id: str):
         logger.warning("Failed to find FirmsPlugin for id:%s", id)
 
 
-@celery.app.task
+@celery.app.task(base=OverAllTenantTask)
 def schedule_firms_plugins():
     """
     This task is intended to run as a scheduled job.
