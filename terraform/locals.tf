@@ -444,6 +444,10 @@ locals {
     "onenamibia"              = "prod1"
     "sdzwaloisaba"            = "prod1"
     "agrif"                   = "prod1"
+    "sinergia-azul-monitoreo" = "prod1"
+    "pilapanama"              = "prod1"
+    "pvsnl"                   = "prod1"
+    "pnr"                     = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -657,6 +661,8 @@ locals {
     "jackalbuzz"              = 1
     "meft"                    = 1
     "sdzwaloisaba"            = 1
+    "sinergia-azul-monitoreo" = 1
+    "pvsnl"                   = 1
   }
 
   db_instance_index  = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
