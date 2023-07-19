@@ -443,7 +443,7 @@ locals {
     "meft"                    = "prod1"
     "onenamibia"              = "prod1"
     "sdzwaloisaba"            = "prod1"
-    "agrif"                   = "prod1"
+    "agrifs"                  = "prod1"
     "sinergia-azul-monitoreo" = "prod1"
     "pilapanama"              = "prod1"
     "pvsnl"                   = "prod1"
