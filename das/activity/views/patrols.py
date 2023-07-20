@@ -251,9 +251,6 @@ class PatrolsView(ListCreateAPIView):
     def _exclude_unassigned_subjects(self, queryset):
         user = self.request.user
 
-        if user.has_linked_subject and not user.is_superuser:
-            return queryset.filter(patrol_segment__leader_id=user.linked_subject.id)
-
         patrols = queryset.filter(
             patrol_segment__leader_content_type__app_label="observations",
             patrol_segment__leader_content_type__model="subject",
@@ -261,7 +258,8 @@ class PatrolsView(ListCreateAPIView):
         subjects_id = self._get_subjects_id(patrols)
         patrol_subjects = Subject.objects.filter(id__in=subjects_id).by_user_subjects(user)
         allowed_subjects = patrol_subjects.values_list("id", flat=True)
-        subjects_id_exclude = set(subjects_id) - set(allowed_subjects)
+        linked_subject_as_set = set([user.linked_subject.id]) if user.has_linked_subject else set()
+        subjects_id_exclude = set(subjects_id) - set(allowed_subjects) - linked_subject_as_set
 
         return queryset.exclude(patrol_segment__leader_id__in=subjects_id_exclude)
 

@@ -16,6 +16,7 @@ from tracking.models.er_track import (
     USE_EXISTING,
     SourceProviderConfiguration,
 )
+from utils.drf import BadRequestAPIException, ForbiddenAPIException
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +92,9 @@ class HandlerERTrack:
         self.filters = self.get_subject_filter(subject_name)
         self.user_id = self.observation.get("user_id")
         self.subject_id = self.observation.get("subject_id")
+        self.user_linked_subject = None
+        if self.user_id:
+            self.user_linked_subject = Subject.objects.by_linked_user_id(user_id=self.user_id)
 
     def handle(self):
         excluded_subject_types = self.get_excluded_subject_types()
@@ -103,6 +107,9 @@ class HandlerERTrack:
             logger.info("Found everything already in place. Doing nothing.")
             return
 
+        if self.subject_id and not self.subjects.filter(id=self.subject_id).exists():
+            raise ForbiddenAPIException("Caller can't see this subject")
+
         linked_subject = self.get_linked_subject(user_id=self.user_id)
         if linked_subject:
             if not self.has_source_assignment(source=self.source, recorded_at=self.recorded_at, subject=linked_subject):
@@ -111,10 +118,15 @@ class HandlerERTrack:
             self.set_subject_name(user_id=self.user_id, subject=linked_subject)
             return
 
-        elif self.is_not_subject_linked_to_user():
+        elif self.user_linked_subject:
+            raise ForbiddenAPIException("Caller can't see this user linked subject")
+
+        elif self.subject_id:
             subject = Subject.objects.get(id=self.subject_id)
             self.process_subject(subject=subject)
             return
+
+        assert not self.subject_id
 
         if excluded_subject_types:
             self.subjects = self.exclude_subject_types(excluded_subject_types)
@@ -122,18 +134,30 @@ class HandlerERTrack:
         if subject_mutate_setting == USE_EXISTING:
             existing_subject = self.get_existing_subject()
             if existing_subject:
-                if self.user_id and not self.is_user_linked_to_a_subject() and not existing_subject.linked_user:
+                if (
+                    self.user_linked_subject
+                    and existing_subject.linked_user
+                    and existing_subject.id != self.user_linked_subject.id
+                ):
+                    raise BadRequestAPIException("Specificed user is linked to a different subject")
+
+                if not self.user_linked_subject and not existing_subject.linked_user:
                     self.process_subject(subject=existing_subject)
-                elif existing_subject.linked_user:
-                    subject_mutate_setting = CREATE_NEW
                 else:
                     update_source_assignment(existing_subject, self.source, self.recorded_at)
                 logger.debug("Found match by name: %s", existing_subject)
             else:
+                if self.get_existing_subject(Subject.objects.all()):
+                    logger.info("subject exists, but can't be seen by user")
+                    raise ForbiddenAPIException("Caller can't see this subject")
+
                 logger.debug(
                     "No match found by name %s. Fall back to CREATE_NEW.",
                     self.subject_name,
                 )
+                # TODO: we could be here because the user posting subject data does not have rights to this subject
+                # then we will end up creating a new subject for each observation, cause they will not be granted
+                # rights to see the subject just created.
                 subject_mutate_setting = CREATE_NEW
 
         if subject_mutate_setting == UPDATE_NAME:
@@ -162,7 +186,7 @@ class HandlerERTrack:
                 name=self.subject_name, subject_subtype_id=self.subject_subtype_id
             )
 
-            if self.user_id and not self.get_linked_subject(user_id=self.user_id):
+            if self.user_id and not self.user_linked_subject:
                 self.link_subject_to_user(user_id=self.user_id, subject=created_subject)
                 self.set_subject_name(user_id=self.user_id, subject=created_subject)
 
@@ -207,16 +231,16 @@ class HandlerERTrack:
     def exclude_subject_types(self, excluded_subject_types):
         return self.subjects.exclude(subject_subtype__subject_type__in=excluded_subject_types)
 
-    def exclude_subject_type_person(self):
+    def exclude_subject_type_person(self, subjects):
         try:
-            return self.subjects.exclude(subject_subtype__subject_type__value__iexact="person").get(self.filters)
+            return subjects.exclude(subject_subtype__subject_type__value__iexact="person").get(self.filters)
         except Subject.MultipleObjectsReturned:
             logger.warning("Multiple Subjects found with name %s", self.subject_name)
         except Subject.DoesNotExist:
             pass
 
-    def get_first_subject_type_person(self):
-        return self.subjects.filter(self.filters, subject_subtype__subject_type__value__iexact="person").first()
+    def get_first_subject_type_person(self, subjects):
+        return subjects.filter(self.filters, subject_subtype__subject_type__value__iexact="person").first()
 
     def update_subjects_name(self):
         return self.subjects.filter(
@@ -225,13 +249,17 @@ class HandlerERTrack:
         ).update(name=self.subject_name)
 
     def get_linked_subject(self, user_id: str):
-        return Subject.objects.by_linked_user_id(user_id=user_id)
+        return self.subjects.by_linked_user_id(user_id=user_id)
 
-    def is_user_linked_to_a_subject(self):
+    def is_user_linked_to_a_subject(self) -> bool:
         return self.user_id and self.get_linked_subject(user_id=self.user_id)
 
-    def is_not_subject_linked_to_user(self) -> bool:
-        return self.user_id and self.subject_id and not User.objects.by_linked_subject_id(self.subject_id)
+    def is_not_subject_linked_to_user(self, subject=None) -> bool:
+        subject_id = subject.id if subject else self.subject_id
+        if subject_id and self.user_id:
+            subject_user = User.objects.by_linked_subject_id(subject_id)
+            return subject_user.id != self.user_id if subject_user else True
+        return True
 
     def set_subject_name(self, user_id: str, subject):
         user = self.get_user(user_id=user_id)
@@ -253,15 +281,17 @@ class HandlerERTrack:
         observation_fields = list(self.observation.keys())
         return allowed_fields.intersection(observation_fields)
 
-    def get_existing_subject(self):
-        subject_person = self.get_first_subject_type_person()
+    def get_existing_subject(self, subjects=None):
+        subjects = subjects if subjects else self.subjects
+        subject_person = self.get_first_subject_type_person(subjects)
         if not subject_person:
-            return self.exclude_subject_type_person()
+            return self.exclude_subject_type_person(subjects)
         return subject_person
 
     def process_subject(self, subject):
-        self.link_subject_to_user(user_id=self.user_id, subject=subject)
+        if self.user_id:
+            self.link_subject_to_user(user_id=self.user_id, subject=subject)
+            self.set_subject_name(user_id=self.user_id, subject=subject)
         if not self.has_source_assignment(source=self.source, recorded_at=self.recorded_at, subject=subject):
             logger.info("Updating source assignment using linked subject.")
             update_source_assignment(subject, self.source, self.recorded_at)
-        self.set_subject_name(user_id=self.user_id, subject=subject)

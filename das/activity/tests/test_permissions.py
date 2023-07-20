@@ -211,11 +211,13 @@ class TestPatrolPermission:
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_user_with_subject_leading_patrol_should_see_only_related_patrols(
+    def test_user_with_subject_leading_patrol_should_see_related_and_untracked_patrols(
         self,
         five_patrol_segment_subject,
+        five_patrol_segment,
         user_client,
     ):
+        Patrol.objects.filter(title="Dummy Patrol").delete()
         patrol = five_patrol_segment_subject[0].patrol
         subject = five_patrol_segment_subject[0].leader
         subject.linked_user = user_client.user
@@ -226,9 +228,22 @@ class TestPatrolPermission:
 
         response = user_client.get(url)
 
+        patrols = response.data["results"]
+        patrols_without_leader = list(filter(self._patrol_has_not_a_leader, patrols))
+        patrols_with_leader = list(filter(self._patrol_has_a_leader, patrols))
+
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data["results"]) == 1
-        assert response.data["results"][0]["id"] == str(patrol.id)
+        assert len(response.data["results"]) == 6
+        assert len(patrols_with_leader) == 1
+        assert len(patrols_without_leader) == 5
+        assert patrols_with_leader[0]["id"] == str(patrol.id)
+
+    def _patrol_has_not_a_leader(self, patrol):
+        return not self._patrol_has_a_leader(patrol)
+
+    def _patrol_has_a_leader(self, patrol):
+        segments = patrol["patrol_segments"]
+        return segments[-1]["leader"] is not None
 
     def test_user_with_subject_leading_patrol_should_see_only_that_patrol(
         self, five_patrol_segment_subject, user_client
