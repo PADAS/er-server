@@ -25,6 +25,7 @@ from sensors.views import ERTrackHandlerView
 from tracking.models.er_track import (
     CREATE_NEW,
     UPDATE_NAME,
+    USE_EXISTING,
     SourceProviderConfiguration,
 )
 
@@ -246,9 +247,31 @@ class ErTrackHandlerTest(BaseAPITest):
         self.assertEqual(2, SubjectSource.objects.count())
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    def test_device_handling_with_name_update_config(self):
-        self.one_observation["subject_name"] = "Fatu"
-        response = self._post_data(json.dumps(self.one_observation))
+    def test_device_handling_with_name_existing_config_without_permission(self):
+        obs_one = copy.deepcopy(self.one_observation)
+        obs_one["subject_name"] = "Fatu"
+        response = self._post_data(json.dumps(obs_one))
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(1, Observation.objects.filter(source=self.test_source).count())
+
+        subject = Subject.objects.first()
+        self.assertEqual(Subject.objects.count(), 1)
+        self.assertEqual(subject.name, "Fatu")
+
+        config = self.config
+        config.name_change_config = USE_EXISTING
+        config.save()
+
+        obs_one["recorded_at"] = "2019-04-10T12:01:00"
+
+        response = self._post_data(json.dumps(obs_one))
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_device_handling_with_name_change_config_without_permission(self):
+        obs_one = copy.deepcopy(self.one_observation)
+        obs_one["subject_name"] = "Fatu"
+        response = self._post_data(json.dumps(obs_one))
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(1, Observation.objects.filter(source=self.test_source).count())
 
@@ -260,11 +283,32 @@ class ErTrackHandlerTest(BaseAPITest):
         config.name_change_config = UPDATE_NAME
         config.save()
 
-        self.one_observation["subject_name"] = "Najin"
-        self.one_observation["recorded_at"] = "2019-04-10T12:01:00"
-        # self.one_observation['subject_id'] = subject.id.hex
+        obs_one["subject_name"] = "Najin"
+        obs_one["recorded_at"] = "2019-04-10T12:01:00"
 
-        response = self._post_data(json.dumps(self.one_observation), user=self.super_user)
+        response = self._post_data(json.dumps(obs_one))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_device_handling_with_name_update_config(self):
+        obs_one = copy.deepcopy(self.one_observation)
+        obs_one["subject_name"] = "Fatu"
+        response = self._post_data(json.dumps(obs_one))
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(1, Observation.objects.filter(source=self.test_source).count())
+
+        subject = Subject.objects.first()
+        self.assertEqual(Subject.objects.count(), 1)
+        self.assertEqual(subject.name, "Fatu")
+
+        config = self.config
+        config.name_change_config = UPDATE_NAME
+        config.save()
+
+        obs_one["subject_name"] = "Najin"
+        obs_one["recorded_at"] = "2019-04-10T12:01:00"
+
+        response = self._post_data(json.dumps(obs_one), user=self.super_user)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         # Renamed subject
         self.assertEqual(Subject.objects.count(), 1)
