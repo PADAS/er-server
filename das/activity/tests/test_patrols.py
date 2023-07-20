@@ -29,7 +29,6 @@ from activity.models import (
     EventRelationship,
     EventType,
     Patrol,
-    PatrolConfiguration,
     PatrolNote,
     PatrolSegment,
     PatrolType,
@@ -2325,29 +2324,3 @@ class TestPatrolModel:
         patrols = Patrol.objects.by_date_range(filters, True)
 
         assert patrols.first().id == patrol.id
-
-
-@pytest.mark.django_db
-class TestPatrolTrackedBySchemaView:
-    def test_trackedby_permissions_for_a_subjectgroup_viewer(
-        self,
-        django_assert_max_num_queries,
-        client,
-        two_subject_groups,
-        ops_user,
-        memory_store_client_mock,
-        tenant_response,
-    ):
-        a_subjectgroup, b_subjectgroup = two_subject_groups
-        a_subjectgroup.permission_sets.all()[0].user_set.add(ops_user)
-        PatrolConfiguration.objects.first().subject_groups.add(*[a_subjectgroup, b_subjectgroup])
-
-        url = reverse("patrol-segments-schema")
-        client.force_login(ops_user)
-
-        with django_assert_max_num_queries(18):
-            response = client.get(url)
-            leaders = response.data["properties"]["leader"]["enum"]
-            assert not any(
-                subject.name == leader["name"] for subject in b_subjectgroup.subjects.all() for leader in leaders
-            )

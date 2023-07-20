@@ -1089,27 +1089,22 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
     def by_name_search(self, value):
         return self.filter(name__icontains=value)
 
-    def by_subjectgroups(self, subjectgroups, user):
+    def by_subjectgroups(self, subject_groups, user):
         if not hasattr(user, "get_all_permission_sets"):
             return self.none()
 
-        def get_effective_sg(allowed_sgs):
-            effective_sg_set = set()
-            for sg in allowed_sgs:
-                effective_sg_set.add(sg)
-                effective_sg_set.update(sg.get_descendants())
-            return effective_sg_set
-
         if user.is_superuser:
-            effective_sgs = get_effective_sg(subjectgroups)
-        else:
-            ids = list(subjectgroups.values_list("id", flat=True))
-            allowed_subject_groups = SubjectGroup.objects.filter(
-                id__in=ids, permission_sets__in=user.get_all_permission_sets()
-            )
-            effective_sgs = get_effective_sg(allowed_subject_groups)
+            return self.filter(groups__in=subject_groups).distinct("id")
 
-        return self.filter(groups__in=effective_sgs).distinct("id")
+        allowed_subject_groups = subject_groups.filter(permission_sets__in=user.get_all_permission_sets())
+        if allowed_subject_groups.exists():
+            return self.filter(groups__in=allowed_subject_groups).distinct("id")
+
+        if user.has_linked_subject:
+            allowed_subject_groups = subject_groups & user.linked_subject.groups.all()
+            return (self.filter(groups__in=allowed_subject_groups) & self.by_linked_user(user)).distinct("id")
+
+        return self.none()
 
     def by_linked_user_id(self, user_id: str):
         try:

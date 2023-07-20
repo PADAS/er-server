@@ -371,7 +371,6 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
 
     serializer_class = serializers.SubjectSerializer
     permission_classes = (StandardObjectPermissions,)
-    # filter_backends = (SubjectObjectPermissionsFilter,)
     pagination_class = OptionalResultsSetPagination
 
     TRACK_QPARAMS = ("tracks_limit",)
@@ -399,7 +398,7 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
     def check_permissions(self, request):
         if request.user.is_anonymous:
             self.permission_denied(request)
-        self.queryset_linked_user = models.Subject.objects.filter(linked_user=request.user).distinct()
+        self.queryset_linked_user = Subject.objects.filter(linked_user=request.user).distinct()
         if not self.queryset_linked_user.exists():
             for permission in self.get_permissions():
                 if not permission.has_permission(request, self):
@@ -417,9 +416,8 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         mou_date = self.request.user.additional.get("expiry", None)
         mou_date = dateparse(mou_date) if mou_date else None
 
-        queryset = models.Subject.objects.annotate_with_subjectstatus(
-            delay_hours=min_age_days * 24, mou_expiry_date=mou_date
-        )
+        queryset = Subject.objects.all()
+
         # need a stable sort for pagination. this needs to match the distinct
         # parameter set in by_user_subjects
         queryset = check_to_include_inactive_subjects(self.request, queryset)
@@ -447,7 +445,7 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
                 permission_sets__in=self.request.user.get_all_permission_sets()
             )
 
-            subjects_via_source_groups = models.Subject.objects.filter(subjectsource__source__groups__in=source_groups)
+            subjects_via_source_groups = Subject.objects.filter(subjectsource__source__groups__in=source_groups)
             subjects_via_source_groups = check_to_include_inactive_subjects(self.request, subjects_via_source_groups)
             queryset = queryset.distinct() | subjects_via_source_groups.distinct()
 
@@ -478,6 +476,7 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         is_updated_since_valid, updated_since = check_valid_date_string(updated_since, "updated_since")
         is_updated_until_valid, updated_until = check_valid_date_string(updated_until, "updated_until")
 
+        queryset = queryset.annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
         if is_updated_since_valid and is_updated_until_valid:
             queryset = queryset.by_updated_since_until(updated_since, updated_until)
         elif is_updated_since_valid:
@@ -517,7 +516,12 @@ class SubjectsView(generics.ListCreateAPIView, TwoWaySubjectSourceMixin):
         if self.request.query_params.get("name", None):
             queryset = queryset.by_name_search(self.request.query_params.get("name"))
 
-        queryset = queryset | self.queryset_linked_user if self.queryset_linked_user.exists() else queryset
+        if self.queryset_linked_user and not queryset.filter(id=self.queryset_linked_user.first().id).exists():
+            queryset = queryset.union(
+                self.queryset_linked_user.select_related(
+                    "subject_subtype", "subject_subtype__subject_type", "common_name"
+                ).annotate_with_subjectstatus(delay_hours=min_age_days * 24, mou_expiry_date=mou_date)
+            )
         return queryset
 
     def get_serializer_context(self):
@@ -1478,6 +1482,7 @@ class TrackingDataCsvView(APIView):
 
 class TrackingMetaDataExportView(APIView):
     permission_classes = (StandardObjectPermissions,)
+
     # schema = InactiveSubjectsViewSchema()
 
     def get_source_details(self, format):

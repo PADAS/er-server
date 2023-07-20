@@ -182,3 +182,9 @@ class BadRequestAPIException(exceptions.APIException):
     status_code = status.HTTP_400_BAD_REQUEST
     default_detail = _("Bad request.")
     default_code = "error"
+
+
+class ForbiddenAPIException(exceptions.APIException):
+    status_code = status.HTTP_403_FORBIDDEN
+    default_detail = _("Forbidden.")
+    default_code = "error"
