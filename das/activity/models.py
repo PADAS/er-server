@@ -2008,10 +2008,11 @@ class PatrolSegmentManager(models.Manager):
                     .all()
                     .by_is_active()
                 )
-                subject_grps = PatrolConfiguration.objects.first().subject_groups.all()
+                subject_groups = PatrolConfiguration.objects.first().effective_subject_groups
+                subjects_available = active_subjects.by_subjectgroups(subject_groups, user=user)
 
-                for o in active_subjects.by_subjectgroups(subject_grps, user=user):
-                    yield o.name.lower(), o
+                for subject in subjects_available:
+                    yield subject.name.lower(), subject
 
             subjects = get_subjects()
             for sub in sorted(subjects, key=itemgetter(0)):
@@ -2087,6 +2088,15 @@ class PatrolSegment(TimestampedModel, RevisionMixin):
 class PatrolConfiguration(SingletonModel):
     name = models.CharField(max_length=255)
     subject_groups = models.ManyToManyField(SubjectGroup, related_name="groups", blank=True)
+
+    @property
+    def effective_subject_groups(self):
+        effective_subject_groups = set()
+        for subject_group in self.subject_groups.all():
+            effective_subject_groups.add(subject_group.id)
+            effective_subject_groups.update((descendant.id for descendant in subject_group.get_descendants()))
+
+        return SubjectGroup.objects.filter(id__in=effective_subject_groups)
 
 
 class EventGeometry(RevisionMixin, TimestampedModel):

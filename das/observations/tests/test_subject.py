@@ -31,6 +31,7 @@ from observations.models import (
     Observation,
     Source,
     Subject,
+    SubjectGroup,
     SubjectSource,
     SubjectStatus,
     SubjectSubType,
@@ -897,6 +898,88 @@ class TestSubjectsView:
                 for device_property in device_status_properties:
                     if device_property.get("label") == "speed":
                         assert device_property.get("default")
+
+    @pytest.mark.parametrize(
+        "permission_set_with_permissions",
+        [
+            [
+                ["Can view subject", "observations", "subject", "view_subject"],
+                [
+                    "Access to updated observations as they become available, includes view_last_position.",
+                    "observations",
+                    "subject",
+                    "view_real_time",
+                ],
+                ["Permission to subscribe to an alert on this Subject.", "observations", "subject", "subscribe_alerts"],
+                ["Can view subject group", "observations", "subjectgroup", "view_subjectgroup"],
+            ]
+        ],
+        indirect=True,
+    )
+    def test_cannot_combine_queries(
+        self, permission_set_with_permissions, five_subjects, user_client, subject_group_empty
+    ):
+        dumbo = five_subjects[0]
+        felix = five_subjects[1]
+        rambo = five_subjects[2]
+        ranger_subject_group = subject_group_empty
+        ranger_subject_group.name = "Rangers"
+        ranger_subject_group.save()
+        ranger_subject_group.subjects.add(rambo)
+        subjects_subject_group = SubjectGroup.objects.get(name="Subjects")
+        subjects_subject_group.subjects.add(felix)
+        subjects_subject_group.permission_sets.add(permission_set_with_permissions)
+        user = user_client.user
+        dumbo.linked_user = user
+        dumbo.save()
+        user.permission_sets.add(permission_set_with_permissions)
+        url = reverse("subjects-list-view") + f"?page_size=1&subject_group={subjects_subject_group.id}&page=1"
+
+        response = user_client.get(url)
+
+        assert response.status_code == 200
+        assert len(response.data)
+
+    @pytest.mark.parametrize(
+        "permission_set_with_permissions",
+        [
+            [
+                ["Can view subject", "observations", "subject", "view_subject"],
+                [
+                    "Access to updated observations as they become available, includes view_last_position.",
+                    "observations",
+                    "subject",
+                    "view_real_time",
+                ],
+                ["Permission to subscribe to an alert on this Subject.", "observations", "subject", "subscribe_alerts"],
+                ["Can view subject group", "observations", "subjectgroup", "view_subjectgroup"],
+            ]
+        ],
+        indirect=True,
+    )
+    def test_response_when_not_param_sent_and_a_linked_subject_tied(
+        self, permission_set_with_permissions, subject_source, source_group, user_client, five_subjects
+    ):
+        subject = subject_source.subject
+        source = subject_source.source
+        subject_group = SubjectGroup.objects.get(name="Subjects")
+        subject_group.subjects.add(subject)
+        horton = five_subjects[0]
+        subject_group.subjects.add(horton)
+        permission_set_with_permissions.name = "View Subjects"
+        permission_set_with_permissions.save()
+        source_group.sources.add(source)
+        source_group.permission_sets.add(permission_set_with_permissions)
+        user = user_client.user
+        user.permission_sets.add(permission_set_with_permissions)
+        horton.linked_user = user
+        horton.save()
+        url = reverse("subjects-list-view")
+
+        response = user_client.get(url)
+
+        assert response.status_code == 200
+        assert len(response.data)
 
     def _get_request(self):
         client = HTTPClient()
