@@ -108,6 +108,7 @@ class HandlerERTrack:
             return
 
         if self.subject_id and not self.subjects.filter(id=self.subject_id).exists():
+            logger.warning("subject %s exists, but can't be seen by user", self.subject_id)
             raise ForbiddenAPIException("Caller can't see this subject")
 
         linked_subject = self.get_linked_subject(user_id=self.user_id)
@@ -119,6 +120,7 @@ class HandlerERTrack:
             return
 
         elif self.user_linked_subject:
+            logger.warning("Caller can't see this user linked subject %s", self.user_linked_subject.id)
             raise ForbiddenAPIException("Caller can't see this user linked subject")
 
         elif self.subject_id:
@@ -127,6 +129,18 @@ class HandlerERTrack:
             return
 
         assert not self.subject_id
+
+        # Short-circuit if the assignment is already in place and we aren't on the linked user path.
+        if (
+            not self.user_id
+            and Subject.objects.filter(
+                self.filters,
+                subjectsource__source=self.source,
+                subjectsource__assigned_range__contains=self.recorded_at,
+            ).exists()
+        ):
+            logger.info("Found everything already in place by subject_name. Doing nothing.")
+            return
 
         if excluded_subject_types:
             self.subjects = self.exclude_subject_types(excluded_subject_types)
@@ -148,7 +162,7 @@ class HandlerERTrack:
                 logger.debug("Found match by name: %s", existing_subject)
             else:
                 if self.get_existing_subject(Subject.objects.all()):
-                    logger.info("subject exists, but can't be seen by user")
+                    logger.warning("subject %s exists, but can't be seen by user", self.subject_name)
                     raise ForbiddenAPIException("Caller can't see this subject")
 
                 logger.debug(
@@ -168,6 +182,10 @@ class HandlerERTrack:
                 self.subject_name,
             )
             if not subjects_updated:
+                if self.get_subject_by_source_assignment(Subject.objects.all()):
+                    logger.warning("subject exists by source %s, but can't be seen by user", self.source.id)
+                    raise ForbiddenAPIException("Caller can't see this subject")
+
                 logger.debug(
                     "No assignment found for source %s when trying to rename to %s. Fall back to CREATE_NEW.",
                     self.source,
@@ -241,6 +259,13 @@ class HandlerERTrack:
 
     def get_first_subject_type_person(self, subjects):
         return subjects.filter(self.filters, subject_subtype__subject_type__value__iexact="person").first()
+
+    def get_subject_by_source_assignment(self, subjects=None):
+        subjects = subjects if subjects else self.subjects
+        return subjects.filter(
+            subjectsource__source=self.source,
+            subjectsource__assigned_range__contains=self.recorded_at,
+        )
 
     def update_subjects_name(self):
         return self.subjects.filter(
