@@ -58,13 +58,11 @@ def get_replacement_fields_in_schema(schema):
 
 
 def get_dynamic_choices(field_details, as_string=True, event=None):
-
     return_val = _get_dynamic_choices(field_details, event)
     return json.dumps(return_val) if as_string else return_val
 
 
 def _get_dynamic_choices(field_details, event=None):
-
     dynamic_choice = DynamicChoice.objects.filter(id=field_details["field"]).first()
 
     # Short-circuit if there aren't any DynamicChoices found for this field.
@@ -149,7 +147,6 @@ def get_enumImage_values(field_details, queryset=None):
 
 
 def get_table_choices(field_details, as_string=True):
-
     options = OrderedDict()
     model = apps.get_model("choices.{0}".format(field_details["field"]))
 
@@ -189,7 +186,6 @@ def get_schema_renderer_method():
 
     @memoize
     def render_f(schema):
-
         schema_fields = get_replacement_fields_in_schema(schema)
 
         parameters = {}
@@ -333,7 +329,6 @@ def extract_from_definition(schema_item, definition, key, eventdetail_value, ext
 
 
 def extractor(schema_item, definition, key, eventdetail_value):
-
     # Determine how the value should appear.
     if isinstance(eventdetail_value, list):
         extracted_value, display = extract_from_list(eventdetail_value, schema_item)
@@ -448,7 +443,6 @@ def detail_resolver(schema, key, value):
 
 
 def generate_details(event, schema):
-
     event_details = event.event_details.first()
     if not event_details:
         logger.warning(f"Event No. {event.serial_number} has no event_details")
@@ -499,12 +493,17 @@ def get_rendered_schema(schema):
     return rendered_schema["schema"]
 
 
+def get_all_field_names(schema):
+    all_fields = get_all_fields(schema)
+    return all_fields.keys() if all_fields else []
+
+
 def get_all_fields(schema):
     try:
-        return get_rendered_schema(schema)["properties"].keys()
+        return get_rendered_schema(schema)["properties"]
     except Exception as ex:
         logger.error("Error rendering schema with empty data", ex)
-        return []
+        return {}
 
 
 def get_empty_params(schema):
@@ -642,7 +641,6 @@ def generate_event_type_schema_from_doc(doc):
 
 
 def should_auto_generate(schema_string):
-
     try:
         schema_doc = json.loads(schema_string)
     except json.JSONDecodeError:
@@ -659,7 +657,6 @@ def validate_eventtype_schema_is_wellformed(schema):
 
 
 def validate_rendered_schema_is_wellformed(rendered_schema: dict):
-
     if "$schema" not in rendered_schema.get("schema", {}):
         raise SchemaValidationError(SCHEMA_ERROR_MISSING_DOLLAR_SIGN_SCHEMA)
 
