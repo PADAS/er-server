@@ -449,6 +449,7 @@ locals {
     "pvsnl"                   = "prod1"
     "pnr"                     = "prod1"
     "cocodrilodelorinoco"     = "prod1"
+    "snareaware"              = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
