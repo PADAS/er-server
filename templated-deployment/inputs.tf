@@ -195,6 +195,11 @@ variable "alerts_enabled" {
   default = "True"
 }
 
+variable "alerts_rate_limit" {
+  type    = string
+  default = "20"
+}
+
 variable "email_host_user" {
   type    = string
   default = ""

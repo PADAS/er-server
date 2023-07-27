@@ -4,10 +4,13 @@ from django.conf import settings
 
 from accounts.models import User
 from core import alerts_storage
+from utils import stats
 from utils.features import features
 from utils.tenant import get_tenant_settings
 
 KEY_ALERT_LIMIT = "alert_limit_count_{}"
+KEY_ALERT_90_PERCENT = "alert_limit_90_percent"
+KEY_ALERT_100_PERCENT = "alert_limit_100_percent"
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +18,11 @@ logger = logging.getLogger(__name__)
 def allow_send_event_alert(user: User) -> bool:
     counter = get_or_set_user_alerts_counter(user)
 
-    get_user_alert_quota_percentage(user, counter)
+    publish_user_alert_quota_percentage(user, counter)
 
-    return counter < settings.ALERTS_RATE_LIMIT
+    if not features.tms.is_on():
+        return counter < settings.ALERTS_RATE_LIMIT
+    return counter < get_tenant_settings().alerts_rate_limit
 
 
 def prepend_alert_warning_message(user: User) -> bool:
@@ -27,6 +32,7 @@ def prepend_alert_warning_message(user: User) -> bool:
 def increment_alert_counter(user: User, notification_method: str):
     alerts_storage.increment_key_by_value(KEY_ALERT_LIMIT.format(user.id), 1)
     logger.info("Site %s message sent %s alert", _get_site(), notification_method)
+    stats.increment("alert", tags=[f"method:{notification_method}"])
 
 
 def get_or_set_user_alerts_counter(user: User) -> int:
@@ -42,6 +48,12 @@ def get_alert_counter(user: User) -> int:
         return 0
 
 
+def reset_alert_metrics():
+    alerts_storage.delete(KEY_ALERT_100_PERCENT)
+    alerts_storage.delete(KEY_ALERT_90_PERCENT)
+    update_stats()
+
+
 def reset_alerts_counter(user: User) -> int:
     key = KEY_ALERT_LIMIT.format(str(user.id))
 
@@ -51,14 +63,30 @@ def reset_alerts_counter(user: User) -> int:
 
 
 def get_remaining_alert_count(user: User) -> int:
-    return settings.ALERTS_RATE_LIMIT - get_or_set_user_alerts_counter(user) - 1
+    return (
+        (get_tenant_settings().alerts_rate_limit if features.tms.is_on() else settings.ALERTS_RATE_LIMIT)
+        - get_or_set_user_alerts_counter(user)
+        - 1
+    )
 
 
-def get_user_alert_quota_percentage(user: User, counter) -> None:
-    percentage = (counter / settings.ALERTS_RATE_LIMIT) * 100
+def update_stats():
+    stats.update_gauge("alert_rate_limit", alerts_storage.get_set_size(KEY_ALERT_90_PERCENT), tags=[f"limit:90pct"])
+    stats.update_gauge("alert_rate_limit", alerts_storage.get_set_size(KEY_ALERT_100_PERCENT), tags=[f"limit:100pct"])
 
-    if percentage >= 90:
+
+def publish_user_alert_quota_percentage(user: User, counter: int) -> None:
+    percentage = (
+        counter / (get_tenant_settings().alerts_rate_limit if features.tms.is_on() else settings.ALERTS_RATE_LIMIT)
+    ) * 100
+
+    if percentage >= 100:
+        alerts_storage.insert_set(KEY_ALERT_100_PERCENT, str(user.id))
+        alerts_storage.delete_set(KEY_ALERT_90_PERCENT, str(user.id))
+    elif percentage >= 90:
         logger.info("Site %s user: %s hit %s%% alert limit.", _get_site(), user.username, percentage)
+        alerts_storage.insert_set(KEY_ALERT_90_PERCENT, str(user.id))
+    update_stats()
 
 
 def _get_site() -> str:

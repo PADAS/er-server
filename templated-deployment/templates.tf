@@ -18,6 +18,7 @@ resource "template_dir" "deployments" {
   vars = {
     ACCEPT_EULA                     = var.accept_eula
     ALERTS_ENABLED                  = var.alerts_enabled
+    ALERTS_RATE_LIMIT               = var.alerts_rate_limit
     ALT_SERVER_NAMES                = join(",", var.alt_server_names)
     API_ENDPOINT                    = var.api_endpoint
     API_HOST                        = var.api_host
