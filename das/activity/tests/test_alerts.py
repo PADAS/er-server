@@ -25,9 +25,9 @@ from activity.alerting.rate_limit import (
     get_alert_counter,
     get_or_set_user_alerts_counter,
     get_remaining_alert_count,
-    get_user_alert_quota_percentage,
     increment_alert_counter,
     prepend_alert_warning_message,
+    publish_user_alert_quota_percentage,
     reset_alerts_counter,
 )
 from activity.models import (
@@ -321,10 +321,10 @@ class TestAlertsLimit:
 
     @override_settings(ALERTS_RATE_LIMIT=20)
     @pytest.mark.parametrize("counter,percentage", [[10, ""], [18, "90.0"]])
-    def test_get_user_alert_quota_percentage(self, counter, percentage, superuser, caplog):
+    def test_publish_user_alert_quota_percentage(self, counter, percentage, superuser, caplog):
         caplog.set_level(logging.INFO)
 
-        get_user_alert_quota_percentage(superuser, counter)
+        publish_user_alert_quota_percentage(superuser, counter)
 
         assert percentage in caplog.text
 

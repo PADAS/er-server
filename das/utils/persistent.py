@@ -58,7 +58,7 @@ class RedisStorage(PersistentStorageWithSortedSet):
     def delete_key(self, key):
         return self._connection.delete(key)
 
-    def insert_set(self, key, value, ttl=3600):
+    def insert_set_key(self, key, value, ttl=3600):
         self._connection.setex(name=key, time=ttl, value=value)
 
     def insert_in_sorted_set(self, key, value, score):
@@ -80,6 +80,15 @@ class RedisStorage(PersistentStorageWithSortedSet):
 
     def increment_key_by_value(self, key: str, increment: int = 1) -> int:
         return self._connection.incrby(key, increment)
+
+    def insert_set(self, key: str, member: str) -> int:
+        return self._connection.sadd(key, member)
+
+    def delete_set(self, key: str, member: str) -> int:
+        return self._connection.srem(key, member)
+
+    def get_set_size(self, key: str) -> int:
+        return self._connection.scard(key)
 
 
 class RedisStorageReadOnly(PersistentStorageReadOnly):
