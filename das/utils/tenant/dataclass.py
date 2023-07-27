@@ -17,6 +17,7 @@ class EnvironmentSettings:
     enable_dev: bool = field(metadata=config(field_name="enableDev"))
     from_email: str = field(metadata=config(field_name="fromEmail"))
     send_sms_twilio_from_number: str = field(metadata=config(field_name="sendSmsTwilioFromNumber"))
+    alerts_rate_limit: Optional[int] = field(metadata=config(field_name="alertsRateLimit"), default=20)
 
 
 @dataclass_json

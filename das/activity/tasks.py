@@ -14,7 +14,11 @@ from activity.alerting.message import (
     get_revised_event_fields,
     send_event_alert,
 )
-from activity.alerting.rate_limit import allow_send_event_alert, reset_alerts_counter
+from activity.alerting.rate_limit import (
+    allow_send_event_alert,
+    reset_alert_metrics,
+    reset_alerts_counter,
+)
 from activity.alerting.service import evaluate_event
 from activity.materialized_view import (
     check_db_view_exists,
@@ -262,5 +266,6 @@ def automatically_update_event_state():
 
 @celery.app.task(base=OverAllTenantTask)
 def reset_alert_counter_for_all_users():
+    reset_alert_metrics()
     for user in User.objects.all():
         reset_alerts_counter(user)
