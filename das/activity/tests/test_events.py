@@ -262,7 +262,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertDictEqual(response_data, self.event_data)
 
     def test_create_new_event(self):
-
         event_data = copy.deepcopy(self.event_data)
         event_data["reported_by"] = self.user_rep
         event_data["provenance"] = Event.PC_STAFF
@@ -276,7 +275,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertDictEqual(response_data, event_data)
 
     def test_created_event_status(self):
-
         event_data = copy.deepcopy(self.event_data)
         event_data["reported_by"] = self.user_rep
         event_data["provenance"] = Event.PC_STAFF
@@ -291,7 +289,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(event.state, "new")
 
     def test_create_multiple_events_on_a_single_api_call(self):
-
         prev_count = Event.objects.count()
         request = self.factory.post(self.api_base + "/events/", [self.event_data, self.event_data])
         self.force_authenticate(request, self.all_perms_user)
@@ -310,7 +307,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(response.data["results"], [])
 
     def test_fail_with_nan_location(self):
-
         event_data = copy.deepcopy(self.event_data)
         event_data["reported_by"] = self.user_rep
         event_data["provenance"] = Event.PC_STAFF
@@ -323,7 +319,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(response.status_code, 400)
 
     def test_not_fail_with_emptystring_location(self):
-
         event_data = copy.deepcopy(self.event_data)
         event_data["reported_by"] = self.user_rep
         event_data["provenance"] = Event.PC_STAFF
@@ -337,7 +332,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(response.status_code, 201)
 
     def test_not_fail_with_no_location(self):
-
         event_data = copy.deepcopy(self.event_data)
         event_data["reported_by"] = self.user_rep
         event_data["provenance"] = Event.PC_STAFF
@@ -352,7 +346,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(response.status_code, 201)
 
     def test_bad_request_with_empty_string_location(self):
-
         event_data = dict(
             event_details={},
             event_type=ET_OTHER,
@@ -370,7 +363,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(response.status_code, 400)
 
     def test_create_matrix_event(self):
-
         event_data = {
             "priority": Event.PRI_REFERENCE,
             "event_type": ET_OTHER,
@@ -389,7 +381,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertDictEqual(response_data, event_data)
 
     def test_create_new_message_only_event(self):
-
         event_data = {
             "message": lorem_ipsum.sentence(),
             "event_type": ET_OTHER,
@@ -497,7 +488,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(response_data["message"], update_data["message"])
 
     def test_create_event_with_empty_message(self):
-
         event_data = dict(priority=0, event_type=ET_OTHER, message="", comment="")
 
         request = self.factory.post(self.api_base + "/events/", event_data)
@@ -509,7 +499,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertDictEqual(response_data, event_data)
 
     def test_create_event_and_upload_document(self):
-
         event_data = dict(priority=0, event_type=ET_MONITORING, message="", comment="")
 
         request = self.factory.post(self.api_base + "/events/", event_data)
@@ -552,7 +541,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         # logger.debug(response.data)
 
     def test_create_event_file_with_permissions(self):
-
         event_data = dict(priority=0, event_type=ET_MONITORING, message="", comment="")
 
         request = self.factory.post(self.api_base + "/events/", event_data)
@@ -615,7 +603,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(response.status_code, 403)
 
     def test_create_event_file_with_permissions_unauthorized(self):
-
         event_data = dict(priority=0, event_type=ET_MONITORING, message="", comment="")
 
         request = self.factory.post(self.api_base + "/events/", event_data)
@@ -723,7 +710,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
     def test_event_categories_list(self):
-
         request = self.factory.get(self.api_base + "/events/categories")
         self.force_authenticate(request, self.all_perms_user)
 
@@ -850,7 +836,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertTrue(event_type.is_collection)
 
     def test_create_collection(self):
-
         event_data = copy.deepcopy(self.event_data)
         event_data["reported_by"] = self.user_rep
         event_data["provenance"] = Event.PC_STAFF
@@ -885,7 +870,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(response.status_code, 201)
 
     def test_collection_event_contains_with_different_user_permissions(self):
-
         # Create Event A, B and collection
         collection_et = EventType.objects.get_by_value("incident_collection")
         logistics_et = EventType.objects.get_by_value(ET_LOGISTICS)
@@ -930,7 +914,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         assert "Event_B" not in contained_event_titles
 
     def test_return_new_contained_events(self):
-
         event_data = json.loads(
             """{"priority":0,"event_type":"incident_collection","message":"test parent message","title":"test parent title","contains":[{"message":"test contains message","title":"SIT-REP","event_type":"contact_rep","time":"2017-06-21 14:43","event_details":{},"priority":0,"reported_by":null},{"message":"second test contains message","title":"Other","event_type":"other","time":"2017-06-21 14:44","event_details":{},"priority":0,"reported_by":null}]}"""
         )
@@ -944,7 +927,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(event_data["contains"][0]["message"], event["contains"][0]["related_event"]["message"])
 
     def test_event_without_event_type(self):
-
         event_data = {"message": "this has no event type", "priority": "200"}
 
         request = self.factory.post(self.api_base + "/events/", event_data)
@@ -969,7 +951,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(response.data["title"], clean_user_text(TITLE, "test_edit_event_title"))
 
     def test_edit_event_details(self):
-
         event_data = copy.deepcopy(self.event_data)
         event_data["event_type"] = ET_CARCASS
         event_data["event_details"] = {
@@ -1039,7 +1020,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         )(request)
 
     def test_export_csv(self):
-
         carcass_data = json.loads(
             """{"event_type":"carcass_rep","priority":200,"event_details":{"carcassrep_species":"elephant","carcassrep_sex":"male","carcassrep_ageofanimal":"adult","carcassrep_ageofcarcass":"fresh","carcassrep_trophystatus":"intact","carcassrep_causeofdeath":"naturaldisease"},"location":{"latitude":"0.28118","longitude":"37.38544"}}"""
         )
@@ -1062,7 +1042,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertTrue(self.notes_line2_prefix in response.content.decode("utf-8"))
 
     def test_export_csv_with_qparam_value_cols_true(self):
-
         carcass_data = json.loads(
             """{"event_type":"carcass_rep","priority":200,"event_details":{"carcassrep_species":"elephant","carcassrep_sex":"male","carcassrep_ageofanimal":"adult","carcassrep_ageofcarcass":"fresh","carcassrep_trophystatus":"intact","carcassrep_causeofdeath":"naturaldisease"},"location":{"latitude":"0.28118","longitude":"37.38544"}}"""
         )
@@ -1103,7 +1082,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
     def test_collection_report_id_exported_as_parent_event_serial_number(
         self,
     ):
-
         collection_event_data = copy.deepcopy(self.event_data)
         collection_event_data["reported_by"] = self.user_rep
         collection_event_data["message"] = ""
@@ -1162,7 +1140,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(the_parent_id, collection_serial_number)
 
     def test_export_csv_with_filter(self):
-
         carcass_data = json.loads(
             """{"event_details":{"sectionArea":["bbbe77a9-f829-47dd-8a6f-bca76920f706","957a8bfa-ad0d-4b94-bc86-983cab105910"],"team":[],"conservancy":"346f5449-52b0-4b52-9d10-b44b8aa313a6","beginning_of_incident":"2017-10-13 12:00","end_of_incident":"2017-10-14 12:00","details":"interesting details","results_and_findings":"very interesting results and findings","species":"ad26adde-1261-4133-8d3f-a22d12ceae1f","sex":"Male","causeOfDeath":"ab468ffc-9745-4c71-a19d-c34b8c9c3b18"},"event_type":"carcass_rep","priority":200,"title":"Carcass","location":{"latitude":47.65636923655089,"longitude":-122.30770111083983}}"""
         )
@@ -1224,7 +1201,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertTrue(response.data)
 
     def test_export_filter_on_incident_associated_reports(self):
-
         incident_data = copy.deepcopy(self.event_data)
         incident_data["event_type"] = "incident_collection"
         incident_data["title"] = "Test incident collection"
@@ -1261,7 +1237,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertTrue(all(x in report_names for x in [incident_data["title"], self.event_data["title"]]))
 
     def test_export_includes_all_event_detail_fields(self):
-
         request = self.factory.post(self.api_base + "/events/", self.event_data)
         self.force_authenticate(request, self.all_perms_user)
         response = views.EventsView.as_view()(request)
@@ -1375,7 +1350,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertTrue(all(x in rendered_content for x in ["716c9a58ca0b9a7bf3351517d7393b49", "an observer"]))
 
     def test_export_includes_all_event_detail_fields_no_title(self):
-
         event_data = copy.deepcopy(self.event_data)
         event_data["title"] = "Event details No Title Test"
 
@@ -1493,7 +1467,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         assert test_rendered_content == set(row.values()) & test_rendered_content
 
     def test_export_csv_with_line_feed(self):
-
         currentactivity = "\n".join((lorem_ipsum.paragraph(), lorem_ipsum.paragraph()))
         sitrep_data = json.loads(
             """{"event_details":{"sitrep_currentactivity":"interesting details"},"event_type":"sit_rep","priority":200,"title":"SitRep","location":{"latitude":47.65636923655089,"longitude":-122.30770111083983}}"""
@@ -1522,7 +1495,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertIn(self.power_user, reported_by_users)
 
     def test_add_event_category(self):
-
         value = "new"
         display = "new event permissions"
         event_category = EventCategory.objects.create(value=value, display=display)
@@ -1541,7 +1513,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
     @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def test_all_perms_user_permissions(self):
-
         results = self.do_all_operations_on_all_event_types(self.all_perms_user)
 
         for k, v in results.items():
@@ -1549,7 +1520,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
     @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     def test_power_user_permissions(self):
-
         results = self.do_all_operations_on_all_event_types(self.power_user)
 
         for k, v in results.items():
@@ -1559,7 +1529,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
                 self.assertFalse(v, "Power user passed {0}".format(k))
 
     def test_radio_room_operator_create_but_not_view(self):
-
         event_data = copy.deepcopy(self.event_data)
         event_data["reported_by"] = self.user_rep
         event_data["provenance"] = Event.PC_STAFF
@@ -1572,7 +1541,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(len(response.data), 1)
 
     def test_radio_room_operator_permissions(self):
-
         results = self.do_all_operations_on_all_event_types(self.radio_room_user)
 
         for k, v in results.items():
@@ -1598,7 +1566,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         return result
 
     def do_all_event_operations(self, user, event_type, event_type_name):
-
         results = {}
         event_data = copy.deepcopy(self.event_data)
         event_data["reported_by"] = self.user_rep
@@ -1692,7 +1659,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(response.data["results"][0]["id"], str(eventprovider.id))
 
     def test_add_eventsource(self):
-
         eventprovider = EventProvider.objects.create(display="Smart CSD Provider", owner=self.eventsource_user_no1)
 
         eventsource_data = {
@@ -1745,7 +1711,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
     def test_add_eventsource_twice(self):
-
         eventprovider = EventProvider.objects.create(display="Smart CSD Provider", owner=self.eventsource_user_no1)
 
         eventsource_data = {
@@ -1772,7 +1737,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         response.data
 
     def test_eventsourceview_update_permission_denied(self):
-
         eventprovider = EventProvider.objects.create(display="Smart CSD Provider", owner=self.eventsource_user_no1)
 
         eventsource_data = {
@@ -1802,7 +1766,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(response.status_code, 403)
 
     def test_update_eventsource_using_patch(self):
-
         eventprovider = EventProvider.objects.create(display="Smart CSD Provider", owner=self.eventsource_user_no1)
 
         external_event_type = "carass-report"
@@ -1835,7 +1798,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertDictEqual(additional_data, eventsource_patch["additional"])
 
     def test_add_event_with_external_event_type(self):
-
         eventprovider = EventProvider.objects.create(display="Smart CSD Provider", owner=self.eventsource_user_no1)
 
         external_event_type = "smart-carcass"
@@ -2205,8 +2167,34 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertIn("monitoring", category_values)
         self.assertIn("logistics", category_values)
 
-    def test_property_name_same_as_enum_name(self):
+    def test_array_property_name_same_as_child_enum_name(self):
+        et_schema = schema_examples.CONFISCATION_SCHEMA
+        event_type = self.sample_event.event_type
+        event_type.schema = et_schema
+        event_type.save()
 
+        choice = Choice.objects.create(
+            model="activity.event",
+            field="confiscationrep_itemsconfiscated",
+            value="badger",
+            display="Badger",
+        )
+
+        event_data = copy.deepcopy(self.event_data)
+        event_data["event_type"] = event_type.value
+        event_data["event_details"] = {
+            "confiscationrep_details": lorem_ipsum.paragraph(),
+            "confiscationrep_itemsconfiscated": [{"ItemConfiscated": "badger", "ItemNumber": 5}],
+        }
+        request = self.factory.post(self.api_base + "/events/", event_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        event_details = response.data.get("event_details")
+        for k, v in event_data["event_details"].items():
+            assert k in event_details
+
+    def test_property_name_same_as_enum_name(self):
         event_data = copy.deepcopy(self.event_data)
         event_data["event_type"] = ET_CARCASS
         event_data["event_details"] = {
@@ -2226,7 +2214,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
             self.assertNotIsInstance(v, dict)
 
     def test_property_checkboxes(self):
-
         event_data = copy.deepcopy(self.event_data)
         event_data["event_type"] = ET_OTHER
         event_data["event_details"] = {
@@ -2248,7 +2235,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertNotIsInstance(event_details["carcassrep_species"][0], dict)
 
     def test_property_multiselect(self):
-
         event_data = copy.deepcopy(self.event_data)
         event_data["event_type"] = ET_OTHER
         event_data["event_details"] = {
@@ -2291,7 +2277,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(data["arrestrep_reasonforarrest"], ["snare", "logging"])
 
     def test_exporting_checkbox_events_to_csv(self):
-
         checkbox_data = json.loads(
             """{"event_type": "dws_test","priority":200,"event_details": {"carcassrep_species": ["elephant", "eland"]}}"""
         )
@@ -2321,7 +2306,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(target_row.get("Species"), "Elephant;Eland")
 
     def test_exporting_checkbox_events_to_csv_with_qparam_value_cols_true(self):
-
         checkbox_data = json.loads(
             """{"event_type": "dws_test","priority":200,"event_details": {"carcassrep_species": ["elephant", "eland"]}}"""
         )
@@ -2353,7 +2337,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(target_row.get("carcassrep_species"), "elephant;eland")
 
     def test_exporting_array_events_to_csv(self):
-
         array_data = json.loads(
             """{"event_type": "4787_arry","priority":200,"event_details": {"carcassrep_species": ["bongo", "buffalo"]}}"""
         )
@@ -2382,7 +2365,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(target_row.get("Species"), "Bongo;Buffalo")
 
     def test_exporting_checkbox_in_fieldset_to_csv(self):
-
         array_data = json.loads(
             """{"event_type": "sprint_88_behavior","priority":200,"event_details": {"carcassrep_species": ["bongo", "buffalo"]}}"""
         )
@@ -2411,7 +2393,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(target_row.get("Species"), "Bongo;Buffalo")
 
     def test_exporting_checkbox_in_fieldset_to_csv_with_qparam_value_cols_true(self):
-
         array_data = json.loads(
             """{"event_type": "sprint_88_behavior","priority":200,"event_details": {"carcassrep_species": ["bongo", "buffalo"]}}"""
         )
@@ -2471,7 +2452,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
     @mock.patch("activity.models.is_banned")
     def test_search_event_by_event_title(self, is_banned):
-
         is_banned.return_value = False
         title_text = "EventTitle"
         self.event_data["title"] = title_text
@@ -2542,7 +2522,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
     @mock.patch("activity.models.is_banned")
     def test_can_search_event_by_eventtype_schema_used(self, is_banned):
-
         # schema used has some of its titles named: conservancy, Name Of
         # Ranger, Beginning of Incident etc.
 
@@ -2605,7 +2584,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
     @mock.patch("activity.models.is_banned")
     def test_eventnote_generate_tsvector_doc(self, is_banned):
-
         is_banned.return_value = False
 
         request = self.factory.post(self.api_base + "/events/", [self.event_data])
@@ -2627,7 +2605,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
     @mock.patch("activity.models.is_banned")
     def test_event_note_text_search(self, is_banned):
-
         is_banned.return_value = False
         request = self.factory.post(self.api_base + "/events/", [self.event_data])
         self.force_authenticate(request, self.all_perms_user)
@@ -2653,7 +2630,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(response.status_code, 200)
 
     def test_report_is_not_overquoted_when_there_is_comma_in_field(self):
-
         carcass_data = json.loads(
             """{"event_type":"cameratrap_rep","priority":200,"event_details":{"cameratraprep_camera-version": "v1,v2,v3"}}"""
         )
@@ -3168,7 +3144,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         assert response.data["schema"]["definition"][0] == base_schema["schema"]["definition"][0]
 
     def test_schema_with_different_inactive_choices(self):
-
         Choice.objects.all().delete()
 
         [
@@ -3234,7 +3209,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         self.assertEqual(state, "resolved")
 
     def test_post_with_checkboxes(self):
-
         schema = schema_examples.WILDLIFE_SCHEMA_CHECKBOX
         event_type = self.sample_event.event_type
         event_type.schema = schema
@@ -3259,7 +3233,6 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         assert isinstance(event_details.data["event_details"]["wildlifesightingrep_species"][0], str)
 
     def test_consistency_checkbox_value(self):
-
         Choice.objects.all().delete()
         Choice.objects.create(
             model=Choice.Field_Reports, field="wildlifesightingrep_species", value="buffalo", display="Buffalo"
@@ -3533,7 +3506,6 @@ class TestEventView2(BaseTestToolMixin):
     view = views.EventsView
 
     def test_auto_add_report_to_patrols(self, five_patrol_segment_subject):
-
         patrol = Patrol.objects.order_by("created_at").last()
         segment = patrol.patrol_segments.first()
         subject = patrol.patrol_segments.first().leader
@@ -3576,7 +3548,6 @@ class TestEventView2(BaseTestToolMixin):
         indirect=True,
     )
     def test_list_events(self, known_locations, events_with_category, settings, monkeypatch):
-
         mock = MagicMock(return_value=False)
         monkeypatch.setattr("activity.models.is_banned", mock)
 

@@ -113,12 +113,14 @@ class EventDetailsSerializer(ModelSerializer):
         all_schema_fields, parameters = self.get_schema_fields_possible_values(schema)
 
         # Append field information to the data we're getting so we know how to
-        # get back to the source
+        # get back to the source. Needed by the export to CSV feature
+        # This code does not understand arrays and does not visit and annotate
+        # fields in an array.
         ret = {}
         for k, v in data.items():
-            if k not in all_schema_fields:
-                continue
-            if type(v) == dict and k in parameters and v["value"] in parameters[k]:
+            if k not in all_schema_fields or all_schema_fields[k].get("type", "unset") in ["array"]:
+                ret[k] = v
+            elif type(v) == dict and k in parameters and v["value"] in parameters[k]:
                 ret[k] = {"name": parameters[k][v["value"]], "value": v["value"]}
             elif type(v) == list and k in parameters:
                 all_values = []
@@ -129,7 +131,6 @@ class EventDetailsSerializer(ModelSerializer):
                             matches.append(d)
                         elif value == d:
                             matches.append(value)
-
                     if len(matches) > 0:
                         all_values.append(matches[0])
                 if len(all_values) > 0:
@@ -156,6 +157,7 @@ class EventDetailsSerializer(ModelSerializer):
                 continue
             elif isinstance(v, dict) and "value" in v.keys():
                 event_details[k] = v["value"]
+            # This is not meant for property type=array, but here we are attempting a cleanup up of enums for the property type=array
             elif isinstance(v, list):
                 values = [x["value"] if isinstance(x, dict) and "value" in x.keys() else x for x in v]
                 event_details[k] = values
