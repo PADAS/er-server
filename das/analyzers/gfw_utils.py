@@ -7,8 +7,6 @@ from django.conf import settings
 from accounts.models import User
 from analyzers.gfw_alert_schema import GFWLayerSlugs
 from analyzers.models import GlobalForestWatchSubscription as gfw_model
-from utils.features import features
-from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger(__name__)
 
@@ -129,11 +127,7 @@ def make_download_url(
 
 def should_backfill_confirmed_alerts(today: date) -> bool:
     # a condition to check to determine if backfill should be run.
-    if features.tms.is_on():
-        feature_flags = get_tenant_settings().feature_flags
-        return feature_flags.gfw_back_fill_interval_days
-    else:
-        return True if not today.day % settings.GFW_BACKFILL_INTERVAL_DAYS else False
+    return True if not today.day % settings.GFW_BACKFILL_INTERVAL_DAYS else False
 
 
 def get_dict(start_date: date, end_date: date, gfw_object: gfw_model, confirmed_only: bool = False) -> dict:

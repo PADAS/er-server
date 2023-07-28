@@ -74,7 +74,9 @@ from observations.widgets import MessageGenericForeignKeyRawIdWidget
 from tracking.models import SourcePlugin
 from utils.admin import FieldSetElementMixin
 from utils.drf import TimeLimitedPaginator
+from utils.features import features
 from utils.html import make_html_list
+from utils.tenant import get_tenant_settings
 
 from .models import SOURCE_TYPES
 
@@ -633,7 +635,11 @@ class SubjectAdmin(ExportCsvMixin, FieldSetElementMixin, ObservationsContextMixi
                 fieldsets=fieldsets, field_to_remove="_linked_user_warning", fieldset_index=0, field_index=1
             )
 
-        subject_region_enabled = getattr(settings, "SUBJECT_REGION_ENABLED", False)
+        if features.tms.is_on():
+            subject_region_enabled = get_tenant_settings().env_settings.subject_region_enabled
+        else:
+            subject_region_enabled = getattr(settings, "SUBJECT_REGION_ENABLED", True)
+
         if not subject_region_enabled and fieldsets:
             fieldsets = list(fieldsets)
             for item in fieldsets:

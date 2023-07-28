@@ -16,6 +16,8 @@ from activity.models import EventCategory
 from activity.permissions import EventCategoryPermissions
 from core.utils import get_site_name
 from reports.reports import get_daily_report_data
+from utils.features import features
+from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +29,6 @@ class ReportDateParameters(serializers.Serializer):
 
 class ReportView(views.APIView):
     def dispatch(self, request, report_key, *args, **kwargs):
-
         if report_key == "sitrep":
             return SituationReportView().dispatch(request, *args, **kwargs)
 
@@ -64,7 +65,6 @@ class SituationReportView(
         return permitted_categories
 
     def get(self, request, *args, **kwargs):
-
         qs = ReportDateParameters(data=request.query_params)
         if not qs.is_valid():
             return Response(data=qs.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -79,7 +79,6 @@ class SituationReportView(
         return self.render_to_response(context)
 
     def render_to_response(self, context, **response_kwargs):
-
         response = super().render_to_response(context, **response_kwargs)
         if "openxmlformats" in self.content_type:
             response["Content-Disposition"] = "attachment; filename={}".format(context["report_filename"])
@@ -106,10 +105,12 @@ def get_tableau_site_id():
     Returns:
         str: the tableau site id
     """
-    try:
-        return settings.TABLEAU_SITE_ID if settings.TABLEAU_SITE_ID else get_site_name()
-    except AttributeError:
-        pass
+    if features.tms.is_on():
+        tableau_site_id = get_tenant_settings().env_settings.tableau_site_id
+        return tableau_site_id or get_site_name()
+    elif hasattr(settings, "TABLEAU_SITE_ID"):
+        return settings.TABLEAU_SITE_ID or get_site_name()
+
     return get_site_name()
 
 
@@ -328,7 +329,6 @@ class TableauViewTicketGenerator:
             return Response(data=message, status=status.HTTP_400_BAD_REQUEST)
 
     def _get_ticket_for_view(self, instance, view):
-
         workbook = instance.get_workbook(view["workbook"]["id"])
 
         ticket = instance.get_ticket()
@@ -359,10 +359,16 @@ class TableauDashboard(generics.GenericAPIView, TableauViewTicketGenerator):
     serializer_class = DashboardSerializer
 
     def get(self, request, *args, **kwargs):
-        dashboard_id = kwargs.get("dashboard_id")
+        dashboard_id = kwargs.get("dashboard_id", "default")
         if dashboard_id == "default":
-            dashboard_id = settings.TABLEAU_DEFAULT_DASHBOARD
+            dashboard_id = self._get_tableau_default_dashboard()
         return self.get_ticket_for_dashboard(dashboard_id)
+
+    def _get_tableau_default_dashboard(self):
+        if features.tms.is_on():
+            return get_tenant_settings().env_settings.tableau_default_dashboard
+
+        return settings.TABLEAU_DEFAULT_DASHBOARD
 
 
 class TableauView(APIView, TableauViewTicketGenerator):

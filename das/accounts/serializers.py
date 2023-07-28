@@ -38,8 +38,12 @@ class UserSerializer(rest_framework.serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super(UserSerializer, self).to_representation(instance)
 
-        ACCEPT_EULA = get_tenant_settings().env_settings.accept_eula if features.tms.is_on() else settings.ACCEPT_EULA
-        if not ACCEPT_EULA:
+        if features.tms.is_on():
+            accept_eula = get_tenant_settings().env_settings.accept_eula
+        else:
+            accept_eula = settings.ACCEPT_EULA
+
+        if not accept_eula:
             del ret["accepted_eula"]
 
         user_permissions = self.context.get("permissions")
