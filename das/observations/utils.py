@@ -15,6 +15,8 @@ from django.db import connection
 from django.db.models import Aggregate
 
 from core import persistent_storage
+from utils.features import features
+from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger(__name__)
 
@@ -104,8 +106,13 @@ def calculate_track_range(user, since, until, limit):
 
     now = pytz.utc.localize(datetime.utcnow())
 
+    if features.tms.is_on():
+        show_track_days = get_tenant_settings().env_settings.show_track_days
+    else:
+        show_track_days = settings.SHOW_TRACK_DAYS
+
     if requested_oldest_age is None:
-        oldest_age = min(settings.SHOW_TRACK_DAYS, oldest_age_allowed)
+        oldest_age = min(show_track_days, oldest_age_allowed)
     else:
         requested_oldest_age = (now - requested_oldest_age).days
         oldest_age = min(requested_oldest_age, oldest_age_allowed)
@@ -318,7 +325,11 @@ def parse_comma(q):
 
 def has_exceed_speed(user):
     speed = calculate_speed(user)
-    exceed = speed > settings.GEO_PERMISSION_SPEED_KM_H
+    if features.tms.is_on():
+        geo_permission_speed_km_h = get_tenant_settings().env_settings.geo_permission_speed_km_h
+    else:
+        geo_permission_speed_km_h = settings.GEO_PERMISSION_SPEED_KM_H
+    exceed = speed > geo_permission_speed_km_h
     if exceed:
         logger.info(f"Speed exceed for user {user.username} with id {user.id}, speed {speed}")
     return exceed
@@ -381,10 +392,19 @@ def get_lag_hours(first_datetime: float, second_datetime: float):
 
 def block_user_temp(user):
     if has_exceed_speed(user):
+        if features.tms.is_on():
+            env_settings = get_tenant_settings().env_settings
+            geo_permission_violation_ban_duration_min = env_settings.geo_permission_violation_ban_duration_min
+        else:
+            geo_permission_violation_ban_duration_min = settings.GEO_PERMISSION_VIOLATION_BAN_DURATION_MIN
+
         key = get_user_key(user, GEO_BANNED)
-        persistent_storage.insert_key(key, str(True), settings.GEO_PERMISSION_VIOLATION_BAN_DURATION_MIN * 60)
+        persistent_storage.insert_key(key, str(True), geo_permission_violation_ban_duration_min * 60)
         logger.info(
-            f"Banning user {user.username} with ID {user.id} for {settings.GEO_PERMISSION_VIOLATION_BAN_DURATION_MIN} minutes."
+            "Banning user %s with ID %s for %d minutes.",
+            user.username,
+            str(user.id),
+            geo_permission_violation_ban_duration_min,
         )
         persistent_storage.delete_key(get_user_key(user, LOCATION))
 

@@ -283,9 +283,12 @@ def get_user_session_time(starttime, endtime):
 
 
 def get_eula_compliance_list():
-    ACCEPT_EULA = get_tenant_settings().env_settings.accept_eula if features.tms.is_on() else settings.ACCEPT_EULA
+    if features.tms.is_on():
+        accept_eula = get_tenant_settings().env_settings.accept_eula
+    else:
+        accept_eula = settings.ACCEPT_EULA
 
-    if not ACCEPT_EULA:
+    if not accept_eula:
         return []
     qs = UserAgreement.objects.all().filter(user__accepted_eula=True, user__is_active=True, eula__active=True)
     return [

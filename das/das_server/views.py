@@ -126,25 +126,29 @@ class StatusView(generics.RetrieveAPIView):
             tenant = get_tenant_settings()
             resp["alerts_enabled"] = tenant.feature_flags.alerts_enabled and has_alerts_permissionset(self.request.user)
             resp["daily_report_enabled"] = tenant.feature_flags.daily_report_enabled
-            resp["export_kml_enabled"] = tenant.feature_flags.kml_export
-            resp["tableau_enabled"] = self.request.user.is_superuser and tenant.feature_flags.tableau_enabled
             resp["eula_enabled"] = tenant.env_settings.accept_eula
-            resp["patrol_enabled"] = tenant.feature_flags.patrol_enabled and has_patrol_view_permission(
+            resp["export_kml_enabled"] = tenant.feature_flags.kml_export
+            resp["patrol_enabled"] = tenant.env_settings.patrol_enabled and has_patrol_view_permission(
                 self.request.user
             )
-            resp["show_stationary_subjects_on_map"] = tenant.feature_flags.show_stationary_subjects_on_map
-            if tenant.feature_flags.default_event_filter_from_days >= 0:
-                resp["default_event_filter_from_days"] = tenant.feature_flags.default_event_filter_from_days
-            if tenant.feature_flags.default_patrol_filter_from_days >= 0:
-                resp["default_patrol_filter_from_days"] = tenant.feature_flags.default_patrol_filter_from_days
+            resp["show_stationary_subjects_on_map"] = tenant.env_settings.show_stationary_subjects_on_map
+            resp["show_track_days"] = tenant.env_settings.show_track_days
+            resp["tableau_enabled"] = self.request.user.is_superuser and tenant.feature_flags.tableau_enabled
+            resp["track_length"] = tenant.env_settings.track_length
+            if tenant.env_settings.default_event_filter_from_days >= 0:
+                resp["default_event_filter_from_days"] = tenant.env_settings.default_event_filter_from_days
+            if tenant.env_settings.default_patrol_filter_from_days >= 0:
+                resp["default_patrol_filter_from_days"] = tenant.env_settings.default_patrol_filter_from_days
         else:
             resp["alerts_enabled"] = settings.ALERTS_ENABLED and has_alerts_permissionset(self.request.user)
             resp["daily_report_enabled"] = settings.DAILY_REPORT_ENABLED
-            resp["export_kml_enabled"] = settings.EXPORT_KML_ENABLED
-            resp["tableau_enabled"] = self.request.user.is_superuser and settings.TABLEAU_ENABLED
             resp["eula_enabled"] = settings.ACCEPT_EULA
+            resp["export_kml_enabled"] = settings.EXPORT_KML_ENABLED
             resp["patrol_enabled"] = settings.PATROL_ENABLED and has_patrol_view_permission(self.request.user)
             resp["show_stationary_subjects_on_map"] = settings.SHOW_STATIONARY_SUBJECTS_ON_MAP
+            resp["show_track_days"] = settings.SHOW_TRACK_DAYS
+            resp["tableau_enabled"] = self.request.user.is_superuser and settings.TABLEAU_ENABLED
+            resp["track_length"] = settings.TRACK_LENGTH
             if settings.DEFAULT_EVENT_FILTER_FROM_DAYS >= 0:
                 resp["default_event_filter_from_days"] = settings.DEFAULT_EVENT_FILTER_FROM_DAYS
             if settings.DEFAULT_PATROL_FILTER_FROM_DAYS >= 0:
@@ -154,13 +158,7 @@ class StatusView(generics.RetrieveAPIView):
         resp["event_search_enabled"] = True
         resp["server_timezone_name"] = timezone.get_current_timezone_name()
         resp["server_timezone"] = timezone.localtime().strftime("%Z")
-        resp["show_track_days"] = settings.SHOW_TRACK_DAYS
         resp["site_name"] = get_site_name()
-        resp["eula_enabled"] = (
-            get_tenant_settings().env_settings.accept_eula if features.tms.is_on() else settings.ACCEPT_EULA
-        )
-        resp["patrol_enabled"] = settings.PATROL_ENABLED and has_patrol_view_permission(self.request.user)
-        resp["track_length"] = settings.TRACK_LENGTH
         resp["messaging_enabled"] = has_message_view_permission(self.request.user)
 
         if self.get_support_settings():

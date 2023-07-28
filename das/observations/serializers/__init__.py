@@ -42,7 +42,9 @@ from observations.utils import (
     is_subject_stationary_subject,
 )
 from utils import add_base_url
+from utils.features import features
 from utils.json import zeroout_microseconds
+from utils.tenant import get_tenant_settings
 
 from .observations import FlattenObservationSerializer
 
@@ -289,7 +291,12 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                     minimum_allowed_age = None
 
             if minimum_allowed_age is not None and maximum_allowed_age is not None:
-                default_window_cutoff = pytz.utc.localize(datetime.utcnow() - timedelta(days=settings.SHOW_TRACK_DAYS))
+                if features.tms.is_on():
+                    show_track_days = get_tenant_settings().env_settings.show_track_days
+                else:
+                    show_track_days = settings.SHOW_TRACK_DAYS
+
+                default_window_cutoff = pytz.utc.localize(datetime.utcnow() - timedelta(days=show_track_days))
 
                 statusvalues = resolve_status_values(instance)
 

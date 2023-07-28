@@ -58,7 +58,9 @@ from utils.drf import (
     StandardResultsSetPagination,
     return_409_response,
 )
+from utils.features import features
 from utils.json import ExtendedGEOJSONRenderer, parse_bool, zeroout_microseconds
+from utils.tenant import get_tenant_settings
 
 from .exceptions import UnauthorizedView
 from .helpers import check_valid_date_string
@@ -68,17 +70,21 @@ logger = logging.getLogger(__name__)
 
 
 def get_track_days():
-    try:
-        days = int(settings.SHOW_TRACK_DAYS)
-    except AttributeError:
-        days = 16
-    return datetime.timedelta(days=days)
+    if features.tms.is_on():
+        return get_tenant_settings().env_settings.show_tack_days
+
+    show_track_days = getattr(settings, "SHOW_TRACK_DAYS", 16)
+
+    return datetime.timedelta(days=int(show_track_days))
 
 
 ONE_YEAR = datetime.timedelta(days=365)
 
 
 def include_stationary_subjects_on_map():
+    if features.tms.is_on():
+        return get_tenant_settings().env_settings.show_mandatory_subjects_on_map
+
     return parse_bool(getattr(settings, "SHOW_STATIONARY_SUBJECTS_ON_MAP", True))
 
 
@@ -963,9 +969,14 @@ class KmlRootView(APIView):
             self.request.user.username, datetime.datetime.now(tz=pytz.utc).strftime("%Y%M%d%H%M")
         )
 
+        if features.tms.is_on():
+            kml_feed_title = get_tenant_settings().env_settings.kml_feed_title
+        else:
+            kml_feed_title = settings.KML_FEED_TITLE
+
         context = {
             "network_link": {
-                "name": settings.KML_FEED_TITLE,
+                "name": kml_feed_title,
                 "visibility": 0,
                 "open": 1,
                 "href": self.build_link_for_user(start, end),
@@ -1162,7 +1173,10 @@ class KmlSubjectView(generics.RetrieveAPIView):
             re.sub("[^a-zA-Z0-9]", "_", subject.name), datetime.datetime.now(tz=pytz.utc).strftime("%Y%M%d%H%M")
         )
 
-        kml_overlay_image = getattr(settings, "KML_OVERLAY_IMAGE", None)
+        if features.tms.is_on():
+            kml_overlay_image = get_tenant_settings().env_settings.kml_overlay_image
+        else:
+            kml_overlay_image = getattr(settings, "KML_OVERLAY_IMAGE", None)
 
         color = self.get_subject_color(subject)
         context = {
