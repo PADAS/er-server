@@ -91,5 +91,5 @@ def publish_user_alert_quota_percentage(user: User, counter: int) -> None:
 
 def _get_site() -> str:
     if features.tms.is_on():
-        return get_tenant_settings().url
+        return get_tenant_settings().env_settings.fqdn
     return settings.SERVER_FQDN

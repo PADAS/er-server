@@ -40,7 +40,7 @@ from .forms import (
     UserAdditionalForm,
 )
 
-PATROL_ENABLED = settings.PATROL_ENABLED
+PATROL_ENABLED = get_tenant_settings().env_settings.patrol_enabled if features.tms.is_on() else settings.PATROL_ENABLED
 
 
 @admin.register(PermissionSet)
@@ -327,13 +327,12 @@ class UserAdmin(DefaultFilterMixin, FieldSetElementMixin, DjangoUserAdmin):
         assert form.is_valid()
 
         opts = {
-            "use_https": request.is_secure(),
+            "email_template_name": "registration/password_reset_email.html",
+            "from_email": settings.DEFAULT_FROM_EMAIL,
             "request": request,
             "subject_template_name": "registration/password_reset_subject.txt",
-            "email_template_name": "registration/password_reset_email.html",
+            "use_https": request.is_secure(),
         }
-        if features.tms.is_on():
-            opts["from_email"] = get_tenant_settings().env_settings.default_from_email
 
         form.save(**opts)
 

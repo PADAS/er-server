@@ -157,7 +157,6 @@ class GetActiveEulaAPIView(generics.RetrieveAPIView):
 
     def dispatch(self, request, *args, **kwargs):
         ACCEPT_EULA = get_tenant_settings().env_settings.accept_eula if features.tms.is_on() else settings.ACCEPT_EULA
-
         if not ACCEPT_EULA:
             self.headers = self.default_response_headers
             response = Response(

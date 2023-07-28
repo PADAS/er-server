@@ -27,8 +27,6 @@ from analyzers.models import GlobalForestWatchSubscription
 from das_server import celery
 from revision.manager import RevisionMixin
 from utils import stats
-from utils.features import features
-from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger(__name__)
 
@@ -170,11 +168,7 @@ def process_alert_for_subscription(layer_slug, subscription_id, validated_data, 
 
 
 def process_downloaded_alerts(payload, common_event_fields, user_id):
-    if features.tms.is_on():
-        feature_flags = get_tenant_settings().feature_flags
-        gfw_cluster_radius = feature_flags.gfw_cluster_radius
-    else:
-        gfw_cluster_radius = settings.GFW_CLUSTER_RADIUS
+    gfw_cluster_radius = settings.GFW_CLUSTER_RADIUS
     counts = {PROCESSED_COUNTER: 0, ERROR_COUNTER: 0}
     filtered_alerts = filter_alert_based_on_confidence(payload, common_event_fields)
     clustered_alerts = cluster_alerts(filtered_alerts, gfw_cluster_radius, 1)
