@@ -3,7 +3,12 @@
 set -e
 
 function __is_pod_ready() {
-  [[ "$(kubectl get po "$1" -n $2 -o 'jsonpath={.status.conditions[?(@.type=="Ready")].status}')" == 'True' ]]
+  pod_status=`kubectl get po "$1" -n "$2" --no-headers | awk '{print $3}'`
+  if [[ $pod_status -eq "Running" ]]; then
+    return 0
+  fi
+
+  return 1
 }
 
 function __pods_ready() {
