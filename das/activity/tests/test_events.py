@@ -17,6 +17,7 @@ import pytest
 import pytz
 from drf_extra_fields.geo_fields import PointField
 from kombu import Connection
+from psycopg2.extras import DateTimeTZRange
 
 import django.contrib.auth
 from django.contrib.auth.models import Permission
@@ -3505,10 +3506,39 @@ class TestEventView2(BaseTestToolMixin):
     api_path = "activity/events/"
     view = views.EventsView
 
+    def test_not_auto_add_report_to_patrol_earlier_than_open_patrol(self, five_patrol_segment_subject):
+        patrol = Patrol.objects.order_by("created_at").last()
+        segment = patrol.patrol_segments.first()
+        subject = patrol.patrol_segments.first().leader
+        segment.time_range = DateTimeTZRange(lower=datetime.now(tz=pytz.utc) + timedelta(hours=1))
+        segment.save()
+
+        event_data = {
+            "event_type": "acoustic_detection",
+            "reported_by": SubjectSerializer(subject).data,
+            "time": datetime.now().isoformat(),
+            "event_details": {"type_accident": "1", "number_people_involved": 5, "animals_involved": "1"},
+        }
+
+        url = f"{reverse('events')}"
+        client = HTTPClient()
+        client.app_user.is_superuser = True
+        client.app_user.save()
+        request = client.factory.post(url, data=event_data)
+        client.force_authenticate_with_cyber_tracker(request, client.app_user)
+        response = views.EventsView.as_view()(request)
+
+        segment.refresh_from_db()
+
+        assert response.status_code == 201
+        assert segment.events.count() == 0
+
     def test_auto_add_report_to_patrols(self, five_patrol_segment_subject):
         patrol = Patrol.objects.order_by("created_at").last()
         segment = patrol.patrol_segments.first()
         subject = patrol.patrol_segments.first().leader
+        segment.time_range = DateTimeTZRange(lower=datetime.now(tz=pytz.utc) - timedelta(hours=1))
+        segment.save()
 
         event_data = {
             "event_type": "acoustic_detection",
@@ -3529,6 +3559,35 @@ class TestEventView2(BaseTestToolMixin):
 
         assert response.status_code == 201
         assert segment.events.count() >= 1
+        assert segment.events.first().event_type.value == event_data["event_type"]
+
+    def test_not_auto_add_report_to_patrol_if_segment_included_in_call(self, five_patrol_segment_subject):
+        patrol = Patrol.objects.order_by("created_at").last()
+        segment = patrol.patrol_segments.first()
+        subject = patrol.patrol_segments.first().leader
+
+        assert segment.events.count() == 0
+
+        event_data = {
+            "event_type": "acoustic_detection",
+            "reported_by": SubjectSerializer(subject).data,
+            "time": datetime.now().isoformat(),
+            "event_details": {"type_accident": "1", "number_people_involved": 5, "animals_involved": "1"},
+            "patrol_segments": [str(segment.id)],
+        }
+
+        url = f"{reverse('events')}"
+        client = HTTPClient()
+        client.app_user.is_superuser = True
+        client.app_user.save()
+        request = client.factory.post(url, data=event_data)
+        client.force_authenticate_with_cyber_tracker(request, client.app_user)
+        response = views.EventsView.as_view()(request)
+
+        segment.refresh_from_db()
+
+        assert response.status_code == 201
+        assert segment.events.count() == 1
         assert segment.events.first().event_type.value == event_data["event_type"]
 
     @pytest.mark.parametrize(
