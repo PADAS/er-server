@@ -96,6 +96,9 @@ def which_field_search_for(application):
 
 
 def auto_add_report_to_patrols(application, event):
+    if event.patrol_segments.exists():
+        return
+
     field_to_search = which_field_search_for(application)
 
     if field_to_search:
@@ -103,8 +106,10 @@ def auto_add_report_to_patrols(application, event):
 
         if subject:
             segments = PatrolSegment.objects.filter(leader_id=subject.id, patrol__state=PC_OPEN)
+            event_time = event.event_time
             for segment in segments:
-                segment.events.add(event)
+                if segment.time_range and not segment.time_range.isempty and event_time in segment.time_range:
+                    segment.events.add(event)
 
 
 class EventCategorySerializer(ModelSerializer):
@@ -751,9 +756,6 @@ class EventSerializer(EventSerializerMixin, ModelSerializer):
             if geometries_exits:
                 self._delete_event_geometries(instance)
 
-        request = self.context["request"]
-        if hasattr(request, "auth"):
-            auto_add_report_to_patrols(request.auth.application, instance)
         return instance
 
     def get_contains(self, event):
