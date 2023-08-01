@@ -660,7 +660,7 @@ pygments==2.15.1
     #   nbconvert
 pyjwt==2.7.0
     # via twilio
-pymet==0.1.25
+pymet==0.1.26
     # via -r requirements.in
 pyparsing==3.0.9
     # via

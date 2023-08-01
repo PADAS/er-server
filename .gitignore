@@ -1,4 +1,5 @@
 das/das_server/chrisdo_settings.py
+GENERATED_MANIFEST
 /das/www
 # Created by .ignore support plugin (hsz.mobi)
 ### Python template
@@ -40,9 +41,9 @@ var/
 .vs/*
 
 ### VisualStudioCode ###
-.vscode/*      # Maybe .vscode/**/* instead - see comments
-!.vscode/settings.json
-!.vscode/tasks.json
+.vscode/*
+#!.vscode/settings.json
+#!.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
 
