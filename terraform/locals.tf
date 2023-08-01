@@ -450,6 +450,8 @@ locals {
     "pnr"                     = "prod1"
     "cocodrilodelorinoco"     = "prod1"
     "snareaware"              = "prod1"
+    "mtcamdeboo"              = "prod1"
+    "mbametdjerem"            = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -666,6 +668,7 @@ locals {
     "sinergia-azul-monitoreo" = 1
     "pvsnl"                   = 1
     "cocodrilodelorinoco"     = 1
+    "mtcamdeboo"              = 1
   }
 
   db_instance_index  = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
