@@ -2214,6 +2214,49 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
         for k, v in event_details.items():
             self.assertNotIsInstance(v, dict)
 
+    def test_property_name_same_as_checkbox_enum_name(self):
+        et_schema = schema_examples.POACHERS_SCHEMA
+        event_type = self.sample_event.event_type
+        event_type.schema = et_schema
+        event_type.save()
+
+        choice = Choice.objects.create(
+            model="activity.event",
+            field="illegal_activities_deployed_assets",
+            value="aircraft_cfz",
+            display="CFZ",
+        )
+
+        choice = Choice.objects.create(
+            model="activity.event",
+            field="poacherscamp_sighting_action",
+            value="poacherscamp_sighting_action_arrests",
+            display="Arrests made",
+        )
+
+        choice = Choice.objects.create(
+            model="activity.event",
+            field="infrustructure",
+            value="infrustructure_camp",
+            display="Camp",
+        )
+
+        event_data = copy.deepcopy(self.event_data)
+        event_data["event_type"] = event_type.value
+        event_data["event_details"] = {
+            "details_dt": [{"number": 1, "infrustructure": "infrustructure_camp"}],
+            "poachers_camp_action": ["poacherscamp_sighting_action_arrests"],
+            "poacherscamp_sighting_action": ["aircraft_cfz"],
+        }
+
+        request = self.factory.post(self.api_base + "/events/", event_data)
+        self.force_authenticate(request, self.all_perms_user)
+        response = views.EventsView.as_view()(request)
+        self.assertEqual(response.status_code, 201)
+        event_details = response.data.get("event_details")
+        for k, v in event_data["event_details"].items():
+            assert k in event_details
+
     def test_property_checkboxes(self):
         event_data = copy.deepcopy(self.event_data)
         event_data["event_type"] = ET_OTHER

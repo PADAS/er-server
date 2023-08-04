@@ -412,3 +412,160 @@ CONFISCATION_SCHEMA = """
  ]
 }
 """
+
+POACHERS_SCHEMA = """
+{
+    "schema":
+    {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "title": "EventType Test Data",
+
+        "type": "object",
+
+		 "properties":
+         {
+
+            "reportreportername": {
+                "type": "string",
+                "title": "Reporter's Name"
+            },
+			"reportphonenumber": {
+                "type": "number",
+                "title": "Telephone Number"
+            },
+            "event_time": {
+                "title": "Event Time",
+                "key": "Event Time"
+            },
+			 "camp_size": {
+                "type": "string",
+                "title": "Size of Camp",
+                "enum": {{enum___camp_size___values}},
+                "enumNames": {{enum___camp_size___names}}
+            },
+			"estimated_no_of_people": {
+                "type": "number",
+                "title": "Estimated Number of People"
+            },
+			"camp_age": {
+                "type": "string",
+                "title": "Age of camp",
+				"enum": {{enum___camp_age___values}},
+                "enumNames": {{enum___camp_age___names}}
+            },
+			"details_dt":{
+                "title": "Details",
+                "type": "array",
+                "items":
+                    {
+                        "type":"object",
+                        "properties":{
+
+                            "infrustructure":{
+                                "title": "Infrastructure",
+                                "type":"string",
+                                "enum": {{enum___infrustructure___values}},
+                                "enumNames": {{enum___infrustructure___names}}
+                                },
+                                "number":{
+                                "title": "Number",
+                                "type":"number"
+                                }
+                        }
+                    }
+                },
+            "poacherscamp_sighting_action": {
+                 "key": "illegal_activities_deployed_assets"
+            },
+            "poachers_camp_action": {
+                "key": "poacherscamp_sighting_action"
+            }
+		 }
+	},
+		 "definition": [
+
+            {
+                "type": "fieldset",
+                "htmlClass": "col-lg-12",
+                "items": [
+                    {"key": "event_time", "fieldHtmlClass": "date-time-picker json-schema"}
+                    ]
+                },
+                {
+                "type": "fieldset",
+                "title": "Reporter's Details",
+                "htmlClass": "col-lg-12",
+                "items": []
+                },
+                {
+                "type": "fieldset",
+                "htmlClass": "col-lg-6",
+                "items": [
+                "reportreportername"
+                ]
+                },
+                {
+                "type": "fieldset",
+                "htmlClass": "col-lg-6",
+                "items": [
+                "reportphonenumber"
+                ]
+                },
+                {
+                "type": "fieldset",
+                "title": "Poacher Camp Details",
+                "htmlClass": "col-lg-12",
+                "items": []
+                },
+                {
+                "type": "fieldset",
+                "htmlClass": "col-lg-12",
+                "items": [
+                "camp_size"
+                ]
+                },
+                {
+                "type": "fieldset",
+                "htmlClass": "col-lg-6",
+                "items": [
+                "estimated_no_of_people"
+                ]
+                },
+                {
+                "type": "fieldset",
+                "htmlClass": "col-lg-6",
+                "items": [
+                "camp_age"
+                ]
+                },
+                {
+                "type":"fieldset",
+                "htmlClass":"col-lg-12",
+                "items":[
+                    "details_dt"
+                ]
+                },
+                {
+                "type": "fieldset",
+                "title": "Action",
+                "htmlClass": "col-lg-12",
+                "items": []
+            },
+            {
+                "type": "fieldset",
+                "htmlClass": "col-lg-12",
+                "items": [
+                    {"key": "poacherscamp_sighting_action", "type": "checkboxes", "title": "Deployed Assets", "titleMap": {{enum___illegal_activities_deployed_assets___map}}}
+                ]
+            },
+            {
+                "type": "fieldset",
+                "htmlClass": "col-lg-12",
+                "items": [
+                    {"key": "poachers_camp_action", "type": "checkboxes", "title": "Outcome", "titleMap": {{enum___poacherscamp_sighting_action___map}}}
+                ]
+                }
+
+		 ]
+}
+"""
