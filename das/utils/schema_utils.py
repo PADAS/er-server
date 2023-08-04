@@ -363,6 +363,29 @@ def handle_checkboxes_in_fieldsets(definition_item, values):
     return ";".join(ids), ";".join(names)
 
 
+def get_enum_names_for_field(field_name, schema_field, flattened_definitions):
+    """Find the choice list for this json schema property.
+        If this property uses an enumNames field to present a dictionary of value/display values, just return it
+        For checkboxes, we need to navigate to the definition for this field, looking for titleMap which is the enumNames
+        we are looking for.
+    Args:
+        schema_field : json schema property
+        all_schema_definitions: list of UI definitions
+    """
+    if "enumNames" in schema_field:
+        return schema_field["enumNames"]
+
+    for definition_item in flattened_definitions:
+        if (
+            isinstance(definition_item, dict)
+            and field_name == definition_item.get("key")
+            and definition_item.get("type") == "checkboxes"
+        ):
+            return definition_item.get("titleMap", {})
+
+    return {}
+
+
 def generate_index(start_at=0, incr=1):
     while True:
         yield start_at
@@ -487,10 +510,23 @@ def get_details_and_display_values(event, schema):
         return {}
 
 
-def get_rendered_schema(schema):
+def get_rendered_all(schema):
     renderer = get_schema_renderer_method()
     rendered_schema = renderer(schema)
-    return rendered_schema["schema"]
+    return rendered_schema
+
+
+def get_rendered_schema(schema):
+    return get_rendered_all(schema)["schema"]
+
+
+def get_all_fields_and_definitions(schema):
+    try:
+        rendered = get_rendered_all(schema)
+        return rendered["schema"]["properties"], rendered.get("definition", {})
+    except Exception as ex:
+        logger.error("Error rendering schema with empty data", ex)
+        return {}, {}
 
 
 def get_all_field_names(schema):
@@ -499,11 +535,8 @@ def get_all_field_names(schema):
 
 
 def get_all_fields(schema):
-    try:
-        return get_rendered_schema(schema)["properties"]
-    except Exception as ex:
-        logger.error("Error rendering schema with empty data", ex)
-        return {}
+    fields, definitions = get_all_fields_and_definitions(schema)
+    return fields
 
 
 def get_empty_params(schema):

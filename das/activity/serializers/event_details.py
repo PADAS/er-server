@@ -9,12 +9,14 @@ from accounts.serializers import UserDisplaySerializer, get_user_display
 from activity.models import EventDetails, EventType
 from revision.manager import ACTION_UPDATED
 from utils.schema_utils import (
+    flatten_definition_items,
     generate_event_type_schema_from_doc,
-    get_all_fields,
+    get_all_fields_and_definitions,
     get_display_value_header_for_key,
     get_display_values_for_event_details,
     get_dynamic_choices,
     get_enum_choices,
+    get_enum_names_for_field,
     get_replacement_fields_in_schema,
     get_schema_renderer_method,
     get_table_choices,
@@ -88,8 +90,8 @@ class EventDetailsSerializer(ModelSerializer):
             elif replacement_field["lookup"] == "table":
                 parameters[replacement_field["field"]] = get_table_choices(replacement_field, as_string=False)
 
-        all_schema_fields = get_all_fields(schema)
-        return all_schema_fields, parameters
+        all_schema_fields, all_definitions = get_all_fields_and_definitions(schema)
+        return all_schema_fields, all_definitions, parameters
 
     def _to_internal_value_inner(self, instance, data):
         if instance is None:
@@ -110,8 +112,8 @@ class EventDetailsSerializer(ModelSerializer):
             schema = json.dumps(schema, indent=2)
             EventType.objects.filter(id=event_type.id).update(schema=schema)
 
-        all_schema_fields, parameters = self.get_schema_fields_possible_values(schema)
-
+        all_schema_fields, all_schema_definitions, parameters = self.get_schema_fields_possible_values(schema)
+        flattened_definitions = list(flatten_definition_items(all_schema_definitions))
         # Append field information to the data we're getting so we know how to
         # get back to the source. Needed by the export to CSV feature
         # This code does not understand arrays and does not visit and annotate
@@ -120,16 +122,20 @@ class EventDetailsSerializer(ModelSerializer):
         for k, v in data.items():
             if k not in all_schema_fields or all_schema_fields[k].get("type", "unset") in ["array"]:
                 ret[k] = v
-            elif type(v) == dict and k in parameters and v["value"] in parameters[k]:
-                ret[k] = {"name": parameters[k][v["value"]], "value": v["value"]}
-            elif type(v) == list and k in parameters:
+                continue
+
+            schema_field = all_schema_fields[k]
+            enum_names = get_enum_names_for_field(k, schema_field, flattened_definitions)
+            if type(v) == dict and enum_names and v["value"] in enum_names:
+                ret[k] = {"name": enum_names[v["value"]], "value": v["value"]}
+            elif type(v) == list and enum_names:
                 all_values = []
                 for value in v:
                     matches = []
-                    for d in parameters[k]:
-                        if isinstance(d, dict) and d["value"] == value:
-                            matches.append(d)
-                        elif value == d:
+                    for choice in enum_names:
+                        if isinstance(choice, dict) and choice["value"] == value:
+                            matches.append(choice)
+                        elif value == choice:
                             matches.append(value)
                     if len(matches) > 0:
                         all_values.append(matches[0])
