@@ -27,6 +27,8 @@ from analyzers.models import GlobalForestWatchSubscription
 from das_server import celery
 from revision.manager import RevisionMixin
 from utils import stats
+from utils.features import features
+from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +165,15 @@ def process_alert_for_subscription(layer_slug, subscription_id, validated_data, 
             download_url, GlobalForestWatchSubscription.objects.get(subscription_id=subscription_id)
         )
 
-    result = celery.app.send_task("analyzers.tasks.download_gfw_alerts", args=(download_url, event_dict, user_id))
+    kwargs = {}
+    if features.tms.is_on():
+        kwargs["domain"] = get_tenant_settings().domain
+
+    result = celery.app.send_task(
+        "analyzers.tasks.download_gfw_alerts",
+        args=(download_url, event_dict, user_id),
+        kwargs=kwargs,
+    )
     logger.info("Submitted task for downloading GFW Alerts. Celery Async result: %s", result)
 
 

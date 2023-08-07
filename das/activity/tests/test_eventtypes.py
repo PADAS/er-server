@@ -236,7 +236,9 @@ class TestEventTypeAPI:
 
         assert response.data["geometry_type"] == mocked_geometry_type.value
 
-    def test_response_includes_etag_and_last_modified_headers(self, superuser_client, five_event_types):
+    def test_response_includes_etag_and_last_modified_headers(
+        self, superuser_client, five_event_types, memory_store_client_mock
+    ):
         event_type_id = str(five_event_types[0].id)
         url = reverse("eventtype", kwargs={"eventtype_id": event_type_id})
 
@@ -252,7 +254,9 @@ class TestEventTypeAPI:
         assert isinstance(empty_response, HttpResponseNotModified)
 
     @pytest.mark.parametrize("field_update", EVENT_TYPE_UPDATES)
-    def test_field_update_generates_new_etag_response_header(self, superuser_client, five_event_types, field_update):
+    def test_field_update_generates_new_etag_response_header(
+        self, superuser_client, five_event_types, field_update, memory_store_client_mock
+    ):
         event_type = five_event_types[0]
         event_type_id = str(event_type.id)
         url = reverse("eventtype", kwargs={"eventtype_id": event_type_id})
@@ -282,7 +286,9 @@ class TestEventTypeAPI:
 
 @pytest.mark.django_db
 class TestEventTypesAPI:
-    def test_response_includes_etag_and_last_modified_headers(self, superuser_client, five_event_types):
+    def test_response_includes_etag_and_last_modified_headers(
+        self, superuser_client, five_event_types, memory_store_client_mock
+    ):
         url = reverse("eventtypes")
 
         response_with_info = superuser_client.get(url, HTTP_IF_NONE_MATCH='"non-matching-etag"')
@@ -297,7 +303,9 @@ class TestEventTypesAPI:
         assert isinstance(empty_response, HttpResponseNotModified)
 
     @pytest.mark.parametrize("field_update", EVENT_TYPE_UPDATES)
-    def test_field_update_generates_new_etag_response_header(self, superuser_client, five_event_types, field_update):
+    def test_field_update_generates_new_etag_response_header(
+        self, superuser_client, five_event_types, field_update, memory_store_client_mock
+    ):
         event_type = five_event_types[0]
         url = reverse("eventtypes")
         field_to_update, new_value = field_update

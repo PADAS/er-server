@@ -1,7 +1,6 @@
 """
 message publishing module
 """
-
 import logging
 import re
 import signal
@@ -17,8 +16,10 @@ from redis.exceptions import ConnectionError
 from django.apps import apps
 from django.conf import settings
 
+from das_server.utils import append_domain_into_message
 from utils import stats
 from utils.decorator import retry_on_exception
+from utils.tenant.decorators import append_tenant_domain
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,8 @@ def get_pool():
     return _pool
 
 
-def publish(message, routing_key="das"):
+@append_tenant_domain
+def publish(message, routing_key="das", **kwargs):
     """Broadcast a message.
 
     :param message: JSONifyable message to send
@@ -61,6 +63,7 @@ def publish(message, routing_key="das"):
         stats.increment("publish", tags=[f"routing_key:{routing_key}"], sample_rate=1.0)
         with get_pool().acquire(block=True, timeout=PUBLISH_TIMEOUT) as conn:
             producer = conn.Producer(exchange=das_exchange)
+            message = append_domain_into_message(message=message, domain=kwargs.get("domain"))
             producer.publish(message, routing_key=routing_key)
 
     except Exception:

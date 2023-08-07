@@ -35,11 +35,14 @@ from activity.models import (
     StateFilters,
 )
 from activity.serializers import PatrolSerializer
+from activity.tasks import execute_maintain_patrol_state
 from client_http import HTTPClient
+from conftest import TENANT_RESPONSE
 from core.tests import BaseAPITest
 from das_server.celery import app
 from observations.materialized_views import patrols_view
 from observations.models import Source, Subject, SubjectSource
+from utils.tenant import Tenant
 
 pytestmark = pytest.mark.django_db
 User = django.contrib.auth.get_user_model()
@@ -1348,7 +1351,9 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertTrue("End Time" in response.data["patrol_segments"][0]["updates"][0].get("message"))
 
-    def test_patrolsegment_history_autoendtime(self):
+    @patch("activity.signals.get_tenant_settings")
+    def test_patrolsegment_history_autoendtime(self, get_tenant_settings):
+        get_tenant_settings.return_value = Tenant.from_dict(TENANT_RESPONSE)
         PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
         now = datetime.datetime.now(tz=pytz.utc)
@@ -1401,10 +1406,11 @@ class TestPatrol(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.assertTrue("End Time" in response.data["patrol_segments"][0]["updates"][0].get("message"))
 
-    def test_maintain_patrol_state(self):
+    @patch("utils.tenant.providers.TenantData.get")
+    def test_maintain_patrol_state(self, mock_tenant_data):
+        mock_tenant_data.return_value = TENANT_RESPONSE
         # Monkey-patch send_task to execute task by blocking; because task_always_eager has no effect on send_task.
         app.send_task = send_task
-        from activity.tasks import maintain_patrol_state
 
         PatrolSegment.objects.all().delete()
         Patrol.objects.all().delete()
@@ -1412,7 +1418,7 @@ class TestPatrol(BaseAPITest):
 
         patrol = dict(title="alpha", patrol_segments=[{"time_range": {"end_time": set_time.isoformat()}}])
         self._create_patrol(patrol)
-        maintain_patrol_state()
+        execute_maintain_patrol_state(domain="zoo.com")
         p = Patrol.objects.get(title="alpha")
         self.assertEqual(p.state, "done")
 
@@ -1431,7 +1437,7 @@ class TestPatrol(BaseAPITest):
             title="alpha2", state="cancelled", patrol_segments=[{"time_range": {"end_time": set_time.isoformat()}}]
         )
         self._create_patrol(patrol)
-        maintain_patrol_state()
+        execute_maintain_patrol_state(domain="zoo.com")
         self.assertEqual(Patrol.objects.get(title="alpha2").state, "cancelled")
 
     def test_update_status(self):
@@ -2236,7 +2242,9 @@ class TestPatrolView:
 
         assert data["state"] == PC_DONE
 
-    def test_response_contains_etag_and_last_modified_headers(self, superuser_client, five_patrol_segment):
+    def test_response_contains_etag_and_last_modified_headers(
+        self, superuser_client, five_patrol_segment, memory_store_client_mock
+    ):
         patrol_type_id = str(PatrolType.objects.first().id)
         url = reverse("patrol-type", kwargs={"id": patrol_type_id})
 
@@ -2254,7 +2262,9 @@ class TestPatrolView:
 
 @pytest.mark.django_db
 class TestPatroslView:
-    def test_response_contains_etag_and_last_modified_headers(self, superuser_client, five_patrol_segment):
+    def test_response_contains_etag_and_last_modified_headers(
+        self, superuser_client, five_patrol_segment, memory_store_client_mock
+    ):
         url = reverse("patrol-types")
 
         response_with_info = superuser_client.get(url, HTTP_IF_NONE_MATCH='"non-matching-etag"')

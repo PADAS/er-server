@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 
 from accounts.serializers import UserSerializer
@@ -5,7 +7,11 @@ from accounts.serializers import UserSerializer
 
 @pytest.mark.django_db
 class TestUserSerializer:
-    def test_serialized_user(self, ops_user, subject):
+    @pytest.mark.usefixtures("tenant_response_for_test_case")
+    @patch("accounts.serializers.get_tenant_settings")
+    def test_serialized_user(self, get_tenant_settings, ops_user, subject):
+        get_tenant_settings.return_value = self.tenant_response
+
         ops_user.username = "username"
         ops_user.first_name = "Antonio"
         ops_user.last_name = "Banderas"

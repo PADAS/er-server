@@ -214,7 +214,11 @@ class GFWAlertHandlerTest(BaseAPITest):
             self._post_data(json.dumps(GLAD_ALERT))
             self.assertEqual(mock_download_process_alerts.call_count, 1)
 
-    def test_with_bad_subscription_id(self):
+    @pytest.mark.usefixtures("tenant_response_for_test_case")
+    @patch("analyzers.gfw_inbound.get_tenant_settings")
+    def test_with_bad_subscription_id(self, get_tenant_settings):
+        get_tenant_settings.return_value = self.tenant_response
+
         # save glad test data's subscription_id in the db
         self._create_and_get_test_model()
         response = self._post_data(json.dumps(VIIRS_FIRE_ALERT))  # send in viirs data, different subscription_id
@@ -226,8 +230,13 @@ class GFWAlertHandlerTest(BaseAPITest):
         response = GFWAlertHandlerView.as_view()(request, self.provider)
         return response
 
+    @pytest.mark.usefixtures("tenant_response_for_test_case")
+    @pytest.mark.usefixtures("memory_store_client_mock")
+    @patch("analyzers.gfw_inbound.get_tenant_settings")
     @patch("requests.get")
-    def test_filter_confidence_level_for_deforestation(self, mock_request):
+    def test_filter_confidence_level_for_deforestation(self, mock_request, get_tenant_settings):
+        get_tenant_settings.return_value = self.tenant_response
+
         mock_request.return_value = Mock(status_code=200, text=json.dumps(GLAD_ALERT_DOWNLOADED_DATA))
 
         geom_coord = (
@@ -267,9 +276,13 @@ class GFWAlertHandlerTest(BaseAPITest):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(clustered_alerts), Event.objects.all().count())
 
-    # @patch('analyzers.gfw_utils.get_viirs_fire_alerts')
+    @pytest.mark.usefixtures("tenant_response_for_test_case")
+    @pytest.mark.usefixtures("memory_store_client_mock")
+    @patch("analyzers.gfw_inbound.get_tenant_settings")
     @patch("analyzers.tasks.requests.post")
-    def test_filter_confidence_level_for_fire(self, mock_request):
+    def test_filter_confidence_level_for_fire(self, mock_request, get_tenant_settings):
+        get_tenant_settings.return_value = self.tenant_response
+
         mock_request.return_value = Mock(status_code=200, text=json.dumps(VIIRS_FIRE_ALERT_DOWNLOADED_DATA))
         # mock_callback.return_value = VIIRS_CALLBACK_DATA
 
@@ -299,7 +312,11 @@ class GFWAlertHandlerTest(BaseAPITest):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(clustered_alerts), Event.objects.all().count())
 
-    def test_webhook_verify_params(self):
+    @pytest.mark.usefixtures("tenant_response_for_test_case")
+    @patch("analyzers.gfw_inbound.get_tenant_settings")
+    def test_webhook_verify_params(self, get_tenant_settings):
+        get_tenant_settings.return_value = self.tenant_response
+
         sub = self._create_and_get_test_model(
             glad_conf=gfw_model.BOTH_CONFIRMED_UNCONFIRMED,
             additional={"alert_types": [GFWLayerSlugs.GLAD_ALERTS.value]},
@@ -326,8 +343,13 @@ class GFWAlertHandlerTest(BaseAPITest):
             _, args_dict = mock_task.call_args
             self._verify_viirs_params(sub, date(2019, 6, 24), date(2019, 6, 25), args_dict["args"][0])
 
+    @pytest.mark.usefixtures("tenant_response_for_test_case")
+    @pytest.mark.usefixtures("memory_store_client_mock")
+    @patch("analyzers.gfw_inbound.get_tenant_settings")
     @patch("requests.get")
-    def test_eventdetails_update(self, mock_request):
+    def test_eventdetails_update(self, mock_request, get_tenant_settings):
+        get_tenant_settings.return_value = self.tenant_response
+
         mock_request.return_value = Mock(status_code=200, text=json.dumps(GLAD_ALERT_DOWNLOADED_DATA))
         app.send_task = send_task
         self._create_and_get_test_model(

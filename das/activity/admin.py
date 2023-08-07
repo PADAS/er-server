@@ -37,6 +37,8 @@ from activity.tasks import recreate_event_details_view, refresh_event_details_vi
 from core.admin import InlineExtraDynamicMixin
 from core.common import TIMEZONE_USED, AdminFeatureFlag
 from core.openlayers import OSMGeoExtendedAdmin, PropsOSMGeoAdminMixin
+from utils.features import features
+from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +176,6 @@ class CommunityAdmin(admin.ModelAdmin):
 
 @admin.register(models.EventType)
 class EventTypeAdmin(admin.ModelAdmin):
-
     form = EventTypeForm
     ordering = ("display", "value", "ordernum", "category", "default_priority", "default_state")
     list_filter = ("category", "geometry_type")
@@ -248,7 +249,6 @@ class EventTypeAdmin(admin.ModelAdmin):
         return form
 
     def get_event_source_link(self, object_id):
-
         try:
             eventsource = models.EventSource.objects.get(event_type_id=object_id)
         except models.EventSource.DoesNotExist:
@@ -262,7 +262,6 @@ class EventTypeAdmin(admin.ModelAdmin):
             }
 
     def change_view(self, request, object_id, form_url="", extra_context=None):
-
         extra_context = extra_context or {}
         extra_context["eventsource_ref"] = self.get_event_source_link(object_id)
 
@@ -327,7 +326,6 @@ class EventSourceAdmin(admin.ModelAdmin):
     )
 
     def get_event_type_ref(self, object_id):
-
         try:
             eventsource = models.EventSource.objects.get(id=object_id)
             event_type = eventsource.event_type
@@ -344,7 +342,6 @@ class EventSourceAdmin(admin.ModelAdmin):
                 }
 
     def change_view(self, request, object_id, form_url="", extra_context=None):
-
         extra_context = extra_context or {}
         extra_context["eventtype_ref"] = self.get_event_type_ref(object_id)
         return super().change_view(request, object_id, form_url=form_url, extra_context=extra_context)
@@ -570,7 +567,12 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
 
     def refresh_view(self, request):
         try:
-            task = refresh_event_details_view.apply_async(args=("Admin",))
+            if features.tms.is_on():
+                task = refresh_event_details_view.apply_async(
+                    args=("Admin",), kwargs={"domain": get_tenant_settings().domain}
+                )
+            else:
+                task = refresh_event_details_view.apply_async(args=("Admin",))
         except AlreadyQueued:
             self.message_user(request, f"Task to refresh event_detail view is already queued", messages.WARNING)
             return HttpResponseRedirect("../")
@@ -582,12 +584,14 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
 
     def recreate_view(self, request):
         try:
-            task = recreate_event_details_view.apply_async()
+            if features.tms.is_on():
+                task = recreate_event_details_view.apply_async(kwargs={"domain": get_tenant_settings().domain})
+            else:
+                task = recreate_event_details_view.apply_async()
         except AlreadyQueued:
             self.message_user(request, f"Task to recreate event_detail view is already queued", messages.WARNING)
             return HttpResponseRedirect("../")
 
-        # status = dict(self.model.STATUS_MESSAGE).get('SUCCESS')
         task_mode = self.model.RECREATE
         qs_method = self.model.objects.recreate
         name = "recreate"

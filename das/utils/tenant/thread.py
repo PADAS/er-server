@@ -2,7 +2,10 @@ import logging
 import threading
 
 from utils.tenant.dataclass import Tenant
-from utils.tenant.exceptions import TenantDataclassException
+from utils.tenant.exceptions import (
+    TenantDataclassException,
+    TenantNotFoundInLocalThreadException,
+)
 
 logger = logging.getLogger(__name__)
 TENANT_DEFAULT_KEY = "tenant"
@@ -24,10 +27,13 @@ def set_tenant_settings(value: dict) -> None:
 
 def get_tenant_settings() -> Tenant:
     local_thread = _get_main_thread()
-    tenant_settings = getattr(local_thread, TENANT_DEFAULT_KEY)
-    logger.info(f"Getting tenant settings for host: {tenant_settings.domain}")
+    try:
+        tenant_settings = getattr(local_thread, TENANT_DEFAULT_KEY)
+        logger.debug(f"Getting tenant settings for host: {tenant_settings.domain}")
 
-    return tenant_settings
+        return tenant_settings
+    except AttributeError:
+        raise TenantNotFoundInLocalThreadException()
 
 
 def clear_tenant_settings():

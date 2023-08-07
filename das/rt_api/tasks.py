@@ -5,8 +5,6 @@ from collections import namedtuple
 from functools import partial
 from uuid import UUID
 
-from celery_once import QueueOnce
-
 from django.db import close_old_connections
 from django.urls import reverse
 from rest_framework.exceptions import PermissionDenied
@@ -24,8 +22,10 @@ from observations.utils import LOCATION, get_position, get_user_key
 from observations.views import FlattenObservationsView, SubjectStatusView
 from rt_api import client
 from rt_api.rest_api_interface.dummy_request import DummyRequest
+from utils.features import features
 from utils.stats import update_gauge
-from utils.tenant.celery import OverAllTenantTask
+from utils.tenant import get_tenant_settings
+from utils.tenant.celery import OverAllTenantTask, TenantQueueOnceTask, TenantTask
 
 logger = logging.getLogger(__name__)
 
@@ -199,8 +199,8 @@ def get_filtered_patrols(patrol_filter, queryset):
     return queryset
 
 
-@celery.app.task(base=QueueOnce, once={"graceful": True})
-def _broadcast_service_status(service_status_data=None):
+@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
+def _broadcast_service_status(service_status_data=None, **kwargs):
     service_status_data = service_status_data or servicesutils.get_source_provider_statuses()
 
     try:
@@ -223,7 +223,7 @@ def _broadcast_service_status(service_status_data=None):
 
 @celery.app.task(base=OverAllTenantTask)
 def broadcast_service_status():
-    _broadcast_service_status.apply_async()
+    _broadcast_service_status.apply(kwargs={"domain": get_tenant_settings().domain} if features.tms.is_on() else {})
 
 
 def _subjectstatus_update_handler(subject_id):
@@ -331,45 +331,35 @@ def get_observations_view(view, user, subject_id, created_after):
     return result.data
 
 
-@celery.app.task()
-def handle_new_event(event_id):
+@celery.app.task(base=TenantTask)
+def handle_new_event(event_id, **kwargs):
     logger.info("Celery worker handling new event_id: %s", event_id, extra={"rt.event": "new"})
     logger.info("Calling _event_handler with event id %s from handle_new_event", event_id)
     _event_handler(event_id, "new_event")
 
 
-@celery.app.task()
-def handle_update_event(event_id):
+@celery.app.task(base=TenantTask)
+def handle_update_event(event_id, **kwargs):
     logger.info("Celery worker handling update event_id: %s", event_id, extra={"rt.event": "update"})
     _event_handler(event_id, "update_event")
 
 
-@celery.app.task()
-def handle_delete_event(event_id):
+@celery.app.task(base=TenantTask)
+def handle_delete_event(event_id, **kwargs):
     logger.info("Celery worker handling delete event_id: %s", event_id, extra={"rt.event": "delete"})
     _event_handler(event_id, "delete_event")
 
 
-@celery.app.task(
-    base=QueueOnce,
-    once={
-        "graceful": True,
-    },
-)
-def handle_new_subject_observation(subject_id):
+@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
+def handle_new_subject_observation(subject_id, **kwargs):
     logger.info(
         "Celery worker handling new observation.", extra={"subject_id": subject_id, "rt.event": "new_subject_obs"}
     )
     _observation_handler(subject_id)
 
 
-@celery.app.task(
-    base=QueueOnce,
-    once={
-        "graceful": True,
-    },
-)
-def handle_subjectstatus_update(subject_id):
+@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
+def handle_subjectstatus_update(subject_id, **kwargs):
     logger.info(
         "Celery worker handling subjectstatus update.",
         extra={"subject_id": subject_id, "rt.event": "subjectstatus_update"},
@@ -516,52 +506,52 @@ def _announcement_handler(object_id, action):
         close_old_connections()
 
 
-@celery.app.task()
-def handle_new_patrol(patrol_id):
+@celery.app.task(base=TenantTask)
+def handle_new_patrol(patrol_id, **kwargs):
     logger.info("Celery worker handling new patrol_id: %s", patrol_id, extra={"rt.patrol": "new"})
     _patrol_handler(patrol_id, "new_patrol")
 
 
-@celery.app.task()
-def handle_update_patrol(patrol_id):
+@celery.app.task(base=TenantTask)
+def handle_update_patrol(patrol_id, **kwargs):
     logger.info("Celery worker handling update patrol_id: %s", patrol_id, extra={"rt.patrol": "update"})
     _patrol_handler(patrol_id, "update_patrol")
 
 
-@celery.app.task()
-def handle_delete_patrol(patrol_id):
+@celery.app.task(base=TenantTask)
+def handle_delete_patrol(patrol_id, **kwargs):
     logger.info("Celery worker handling delete patrol_id: %s", patrol_id, extra={"rt.patrol": "delete"})
     _patrol_handler(patrol_id, "delete_patrol")
 
 
-@celery.app.task()
-def handle_new_message(message_id):
+@celery.app.task(base=TenantTask)
+def handle_new_message(message_id, **kwargs):
     logger.info(f"Celery worker handling new message id: {message_id}", extra={"rt.message": "new_message"})
     _radio_message_handler(message_id)
 
 
-@celery.app.task()
-def handle_update_message(message_id):
+@celery.app.task(base=TenantTask)
+def handle_update_message(message_id, **kwargs):
     logger.info(f"Celery worker handling update message id: {message_id}", extra={"rt.message": "update_message"})
     _radio_message_handler(message_id)
 
 
-@celery.app.task()
-def handle_delete_message(message_id):
+@celery.app.task(base=TenantTask)
+def handle_delete_message(message_id, **kwargs):
     logger.info(f"Celery worker handling deleting message id: {message_id}", extra={"rt.message": "delete_message"})
     _radio_message_handler(message_id, "delete_message")
 
 
-@celery.app.task()
-def handle_new_announcement(announcement_id):
+@celery.app.task(base=TenantTask)
+def handle_new_announcement(announcement_id, **kwargs):
     logger.info(
         f"Celery worker handling new announcement id: {announcement_id}", extra={"rt.message": "new_announcement"}
     )
     _announcement_handler(announcement_id, "new_announcement")
 
 
-@celery.app.task()
-def handle_emit_data(event_id):
+@celery.app.task(base=TenantTask)
+def handle_emit_data(event_id, **kwargs):
     logger.info("event mailer event_id: %s", event_id)
 
 
