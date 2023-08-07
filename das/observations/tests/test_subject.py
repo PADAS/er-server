@@ -2,6 +2,7 @@ import json
 import os
 import uuid
 from datetime import datetime, timedelta
+from unittest import mock
 from unittest.mock import patch
 
 import dateutil.parser as dateparser
@@ -22,6 +23,7 @@ from django.urls import reverse
 
 from accounts.models import PermissionSet
 from client_http import HTTPClient
+from conftest import TENANT_RESPONSE
 from core.tests import BaseAPITest
 from observations.admin import GPXAdmin
 from observations.models import (
@@ -39,6 +41,7 @@ from observations.models import (
 from observations.tasks import process_trackpoints
 from observations.utils import calculate_track_range
 from observations.views import GPXFileUploadView, SubjectsView, SubjectView
+from utils.tenant import Tenant
 
 User = django.contrib.auth.get_user_model()
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tests")
@@ -540,8 +543,12 @@ class SubjectTestCase(BaseAPITest):
 
         self.assertEqual(GPXTrackFile.objects.count(), 1)
 
+    @mock.patch("utils.tenant.managers.TenantData.get")
+    @mock.patch("observations.admin.get_tenant_settings")
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    def test_gpxfile_upload_on_adminpage(self):
+    def test_gpxfile_upload_on_adminpage(self, get_tenant_settings, tenant_data):
+        get_tenant_settings.return_value = Tenant.from_dict(TENANT_RESPONSE)
+        tenant_data.return_value = TENANT_RESPONSE
         subject = Subject.objects.get(name="Topsy")
         subject_source = SubjectSource.objects.get(subject=subject)
         data = File(open(os.path.join(TESTS_PATH, "testdata/gpsmap_data.gpx"), "rb"))
@@ -579,12 +586,6 @@ class SubjectTestCase(BaseAPITest):
             self.assertTrue("was successfully uploaded for processing" in messages._queued_messages[0].message)
             self.assertEqual(gpx_object.count(), 1)
             self.assertEqual(processed_status[0].get("processed_status"), "success")
-
-            # This is an example of trackpoint that we expect to be saved in the observation table.
-            # <trkpt lat="-2.573374444618821" lon="37.896002875640988">
-            #     <ele>1244.769999999999982</ele>
-            #     <time>2020-06-06T05:17:26Z</time>
-            #  </trkpt>
 
             trkpoint_lat = "-2.573374444618821"
             trkpoint_lon = "37.896002875640988"
@@ -668,8 +669,12 @@ class SubjectTestCase(BaseAPITest):
         returned_since = since.replace(microsecond=0, second=0).isoformat()
         self.assertEqual(returned_since, expected_since)
 
+    @mock.patch("utils.tenant.managers.TenantData.get")
+    @mock.patch("observations.views.get_tenant_settings")
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    def test_process_gpx_file_upload_via_api(self):
+    def test_process_gpx_file_upload_via_api(self, get_tenant_settings, tenant_data):
+        get_tenant_settings.return_value = Tenant.from_dict(TENANT_RESPONSE)
+        tenant_data.return_value = TENANT_RESPONSE
         subject = Subject.objects.get(name="Topsy")
         subject_source = SubjectSource.objects.get(subject=subject)
         file = File(open(os.path.join(TESTS_PATH, "testdata/gpsmap_data.gpx"), "rb"))
@@ -733,8 +738,10 @@ class SubjectTestCase(BaseAPITest):
         response = GPXFileUploadView.as_view()(request, id=str(subject_source.source_id))
         self.assertEqual(response.status_code, 403)
 
+    @mock.patch("observations.views.get_tenant_settings")
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    def test_process_gpx_upload_with_create_observation_perm(self):
+    def test_process_gpx_upload_with_create_observation_perm(self, get_tenant_settings):
+        get_tenant_settings.return_value = Tenant.from_dict(TENANT_RESPONSE)
         # give user with no permission, permission to create observation.
         subject = Subject.objects.get(name="Topsy")
         subject_source = SubjectSource.objects.get(subject=subject)

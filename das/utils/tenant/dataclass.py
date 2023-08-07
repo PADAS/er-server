@@ -50,6 +50,8 @@ class FeatureFlags:
     kml_export: Optional[bool] = field(metadata=config(field_name="kmlExport"), default=False)
     mapping_features_v2: Optional[bool] = field(metadata=config(field_name="mappingFeaturesV2"), default=False)
     tableau_enabled: Optional[bool] = field(metadata=config(field_name="tableauEnabled"), default=False)
+    tableau_site_id: Optional[bool] = field(metadata=config(field_name="tableauSiteId"), default=False)
+    track_length: Optional[bool] = field(metadata=config(field_name="trackLength"), default=False)
 
 
 @dataclass_json
@@ -86,7 +88,7 @@ class Tenant:
             decoder=datetime.fromisoformat,
         )
     )
-    feature_flags: str = field(metadata=config(field_name="featureFlags"))
+    feature_flags: FeatureFlags = field(metadata=config(field_name="featureFlags"))
     env_settings: EnvironmentSettings = field(metadata=config(field_name="envSettings"))
     services: Services = field(metadata=config(field_name="services"))
     status: Optional[str] = field(metadata=config(field_name="status"), default=None)

@@ -1,8 +1,6 @@
 import logging
 from datetime import datetime, timezone
 
-from celery_once import QueueOnce
-
 from django.db import transaction
 
 from das_server import celery
@@ -13,7 +11,7 @@ from mapping.esri_integration import (
     wfs_download_return_messages,
 )
 from observations.utils import convert_date_string
-from utils.tenant.celery import OverAllTenantTask
+from utils.tenant.celery import OverAllTenantTask, TenantQueueOnceTask
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +24,8 @@ def automate_download_features_from_wfs():
         load_features_from_wfs.apply_async(args=(obj.id, obj.groups.group_id))
 
 
-@celery.app.task(base=QueueOnce, once={"graceful": True})
-def load_features_from_wfs(obj_id, group_id):
+@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
+def load_features_from_wfs(obj_id, group_id, *args, **kwargs):
     # Task only accepts primitive data, access config objects using obj_id
     arc_config, wfs_group = get_wfs_config_objects(obj_id, group_id)
     errored_files, success_files, group_members = [], [], wfs_group.content()
@@ -71,8 +69,8 @@ def get_wfs_config_objects(obj_id, group_id):
     return obj, wfs_group
 
 
-@celery.app.task(base=QueueOnce, once={"graceful": True})
-def load_spatial_features_from_files(spatialfile_id):
+@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
+def load_spatial_features_from_files(spatialfile_id, *args, **kwargs):
     object_model = models.SpatialFeatureFile
 
     try:

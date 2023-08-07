@@ -11,18 +11,29 @@ def start(realtime_server):
     def new_event_handler(data, message):
         logger.debug("new_event_handler. data=%s, message=%s", data, message)
         logger.info("Calling handle_new_event function from pubsub")
-        celery.app.send_task("rt_api.tasks.handle_new_event", args=(data["event_id"],))
+        celery.app.send_task(
+            "rt_api.tasks.handle_new_event",
+            args=(data["event_id"],),
+            kwargs={"domain": data.pop("domain", None)},
+        )
 
     def update_event_handler(data, message):
         logger.debug("update_event_handler. data=%s, message=%s", data, message)
-        celery.app.send_task("rt_api.tasks.handle_update_event", args=(data["event_id"],))
+        celery.app.send_task(
+            "rt_api.tasks.handle_update_event",
+            args=(data["event_id"],),
+            kwargs={"domain": data.pop("domain", None)},
+        )
 
     def delete_event_handler(data, message):
         logger.debug("delete_event_handler. data=%s, message=%s", data, message)
-        celery.app.send_task("rt_api.tasks.handle_delete_event", args=(data["event_id"],))
+        celery.app.send_task(
+            "rt_api.tasks.handle_delete_event",
+            args=(data["event_id"],),
+            kwargs={"domain": data.pop("domain", None)},
+        )
 
     def new_observation_handler(data, message):
-
         # Resolve the subject from either subject_id or source_id provided in data dict.
         # TODO: Move this resolution logic into Subject Manager.
         if "subject_id" in data:
@@ -43,26 +54,46 @@ def start(realtime_server):
 
             try:
                 if Subject.objects.get(id=subject_id).is_active:
-                    celery.app.send_task("rt_api.tasks.handle_new_subject_observation", args=(subject_id,))
+                    celery.app.send_task(
+                        "rt_api.tasks.handle_new_subject_observation",
+                        args=(subject_id,),
+                        kwargs={"domain": data.pop("domain", None)},
+                    )
             except Subject.DoesNotExist:
                 pass
 
     def subjectstatus_update_handler(data, message):
         logger.debug("das.subjectstatus.update %s", data)
         if "subject_id" in data:
-            celery.app.send_task("rt_api.tasks.handle_subjectstatus_update", args=(data["subject_id"],))
+            celery.app.send_task(
+                "rt_api.tasks.handle_subjectstatus_update",
+                args=(data["subject_id"],),
+                kwargs={"domain": data.pop("domain", None)},
+            )
 
     def new_patrol_handler(data, message):
         logger.debug("new_patrol_handler. data=%s, message=%s", data, message)
-        celery.app.send_task("rt_api.tasks.handle_new_patrol", args=(data["patrol_id"],))
+        celery.app.send_task(
+            "rt_api.tasks.handle_new_patrol",
+            args=(data["patrol_id"],),
+            kwargs={"domain": data.pop("domain", None)},
+        )
 
     def update_patrol_handler(data, message):
         logger.debug("update_patrol_handler. data=%s, message=%s", data, message)
-        celery.app.send_task("rt_api.tasks.handle_update_patrol", args=(data["patrol_id"],))
+        celery.app.send_task(
+            "rt_api.tasks.handle_update_patrol",
+            args=(data["patrol_id"],),
+            kwargs={"domain": data.pop("domain", None)},
+        )
 
     def delete_patrol_handler(data, message):
         logger.debug("delete_patrol_handler. data=%s, message=%s", data, message)
-        celery.app.send_task("rt_api.tasks.handle_delete_patrol", args=(data["patrol_id"],))
+        celery.app.send_task(
+            "rt_api.tasks.handle_delete_patrol",
+            args=(data["patrol_id"],),
+            kwargs={"domain": data.pop("domain", None)},
+        )
 
     def emit_handler(data, message):
         message_data = json.loads(data)
@@ -74,19 +105,35 @@ def start(realtime_server):
 
     def new_message_handler(data, message):
         logger.debug("new_message_handler. data=%s, message=%s", data, message)
-        celery.app.send_task("rt_api.tasks.handle_new_message", args=(data["message_id"],))
+        celery.app.send_task(
+            "rt_api.tasks.handle_new_message",
+            args=(data["message_id"],),
+            kwargs={"domain": data.pop("domain", None)},
+        )
 
     def update_message_handler(data, message):
         logger.debug("update_message_handler. data=%s, message=%s", data, message)
-        celery.app.send_task("rt_api.tasks.handle_update_message", args=(data["message_id"],))
+        celery.app.send_task(
+            "rt_api.tasks.handle_update_message",
+            args=(data["message_id"],),
+            kwargs={"domain": data.pop("domain", None)},
+        )
 
     def delete_message_handler(data, message):
         logger.debug("delete_message_handler. data=%s, message=%s", data, message)
-        celery.app.send_task("rt_api.tasks.handle_delete_message", args=(data["message_id"],))
+        celery.app.send_task(
+            "rt_api.tasks.handle_delete_message",
+            args=(data["message_id"],),
+            kwargs={"domain": data.pop("domain", None)},
+        )
 
     def new_announcement_handler(data, message):
         logger.debug("new_announcement_handler. data=%s, message=%s", data, message)
-        celery.app.send_task("rt_api.tasks.handle_new_announcement", args=(data["announcement_id"],))
+        celery.app.send_task(
+            "rt_api.tasks.handle_new_announcement",
+            args=(data["announcement_id"],),
+            kwargs={"domain": data.pop("domain", None)},
+        )
 
     def pubsub_listener(listener_name: str):
         logger.info("Starting pubsub listener")

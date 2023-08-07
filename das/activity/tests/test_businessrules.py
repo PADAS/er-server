@@ -42,6 +42,7 @@ from activity.tasks import (
     evaluate_conditions_for_sending_alerts,
     send_alert_to_notificationmethod,
 )
+from conftest import TENANT_RESPONSE
 from core.tests import BaseAPITest
 from core.utils import NonHttpRequest, OneWeekSchedule
 from observations.models import CommonName, Subject, SubjectGroup
@@ -168,7 +169,6 @@ class BusinessRulesTestCase(BaseAPITest):
         return AlertRuleListView.as_view()(request)
 
     def test_just_the_rules_engine_variables(self):
-
         alert_actions = []
 
         class TestEventVariables(variables.BaseVariables):
@@ -222,7 +222,6 @@ class BusinessRulesTestCase(BaseAPITest):
                 alert_actions.append(self.event)
 
         export_rule_data(TestEventVariables, EventActions)
-        # print(json.dumps(exported_rule_data, indent=2))
 
         sample_rules = [
             {
@@ -338,7 +337,6 @@ class BusinessRulesTestCase(BaseAPITest):
 
     @staticmethod
     def test_generate_global_eventvariables():
-
         variables_class, _ = _generate_aggregate_event_variables_class(
             EventType.objects.all(), only_common_factors=True
         )
@@ -348,7 +346,6 @@ class BusinessRulesTestCase(BaseAPITest):
 
     @staticmethod
     def test_filtered_eventvariables():
-
         variables_class, _ = _generate_aggregate_event_variables_class(
             EventType.objects.filter(value__in=["sit_rep", "fence_rep"])
         )
@@ -385,7 +382,6 @@ class BusinessRulesTestCase(BaseAPITest):
         pass
 
     def test_adding_and_updating_notification_method(self):
-
         email_2 = "user2@tempuri.org"
 
         # Create a notification method
@@ -394,7 +390,6 @@ class BusinessRulesTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 201)
 
         notification_method_id = response.data["id"]
-        print(f"NotificationMethod.id: {notification_method_id}")
 
         self.assertEqual(response.data["contact"]["value"], "+12062147021")
 
@@ -473,9 +468,7 @@ class BusinessRulesTestCase(BaseAPITest):
         request.user = self.power_user
         ser = EventSerializer(data=event_data, context={"request": request})
 
-        if not ser.is_valid():
-            print(f"Event is not valid. Errors are: {ser.errors}")
-        else:
+        if ser.is_valid():
             event = ser.create(ser.validated_data)
             event = Event.objects.get(id=event.id)
 
@@ -525,7 +518,6 @@ class BusinessRulesTestCase(BaseAPITest):
         # print(action_list)
 
     def test_a_real_event_against_a_defined_alert_rule(self):
-
         # Create a carcass event with some details
         carcass_eventtype = EventType.objects.get(value="carcass_rep")
 
@@ -642,7 +634,6 @@ class BusinessRulesTestCase(BaseAPITest):
         print(action_list)
 
     def test_rule_with_state_exclusion_including_updates(self):
-
         # Create a carcass event with some details
         carcass_eventtype = EventType.objects.get(value="carcass_rep")
 
@@ -1072,7 +1063,7 @@ class BusinessRulesTestCase(BaseAPITest):
 
     @patch("utils.tenant.providers.TenantData.get")
     def test_sending_a_message_for_an_event_alert(self, mock_tenant_data):
-        mock_tenant_data.return_value = {"envSettings": {"defaultFromEmail": "tenant_user@mail.com"}}
+        mock_tenant_data.return_value = TENANT_RESPONSE
 
         # Create a carcass event with some details
         carcass_eventtype = EventType.objects.get(value="carcass_rep")
@@ -1108,8 +1099,6 @@ class BusinessRulesTestCase(BaseAPITest):
             event = ser.create(ser.validated_data)
             event = Event.objects.get(id=event.id)
 
-        print(f'Event Details: {event.event_details.latest("updated_at").data}')
-
         ed = event.event_details.latest("updated_at")
         ed.data["event_details"]["carcassrep_sex"] = {"name": "Female", "value": "female"}
         ed.save()
@@ -1139,18 +1128,20 @@ class BusinessRulesTestCase(BaseAPITest):
             request.user = self.power_user
             ser = AlertRuleSerializer(data=ar, context={"request": request})
             if not ser.is_valid():
-                print(f"AlertRule is not valid. Errors are: {ser.errors}")
+                pass
             else:
                 rule = ser.create(ser.validated_data)
                 rule = AlertRule.objects.get(id=rule.id)
                 alert_rules_list.append(rule)
 
         send_alert_to_notificationmethod(
-            alert_rule_id=str(rule.id), event_id=str(event.id), notification_method_id=str(notification_method_id)
+            alert_rule_id=str(rule.id),
+            event_id=str(event.id),
+            notification_method_id=str(notification_method_id),
+            domain="zoo.com",
         )
 
     def test_event_alert_template(self):
-
         get_template("eventalert.html")
 
     def test_schedule_schema(self):
@@ -1204,7 +1195,7 @@ class BusinessRulesTestCase(BaseAPITest):
 
     @patch("utils.tenant.providers.TenantData.get")
     def test_notification_triggered_for_subject_group(self, mock_tenant_data):
-        mock_tenant_data.return_value = {"envSettings": {"defaultFromEmail": "tenant_user@mail.com"}}
+        mock_tenant_data.return_value = TENANT_RESPONSE
 
         NOTIFICATION_METHOD_EMAIL_ADDRESS = "phillip@email.com"
         notification_method = NotificationMethod.objects.create(
@@ -1278,12 +1269,12 @@ class BusinessRulesTestCase(BaseAPITest):
         already_queued_nids = set()
         for alert_rule in AlertRule.objects.filter(id__in=alert_rule_ids).order_by("ordernum", "title"):
             for notification_method in alert_rule.notification_methods.filter(is_active=True):
-
                 if notification_method.id not in already_queued_nids:
                     kwargs = {
                         "alert_rule_id": str(alert_rule.id),
                         "event_id": str(event.id),
                         "notification_method_id": str(notification_method.id),
+                        "domain": "zoo.com",
                     }
 
                     send_alert_to_notificationmethod(**kwargs)
@@ -1293,7 +1284,6 @@ class BusinessRulesTestCase(BaseAPITest):
         self.assertIn(TEST_EVENT_TITLE, mail.outbox[0].subject)
 
     def test_notification_not_triggered_for_wrong_subject_group(self):
-
         NOTIFICATION_METHOD_EMAIL_ADDRESS = "phillip@email.com"
         notification_method = NotificationMethod.objects.create(
             title="test", owner=self.admin_user, method="email", value=NOTIFICATION_METHOD_EMAIL_ADDRESS
@@ -1361,7 +1351,6 @@ class BusinessRulesTestCase(BaseAPITest):
         already_queued_nids = set()
         for alert_rule in AlertRule.objects.filter(id__in=alert_rule_ids).order_by("ordernum", "title"):
             for notification_method in alert_rule.notification_methods.filter(is_active=True):
-
                 if notification_method.id not in already_queued_nids:
                     kwargs = {
                         "alert_rule_id": str(alert_rule.id),

@@ -85,7 +85,6 @@ MIDDLEWARE = (
     "oauth2_provider.middleware.OAuth2TokenMiddleware",
     "utils.middleware.TenantSettingsMiddleware",
     "revision.middleware.RevisionMiddleware",
-    "utils.middleware.TimezoneMiddleware",
     "utils.middleware.RequestLoggingMiddleware",
     "utils.middleware.EULARedirectMiddleware",
     "utils.middleware.GeographicMiddleware",

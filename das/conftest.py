@@ -45,6 +45,56 @@ from utils.tenant import Tenant
 
 User = apps.get_model(app_label="accounts", model_name="User")
 
+TENANT_RESPONSE = {
+    "id": "c0973be2-8e11-4cb8-8463-897fb96391d0",
+    "createdAt": "2022-11-14T21:09:02.519164+00:00",
+    "updatedAt": "2022-11-14T21:09:02.519165+00:00",
+    "name": "Frank test1",
+    "slugName": "frank-test1",
+    "url": "http://zoo.com",
+    "domain": "zoo.com",
+    "status": "PROVISIONING",
+    "envSettings": {
+        "acceptEula": False,
+        "allServerNames": None,
+        "apiHost": "192.167.2.5",
+        "apiPort": "4000",
+        "defaultEventFilterFromDays": None,
+        "defaultPatrolFilterFromDays": None,
+        "defaultFromEmail": "frank@mail.com",
+        "enableDebug": False,
+        "enableDev": False,
+        "eusOrg": None,
+        "fromEmail": "dev@mail.com",
+        "fqdn": "http://zoo.com",
+        "geoPermissionSpeedKmH": 75,
+        "geoPermissionRadiusMeters": 3704,
+        "geoPermissionViolationBanDurationMin": 10,
+        "gsBucketName": None,
+        "kmlOverlayImage": None,
+        "kmlFeedTitle": "EarthRanger KML service",
+        "patrolEnabled": False,
+        "sendSmsTwilioFromNumber": "+520123365458",
+        "showStationarySubjectsOnMap": False,
+        "showTrackDays": False,
+        "subjectRegionEnabled": False,
+        "tableauDefaultDashboard": False,
+        "tableauSiteId": False,
+        "trackLength": False,
+    },
+    "featureFlags": {
+        "alertsEnabled": False,
+        "dailyReportEnabled": False,
+        "kmlExport": False,
+        "mappingFeaturesV2": True,
+        "tableauEnabled": False,
+    },
+    "services": {
+        "auth": {"status": "PROVISIONING", "statusMessage": None, "updatedAt": ""},
+        "media": {"status": "PROVISIONING", "statusMessage": None, "updatedAt": ""},
+    },
+}
+
 
 class APIClientWithUser(APIClient):
     user: User = None
@@ -348,48 +398,7 @@ def five_observations():
 
 @pytest.fixture
 def tenant_response():
-    return {
-        "id": "c0973be2-8e11-4cb8-8463-897fb96391d0",
-        "createdAt": "2022-11-14T21:09:02.519164+00:00",
-        "domain": "zoo.com",
-        "name": "Frank test1",
-        "slugName": "frank-test1",
-        "status": "PROVISIONING",
-        "updatedAt": "2022-11-14T21:09:02.519165+00:00",
-        "url": "http://zoo.com",
-        "envSettings": {
-            "tableauDefaultDashboard": None,
-            "tableauSiteId": None,
-            "patrolEnabled": False,
-            "showStationarySubjectsOnMap": True,
-            "showTrackDays": 16,
-            "subjectRegionEnabled": True,
-            "trackLength": 21,
-            "acceptEula": False,
-            "allServerNames": None,
-            "defaultEventFilterFromDays": 1,
-            "defaultPatrolFilterFromDays": 1,
-            "eusOrg": None,
-            "fqdn": None,
-            "geoPermissionSpeedKmH": 75,
-            "geoPermissionRadiusMeters": 3704,
-            "geoPermissionViolationBanDurationMin": 10,
-            "gsBucketName": None,
-            "kmlOverlayImage": None,
-            "kmlFeedTitle": "EarthRanger KML service",
-        },
-        "featureFlags": {
-            "alertsEnabled": True,
-            "dailyReportEnabled": False,
-            "kmlExport": True,
-            "mappingFeaturesV2": False,
-            "tableauEnabled": False,
-        },
-        "services": {
-            "auth": {"status": "PROVISIONING", "statusMessage": None},
-            "media": {"status": "PROVISIONING", "statusMessage": None},
-        },
-    }
+    return TENANT_RESPONSE
 
 
 @pytest.fixture

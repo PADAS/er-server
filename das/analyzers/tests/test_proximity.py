@@ -34,7 +34,7 @@ from observations.models import (
     SubjectTrackSegmentFilter,
 )
 
-from ..tasks import analyze_subject
+from ..tasks import analyze_subject_
 from .analyzer_test_utils import (
     generate_observations,
     generate_random_positions,
@@ -92,7 +92,6 @@ class TestProximityAnalyzer(TestCase):
         return out_json
 
     def setUp(self):
-
         data = File(open(os.path.join(FIXTURE_PATH, "lines.geojson"), "rb"))
         feature_types_file = File(open(os.path.join(FIXTURE_PATH, "spatial_feature_types.geojson"), "rb"))
 
@@ -372,7 +371,7 @@ class TestFeatureProximityAnalyzerQuietPeriod:
             observation.recorded_at = timezone.now() - timedelta(hours=6, minutes=minutes * 15)
             observation.save()
 
-        analyze_subject(subject.id)
+        analyze_subject_(subject.id)
 
         assert f"Pausing analyzer with id={feature_proximity_analyzer_config.id}" in caplog.text
         assert f"The analyzer {feature_proximity_analyzer_config.id} is quiet for a while" not in caplog.text
@@ -428,8 +427,8 @@ class TestFeatureProximityAnalyzerQuietPeriod:
             observation.recorded_at = timezone.now() - timedelta(hours=6, minutes=minutes * 15)
             observation.save()
 
-        analyze_subject(subject.id)
-        analyze_subject(subject.id)
+        analyze_subject_(subject.id)
+        analyze_subject_(subject.id)
 
         assert f"Pausing analyzer with id={feature_proximity_analyzer_config.id}" in caplog.text
         assert f"The analyzer {feature_proximity_analyzer_config.id} is quiet for a while" in caplog.text

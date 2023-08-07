@@ -40,9 +40,11 @@ from activity.models import (
     NotificationMethod,
 )
 from activity.signals import event_post_save
-from activity.tasks import evaluate_alert_rules
+from activity.tasks import execute_evaluate_alert_rules
 from choices.models import DynamicChoice
+from conftest import TENANT_RESPONSE
 from observations.models import SEX_FEMALE, Subject, SubjectSubType, SubjectType
+from utils.tenant import Tenant
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +118,9 @@ class TestAlerts(TestCase):
             self.assertEqual(state.get("name"), coerce_state_value(val=state.get("value")))
 
     @patch("activity.alerting.message.send_report")
-    def test_sending_email_alert(self, mock_send_report):
+    @patch("activity.alerting.rate_limit.get_tenant_settings")
+    def test_sending_email_alert(self, get_tenant_settings, mock_send_report):
+        get_tenant_settings.return_value = Tenant.from_dict(TENANT_RESPONSE)
         post_save.disconnect(event_post_save, sender=Event)
 
         event = Event.objects.create(title="test event", event_type=self.event_type, created_by_user=self.owner)
@@ -130,7 +134,6 @@ class TestAlerts(TestCase):
         send_event_alert(
             alert_rule_id=self.alert_rule.id, event_id=event.id, notification_method_id=self.notification_method.id
         )
-
         self.assertTrue(mock_send_report.called)
         _, kwargs = mock_send_report.call_args
         self.assertEqual(self.notification_method.value, kwargs.get("to_email"))
@@ -139,7 +142,7 @@ class TestAlerts(TestCase):
 
     @patch("utils.tenant.providers.TenantData.get")
     def test_only_sending_notifications_when_the_condition_value_changes(self, mock_tenant_data):
-        mock_tenant_data.return_value = {"envSettings": {"defaultFromEmail": "tenant_user@mail.com"}}
+        mock_tenant_data.return_value = TENANT_RESPONSE
 
         with self.settings(CELERY_TASK_ALWAYS_EAGER=True):
             notification_method = NotificationMethod.objects.create(
@@ -163,7 +166,7 @@ class TestAlerts(TestCase):
                 title="test event", event_type=self.event_type, created_by_user=self.owner, state="new"
             )
 
-            evaluate_alert_rules(event.id, created=True)
+            execute_evaluate_alert_rules(event.id, created=True, domain="zoo.com")
 
             self.assertEqual(len(mail.outbox), 1)
 
@@ -172,7 +175,7 @@ class TestAlerts(TestCase):
             event.title = "New title"
             event.save()
 
-            evaluate_alert_rules(event.id, created=False)
+            execute_evaluate_alert_rules(event.id, created=False, domain="zoo.com")
 
             # no email sent so outbox should still have 1 email
             self.assertEqual(len(mail.outbox), 1)
@@ -287,17 +290,19 @@ class TestAlertsLimit:
         mock_set_key.assert_called_once_with(key=key, value=0, ttl=settings.ALERTS_RATE_LIMIT_DURATION_SECONDS)
         assert counter == 0
 
-    @override_settings(SERVER_FQDN="www.earthranger.com")
-    def test_increment_alert_counter(self, superuser, monkeypatch, caplog):
+    @override_settings(SERVER_FQDN="http://zoo.com")
+    def test_increment_alert_counter(self, superuser, monkeypatch, caplog, tenant_response):
         caplog.set_level(logging.INFO)
         mock = MagicMock(return_value=1)
         monkeypatch.setattr("activity.alerting.rate_limit.alerts_storage.increment_key_by_value", mock)
+        tenant_settings = Tenant.from_dict(tenant_response)
+        monkeypatch.setattr("activity.alerting.rate_limit.get_tenant_settings", MagicMock(return_value=tenant_settings))
 
         increment_alert_counter(superuser, NOTIFICATION_METHOD_EMAIL)
         key = KEY_ALERT_LIMIT.format(superuser.id)
 
         mock.assert_called_once_with(key, 1)
-        assert f"Site www.earthranger.com message sent {NOTIFICATION_METHOD_EMAIL} alert" in caplog.text
+        assert f"Site http://zoo.com message sent {NOTIFICATION_METHOD_EMAIL} alert" in caplog.text
 
     @override_settings(ALERTS_RATE_LIMIT=20)
     def test_allow_send_event_alert_allowed(self, superuser, monkeypatch):
@@ -310,9 +315,11 @@ class TestAlertsLimit:
         mock.assert_called_once_with(key)
 
     @override_settings(ALERTS_RATE_LIMIT=20)
-    def test_allow_send_event_alert_not_allowed(self, superuser, monkeypatch):
+    def test_allow_send_event_alert_not_allowed(self, superuser, monkeypatch, tenant_response):
         mock = MagicMock(return_value=20)
         monkeypatch.setattr("activity.alerting.rate_limit.alerts_storage.get_key", mock)
+        tenant_settings = Tenant.from_dict(tenant_response)
+        monkeypatch.setattr("activity.alerting.rate_limit.get_tenant_settings", MagicMock(return_value=tenant_settings))
 
         key = KEY_ALERT_LIMIT.format(superuser.id)
 

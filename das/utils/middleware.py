@@ -270,17 +270,5 @@ class TenantSettingsMiddleware:
         return response
 
 
-class TimezoneMiddleware:
-    def __init__(self, get_response):
-        self.get_response = get_response
-
-    def __call__(self, request):
-        if features.tms.is_on():
-            timezone_name = get_tenant_settings().time_zone
-            if timezone_name:
-                timezone.activate(pytz.timezone(timezone_name))
-        return self.get_response(request)
-
-
 def is_check_eula_path(path):
     return path == "/admin/"

@@ -15,7 +15,7 @@ from analyzers.models import (
     SubjectAnalyzerResult,
 )
 from analyzers.models.speed_profile import SpeedDistro, SubjectSpeedProfile
-from analyzers.tasks import analyze_subject
+from analyzers.tasks import analyze_subject_
 from analyzers.tests.analyzer_test_utils import (
     parse_recorded_at,
     store_observations,
@@ -266,7 +266,7 @@ class TestLowSpeedAnalyzer(TestCase):
         self.assertTrue(speed_val > 0.0)
 
         # Run the analyzer
-        analyze_subject(str(sub.id))
+        analyze_subject_(str(sub.id))
 
         # Get the results
         results = SubjectAnalyzerResult.objects.all()
@@ -282,7 +282,6 @@ class TestLowSpeedAnalyzer(TestCase):
                 print(f"Event Details: {event_details.data}")
 
     def test_wilcoxon_result(self):
-
         # Create models (Subject, SubjectSource and Source)
         sub = Subject.objects.create(name="Heritage", subject_subtype_id="elephant")
 
@@ -313,7 +312,7 @@ class TestLowSpeedAnalyzer(TestCase):
         LowSpeedWilcoxAnalyzerConfig.objects.create(subject_group=sg)
 
         # Run the analyzer
-        analyze_subject(str(sub.id))
+        analyze_subject_(str(sub.id))
 
         # Get the results
         results = SubjectAnalyzerResult.objects.all()

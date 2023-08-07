@@ -21,11 +21,6 @@ from utils.tenant import get_tenant_settings
 from .mixins import UserFormValidatorMixin
 from .utils import fetch_organization_choices, fetch_tech_choices
 
-if features.tms.is_on():
-    PATROL_ENABLED = get_tenant_settings().env_settings.patrol_enabled
-else:
-    PATROL_ENABLED = settings.PATROL_ENABLED
-
 ROLE_CHOICES = [
     ("", "Select One"),
     ("community-liaison-officer", _("Community Liaison Officer")),
@@ -218,7 +213,12 @@ class PermissionSetAdminForm(forms.ModelForm):
             self.fields["user_set"].initial = self.instance.user_set.all()
             self.fields["acquire_from"].initial = self.instance._parents.all()
 
-        if not PATROL_ENABLED:
+        if features.tms.is_on():
+            patrol_enabled = get_tenant_settings().env_settings.patrol_enabled
+        else:
+            patrol_enabled = settings.PATROL_ENABLED
+
+        if not patrol_enabled:
             self.fields["children"].queryset = self.fields["children"].queryset.exclude(
                 permissions__in=patrol_mgmt_permissions()
             )

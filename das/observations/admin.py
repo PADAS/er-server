@@ -1036,7 +1036,10 @@ class GPXAdmin(admin.ModelAdmin, ValidateFilterMixin):
         obj.file_name = obj.data.name
         obj.created_by = request.user
         saved = obj.save()
-        transaction.on_commit(lambda: process_gpxtrack_file.delay(obj.id))
+        domain = None
+        if features.tms.is_on():
+            domain = get_tenant_settings().domain
+        transaction.on_commit(lambda: process_gpxtrack_file.apply_async(args=[obj.id], kwargs={"domain": domain}))
         return saved
 
     def get_queryset(self, request):
@@ -1769,15 +1772,17 @@ class SourceProviderAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         obj.save()
         if "transforms" in form.changed_data:
+            domain = None
+            if features.tms.is_on():
+                domain = get_tenant_settings().domain
             transaction.on_commit(
                 lambda: [
-                    maintain_subjectstatus_for_subject.apply_async(args=[o.subject_id], kwargs={"notify": True})
+                    maintain_subjectstatus_for_subject.apply_async(
+                        args=[o.subject_id], kwargs={"notify": True, "domain": domain}
+                    )
                     for o in models.SubjectSource.objects.filter(source__provider=obj)
                 ]
             )
-
-
-# @admin.register(models.SubjectSummary)
 
 
 class SubjectSummaryAdmin(admin.ModelAdmin):

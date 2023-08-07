@@ -1700,7 +1700,10 @@ class GPXFileUploadView(generics.CreateAPIView):
     @staticmethod
     def get_async_result(file, source_id):
         try:
-            async_result = process_gpxdata_api.apply_async(args=(file, source_id))
+            domain = None
+            if features.tms.is_on():
+                domain = get_tenant_settings().domain
+            async_result = process_gpxdata_api.apply_async(args=(file, source_id), kwargs={"domain": domain})
         except exceptions.OperationalError as exc:
             raise ValidationError({"error_message": exc})
         else:
@@ -1898,7 +1901,10 @@ class MessagesView(generics.ListCreateAPIView):
             ser_data = self.save_message(request, data)
 
             message_id, user_email = ser_data.get("id"), request.user.email
-            handle_outbox_message.apply_async(args=(message_id, user_email))
+            domain = None
+            if features.tms.is_on():
+                domain = get_tenant_settings().domain
+            handle_outbox_message.apply_async(args=(message_id, user_email), kwargs={"domain": domain})
 
         headers = self.get_success_headers(ser_data)
         return Response(ser_data, status=status.HTTP_201_CREATED, headers=headers)

@@ -3,6 +3,7 @@ import threading
 import pytest
 
 from utils.features import features
+from utils.tenant.exceptions import TenantNotFoundInLocalThreadException
 from utils.tenant.thread import (
     TENANT_DEFAULT_KEY,
     Tenant,
@@ -30,3 +31,7 @@ class TestThreadStorage:
         clear_tenant_settings()
 
         assert TENANT_DEFAULT_KEY not in main_thread.__dict__.keys()
+
+    def test_no_tenant_in_main_thread(self):
+        with pytest.raises(TenantNotFoundInLocalThreadException):
+            get_tenant_settings()

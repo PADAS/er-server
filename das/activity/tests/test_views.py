@@ -335,7 +335,13 @@ class TestEventsExportView:
         return subject_source
 
     def test_event_export_view_filters_by_user_permission(
-        self, superuser_client, ops_user, client, subject_source_with_proximity_analyzer_configured, five_observations
+        self,
+        superuser_client,
+        ops_user,
+        client,
+        subject_source_with_proximity_analyzer_configured,
+        five_observations,
+        memory_store_client_mock,
     ):
         url = reverse("events-export")
         subject = subject_source_with_proximity_analyzer_configured.subject

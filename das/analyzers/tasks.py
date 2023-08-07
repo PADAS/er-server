@@ -4,7 +4,6 @@ import textwrap
 from datetime import datetime
 
 import requests
-from celery_once import QueueOnce
 from requests.exceptions import Timeout
 
 from django.core.cache import cache
@@ -20,6 +19,7 @@ from analyzers.utils import get_analyzer_key
 from das_server import celery
 from observations.models import Subject
 from observations.utils import convert_date_string
+from utils.tenant.celery import TenantQueueOnceTask, TenantTask
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +34,8 @@ def get_active_subject(subject_id):
         return False
 
 
-@celery.app.task(base=QueueOnce, once={"graceful": True, "timeout": 3 * 60})
-def handle_subject(subject_id):
+@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True, "timeout": 3 * 60})
+def handle_subject(subject_id, *args, **kwargs):
     """
     Subject-centric task to run when new observations are recorded.
 
@@ -51,7 +51,7 @@ def handle_subject(subject_id):
     analyze_subject.apply_async(args=(subject_id,))
 
 
-@celery.app.task()
+@celery.app.task(base=TenantTask)
 def handle_source(source_id):
     logger.info("Handling source %s", str(source_id))
 
@@ -66,8 +66,16 @@ def handle_source(source_id):
             handle_subject.apply_async(args=(subject_id,), countdown=60)
 
 
-@celery.app.task(base=QueueOnce)
+@celery.app.task(base=TenantQueueOnceTask)
 def analyze_subject(subject_id):
+    _analyze_subject(subject_id)
+
+
+def analyze_subject_(subject_id):
+    _analyze_subject(subject_id)
+
+
+def _analyze_subject(subject_id):
     subject = None
     logger.info("Analyze subject for id=%s", subject_id)
     try:
@@ -94,9 +102,7 @@ def analyze_subject(subject_id):
                 logger.exception("Programming error in analyzer. analyzer=%s", analyzer)
 
 
-@celery.app.task()
 def annotate_observations_for_subject(subject_id):
-
     logger.debug("Annotating observations for subject: %s", str(subject_id))
 
     try:
@@ -110,9 +116,8 @@ def annotate_observations_for_subject(subject_id):
         return
 
 
-@celery.app.task()
+@celery.app.task(base=TenantTask)
 def handle_observation(observation_id):
-
     logger.debug("Handling observation: %s", observation_id)
 
     subjects = Subject.objects.get_subjects_from_observation_id(observation_id, values=("id", "name"))
@@ -129,8 +134,8 @@ def handle_observation(observation_id):
             handle_subject.apply_async(args=(subject_id,), countdown=60)
 
 
-@celery.app.task(bind=True, max_retries=5)
-def download_gfw_alerts(self, download_url, event_dict, user_id):
+@celery.app.task(base=TenantTask, bind=True, max_retries=5)
+def download_gfw_alerts(self, download_url, event_dict, user_id, *args, **kwargs):
     subscription_id = event_dict["event_details"]["subscription_id"]
     try:
         model = gfw_model.objects.get(subscription_id=subscription_id)
@@ -195,15 +200,10 @@ def process_response(event_dict, download_url, http_response, user_id):
     return result
 
 
-def get_model_slug_pairs():
-    for subscription in gfw_model.objects.all():
-        for slug in subscription.additional["alert_types"]:
-            yield slug, subscription
-
-
 def update_status(model, status_message):
     model.last_check_time = convert_date_string(str(datetime.now()))
     model.last_check_status = textwrap.shorten(
-        status_message, gfw_model._meta.get_field("last_check_status").max_length
+        status_message,
+        gfw_model._meta.get_field("last_check_status").max_length,
     )
     model.save()

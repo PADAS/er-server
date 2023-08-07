@@ -40,8 +40,6 @@ from .forms import (
     UserAdditionalForm,
 )
 
-PATROL_ENABLED = get_tenant_settings().env_settings.patrol_enabled if features.tms.is_on() else settings.PATROL_ENABLED
-
 
 @admin.register(PermissionSet)
 class PermissionSetAdmin(DjangoGroupAdmin):
@@ -65,7 +63,10 @@ class PermissionSetAdmin(DjangoGroupAdmin):
 
     def get_queryset(self, request):
         queryset = super(PermissionSetAdmin, self).get_queryset(request)
-        if not PATROL_ENABLED:
+        patrol_enabled = (
+            get_tenant_settings().env_settings.patrol_enabled if features.tms.is_on() else settings.PATROL_ENABLED
+        )
+        if not patrol_enabled:
             return queryset.exclude(permissions__in=patrol_mgmt_permissions())
         return queryset
 
