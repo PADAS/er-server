@@ -587,11 +587,11 @@ class TestSubjectsView:
 
         return views.SubjectsView.as_view()(request), client.app_user
 
-    def test_subjects_view_with_linked_user(self, _get_superuser_client):
+    def test_subjects_view_with_linked_user(self, memory_store_client_mock, _get_superuser_client):
         response, user = _get_superuser_client
         assert response.data[0]["user"]["id"] == str(user.id)
 
-    def test_subjects_view_without_linked_user(self, _get_superuser_client):
+    def test_subjects_view_without_linked_user(self, memory_store_client_mock, _get_superuser_client):
         response, _ = _get_superuser_client
 
         assert not hasattr(response.data[0], "user")
@@ -633,7 +633,7 @@ class TestSubjectView:
 
         return views.SubjectView.as_view()(request, id=str(subject.id)), client.app_user
 
-    def test_subject_view_with_linked_user(self, _get_superuser_client):
+    def test_subject_view_with_linked_user(self, memory_store_client_mock, _get_superuser_client):
         response, user = _get_superuser_client
         assert response.data["user"]["id"] == str(user.id)
 
@@ -641,7 +641,7 @@ class TestSubjectView:
         response, user = _get_client
         assert response.data["user"]["id"] == str(user.id)
 
-    def test_subject_view_without_linked_user(self, _get_superuser_client):
+    def test_subject_view_without_linked_user(self, memory_store_client_mock, _get_superuser_client):
         response, _ = _get_superuser_client
         assert not hasattr(response.data, "user")
 

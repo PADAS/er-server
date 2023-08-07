@@ -41,6 +41,8 @@ from mapping.forms import (
 )
 from mapping.tasks import load_spatial_features_from_files
 from mapping.utils import clear_features, construct_url_param
+from utils.features import features
+from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger(__name__)
 
@@ -331,7 +333,12 @@ class BaseSpatialFileAdmin(admin.ModelAdmin):
 
         if not change:
             # load features if a new object or feature attributes are updated
-            transaction.on_commit(lambda: load_spatial_features_from_files.apply_async(args=(str(obj.id),)))
+            transaction.on_commit(
+                lambda: load_spatial_features_from_files.apply_async(
+                    args=(str(obj.id),),
+                    kwargs={"domain": get_tenant_settings().domain} if features.tms.is_on() else {},
+                )
+            )
 
         super().save_model(request, obj, form, change)
 

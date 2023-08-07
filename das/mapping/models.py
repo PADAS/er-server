@@ -19,8 +19,12 @@ from django.utils.translation import gettext_lazy as _
 
 from core.models import TimestampedModel
 from mapping.app_settings import MBTILES
-from mapping.mbtiles import (ExtractionError, GoogleProjection,
-                             InvalidFormatError, MBTilesReader)
+from mapping.mbtiles import (
+    ExtractionError,
+    GoogleProjection,
+    InvalidFormatError,
+    MBTilesReader,
+)
 from mapping.utils import SPATIAL_FILES_FOLDER, check_file_extension
 from revision.manager import Revision, RevisionMixin
 from utils.decorator import reify
@@ -28,10 +32,10 @@ from utils.decorator import reify
 logger = logging.getLogger(__name__)
 
 FILE_TYPES = (
-    ('shapefile', 'Shapefile'),
+    ("shapefile", "Shapefile"),
     # Commenting out geodatabase for now, until we can verify functionality with a .gdb file.
     # ('geodatabase', 'Geodatabase'),
-    ('geojson', 'GeoJSON'),
+    ("geojson", "GeoJSON"),
 )
 
 
@@ -39,8 +43,9 @@ class Map(TimestampedModel):
     """
     A Map defines the center location, zoom level
     """
+
     class Meta:
-        verbose_name = 'Map Quicklink'
+        verbose_name = "Map Quicklink"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
@@ -54,16 +59,17 @@ class Map(TimestampedModel):
 
 class TileLayerQuerySet(models.QuerySet):
     def by_ordernum(self):
-        return self.order_by('ordernum', 'name')
+        return self.order_by("ordernum", "name")
 
 
 class TileLayer(TimestampedModel):
     """
     External
     """
+
     class Meta:
-        verbose_name = 'Basemap'
-        ordering = ['name']
+        verbose_name = "Basemap"
+        ordering = ["name"]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
@@ -97,7 +103,7 @@ class FeatureType(TimestampedModel):
     objects = FeatureTypeManager()
 
     class Meta:
-        ordering = ['name']
+        ordering = ["name"]
 
     def __str__(self):
         return self.name
@@ -107,9 +113,11 @@ class FeatureType(TimestampedModel):
 
     @property
     def feature_count(self):
-        return PolygonFeature.objects.filter(type=self).count() + \
-            LineFeature.objects.filter(type=self).count() + \
-            PointFeature.objects.filter(type=self).count()
+        return (
+            PolygonFeature.objects.filter(type=self).count()
+            + LineFeature.objects.filter(type=self).count()
+            + PointFeature.objects.filter(type=self).count()
+        )
 
 
 class FeatureSetManager(models.Manager):
@@ -126,14 +134,14 @@ class FeatureSet(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
-    types = models.ManyToManyField(to=FeatureType, related_name='featuresets')
+    types = models.ManyToManyField(to=FeatureType, related_name="featuresets")
 
     description = models.TextField(null=True, blank=True)
 
     objects = FeatureSetManager()
 
     class Meta:
-        ordering = ['name']
+        ordering = ["name"]
 
     def __str__(self):
         return self.name
@@ -148,20 +156,24 @@ class TempStorage(FileSystemStorage):
         import tempfile
 
         temp_directory_name = tempfile.mkdtemp()
-        kwargs.update({'location': temp_directory_name, })
+        kwargs.update(
+            {
+                "location": temp_directory_name,
+            }
+        )
         super(TempStorage, self).__init__(**kwargs)
 
 
 def upload_to(instance, filename):
-    '''
+    """
     Providing a path to an Spatialfiles.
     :param instance: SpatialFile of SpatialFeatureFile instance
     :param filename: default filename.
     :return: relative path for storing uploaded file
-    '''
-    filename = filename.split('/')[-1]
+    """
+    filename = filename.split("/")[-1]
     timestamp = "{:%Y%m%d%H%s}".format(datetime.datetime.now())
-    file_path = f'{SPATIAL_FILES_FOLDER}/{timestamp}-{filename}'
+    file_path = f"{SPATIAL_FILES_FOLDER}/{timestamp}-{filename}"
     return file_path
 
 
@@ -169,16 +181,15 @@ class SpatialFilesBase(TimestampedModel):
     """
     Base model for uploading Spatial files such as shapefile
     """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255, blank=True,
-                            verbose_name='SpatialFile Name')
+    name = models.CharField(max_length=255, blank=True, verbose_name="SpatialFile Name")
     description = models.CharField(max_length=100, blank=True)
     data = models.FileField(upload_to=upload_to, blank=False)
     layer_number = models.IntegerField(blank=True, null=True, default=0)
     name_field = models.CharField(max_length=100, blank=True, null=True)
     id_field = models.CharField(max_length=100, blank=True, null=True)
-    status = models.CharField(
-        max_length=1000, blank=True, null=True, verbose_name='Feature Load Status')
+    status = models.CharField(max_length=1000, blank=True, null=True, verbose_name="Feature Load Status")
 
     class Meta:
         abstract = True
@@ -193,10 +204,10 @@ class SpatialFilesBase(TimestampedModel):
         Overwriting clean method to have error handling within the admin form.
         """
         if not self.data:
-            raise ValidationError({'data': []})
+            raise ValidationError({"data": []})
 
-        feature_types_file = getattr(self, 'feature_types_file', None)
-        file_type = getattr(self, 'file_type', None)
+        feature_types_file = getattr(self, "feature_types_file", None)
+        file_type = getattr(self, "file_type", None)
 
         if file_type:
             check_file_extension(self.file_type, self.data, feature_types_file)
@@ -209,11 +220,12 @@ class SpatialFile(SpatialFilesBase):
     """
     Geometry type [polygon, line, point] loaded from uploaded shapefile
     """
+
     feature_set = models.ForeignKey(to=FeatureSet, on_delete=models.PROTECT)
     feature_type = models.ForeignKey(to=FeatureType, on_delete=models.PROTECT)
 
     class Meta:
-        verbose_name = 'Spatial File'
+        verbose_name = "Spatial File"
 
 
 class Feature(TimestampedModel):
@@ -236,11 +248,9 @@ class Feature(TimestampedModel):
     # todo:  evaluate whether many-to-many might be a better approach or stick
     # with this simple approach
     # probably should be spelled feature_set
-    featureset = models.ForeignKey(
-        to=FeatureSet, null=True, on_delete=models.PROTECT)
+    featureset = models.ForeignKey(to=FeatureSet, null=True, on_delete=models.PROTECT)
 
-    spatialfile = models.ForeignKey(
-        to=SpatialFile, null=True, blank=True, on_delete=models.SET_NULL)
+    spatialfile = models.ForeignKey(to=SpatialFile, null=True, blank=True, on_delete=models.SET_NULL)
 
     @property
     def default_presentation(self):
@@ -252,11 +262,11 @@ class Feature(TimestampedModel):
 
     class Meta:
         abstract = True
-        ordering = ['name']
+        ordering = ["name"]
 
     # todo:  perhaps type and name?
     def __str__(self):
-        return u"{0}".format(self.name)
+        return "{0}".format(self.name)
 
 
 class PolygonFeature(Feature):
@@ -281,22 +291,20 @@ class MBTilesNotFoundError(Exception):
 
 class MBTilesFolderError(ImproperlyConfigured):
     def __init__(self, *args, **kwargs):
-        super(ImproperlyConfigured, self).__init__(
-            _("MBTILES['root'] '%s' does not exist") % MBTILES['root'])
+        super(ImproperlyConfigured, self).__init__(_("MBTILES['root'] '%s' does not exist") % MBTILES["root"])
 
 
 class MBTilesManager(object):
-    """ List available MBTiles in MBTILES['root']
-        source: https://github.com/makinacorpus/django-mbtiles.git
-        license: Lesser GNU Public License
+    """List available MBTiles in MBTILES['root']
+    source: https://github.com/makinacorpus/django-mbtiles.git
+    license: Lesser GNU Public License
     """
 
     def __init__(self, *args, **kwargs):
         self.logger = logging.getLogger(self.__class__.__name__)
-        if not os.path.exists(MBTILES['root']):
-            self.logger.error('MBTILES folder not set %s',
-                              MBTilesFolderError())
-        self.folder = MBTILES['root']
+        if not os.path.exists(MBTILES["root"]):
+            self.logger.error("MBTILES folder not set %s", MBTilesFolderError())
+        self.folder = MBTILES["root"]
 
     def filter(self, catalog=None):
         if catalog:
@@ -307,7 +315,7 @@ class MBTilesManager(object):
         return self
 
     def __iter__(self):
-        filepattern = os.path.join(self.folder, '*.%s' % MBTILES['ext'])
+        filepattern = os.path.join(self.folder, "*.%s" % MBTILES["ext"])
         for filename in glob.glob(filepattern):
             name, ext = os.path.splitext(filename)
             try:
@@ -319,7 +327,7 @@ class MBTilesManager(object):
 
     @property
     def _subfolders(self):
-        for dirname, dirnames, filenames in os.walk(MBTILES['root']):
+        for dirname, dirnames, filenames in os.walk(MBTILES["root"]):
             return dirnames
         return []
 
@@ -330,8 +338,8 @@ class MBTilesManager(object):
 
     def catalog_path(self, catalog=None):
         if catalog is None:
-            return MBTILES['root']
-        path = os.path.join(MBTILES['root'], catalog)
+            return MBTILES["root"]
+        path = os.path.join(MBTILES["root"], catalog)
         if os.path.exists(path):
             return path
         raise MBTilesNotFoundError(_("Catalog '%s' not found.") % catalog)
@@ -349,16 +357,15 @@ class MBTilesManager(object):
         if os.path.exists(mbtiles_file):
             return mbtiles_file
 
-        mbtiles_file = "%s.%s" % (mbtiles_file, MBTILES['ext'])
+        mbtiles_file = "%s.%s" % (mbtiles_file, MBTILES["ext"])
         if os.path.exists(mbtiles_file):
             return mbtiles_file
 
-        raise MBTilesNotFoundError(
-            _("'%s' not found in %s") % (mbtiles_file, basepath))
+        raise MBTilesNotFoundError(_("'%s' not found in %s") % (mbtiles_file, basepath))
 
 
 class MBTiles(object):
-    """ Represent a MBTiles file """
+    """Represent a MBTiles file"""
 
     objects = MBTilesManager()
 
@@ -366,8 +373,7 @@ class MBTiles(object):
         self.catalog = catalog
         self.fullpath = self.objects.fullpath(name, catalog)
         self.basename = os.path.basename(self.fullpath)
-        self._reader = MBTilesReader(
-            self.fullpath, tilesize=MBTILES['tile_size'])
+        self._reader = MBTilesReader(self.fullpath, tilesize=MBTILES["tile_size"])
 
     @property
     def id(self):
@@ -376,7 +382,7 @@ class MBTiles(object):
 
     @property
     def name(self):
-        return self.metadata.get('name', self.id)
+        return self.metadata.get("name", self.id)
 
     @property
     def filesize(self):
@@ -388,10 +394,9 @@ class MBTiles(object):
 
     @reify
     def bounds(self):
-        bounds = self.metadata.get('bounds', '').split(',')
+        bounds = self.metadata.get("bounds", "").split(",")
         if len(bounds) != 4:
-            logger.warning(
-                _("Invalid bounds metadata in '%s', fallback to whole world.") % self.name)
+            logger.warning(_("Invalid bounds metadata in '%s', fallback to whole world.") % self.name)
             bounds = [-180, -90, 180, 90]
         return tuple(map(float, bounds))
 
@@ -400,13 +405,12 @@ class MBTiles(object):
         """
         Return the center (x,y) of the map at this zoom level.
         """
-        center = self.metadata.get('center', '').split(',')
+        center = self.metadata.get("center", "").split(",")
         if len(center) == 3:
             lon, lat, zoom = map(float, center)
             zoom = int(zoom)
             if zoom not in self.zoomlevels:
-                logger.warning(_("Invalid zoom level (%s), fallback to middle zoom (%s)") % (
-                    zoom, self.middlezoom))
+                logger.warning(_("Invalid zoom level (%s), fallback to middle zoom (%s)") % (zoom, self.middlezoom))
                 zoom = self.middlezoom
             return (lon, lat, zoom)
         # Invalid center from metadata, guess center from bounds
@@ -416,12 +420,12 @@ class MBTiles(object):
 
     @property
     def minzoom(self):
-        z = self.metadata.get('minzoom', self.zoomlevels[0])
+        z = self.metadata.get("minzoom", self.zoomlevels[0])
         return int(z)
 
     @property
     def maxzoom(self):
-        z = self.metadata.get('maxzoom', self.zoomlevels[-1])
+        z = self.metadata.get("maxzoom", self.zoomlevels[-1])
         return int(z)
 
     @property
@@ -440,7 +444,7 @@ class MBTiles(object):
 
     def center_tile(self):
         lon, lat, zoom = self.center
-        proj = GoogleProjection(MBTILES['tile_size'], [zoom])
+        proj = GoogleProjection(MBTILES["tile_size"], [zoom])
         return proj.tile_at(zoom, (lon, lat))
 
     def grid(self, z, x, y, callback=None):
@@ -453,40 +457,42 @@ class MBTiles(object):
         # Raw metadata
         jsonp = dict(self.metadata)
         # Post-processed metadata
-        jsonp.update(**{
-            "bounds": self.bounds,
-            "center": self.center,
-            "minzoom": self.minzoom,
-            "maxzoom": self.maxzoom,
-            "autoscale": False,
-        })
+        jsonp.update(
+            **{
+                "bounds": self.bounds,
+                "center": self.center,
+                "minzoom": self.minzoom,
+                "maxzoom": self.maxzoom,
+                "autoscale": False,
+            }
+        )
         # Additionnal info
         try:
-            kwargs = dict(name=self.id, x='{x}', y='{y}', z='{z}')
+            kwargs = dict(name=self.id, x="{x}", y="{y}", z="{z}")
             if self.catalog:
-                kwargs['catalog'] = self.catalog
+                kwargs["catalog"] = self.catalog
             tilepattern = reverse("mapping:tile", kwargs=kwargs)
             gridpattern = reverse("mapping:grid", kwargs=kwargs)
         except NoReverseMatch:
             # In case django-mbtiles was not registered in namespace mbtilesmap
-            tilepattern = reverse("tile", kwargs=dict(
-                name=self.id, x='{x}', y='{y}', z='{z}'))
-            gridpattern = reverse("grid", kwargs=dict(
-                name=self.id, x='{x}', y='{y}', z='{z}'))
+            tilepattern = reverse("tile", kwargs=dict(name=self.id, x="{x}", y="{y}", z="{z}"))
+            gridpattern = reverse("grid", kwargs=dict(name=self.id, x="{x}", y="{y}", z="{z}"))
         tilepattern = request.build_absolute_uri(tilepattern)
         gridpattern = request.build_absolute_uri(gridpattern)
-        tilepattern = tilepattern.replace('%7B', '{').replace('%7D', '}')
-        gridpattern = gridpattern.replace('%7B', '{').replace('%7D', '}')
-        jsonp.update(**{
-            "tilejson": "2.1.0",
-            "id": self.id,
-            "name": self.name,
-            "scheme": "xyz",
-            "basename": self.basename,
-            "filesize": self.filesize,
-            "tiles": [tilepattern],
-            "grids": [gridpattern]
-        })
+        tilepattern = tilepattern.replace("%7B", "{").replace("%7D", "}")
+        gridpattern = gridpattern.replace("%7B", "{").replace("%7D", "}")
+        jsonp.update(
+            **{
+                "tilejson": "2.1.0",
+                "id": self.id,
+                "name": self.name,
+                "scheme": "xyz",
+                "basename": self.basename,
+                "filesize": self.filesize,
+                "tiles": [tilepattern],
+                "grids": [gridpattern],
+            }
+        )
         return jsonp
 
 
@@ -505,9 +511,10 @@ class SpatialFeatureGroup(TimestampedModel):
       ... better than handling as a layer group in UI as it allows grouping
        to be controlled in db?
     """
+
     class Meta:
-        verbose_name = 'Base Feature Group'
-        ordering = ['name']
+        verbose_name = "Base Feature Group"
+        ordering = ["name"]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
@@ -524,17 +531,21 @@ class SpatialFeatureGroup(TimestampedModel):
 
 class SpatialFeatureGroupQuery(SpatialFeatureGroup):
     class Meta:
-        verbose_name = 'Calculated Feature Group'
+        verbose_name = "Calculated Feature Group"
 
 
 class SpatialFeatureGroupStatic(SpatialFeatureGroup):
-    """Static group of features
-    """
-    class Meta:
-        verbose_name = 'Feature Group'
+    """Static group of features"""
 
-    features = models.ManyToManyField(to='SpatialFeature', related_name='groups', related_query_name='group',
-                                      blank=True,)
+    class Meta:
+        verbose_name = "Feature Group"
+
+    features = models.ManyToManyField(
+        to="SpatialFeature",
+        related_name="groups",
+        related_query_name="group",
+        blank=True,
+    )
 
 
 class DisplayCategoryManager(models.Manager):
@@ -547,10 +558,11 @@ class DisplayCategory(TimestampedModel):
     If the clients wish to group layers in a control or for ease of administration
     Boundaries, Water, Security etc.
     """
+
     class Meta:
-        verbose_name = 'Display Category'
-        verbose_name_plural = 'Display Categories'
-        ordering = ['name']
+        verbose_name = "Display Category"
+        verbose_name_plural = "Display Categories"
+        ordering = ["name"]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=255, unique=True)
@@ -577,9 +589,9 @@ class SpatialFeatureTypeManager(models.Manager):
 
 class SpatialFeatureType(TimestampedModel):
     class Meta:
-        verbose_name = 'Feature Class'
-        verbose_name_plural = 'Feature Classes'
-        ordering = ['name']
+        verbose_name = "Feature Class"
+        verbose_name_plural = "Feature Classes"
+        ordering = ["name"]
 
     objects = SpatialFeatureTypeManager()
 
@@ -592,15 +604,13 @@ class SpatialFeatureType(TimestampedModel):
 
     # presentation fields
     # Boundaries, Water, Security etc.
-    display_category = models.ForeignKey(
-        to='DisplayCategory', on_delete=models.PROTECT, blank=True, null=True)
+    display_category = models.ForeignKey(to="DisplayCategory", on_delete=models.PROTECT, blank=True, null=True)
     # JSON Field for defining the basic presentation of the feature
     presentation = models.JSONField(default=dict, blank=True)
     provenance = models.JSONField(default=dict, blank=True)
-    external_id = models.CharField(max_length=255, unique=True, blank=True,
-                                   null=True)
+    external_id = models.CharField(max_length=255, unique=True, blank=True, null=True)
     external_source = models.CharField(max_length=100, blank=True)
-    is_visible = models.BooleanField(_('visible'), default=True)
+    is_visible = models.BooleanField(_("visible"), default=True)
 
     # Points: https://www.mapbox.com/mapbox-gl-style-spec/#layers-symbol
     # Lines: https://www.mapbox.com/mapbox-gl-style-spec/#layers-line
@@ -624,12 +634,10 @@ class SpatialFeatureType(TimestampedModel):
 
     def save(self, *args, **kwargs):
         try:
-            if self.presentation.get('fill-opacity'):
-                self.presentation['fill-opacity'] = float(
-                    self.presentation.get('fill-opacity'))
-            if self.presentation.get('stroke-opacity'):
-                self.presentation['stroke-opacity'] = float(
-                    self.presentation.get('stroke-opacity'))
+            if self.presentation.get("fill-opacity"):
+                self.presentation["fill-opacity"] = float(self.presentation.get("fill-opacity"))
+            if self.presentation.get("stroke-opacity"):
+                self.presentation["stroke-opacity"] = float(self.presentation.get("stroke-opacity"))
         except ValueError as exc:
             logger.warning(exc)
         finally:
@@ -640,15 +648,13 @@ class SpatialFeatureFile(SpatialFilesBase):
     """
     Special Feature loaded from uploaded shapefile
     """
-    file_type = models.CharField(
-        max_length=100, default='shapefile', choices=FILE_TYPES)
-    feature_type = models.ForeignKey(
-        to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
-    feature_types_file = models.FileField(
-        upload_to=upload_to, blank=True, null=True)
+
+    file_type = models.CharField(max_length=100, default="shapefile", choices=FILE_TYPES)
+    feature_type = models.ForeignKey(to=SpatialFeatureType, on_delete=models.PROTECT, blank=True, null=True)
+    feature_types_file = models.FileField(upload_to=upload_to, blank=True, null=True)
 
     class Meta:
-        verbose_name = 'Feature Import File'
+        verbose_name = "Feature Import File TEST"
 
 
 class SpatialFeatureManager(models.Manager):
@@ -687,15 +693,15 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
             other_id # this will map from the other_id' column in STESpatial
 
     """
+
     class Meta:
-        verbose_name = 'Feature'
-        ordering = ['name']
+        verbose_name = "Feature"
+        ordering = ["name"]
 
     objects = SpatialFeatureManager()
-    revision_ignore_fields = ('updated_at', )
+    revision_ignore_fields = ("updated_at",)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    feature_type = models.ForeignKey(
-        SpatialFeatureType, on_delete=models.PROTECT)
+    feature_type = models.ForeignKey(SpatialFeatureType, on_delete=models.PROTECT)
     name = models.CharField(max_length=255, blank=True)
     # A shorter name used for cartographic display
     short_name = models.CharField(max_length=25, blank=True)
@@ -707,10 +713,8 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
     attributes = models.JSONField(default=dict, blank=True)
     provenance = models.JSONField(default=dict, blank=True)
     feature_geometry = models.GeometryField(geography=True, srid=4326)
-    spatialfile = models.ForeignKey(
-        to=SpatialFeatureFile, null=True, blank=True, on_delete=models.SET_NULL)
-    arcgis_item = models.ForeignKey(
-        to='ArcgisItem', null=True, blank=True, on_delete=models.CASCADE)
+    spatialfile = models.ForeignKey(to=SpatialFeatureFile, null=True, blank=True, on_delete=models.SET_NULL)
+    arcgis_item = models.ForeignKey(to="ArcgisItem", null=True, blank=True, on_delete=models.CASCADE)
     revision = Revision()
 
     @property
@@ -722,20 +726,25 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
         return {}
 
     def clean(self):
-        if self.feature_geometry.geom_type == 'Point':
-            self.feature_geometry = geos.MultiPoint(
-                geos.GEOSGeometry(self.feature_geometry.ewkb))
-        elif self.feature_geometry.geom_type == 'LineString':
+        if self.feature_geometry.geom_type == "Point":
+            self.feature_geometry = geos.MultiPoint(geos.GEOSGeometry(self.feature_geometry.ewkb))
+        elif self.feature_geometry.geom_type == "LineString":
             self.feature_geometry = geos.MultiLineString(
-                [geos.GEOSGeometry(self.feature_geometry.ewkb), ])
-        elif self.feature_geometry.geom_type == 'Polygon':
+                [
+                    geos.GEOSGeometry(self.feature_geometry.ewkb),
+                ]
+            )
+        elif self.feature_geometry.geom_type == "Polygon":
             self.feature_geometry = geos.MultiPolygon(
-                [geos.GEOSGeometry(self.feature_geometry.ewkb), ])
+                [
+                    geos.GEOSGeometry(self.feature_geometry.ewkb),
+                ]
+            )
         else:
-            logger.debug(f'Not converting type {type(self.feature_geometry)}')
+            logger.debug(f"Not converting type {type(self.feature_geometry)}")
 
     def __str__(self):
-        return '{0}-{1}-{2}'.format(self.name, self.feature_type.name, self.id)
+        return "{0}-{1}-{2}".format(self.name, self.feature_type.name, self.id)
 
 
 class ArcgisGroup(TimestampedModel):
@@ -749,40 +758,57 @@ class ArcgisGroup(TimestampedModel):
 
 
 class ArcgisConfiguration(TimestampedModel):
-    disable_import_feature_class_presentation = models.BooleanField(
-        default=False)
-    service_url = models.CharField(max_length=2000, blank=True, null=True,
-                                   help_text='Leave blank to connect to ArcGIS Online, '
-                                             'or enter your ArcGIS Enterprise service URL')
-    config_name = models.CharField(
-        max_length=100, blank=False, unique=True, verbose_name='Configuration name')
-    search_text = models.CharField(max_length=100, blank=True, verbose_name='Search text',
-                                   help_text='Leave blank to get groups within your ArcGIS org\n'
-                                             'or enter text for groups to search for outside your ArdGIS org')
+    disable_import_feature_class_presentation = models.BooleanField(default=False)
+    service_url = models.CharField(
+        max_length=2000,
+        blank=True,
+        null=True,
+        help_text="Leave blank to connect to ArcGIS Online, " "or enter your ArcGIS Enterprise service URL",
+    )
+    config_name = models.CharField(max_length=100, blank=False, unique=True, verbose_name="Configuration name")
+    search_text = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Search text",
+        help_text="Leave blank to get groups within your ArcGIS org\n"
+        "or enter text for groups to search for outside your ArdGIS org",
+    )
     # todo: the FK should be on the other end of the relationship, i.e., in ArcgisConfiguration
-    groups = models.ForeignKey(
-        ArcgisGroup, blank=True, on_delete=models.SET_NULL, null=True)
-    username = models.CharField(
-        max_length=100, blank=False, help_text='ArcGIS account username')
+    groups = models.ForeignKey(ArcgisGroup, blank=True, on_delete=models.SET_NULL, null=True)
+    username = models.CharField(max_length=100, blank=False, help_text="ArcGIS account username")
     password = models.CharField(max_length=100, blank=False)
-    source = models.CharField(
-        max_length=100, blank=True, null=True, default='ArcGis')
-    name_field = models.CharField(max_length=100, blank=True, null=True, default='Name',
-                                  help_text='Name of field in your GIS data that has the feature name. Default is Name')
-    id_field = models.CharField(max_length=100, blank=True, null=True, default='GlobalID',
-                                help_text='Name of field in your GIS data that has the feature ID. Default is GlobalID')
-    type_label = models.CharField(max_length=100, blank=True, null=True, verbose_name='Type field', default='FeatureType',
-                                  help_text='Name of field in your GIS data that has the feature type. Defaults are type and FeatureType')
-    last_download = models.DateTimeField(
-        blank=True, null=True, verbose_name='Last Download Time')
+    source = models.CharField(max_length=100, blank=True, null=True, default="ArcGis")
+    name_field = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        default="Name",
+        help_text="Name of field in your GIS data that has the feature name. Default is Name",
+    )
+    id_field = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        default="GlobalID",
+        help_text="Name of field in your GIS data that has the feature ID. Default is GlobalID",
+    )
+    type_label = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name="Type field",
+        default="FeatureType",
+        help_text="Name of field in your GIS data that has the feature type. Defaults are type and FeatureType",
+    )
+    last_download = models.DateTimeField(blank=True, null=True, verbose_name="Last Download Time")
 
     class Meta:
-        verbose_name = 'Feature Service Configuration'
+        verbose_name = "Feature Service Configuration"
 
     @property
     def last_download_time(self):
         t_zone = timezone(settings.TIME_ZONE)
-        fmt = '%d %b %Y, %H:%M %p (%Z)'
+        fmt = "%d %b %Y, %H:%M %p (%Z)"
         return self.last_download.astimezone(t_zone).strftime(fmt)
 
     def __str__(self):
@@ -793,8 +819,7 @@ class ArcgisConfiguration(TimestampedModel):
 class ArcgisItem(TimestampedModel):
     id = models.UUIDField(primary_key=True)
     name = models.CharField(max_length=50)
-    arcgis_config = models.ForeignKey(
-        to=ArcgisConfiguration, on_delete=models.SET_NULL, null=True)
+    arcgis_config = models.ForeignKey(to=ArcgisConfiguration, on_delete=models.SET_NULL, null=True)
 
     @property
     def features(self):

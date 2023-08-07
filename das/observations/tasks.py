@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 
 import pytz
 import xmltodict
-from celery_once import QueueOnce
 from google.api_core import exceptions
 from google.cloud import storage
 
@@ -15,7 +14,6 @@ from django.db.models import F
 from django.utils.translation import gettext as _
 
 from das_server import celery, pubsub
-from observations import servicesutils
 from observations.materialized_views import patrols_view
 from observations.message_adapters import _handle_outbox_message
 from observations.models import (
@@ -29,15 +27,9 @@ from observations.models import (
 )
 from observations.serializers import ObservationSerializer
 from observations.utils import dateparse
-from utils.tenant.celery import OverAllTenantTask
+from utils.tenant.celery import OverAllTenantTask, TenantQueueOnceTask
 
 logger = logging.getLogger(__name__)
-
-
-@celery.app.task()
-def store_and_forward_service_status(provider_key=None, data=None):
-    data = data or {}
-    servicesutils.store_service_status(provider_key=provider_key, data=data)
 
 
 @celery.app.task(base=OverAllTenantTask, once={"graceful": True})
@@ -47,12 +39,12 @@ def maintain_subjectstatus_all():
 
 
 @celery.app.task(
-    base=QueueOnce,
+    base=TenantQueueOnceTask,
     once={
         "graceful": True,
     },
 )
-def maintain_subjectstatus_for_subject(subject_id, notify=False):
+def maintain_subjectstatus_for_subject(subject_id, notify=False, **kwargs):
     SubjectStatus.objects.maintain_subject_status(subject_id)
 
     if notify:
@@ -207,8 +199,8 @@ def failed_process_gpxtrack(gpx_id, error_msg=None):
     )
 
 
-@celery.app.task
-def process_gpxtrack_file(gpx_id):
+@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
+def process_gpxtrack_file(gpx_id, **kwargs):
     gpx_file, file_name = GPXTrackFile.objects.get_file(gpx_id)
     data = gpx_file.read()
     response = parse_xml_to_dict(data)
@@ -234,8 +226,8 @@ def process_gpxtrack_file(gpx_id):
             failed_process_gpxtrack(gpx_id)
 
 
-@celery.app.task(bind=True, track_started=True, ignore_result=False)
-def process_gpxdata_api(self, filename, source_id):
+@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True}, bind=True, track_started=True, ignore_result=False)
+def process_gpxdata_api(self, filename, source_id, **kwargs):
     with default_storage.open(filename, "r") as file:
         data = file.read()
 
@@ -261,16 +253,12 @@ def process_gpxdata_api(self, filename, source_id):
 
 @celery.app.task(base=OverAllTenantTask)
 def refresh_patrols_view():
-    _refresh_patrols_view.apply_async()
-
-
-@celery.app.task(base=QueueOnce, once={"graceful": True})
-def _refresh_patrols_view():
+    # FIXME By the time we consolidate all tenants in one DB we require rework on the DB view that refresh_view hit.
     patrols_view.refresh_view()
 
 
-@celery.app.task(base=QueueOnce, once={"graceful": True})
-def handle_outbox_message(message_id, user_email):
+@celery.app.task(base=TenantQueueOnceTask, once={"graceful": True})
+def handle_outbox_message(message_id, user_email, **kwargs):
     _handle_outbox_message(message_id, user_email)
 
 

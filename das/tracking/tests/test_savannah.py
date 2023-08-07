@@ -9,7 +9,7 @@ from django.apps import apps
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase, override_settings
 
-from core.tests import fake_get_pool
+from conftest import TENANT_RESPONSE
 from observations.models import (
     Source,
     SourceProvider,
@@ -19,7 +19,7 @@ from observations.models import (
     SubjectType,
 )
 from tracking.models import SavannahPlugin, SourcePlugin
-from tracking.tasks import run_plugin_class
+from tracking.tasks import execute_run_plugin_class
 
 
 def make_data_download(request_mock, host):
@@ -219,17 +219,17 @@ class SavannahPluginTest(TestCase):
         self.henry = Subject.objects.create(name="Henry", subject_subtype=subject_subtype)
         SubjectSource.objects.create(source=self.source, subject=self.henry)
 
+    @mock.patch("utils.tenant.managers.TenantData.get")
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    @mock.patch("das_server.pubsub.get_pool", fake_get_pool)
     @requests_mock.Mocker()
-    def test_savannah(self, request_mock):
+    def test_savannah(self, tenant_data, request_mock):
         make_data_download(request_mock, self.api_host)
         make_exceptions_download(request_mock, self.api_host)
-
+        tenant_data.return_value = TENANT_RESPONSE
         plugin_class = apps.get_model("tracking", "SavannahPlugin")
 
         # run plugin to fetch observations and alert type data
-        run_plugin_class(plugin_class)
+        execute_run_plugin_class(plugin_class, domain="zoo.com")
 
         self.assertEqual(len(self.henry.observations()), 8)
 

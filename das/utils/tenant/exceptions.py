@@ -3,9 +3,14 @@ class TenantDataclassException(Exception):
 
 
 class TenantNotFoundException(Exception):
-    def __init__(self, host: str = "", *args: object) -> None:
+    def __init__(self, domain: str = "", *args: object) -> None:
         super().__init__(*args)
-        self.host = host
+        self.domain = domain
 
     def __str__(self):
-        return "Tenant for host: '{host}' not found".format(host=self.host)
+        return "Tenant for host: '{domain}' not found".format(domain=self.domain)
+
+
+class TenantNotFoundInLocalThreadException(Exception):
+    def __str__(self):
+        return "Tenant not found in local thread"

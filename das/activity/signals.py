@@ -41,12 +41,14 @@ def event_post_save(sender, instance, created, **kwargs):
     if features.tms.is_on():
         transaction.on_commit(
             lambda: celery.app.send_task(
-                "activity.tasks.evaluate_alert_rules", args=(str(instance.id), created, get_tenant_settings().domain)
+                "activity.tasks.evaluate_alert_rules",
+                args=(instance.id, created),
+                kwargs={"domain": get_tenant_settings().domain},
             )
         )
     else:
         transaction.on_commit(
-            lambda: celery.app.send_task("activity.tasks.evaluate_alert_rules", args=(str(instance.id), created))
+            lambda: celery.app.send_task("activity.tasks.evaluate_alert_rules", args=(instance.id, created))
         )
     for segment in instance.patrol_segments.all():
         # Send patrol_update rt message
@@ -148,9 +150,15 @@ def set_eta(instance):
     if isinstance(instance, PatrolSegment) and instance.time_range:
         now = datetime.datetime.now(tz=datetime.timezone.utc)
         upper_bound = instance.time_range.upper
-        celery.app.send_task(
-            "activity.tasks.maintain_patrol_state", eta=upper_bound
-        ) if upper_bound and upper_bound > now else None
+        if upper_bound and upper_bound > now:
+            if features.tms.is_on():
+                celery.app.send_task(
+                    "activity.tasks.maintain_patrol_state",
+                    eta=upper_bound,
+                    kwargs={"domain": get_tenant_settings().domain},
+                )
+            else:
+                celery.app.send_task("activity.tasks.maintain_patrol_state", eta=upper_bound)
 
 
 @receiver(pre_save, sender=Patrol)

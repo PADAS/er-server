@@ -10,7 +10,7 @@ from activity import views
 from activity.models import Event
 from analyzers.immobility import ImmobilityAnalyzer
 from analyzers.models import OK, ImmobilityAnalyzerConfig, SubjectAnalyzerResult
-from analyzers.tasks import analyze_subject
+from analyzers.tasks import analyze_subject_
 from core.tests import BaseAPITest
 from observations.models import SubjectTrackSegmentFilter
 
@@ -19,7 +19,6 @@ from .immobility_test_data import *
 
 
 class TestImmobilityAnalyzer(BaseAPITest):
-
     fixtures = [
         "event_data_model",
     ]
@@ -33,7 +32,6 @@ class TestImmobilityAnalyzer(BaseAPITest):
         )
 
     def test_immobility_with_moving_observations_list(self):
-
         test_subject = models.Subject.objects.create_subject(name="Sample")
 
         # parse recorded_at (from string to datetime).
@@ -59,7 +57,6 @@ class TestImmobilityAnalyzer(BaseAPITest):
         self.assertEqual(count, 18)
 
     def test_integration_ishango_immobile(self):
-
         # Grab prepared observation list from test data.
         test_observations = ISHANGO_IMMOBILE
 
@@ -83,7 +80,7 @@ class TestImmobilityAnalyzer(BaseAPITest):
         test_observations = [parse_recorded_at(x) for x in test_observations]
         store_observations(test_observations, timeshift=True, source=source)
 
-        analyze_subject(str(sub.id))
+        analyze_subject_(str(sub.id))
 
         self.assertTrue(SubjectAnalyzerResult.objects.filter(subject=sub).exists())
 
@@ -180,7 +177,7 @@ class TestImmobilityAnalyzer(BaseAPITest):
         test_observations = [parse_recorded_at(x) for x in ISHANGO_IMMOBILE]
         store_observations(test_observations, timeshift=True, source=source)
 
-        analyze_subject(str(sub.id))
+        analyze_subject_(str(sub.id))
 
         permission = Permission.objects.get(codename="analyzer_event_read")
         perm_set = models.PermissionSet.objects.create(name="Analyzer Event PermissionSet")
