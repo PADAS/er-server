@@ -305,6 +305,7 @@ locals {
     "jaguarcapivara"          = "prod1"
     "maunga"                  = "prod1"
     "olmaisor"                = "prod1"
+    "tai"                     = "prod1"
     "queenslandgov"           = "prod-asia"
     "soysambu"                = "prod1"
     "iapf-mz"                 = "prod1"
@@ -606,6 +607,7 @@ locals {
     "tumbeta"                 = 1
     "iberianhighlands"        = 1
     "maunga"                  = 1
+    "tai"                     = 1
     "mushingashi"             = 1
     "mep-dev"                 = 1
     "birdlifeafrica"          = 1
