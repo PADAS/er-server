@@ -453,6 +453,7 @@ locals {
     "mtcamdeboo"              = "prod1"
     "mbametdjerem"            = "prod1"
     "lec"                     = "prod1"
+    "kisisita"                = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
