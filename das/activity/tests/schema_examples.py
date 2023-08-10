@@ -447,6 +447,12 @@ POACHERS_SCHEMA = """
                 "type": "number",
                 "title": "Estimated Number of People"
             },
+            "percent_cover_in_den": {
+                "type": "number",
+                "title": "Percent cover provided by den site from the nursing bed within",
+               "enum": {{enum___camp_size___values}},
+               "enumNames": {{enum___camp_size___names}}
+            },
 			"camp_age": {
                 "type": "string",
                 "title": "Age of camp",
