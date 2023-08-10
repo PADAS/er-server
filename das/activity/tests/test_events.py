@@ -2222,6 +2222,13 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
         choice = Choice.objects.create(
             model="activity.event",
+            field="camp_size",
+            value="20_foot",
+            display="Twenty Foot",
+        )
+
+        choice = Choice.objects.create(
+            model="activity.event",
             field="illegal_activities_deployed_assets",
             value="aircraft_cfz",
             display="CFZ",
@@ -2247,6 +2254,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
             "details_dt": [{"number": 1, "infrustructure": "infrustructure_camp"}],
             "poachers_camp_action": ["poacherscamp_sighting_action_arrests"],
             "poacherscamp_sighting_action": ["aircraft_cfz"],
+            "percent_cover_in_den": {"id_2107": "100"},  # See ERA-8759, want to see this succeed
         }
 
         request = self.factory.post(self.api_base + "/events/", event_data)
