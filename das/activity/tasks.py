@@ -130,16 +130,7 @@ def send_alert_to_notificationmethod(alert_rule_id=None, event_id=None, notifica
         raise ValueError("Coding error.  I need keyword arguments.")
 
     logger.info(f"Sending alert of event {event_id} to notification id {notification_method_id}")
-    if features.tms.is_on():
-        tenant_settings = get_tenant_settings()
-        send_event_alert(
-            alert_rule_id=alert_rule_id,
-            event_id=event_id,
-            notification_method_id=notification_method_id,
-            from_email=tenant_settings.env_settings.default_from_email,
-        )
-    else:
-        send_event_alert(alert_rule_id=alert_rule_id, event_id=event_id, notification_method_id=notification_method_id)
+    send_event_alert(alert_rule_id=alert_rule_id, event_id=event_id, notification_method_id=notification_method_id)
 
 
 class EventDetailViewException(Exception):

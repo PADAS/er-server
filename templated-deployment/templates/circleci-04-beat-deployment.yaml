@@ -18,7 +18,7 @@ spec:
     spec:
       imagePullSecrets:
         - name: gcr-secret
-      # Mount secrets 
+      # Mount secrets
       volumes:
       - name: google-credentials
         secret:
@@ -121,6 +121,16 @@ spec:
             secretKeyRef:
               name: ubi-api-credentials
               key: ubi_password
+        - name: MEMORY_STORE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: memory-store-api-key
+              key: memory_store_api_key
+        - name: TMS_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: tms-dev-api-key
+              key: tms_dev_api_key
         envFrom:
           - configMapRef:
               name: server-configmap

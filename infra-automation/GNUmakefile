@@ -235,7 +235,8 @@ check_for_abandoned_workspaces: ## compare terraform workspaces against git bran
 	@ export maybe_orphans="$$(comm -23 $(vulcan_path)/workspaces $(vulcan_path)/branches | grep -v default)"; if [ -n "$$maybe_orphans" ]; then printf "The following workspaces do not have corresponding branches:\n%s\n" "$$maybe_orphans" && exit 1; fi
 
 .PHONY: install_er_cli
-install_er_cli: ## Instals the ER CLI used to interact with the TMS. Repo: https://github.com/PADAS/er-cli
+install_er_cli: ## Installs the ER CLI used to interact with the TMS. Repo: https://github.com/PADAS/er-cli
+	@ apt install -y jq
 	@ pip3 install keyring==23.9.3 keyrings.google-artifactregistry-auth==1.1.1
 	@ gcloud artifacts print-settings python --project=earthranger-dev --repository=core-backend --location=us-west1 > $$HOME/.pypirc
 	@ echo $$ENCODED_GOOGLE_CREDENTIALS | base64 -d > google_credentials.json && \
@@ -244,5 +245,4 @@ install_er_cli: ## Instals the ER CLI used to interact with the TMS. Repo: https
 		pip3 install earthranger-cli==0.0.4 --extra-index-url https://us-west1-python.pkg.dev/earthranger-dev/core-backend/simple/ && \
 		echo "Successfully installed the er cli" && \
 		export PROJECT_ID=earthranger-dev && \
-		er create-tenant-document $(current_branch) --subdomain $$(echo $(current_branch) | tr "[:upper:]." "[:lower:]_") > tenant_data.json && \
-		er create-tenants < tenant_data.json
+		$(CURDIR)/tenant-exists.sh $(current_branch) && echo "tenant already exists" || $(CURDIR)/create-tenant.sh $(current_branch)

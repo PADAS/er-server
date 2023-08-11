@@ -30,11 +30,10 @@ def run_plugins(self, expire_subtasks=EXPIRE_SUBTASKS):
             domain = None
             if features.tms.is_on():
                 domain = get_tenant_settings().domain
-            run_plugin_class.apply_async(
-                args=[
-                    plugin_class.__name__,
-                ],
-                kwargs={"expire_subtasks": expire_subtasks, "domain": domain},
+            execute_run_plugin_class(
+                plugin_class.__name__,
+                expire_subtasks=expire_subtasks,
+                domain=domain,
                 expires=expire_subtasks,
             )
         else:
@@ -67,12 +66,10 @@ def run_plugin_class(plugin_class, expire_subtasks=EXPIRE_SUBTASKS, **kwargs):
                         domain = None
                         if features.tms.is_on():
                             domain = get_tenant_settings().domain
-                        run_source_plugin.apply_async(
-                            args=[
-                                str(sp.id),
-                            ],
+                        execute_run_source_plugin(
+                            str(sp.id),
                             expires=expire_subtasks,
-                            kwargs={"domain": domain},
+                            domain=domain,
                         )
         else:
             plugin.execute()
