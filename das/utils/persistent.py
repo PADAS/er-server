@@ -97,11 +97,11 @@ class RedisStorageReadOnly(PersistentStorageReadOnly):
         self.database = int(config["DATABASE"])
         self.api_key = config["API_KEY"]
         self.port = int(config["PORT"])
-        self._pool = redis.ConnectionPool(host=self.host, port=self.port, db=self.database)
+        self._pool = redis.ConnectionPool(host=self.host, password=self.api_key, port=self.port, db=self.database)
         self._connection = redis.Redis(connection_pool=self._pool, password=self.api_key, health_check_interval=10)
 
     def get_key(self, key):
-        return self._connection.get(key)
+        return self._connection.get(str(key))
 
     def get_all_keys(self):
         return self._connection.keys()

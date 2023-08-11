@@ -71,9 +71,9 @@ logger = logging.getLogger(__name__)
 
 def get_track_days():
     if features.tms.is_on():
-        return get_tenant_settings().env_settings.show_tack_days
-
-    show_track_days = getattr(settings, "SHOW_TRACK_DAYS", 16)
+        show_track_days = get_tenant_settings().env_settings.show_track_days or 16
+    else:
+        show_track_days = getattr(settings, "SHOW_TRACK_DAYS", 16)
 
     return datetime.timedelta(days=int(show_track_days))
 
@@ -83,7 +83,7 @@ ONE_YEAR = datetime.timedelta(days=365)
 
 def include_stationary_subjects_on_map():
     if features.tms.is_on():
-        return get_tenant_settings().env_settings.show_mandatory_subjects_on_map
+        return get_tenant_settings().env_settings.show_stationary_subjects_on_map
 
     return parse_bool(getattr(settings, "SHOW_STATIONARY_SUBJECTS_ON_MAP", True))
 
