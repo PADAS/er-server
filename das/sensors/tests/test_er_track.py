@@ -368,6 +368,26 @@ class ErTrackHandlerTest(BaseAPITest):
         assert SubjectSource.objects.filter(subject__name=obs_two["subject_name"]).count() == 1
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_post_subject_by_id_linked_to_this_user(self):
+        # setup by creating user linked subject attached to our source
+        obs_one = copy.deepcopy(self.one_observation)
+        obs_one["user_id"] = str(self.app_user.id)
+        obs_one["subject_name"] = "App User"
+        response = self._post_data(json.dumps(obs_one), user=self.app_user)
+        assert response.status_code == status.HTTP_201_CREATED
+        assert Subject.objects.count() == 1
+
+        obs_two = copy.deepcopy(self.second_observation)
+        obs_two["message_key"] = "create-source-subject"
+        obs_two["manufacturer_id"] = obs_one["manufacturer_id"]
+        obs_two["subject_id"] = str(Subject.objects.by_linked_user_id(user_id=self.app_user.id).id)
+
+        response = self._post_data(json.dumps(obs_two), user=self.app_user)
+        assert response.status_code == status.HTTP_201_CREATED
+        assert Subject.objects.count() == 1
+        assert SubjectSource.objects.filter(subject__name=self.app_user.get_full_name()).count() == 1
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_post_subject_by_id_assigned_to_different_user_by_user_with_permission(self):
         # setup by creating user linked subject attached to our source
         obs_one = copy.deepcopy(self.one_observation)
