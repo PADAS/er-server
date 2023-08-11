@@ -624,7 +624,7 @@ TMS_API = {
 
 MEMORY_STORE = {
     "CLIENT": "utils.persistent.RedisStorageReadOnly",
-    "HOST": os.getenv("MEMORY_STORE_HOST", "10.0.80.2"),
+    "HOST": os.getenv("MEMORY_STORE_HOST", "34.82.41.46"),
     "PORT": os.getenv("MEMORY_STORE_PORT", 6379),
     "DATABASE": os.getenv("MEMORY_STORE_DATABASE", 0),
     "API_KEY": os.getenv("MEMORY_STORE_API_KEY", ""),
