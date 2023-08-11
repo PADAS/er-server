@@ -88,7 +88,7 @@ class HandlerERTrack:
         self.subject_subtype_id = subject_subtype_id
         self.observation = observation
         self.er_track_configuration = get_track_config(source.provider)
-        self.subjects = Subject.objects.by_user_subjects(user)
+        self.subjects = Subject.objects.by_user_subjects_and_linked(user)
         self.filters = self.get_subject_filter(subject_name)
         self.user_id = self.observation.get("user_id")
         self.subject_id = self.observation.get("subject_id")

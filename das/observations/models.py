@@ -917,6 +917,12 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         queryset = self.by_user_subjects_not_distinct(user)
         return queryset.distinct("id")
 
+    def by_user_subjects_and_linked(self, user):
+        # this coud be done in self.by_user_subjects_not_distinct
+        queryset = self.by_user_subjects_not_distinct(user) | self.filter(linked_user=user)
+
+        return queryset.distinct("id")
+
     def by_linked_user(self, user):
         if hasattr(user, "linked_subject"):
             return self.filter(id=user.linked_subject.id)
