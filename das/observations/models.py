@@ -895,7 +895,7 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
         subjects.filter(additional__country=region.country, **kwargs)
         return subjects
 
-    def by_user_subjects_not_distinct(self, user):
+    def by_user_subjects_not_distinct(self, user, include_linked=False):
         # Avoid checking for a user that does not have permission sets (ex.
         # AnonymousUser)
         if not hasattr(user, "get_all_permission_sets"):
@@ -911,7 +911,9 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
             effective_subject_group_set.add(sg)
             effective_subject_group_set.update(sg.get_descendants())
 
-        return self.filter(groups__in=effective_subject_group_set)
+        if include_linked:
+            return self.filter(Q(groups__in=effective_subject_group_set) | Q(linked_user=user))
+        return self.filter(Q(groups__in=effective_subject_group_set))
 
     def by_user_subjects(self, user):
         queryset = self.by_user_subjects_not_distinct(user)
@@ -919,7 +921,7 @@ class SubjectQuerySet(models.QuerySet, FilterMixin):
 
     def by_user_subjects_and_linked(self, user):
         # this coud be done in self.by_user_subjects_not_distinct
-        queryset = self.by_user_subjects_not_distinct(user) | self.filter(linked_user=user)
+        queryset = self.by_user_subjects_not_distinct(user, True)
 
         return queryset.distinct("id")
 
