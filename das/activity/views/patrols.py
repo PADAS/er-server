@@ -6,7 +6,7 @@ import mimetypes
 import versatileimagefield.files
 from rest_framework_condition import condition
 
-from django.db.models import CharField, Prefetch
+from django.db.models import CharField, Prefetch, Q
 from django.db.models.functions import Cast
 from django.http import HttpResponse
 from rest_framework import status
@@ -240,7 +240,7 @@ class PatrolsView(ListCreateAPIView):
             states = query_params.getlist("status")
             queryset = queryset.by_state(states)
 
-        queryset = self._exclude_unassigned_subjects(queryset)
+        queryset = self._filter_by_viewable_subjects(queryset)
 
         queryset = queryset.prefetch_related(
             "notes", "files", "patrol_segments__patrol_type", "patrol_segments__events"
@@ -248,23 +248,18 @@ class PatrolsView(ListCreateAPIView):
 
         return queryset.sort_patrols()
 
-    def _exclude_unassigned_subjects(self, queryset):
+    def _filter_by_viewable_subjects(self, queryset):
         user = self.request.user
-
-        patrols = queryset.filter(
-            patrol_segment__leader_content_type__app_label="observations",
-            patrol_segment__leader_content_type__model="subject",
+        user_model_name = user._meta.model_name
+        viewable_patrol_subjects = Subject.objects.by_user_subjects_and_linked(user).values_list("id", flat=True)
+        return queryset.filter(
+            Q(patrol_segment__leader_id=None)
+            | (
+                Q(patrol_segment__leader_id__in=viewable_patrol_subjects)
+                & Q(patrol_segment__leader_content_type__model="subject")
+            )
+            | Q(patrol_segment__leader_content_type__model=user_model_name)
         )
-        subjects_id = self._get_subjects_id(patrols)
-        patrol_subjects = Subject.objects.filter(id__in=subjects_id).by_user_subjects(user)
-        allowed_subjects = patrol_subjects.values_list("id", flat=True)
-        linked_subject_as_set = set([user.linked_subject.id]) if user.has_linked_subject else set()
-        subjects_id_exclude = set(subjects_id) - set(allowed_subjects) - linked_subject_as_set
-
-        return queryset.exclude(patrol_segment__leader_id__in=subjects_id_exclude)
-
-    def _get_subjects_id(self, patrols):
-        return [patrol.patrol_segments.last().leader_id for patrol in patrols if patrol.patrol_segments.last()]
 
 
 class PatrolSegmentView(RetrieveUpdateDestroyAPIView):
