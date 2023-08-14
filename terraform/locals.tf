@@ -456,6 +456,8 @@ locals {
     "lec"                     = "prod1"
     "kisisita"                = "prod1"
     "izw-namibia"             = "prod1"
+    "nmdgf"                   = "prod1"
+    "awct"                    = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -676,6 +678,7 @@ locals {
     "mtcamdeboo"              = 1
     "lec"                     = 1
     "izw-namibia"             = 1
+    "awct"                    = 1
   }
 
   db_instance_index  = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
