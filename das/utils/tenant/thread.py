@@ -8,7 +8,7 @@ from utils.tenant.exceptions import (
 )
 
 logger = logging.getLogger(__name__)
-TENANT_DEFAULT_KEY = "tenant"
+TENANT_DEFAULT_KEY = "tenant_object"
 
 
 def _get_main_thread():

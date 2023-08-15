@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from threading import local
 
 import pytz
+from django_multitenant.utils import set_current_tenant
 from google.auth.exceptions import DefaultCredentialsError
 from google.cloud import error_reporting
 from oauth2_provider.models import get_access_token_model
@@ -19,6 +20,7 @@ from django.utils import timezone
 from rest_framework import status
 
 from core import persistent_storage
+from core.models import DASTenant
 from observations.utils import (
     LOCATION,
     block_user_temp,
@@ -123,7 +125,11 @@ class RequestLoggingMiddleware(object):
             )
 
             self.logger.info("request", extra=extra)
-            stats.histogram("api_request_time", req_time, tags=[f"path:{path}", f"method:{method}" f"satus:{status}"])
+            stats.histogram(
+                "api_request_time",
+                req_time,
+                tags=[f"path:{path}", f"method:{method}" f"satus:{status}"],
+            )
 
         except Exception:
             logging.exception("RequestLoggingMiddleware Error")
@@ -268,6 +274,26 @@ class TenantSettingsMiddleware:
             set_tenant_settings(value=tenant_data)
         response = self.get_response(request)
         return response
+
+
+class MultiTenantMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if features.tms.is_on():
+            if request.user and not request.user.is_anonymous:
+                tenant = self._get_tenant()
+                logger.info("Setting tenant %s object at request." % tenant.domain)
+                set_current_tenant(tenant=tenant)
+        return self.get_response(request)
+
+    def _get_tenant(self):
+        # TODO Refactor when all tenants will be consolidated.
+        tenant = DASTenant.objects.first()
+        if not tenant:
+            logger.error("DASTenant object not found.")
+        return tenant
 
 
 def is_check_eula_path(path):
