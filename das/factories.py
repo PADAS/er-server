@@ -28,6 +28,7 @@ from activity.models import (
 )
 from analyzers.models import FeatureProximityAnalyzerConfig, GeofenceAnalyzerConfig
 from choices.models import Choice
+from core.models import DASTenant
 from mapping.models import SpatialFeatureGroupStatic, SpatialFeatureType
 from observations.models import (
     Observation,
@@ -336,3 +337,14 @@ class CommunityFactory(factory.django.DjangoModelFactory):
 class SourceGroupFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = SourceGroup
+
+
+class TenantFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = DASTenant
+
+    domain = factory.Sequence(lambda n: f"site{n}pamdas.org")
+
+    @factory.lazy_attribute
+    def id(self):
+        return str(uuid.uuid4())
