@@ -133,7 +133,7 @@ variable "gfw_cluster_radius" {
   default = "5"
 }
 variable "gfw_backfill_interval_days" {
-  type = string
+  type    = string
   default = 10
 }
 variable "enable_debug" {
@@ -235,7 +235,7 @@ variable "tableau_site_id" {
 }
 
 variable "tableau_default_dashboard" {
-  type     = string
+  type    = string
   default = "er_standard_analytics/summary"
 }
 
@@ -246,8 +246,8 @@ variable "track_length" {
 
 variable "alt_server_names" {
   description = "comma-delimited list of alternative server names, to be used for ALLOWED_HOSTS and CORS."
-  type    = list(string)
-  default = []
+  type        = list(string)
+  default     = []
 }
 
 variable "geo_permission_speed_km_h" {
@@ -269,44 +269,44 @@ variable "tms_api_key" {
 }
 
 variable "root_logging_level" {
-  type        = string
-  default     = "WARNING"
+  type    = string
+  default = "WARNING"
 }
 
 variable "django_logging_level" {
-  type        = string
-  default     = "INFO"
+  type    = string
+  default = "INFO"
 }
 
 variable "django_request_logging_level" {
-  type        = string
-  default     = "INFO"
+  type    = string
+  default = "INFO"
 }
 
 variable "django_server_logging_level" {
-  type        = string
-  default     = "INFO"
+  type    = string
+  default = "INFO"
 }
 
 variable "rtapi_logging_level" {
-  type        = string
-  default     = "WARNING"
+  type    = string
+  default = "WARNING"
 }
 
 variable "rtapi_socket_logging_level" {
-  type        = string
-  default     = "WARNING"
+  type    = string
+  default = "WARNING"
 }
 
 variable "rtapi_pubsub_logging_level" {
-  type        = string
-  default     = "WARNING"
+  type    = string
+  default = "WARNING"
 }
 
 variable "memory_store_host" {
   description = "memory store host"
   type        = string
-  default     = "34.82.41.46"
+  default     = "34.145.110.77"
 }
 
 variable "memory_store_database" {
