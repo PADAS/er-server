@@ -1,9 +1,8 @@
+from django_multitenant.models import TenantModel
+
 from django.conf import settings
-from django.contrib.contenttypes.models import ContentType
 from django.contrib.gis.db import models
 from django.core.cache import cache
-
-from treebeard.al_tree import AL_Node
 
 
 class TimestampedModel(models.Model):
@@ -70,15 +69,18 @@ class HierarchyModel(models.Model):
     A child can have multiple parents.
     These access functions are used by other recursive Mixins.
     """
+
     class Meta:
         abstract = True
 
     objects = HierarchyManager()
 
-    children = models.ManyToManyField('self', blank=True,
-                                      symmetrical=False,
-                                      related_name='_parents',
-                                      )
+    children = models.ManyToManyField(
+        "self",
+        blank=True,
+        symmetrical=False,
+        related_name="_parents",
+    )
 
     def parents(self):
         return self.__class__.objects.filter(children=self)
@@ -113,3 +115,12 @@ class SingletonModel(models.Model):
     def get_instance(cls, **kwargs):
         o, created = cls.objects.get_or_create(pk=cls.instance_id, **kwargs)
         return o
+
+
+class DASTenant(TenantModel):
+    id = models.UUIDField(primary_key=True)
+    domain = models.CharField(max_length=100)
+    tenant_id = "id"
+
+    def __str__(self):
+        return self.domain

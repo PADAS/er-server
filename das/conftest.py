@@ -121,6 +121,11 @@ def source():
 
 
 @pytest.fixture
+def five_sources():
+    return SourceFactory.create_batch(5)
+
+
+@pytest.fixture
 def five_patrols():
     PatrolFactory.create_batch(5)
 
@@ -439,6 +444,11 @@ def five_users():
 @pytest.fixture
 def community():
     return CommunityFactory()
+
+
+@pytest.fixture
+def five_communities():
+    return CommunityFactory.build_batch(5)
 
 
 @pytest.fixture
