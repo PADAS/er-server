@@ -2,12 +2,12 @@
 . $(dirname "$0")/wait_for.sh
 wait_for $DB_HOST $DB_PORT
 
-python3 manage.py migrate --no-input
+python3 manage.py migrate --no-input --settings=das_server.local_settings_oauth_migration
 
 . $(dirname "$0")/django_common_startup.sh
 
 # Override GUNICORN_CMD_ARGS at deployment if desired.
-# Keep in mind that the flags specified below, when running gunicorn, take 
+# Keep in mind that the flags specified below, when running gunicorn, take
 # precedence.
 GUNICORN_CMD_ARGS=${GUNICORN_CMD_ARGS:-"--workers 1 --threads 4 --worker-class gthread --max-requests 500000 --max-requests-jitter 500 --timeout 60"}
 export GUNICORN_CMD_ARGS

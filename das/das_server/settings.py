@@ -322,6 +322,7 @@ MAPPING = {
     }
 }
 
+
 REALTIME_BROKER_URL = "redis://redis:6379/2"
 REALTIME_BROKER_OPTIONS = {"max_connections": 200}
 PUBSUB_BROKER_URL = "redis://redis:6379/1"
