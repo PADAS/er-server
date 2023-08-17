@@ -30,7 +30,9 @@ def _migrate_oauth_grants(apps, schema_editor):
     Grant = apps.get_model("oauth2_provider", "Grant")
 
     for grant in Grant.objects.all():
-        das_application = DASApplication.objects.get(client_id=grant.application.client_id)
+        das_application = None
+        if grant.application:
+            das_application = DASApplication.objects.get(client_id=grant.application.client_id)
 
         DASGrant.objects.create(
             user=grant.user,
@@ -77,7 +79,9 @@ def _migrate_oauth_access_tokens(apps, schema_editor):
     DASRefreshToken = apps.get_model("core", "DASRefreshToken")
 
     for access_token in AccessToken.objects.all():
-        das_application = DASApplication.objects.get(client_id=access_token.application.client_id)
+        das_application = None
+        if access_token.application:
+            das_application = DASApplication.objects.get(client_id=access_token.application.client_id)
 
         das_id_token = None
         if access_token.id_token:
@@ -117,8 +121,13 @@ def _migrate_oauth_refresh_tokens(apps, schema_editor):
     RefreshToken = apps.get_model("oauth2_provider", "RefreshToken")
 
     for refresh_token in RefreshToken.objects.all():
-        das_application = DASApplication.objects.get(client_id=refresh_token.application.client_id)
-        das_access_token = DASAccessToken.objects.get(token=refresh_token.access_token.token)
+        das_application = None
+        if refresh_token.application:
+            das_application = DASApplication.objects.get(client_id=refresh_token.application.client_id)
+
+        das_access_token = None
+        if refresh_token.access_token:
+            das_access_token = DASAccessToken.objects.get(token=refresh_token.access_token.token)
 
         DASRefreshToken.objects.create(
             user=refresh_token.user,
