@@ -184,7 +184,7 @@ class TestAlerts(TestCase):
         self,
     ):
         DynamicChoice.objects.create(
-            id="queens",
+            choice_name="queens",
             model_name="observations.subject",
             criteria='[["subject_subtype", "queens"], ["additional__sex", "female"]]',
             value_col="id",
@@ -240,7 +240,7 @@ class TestAlerts(TestCase):
         expected_detail = {"title": "Test checkbox with query", "value": "Katie Kitten"}
 
         # details sent to email as titles rather than guids, checkbox title returned
-        self.assertTrue(expected_detail == details_sent_to_mail)
+        self.assertDictEqual(expected_detail, details_sent_to_mail)
 
 
 @pytest.mark.django_db

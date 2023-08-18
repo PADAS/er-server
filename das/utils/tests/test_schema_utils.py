@@ -10,7 +10,6 @@ from observations.models import CommonName, Subject
 
 
 class TestReportUtils(TestCase):
-
     raw_schema_1 = """{
    "schema":
    {
@@ -162,15 +161,12 @@ class TestReportUtils(TestCase):
         self.assertEqual(result, self.definition_order_dict_schema_2)
 
     def test_lookup_type_query(self):
-
         DynamicChoice.objects.create(
-            **{
-                "id": "elephants",
-                "model_name": "observations.subject",
-                "criteria": '[["subject_subtype", "elephant"]]',
-                "value_col": "id",
-                "display_col": "name",
-            }
+            choice_name="elephants",
+            model_name="observations.subject",
+            criteria='[["subject_subtype", "elephant"]]',
+            value_col="id",
+            display_col="name",
         )
 
         elephant_list = []
@@ -232,15 +228,12 @@ class TestReportUtils(TestCase):
         self.assertListEqual(expected_map_result, json.loads(map_result))
 
     def test_lookup_type_query_value_json_field(self):
-
         DynamicChoice.objects.create(
-            **{
-                "id": "rhinos",
-                "model_name": "observations.subject",
-                "criteria": '[["common_name_id", "black_rhino"]]',
-                "value_col": "additional__external_id",
-                "display_col": "additional__external_name",
-            }
+            choice_name="rhinos",
+            model_name="observations.subject",
+            criteria='[["common_name_id", "black_rhino"]]',
+            value_col="additional__external_id",
+            display_col="additional__external_name",
         )
 
         common_name_black_rhino = CommonName.objects.create(

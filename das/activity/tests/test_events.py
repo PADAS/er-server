@@ -2791,7 +2791,7 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
     def test_export_on_checkbox_with_query_titlemaps(self):
         DynamicChoice.objects.create(
-            id="queens",
+            choice_name="queens",
             model_name="observations.subject",
             criteria='[["subject_subtype", "queens"], ["additional__sex", "female"]]',
             value_col="id",

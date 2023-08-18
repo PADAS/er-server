@@ -1,23 +1,18 @@
 import uuid
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import models, transaction
 from django.utils.translation import gettext_lazy as _
-
-from django.contrib.auth import get_user_model
 
 from core.models import TimestampedModel
 
 
 class UserAgreement(TimestampedModel):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='userterms',
-                             on_delete=models.CASCADE)
-    eula = models.ForeignKey('EULA', related_name='userterms',
-                             on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="userterms", on_delete=models.CASCADE)
+    eula = models.ForeignKey("EULA", related_name="userterms", on_delete=models.CASCADE)
 
-    date_accepted = models.DateTimeField(
-        auto_now_add=True, verbose_name=_("Date Accepted")
-    )
+    date_accepted = models.DateTimeField(auto_now_add=True, verbose_name=_("Date Accepted"))
 
     accept = models.BooleanField(default=False)
 
@@ -55,9 +50,7 @@ class EULAManager(models.Manager):
 
 class EULA(TimestampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid1)
-    users = models.ManyToManyField(
-        settings.AUTH_USER_MODEL, through=UserAgreement, blank=True
-    )
+    users = models.ManyToManyField(settings.AUTH_USER_MODEL, through=UserAgreement, blank=True)
     version = models.CharField(max_length=30, unique=True)
     eula_url = models.URLField(null=False, blank=False)
     active = models.BooleanField(default=False)

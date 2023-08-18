@@ -1,31 +1,43 @@
 - model: choices.dynamicchoice
-  pk: black_rhinos
-  fields: {model_name: observations.subject, criteria: '[["common_name_id", "black_rhino"]]',
-    value_col: id, display_col: name}
+  pk: 9da7dfc0-2c7e-467c-8e7f-6f0ad906f06e
+  fields:
+    model_name: observations.subject
+    criteria: '[["common_name_id", "black_rhino"]]'
+    choice_name: black_rhinos
+    value_col: id
+    display_col: name
 - model: choices.dynamicchoice
-  pk: blackRhinos
-  fields: {model_name: observations.subject, criteria: '[["common_name_id", "black_rhino"]]',
-    value_col: id, display_col: name}
+  pk: e205a688-7b42-4f45-8fa4-5cba8a15e182
+  fields:
+    model_name: observations.subject
+    criteria: '[["subject_subtype", "rhino"], ["additional__sex", "female"]]'
+    choice_name: femaleRhinos
+    value_col: id
+    display_col: name
 - model: choices.dynamicchoice
-  pk: femaleRhinos
-  fields: {model_name: observations.subject, criteria: '[["subject_subtype", "rhino"],
-      ["additional__sex", "female"]]', value_col: id, display_col: name}
+  pk: 9df014c6-c93e-42fc-aa3d-4e0d0f915fee
+  fields:
+    model_name: observations.subject
+    criteria: '[["subject_subtype", "rhino"]]'
+    choice_name: rhinos
+    value_col: id
+    display_col: name
 - model: choices.dynamicchoice
-  pk: rangers
-  fields: {model_name: observations.subject, criteria: '[["subject_subtype", "ranger"]]',
-    value_col: id, display_col: name}
+  pk: d567d246-0dcf-4912-9f3d-56803aed6a9a
+  fields:
+    model_name: observations.subject
+    criteria: '[["common_name_id", "white_rhino"]]'
+    choice_name: white_rhinos
+    value_col: id
+    display_col: name
 - model: choices.dynamicchoice
-  pk: rhinos
-  fields: {model_name: observations.subject, criteria: '[["subject_subtype", "rhino"]]',
-    value_col: id, display_col: name}
-- model: choices.dynamicchoice
-  pk: white_rhinos
-  fields: {model_name: observations.subject, criteria: '[["common_name_id","white_rhino"]]',
-    value_col: id, display_col: name}
-- model: choices.dynamicchoice
-  pk: whiteRhinos
-  fields: {model_name: observations.subject, criteria: '[["common_name_id","white_rhino"]]',
-    value_col: id, display_col: name}
+  pk: 255f2456-b18b-4f95-a230-f453f79e4681
+  fields:
+    model_name: observations.subject
+    criteria: '[["common_name_id", "white_rhino"]]'
+    choice_name: whiteRhinos
+    value_col: id
+    display_col: name
 - model: choices.choice
   pk: 00fa9ac5-e0e0-429e-b5f7-55621b9078e7
   fields:
