@@ -356,6 +356,7 @@ class RefreshRecreateEventDetailView(models.Model):
 
     TASK_MODE = [(REFRESH, "refresh"), (RECREATE, "recreate")]
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     performed_by = models.CharField(blank=True, null=True, max_length=255)
     task_mode = models.CharField(blank=True, null=True, max_length=255, choices=TASK_MODE)
     started_at = models.DateTimeField(blank=True, null=True)

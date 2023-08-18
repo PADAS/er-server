@@ -17,20 +17,18 @@ class ChoiceQuerySet(models.QuerySet):
         return result.get_values()
 
     def get_choices(self, model, field):
-        return self.filter(model=model, field=field).order_by('ordernum')
+        return self.filter(model=model, field=field).order_by("ordernum")
 
     def get_values(self):
-        return self.values_list('value', 'display')
+        return self.values_list("value", "display")
 
     def get_filtered_q(self, parent_model, parent_field, parent_value):
-        parent = self.all().get_choices(parent_model, parent_field).filter(
-            value=parent_value)
+        parent = self.all().get_choices(parent_model, parent_field).filter(value=parent_value)
         return models.Q(sub_choice_of=parent)
 
     def get_filtered_choices(self, parent_model, parent_field, parent_value):
         """after calling get_choices(), filter choices by parent values"""
-        parent = self.all().get_choices(
-            parent_model, parent_field).filter(value=parent_value)
+        parent = self.all().get_choices(parent_model, parent_field).filter(value=parent_value)
         return self.filter(sub_choice_of=parent)
 
     def filter_active_choices(self):
@@ -47,12 +45,12 @@ class ChoiceQuerySet(models.QuerySet):
 
 
 class DynamicChoice(models.Model):
-    id = models.CharField(max_length=100, primary_key=True)
-    model_name = models.CharField(max_length=100, verbose_name='Model lookup')
-    criteria = models.CharField(max_length=100, verbose_name='Criteria')
-    value_col = models.CharField(max_length=100, verbose_name='Value column')
-    display_col = models.CharField(max_length=100,
-                                   verbose_name='Display column')
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    choice_name = models.CharField(max_length=100, null=False, unique=True, verbose_name="Choice name")
+    model_name = models.CharField(max_length=100, verbose_name="Model lookup")
+    criteria = models.CharField(max_length=100, verbose_name="Criteria")
+    value_col = models.CharField(max_length=100, verbose_name="Value column")
+    display_col = models.CharField(max_length=100, verbose_name="Display column")
 
 
 class SoftDeleteModel(models.Model):
@@ -69,13 +67,12 @@ class SoftDeleteModel(models.Model):
 
 
 class Choice(SoftDeleteModel):
-
-    Field_Reports = 'activity.event'
-    User = 'accounts.user.User'
-    Maps = 'mapping.TileLayer'
-    Region = 'observations.region'
-    Sources = 'observations.Source'
-    Field_Report_Type = 'activity.eventtype'
+    Field_Reports = "activity.event"
+    User = "accounts.user.User"
+    Maps = "mapping.TileLayer"
+    Region = "observations.region"
+    Sources = "observations.Source"
+    Field_Report_Type = "activity.eventtype"
 
     MODEL_REF_CHOICES = [
         (Field_Reports, "Field Reports"),
@@ -87,24 +84,22 @@ class Choice(SoftDeleteModel):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    model = models.CharField(
-        max_length=50, choices=MODEL_REF_CHOICES, default=Field_Reports)
+    model = models.CharField(max_length=50, choices=MODEL_REF_CHOICES, default=Field_Reports)
     field = models.CharField(max_length=40)
     value = models.CharField(max_length=100, blank=True)
     display = models.CharField(max_length=100, blank=True)
     icon = models.CharField(max_length=100, blank=True, null=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
-    sub_choice_of = models.ManyToManyField('self', blank=True,
-                                           symmetrical=False)
+    sub_choice_of = models.ManyToManyField("self", blank=True, symmetrical=False)
 
     objects = ChoiceQuerySet.as_manager()
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
     class Meta:
-        unique_together = (('model', 'field', 'value'),)
+        unique_together = (("model", "field", "value"),)
 
     def __str__(self):
-        return ', '.join((self.model, self.field, self.value, self.display))
+        return ", ".join((self.model, self.field, self.value, self.display))
 
     @property
     def icon_id(self):
@@ -112,39 +107,40 @@ class Choice(SoftDeleteModel):
 
     @staticmethod
     def image_basename(choice_value):
-        color = 'black'
-        return '{0}-{1}'.format(choice_value, color)
+        color = "black"
+        return f"{choice_value}-{color}"
+        return "{0}-{1}".format(choice_value, color)
 
     @staticmethod
     def generate_image_keys(choice_value):
         yield choice_value
 
     @staticmethod
-    def marker_icon(choice_value, default='/static/generic-black.svg'):
-        image_url = static_image_finder.get_marker_icon(
-            Choice.generate_image_keys(choice_value))
+    def marker_icon(choice_value, default="/static/generic-black.svg"):
+        image_url = static_image_finder.get_marker_icon(Choice.generate_image_keys(choice_value))
         return image_url or default
 
 
 class DisableChoice(Choice):
     class Meta:
         proxy = True
-        verbose_name = 'Disabled Choice'
+        verbose_name = "Disabled Choice"
 
 
 class ChoiceCharField(models.CharField):
     """Choices are stored in a Choice database table."""
+
     _return_empty_choices = False
 
     def __init__(self, *args, **kwargs):
-        self._choices = (('', ''),)
-        self.filter_field = kwargs.pop('filter_field', None)
+        self._choices = (("", ""),)
+        self.filter_field = kwargs.pop("filter_field", None)
         super().__init__(*args, **kwargs)
         self._choices = lazy(self.get_choices, list)()
 
     @property
     def choices(self):
-        if not hasattr(self, 'model') or self._return_empty_choices:
+        if not hasattr(self, "model") or self._return_empty_choices:
             return []
         try:
             return self._choices
@@ -182,21 +178,19 @@ class ChoiceCharField(models.CharField):
         return []
 
     def _check_filter_field_attribute(self, **kwargs):
-        if self.filter_field is not None and not isinstance(self.filter_field,
-                                                            models.Field):
+        if self.filter_field is not None and not isinstance(self.filter_field, models.Field):
             return [
                 checks.Error(
                     "'filter_field' must be a model Field type.",
                     hint=None,
                     obj=self,
-                    id='fields.E121',
+                    id="fields.E121",
                 )
             ]
         else:
             return []
 
-    def get_choices(self, include_blank=True, blank_choice=BLANK_CHOICE_DASH,
-                    limit_choices_to=None):
+    def get_choices(self, include_blank=True, blank_choice=BLANK_CHOICE_DASH, limit_choices_to=None):
         """Returns choices with a default blank choices included, for use
         as SelectField choices for this field."""
         blank_defined = False
@@ -209,23 +203,21 @@ class ChoiceCharField(models.CharField):
             choices = _choices.get_values()
 
             for choice, __ in choices:
-                if choice in ('', None):
+                if choice in ("", None):
                     blank_defined = True
                     break
         else:
             choices = {}
             for choice in _choices:
-                if choice.value in ('', None):
+                if choice.value in ("", None):
                     blank_defined = True
                     break
                 group_values = choice.sub_choice_of.all()
-                group_value = group_values[0].value if group_values else ''
-                choices.setdefault(group_value, []).append(
-                    (choice.value, choice.display))
+                group_value = group_values[0].value if group_values else ""
+                choices.setdefault(group_value, []).append((choice.value, choice.display))
             choices = [(k, v) for k, v in choices.items()]
 
-        first_choice = (blank_choice if include_blank and
-                        not blank_defined else [])
+        first_choice = blank_choice if include_blank and not blank_defined else []
         return first_choice + list(choices)
 
     def validate(self, value, model_instance):
@@ -234,9 +226,8 @@ class ChoiceCharField(models.CharField):
         if self.filter_field and self.choices and value not in self.empty_values:
             filter_value = getattr(model_instance, self.filter_field.name)
             q = Choice.objects.get_filtered_q(
-                self.filter_field.model._meta.label_lower,
-                self.filter_field.name,
-                filter_value)
+                self.filter_field.model._meta.label_lower, self.filter_field.name, filter_value
+            )
             for option_key, option_value in self.get_choices(limit_choices_to=q):
                 if isinstance(option_value, (list, tuple)):
                     # This is an optgroup, so look inside the group for
@@ -247,9 +238,9 @@ class ChoiceCharField(models.CharField):
                 elif value == option_key:
                     return
             raise exceptions.ValidationError(
-                self.error_messages['invalid_choice'],
-                code='invalid_choice',
-                params={'value': value},
+                self.error_messages["invalid_choice"],
+                code="invalid_choice",
+                params={"value": value},
             )
 
 
@@ -283,8 +274,8 @@ class FenceDamage(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Fence Damage')
-        verbose_name_plural = _('Fence Damage')
+        verbose_name = _("Fence Damage")
+        verbose_name_plural = _("Fence Damage")
 
 
 class KeySpecies(models.Model):
@@ -293,8 +284,8 @@ class KeySpecies(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Key Species')
-        verbose_name_plural = _('Key Species')
+        verbose_name = _("Key Species")
+        verbose_name_plural = _("Key Species")
 
 
 class Species(models.Model):
@@ -303,8 +294,8 @@ class Species(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Species')
-        verbose_name_plural = _('Species')
+        verbose_name = _("Species")
+        verbose_name_plural = _("Species")
 
 
 class AnimalSex(models.Model):
@@ -313,8 +304,8 @@ class AnimalSex(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Animal Sex')
-        verbose_name_plural = _('Animal Sexes')
+        verbose_name = _("Animal Sex")
+        verbose_name_plural = _("Animal Sexes")
 
 
 class AnimalAge(models.Model):
@@ -335,8 +326,8 @@ class TrophyStatus(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Trophy Status')
-        verbose_name_plural = _('Trophy Statuses')
+        verbose_name = _("Trophy Status")
+        verbose_name_plural = _("Trophy Statuses")
 
 
 class CauseOfDeath(models.Model):
@@ -345,8 +336,8 @@ class CauseOfDeath(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Cause of Death')
-        verbose_name_plural = _('Causes of Death')
+        verbose_name = _("Cause of Death")
+        verbose_name_plural = _("Causes of Death")
 
 
 class InjuryCause(models.Model):
@@ -367,8 +358,8 @@ class FireStatus(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Fire Status')
-        verbose_name_plural = _('Fire Statuses')
+        verbose_name = _("Fire Status")
+        verbose_name_plural = _("Fire Statuses")
 
 
 class FireCause(models.Model):
@@ -389,8 +380,8 @@ class Crops(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Crops')
-        verbose_name_plural = _('Crops')
+        verbose_name = _("Crops")
+        verbose_name_plural = _("Crops")
 
 
 class TypeOfIllegalActivity(models.Model):
@@ -399,8 +390,8 @@ class TypeOfIllegalActivity(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Type of Illegal Activity')
-        verbose_name_plural = _('Type of Illegal Activities')
+        verbose_name = _("Type of Illegal Activity")
+        verbose_name_plural = _("Type of Illegal Activities")
 
 
 class SnareAge(models.Model):
@@ -415,8 +406,8 @@ class SnareStatus(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Snare Status')
-        verbose_name_plural = _('Snare Statuses')
+        verbose_name = _("Snare Status")
+        verbose_name_plural = _("Snare Statuses")
 
 
 class PoacherCampAge(models.Model):
@@ -431,8 +422,8 @@ class TypeOfShots(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Type of Shots')
-        verbose_name_plural = _('Type of Shots')
+        verbose_name = _("Type of Shots")
+        verbose_name_plural = _("Type of Shots")
 
 
 class TypeOfTrophy(models.Model):
@@ -441,8 +432,8 @@ class TypeOfTrophy(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Type of Trophy')
-        verbose_name_plural = _('Type of Trophies')
+        verbose_name = _("Type of Trophy")
+        verbose_name_plural = _("Type of Trophies")
 
 
 class VehicleTypes(models.Model):
@@ -451,8 +442,8 @@ class VehicleTypes(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Vehicle Types')
-        verbose_name_plural = _('Vehicle Types')
+        verbose_name = _("Vehicle Types")
+        verbose_name_plural = _("Vehicle Types")
 
 
 class WeaponTypes(models.Model):
@@ -461,8 +452,8 @@ class WeaponTypes(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Types of Weapons')
-        verbose_name_plural = _('Types of Weapons')
+        verbose_name = _("Types of Weapons")
+        verbose_name_plural = _("Types of Weapons")
 
 
 class TrafficType(models.Model):
@@ -477,8 +468,8 @@ class TrafficActivity(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Traffic Activity')
-        verbose_name_plural = _('Traffic Activities')
+        verbose_name = _("Traffic Activity")
+        verbose_name_plural = _("Traffic Activities")
 
 
 class AccidentType(models.Model):
@@ -499,8 +490,8 @@ class TracksType(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Track Type')
-        verbose_name_plural = _('Track Types')
+        verbose_name = _("Track Type")
+        verbose_name_plural = _("Track Types")
 
 
 class VehicleType(models.Model):
@@ -515,8 +506,8 @@ class MedicalEquipmentRequired(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Medical Equipment Required')
-        verbose_name_plural = _('Medical Equipment Required')
+        verbose_name = _("Medical Equipment Required")
+        verbose_name_plural = _("Medical Equipment Required")
 
 
 class MedicalEvacSecurity(models.Model):
@@ -525,8 +516,8 @@ class MedicalEvacSecurity(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Medical Evac Security')
-        verbose_name_plural = _('Medical Evac Securities')
+        verbose_name = _("Medical Evac Security")
+        verbose_name_plural = _("Medical Evac Securities")
 
 
 class DetectionType(models.Model):
@@ -541,8 +532,8 @@ class ActionTaken(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Action Taken')
-        verbose_name_plural = _('Actions Taken')
+        verbose_name = _("Action Taken")
+        verbose_name_plural = _("Actions Taken")
 
 
 class Conservancy(models.Model):
@@ -551,8 +542,8 @@ class Conservancy(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Conservancy')
-        verbose_name_plural = _('Conservancies')
+        verbose_name = _("Conservancy")
+        verbose_name_plural = _("Conservancies")
 
 
 class Behavior(models.Model):
@@ -573,8 +564,8 @@ class Health(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Health')
-        verbose_name_plural = _('Health')
+        verbose_name = _("Health")
+        verbose_name_plural = _("Health")
 
 
 class FenceSection(models.Model):
@@ -607,8 +598,8 @@ class IllegalActivity(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Illegal Activity')
-        verbose_name_plural = _('Illegal Activities')
+        verbose_name = _("Illegal Activity")
+        verbose_name_plural = _("Illegal Activities")
 
 
 class Livestock(models.Model):
@@ -617,8 +608,8 @@ class Livestock(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Livestock')
-        verbose_name_plural = _('Livestock')
+        verbose_name = _("Livestock")
+        verbose_name_plural = _("Livestock")
 
 
 class ContactType(models.Model):
@@ -639,8 +630,8 @@ class IncidentStatus(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Incident Status')
-        verbose_name_plural = _('Incident Statuses')
+        verbose_name = _("Incident Status")
+        verbose_name_plural = _("Incident Statuses")
 
 
 class Nationality(models.Model):
@@ -649,8 +640,8 @@ class Nationality(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Nationality')
-        verbose_name_plural = _('Nationalities')
+        verbose_name = _("Nationality")
+        verbose_name_plural = _("Nationalities")
 
 
 class Village(models.Model):
@@ -659,8 +650,8 @@ class Village(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Village')
-        verbose_name_plural = _('Villages')
+        verbose_name = _("Village")
+        verbose_name_plural = _("Villages")
 
 
 class ArrestViolation(models.Model):
@@ -669,8 +660,8 @@ class ArrestViolation(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Arrest Violation')
-        verbose_name_plural = _('Arrest Violations')
+        verbose_name = _("Arrest Violation")
+        verbose_name_plural = _("Arrest Violations")
 
 
 # Liwonde specific tables
@@ -680,8 +671,8 @@ class AnimalCondition(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Animal Condition')
-        verbose_name_plural = _('Animal Conditions')
+        verbose_name = _("Animal Condition")
+        verbose_name_plural = _("Animal Conditions")
 
 
 class ArrestNationality(models.Model):
@@ -690,8 +681,8 @@ class ArrestNationality(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Arrest Nationality')
-        verbose_name_plural = _('Arrest Nationalities')
+        verbose_name = _("Arrest Nationality")
+        verbose_name_plural = _("Arrest Nationalities")
 
 
 class ReasonForArrest(models.Model):
@@ -700,8 +691,8 @@ class ReasonForArrest(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Reason for Arrest')
-        verbose_name_plural = _('Reasons for Arrest')
+        verbose_name = _("Reason for Arrest")
+        verbose_name_plural = _("Reasons for Arrest")
 
 
 class ArrestVillageName(models.Model):
@@ -710,8 +701,8 @@ class ArrestVillageName(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Arrest Village Name')
-        verbose_name_plural = _('Arrest Village Names')
+        verbose_name = _("Arrest Village Name")
+        verbose_name_plural = _("Arrest Village Names")
 
 
 class SpoorAge(models.Model):
@@ -720,8 +711,8 @@ class SpoorAge(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('SPOOR Age')
-        verbose_name_plural = _('SPOOR Ages')
+        verbose_name = _("SPOOR Age")
+        verbose_name_plural = _("SPOOR Ages")
 
 
 class SpoorFootType(models.Model):
@@ -730,8 +721,8 @@ class SpoorFootType(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('SPOOR Foot Type')
-        verbose_name_plural = _('SPOOR Foot Types')
+        verbose_name = _("SPOOR Foot Type")
+        verbose_name_plural = _("SPOOR Foot Types")
 
 
 class SnareAction(models.Model):
@@ -740,5 +731,5 @@ class SnareAction(models.Model):
     ordernum = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        verbose_name = _('Snare Action')
-        verbose_name_plural = _('Snare Actions')
+        verbose_name = _("Snare Action")
+        verbose_name_plural = _("Snare Actions")

@@ -1,9 +1,10 @@
 [
 {
   "model": "choices.dynamicchoice",
-  "pk": "rangers",
+  "pk": "a2ae4d7e-9083-41e3-9151-640697b14826",
   "fields": {
     "model_name": "observations.subject",
+    "choice_name": "rangers",
     "criteria": "[[\"subject_subtype\", \"ranger\"]]",
     "value_col": "id",
     "display_col": "name"

@@ -63,7 +63,7 @@ def get_dynamic_choices(field_details, as_string=True, event=None):
 
 
 def _get_dynamic_choices(field_details, event=None):
-    dynamic_choice = DynamicChoice.objects.filter(id=field_details["field"]).first()
+    dynamic_choice = DynamicChoice.objects.filter(choice_name=field_details["field"]).first()
 
     # Short-circuit if there aren't any DynamicChoices found for this field.
     if dynamic_choice is None:
@@ -73,7 +73,8 @@ def _get_dynamic_choices(field_details, event=None):
         choice_criteria = json.loads(dynamic_choice.criteria)
     except json.decoder.JSONDecodeError as jde:
         logger.warning(
-            f"Error {jde} decoding criteria for dynamic choice %s. Criteria is: %s",
+            "Error %s decoding criteria for dynamic choice %s. Criteria is: %s",
+            jde,
             str(dynamic_choice.id),
             dynamic_choice.criteria,
         )

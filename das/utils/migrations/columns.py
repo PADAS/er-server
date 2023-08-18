@@ -1,0 +1,44 @@
+import uuid
+from typing import Any
+
+from django.apps.registry import Apps
+from django.db.backends.base.schema import BaseDatabaseSchemaEditor
+
+
+def copy_model_column(
+    app_label: str,
+    model_name: str,
+    source_column: str,
+    target_column: str,
+    apps: Apps,
+    schema_editor: BaseDatabaseSchemaEditor,
+) -> None:
+    db_alias = schema_editor.connection.alias
+    model = apps.get_model(app_label, model_name)
+
+    for instance in model.objects.using(db_alias).all():
+        source_value = getattr(instance, source_column)
+        setattr(instance, target_column, source_value)
+        instance.save()
+
+
+def populate_model_uuid_column(
+    app_label: str, model_name: str, column_name: str, apps: Apps, schema_editor: BaseDatabaseSchemaEditor
+):
+    db_alias = schema_editor.connection.alias
+    model = apps.get_model(app_label, model_name)
+
+    for instance in model.objects.using(db_alias).all():
+        setattr(instance, column_name, uuid.uuid4())
+        instance.save()
+
+
+def set_column_value(
+    app_label: str, model_name: str, column_name: str, value: Any, apps: Apps, schema_editor: BaseDatabaseSchemaEditor
+):
+    db_alias = schema_editor.connection.alias
+    model = apps.get_model(app_label, model_name)
+
+    for instance in model.objects.using(db_alias).all():
+        setattr(instance, column_name, value)
+        instance.save()
