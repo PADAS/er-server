@@ -181,7 +181,6 @@ def list_len(key):
 def remove_client(sid: str):
     sids = set()
     sids.add(sid)
-    remove_invalid_rt_service_key()
     remove_clients(sids)
 
 
@@ -193,7 +192,6 @@ def remove_clients(sids: set):
     """
     if not sids:
         return
-
     logger.info("Removing clients for sids: %s from key %s", sids, get_client_list_key())
     count = redis_client.hdel(get_client_list_key(), *sids)
     logger.info("Removed %s clients (of %s listed) from %s", count, len(sids), get_client_list_key())
@@ -214,10 +212,15 @@ def remove_clients(sids: set):
     redis_client.delete(*[SID_SESSION_TIMESTAMP_KEY.format(sid) for sid in sids])
     redis_client.delete(*[SID_SUBJECTS_TIMESTAMPS_KEY.format(sid) for sid in sids])
 
-    try:
-        SocketClient.objects.filter(id__in=sids).delete()
-    except ValueError:
-        logger.exception("Failed to remove SocketClients for sids: %s", sids)
+    sockets_sessions = SocketClient.objects.filter(id__in=sids)
+    user_sessions = UserSession.objects.filter(id__in=sids)
+
+    if sockets_sessions.exists():
+        logger.debug("SIDs on SocketClient, deleting", extra={"sids": sids})
+        sockets_sessions.delete()
+    if user_sessions.exists():
+        logger.debug("SIDs on UserSession, deleting", extra={"sids": sids})
+        user_sessions.delete()
 
 
 def cleanup_usersessions():
