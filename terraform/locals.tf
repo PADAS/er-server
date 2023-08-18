@@ -458,6 +458,7 @@ locals {
     "izw-namibia"             = "prod1"
     "nmdgf"                   = "prod1"
     "awct"                    = "prod1"
+    "northlandscapes"         = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
