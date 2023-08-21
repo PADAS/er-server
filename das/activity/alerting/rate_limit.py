@@ -15,11 +15,17 @@ KEY_ALERT_100_PERCENT = "alert_limit_100_percent"
 logger = logging.getLogger(__name__)
 
 
+def _get_alert_rate_limit() -> int:
+    if features.tms.is_on():
+        return get_tenant_settings().env_settings.alert_rate_limit
+    return settings.ALERTS_RATE_LIMIT
+
+
 def allow_send_event_alert(user: User) -> bool:
     counter = get_or_set_user_alerts_counter(user)
 
     publish_user_alert_quota_percentage(user, counter)
-    return counter < settings.ALERTS_RATE_LIMIT
+    return counter < _get_alert_rate_limit()
 
 
 def prepend_alert_warning_message(user: User) -> bool:
@@ -60,7 +66,7 @@ def reset_alerts_counter(user: User) -> int:
 
 
 def get_remaining_alert_count(user: User) -> int:
-    return settings.ALERTS_RATE_LIMIT - get_or_set_user_alerts_counter(user) - 1
+    return _get_alert_rate_limit() - get_or_set_user_alerts_counter(user) - 1
 
 
 def update_stats():
@@ -69,7 +75,7 @@ def update_stats():
 
 
 def publish_user_alert_quota_percentage(user: User, counter: int) -> None:
-    percentage = (counter / settings.ALERTS_RATE_LIMIT) * 100
+    percentage = (counter / _get_alert_rate_limit()) * 100
 
     if percentage >= 100:
         alerts_storage.insert_set(KEY_ALERT_100_PERCENT, str(user.id))

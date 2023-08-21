@@ -10,6 +10,7 @@ from dataclasses_json import config, dataclass_json
 @dataclass
 class EnvironmentSettings:
     accept_eula: Optional[bool] = field(metadata=config(field_name="acceptEula"), default=False)
+    alert_rate_limit: int = field(metadata=config(field_name="alertRateLimit"), default=20)
     all_server_names: Optional[List[str]] = field(metadata=config(field_name="allServerNames"), default=None)
     default_event_filter_from_days: Optional[int] = field(
         metadata=config(field_name="defaultEventFilterFromDays"), default=None
