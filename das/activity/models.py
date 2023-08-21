@@ -1094,6 +1094,7 @@ class EventRelatedSegmentsManager(models.Manager):
 
 
 class EventRelatedSegments(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     objects = EventRelatedSegmentsManager()
     event = models.ForeignKey(Event, on_delete=models.CASCADE, null=False)
     patrol_segment = models.ForeignKey(to="PatrolSegment", on_delete=models.CASCADE, null=False)

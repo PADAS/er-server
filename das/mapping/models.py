@@ -748,6 +748,7 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
 
 
 class ArcgisGroup(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     name = models.CharField(max_length=100, blank=True, null=True)
     group_id = models.CharField(max_length=100, blank=False)
     # todo: this should be the FK
@@ -758,6 +759,7 @@ class ArcgisGroup(TimestampedModel):
 
 
 class ArcgisConfiguration(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     disable_import_feature_class_presentation = models.BooleanField(default=False)
     service_url = models.CharField(
         max_length=2000,
