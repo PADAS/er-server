@@ -71,6 +71,7 @@ from tracking.pubsub_registry import notify_subjectstatus_update
 from utils.decorator import use_shared_resource
 from utils.interfaces import SharedResourceHandler
 from utils.json import zeroout_microseconds
+from utils.models import get_nextval
 
 User = get_user_model()
 
@@ -1805,6 +1806,10 @@ class SubjectStatus(PermissionSetGroupMixin, TimestampedModel):
         (OFFLINE, "offline"),
         (ALARM, "alarm"),
         (UNKNOWN, "n/a"),
+    )
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    serial_number = models.IntegerField(
+        default=get_nextval("observations", "SubjectStatus", "serial_number"), null=False, verbose_name="Serial Number"
     )
     subject = models.ForeignKey("Subject", on_delete=models.CASCADE)
     location = models.PointField("location")

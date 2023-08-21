@@ -42,3 +42,21 @@ def set_column_value(
     for instance in model.objects.using(db_alias).all():
         setattr(instance, column_name, value)
         instance.save()
+
+
+def copy_uuid_references(
+    app_name, model_name, relationship_field, uuid_column, referrer_uuid_column, apps, schema_editor
+):
+    db_alias = schema_editor.connection.alias
+    model = apps.get_model(app_name, model_name)
+
+    for instance in model.objects.using(db_alias).all():
+        propagate_uuid_reference(instance, relationship_field, uuid_column, referrer_uuid_column)
+
+
+def propagate_uuid_reference(instance, relationship_field, uuid_column, referrer_uuid_column):
+    instance_uuid = getattr(instance, uuid_column)
+
+    for related_instance in getattr(instance, relationship_field).all():
+        setattr(related_instance, referrer_uuid_column, instance_uuid)
+        related_instance.save()
