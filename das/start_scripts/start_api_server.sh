@@ -2,7 +2,7 @@
 . $(dirname "$0")/wait_for.sh
 wait_for $DB_HOST $DB_PORT
 
-python3 manage.py migrate --no-input
+python3 manage.py migrate --no-input --settings=das_server.local_settings_oauth_migration
 
 . $(dirname "$0")/django_common_startup.sh
 
