@@ -32,11 +32,11 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name=MODEL_NAME.lower(),
             name=CHOICE_NAME_COLUMN,
-            field=models.CharField(max_length=100, null=False, unique=True, verbose_name="Choice name"),
+            field=models.CharField(blank=True, max_length=100, null=False, unique=True, verbose_name="Choice name"),
         ),
         migrations.AlterField(
             model_name=MODEL_NAME.lower(),
             name=ID_COLUMN,
-            field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False),
+            field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=True),
         ),
     ]

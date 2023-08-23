@@ -17,7 +17,7 @@ from django.urls import NoReverseMatch, reverse
 from django.utils.deconstruct import deconstructible
 from django.utils.translation import gettext_lazy as _
 
-from core.models import TimestampedModel
+from core.models import TimestampedModel, UUIDModel
 from mapping.app_settings import MBTILES
 from mapping.mbtiles import (
     ExtractionError,
@@ -654,7 +654,7 @@ class SpatialFeatureFile(SpatialFilesBase):
     feature_types_file = models.FileField(upload_to=upload_to, blank=True, null=True)
 
     class Meta:
-        verbose_name = "Feature Import File TEST"
+        verbose_name = "Feature Import File"
 
 
 class SpatialFeatureManager(models.Manager):
@@ -747,8 +747,7 @@ class SpatialFeature(RevisionMixin, TimestampedModel):
         return "{0}-{1}-{2}".format(self.name, self.feature_type.name, self.id)
 
 
-class ArcgisGroup(TimestampedModel):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+class ArcgisGroup(TimestampedModel, UUIDModel):
     name = models.CharField(max_length=100, blank=True, null=True)
     group_id = models.CharField(max_length=100, blank=False)
     # todo: this should be the FK
@@ -758,8 +757,7 @@ class ArcgisGroup(TimestampedModel):
         return self.name
 
 
-class ArcgisConfiguration(TimestampedModel):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+class ArcgisConfiguration(TimestampedModel, UUIDModel):
     disable_import_feature_class_presentation = models.BooleanField(default=False)
     service_url = models.CharField(
         max_length=2000,

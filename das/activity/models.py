@@ -47,7 +47,7 @@ from django.utils.translation import gettext_lazy as _
 
 from accounts.models.permissionset import PermissionSet
 from accounts.models.user import User
-from core.models import SingletonModel, TimestampedModel
+from core.models import SingletonModel, TimestampedModel, UUIDModel
 from core.utils import static_image_finder
 from observations.models import Subject, SubjectGroup, SubjectStatus
 from observations.utils import dateparse as dparse
@@ -346,7 +346,7 @@ class RefreshRecreateEventDetailViewQuery(models.QuerySet):
         self.update(maintenance_status=status, ended_at=datetime.datetime.now(tz=pytz.utc), error_details=error_details)
 
 
-class RefreshRecreateEventDetailView(models.Model):
+class RefreshRecreateEventDetailView(UUIDModel):
     SUCCESS = "succeeded"
     SUCCESS_WARNING = "succeeded-warning"
     FAILED = "failed"
@@ -356,7 +356,6 @@ class RefreshRecreateEventDetailView(models.Model):
 
     TASK_MODE = [(REFRESH, "refresh"), (RECREATE, "recreate")]
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     performed_by = models.CharField(blank=True, null=True, max_length=255)
     task_mode = models.CharField(blank=True, null=True, max_length=255, choices=TASK_MODE)
     started_at = models.DateTimeField(blank=True, null=True)
@@ -1093,8 +1092,7 @@ class EventRelatedSegmentsManager(models.Manager):
     pass
 
 
-class EventRelatedSegments(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+class EventRelatedSegments(UUIDModel):
     objects = EventRelatedSegmentsManager()
     event = models.ForeignKey(Event, on_delete=models.CASCADE, null=False)
     patrol_segment = models.ForeignKey(to="PatrolSegment", on_delete=models.CASCADE, null=False)

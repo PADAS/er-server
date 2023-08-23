@@ -5,11 +5,10 @@ from django.contrib.auth import get_user_model
 from django.db import models, transaction
 from django.utils.translation import gettext_lazy as _
 
-from core.models import TimestampedModel
+from core.models import TimestampedModel, UUIDModel
 
 
-class UserAgreement(TimestampedModel):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+class UserAgreement(TimestampedModel, UUIDModel):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="userterms", on_delete=models.CASCADE)
     eula = models.ForeignKey("EULA", related_name="userterms", on_delete=models.CASCADE)
 

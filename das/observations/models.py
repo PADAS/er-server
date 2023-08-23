@@ -55,7 +55,7 @@ from django.utils.translation import gettext_lazy as _
 
 from accounts.mixins import PermissionSetGroupMixin, PermissionSetHierarchyMixin
 from accounts.models import PermissionSet
-from core.models import HierarchyManager, HierarchyModel, TimestampedModel
+from core.models import HierarchyManager, HierarchyModel, TimestampedModel, UUIDModel
 from core.utils import static_image_finder
 from das_server import settings
 from observations.mixins import FilterMixin
@@ -71,7 +71,7 @@ from tracking.pubsub_registry import notify_subjectstatus_update
 from utils.decorator import use_shared_resource
 from utils.interfaces import SharedResourceHandler
 from utils.json import zeroout_microseconds
-from utils.models import get_nextval
+from utils.models import get_next_int_val
 
 User = get_user_model()
 
@@ -1789,7 +1789,11 @@ class CommonName(TimestampedModel):
         return self.display
 
 
-class SubjectStatus(PermissionSetGroupMixin, TimestampedModel):
+def generate_subject_status_serial_number():
+    return get_next_int_val("observations", "SubjectStatus", "serial_number")
+
+
+class SubjectStatus(PermissionSetGroupMixin, TimestampedModel, UUIDModel):
     ONLINE_GPS = "online-gps"
     ONLINE = "online"
     OFFLINE = "offline"
@@ -1809,9 +1813,8 @@ class SubjectStatus(PermissionSetGroupMixin, TimestampedModel):
         (ALARM, "alarm"),
         (UNKNOWN, "n/a"),
     )
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     serial_number = models.IntegerField(
-        default=get_nextval("observations", "SubjectStatus", "serial_number"), null=False, verbose_name="Serial Number"
+        default=generate_subject_status_serial_number, null=False, verbose_name="Serial Number"
     )
     subject = models.ForeignKey("Subject", on_delete=models.CASCADE)
     location = models.PointField("location")

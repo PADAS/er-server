@@ -8,6 +8,7 @@ from django.utils import timezone
 from django.utils.functional import lazy
 from django.utils.translation import gettext_lazy as _
 
+from core.models import UUIDModel
 from core.utils import static_image_finder
 
 
@@ -44,9 +45,8 @@ class ChoiceQuerySet(models.QuerySet):
         return self.disable_choices()
 
 
-class DynamicChoice(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    choice_name = models.CharField(max_length=100, null=False, unique=True, verbose_name="Choice name")
+class DynamicChoice(UUIDModel):
+    choice_name = models.CharField(max_length=100, blank=True, null=False, unique=True, verbose_name="Choice name")
     model_name = models.CharField(max_length=100, verbose_name="Model lookup")
     criteria = models.CharField(max_length=100, verbose_name="Criteria")
     value_col = models.CharField(max_length=100, verbose_name="Value column")

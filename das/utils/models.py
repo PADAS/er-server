@@ -1,4 +1,4 @@
-from typing import Callable, overload
+from typing import overload
 
 import django
 from django.apps import apps
@@ -106,12 +106,9 @@ def getattr_jsonfield(obj: object, name: str, *args) -> object:
     return obj
 
 
-def get_nextval(app_label: str, model_name: str, column_name: str) -> Callable:
-    def compute_next_value():
-        model = apps.get_model(app_label, model_name)
-        max_queryset = model.objects.annotate(Max(column_name))
-        max_value = getattr(max_queryset[0], column_name) if max_queryset.exists() else 0
+def get_next_int_val(app_label: str, model_name: str, column_name: str) -> int:
+    model = apps.get_model(app_label, model_name)
+    max_queryset = model.objects.annotate(Max(column_name))
+    max_value = getattr(max_queryset[0], column_name) if max_queryset.exists() else 0
 
-        return max_value + 1
-
-    return compute_next_value
+    return max_value + 1
