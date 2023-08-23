@@ -1,3 +1,5 @@
+import uuid
+
 from django_multitenant.models import TenantModel
 
 from django.conf import settings
@@ -8,6 +10,13 @@ from django.core.cache import cache
 class TimestampedModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        abstract = True
+
+
+class UUIDModel(models.Model):
+    id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
 
     class Meta:
         abstract = True

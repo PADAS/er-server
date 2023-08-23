@@ -6,6 +6,7 @@ from .core import (
     HierarchyModel,
     SingletonModel,
     TimestampedModel,
+    UUIDModel,
 )
 from .oauth import DASAccessToken, DASApplication, DASGrant, DASIDToken, DASRefreshToken
 
@@ -22,4 +23,5 @@ __all__ = (
     "HierarchyModel",
     "SingletonModel",
     "TimestampedModel",
+    "UUIDModel",
 )

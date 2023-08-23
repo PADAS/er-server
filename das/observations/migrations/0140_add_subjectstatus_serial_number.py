@@ -4,6 +4,7 @@ from functools import partial
 from django.db import migrations, models
 
 from observations.materialized_views import patrols_view
+from observations.models import generate_subject_status_serial_number
 from utils.migrations import copy_model_column
 
 APP_NAME = "observations"
@@ -36,7 +37,9 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name=MODEL_NAME.lower(),
             name=SERIAL_COLUMN,
-            field=models.IntegerField(null=False),
+            field=models.IntegerField(
+                default=generate_subject_status_serial_number, null=False, verbose_name="Serial Number"
+            ),
         ),
         migrations.RunPython(refresh_patrols_view),
     ]

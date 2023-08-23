@@ -54,7 +54,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name=MODEL_NAME.lower(),
             name=ID_COLUMN,
-            field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False),
+            field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=True),
         ),
         migrations.RemoveField(
             model_name=REFERRER_MODEL_NAME.lower(),
@@ -68,6 +68,8 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name=REFERRER_MODEL_NAME.lower(),
             name=REFERRER_ID_COLUMN,
-            field=models.ForeignKey(MODEL_NAME, blank=True, on_delete=models.SET_NULL, null=True),
+            field=models.ForeignKey(
+                to=f"{APP_NAME.lower()}.{MODEL_NAME.lower()}", on_delete=models.SET_NULL, null=True
+            ),
         ),
     ]
