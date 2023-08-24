@@ -459,6 +459,8 @@ locals {
     "nmdgf"                   = "prod1"
     "awct"                    = "prod1"
     "northlandscapes"         = "prod1"
+    "mobile-test"             = "dev"
+    "mobile-bash"             = "dev"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
