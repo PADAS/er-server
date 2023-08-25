@@ -104,8 +104,8 @@ class HierarchyModel(models.Model):
         return [a.id for a in self.get_ancestors()]
 
 
-class SingletonModel(models.Model):
-    instance_id = 1
+class SingletonModel(UUIDModel):
+    instance_id = None
 
     class Meta:
         abstract = True

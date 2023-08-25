@@ -7,16 +7,18 @@ from celery_once import AlreadyQueued
 from psycopg2.extras import DateTimeTZRange
 
 from django.contrib import messages
-from django.contrib.admin import FieldListFilter, SimpleListFilter
+from django.contrib.admin import FieldListFilter, SimpleListFilter, widgets
 from django.contrib.auth import get_permission_codename, get_user_model
 from django.contrib.gis import admin
 from django.db.models import Case, CharField, F, OuterRef, Q, Subquery, Value, When
 from django.db.utils import DataError
 from django.forms.fields import JSONField
+from django.forms.widgets import SelectMultiple
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.safestring import mark_safe
+from django.utils.text import format_lazy
 from django.utils.translation import gettext as _
 
 import activity.models as models
@@ -911,3 +913,22 @@ class PatrolConfiguration(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        db = kwargs.get("using")
+
+        if "widget" not in kwargs:
+            if db_field.name in self.filter_horizontal:
+                kwargs["widget"] = widgets.FilteredSelectMultiple(db_field.verbose_name, False)
+        if "queryset" not in kwargs:
+            queryset = self.get_field_queryset(db, db_field, request)
+            if queryset is not None:
+                kwargs["queryset"] = queryset
+
+        form_field = db_field.formfield(**kwargs)
+        if isinstance(form_field.widget, SelectMultiple):
+            msg = _("Hold down “Control”, or “Command” on a Mac, to select more than one.")
+            help_text = form_field.help_text
+            form_field.help_text = format_lazy("{} {}", help_text, msg) if help_text else msg
+
+        return form_field

@@ -1102,7 +1102,7 @@ class EventRelatedSubjectManager(models.Manager):
     pass
 
 
-class EventRelatedSubject(models.Model):
+class EventRelatedSubject(UUIDModel):
     objects = EventRelatedSubjectManager()
 
     event = models.ForeignKey(Event, on_delete=models.CASCADE)
@@ -1545,9 +1545,7 @@ class EventNotificationManager(models.Manager):
     pass
 
 
-class EventNotification(TimestampedModel):
-    id = models.BigAutoField(primary_key=True)
-
+class EventNotification(TimestampedModel, UUIDModel):
     method = models.CharField(default="email", max_length=20, choices=NOTIFICATION_METHOD_CHOICES)
     value = models.CharField(default="", max_length=100, help_text=_("A phone number or email address."))
 
@@ -2094,8 +2092,11 @@ class PatrolSegment(TimestampedModel, RevisionMixin):
 
 
 class PatrolConfiguration(SingletonModel):
+    instance_id = uuid.UUID("deb99202-2373-4c6c-b05f-e71d29cb2b26")
     name = models.CharField(max_length=255)
-    subject_groups = models.ManyToManyField(SubjectGroup, related_name="groups", blank=True)
+    subject_groups = models.ManyToManyField(
+        SubjectGroup, related_name="groups", blank=True, through="activity.PatrolConfigurationSubjectGroup"
+    )
 
     @property
     def effective_subject_groups(self):
@@ -2105,6 +2106,11 @@ class PatrolConfiguration(SingletonModel):
             effective_subject_groups.update((descendant.id for descendant in subject_group.get_descendants()))
 
         return SubjectGroup.objects.filter(id__in=effective_subject_groups)
+
+
+class PatrolConfigurationSubjectGroup(UUIDModel):
+    patrolconfiguration = models.ForeignKey(blank=True, on_delete=models.CASCADE, to="activity.patrolconfiguration")
+    subjectgroup = models.ForeignKey(blank=True, on_delete=models.CASCADE, to="observations.subjectgroup")
 
 
 class EventGeometry(RevisionMixin, TimestampedModel):
