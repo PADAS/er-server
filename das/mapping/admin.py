@@ -707,6 +707,6 @@ class ArcgisConfigurationAdmin(admin.ModelAdmin):
         if db_field.name == "groups":
             object_id = request.resolver_match.kwargs.get("object_id")
             if object_id:
-                obj = self.model.objects.get(id=int(object_id))
+                obj = self.model.objects.get(id=object_id)
                 kwargs["queryset"] = models.ArcgisGroup.objects.filter(config_id=obj.id)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
