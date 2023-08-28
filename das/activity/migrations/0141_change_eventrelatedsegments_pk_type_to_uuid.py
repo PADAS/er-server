@@ -16,6 +16,7 @@ populate_uuid = partial(populate_model_uuid_column, APP_NAME, MODEL_NAME, UUID_C
 
 class Migration(migrations.Migration):
     dependencies = [(APP_NAME, "0140_alter_refreshrecreateeventdetailview_id")]
+    run_before = [("observations", "0011_group_update")]
 
     operations = [
         migrations.AddField(
