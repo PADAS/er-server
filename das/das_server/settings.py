@@ -305,6 +305,7 @@ CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
         "LOCATION": "unique-snowflake",
+        "KEY_FUNCTION": "utils.tenant.make_cache_key",
     }
 }
 
