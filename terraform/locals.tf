@@ -461,6 +461,9 @@ locals {
     "northlandscapes"         = "prod1"
     "mobile-test"             = "dev"
     "mobile-bash"             = "dev"
+    "mades"                   = "prod1"
+    "parquemetropolitano"     = "prod1"
+    "scorpionreef"            = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
@@ -682,6 +685,8 @@ locals {
     "lec"                     = 1
     "izw-namibia"             = 1
     "awct"                    = 1
+    "parquemetropolitano"     = 1
+    "scorpionreef"            = 1
   }
 
   db_instance_index  = lookup(local.workspace_to_database_instance, terraform.workspace, 0)
