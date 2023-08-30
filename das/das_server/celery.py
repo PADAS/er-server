@@ -154,6 +154,11 @@ app.conf.beat_schedule = {
         # 4 AM local time per settings.TIME_ZONE
         "schedule": crontab(hour=4, minute=0),
     },
+    "refresh-event-details-view": {
+        "task": "activity.tasks.refresh_event_details_view_task",
+        "args": ("Celery",),
+        "schedule": timedelta(hours=1),
+    },
     "publish-daily-site-metrics": {
         "task": "das_server.tasks.publish_daily_site_metrics",
         # 1 AM daily
@@ -172,10 +177,6 @@ app.conf.beat_schedule = {
     "auto-resolve": {
         "task": "activity.tasks.automatically_update_event_state",
         "schedule": timedelta(minutes=5),
-    },
-    "refresh_patrols_view": {
-        "task": "observations.tasks.refresh_patrols_view",
-        "schedule": timedelta(hours=getattr(settings, "PATROL_VIEW_REFRESH_HOURS", 1)),
     },
     "poll_news_gcs_bucket": {
         "task": "observations.tasks.poll_news_gcs_bucket",
