@@ -104,6 +104,7 @@ app.conf.task_routes = {
     "das_server.tasks.celerybeat_pulse": {
         "queue": "realtime_p1",
     },
+    "activity.tasks.refresh_event_details_view": {"queue": "maintenance"},
 }
 
 
@@ -155,7 +156,7 @@ app.conf.beat_schedule = {
         "schedule": crontab(hour=4, minute=0),
     },
     "refresh-event-details-view": {
-        "task": "activity.tasks.refresh_event_details_view_task",
+        "task": "activity.tasks.refresh_event_details_view",
         "args": ("Celery",),
         "schedule": timedelta(hours=1),
     },
