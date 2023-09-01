@@ -90,7 +90,7 @@ class Choice(SoftDeleteModel):
     display = models.CharField(max_length=100, blank=True)
     icon = models.CharField(max_length=100, blank=True, null=True)
     ordernum = models.SmallIntegerField(blank=True, null=True)
-    sub_choice_of = models.ManyToManyField("self", blank=True, symmetrical=False)
+    sub_choice_of = models.ManyToManyField("self", blank=True, symmetrical=False, through="choices.SubChoiceOf")
 
     objects = ChoiceQuerySet.as_manager()
     updated_at = models.DateTimeField(auto_now=True, null=True)
@@ -119,6 +119,15 @@ class Choice(SoftDeleteModel):
     def marker_icon(choice_value, default="/static/generic-black.svg"):
         image_url = static_image_finder.get_marker_icon(Choice.generate_image_keys(choice_value))
         return image_url or default
+
+
+class SubChoiceOf(UUIDModel):
+    from_choice = models.ForeignKey(
+        default=uuid.uuid4, on_delete=models.CASCADE, related_name="from_choice", to="choices.choice"
+    )
+    to_choice = models.ForeignKey(
+        default=uuid.uuid4, on_delete=models.CASCADE, related_name="to_choice", to="choices.choice"
+    )
 
 
 class DisableChoice(Choice):

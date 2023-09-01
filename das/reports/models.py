@@ -1,9 +1,9 @@
 from django.db import models
 
-from core.models import TimestampedModel
+from core.models import TimestampedModel, UUIDModel
 
 
-class SourceProviderEvent(TimestampedModel):
+class SourceProviderEvent(TimestampedModel, UUIDModel):
     source_provider = models.ForeignKey(
         "observations.SourceProvider",
         on_delete=models.CASCADE,
@@ -18,7 +18,7 @@ class SourceProviderEvent(TimestampedModel):
     )
 
 
-class SourceEvent(TimestampedModel):
+class SourceEvent(TimestampedModel, UUIDModel):
     source = models.ForeignKey(
         "observations.Source",
         on_delete=models.CASCADE,
