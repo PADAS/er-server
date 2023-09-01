@@ -1,5 +1,4 @@
-from django.db import migrations, models
-
+from django.db import migrations
 
 GENERIC_GFW_TREE_LOSS_SCHEMA = """{
    "schema":{
@@ -94,38 +93,40 @@ GENERIC_GFW_ACTIVE_FIRE_SCHEMA = """{
 
 
 def forwards(apps, schema_editor):
-    EventCategory = apps.get_model('activity', 'EventCategory')
-    EventType = apps.get_model('activity', 'EventType')
+    EventCategory = apps.get_model("activity", "EventCategory")
+    EventType = apps.get_model("activity", "EventType")
 
     db_alias = schema_editor.connection.alias
 
     category, created = EventCategory.objects.using(db_alias).get_or_create(
-        value='analyzer_event',
-        defaults={"display": "Analyzer Event",
-                  "ordernum": 1})
-
-    gfw_tree_loss_defaults = {'schema': GENERIC_GFW_TREE_LOSS_SCHEMA, 'display': 'GLAD Tree-Loss Alert (GFW)',
-                'category_id': category.id, 'icon': 'deforestation_rep'}
-
-    EventType.objects.using(db_alias).update_or_create(
-        value="gfw_glad_alert",
-        defaults=gfw_tree_loss_defaults
+        value="analyzer_event", defaults={"display": "Analyzer Event", "ordernum": 1}
     )
 
-    gfw_activefire_alert_defaults = {'schema': GENERIC_GFW_ACTIVE_FIRE_SCHEMA, 'display': 'Active Fire Alert (GFW)',
-                'category_id': category.id, 'icon': 'fire_rep'}
+    gfw_tree_loss_defaults = {
+        "schema": GENERIC_GFW_TREE_LOSS_SCHEMA,
+        "display": "GLAD Tree-Loss Alert (GFW)",
+        "category_id": category.id,
+        "icon": "deforestation_rep",
+    }
+
+    EventType.objects.using(db_alias).update_or_create(value="gfw_glad_alert", defaults=gfw_tree_loss_defaults)
+
+    gfw_activefire_alert_defaults = {
+        "schema": GENERIC_GFW_ACTIVE_FIRE_SCHEMA,
+        "display": "Active Fire Alert (GFW)",
+        "category_id": category.id,
+        "icon": "fire_rep",
+    }
 
     EventType.objects.using(db_alias).update_or_create(
-        value="gfw_activefire_alert",
-        defaults=gfw_activefire_alert_defaults
+        value="gfw_activefire_alert", defaults=gfw_activefire_alert_defaults
     )
 
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('analyzers', '0034_auto_20200225_1159'),
+        ("analyzers", "0034_auto_20200225_1159"),
+        ("activity", "0083_alertrule_owner"),
     ]
 
-    operations = [
-        migrations.RunPython(forwards, migrations.RunPython.noop)
-    ]
+    operations = [migrations.RunPython(forwards, migrations.RunPython.noop)]
