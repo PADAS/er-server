@@ -2,7 +2,7 @@ import json
 from unittest.mock import MagicMock
 
 import pytest
-from oauth2_provider.models import Application
+from oauth2_provider.models import get_application_model
 from pytest_factoryboy import register
 
 from django.apps import apps
@@ -43,6 +43,7 @@ from factories import (
 )
 from utils.tenant import Tenant
 
+Application = get_application_model()
 User = apps.get_model(app_label="accounts", model_name="User")
 
 TENANT_RESPONSE = {

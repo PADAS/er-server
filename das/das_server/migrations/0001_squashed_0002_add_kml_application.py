@@ -16,7 +16,7 @@ from django.utils import crypto, timezone
 def load_default_clients(apps, schema_editor):
     db_alias = schema_editor.connection.alias
     User = apps.get_model(settings.AUTH_USER_MODEL)
-    Application = apps.get_model("oauth2_provider.Application")
+    Application = apps.get_model(settings.OAUTH2_PROVIDER_APPLICATION_MODEL)
 
     if not User.objects.using(db_alias).filter(username="das_oauth_act").exists():
         user = User.objects.using(db_alias).get_or_create(
@@ -64,7 +64,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ("oauth2_provider", "0001_initial"),
+        ("core", "0007_add_oauth_custom_models"),
     ]
 
     operations = [

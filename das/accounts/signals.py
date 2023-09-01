@@ -1,12 +1,14 @@
 from datetime import datetime
 
 import pytz
-from oauth2_provider.models import AccessToken
+from oauth2_provider.models import get_access_token_model
 
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from accounts.models import User
+
+AccessToken = get_access_token_model()
 
 
 @receiver(post_save, sender=AccessToken, dispatch_uid="record_last_login")

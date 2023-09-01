@@ -4,7 +4,7 @@ migrations need to be run before overwrite variables in settings.
 e.g. OAUTH2_PROVIDER_APPLICATION_MODEL = "core.DASApplication"
 
 call migrations with:
-    python manage.py migrate --settings=local_settings_oauth_migration
+    python manage.py migrate --settings=das_server.local_settings_oauth_migration
 
 """
 from das_server.local_settings_docker import *  # noqa
