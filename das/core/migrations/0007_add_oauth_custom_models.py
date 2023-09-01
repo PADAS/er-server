@@ -17,6 +17,9 @@ class Migration(migrations.Migration):
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
         ("core", "0006_add_das_tenant_model"),
     ]
+    run_before = [
+        ("oauth2_provider", "0001_initial"),
+    ]
 
     operations = [
         migrations.CreateModel(

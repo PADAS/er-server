@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 import pytz
 from drf_extra_fields.geo_fields import PointField
-from oauth2_provider.models import AccessToken, Application
+from oauth2_provider.models import get_access_token_model, get_application_model
 from oauthlib.common import generate_token
 
 from django.conf import settings
@@ -32,6 +32,8 @@ from utils.json import parse_bool
 from utils.tenant import get_tenant_settings
 
 CLIENT_ID = "das_web_client"
+AccessToken = get_access_token_model()
+Application = get_application_model()
 
 
 def index(request):

@@ -4,7 +4,7 @@ from datetime import timedelta
 import factory
 from factory import fuzzy
 from factory.fuzzy import BaseFuzzyAttribute
-from oauth2_provider.models import AccessToken
+from oauth2_provider.models import get_access_token_model
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
@@ -42,6 +42,7 @@ from observations.models import (
     SubjectType,
 )
 
+AccessToken = get_access_token_model()
 User = get_user_model()
 
 

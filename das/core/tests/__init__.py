@@ -3,7 +3,7 @@ import uuid
 
 import pytest
 from kombu import Connection
-from oauth2_provider.models import AccessToken, Application
+from oauth2_provider.models import get_access_token_model, get_application_model
 
 import django.contrib.auth
 from django.test import TestCase
@@ -12,9 +12,11 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 
 pytestmark = pytest.mark.django_db
 
+AccessToken = get_access_token_model()
+Application = get_application_model()
 User = django.contrib.auth.get_user_model()
 
-API_BASE = '/api/v1.0'
+API_BASE = "/api/v1.0"
 
 
 def fake_get_pool():
@@ -32,11 +34,11 @@ class BaseAPITest(TestCase):
         return super()._databases_support_transactions()
 
     def setUp(self):
-        user_const = dict(last_name='last', first_name='first')
+        user_const = dict(last_name="last", first_name="first")
 
-        self.app_user = User.objects.create_user('app-user', 'app-user@test.com',
-                                                 'app-user', is_superuser=False,
-                                                 is_staff=True, **user_const)
+        self.app_user = User.objects.create_user(
+            "app-user", "app-user@test.com", "app-user", is_superuser=False, is_staff=True, **user_const
+        )
 
         self.application = Application(
             name="Test Application",
@@ -51,9 +53,11 @@ class BaseAPITest(TestCase):
 
     def create_access_token(self, user):
         tok = AccessToken.objects.create(
-            user=user, token=str(uuid.uuid4()),
-            application=self.application, scope='read write',
-            expires=timezone.now() + datetime.timedelta(days=1)
+            user=user,
+            token=str(uuid.uuid4()),
+            application=self.application,
+            scope="read write",
+            expires=timezone.now() + datetime.timedelta(days=1),
         )
         return tok
 

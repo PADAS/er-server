@@ -1,10 +1,12 @@
 import copy
 
-from oauth2_provider.admin import AccessTokenAdmin, GrantAdmin, RefreshTokenAdmin
 from oauth2_provider.models import (
+    get_access_token_admin_class,
     get_access_token_model,
     get_application_model,
+    get_grant_admin_class,
     get_grant_model,
+    get_refresh_token_admin_class,
     get_refresh_token_model,
 )
 
@@ -39,6 +41,14 @@ from .forms import (
     RefreshForm,
     UserAdditionalForm,
 )
+
+Application = get_application_model()
+Grant = get_grant_model()
+AccessToken = get_access_token_model()
+RefreshToken = get_refresh_token_model()
+AccessTokenAdmin = get_access_token_admin_class()
+GrantAdmin = get_grant_admin_class()
+RefreshTokenAdmin = get_refresh_token_admin_class()
 
 
 @admin.register(PermissionSet)
@@ -437,11 +447,6 @@ class RefreshTokenAdmin(admin.ModelAdmin):
     _revoked.short_description = "Revoked in %s" % TIMEZONE_USED
     _revoked.admin_order_field = "revoked"
 
-
-Application = get_application_model()
-Grant = get_grant_model()
-AccessToken = get_access_token_model()
-RefreshToken = get_refresh_token_model()
 
 # AccessToken
 admin.site.unregister(AccessToken)
