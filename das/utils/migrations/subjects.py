@@ -1,12 +1,13 @@
 import logging
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 
 class SubjectSubTypeLoader:
-    def __init__(self, subject_type_value: str, new_subtypes: list = []):
+    def __init__(self, subject_type_value: str, new_subtypes: Optional[list] = None):
         self._subject_type_value = subject_type_value
-        self._subject_subtypes = new_subtypes
+        self._subject_subtypes = new_subtypes or list()
 
     def add_subject_subtype(self, display: str, value: str):
         if display and value:
