@@ -9,13 +9,13 @@ function app_has_migrated () {
     python3 manage.py showmigrations $app --skip-checks | grep -q "$pattern" && return 0 || return 1
 }
 
-if app_has_migrated oauth2_provider '\[X\].0001_initial' && app_has_migrated core '\[ \].0008_migrate'; then
+if app_has_migrated core '\[ \].0008_migrate'; then
   echo "settings override"
-  # partially migrated db, just missing the migration to core oauth tables
+  # we haven't migrated to the core oauth tables yet
   python3 manage.py migrate --no-input --settings=das_server.local_settings_oauth_migration
 else
   echo "no override of settings"
-  # for a new database with no migrations, we do a clean migrate with no need to fixup oauth2_provider
+  # db has been migrated past core oauth tables
   python3 manage.py migrate --no-input
 fi
 
