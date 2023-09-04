@@ -165,6 +165,7 @@ def migrate_oauth_models(apps, schema_editor):
 class Migration(migrations.Migration):
     dependencies = [
         ("core", "0007_add_oauth_custom_models"),
+        ("oauth2_provider", "0007_application_post_logout_redirect_uris"),
         ("das_server", "0002_er_track"),
     ]
 
