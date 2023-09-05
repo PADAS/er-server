@@ -1,7 +1,7 @@
 import hashlib
 import re
 from collections import defaultdict
-from typing import List, Optional
+from typing import Iterator, List, Optional
 from uuid import uuid4
 
 from django.contrib import auth
@@ -140,9 +140,29 @@ def get_user_etag(request, *args, **kwargs) -> str:
     return hashlib.md5(etag_string.encode("utf-8")).hexdigest()
 
 
+def generate_user_field_data(user: User) -> Iterator[str]:
+    fields = (
+        "accepted_eula",
+        "email",
+        "first_name",
+        "last_name",
+        "pin",
+        "username",
+        "is_staff",
+        "is_active",
+        "additional",
+    )
+    for field in fields:
+        yield str(getattr(user, field, None))
+
+    if hasattr(user, "linked_subject"):
+        yield str(user.linked_subject.id)
+        yield str(user.linked_subject.updated_at)
+
+
 def generate_user_string_etag(user: User, include_profiles: Optional[bool] = True) -> str:
-    fields = ("accepted_eula", "email", "first_name", "last_name", "pin", "username")
-    base_string = ":".join((str(getattr(user, field)) for field in fields))
+    base_string = ":".join(generate_user_field_data(user))
+
     if include_profiles:
         profiles = user.act_as_profiles.all()
         for profile in profiles:
