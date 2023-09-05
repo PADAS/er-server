@@ -14,8 +14,8 @@ class TestUsersView:
         response = superuser_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
-        # Because das_oauth_act and superuser_client
-        assert len(response.data) == 2
+        # Because das_oauth_act and user_client
+        assert len(response.data) == User.objects.count()
 
 
 @pytest.mark.django_db
@@ -44,7 +44,7 @@ class TestUserView:
         assert new_response.status_code == status.HTTP_304_NOT_MODIFIED
         assert etag == new_response.headers["Etag"]
 
-    def test_modified_user(self, superuser_client) -> None:
+    def test_modified_user_new_etag(self, superuser_client) -> None:
         user = User.objects.last()
         url = reverse("accounts:user", kwargs={"id": str(user.id)})
         response = superuser_client.get(url)
@@ -55,6 +55,30 @@ class TestUserView:
         user.save(update_fields=("first_name",))
 
         new_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
+
+        assert etag != new_response.headers["Etag"]
+
+    def test_modified_user_linked_subject_change_subject_new_etag(self, user_client, user, subject) -> None:
+        linked_subject = subject
+        url = reverse("accounts:user", kwargs={"id": str(user.id)})
+        response = user_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        etag = response.headers["ETag"]
+
+        linked_subject.linked_user = user
+        linked_subject.save()
+
+        new_response = user_client.get(url, HTTP_IF_NONE_MATCH=etag)
+        assert new_response.status_code == status.HTTP_200_OK
+        assert etag != new_response.headers["Etag"]
+        etag = new_response.headers["Etag"]
+
+        linked_subject.additional = {"test": "test"}
+        linked_subject.save()
+
+        new_response = user_client.get(url, HTTP_IF_NONE_MATCH=etag)
+        assert new_response.status_code == status.HTTP_200_OK
 
         assert etag != new_response.headers["Etag"]
 
@@ -71,27 +95,8 @@ class TestUserProfilesView:
         assert response.data == []
         assert "ETag" in response.headers.keys()
 
-    def test_get_user_profiles_not_modified_by_user(self, superuser_client, superuser, five_users):
-        profile_user = five_users[0]
-        user = superuser
-        user.act_as_profiles.add(profile_user)
-        user.save()
-
-        url = reverse("accounts:user-profiles", kwargs={"id": str(user.id)})
-        response = superuser_client.get(url)
-
-        assert response.status_code == status.HTTP_200_OK
-
-        etag = response.headers["ETag"]
-
-        url = reverse("accounts:user-profiles", kwargs={"id": str(user.id)})
-        new_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
-
-        assert new_response.status_code == status.HTTP_304_NOT_MODIFIED
-        assert etag == new_response.headers["Etag"]
-
-    def test_get_user_profiles_modified_by_user(self, superuser_client, superuser, five_users):
-        profile_user = five_users[1]
+    def test_get_user_profiles_not_modified_by_user(self, superuser_client, superuser, user):
+        profile_user = user
         superuser.act_as_profiles.add(profile_user)
         superuser.save()
 
@@ -100,9 +105,47 @@ class TestUserProfilesView:
 
         assert response.status_code == status.HTTP_200_OK
 
-        superuser.act_as_profiles.add(five_users[2])
+        etag = response.headers["ETag"]
+
+        url = reverse("accounts:user-profiles", kwargs={"id": str(superuser.id)})
+        new_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
+
+        assert new_response.status_code == status.HTTP_304_NOT_MODIFIED
+        assert etag == new_response.headers["Etag"]
+
+    def test_get_user_profiles_modified_by_user(self, superuser_client, superuser, user):
+        profile_user = user
+
+        url = reverse("accounts:user-profiles", kwargs={"id": str(superuser.id)})
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+
+        superuser.act_as_profiles.add(profile_user)
         superuser.save()
         etag = response.headers["ETag"]
+
+        url = reverse("accounts:user-profiles", kwargs={"id": str(superuser.id)})
+        new_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
+
+        assert new_response.status_code == status.HTTP_200_OK
+        assert etag != new_response.headers["Etag"]
+
+    def test_user_profile_linked_subject_change(self, superuser_client, superuser, user, subject):
+        profile_user = user
+        profile_subject = subject
+
+        superuser.act_as_profiles.add(profile_user)
+        superuser.save()
+
+        url = reverse("accounts:user-profiles", kwargs={"id": str(superuser.id)})
+        response = superuser_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        etag = response.headers["ETag"]
+
+        profile_subject.linked_user = profile_user
+        profile_subject.save()
 
         url = reverse("accounts:user-profiles", kwargs={"id": str(superuser.id)})
         new_response = superuser_client.get(url, HTTP_IF_NONE_MATCH=etag)
