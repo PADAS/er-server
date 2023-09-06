@@ -464,6 +464,7 @@ locals {
     "mades"                   = "prod1"
     "parquemetropolitano"     = "prod1"
     "scorpionreef"            = "prod1"
+    "echinococcus"            = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
