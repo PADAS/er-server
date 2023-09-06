@@ -17,43 +17,43 @@ function review_results() {
 
 function run_test_suite_one() {
   echo_b "Running test suite one...";
-  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 accounts/tests
+  pytest --reuse-db --junitxml=/testresults/result.xml --maxfail=15 accounts/tests
   review_results
-  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 mapping/tests
+  pytest --reuse-db --junitxml=/testresults/result.xml --maxfail=15 mapping/tests
   review_results
-  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 reports/tests
+  pytest --reuse-db --junitxml=/testresults/result.xml --maxfail=15 reports/tests
   review_results
-  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 rt_api/tests
+  pytest --reuse-db --junitxml=/testresults/result.xml --maxfail=15 rt_api/tests
   review_results
-  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 tracking/tests
+  pytest --reuse-db --junitxml=/testresults/result.xml --maxfail=15 tracking/tests
   review_results
 }
 
 function run_test_suite_two() {
   echo_b "Running test suite two...";
-  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 activity/tests
+  pytest --reuse-db --junitxml=/testresults/result.xml --maxfail=15 activity/tests
   review_results
-  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 sensors/tests
+  pytest --reuse-db --junitxml=/testresults/result.xml --maxfail=15 sensors/tests
   review_results
 }
 
 function run_test_suite_three() {
   echo_b "Running test suite three...";
-  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 analyzers/tests
+  pytest --reuse-db --junitxml=/testresults/result.xml --maxfail=15 analyzers/tests
   review_results
-  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 utils/tests
+  pytest --reuse-db --junitxml=/testresults/result.xml --maxfail=15 utils/tests
   review_results
 }
 
 function run_test_suite_four() {
   echo_b "Running test suite four...";
-  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 choices/tests
+  pytest --reuse-db --junitxml=/testresults/result.xml --maxfail=15 choices/tests
   review_results
-  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 das_server/tests
+  pytest --reuse-db --junitxml=/testresults/result.xml --maxfail=15 das_server/tests
   review_results
-  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 observations/tests
+  pytest --reuse-db --junitxml=/testresults/result.xml --maxfail=15 observations/tests
   review_results
-  pytest --create-db --junitxml=/testresults/result.xml --maxfail=15 core/tests
+  pytest --reuse-db --junitxml=/testresults/result.xml --maxfail=15 core/tests
   review_results
 }
 
@@ -70,6 +70,9 @@ export DJANGO_SETTINGS_MODULE=unittest_settings
 
 echo "${CIRCLE_NODE_TOTAL}"
 echo "${CIRCLE_NODE_INDEX}"
+
+IS_OAUTH2_PROVIDER_MIGRATION=true python3 manage.py migrate
+IS_OAUTH2_PROVIDER_MIGRATION=true pytest --reuse-db --create-db --junitxml=/testresults/result.xml --maxfail=15  core/tests/test_utils.py
 
 # Execute based on number of Circle CI nodes, and which Circle CI node is running
 case "$CIRCLE_NODE_TOTAL" in
