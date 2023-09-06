@@ -12,6 +12,16 @@ class BaseClient(ABC):
         pass
 
 
+class TestClient(BaseClient):
+    def __init__(self, config):
+        pass
+
+    def get_tenant_data(self, domain: str):
+        from conftest import TENANT_RESPONSE
+
+        return TENANT_RESPONSE
+
+
 class HTTPClient(BaseClient):
     def __init__(self, config):
         self._host = config["HOST"]

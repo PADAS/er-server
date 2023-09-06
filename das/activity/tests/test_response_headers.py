@@ -20,6 +20,7 @@ from activity.views.response_headers import (
     build_patrol_types_last_modified_header,
     concatenate_fields_from_model,
     get_most_recent_update_datetime_by_queryset,
+    EventTypeQueryset
 )
 from factories import EventTypeFactory
 
@@ -72,8 +73,8 @@ class TestResponseHeaderBuilders:
         EventType.objects.all().delete()
         EventTypeFactory.create_batch(5)
         individual_tags = [
-            concatenate_fields_from_model(EVENT_TYPE_FIELDS, patrol_type)
-            for patrol_type in EventType.objects.all_sort()
+            concatenate_fields_from_model(EVENT_TYPE_FIELDS, event_type)
+            for event_type in EventTypeQueryset(empty_request.user, empty_request.GET).get_queryset()
         ]
         concatenated_etags = ":".join(individual_tags)
         expected_etag = hashlib.md5(concatenated_etags.encode("utf-8")).hexdigest()
