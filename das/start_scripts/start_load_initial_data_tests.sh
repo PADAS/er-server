@@ -4,7 +4,22 @@ wait_for $DB_HOST $DB_PORT
 
 . $(dirname "$0")/django_common_startup.sh
 
-# can't run a migration here, because the API pod coming up is already performing a migration
-# maybe we should wait for that to finish. Could loop in showmigrations until all migrations are done.
-#python3 manage.py migrate
+i=0
+while [ $i -le 100 ]
+do
+  if python3 manage.py migrate --check ; then
+    echo "Migrations completed"
+    break
+  fi
+
+  echo "Waiting for migrations to complete..."
+  sleep 5
+
+  ((i++))
+done
+
+if ! python3 manage.py migrate --check ; then
+    echo "Migration are not complete"
+    exit 1
+fi
 python3 manage.py loaddata initial_admin_tests initial_groups initial_eventdata initial_dev_map initial_features initial_tilelayers event_data_model
