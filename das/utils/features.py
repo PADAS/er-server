@@ -1,6 +1,15 @@
 import enum
-import os
 from dataclasses import dataclass
+
+import environ
+
+BASE_DIR = environ.Path(__file__) - 2
+env = environ.Env(
+    # set casting, default value
+    DEBUG=(bool, False)
+)
+
+environ.Env.read_env(BASE_DIR(".env"))
 
 
 class Features(enum.Enum):
@@ -27,7 +36,7 @@ class FeatureFlags:
 
     def _get_flag(self, flag_name):
         try:
-            return os.getenv(f"FEATURE_{flag_name}".upper(), "False").lower() in ["true"]
+            return env.bool(f"FEATURE_{flag_name}".upper(), False)
         except ValueError:
             return False
 

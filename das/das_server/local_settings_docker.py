@@ -7,18 +7,7 @@ call your project be overriding the settings file
 
 import os
 
-import environ
-
 from .settings import *
-
-env = environ.Env(
-    # set casting, default value
-    DEBUG=(bool, False)
-)
-
-# this reads the .env file in the local dir. You can
-# specify specific envs if needed.
-environ.Env.read_env()
 
 # Let CACHES depend on settings.CELERY_ configuration.
 CACHES = {

@@ -13,9 +13,19 @@ https://docs.djangoproject.com/en/1.8/ref/settings/
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
 
+import environ
 from corsheaders.defaults import default_headers
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = environ.Path(__file__) - 2
+env = environ.Env(
+    # set casting, default value
+    DEBUG=(bool, False)
+)
+
+# this reads the .env file in the local dir. You can
+# specify specific envs if needed.
+environ.Env.read_env(BASE_DIR(".env"))
+
 DOCS_ROOT = os.path.join(BASE_DIR, "../docs/_build/html")
 
 
@@ -71,6 +81,7 @@ INSTALLED_APPS = (
 
 MIDDLEWARE = (
     "utils.middleware.RequestDataMiddleware",
+    "utils.middleware.TenantSettingsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -83,7 +94,6 @@ MIDDLEWARE = (
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "oauth2_provider.middleware.OAuth2TokenMiddleware",
-    "utils.middleware.TenantSettingsMiddleware",
     # "utils.middleware.MultiTenantMiddleware",
     "revision.middleware.RevisionMiddleware",
     "utils.middleware.RequestLoggingMiddleware",
@@ -209,8 +219,8 @@ DATABASES = {
         "ENGINE": "django.contrib.gis.db.backends.postgis",
         "NAME": "das",
         "USER": "das",
-        "HOST": os.getenv("DB_HOST", "postgis"),
-        "PORT": os.getenv("DB_PORT", "5432"),
+        "HOST": env.str("DB_HOST", "postgis"),
+        "PORT": env.int("DB_PORT", 5432),
         "PASSWORD": "password",
     },
 }
@@ -556,7 +566,7 @@ CARTO_URL = "https://wri-01.cartodb.com/api/v2/sql"  # For: VIIRS-Fire-Alerts
 
 GFW_API_ROOT = "https://production-api.globalforestwatch.org/v1"
 GFW_WEB_ROOT = "https://www.globalforestwatch.org"
-MAPBOX_TOKEN = os.getenv("MAPBOX_TOKEN")
+MAPBOX_TOKEN = env.str("MAPBOX_TOKEN", "")
 
 GFW_CREDENTIALS = {
     'username': 'none',
@@ -573,8 +583,8 @@ PATROL_ENABLED = True
 # Has to be a multiple of 256
 GS_BLOB_CHUNK_SIZE = 10485760
 UBI_API_URL = "https://api.ubignss.com/position"
-UBI_API_USERNAME = os.getenv("UBI_API_USERNAME", "username")
-UBI_API_PASSWORD = os.getenv("UBI_API_PASSWORD", "password")
+UBI_API_USERNAME = env.str("UBI_API_USERNAME", "username")
+UBI_API_PASSWORD = env.str("UBI_API_PASSWORD", "password")
 
 
 # Tableau Server:
@@ -597,8 +607,8 @@ TRACK_LENGTH = 21
 PATROL_VIEW_REFRESH_HOURS = 1
 
 INREACH_INBOUND_ENDPOINT = "https://explore.garmin.com/IPCInbound/V1/Messaging.svc/Message"
-INREACH_USERNAME = os.getenv("INREACH_USERNAME", "username")
-INREACH_PASSWORD = os.getenv("INREACH_PASSWORD", "password")
+INREACH_USERNAME = env.str("INREACH_USERNAME", "username")
+INREACH_PASSWORD = env.str("INREACH_PASSWORD", "password")
 
 GEO_PERMISSION_RADIUS_METERS = 3704
 GEO_PERMISSION_SPEED_KM_H = 75
@@ -619,18 +629,18 @@ ALERTS_STORAGE = {
 }
 
 TMS_API = {
-    "CLIENT": "core.tms.HTTPClient",
-    "HOST": os.getenv("TMS_API_HOST", ""),
-    "API_VERSION": os.getenv("TMS_API_VERSION", "v1.0"),
-    "API_KEY": os.getenv("TMS_API_KEY", "secret"),
+    "CLIENT": env.str("TMS_API_CLIENT", "core.tms.HTTPClient"),
+    "HOST": env.str("TMS_API_HOST", ""),
+    "API_VERSION": env.str("TMS_API_VERSION", "v1.0"),
+    "API_KEY": env.str("TMS_API_KEY", "secret"),
 }
 
 MEMORY_STORE = {
-    "CLIENT": "utils.persistent.RedisStorageReadOnly",
-    "HOST": os.getenv("MEMORY_STORE_HOST", "34.145.110.77"),
-    "PORT": os.getenv("MEMORY_STORE_PORT", 6379),
-    "DATABASE": os.getenv("MEMORY_STORE_DATABASE", 0),
-    "API_KEY": os.getenv("MEMORY_STORE_API_KEY", ""),
+    "CLIENT": env.str("MEMORY_STORE_CLIENT", "utils.persistent.RedisStorageReadOnly"),
+    "HOST": env.str("MEMORY_STORE_HOST", "34.145.110.77"),
+    "PORT": env.int("MEMORY_STORE_PORT", 6379),
+    "DATABASE": env.int("MEMORY_STORE_DATABASE", 0),
+    "API_KEY": env.str("MEMORY_STORE_API_KEY", ""),
 }
 
 DISABLE_STATSD = True

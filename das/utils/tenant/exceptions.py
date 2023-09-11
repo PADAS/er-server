@@ -3,7 +3,7 @@ class TenantDataclassException(Exception):
 
 
 class TenantNotFoundException(Exception):
-    def __init__(self, domain: str = "", *args: object) -> None:
+    def __init__(self, *args: object, domain: str = "") -> None:
         super().__init__(*args)
         self.domain = domain
 

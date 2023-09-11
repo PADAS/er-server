@@ -41,7 +41,9 @@ from factories import (
     SubjectSubTypeFactory,
     UserFactory,
 )
+from utils.features import features
 from utils.tenant import Tenant
+from utils.tenant.thread import clear_tenant_settings, set_tenant_settings
 
 Application = get_application_model()
 User = apps.get_model(app_label="accounts", model_name="User")
@@ -405,6 +407,21 @@ def five_observations():
 @pytest.fixture
 def tenant_response():
     return TENANT_RESPONSE
+
+
+@pytest.fixture
+def tenant_thread(tenant_response):
+    set_tenant_settings(tenant_response)
+    yield None
+    clear_tenant_settings()
+
+
+@pytest.fixture
+def feature_tms(monkeypatch):
+    feature_tms_mock = MagicMock()
+    feature_tms_mock.is_on.return_value = True
+    monkeypatch.setitem(features._features, "tms", feature_tms_mock)
+    return feature_tms_mock
 
 
 @pytest.fixture
