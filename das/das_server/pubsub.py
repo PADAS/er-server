@@ -16,7 +16,10 @@ from redis.exceptions import ConnectionError
 from django.apps import apps
 from django.conf import settings
 
-from das_server.utils import append_domain_into_message
+from das_server.utils import (
+    append_domain_to_message,
+    wrap_message_processing_with_tenant_context,
+)
 from utils import stats
 from utils.decorator import retry_on_exception
 from utils.tenant.decorators import append_tenant_domain
@@ -63,7 +66,7 @@ def publish(message, routing_key="das", **kwargs):
         stats.increment("publish", tags=[f"routing_key:{routing_key}"], sample_rate=1.0)
         with get_pool().acquire(block=True, timeout=PUBLISH_TIMEOUT) as conn:
             producer = conn.Producer(exchange=das_exchange)
-            message = append_domain_into_message(message=message, domain=kwargs.get("domain"))
+            message = append_domain_to_message(message=message, domain=kwargs.get("domain"))
             producer.publish(message, routing_key=routing_key)
 
     except Exception:
@@ -184,7 +187,12 @@ def start_message_queue_listeners():
         consumers = []
 
         for routing_key, callback, name in installed_apps_subscriptions():
-            consumer = get_consumer(conn, routing_key, stats_decorator(callback, routing_key), name)
+            consumer = get_consumer(
+                conn,
+                routing_key,
+                wrap_message_processing_with_tenant_context(stats_decorator(callback, routing_key)),
+                name,
+            )
             consumers.append(consumer)
 
         with nested(*consumers):

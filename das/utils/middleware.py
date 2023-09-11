@@ -33,6 +33,7 @@ from utils.categories import should_apply_geographic_features
 from utils.features import features
 from utils.gis import convert_to_point
 from utils.tenant import get_tenant_settings, set_tenant_settings
+from utils.tenant.exceptions import TenantNotFoundException
 from utils.tenant.providers import TenantData
 
 logger = logging.getLogger(__name__)
@@ -261,15 +262,15 @@ class TenantSettingsMiddleware:
 
     def __call__(self, request):
         if features.tms.is_on():
-            domain = request.get_host()
-            instance = TenantData(domain=domain)
-            tenant_data = instance.get()
-            if not tenant_data:
+            try:
+                instance = TenantData(domain=request.get_host())
+                tenant_data = instance.get()
+            except TenantNotFoundException as ex:
                 return JsonResponse(
                     data={
-                        "message": "Your site configuration appears to be invalid, please contact EarthRanger technical support for assistance."
+                        "message": f"Your site configuration appears to be invalid: {ex}. Contact EarthRanger technical support for assistance."
                     },
-                    status=status.HTTP_404_NOT_FOUND,
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
             set_tenant_settings(value=tenant_data)
         response = self.get_response(request)

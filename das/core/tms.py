@@ -4,6 +4,7 @@ import requests
 from requests import RequestException
 
 from core.exceptions import ConnectionTMSApiTimeoutException
+from utils.tenant.exceptions import TenantNotFoundException
 
 
 class BaseClient(ABC):
@@ -38,6 +39,9 @@ class HTTPClient(BaseClient):
 
         if response.status_code == requests.codes.ok:
             return response.json()
+        raise TenantNotFoundException(
+            f"TMSApi status_code={response.status_code}, message={response.reason}", domain=domain
+        )
 
     def _get(self, *args, **kwargs):
         return self._make_request("get", *args, **kwargs)
