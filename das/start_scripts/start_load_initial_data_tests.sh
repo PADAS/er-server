@@ -15,7 +15,7 @@ do
   echo "Waiting for migrations to complete..."
   sleep 5
 
-  ((i++))
+  i=`expr $i + 1`
 done
 
 if ! python3 manage.py migrate --check ; then
