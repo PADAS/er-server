@@ -18,7 +18,7 @@ class TenantContextManager:
             raise ValueError("domain cannot be None or empty an string")
 
         instance = TenantData(domain=self.domain)
-        tenant_data = instance.get()
+        tenant_data = instance.get_tenant_data()
         set_tenant_settings(value=tenant_data)
 
     def __exit__(self, exc_type, exc_val, exc_tb):

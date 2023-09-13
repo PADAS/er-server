@@ -1,3 +1,4 @@
+import json
 import threading
 
 import pytest
@@ -20,7 +21,7 @@ class TestThreadStorage:
         settings = get_tenant_settings()
 
         assert isinstance(settings, Tenant)
-        assert tenant_response == settings.to_dict()
+        assert tenant_response == json.loads(settings.to_json())
 
     def test_delete_tenant_dict_settings_in_main_thread(self, tenant_response):
         set_tenant_settings(tenant_response)

@@ -7,6 +7,7 @@ from accounts.models import User
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestUsersView:
     def test_get_list_of_users(self, superuser_client):
         url = reverse("accounts:users")
@@ -19,6 +20,7 @@ class TestUsersView:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestUserView:
     def test_get_user(self, superuser_client):
         user = User.objects.last()
@@ -84,6 +86,7 @@ class TestUserView:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestUserProfilesView:
     def test_get_empty_list_of_profiles_by_user(self, superuser_client):
         user = User.objects.last()

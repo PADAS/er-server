@@ -1,7 +1,8 @@
 import json
 import uuid
 from collections import namedtuple
-from unittest.mock import patch
+
+import pytest
 
 import django.db.models as models
 from django.contrib.admin.sites import AdminSite
@@ -22,9 +23,7 @@ from activity.models import (
     EventType,
     RefreshRecreateEventDetailView,
 )
-from conftest import TENANT_RESPONSE
 from core.tests import BaseAPITest
-from utils.tenant import Tenant
 
 
 class MockSuperUser:
@@ -45,6 +44,7 @@ class details_view(models.Model):
         app_label = "activity"
 
 
+@pytest.mark.usefixtures("tenant_settings")
 class TestMaterializedView(BaseAPITest):
     def setUp(self):
         super().setUp()
@@ -62,11 +62,7 @@ class TestMaterializedView(BaseAPITest):
         self.assertTrue(check_db_view_exists())
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    @patch("activity.admin.get_tenant_settings")
-    @patch("utils.tenant.providers.TenantData.get")
-    def test_when_admin_refresh_view(self, mocked_tenant_client, get_tenant_settings):
-        get_tenant_settings.return_value = Tenant.from_dict(TENANT_RESPONSE)
-        mocked_tenant_client.return_value = TENANT_RESPONSE
+    def test_when_admin_refresh_view(self):
         request = self.request.get("/admin")
         request.user = MockSuperUser()
 
@@ -79,11 +75,7 @@ class TestMaterializedView(BaseAPITest):
         self.assertEqual(response.status_code, 302)
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    @patch("activity.admin.get_tenant_settings")
-    @patch("utils.tenant.providers.TenantData.get")
-    def test_when_admin_recreate_view(self, mocked_tenant_client, get_tenant_settings):
-        get_tenant_settings.return_value = Tenant.from_dict(TENANT_RESPONSE)
-        mocked_tenant_client.return_value = TENANT_RESPONSE
+    def test_when_admin_recreate_view(self):
         request = self.request.get("/admin")
         request.user = MockSuperUser()
 

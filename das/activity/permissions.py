@@ -1,6 +1,5 @@
 from typing import Union
 
-from django.conf import settings
 from django.contrib.gis.geos import Polygon
 from django.db import ProgrammingError
 from rest_framework import exceptions
@@ -15,7 +14,6 @@ from rest_framework.permissions import (
 from activity.models import Event, EventCategory, EventType, Patrol, PatrolType
 from observations.models import Subject
 from observations.utils import get_distance_points, is_banned
-from utils.features import features
 from utils.gis import convert_to_point, get_circle_polygon_from_point
 from utils.tenant import get_tenant_settings
 
@@ -167,7 +165,8 @@ class EventCategoryGeographicPermission(EventCategoryPermissions):
                                     for point in (user_location, obj_location)
                                 ]
                                 distance = get_distance_points(points)
-                                has_location_perm = distance.m <= self._get_geo_permission_radius_meters()
+                                env_settings = get_tenant_settings().env_settings
+                                has_location_perm = distance.m <= env_settings.geo_permission_radius_meters
                             else:
                                 has_location_perm = False
 
@@ -214,7 +213,7 @@ class EventCategoryGeographicPermission(EventCategoryPermissions):
             if obj.location and request.user.has_perm(permission_name) and not is_banned(request.user):
                 points = [{"position": {"latitude": point.y, "longitude": point.x}} for point in (point, obj.location)]
                 distance = get_distance_points(points)
-                return distance.m <= self._get_geo_permission_radius_meters()
+                return distance.m <= get_tenant_settings().env_settings.geo_permission_radius_meters
 
             if obj.geometries.count() and request.user.has_perm(permission_name) and not is_banned(request.user):
                 radius = get_circle_polygon_from_point(location)
@@ -222,12 +221,6 @@ class EventCategoryGeographicPermission(EventCategoryPermissions):
                 return results
             return False
         return has_perm
-
-    def _get_geo_permission_radius_meters(self):
-        if features.tms.is_on():
-            return get_tenant_settings().env_settings.geo_permission_radius_meters
-
-        return settings.GEO_PERMISSION_RADIUS_METERS
 
 
 class EventNotesCategoryPermissions(EventCategoryPermissions):

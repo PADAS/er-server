@@ -1,5 +1,7 @@
 from unittest import mock
 
+import pytest
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.gis.db import models
@@ -18,6 +20,7 @@ from .analyzer_test_utils import *
 from .immobility_test_data import *
 
 
+@pytest.mark.usefixtures("tenant_settings")
 class TestImmobilityAnalyzer(BaseAPITest):
     fixtures = [
         "event_data_model",

@@ -16,6 +16,7 @@ from utils.gis import get_polygon_info
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestEventsView:
     feature = {
         "type": "Feature",
@@ -138,6 +139,7 @@ class TestEventsView:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestEventView:
     feature = {
         "type": "Feature",
@@ -252,6 +254,7 @@ class TestEventView:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestEventGeometryView:
     def test_get_event_geometry_updates(
         self, event_geometry_with_polygon, superuser_client, memory_store_client_mock, tenant_response
@@ -306,6 +309,7 @@ class TestEventGeometryView:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestEventsExportView:
     @pytest.fixture
     def subject_source_with_proximity_analyzer_configured(
@@ -379,6 +383,7 @@ class TestEventsExportView:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestTrackedBySchemaView:
     def test_get_patrols_tracked_by_without_permission_should_be_empty(self, user_client, patrol_configuration):
         url = reverse("patrol-segments-schema")

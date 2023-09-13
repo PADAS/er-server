@@ -11,7 +11,6 @@ from django.urls import reverse
 
 from accounts.models import PermissionSet
 from accounts.views import UserView
-from conftest import TENANT_RESPONSE
 from core.tests import BaseAPITest
 from observations import models
 from observations.message_adapters import _handle_outbox_message
@@ -23,11 +22,11 @@ from observations.models import (
     SubjectSource,
 )
 from observations.views import MessagesView, SubjectView
-from utils.tenant import Tenant
 
 User = django.contrib.auth.get_user_model()
 
 
+@pytest.mark.usefixtures("tenant_settings")
 class MessagesTestCase(BaseAPITest):
     fixtures = [
         "test/sourceprovider.yaml",
@@ -47,10 +46,8 @@ class MessagesTestCase(BaseAPITest):
         self.app_user.permission_sets.add(PermissionSet.objects.get(name="View Message Permission"))
         models.SourceProvider.objects.filter(display_name="Default").update(additional={"two_way_messaging": True})
 
-    @mock.patch("observations.views.get_tenant_settings")
     @mock.patch("observations.tasks.handle_outbox_message.apply_async")
-    def test_send_outbox_message(self, mock_send, get_tenant_settings):
-        get_tenant_settings.return_value = Tenant.from_dict(TENANT_RESPONSE)
+    def test_send_outbox_message(self, mock_send):
         message_data = dict(text="Status?")
         url = reverse("messages-view")
         url += "?{}".format(urlencode({"subject_id": self.test_subject.id, "source_id": self.test_subject.source.id}))
@@ -79,10 +76,8 @@ class MessagesTestCase(BaseAPITest):
         assert response.status_code == 201
         assert response.data.get("status") == "received"
 
-    @mock.patch("observations.views.get_tenant_settings")
     @mock.patch("observations.tasks.handle_outbox_message.apply_async")
-    def test_messaging_in_subject_payload(self, mock_send, get_tenant_settings):
-        get_tenant_settings.return_value = Tenant.from_dict(TENANT_RESPONSE)
+    def test_messaging_in_subject_payload(self, mock_send):
         url = reverse(
             "subject-view",
             args=[
@@ -111,13 +106,8 @@ class MessagesTestCase(BaseAPITest):
         self.assertTrue(mock_send.called)
         self.assertEqual(response.status_code, 201)
 
-    @pytest.mark.usefixtures("tenant_response_for_test_case")
-    @mock.patch("accounts.serializers.get_tenant_settings")
-    @mock.patch("observations.views.get_tenant_settings")
     @mock.patch("observations.tasks.handle_outbox_message.apply_async")
-    def test_message_permission(self, mock_send, get_tenant_settings, get_tenant):
-        get_tenant_settings.return_value = Tenant.from_dict(TENANT_RESPONSE)
-        get_tenant.return_value = Tenant.from_dict(TENANT_RESPONSE)
+    def test_message_permission(self, mock_send):
         with mock.patch("django.db.backends.base.base.BaseDatabaseWrapper.validate_no_atomic_block", lambda x: False):
             subject = Subject.objects.create(
                 name="radio-001",

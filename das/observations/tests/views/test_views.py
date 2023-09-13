@@ -2,6 +2,7 @@ import datetime
 import random
 from datetime import timedelta
 from typing import NamedTuple
+from unittest.mock import MagicMock, patch
 
 import dateutil.parser
 import pytest
@@ -15,6 +16,7 @@ from rest_framework import status
 
 from accounts.models import PermissionSet, User
 from client_http import HTTPClient
+from conftest import TENANT_RESPONSE
 from core.tests import API_BASE, BaseAPITest
 from observations import views
 from observations.models import (
@@ -27,6 +29,7 @@ from observations.models import (
     SubjectSource,
 )
 from observations.views import SourceSubjectsView, SourceView
+from utils.tenant import Tenant
 
 
 def random_string(length=10):
@@ -151,6 +154,9 @@ class BasePermissionTest(BaseAPITest):
 class SubjectViewPermissionsTest(BasePermissionTest):
     def setUp(self):
         super().setUp()
+        self.tenant = Tenant.from_dict(TENANT_RESPONSE)
+        self.thread = MagicMock()
+        self.thread.tenant_object = self.tenant
 
     def xtest_not_return_current_observation_for_subject(self):
         request = self.factory.get(API_BASE + "/subject/")
@@ -177,7 +183,10 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         assert response.status_code == 200
         assert len(response.data)
 
-    def test_return_all_observation_for_subject(self):
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_return_all_observation_for_subject(self, get_main_thread):
+        get_main_thread.return_value = self.thread
+        self.tenant.env_settings.show_track_days = 1000
         request = self.factory.get(API_BASE + "/subject/")
         self.force_authenticate(request, self.realtime_view_user)
 
@@ -209,7 +218,9 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["data"], [])
 
-    def test_return_subjects_bbox_view_delayed(self):
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_return_subjects_bbox_view_delayed(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         bbox = "37.18,0.1,37.55,0.54"
         request = self.factory.get(API_BASE + "/subjects/?bbox={0}".format(bbox))
         self.force_authenticate(request, self.delayed_view_user)
@@ -217,7 +228,9 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         response = views.SubjectsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
 
-    def test_not_return_ranger_in_subjects_call(self):
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_not_return_ranger_in_subjects_call(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         request = self.factory.get(API_BASE + "/subjects/")
         self.force_authenticate(request, self.delayed_view_user)
 
@@ -230,7 +243,9 @@ class SubjectViewPermissionsTest(BasePermissionTest):
         self.force_authenticate(request, self.superuser)
         return views.SubjectsView.as_view()(request)
 
-    def test_subjects_api_call_only_returns_active_subjects(self):
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_subjects_api_call_only_returns_active_subjects(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         response = self.authenticate_user_and_get_subjects("/subjects/")
         self.assertEqual(response.status_code, 200)
 
@@ -310,8 +325,13 @@ class SubjectViewPermissionsTest(BasePermissionTest):
 class SubjectGroupViewTest(BasePermissionTest):
     def setUp(self):
         super().setUp()
+        self.tenant = Tenant.from_dict(TENANT_RESPONSE)
+        self.thread = MagicMock()
+        self.thread.tenant_object = self.tenant
 
-    def test_delay_view_user_return_subject_groups(self):
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_delay_view_user_return_subject_groups(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         request = self.factory.get(API_BASE + "/subjectgroups")
         self.force_authenticate(request, self.delayed_view_user)
 
@@ -320,7 +340,9 @@ class SubjectGroupViewTest(BasePermissionTest):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["name"], "ele_group")
 
-    def test_realtime_view_user_return_subject_groups(self):
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_realtime_view_user_return_subject_groups(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         request = self.factory.get(API_BASE + "/subjectgroups")
         self.force_authenticate(request, self.realtime_view_user)
 
@@ -329,7 +351,9 @@ class SubjectGroupViewTest(BasePermissionTest):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["name"], "all_group")
 
-    def test_superuser_return_subject_groups(self):
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_superuser_return_subject_groups(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         return_groups = ("Subjects", "all_group")
         request = self.factory.get(API_BASE + "/subjectgroups")
         self.force_authenticate(request, self.superuser)
@@ -340,7 +364,9 @@ class SubjectGroupViewTest(BasePermissionTest):
         self.assertTrue(response.data[0]["name"] in return_groups)
         self.assertTrue(response.data[1]["name"] in return_groups)
 
-    def test_return_single_subject_group_by_id(self):
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_return_single_subject_group_by_id(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         request = self.factory.get(API_BASE + "/subjectgroup/{id}".format(id=self.ele_group.id))
         self.force_authenticate(request, self.superuser)
 
@@ -432,6 +458,7 @@ def subject_with_month_long_track(db, user_with_one_week_track_perms):
     return UserSubject(user_with_one_week_track_perms, subject)
 
 
+@pytest.mark.usefixtures("tenant_settings")
 def test_one_week_track_permissions(subject_with_month_long_track, client, tenant_response, memory_store_client_mock):
     now = datetime.datetime.now(tz=datetime.timezone.utc)
     oldest_time = now - datetime.timedelta(days=31)
@@ -536,6 +563,7 @@ class TestSourceView:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestFlattenObservationsView:
     FLATTEN_URL = reverse("flatten-observations")
 
@@ -568,6 +596,7 @@ class TestFlattenObservationsView:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestSubjectsView:
     base_url = "subjects-list-view"
 
@@ -612,6 +641,7 @@ class TestSubjectsView:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestSubjectView:
     base_url = "subject-view"
 

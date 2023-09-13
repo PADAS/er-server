@@ -567,12 +567,9 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
 
     def refresh_view(self, request):
         try:
-            if features.tms.is_on():
-                task = refresh_event_details_view.apply_async(
-                    args=("Admin",), kwargs={"domain": get_tenant_settings().domain}
-                )
-            else:
-                task = refresh_event_details_view.apply_async(args=("Admin",))
+            domain = get_tenant_settings().domain if features.tms.is_on() else None
+            kwargs = {"domain": domain} if domain else {}
+            task = refresh_event_details_view.apply_async(args=("Admin",), kwargs=kwargs)
         except AlreadyQueued:
             self.message_user(request, f"Task to refresh event_detail view is already queued", messages.WARNING)
             return HttpResponseRedirect("../")
@@ -584,10 +581,8 @@ class RefreshRecreateEventDetailViewAdmin(admin.ModelAdmin):
 
     def recreate_view(self, request):
         try:
-            if features.tms.is_on():
-                task = recreate_event_details_view.apply_async(kwargs={"domain": get_tenant_settings().domain})
-            else:
-                task = recreate_event_details_view.apply_async()
+            kwargs = {"domain": get_tenant_settings().domain} if features.tms.is_on() else {}
+            task = recreate_event_details_view.apply_async(kwargs=kwargs)
         except AlreadyQueued:
             self.message_user(request, f"Task to recreate event_detail view is already queued", messages.WARNING)
             return HttpResponseRedirect("../")

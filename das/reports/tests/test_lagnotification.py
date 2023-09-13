@@ -200,6 +200,7 @@ class TestSubjectSourceReport(TestCase):
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestReportByTask:
     def test_two_sources_with_same_provider_reach_the_provider_threshold(self, five_subject_sources):
         provider = five_subject_sources[0].source.provider
