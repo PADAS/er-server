@@ -7,6 +7,7 @@ from django.contrib.gis.geos import Polygon
 from utils.gis import get_circle_polygon_from_point, get_polygon_info, get_utm_by_wgs_84
 
 
+@pytest.mark.usefixtures("tenant_settings")
 class TestGis:
     @pytest.mark.parametrize(
         "coordinates,expected",
@@ -51,7 +52,6 @@ class TestGis:
 
     @pytest.mark.parametrize("location,segments", [["1,1", 8], [{"latitude": 1, "longitude": 1}, 8]])
     def test_get_circle_polygon_from_point_with_valid_values(self, location, segments):
-
         polygon = get_circle_polygon_from_point(location, segments)
 
         assert isinstance(polygon, Polygon)

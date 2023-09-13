@@ -3,7 +3,7 @@ import os
 import uuid
 from datetime import datetime, timedelta
 from unittest import mock
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import dateutil.parser as dateparser
 import pytest
@@ -69,6 +69,9 @@ class SubjectTestCase(BaseAPITest):
         self.site = AdminSite()
         self.request = RequestFactory()
         self.admin = GPXAdmin(model=GPXTrackFile, admin_site=self.site)
+        self.tenant = Tenant.from_dict(TENANT_RESPONSE)
+        self.thread = MagicMock()
+        self.thread.tenant_object = self.tenant
 
     def test_empty_point_not_included_in_subject_tracks(self):
         from django.contrib.gis.geos import Point
@@ -124,7 +127,9 @@ class SubjectTestCase(BaseAPITest):
 
         self.assertEqual(actual, expected)
 
-    def test_add_subject(self):
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_add_subject(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         data = {
             "name": "testCheetah",
             "subject_type": "wildlife",
@@ -139,7 +144,9 @@ class SubjectTestCase(BaseAPITest):
         response = SubjectsView.as_view()(request)
         self.assertEqual(response.status_code, 201)
 
-    def test_add_subject_with_id(self):
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_add_subject_with_id(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         data = {
             "id": uuid.uuid4(),
             "name": "testCheetah",
@@ -155,7 +162,9 @@ class SubjectTestCase(BaseAPITest):
         response = SubjectsView.as_view()(request)
         assert response.status_code == 201
 
-    def test_fail_add_subject_with_existing_id(self):
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_fail_add_subject_with_existing_id(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         data = {
             "id": uuid.uuid4(),
             "name": "testCheetah",
@@ -186,7 +195,9 @@ class SubjectTestCase(BaseAPITest):
         response = SubjectsView.as_view()(request)
         assert response.status_code == 409
 
-    def test_update_subject(self):
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_update_subject(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         data = {
             "name": "testCheetah",
             "subject_type": "wildlife",
@@ -217,7 +228,9 @@ class SubjectTestCase(BaseAPITest):
         assert subject_id == response.data["id"]
         assert response.data["name"] == data_update["name"]
 
-    def test_update_subject_change_id(self):
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_update_subject_change_id(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         data = {
             "name": "testCheetah",
             "subject_type": "wildlife",
@@ -245,7 +258,9 @@ class SubjectTestCase(BaseAPITest):
         response = SubjectView.as_view()(request, id=subject_id)
         assert response.status_code == 400
 
-    def test_subject_sex_male(self):
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_subject_sex_male(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         data = {
             "name": "testCheetah",
             "subject_type": "wildlife",
@@ -261,7 +276,9 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         assert "/static/elephant-black-male.svg" in response.data["image_url"]
 
-    def test_subject_sex_empty(self):
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_subject_sex_empty(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         data = {
             "name": "testCheetah",
             "subject_type": "wildlife",
@@ -277,7 +294,9 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         assert "/static/elephant-black-male.svg" in response.data["image_url"]
 
-    def test_subject_sex_unknown(self):
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_subject_sex_unknown(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         data = {
             "name": "testCheetah",
             "subject_type": "wildlife",
@@ -293,7 +312,9 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         assert "/static/elephant-black-male.svg" in response.data["image_url"]
 
-    def test_subject_vehicle_sex_empty(self):
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_subject_vehicle_sex_empty(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         data = {
             "name": "testCheetah",
             "subject_subtype": "security_vehicle",
@@ -308,7 +329,9 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(response.status_code, 201)
         assert "/static/security_vehicle-black.svg" in response.data["image_url"]
 
-    def test_call_subject_api(self):
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_call_subject_api(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         url = reverse("subjects-list-view")
         request = self.factory.get(url)
 
@@ -345,10 +368,10 @@ class SubjectTestCase(BaseAPITest):
         response = SubjectsView.as_view()(request)
         self.assertEqual(response.status_code, 200)
 
-    @override_settings(SHOW_STATIONARY_SUBJECTS_ON_MAP=True)
-    @override_settings(SHOW_TRACK_DAYS=16)
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    def test_date_range_filter_works(self):
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_date_range_filter_works(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         url = reverse("subjects-list-view")
 
         subject = Subject.objects.get(name="Topsy")
@@ -399,8 +422,9 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(actual_size, expected_size)
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    @override_settings(SHOW_TRACK_DAYS=16)
-    def test_date_range_filter_works_with_bbox(self):
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_date_range_filter_works_with_bbox(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         url = reverse("subjects-list-view")
 
         subject = Subject.objects.get(name="Topsy")
@@ -449,8 +473,9 @@ class SubjectTestCase(BaseAPITest):
         }
         return additional_data
 
-    @override_settings(SHOW_TRACK_DAYS=16)
-    def test_subject_api_returning_last_position_per_MOU_expiry(self):
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_subject_api_returning_last_position_per_MOU_expiry(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         url = reverse("subjects-list-view")
 
         password = User.objects.make_random_password()
@@ -502,8 +527,9 @@ class SubjectTestCase(BaseAPITest):
         self.assertEqual(t1.date().isoformat(), subject_last_position)
         self.assertEqual(t2.date().isoformat(), subject2_last_postion)
 
-    @override_settings(SHOW_TRACK_DAYS=16)
-    def test_return_no_last_position_past_mou_expiry(self):
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_return_no_last_position_past_mou_expiry(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         url = reverse("subjects-list-view")
 
         password = User.objects.make_random_password()
@@ -543,12 +569,10 @@ class SubjectTestCase(BaseAPITest):
 
         self.assertEqual(GPXTrackFile.objects.count(), 1)
 
-    @mock.patch("utils.tenant.managers.TenantData.get")
-    @mock.patch("observations.admin.get_tenant_settings")
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    def test_gpxfile_upload_on_adminpage(self, get_tenant_settings, tenant_data):
-        get_tenant_settings.return_value = Tenant.from_dict(TENANT_RESPONSE)
-        tenant_data.return_value = TENANT_RESPONSE
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_gpxfile_upload_on_adminpage(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         subject = Subject.objects.get(name="Topsy")
         subject_source = SubjectSource.objects.get(subject=subject)
         data = File(open(os.path.join(TESTS_PATH, "testdata/gpsmap_data.gpx"), "rb"))
@@ -669,12 +693,10 @@ class SubjectTestCase(BaseAPITest):
         returned_since = since.replace(microsecond=0, second=0).isoformat()
         self.assertEqual(returned_since, expected_since)
 
-    @mock.patch("utils.tenant.managers.TenantData.get")
-    @mock.patch("observations.views.get_tenant_settings")
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    def test_process_gpx_file_upload_via_api(self, get_tenant_settings, tenant_data):
-        get_tenant_settings.return_value = Tenant.from_dict(TENANT_RESPONSE)
-        tenant_data.return_value = TENANT_RESPONSE
+    @patch("utils.tenant.thread._get_main_thread")
+    def test_process_gpx_file_upload_via_api(self, get_main_thread):
+        get_main_thread.return_value = self.thread
         subject = Subject.objects.get(name="Topsy")
         subject_source = SubjectSource.objects.get(subject=subject)
         file = File(open(os.path.join(TESTS_PATH, "testdata/gpsmap_data.gpx"), "rb"))
@@ -764,6 +786,7 @@ class SubjectTestCase(BaseAPITest):
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestSubjectsView:
     def test_static_sensor_response(self, subject_source):
         now = datetime.now(tz=pytz.utc)
@@ -998,6 +1021,7 @@ class TestSubjectsView:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestSubjectsViewFilter:
     position_observations = [
         [-103.66424560546874, 20.619288994719977],
@@ -1084,8 +1108,9 @@ class TestSubjectsViewFilter:
         five_subject_sources,
         settings,
         subject_group_with_perms,
+        tenant_settings,
     ):
-        settings.SHOW_STATIONARY_SUBJECTS_ON_MAP = False
+        tenant_settings.env_settings.show_stationary_subjects_on_map = False
         first_subject_source = SubjectSource.objects.last()
         first_subject_source.location = Point(-103.6, 20.6)
         first_subject_source.save()
@@ -1128,8 +1153,9 @@ class TestSubjectsViewFilter:
         five_subject_sources,
         settings,
         subject_group_with_perms,
+        tenant_settings,
     ):
-        settings.SHOW_STATIONARY_SUBJECTS_ON_MAP = True
+        tenant_settings.env_settings.show_stationary_subjects_on_map = True
         first_subject_source = SubjectSource.objects.last()
         first_subject_source.location = Point(-103.6, 20.6)
         first_subject_source.save()

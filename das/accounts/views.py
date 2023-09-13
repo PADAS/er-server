@@ -5,7 +5,6 @@ import logging
 import pytz
 from rest_framework_condition import etag
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.http import HttpResponse
 from django.utils import timezone
@@ -20,7 +19,6 @@ from accounts.models.eula import EULA, UserAgreement
 from accounts.permissions import EulaPermission, UserObjectPermissions
 from accounts.serializers import AcceptEulaSerializer, EulaSerializer, UserSerializer
 from accounts.utils import allowed_permissions
-from utils.features import features
 from utils.tenant import get_tenant_settings
 
 from .utils import get_user_etag
@@ -156,8 +154,7 @@ class GetActiveEulaAPIView(generics.RetrieveAPIView):
     queryset = EULA.objects.all()
 
     def dispatch(self, request, *args, **kwargs):
-        ACCEPT_EULA = get_tenant_settings().env_settings.accept_eula if features.tms.is_on() else settings.ACCEPT_EULA
-        if not ACCEPT_EULA:
+        if not get_tenant_settings().env_settings.accept_eula:
             self.headers = self.default_response_headers
             response = Response(
                 data={"message": "Site doesn't require users to accept a EULA"}, status=status.HTTP_200_OK

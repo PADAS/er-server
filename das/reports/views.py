@@ -16,7 +16,6 @@ from activity.models import EventCategory
 from activity.permissions import EventCategoryPermissions
 from core.utils import get_site_name
 from reports.reports import get_daily_report_data
-from utils.features import features
 from utils.tenant import get_tenant_settings
 
 logger = logging.getLogger(__name__)
@@ -105,13 +104,7 @@ def get_tableau_site_id():
     Returns:
         str: the tableau site id
     """
-    if features.tms.is_on():
-        tableau_site_id = get_tenant_settings().env_settings.tableau_site_id
-        return tableau_site_id or get_site_name()
-    elif hasattr(settings, "TABLEAU_SITE_ID"):
-        return settings.TABLEAU_SITE_ID or get_site_name()
-
-    return get_site_name()
+    return get_tenant_settings().env_settings.tableau_site_id or get_site_name()
 
 
 def get_tableau_api():
@@ -361,14 +354,8 @@ class TableauDashboard(generics.GenericAPIView, TableauViewTicketGenerator):
     def get(self, request, *args, **kwargs):
         dashboard_id = kwargs.get("dashboard_id", "default")
         if dashboard_id == "default":
-            dashboard_id = self._get_tableau_default_dashboard()
+            dashboard_id = get_tenant_settings().env_settings.tableau_default_dashboard
         return self.get_ticket_for_dashboard(dashboard_id)
-
-    def _get_tableau_default_dashboard(self):
-        if features.tms.is_on():
-            return get_tenant_settings().env_settings.tableau_default_dashboard
-
-        return settings.TABLEAU_DEFAULT_DASHBOARD
 
 
 class TableauView(APIView, TableauViewTicketGenerator):

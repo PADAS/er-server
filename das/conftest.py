@@ -59,16 +59,11 @@ TENANT_RESPONSE = {
     "status": "PROVISIONING",
     "envSettings": {
         "acceptEula": False,
+        "alertRateLimit": 40,
         "allServerNames": None,
-        "apiHost": "192.167.2.5",
-        "apiPort": "4000",
         "defaultEventFilterFromDays": None,
         "defaultPatrolFilterFromDays": None,
-        "defaultFromEmail": "frank@mail.com",
-        "enableDebug": False,
-        "enableDev": False,
         "eusOrg": None,
-        "fromEmail": "dev@mail.com",
         "fqdn": "http://zoo.com",
         "geoPermissionSpeedKmH": 75,
         "geoPermissionRadiusMeters": 3704,
@@ -77,9 +72,8 @@ TENANT_RESPONSE = {
         "kmlOverlayImage": None,
         "kmlFeedTitle": "EarthRanger KML service",
         "patrolEnabled": False,
-        "sendSmsTwilioFromNumber": "+520123365458",
-        "showStationarySubjectsOnMap": False,
-        "showTrackDays": False,
+        "showStationarySubjectsOnMap": True,
+        "showTrackDays": 16,
         "subjectRegionEnabled": False,
         "tableauDefaultDashboard": False,
         "tableauSiteId": False,
@@ -91,6 +85,8 @@ TENANT_RESPONSE = {
         "kmlExport": False,
         "mappingFeaturesV2": True,
         "tableauEnabled": False,
+        "tableauSiteId": False,
+        "trackLength": False,
     },
     "services": {
         "auth": {"status": "PROVISIONING", "statusMessage": None, "updatedAt": ""},
@@ -442,6 +438,15 @@ def tms_api_client_mock(monkeypatch, tenant_response):
 @pytest.fixture
 def tenant(tenant_response):
     return Tenant.from_dict(tenant_response)
+
+
+@pytest.fixture
+def tenant_settings(monkeypatch, tenant):
+    thread = MagicMock()
+    thread.tenant_object = tenant
+    monkeypatch.setattr("utils.tenant.thread._get_main_thread", MagicMock(return_value=thread))
+
+    return tenant
 
 
 @pytest.fixture(scope="function")

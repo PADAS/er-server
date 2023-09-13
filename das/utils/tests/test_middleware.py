@@ -1,3 +1,4 @@
+import json
 import logging
 from unittest.mock import patch
 
@@ -13,9 +14,9 @@ from utils.tenant.thread import Tenant, get_tenant_settings
 
 
 @pytest.mark.django_db
-@pytest.mark.skipif(features.tms.is_on() is False, reason="TMS feature flag is off")
 class TestTenantSettingsMiddleware:
-    @patch("utils.tenant.providers.TenantData.get")
+    @pytest.mark.skipif(features.tms.is_on() is False, reason="TMS feature flag is off")
+    @patch("utils.tenant.providers.TenantData._get_from_tms")
     def test_tenant_settings_middleware_getting_tenant(self, mocked_tenant_client, tenant_response, rf):
         mocked_tenant_client.return_value = tenant_response
 
@@ -31,7 +32,24 @@ class TestTenantSettingsMiddleware:
         settings = get_tenant_settings()
 
         assert isinstance(settings, Tenant)
-        assert settings.to_dict() == tenant_response
+        assert json.loads(settings.to_json()) == tenant_response
+
+    @pytest.mark.skipif(features.tms.is_on(), reason="TMS feature flag is on")
+    @patch("utils.tenant.providers.TenantData._get_from_django")
+    def test_tenant_settings_middleware_getting_tenant(self, mocked_tenant_client, tenant_response, rf):
+        mocked_tenant_client.return_value = tenant_response
+        client = HTTPClient()
+        user = client.app_user
+        url = f"{reverse('events')}"
+        request = rf.get(url)
+        request.user = user
+
+        settings_middleware = TenantSettingsMiddleware(self._get_response)
+        settings_middleware(request)
+        settings = get_tenant_settings()
+
+        assert isinstance(settings, Tenant)
+        assert json.loads(settings.to_json()) == tenant_response
 
     def _get_response(self, request):
         return HttpResponse()

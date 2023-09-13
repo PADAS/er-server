@@ -11,7 +11,6 @@ from rest_framework_gis.serializers import GeoFeatureModelListSerializer
 
 import rest_framework
 import rest_framework.serializers
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.gis.geos import Point
 from django.contrib.postgres.fields import jsonb
@@ -42,7 +41,6 @@ from observations.utils import (
     is_subject_stationary_subject,
 )
 from utils import add_base_url
-from utils.features import features
 from utils.json import zeroout_microseconds
 from utils.tenant import get_tenant_settings
 
@@ -291,11 +289,7 @@ class SubjectSerializer(rest_framework.serializers.Serializer):
                     minimum_allowed_age = None
 
             if minimum_allowed_age is not None and maximum_allowed_age is not None:
-                if features.tms.is_on():
-                    show_track_days = get_tenant_settings().env_settings.show_track_days
-                else:
-                    show_track_days = settings.SHOW_TRACK_DAYS
-
+                show_track_days = get_tenant_settings().env_settings.show_track_days
                 default_window_cutoff = pytz.utc.localize(datetime.utcnow() - timedelta(days=show_track_days))
 
                 statusvalues = resolve_status_values(instance)

@@ -4,6 +4,7 @@ import logging
 import pytest
 
 from utils.features import features
+from utils.tenant.exceptions import TenantNotFoundException
 from utils.tenant.providers import TenantData
 
 DOMAIN = "zoo.com"
@@ -17,7 +18,7 @@ class TestTenantData:
         caplog.set_level(logging.INFO)
         memory_store_client_mock.get_key.return_value = json.dumps(tenant_response)
 
-        tenant_data = self.instance.get()
+        tenant_data = self.instance.get_tenant_data()
 
         assert tenant_data == tenant_response
         assert f"Getting tenant from cache for domain {DOMAIN}" in caplog.text
@@ -31,7 +32,7 @@ class TestTenantData:
         memory_store_client_mock.get_key.return_value = None
         tms_api_client_mock.get_tenant_data.return_value = tenant_response
 
-        tenant_data = self.instance.get()
+        tenant_data = self.instance.get_tenant_data()
 
         assert tenant_data == tenant_response
         assert f"Getting tenant from cache for domain {DOMAIN}" in caplog.text
@@ -42,8 +43,10 @@ class TestTenantData:
         caplog.set_level(logging.INFO)
         memory_store_client_mock.get_key.return_value = None
         tms_api_client_mock.get_tenant_data.return_value = None
+        tenant_data = None
 
-        tenant_data = self.instance.get()
+        with pytest.raises(TenantNotFoundException):
+            tenant_data = self.instance.get_tenant_data()
 
         assert tenant_data is None
         assert f"Getting tenant from cache for domain {DOMAIN}" in caplog.text

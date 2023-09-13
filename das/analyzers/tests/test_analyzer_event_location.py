@@ -5,8 +5,10 @@ import pytest
 from django.contrib.gis.geos import MultiPoint, Point
 from django.utils import timezone
 
-from analyzers.models import (FeatureProximityAnalyzerConfig,
-                              SubjectProximityAnalyzerConfig)
+from analyzers.models import (
+    FeatureProximityAnalyzerConfig,
+    SubjectProximityAnalyzerConfig,
+)
 from analyzers.proximity import FeatureProximityAnalyzer
 from analyzers.subject_proximity import SubjectProximityAnalyzer
 from conftest import subject_group_without_permissions, subject_source
@@ -19,6 +21,7 @@ subject_group_without_permissions_2 = subject_group_without_permissions
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestAnalyzerEventLocation:
     def test_feature_proximity_analyzer_confirm_event_location(
         self,
@@ -53,11 +56,11 @@ class TestAnalyzerEventLocation:
             assert event.location == convert_to_point(locations[0])
 
     def test_subject_proximity_analyzer_confirm_event_location(
-            self,
-            subject_source,
-            subject_source_2,
-            subject_group_without_permissions,
-            subject_group_without_permissions_2,
+        self,
+        subject_source,
+        subject_source_2,
+        subject_group_without_permissions,
+        subject_group_without_permissions_2,
     ):
         subject_1 = subject_source.subject
         subject_2 = subject_source_2.subject
@@ -93,9 +96,7 @@ class TestAnalyzerEventLocation:
             result, event = analyzer.analyze()[0]
             assert event.location == convert_to_point(locations_sub_1[0])
 
-    def _create_observations(
-        self, locations: List[str], source: SubjectSource, date: timezone.datetime
-    ):
+    def _create_observations(self, locations: List[str], source: SubjectSource, date: timezone.datetime):
         # Locations list should be ordered from the newest to the oldest
         for count, location in enumerate(locations, 1):
             Observation.objects.create(
@@ -103,4 +104,5 @@ class TestAnalyzerEventLocation:
                 source=source,
                 recorded_at=date - timezone.timedelta(minutes=count * 5),
             )
+
     # new comments

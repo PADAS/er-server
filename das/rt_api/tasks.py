@@ -223,7 +223,8 @@ def _broadcast_service_status(service_status_data=None, **kwargs):
 
 @celery.app.task(base=OverAllTenantTask)
 def broadcast_service_status():
-    _broadcast_service_status.apply(kwargs={"domain": get_tenant_settings().domain} if features.tms.is_on() else {})
+    kwargs = {"domain": get_tenant_settings().domain} if features.tms.is_on() else {}
+    _broadcast_service_status.apply(kwargs=kwargs)
 
 
 def _subjectstatus_update_handler(subject_id):

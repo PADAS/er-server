@@ -2,6 +2,8 @@ import logging
 import os
 from unittest.mock import patch
 
+import pytest
+
 import django
 from django.contrib.admin.sites import AdminSite
 from django.core.files import File
@@ -28,6 +30,7 @@ logger = logging.getLogger(__name__)
 TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tests")
 
 
+@pytest.mark.usefixtures("tenant_settings")
 class TestSpatialFile(BaseAPITest):
     def setUp(self):
         super().setUp()

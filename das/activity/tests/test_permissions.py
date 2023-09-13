@@ -45,7 +45,9 @@ class TestEventGeoJsonPermissions:
             },
         ],
     )
-    def test_geo_json_location_permission(self, five_events, known_location, settings, rf, monkeypatch):
+    def test_geo_json_location_permission(
+        self, five_events, known_location, settings, rf, monkeypatch, tenant_settings
+    ):
         mock = MagicMock(return_value=False)
         monkeypatch.setattr("activity.permissions.is_banned", mock)
 
@@ -66,7 +68,7 @@ class TestEventGeoJsonPermissions:
         event.location = convert_to_point(known_location["location"])
         event.save()
 
-        settings.GEO_PERMISSION_RADIUS_METERS = 1000
+        tenant_settings.env_settings.geo_permission_radius_meters = 1000
         permission = EventCategoryGeographicPermission()
         has_object_permission = permission.has_object_permission(request, None, event)
 
@@ -76,6 +78,7 @@ class TestEventGeoJsonPermissions:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestEventGeometryPermissions:
     def _get_permission_set(self, event: Event):
         category = event.event_type.category
@@ -195,6 +198,7 @@ class TestEventGeometryPermissions:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestPatrolPermission:
     def test_user_with_no_permission_got_patrols_request_rejected(
         self, five_patrol_segment_subject, user_client, memory_store_client_mock

@@ -9,6 +9,7 @@ from rest_framework import status
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestEventViewFilters:
     def test_filter_param_is_not_vulnerable_to_sql_injection(
         self, superuser_client, five_events_with_details, memory_store_client_mock, tenant_response
@@ -35,7 +36,6 @@ class TestEventViewFilters:
     def test_filter_raises_invalid_text_representation(
         self, superuser_client, five_events_with_details, memory_store_client_mock, tenant_response
     ):
-
         url = reverse("events")
         with patch("rest_framework.generics.mixins.ListModelMixin.list") as list_mock:
             list_mock.side_effect = InvalidTextRepresentation("This message should not reach the user")

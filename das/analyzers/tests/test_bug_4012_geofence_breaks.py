@@ -1,6 +1,7 @@
 import json
 import logging
 
+import pytest
 import yaml
 
 # Use python unit test here to persist results in test DB
@@ -27,6 +28,7 @@ from .geofence_test_data import *
 logger = logging.getLogger(__name__)
 
 
+@pytest.mark.usefixtures("tenant_settings")
 class TestBug4012(TestCase):
     """
     This is a special test case that validates a fix for a missed geofence breaks in a production site.

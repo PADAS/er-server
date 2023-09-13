@@ -9,6 +9,7 @@ from activity.serializers import EventGeometryField
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestEventGeometryField:
     def test_serialized_geometry_format(self, event_with_detail):
         event = event_with_detail.event
@@ -22,11 +23,7 @@ class TestEventGeometryField:
                     (-103.41898441314697, 20.638567565077864),
                 )
             ),
-            properties={
-                "size": "L",
-                "color": "Green",
-                "width": 15
-            }
+            properties={"size": "L", "color": "Green", "width": 15},
         )
 
         serialized_geometry = EventGeometryField().to_representation(event.geometries)
@@ -65,11 +62,7 @@ class TestEventGeometryField:
                     (-103.41898441314697, 20.638567565077864),
                 )
             ),
-            properties={
-                "size": "L",
-                "color": "Green",
-                "width": 15
-            }
+            properties={"size": "L", "color": "Green", "width": 15},
         )
 
         serialized_geometry = EventGeometryField().to_representation(event.geometries)
@@ -78,12 +71,9 @@ class TestEventGeometryField:
         assert serialized_geometry.get("type") == "FeatureCollection"
         assert feature.get("type") == "Feature"
         assert feature.get("properties") == event_geometry.properties
-        assert feature.get("geometry") == json.loads(
-            event_geometry.geometry.geojson)
+        assert feature.get("geometry") == json.loads(event_geometry.geometry.geojson)
 
     def test_serialized_empty_geometry(self, event_with_detail):
-
-        serialized_geometry = EventGeometryField().to_representation(
-            event_with_detail.event.geometries)
+        serialized_geometry = EventGeometryField().to_representation(event_with_detail.event.geometries)
 
         assert serialized_geometry is None

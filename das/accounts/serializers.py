@@ -1,12 +1,10 @@
 import rest_framework.serializers
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from rest_framework.exceptions import ValidationError
 
 from accounts.models.eula import EULA, UserAgreement
 from core.serializers import ContentTypeField
 from observations.models import Subject
-from utils.features import features
 from utils.tenant import get_tenant_settings
 
 
@@ -38,12 +36,7 @@ class UserSerializer(rest_framework.serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super(UserSerializer, self).to_representation(instance)
 
-        if features.tms.is_on():
-            accept_eula = get_tenant_settings().env_settings.accept_eula
-        else:
-            accept_eula = settings.ACCEPT_EULA
-
-        if not accept_eula:
+        if not get_tenant_settings().env_settings.accept_eula:
             del ret["accepted_eula"]
 
         user_permissions = self.context.get("permissions")

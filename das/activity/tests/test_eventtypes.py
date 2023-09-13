@@ -78,6 +78,7 @@ EVENT_TYPE_UPDATES = (
 )
 
 
+@pytest.mark.usefixtures("tenant_settings")
 def test_get_eventtypes_without_schema(eventtype_fixture, client, memory_store_client_mock, tenant_response):
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
     client.force_login(user)
@@ -88,6 +89,7 @@ def test_get_eventtypes_without_schema(eventtype_fixture, client, memory_store_c
     assert response.data[0].get("schema") is None
 
 
+@pytest.mark.usefixtures("tenant_settings")
 def test_get_eventtype_with_schema(eventtype_fixture, client, memory_store_client_mock, tenant_response):
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
 
@@ -100,6 +102,7 @@ def test_get_eventtype_with_schema(eventtype_fixture, client, memory_store_clien
     assert response.data[0].get("schema") is not None
 
 
+@pytest.mark.usefixtures("tenant_settings")
 def test_post_eventtype(eventtype_fixture, client, monkeypatch, memory_store_client_mock, tenant_response):
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
 
@@ -111,6 +114,7 @@ def test_post_eventtype(eventtype_fixture, client, monkeypatch, memory_store_cli
     assert response.data.get("value") == "acoustic_detection"
 
 
+@pytest.mark.usefixtures("tenant_settings")
 def test_post_eventtype_with_schema(eventtype_fixture, client, memory_store_client_mock, tenant_response):
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
 
@@ -139,6 +143,7 @@ def test_post_eventtype_with_schema(eventtype_fixture, client, memory_store_clie
     assert response.status_code == 201
 
 
+@pytest.mark.usefixtures("tenant_settings")
 def test_update_eventtype(eventtype_fixture, client, memory_store_client_mock, tenant_response):
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
     eventtype_id = str(eventtype.id)
@@ -155,6 +160,7 @@ def test_update_eventtype(eventtype_fixture, client, memory_store_client_mock, t
     assert response.data.get("icon_id") == "carcass_rep"
 
 
+@pytest.mark.usefixtures("tenant_settings")
 def test_set_eventtype_to_inactive(eventtype_fixture, client, memory_store_client_mock, tenant_response):
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
     eventtype_id = str(eventtype.id)
@@ -171,6 +177,7 @@ def test_set_eventtype_to_inactive(eventtype_fixture, client, memory_store_clien
     assert inactive_eventtype == 1
 
 
+@pytest.mark.usefixtures("tenant_settings")
 def test_post_eventtype_with_bad_schema(eventtype_fixture, client, memory_store_client_mock, tenant_response):
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
 
@@ -188,6 +195,7 @@ def test_post_eventtype_with_bad_schema(eventtype_fixture, client, memory_store_
     assert response.status_code == 400
 
 
+@pytest.mark.usefixtures("tenant_settings")
 def test_readonly_eventtype(eventtype_fixture, client, memory_store_client_mock, tenant_response):
     eventtype, user = eventtype_fixture.eventtype, eventtype_fixture.user
 
@@ -223,6 +231,7 @@ def test_readonly_eventtype(eventtype_fixture, client, memory_store_client_mock,
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestEventTypeAPI:
     @pytest.mark.parametrize(
         "mocked_geometry_type", (EventType.GeometryTypesChoices.POINT, EventType.GeometryTypesChoices.POLYGON)
@@ -285,6 +294,7 @@ class TestEventTypeAPI:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures("tenant_settings")
 class TestEventTypesAPI:
     def test_response_includes_etag_and_last_modified_headers(
         self, superuser_client, five_event_types, memory_store_client_mock

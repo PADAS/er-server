@@ -25,10 +25,10 @@ ET_MONITORING = "wildlife_sighting_rep"
 ET_LOGISTICS = "all_posts"
 
 
+@pytest.mark.usefixtures("tenant_settings")
 class TestEventServices(TestCase):
     @classmethod
     def setUpClass(cls):
-
         super().setUpClass()
         call_command("loaddata", "initial_eventdata")
 
@@ -36,7 +36,6 @@ class TestEventServices(TestCase):
             "someusername", "someuser@tempuri.org", "AbODI#@!018234", first_name="Some", last_name="Name"
         )
 
-    @pytest.mark.usefixtures("tenant_response_for_test_case")
     def test_event_with_related_subject(self):
         """
         Test EventRelatedSubject model.
@@ -70,9 +69,7 @@ class TestEventServices(TestCase):
         event = Event.objects.get(id=event.id)
         self.assertEqual(event.related_subjects.count(), 1)
 
-    @pytest.mark.usefixtures("tenant_response_for_test_case")
     def test_event_mailer_data(self):
-
         elephant = Subject.objects.create(name="Relative Subject No. 1")
 
         event_data = dict(

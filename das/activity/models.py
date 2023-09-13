@@ -53,7 +53,6 @@ from observations.models import Subject, SubjectGroup, SubjectStatus
 from observations.utils import dateparse as dparse
 from observations.utils import is_banned
 from revision.manager import Revision, RevisionAdapter, RevisionMixin, relation_deleted
-from utils.features import features
 from utils.gis import convert_to_point, get_circle_polygon_from_point
 from utils.html import clean_user_text
 from utils.json import parse_bool
@@ -427,7 +426,7 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             filters = (
                 Q(event_type__category__value__in=categories_to_filter["geo_categories"])
                 & Q(location__isnull=False)
-                & Q(distance__lt=self._get_geo_permission_radius_meters())
+                & Q(distance__lt=get_tenant_settings().env_settings.geo_permission_radius_meters)
             )
 
             filters |= Q(geometries__geometry__intersects=radius) & Q(
@@ -534,12 +533,6 @@ class EventFilteringQuerySet(models.QuerySet, FilterFieldMixin):
             return self.filter(updated_at__gte=lower)
         elif upper:
             return self.filter(updated_at__lte=upper)
-
-    def _get_geo_permission_radius_meters(self):
-        if features.tms.is_on():
-            return get_tenant_settings().env_settings.geo_permission_radius_meters
-
-        return settings.GEO_PERMISSION_RADIUS_METERS
 
 
 class EventManager(models.Manager):
