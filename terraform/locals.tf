@@ -466,6 +466,7 @@ locals {
     "scorpionreef"              = "prod1"
     "echinococcus"              = "prod1"
     "ezemvelo-turtlemonitoring" = "prod1"
+    "mtblackbearmonitoring"     = "prod1"
   }
 
   default_infra_workspace_when_not_mapped_here = "dev"
