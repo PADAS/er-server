@@ -66,7 +66,7 @@ class TenantBaseCommand(BaseCommand):
         except Exception as e:
             raise CommandError(f"Error getting tenant with domain '{domain}': {e}")
         else:
-            set_current_tenant(tenant)
+            set_current_tenant(tenant=tenant)
             return tenant
 
     def create_parser(self, prog_name, subcommand, **kwargs):
