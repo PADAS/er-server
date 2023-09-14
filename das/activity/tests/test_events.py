@@ -15,6 +15,7 @@ from urllib.parse import urlencode
 
 import pytest
 import pytz
+from django_multitenant.utils import set_current_tenant
 from drf_extra_fields.geo_fields import PointField
 from kombu import Connection
 from psycopg2.extras import DateTimeTZRange
@@ -51,6 +52,7 @@ from activity.tests import schema_examples
 from choices.models import Choice, DynamicChoice
 from client_http import HTTPClient
 from core.tests import BaseAPITest
+from core.utils import DASTenantManagement
 from observations.models import Subject, SubjectSubType, SubjectType
 from observations.serializers import SubjectSerializer
 from utils.categories import get_categories_and_geo_categories
@@ -133,9 +135,13 @@ class TestEventView(BaseTestToolMixin, BaseAPITest):
 
     def setUp(self):
         super().setUp()
-        call_command("loaddata", "initial_eventdata")
-        call_command("loaddata", "event_data_model")
-        call_command("loaddata", "test_events_schema")
+        das_tenant_management = DASTenantManagement(domain="domain.com")
+        tenant = das_tenant_management.get_or_create_tenant()
+        set_current_tenant(tenant)
+
+        call_command("loaddata_with_tenant", "initial_eventdata")
+        call_command("loaddata_with_tenant", "event_data_model")
+        call_command("loaddata_with_tenant", "test_events_schema")
 
         self.no_perms_user = User.objects.create_user(
             "no_perms_user", "das_no_perms@vulcan.com", "noperms", **self.user_const

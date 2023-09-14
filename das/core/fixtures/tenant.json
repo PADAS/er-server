@@ -1,0 +1,9 @@
+[
+  {
+    "model": "core.dastenant",
+    "pk": "5132e0d8-99b5-4355-99e1-f339cd48a4a9",
+    "fields": {
+      "domain": "localhost"
+    }
+  }
+]

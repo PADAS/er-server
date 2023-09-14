@@ -9,6 +9,8 @@ import pytest
 import pytz
 from pytz import timezone, utc
 
+from django.core.management import call_command
+
 import observations.views as views
 from accounts.models import PermissionSet, User
 from core.tests import API_BASE, BaseAPITest
@@ -18,14 +20,11 @@ from observations.serializers import ObservationSerializer
 
 @pytest.mark.usefixtures("tenant_settings")
 class KmlSubjectViewTest(BaseAPITest):
-    fixtures = [
-        "new_permission_sets.yaml",
-        "subject_types.yaml",
-        "test/observations_subject_observation.json",
-    ]
-
     def setUp(self):
         super().setUp()
+        call_command("loaddata_with_tenant", "new_permission_sets.yaml")
+        call_command("loaddata_with_tenant", "subject_types.yaml")
+        call_command("loaddata_with_tenant", "test/observations_subject_observation.json")
         user_const = dict(last_name="last", first_name="first")
         self.superuser = User.objects.create_user(
             "super", "super@test.com", "super", is_superuser=True, is_staff=True, **user_const

@@ -7,6 +7,7 @@ import pytest
 from pytz import UTC
 
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.db.models import F
 from django.urls import reverse
 
@@ -37,17 +38,14 @@ FIXTURE_FOR_SUBJECT_STATUS_TESTS = "test/radio-subject-fixtures.json"
 
 
 class ObservationTestCase(BaseAPITest):
-    fixtures = [
-        "test/sourceprovider.yaml",
-        "test/observations_source.json",
-        "test/observations_subject.json",
-        "test/observations_subject_source.json",
-        "test/observations_observation.json",
-        FIXTURE_FOR_SUBJECT_STATUS_TESTS,
-    ]
-
     def setUp(self):
         super().setUp()
+        call_command("loaddata_with_tenant", "test/sourceprovider.yaml")
+        call_command("loaddata_with_tenant", "test/observations_source.json")
+        call_command("loaddata_with_tenant", "test/observations_subject.json")
+        call_command("loaddata_with_tenant", "test/observations_subject_source.json")
+        call_command("loaddata_with_tenant", "test/observations_observation.json")
+        call_command("loaddata_with_tenant", FIXTURE_FOR_SUBJECT_STATUS_TESTS)
         user_const = dict(last_name="last", first_name="first")
         self.user = User.objects.create_user(
             "user", "user@test.com", "all_perms_user", is_superuser=True, is_staff=True, **user_const

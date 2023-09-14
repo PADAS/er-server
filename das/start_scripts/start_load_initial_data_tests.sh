@@ -15,11 +15,11 @@ do
   echo "Waiting for migrations to complete..."
   sleep 5
 
-  i=`expr $i + 1`
+  i++
 done
 
 if ! python3 manage.py migrate --check ; then
     echo "Migration are not complete"
     exit 1
 fi
-python3 manage.py loaddata initial_admin_tests initial_groups initial_eventdata initial_dev_map initial_features initial_tilelayers event_data_model
+python3 manage.py loaddata_with_tenant initial_admin_tests initial_groups initial_eventdata initial_dev_map initial_features initial_tilelayers event_data_model

@@ -5,6 +5,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.gis.db import models
+from django.core.management import call_command
 from django.db import transaction
 
 import analyzers.exceptions
@@ -22,11 +23,8 @@ from .immobility_test_data import *
 
 @pytest.mark.usefixtures("tenant_settings")
 class TestImmobilityAnalyzer(BaseAPITest):
-    fixtures = [
-        "event_data_model",
-    ]
-
     def setUp(self):
+        call_command("loaddata_with_tenant", "event_data_model")
         super(TestImmobilityAnalyzer, self).setUp()
         user_const = dict(last_name="last", first_name="first")
 

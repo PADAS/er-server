@@ -6,6 +6,8 @@ from django.forms.widgets import SelectMultiple
 from django.utils.text import format_lazy
 from django.utils.translation import gettext as _
 
+from core.models import DASTenant
+
 # Register your models here.
 
 logger = logging.getLogger("django.contrib.gis")
@@ -77,3 +79,17 @@ class ModelAdminDisplayingManyToManyFieldMixin(admin.ModelAdmin):
             form_field.help_text = format_lazy("{} {}", help_text, msg) if help_text else msg
 
         return form_field
+
+
+@admin.register(DASTenant)
+class DASTenantAdmin(admin.ModelAdmin):
+    readonly_fields = [
+        "id",
+        "domain",
+    ]
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        return False

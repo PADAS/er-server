@@ -1,5 +1,7 @@
 import pytest
 
+from django.core.management import call_command
+
 import observations.views as views
 from accounts.models.user import User
 from core.tests import BaseAPITest
@@ -8,17 +10,14 @@ from observations.models import Observation, Subject
 
 @pytest.mark.usefixtures("tenant_settings")
 class AdditionalTestCase(BaseAPITest):
-    fixtures = [
-        "test/observations_source.json",
-        "test/observations_subject.json",
-        "test/observations_subject_source.json",
-        "test/observations_observation.json",
-        "test/user_and_usergroup.yaml",
-        "test/source_group.json",
-    ]
-
     def setUp(self):
         super().setUp()
+        call_command("loaddata_with_tenant", "test/observations_source.json")
+        call_command("loaddata_with_tenant", "test/observations_subject.json")
+        call_command("loaddata_with_tenant", "test/observations_subject_source.json")
+        call_command("loaddata_with_tenant", "test/observations_observation.json")
+        call_command("loaddata_with_tenant", "test/user_and_usergroup.yaml")
+        call_command("loaddata_with_tenant", "test/source_group.json")
         self.gps_user = User.objects.get(username="gps-user")
         self.satellite_user = User.objects.get(username="satellite-user")
         self.junkie = Subject.objects.get(name="Junkie")

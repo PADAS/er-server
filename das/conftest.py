@@ -39,6 +39,7 @@ from factories import (
     SubjectGroupFactory,
     SubjectSourceFactory,
     SubjectSubTypeFactory,
+    TenantFactory,
     UserFactory,
 )
 from utils.features import features
@@ -352,7 +353,8 @@ def application():
 
 @pytest.fixture
 def superuser():
-    return UserFactory(is_superuser=True)
+    tenant = TenantFactory(domain="localhost")
+    return UserFactory(is_superuser=True, das_tenant=tenant)
 
 
 @pytest.fixture

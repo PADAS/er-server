@@ -54,7 +54,7 @@ user_permissions = ["security_read", "security_create", "security_update", "secu
 @pytest.mark.usefixtures("tenant_settings")
 class TestAlerts(TestCase):
     def setUp(self) -> None:
-        call_command("loaddata", "event_data_model")
+        call_command("loaddata_with_tenant", "event_data_model")
         self.states = [
             {"name": "New", "value": "new"},
             {"name": "Active", "value": "active"},

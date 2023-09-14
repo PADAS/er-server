@@ -367,6 +367,14 @@ workflows:
               ignore:
                 - 'develop'
                 - /das-2-.*-.*/
+      - install_er_cli:
+          requires:
+            - 'docker_build_image'
+          filters:
+            branches:
+              ignore:
+                - 'develop'
+                - /das-2-.*-.*/
       - run_api_unittests:
           requires:
             - 'docker_build_image'
@@ -381,14 +389,6 @@ workflows:
       - terraform_apply_feature_branch:
           requires:
             - 'review_plan'
-      - install_er_cli:
-          requires:
-            - 'terraform_apply_feature_branch'
-          filters:
-            branches:
-              ignore:
-                - 'develop'
-                - /das-2-.*-.*/
 
   build_and_terraform_release_branch:
     jobs:

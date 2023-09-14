@@ -29,7 +29,6 @@ from observations.utils import (
 )
 from utils import add_base_url, stats
 from utils.categories import should_apply_geographic_features
-from utils.features import features
 from utils.gis import convert_to_point
 from utils.tenant import get_tenant_settings, set_tenant_settings
 from utils.tenant.exceptions import TenantNotFoundException
@@ -277,11 +276,10 @@ class MultiTenantMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if features.tms.is_on():
-            if request.user and not request.user.is_anonymous:
-                tenant = self._get_tenant()
-                logger.info("Setting tenant %s object at request." % tenant.domain)
-                set_current_tenant(tenant=tenant)
+        if request.user and not request.user.is_anonymous:
+            tenant = self._get_tenant()
+            logger.info("Setting tenant %s object at request." % tenant.domain)
+            set_current_tenant(tenant=tenant)
         return self.get_response(request)
 
     def _get_tenant(self):
