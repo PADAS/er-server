@@ -41,7 +41,7 @@ class TenantBaseCommand(BaseCommand):
     ```
         python manage.py my_tenant_command --tenant_domain domain [-v] [other options]
     ```
-    When verbose mode is set to 2 or greater to get extra tenant details printed.
+    When verbose mode is set to 2 or greater, then extra tenant details are printed.
     """
 
     help = "Base command for tenant-aware commands"
