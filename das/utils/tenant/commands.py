@@ -23,9 +23,10 @@ class TenantBaseCommand(BaseCommand):
 
     Class usage example:
     ```
+        # my_tenant_command.py
         from utils.tenant.commands import TenantBaseCommand
 
-        class MyTenantCommand(TenantBaseCommand):
+        class Command(TenantBaseCommand):
             help = "Perform some operation against one tenant's data"
 
             def add_arguments(self, parser):
