@@ -62,8 +62,8 @@ def send_task(name, args=(), kwargs={}, **opts):
 class TestPatrol(BaseAPITest):
     def setUp(self):
         super().setUp()
-        call_command("loaddata", "test_patroltype")
-        call_command("loaddata", "event_data_model")
+        call_command("loaddata_with_tenant", "test_patroltype")
+        call_command("loaddata_with_tenant", "event_data_model")
 
         user_const = dict(last_name="last", first_name="first")
         self.user = User.objects.create_superuser(
@@ -1581,7 +1581,7 @@ def test_patrol_admin_page(django_assert_max_num_queries, client, memory_store_c
 
     client.force_login(user)
     url = reverse("admin:activity_patrol_changelist")
-    with django_assert_max_num_queries(15):
+    with django_assert_max_num_queries(18):
         client.get(url)
 
 

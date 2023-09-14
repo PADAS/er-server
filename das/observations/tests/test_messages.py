@@ -6,6 +6,7 @@ import pytest
 from drf_extra_fields.fields import DateTimeTZRange
 
 import django.contrib.auth
+from django.core.management import call_command
 from django.db import transaction
 from django.urls import reverse
 
@@ -28,15 +29,12 @@ User = django.contrib.auth.get_user_model()
 
 @pytest.mark.usefixtures("tenant_settings")
 class MessagesTestCase(BaseAPITest):
-    fixtures = [
-        "test/sourceprovider.yaml",
-        "test/observations_source.json",
-        "test/observations_subject.json",
-        "test/observations_subject_source.json",
-    ]
-
     def setUp(self):
         super().setUp()
+        call_command("loaddata_with_tenant", "test/sourceprovider.yaml")
+        call_command("loaddata_with_tenant", "test/observations_source.json")
+        call_command("loaddata_with_tenant", "test/observations_subject.json")
+        call_command("loaddata_with_tenant", "test/observations_subject_source.json")
         self.test_subject = Subject.objects.first()
 
         self.admin_user = User.objects.create_superuser(

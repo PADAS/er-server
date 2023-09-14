@@ -16,6 +16,7 @@ from django.contrib.auth.models import Permission
 from django.contrib.gis.geos import Point
 from django.contrib.messages.storage.cookie import CookieStorage
 from django.core.files import File
+from django.core.management import call_command
 from django.db import transaction
 from django.http import QueryDict
 from django.test import RequestFactory, override_settings
@@ -48,17 +49,14 @@ TESTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tests")
 
 
 class SubjectTestCase(BaseAPITest):
-    fixtures = [
-        "test/user_and_usergroup.yaml",
-        "test/source_group.json",
-        "test/observations_source.json",
-        "test/observations_subject.json",
-        "test/observations_subject_source.json",
-        "test/observations_observation.json",
-    ]
-
     def setUp(self):
         super().setUp()
+        call_command("loaddata_with_tenant", "test/user_and_usergroup.yaml")
+        call_command("loaddata_with_tenant", "test/source_group.json")
+        call_command("loaddata_with_tenant", "test/observations_source.json")
+        call_command("loaddata_with_tenant", "test/observations_subject.json")
+        call_command("loaddata_with_tenant", "test/observations_subject_source.json")
+        call_command("loaddata_with_tenant", "test/observations_observation.json")
         user_const = dict(last_name="last", first_name="first")
         self.user = User.objects.create_user(
             "user", "user@test.com", "all_perms_user", is_superuser=True, is_staff=True, **user_const

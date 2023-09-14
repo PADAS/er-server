@@ -94,7 +94,7 @@ MIDDLEWARE = (
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "oauth2_provider.middleware.OAuth2TokenMiddleware",
-    # "utils.middleware.MultiTenantMiddleware",
+    "utils.middleware.MultiTenantMiddleware",
     "revision.middleware.RevisionMiddleware",
     "utils.middleware.RequestLoggingMiddleware",
     "utils.middleware.EULARedirectMiddleware",
@@ -216,7 +216,7 @@ SERIALIZATION_MODULES = {"geojson": "core.serializers"}
 # createdb -T template_postgis das ENCODING 'utf8';
 DATABASES = {
     "default": {
-        "ENGINE": "django.contrib.gis.db.backends.postgis",
+        "ENGINE": "django_multitenant.backends.postgresql",
         "NAME": "das",
         "USER": "das",
         "HOST": env.str("DB_HOST", "postgis"),

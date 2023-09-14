@@ -343,9 +343,7 @@ class SourceGroupFactory(factory.django.DjangoModelFactory):
 class TenantFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = DASTenant
+        django_get_or_create = ("domain",)
 
-    domain = factory.Sequence(lambda n: f"site{n}pamdas.org")
-
-    @factory.lazy_attribute
-    def id(self):
-        return str(uuid.uuid4())
+    id = factory.Faker("uuid4")
+    domain = factory.Faker("domain_name")

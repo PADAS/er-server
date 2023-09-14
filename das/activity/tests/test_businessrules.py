@@ -8,6 +8,7 @@ import jsonschema
 import pytest
 import pytz
 from business_rules import actions, export_rule_data, fields, run_all, variables
+from django_multitenant.utils import set_current_tenant
 
 from django.contrib.auth.models import Permission
 from django.core import mail
@@ -42,7 +43,7 @@ from activity.tasks import (
     send_alert_to_notificationmethod,
 )
 from core.tests import BaseAPITest
-from core.utils import NonHttpRequest, OneWeekSchedule
+from core.utils import DASTenantManagement, NonHttpRequest, OneWeekSchedule
 from observations.models import CommonName, Subject, SubjectGroup
 
 logger = logging.getLogger(__name__)
@@ -64,8 +65,11 @@ power_user_permissions = [
 class BusinessRulesTestCase(BaseAPITest):
     def setUp(self):
         super().setUp()
+        das_tenant_management = DASTenantManagement(domain="domain.com")
+        tenant = das_tenant_management.get_or_create_tenant()
+        set_current_tenant(tenant)
         call_command("loaddata", "initial_eventdata")
-        call_command("loaddata", "event_data_model")
+        call_command("loaddata_with_tenant", "event_data_model")
         call_command("loaddata", "test_events_schema")
         call_command("loaddata", "initial_choices")
         call_command("loaddata", "initial_common_name")

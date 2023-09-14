@@ -2,7 +2,6 @@ import copy
 import logging
 from datetime import datetime
 
-import pytest
 from drf_extra_fields.geo_fields import PointField
 
 from django.core.management import call_command
@@ -58,7 +57,6 @@ migration_doc = [
 ]
 
 
-@pytest.mark.usefixtures("tenant_settings")
 class TestManageEvent(TestCase):
     event_data = dict(
         message="Something worth recording happened",
@@ -75,8 +73,8 @@ class TestManageEvent(TestCase):
     def setUp(self):
         super().setUp()
         call_command("loaddata", "initial_eventdata")
-        call_command("loaddata", "event_data_model")
-        call_command("loaddata", "test_events_schema")
+        call_command("loaddata_with_tenant", "event_data_model")
+        call_command("loaddata_with_tenant", "test_events_schema")
 
         self.sample_event = self.create_event(self.event_data)
         Color.objects.bulk_create(

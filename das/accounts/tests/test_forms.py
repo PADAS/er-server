@@ -1,7 +1,6 @@
 import pytest
 
 from accounts.forms import CustomUserCreationForm, UserAdditionalForm
-from accounts.models import User
 
 COMPLEX_NAMES = (
     ("Tommy-Lee", "Jhones"),
@@ -77,10 +76,9 @@ class TestCustomUserCreationForm:
 
         assert not form.errors
 
-    def test_create_user_with_duplicate_pin(self):
-        user = User.objects.first()
-        user.pin = "1234"
-        user.save()
+    def test_create_user_with_duplicate_pin(self, ops_user):
+        ops_user.pin = "1234"
+        ops_user.save()
         form = CustomUserCreationForm(data={"username": "username", "pin": "1234"})
 
         form.is_valid()
@@ -151,23 +149,21 @@ class TestUserAdditionalForm:
 
         assert not form.errors
 
-    def test_create_user_with_duplicate_pin(self):
-        user = User.objects.first()
-        user.pin = "1234"
-        user.save()
+    def test_create_user_with_duplicate_pin(self, ops_user):
+        ops_user.pin = "1234"
+        ops_user.save()
         form = UserAdditionalForm(data={"username": "username", "pin": "1234"})
 
         form.is_valid()
 
         assert form.errors["pin"][0] == "User PINs must be unique, please select another PIN value."
 
-    def test_edit_existing_user_with_pin_set(self):
-        user = User.objects.first()
-        user.username = "cosme"
-        user.first_name = "Homero"
-        user.last_name = "Simpson"
-        user.pin = "1234"
-        user.save()
+    def test_edit_existing_user_with_pin_set(self, ops_user):
+        ops_user.username = "cosme"
+        ops_user.first_name = "Homero"
+        ops_user.last_name = "Simpson"
+        ops_user.pin = "1234"
+        ops_user.save()
 
         form = UserAdditionalForm(
             data={"username": "cosme", "first_name": "Cosme", "last_name": "Fulanito", "pin": "1234"}
