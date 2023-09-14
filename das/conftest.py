@@ -10,6 +10,7 @@ from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from rest_framework.test import APIClient
 
+from core.models import DASTenant
 from factories import (
     AccessTokenFactory,
     ChoiceFactory,
@@ -442,6 +443,16 @@ def tms_api_client_mock(monkeypatch, tenant_response):
 @pytest.fixture
 def tenant(tenant_response):
     return Tenant.from_dict(tenant_response)
+
+
+@pytest.fixture
+def tenant_model_instance(tenant):
+    return DASTenant.objects.create(id=tenant.id, domain=tenant.domain)
+
+
+@pytest.fixture
+def tenant_settings(tenant_response):
+    return tenant_response
 
 
 @pytest.fixture(scope="function")
