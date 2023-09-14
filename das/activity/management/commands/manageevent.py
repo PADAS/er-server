@@ -9,7 +9,6 @@ import pandas as pd
 
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ObjectDoesNotExist
-from django.core.management.base import BaseCommand
 from django.db import connection, transaction
 from django.db.models import Count
 
@@ -19,6 +18,7 @@ from activity.models import Event, EventCategory, EventType
 from observations.models import SubjectSubType, SubjectType
 from utils import json
 from utils.memoize import memoize
+from utils.tenant.commands import TenantBaseCommand
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ def lookup_choice_value_by_id(table_row_id):
     return choice_row.value
 
 
-class Command(BaseCommand):
+class Command(TenantBaseCommand):
     help = "Event Type managment commands"
     dry_run = False
 
