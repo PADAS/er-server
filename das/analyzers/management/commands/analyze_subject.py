@@ -1,12 +1,11 @@
 from datetime import datetime
 
-from django.core.management.base import BaseCommand
-
 from analyzers.tasks import analyze_subject_
 from observations.models import Subject
+from utils.tenant.commands import TenantBaseCommand
 
 
-class Command(BaseCommand):
+class Command(TenantBaseCommand):
     help = "Run analyzers for Subject, by name."
 
     def handle(self, *args, **options):
