@@ -4,11 +4,6 @@ import dateutil.parser as date_parser
 import psycopg2.extras
 import pytz
 
-try:
-    pass
-except ImportError:
-    pass
-
 from django.db.models import Q
 
 from observations.models import (
