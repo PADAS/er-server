@@ -444,6 +444,12 @@ def tenant(tenant_response):
 
 
 @pytest.fixture
+def tenant_model_instance(tenant):
+    tenant, _ = DASTenant.objects.get_or_create(domain=tenant.domain)
+    return tenant
+
+
+@pytest.fixture
 def tenant_settings(monkeypatch, tenant):
     thread = MagicMock()
     thread.tenant_object = tenant
