@@ -9,7 +9,7 @@ from ..features import features
 
 
 @pytest.mark.django_db
-@pytest.mark.skipif(features.tms.is_on() is False, reason="TMS feature flag is off")
+@pytest.mark.skipif(not features.tms.is_on(), reason="TMS feature flag is off")
 class TestTenantBaseCommand:
     @patch("utils.tenant.commands.TenantData")
     @patch("utils.tenant.commands.set_current_tenant")
