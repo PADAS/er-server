@@ -23,21 +23,19 @@ class TestTenantBaseCommand:
         tenant_model_instance,
         tenant_response,
     ):
-        # Mock the tenant settings in TenantData
-        tenant_data_mock.return_value.get.return_value = tenant_response
+        tenant_data_mock.return_value.get_tenant_data.return_value = tenant_response
 
-        # Call the command
         out = StringIO()
         call_command("dummy_tenant_command", tenant_domain=tenant_model_instance.domain, stdout=out)
-        # Check that the right methods are called to set the tenant instance and tenant settings in the current thread
+
         assert set_current_tenant_mock.called
         set_current_tenant_mock.assert_called_with(tenant=tenant_model_instance)
-        assert tenant_data_mock.return_value.get.called
+        assert tenant_data_mock.return_value.get_tenant_data.called
         assert set_tenant_settings_mock.called
         set_tenant_settings_mock.assert_called_with(value=tenant_response)
-        # Check that the handle method of the derived command class was called
         assert "dummy tenant-aware command executed." in out.getvalue()
 
+    @patch("core.management.commands.dummy_tenant_command.get_tenant_settings")
     @patch("utils.tenant.commands.TenantData")
     @patch("utils.tenant.commands.set_current_tenant")
     @patch("utils.tenant.commands.set_tenant_settings")
@@ -46,18 +44,19 @@ class TestTenantBaseCommand:
         set_tenant_settings_mock,
         set_current_tenant_mock,
         tenant_data_mock,
+        get_tenant_settings_mock,
         tenant_model_instance,
         tenant_response,
+        tenant,
     ):
-        # Mock the tenant settings in TenantData
-        tenant_data_mock.return_value.get.return_value = tenant_response
-
-        # Call the command
+        tenant_data_mock.return_value.get_tenant_data.return_value = tenant_response
+        get_tenant_settings_mock.return_value = tenant
         out = StringIO()
+
         call_command("dummy_tenant_command", tenant_domain=tenant_model_instance.domain, verbosity=2, stdout=out)
-        # Check that extra info about the tenant and settings is written to stdout
-        assert f"Executing command with tenant id {tenant_model_instance.id} and tenant settings {tenant_response}.."
-        # Check that the handle method of the derived command class was called
+
+        assert get_tenant_settings_mock.called
+        assert f"Executing command with tenant id {tenant_model_instance.id} and tenant settings {tenant_response}..."
         assert "dummy tenant-aware command executed." in out.getvalue()
 
     @patch("utils.tenant.commands.TenantData")
