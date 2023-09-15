@@ -49,7 +49,7 @@ class TenantBaseCommand(BaseCommand):
     def _set_tenant_settings(self, domain):
         try:  # Get tenant settings from TMS/Cache/Django settings
             tenant_data = TenantData(domain=domain)
-            tenant_settings = tenant_data.get()
+            tenant_settings = tenant_data.get_tenant_data()
         except TenantNotFoundException:
             raise CommandError(f"Tenant settings for domain '{domain}' not found.")
         except Exception as e:
