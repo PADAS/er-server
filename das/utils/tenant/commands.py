@@ -89,5 +89,5 @@ class TenantBaseCommand(BaseCommand):
             settings = self._set_tenant_settings(domain=domain)
             # Verbose mode
             if options.get("verbosity", 0) >= 2:
-                self.stdout.write(f"Executing command with tenant id {tenant.id} and tenant settings {settings}..")
+                self.stdout.write(f"Executing command with tenant id {tenant.id} and tenant settings {settings}...")
         super().execute(*args, **options)
